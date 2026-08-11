@@ -1,0 +1,71 @@
+*.raw
+*.log
+__pycache__/
+.DS_Store
+
+# sim/ harness: per-corner ngspice logs under corners/ are committed evidence
+# (append-only record trail, see sim/README.md), so they escape the *.log rule.
+!sim/*/corners/**/*.log
+# harness scratch: regenerated netlists and generated corner decks
+sim/build/
+# ngspice model-check scratch dumps (e.g. bsim4v5.out) from ad hoc ngspice
+# invocations at repo root -- the harness never writes here, it always runs
+# under sim/build/ (see sim/bin/corner-run.py). Root-anchored so it doesn't
+# clobber unrelated *.out files elsewhere in the tree.
+/*.out
+
+# layout/ DRC/LVS flow: local klt install, created by layout/bin/setup-venv.sh
+layout/.venv/
+# >>> loom-managed (do not edit) >>>
+# Loom runtime state (don't commit these)
+.loom-in-use
+.loom-checkpoint
+.loom-managed
+.no-changes-needed
+.loom/.daemon.pid
+.loom/.daemon.log
+.loom/daemon.sock
+.loom/daemon-loop.pid
+.loom/daemon-metrics.json
+.loom/loom-source-path
+.loom/spawn-loop-state.json
+.loom/spawn-loop.pid
+.loom/stop-spawn-loop
+.loom/issue-failures.json
+.loom/interventions/
+.loom/worktrees/
+.loom/worktrees-local/
+.loom/state.json
+.loom/mcp-command.json
+.loom/activity.db
+.loom/claims/
+.loom/locks/
+.loom/signals/
+.loom/status/
+.loom/retry-state/
+.loom/exit-codes/
+.loom/sweep-checkpoint/
+.loom/sweep-run/
+.loom/stats/
+.loom/diagnostics/
+.loom/guide-docs-state.json
+.loom/metrics_state.json
+.loom/manifest.json
+.loom/stuck-config.json
+.loom/metrics/
+.loom/usage-cache.json
+.loom/claude-config/
+.loom/tokens/
+.loom/accounts.env
+.loom/account-health.json
+.loom/account-health.lock
+.loom/CANARY
+.loom/*.log
+.loom/*.sock
+.loom/*.tmp
+.loom/*.bak
+.loom/logs/
+# <<< loom-managed <<<
+
+# Repo Skills machine-local install metadata (absolute source path + timestamp)
+.claude/skills/repo/.install-local.json

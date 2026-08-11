@@ -1,0 +1,15 @@
+{
+  "name": "sky130-sar-adc",
+  "description": "Loom-managed workspace with AI development orchestration",
+  "private": true,
+  "scripts": {
+    "worktree:return": "./.loom/scripts/worktree-return.sh",
+    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh",
+    "check:all": "npm run check:ci",
+    "test": "npm run test:compile && npm run test:unit",
+    "test:compile": "find sim layout -name '*.py' -not -path 'layout/.venv/*' -print0 | xargs -0 -n1 python3 -m py_compile",
+    "test:unit": "python3 -m unittest discover --start-directory layout/tests --pattern 'test_*.py'",
+    "lint": "find sim layout -name '*.json' -not -path 'layout/.venv/*' -print0 | xargs -0 -n1 python3 -m json.tool > /dev/null && bash -n sim/bin/pdk-env.sh && bash -n layout/bin/setup-venv.sh && bash -n layout/bin/run-trivial-cell-flow.sh && bash -n layout/bin/run-bandgap-floorplan-flow.sh && bash -n layout/bin/run-bandgap-routed-flow.sh && bash -n loom.sh"
+  },
+  "version": "0.0.0"
+}

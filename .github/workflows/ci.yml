@@ -1,0 +1,97 @@
+name: CI
+
+# Self-check inventory for this repo (see sim/README.md, CLAUDE.md) and where
+# each one runs:
+#
+#   - `package.json` `check:ci` (JSON syntax of every sim/**/experiment.json
+#     and sim/**/records/*.json, shell/python syntax of the harness scripts,
+#     plus `layout/tests/`'s unit coverage for the routed-layout flow's own
+#     pass/fail gates — drawn-short, label-collision, coverage scoring, and
+#     (via the `pip install klayout` step below) the met2 escape plane's own
+#     DRC rules in `test_met2_drc.py` — the curated sky130 deck declares no
+#     `met2.*`/`via.*` rule, so that file is the only thing checking it)
+#     -> `checks` job below, every push/PR. Headless, no PDK needed.
+#   - `sim/bin/corner-run.py sim/pdk-smoke` (the harness's own liveness test:
+#     proves the pinned sky130 PDK models load in ngspice, xschem netlists
+#     headlessly, and the PVT knobs actually reach the simulator) -> requires
+#     xschem + ngspice + the ~1 GB sky130 PDK via volare, so per CLAUDE.md's
+#     "headless only" CI guideline it does NOT block every PR. It runs in the
+#     `pdk-smoke` job on a nightly schedule, on manual dispatch, and opt-in on
+#     a PR via the `run-pdk-smoke` label.
+#   - Everything else claimed under `sim/<experiment>/` (pnp-characterization,
+#     resistor-flavor-characterization, resistor-tc-single-length,
+#     mos-matching-characterization, ...) is evidence captured by a human/agent
+#     run of the same PDK-gated runner, not a repeatable CI check — re-running
+#     them here would mint new append-only records on every push, which is not
+#     what CI is for. See sim/README.md for how to reproduce a claim by hand.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    # 06:00 UTC daily
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  checks:
+    name: Repo checks (headless, no PDK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install klayout
+        # A pure-manylinux wheel (no PDK, no layout/.venv needed) -- installs
+        # in seconds and gives `layout/tests/test_met2_drc.py` the interpreter
+        # it needs. Without it, that file's module-level `skipUnless(HAVE_
+        # KLAYOUT, ...)` guard skips the *entire* file, and `test_met2_drc.py`
+        # is the only check that gates the met2 escape plane's own DRC rules
+        # (see its module docstring): `klt drc`'s curated sky130 deck carries
+        # no met2.*/via.* rule at all, so CI previously had zero coverage of
+        # the escape plane's geometry (run 30951454502: `OK (skipped=17)`).
+        run: pip install klayout
+
+      - name: npm run check:ci
+        run: npm run check:ci
+
+  pdk-smoke:
+    name: PDK-gated harness smoke test (nightly / workflow_dispatch / 'run-pdk-smoke' label)
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'run-pdk-smoke'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ngspice + xschem
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ngspice xschem
+
+      - name: Install volare
+        run: pip install --user volare
+
+      - name: Fetch + enable pinned sky130 PDK
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          commit="$(python3 -c "import json;print(json.load(open('sim/pdk.json'))['open_pdks_commit'])")"
+          volare fetch --pdk sky130 "$commit"
+          volare enable --pdk sky130 "$commit"
+
+      - name: Run sim/pdk-smoke (quick PVT subset)
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          python3 sim/bin/corner-run.py sim/pdk-smoke --quick \
+            --subset-reason "CI liveness check (nightly/opt-in job, not a spec claim)"
