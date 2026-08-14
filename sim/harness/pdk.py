@@ -79,21 +79,53 @@ def resolve() -> PdkInfo:
     )
 
 
-def resolved_commit(info: PdkInfo) -> str:
-    """Best-effort open_pdks commit actually installed at info.variant_dir.
-
-    volare stores the fetched commit in the path the variant symlink
-    resolves to (.../sky130/versions/<commit>/sky130A); fall back to the
-    expected pin if the symlink shape doesn't match (e.g. a non-volare
-    install), so callers always get *some* string to record.
+def _volare_commit_from_path(variant_dir: Path) -> str | None:
+    """The open_pdks commit volare encodes into the resolved variant
+    symlink's path (.../sky130/versions/<commit>/sky130A), or None if
+    variant_dir does not resolve through that shape (e.g. a hand-installed
+    or otherwise non-volare PDK, whose provenance this harness has no way
+    to verify).
     """
     try:
-        resolved = info.variant_dir.resolve()
-        for part in resolved.parts:
-            if len(part) == 40 and all(c in "0123456789abcdef" for c in part):
-                return part
+        resolved = variant_dir.resolve()
     except OSError:
-        pass
+        return None
+    for part in resolved.parts:
+        if len(part) == 40 and all(c in "0123456789abcdef" for c in part):
+            return part
+    return None
+
+
+def resolved_commit_verified(info: PdkInfo) -> str | None:
+    """The open_pdks commit actually installed at info.variant_dir, IFF its
+    provenance can be verified through volare's path layout -- None
+    otherwise.
+
+    Callers that must fail closed on unverifiable provenance (e.g.
+    toolchain.check_env()'s pin-drift gate) use this, not resolved_commit()
+    below: resolved_commit() folds the unverifiable case into a *display*
+    string (for evidence records, where "some string, honestly labeled" is
+    the right answer), and that string must never be mistaken for a
+    confirmed pin match -- see the fallback string's "(unverified -- ...)"
+    suffix, which previously happened to `startswith()` the pin and so
+    satisfied the drift gate for an install of unknown provenance.
+    """
+    return _volare_commit_from_path(info.variant_dir)
+
+
+def resolved_commit(info: PdkInfo) -> str:
+    """Best-effort open_pdks commit actually installed at info.variant_dir,
+    for DISPLAY in evidence records and summaries.
+
+    Falls back to the expected pin annotated
+    "(unverified -- non-volare layout)" so callers always get *some*
+    string to record. This fallback is a display convenience only -- it
+    must never be treated as proof the install is on pin; use
+    resolved_commit_verified() for that decision.
+    """
+    commit = _volare_commit_from_path(info.variant_dir)
+    if commit is not None:
+        return commit
     return info.open_pdks_commit_expected + " (unverified -- non-volare layout)"
 
 
