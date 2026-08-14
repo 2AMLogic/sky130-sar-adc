@@ -1,0 +1,18 @@
+* mc-smoke -- Monte Carlo harness acceptance testbench (issue #2), NOT a
+* SAR ADC circuit and NOT a spec claim.
+*
+* Netlist FRAGMENT. sim/harness/mc_runner.py supplies the title, the .lib
+* include (mismatch corner for the "real" draws, plain corner for the
+* negative control), .temp, .param vdd_val, .option rndseed, the .control
+* block and .end.
+*
+* A single diode-connected sky130_fd_pr__nfet_01v8 biased at a fixed
+* 10 uA, deliberately small (w=1u, l=0.5u) to give AGAUSS() threshold/
+* geometry mismatch terms a visible effect on Vgs at this bias -- this is
+* the same topology sim/harness-corner-smoke/ uses for its PVT-corner
+* proof, sized down here for a measurable mismatch *distribution* instead
+* of a measurable corner *point*.
+Vdd vdd 0 dc {vdd_val}
+
+Ibias vdd nbias dc 10u
+XM1 nbias nbias 0 0 sky130_fd_pr__nfet_01v8 l=0.5 w=1 nf=1

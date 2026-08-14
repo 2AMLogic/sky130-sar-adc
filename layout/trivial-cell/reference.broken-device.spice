@@ -1,0 +1,20 @@
+* Negative control 1/2 for the trivial_mos_array LVS proof (issue #2):
+* a device-parameter-only corruption (M1's W changed 0.42U -> 0.90U,
+* connectivity untouched) -- the "device.property" corruption class per
+* klt's own LVS field notes (docs/cli/lvs.md, "Negative controls: two
+* independent corruptions" in the klayout-tools repo). Must report
+* status "mismatch". See layout/README.md for the run and its recorded
+* result.
+*
+* 8 M-cards, matching reference.spice's own device-count note (this pin
+* of klt does not suppress dummy devices -- see that file's header).
+.SUBCKT trivial_mos_array vsubs
+M1 d1 g1 s1 vsubs nfet L=0.28U W=0.90U
+M2 d2 g2 s2 vsubs nfet L=0.28U W=0.42U
+M3 d3 g3 s3 vsubs nfet L=0.28U W=0.42U
+M4 d4 g4 s4 vsubs nfet L=0.28U W=0.42U
+M5 d5 g5 s5 vsubs nfet L=0.28U W=0.42U
+M6 d6 g6 s6 vsubs nfet L=0.28U W=0.42U
+M7 d7 g7 s7 vsubs nfet L=0.28U W=0.42U
+M8 d8 g8 s8 vsubs nfet L=0.28U W=0.42U
+.ENDS trivial_mos_array

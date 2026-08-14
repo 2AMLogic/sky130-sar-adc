@@ -1,0 +1,20 @@
+{
+  "name": "mc-smoke",
+  "description": "Monte Carlo harness acceptance test: diode-connected nfet_01v8 mismatch. Not a SAR ADC circuit.",
+  "claim": "None -- harness self-verification, not a spec claim. Proves the Monte Carlo plumbing (rndseed reproducibility, the tt_mm local-mismatch switch, and the deterministic negative control) actually takes effect on a real sky130 device, so later ENOB/INL/DNL/offset distribution records against ratified spec lines (#1) can be trusted.",
+  "netlist_fragment": "mc_smoke.spice",
+  "nominal_supply_v": 1.8,
+  "supply_tolerance": 0.0,
+  "temperatures_c": [27],
+  "process_corners": ["tt"],
+  "measure": {
+    "vgs_nfet": "v(nbias)"
+  },
+  "checks": {},
+  "evidence": {
+    "record_kind": "monte-carlo",
+    "notes": [
+      "Harness acceptance testbench (issue #2). The negative control (N draws at the plain 'tt' corner, mismatch disabled, same seed sequence as the 'real' tt_mm draws) must reproduce vgs_nfet EXACTLY (stdev == 0) -- see sim/harness/mc_runner.py's negative_control_ok() docstring for why a nonzero negative-control stdev invalidates the accompanying distribution."
+    ]
+  }
+}

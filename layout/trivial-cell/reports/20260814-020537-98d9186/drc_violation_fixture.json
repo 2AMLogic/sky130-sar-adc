@@ -1,0 +1,15 @@
+{
+  "_comment": [
+    "Deliberately DRC-illegal fixture for the trivial-cell flow's negative",
+    "control (issue #2): a single diff.drawing (65/20) rectangle 2.0 x",
+    "0.05 um, narrower than sky130's diff.width.1 minimum width rule",
+    "(0.15 um -- see klayout_tools/decks/sky130.py DRC_RULES,",
+    "'sky130.lydrc rule difftap.1: difftap.width(0.15, euclidian)').",
+    "Written with `klt draw`, which is documented as the tool for exactly",
+    "this: 'a DRC flow's negative case (a known-bad fixture that must come",
+    "back flagged) can be produced with klt alone' -- see `klt draw --help`."
+  ],
+  "shapes": [
+    {"layer": [65, 20], "rect_um": [0, 0, 2.0, 0.05]}
+  ]
+}

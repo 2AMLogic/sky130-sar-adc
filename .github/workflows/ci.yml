@@ -3,23 +3,24 @@ name: CI
 # Self-check inventory for this repo (see CLAUDE.md) and where each one runs:
 #
 #   - `package.json` `check:ci` (JSON syntax check over sim/**/*.json and
-#     layout/**/*.json, shell syntax of loom.sh, plus python compile/unit
-#     checks over sim/ and layout/) -> `checks` job below, every push/PR.
-#     Headless, no PDK needed. `sim/` and `layout/` are currently empty
-#     scaffolding (see #2), so these checks are no-ops until real content
-#     lands there.
+#     layout/**/*.json, shell syntax of the harness/layout scripts, python
+#     compile + the sim/tests unit suite, and `sim/selftest.sh`) -> `checks`
+#     job below, every push/PR. Headless: `sim/selftest.sh` runs its unit and
+#     environment stages, then SKIPs its two simulation stages with exit 0
+#     when ngspice/the pinned PDK are absent, which is the case in this job.
+#     A *drifted* pinned toolchain never skips — it fails.
 #   - The PDK-gated harness smoke test (the harness's own liveness check:
-#     proves the pinned sky130 PDK models load in ngspice, xschem netlists
-#     headlessly, and the PVT knobs actually reach the simulator) is not
-#     implemented yet — the `pdk-smoke` job below is a placeholder, gated the
-#     way the real check will be (nightly schedule / manual dispatch / opt-in
-#     `run-pdk-smoke` label on a PR) so #2 can fill in its actual steps
-#     without restructuring the trigger conditions.
-#   - Everything claimed under `sim/<experiment>/` (once #2 lands it) is
-#     evidence captured by a human/agent run of the PDK-gated runner, not a
-#     repeatable CI check — re-running it here would mint new append-only
-#     records on every push, which is not what CI is for. See sim/README.md
-#     (once it exists) for how to reproduce a claim by hand.
+#     proves the pinned sky130 PDK models load in ngspice and that the PVT
+#     and Monte Carlo knobs actually reach the simulator — including the two
+#     negative controls) runs in the `pdk-smoke` job below, gated on a
+#     nightly schedule / manual dispatch / an opt-in `run-pdk-smoke` label on
+#     a PR, because it needs a full volare PDK fetch.
+#   - Everything claimed under `sim/<experiment>/records/` and
+#     `layout/trivial-cell/reports/` is evidence captured by a human/agent
+#     run of the PDK-gated runners, not a repeatable CI check — re-running it
+#     here would mint new append-only records on every push, which is not
+#     what CI is for. `pdk-smoke` therefore runs the harness WITHOUT
+#     `--record`. See sim/README.md for how to reproduce a claim by hand.
 
 on:
   push:
@@ -41,12 +42,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install klayout
-        # A pure-manylinux wheel (no PDK, no layout/.venv needed) -- installed
-        # ahead of #2 landing layout/tests/, which will need the klayout
-        # python module for the routed-layout flow's DRC-style checks.
-        run: pip install klayout
 
       - name: npm run check:ci
         run: npm run check:ci
@@ -72,14 +67,24 @@ jobs:
           sudo apt-get install -y ngspice xschem
 
       - name: Install volare
-        run: pip install --user volare
+        run: pip install volare
 
-      - name: PDK-smoke harness (not yet implemented, see #2)
-        # This job is gated the same way the real PDK-smoke check will be
-        # (schedule / workflow_dispatch / run-pdk-smoke label), so #2 can
-        # replace this placeholder with the actual `sim/bin/corner-run.py
-        # sim/pdk-smoke` invocation (reading sim/pdk.json for the pinned
-        # open_pdks commit) without touching the trigger conditions above.
+      - name: Fetch + enable the pinned sky130 PDK
+        # The pin lives in sim/pdk.json (open_pdks_commit) so CI and
+        # docs/environment-setup.md cannot drift apart; the harness itself
+        # re-checks the resolved commit against sim/toolchain.json and fails
+        # on drift rather than silently producing incomparable numbers.
         run: |
-          echo "PDK-smoke harness not implemented yet -- see #2."
-          echo "sim/bin/corner-run.py and sim/pdk.json do not exist in this repo yet."
+          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
+          volare enable --pdk sky130 "$PDK_COMMIT"
+
+      - name: Harness acceptance test (PVT + Monte Carlo + both negative controls)
+        # --require-pdk turns the "tools unavailable, skipping" path into a
+        # failure: in this job the PDK is installed above, so a skip here
+        # would mean the install silently failed.
+        run: ./sim/selftest.sh --require-pdk
+
+      - name: Layout DRC/LVS trivial-cell proof
+        run: |
+          ./layout/bin/setup-venv.sh
+          ./layout/bin/run-trivial-cell-flow.sh

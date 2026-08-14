@@ -4,12 +4,16 @@
   "private": true,
   "scripts": {
     "worktree:return": "./.loom/scripts/worktree-return.sh",
-    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh",
-    "check:all": "npm run check:ci",
+    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:harness",
+    "check:all": "npm run check:ci && npm run check:layout",
+    "check:harness": "./sim/selftest.sh",
+    "check:harness:quick": "./sim/selftest.sh --quick",
+    "check:harness:full": "./sim/selftest.sh --full",
+    "check:layout": "./layout/bin/run-trivial-cell-flow.sh",
     "test": "npm run test:compile && npm run test:unit",
     "test:compile": "find sim layout -name '*.py' -not -path 'layout/.venv/*' -print0 | xargs -0 -r -n1 python3 -m py_compile",
-    "test:unit": "echo 'no unit tests yet (see #2)'",
-    "lint": "find sim layout -name '*.json' -not -path 'layout/.venv/*' -print0 | xargs -0 -r -n1 python3 -m json.tool > /dev/null && bash -n loom.sh"
+    "test:unit": "python3 -m unittest discover --start-directory sim/tests --top-level-directory sim/tests",
+    "lint": "find sim layout -name '*.json' -not -path 'layout/.venv/*' -not -path 'layout/trivial-cell/reports/*' -print0 | xargs -0 -r -n1 python3 -m json.tool > /dev/null && bash -n sim/selftest.sh && bash -n sim/env.sh && bash -n layout/bin/setup-venv.sh && bash -n layout/bin/run-trivial-cell-flow.sh && bash -n loom.sh"
   },
   "version": "0.0.0"
 }

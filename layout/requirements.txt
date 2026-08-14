@@ -1,0 +1,15 @@
+# Pinned klayout-tools (`klt`) install for layout/'s DRC/LVS flow (issue #2).
+#
+# klt v0.2.0 on PyPI (https://pypi.org/project/klayout-tools) ships the
+# gen/drc/extract/lvs/draw verbs this flow needs -- unlike
+# 2AMLogic/sky130-bandgap's requirements.txt at the time it was written
+# (issue #14 there), which had to pin a git commit because those verbs
+# were only on `main`. Pinning the PyPI release here instead of a git SHA
+# is simpler and reproducible the same way: an exact version, not a
+# floating one.
+#
+# Provenance: pattern (pin-and-document-why, `--force-reinstall` discipline
+# in layout/bin/setup-venv.sh) ported from 2AMLogic/sky130-bandgap's
+# layout/requirements.txt (commit 1f04e8524cc2d8c2c7154773749b1b2d3be2ce64),
+# per CLAUDE.md's "Harness bootstrap" instruction.
+klayout-tools==0.2.0
