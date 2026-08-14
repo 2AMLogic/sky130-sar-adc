@@ -316,7 +316,7 @@ def write_evidence(result: McResult, note: str = "", supersedes: str = "") -> Pa
     a("")
     lines.extend(evidence.environment_block(
         pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
-        ngspice_line=_ngspice_version_str(),
+        ngspice_line=toolchain._ngspice_version() or "unknown",
         netlist_sha256=result.netlist_sha256,
         extra={"MC seed": str(result.seed), "MC N": str(result.n)},
     ))
@@ -332,9 +332,3 @@ def write_evidence(result: McResult, note: str = "", supersedes: str = "") -> Pa
 
     record_path.write_text("\n".join(lines))
     return record_path
-
-
-def _ngspice_version_str() -> str:
-    from . import toolchain
-
-    return toolchain._ngspice_version() or "unknown"
