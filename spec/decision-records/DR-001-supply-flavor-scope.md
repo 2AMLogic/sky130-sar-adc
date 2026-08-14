@@ -1,10 +1,27 @@
 # DR-001: Supply-flavor scope — 1.8 V core flavor, higher-voltage arrangements deferred
 
-- **Status**: proposed (input to spec ratification, see #1 — **not** a ratification)
-- **Date**: 2026-08-13
+- **Status**: **accepted** — ratified by the operator in #1 on 2026-08-13.
+- **Date**: 2026-08-13 (drafted); 2026-08-13 (ratified)
 - **Decided by**: Builder agent, issue #3
+- **Ratified in**: #1 (Ratify the target spec — T1-gate entry). The operator
+  ruled **for this record's recommendation without modification**: the 1.8 V
+  core flavour for the analog signal path, comparator and SAR logic, with
+  `sky130_fd_sc_hd` as the digital library; all three higher-voltage
+  arrangements deferred as written.
 - **Supersedes**: none — first record in this repo
 - **Superseded by**: (none while this record stands)
+
+> **Ratification note — deferral (3) remains live.** The mixed arrangement is
+> deferred *conditionally*, and ratifying this record did **not** close it. It
+> was safe to ratify only because `V_REF` is TBD-downstream of the flavour
+> rather than an input to it. If a ratified input full-scale ever exceeds the
+> core rail, this record does not cover that case and **DR-002 must settle the
+> pass-device flavour before any switch is drawn**. This ratification must not
+> be read as pre-approving a wider input range.
+>
+> This record sets **no numbers**: `V_REF`, the LSB, the CDAC unit-cap floor
+> (kT/C) and the comparator input-referred-noise budget all remain TBD and
+> re-derive on sky130. gf180-sar-adc's 3.3 V figures do not port.
 - **Corrections** (this record has never been ratified; corrections are logged
   here rather than superseding it):
   - 2026-08-13, during review of PR #4 — the `sky130_fd_sc_hvl` voltage range

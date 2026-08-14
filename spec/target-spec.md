@@ -1,30 +1,60 @@
 # sky130-sar-adc — target spec
 
-**Status: DRAFT — UNRATIFIED.** No value here is binding. Every number is a
-starting point carried from the sibling
-[gf180-sar-adc](https://github.com/2AMLogic/gf180-sar-adc) or a published sky130
-reference, to be confirmed, amended, or replaced by ratification (issue #1) and
-the decision records under `spec/decision-records/`. An agent must not treat any
-row below as settled, and must not relax a ratified row to make a result pass.
+**Status: supply flavour RATIFIED (2026-08-13, DR-001 via #1). Every numeric row
+remains DRAFT — UNRATIFIED.**
 
-## The one that gates the rest: supply flavor (open)
+- **Binding:** the supply flavour — 1.8 V core (`nfet_01v8`/`pfet_01v8`), digital
+  on `sky130_fd_sc_hd`. Design, sim and layout may lock to it. See
+  [the supply-flavour section](#the-one-that-gates-the-rest-supply-flavor--ratified-2026-08-13),
+  including the **DR-002 tripwire** on input full-scale.
+- **Not binding:** every number in the table below. Each is a starting point
+  carried from the sibling
+  [gf180-sar-adc](https://github.com/2AMLogic/gf180-sar-adc) or a published sky130
+  reference, to be confirmed, amended, or replaced by a decision record under
+  `spec/decision-records/`. Ratifying the flavour settles what the numbers are
+  *derived on*, not what they are.
 
-gf180-sar-adc is a 3.3 V design (`V_REF = 3.3 V`). **sky130's device menu is
-different**, and the whole converter scales off this choice:
+An agent must not treat any numeric row below as settled, must not close a
+`TBD` by porting gf180-sar-adc's 3.3 V figure, and must not relax a ratified
+row to make a result pass.
 
-- **1.8 V core** (`nfet_01v8`/`pfet_01v8`) — smaller LSB, tighter kT/C and
-  comparator-noise budgets, lower power. The likely default.
-- a **medium/high-voltage** arrangement if dynamic range argues for it.
+## The one that gates the rest: supply flavor — RATIFIED 2026-08-13
 
-`V_REF`, the LSB, the sampling-cap floor (kT/C), and the comparator input-referred
-noise budget all follow from this. It is the first decision record (DR-001) and
-an input to ratification — **do not assume gf180's 3.3 V carries over.**
+**Settled.** The analog signal path, comparator, and SAR logic are built on the
+**1.8 V core** (`nfet_01v8`/`pfet_01v8` and their Vt variants), with
+`sky130_fd_sc_hd` as the digital library. Ratified by the operator in #1 on
+2026-08-13 against
+[`decision-records/DR-001-supply-flavor-scope.md`](decision-records/DR-001-supply-flavor-scope.md),
+which moves `proposed → accepted`. Design, sim, and layout may lock to this.
 
-**Drafted, not ratified**:
-[`decision-records/DR-001-supply-flavor-scope.md`](decision-records/DR-001-supply-flavor-scope.md)
-argues this scope and recommends the 1.8 V core flavor, deferring the
-higher-voltage arrangements. It is `proposed` and stays that way until #1
-closes — it is the record #1 ratifies *against*, not a settled answer.
+gf180-sar-adc is a 3.3 V design (`V_REF = 3.3 V`); sky130's device menu is
+different, and **gf180's 3.3 V does not carry over.** `V_REF`, the LSB, the
+sampling-cap floor (kT/C), and the comparator input-referred-noise budget all
+follow *from* the ratified rail and are still **TBD** — see the table below.
+Ratifying the flavor does not ratify any of them.
+
+Higher-voltage arrangements are **deferred by name**, per DR-001:
+
+1. **5.0 V throughout** (`nfet_g5v0d10v5`/`pfet_g5v0d10v5`) — deferred as a
+   separately-scoped block; not partially designed for here.
+2. **"gf180-like" 3.3 V** (thick-oxide at 3.3 V, to reproduce gf180's `V_REF`
+   numerically) — deferred.
+3. **Mixed** (thick-oxide front end, 1.8 V core comparator and logic, level
+   shifters at the boundary) — **deferred conditionally, and this one is a live
+   tripwire.**
+
+> ### ⚠ The DR-002 tripwire
+>
+> Deferral (3) is **not closed**. It becomes live **if and only if a ratified
+> input full-scale exceeds the core rail.** This ratification is safe today only
+> because `V_REF` is TBD-downstream of the flavor, not an input to it.
+>
+> If any later campaign or ratification proposes an input range above 1.8 V,
+> **DR-001 does not cover it** — a follow-on **DR-002 must settle the
+> pass-device flavor before any switch is drawn.** Per `CLAUDE.md` the
+> pass-device flavor for an input range above the core rail is a ratification
+> question, never an assumption. Do not treat this ratification as having
+> pre-approved a wider input range.
 
 ## DRAFT target table (all provisional)
 
