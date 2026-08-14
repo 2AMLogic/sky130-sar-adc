@@ -44,11 +44,20 @@ proposition with different Vt, geometry, and area consequences.
 
 Two further facts, verified the same way, bear directly on the choice:
 
-- **Digital libraries.** `sky130_fd_sc_hd` ships 446 cells characterized at
-  1.40–1.95 V; `sky130_fd_sc_hvl` ships 71 cells characterized at 4.40–5.50 V,
-  and its cell list is dominated by level shifters (`lsbuflv2hv_*`,
-  `lsbufhv2lv_*`) plus a minimal gate/flop set. `hvl` is a level-shifting and
-  glue library, not a general-purpose synthesis target for SAR logic.
+- **Digital libraries.** `sky130_fd_sc_hd` ships 446 layout (`mag`) files —
+  169 distinct cell types — characterized at 1.28–1.95 V; `sky130_fd_sc_hvl`
+  ships 71, characterized at 4.40–5.50 V. Only 8 of those 71 are level shifters
+  (`lsbuflv2hv_*`, `lsbufhv2lv_*`); the rest is a real, if minimal,
+  gate/flop/latch/scan set — 2- and 3-input `and`/`or`/`nand`/`nor`,
+  `xor2`/`xnor2`, `mux2`/`mux4`, a shallow `a21o`/`a22o`/`o21a`/`o22a` family,
+  `dfrtp`/`dfstp`/`dfxbp` and their `sdf*` scan variants, and latches. What
+  decides the choice is therefore not the level-shifter share but the
+  71-versus-446 gap and which classes sit in it: `hvl` carries none of `hd`'s
+  complex-gate depth — no deep AOI/OAI (`a2111o`, `a311o`, `o221a`, …), no
+  4-input gates (`nand4`, `nor4`, `and4`, `or4`), no arithmetic (`fa`, `ha`,
+  `maj3`), and no clock-tree or delay cells (`clkbuf`, `clkinv`, `dlygate4sd*`).
+  `hvl` is a minimal glue and boundary library, not a general-purpose synthesis
+  target for SAR logic.
 - **Mismatch models.** Both flavors ship `__mismatch` corner models; the
   `01v8` pair additionally ships `__subvt_mismatch`, and
   `pfet_g5v0d10v5__subvt_mismatch` exists while its NMOS counterpart does not
@@ -151,7 +160,7 @@ numbers, specifically:
 | Comparator input-referred noise | **Does not port.** Budget shrinks with the LSB; the topology that meets it at 1.8 V may also differ (Consequences §3). |
 | Comparator offset | **Does not port**, and gets *harder* in LSB terms even though it is unchanged in volts. |
 | Power | **Does not port.** Re-measured, not scaled. |
-| Corners (±10 % supply) | **Re-anchored**, not invalidated: the ±10 % band attaches to the ratified rail, and `sky130_fd_sc_hd` is characterized 1.40–1.95 V, which brackets 1.8 V ±10 % (1.62–1.98 V) at the top but is worth checking against the ratified band. |
+| Corners (±10 % supply) | **Re-anchored**, not invalidated — but one end of the band is uncharacterized. The ±10 % band attaches to the ratified rail; anchored at 1.8 V it is 1.62–1.98 V. `sky130_fd_sc_hd` is characterized 1.28–1.95 V, so it covers the low end with room to spare and falls 0.03 V **short** of the high end: there is no characterized `hd` library at 1.98 V. See Consequence §6. |
 
 What **does** carry from the sibling is the block class and the method, per
 #1's item 2: differential top-plate charge-redistribution architecture,
@@ -213,19 +222,30 @@ row of the DRAFT table remains DRAFT and unratified until #1 closes.
    at 1 MS/s, 10 bits plus sampling) there is expected to be room — but that is
    an expectation for #2's harness to test, not a claim.
 5. **SAR logic gets the good library.** 446 characterized cells at
-   1.40–1.95 V versus 71 cells at 4.40–5.50 V is not a close comparison for
+   1.28–1.95 V versus 71 cells at 4.40–5.50 V is not a close comparison for
    synthesizable control logic, and it keeps this block on the same digital
    flow the rest of the open sky130 ecosystem uses.
-6. **A characterization gap to carry, not to hide.** `sky130_fd_sc_hd`'s
-   timing libraries top out at 100 °C (`n40C`, `025C`, `100C`), while the
-   draft corner row asks for 125 °C; `sky130_fd_sc_hvl` is characterized to
-   150 °C. Transistor-level models cover the full range, so SPICE-level PVT is
-   unaffected — but any STA-style signoff of the SAR logic at 125 °C has no
-   characterized library under this flavor. #1 should decide whether the
-   temperature row stands at 125 °C (accepting extrapolated or
-   transistor-level-only digital timing evidence) or is re-anchored to 100 °C.
-   This is a genuine cost of the recommended flavor and belongs in the
-   ratification, not in a footnote after it.
+6. **Two characterization gaps to carry, not to hide.** Both sit in
+   `sky130_fd_sc_hd`'s timing libraries, and both land on corners #1 is being
+   asked to ratify. They are the same defect class on two different axes:
+   - *Temperature.* The `hd` libraries top out at 100 °C (`n40C`, `025C`,
+     `100C`), while the draft corner row asks for 125 °C; `sky130_fd_sc_hvl`
+     is characterized to 150 °C.
+   - *Fast-high supply.* The `hd` libraries top out at 1.95 V, and only on the
+     fast corner (`sky130_fd_sc_hd__ff_n40C_1v95`, `__ff_100C_1v95`; no `tt` or
+     `ss` library exists above 1.80 V and 1.76 V respectively), while
+     1.8 V +10 % is 1.98 V — the library falls 0.03 V short of the top of a
+     ±10 % band anchored at 1.8 V. The low end is not at issue: 1.28 V
+     characterized against 1.62 V required.
+
+   Transistor-level models cover the full range on both axes, so SPICE-level
+   PVT is unaffected — but any STA-style signoff of the SAR logic at 125 °C,
+   or at the fast-high supply corner, has no characterized library under this
+   flavor. For each axis #1 should decide whether the draft row stands
+   (accepting extrapolated or transistor-level-only digital timing evidence) or
+   is re-anchored to what `hd` actually characterizes: 100 °C, and a supply
+   band whose top is 1.95 V. These are genuine costs of the recommended flavor
+   and belong in the ratification, not in a footnote after it.
 7. **Monte-Carlo coverage is better on the core flavor**, which matters
    disproportionately here because ENOB, INL/DNL, and offset are all
    MC-gated: the `01v8` pair ships both `__mismatch` and `__subvt_mismatch`
@@ -257,3 +277,7 @@ row of the DRAFT table remains DRAFT and unratified until #1 closes.
   — a downstream DR informed by Consequence §3.
 - The 125 °C vs 100 °C digital-library question raised in Consequence §6 — for
   #1 to rule on.
+- The fast-high supply corner raised in Consequence §6: whether the top of the
+  ratified ±10 % band (1.98 V at a 1.8 V rail) stands with no characterized
+  `hd` library above 1.95 V, or the band is re-anchored to 1.95 V — for #1 to
+  rule on, on the same footing as the temperature row.
