@@ -1,0 +1,20 @@
+* ngspice init settings for the sky130 PDK model libraries.
+*
+* The corner runner copies this file into its scratch run directory as
+* `.spiceinit` before invoking ngspice, so runs do not depend on whatever
+* happens to be in ~/.spiceinit. To drive ngspice by hand with the same
+* settings, copy this file to `.spiceinit` in your working directory.
+*
+* Derived from the PDK's own libs.tech/ngspice/spinit; kept in-repo so the
+* settings a record was produced under are versioned with the harness.
+*
+* Provenance: ported from 2AMLogic/sky130-bandgap's sim/spiceinit
+* (commit 1f04e8524cc2d8c2c7154773749b1b2d3be2ce64) per CLAUDE.md's
+* "Harness bootstrap" instruction -- byte-identical content, sky130's PDK
+* ngspice init settings do not vary by consuming repo.
+
+set ngbehavior=hsa     ; HSPICE-ish compatibility, required to read PDK libs
+set skywaterpdk        ; skip some checks for faster lib loading
+set ng_nomodcheck      ; do not check model parameters
+option noinit          ; do not dump operating point data into the log
+option klu             ; KLU direct linear solver

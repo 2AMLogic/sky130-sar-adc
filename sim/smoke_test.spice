@@ -1,0 +1,15 @@
+** sch_path: /Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-2/design/smoke_test.sch
+**.subckt smoke_test
+V1 GND net1 1.8
+XR1 net1 net2 sky130_fd_pr__res_generic_po W=1 L=1 m=1
+XR2 net2 GND sky130_fd_pr__res_generic_po W=1 L=1 m=1
+**** begin user architecture code
+
+** sky130 PDK model include (tt corner) — see docs/environment-setup.md
+.lib /Users/rwalters/.volare/sky130A/libs.tech/combined/sky130.lib.spice tt
+.op
+
+**** end user architecture code
+**.ends
+.GLOBAL GND
+.end

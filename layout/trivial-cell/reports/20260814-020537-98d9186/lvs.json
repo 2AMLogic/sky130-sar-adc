@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "trivial_mos_array.gds",
+  "reference": "reference.spice",
+  "top": "trivial_mos_array",
+  "status": "match",
+  "mismatch_count": 12,
+  "category_counts": {
+    "device.body_unverified": 1,
+    "topology": 11
+  },
+  "counts": {
+    "nets": {
+      "layout": 25,
+      "reference": 25,
+      "matched": 25
+    },
+    "devices": {
+      "layout": 8,
+      "reference": 8,
+      "matched": 8
+    },
+    "pins": {
+      "layout": 1,
+      "reference": 1,
+      "matched": 1
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.10",
+    "layout_sha256": "2d364230e1d3e5793dc64ab2948132a98f03f8f57ac66f0aa1722a51fc9a4db0",
+    "reference_sha256": "9cf60203e46c687ec1f8a1a683d2d67502faf3510742241fc7c271005c06e258",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.2.0",
+    "klayout_version": "0.30.10",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:3bf7dada5e1dc46d36411c6149a227599f41580edfeb78c00060b5756424f3d3"
+    },
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "8 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "nfet"
+      },
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$1",
+        "reference": "D1"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$11",
+        "reference": "D6"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$13",
+        "reference": "D7"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$15",
+        "reference": "D8"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$16",
+        "reference": "S8"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$3",
+        "reference": "D2"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$5",
+        "reference": "D3"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$7",
+        "reference": "D4"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$9",
+        "reference": "D5"
+      },
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "$1",
+      "reference": "D1",
+      "pin": false
+    },
+    {
+      "layout": "$3",
+      "reference": "D2",
+      "pin": false
+    },
+    {
+      "layout": "$5",
+      "reference": "D3",
+      "pin": false
+    },
+    {
+      "layout": "$7",
+      "reference": "D4",
+      "pin": false
+    },
+    {
+      "layout": "$9",
+      "reference": "D5",
+      "pin": false
+    },
+    {
+      "layout": "$11",
+      "reference": "D6",
+      "pin": false
+    },
+    {
+      "layout": "$13",
+      "reference": "D7",
+      "pin": false
+    },
+    {
+      "layout": "$15",
+      "reference": "D8",
+      "pin": false
+    },
+    {
+      "layout": "$17",
+      "reference": "G1",
+      "pin": false
+    },
+    {
+      "layout": "$18",
+      "reference": "G2",
+      "pin": false
+    },
+    {
+      "layout": "$19",
+      "reference": "G3",
+      "pin": false
+    },
+    {
+      "layout": "$20",
+      "reference": "G4",
+      "pin": false
+    },
+    {
+      "layout": "$21",
+      "reference": "G5",
+      "pin": false
+    },
+    {
+      "layout": "$22",
+      "reference": "G6",
+      "pin": false
+    },
+    {
+      "layout": "$23",
+      "reference": "G7",
+      "pin": false
+    },
+    {
+      "layout": "$24",
+      "reference": "G8",
+      "pin": false
+    },
+    {
+      "layout": "$2",
+      "reference": "S1",
+      "pin": false
+    },
+    {
+      "layout": "$4",
+      "reference": "S2",
+      "pin": false
+    },
+    {
+      "layout": "$6",
+      "reference": "S3",
+      "pin": false
+    },
+    {
+      "layout": "$8",
+      "reference": "S4",
+      "pin": false
+    },
+    {
+      "layout": "$10",
+      "reference": "S5",
+      "pin": false
+    },
+    {
+      "layout": "$12",
+      "reference": "S6",
+      "pin": false
+    },
+    {
+      "layout": "$14",
+      "reference": "S7",
+      "pin": false
+    },
+    {
+      "layout": "$16",
+      "reference": "S8",
+      "pin": false
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
+    }
+  ]
+}

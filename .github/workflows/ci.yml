@@ -3,23 +3,24 @@ name: CI
 # Self-check inventory for this repo (see CLAUDE.md) and where each one runs:
 #
 #   - `package.json` `check:ci` (JSON syntax check over sim/**/*.json and
-#     layout/**/*.json, shell syntax of loom.sh, plus python compile/unit
-#     checks over sim/ and layout/) -> `checks` job below, every push/PR.
-#     Headless, no PDK needed. `sim/` and `layout/` are currently empty
-#     scaffolding (see #2), so these checks are no-ops until real content
-#     lands there.
+#     layout/**/*.json, shell syntax of the harness/layout scripts, python
+#     compile + the sim/tests unit suite, and `sim/selftest.sh`) -> `checks`
+#     job below, every push/PR. Headless: `sim/selftest.sh` runs its unit and
+#     environment stages, then SKIPs its two simulation stages with exit 0
+#     when ngspice/the pinned PDK are absent, which is the case in this job.
+#     A *drifted* pinned toolchain never skips — it fails.
 #   - The PDK-gated harness smoke test (the harness's own liveness check:
-#     proves the pinned sky130 PDK models load in ngspice, xschem netlists
-#     headlessly, and the PVT knobs actually reach the simulator) is not
-#     implemented yet — the `pdk-smoke` job below is a placeholder, gated the
-#     way the real check will be (nightly schedule / manual dispatch / opt-in
-#     `run-pdk-smoke` label on a PR) so #2 can fill in its actual steps
-#     without restructuring the trigger conditions.
-#   - Everything claimed under `sim/<experiment>/` (once #2 lands it) is
-#     evidence captured by a human/agent run of the PDK-gated runner, not a
-#     repeatable CI check — re-running it here would mint new append-only
-#     records on every push, which is not what CI is for. See sim/README.md
-#     (once it exists) for how to reproduce a claim by hand.
+#     proves the pinned sky130 PDK models load in ngspice and that the PVT
+#     and Monte Carlo knobs actually reach the simulator — including the two
+#     negative controls) runs in the `pdk-smoke` job below, gated on a
+#     nightly schedule / manual dispatch / an opt-in `run-pdk-smoke` label on
+#     a PR, because it needs a full volare PDK fetch.
+#   - Everything claimed under `sim/<experiment>/records/` and
+#     `layout/trivial-cell/reports/` is evidence captured by a human/agent
+#     run of the PDK-gated runners, not a repeatable CI check — re-running it
+#     here would mint new append-only records on every push, which is not
+#     what CI is for. `pdk-smoke` therefore runs the harness WITHOUT
+#     `--record`. See sim/README.md for how to reproduce a claim by hand.
 
 on:
   push:
@@ -42,12 +43,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install klayout
-        # A pure-manylinux wheel (no PDK, no layout/.venv needed) -- installed
-        # ahead of #2 landing layout/tests/, which will need the klayout
-        # python module for the routed-layout flow's DRC-style checks.
-        run: pip install klayout
-
       - name: npm run check:ci
         run: npm run check:ci
 
@@ -66,20 +61,79 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ngspice + xschem
+      - name: Install xschem + ngspice build deps
+        # xschem comes from apt: it only netlists schematics, and every record
+        # pins the netlist it actually ran by SHA-256, so an xschem version
+        # difference is reported as a warning by `--check-env` rather than
+        # blocking the run (see sim/harness/toolchain.py).
+        #
+        # ngspice does NOT come from apt. ubuntu-latest ships ngspice-42,
+        # below sim/toolchain.json's `ngspice_min_major` floor, and the
+        # harness correctly refuses to simulate on a drifted toolchain --
+        # numbers from it would not be comparable with the records already in
+        # sim/. Lowering the pin to match whatever apt happens to ship would
+        # be relaxing the gate to make the check pass, which is precisely what
+        # CLAUDE.md forbids; so CI builds a version that meets the floor
+        # instead. Cached, so this costs ~2 minutes once per pin bump.
         run: |
           sudo apt-get update
-          sudo apt-get install -y ngspice xschem
+          sudo apt-get install -y xschem build-essential bison flex \
+            libreadline-dev libx11-dev libxaw7-dev automake libtool
+
+      - name: Resolve the pinned ngspice version
+        id: ngspice-pin
+        # `ngspice_reference` is the version this repo's committed records were
+        # produced with, so the nightly proof runs on the same simulator the
+        # evidence trail was minted on. `ngspice_min_major` stays the actual
+        # gate the harness enforces at run time.
+        run: |
+          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache ngspice build
+        id: cache-ngspice
+        uses: actions/cache@v4
+        with:
+          path: /opt/ngspice
+          key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
+
+      - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
+        if: steps.cache-ngspice.outputs.cache-hit != 'true'
+        run: |
+          V="${{ steps.ngspice-pin.outputs.version }}"
+          curl -fsSL -o /tmp/ngspice.tar.gz \
+            "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
+          mkdir -p /tmp/ngspice-src
+          tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
+          cd /tmp/ngspice-src
+          ./configure --prefix=/opt/ngspice --without-x --disable-debug \
+            --enable-xspice
+          make -j"$(nproc)"
+          make install
+
+      - name: Put the built ngspice on PATH
+        run: |
+          echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
 
       - name: Install volare
-        run: pip install --user volare
+        run: pip install volare
 
-      - name: PDK-smoke harness (not yet implemented, see #2)
-        # This job is gated the same way the real PDK-smoke check will be
-        # (schedule / workflow_dispatch / run-pdk-smoke label), so #2 can
-        # replace this placeholder with the actual `sim/bin/corner-run.py
-        # sim/pdk-smoke` invocation (reading sim/pdk.json for the pinned
-        # open_pdks commit) without touching the trigger conditions above.
+      - name: Fetch + enable the pinned sky130 PDK
+        # The pin lives in sim/pdk.json (open_pdks_commit) so CI and
+        # docs/environment-setup.md cannot drift apart; the harness itself
+        # re-checks the resolved commit against sim/toolchain.json and fails
+        # on drift rather than silently producing incomparable numbers.
         run: |
-          echo "PDK-smoke harness not implemented yet -- see #2."
-          echo "sim/bin/corner-run.py and sim/pdk.json do not exist in this repo yet."
+          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
+          volare enable --pdk sky130 "$PDK_COMMIT"
+
+      - name: Harness acceptance test (PVT + Monte Carlo + both negative controls)
+        # --require-pdk turns the "tools unavailable, skipping" path into a
+        # failure: in this job the PDK is installed above, so a skip here
+        # would mean the install silently failed.
+        run: ./sim/selftest.sh --require-pdk
+
+      - name: Layout DRC/LVS trivial-cell proof
+        run: |
+          ./layout/bin/setup-venv.sh
+          ./layout/bin/run-trivial-cell-flow.sh

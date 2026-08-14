@@ -1,0 +1,86 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: ** sch_path: /users/rwalters/github/sky130-sar-adc/.loom/worktrees/issue-2/design/smoke_test.sch
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+ Reference value :  0.00000e+00
+No. of Data Rows : 1
+	Node                                  Voltage
+	----                                  -------
+	----	-------
+	net2                             -9.00000e-01
+	net1                             -1.80000e+00
+
+	Source	Current
+	------	-------
+
+	v1#branch                        -1.76266e-02
+
+ Resistor models (Simple linear resistor)
+      model                     R
+
+        rsh                     0
+     narrow                     0
+      short                     0
+        tc1                     0
+        tc2                     0
+        tce                     0
+       defw                 1e-05
+          l                 1e-05
+         kf                     0
+         af                     0
+          r                     0
+     bv_max                 1e+99
+         lf                     1
+         wf                     1
+         ef                     1
+
+ Resistor: Simple linear resistor
+     device r.xr2.rsky130_fd_pr__ r.xr1.rsky130_fd_pr__
+      model                     R                     R
+ resistance               51.0593               51.0593
+         ac               51.0593               51.0593
+      dtemp                     0                     0
+     bv_max                 1e+99                 1e+99
+      noisy                     1                     1
+          i            -0.0176266            -0.0176266
+          p             0.0158639             0.0158639
+
+ Vsource: Independent voltage source
+     device                    v1
+         dc                   1.8
+      acmag                     0
+      pulse                     -
+        sin                     -
+        exp                     -
+        pwl                     -
+       sffm                     -
+         am                     -
+    trnoise                     -
+   trrandom                     -
+    portnum                     0
+         z0                     0
+        pwr                     0
+       freq                     0
+      phase                     0
+          i            -0.0176266
+          p            -0.0317278
+
+
+Total analysis time (seconds) = 0.003861
+
+Total elapsed time (seconds) = 18.006 
+
+Total DRAM available = 98304.000 MB.
+DRAM currently available = 44836.094 MB.
+Maximum ngspice program size =  188.297 MB.
+Current ngspice program size =  188.297 MB.
+

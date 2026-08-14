@@ -25,23 +25,29 @@ work. The repo is **dogfood for [klayout-tools](https://github.com/2AMLogic/klay
 the tool; every friction is filed generically upstream) and **catalog inventory**
 (one block, one PDK, in the 2AM Logic canary catalog).
 
-## Status: scaffold. Pre-spec, pre-schematic, pre-layout, pre-silicon.
+## Status: harness up. Pre-spec, pre-schematic, pre-layout, pre-silicon.
 
-This repository has just been created. It holds the map — a DRAFT target spec,
-the canary rules, and the bootstrap issues. There is no schematic, no evidence,
-no layout yet.
+The toolchain is standing; the design is not. There is no ADC schematic and no
+design evidence yet — what exists is the machinery that will produce it, and
+the proofs that the machinery works.
 
+- **Done** — the xschem + ngspice sim harness and the `klt` DRC/LVS layout flow
+  (issue #2), seeded from gf180-sar-adc and
+  [sky130-bandgap](https://github.com/2AMLogic/sky130-bandgap):
+  `sim/run_corners.py` (PVT), `sim/monte_carlo.py` (distributions with a
+  recorded seed, N, and a deterministic negative control), the append-only
+  evidence-record convention in [`sim/README.md`](sim/README.md), and
+  [`layout/README.md`](layout/README.md)'s trivial-cell proof — which asserts
+  not just that DRC comes back clean and LVS matches, but that an injected DRC
+  violation and two corrupted LVS references all come back *flagged*.
+  `docs/environment-setup.md` is the reproducible bootstrap.
 - **Not done** — the target spec is **DRAFT and unratified** (see
   `spec/target-spec.md` and issue #1). Every value is a starting point carried
   from gf180-sar-adc or a published sky130 reference, not a settled sky130
   result. In particular the **supply flavor** (1.8 V core vs a medium-voltage
   arrangement) and therefore `V_REF`, the LSB, and the kT/C noise budget are
   open questions the spec must settle first — sky130's device menu is not
-  gf180's 3.3 V flavor.
-- **Not done** — the xschem + ngspice sim harness (with the Monte-Carlo and PVT
-  runners a data converter needs) and the `klt` layout/DRC/LVS flow are not yet
-  stood up; they seed from gf180-sar-adc and
-  [sky130-bandgap](https://github.com/2AMLogic/sky130-bandgap). See issue #2.
+  gf180's 3.3 V flavor. No harness threshold encodes a draft spec value.
 - **Not started** — schematic entry, the CDAC/comparator design, verification,
   and layout. `measurements/` stays empty until there is silicon.
 

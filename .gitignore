@@ -3,15 +3,21 @@
 __pycache__/
 .DS_Store
 
-# sim/ harness: per-corner ngspice logs under corners/ are committed evidence
-# (append-only record trail, see sim/README.md), so they escape the *.log rule.
+# sim/ harness: the raw ngspice logs under corners/ (one per PVT point) and
+# mc-draws/ (one per Monte Carlo draw and per negative-control draw) are
+# committed evidence -- the append-only record trail, see sim/README.md -- so
+# they escape the *.log rule above.
 !sim/*/corners/**/*.log
-# harness scratch: regenerated netlists and generated corner decks
+!sim/*/mc-draws/**/*.log
+# harness scratch: regenerated netlists and generated corner decks. The
+# runners themselves simulate in a TemporaryDirectory and only copy the
+# resulting logs back under sim/<experiment>/, so this only catches
+# interactive/xschem scratch (see sim/xschemrc's netlist_dir).
 sim/build/
 # ngspice model-check scratch dumps (e.g. bsim4v5.out) from ad hoc ngspice
-# invocations at repo root -- the harness never writes here, it always runs
-# under sim/build/ (see sim/bin/corner-run.py). Root-anchored so it doesn't
-# clobber unrelated *.out files elsewhere in the tree.
+# invocations at repo root. Root-anchored so it doesn't clobber unrelated
+# *.out files elsewhere in the tree -- notably sim/smoke_test.ngspice.out,
+# which IS committed evidence (see sim/README.md "Bootstrap smoke test").
 /*.out
 
 # layout/ DRC/LVS flow: local klt install, created by layout/bin/setup-venv.sh

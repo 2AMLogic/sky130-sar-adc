@@ -1,0 +1,56 @@
+#### Project-local xschemrc for sky130-sar-adc.
+####
+#### Purpose: make `xschem` find the sky130 symbol library without relying on
+#### anything in the user's ~/.xschem. The corner runner passes this file with
+#### `--rcfile`, so batch netlisting and interactive editing share one config.
+####
+#### Interactive use:
+####   source sim/env.sh                  # exports PDK_ROOT / PDK
+####   xschem --rcfile sim/xschemrc sim/<experiment>/testbench/<tb>.sch
+####
+#### Everything PDK-specific below is inherited from the PDK's own xschemrc
+#### (which sets XSCHEM_LIBRARY_PATH so `sky130_fd_pr/*.sym` resolves, and
+#### SKYWATER_MODELS for the corner.sym netlist command).
+####
+#### Provenance: ported from 2AMLogic/sky130-bandgap's sim/xschemrc
+#### (commit 1f04e8524cc2d8c2c7154773749b1b2d3be2ce64) per CLAUDE.md's
+#### "Harness bootstrap" instruction. Unchanged except for this header.
+
+#### PDK_ROOT / PDK: honour the environment, else fall back to the volare
+#### default root. Keep the fallback in sync with sim/pdk.json.
+if {![info exists env(PDK_ROOT)] || $env(PDK_ROOT) eq {}} {
+  set env(PDK_ROOT) [file normalize ~/.volare]
+}
+if {![info exists env(PDK)] || $env(PDK) eq {}} {
+  set env(PDK) sky130A
+}
+
+set _sky130_rc $env(PDK_ROOT)/$env(PDK)/libs.tech/xschem/xschemrc
+if {![file exists $_sky130_rc]} {
+  puts stderr "sky130-sar-adc: no PDK xschemrc at $_sky130_rc"
+  puts stderr "sky130-sar-adc: install the pinned PDK (see docs/environment-setup.md) or set PDK_ROOT"
+} else {
+  source $_sky130_rc
+}
+unset _sky130_rc
+
+#### Put the repository root on the symbol search path so this project's own
+#### cells resolve by their repo-relative name (e.g. `design/smoke_test.sch`)
+#### rather than by an absolute, machine-local path. Appended *after* the PDK
+#### entries so a project symbol can never shadow a `sky130_fd_pr/*` one.
+set _repo_root [file normalize [file join [file dirname [info script]] ..]]
+if {[info exists XSCHEM_LIBRARY_PATH] && $XSCHEM_LIBRARY_PATH ne {}} {
+  append XSCHEM_LIBRARY_PATH ":$_repo_root"
+} else {
+  set XSCHEM_LIBRARY_PATH $_repo_root
+}
+unset _repo_root
+
+#### Keep xschem's generated netlists out of the tracked tree. The corner
+#### runner overrides this with an explicit `-o`, so this only affects
+#### interactive netlisting from the GUI.
+set netlist_dir [file normalize [file join [file dirname [info script]] build xschem]]
+file mkdir $netlist_dir
+
+#### Do not open the PDK's demo schematic when started with no file argument.
+set XSCHEM_START_WINDOW {}

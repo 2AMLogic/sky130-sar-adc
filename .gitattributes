@@ -1,3 +1,17 @@
+# Evidence artifacts are committed byte-for-byte (see sim/README.md and
+# layout/README.md: records are append-only, and "append-only" is worth
+# little if a checkout can silently rewrite the bytes). `-text` disables
+# both end-of-line normalization on commit and conversion on checkout, so a
+# raw ngspice/klt output stays exactly what the tool emitted -- ngspice on
+# some platforms emits CRLF, and normalizing it would change the SHA-256 a
+# record pins.
+sim/smoke_test.ngspice.out -text
+sim/**/corners/**/*.log -text
+sim/**/mc-draws/**/*.log -text
+layout/**/reports/**/*.gds binary
+layout/**/reports/**/*.spice -text
+sim/**/netlist-snapshots/**/*.spice -text
+
 # BEGIN LOOM-MANAGED (merge drivers, #4528)
 # install-metadata.json is a machine-local install stamp (loom_version,
 # loom_commit, last_resync, loom_source) that every host's resync

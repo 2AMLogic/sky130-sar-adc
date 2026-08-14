@@ -1,0 +1,32 @@
+* harness-corner-smoke -- harness acceptance testbench (issue #2), NOT a
+* SAR ADC circuit and NOT a spec claim.
+*
+* Netlist FRAGMENT. sim/harness/testbench.py supplies the title, the
+* .lib include (process-corner section), .temp, the .param vdd_val, the
+* .control block and .end.
+*
+* Two independent branches, each probing a different axis of the PVT
+* plumbing so a bug on one axis cannot hide behind a pass on another:
+*
+*   1. ideal resistive divider -> proves vdd_val substitution reaches the
+*      netlist. Ratio must be PVT-INVARIANT (the control: if it moves,
+*      the harness is perturbing something it should not); absolute
+*      value must track the supply.
+*   2. diode-connected sky130_fd_pr__nfet_01v8 at a supply-independent
+*      10 uA bias -> proves the process-corner .lib section AND .temp
+*      both take effect (Vgs at fixed current is a strong, well-known
+*      function of both). sim/selftest.sh's --sabotage-corners negative
+*      control re-runs this fragment with the .lib section forced to 'tt'
+*      and requires the process-axis floor below to fail.
+*
+* Device sizing (w=4u, l=0.5u) is arbitrary -- chosen only to keep Vgs
+* comfortably away from both the subthreshold and deep-triode extremes
+* across the full -40..125 C / tt..ff..ss range, verified empirically
+* (see sim/harness-corner-smoke/records/ once a record exists).
+Vdd vdd 0 dc {vdd_val}
+
+Rtop vdd ndiv 100k
+Rbot ndiv 0   100k
+
+Ibias vdd nbias dc 10u
+XM1 nbias nbias 0 0 sky130_fd_pr__nfet_01v8 l=0.5 w=4 nf=1
