@@ -4,9 +4,7 @@ an append-only evidence record under sim/<experiment>/records/.
 
 from __future__ import annotations
 
-import shutil
 import statistics
-import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,38 +35,6 @@ class RunResult:
     record_id: str
     netlist_sha256: str
     overall_ok: bool
-
-
-def _run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
-    scratch_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(SIM_DIR / "spiceinit", scratch_dir / ".spiceinit")
-    netlist_path = scratch_dir / f"{log_name}.spice"
-    netlist_path.write_text(netlist_text)
-    try:
-        proc = subprocess.run(
-            ["ngspice", "-b", str(netlist_path)],
-            cwd=scratch_dir,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except subprocess.TimeoutExpired as exc:
-        out = (exc.stdout or "") + (exc.stderr or "")
-        raise RuntimeError(
-            f"ngspice timed out after 120s running {netlist_path.name} "
-            f"(last output:\n{out[-2000:]})"
-        ) from exc
-    output = proc.stdout + proc.stderr
-    if proc.returncode != 0:
-        # A crashed/erroring ngspice must not be allowed to silently read as
-        # "ran fine, just produced no measurement" -- that only surfaces
-        # today when the measurement in question has a `checks` entry, and
-        # is otherwise invisible. Fail loudly instead.
-        raise RuntimeError(
-            f"ngspice exited {proc.returncode} running {netlist_path.name} "
-            f"(output:\n{output[-2000:]})"
-        )
-    return output
 
 
 def _evaluate_checks(
@@ -166,7 +132,7 @@ def run(
             netlist = testbench.build_netlist(
                 manifest, info, process_corner, temp_c, supply_v, sabotage=sabotage
             )
-            log_text = _run_ngspice(netlist, scratch_dir, cid)
+            log_text = toolchain.run_ngspice(netlist, scratch_dir, cid)
             parsed = measure.parse(log_text, list(manifest.measure.keys()))
             log_path = corners_out_dir / f"{cid}.log"
             points.append(

@@ -25,14 +25,12 @@ empirically (see sim/mc-smoke/records/), not assumed.
 
 from __future__ import annotations
 
-import shutil
 import statistics
-import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import evidence, measure, pdk, testbench
+from . import evidence, measure, pdk, testbench, toolchain
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 
@@ -83,38 +81,6 @@ class McResult:
     negative_control_draws: list[Draw]
     record_id: str
     netlist_sha256: str
-
-
-def _run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
-    scratch_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(SIM_DIR / "spiceinit", scratch_dir / ".spiceinit")
-    netlist_path = scratch_dir / f"{log_name}.spice"
-    netlist_path.write_text(netlist_text)
-    try:
-        proc = subprocess.run(
-            ["ngspice", "-b", str(netlist_path)],
-            cwd=scratch_dir,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except subprocess.TimeoutExpired as exc:
-        out = (exc.stdout or "") + (exc.stderr or "")
-        raise RuntimeError(
-            f"ngspice timed out after 120s running {netlist_path.name} "
-            f"(last output:\n{out[-2000:]})"
-        ) from exc
-    output = proc.stdout + proc.stderr
-    if proc.returncode != 0:
-        # A crashed/erroring ngspice must not be allowed to silently read as
-        # "ran fine, just produced no measurement" -- that only surfaces
-        # today when the measurement in question has a `checks` entry, and
-        # is otherwise invisible. Fail loudly instead.
-        raise RuntimeError(
-            f"ngspice exited {proc.returncode} running {netlist_path.name} "
-            f"(output:\n{output[-2000:]})"
-        )
-    return output
 
 
 def _build_mc_netlist(
@@ -179,7 +145,7 @@ def run(
         for i in range(n):
             this_seed = seed + i
             netlist = _build_mc_netlist(manifest, info, mismatch_corner, temp_c, supply_v, this_seed)
-            log_text = _run_ngspice(netlist, scratch_dir, f"draw_{i}")
+            log_text = toolchain.run_ngspice(netlist, scratch_dir, f"draw_{i}")
             parsed = measure.parse(log_text, list(manifest.measure.keys()))
             draws.append(Draw(seed=this_seed, measures=parsed, log_text=log_text))
             if not quiet:
@@ -188,7 +154,7 @@ def run(
         for i in range(n):
             this_seed = seed + i
             netlist = _build_mc_netlist(manifest, info, process_corner, temp_c, supply_v, this_seed)
-            log_text = _run_ngspice(netlist, scratch_dir, f"neg_{i}")
+            log_text = toolchain.run_ngspice(netlist, scratch_dir, f"neg_{i}")
             parsed = measure.parse(log_text, list(manifest.measure.keys()))
             negative_control_draws.append(Draw(seed=this_seed, measures=parsed, log_text=log_text))
             if not quiet:
