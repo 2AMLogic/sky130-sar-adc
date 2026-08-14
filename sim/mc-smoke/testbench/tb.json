@@ -10,11 +10,14 @@
   "measure": {
     "vgs_nfet": "v(nbias)"
   },
-  "checks": {},
+  "checks": {
+    "vgs_nfet": {"min_stdev": 1e-6}
+  },
   "evidence": {
     "record_kind": "monte-carlo",
     "notes": [
-      "Harness acceptance testbench (issue #2). The negative control (N draws at the plain 'tt' corner, mismatch disabled, same seed sequence as the 'real' tt_mm draws) must reproduce vgs_nfet EXACTLY (stdev == 0) -- see sim/harness/mc_runner.py's negative_control_ok() docstring for why a nonzero negative-control stdev invalidates the accompanying distribution."
+      "Harness acceptance testbench (issue #2). The negative control (N draws at the plain 'tt' corner, mismatch disabled, same seed sequence as the 'real' tt_mm draws) must reproduce vgs_nfet EXACTLY (stdev == 0) -- see sim/harness/mc_runner.py's negative_control_ok() docstring for why a nonzero negative-control stdev invalidates the accompanying distribution.",
+      "The positive control (issue #8) requires the mismatch-ENABLED (tt_mm) draws' vgs_nfet stdev to exceed the min_stdev floor above -- 1e-6 V, comfortably below the ~6.2e-3 V stdev observed empirically (see sim/mc-smoke/records/) but strictly above zero, so a regression that silences MC_MM_SWITCH (collapsing both arms to stdev == 0) is caught even if floating-point noise alone would technically satisfy a bare '> 0' check. See sim/harness/mc_runner.py's positive_control_ok() docstring."
     ]
   }
 }

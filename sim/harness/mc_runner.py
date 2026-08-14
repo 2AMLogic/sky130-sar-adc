@@ -90,14 +90,31 @@ def _run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
     shutil.copyfile(SIM_DIR / "spiceinit", scratch_dir / ".spiceinit")
     netlist_path = scratch_dir / f"{log_name}.spice"
     netlist_path.write_text(netlist_text)
-    proc = subprocess.run(
-        ["ngspice", "-b", str(netlist_path)],
-        cwd=scratch_dir,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    return proc.stdout + proc.stderr
+    try:
+        proc = subprocess.run(
+            ["ngspice", "-b", str(netlist_path)],
+            cwd=scratch_dir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        out = (exc.stdout or "") + (exc.stderr or "")
+        raise RuntimeError(
+            f"ngspice timed out after 120s running {netlist_path.name} "
+            f"(last output:\n{out[-2000:]})"
+        ) from exc
+    output = proc.stdout + proc.stderr
+    if proc.returncode != 0:
+        # A crashed/erroring ngspice must not be allowed to silently read as
+        # "ran fine, just produced no measurement" -- that only surfaces
+        # today when the measurement in question has a `checks` entry, and
+        # is otherwise invisible. Fail loudly instead.
+        raise RuntimeError(
+            f"ngspice exited {proc.returncode} running {netlist_path.name} "
+            f"(output:\n{output[-2000:]})"
+        )
+    return output
 
 
 def _build_mc_netlist(
@@ -223,6 +240,41 @@ def negative_control_ok(result: McResult, names: list[str]) -> tuple[bool, list[
     return (not failures, failures)
 
 
+def positive_control_ok(
+    result: McResult, names: list[str], checks: dict[str, dict] | None = None
+) -> tuple[bool, list[str]]:
+    """The positive arm passes iff every measurement's mismatch-ENABLED
+    draws show genuine spread: stdev strictly greater than a floor, which
+    defaults to 0.0 (i.e. "strictly > 0") but can be raised per-measurement
+    via a `min_stdev` key in the manifest's `checks[name]` dict -- keeping
+    any specific numeric floor out of harness code, the same convention
+    sim/harness/corners.py already follows for corner lists.
+
+    This is negative_control_ok()'s counterpart, and closes the same gap on
+    the other arm: negative_control_ok() alone proves nothing about whether
+    mismatch draws vary at all, so a regression that silences
+    MC_MM_SWITCH entirely (a PDK bump, a .spiceinit/.option change, a
+    rndseed-plumbing bug) would collapse BOTH arms to stdev == 0 and still
+    read as "negative control PASS" -- a perfectly plausible-looking record
+    reporting a distribution of width zero. See sim/mc-smoke/records/ for
+    the empirical baseline this guards (nonzero stdev on the mismatch-
+    enabled arm, exactly zero on the disabled arm).
+    """
+    checks = checks or {}
+    dists = distributions(result.draws, names)
+    failures = []
+    for name, dist in dists.items():
+        floor = float(checks.get(name, {}).get("min_stdev", 0.0))
+        if dist.n == 0:
+            failures.append(f"{name}: no mismatch-enabled samples parsed")
+        elif not dist.stdev > floor:
+            failures.append(
+                f"{name}: mismatch-enabled stdev={dist.stdev:.6g} not > "
+                f"min_stdev floor {floor:.6g} (values={dist.values})"
+            )
+    return (not failures, failures)
+
+
 def write_evidence(result: McResult, note: str = "", supersedes: str = "") -> Path:
     manifest = result.manifest
     experiment_dir = manifest.experiment_dir
@@ -247,6 +299,7 @@ def write_evidence(result: McResult, note: str = "", supersedes: str = "") -> Pa
 
     dists = distributions(result.draws, names)
     ctrl_ok, ctrl_failures = negative_control_ok(result, names)
+    pos_ok, pos_failures = positive_control_ok(result, names, manifest.checks)
 
     info = pdk.resolve()
 
@@ -267,9 +320,15 @@ def write_evidence(result: McResult, note: str = "", supersedes: str = "") -> Pa
         f"`{result.process_corner}` corner (mismatch DISABLED), same seed "
         f"sequence -- {'PASS (stdev == 0 on every measurement)' if ctrl_ok else 'FAIL: ' + '; '.join(ctrl_failures)}"
     )
+    a(
+        f"- **Positive control**: N={result.n} draws at the `{result.mismatch_corner}` "
+        "corner (mismatch ENABLED) must show stdev strictly greater than each "
+        "measurement's `min_stdev` floor (default 0.0) -- "
+        f"{'PASS' if pos_ok else 'FAIL: ' + '; '.join(pos_failures)}"
+    )
     if note:
         a(f"- **Note**: {note}")
-    overall_ok = ctrl_ok
+    overall_ok = ctrl_ok and pos_ok
     a(f"- **Overall**: {'PASS' if overall_ok else 'FAIL'}")
     a("")
     a("## Distributions (mismatch-enabled draws)")

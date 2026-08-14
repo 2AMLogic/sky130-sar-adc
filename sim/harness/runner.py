@@ -44,14 +44,31 @@ def _run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
     shutil.copyfile(SIM_DIR / "spiceinit", scratch_dir / ".spiceinit")
     netlist_path = scratch_dir / f"{log_name}.spice"
     netlist_path.write_text(netlist_text)
-    proc = subprocess.run(
-        ["ngspice", "-b", str(netlist_path)],
-        cwd=scratch_dir,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    return proc.stdout + proc.stderr
+    try:
+        proc = subprocess.run(
+            ["ngspice", "-b", str(netlist_path)],
+            cwd=scratch_dir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        out = (exc.stdout or "") + (exc.stderr or "")
+        raise RuntimeError(
+            f"ngspice timed out after 120s running {netlist_path.name} "
+            f"(last output:\n{out[-2000:]})"
+        ) from exc
+    output = proc.stdout + proc.stderr
+    if proc.returncode != 0:
+        # A crashed/erroring ngspice must not be allowed to silently read as
+        # "ran fine, just produced no measurement" -- that only surfaces
+        # today when the measurement in question has a `checks` entry, and
+        # is otherwise invisible. Fail loudly instead.
+        raise RuntimeError(
+            f"ngspice exited {proc.returncode} running {netlist_path.name} "
+            f"(output:\n{output[-2000:]})"
+        )
+    return output
 
 
 def _evaluate_checks(

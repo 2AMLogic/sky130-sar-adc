@@ -69,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
 
     names = list(manifest.measure.keys())
     ctrl_ok, ctrl_failures = mc_runner.negative_control_ok(result, names)
+    pos_ok, pos_failures = mc_runner.positive_control_ok(result, names, manifest.checks)
 
     if args.record:
         record_path = mc_runner.write_evidence(result, note=args.note, supersedes=args.supersedes)
@@ -79,8 +80,13 @@ def main(argv: list[str] | None = None) -> int:
         for name, d in dists.items():
             print(f"{name}: N={d.n} mean={d.mean:.6g} stdev={d.stdev:.6g} min={d.minimum:.6g} max={d.maximum:.6g}")
         print(f"negative control: {'PASS' if ctrl_ok else 'FAIL: ' + '; '.join(ctrl_failures)}")
+        print(f"positive control (mismatch draws must vary): {'PASS' if pos_ok else 'FAIL: ' + '; '.join(pos_failures)}")
 
-    return 0 if ctrl_ok else 1
+    # Both arms must pass: a negative control that always passes AND a
+    # positive control that always passes would together be
+    # indistinguishable from a harness that never actually randomizes
+    # anything (see mc_runner.positive_control_ok()'s docstring).
+    return 0 if (ctrl_ok and pos_ok) else 1
 
 
 if __name__ == "__main__":

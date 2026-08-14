@@ -5,16 +5,18 @@ sim/selftest.sh stage 1/4)."""
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
 from harness import corners, evidence, measure, runner  # noqa: E402
-from harness import mc_runner, testbench, toolchain  # noqa: E402
+from harness import mc_runner, pdk, testbench, toolchain  # noqa: E402
 
 
 class TestMeasureParse(unittest.TestCase):
@@ -109,6 +111,37 @@ class TestRunnerHelpers(unittest.TestCase):
         checks = {"max_spread_pct_by_axis": {"process": 1.0}}
         bad = runner._evaluate_checks("x", checks, 1.0, {"process": 5.0})
         self.assertEqual(len(bad), 1)
+
+    def test_run_ngspice_raises_on_nonzero_return_code(self):
+        """A crashed/erroring ngspice must surface as an explicit harness
+        error, not silently fall through to "no measurement parsed" (issue
+        #8)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(runner.shutil, "copyfile"):
+                with mock.patch.object(
+                    runner.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess(
+                        args=["ngspice"], returncode=1, stdout="", stderr="fatal error"
+                    ),
+                ):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        runner._run_ngspice("* netlist\n.end\n", scratch, "corner_0")
+        self.assertIn("exited 1", str(ctx.exception))
+
+    def test_run_ngspice_raises_on_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(runner.shutil, "copyfile"):
+                with mock.patch.object(
+                    runner.subprocess,
+                    "run",
+                    side_effect=subprocess.TimeoutExpired(cmd=["ngspice"], timeout=120),
+                ):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        runner._run_ngspice("* netlist\n.end\n", scratch, "corner_0")
+        self.assertIn("timed out", str(ctx.exception))
 
 
 class TestTestbenchManifest(unittest.TestCase):
@@ -209,6 +242,95 @@ class TestMcRunner(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(len(failures), 1)
 
+    def test_positive_control_ok_when_draws_vary(self):
+        class FakeResult:
+            draws = [
+                mc_runner.Draw(seed=1, measures={"x": 5.0}, log_text=""),
+                mc_runner.Draw(seed=2, measures={"x": 5.1}, log_text=""),
+            ]
+
+        ok, failures = mc_runner.positive_control_ok(FakeResult(), ["x"])
+        self.assertTrue(ok)
+        self.assertEqual(failures, [])
+
+    def test_positive_control_fails_when_draws_are_degenerate(self):
+        """The exact regression issue #8 describes: if MC_MM_SWITCH ever
+        stopped taking effect, the mismatch-enabled draws would collapse to
+        a point -- stdev == 0 -- just like the negative control. This must
+        fail, not silently pass as "a perfectly plausible distribution of
+        width zero"."""
+
+        class FakeResult:
+            draws = [
+                mc_runner.Draw(seed=1, measures={"x": 5.0}, log_text=""),
+                mc_runner.Draw(seed=2, measures={"x": 5.0}, log_text=""),
+            ]
+
+        ok, failures = mc_runner.positive_control_ok(FakeResult(), ["x"])
+        self.assertFalse(ok)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("not >", failures[0])
+
+    def test_positive_control_no_samples_parsed_fails(self):
+        class FakeResult:
+            draws: list = []
+
+        ok, failures = mc_runner.positive_control_ok(FakeResult(), ["x"])
+        self.assertFalse(ok)
+        self.assertIn("no mismatch-enabled samples parsed", failures[0])
+
+    def test_positive_control_honors_manifest_min_stdev_floor(self):
+        """A manifest-declared `min_stdev` floor (kept out of harness code,
+        per corners.py's convention) is enforced even when the bare
+        stdev > 0 check would have passed -- guards against a spread that
+        is technically nonzero but too small to trust (e.g. floating-point
+        noise)."""
+
+        class FakeResult:
+            draws = [
+                mc_runner.Draw(seed=1, measures={"x": 5.0}, log_text=""),
+                mc_runner.Draw(seed=2, measures={"x": 5.0 + 1e-9}, log_text=""),
+            ]
+
+        ok, failures = mc_runner.positive_control_ok(
+            FakeResult(), ["x"], checks={"x": {"min_stdev": 1e-6}}
+        )
+        self.assertFalse(ok)
+        self.assertIn("min_stdev floor", failures[0])
+
+        # The same draws pass with no floor declared (default 0.0).
+        ok2, failures2 = mc_runner.positive_control_ok(FakeResult(), ["x"])
+        self.assertTrue(ok2)
+        self.assertEqual(failures2, [])
+
+    def test_run_ngspice_raises_on_nonzero_return_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(mc_runner.shutil, "copyfile"):
+                with mock.patch.object(
+                    mc_runner.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess(
+                        args=["ngspice"], returncode=1, stdout="", stderr="fatal error"
+                    ),
+                ):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        mc_runner._run_ngspice("* netlist\n.end\n", scratch, "draw_0")
+        self.assertIn("exited 1", str(ctx.exception))
+
+    def test_run_ngspice_raises_on_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(mc_runner.shutil, "copyfile"):
+                with mock.patch.object(
+                    mc_runner.subprocess,
+                    "run",
+                    side_effect=subprocess.TimeoutExpired(cmd=["ngspice"], timeout=120),
+                ):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        mc_runner._run_ngspice("* netlist\n.end\n", scratch, "draw_0")
+        self.assertIn("timed out", str(ctx.exception))
+
 
 class TestToolchainDriftVsWarning(unittest.TestCase):
     """The status-1 (drift, fatal) vs warning (recorded, non-fatal) split.
@@ -223,7 +345,7 @@ class TestToolchainDriftVsWarning(unittest.TestCase):
             toolchain._ngspice_version,
             toolchain._xschem_version,
             toolchain.pdk.resolve,
-            toolchain.pdk.resolved_commit,
+            toolchain.pdk.resolved_commit_verified,
         )
         cfg = toolchain._load()
         self.pinned_pdk = cfg["open_pdks"]
@@ -237,14 +359,14 @@ class TestToolchainDriftVsWarning(unittest.TestCase):
             error = ""
 
         toolchain.pdk.resolve = lambda: FakeInfo()
-        toolchain.pdk.resolved_commit = lambda info: self.pinned_pdk
+        toolchain.pdk.resolved_commit_verified = lambda info: self.pinned_pdk
 
     def tearDown(self):
         (
             toolchain._ngspice_version,
             toolchain._xschem_version,
             toolchain.pdk.resolve,
-            toolchain.pdk.resolved_commit,
+            toolchain.pdk.resolved_commit_verified,
         ) = self._saved
 
     def test_xschem_drift_is_a_warning_not_a_failure(self):
@@ -272,10 +394,28 @@ class TestToolchainDriftVsWarning(unittest.TestCase):
     def test_pdk_commit_drift_is_fatal(self):
         toolchain._ngspice_version = lambda: f"ngspice-{self.ngspice_floor}"
         toolchain._xschem_version = lambda: self.pinned_xschem
-        toolchain.pdk.resolved_commit = lambda info: "0" * 40
+        toolchain.pdk.resolved_commit_verified = lambda info: "0" * 40
         result = toolchain.check_env()
         self.assertEqual(result.status, 1)
         self.assertIn("!= pinned", result.messages[0])
+
+    def test_unverifiable_pdk_provenance_is_a_warning_not_a_silent_pass(self):
+        """A PDK install whose commit can't be verified through volare's
+        path layout (resolved_commit_verified() returns None) must NOT
+        satisfy the pin -- it should warn, not pass silently, and must
+        never appear in `messages` (which would make it drift-fatal) nor
+        be omitted entirely (issue #8: this used to silently pass because
+        pdk.resolved_commit()'s "<pin> (unverified -- ...)" display string
+        happens to startswith() the pin)."""
+        toolchain._ngspice_version = lambda: f"ngspice-{self.ngspice_floor}"
+        toolchain._xschem_version = lambda: self.pinned_xschem
+        toolchain.pdk.resolved_commit_verified = lambda info: None
+        result = toolchain.check_env()
+        self.assertEqual(result.status, 0)
+        self.assertEqual(result.messages, [])
+        self.assertEqual(len(result.warnings), 1)
+        self.assertIn("unverifiable", result.warnings[0])
+        self.assertIn(self.pinned_pdk, result.warnings[0])
 
     def test_allow_drift_downgrades_to_ok_but_keeps_the_message(self):
         toolchain._ngspice_version = lambda: f"ngspice-{self.ngspice_floor - 1}"
@@ -283,6 +423,50 @@ class TestToolchainDriftVsWarning(unittest.TestCase):
         result = toolchain.check_env(allow_drift=True)
         self.assertEqual(result.status, 0)
         self.assertEqual(len(result.messages), 1)
+
+
+class TestPdkResolvedCommit(unittest.TestCase):
+    """pdk.resolved_commit() (display) vs. resolved_commit_verified()
+    (fail-closed gate input) -- issue #8: these used to be the same
+    function, and the fallback's "<pin> (unverified -- ...)" display
+    string happened to startswith() the pin, silently satisfying
+    toolchain.check_env()'s drift gate for an install of unknown
+    provenance."""
+
+    def test_verified_commit_found_via_volare_shaped_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            commit = "a" * 40
+            versions_dir = Path(tmp) / "sky130" / "versions" / commit / "sky130A"
+            versions_dir.mkdir(parents=True)
+
+            class FakeInfo:
+                variant_dir = versions_dir
+                open_pdks_commit_expected = "b" * 40
+
+            self.assertEqual(pdk.resolved_commit_verified(FakeInfo()), commit)
+            self.assertEqual(pdk.resolved_commit(FakeInfo()), commit)
+
+    def test_non_volare_layout_is_unverifiable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            plain_dir = Path(tmp) / "some-hand-install" / "sky130A"
+            plain_dir.mkdir(parents=True)
+
+            class FakeInfo:
+                variant_dir = plain_dir
+                open_pdks_commit_expected = "b" * 40
+
+            self.assertIsNone(pdk.resolved_commit_verified(FakeInfo()))
+            display = pdk.resolved_commit(FakeInfo())
+            self.assertTrue(display.startswith("b" * 40))
+            self.assertIn("unverified", display)
+
+    def test_nonexistent_path_is_unverifiable_not_an_error(self):
+        class FakeInfo:
+            variant_dir = Path("/definitely/does/not/exist/sky130A")
+            open_pdks_commit_expected = "c" * 40
+
+        self.assertIsNone(pdk.resolved_commit_verified(FakeInfo()))
+        self.assertTrue(pdk.resolved_commit(FakeInfo()).startswith("c" * 40))
 
 
 if __name__ == "__main__":
