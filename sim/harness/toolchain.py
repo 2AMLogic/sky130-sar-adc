@@ -56,6 +56,46 @@ def _ngspice_major(version_str: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
+    """Write `netlist_text` into `scratch_dir` and invoke ngspice on it,
+    enforcing a 120s timeout and raising RuntimeError on a nonzero exit.
+
+    Shared by sim/harness/runner.py (PVT corner sweeps) and
+    sim/harness/mc_runner.py (Monte Carlo sweeps) -- both shell out to
+    ngspice identically, so the invocation lives here alongside the other
+    ngspice-adjacent helpers (_ngspice_version() / _ngspice_major()).
+    """
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(SIM_DIR / "spiceinit", scratch_dir / ".spiceinit")
+    netlist_path = scratch_dir / f"{log_name}.spice"
+    netlist_path.write_text(netlist_text)
+    try:
+        proc = subprocess.run(
+            ["ngspice", "-b", str(netlist_path)],
+            cwd=scratch_dir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        out = (exc.stdout or "") + (exc.stderr or "")
+        raise RuntimeError(
+            f"ngspice timed out after 120s running {netlist_path.name} "
+            f"(last output:\n{out[-2000:]})"
+        ) from exc
+    output = proc.stdout + proc.stderr
+    if proc.returncode != 0:
+        # A crashed/erroring ngspice must not be allowed to silently read as
+        # "ran fine, just produced no measurement" -- that only surfaces
+        # today when the measurement in question has a `checks` entry, and
+        # is otherwise invisible. Fail loudly instead.
+        raise RuntimeError(
+            f"ngspice exited {proc.returncode} running {netlist_path.name} "
+            f"(output:\n{output[-2000:]})"
+        )
+    return output
+
+
 def _xschem_version() -> str | None:
     if shutil.which("xschem") is None:
         return None
