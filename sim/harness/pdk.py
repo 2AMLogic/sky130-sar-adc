@@ -29,13 +29,13 @@ class PdkInfo:
     error: str = ""
 
 
-def _load_pdk_json() -> dict:
+def load_pdk_json() -> dict:
     with (SIM_DIR / "pdk.json").open() as f:
         return json.load(f)
 
 
 def resolve() -> PdkInfo:
-    cfg = _load_pdk_json()
+    cfg = load_pdk_json()
     root_env = os.environ.get("PDK_ROOT", "").strip()
     variant_env = os.environ.get("PDK", "").strip()
 

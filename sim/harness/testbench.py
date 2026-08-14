@@ -35,6 +35,15 @@ from pathlib import Path
 
 from . import pdk
 
+SIM_DIR = Path(__file__).resolve().parent.parent
+
+
+def experiments() -> list[str]:
+    """Experiment directory names under sim/ that have a testbench manifest,
+    i.e. sim/<experiment>/testbench/tb.json -- shared by run_corners.py's and
+    monte_carlo.py's --list."""
+    return [p.parent.parent.name for p in sorted(SIM_DIR.glob("*/testbench/tb.json"))]
+
 
 @dataclass
 class Manifest:
