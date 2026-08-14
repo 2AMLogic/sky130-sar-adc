@@ -18,10 +18,6 @@ from . import mc_runner, testbench
 SIM_DIR = Path(__file__).resolve().parent.parent
 
 
-def _experiments() -> list[str]:
-    return [p.parent.parent.name for p in sorted(SIM_DIR.glob("*/testbench/tb.json"))]
-
-
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Monte Carlo runner (sim/harness)")
     ap.add_argument("experiment", nargs="?", help="experiment directory name under sim/")
@@ -38,7 +34,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     if args.list:
-        for name in _experiments():
+        for name in testbench.experiments():
             print(name)
         return 0
 

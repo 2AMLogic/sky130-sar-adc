@@ -12,25 +12,17 @@ of the PDK and of repo convention, not of the ADC spec.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-SIM_DIR = Path(__file__).resolve().parent.parent
-
-
-def _load_pdk_json() -> dict:
-    with (SIM_DIR / "pdk.json").open() as f:
-        return json.load(f)
+from .pdk import load_pdk_json
 
 
 def default_process_corners() -> list[str]:
     """The base MOS/BJT .lib sections -- verified present in
     libs.tech/combined/sky130.lib.spice (see sim/pdk.json's notes)."""
-    return list(_load_pdk_json()["process_corners"])
+    return list(load_pdk_json()["process_corners"])
 
 
 def default_mismatch_corners() -> list[str]:
-    return list(_load_pdk_json()["mismatch_corners"])
+    return list(load_pdk_json()["mismatch_corners"])
 
 
 # "Canary standard" default sweep per CLAUDE.md ("PVT corners on every

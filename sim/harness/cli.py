@@ -21,13 +21,6 @@ from . import pdk, runner, testbench, toolchain
 SIM_DIR = Path(__file__).resolve().parent.parent
 
 
-def _experiments() -> list[str]:
-    out = []
-    for tb_json in sorted(SIM_DIR.glob("*/testbench/tb.json")):
-        out.append(tb_json.parent.parent.name)
-    return out
-
-
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="PVT corner runner (sim/harness)")
     ap.add_argument("experiment", nargs="?", help="experiment directory name under sim/")
@@ -51,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.list:
-        for name in _experiments():
+        for name in testbench.experiments():
             print(name)
         return 0
 
