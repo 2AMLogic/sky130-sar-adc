@@ -20,6 +20,12 @@ different**, and the whole converter scales off this choice:
 noise budget all follow from this. It is the first decision record (DR-001) and
 an input to ratification — **do not assume gf180's 3.3 V carries over.**
 
+**Drafted, not ratified**:
+[`decision-records/DR-001-supply-flavor-scope.md`](decision-records/DR-001-supply-flavor-scope.md)
+argues this scope and recommends the 1.8 V core flavor, deferring the
+higher-voltage arrangements. It is `proposed` and stays that way until #1
+closes — it is the record #1 ratifies *against*, not a settled answer.
+
 ## DRAFT target table (all provisional)
 
 | Parameter | DRAFT target | Carried from / note |
