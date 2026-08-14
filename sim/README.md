@@ -321,6 +321,14 @@ with a loud SKIP) so headless CI stays useful; `--require-pdk` turns that skip
 into a failure, and `--quick` stops after stage 2. A *drifted* toolchain never
 skips — it fails.
 
+Stage 2 distinguishes drift from a warning by asking which tool the evidence
+depends on. ngspice below the pinned floor, or a different open_pdks commit,
+is **fatal**: every number under `sim/` comes out of ngspice reading the PDK
+model library, so those make records incomparable. A differing **xschem**
+version is a **warning**: xschem only turns a schematic into a netlist, and
+each record already pins the exact netlist it ran by SHA-256, so the drift is
+reported and recorded without blocking a PVT run.
+
 Runtime: the default run is 17 ngspice invocations, ~5 minutes measured on the
 reference toolchain and dominated by sky130 model-library load (~15–20 s per
 invocation, largely independent of the circuit). `--full` runs the complete

@@ -190,6 +190,17 @@ in headless CI; a *drifted* pinned toolchain is never skipped, it fails.
 - **xschem opens a GUI window instead of running headless**: pass `-x` (no
   X) in addition to `-n -q`.
 - **`sim/run_corners.py --check-env` exits 1 (not 3)**: a pinned tool
-  *drifted* (e.g. an older/newer ngspice than `sim/toolchain.json` allows) —
-  this is a real problem, not "PDK missing"; see that file's `_comment`
-  block for the floor-vs-exact-match rules per tool.
+  *drifted* (e.g. an older ngspice than `sim/toolchain.json`'s floor, or a
+  different open_pdks commit) — this is a real problem, not "PDK missing";
+  see that file's `_comment` block for the floor-vs-exact-match rules per
+  tool. Note that an xschem version difference is reported as a **warning**
+  and does not fail the check: PVT/MC evidence is ngspice-level and every
+  record pins the netlist it ran by SHA-256.
+- **Debian/Ubuntu's packaged ngspice is too old.** `apt install ngspice` on
+  Ubuntu 24.04 gives `ngspice-42`, below this repo's floor, so `--check-env`
+  will exit 1 there. Build from source (the CI job in
+  `.github/workflows/ci.yml` does exactly this and is a working recipe), or
+  use a distribution that ships a new enough build — Homebrew's `ngspice`
+  formula is current. Do **not** lower the floor in `sim/toolchain.json` to
+  make a local install pass: the floor is what makes the records in `sim/`
+  comparable with each other.

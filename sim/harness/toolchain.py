@@ -1,11 +1,19 @@
 """Toolchain version pin checks against sim/toolchain.json.
 
 Exit-code convention (mirrors gf180-sar-adc's sim/harness/toolchain.py):
-  0 -- everything installed and within pin.
+  0 -- everything installed and within pin (warnings may still be reported).
   1 -- something installed but DRIFTED from the pin (real problem: results
        would not be comparable with existing records).
   3 -- a required tool (ngspice) or the PDK itself is simply MISSING
        (skippable on a machine that hasn't been bootstrapped yet).
+
+Drift is fatal; a *warning* is not. The distinction is which tool the
+evidence actually depends on. Every number recorded under sim/ comes out of
+ngspice reading the PDK model library, so an ngspice or open_pdks drift makes
+records incomparable and must stop the run. xschem only converts a schematic
+into a netlist, and each record already pins the exact netlist it ran by
+SHA-256 (see evidence.py) -- so an xschem version difference is recorded and
+reported, but does not invalidate anything and must not block a PVT run.
 """
 
 from __future__ import annotations
@@ -27,6 +35,7 @@ SIM_DIR = Path(__file__).resolve().parent.parent
 class CheckResult:
     status: int  # 0 ok, 1 drift, 3 missing
     messages: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 def _load() -> dict:
@@ -59,6 +68,7 @@ def _xschem_version() -> str | None:
 def check_env(allow_drift: bool = False) -> CheckResult:
     cfg = _load()
     msgs: list[str] = []
+    warns: list[str] = []
 
     py_min = tuple(int(x) for x in cfg["python_min"].split("."))
     py_have = sys.version_info[:2]
@@ -78,17 +88,22 @@ def check_env(allow_drift: bool = False) -> CheckResult:
             f"ngspice-{cfg['ngspice_min_major']}"
         )
 
+    # xschem drift is a warning, not drift-fatal: see this module's docstring
+    # for why the netlist SHA-256 in each record already covers it. Left out
+    # of `msgs` deliberately, so a machine with a differently-versioned xschem
+    # can still produce comparable ngspice-level evidence.
     xs_version = _xschem_version()
     if xs_version is not None and xs_version != cfg["xschem_tag"]:
-        msgs.append(
-            f"xschem {xs_version} != pinned tag {cfg['xschem_tag']} "
-            "(recorded, not fatal on its own -- xschem drift alone does not "
-            "affect ngspice-level PVT/MC evidence)"
+        warns.append(
+            f"xschem {xs_version} != pinned tag {cfg['xschem_tag']} -- "
+            "recorded, not fatal: PVT/MC evidence is ngspice-level and each "
+            "record pins its netlist by SHA-256. Re-netlist and re-record if "
+            "you need a schematic-level claim from this machine."
         )
 
     info = pdk.resolve()
     if not info.found:
-        return CheckResult(status=3, messages=[*msgs, info.error])
+        return CheckResult(status=3, messages=[*msgs, info.error], warnings=warns)
 
     if cfg["open_pdks"] is not None:
         actual = pdk.resolved_commit(info)
@@ -99,8 +114,8 @@ def check_env(allow_drift: bool = False) -> CheckResult:
             )
 
     if msgs and not allow_drift:
-        return CheckResult(status=1, messages=msgs)
-    return CheckResult(status=0, messages=msgs)
+        return CheckResult(status=1, messages=msgs, warnings=warns)
+    return CheckResult(status=0, messages=msgs, warnings=warns)
 
 
 def summary() -> str:

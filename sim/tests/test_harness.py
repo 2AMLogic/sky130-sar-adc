@@ -14,7 +14,7 @@ SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
 from harness import corners, evidence, measure, runner  # noqa: E402
-from harness import mc_runner, testbench  # noqa: E402
+from harness import mc_runner, testbench, toolchain  # noqa: E402
 
 
 class TestMeasureParse(unittest.TestCase):
@@ -208,6 +208,81 @@ class TestMcRunner(unittest.TestCase):
         ok, failures = mc_runner.negative_control_ok(FakeResult(), ["x"])
         self.assertFalse(ok)
         self.assertEqual(len(failures), 1)
+
+
+class TestToolchainDriftVsWarning(unittest.TestCase):
+    """The status-1 (drift, fatal) vs warning (recorded, non-fatal) split.
+
+    check_env() reaches out to the real ngspice/xschem/PDK on the machine, so
+    these tests patch the three probes rather than requiring any of them --
+    the point under test is the classification, not the probing.
+    """
+
+    def setUp(self):
+        self._saved = (
+            toolchain._ngspice_version,
+            toolchain._xschem_version,
+            toolchain.pdk.resolve,
+            toolchain.pdk.resolved_commit,
+        )
+        cfg = toolchain._load()
+        self.pinned_pdk = cfg["open_pdks"]
+        self.pinned_xschem = cfg["xschem_tag"]
+        self.ngspice_floor = cfg["ngspice_min_major"]
+
+        class FakeInfo:
+            found = True
+            variant = "sky130A"
+            variant_dir = Path("/fake/sky130A")
+            error = ""
+
+        toolchain.pdk.resolve = lambda: FakeInfo()
+        toolchain.pdk.resolved_commit = lambda info: self.pinned_pdk
+
+    def tearDown(self):
+        (
+            toolchain._ngspice_version,
+            toolchain._xschem_version,
+            toolchain.pdk.resolve,
+            toolchain.pdk.resolved_commit,
+        ) = self._saved
+
+    def test_xschem_drift_is_a_warning_not_a_failure(self):
+        toolchain._ngspice_version = lambda: f"ngspice-{self.ngspice_floor}"
+        toolchain._xschem_version = lambda: "0.0.1-definitely-not-the-pin"
+        result = toolchain.check_env()
+        self.assertEqual(result.status, 0)
+        self.assertEqual(result.messages, [])
+        self.assertEqual(len(result.warnings), 1)
+        self.assertIn("not fatal", result.warnings[0])
+
+    def test_ngspice_below_floor_is_fatal_drift(self):
+        toolchain._ngspice_version = lambda: f"ngspice-{self.ngspice_floor - 1}"
+        toolchain._xschem_version = lambda: self.pinned_xschem
+        result = toolchain.check_env()
+        self.assertEqual(result.status, 1)
+        self.assertEqual(len(result.messages), 1)
+        self.assertIn("below floor", result.messages[0])
+
+    def test_missing_ngspice_is_skippable_not_drift(self):
+        toolchain._ngspice_version = lambda: None
+        toolchain._xschem_version = lambda: self.pinned_xschem
+        self.assertEqual(toolchain.check_env().status, 3)
+
+    def test_pdk_commit_drift_is_fatal(self):
+        toolchain._ngspice_version = lambda: f"ngspice-{self.ngspice_floor}"
+        toolchain._xschem_version = lambda: self.pinned_xschem
+        toolchain.pdk.resolved_commit = lambda info: "0" * 40
+        result = toolchain.check_env()
+        self.assertEqual(result.status, 1)
+        self.assertIn("!= pinned", result.messages[0])
+
+    def test_allow_drift_downgrades_to_ok_but_keeps_the_message(self):
+        toolchain._ngspice_version = lambda: f"ngspice-{self.ngspice_floor - 1}"
+        toolchain._xschem_version = lambda: self.pinned_xschem
+        result = toolchain.check_env(allow_drift=True)
+        self.assertEqual(result.status, 0)
+        self.assertEqual(len(result.messages), 1)
 
 
 if __name__ == "__main__":
