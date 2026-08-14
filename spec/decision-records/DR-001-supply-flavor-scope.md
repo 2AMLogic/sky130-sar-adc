@@ -5,6 +5,21 @@
 - **Decided by**: Builder agent, issue #3
 - **Supersedes**: none — first record in this repo
 - **Superseded by**: (none while this record stands)
+- **Corrections** (this record has never been ratified; corrections are logged
+  here rather than superseding it):
+  - 2026-08-13, during review of PR #4 — the `sky130_fd_sc_hvl` voltage range
+    was wrong in three places (Context "Digital libraries", Consequence §5,
+    Alternatives "gf180-like 3.3 V"). The record read "characterized at
+    4.40–5.50 V", which is the span of `hvl`'s **`ff` corner only**; the
+    library's HV rail is characterized 1.32–5.50 V and its nominal point is
+    `tt_025C_3v30`. The Alternatives text consequently claimed "3.3 V falls in
+    the gap for both" libraries, which is false — 3.3 V is `hvl`'s own `tt`
+    nominal. That sub-argument is now grounded on `hvl`'s cell inventory (the
+    disqualification the Context bullet already establishes) instead of on a
+    characterization gap that does not exist. **The Decision and the rejection
+    of the 3.3 V arrangement are unchanged**; their load-bearing legs
+    (no complementary 3.3 V enhancement pair, thick-oxide Vt/geometry/area,
+    method-not-numeric parity) were not affected.
 - **Related**: #1 (spec ratification, `loom:operator-only`), #2 (sim harness),
   `spec/target-spec.md` ("The one that gates the rest: supply flavor (open)"),
   port-parity sibling `2AMLogic/gf180-sar-adc` (DR-0002 reference source,
@@ -46,7 +61,13 @@ Two further facts, verified the same way, bear directly on the choice:
 
 - **Digital libraries.** `sky130_fd_sc_hd` ships 446 layout (`mag`) files —
   169 distinct cell types — characterized at 1.28–1.95 V; `sky130_fd_sc_hvl`
-  ships 71, characterized at 4.40–5.50 V. Only 8 of those 71 are level shifters
+  ships 71 (70 `fd` cells plus one `sky130_ef_sc_hvl__fill_8`), whose
+  high-voltage rail is characterized **1.32–5.50 V**, but corner by corner
+  rather than uniformly: `ss` at 1.32/1.49/1.65/1.95/2.40/2.70/3.00/5.50 V,
+  `tt` at 2.64/2.97/3.30 V, `ff` at 4.40/4.95/5.50 V. Its nominal point is
+  `tt_025C_3v30` — `hvl`'s own `default_operating_conditions`, with
+  `voltage_map("VPWR", 3.3)` — so `hvl` is a 3.3 V-nominal library that also
+  characterizes up to 5.50 V, not a 5 V-only one. Only 8 of those 71 are level shifters
   (`lsbuflv2hv_*`, `lsbufhv2lv_*`); the rest is a real, if minimal,
   gate/flop/latch/scan set — 2- and 3-input `and`/`or`/`nand`/`nor`,
   `xor2`/`xnor2`, `mux2`/`mux4`, a shallow `a21o`/`a22o`/`o21a`/`o22a` family,
@@ -115,10 +136,16 @@ scoping call.
   the devices would be 5 V-rated parts run at 3.3 V, so their thresholds and
   geometries are the thick-oxide ones regardless, meaning the comparator
   headroom, area, and speed all pay the thick-oxide price while only the
-  supply looks familiar. It also still needs a 3.3 V rail and still leaves the
-  SAR logic without a characterized library at that voltage (`hd` is
-  characterized to 1.95 V, `hvl` from 4.40 V — 3.3 V falls in the gap for
-  both). Numeric port-parity with the sibling is not a design goal; method
+  supply looks familiar. It also still needs a 3.3 V rail, and it puts the SAR
+  logic on the wrong digital library: `hd` stops at 1.95 V, so the only
+  characterized library at 3.3 V is `hvl` — 3.3 V is in fact `hvl`'s own `tt`
+  nominal, not a characterization gap — and `hvl` is precisely the library the
+  Context bullet above already disqualifies as a synthesis target (71 files, no
+  complex-gate depth, no 4-input gates, no arithmetic, no clock-tree or delay
+  cells). At 3.3 V the SAR logic is not choosing between two libraries; it is
+  `hvl` or nothing. One narrower corner cost does attach: `hvl`'s fast corner
+  starts at 4.40 V, so a 3.3 V ±10 % band (2.97–3.63 V) contains `tt` and `ss`
+  points but no fast-corner `hvl` library at all. Numeric port-parity with the sibling is not a design goal; method
   parity is (`README.md`: "a port of its *block class and method*").
 - **Mixed HV front end + 1.8 V core.** Not rejected — deferred conditionally
   (Decision §3). It is the right answer *if* an above-rail input range is
@@ -221,10 +248,13 @@ row of the DRAFT table remains DRAFT and unratified until #1 closes.
    afterthought. Against the draft 100 kS/s–1 MS/s row (≈83 ns per bit trial
    at 1 MS/s, 10 bits plus sampling) there is expected to be room — but that is
    an expectation for #2's harness to test, not a claim.
-5. **SAR logic gets the good library.** 446 characterized cells at
-   1.28–1.95 V versus 71 cells at 4.40–5.50 V is not a close comparison for
-   synthesizable control logic, and it keeps this block on the same digital
-   flow the rest of the open sky130 ecosystem uses.
+5. **SAR logic gets the good library.** 446 characterized `hd` cells at
+   1.28–1.95 V versus `hvl`'s 71 is not a close comparison for synthesizable
+   control logic — and what decides it is the missing cell classes, not the
+   supply span: `hvl`'s HV rail is characterized 1.32–5.50 V with a 3.30 V `tt`
+   nominal, so no plausible rail rules `hvl` in or out on voltage alone
+   (Context). Choosing `hd` also keeps this block on the same digital flow the
+   rest of the open sky130 ecosystem uses.
 6. **Two characterization gaps to carry, not to hide.** Both sit in
    `sky130_fd_sc_hd`'s timing libraries, and both land on corners #1 is being
    asked to ratify. They are the same defect class on two different axes:
