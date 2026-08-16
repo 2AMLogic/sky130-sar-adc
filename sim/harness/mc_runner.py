@@ -245,15 +245,9 @@ def write_evidence(result: McResult, note: str = "", supersedes: str = "") -> Pa
     for i, d in enumerate(result.negative_control_draws):
         (draws_dir / f"negctrl_{i}_seed{d.seed}.log").write_text(d.log_text)
 
-    snapshots_dir = experiment_dir / "netlist-snapshots"
-    snapshots_dir.mkdir(parents=True, exist_ok=True)
-    (snapshots_dir / f"{result.record_id}.spice").write_text(
-        manifest.netlist_fragment.read_text()
+    record_path = evidence.write_netlist_snapshot(
+        experiment_dir, result.record_id, manifest.netlist_fragment
     )
-
-    records_dir = experiment_dir / "records"
-    records_dir.mkdir(parents=True, exist_ok=True)
-    record_path = records_dir / f"{result.record_id}.md"
 
     dists = distributions(result.draws, names)
     ctrl_ok, ctrl_failures = negative_control_ok(result, names)
@@ -313,14 +307,7 @@ def write_evidence(result: McResult, note: str = "", supersedes: str = "") -> Pa
         extra={"MC seed": str(result.seed), "MC N": str(result.n)},
     ))
     a("")
-    a(f"- **Supersedes**: {supersedes or '(none)'}")
-    a("")
-    a(
-        "Written by `sim/monte_carlo.py`. Append-only: never edit or delete "
-        "this file -- a re-run or correction mints a new record-id and "
-        "points back here via **Supersedes** (see `sim/README.md`)."
-    )
-    a("")
+    lines.extend(evidence.footer_lines("sim/monte_carlo.py", supersedes))
 
     record_path.write_text("\n".join(lines))
     return record_path

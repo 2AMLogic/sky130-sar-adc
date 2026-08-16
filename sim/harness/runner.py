@@ -213,15 +213,9 @@ def write_evidence(
     for p in result.points:
         (corners_dir / f"{p.corner_id}.log").write_text(p.log_text)
 
-    snapshots_dir = experiment_dir / "netlist-snapshots"
-    snapshots_dir.mkdir(parents=True, exist_ok=True)
-    (snapshots_dir / f"{result.record_id}.spice").write_text(
-        manifest.netlist_fragment.read_text()
+    record_path = evidence.write_netlist_snapshot(
+        experiment_dir, result.record_id, manifest.netlist_fragment
     )
-
-    records_dir = experiment_dir / "records"
-    records_dir.mkdir(parents=True, exist_ok=True)
-    record_path = records_dir / f"{result.record_id}.md"
 
     lines: list[str] = []
     a = lines.append
@@ -268,14 +262,7 @@ def write_evidence(
         netlist_sha256=result.netlist_sha256,
     ))
     a("")
-    a(f"- **Supersedes**: {supersedes or '(none)'}")
-    a("")
-    a(
-        "Written by `sim/run_corners.py`. Append-only: never edit or delete "
-        "this file -- a re-run or correction mints a new record-id and "
-        "points back here via **Supersedes** (see `sim/README.md`)."
-    )
-    a("")
+    lines.extend(evidence.footer_lines("sim/run_corners.py", supersedes))
 
     record_path.write_text("\n".join(lines))
     return record_path
