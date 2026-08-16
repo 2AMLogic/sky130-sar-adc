@@ -90,3 +90,34 @@ def _harness_version() -> str:
     from . import __version__
 
     return __version__
+
+
+def write_netlist_snapshot(experiment_dir: Path, record_id: str, netlist_fragment: Path) -> Path:
+    """Snapshot the DUT netlist under <experiment_dir>/netlist-snapshots/ and
+    set up <experiment_dir>/records/, returning the path the caller's
+    evidence record should be written to. Shared by both write_evidence()
+    implementations (PVT corner runner and Monte Carlo runner) -- see
+    module docstring."""
+    snapshots_dir = experiment_dir / "netlist-snapshots"
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+    (snapshots_dir / f"{record_id}.spice").write_text(netlist_fragment.read_text())
+
+    records_dir = experiment_dir / "records"
+    records_dir.mkdir(parents=True, exist_ok=True)
+    return records_dir / f"{record_id}.md"
+
+
+def footer_lines(written_by: str, supersedes: str) -> list[str]:
+    """The **Supersedes** + append-only boilerplate every evidence record
+    ends with, parameterized by the calling script's path (e.g.
+    `sim/run_corners.py` or `sim/monte_carlo.py`)."""
+    return [
+        f"- **Supersedes**: {supersedes or '(none)'}",
+        "",
+        (
+            f"Written by `{written_by}`. Append-only: never edit or delete "
+            "this file -- a re-run or correction mints a new record-id and "
+            "points back here via **Supersedes** (see `sim/README.md`)."
+        ),
+        "",
+    ]
