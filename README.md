@@ -50,6 +50,9 @@ the proofs that the machinery works.
   gf180's 3.3 V flavor. No harness threshold encodes a draft spec value.
 - **Not started** — schematic entry, the CDAC/comparator design, verification,
   and layout. `measurements/` stays empty until there is silicon.
+- **The gap, itemized** — [`docs/t1-gap.md`](docs/t1-gap.md) maps the ten-item
+  T1 (bronze) evidence checklist to this block's current verdict and to the
+  issue tracking each failing item, as of the 2026-08-15 re-read.
 
 ## Private for now
 
