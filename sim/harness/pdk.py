@@ -46,27 +46,11 @@ def resolve() -> PdkInfo:
     xschem_rc = variant_dir / cfg["xschem_pdk_rc"]
 
     if not variant_dir.is_dir():
-        return PdkInfo(
-            root=root,
-            variant=variant,
-            variant_dir=variant_dir,
-            ngspice_lib=ngspice_lib,
-            xschem_rc=xschem_rc,
-            open_pdks_commit_expected=cfg["open_pdks_commit"],
-            found=False,
-            error=f"no PDK variant directory at {variant_dir}",
-        )
-    if not ngspice_lib.is_file():
-        return PdkInfo(
-            root=root,
-            variant=variant,
-            variant_dir=variant_dir,
-            ngspice_lib=ngspice_lib,
-            xschem_rc=xschem_rc,
-            open_pdks_commit_expected=cfg["open_pdks_commit"],
-            found=False,
-            error=f"no ngspice model library at {ngspice_lib}",
-        )
+        error = f"no PDK variant directory at {variant_dir}"
+    elif not ngspice_lib.is_file():
+        error = f"no ngspice model library at {ngspice_lib}"
+    else:
+        error = ""
 
     return PdkInfo(
         root=root,
@@ -75,7 +59,8 @@ def resolve() -> PdkInfo:
         ngspice_lib=ngspice_lib,
         xschem_rc=xschem_rc,
         open_pdks_commit_expected=cfg["open_pdks_commit"],
-        found=True,
+        found=not error,
+        error=error,
     )
 
 
