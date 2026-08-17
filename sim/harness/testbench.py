@@ -62,6 +62,18 @@ class Manifest:
     raw: dict
 
 
+def load_experiment(experiment: str) -> Manifest:
+    """Resolve an experiment name to its manifest, i.e.
+    sim/<experiment>/testbench/tb.json -- shared by run_corners.py's and
+    monte_carlo.py's experiment-argument resolution. Raises
+    FileNotFoundError(tb_json) if the manifest is missing; callers are
+    expected to catch it and print their own program-specific error."""
+    tb_json = SIM_DIR / experiment / "testbench" / "tb.json"
+    if not tb_json.is_file():
+        raise FileNotFoundError(tb_json)
+    return load(tb_json)
+
+
 def load(tb_json_path: Path) -> Manifest:
     with tb_json_path.open() as f:
         raw = json.load(f)
