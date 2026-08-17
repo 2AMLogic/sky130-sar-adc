@@ -86,7 +86,3 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{'PASS' if result.overall_ok else 'FAIL'}: {args.experiment} ({result.record_id})")
 
     return 0 if result.overall_ok else 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
