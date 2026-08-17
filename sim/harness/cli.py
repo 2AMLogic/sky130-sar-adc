@@ -14,11 +14,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from . import pdk, runner, testbench, toolchain
-
-SIM_DIR = Path(__file__).resolve().parent.parent
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,12 +58,12 @@ def main(argv: list[str] | None = None) -> int:
         ap.print_help()
         return 2
 
-    tb_json = SIM_DIR / args.experiment / "testbench" / "tb.json"
-    if not tb_json.is_file():
-        print(f"run_corners.py: no such experiment '{args.experiment}' (no {tb_json})", file=sys.stderr)
+    try:
+        manifest = testbench.load_experiment(args.experiment)
+    except FileNotFoundError as e:
+        print(f"run_corners.py: no such experiment '{args.experiment}' (no {e})", file=sys.stderr)
         return 1
 
-    manifest = testbench.load(tb_json)
     process_corners = args.corners.split(",") if args.corners else None
     temperatures_c = [float(t) for t in args.temps.split(",")] if args.temps else None
 

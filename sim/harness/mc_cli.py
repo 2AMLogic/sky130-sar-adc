@@ -11,11 +11,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from . import mc_runner, testbench
-
-SIM_DIR = Path(__file__).resolve().parent.parent
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,12 +42,12 @@ def main(argv: list[str] | None = None) -> int:
         print("monte_carlo.py: --n must be >= 2 (a distribution needs more than one sample)", file=sys.stderr)
         return 2
 
-    tb_json = SIM_DIR / args.experiment / "testbench" / "tb.json"
-    if not tb_json.is_file():
-        print(f"monte_carlo.py: no such experiment '{args.experiment}' (no {tb_json})", file=sys.stderr)
+    try:
+        manifest = testbench.load_experiment(args.experiment)
+    except FileNotFoundError as e:
+        print(f"monte_carlo.py: no such experiment '{args.experiment}' (no {e})", file=sys.stderr)
         return 1
 
-    manifest = testbench.load(tb_json)
     supply_v = args.supply if args.supply is not None else manifest.nominal_supply_v
 
     result = mc_runner.run(
