@@ -5,6 +5,7 @@ sim/selftest.sh stage 1/4)."""
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -426,6 +427,42 @@ class TestToolchainDriftVsWarning(unittest.TestCase):
         result = toolchain.check_env(allow_drift=True)
         self.assertEqual(result.status, 0)
         self.assertEqual(len(result.messages), 1)
+
+
+class TestPdkResolve(unittest.TestCase):
+    """Direct coverage of resolve()'s three return paths -- missing variant
+    dir, missing ngspice lib, and success -- previously only exercised
+    indirectly via toolchain.check_env() (TestToolchainDriftVsWarning
+    above), per issue #34."""
+
+    def _resolve_with_root(self, root: Path) -> pdk.PdkInfo:
+        with mock.patch.dict(os.environ, {"PDK_ROOT": str(root), "PDK": "sky130A"}):
+            return pdk.resolve()
+
+    def test_missing_variant_dir_is_not_found_with_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            info = self._resolve_with_root(Path(tmp))
+            self.assertFalse(info.found)
+            self.assertIn("no PDK variant directory", info.error)
+
+    def test_missing_ngspice_lib_is_not_found_with_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "sky130A").mkdir()
+            info = self._resolve_with_root(Path(tmp))
+            self.assertFalse(info.found)
+            self.assertIn("no ngspice model library", info.error)
+
+    def test_fully_present_pdk_resolves_found_with_no_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = pdk.load_pdk_json()
+            variant_dir = Path(tmp) / "sky130A"
+            ngspice_lib = variant_dir / cfg["ngspice_lib"]
+            ngspice_lib.parent.mkdir(parents=True)
+            ngspice_lib.write_text("")
+
+            info = self._resolve_with_root(Path(tmp))
+            self.assertTrue(info.found)
+            self.assertEqual(info.error, "")
 
 
 class TestPdkResolvedCommit(unittest.TestCase):
