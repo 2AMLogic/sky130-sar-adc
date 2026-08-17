@@ -104,6 +104,37 @@ def _build_mc_netlist(
     return "\n".join(lines) + "\n"
 
 
+def _draw_n(
+    manifest: testbench.Manifest,
+    info: pdk.PdkInfo,
+    corner: str,
+    temp_c: float,
+    supply_v: float,
+    seed: int,
+    n: int,
+    scratch_dir: Path,
+    quiet: bool,
+    log_prefix: str,
+    label: str,
+) -> list[Draw]:
+    """Run n ngspice draws at a fixed corner, seeding rndseed=seed+i on each,
+    and return the parsed Draw list. Shared body for both the mismatch-
+    enabled draws and the negative-control draws in run() below -- they
+    differ only in corner, log-name prefix, destination list, and print
+    label.
+    """
+    out: list[Draw] = []
+    for i in range(n):
+        this_seed = seed + i
+        netlist = _build_mc_netlist(manifest, info, corner, temp_c, supply_v, this_seed)
+        log_text = toolchain.run_ngspice(netlist, scratch_dir, f"{log_prefix}_{i}")
+        parsed = measure.parse(log_text, list(manifest.measure.keys()))
+        out.append(Draw(seed=this_seed, measures=parsed, log_text=log_text))
+        if not quiet:
+            print(f"  {label} {i} (seed={this_seed}, {corner}): {parsed}")
+    return out
+
+
 def run(
     manifest: testbench.Manifest,
     process_corner: str,
@@ -129,28 +160,16 @@ def run(
     record_id = evidence.new_record_id()
     netlist_sha = evidence.sha256_file(manifest.netlist_fragment)
 
-    draws: list[Draw] = []
-    negative_control_draws: list[Draw] = []
-
     with tempfile.TemporaryDirectory(prefix="sim-harness-mc-") as scratch:
         scratch_dir = Path(scratch)
-        for i in range(n):
-            this_seed = seed + i
-            netlist = _build_mc_netlist(manifest, info, mismatch_corner, temp_c, supply_v, this_seed)
-            log_text = toolchain.run_ngspice(netlist, scratch_dir, f"draw_{i}")
-            parsed = measure.parse(log_text, list(manifest.measure.keys()))
-            draws.append(Draw(seed=this_seed, measures=parsed, log_text=log_text))
-            if not quiet:
-                print(f"  draw {i} (seed={this_seed}, {mismatch_corner}): {parsed}")
-
-        for i in range(n):
-            this_seed = seed + i
-            netlist = _build_mc_netlist(manifest, info, process_corner, temp_c, supply_v, this_seed)
-            log_text = toolchain.run_ngspice(netlist, scratch_dir, f"neg_{i}")
-            parsed = measure.parse(log_text, list(manifest.measure.keys()))
-            negative_control_draws.append(Draw(seed=this_seed, measures=parsed, log_text=log_text))
-            if not quiet:
-                print(f"  negative-control {i} (seed={this_seed}, {process_corner}): {parsed}")
+        draws = _draw_n(
+            manifest, info, mismatch_corner, temp_c, supply_v, seed, n,
+            scratch_dir, quiet, log_prefix="draw", label="draw",
+        )
+        negative_control_draws = _draw_n(
+            manifest, info, process_corner, temp_c, supply_v, seed, n,
+            scratch_dir, quiet, log_prefix="neg", label="negative-control",
+        )
 
     return McResult(
         manifest=manifest,
