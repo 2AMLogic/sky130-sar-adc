@@ -41,13 +41,19 @@ the proofs that the machinery works.
   not just that DRC comes back clean and LVS matches, but that an injected DRC
   violation and two corrupted LVS references all come back *flagged*.
   `docs/environment-setup.md` is the reproducible bootstrap.
-- **Not done** — the target spec is **DRAFT and unratified** (see
-  `spec/target-spec.md` and issue #1). Every value is a starting point carried
-  from gf180-sar-adc or a published sky130 reference, not a settled sky130
-  result. In particular the **supply flavor** (1.8 V core vs a medium-voltage
-  arrangement) and therefore `V_REF`, the LSB, and the kT/C noise budget are
-  open questions the spec must settle first — sky130's device menu is not
-  gf180's 3.3 V flavor. No harness threshold encodes a draft spec value.
+- **Partly settled** — the **supply flavor** is **RATIFIED** (2026-08-13, via
+  [DR-001](spec/decision-records/DR-001-supply-flavor-scope.md) and issue #1):
+  the analog signal path, comparator, and SAR logic are built on the 1.8 V
+  core (`pfet_01v8`/`nfet_01v8`), with the higher-voltage arrangements
+  deferred by name. That deferral reopens — and a follow-on DR-002 must settle
+  the pass-device flavor before any switch is drawn — **if a ratified input
+  full-scale ever exceeds the core rail**; DR-001 pre-approves nothing wider.
+- **Not done** — every numeric row of the target spec is still **DRAFT and
+  unratified** (see `spec/target-spec.md` and issue #1). `V_REF`, the LSB, the
+  kT/C noise budget, and the ENOB/INL/DNL targets are all starting points
+  carried from gf180-sar-adc or a published sky130 reference, not settled
+  sky130 results — ratifying the flavor settles what they are *derived on*,
+  not what they are. No harness threshold encodes a draft spec value.
 - **Not started** — schematic entry, the CDAC/comparator design, verification,
   and layout. `measurements/` stays empty until there is silicon.
 - **The gap, itemized** — [`docs/t1-gap.md`](docs/t1-gap.md) maps the ten-item
