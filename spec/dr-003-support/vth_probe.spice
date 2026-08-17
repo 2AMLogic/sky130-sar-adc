@@ -1,0 +1,44 @@
+* DR-003 support deck — representative-geometry Vth probe for the comparator
+* headroom check in "Item 1: V_REF / input full-scale".
+*
+* Purpose: read the BSIM4 operating-point threshold ("vth" op-param, which
+* includes DIBL/body/Vds dependence at the stated bias — NOT the raw model
+* card's vth0, which is a long-channel fitting parameter and reads far from
+* any usable device Vth on its own) for nfet_01v8 / pfet_01v8 at a
+* representative comparator-input-pair geometry (W=4um, L=0.5um — a planning
+* value, NOT a locked design point; the real comparator sizing is future
+* work per DR-001's Open Items).
+*
+* Run against the installed sky130A PDK (open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b,
+* per sim/pdk.json):
+*
+*   ngspice -b spec/dr-003-support/vth_probe.spice
+*
+* Bias point: NMOS drain-to-source at VDD (saturation, gate at VDD, source/bulk
+* at 0V) and PMOS mirrored (source/bulk at VDD, drain at 0V, gate at 0V) — i.e.
+* each device fully "on" at the rail, tt corner, 27 C (ngspice default tnom).
+* This is the bias a bottom-tail NMOS input pair / top-tail PMOS input pair
+* sits closest to at the edge of its allowed common-mode range, which is the
+* case Item 1's headroom check needs.
+
+.lib "$PDK_ROOT/sky130A/libs.tech/ngspice/sky130.lib.spice" tt
+
+.param VDD=1.8
+
+xn d1 g1 0 0 sky130_fd_pr__nfet_01v8 w=4 l=0.5
+vdn d1 0 dc VDD
+vgn g1 0 dc VDD
+
+xp d2 g2 VDD VDD sky130_fd_pr__pfet_01v8 w=4 l=0.5
+vdp d2 0 dc 0
+vgp g2 0 dc 0
+
+.control
+save all
+op
+let vthn = @m.xn.msky130_fd_pr__nfet_01v8[vth]
+let vthp = @m.xp.msky130_fd_pr__pfet_01v8[vth]
+print vthn
+print vthp
+.endc
+.end
