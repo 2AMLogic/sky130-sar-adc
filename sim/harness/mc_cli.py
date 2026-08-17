@@ -80,7 +80,3 @@ def main(argv: list[str] | None = None) -> int:
     # indistinguishable from a harness that never actually randomizes
     # anything (see mc_runner.positive_control_ok()'s docstring).
     return 0 if (ctrl_ok and pos_ok) else 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
