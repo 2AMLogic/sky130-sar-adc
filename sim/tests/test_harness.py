@@ -116,8 +116,9 @@ class TestRunnerHelpers(unittest.TestCase):
     def test_run_ngspice_raises_on_nonzero_return_code(self):
         """A crashed/erroring ngspice must surface as an explicit harness
         error, not silently fall through to "no measurement parsed" (issue
-        #8). runner.py delegates to the shared toolchain.run_ngspice()
-        (issue #10), so this exercises it via the shared location."""
+        #8). Both runner.py and mc_runner.py delegate to the shared
+        toolchain.run_ngspice() (issue #10), so this exercises it once via
+        the shared location on behalf of both call sites."""
         with tempfile.TemporaryDirectory() as tmp:
             scratch = Path(tmp)
             with mock.patch.object(toolchain.shutil, "copyfile"):
@@ -133,6 +134,9 @@ class TestRunnerHelpers(unittest.TestCase):
         self.assertIn("exited 1", str(ctx.exception))
 
     def test_run_ngspice_raises_on_timeout(self):
+        """Both runner.py and mc_runner.py delegate to the shared
+        toolchain.run_ngspice() (issue #10), so this exercises it once via
+        the shared location on behalf of both call sites."""
         with tempfile.TemporaryDirectory() as tmp:
             scratch = Path(tmp)
             with mock.patch.object(toolchain.shutil, "copyfile"):
@@ -304,36 +308,6 @@ class TestMcRunner(unittest.TestCase):
         ok2, failures2 = mc_runner.positive_control_ok(FakeResult(), ["x"])
         self.assertTrue(ok2)
         self.assertEqual(failures2, [])
-
-    def test_run_ngspice_raises_on_nonzero_return_code(self):
-        """mc_runner.py delegates to the shared toolchain.run_ngspice()
-        (issue #10), so this exercises it via the shared location."""
-        with tempfile.TemporaryDirectory() as tmp:
-            scratch = Path(tmp)
-            with mock.patch.object(toolchain.shutil, "copyfile"):
-                with mock.patch.object(
-                    toolchain.subprocess,
-                    "run",
-                    return_value=subprocess.CompletedProcess(
-                        args=["ngspice"], returncode=1, stdout="", stderr="fatal error"
-                    ),
-                ):
-                    with self.assertRaises(RuntimeError) as ctx:
-                        toolchain.run_ngspice("* netlist\n.end\n", scratch, "draw_0")
-        self.assertIn("exited 1", str(ctx.exception))
-
-    def test_run_ngspice_raises_on_timeout(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            scratch = Path(tmp)
-            with mock.patch.object(toolchain.shutil, "copyfile"):
-                with mock.patch.object(
-                    toolchain.subprocess,
-                    "run",
-                    side_effect=subprocess.TimeoutExpired(cmd=["ngspice"], timeout=120),
-                ):
-                    with self.assertRaises(RuntimeError) as ctx:
-                        toolchain.run_ngspice("* netlist\n.end\n", scratch, "draw_0")
-        self.assertIn("timed out", str(ctx.exception))
 
 
 class TestToolchainDriftVsWarning(unittest.TestCase):
