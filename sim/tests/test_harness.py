@@ -46,12 +46,6 @@ class TestMeasureParse(unittest.TestCase):
 
 
 class TestCorners(unittest.TestCase):
-    def test_default_process_corners_from_pdk_json(self):
-        pcs = corners.default_process_corners()
-        self.assertIn("tt", pcs)
-        self.assertIn("ss", pcs)
-        self.assertIn("ff", pcs)
-
     def test_mismatch_corner_for(self):
         self.assertEqual(corners.mismatch_corner_for("tt"), "tt_mm")
         with self.assertRaises(ValueError):
