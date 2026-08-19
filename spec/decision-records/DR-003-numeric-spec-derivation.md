@@ -1,17 +1,17 @@
 # DR-003: Numeric spec derivation — V_REF, LSB, CDAC unit cap, comparator noise budget, corner scope
 
-- **Status**: **accepted** — ratified by the operator's approval of the PR
-  resolving #27, per the canary spec/DR ratification-via-PR standing policy
-  (2AMLogic/2am#357: "a builder drafts the ratification/DR as a PR on the
-  evidence, and the operator's PR approval is the ratification act" —
-  de-parking #27 from `loom:operator-only` on 2026-08-19).
-- **Date**: 2026-08-17 (drafted, #26); 2026-08-19 (ratifying PR opened, #27)
+- **Status**: **accepted** — ratified by the operator's approval of PR #46
+  (resolving #27), per the canary spec/DR ratification-via-PR standing
+  policy (2AMLogic/2am#357: "a builder drafts the ratification/DR as a PR
+  on the evidence, and the operator's PR approval is the ratification act"
+  — de-parking #27 from `loom:operator-only` on 2026-08-19).
+- **Date**: 2026-08-17 (drafted, #26); 2026-08-19 (ratifying PR #46 opened)
 - **Decided by**: Builder agent, issue #26
 - **Ratified in**: #27 (Ratify the numeric rows of `spec/target-spec.md`),
-  via the operator's approval of the PR carrying this status change. The
-  operator ruled **for this record's Decision section without
-  modification** — no value below was relaxed, invented, or negotiated to
-  close #27; every recommendation stands exactly as drafted in #26.
+  via the operator's approval of PR #46. The operator ruled **for this
+  record's Decision section without modification** — no value below was
+  relaxed, invented, or negotiated to close #27; every recommendation
+  stands exactly as drafted in #26.
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
 - **Related**: #26 (this derivation), #27 (operator ratification request this
@@ -72,7 +72,7 @@ re-derived here from sky130 inputs.
 ## Decision
 
 The following values are ratified into `spec/target-spec.md`, per the
-operator's approval of the PR resolving #27 (this record's own status
+operator's approval of PR #46 (this record's own status
 change above). Each is recommended below exactly as originally drafted in
 #26 — the operator ruled for the recommendation without modification.
 
@@ -452,8 +452,8 @@ campaign) to target unambiguously:
 
 ## Spec lines affected
 
-**Ratified into `spec/target-spec.md` by the PR carrying this status
-change**, per #27 / 2AMLogic/2am#357:
+**Ratified into `spec/target-spec.md` by PR #46**, per #27 /
+2AMLogic/2am#357:
 
 | `spec/target-spec.md` row | This record's recommendation | Status |
 |---|---|---|
