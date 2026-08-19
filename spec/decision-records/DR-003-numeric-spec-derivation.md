@@ -1,10 +1,17 @@
 # DR-003: Numeric spec derivation — V_REF, LSB, CDAC unit cap, comparator noise budget, corner scope
 
-- **Status**: **proposed** — this record ratifies nothing. It is the input
-  issue #27 (operator ratification) rules against, the same mechanism
-  DR-001 used for the supply flavor.
-- **Date**: 2026-08-17
+- **Status**: **accepted** — ratified by the operator's approval of the PR
+  resolving #27, per the canary spec/DR ratification-via-PR standing policy
+  (2AMLogic/2am#357: "a builder drafts the ratification/DR as a PR on the
+  evidence, and the operator's PR approval is the ratification act" —
+  de-parking #27 from `loom:operator-only` on 2026-08-19).
+- **Date**: 2026-08-17 (drafted, #26); 2026-08-19 (ratifying PR opened, #27)
 - **Decided by**: Builder agent, issue #26
+- **Ratified in**: #27 (Ratify the numeric rows of `spec/target-spec.md`),
+  via the operator's approval of the PR carrying this status change. The
+  operator ruled **for this record's Decision section without
+  modification** — no value below was relaxed, invented, or negotiated to
+  close #27; every recommendation stands exactly as drafted in #26.
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
 - **Related**: #26 (this derivation), #27 (operator ratification request this
@@ -64,8 +71,10 @@ re-derived here from sky130 inputs.
 
 ## Decision
 
-Recommend the following DRAFT values for `spec/target-spec.md`, each
-`proposed` pending #27. **None of this is ratified by this record.**
+The following values are ratified into `spec/target-spec.md`, per the
+operator's approval of the PR resolving #27 (this record's own status
+change above). Each is recommended below exactly as originally drafted in
+#26 — the operator ruled for the recommendation without modification.
 
 ### Item 1 — V_REF / input full-scale: recommend `V_REF = V_DD = 1.8 V` (at the rail, not above it)
 
@@ -443,27 +452,25 @@ campaign) to target unambiguously:
 
 ## Spec lines affected
 
-**None yet — this record changes no line of `spec/target-spec.md`.** It
-recommends values for #27 to ratify into the following DRAFT rows, which
-remain DRAFT and unratified until #27 closes:
+**Ratified into `spec/target-spec.md` by the PR carrying this status
+change**, per #27 / 2AMLogic/2am#357:
 
-| `spec/target-spec.md` row | This record's recommendation |
-|---|---|
-| `V_REF` | `1.8 V` (= `V_DD`, at the rail) |
-| LSB (differential) | `3.5156 mV` (`2·V_REF/2^10`) |
-| Resolution `N` | `10` (confirmed, not changed) |
-| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side (matching-limited; kT/C floor is `≈ 415×` looser) |
-| Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch), `28.86 %`/`16.67 %` of LSB |
-| Sample rate | **not re-derived** — draft row stands unconfirmed pending settling data (#24/#28) |
-| Corners | Recommend holding `−40/27/125 °C` as drafted, with the Item 5 scope note on a future Liberty/STA step |
+| `spec/target-spec.md` row | This record's recommendation | Status |
+|---|---|---|
+| `V_REF` | `1.8 V` (= `V_DD`, at the rail) | RATIFIED |
+| LSB (differential) | `3.5156 mV` (`2·V_REF/2^10`) | RATIFIED |
+| Resolution `N` | `10` (confirmed, not changed) | RATIFIED |
+| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side (matching-limited; kT/C floor is `≈ 415×` looser) | RATIFIED |
+| Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch), `28.86 %`/`16.67 %` of LSB | RATIFIED |
+| Corners | Hold `−40/27/125 °C` as drafted, with the Item 5 scope note on a future Liberty/STA step | RATIFIED |
+| Sample rate | **not re-derived** — draft row stands unconfirmed pending settling data (#24/#28) | still DRAFT |
 
 ## Consequences
 
 1. **#24 (design sources) can now size the CDAC unit cell and the sampling
-   array to a concrete number** (`C_u ≈ 8.65 fF`, `512`/side) instead of a
-   TBD placeholder — while #27 has not ratified it, so #24's schematics
-   should record this as *provisional, citing this record*, per #24's own
-   acceptance criteria, not as a settled value.
+   array to the ratified number** (`C_u ≈ 8.65 fF`, `512`/side) instead of a
+   TBD placeholder — no longer provisional; #24's schematics may cite this
+   record and `spec/target-spec.md`'s ratified row directly.
 2. **The comparator-topology DR (DR-001's Open Items) inherits a concrete
    noise budget and a quantified, not-yet-closed headroom risk** (Item 1's
    23 mV nominal margin) rather than an open question — it can now be
@@ -521,6 +528,7 @@ remain DRAFT and unratified until #27 closes:
   gf180-sar-adc's DR-0002 (`Z_ref`/`C_dec` envelope). `C_total ≈ 8.86 pF`
   (Item 3) is small enough that this is not expected to bind, but it is not
   checked here.
-- **Ratification itself** — the operator's act, tracked in #27, per
-  `CLAUDE.md`'s "the spec is a gate" rule. Nothing in this record is
-  binding until #27 closes.
+- **Ratification itself** — resolved. The operator's approval of the PR
+  resolving #27 was the ratification act (2AMLogic/2am#357), per
+  `CLAUDE.md`'s "the spec is a gate" rule; this record's Decision section
+  is binding as of that approval.
