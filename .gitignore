@@ -9,6 +9,11 @@ __pycache__/
 # they escape the *.log rule above.
 !sim/*/corners/**/*.log
 !sim/*/mc-draws/**/*.log
+# sim/sar-sequencer-behavioral/ (issue #55): a standalone behavioral
+# testbench outside the shared PVT/MC harness (see that experiment's own
+# run_testbench.py module docstring), whose raw ngspice transient log is
+# committed evidence the same way corners/ and mc-draws/ are above.
+!sim/*/runs/*.log
 # harness scratch: regenerated netlists and generated corner decks. The
 # runners themselves simulate in a TemporaryDirectory and only copy the
 # resulting logs back under sim/<experiment>/, so this only catches
