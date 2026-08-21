@@ -77,7 +77,7 @@ to, to be executed when layout starts:
    at the array's physical periphery in the eventual layout, buffering the
    active weighted units from edge-of-array etch/density gradients without
    needing a *second*, purely-decorative dummy structure. Whether this single
-   termination unit is suficient guard-ring coverage on its own, or whether
+   termination unit is sufficient guard-ring coverage on its own, or whether
    additional non-electrical fill/dummy capacitors are needed at the array's
    physical edges, is a layout-stage question this record does not close —
    see DR-004 "Open items".
