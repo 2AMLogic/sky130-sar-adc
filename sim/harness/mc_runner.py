@@ -30,6 +30,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import corners as corners_mod
 from . import evidence, measure, pdk, testbench, toolchain
 
 SIM_DIR = Path(__file__).resolve().parent.parent
@@ -153,8 +154,6 @@ def run(
     info = pdk.resolve()
     if not info.found:
         raise RuntimeError(f"PDK not resolvable: {info.error}")
-
-    from . import corners as corners_mod
 
     mismatch_corner = corners_mod.mismatch_corner_for(process_corner)
     record_id = evidence.new_record_id()
