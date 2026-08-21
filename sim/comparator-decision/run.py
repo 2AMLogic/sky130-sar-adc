@@ -46,7 +46,7 @@ from pathlib import Path
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import evidence, pdk, toolchain  # noqa: E402
+from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 TESTBENCH_DIR = EXPERIMENT_DIR / "testbench"
@@ -363,8 +363,6 @@ def run_offset_mc(
     corner: str = "tt", temp_c: float = 27.0, seed: int = 1, n: int = 16, quiet: bool = False,
 ) -> tuple[OffsetResult, str]:
     info = _pdk_info()
-    from harness import corners as corners_mod
-
     mismatch_corner = corners_mod.mismatch_corner_for(corner)
     logs: dict[str, str] = {}
 
@@ -626,8 +624,6 @@ def run_noise(corner: str = "tt", temp_c: float = 27.0, quiet: bool = False) -> 
         log_name = "noise"
         deck = _noise_deck(info, corner, temp_c)
         log_text = _run(deck, scratch_dir, log_name)
-
-    from harness import measure
 
     parsed = measure.parse(log_text, ["inoise_total", "onoise_total", "v(tail)", "v(outp)", "v(outn)"])
     # ngspice's `print` echoes lowercased vector names for v(...) forms;
