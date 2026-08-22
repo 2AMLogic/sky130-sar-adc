@@ -1,4 +1,4 @@
-# DR-004: CDAC array design — switching scheme, unit-cell sizing, termination/matching strategy
+# DR-005: CDAC array design — switching scheme, unit-cell sizing, termination/matching strategy
 
 - **Status**: proposed — this record ratifies nothing. Every numeric input it
   consumes (`V_REF`, the unit-cap sizing) is itself DRAFT pending issue #27;

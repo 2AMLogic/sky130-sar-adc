@@ -25,7 +25,7 @@ v {xschem version=3.4.7 file_version=1.2
 * to 512 unit caps -- DR-003 Item 3's C_side ~= 512*C_u ~= 4.43 pF,
 * matching the kT/C-floor-vs-matching-floor derivation there. The
 * termination unit is also this array's matching/etch-density dummy
-* (see design/cdac/README.md and DR-004 for the strategy note the
+* (see design/cdac/README.md and DR-005 for the strategy note the
 * issue's acceptance criteria require).
 *
 * SIDES: P (in-phase) and N (complementary) sub-arrays are structurally
@@ -326,4 +326,4 @@ C {ipin.sym} -300 -300 0 0 {name=p_vrefp lab=VREFP}
 C {ipin.sym} -300 -250 0 0 {name=p_vrefn lab=VREFN}
 C {ipin.sym} -300 -200 0 0 {name=p_vdd lab=VDD}
 C {ipin.sym} -300 -150 0 0 {name=p_vss lab=VSS}
-T {cdac_array: 9-bit-per-side binary sub-array + termination (DR-003/DR-004, provisional)} 0 -450 0 0 0.2 0.2 {}
+T {cdac_array: 9-bit-per-side binary sub-array + termination (DR-003/DR-005, provisional)} 0 -450 0 0 0.2 0.2 {}
