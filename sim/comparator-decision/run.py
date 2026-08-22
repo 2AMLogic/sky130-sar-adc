@@ -579,13 +579,13 @@ def _noise_deck(info: pdk.PdkInfo, corner: str, temp_c: float, log_name: str) ->
         f"Vinp VINP 0 dc {VCM} AC 1",
         f"Vinn VINN 0 dc {VCM}",
         "",
-        f"XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1",
-        f"XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        f"XM_INP OUTN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        f"XM_LATN_P OUTP OUTP GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        f"XM_LATN_N OUTN OUTN GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        f"XM_LATP_P OUTP OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1",
-        f"XM_LATP_N OUTN OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1",
+        "XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1",
+        "XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
+        "XM_INP OUTN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
+        "XM_LATN_P OUTP OUTP GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
+        "XM_LATN_N OUTN OUTN GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
+        "XM_LATP_P OUTP OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1",
+        "XM_LATP_N OUTN OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1",
         "",
         ".control",
         # sim/spiceinit sets 'option klu' repo-wide for corner-sweep speed,
@@ -684,7 +684,7 @@ def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") 
         "stretch) -- DR-003 is itself `proposed`, not ratified, so this is "
         "not a pass/fail against a ratified line."
     )
-    a(f"- **Netlist provenance**: schematic, reduced sub-model (see Methodology)")
+    a("- **Netlist provenance**: schematic, reduced sub-model (see Methodology)")
     a(f"- **Corner matrix run**: process=['{result.corner}'], temperature_c=[{result.temp_c}], supply_v=[{VDD}] (1 point)")
     a(
         f"- **Noise methodology**: `ac-based`, integration bandwidth "
