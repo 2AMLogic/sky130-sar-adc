@@ -665,11 +665,11 @@ def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") 
     runs_dir.mkdir(parents=True, exist_ok=True)
     (runs_dir / "noise.log").write_text(result.log_text)
 
-    records_dir = EXPERIMENT_DIR / "records"
-    records_dir.mkdir(parents=True, exist_ok=True)
-    record_path = records_dir / f"{record_id}.md"
-
     info = pdk.resolve()
+    record_path = evidence.write_netlist_snapshot_text(
+        EXPERIMENT_DIR, record_id, _noise_deck(info, result.corner, result.temp_c)
+    )
+
     lines: list[str] = []
     a = lines.append
     a(f"# Record {record_id}")
