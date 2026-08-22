@@ -566,7 +566,7 @@ VBIAS_NOTE = (
 )
 
 
-def _noise_deck(info: pdk.PdkInfo, corner: str, temp_c: float, log_name: str) -> str:
+def _noise_deck(info: pdk.PdkInfo, corner: str, temp_c: float) -> str:
     lines = [
         f"* comparator-decision input-referred noise ({VBIAS_NOTE}) "
         f"corner={corner} temp={temp_c}C (issue #54)",
@@ -624,7 +624,7 @@ def run_noise(corner: str = "tt", temp_c: float = 27.0, quiet: bool = False) -> 
     with tempfile.TemporaryDirectory(prefix="comparator-decision-noise-") as scratch:
         scratch_dir = Path(scratch)
         log_name = "noise"
-        deck = _noise_deck(info, corner, temp_c, log_name)
+        deck = _noise_deck(info, corner, temp_c)
         log_text = _run(deck, scratch_dir, log_name)
 
     from harness import measure
@@ -655,7 +655,7 @@ def run_noise(corner: str = "tt", temp_c: float = 27.0, quiet: bool = False) -> 
         op_tail_v=op_tail, op_outp_v=op_outp, op_outn_v=op_outn,
         log_text=log_text, corner=corner, temp_c=temp_c,
     )
-    netlist_sha = evidence.sha256_text(_noise_deck(info, corner, temp_c, "canonical"))
+    netlist_sha = evidence.sha256_text(_noise_deck(info, corner, temp_c))
     return result, netlist_sha
 
 
