@@ -29,7 +29,7 @@ v {xschem version=3.4.7 file_version=1.2
 * instruction in CLAUDE.md, not a coincidence -- the concrete switch
 * topology here is a deliberate, documented simplification relative to
 * gf180-sar-adc's MCS/Vcm three-way scheme (DR-0011 there); see
-* spec/decision-records/DR-004-cdac-array-design.md "Alternatives
+* spec/decision-records/DR-005-cdac-array-design.md "Alternatives
 * considered" for why.
 }
 G {}

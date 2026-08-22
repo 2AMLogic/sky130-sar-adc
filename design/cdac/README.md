@@ -2,7 +2,7 @@
 
 This directory holds the differential charge-redistribution CDAC array's
 design source: the reusable unit cell, and the full binary-weighted array
-built from it. See `spec/decision-records/DR-004-cdac-array-design.md` for
+built from it. See `spec/decision-records/DR-005-cdac-array-design.md` for
 the design decisions this schematic implements (switching scheme, sizing,
 divergence from `2AMLogic/gf180-sar-adc`'s MCS/Vcm scheme) and
 `spec/decision-records/DR-003-numeric-spec-derivation.md` Item 3 for the
@@ -69,7 +69,7 @@ to, to be executed when layout starts:
    bit's `MF` unit caps across a symmetric footprint, mirrored about the
    array's center, so linear process gradients (oxide thickness, etch bias)
    affect all codes' effective weight equally rather than biasing specific
-   bits). This is a documented *plan*, not yet evidence — DR-004 names it as
+   bits). This is a documented *plan*, not yet evidence — DR-005 names it as
    the default and flags the alternative below.
 2. **The termination unit doubles as the array's outer etch-density guard**:
    because it is electrically inert with respect to code-dependent switching
@@ -80,7 +80,7 @@ to, to be executed when layout starts:
    termination unit is sufficient guard-ring coverage on its own, or whether
    additional non-electrical fill/dummy capacitors are needed at the array's
    physical edges, is a layout-stage question this record does not close —
-   see DR-004 "Open items".
+   see DR-005 "Open items".
 3. **What this schematic does NOT claim**: instantiating `MF=w` on one
    `cap_mim_m3_1` symbol is a **netlist-level** shorthand for `w` parallel
    unit-cell instances (electrically identical to `w` separate placements for
@@ -90,7 +90,7 @@ to, to be executed when layout starts:
    `AGAUSS()` mismatch terms or one term scaled by `w` — if the latter, MC
    evidence at this schematic's netlist would understate real array mismatch,
    and that campaign will need literal parallel unit-cell instances instead
-   of `MF` scaling. Flagged here and in DR-004's "Open items"; not resolved
+   of `MF` scaling. Flagged here and in DR-005's "Open items"; not resolved
    by this issue.
 
 ## Status
@@ -99,4 +99,4 @@ to, to be executed when layout starts:
 design consumes are DRAFT pending issue #27 (`spec/target-spec.md`). No spec
 row is edited and no grant is recorded by this directory's contents (issue
 #53's own acceptance criteria). The switching scheme and sizing choices are
-recorded in `spec/decision-records/DR-004-cdac-array-design.md`.
+recorded in `spec/decision-records/DR-005-cdac-array-design.md`.

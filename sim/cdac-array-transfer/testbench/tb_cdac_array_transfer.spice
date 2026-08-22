@@ -5,7 +5,7 @@
 * block; this fragment is transient-analysis-only (the harness's generic
 * run_corners.py/tb.json path only emits `.control op`, which cannot
 * express charge redistribution on a floating capacitor network -- see
-* spec/decision-records/DR-004-cdac-array-design.md and
+* spec/decision-records/DR-005-cdac-array-design.md and
 * sim/cdac-array-transfer/README.md for why this experiment ships its own
 * small runner instead of reusing run_corners.py directly).
 *
