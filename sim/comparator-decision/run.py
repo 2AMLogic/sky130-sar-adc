@@ -198,6 +198,30 @@ def run_regen_sweep(
     return points, netlist_sha
 
 
+def _finalize_record(
+    lines: list[str],
+    record_path: Path,
+    info: pdk.PdkInfo,
+    netlist_sha: str,
+    cmd: str,
+    extra: dict[str, str] | None = None,
+) -> Path:
+    """Shared tail for the write_*_evidence() functions below: append the
+    environment block + footer boilerplate and write the record. `cmd` is
+    the subcommand name (e.g. "regen", "offset", "noise"), used to build
+    the "Written by" attribution."""
+    lines.extend(evidence.environment_block(
+        pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
+        ngspice_line=toolchain._ngspice_version() or "unknown",
+        netlist_sha256=netlist_sha,
+        extra=extra,
+    ))
+    lines.append("")
+    lines.extend(evidence.footer_lines(f"sim/comparator-decision/run.py {cmd}", ""))
+    record_path.write_text("\n".join(lines))
+    return record_path
+
+
 def write_regen_evidence(points: list[RegenPoint], netlist_sha: str, corner: str, temp_c: float, note: str = "") -> Path:
     record_id = evidence.new_record_id()
     corners_dir = EXPERIMENT_DIR / "corners" / record_id
@@ -259,15 +283,7 @@ def write_regen_evidence(points: list[RegenPoint], netlist_sha: str, corner: str
         "that, not a quantitative claim against any ratified settling-time row."
     )
     a("")
-    lines.extend(evidence.environment_block(
-        pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
-        ngspice_line=toolchain._ngspice_version() or "unknown",
-        netlist_sha256=netlist_sha,
-    ))
-    a("")
-    lines.extend(evidence.footer_lines("sim/comparator-decision/run.py regen", ""))
-    record_path.write_text("\n".join(lines))
-    return record_path
+    return _finalize_record(lines, record_path, info, netlist_sha, "regen")
 
 
 # ---------------------------------------------------------------------------
@@ -516,16 +532,10 @@ def write_offset_evidence(result: OffsetResult, netlist_sha: str, note: str = ""
     a("|---|---|---|")
     a(f"| {len(result.negctrl_offset_v)} | {negctrl_mean * 1000:.4f} | {negctrl_stdev * 1000:.6g} |")
     a("")
-    lines.extend(evidence.environment_block(
-        pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
-        ngspice_line=toolchain._ngspice_version() or "unknown",
-        netlist_sha256=netlist_sha,
+    return _finalize_record(
+        lines, record_path, info, netlist_sha, "offset",
         extra={"MC seed": str(result.seed), "MC N": str(result.n)},
-    ))
-    a("")
-    lines.extend(evidence.footer_lines("sim/comparator-decision/run.py offset", ""))
-    record_path.write_text("\n".join(lines))
-    return record_path
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -729,15 +739,7 @@ def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") 
     a("- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 device noise "
       "models via ngspice's `.noise` analysis; no literature/foundry-doc noise figure used)")
     a("")
-    lines.extend(evidence.environment_block(
-        pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
-        ngspice_line=toolchain._ngspice_version() or "unknown",
-        netlist_sha256=netlist_sha,
-    ))
-    a("")
-    lines.extend(evidence.footer_lines("sim/comparator-decision/run.py noise", ""))
-    record_path.write_text("\n".join(lines))
-    return record_path
+    return _finalize_record(lines, record_path, info, netlist_sha, "noise")
 
 
 # ---------------------------------------------------------------------------
