@@ -6,7 +6,7 @@ v {xschem version=3.4.7 file_version=1.2
 * phases from a single master CLK; each of the N SAR-register bits is a
 * dfrtp_1 D flip-flop fed through a mux2_1 that captures an externally
 * supplied (ideal) comparator decision COMP_OUT during its own bit-trial
-* phase and holds otherwise. See spec/decision-records/DR-004-sar-sequencer-
+* phase and holds otherwise. See spec/decision-records/DR-006-sar-sequencer-
 * bit-count-and-timing-budget.md for the N=10 (provisional) bit-count and
 * timing-budget derivation this schematic implements, and
 * sim/sar-sequencer-behavioral/ for the standalone testbench that exercises

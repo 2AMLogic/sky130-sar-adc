@@ -1,4 +1,4 @@
-# DR-004: SAR sequencer bit-count and clock-phase timing budget
+# DR-006: SAR sequencer bit-count and clock-phase timing budget
 
 - **Status**: proposed — this record ratifies nothing. It documents, as
   provisional, the bit-count and timing-budget inputs `design/sar_sequencer.sch`

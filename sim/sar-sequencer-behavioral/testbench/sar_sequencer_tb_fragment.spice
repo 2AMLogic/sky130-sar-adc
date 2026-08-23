@@ -13,7 +13,7 @@
 * with two different fixed target codes, proving MSB-first bit-by-bit
 * capture, phase timing, and the ring sequencer's auto-restart.
 *
-* CLK: 100 ns period (f_clk=10 MHz; DR-004's derived provisional range is
+* CLK: 100 ns period (f_clk=10 MHz; DR-006's derived provisional range is
 * 1.2-12 MHz). RST_B releases at t=220 ns (before the first rising edge
 * at t=250 ns).
 * Cycle 1 target code (b9..b0) = 1100101011b = 811 decimal

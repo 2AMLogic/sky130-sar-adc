@@ -198,7 +198,7 @@ def run(record: bool) -> int:
                 f"# Record {record_id}",
                 "",
                 f"- **Record ID**: {record_id}",
-                "- **Claim**: `spec/decision-records/DR-004-sar-sequencer-bit-count-and-timing-budget.md` "
+                "- **Claim**: `spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md` "
                 "(provisional N=10 bit-count and 1.2-12 MHz timing budget) -- behavioral sequencing "
                 "correctness only, pending #27; not a PVT-corner or Monte-Carlo claim.",
                 "- **Netlist provenance**: schematic (`design/sar_sequencer.sch`)",
