@@ -48,3 +48,45 @@ def supply_points(nominal_v: float, tolerance: float) -> list[float]:
     # De-dup in case rounding collapses lo/hi onto nominal (tolerance ~ 0).
     points = sorted({lo, nominal_v, hi})
     return points
+
+
+def oat_grid(
+    baseline_process: str,
+    baseline_temp: float,
+    baseline_supply: float,
+    process_corners: list[str],
+    temperatures_c: list[float],
+    supply_voltages: list[float],
+) -> list[tuple[str, float, float]]:
+    """Build a one-at-a-time (OAT / "star") PVT grid: the baseline point
+    plus, for each axis in turn, every OTHER value on that axis with the
+    remaining two axes held at baseline -- deduplicated, in the order the
+    baseline/process/temperature/supply points are first encountered.
+
+    This is deliberately NOT a full factorial |process|x|temp|x|supply|
+    grid: it is exactly the set a per-axis sensitivity computation needs
+    (each axis's spread is only ever computed from points held at baseline
+    on the other two axes), and for a sky130 combined-library ngspice
+    invocation (~15-20s each on this toolchain -- PDK model-library load
+    dominates, not simulation time) a full grid would cost minutes per
+    experiment for no additional signal. E.g. len(process)=5, len(temp)=3,
+    len(supply)=3 costs 9 OAT runs instead of 45 full-factorial ones.
+    """
+    seen: set[tuple[str, float, float]] = set()
+    grid: list[tuple[str, float, float]] = []
+
+    def _add(pc: str, tc: float, sv: float) -> None:
+        key = (pc, tc, sv)
+        if key not in seen:
+            seen.add(key)
+            grid.append(key)
+
+    _add(baseline_process, baseline_temp, baseline_supply)
+    for process_corner in process_corners:
+        _add(process_corner, baseline_temp, baseline_supply)
+    for temp_c in temperatures_c:
+        _add(baseline_process, temp_c, baseline_supply)
+    for supply_v in supply_voltages:
+        _add(baseline_process, baseline_temp, supply_v)
+
+    return grid
