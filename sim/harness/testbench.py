@@ -51,7 +51,6 @@ def experiments() -> list[str]:
 
 @dataclass
 class Manifest:
-    path: Path
     experiment_dir: Path
     name: str
     claim: str
@@ -62,7 +61,6 @@ class Manifest:
     process_corners: list[str]
     measure: dict[str, str]
     checks: dict[str, dict]
-    raw: dict
 
 
 def load_experiment(experiment: str) -> Manifest:
@@ -85,7 +83,6 @@ def load(tb_json_path: Path) -> Manifest:
     if not fragment.is_file():
         raise FileNotFoundError(f"netlist_fragment not found: {fragment}")
     return Manifest(
-        path=tb_json_path,
         experiment_dir=experiment_dir,
         name=raw["name"],
         claim=raw.get("claim", ""),
@@ -96,7 +93,6 @@ def load(tb_json_path: Path) -> Manifest:
         process_corners=list(raw.get("process_corners", [])),
         measure=dict(raw["measure"]),
         checks=dict(raw.get("checks", {})),
-        raw=raw,
     )
 
 
