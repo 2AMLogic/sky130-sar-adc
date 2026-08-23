@@ -20,6 +20,10 @@ ported/adapted -- see sim/README.md "Provenance"):
   }
 }
 
+"description" is JSON-only documentation for a human reading the manifest
+file directly -- Manifest.load() does not parse it into an attribute (unlike
+"claim", nothing in the harness reads it back).
+
 The netlist fragment is a plain SPICE deck fragment (devices/sources only)
 that references `{vdd_val}` for its supply -- the harness prepends a
 `.param vdd_val = <value>` line, the corner's `.lib ... <corner>` include,
@@ -50,7 +54,6 @@ class Manifest:
     path: Path
     experiment_dir: Path
     name: str
-    description: str
     claim: str
     netlist_fragment: Path
     nominal_supply_v: float
@@ -85,7 +88,6 @@ def load(tb_json_path: Path) -> Manifest:
         path=tb_json_path,
         experiment_dir=experiment_dir,
         name=raw["name"],
-        description=raw.get("description", ""),
         claim=raw.get("claim", ""),
         netlist_fragment=fragment,
         nominal_supply_v=float(raw["nominal_supply_v"]),
