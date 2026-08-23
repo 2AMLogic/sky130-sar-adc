@@ -1472,6 +1472,66 @@ write immediately regardless of the window (see "WORK_LOG debounce" in
 # can never drift apart.
 GUIDE_DOCS_PR_EXCLUDE='((.headRefName // "") | startswith("docs/guide-update")) or (.title == "docs: Guide document maintenance update")'
 
+# #6627 BUG, DO NOT REINTRODUCE: the assignment above reflects whatever THIS
+# REPO's installed copy of guide.md (`.claude/commands/loom/guide.md` /
+# `.loom/roles/guide.md`) already contains — which only picks up an upstream
+# fix to this filter once `resync-installed.sh` has run. A repo whose install
+# is one merge behind silently reintroduces the #5454 WORK_LOG self-loop this
+# filter exists to prevent, and can only be recovered by re-running resync.
+# The one-time fix belongs upstream in `defaults/roles/guide.md` (this file's
+# own source of truth), not as a per-consumer patch to the installed copy —
+# a patch there is exactly what every future resync overwrites (rjwalters/repo
+# #280, restored after being stripped in #391 and #398).
+#
+# Mirrors curator.md's "Multi-phase sweep dependency check" (`git show
+# origin/main:path` instead of trusting the local checkout) and
+# check-main-freshness.sh's bounded-fetch convention (`timeout 5`, degrade to
+# the local value on any failure — offline, no `timeout` binary, detached
+# checkout, or the installed file not existing on origin/main). No-ops
+# silently when the local value already matches origin's.
+refresh_docs_pr_exclude_from_origin() {
+  # Resolve the installed path for THIS file (guide.md) the same way
+  # test-guide-work-log-self-loop.sh does (#6194/#6241): the installed path
+  # first (consumer repos, and this repo's own dogfooded install), falling
+  # back to the defaults/ source-tree path (a bare source checkout with no
+  # installed copy yet).
+  local role_path=""
+  if [ -f ".claude/commands/loom/guide.md" ]; then
+    role_path=".claude/commands/loom/guide.md"
+  elif [ -f ".loom/roles/guide.md" ]; then
+    role_path=".loom/roles/guide.md"
+  elif [ -f "defaults/roles/guide.md" ]; then
+    role_path="defaults/roles/guide.md"
+  else
+    return 0
+  fi
+
+  git rev-parse --git-dir >/dev/null 2>&1 || return 0
+
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 5 git fetch origin main --quiet >/dev/null 2>&1 || return 0
+  else
+    # No `timeout` available (e.g. minimal macOS without coreutils). Still
+    # try, but a hung network here is a rare edge — fail open, never block.
+    git fetch origin main --quiet >/dev/null 2>&1 || return 0
+  fi
+
+  local origin_line origin_value
+  origin_line=$(git show "origin/main:$role_path" 2>/dev/null | grep -m1 '^GUIDE_DOCS_PR_EXCLUDE=')
+  [ -z "$origin_line" ] && return 0
+
+  origin_value="${origin_line#GUIDE_DOCS_PR_EXCLUDE=}"
+  origin_value="${origin_value#\'}"
+  origin_value="${origin_value%\'}"
+  [ -z "$origin_value" ] && return 0
+
+  if [ "$origin_value" != "$GUIDE_DOCS_PR_EXCLUDE" ]; then
+    echo "WARNING: GUIDE_DOCS_PR_EXCLUDE is stale (installed copy predates an upstream fix) — using origin/main's value for this run. Run resync-installed.sh to pick it up permanently." >&2
+    GUIDE_DOCS_PR_EXCLUDE="$origin_value"
+  fi
+}
+refresh_docs_pr_exclude_from_origin
+
 # Epoch seconds of the most recently MERGED docs-maintenance PR whose changed
 # files actually included WORK_LOG.md, or 0 if none has ever merged (empty
 # history / query failure). Mirrors `last_work_plan_write_epoch()` (Step 3,
@@ -2403,6 +2463,7 @@ Automated document maintenance by Guide triage agent."
     --title "docs: Guide document maintenance update" \
     --label "loom:review-requested" \
     --body "$(cat <<'PRBODY'
+<!-- loom:docs-only-fast-path -->
 ## Summary
 
 Automated document maintenance by the Guide triage agent.
@@ -2415,6 +2476,14 @@ Automated document maintenance by the Guide triage agent.
 ### Context
 This PR is generated automatically by the Guide role as part of its triage cycle.
 See rjwalters/loom#1784 for the feature specification (this template ships to every Loom-managed repo, so the reference must be fully qualified).
+
+This PR only ever stages `WORK_LOG.md`/`WORK_PLAN.md`/`README.md` (see
+`create_docs_pr()`'s `git add` above), so it always qualifies for the
+docs-only fast path (rjwalters/loom#6134) Judge and Champion apply to any PR
+whose changed-file list matches that exact set. The `<!-- loom:docs-only-fast-path -->`
+marker above is informational only — Judge and Champion never trust it (or
+this section's prose) and always re-derive the changed-file list themselves
+from the paginated files API before taking the fast path.
 
 ---
 *Automated by Guide role - document maintenance phase*

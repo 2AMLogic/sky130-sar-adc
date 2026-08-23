@@ -66,6 +66,13 @@ else
     loom_record_worktree_removal() { :; }
 fi
 
+# Race-safe reset helper (#6334). The "stale worktree" reset path below can
+# otherwise discard foreign work that appears in the window between the
+# staleness check and the reset itself — see the lib file for the full
+# rationale and design decision.
+# shellcheck source=lib/worktree-race-rescue.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/worktree-race-rescue.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -509,9 +516,11 @@ _wt_extract_shell_fn() {
     ' "$src"
 }
 
-# Load `_maybe_delete_local_branch` (+ its three worktree-introspection
-# dependencies: `_primary_worktree_path`, `_is_primary_worktree_path`,
-# `_find_worktree_by_branch`) from the live merge-pr.sh source into this
+# Load `_maybe_delete_local_branch` (+ its four dependencies: the three
+# worktree-introspection helpers `_primary_worktree_path`,
+# `_is_primary_worktree_path`, `_find_worktree_by_branch`, and the tip-match
+# safety predicate `_worktree_branch_fully_captured` its `-d` → `-D` upgrade
+# delegates to, #6694) from the live merge-pr.sh source into this
 # process. The loaded body reads globals `$REPO_ROOT` / `$DEFAULT_BRANCH_NAME`
 # and calls `info`/`warning`/`success` — the caller must set/define all five
 # before invoking `_maybe_delete_local_branch`. Returns 1 (never hard-fails)
@@ -527,16 +536,21 @@ _wt_load_branch_safety_helper() {
     [[ -n "$fn_src" ]] || return 1
 
     local dep_fn dep_src dep_fns=""
-    for dep_fn in _primary_worktree_path _is_primary_worktree_path _find_worktree_by_branch; do
+    for dep_fn in _primary_worktree_path _is_primary_worktree_path _find_worktree_by_branch \
+                  _worktree_branch_fully_captured; do
         dep_src="$(_wt_extract_shell_fn "$dep_fn" "$merge_pr_script")"
         if [[ -n "$dep_src" ]]; then
             dep_fns+="$dep_src"$'\n'
         else
             # Upstream renamed/removed the helper: degrade to the generic
-            # "checked out somewhere" warning path instead of aborting.
+            # "checked out somewhere" warning path instead of aborting. The
+            # two predicates shim to `return 1` — for
+            # `_worktree_branch_fully_captured` that means "not provably
+            # captured", which keeps the conservative `git branch -d`.
             case "$dep_fn" in
-                _is_primary_worktree_path) dep_fns+="$dep_fn() { return 1; }"$'\n' ;;
-                *)                         dep_fns+="$dep_fn() { :; }"$'\n' ;;
+                _is_primary_worktree_path|_worktree_branch_fully_captured)
+                    dep_fns+="$dep_fn() { return 1; }"$'\n' ;;
+                *)  dep_fns+="$dep_fn() { :; }"$'\n' ;;
             esac
         fi
     done
@@ -2242,8 +2256,15 @@ if [[ -d "$WORKTREE_PATH" ]]; then
             # worktree remains usable either way, so keep it cleanup-eligible
             # (#3548).
             write_loom_sentinel "$WORKTREE_PATH"
+            # #6334: re-check commits-ahead and tracked-diff state immediately
+            # before the destructive reset rather than trusting the
+            # point-in-time check above — a second builder (or any other
+            # process) can have landed new commits or foreign uncommitted
+            # tracked changes into this worktree in the interim. Rescue/refuse
+            # instead of silently discarding them (see lib/worktree-race-rescue.sh
+            # for the full design decision).
             if git -C "$WORKTREE_PATH" fetch origin "${BASE_BRANCH:-$DEFAULT_BRANCH}" 2>/dev/null && \
-               git -C "$WORKTREE_PATH" reset --hard "$BASE_REF" 2>/dev/null; then
+               loom_worktree_reset_or_rescue "$WORKTREE_PATH" "$BASE_REF" "issue-$ISSUE_NUMBER-stale-worktree-reset"; then
                 if [[ "$JSON_OUTPUT" != "true" ]]; then
                     print_success "Stale worktree reset to $BASE_DISPLAY"
                     echo ""

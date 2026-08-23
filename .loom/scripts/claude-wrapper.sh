@@ -452,6 +452,63 @@ resolve_mcp_workspace() {
     fi
 }
 
+# Protocol-level MCP health check (#5032 follow-up, issue #143 / 2am#307).
+#
+# Starts the candidate entry point, sends a standard MCP `initialize`
+# JSON-RPC request over its stdin, and checks stdout for a well-formed
+# JSON-RPC response (matching id, with a `result` or `error` field). This
+# replaces a prior implementation that grepped stderr for the literal string
+# "running on stdio" — that string is mcp-loom's OWN startup banner
+# (~/GitHub/loom/mcp-loom/src/index.ts), not part of the MCP protocol itself.
+# Any MCP server that doesn't happen to print that exact banner (e.g.
+# squad's `dist/mcp.js`, which prints nothing on a clean start) false-
+# negatived unconditionally under the old check, regardless of actual
+# health. A protocol-level handshake is used instead of extending the old
+# check into a banner-string allowlist, since an allowlist just breaks again
+# for the next MCP server implementation that doesn't emit a banner.
+#
+# Args: $1 = path to the MCP server entry point (e.g. dist/index.js)
+#       $2 = node binary to invoke it with
+# Sets (for the caller to log on failure): MCP_SMOKE_TEST_STDOUT,
+# MCP_SMOKE_TEST_STDERR.
+# Returns: 0 if a valid JSON-RPC initialize response was observed, 1 otherwise.
+_mcp_smoke_test() {
+    local mcp_entry="$1"
+    local node_bin="$2"
+
+    local init_request='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"loom-mcp-preflight","version":"1.0.0"}}}'
+
+    local tmp_stdout tmp_stderr
+    tmp_stdout=$(mktemp)
+    tmp_stderr=$(mktemp)
+
+    printf '%s\n' "${init_request}" | timeout 5 "${node_bin}" "${mcp_entry}" \
+        >"${tmp_stdout}" 2>"${tmp_stderr}" || true
+
+    MCP_SMOKE_TEST_STDOUT=$(cat "${tmp_stdout}")
+    MCP_SMOKE_TEST_STDERR=$(cat "${tmp_stderr}")
+    rm -f "${tmp_stdout}" "${tmp_stderr}"
+
+    # A healthy MCP server responds to `initialize` with a JSON-RPC 2.0
+    # message carrying the same id (1) and either a `result` or `error`
+    # field, per the MCP/JSON-RPC spec — true regardless of whether the
+    # implementation also happens to print a stderr startup banner.
+    printf '%s' "${MCP_SMOKE_TEST_STDOUT}" | python3 -c "
+import json, sys
+for line in sys.stdin.read().splitlines():
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        obj = json.loads(line)
+    except Exception:
+        continue
+    if isinstance(obj, dict) and obj.get('jsonrpc') == '2.0' and obj.get('id') == 1 and ('result' in obj or 'error' in obj):
+        sys.exit(0)
+sys.exit(1)
+" 2>/dev/null
+}
+
 # Attempt MCP pre-flight for ONE candidate workspace directory: extract the
 # entry point from ${1}/.mcp.json, ensure it exists (rebuilding if
 # missing/stale), and smoke-test it. Split out of check_mcp_server so the
@@ -528,26 +585,28 @@ for name, srv in servers.items():
         return 1
     fi
 
-    # Smoke test: start MCP server and verify it emits the startup message
-    # The MCP server writes "Loom MCP server running on stdio" to stderr on success.
-    # Use a short timeout - we just need to see the startup message.
-    # `node` is resolved via explicit candidate paths, not a bare PATH lookup:
-    # a non-login ssh session / launchd job never sources the login profile, so
-    # /opt/homebrew/bin is not on PATH (#5032, same reasoning as #4875).
-    local mcp_stderr node_bin
+    # Smoke test: start the MCP server and perform a protocol-level handshake
+    # (see _mcp_smoke_test above) rather than grepping for a server-specific
+    # startup banner. `node` is resolved via explicit candidate paths, not a
+    # bare PATH lookup: a non-login ssh session / launchd job never sources
+    # the login profile, so /opt/homebrew/bin is not on PATH (#5032, same
+    # reasoning as #4875).
+    local node_bin
     node_bin="$(_locate_node_tool node)" || node_bin="node"
     [[ -n "${node_bin}" ]] || node_bin="node"
-    mcp_stderr=$(timeout 5 "${node_bin}" "${mcp_entry}" </dev/null 2>&1 || true)
 
-    if echo "${mcp_stderr}" | grep -qi "running on stdio"; then
+    if _mcp_smoke_test "${mcp_entry}" "${node_bin}"; then
         log_info "MCP server health check passed (${mcp_config})"
         return 0
     fi
 
     # MCP server failed to start - log the error
     log_warn "MCP server health check failed (${mcp_config})"
-    if [[ -n "${mcp_stderr}" ]]; then
-        log_warn "MCP stderr: ${mcp_stderr}"
+    if [[ -n "${MCP_SMOKE_TEST_STDERR}" ]]; then
+        log_warn "MCP stderr: ${MCP_SMOKE_TEST_STDERR}"
+    fi
+    if [[ -n "${MCP_SMOKE_TEST_STDOUT}" ]]; then
+        log_warn "MCP stdout: ${MCP_SMOKE_TEST_STDOUT}"
     fi
 
     # Attempt rebuild and retry
@@ -967,18 +1026,19 @@ _try_mcp_rebuild() {
         return 1
     fi
 
-    local mcp_stderr
     [[ -n "${node_bin}" ]] || node_bin="node"
-    mcp_stderr=$(timeout 5 "${node_bin}" "${mcp_entry}" </dev/null 2>&1 || true)
 
-    if echo "${mcp_stderr}" | grep -qi "running on stdio"; then
+    if _mcp_smoke_test "${mcp_entry}" "${node_bin}"; then
         log_info "MCP server health check passed after rebuild"
         return 0
     fi
 
     log_error "MCP server still fails after rebuild"
-    if [[ -n "${mcp_stderr}" ]]; then
-        log_error "MCP stderr after rebuild: ${mcp_stderr}"
+    if [[ -n "${MCP_SMOKE_TEST_STDERR}" ]]; then
+        log_error "MCP stderr after rebuild: ${MCP_SMOKE_TEST_STDERR}"
+    fi
+    if [[ -n "${MCP_SMOKE_TEST_STDOUT}" ]]; then
+        log_error "MCP stdout after rebuild: ${MCP_SMOKE_TEST_STDOUT}"
     fi
     return 1
 }
@@ -1455,9 +1515,10 @@ is_account_auth_dead() {
         return
     fi
     # Fallback if the classifier lib wasn't sourced — kept in lockstep with
-    # `lib/classify-error.sh`'s TOKEN_EXPIRED pattern.
+    # `lib/classify-error.sh`'s TOKEN_EXPIRED pattern (including #6614's
+    # JSON-envelope and revoked-token phrasings).
     [[ "${exit_code}" -ne 0 ]] && echo "${output}" \
-        | grep -qiE "401[^a-z]*authentication_error|invalid bearer token|OAuth token has expired|token has expired"
+        | grep -qiE "401[^a-z]*authentication_error|\"type\"[[:space:]]*:[[:space:]]*\"?authentication_error|token (has been|was) revoked|invalid bearer token|OAuth token has expired|token has expired"
 }
 
 # Echo a short human phrase describing why the account was considered
@@ -1465,7 +1526,13 @@ is_account_auth_dead() {
 _auth_dead_phrase() {
     local output="$1"
     local m
-    m="$(echo "${output}" | grep -ioE "401[^a-z]*authentication_error|invalid bearer token|OAuth token has expired|token has expired" | head -1)"
+    # Kept in lockstep with `lib/classify-error.sh`'s TOKEN_EXPIRED pattern.
+    # `authentication_error` appears bare (no `401` prefix, no quotes) so the
+    # JSON-enveloped 401 of #6614 yields a clean phrase for the `.bad_tokens`
+    # reason string instead of falling through to the generic default — grep
+    # returns the LEFTMOST match, so the quoted `"type":"` wrapper is never
+    # captured with it.
+    m="$(echo "${output}" | grep -ioE "401[^a-z]*authentication_error|(OAuth )?(access )?token (has been|was) revoked|authentication_error|invalid bearer token|OAuth token has expired|token has expired" | head -1)"
     echo "${m:-401/invalid credential}"
 }
 
@@ -2561,6 +2628,43 @@ run_preflight_checks() {
     return 0
 }
 
+# --- Headless-session marker for the Stop guard (issue #6645) ---
+#
+# `guard-background-subagents.sh` blocks a stop that would orphan a background
+# child. That block is correct in headless `-p` mode (ending the turn kills the
+# process) and a pure false positive in an interactive session (children
+# survive the turn boundary and their completion notifications arrive on a
+# later turn), so the guard must be able to tell the two apart.
+#
+# The guard's primary signal is the owning `claude` process's own argv. This
+# export is the defense-in-depth belt for the dispatch path `loom-daemon`
+# actually uses: the daemon spawns THIS script directly, not `spawn-claude.sh`,
+# so the identical export in `spawn-claude.sh` does not cover a
+# daemon-dispatched sweep. Env vars exported here are inherited by `claude` and,
+# in turn, by its hook subprocesses (verified live on 2026-08-22: a Stop hook's
+# environment carries the full harness environment, including `CLAUDE_PID`).
+#
+# Set ONLY when print mode is actually requested. This script deliberately runs
+# slash-command agents in INTERACTIVE mode under `script -q` rather than
+# `--print` (see the `_has_slash_cmd` note in run_with_retry, #2608), and those
+# sessions must NOT be marked headless -- they would inherit exactly the
+# friction #6645 removes. Anything this function cannot positively identify as
+# print mode is left unmarked, which is safe: the guard's own fail-closed
+# default already resolves an unmarked, unclassifiable session to headless.
+export_headless_session_marker() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            -p | --print | --print=*)
+                export LOOM_HEADLESS_SESSION=1
+                log_info "Session mode: headless print mode -- LOOM_HEADLESS_SESSION=1 (#6645)"
+                return 0
+                ;;
+        esac
+    done
+    return 0
+}
+
 # Main entry point
 main() {
     # Ensure retry state file is cleaned up on exit (normal or abnormal)
@@ -2632,6 +2736,10 @@ main() {
             log_info "Explicit --model in args wins over LOOM_MODEL='${LOOM_MODEL}'"
         fi
     fi
+
+    # Headless-session marker for the Stop guard (issue #6645). Must run
+    # BEFORE run_with_retry so the export is in place for every attempt.
+    export_headless_session_marker "$@"
 
     # Run Claude with retry logic
     log_info "Pre-flight complete, launching Claude CLI..."

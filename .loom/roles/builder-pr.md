@@ -256,8 +256,44 @@ Local verification:
 - [ ] Commits are signed off if required (`commit.signoff: true` in `.loom/config.json`, or a DCO/`sign-off` requirement — `git commit --signoff`; see "DCO sign-off" above)
 - [ ] Relevant tests pass
 - [ ] Each criterion has explicit verification (not "I think it works")
-- [ ] If this diff touches anything under `defaults/`, either `scripts/version.sh` was run to bump `VERSION` (and its five synced files), or the PR body/a commit message includes `<!-- loom:no-surface-change -->` (see `defaults/scripts/check-defaults-version-bump.sh` for the exact rule)
+- [ ] Ran the "defaults/ VERSION-Bump Gate" command block below (not just read it) — exited 0. It covers both: a `defaults/` change without a `VERSION` bump/marker, and any hand-edited version-bearing file `scripts/version.sh check` alone would catch.
 ```
+
+**Run the defaults/ VERSION-Bump Gate locally — an actual command, not a checklist bullet to read (#6675, recurring Judge rejection: #6598, #6599, #6610, #6611, #6630, #6668 all hit this in CI because it was never run pre-PR):**
+
+```bash
+# Run from your worktree, AFTER your last commit, BEFORE
+# ./.loom/scripts/create-pr.sh. Mirrors the CI job "defaults/ Changes
+# Require a VERSION Bump" (.github/workflows/ci.yml) — no PR exists yet at
+# Builder time, so use the merge-base with origin/main as --base instead of
+# a PR base sha.
+MERGE_BASE="$(git merge-base origin/main HEAD)"
+
+# 1. defaults/ surface-vs-VERSION gate. Exit 0 = no defaults/ change, or
+#    VERSION was bumped, or the no-surface-change marker is present; exit 1
+#    = a defaults/ path changed with neither. Since no PR body exists yet,
+#    the marker is only detectable via a commit message here — put
+#    `<!-- loom:no-surface-change -->` in a commit message, not just the
+#    future PR body, if you're relying on it at this step.
+if ! bash defaults/scripts/check-defaults-version-bump.sh --base "$MERGE_BASE" --head HEAD; then
+  echo "BLOCKER: defaults/ changed without a VERSION bump or <!-- loom:no-surface-change --> marker." >&2
+  echo "Fix: ./scripts/version.sh bump patch   (or add the marker to a commit message), then re-run this check." >&2
+  exit 1
+fi
+
+# 2. Catch a version-bearing file that was hand-edited outside
+#    `scripts/version.sh bump`/`set` (the gate above only looks at
+#    defaults/ + VERSION, not the other 5 synced files individually).
+if ! ./scripts/version.sh check; then
+  echo "BLOCKER: 'scripts/version.sh check' found a version mismatch — see MISMATCH line(s) above." >&2
+  echo "Fix: ./scripts/version.sh bump patch   (re-syncs all version-bearing files), then re-run this check." >&2
+  exit 1
+fi
+
+echo "OK: defaults/ VERSION-bump gate + version.sh check both pass."
+```
+
+**Treat any non-zero exit above as a hard local blocker** — fix it (bump the version or add the marker to a commit message) and re-run the block until it prints the final `OK:` line before calling `create-pr.sh`. Do not proceed on the strength of having merely read the checklist bullet.
 
 ### Step 4: Document Verification in PR Description
 
@@ -778,16 +814,21 @@ fencing check:
 ./.loom/scripts/sweep-lease-fence.sh check "$N"
 FENCE_RC=$?
 if [[ "$FENCE_RC" -eq 3 ]]; then
-  echo "Lease fence: EXPIRED — my claim's lease record is stale on the forge's own clock. Aborting before push/PR-open; NOT pushing, NOT opening a PR." >&2
+  echo "Lease fence: EXPIRED — MY OWN claim's lease record is stale on the forge's own clock (my renewal loop died). Aborting before push/PR-open; NOT pushing, NOT opening a PR." >&2
   # Stop here for issue $N. Do not push, do not create a PR, do not touch
   # the loom:building label or contest any peer's claim — report this issue
   # as not-contributed-this-run, same as any other Builder failure marker.
+  # (Issue #6783: exit 3 now means the EXPIRED lease is THIS sweep's own —
+  # an expired lease owned by a DIFFERENT, abandoned host is no longer a
+  # fencing abort; that case is folded into FENCE_RC == 0 below.)
 elif [[ "$FENCE_RC" -eq 4 ]]; then
   echo "Lease fence: SUPERSEDED — a different host's lease is now the freshest for issue $N. Aborting before push/PR-open; NOT pushing, NOT opening a PR." >&2
   # Same stop-here handling as the EXPIRED branch above.
 else
   # FENCE_RC == 0 (fresh & own host, OR no lease evidence to fence against —
-  # fail-open, see the script's own header doc) -> proceed exactly as before.
+  # fail-open, see the script's own header doc — OR an EXPIRED lease owned
+  # by a DIFFERENT, abandoned host, Issue #6783) -> proceed exactly as
+  # before.
   git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
   # ... then open the PR (see "Creating the PR" below) ...
 fi
@@ -803,8 +844,8 @@ the comment is still fresh (`now - updated_at <= LEASE_TTL_MINUTES`, default
 15, override with `--ttl-minutes` or `LOOM_LEASE_TTL_MINUTES`) and its
 `host=` still names **this** host (`--host`, defaulting to this host's own
 identity — same `LOOM_HOST_ID` > `$HOSTNAME` > `hostname` precedence
-`sweep_registry::host_identity()` uses). On EITHER failure it aborts (exit
-`3` = expired, `4` = superseded — the two are logged distinctly so a
+`sweep_registry::host_identity()` uses). It aborts (exit `3` = expired-and-
+own-host, `4` = superseded — the two are logged distinctly so a
 post-incident read can tell them apart) **before doing anything
 externally-visible**: no push, no PR. It never contests or cleans up a peer's
 claim — the `loom:building` label is left exactly as-is; that is out of
@@ -814,6 +855,17 @@ cron, or `--no-daemon` run has no lease comment to fence against at all — the
 check fails open (exit `0`) for those, same as every other lease-record
 reader in this repo treats "no lease" as "no evidence", never as "not
 fresh".
+
+**Issue #6783: an EXPIRED lease owned by a DIFFERENT host now PASSes, not
+aborts.** Exit `3` (EXPIRED) fires only when the freshest lease is stale AND
+belongs to *this sweep's own* host — a sweep whose own renewal loop died
+should not trust its claim. An expired lease belonging to a *different* host
+is an abandoned record, not a live peer, and is now treated as no fencing
+evidence (fail-open, exit `0`) rather than a permanent abort — a dead sweep's
+never-renewed, never-yielded lease would otherwise fence out every successor
+dispatch forever (observed on issue #6694 / PR #6773). Exit `4` (SUPERSEDED
+— a *fresh* lease from a live peer) is unaffected: that case still means a
+live peer genuinely holds the claim.
 
 ### Creating the PR
 

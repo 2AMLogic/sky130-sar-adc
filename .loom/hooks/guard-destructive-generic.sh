@@ -803,6 +803,49 @@ cloud_guard_enabled() {
 }
 
 # =============================================================================
+# Cargo-clean scope guard toggle — default ON (#6684).
+#
+# `cargo clean` looks purely local, but on a host whose `~/.cargo/config.toml`
+# (or a repo/ancestor `.cargo/config.toml`) sets a SHARED `build.target-dir`
+# outside any one repo, a bare `cargo clean` deletes every project's build
+# output on that host — including whatever sweep is compiling concurrently
+# elsewhere. The cost is "only" recompilation (build output is derived state),
+# but it lands on unrelated in-flight work with no way to attribute it, and
+# the resulting failure ("No such file or directory" mid-build) names nothing
+# about the real cause. See cargo_clean_scope_match() / cargo_clean_effective_
+# target_dir() below for the detection + resolution this toggle gates.
+#
+# Resolution order (highest precedence first):
+#   1. LOOM_GUARD_CARGO_CLEAN env var (0/false/no disables, 1/true/yes forces on)
+#   2. .loom/config.json  ->  guards.cargoCleanScope  (default true when absent)
+#   3. Default: true (guard on)
+#
+# Mirrors sql_guard_enabled()/cloud_guard_enabled(): cached in
+# _CARGO_CLEAN_GUARD_CACHE, invoked LAZILY only once a bare (unscoped) `cargo
+# clean` segment has already matched, so the config read never touches the hot
+# path for the overwhelming majority of commands that never invoke cargo at
+# all. The config read is best-effort: any parse failure falls through to
+# guard-ON.
+# =============================================================================
+_CARGO_CLEAN_GUARD_CACHE=""
+cargo_clean_guard_enabled() {
+    if [[ -z "$_CARGO_CLEAN_GUARD_CACHE" ]]; then
+        local enabled=true raw
+        if [[ -n "$REPO_ROOT" ]]; then
+            raw=$(loom_config_get "$REPO_ROOT" "guards.cargoCleanScope" "true" 2>/dev/null) || raw=true
+            [[ "$raw" == "false" ]] && enabled=false
+        fi
+        # Env override wins over config.
+        case "${LOOM_GUARD_CARGO_CLEAN:-}" in
+            0|false|no)  enabled=false ;;
+            1|true|yes)  enabled=true ;;
+        esac
+        _CARGO_CLEAN_GUARD_CACHE="$enabled"
+    fi
+    [[ "$_CARGO_CLEAN_GUARD_CACHE" == "true" ]]
+}
+
+# =============================================================================
 # Reversible-GitHub ask toggle — default OFF (opt-IN; inverse polarity, #3757).
 #
 # `gh pr close`, `gh issue close`, and `gh label delete` change shared state but
@@ -2029,6 +2072,19 @@ function unmask_ws(s) {
 #      invocation and recursively re-scanning its script/stdin argument) is a
 #      materially larger, separate piece of work than the heredoc masking pass
 #      and is deliberately out of scope for #5351.
+#      NARROWED (#6353): the write-confinement scan (extract_write_targets(),
+#      via mask_heredoc_bodies_selective(buf, 1)) no longer treats
+#      python[0-9.]*/perl/ruby/node/nodejs as "interpreter-fed" for THIS
+#      purpose -- only bash/sh/zsh/dash/ksh/eval/source/. keep the #5351
+#      "leave body visible" treatment there. Those four languages never
+#      resolved a heredoc-body `>`/`>=`/`<`/`<=` to a write/read redirect in
+#      their own syntax in the first place (it is an ordinary comparison
+#      operator), so leaving their bodies visible bought no real protection
+#      while manufacturing false DENYs on ordinary code. The catastrophic
+#      tier's gh-api-rawfield-body-literal-at check (#5198) and the general
+#      COMMAND_ASK_SCAN heredoc pass are UNCHANGED -- they still call
+#      mask_heredoc_bodies_selective() with shell_only unset, so all five
+#      language families stay "interpreter-fed" for those two purposes.
 #
 #   2. Crafted false opener whose delimiter later appears. Opener detection
 #      (heredoc_delim_at()) runs on a single physical line, before qsplit()
@@ -2195,10 +2251,25 @@ function _interp_basename(tok,   base, SQ, DQ) {
     sub(/^.*\//, "", base)
     return base
 }
-function is_interpreter_opener(line,   n, segs, i, seg, m, toks, j, base) {
+function is_interpreter_opener(line, shell_only,   n, segs, i, seg, m, toks, j, base) {
     # Split into command segments on ; & | (covers && and || too) so a piped
     # or chained interpreter is caught in ANY position, e.g. `cat <<EOF | bash`
     # and `cat <<EOF | sudo bash`.
+    #
+    # shell_only (#6353): an OPTIONAL second argument. When truthy, only the
+    # genuine SHELL interpreters (bash/sh/zsh/dash/ksh/eval/source/.) count as
+    # "interpreter-fed" -- python[0-9.]*/perl/ruby/node/nodejs do NOT, even
+    # though they are still real interpreters. Left unset ("", falsy) by
+    # every pre-existing caller, so the default behavior (all of the above
+    # count) is UNCHANGED for them. Only the write-confinement scan inside
+    # extract_write_targets() (below) passes shell_only=1 -- see the comment
+    # at that call site for why: `>`/`>=`/`<`/`<=` is a live redirect ONLY in
+    # real shell syntax; in Python/Perl/Ruby/JS source it is an ordinary
+    # comparison/generic operator, so leaving heredoc bodies fed to those
+    # languages visible to a shell-write-idiom scan buys no real protection
+    # (their actual writes go through language-level APIs this scanner does
+    # not parse regardless) while manufacturing false DENYs on ordinary code
+    # like `if len(affected) > 20:` (#6353).
     n = split(line, segs, /[;&|]+/)
     for (i = 1; i <= n; i++) {
         seg = segs[i]
@@ -2229,8 +2300,13 @@ function is_interpreter_opener(line,   n, segs, i, seg, m, toks, j, base) {
         }
         if (j > m) continue
         base = _interp_basename(toks[j])
-        if (base ~ /^(bash|sh|zsh|dash|ksh|python[0-9.]*|perl|ruby|node|nodejs|eval|source|\.)$/)
-            return 1
+        if (shell_only) {
+            if (base ~ /^(bash|sh|zsh|dash|ksh|eval|source|\.)$/)
+                return 1
+        } else {
+            if (base ~ /^(bash|sh|zsh|dash|ksh|python[0-9.]*|perl|ruby|node|nodejs|eval|source|\.)$/)
+                return 1
+        }
         # (3) Fail CLOSED on a command word that resolves to no name at all --
         # a variable / command substitution, or an empty word. See the
         # FAIL-CLOSED TAIL note above: resolvable-but-unknown command words
@@ -2257,7 +2333,15 @@ function is_interpreter_opener(line,   n, segs, i, seg, m, toks, j, base) {
 # confinement check. Plain mask_heredoc_bodies() above is retained as the
 # reference primitive (identical minus the interpreter carve-out) but now
 # has no runtime caller.
-function mask_heredoc_bodies_selective(s,   out, lines, nl, i, j, line, trimmed, body, delim, delim_quoted, closeat, p, off, MASKC) {
+#
+# shell_only (#6353): an OPTIONAL second argument, forwarded verbatim to
+# is_interpreter_opener() -- see the header comment on that function for the
+# full rationale. Left unset by the #5198 gh-api-rawfield-body-literal-at
+# caller and the general COMMAND_ASK_SCAN heredoc pass (both keep treating
+# python/perl/ruby/node[js] heredoc bodies as interpreter-fed, unchanged);
+# passed as 1 ONLY by the internal call inside extract_write_targets(), so
+# just the worktree-write-confinement scan narrows to shell interpreters.
+function mask_heredoc_bodies_selective(s, shell_only,   out, lines, nl, i, j, line, trimmed, body, delim, delim_quoted, closeat, p, off, MASKC) {
     MASKC = sprintf("%c", 23) # ETB -- placeholder for inert heredoc-body text
     nl = split(s, lines, "\n")
     if (nl == 0) return ""
@@ -2279,7 +2363,7 @@ function mask_heredoc_bodies_selective(s,   out, lines, nl, i, j, line, trimmed,
                 if (trimmed == delim) { closeat = j; break }
             }
             if (closeat == 0) continue
-            if (delim_quoted && !is_interpreter_opener(line)) {
+            if (delim_quoted && !is_interpreter_opener(line, shell_only)) {
                 for (j = i + 1; j < closeat; j++) {
                     body = lines[j]
                     gsub(/./, MASKC, body)
@@ -2768,7 +2852,7 @@ parse_force_ops() {
 # false-NEGATIVE direction out of this issue's scope) — only a `cd <dir>`
 # prefix is.
 resolve_stash_cwd() {
-    printf '%s' "$1" | awk -v startcwd="$2" -v home="$HOME" "$_QSPLIT_AWK""$_CDEXPAND_AWK""$_CDQUOTE_AWK"'
+    printf '%s' "$1" | awk -v startcwd="$2" -v home="$HOME" "$_QSPLIT_AWK""$_CDEXPAND_AWK""$_CDQUOTE_AWK""$_MASKWS_AWK"'
     BEGIN { curcwd = startcwd; found = 0 }
     {
         $0 = qsplit($0)   # quote-aware segmentation (#3755)
@@ -2779,8 +2863,22 @@ resolve_stash_cwd() {
             sub(/^sudo[ \t]+/, "", seg)
             sub(/^[ \t]+/, "", seg)
             if (seg == "") continue
-            m = split(seg, toks, /[ \t]+/)
+            # Quote-aware whitespace masking (#6552, same technique as
+            # extract_write_targets()'"'"'s #4934/mask_ws() fix): mask a
+            # space/tab INSIDE a quoted span with a non-whitespace
+            # placeholder before the plain `/[ \t]+/` split runs, so a
+            # quoted `cd` argument containing a literal space (e.g. `cd
+            # "/Users/me/Real Estate CRM/wt"`) yields exactly ONE token
+            # instead of truncating at the first embedded space and being
+            # misclassified as relative (which fed a bogus cwd join and a
+            # spurious cd-unresolved ask). unmask_ws() restores the real
+            # whitespace bytes afterward, so toks[] still carries the RAW,
+            # quote-intact text -- preserving the #5372 contract that
+            # curcwd is built from the raw cdarg, not an early-unquoted copy.
+            wseg = mask_ws(seg)
+            m = split(wseg, toks, /[ \t]+/)
             if (m == 0) continue
+            for (j = 1; j <= m; j++) toks[j] = unmask_ws(toks[j])
             # Thread a `cd <dir>` prefix through LATER segments of this same
             # compound command (mirrors parse_force_ops above). Classification
             # uses strip_cd_quoting() (#5363/#5372) so a fully or partially
@@ -4498,6 +4596,189 @@ extract_rm_targets() {
 }
 
 # =============================================================================
+# rm-scope SAME-COMMAND mktemp RESOLUTION (#6520)
+#
+# The `rm-scope-unresolved-var` deny (below) fails closed on ANY expandable
+# `$` in an rm target, including the extremely common scratch-dir idiom
+#   tmpdir=$(mktemp -d) && ... && rm -rf "$tmpdir"
+# whose value is, in fact, provably rooted under /tmp (or $TMPDIR) — mktemp's
+# own contract with no output-redirecting flags. This is a NEW resolution
+# step, deliberately NOT built on resolve_var()/record_assign() (#4881,
+# #6152): that pair only ever substitutes the LITERAL text following `=`
+# (after quote-stripping), so a command-substitution RHS like `$(mktemp -d)`
+# would still start with `$` and stay unresolved even if this path called it.
+#
+# rm_scope_mktemp_same_command_safe() returns success (0) ONLY when:
+#   1. The rm target, after stripping at most one layer of surrounding quotes,
+#      is a BARE `$NAME` or `${NAME}` reference — nothing else in the token
+#      (a suffix like `$NAME/sub` is deliberately excluded; fail closed).
+#   2. Scanning every ;/&/&&/||-separated segment of the SAME command text
+#      for a `NAME=...` assignment whose entire segment is EXACTLY
+#      `NAME=$(mktemp -d)` or `NAME=$(mktemp)` (optionally the same forms
+#      double-quoted) — the plain, default-temp-root-rooted invocations only.
+#      A custom template/prefix (`mktemp -d /other/dir/XXXXXX`,
+#      `mktemp --tmpdir=/other/dir`, …) never matches this exact-string test,
+#      so it is excluded from the fast path and falls through to today's
+#      fail-closed deny (routine complexity: prefer excluding an unusual
+#      mktemp shape over guessing its output root, #6520).
+#   3. Exactly ONE assignment to NAME exists anywhere in the command, and it
+#      is the safe form above. TWO OR MORE assignments to NAME — even a
+#      second, differently-shaped one appearing AFTER the safe mktemp
+#      assignment — poison the resolution and fail closed: the guard cannot
+#      tell which assignment's value the shell will see at the `rm` word, so
+#      ambiguity must never resolve to an allow.
+#
+# On success, the caller treats the target as a proven /tmp-or-$TMPDIR-rooted
+# path and skips BOTH the unresolved-var deny AND the string-prefix scope
+# check below it — the raw `$CWD/$target` concatenation used by that check
+# still contains the literal, un-substituted `$NAME` text (this is a
+# tokenizer, not a shell evaluator) and cannot be trusted for anything beyond
+# the narrow proof made here.
+#
+# DECOY-HEREDOC BYPASS (#6549): the awk body below processes its `cmdtext`
+# argument one PHYSICAL LINE at a time with no heredoc-body awareness of its
+# own, so passing it the raw (heredoc-unmasked) command text let an attacker
+# set the REAL value of `NAME` via a shape this scan's exact `NAME=` prefix
+# match never sees (e.g. `export NAME=$(malicious_command)`), issue a live
+# `rm -rf "$NAME"`, then plant an inert, never-executed decoy
+# `NAME=$(mktemp -d)` line inside a heredoc body later in the same command
+# purely to make `total == 1 && safe == 1` come out true. The caller
+# (rm-scope SCOPE CHECK, below) now passes a heredoc-body-masked working
+# copy — see its own `COMMAND_RM_MKTEMP_SCAN` comment for why it masks
+# unconditionally (every heredoc shape, including an interpreter-fed one)
+# rather than reusing `COMMAND_ASK_SCAN`'s narrower, interpreter-aware
+# masking.
+# =============================================================================
+_rm_scope_bare_var_name() {
+    local tok="$1" t c1 c2
+    t="$tok"
+    if [[ ${#t} -ge 2 ]]; then
+        c1="${t:0:1}"
+        c2="${t: -1}"
+        if [[ ("$c1" == '"' && "$c2" == '"') || ("$c1" == "'" && "$c2" == "'") ]]; then
+            t="${t:1:${#t}-2}"
+        fi
+    fi
+    if [[ "$t" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$ ]]; then
+        printf '%s' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    if [[ "$t" =~ ^\$([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
+        printf '%s' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    return 1
+}
+
+rm_scope_mktemp_same_command_safe() {
+    local target="$1" cmdtext="$2" varname verdict
+    varname=$(_rm_scope_bare_var_name "$target") || return 1
+    [[ -n "$varname" ]] || return 1
+    verdict=$(printf '%s' "$cmdtext" | awk -v varname="$varname" "$_QSPLIT_AWK"'
+    {
+        $0 = qsplit($0)
+        n = split($0, segs, "\n")
+        for (i = 1; i <= n; i++) {
+            seg = segs[i]
+            sub(/^[ \t]+/, "", seg)
+            sub(/[ \t]+$/, "", seg)
+            prefix = varname "="
+            plen = length(prefix)
+            if (length(seg) > plen && substr(seg, 1, plen) == prefix) {
+                rhs = substr(seg, plen + 1)
+                total++
+                if (rhs == "$(mktemp -d)" || rhs == "$(mktemp)" || \
+                    rhs == "\"$(mktemp -d)\"" || rhs == "\"$(mktemp)\"") {
+                    safe++
+                }
+            }
+        }
+    }
+    END {
+        if (total == 1 && safe == 1) print "SAFE"
+        else print "UNSAFE"
+    }')
+    [[ "$verdict" == "SAFE" ]]
+}
+
+# =============================================================================
+# rm-scope SAME-COMMAND LITERAL-PATH RESOLUTION (#6676)
+#
+# rm_scope_mktemp_same_command_safe() (above) proves ONLY the exact-string
+# `$(mktemp -d)`/`$(mktemp)` same-command RHS shape safe — a same-command
+# assignment of a LITERAL absolute path (`FARM=/tmp/nofile-bin-6662; rm -rf
+# "$FARM"`) never matches that exact-string test and previously fell straight
+# through to the fail-closed `rm-scope-unresolved-var` deny even though the
+# value is a provably static, non-command-substitution literal.
+#
+# rm_scope_literal_same_command_resolve() is a SIBLING fast path, not a
+# replacement for the mktemp one: it reuses record_assign()'s DQ/SQ-aware
+# quote-stripping logic (one layer of surrounding quotes stripped, #4881/
+# #6152) to resolve a same-command `NAME=<value>` assignment, then judges the
+# result:
+#
+#   1. Exactly ONE assignment to NAME exists anywhere in the SAME command
+#      text — mirrors the mktemp fast path's own ambiguity rule (its own doc
+#      comment, point 3, above): a second assignment to the same name — even
+#      an identical or otherwise-safe-looking one — poisons the resolution
+#      and fails closed, since the guard cannot tell which assignment's value
+#      the shell sees at the `rm` word.
+#   2. The (quote-stripped) RHS is a PURE LITERAL absolute path: starts with
+#      `/`, and contains neither `$` nor a backtick anywhere — so a RHS that
+#      itself still carries an unresolved expansion (`NAME="$OTHER/sub"`,
+#      `NAME=$(cmd)`, `` NAME=`cmd` ``) is rejected rather than trusted as a
+#      literal (fail closed).
+#
+# On success this prints the resolved literal absolute path on stdout and
+# returns 0. Unlike the mktemp fast path (which is unconditionally
+# /tmp-or-$TMPDIR-rooted and lets the CALLER skip the scope check entirely),
+# a literal path can resolve anywhere — the CALLER is responsible for
+# re-running the normal rm-scope checks (the top-level catastrophic-path deny
+# AND the repo/worktree/tmp IN_SCOPE check) against the resolved path, so it
+# is judged exactly like an equivalent literal `rm -rf /that/path` would be.
+# =============================================================================
+rm_scope_literal_same_command_resolve() {
+    local target="$1" cmdtext="$2" varname resolved
+    varname=$(_rm_scope_bare_var_name "$target") || return 1
+    [[ -n "$varname" ]] || return 1
+    resolved=$(printf '%s' "$cmdtext" | awk -v varname="$varname" "$_QSPLIT_AWK"'
+    BEGIN {
+        DQ = sprintf("%c", 34)
+        SQ = sprintf("%c", 39)
+    }
+    {
+        $0 = qsplit($0)
+        n = split($0, segs, "\n")
+        for (i = 1; i <= n; i++) {
+            seg = segs[i]
+            sub(/^[ \t]+/, "", seg)
+            sub(/[ \t]+$/, "", seg)
+            prefix = varname "="
+            plen = length(prefix)
+            if (length(seg) > plen && substr(seg, 1, plen) == prefix) {
+                total++
+                val = substr(seg, plen + 1)
+            }
+        }
+    }
+    END {
+        if (total == 1) {
+            vlen = length(val)
+            if (vlen >= 2) {
+                c1 = substr(val, 1, 1)
+                c2 = substr(val, vlen, 1)
+                if ((c1 == DQ && c2 == DQ) || (c1 == SQ && c2 == SQ)) {
+                    val = substr(val, 2, vlen - 2)
+                }
+            }
+            if (val ~ /^\// && val !~ /[$`]/) print val
+        }
+    }')
+    [[ -n "$resolved" ]] || return 1
+    printf '%s' "$resolved"
+}
+
+# =============================================================================
 # extract_write_targets() — Bash-tool write-idiom target extraction (#4178).
 #
 # Emits one "<cwd>\t<target>" line (TAB-separated, US separator 0x1f — mirrors
@@ -4690,7 +4971,23 @@ extract_write_targets() {
         # `--body "$(cat <<'EOF' ... EOF)"`), preserving the #4914/#5000/#5181
         # false-positive fixes. This gives the confinement tier the SAME
         # interpreter-awareness the catastrophic tier already has (#5198/#5205).
-        buf = mask_heredoc_bodies_selective(buf)
+        #
+        # SHELL-ONLY NARROWING (#6353): pass shell_only=1 here (and ONLY
+        # here -- the gh-api-rawfield check and the general COMMAND_ASK_SCAN
+        # heredoc pass elsewhere keep the default, unnarrowed behavior). A
+        # `>`/`>=`/`<`/`<=` is a live write/read redirect ONLY in real shell
+        # syntax itself; in Python/Perl/Ruby/JS source the same bytes are
+        # ordinary comparison operators, so leaving heredoc bodies fed to
+        # those languages visible to this write-idiom scan bought no real
+        # protection (their actual writes go through language-level APIs
+        # this command-word scanner never parses anyway) while
+        # manufacturing a false worktree-write-confinement DENY on ordinary
+        # code like `if len(affected) > 20:` inside a `python - <<'EOF'`
+        # heredoc. A genuine `bash <<'EOF' ... > file ... EOF`-style body
+        # still scans and still denies -- shell_only=1 only removes
+        # python[0-9.]*/perl/ruby/node/nodejs from the "leave visible"
+        # bucket, per the header comment on is_interpreter_opener().
+        buf = mask_heredoc_bodies_selective(buf, 1)
         $0 = qsplit(buf)   # quote-aware segmentation (#3755)
 
         # Whole-BUFFER quote-aware masking (#5157), not per-segment.
@@ -5147,6 +5444,47 @@ normalize_abs_path() {
     fi
 }
 
+physical_abs_path() {
+    # Resolve an ABSOLUTE path's symlinks as far as the filesystem allows,
+    # keeping any not-yet-existing trailing segments lexically appended.
+    #
+    # This is the symlink-resolving counterpart to normalize_abs_path(), which
+    # is deliberately pure-lexical (see its header) and therefore leaves a
+    # symlinked ancestor intact. Whenever a lexically-built path is compared
+    # against a path that came from git (`rev-parse --show-toplevel` /
+    # `--git-common-dir`, both of which return the symlink-RESOLVED spelling),
+    # the two can describe the same directory in different words and never
+    # string-match. On macOS this is the default state of any $TMPDIR path:
+    # /var is a symlink to /private/var, so `mktemp -d` yields
+    # /var/folders/... while git reports /private/var/folders/... (#6684; the
+    # same divergence the /tmp -> /private/tmp `pwd -P` note at the worktree
+    # containment block below already handles for its own comparisons).
+    #
+    # Walking up to the deepest EXISTING ancestor before `cd`-ing matters:
+    # the paths compared here (e.g. a target-dir cargo has not created yet)
+    # routinely do not exist on disk, and `realpath -m`, which would handle
+    # that, is GNU-only and silently no-ops on macOS.
+    local path="$1" tail="" phys
+    [[ "$path" == /* ]] || { printf '%s' "$path"; return 0; }
+    path=$(normalize_abs_path "$path")
+    while [[ ! -d "$path" && "$path" != "/" ]]; do
+        tail="${path##*/}${tail:+/}$tail"
+        path="${path%/*}"
+        [[ -n "$path" ]] || path="/"
+    done
+    phys=$(cd "$path" 2>/dev/null && pwd -P) || phys=""
+    [[ -n "$phys" ]] || phys="$path"
+    if [[ -n "$tail" ]]; then
+        if [[ "$phys" == "/" ]]; then
+            printf '/%s' "$tail"
+        else
+            printf '%s/%s' "$phys" "$tail"
+        fi
+    else
+        printf '%s' "$phys"
+    fi
+}
+
 # =============================================================================
 # expand_leading_tilde() — shell-accurate tilde expansion for write targets
 # (#4382, same fix family as the quote-aware `>` scanning of #4245/#4289).
@@ -5236,26 +5574,51 @@ expand_leading_tilde() {
     esac
 }
 
-# SCANS COMMAND_NO_LITERAL_TEXT, NOT RAW $COMMAND (#5216). extract_rm_targets()
-# segments with qsplit(), which — like every quote-tracking scan in this file —
-# is driven one PHYSICAL LINE at a time and has no memory of a `"` opened on an
-# earlier line. So a heredoc BODY line inside `--body "$(cat <<'EOF' … EOF)"`
-# was segmented as if it were live shell: the prose
-# `Example payload: \`owner/name; rm -rf /\`` split on its `;` into a segment
-# whose command word is `rm`, manufacturing the target ``/` `` and hard-denying a
-# Judge comment that deletes nothing (observed on PR #4357). Same failure family
-# as #5000's phantom write targets, and the reason fixing only the
-# ALWAYS_BLOCK_PATTERNS scan above leaves the reported command still denied.
-# The literal-redacted copy blanks exactly the quoted flag-value text (including
-# #5216's provably-inert `$(cat <<QDELIMQ … )` heredoc bodies) and nothing else,
-# so a REAL `rm -rf /` — bare, sudo-prefixed, after a `&&`, or smuggled through
-# `bash -c '…'` / `-m "$(rm -rf /)"` (neither of which is ever redacted) — still
-# reaches this check unchanged.
+# SCANS COMMAND_ASK_SCAN, NOT COMMAND_NO_LITERAL_TEXT (#5216, widened #6519).
+# extract_rm_targets() segments with qsplit(), which — like every
+# quote-tracking scan in this file — is driven one PHYSICAL LINE at a time and
+# has no memory of a `"` opened on an earlier line. So a heredoc BODY line
+# inside `--body "$(cat <<'EOF' … EOF)"` was segmented as if it were live
+# shell: the prose `Example payload: \`owner/name; rm -rf /\`` split on its
+# `;` into a segment whose command word is `rm`, manufacturing the target
+# ``/` `` and hard-denying a Judge comment that deletes nothing (observed on
+# PR #4357). Same failure family as #5000's phantom write targets.
+#
+# #5216 closed that ONE shape (a `<flag> "$(cat <<'EOF' … EOF)"` value
+# directly following a text-carrying flag) by scanning COMMAND_NO_LITERAL_TEXT
+# — narrow on purpose at the time, mirroring the catastrophic
+# ALWAYS_BLOCK_PATTERNS scan's own copy. But it left a SIBLING shape open
+# (#6519): `cat <<'EOF' > /tmp/x.md … EOF` writing an inert example to a file,
+# referenced LATER via `--body-file /tmp/x.md` (or any other non-substitution
+# consumer) — no flag ever sits directly before the heredoc opener, so neither
+# strip_literal_text() nor its mask_flag_cat_heredocs() helper ever sees it,
+# and a heredoc body line whose own first word happens to be `rm` (e.g. a
+# standalone "rm -rf /opt/vendor/important" example line in acceptance-
+# criteria prose) still manufactured a phantom local `rm` segment and
+# hard-denied a write that deletes nothing (reproduced against rjwalters/
+# anvil#1073's shape). This is the exact same failure family
+# parse_force_ops()/lifecycle_or_cloud_reason() already fixed by reading
+# COMMAND_ASK_SCAN (comment-stripped AND heredoc-body-masked via
+# mask_heredoc_bodies_selective()/mask_unquoted_cat_heredoc_bodies(), gated
+# only on heredoc/flag PRESENCE, not on a specific flag+substitution shape) —
+# extract_rm_targets() now matches that established pattern instead of
+# growing its own narrower one. mask_heredoc_bodies_selective() masks ONLY a
+# CLOSED, quoted-delimiter heredoc BODY and deliberately leaves an
+# INTERPRETER-fed heredoc (`bash <<EOF`, `sh -s <<EOF`, `cat <<EOF | sh`, …)
+# and everything OUTSIDE the heredoc untouched, so a REAL `rm -rf /` — bare,
+# sudo-prefixed, after a `&&`, chained after a heredoc closes, inside an
+# interpreter-fed heredoc, or smuggled through `bash -c '…'` / `-m "$(rm -rf
+# /)"` — still reaches this check unchanged; only inert, provably-non-executing
+# heredoc-body prose is newly excluded. Both `rm-protected-path` (unconditional)
+# and `rm-scope-outside-repo` (guards.rmScope-gated) consume the same
+# RM_TARGETS list built below, so this widening applies to both — matching
+# lifecycle_or_cloud_reason()'s precedent of an unconditional deny already
+# reading COMMAND_ASK_SCAN for the identical reason.
 #
 # Cheap pre-check keeps awk off the hot path for the ~99% of commands that have
 # no recursive/force rm at all.
-if echo "$COMMAND_NO_LITERAL_TEXT" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*[rf]'; then
-    RM_TARGETS=$(extract_rm_targets "$COMMAND_NO_LITERAL_TEXT" | head -20)
+if echo "$COMMAND_ASK_SCAN" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*[rf]'; then
+    RM_TARGETS=$(extract_rm_targets "$COMMAND_ASK_SCAN" | head -20)
 
     for target in $RM_TARGETS; do
         # Skip empty targets
@@ -5342,7 +5705,73 @@ if echo "$COMMAND_NO_LITERAL_TEXT" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*[rf]'; th
                 mark_expandable_dollars "$target"
                 _rm_marked="$_MARKED_TOKEN"
                 if [[ "$_rm_marked" == $'\001'* || "$_rm_marked" == /$'\001'* ]]; then
-                    deny "BLOCKED: rm target '${target}' is an unexpanded shell variable from the path root down, so this guard cannot tell where it resolves at runtime (guards.rmScope=repo). Unresolvable rm targets fail closed (mirrors rjwalters/repo#244, fixing #239). Use an explicit literal path." "rm-scope-unresolved-var"
+                    # Narrow escape hatch (#6520): a same-command
+                    # `NAME=$(mktemp -d)`/`NAME=$(mktemp)` assignment proves
+                    # this variable is /tmp-or-$TMPDIR-rooted, even though the
+                    # raw token is unexpanded. See
+                    # rm_scope_mktemp_same_command_safe()'s own doc comment
+                    # (above extract_rm_targets()) for the exact, deliberately
+                    # narrow conditions. On success this target is fully
+                    # vetted — skip the string-prefix scope check below too,
+                    # since $ABS_PATH still holds the un-substituted literal
+                    # `$NAME` text and cannot be trusted for anything else.
+                    #
+                    # HEREDOC-BODY-MASKED SCAN (#6549): scans
+                    # $COMMAND_RM_MKTEMP_SCAN (lazily built just below, cached
+                    # across loop iterations), NOT the raw $COMMAND_NO_LITERAL_TEXT
+                    # -- see that variable's own definition for why. Unlike this
+                    # decision's earlier precedent (#6519's extract_rm_targets()
+                    # widening, and COMMAND_ASK_SCAN generally), this dedicated
+                    # copy masks EVERY heredoc body unconditionally, including an
+                    # interpreter-fed one (`bash <<EOF`) and an unquoted-delimiter
+                    # one whose `$(...)` the outer shell does expand while
+                    # building the body: a heredoc body is never itself a
+                    # top-level statement in the CURRENT shell -- it is either
+                    # data handed to the consuming command's stdin, or (for an
+                    # interpreter-fed opener) a script handed to a CHILD process
+                    # -- so no heredoc body line, of any shape, can ever be the
+                    # live assignment this function is trying to prove exists.
+                    # Masking it here can therefore only narrow (turn a
+                    # decoy-inflated ambiguous/false SAFE into the correct
+                    # fail-closed UNSAFE), never widen: a real, live top-level
+                    # `NAME=$(mktemp -d)` sitting outside every heredoc in the
+                    # same command is completely unaffected.
+                    if [[ -z "${COMMAND_RM_MKTEMP_SCAN+x}" ]]; then
+                        COMMAND_RM_MKTEMP_SCAN="$COMMAND_NO_LITERAL_TEXT"
+                        if [[ "$COMMAND_RM_MKTEMP_SCAN" == *"<<"* ]]; then
+                            COMMAND_RM_MKTEMP_SCAN=$(printf '%s' "$COMMAND_RM_MKTEMP_SCAN" | awk "$_MASKHEREDOC_AWK"'
+                            { buf = buf (NR > 1 ? "\n" : "") $0 }
+                            END { printf "%s", mask_heredoc_bodies(buf) }')
+                        fi
+                    fi
+                    if rm_scope_mktemp_same_command_safe "$target" "$COMMAND_RM_MKTEMP_SCAN"; then
+                        continue
+                    fi
+
+                    # Same-command LITERAL-path fast path (#6676): unlike the
+                    # mktemp form above, a resolved literal is NOT skipped
+                    # past the scope check — ABS_PATH is replaced with the
+                    # proven literal and falls through to the same
+                    # catastrophic-path deny and repo/worktree/tmp IN_SCOPE
+                    # check just below, exactly as an equivalent literal
+                    # `rm -rf /that/path` would be judged. See
+                    # rm_scope_literal_same_command_resolve()'s own doc
+                    # comment (above rm_scope_mktemp_same_command_safe()) for
+                    # the exact resolution conditions.
+                    _rm_literal_resolved=$(rm_scope_literal_same_command_resolve "$target" "$COMMAND_RM_MKTEMP_SCAN") || true
+                    if [[ -n "$_rm_literal_resolved" ]]; then
+                        ABS_PATH="$_rm_literal_resolved"
+                        if [[ "$ABS_PATH" = /* ]]; then
+                            ABS_PATH=$(normalize_abs_path "$ABS_PATH")
+                        fi
+                        if [[ "$ABS_PATH" == "/" ]] || \
+                           [[ -n "$HOME" && "$ABS_PATH" == "$HOME" ]] || \
+                           [[ "$ABS_PATH" =~ ^/[^/]+$ ]]; then
+                            deny "BLOCKED: rm on protected system path: $ABS_PATH" "rm-protected-path"
+                        fi
+                    else
+                        deny "BLOCKED: rm target '${target}' is an unexpanded shell variable from the path root down, so this guard cannot tell where it resolves at runtime (guards.rmScope=repo). Unresolvable rm targets fail closed (mirrors rjwalters/repo#244, fixing #239). Use an explicit literal path." "rm-scope-unresolved-var"
+                    fi
                 fi
 
                 IN_SCOPE=false
@@ -6182,6 +6611,235 @@ if [[ -n "$_SSH_CAT_ASK" ]]; then
 fi
 
 # =============================================================================
+# CARGO CLEAN SCOPE ASK — bare `cargo clean` clearing a build.target-dir
+# SHARED outside the current repo (#6684), gated by cargo_clean_guard_enabled()
+#
+# On a host whose `~/.cargo/config.toml` (or an ancestor `.cargo/config.toml`)
+# sets a single `build.target-dir` shared across every project — e.g. an
+# external volume used after the internal disk hit ENOSPC — a bare `cargo
+# clean` is not a local operation: it deletes the build output of EVERY
+# project on that host, including whatever sweep is compiling concurrently
+# elsewhere. The failure this produces names nothing about the cause (a mid-
+# build "No such file or directory" on the victim's OWN target dir), so the
+# agent that gets hit has no way to tell a shared-clean collision apart from a
+# faulted volume.
+#
+# `cargo clean -p <pkg>` (package-scoped) and a repo-local target dir are
+# completely unaffected — no resolution is attempted, no prompt — so this adds
+# zero friction to the common case.
+#
+# Detection is segment-parsed (qsplit(), #3755) and command-word anchored,
+# mirroring systemctl_ask_reason()/ssh_cat_ask_reason() immediately above:
+# only a segment whose actual command word is `cargo` (after stripping a
+# leading sudo) with `clean` as the very next token, and no `-p`/`--package`
+# flag anywhere in its remaining tokens, is a candidate. A same-command
+# `CARGO_TARGET_DIR=<value> cargo clean` assignment immediately preceding the
+# command word is captured too (cargo's own env-override precedence).
+#
+# CARGO_TARGET_DIR — same-command OR the guard's own process env — is always
+# treated as an explicit, deliberate scoping decision and NEVER asks, however
+# it resolves: it is the exact fix this ask's own message recommends, so
+# treating it as unsafe would be self-defeating. Only the CONFIG-derived
+# resolution (`cargo config get build.target-dir`, falling back to a manual
+# `.cargo/config.toml` walk-up from cwd to the filesystem root, then
+# `$CARGO_HOME/config.toml`) is compared against the repo root — matching
+# cargo's own real precedence, and the exact silent, invisible-to-the-agent
+# sharing mechanism this issue is about.
+# =============================================================================
+cargo_clean_scope_match() {
+    printf '%s' "$1" | awk "$_QSPLIT_AWK"'
+    {
+        $0 = qsplit($0)
+        n = split($0, segs, "\n")
+        for (i = 1; i <= n; i++) {
+            seg = segs[i]
+            sub(/^[ \t]+/, "", seg)
+            m = split(seg, toks, /[ \t]+/)
+            if (m == 0) continue
+            j = 1
+            envval = ""
+            # Strip leading bare `VAR=value` assignment(s), capturing
+            # CARGO_TARGET_DIR if one is present among them (ordinary shell
+            # same-command env override, no `env` wrapper required).
+            while (j <= m && toks[j] ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+                if (toks[j] ~ /^CARGO_TARGET_DIR=/) {
+                    envval = substr(toks[j], index(toks[j], "=") + 1)
+                    gsub(/[\047\042]/, "", envval)
+                }
+                j++
+            }
+            if (j <= m && toks[j] == "sudo") j++
+            if (j > m || toks[j] != "cargo") continue
+            j++
+            if (j > m || toks[j] != "clean") continue
+            j++
+            scoped = 0
+            for (k = j; k <= m; k++) {
+                if (toks[k] == "-p" || toks[k] == "--package" || toks[k] ~ /^--package=/) { scoped = 1; break }
+            }
+            if (scoped) continue
+            print "1"
+            print envval
+            exit
+        }
+        print "0"
+    }'
+}
+
+# Minimal TOML reader for a single `[build]` -> `target-dir` key (#6684). Not a
+# general TOML parser: only tracks top-level `[table]` headers to know when a
+# `target-dir = "..."` line is inside the literal `[build]` table (not
+# `[build.foo]` or an unrelated table), matching the one key cargo's own
+# resolution needs here.
+_cargo_toml_target_dir_value() {
+    local f="$1"
+    [[ -f "$f" ]] || return 1
+    awk '
+        function strip(v) {
+            gsub(/^[ \t]+/, "", v); gsub(/[ \t]+$/, "", v)
+            gsub(/^"/, "", v); gsub(/"$/, "", v)
+            gsub(/^\047/, "", v); gsub(/\047$/, "", v)
+            return v
+        }
+        BEGIN { in_build = 0 }
+        /^[ \t]*\[/ {
+            line = $0
+            gsub(/^[ \t]+/, "", line)
+            in_build = (line ~ /^\[build\][ \t]*(#.*)?$/) ? 1 : 0
+            next
+        }
+        in_build && /^[ \t]*target-dir[ \t]*=/ {
+            val = $0
+            sub(/^[^=]*=/, "", val)
+            sub(/#.*$/, "", val)
+            print strip(val)
+            exit
+        }
+    ' "$f" 2>/dev/null
+}
+
+# Walks up from $1 to the filesystem root looking for `.cargo/config.toml` /
+# `.cargo/config`, mirroring cargo's own directory-ancestor search order — the
+# CLOSEST ancestor that sets `build.target-dir` wins. A relative value is
+# resolved against the directory the config file itself was found in (cargo's
+# documented behavior: relative target-dir paths are relative to the config
+# file's own location, not the invocation cwd).
+_cargo_config_walk_up_target_dir() {
+    local dir="$1" f val
+    while [[ -n "$dir" ]]; do
+        for f in "$dir/.cargo/config.toml" "$dir/.cargo/config"; do
+            if [[ -f "$f" ]]; then
+                val=$(_cargo_toml_target_dir_value "$f")
+                if [[ -n "$val" ]]; then
+                    [[ "$val" != /* ]] && val="$dir/$val"
+                    printf '%s' "$val"
+                    return 0
+                fi
+            fi
+        done
+        [[ "$dir" == "/" ]] && break
+        dir=$(dirname "$dir")
+    done
+    return 1
+}
+
+# Lowest-precedence fallback: the user-global $CARGO_HOME/config.toml (default
+# ~/.cargo/config.toml) — this is the actual file the #6684 incident hit.
+_cargo_home_config_target_dir() {
+    local home="${CARGO_HOME:-$HOME/.cargo}" f val
+    [[ -n "$home" ]] || return 1
+    for f in "$home/config.toml" "$home/config"; do
+        if [[ -f "$f" ]]; then
+            val=$(_cargo_toml_target_dir_value "$f")
+            if [[ -n "$val" ]]; then
+                [[ "$val" != /* ]] && val="$home/$val"
+                printf '%s' "$val"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+# Resolves the effective cargo target-dir for a candidate bare `cargo clean`
+# and reports WHERE it came from, printed as two lines: SOURCE (env|config|
+# default) then the resolved absolute path. Only a "config" source is ever
+# compared against the repo root by the caller — see the block header above
+# for why an explicit CARGO_TARGET_DIR (env) is never treated as the hazard.
+cargo_clean_effective_target_dir() {
+    local repo_root="$1" cwd="$2" same_cmd_env="$3"
+    local base_cwd="${cwd:-$repo_root}"
+    local resolved="" source=""
+    if [[ -n "$same_cmd_env" ]]; then
+        resolved="$same_cmd_env"
+        source="env"
+    elif [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
+        resolved="$CARGO_TARGET_DIR"
+        source="env"
+    else
+        source="config"
+        if command -v cargo >/dev/null 2>&1; then
+            local cg
+            cg=$(cd "$base_cwd" 2>/dev/null && cargo config get build.target-dir 2>/dev/null) || cg=""
+            if [[ -n "$cg" ]]; then
+                resolved=$(printf '%s' "$cg" | sed -e 's/^build\.target-dir[[:space:]]*=[[:space:]]*//' -e 's/^"//' -e 's/"$//')
+            fi
+        fi
+        if [[ -z "$resolved" ]]; then
+            resolved=$(_cargo_config_walk_up_target_dir "$base_cwd") || resolved=""
+        fi
+        if [[ -z "$resolved" ]]; then
+            resolved=$(_cargo_home_config_target_dir) || resolved=""
+        fi
+        if [[ -z "$resolved" ]]; then
+            # No config anywhere sets target-dir — cargo's own default.
+            resolved="${repo_root}/target"
+            source="default"
+        fi
+    fi
+    if [[ -n "$resolved" && "$resolved" != /* ]]; then
+        resolved="$base_cwd/$resolved"
+    fi
+    [[ "$resolved" = /* ]] && resolved=$(normalize_abs_path "$resolved")
+    printf '%s\n%s\n' "$source" "$resolved"
+}
+
+if echo "$COMMAND_ASK_SCAN" | grep -qE '(^|[;&|(`[:space:]])cargo[[:space:]]+clean'; then
+    _CARGO_CLEAN_MATCH=$(cargo_clean_scope_match "$COMMAND_ASK_SCAN")
+    _CARGO_CLEAN_FLAG=$(printf '%s\n' "$_CARGO_CLEAN_MATCH" | sed -n '1p')
+    if [[ "$_CARGO_CLEAN_FLAG" == "1" ]] && [[ -n "$REPO_ROOT" ]] && cargo_clean_guard_enabled; then
+        _CARGO_CLEAN_ENV=$(printf '%s\n' "$_CARGO_CLEAN_MATCH" | sed -n '2p')
+        _CARGO_TD_INFO=$(cargo_clean_effective_target_dir "$REPO_ROOT" "$CWD" "$_CARGO_CLEAN_ENV")
+        _CARGO_TD_SOURCE=$(printf '%s\n' "$_CARGO_TD_INFO" | sed -n '1p')
+        _CARGO_TD_PATH=$(printf '%s\n' "$_CARGO_TD_INFO" | sed -n '2p')
+        if [[ "$_CARGO_TD_SOURCE" == "config" ]] && [[ -n "$_CARGO_TD_PATH" ]] && \
+           [[ "$_CARGO_TD_PATH" != "$REPO_ROOT" && "$_CARGO_TD_PATH" != "$REPO_ROOT"/* ]]; then
+            # The comparison above is LEXICAL on both sides, and the two sides
+            # are not built the same way: $_CARGO_TD_PATH comes from the
+            # config walk-up (rooted at the guard's raw $CWD, symlinks intact,
+            # only normalize_abs_path'd), while $REPO_ROOT comes from `git
+            # rev-parse --show-toplevel`, which returns the symlink-RESOLVED
+            # spelling. For a repo reached through a symlinked ancestor the
+            # two never string-match even when the target-dir is genuinely
+            # repo-local — on macOS that is every $TMPDIR/mktemp -d repo,
+            # because /var is a symlink to /private/var (#6684). So before
+            # asking, re-run the containment test with BOTH sides resolved the
+            # same way; only a target-dir that is outside the repo under the
+            # physical spelling too is really shared with other projects.
+            _CARGO_TD_PATH_PHYS=$(physical_abs_path "$_CARGO_TD_PATH")
+            _CARGO_REPO_ROOT_PHYS=$(physical_abs_path "$REPO_ROOT")
+            if [[ "$_CARGO_TD_PATH_PHYS" != "$_CARGO_REPO_ROOT_PHYS" && \
+                  "$_CARGO_TD_PATH_PHYS" != "$_CARGO_REPO_ROOT_PHYS"/* ]]; then
+                # Report the path as CONFIGURED (logical spelling), not the
+                # physically-resolved one — that is the string the operator
+                # will recognize from their own .cargo/config.toml.
+                ask "Command requires confirmation: $COMMAND (target-dir is shared at '$_CARGO_TD_PATH'; this clears every project on this host, including in-flight sweeps — use 'cargo clean -p <pkg>' or set CARGO_TARGET_DIR)" "cargo-clean-scope-outside-repo"
+            fi
+        fi
+    fi
+fi
+
+# =============================================================================
 # REVERSIBLE-GITHUB ASK patterns — gated by the reversible-gh guard toggle (#3757)
 #
 # Kept OUT of the ungated ASK_PATTERNS array (mirroring the CLOUD_ASK_PATTERNS
@@ -6379,10 +7037,18 @@ fi
 # shell-separator set the pre-check's own trailing class already accepted.
 # =============================================================================
 _stash_is_recover=false
+_stash_is_pop=false
 _stash_is_create=false
 if echo "$COMMAND_ASK_SCAN" | grep -qE '(^|[;&|(`]|[[:space:]])git[[:space:]]+stash([[:space:]]|[;&|)`]|$)'; then
     if echo "$COMMAND_ASK_SCAN" | grep -qE '(^|[;&|(`]|[[:space:]])git[[:space:]]+stash[[:space:]]+(pop|drop|clear)([[:space:]]|[;&|)`]|$)'; then
         _stash_is_recover=true
+    fi
+    # `pop` alone has a scriptable safe equivalent (safe-stash-pop.sh, #6501);
+    # `drop`/`clear` do not — they destroy an entry outright with nothing to
+    # verify afterwards. Track it separately so the main-checkout ask only
+    # names the wrapper when the wrapper actually applies.
+    if echo "$COMMAND_ASK_SCAN" | grep -qE '(^|[;&|(`]|[[:space:]])git[[:space:]]+stash[[:space:]]+pop([[:space:]]|[;&|)`]|$)'; then
+        _stash_is_pop=true
     fi
     if stash_create_invoked "$COMMAND_ASK_SCAN"; then
         _stash_is_create=true
@@ -6432,7 +7098,23 @@ if [[ "$_stash_is_recover" == true || "$_stash_is_create" == true ]] \
         # create has nothing to be redirected to and stays allowed exactly as
         # before — the create-side deny (#5754) is worktree-only by design.
         if [[ "$_stash_is_recover" == true ]]; then
-            ask "Command requires confirmation: $COMMAND (git stash pop/drop/clear in the MAIN checkout can destroy operator-preserved state — the main checkout's stash stack is operator-owned, not scratch space for an integration check. Run test-merges in an isolated worktree instead; set guards.stashScope:false in .loom/config.json, or export LOOM_GUARD_STASH_SCOPE=0 in the agent's OWN environment before the session — an inline 'LOOM_GUARD_STASH_SCOPE=0 git stash pop' prefix does not reach this hook, which runs as a separate process)" "stash-scope:main-checkout"
+            # RECOMMENDED-PATH HINT (#6501). A raw main-checkout `git stash pop`
+            # is not just a stack-ownership hazard — it is also the mechanism
+            # behind #6499/#6502, where a conflicting pop left live
+            # `<<<<<<<`/`=======`/`>>>>>>>` markers in a tracked
+            # `.loom/config.json` that were then committed, silently breaking
+            # the daemon's config parse fleet-wide. `safe-stash-pop.sh` is the
+            # verified replacement. Named only when it PROVABLY exists and
+            # actually applies (pop, not drop/clear) — the same discipline the
+            # create-side redirect below uses before printing a literal
+            # replacement command. This stays an ASK, not a deny: `refs/stash`
+            # has no sanctioned reader other than a pop, so denying would
+            # strand work rather than protect it.
+            _stash_pop_hint=""
+            if [[ "$_stash_is_pop" == true && -f "$_stash_common_parent/.loom/scripts/safe-stash-pop.sh" ]]; then
+                _stash_pop_hint=" If you do need this entry back, use the verified wrapper instead of a raw pop: './.loom/scripts/safe-stash-pop.sh' — it snapshots the pre-pop tree, pops, verifies no conflict markers or unmerged index entries were left behind, and rolls the tree back (keeping the stash entry) when the pop conflicts, so it can never leave a tracked file carrying unresolved conflict markers for someone to commit (#6501; add --no-restore to keep a conflicted tree for manual resolution)."
+            fi
+            ask "Command requires confirmation: $COMMAND (git stash pop/drop/clear in the MAIN checkout can destroy operator-preserved state — the main checkout's stash stack is operator-owned, not scratch space for an integration check. Run test-merges in an isolated worktree instead; set guards.stashScope:false in .loom/config.json, or export LOOM_GUARD_STASH_SCOPE=0 in the agent's OWN environment before the session — an inline 'LOOM_GUARD_STASH_SCOPE=0 git stash pop' prefix does not reach this hook, which runs as a separate process)${_stash_pop_hint}" "stash-scope:main-checkout"
         fi
     elif [[ -n "$_stash_toplevel" && -n "$_stash_common_parent" ]]; then
         # cwd is a linked worktree, not the main checkout. Count OTHER
