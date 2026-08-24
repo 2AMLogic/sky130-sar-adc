@@ -1,0 +1,70 @@
+* sar_sequencer_tb_fragment.spice -- standalone behavioral testbench
+* fragment for design/sar_sequencer.sch (issue #55). Devices/sources only;
+* sim/sar-sequencer-behavioral/run_testbench.py supplies the model .lib,
+* the sky130_fd_sc_hd combined-cell .include, the freshly-netlisted DUT
+* body, and the closing .end -- see that script and sim/README.md
+* 'Divergence from the shared PVT/MC harness' note in this experiment's
+* own record for why this experiment does not go through
+* sim/run_corners.py (that harness's .control block only supports .op
+* analysis; this is a transient/digital sequencing check).
+*
+* Drives an IDEAL comparator-decision stimulus (COMP_OUT) against the
+* DUT's CLK/RST_B inputs and exercises two full back-to-back conversions
+* with two different fixed target codes, proving MSB-first bit-by-bit
+* capture, phase timing, and the ring sequencer's auto-restart.
+*
+* CLK: 100 ns period (f_clk=10 MHz; DR-006's derived provisional range is
+* 1.2-12 MHz). RST_B releases at t=220 ns (before the first rising edge
+* at t=250 ns).
+* Cycle 1 target code (b9..b0) = 1100101011b = 811 decimal
+* Cycle 2 target code (b9..b0) = 0011010100b = 212 decimal
+
+VVPWR VPWR 0 DC 1.8
+VVGND VGND 0 DC 0
+
+VCLK CLK 0 PULSE(0 1.8 50n 1n 1n 50n 100n)
+VRSTB RST_B 0 PWL(0 0 219n 0 221n 1.8 2700n 1.8)
+VCOMP COMP_OUT 0 PWL(0.0n 0.00 269.9n 0.00 270.1n 1.80 369.9n 1.80 370.1n 1.80 469.9n 1.80 470.1n 0.00 569.9n 0.00 570.1n 0.00 669.9n 0.00 670.1n 1.80 769.9n 1.80 770.1n 0.00 869.9n 0.00 870.1n 1.80 969.9n 1.80 970.1n 0.00 1069.9n 0.00 1070.1n 1.80 1169.9n 1.80 1170.1n 1.80 1469.9n 1.80 1470.1n 0.00 1569.9n 0.00 1570.1n 0.00 1669.9n 0.00 1670.1n 1.80 1769.9n 1.80 1770.1n 1.80 1869.9n 1.80 1870.1n 0.00 1969.9n 0.00 1970.1n 1.80 2069.9n 1.80 2070.1n 0.00 2169.9n 0.00 2170.1n 1.80 2269.9n 1.80 2270.1n 0.00 2369.9n 0.00 2370.1n 0.00 2700.0n 0.00)
+
+.tran 0.5n 2700n
+
+* --- cycle 1: full phase-timing coverage + all 10 captured bits ---
+.meas tran phsample_c1 find v(ph_sample) at=200.0n
+.meas tran phb9_c1 find v(ph_b9) at=300.0n
+.meas tran phb8_c1 find v(ph_b8) at=400.0n
+.meas tran phb7_c1 find v(ph_b7) at=500.0n
+.meas tran phb6_c1 find v(ph_b6) at=600.0n
+.meas tran phb5_c1 find v(ph_b5) at=700.0n
+.meas tran phb4_c1 find v(ph_b4) at=800.0n
+.meas tran phb3_c1 find v(ph_b3) at=900.0n
+.meas tran phb2_c1 find v(ph_b2) at=1000.0n
+.meas tran phb1_c1 find v(ph_b1) at=1100.0n
+.meas tran phb0_c1 find v(ph_b0) at=1200.0n
+.meas tran pheoc_c1 find v(ph_eoc) at=1300.0n
+.meas tran dout9_c1 find v(dout9) at=1300.0n
+.meas tran dout8_c1 find v(dout8) at=1300.0n
+.meas tran dout7_c1 find v(dout7) at=1300.0n
+.meas tran dout6_c1 find v(dout6) at=1300.0n
+.meas tran dout5_c1 find v(dout5) at=1300.0n
+.meas tran dout4_c1 find v(dout4) at=1300.0n
+.meas tran dout3_c1 find v(dout3) at=1300.0n
+.meas tran dout2_c1 find v(dout2) at=1300.0n
+.meas tran dout1_c1 find v(dout1) at=1300.0n
+.meas tran dout0_c1 find v(dout0) at=1300.0n
+.meas tran dout9_early_c1 find v(dout9) at=400.0n
+
+* --- cycle 2: abbreviated phase coverage (proves auto-restart timing) ---
+* --- + all 10 captured bits (proves a DIFFERENT code converts correctly) ---
+.meas tran phb9_c2 find v(ph_b9) at=1500.0n
+.meas tran pheoc_c2 find v(ph_eoc) at=2500.0n
+.meas tran dout9_c2 find v(dout9) at=2500.0n
+.meas tran dout8_c2 find v(dout8) at=2500.0n
+.meas tran dout7_c2 find v(dout7) at=2500.0n
+.meas tran dout6_c2 find v(dout6) at=2500.0n
+.meas tran dout5_c2 find v(dout5) at=2500.0n
+.meas tran dout4_c2 find v(dout4) at=2500.0n
+.meas tran dout3_c2 find v(dout3) at=2500.0n
+.meas tran dout2_c2 find v(dout2) at=2500.0n
+.meas tran dout1_c2 find v(dout1) at=2500.0n
+.meas tran dout0_c2 find v(dout0) at=2500.0n
+
