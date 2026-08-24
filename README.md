@@ -25,11 +25,18 @@ work. The repo is **dogfood for [klayout-tools](https://github.com/2AMLogic/klay
 the tool; every friction is filed generically upstream) and **catalog inventory**
 (one block, one PDK, in the 2AM Logic canary catalog).
 
-## Status: harness up. Pre-spec, pre-schematic, pre-layout, pre-silicon.
+## Status: harness up, schematic sources exist. Pre-spec (ratification), pre-layout, pre-silicon.
 
-The toolchain is standing; the design is not. There is no ADC schematic and no
-design evidence yet — what exists is the machinery that will produce it, and
-the proofs that the machinery works.
+The toolchain is standing, and schematic sources now exist: the four
+sub-blocks (sampling front end #52, CDAC array #53, comparator #54, SAR
+logic/sequencer #55) plus a top-level integration schematic wiring them
+together (#56, `design/sar_adc_top.sch`, with an instantiable symbol and a
+mechanically regenerated, CI-checked full-hierarchy netlist,
+`design/sar_adc_top.spice`). This is schematic capture and per-sub-block
+standalone verification, not a closed-loop ADC conversion result — the
+top-level integration's own polarity/wiring decisions (documented in
+`design/sar_adc_top.sch`'s header) are explicitly unverified pending the
+future per-row/Monte-Carlo testbenches (#28/#29/#31). Layout has not started.
 
 - **Done** — the xschem + ngspice sim harness and the `klt` DRC/LVS layout flow
   (issue #2), seeded from gf180-sar-adc and
@@ -54,8 +61,10 @@ the proofs that the machinery works.
   carried from gf180-sar-adc or a published sky130 reference, not settled
   sky130 results — ratifying the flavor settles what they are *derived on*,
   not what they are. No harness threshold encodes a draft spec value.
-- **Not started** — schematic entry, the CDAC/comparator design, verification,
-  and layout. `measurements/` stays empty until there is silicon.
+- **Not started** — closed-loop ADC conversion verification (a real per-row
+  PVT/Monte-Carlo campaign against the full `design/sar_adc_top.sch`
+  hierarchy, #28/#29/#31) and layout. `measurements/` stays empty until there
+  is silicon.
 - **The gap, itemized** — [`docs/t1-gap.md`](docs/t1-gap.md) maps the ten-item
   T1 (bronze) evidence checklist to this block's current verdict and to the
   issue tracking each failing item, as of the 2026-08-15 re-read.
