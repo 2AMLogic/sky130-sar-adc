@@ -555,7 +555,7 @@ rewriting the main checkout's installed copies, not for a Builder mid-issue.
 (A separate `--output <dir>` staging mode, #6106, exists for an operator who
 needs a complete resync generated safely while the fleet is live — it is also
 not for a Builder mid-issue: see
-[`.loom/docs/troubleshooting.md`](../../../.loom/docs/troubleshooting.md) if you land
+`.loom/docs/troubleshooting.md` if you land
 here as the human operator rather than a Builder subagent.)
 
 ### Working with gh CLI from a Worktree
@@ -610,6 +610,8 @@ The marker file should contain a brief explanation of why no changes are needed.
 **IMPORTANT: Do NOT commit the marker file.** Leave it as an untracked file in the worktree. Sweep orchestration checks for the marker file on disk — if you `git add` and commit it, the commit shows as work done and defeats the detection mechanism.
 
 **Why this matters:** Without this marker file, sweep orchestration cannot distinguish between "builder deliberately decided no changes are needed" and "builder crashed/was killed before doing anything." An empty worktree without the marker is treated as a builder failure, not a deliberate decision.
+
+**What sweep orchestration does with it:** on your exit, `/loom:sweep`'s Builder phase checks for this marker before treating a PR-less exit as a failure (see `sweep.md` → "Genuine no-op conclusion vs. builder failure", #6670/#6740) — it records a self-reported no-op release (`loom-daemon noop-cooldown record`, via `./.loom/scripts/record-noop-release.sh`) so the work finder does not immediately re-offer the same issue, then releases your `loom:building` claim back to `loom:issue` without closing it. You do not need to do any of that yourself — writing the marker and exiting is your entire responsibility here.
 
 **Do NOT create this file if:**
 - You made code changes (even if you later reverted them)

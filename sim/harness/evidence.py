@@ -92,19 +92,28 @@ def _harness_version() -> str:
     return __version__
 
 
+def write_netlist_snapshot_text(experiment_dir: Path, record_id: str, netlist_text: str) -> Path:
+    """Text-accepting sibling of write_netlist_snapshot(), for netlists that
+    are generated text (e.g. a derived reduced sub-model deck) rather than a
+    static on-disk fragment. Snapshot the netlist under
+    <experiment_dir>/netlist-snapshots/ and set up <experiment_dir>/records/,
+    returning the path the caller's evidence record should be written to."""
+    snapshots_dir = experiment_dir / "netlist-snapshots"
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+    (snapshots_dir / f"{record_id}.spice").write_text(netlist_text)
+
+    records_dir = experiment_dir / "records"
+    records_dir.mkdir(parents=True, exist_ok=True)
+    return records_dir / f"{record_id}.md"
+
+
 def write_netlist_snapshot(experiment_dir: Path, record_id: str, netlist_fragment: Path) -> Path:
     """Snapshot the DUT netlist under <experiment_dir>/netlist-snapshots/ and
     set up <experiment_dir>/records/, returning the path the caller's
     evidence record should be written to. Shared by both write_evidence()
     implementations (PVT corner runner and Monte Carlo runner) -- see
     module docstring."""
-    snapshots_dir = experiment_dir / "netlist-snapshots"
-    snapshots_dir.mkdir(parents=True, exist_ok=True)
-    (snapshots_dir / f"{record_id}.spice").write_text(netlist_fragment.read_text())
-
-    records_dir = experiment_dir / "records"
-    records_dir.mkdir(parents=True, exist_ok=True)
-    return records_dir / f"{record_id}.md"
+    return write_netlist_snapshot_text(experiment_dir, record_id, netlist_fragment.read_text())
 
 
 def footer_lines(written_by: str, supersedes: str) -> list[str]:

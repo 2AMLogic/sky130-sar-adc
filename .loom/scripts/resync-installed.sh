@@ -162,8 +162,19 @@
 #                             still needs the managed-section-markers design
 #                             this comment references; the rest of the file's
 #                             body content is left untouched.
-#   .github/labels.yml,     - covered by `gh label sync` + install-time workflow opt-ins
-#     .github/workflows/*
+#   .github/labels.yml (the FILE itself), .github/workflows/*
+#                            - the FILE content is repo-customized (a consumer
+#                              may add their own labels above/below the
+#                              LOOM-MANAGED block, #4187) and is not resynced
+#                              here. Its role as the source of truth for the
+#                              LIVE FORGE label set is a different story,
+#                              though (#6716): resync DOES now re-check the
+#                              target repo's live labels against this file
+#                              and safely creates/refreshes what's missing or
+#                              stale (never deletes/renames) -- see the
+#                              "forge label drift check" step near the end of
+#                              this script. `.github/workflows/*` remains
+#                              fully out of scope either way.
 #   loom-daemon binary      - owned by the #4055 self-update mechanism
 #   .mcp.json               - vestigial post-#4230 (loom is user-scoped); setup-mcp.sh
 #     is demoted to a bundle-rebuild/legacy-migration tool with a safehouse-only
@@ -554,17 +565,35 @@ fi
 # accepted, intentional narrowing of the recovery path (Acceptance Criteria,
 # #5624) — no replacement fallback is added.
 
+# A candidate source root is only usable if it actually has SOMETHING to sync
+# from — `-d "$root/defaults"` alone is not sufficient (#6780): a sidecar or
+# metadata path can point at a directory that still exists (unlike the
+# "vanished clone" case, which already fails loud below) but is stale, empty,
+# or was never a real Loom checkout — e.g. a scratch clone whose contents were
+# emptied without removing the directory itself, or an unrelated directory
+# that merely happens to contain an empty `defaults/`. Requiring a populated
+# `defaults/hooks` or `defaults/scripts` mirrors the dogfood rung's own check
+# immediately below and closes the gap that let resolve_defaults() "succeed"
+# against a source tree with nothing under it — which then made the sync walk
+# below iterate zero files and report "already in sync", a false "current"
+# verdict rather than the loud, honest failure an unresolvable source should
+# produce.
+is_usable_defaults_root() {
+    local root="$1"
+    [[ -n "$root" && ( -d "$root/defaults/hooks" || -d "$root/defaults/scripts" ) ]]
+}
+
 DEFAULTS_DIR=""
 SOURCE_ROOT=""
 resolve_defaults() {
-    if [[ -d "$REPO_ROOT/defaults/hooks" || -d "$REPO_ROOT/defaults/scripts" ]]; then
+    if is_usable_defaults_root "$REPO_ROOT"; then
         DEFAULTS_DIR="$REPO_ROOT/defaults"
         return 0
     fi
     if [[ -f "$REPO_ROOT/.loom/loom-source-path" ]]; then
         local src
         src="$(cat "$REPO_ROOT/.loom/loom-source-path" 2>/dev/null || true)"
-        if [[ -n "$src" && -d "$src/defaults" ]]; then
+        if is_usable_defaults_root "$src"; then
             DEFAULTS_DIR="$src/defaults"
             return 0
         fi
@@ -572,7 +601,7 @@ resolve_defaults() {
     if [[ -f "$REPO_ROOT/.loom/install-metadata.json" ]]; then
         local src
         src="$(sed -n 's/.*"loom_source" *: *"\(.*\)".*/\1/p' "$REPO_ROOT/.loom/install-metadata.json" 2>/dev/null | head -1)"
-        if [[ -n "$src" && -d "$src/defaults" ]]; then
+        if is_usable_defaults_root "$src"; then
             DEFAULTS_DIR="$src/defaults"
             return 0
         fi
@@ -621,6 +650,37 @@ if [[ -x "$SYNTAX_CHECK_SCRIPT" ]]; then
     fi
 else
     warn "check-shell-syntax.sh not found at $SYNTAX_CHECK_SCRIPT — skipping the pre-resync shell-syntax gate (#6162)."
+fi
+
+# ---------- pre-resync conflict-marker gate (#6499) -----------------------
+#
+# The gate above proves shell sources PARSE, but it can only speak for `*.sh`
+# — `bash -n` has nothing to say about a doc, a role prompt, or a runtime
+# `*.json`. #6499 is the same corruption shape (an abandoned `git stash pop`
+# leaving live `<<<<<<<` / `=======` / `>>>>>>>` markers) landing in a
+# non-shell file, where it stayed invisible until a daemon boot failed to
+# parse it and silently fell back to built-in defaults. Every root this
+# script copies is in scope: a marker-corrupted role prompt or runtime
+# descriptor would be replicated into every consumer's `.loom/` exactly as
+# #6162's non-parsing spawn script would have been. Same failure posture as
+# the gate above: refuse before any write, and degrade to a warning (never a
+# silent skip) if the checker is missing from an older defaults/ tree.
+MARKER_CHECK_SCRIPT="$DEFAULTS_DIR/scripts/check-conflict-markers.sh"
+if [[ -x "$MARKER_CHECK_SCRIPT" ]]; then
+    marker_check_dirs=()
+    for _marker_root in hooks scripts docs roles runtimes bin .claude; do
+        [[ -d "$DEFAULTS_DIR/$_marker_root" ]] && marker_check_dirs+=(--dir "$DEFAULTS_DIR/$_marker_root")
+    done
+    if [[ "${#marker_check_dirs[@]}" -gt 0 ]]; then
+        if ! marker_check_out="$("$MARKER_CHECK_SCRIPT" --quiet "${marker_check_dirs[@]}" 2>&1)"; then
+            err "Refusing to resync: one or more source files carry live git conflict markers."
+            printf '%s\n' "$marker_check_out" >&2
+            err "Resolve the conflict(s) under $DEFAULTS_DIR before re-running this script — nothing was copied."
+            exit 1
+        fi
+    fi
+else
+    warn "check-conflict-markers.sh not found at $MARKER_CHECK_SCRIPT — skipping the pre-resync conflict-marker gate (#6499)."
 fi
 
 # Current source version (from the resolved SOURCE_ROOT's package.json). Used
@@ -1425,15 +1485,20 @@ restamp_metadata() {
     local meta="$WRITE_ROOT/.loom/install-metadata.json"
     [[ -f "$meta" ]] || return 0
 
-    local version commit today tmp
+    local version commit today tmp remote
     version="$(read_source_version)"
     commit="$(git -C "$SOURCE_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
     today="$(date +%Y-%m-%d)"
+    # Refresh loom_source_remote (#6780 AC3) from the SOURCE_ROOT this resync
+    # actually resolved to, so it tracks a repointed sidecar rather than
+    # freezing whatever was recorded at install time. Best-effort: empty when
+    # SOURCE_ROOT isn't a git checkout or has no `origin` configured.
+    remote="$(git -C "$SOURCE_ROOT" remote get-url origin 2>/dev/null || true)"
     tmp="${meta}.tmp.$$"
 
     if command -v jq >/dev/null 2>&1; then
-        if jq --arg v "$version" --arg c "$commit" --arg r "$today" \
-              '.loom_version=$v | .loom_commit=$c | .last_resync=$r | del(.loom_source)' \
+        if jq --arg v "$version" --arg c "$commit" --arg r "$today" --arg src "$remote" \
+              '.loom_version=$v | .loom_commit=$c | .last_resync=$r | .loom_source_remote=$src | del(.loom_source)' \
               "$meta" > "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
             mv "$tmp" "$meta"
             note "  ${GREEN}re-stamped${NC} install-metadata.json (loom_version=$version, loom_commit=$commit, last_resync=$today)"
@@ -1443,7 +1508,7 @@ restamp_metadata() {
     fi
 
     if command -v python3 >/dev/null 2>&1; then
-        if META="$meta" VERSION="$version" COMMIT="$commit" TODAY="$today" \
+        if META="$meta" VERSION="$version" COMMIT="$commit" TODAY="$today" REMOTE="$remote" \
            python3 - "$tmp" <<'PY' 2>/dev/null && [[ -s "$tmp" ]]; then
 import json, os, sys
 with open(os.environ["META"]) as f:
@@ -1451,6 +1516,7 @@ with open(os.environ["META"]) as f:
 data["loom_version"] = os.environ["VERSION"]
 data["loom_commit"] = os.environ["COMMIT"]
 data["last_resync"] = os.environ["TODAY"]
+data["loom_source_remote"] = os.environ["REMOTE"]
 data.pop("loom_source", None)
 with open(sys.argv[1], "w") as f:
     json.dump(data, f, indent=2)
@@ -1802,6 +1868,82 @@ audit_untracked_loom_paths() {
     fi
 }
 audit_untracked_loom_paths
+
+# ---------- forge label drift check + safe auto-create (#6716) ----------
+#
+# .github/labels.yml is kept current by the scripts resync above, but nothing
+# previously re-checked whether the TARGET FORGE REPO's LIVE label set still
+# matched it after install -- a repo can drift silently forever (kicad-tools
+# was missing 3 loom:operator* labels, corrupting a downstream operator
+# census tool's bucketing, #6716). sync-labels.sh's --check mode (added
+# alongside this) is read-only: it reports every declared label that is
+# MISSING or STALE (present, wrong color/description), plus any UNKNOWN
+# EXTRA -- a live loom:-prefixed label absent from labels.yml, reported but
+# NEVER deleted. When drift is found on a real (non---dry-run) resync, this
+# invokes the ALREADY-EXISTING mutating sync-labels.sh run to fix it --
+# additive-only (no --prune-defaults passed), so nothing is ever deleted or
+# renamed; it only creates what's missing and refreshes what's stale.
+#
+# Dispatches onto whichever sync-labels.sh ended up installed at
+# .loom/scripts/sync-labels.sh by the "walk scripts" resync earlier in this
+# run (not a hard-coded defaults/ path), so a repo that pins a customized
+# copy via .loom/resync-ignore is checked against ITS OWN sync-labels.sh, not
+# a bypassed one.
+#
+# Best-effort, like the .gitignore refresh above: any forge/lookup failure
+# (no git remote, gh missing/unauthenticated, misconfigured Gitea) is a loud
+# warning, never a script-aborting failure -- every other surface has already
+# fully synced by the time this runs. A repo with no .github/labels.yml (or
+# no sync-labels.sh to check with, even after the fallback below) is
+# silently skipped -- nothing to check.
+#
+# Falls back to the SOURCE copy ($DEFAULTS_DIR/scripts/sync-labels.sh) when
+# no installed copy exists yet (or it isn't executable) -- e.g. the very
+# first --dry-run preview after upgrading past #6716 only PREVIEWS installing
+# .loom/scripts/sync-labels.sh (see the "walk scripts" resync above), so it
+# is not actually present on disk to invoke yet. WORKTREE_PATH is still
+# pinned to $WRITE_ROOT either way (sync-labels.sh cd's into it before doing
+# anything), so this fallback never points the check at the wrong repo's
+# labels.yml -- only at a different (but functionally current) copy of the
+# checking script itself.
+LABELS_SYNC_SCRIPT="$WRITE_ROOT/.loom/scripts/sync-labels.sh"
+if [[ ! -x "$LABELS_SYNC_SCRIPT" && -x "$DEFAULTS_DIR/scripts/sync-labels.sh" ]]; then
+    LABELS_SYNC_SCRIPT="$DEFAULTS_DIR/scripts/sync-labels.sh"
+fi
+if [[ -f "$WRITE_ROOT/.github/labels.yml" && -x "$LABELS_SYNC_SCRIPT" ]]; then
+    check_output=""
+    check_rc=0
+    check_output="$("$LABELS_SYNC_SCRIPT" --check -- "$WRITE_ROOT" 2>&1)" || check_rc=$?
+
+    case "$check_rc" in
+        0)
+            note "  ${GREEN}unchanged${NC} forge labels (live label set matches .github/labels.yml)"
+            ;;
+        3)
+            printf '%b\n' "${YELLOW}[resync] Forge label drift detected (.github/labels.yml vs live):${NC}"
+            printf '%b\n' "$check_output" | sed 's/^/    /'
+            if [[ "$DRY_RUN" -eq 1 ]]; then
+                printf '%b\n' "  ${BOLD}would run${NC} sync-labels.sh to create the missing/refresh the stale labels (additive only, never deletes)"
+                N_UPDATED=$((N_UPDATED + 1))
+            else
+                sync_output=""
+                sync_rc=0
+                sync_output="$("$LABELS_SYNC_SCRIPT" -- "$WRITE_ROOT" 2>&1)" || sync_rc=$?
+                if [[ "$sync_rc" -eq 0 ]]; then
+                    printf '%b\n' "  ${GREEN}updated${NC}   forge labels (created missing / refreshed stale labels via sync-labels.sh)"
+                    N_UPDATED=$((N_UPDATED + 1))
+                else
+                    warn "sync-labels.sh could not fully apply the label fix (exit $sync_rc) -- live labels may still be missing/stale"
+                    printf '%b\n' "$sync_output" | sed 's/^/    /' >&2
+                fi
+            fi
+            ;;
+        *)
+            warn "Skipped forge label drift check (sync-labels.sh --check exited $check_rc). Surface sync still applied."
+            printf '%b\n' "$check_output" | sed 's/^/    /' >&2
+            ;;
+    esac
+fi
 
 # ---------- hint: stage + commit resync-only dirt (#4332) ----------
 #

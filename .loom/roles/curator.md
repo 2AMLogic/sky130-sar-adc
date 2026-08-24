@@ -155,12 +155,12 @@ Use a **priority-based search** to find the highest-value curation opportunity:
 Issues with `loom:issue` (human-approved) but missing `loom:curated`:
 
 ```bash
-gh issue list --label="loom:issue" --state=open --limit 500 --json number,title,labels \
-  --jq '.[] | select(([.labels[].name] | contains(["loom:curated"]) | not) and ([.labels[].name] | contains(["external"]) | not)) |
+gh issue list --label="loom:issue" --state=open --limit 500 --json number,title,labels,createdAt \
+  --jq 'sort_by(.createdAt) | .[] | select(([.labels[].name] | contains(["loom:curated"]) | not) and ([.labels[].name] | contains(["external"]) | not)) |
   "#\(.number): \(.title)"'
 ```
 
-**Why prioritize these**: Human already approved the concept, Curator adds technical detail before Builder starts.
+**Why prioritize these**: Human already approved the concept, Curator adds technical detail before Builder starts. The query is sorted oldest-first (`sort_by(.createdAt)`) so the first result is always the oldest un-curated approved issue — no separate age computation needed.
 
 ### Re-curating Approved Issues
 
@@ -276,6 +276,16 @@ be careful:
 > 2. Read dependency files from `origin/main` directly (`git show origin/main:path/to/file`) rather than the local checkout, which may pre-date sibling merges in the same /sweep session.
 > 3. If your verification finds that "Phase N didn't deliver X", explicitly check whether X is on `origin/main` before filing it as a blocker.
 
+This is the same discipline the base-branch trap requires: a fact about the
+repository read once at session start (your local checkout, or anything in
+your own context) is a snapshot, not a live fact, and drifts further from
+reality the longer a sweep runs. See [`troubleshooting.md` → "The base-branch
+trap: a session-start git snapshot is not evidence about the
+present"](../../../.loom/docs/troubleshooting.md) for the general form of this check
+(three refs that must agree: local, remote-tracking after an explicit fetch,
+and the forge's own view) and why a reported divergence should carry the live
+command output that established it.
+
 ### Priority 2: Triage & Unlabeled Issues (Fallback)
 
 If no Priority 1 issues exist, find issues awaiting enhancement. The intake label
@@ -284,8 +294,8 @@ enhancement") is the entry point, so **target it first**:
 
 ```bash
 # Newly filed issues awaiting Curator enhancement
-gh issue list --label="loom:triage" --state=open --limit 500 --json number,title,labels \
-  --jq '.[] | select(([.labels[].name] | contains(["external"]) | not)) |
+gh issue list --label="loom:triage" --state=open --limit 500 --json number,title,labels,createdAt \
+  --jq 'sort_by(.createdAt) | .[] | select(([.labels[].name] | contains(["external"]) | not)) |
   "#\(.number) \(.title)"'
 ```
 
@@ -295,8 +305,8 @@ reserved for a human operator, so an autonomous Curator never "curates" an
 issue being built, awaiting evaluation, or outside its authority entirely:
 
 ```bash
-gh issue list --state=open --limit 500 --json number,title,labels \
-  --jq '.[] | select(
+gh issue list --state=open --limit 500 --json number,title,labels,createdAt \
+  --jq 'sort_by(.createdAt) | .[] | select(
     ([.labels[].name] | contains(["loom:curated"]) | not) and
     ([.labels[].name] | contains(["loom:curating"]) | not) and
     ([.labels[].name] | contains(["loom:issue"]) | not) and
@@ -320,8 +330,9 @@ Builder) has no such re-check workflow, so it is excluded outright.
 **Workflow**:
 1. Try Priority 1 search first
 2. If no results, use Priority 2
-3. Pick oldest issue from selected priority
+3. Take the first result — the query now returns oldest-first (`sort_by(.createdAt)`), so no manual age comparison is needed
 4. Enhance and mark as `loom:curated`
+5. **If neither Priority 1 nor Priority 2 yields a candidate**, do not end the session silently. State explicitly in the session's final output that no curate-able issue was found this tick (e.g. "No curate-able issues found this tick") — this lets a downstream consumer (e.g. a fleet-health check polling session output/logs) distinguish "ran, found nothing" from "didn't run"/"died".
 
 ## Claiming Work
 

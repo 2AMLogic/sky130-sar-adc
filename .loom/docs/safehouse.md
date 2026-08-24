@@ -699,8 +699,9 @@ what feeds the public fleet feed. Loom is the producer:
        unreadable `~/.loom/safehouse-completed.json`; a legitimately empty but
        valid file, e.g. a host that already reconciled to zero, does **not**
        count as fresh). In that case each workspace's first-ever reconciliation
-       tick after startup inserts every in-window `(workspace, issue)` into the
-       dedup set and persists it, but drops the resulting envelopes instead of
+       tick after startup inserts every in-window `(workspace, issue,
+       merged-PR-number)` into the dedup set and persists it, but drops the
+       resulting envelopes instead of
        narrating them. The same workspace's next tick — and every tick on a
        host whose dedup file was not fresh to begin with — narrates normally.
        Trade-off: a merge that landed just before a fresh install is silently
@@ -708,13 +709,46 @@ what feeds the public fleet feed. Loom is the producer:
        at install time anyway.
 - **`meta` (`completion-v1`)**: `{schema, agent, repo, ref, result, started_at,
   completed_at}` required, plus optional `issue`/`tokens`/`tokens_by_model`/
-  `title`/`additions`/`deletions` (envelope-v1 preserves unknown `meta` keys,
-  so no schema rev is needed for extensions). `body` stays required human
-  prose — a room reader sees a sentence, `meta` is the machine view.
+  `title`/`additions`/`deletions`/`visibility` (envelope-v1 preserves unknown
+  `meta` keys, so no schema rev is needed for extensions). `body` stays required
+  human prose — a room reader sees a sentence, `meta` is the machine view.
 - **`repo` is the forge `owner/repo` slug** (`gh repo view --json
-  nameWithOwner`, cached per workspace for the daemon's lifetime), deliberately
-  **not** the path-basename convention above: the feed links `ref` (the PR URL)
-  and displays the forge identity.
+  nameWithOwner,isPrivate`, cached per workspace for the daemon's lifetime),
+  deliberately **not** the path-basename convention above: the feed links `ref`
+  (the PR URL) and displays the forge identity.
+- **`visibility` is the public-egress gate's input (#6596)** — `"public"` or
+  `"private"`, from the `isPrivate` field of that same `gh repo view` call (no
+  extra round-trip). The egress subsystem mirrors well-formed `completion`
+  envelopes to a **public** sink with no visibility check of its own, so until
+  #6596 the only thing keeping a private repo's PR titles off a public page was
+  an accident: the daemon's credential could not read those repos at all (see
+  the per-owner credential note below). Loom is the **producer** half of the
+  gate only:
+  - **Private repos still narrate**, exactly as before, into the (private)
+    signal room — the tag withholds *egress*, never the room post.
+  - **The consumer half must fail closed**: an egress that publishes only on an
+    explicit `visibility == "public"` degrades safely when the key is absent (a
+    `gh` too old to know `isPrivate` falls back to the `nameWithOwner`-only
+    query, and an older Loom emits no tag at all). Treating an absent tag as
+    public would reinstate the leak.
+  - `validate_completion_meta` refuses any third value, so a consumer only ever
+    has to reason about `"public"`, `"private"`, and absence. The consumer-side
+    gate itself lives in the safehouse repo (rjwalters/safehouse#155) — this
+    tag is inert until it lands.
+  - **Staleness caveat**: the tag is cached alongside the slug for the daemon's
+    lifetime, so flipping a repo public → private mid-run keeps the stale
+    `public` tag until the daemon restarts.
+- **Per-owner credential (#6596)**: every forge lookup in this module — the
+  merge check, the slug/visibility resolution, the reconciliation pass, and the
+  dispatch-line issue-title fetch — runs under the **workspace owner's**
+  `GH_CONFIG_DIR` (`credential_preflight::apply_gh_config_for_root_async`), the
+  same per-owner credential the three dispatch paths hand their sweep children
+  (#5401/#5508/#5522/#6529). The daemon process itself runs under the *primary*
+  installation's credential (#4458), which answers `Could not resolve to a
+  Repository` for a **private** repo owned by another org — so before this,
+  every private cross-owner workspace was permanently and invisibly absent from
+  the completion feed. A total no-op for single-owner fleets and the root
+  owner's own repos.
 - **Display fields (#4497)** feed the site's row format
   `<repo>#<issue>: <title> +A −D · <dur> · <tokens> tok`, i.e. the
   development-cost-of-quality-code view:
@@ -819,12 +853,12 @@ what feeds the public fleet feed. Loom is the producer:
   unfinished, not failed, and is usually resumed). The wire support exists
   (`CompletionResult::Failure`) for a follow-up that identifies a genuinely
   terminal negative outcome.
-- **At most one per merge, per host**, deduped on `(workspace, issue)` —
-  shared by **both** emit points above, so a resumed sweep's second
-  `SweepExited` does not double-post, and the periodic reconciliation pass
-  does not re-post a merge the `SweepExited` path already narrated (in either
-  order — whichever path observes the merge first wins; the other becomes a
-  no-op dedup check). This dedup set is **persisted** to
+- **At most one per merged PR, per host**, deduped on `(workspace, issue,
+  merged-PR-number)` — shared by **both** emit points above, so a resumed
+  sweep's second `SweepExited` does not double-post, and the periodic
+  reconciliation pass does not re-post a merge the `SweepExited` path already
+  narrated (in either order — whichever path observes the merge first wins;
+  the other becomes a no-op dedup check). This dedup set is **persisted** to
   `~/.loom/safehouse-completed.json` (`LOOM_SAFEHOUSE_COMPLETIONS_PATH`
   overrides the path) and reloaded at startup — the in-memory set alone would
   not survive a daemon restart, which would otherwise either re-post every
@@ -834,17 +868,33 @@ what feeds the public fleet feed. Loom is the producer:
   it is best-effort — a corrupt or unwritable file degrades to "no reliable
   prior state", never to a crash, which (#4649) now routes through the
   seed-only first pass above rather than re-narrating a potential backlog
-  outright. It grows by one `["<workspace>", <issue>]` pair (~32 bytes) per
-  narrated completion and is never pruned; at Loom's own merge rate that is a
-  couple of MB per decade, so no compaction is implemented. Downstream ingest
-  is additionally idempotent on `event_id`.
+  outright. It grows by one `["<workspace>", <issue>, <pr>]` triple (~40
+  bytes) per narrated completion and is never pruned; at Loom's own merge rate
+  that is a couple of MB per decade, so no compaction is implemented.
+  Downstream ingest is additionally idempotent on `event_id`.
+  - **Keyed on the merged PR number, not the issue alone (issue #6062)**. A
+    single issue can legitimately merge more than one PR over its lifetime —
+    a partial increment (`Part of #N`) leaves the issue open across several
+    merges, each landing its own real, distinct change. Keying the dedup set
+    on `(workspace, issue)` alone (the pre-#6062 shape) could not tell that
+    case apart from a resumed sweep re-observing the *same* merge, and
+    permanently suppressed every completion after the first one for a
+    still-open issue — the same failure mode reported live as
+    `klayout-tools#797` appearing to duplicate a merged PR when what had
+    actually happened was two *different* dispatches racing the same issue
+    (see the fleet-wide section below for the actual root cause of that
+    incident). Because the merged PR number is only known once
+    `fetch_merged_pr` answers, both `completion_for_exit` and
+    `reconcile_recent_merges` always run that one bounded `pr list` lookup
+    before consulting the dedup set — there is no cheaper issue-only
+    short-circuit that would not reintroduce the bug.
   - **This dedup is per-host, not fleet-wide** — `~/.loom/safehouse-completed.json`
     lives on one host's disk, loaded once at daemon startup, with no code path
     that consults a *peer* host's dedup state. On a multi-dispatcher fleet
     (build on host A, merge observed on host B — or two hosts' reconciliation
     ticks both observing the same champion merge before either has recorded
-    it locally) each host's own set starts empty for that `(workspace,
-    issue)` pair, so each independently narrates its own `completion`
+    it locally) each host's own set starts empty for that `(workspace, issue,
+    pr)` triple, so each independently narrates its own `completion`
     envelope: distinct Matrix `event_id`s, so sink-side `event_id` dedup does
     **not** collapse them (issue #6352). See
     [Fleet-wide completion dedup](#fleet-wide-completion-dedup-reusing-the-peer-claim-channel-6352)
@@ -857,15 +907,21 @@ what feeds the public fleet feed. Loom is the producer:
   `owner/repo` slug, `ref` an absolute http(s) URL, `result` ∈
   {`success`,`failure`}, both timestamps RFC3339 with `completed_at >=
   started_at`, `issue`/`tokens`/`additions`/`deletions` non-negative integers
-  when present, `title` a non-empty string when present). Nothing here relies on
-  server-side validation.
+  when present, `title` a non-empty string when present, `visibility` ∈
+  {`public`,`private`} when present). Nothing here relies on server-side
+  validation.
 - **Redaction is downstream.** Every `meta` string — `title` included — is
   published as an ordinary JSON string, so safehoused's egress deny-pattern pass
   redacts it exactly like `repo`/`ref`. Loom applies no bespoke encoding that
   could let a value slip past that pass.
 - **Same degradation contract**: a failing/absent/slow `gh`, an unreachable
   safehoused, or a rejected envelope drops the completion silently and never
-  affects the sweep.
+  affects the sweep — but a failed `gh` lookup now leaves **one `warn` per
+  `(call, workspace)`** in the daemon log (repeats drop to `debug`, so a
+  persistently unauthorized workspace cannot flood it across reconciliation
+  ticks), quoting a capped one-line stderr head. The behavior stays silent; the
+  *diagnosis* does not have to be (#6596: catching the daemon's child `gh` in
+  `ps` and replaying it by hand was the only way to see this class of failure).
 
 ## Wire protocol (envelope v1)
 
@@ -1116,12 +1172,15 @@ same `task`-typed envelope, the same outbound `mpsc::Sender<ClaimAd>`, the same
   envelope-build/dedup-insert core behind **both** trigger paths
   (`SweepExited` and `reconcile_recent_merges`) — successfully builds and
   sends a `completion` envelope, it publishes a `Completed` ad for that
-  `(repo slug, issue)` over the same channel dispatch already uses. Publish is
-  fire-and-forget / fail-open, mirroring `publish_peer_claim`'s own contract: a
-  dropped ad (channel `Full`/`Closed`, socket unreachable) never blocks or
-  unwinds a narration that already succeeded locally — the completion still
-  reaches the feed from this host either way, and worst case a peer that
-  missed the ad narrates a rare duplicate.
+  `(repo slug, issue, merged-PR-number)` over the same channel dispatch
+  already uses — `ClaimAd` grew a `pr: Option<u32>` field for this (issue
+  #6062; `None` for `Advertise`/`Retract`, always `Some` from this binary's
+  own `ClaimAd::completed` constructor). Publish is fire-and-forget /
+  fail-open, mirroring `publish_peer_claim`'s own contract: a dropped ad
+  (channel `Full`/`Closed`, socket unreachable) never blocks or unwinds a
+  narration that already succeeded locally — the completion still reaches the
+  feed from this host either way, and worst case a peer that missed the ad
+  narrates a rare duplicate.
 - **Consume, in a separate map from claims.** `PeerClaimSink` — the same
   inbound consumer that already folds `Advertise`/`Retract` into
   `PeerClaimView`'s dispatch-claims map — routes a `Completed` ad by kind into
@@ -1138,15 +1197,27 @@ same `task`-typed envelope, the same outbound `mpsc::Sender<ClaimAd>`, the same
   fleet-wide view — keyed by the same
   [cross-host-stable repo slug](#which-room-claim-ads-ride-the-signal-room-by-default-opt-in-dedicated-room-4225-4713)
   peer claims already use (`$LOOM_REPO`, else the workspace directory
-  basename) — **before** any forge/token work: if a peer already narrated this
-  `(repo, issue)`, this host adopts that outcome into its own local
-  `already_narrated`/persisted-file dedup state (so its *own* future
-  `SweepExited`/reconciliation passes also short-circuit locally) instead of
-  posting a second envelope, and does **not** re-publish its own `Completed`
-  ad (that would just re-arm every peer's TTL forever for no reason). A host
-  with no peer coordination established (`safehouse.enabled` false, or enabled
-  with no socket ever resolving) sees `None` throughout and degrades
-  byte-for-byte to the pre-#6352 per-host-only behavior.
+  basename), plus the issue and the merged PR number — **before** any
+  forge/token work: if a peer already narrated this `(repo, issue, pr)`, this
+  host adopts that outcome into its own local `already_narrated`/persisted-file
+  dedup state (so its *own* future `SweepExited`/reconciliation passes also
+  short-circuit locally) instead of posting a second envelope, and does **not**
+  re-publish its own `Completed` ad (that would just re-arm every peer's TTL
+  forever for no reason). A host with no peer coordination established
+  (`safehouse.enabled` false, or enabled with no socket ever resolving) sees
+  `None` throughout and degrades byte-for-byte to the pre-#6352 per-host-only
+  behavior.
+  - **Keyed on the merged PR number, not the issue alone (issue #6062).** The
+    original #6352 shape keyed this view on `(repo, issue)` alone, which
+    (like the per-host set above) could not distinguish "a peer already
+    narrated *this* merge" from "a peer narrated a *different* merge against
+    the same still-open issue" — permanently suppressing every completion
+    after the first one for an issue with more than one merged PR, fleet-wide,
+    for the rest of the (24-hour default) TTL. A `Completed` ad received from
+    a peer still running a pre-#6062 binary carries no `pr` field at all; it
+    degrades to key `0` rather than being dropped, so a mixed-version fleet
+    mid-rollout can under-narrate for the transition window (bounded by the
+    completion TTL) but never crashes or mis-keys against a *known* PR number.
 - **TTL: much longer than the dispatch-claim TTL, and independently
   configurable.** `safehouse.peerCompletionTtlSecs` (env
   `LOOM_PEER_COMPLETION_TTL_SECS`) defaults to **24 hours** — deliberately far

@@ -166,6 +166,14 @@ fi
 
 **Action** (single authoritative policy — implemented in `champion-pr-merge.md` → "PR Rejection Workflow → Stale PR"): post the stale notice **once**, guarded by an idempotency marker (`<!-- champion:stale-pr-notice -->`) so the 10-minute cron does not spam the PR, and **swap `loom:pr` → `loom:changes-requested`** to route the PR to Doctor for a rebase/refresh. This removes `loom:pr` (unlike the transient-failure path, which keeps it), because a stale PR cannot clear itself and must leave the auto-merge queue. See `champion-pr-merge.md` for the exact commands.
 
+**A merge-risk hold does not exempt a PR from this (#6720).** The route fires
+from a held state too — it is the only automated path from `loom:pr` to Doctor,
+and gating it behind the hold left 20 of 21 held PRs conflicting with Doctor's
+queue empty. On the held variant the `champion:merge-risk-hold` marker is
+**preserved** and `loom:operator` is **kept** (the human merge decision is still
+outstanding); on the unheld variant `loom:operator` is cleared as before
+(#5802). See `champion-pr-merge.md` → "Held-PR Health Pass".
+
 ---
 
 ### Edge Case 5b: Doctor-Cycle-Capped PR (`loom:blocked` + `loom:changes-requested`)
@@ -221,6 +229,7 @@ gh issue edit <number> --add-label "loom:evaluating"
 
 | Finding | Decision | Action |
 |---------|----------|--------|
+| A prior comment carries a `<!-- champion:dep-defer:<fp> -->` marker and re-running `classify-dependency-block.sh --check-defer` returns the **same** fingerprint | **Dependency-Defer Fast Path hard-stop — run this check FIRST, before everything else in this table** | No comment, no claim, no label change, and none of the other rows below are consulted this pass. Only a changed fingerprint or `--check-defer` returning `REEVALUATE` (every recorded blocker has since closed) falls through to the rest of this table. This closes a gap where a pass reaching this table by any path other than the Idempotency-check → escalation call chain (e.g. a body-hash mismatch, or a pass reasoning about the situation ad hoc) could bypass the defer gate below and post a duplicate comment even on an unchanged blocker fingerprint. |
 | A prior Champion verdict comment already carries `VERDICT_MARKER` for the issue's **current** title+body hash | **Unrevised since last review — skip** | No comment, no claim, no label change. A genuine title/body edit changes the hash and always produces a fresh marker and a fresh evaluation; comments and label churn do not. |
 | Issue already carries `loom:evaluating` and the claim is younger than `LOOM_STALE_EVALUATING_MINUTES` | **Concurrent evaluation in progress** | Skip, do not stomp the claim; continue the batch. |
 | Issue already carries `loom:evaluating` and the claim is older than `LOOM_STALE_EVALUATING_MINUTES` | **Stale claim — a prior Champion pass likely died mid-evaluation** | Reclaim (`--add-label "loom:evaluating"` again) then evaluate normally. |
@@ -234,6 +243,33 @@ gh issue edit <number> --add-label "loom:evaluating"
 **Rationale**: This is the *same* idempotency-marker + escalation-marker + operator-routing shape as Edge Case 5b's Capped-PR Recovery Pass, applied to the proposal-evaluation side of Champion instead of the PR-merge side — a marker keyed to the thing whose change would invalidate it (here, the proposal's own title+body text; there, the latest Judge rejection comment ID) stops duplicate comments, and a bounded escalation threshold (here, N=2 identical verdicts; there, the Doctor-cycle cap) converts an infinite silent loop into a single human-visible routing decision.
 
 **Anchor discipline (#4966)**: neither half of this mechanism may key off the issue's aggregate `updatedAt` — Champion's own verdict comment bumps it, so a marker stamped with it can never match on the next pass and the skip never fires. Content staleness anchors on the title+body hash; claim staleness anchors on the `loom:evaluating` label's own `labeled` timeline event. Both are invisible to Champion's own comment writes. This is the same rule `judge.md`/`daemon-reference.md` already apply to `loom:reviewing`/`loom:treating` staleness.
+
+---
+
+### Edge Case 5d: Capacity-Deferral Comments Re-Posted Every Pass for an Unchanged Backlog (#6729)
+
+**Scenario**: A proposal passes all 8 promotion criteria, but `champion-issue-promo.md`'s "Rate Limiting by Tier" caps the promotion (Tier 3: only 1 per iteration and only if fewer than 5 Tier 3 issues are already in the backlog; Tier 2: up to 2 per iteration). This is a **capacity deferral, not a rejection** — no revision is needed, so Edge Case 5c's `VERDICT_MARKER` is never written for it (capacity deferral is explicitly Step 3, not Step 4). Without a guard, every subsequent Champion pass re-derives the same "criteria pass, tier cap still blocks it" conclusion and posts an equivalent "Tier N backlog cap reached — deferring promotion" comment again — observed live as 10 near-identical comments on #6628 over ~22 hours, and 2-3 more on each of #6647/#6649, all citing the SAME five occupant `tier:maintenance` issues.
+
+**Handling**: `champion-issue-promo.md`'s "Step 3c: Capacity Deferral" mirrors Edge Case 5c's own mechanism, keyed to a **different** anchor because a capacity deferral has no verdict comment to PATCH a marker onto: the **tier and occupant set** that explains the deferral (`classify-capacity-defer.sh`, sourceable pure helpers `normalize_occupants` / `capacity_fingerprint`).
+
+```bash
+# FINGERPRINT is a hash of (tier, sorted-unique occupant set) — NOT of the
+# issue's own title+body (that hash belongs to Edge Case 5c's unrevised-
+# proposal check and answers a different question: "did the PROPOSAL change").
+CAP_RC=0
+./.loom/scripts/classify-capacity-defer.sh --issue "$ISSUE_NUMBER" \
+  --tier "tier:maintenance" --occupants "$OCCUPANTS" --apply || CAP_RC=$?
+```
+
+**Decision**:
+
+| `CAP_RC` | Finding | Action |
+|---|---|---|
+| `1` | `POST_COMMENT` (first deferral on this issue, or the occupant set changed since the last one) | Post the deferral comment, carrying `<!-- champion:capacity-defer:<tier>:<fingerprint> -->` + a seeded `<!-- champion:capacity-defer-seen:<fingerprint>:1 -->` counter |
+| `0` | `SKIP_COMMENT` (same tier, same occupant set as the last capacity-deferral comment on this issue) | Post nothing. `--apply` already bumped the existing comment's seen-counter in place |
+| `2` | Error (unreadable issue, bad arguments) | Fail toward the pre-#6729 behaviour — post the deferral comment as before |
+
+**Rationale**: Same *shape* of fix as Edge Case 5c/#4954 (a fingerprint anchored to the thing that actually changes suppresses a duplicate-comment loop) but a **different** anchor and **no escalation counterpart** — a capacity deferral is never a merits problem, so unlike the N=2 unrevised-proposal escalation there is nothing here for a human to decide, and the condition ends the instant the backlog composition changes, which the very next pass's fingerprint comparison detects for free without any bounded-streak mechanism. Bounding a state that already self-resolves and never needs a human would only reintroduce the noise this edge case exists to close.
 
 ---
 
@@ -455,10 +491,12 @@ EXISTING=$(gh issue list --search "Follow-on from PR #$PR_NUMBER" --limit 500)
 | Merge conflicts | Fail | Comment and skip |
 | Stale PR (>24h) | Route to Doctor | Comment once (idempotent marker), swap `loom:pr` → `loom:changes-requested` |
 | Doctor-cycle-capped PR (`loom:blocked` + `loom:changes-requested`) | Three-way on forward progress | Distinct new defects → grant a cycle (remove `loom:blocked` only); same-defect/ambiguous → keep parked with rationale; approach not viable → add `loom:operator-only`, recommend closing (never close it) |
+| Proposal already recorded as dependency-deferred, evaluated again by a pass that did not walk the Idempotency-check → escalation call chain | Dependency-Defer Fast Path (run FIRST, before the Idempotency check or anything else) | Recorded `<!-- champion:dep-defer:<fp> -->` fingerprint still matches `classify-dependency-block.sh --check-defer`'s current answer → hard-stop, no comment/claim/label change, continue the batch loop; fingerprint changed or `--check-defer` returns `REEVALUATE` → fall through to the Idempotency check and the rest of the Promotion Workflow unchanged |
 | Unrevised proposal re-entering the queue every cycle | Idempotency marker + N=2 escalation | Unrevised since last review → skip silently (title+body hash marker match, never `updatedAt`); ≥2 prior rejections → escalate to `loom:operator-only` instead of a 3rd+ duplicate comment; `loom:evaluating` claim prevents concurrent double-evaluation |
 | Proposal whose only recurring finding is an open, non-cycle dependency | Dependency-timing gate (`classify-dependency-block.sh --check-defer`) | **Defer, never escalate** — the condition self-clears when the blocker closes; blocker already closed → re-evaluate rather than escalate on a stale finding (#5664) |
 | Proposal stuck at `loom:operator-only` from a dependency-only escalation whose blocker has since closed | Pass 0 self-healing re-scan (`--check-unescalate --apply`) | Remove `loom:operator-only`, post one fingerprinted un-escalation comment, rejoin evaluation the same pass; merits/cycle/human-applied escalations are never touched (#5664) |
 | Proposal (parked or not) whose blocker is still open but that declares a `## Startable Subset` covering only part of its scope | Sub-issue granularity carve-out ("recurred after closure", #5664) | Criterion 2's dependency finding does not fail the whole issue; promote scoped to the declared subset (`Part of #<issue>`), or un-escalate an already-parked one via `--check-unescalate` (`SUBSET_CARVEOUT: yes`) even while the blocker stays open — `detect-startable-subset.sh` |
+| Proposal passes all 8 criteria but the tier's rate limit blocks promotion this pass | Capacity-deferral idempotency (`classify-capacity-defer.sh`, #6729) | **Post the deferral comment only on first deferral or a changed occupant set** — same tier + same occupant set as the last capacity-deferral comment → skip silently, bump the existing comment's seen-counter in place; no escalation counterpart, the condition self-resolves the moment the composition changes |
 | Test-only changes | Allow | Standard criteria apply |
 | Human holds PR (removes `loom:pr`) | Skip | Not a merge candidate without `loom:pr` |
 | Multiple linked issues | Allow | Verify all closed |

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # test-resync-installed.sh - Smoke tests for resync-installed.sh (#3777, #4239)
 #
+# This file deliberately embeds a literal conflict-marker fixture (the #6162
+# pre-resync syntax-gate case), so it opts itself out of
+# check-conflict-markers.sh (#6499) with that script's in-file sentinel:
+# check-conflict-markers:allow
+#
 # Constructs throwaway git repos with synthetic defaults/ and installed .loom/
 # trees so it can deterministically exercise the load-bearing cases:
 #   (a) already in sync     -> exit 0, "Already in sync", no writes
@@ -521,6 +526,63 @@ else
     fail "(m) missing source tree error message unclear"
 fi
 
+# --- (m2) .loom/loom-source-path points at a path that does not exist at all
+# -> same clear error, exit 1 (#6780 AC1: "missing directory" case) ----------
+echo "Test group 11b: .loom/loom-source-path pointing at a nonexistent directory errors clearly (#6780)"
+REPO="$(make_fixture)"
+rm -rf "$REPO/defaults"
+printf '%s/does-not-exist\n' "$REPO" > "$REPO/.loom/loom-source-path"
+rm -f "$REPO/.loom/install-metadata.json"
+RC=0; OUT="$(cd "$REPO" && bash "$SCRIPT" --dry-run 2>&1)" || RC=$?
+if [[ $RC -eq 1 ]]; then
+    pass "(m2) nonexistent loom-source-path target exits 1"
+else
+    fail "(m2) nonexistent loom-source-path target did not exit 1 (got $RC)"
+fi
+if grep -qi "could not locate" <<<"$OUT"; then
+    pass "(m2) nonexistent loom-source-path target prints a clear error"
+else
+    fail "(m2) nonexistent loom-source-path target error message unclear"
+fi
+if ! grep -qi "already in sync" <<<"$OUT"; then
+    pass "(m2) nonexistent loom-source-path target never reports a false 'already in sync'"
+else
+    fail "(m2) nonexistent loom-source-path target falsely reported 'already in sync'. Got: $OUT"
+fi
+
+# --- (m3) .loom/loom-source-path points at a directory that EXISTS (and even
+# has a `defaults/` subdirectory) but is not a real Loom checkout -- e.g. a
+# scratch clone whose contents were emptied without removing the directory
+# itself. Before #6780 this passed resolve_defaults()'s `-d "$src/defaults"`
+# check, so the sync walk below found zero files under the (empty)
+# defaults/hooks|scripts and reported a false "already in sync (0 unchanged)"
+# -- the exact "reports the install as current" bug from #6780. Must now be
+# treated exactly like a fully-missing directory: loud error, never success. -
+echo "Test group 11c: .loom/loom-source-path pointing at a stale/empty source tree errors, not a false 'in sync' (#6780)"
+REPO="$(make_fixture)"
+rm -rf "$REPO/defaults"
+STALE_SRC="$WORKDIR/stale-loom-source"
+rm -rf "$STALE_SRC"
+mkdir -p "$STALE_SRC/defaults"   # exists, but no hooks/ or scripts/ under it
+printf '%s\n' "$STALE_SRC" > "$REPO/.loom/loom-source-path"
+rm -f "$REPO/.loom/install-metadata.json"
+RC=0; OUT="$(cd "$REPO" && bash "$SCRIPT" --dry-run 2>&1)" || RC=$?
+if [[ $RC -eq 1 ]]; then
+    pass "(m3) stale/empty source tree exits 1"
+else
+    fail "(m3) stale/empty source tree did not exit 1 (got $RC)"
+fi
+if grep -qi "could not locate" <<<"$OUT"; then
+    pass "(m3) stale/empty source tree prints a clear error"
+else
+    fail "(m3) stale/empty source tree error message unclear. Got: $OUT"
+fi
+if ! grep -qi "already in sync" <<<"$OUT"; then
+    pass "(m3) stale/empty source tree never reports a false 'already in sync'"
+else
+    fail "(m3) stale/empty source tree falsely reported 'already in sync'. Got: $OUT"
+fi
+
 # --- (n) metadata re-stamp ---------------------------------------------------
 echo "Test group 12: successful apply re-stamps install-metadata.json"
 REPO="$(make_fixture)"
@@ -546,6 +608,15 @@ if grep -q '"install_date": *"2020-01-01"' "$META"; then
     pass "(n) install_date preserved (installer-owned, out of scope)"
 else
     fail "(n) install_date was altered"
+fi
+# #6780 AC3: re-stamp writes a loom_source_remote key (empty string here,
+# since the fixture's SOURCE_ROOT has no `origin` remote configured -- but
+# the key itself must always be present, never omitted, so downstream
+# tooling can distinguish "no remote" from "field never written").
+if grep -q '"loom_source_remote"' "$META"; then
+    pass "(#6780) re-stamp writes a loom_source_remote key"
+else
+    fail "(#6780) re-stamp did not write a loom_source_remote key. Got: $(cat "$META")"
 fi
 # --dry-run must NOT re-stamp
 REPO="$(make_fixture)"
@@ -2179,6 +2250,181 @@ if [[ $RC -eq 0 ]] \
     pass "(#6162) a normal apply on a fixture with only valid scripts is unaffected by the new gate"
 else
     fail "(#6162) the syntax gate introduced friction on a clean/valid tree (rc=$RC); out=$OUT"
+fi
+
+# --- pre-resync conflict-marker gate (#6499) ---------------------------------
+#
+# #6162's gate is `bash -n` on `*.sh` only, so the identical corruption in a
+# doc / role prompt / runtime descriptor sails straight through it and gets
+# replicated into every consumer's .loom/. Same fixture discipline as group
+# 26: place a REAL copy of the checker at the exact path the gate looks for,
+# otherwise it degrades to a WARN and these tests would pass vacuously.
+echo "Test group 27: pre-resync conflict-marker gate refuses to copy a marker-corrupted NON-shell source file"
+REPO="$(make_fixture)"
+cp "$HELPERS_DIR/check-conflict-markers.sh" "$REPO/defaults/scripts/check-conflict-markers.sh"
+chmod +x "$REPO/defaults/scripts/check-conflict-markers.sh"
+mkdir -p "$REPO/defaults/docs"
+# Built with printf so this test file's own source carries no line-start
+# markers beyond the group-26 fixture it already opts out for.
+{
+    printf '# Troubleshooting\n'
+    printf '<<<<<<< Updated upstream\n'
+    printf 'mac guidance\n'
+    printf '=======\n'
+    printf 'linux guidance\n'
+    printf '>>>>>>> Stashed changes\n'
+} > "$REPO/defaults/docs/corrupted-doc.md"
+
+OUT="$(cd "$REPO" && bash "$SCRIPT" 2>&1)"
+RC=$?
+if [[ $RC -eq 1 ]]; then
+    pass "(#6499) resync hard-fails (exit 1) on a marker-corrupted non-shell source file"
+else
+    fail "(#6499) expected exit 1 on a marker-corrupted .md source (got $RC)"
+fi
+if grep -q "corrupted-doc.md" <<<"$OUT"; then
+    pass "(#6499) the offending non-shell file is named in the output"
+else
+    fail "(#6499) the offending non-shell file was not named in the output; out=$OUT"
+fi
+if [[ "$(cat "$REPO/.loom/hooks/guard.sh")" == "OLD" ]]; then
+    pass "(#6499) refuses to resync: drifted hooks/guard.sh left UNCHANGED (nothing copied)"
+else
+    fail "(#6499) hooks/guard.sh was copied despite the marker corruption elsewhere"
+fi
+
+OUT="$(cd "$REPO" && bash "$SCRIPT" --dry-run 2>&1)"
+RC=$?
+if [[ $RC -eq 1 ]] && grep -q "corrupted-doc.md" <<<"$OUT"; then
+    pass "(#6499) --dry-run also refuses on a marker-corrupted source file (exit 1)"
+else
+    fail "(#6499) --dry-run did not refuse on a marker-corrupted source file (got $RC)"
+fi
+
+echo "Test group 27b: pre-resync conflict-marker gate adds no friction on a clean tree"
+REPO="$(make_fixture)"
+cp "$HELPERS_DIR/check-conflict-markers.sh" "$REPO/defaults/scripts/check-conflict-markers.sh"
+chmod +x "$REPO/defaults/scripts/check-conflict-markers.sh"
+OUT="$(cd "$REPO" && bash "$SCRIPT" 2>&1)"
+RC=$?
+if [[ $RC -eq 0 ]] && ! grep -qi "conflict markers" <<<"$OUT"; then
+    pass "(#6499) a normal apply on a marker-free fixture is unaffected by the new gate"
+else
+    fail "(#6499) the conflict-marker gate introduced friction on a clean tree (rc=$RC); out=$OUT"
+fi
+
+# --- forge label drift check + safe auto-create (#6716) ---------------------
+#
+# resync-installed.sh's new labels step is a thin dispatcher onto whatever
+# sync-labels.sh ends up installed at .loom/scripts/sync-labels.sh (via the
+# widened "walk scripts" resync exercised by earlier groups) -- it does not
+# re-derive drift/report semantics itself. So rather than re-proving
+# sync-labels.sh's own --check behavior (already covered end-to-end by
+# test-sync-labels-check.sh), these groups install a scriptable STUB as
+# defaults/scripts/sync-labels.sh and assert only on the WIRING: when the
+# stub is called, with/without --check, and how its exit code changes the
+# resync's own reporting and control flow.
+add_labels_stub() {
+    local repo="$1"
+    mkdir -p "$repo/.github"
+    cat > "$repo/.github/labels.yml" <<'EOF'
+- name: loom:issue
+  description: "Approved and ready for a Builder"
+  color: "3B82F6"
+EOF
+    cat > "$repo/defaults/scripts/sync-labels.sh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${STUB_LOG:?STUB_LOG not set}"
+if printf '%s\n' "$*" | grep -q -- '--check'; then
+    exit "${LOOM_TEST_LABELS_CHECK_RC:-0}"
+fi
+exit "${LOOM_TEST_LABELS_SYNC_RC:-0}"
+STUB
+    chmod +x "$repo/defaults/scripts/sync-labels.sh"
+}
+
+echo "Test group 28: forge label check -- already in sync (#6716)"
+REPO="$(make_fixture)"
+add_labels_stub "$REPO"
+STUB_LOG="$WORKDIR/stub28.log"; : > "$STUB_LOG"
+OUT="$(cd "$REPO" && STUB_LOG="$STUB_LOG" LOOM_TEST_LABELS_CHECK_RC=0 bash "$SCRIPT" 2>&1)"
+RC=$?
+if [[ $RC -eq 0 ]] && grep -qi "unchanged.*forge labels" <<<"$OUT"; then
+    pass "(#6716) an in-sync live label set is reported unchanged"
+else
+    fail "(#6716) in-sync case not reported as unchanged (rc=$RC); out=$OUT"
+fi
+if [[ "$(grep -c -- '--check' "$STUB_LOG" || true)" -eq 1 && "$(wc -l < "$STUB_LOG")" -eq 1 ]]; then
+    pass "(#6716) in-sync case calls sync-labels.sh exactly once, with --check"
+else
+    fail "(#6716) unexpected sync-labels.sh invocation count/shape: $(cat "$STUB_LOG")"
+fi
+
+echo "Test group 28b: forge label check -- drift found, real run fixes it (#6716)"
+REPO="$(make_fixture)"
+add_labels_stub "$REPO"
+STUB_LOG="$WORKDIR/stub28b.log"; : > "$STUB_LOG"
+OUT="$(cd "$REPO" && STUB_LOG="$STUB_LOG" LOOM_TEST_LABELS_CHECK_RC=3 LOOM_TEST_LABELS_SYNC_RC=0 bash "$SCRIPT" 2>&1)"
+RC=$?
+if [[ $RC -eq 0 ]] && grep -qi "drift detected" <<<"$OUT" && grep -qi "updated.*forge labels" <<<"$OUT"; then
+    pass "(#6716) drift is reported and then fixed on a real run"
+else
+    fail "(#6716) drift-then-fix not reported as expected (rc=$RC); out=$OUT"
+fi
+if [[ "$(wc -l < "$STUB_LOG")" -eq 2 ]] && grep -q -- '--check' "$STUB_LOG" && grep -qv -- '--check' "$STUB_LOG"; then
+    pass "(#6716) a real run with drift calls sync-labels.sh twice: once with --check, once without"
+else
+    fail "(#6716) unexpected sync-labels.sh invocation shape for drift-then-fix: $(cat "$STUB_LOG")"
+fi
+
+echo "Test group 28c: forge label check -- drift found, --dry-run previews without fixing (#6716)"
+REPO="$(make_fixture)"
+add_labels_stub "$REPO"
+STUB_LOG="$WORKDIR/stub28c.log"; : > "$STUB_LOG"
+OUT="$(cd "$REPO" && STUB_LOG="$STUB_LOG" LOOM_TEST_LABELS_CHECK_RC=3 bash "$SCRIPT" --dry-run 2>&1)"
+if grep -qi "drift detected" <<<"$OUT" && grep -qi "would run.*sync-labels.sh" <<<"$OUT"; then
+    pass "(#6716) --dry-run previews the label fix instead of applying it"
+else
+    fail "(#6716) --dry-run did not preview the label fix as expected; out=$OUT"
+fi
+if [[ "$(wc -l < "$STUB_LOG")" -eq 1 ]] && grep -q -- '--check' "$STUB_LOG"; then
+    pass "(#6716) --dry-run calls sync-labels.sh only once (--check), never the mutating path"
+else
+    fail "(#6716) --dry-run made an unexpected sync-labels.sh call: $(cat "$STUB_LOG")"
+fi
+
+echo "Test group 28d: forge label check -- the fix itself fails -> loud warning, not a resync failure (#6716)"
+REPO="$(make_fixture)"
+add_labels_stub "$REPO"
+STUB_LOG="$WORKDIR/stub28d.log"; : > "$STUB_LOG"
+OUT="$(cd "$REPO" && STUB_LOG="$STUB_LOG" LOOM_TEST_LABELS_CHECK_RC=3 LOOM_TEST_LABELS_SYNC_RC=1 bash "$SCRIPT" 2>&1)"
+RC=$?
+if [[ $RC -eq 0 ]] && grep -qi "could not fully apply" <<<"$OUT"; then
+    pass "(#6716) a failed label fix is a loud warning, not a resync-wide failure"
+else
+    fail "(#6716) a failed label fix was not reported as a soft warning (rc=$RC); out=$OUT"
+fi
+
+echo "Test group 28e: forge label check -- the check itself errors -> loud warning, not a resync failure (#6716)"
+REPO="$(make_fixture)"
+add_labels_stub "$REPO"
+STUB_LOG="$WORKDIR/stub28e.log"; : > "$STUB_LOG"
+OUT="$(cd "$REPO" && STUB_LOG="$STUB_LOG" LOOM_TEST_LABELS_CHECK_RC=1 bash "$SCRIPT" 2>&1)"
+RC=$?
+if [[ $RC -eq 0 ]] && grep -qi "skipped forge label" <<<"$OUT"; then
+    pass "(#6716) a --check lookup error is a loud warning, not a resync-wide failure"
+else
+    fail "(#6716) a --check lookup error was not reported as a soft warning (rc=$RC); out=$OUT"
+fi
+
+echo "Test group 28f: forge label check -- no .github/labels.yml -> silently skipped (#6716)"
+REPO="$(make_fixture)"
+OUT="$(cd "$REPO" && bash "$SCRIPT" 2>&1)"
+RC=$?
+if [[ $RC -eq 0 ]] && ! grep -qi "forge label" <<<"$OUT"; then
+    pass "(#6716) a repo with no .github/labels.yml is unaffected by the new step"
+else
+    fail "(#6716) a repo with no labels.yml unexpectedly mentioned forge labels (rc=$RC); out=$OUT"
 fi
 
 # --- summary -----------------------------------------------------------------
