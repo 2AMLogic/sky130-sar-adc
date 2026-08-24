@@ -107,22 +107,17 @@ def run(process_corners=None, temps_c=None, quiet: bool = False):
     baseline_temp = 27 if 27 in temps_c else temps_c[0]
     baseline_supply = NOMINAL_SUPPLY_V
 
-    seen = set()
-    grid = []
-
-    def _add(pc, tc, sv):
-        key = (pc, tc, sv)
-        if key not in seen:
-            seen.add(key)
-            grid.append(key)
-
-    _add(baseline_process, baseline_temp, baseline_supply)
-    for pc in process_corners:
-        _add(pc, baseline_temp, baseline_supply)
-    for tc in temps_c:
-        _add(baseline_process, tc, baseline_supply)
-    for sv in supply_points:
-        _add(baseline_process, baseline_temp, sv)
+    # See harness.corners.oat_grid()'s docstring for why this is a
+    # one-at-a-time (OAT / "star") grid rather than a full factorial
+    # |process|x|temp|x|supply| grid.
+    grid = corners_mod.oat_grid(
+        baseline_process,
+        baseline_temp,
+        baseline_supply,
+        process_corners,
+        temps_c,
+        supply_points,
+    )
 
     record_id = evidence.new_record_id()
     corners_out_dir = EXPERIMENT_DIR / "corners" / record_id

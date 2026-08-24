@@ -62,6 +62,44 @@ class TestCorners(unittest.TestCase):
     def test_supply_points_zero_tolerance(self):
         self.assertEqual(corners.supply_points(1.8, 0.0), [1.8])
 
+    def test_oat_grid_baseline_only(self):
+        # All axes collapse to a single (baseline-only) value -> just the
+        # baseline point, no duplicates.
+        grid = corners.oat_grid("tt", 27, 1.8, ["tt"], [27], [1.8])
+        self.assertEqual(grid, [("tt", 27, 1.8)])
+
+    def test_oat_grid_single_axis_sweep(self):
+        # Sweeping only the process axis: baseline point plus the other
+        # process corners, each with temp/supply held at baseline.
+        grid = corners.oat_grid("tt", 27, 1.8, ["tt", "ss", "ff"], [27], [1.8])
+        self.assertEqual(
+            grid,
+            [
+                ("tt", 27, 1.8),
+                ("ss", 27, 1.8),
+                ("ff", 27, 1.8),
+            ],
+        )
+
+    def test_oat_grid_dedup_when_axis_value_equals_baseline(self):
+        # The baseline process corner ("tt") also appears in the swept
+        # process-corner list -- it must not be added twice.
+        grid = corners.oat_grid("tt", 27, 1.8, ["tt", "ss"], [27], [1.8])
+        self.assertEqual(grid, [("tt", 27, 1.8), ("ss", 27, 1.8)])
+        self.assertEqual(len(grid), len(set(grid)))
+
+    def test_oat_grid_full_three_axis_shape(self):
+        # Full three-axis OAT star: 1 baseline + (|process|-1) +
+        # (|temp|-1) + (|supply|-1) points, matching the star-not-factorial
+        # shape the docstring describes.
+        process_corners = ["tt", "ss", "ff", "sf", "fs"]
+        temps_c = [-40, 27, 125]
+        supply_v = [1.62, 1.8, 1.98]
+        grid = corners.oat_grid("tt", 27, 1.8, process_corners, temps_c, supply_v)
+        self.assertEqual(len(grid), 1 + 4 + 2 + 2)
+        self.assertEqual(len(grid), len(set(grid)))
+        self.assertEqual(grid[0], ("tt", 27, 1.8))
+
 
 class TestEvidence(unittest.TestCase):
     def test_sha256_is_deterministic(self):

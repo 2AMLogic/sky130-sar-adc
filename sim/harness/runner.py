@@ -98,32 +98,17 @@ def run(
     corners_out_dir = manifest.experiment_dir / "corners" / record_id
     points: list[CornerPointResult] = []
 
-    # One-at-a-time (OAT / "star") design, not a full factorial grid: the
-    # baseline point plus, for each axis in turn, every OTHER value on that
-    # axis with the remaining two axes held at baseline. This is exactly the
-    # set the per-axis sensitivity computation below needs (it only ever
-    # looks at slices held at baseline on the other two axes), and for a
-    # sky130 combined-library ngspice invocation (~15-20s each on this
-    # toolchain -- PDK model-library load dominates, not simulation time)
-    # a full |process|x|temp|x|supply| grid would cost minutes per
-    # experiment for no additional signal. len(process)=5, len(temp)=3,
-    # len(supply)=3 costs 9 OAT runs instead of 45 full-factorial ones.
-    seen: set[tuple[str, float, float]] = set()
-    grid: list[tuple[str, float, float]] = []
-
-    def _add(pc: str, tc: float, sv: float) -> None:
-        key = (pc, tc, sv)
-        if key not in seen:
-            seen.add(key)
-            grid.append(key)
-
-    _add(baseline_process, baseline_temp, baseline_supply)
-    for process_corner in process_corners:
-        _add(process_corner, baseline_temp, baseline_supply)
-    for temp_c in temperatures_c:
-        _add(baseline_process, temp_c, baseline_supply)
-    for supply_v in supply_points:
-        _add(baseline_process, baseline_temp, supply_v)
+    # See corners_mod.oat_grid()'s docstring for why this is a one-at-a-time
+    # (OAT / "star") grid rather than a full factorial |process|x|temp|x|supply|
+    # grid.
+    grid = corners_mod.oat_grid(
+        baseline_process,
+        baseline_temp,
+        baseline_supply,
+        process_corners,
+        temperatures_c,
+        supply_points,
+    )
 
     with tempfile.TemporaryDirectory(prefix="sim-harness-") as scratch:
         scratch_dir = Path(scratch)
