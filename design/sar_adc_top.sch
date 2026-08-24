@@ -98,29 +98,45 @@ v {xschem version=3.4.7 file_version=1.2
 *   sub-block or by this top-level symbol's own external pin list.
 *
 * ============================================================================
-* KNOWN, NAMED-NOT-CLOSED INTEGRATION GAPS (documented, not silently papered
-* over -- neither is fixed by this issue; both are flagged for a follow-up)
+* KNOWN, NAMED-NOT-CLOSED INTEGRATION GAP (one remains open; item 1 below was
+* resolved by issue #95, kept here -- marked RESOLVED -- rather than deleted,
+* so the BPREF_P_NC/BPREF_N_NC dead-end wiring a reader sees below still has
+* an explanation attached at the point it's introduced)
 * ============================================================================
-* 1. BPREF_P/BPREF_N (sampling_frontend #52's bottom-plate reference
-*    outputs, driven to VCM only during SAMPLE) have NO corresponding pin
-*    on design/cdac/cdac_array.sch (#53) to connect to: cdac_array's
-*    per-bit bottom plates (BOT_p0..BOT_p8 / BOT_n0..BOT_n8) are each
-*    ALWAYS actively driven to VREFP or VREFN by their own SEL switch (per
-*    design/cdac/cdac_unit_cell.sch's truth table) -- there is no single
-*    combined "bottom-plate common" node in the array as built for a
-*    sample-phase common-mode short to land on. This is exactly what
+* 1. [RESOLVED by #95] BPREF_P/BPREF_N (sampling_frontend #52's bottom-plate
+*    reference outputs, driven to VCM only during SAMPLE) have NO
+*    corresponding pin on design/cdac/cdac_array.sch (#53) to connect to:
+*    cdac_array's per-bit bottom plates (BOT_p0..BOT_p8 / BOT_n0..BOT_n8)
+*    are each ALWAYS actively driven to VREFP or VREFN by their own SEL
+*    switch (per design/cdac/cdac_unit_cell.sch's truth table) -- there is
+*    no single combined "bottom-plate common" node in the array as built
+*    for a sample-phase common-mode short to land on. This was originally
+*    flagged (not yet resolved) against
 *    spec/decision-records/DR-004-sampling-frontend-sizing.md's "Open
-*    items" section already flags ("The real ADC's CDAC (#53) would take
-*    over BPREF_x almost immediately after sampling ends" -- an assumption
-*    that does not match #53's actual as-built switching architecture).
-*    BPREF_P/BPREF_N are left on their own dead-end nets (BPREF_P_NC /
-*    BPREF_N_NC below, named to make the "deliberately not joined to
-*    anything else" intent unambiguous in the raw netlist) rather than
-*    inventing a new CDAC circuit change here -- that would be new circuit
-*    design on someone else's already-tested, already-merged sub-block, out
-*    of this issue's own "wiring, not introducing new devices" scope per
-*    its own spec-coupling note. Filed as a follow-up issue (see this
-*    issue's closing PR).
+*    items" section assumption ("The real ADC's CDAC (#53) would take over
+*    BPREF_x almost immediately after sampling ends").
+*    Issue #95 resolved this: that hand-off assumption is FALSE, not just
+*    premature -- the real array never provides a node to hand off to, by
+*    design, and BPREF_P/BPREF_N are left on their own dead-end nets
+*    (BPREF_P_NC / BPREF_N_NC below) PERMANENTLY, not as an interim gap.
+*    #95's own testbench (sim/sampling-cdac-handoff/run_handoff.py)
+*    verified this dead-end wiring does not corrupt sampling: TOP_P/TOP_N
+*    settle to VINP/VINN within 0.73mV at the tt corner, identically across
+*    three different CDAC-array "previous conversion" bottom-plate code
+*    states, when sampling_frontend and the real cdac_array are simulated
+*    together exactly as wired below. Circuit argument (see DR-004's
+*    "Update (issue #95)" section for the full writeup): during SAMPLE,
+*    TOP_x is driven low-impedance by the front end's own bootstrapped
+*    switch regardless of what the (always individually driven, never
+*    floating) CDAC array bottom plates are doing; once SAMPLE ends, the
+*    front end's own Csamp_p/Csamp_n become isolated two-terminal
+*    capacitors (BPREF_x, their other terminal, touches nothing else,
+*    exactly because of this dead-end wiring) and therefore inject zero
+*    further current into TOP_x for the rest of the conversion.
+*    sampling_frontend.sch's own Csamp_p/Csamp_n/BPREF_x/Cmswn/Cmswp
+*    circuitry is left in place (not removed) -- see DR-004's Open items
+*    for the sizing-re-verification reason and the new settling-headroom
+*    residual (ss corner, doubled load) this leaves for a future pass.
 * 2. VDD/GND (analog blocks: sampling_frontend/comparator/cdac_array, tied
 *    together below via devices/vdd.sym + devices/gnd.sym, both
 *    `global=true`) and VPWR/VGND (design/sar_sequencer.sch's digital
