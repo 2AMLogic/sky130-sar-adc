@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import statistics
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import corners as corners_mod
