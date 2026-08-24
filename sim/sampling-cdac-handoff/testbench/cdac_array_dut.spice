@@ -1,0 +1,114 @@
+* cdac_array_dut.spice -- regenerated netlist FRAGMENT (devices only) for
+* design/cdac/cdac_array.sch (issue #53). NOT hand-edited: regenerate with,
+* from the repo root:
+*
+*   source sim/env.sh
+*   xschem -x -n -s -q --rcfile sim/xschemrc -o /tmp/xschem_out design/cdac/cdac_array.sch
+*   grep -v '^\*\*' /tmp/xschem_out/cdac_array.spice | grep -v '^\.end$' \
+*     > sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice
+*
+* Every device is sky130_fd_pr__{n,p}fet_01v8 or sky130_fd_pr__cap_mim_m3_1
+* (ratified 1.8V core flavor + MiM cap, DR-001).
+*
+* This experiment (sim/sampling-cdac-handoff/run_handoff.py) drives
+* SELp0..8/SELn0..8 directly with ideal DC sources standing in for the SAR
+* sequencer's DOUT<i> register (per design/sar_adc_top.sch's own
+* SELp<i>=DOUT<i> / SELn<i>=NOT(DOUT<i>) wiring decision) left at a fixed
+* "previous conversion" code throughout the SAMPLE phase under test -- the
+* same testbench-only-ideal-driver precedent sim/cdac-array-transfer/'s own
+* testbench already uses for SEL. VSS is tied to GND explicitly below (the
+* fragment references VSS, not the global GND net, matching
+* design/cdac/cdac_array.sch's own VSS ipin, which design/sar_adc_top.sch
+* ties to GND via devices/gnd.sym at the matching pin position).
+XCp0 BOT_p0 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+XMp0n BOT_p0 SELp0 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp0p BOT_p0 SELp0 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp1 BOT_p1 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+XMp1n BOT_p1 SELp1 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp1p BOT_p1 SELp1 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp2 BOT_p2 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+XMp2n BOT_p2 SELp2 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp2p BOT_p2 SELp2 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp3 BOT_p3 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+XMp3n BOT_p3 SELp3 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp3p BOT_p3 SELp3 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp4 BOT_p4 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+XMp4n BOT_p4 SELp4 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp4p BOT_p4 SELp4 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp5 BOT_p5 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+XMp5n BOT_p5 SELp5 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp5p BOT_p5 SELp5 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp6 BOT_p6 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+XMp6n BOT_p6 SELp6 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp6p BOT_p6 SELp6 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp7 BOT_p7 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+XMp7n BOT_p7 SELp7 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp7p BOT_p7 SELp7 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp8 BOT_p8 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+XMp8n BOT_p8 SELp8 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMp8p BOT_p8 SELp8 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCp_term VREFN TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+XCn0 BOT_n0 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+XMn0n BOT_n0 SELn0 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn0p BOT_n0 SELn0 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn1 BOT_n1 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+XMn1n BOT_n1 SELn1 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn1p BOT_n1 SELn1 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn2 BOT_n2 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+XMn2n BOT_n2 SELn2 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn2p BOT_n2 SELn2 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn3 BOT_n3 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+XMn3n BOT_n3 SELn3 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn3p BOT_n3 SELn3 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn4 BOT_n4 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+XMn4n BOT_n4 SELn4 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn4p BOT_n4 SELn4 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn5 BOT_n5 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+XMn5n BOT_n5 SELn5 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn5p BOT_n5 SELn5 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn6 BOT_n6 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+XMn6n BOT_n6 SELn6 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn6p BOT_n6 SELn6 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn7 BOT_n7 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+XMn7n BOT_n7 SELn7 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn7p BOT_n7 SELn7 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn8 BOT_n8 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+XMn8n BOT_n8 SELn8 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XMn8p BOT_n8 SELn8 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XCn_term VREFN TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1

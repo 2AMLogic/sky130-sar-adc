@@ -11,13 +11,16 @@
 - **Related**: #52 (this sub-block), #61 (follow-up: post-edge hold-transition
   droop, not resolved here), #53 (CDAC array, consumes `Csamp`'s placeholder
   role), #55 (SAR clock/phase generation, consumes the dead-time finding
-  below), `spec/decision-records/DR-001-supply-flavor-scope.md` (ratified 1.8V
+  below), #95 (resolved the `BPREF_x`-hand-off assumption in "Open items"
+  below as false, not just premature -- see "Update (issue #95)"),
+  `spec/decision-records/DR-001-supply-flavor-scope.md` (ratified 1.8V
   core-device scope this record's every instance stays inside),
   `spec/decision-records/DR-003-numeric-spec-derivation.md` (provisional
   `V_REF`/LSB/`C_side` numbers this record's sizing is derived from),
   `design/sampling_frontend.sch`, `sim/sampling-frontend/run_transient.py`,
   `sim/sampling-frontend/records/20260821-072657-433a294.md` (the evidence
-  record this decision record explains)
+  record this decision record explains), `sim/sampling-cdac-handoff/
+  records/20260824-231304-144edeb.md` (#95's own evidence record)
 
 ## Context
 
@@ -213,22 +216,32 @@ cover at all. No grant is recorded by this record or by #52.
     while both nodes shift together by nearly the same amount. This points at
     a **common-mode capacitive kick** onto the floating `TOP_x`/`BPREF_x`
     node pair (both are deliberately left floating during hold in this
-    sub-block, since #53's not-yet-built CDAC bottom-plate network is meant
-    to take over driving `BPREF_x` once it exists) from the switching
-    `SAMPLE`/`SAMPLEB` control signals -- most plausibly via the gate-overlap
-    / off-state junction capacitance of the several devices gated by those
-    signals with a terminal on `TOP_x`/`BPREF_x`/`BOOST_x`/`G_x`. This was
-    **not** confirmed by directly summing/measuring those parasitic
-    capacitances -- it is the leading hypothesis from the two experiments
-    above, not a closed root cause.
+    sub-block -- see "Update (issue #95)" below: this floating state is now
+    known to be **permanent**, not a temporary gap awaiting a future
+    CDAC hand-off) from the switching `SAMPLE`/`SAMPLEB` control signals --
+    most plausibly via the gate-overlap / off-state junction capacitance of
+    the several devices gated by those signals with a terminal on
+    `TOP_x`/`BPREF_x`/`BOOST_x`/`G_x`. This was **not** confirmed by directly
+    summing/measuring those parasitic capacitances -- it is the leading
+    hypothesis from the two experiments above, not a closed root cause.
   - **Not (fully) an artifact of the isolated testbench's longer float
-    window.** The real ADC's CDAC (#53) would take over `BPREF_x` almost
-    immediately after sampling ends, unlike this isolated testbench which
-    floats it for the rest of the 400ns hold half-period -- but the observed
-    jump happens within the first few ns of the falling edge, before any
-    realistic hand-off could intervene, so a faster CDAC hand-off would not
-    by itself prevent the corruption.
+    window.** This bullet originally assumed "the real ADC's CDAC (#53)
+    would take over `BPREF_x` almost immediately after sampling ends" --
+    issue #95 found that assumption **false**: the real CDAC array (#53) has
+    no combined bottom-plate node to hand off to at all, and
+    `design/sar_adc_top.sch` (#56) leaves `BPREF_P`/`BPREF_N` on dead-end
+    nets permanently, not just for the remainder of this isolated
+    testbench's longer hold window. This does not change this bullet's own
+    conclusion, only its premise: the observed jump happens within the first
+    few ns of the falling edge regardless of whether or when any hand-off
+    was ever coming, so the (now known to be nonexistent) hand-off was never
+    going to prevent the corruption either way.
   - Full writeup, suggested next steps, and cross-references: issue #61.
+    **Not resolved by #95**: #61's droop finding is about this sub-block's
+    own isolated-testbench dynamics in the first few ns after the `SAMPLE`
+    edge (a capacitive-kick hypothesis, not yet root-caused) and is
+    independent of the bottom-plate-reference question #95 resolved -- see
+    "Update (issue #95)" below for the explicit position on this overlap.
 - **`Cboot` sizing was not swept or optimized** -- `188 fF` (`W=9.8 x L=9.8um`)
   was chosen to be comfortably larger than estimated parasitics and confirmed
   functional; no sensitivity sweep (smaller/larger `Cboot`) was run to find a
@@ -241,3 +254,62 @@ cover at all. No grant is recorded by this record or by #52.
   remains unratified pending #27; nothing in this record is binding until
   that closes, and until #52's own sizing choices here (`Cboot`, the `Sa`/`Sd`
   length) are independently reviewed.
+- **New (issue #95): `ss`-corner settling headroom, once the real CDAC array
+  is wired in, is unchecked and appears insufficient.**
+  `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md` (the
+  evidence record for #95's resolution) loads `TOP_P`/`TOP_N` with BOTH this
+  sub-block's own `Csamp_p`/`Csamp_n` (~4.43pF/side, this record's own
+  placeholder) AND the real CDAC array's (#53) own ~4.43pF/side of bit
+  capacitors -- roughly double the load this record's `Sa`/`Sd` `L=0.5um` fix
+  was verified against. At `tt`/27C this is still sub-mV clean (0.73mV worst
+  case, well under the provisional LSB); at the `ss` corner (a single
+  directional point, not swept), `worst_case_pp` settles to only 5.33mV of
+  its target -- above half the provisional differential LSB. This is a real,
+  newly-surfaced residual for a **future** area/timing pass (removing this
+  sub-block's own now-provably-redundant `Csamp_p`/`Csamp_n`, see "Update
+  (issue #95)" below, would roughly halve the load and is the most direct
+  fix) -- not fixed here, and not blocking #95's own resolution (which is
+  about `BPREF_x`'s floating-state correctness, unaffected by this loading
+  question, per that record's own analysis).
+
+## Update (issue #95, 2026-08-24)
+
+Issue #95 resolved the "Open items" assumption directly above (`BPREF_x`
+hand-off to a future combined CDAC bottom-plate node) as **false, not just
+premature**: `design/cdac/cdac_array.sch` (#53), as actually built, has no
+combined bottom-plate node at all -- every bit's bottom plate is
+individually and continuously driven to `VREFP`/`VREFN` by its own `SEL<i>`
+switch (`design/cdac/cdac_unit_cell.sch`), and `design/sar_adc_top.sch`
+(#56) already leaves `BPREF_P`/`BPREF_N` on dead-end nets
+(`BPREF_P_NC`/`BPREF_N_NC`) permanently, not as an interim gap.
+
+**Resolution chosen: path (a) -- retire the hand-off assumption, do NOT
+remove the now-provably-inert `Csamp_p`/`Csamp_n`/`BPREF_x`/`Cmswn`/`Cmswp`
+circuitry.** `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`
+verifies (not just argues) that `TOP_P`/`TOP_N` settle to `VINP`/`VINN`
+within 0.73mV at `tt`/27C, identically across three different CDAC-array
+"previous conversion" bottom-plate code states, when this sub-block's
+schematic is instantiated together with the real `design/cdac/cdac_array.sch`
+netlist exactly as `design/sar_adc_top.sch` wires them. The circuit argument
+behind that result: during `SAMPLE`, `TOP_x` is driven low-impedance by
+`Msw_x` regardless of what the CDAC array's (always individually driven,
+never floating) bottom plates are doing; once `SAMPLE` ends, `Csamp_p`/
+`Csamp_n`'s bottom plate (`BPREF_x`) becomes an isolated two-terminal
+capacitor (nothing else touches it, per `design/sar_adc_top.sch`'s dead-end
+wiring) and therefore injects zero further current into `TOP_x` for the rest
+of the conversion -- it is inert, not merely harmless-because-unused.
+`Csamp_p`/`Csamp_n` are left in the schematic rather than removed because
+removing them would require re-verifying this record's own `Sa`/`Sd`/`Cboot`
+sizing against a different (smaller) load, which issue #95 did not attempt;
+the area/loading cost of leaving them in is named as a new Open item above,
+not silently accepted.
+
+**Position on the #61 overlap (required by #95's own acceptance criteria):**
+independent, not reconciled. #61's droop finding is about this sub-block's
+*own isolated testbench*, which floats `BPREF_x` for the remainder of its
+400ns hold half-period regardless of anything #53/#56 do -- #95 changed the
+*reason* `BPREF_x` floats (permanently dead-ended by design, not "not yet
+handed off"), not the fact that it floats within this sub-block's own
+testbench, and not the observed few-ns timing of the droop itself (see the
+corrected "Not (fully) an artifact..." bullet above). #61 remains open and
+independent.

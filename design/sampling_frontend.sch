@@ -77,17 +77,40 @@ v {xschem version=3.4.7 file_version=1.2
 * spec/target-spec.md's Architecture row: the per-side sampling node TOP_P
 * / TOP_N is what a future CDAC array's top plate would be (the array
 * itself, and its bit-trial bottom-plate switching, is #53's scope, out of
-* this sub-block). This sub-block instead defines what the array's bottom
-* plate is referenced to *during sampling*: a transmission-gate switch
-* (Cmswn+Cmswp, gated by the same SAMPLE/SAMPLEB pair as the input
-* switches) connects the bottom-plate reference node (BPREF_P / BPREF_N) to
-* an external common-mode reference VCM while SAMPLE is high, then isolates
-* it (floating, handed off to #53's DAC-switch network) once SAMPLE goes
-* low. VCM = V_REF/2 = 0.9V is the DR-003 (provisional, pending #27)
-* recommendation; this is a plain (non-bootstrapped) transmission gate
-* because 0.9V is the best-case operating point for a fixed-level switch
-* (equal, moderate overdrive on both the nfet and pfet half), unlike the
-* full-range analog input the Msw/Scn/Scp devices must pass.
+* this sub-block). This sub-block defines a LOCAL bottom-plate reference for
+* its own placeholder sampling cap: a transmission-gate switch (Cmswn+Cmswp,
+* gated by the same SAMPLE/SAMPLEB pair as the input switches) connects the
+* bottom-plate reference node (BPREF_P / BPREF_N) to an external common-mode
+* reference VCM while SAMPLE is high, then isolates it (floats) once SAMPLE
+* goes low.
+*
+* [Issue #95 finding, corrects an earlier assumption here.] This node was
+* originally documented as being "handed off to #53's DAC-switch network"
+* once the real CDAC array existed. Issue #95 verified that is false: the
+* real array (design/cdac/cdac_array.sch, #53) has no combined bottom-plate
+* node at all -- every bit's bottom plate is individually and continuously
+* driven to VREFP/VREFN by its own SEL<i> switch -- and
+* design/sar_adc_top.sch (#56) leaves BPREF_P/BPREF_N on dead-end nets
+* PERMANENTLY, not as an interim gap awaiting a hand-off that was never
+* coming. This is harmless, not a defect: #95's own testbench
+* (sim/sampling-cdac-handoff/run_handoff.py) confirmed TOP_P/TOP_N still
+* settle to VINP/VINN correctly (sub-mV at the tt corner) when this
+* sub-block is wired to the real cdac_array exactly as design/sar_adc_top.sch
+* does -- once BPREF_x is permanently isolated (nothing else connects to it
+* at the top level), Csamp_p/Csamp_n become inert two-terminal capacitors
+* that inject zero further current into TOP_x, so BPREF_x's floating state
+* was never load-bearing for correct sampling in the first place. See
+* spec/decision-records/DR-004-sampling-frontend-sizing.md's "Update (issue
+* #95)" section for the full circuit argument and evidence record, and that
+* same record's "Open items" for a new settling-headroom residual this
+* leaves (Csamp_p/Csamp_n add real, if now provably useless, capacitive load
+* alongside the real array's own bit caps -- a future area/timing cleanup,
+* not fixed by #95). VCM = V_REF/2 = 0.9V is the DR-003 (provisional,
+* pending #27) recommendation; this is a plain (non-bootstrapped)
+* transmission gate because 0.9V is the best-case operating point for a
+* fixed-level switch (equal, moderate overdrive on both the nfet and pfet
+* half), unlike the full-range analog input the Msw/Scn/Scp devices must
+* pass.
 *
 * Csamp_{p,n} are lumped PLACEHOLDER capacitors standing in for the not-yet
 * -drawn CDAC array's total per-side capacitance (C_side, #53's scope) --
@@ -244,11 +267,13 @@ C {devices/title.sym} 0 1500 0 0 {name=l89 author="2AM Logic (issue #52: samplin
 * `global=true`, so it is already the same net at every level of hierarchy
 * without a pin. BPREF_P/BPREF_N are exposed as opin (this sub-block drives
 * them to VCM only during SAMPLE, per the header comment above) even though
-* design/cdac/cdac_array.sch (#53) does not yet expose a matching
-* combined-bottom-plate pin to receive them -- see design/sar_adc_top.sch's
-* own header for how this known, named-not-closed integration gap
-* (spec/decision-records/DR-004-sampling-frontend-sizing.md "Open items",
-* issue #61) is handled at the top level.
+* design/cdac/cdac_array.sch (#53) has no matching combined-bottom-plate pin
+* to receive them, and never will -- issue #95 confirmed this is a
+* permanent, harmless dead end (design/sar_adc_top.sch leaves both on their
+* own dead-end nets), not an interim integration gap; see this file's own
+* header comment above and
+* spec/decision-records/DR-004-sampling-frontend-sizing.md's "Update (issue
+* #95)" section for the full resolution.
 C {devices/ipin.sym} -100 -30 0 0 {name=p_vinp lab=VINP}
 C {devices/ipin.sym} -100 30 0 0 {name=p_vinn lab=VINN}
 C {devices/ipin.sym} -100 90 0 0 {name=p_sample lab=SAMPLE}
