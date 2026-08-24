@@ -97,7 +97,7 @@ v {xschem version=3.4.7 file_version=1.2
 *
 * -- Sample/hold clocking (Invp/Invn) --
 * This sub-block takes a single external phase, SAMPLE (1 = sample/track,
-* 0 = hold), and generates its complement SAMPEB on-die via one inverter,
+* 0 = hold), and generates its complement SAMPLEB on-die via one inverter,
 * shared by both input switches and both CM-reference switches. The full
 * non-overlapping multi-phase SAR clock generator is explicitly #55's scope
 * ("SAR logic / sequencer ... plus clock/phase generation"), not this one;
