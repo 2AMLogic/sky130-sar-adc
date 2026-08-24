@@ -21,6 +21,13 @@ name: CI
 #     here would mint new append-only records on every push, which is not
 #     what CI is for. `pdk-smoke` therefore runs the harness WITHOUT
 #     `--record`. See sim/README.md for how to reproduce a claim by hand.
+#   - `design/regen_netlist.sh --check` (the SAR ADC top-level netlist
+#     regeneration check, issue #56) also runs in `pdk-smoke`, for the same
+#     reason as the harness smoke test: xschem netlisting the full
+#     design/sar_adc_top.sch hierarchy needs the PDK models. It fails if
+#     design/sar_adc_top.spice (the committed full-hierarchy netlist) does
+#     not match a fresh regeneration from the current design/*.sch sources —
+#     staleness is failure.
 
 on:
   push:
@@ -143,6 +150,21 @@ jobs:
         # failure: in this job the PDK is installed above, so a skip here
         # would mean the install silently failed.
         run: ./sim/selftest.sh --require-pdk
+
+      - name: SAR ADC top-level netlist regeneration check (issue #56)
+        # design/regen_netlist.sh --check re-derives design/sar_adc_top.spice
+        # (the full-hierarchy netlist: design/sar_adc_top.sch instantiating
+        # sampling_frontend/cdac_array/comparator/sar_sequencer, #52-#55) from
+        # the current schematic sources and fails if the committed netlist is
+        # stale -- staleness is failure, per this issue's AC4. xschem
+        # netlisting needs the PDK models this job already fetched above, so
+        # this check is necessarily gated the same as the rest of this job
+        # (nightly/workflow_dispatch/'run-pdk-smoke' label), not run on every
+        # ordinary PR -- see design/sar_adc_top.sch's own header and this
+        # issue's PR description for why.
+        run: |
+          source sim/env.sh
+          ./design/regen_netlist.sh --check
 
       - name: Layout DRC/LVS trivial-cell proof
         run: |

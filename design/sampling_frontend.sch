@@ -233,3 +233,28 @@ C {devices/lab_pin.sym} 280 1200 0 0 {name=l86 lab=SAMPLE}
 C {devices/gnd.sym} 320 1230 0 0 {name=lgnd87 lab=GND}
 C {devices/gnd.sym} 320 1200 0 0 {name=lgnd88 lab=GND}
 C {devices/title.sym} 0 1500 0 0 {name=l89 author="2AM Logic (issue #52: sampling front end)"}
+* --- Hierarchical port objects (issue #56 integration): added so this leaf
+* schematic can generate an instantiable xschem symbol
+* (design/sampling_frontend.sym, via make_sym.awk) with a drawn pin list,
+* aligning with the ipin.sym/opin.sym convention already used by
+* design/cdac/cdac_array.sch and design/sar_sequencer.sch. Pure additions at
+* existing net labels (VINP/VINN/SAMPLE/VCM/VDD/TOP_P/TOP_N/BPREF_P/
+* BPREF_N); no existing device or lab_pin instance above is touched. GND is
+* intentionally NOT given a port object here: devices/gnd.sym is
+* `global=true`, so it is already the same net at every level of hierarchy
+* without a pin. BPREF_P/BPREF_N are exposed as opin (this sub-block drives
+* them to VCM only during SAMPLE, per the header comment above) even though
+* design/cdac/cdac_array.sch (#53) does not yet expose a matching
+* combined-bottom-plate pin to receive them -- see design/sar_adc_top.sch's
+* own header for how this known, named-not-closed integration gap
+* (spec/decision-records/DR-004-sampling-frontend-sizing.md "Open items",
+* issue #61) is handled at the top level.
+C {devices/ipin.sym} -100 -30 0 0 {name=p_vinp lab=VINP}
+C {devices/ipin.sym} -100 30 0 0 {name=p_vinn lab=VINN}
+C {devices/ipin.sym} -100 90 0 0 {name=p_sample lab=SAMPLE}
+C {devices/ipin.sym} -100 150 0 0 {name=p_vcm lab=VCM}
+C {devices/ipin.sym} -100 210 0 0 {name=p_vdd lab=VDD}
+C {devices/opin.sym} -100 270 0 0 {name=p_top_p lab=TOP_P}
+C {devices/opin.sym} -100 330 0 0 {name=p_top_n lab=TOP_N}
+C {devices/opin.sym} -100 390 0 0 {name=p_bpref_p lab=BPREF_P}
+C {devices/opin.sym} -100 450 0 0 {name=p_bpref_n lab=BPREF_N}

@@ -37,17 +37,24 @@ v {xschem version=3.4.7 file_version=1.2
 * testbench, kept decoupled from this schematic per this repo's existing
 * convention -- see sim/harness-corner-smoke/testbench/*.spice, which are
 * likewise hand-authored SPICE fragments, not derived from any schematic).
-* Netlisting THIS file alone (docs/environment-setup.md's xschem -x -n -s -q
-* flow) therefore reports a NONZERO xschem exit code -- verified empirically
-* to be xschem's own electrical-rule check flagging those four undriven
-* top-level nets, not a missing-symbol or netlisting error: stdout/stderr are
-* both empty, the emitted netlist is complete and correct (9 devices, all
-* sky130_fd_pr__{n,p}fet_01v8), and driving the same four nets with dummy
-* sources (a throwaway test, not committed) reproducibly changes the exit
-* code to 0 with an identical device netlist. "Opens cleanly, no missing
-* symbols" for this file means: zero stdout/stderr error/warning text and a
-* complete device list -- not a zero exit code, which is only meaningful
-* once a testbench drives every port (as sim/comparator-decision/ does).
+* Historical note (accurate through #54/#60, superseded by #56): before
+* issue #56 added the ipin.sym/opin.sym port objects below, netlisting THIS
+* file alone (docs/environment-setup.md's xschem -x -n -s -q flow) reported
+* a NONZERO xschem exit code -- verified empirically to be xschem's own
+* electrical-rule check flagging four undriven top-level nets, not a
+* missing-symbol or netlisting error: stdout/stderr were both empty and the
+* emitted netlist was complete and correct (9 devices, all
+* sky130_fd_pr__{n,p}fet_01v8). Declaring VDD/CLK/VINP/VINN/OUTP/OUTN as real
+* hierarchical ports (needed so #56's top-level integration can generate an
+* instantiable symbol from this schematic) satisfies that same
+* electrical-rule check, so a fresh standalone netlist of this file now
+* exits 0 -- verified empirically after #56's port additions, with an
+* unchanged 9-device list. sim/comparator-decision/testbench/
+* comparator_core.spice (the committed, hand-derived device fragment #54's
+* testbench actually simulates) is untouched by this -- it is append-only
+* evidence per CLAUDE.md, and the only netlist-level effect of #56's port
+* additions is a handful of inert `*.ipin`/`*.opin` comment lines, not a
+* device or connectivity change.
 *
 * Device sizing (all L=0.5um, nf=1 -- provisional planning geometry, NOT a
 * final sizing result; see the decision record above):
@@ -121,4 +128,20 @@ C {devices/lab_pin.sym} 780 0 0 0 {name=l34 sig_type=std_logic lab=CLK}
 C {devices/lab_pin.sym} 820 -30 0 0 {name=l35 sig_type=std_logic lab=VDD}
 C {devices/lab_pin.sym} 820 0 0 0 {name=l36 sig_type=std_logic lab=VDD}
 C {devices/title.sym} 0 -260 0 0 {name=l_title author="2AM Logic (issue #54: dynamic comparator core, no preamp)"}
+* --- Hierarchical port objects (issue #56 integration): added so this
+* leaf schematic can generate an instantiable xschem symbol
+* (design/comparator.sym, via make_sym.awk) with a drawn pin list, aligning
+* with the ipin.sym/opin.sym convention already used by
+* design/cdac/cdac_array.sch and design/sar_sequencer.sch -- per this
+* schematic's own "Ports" list in the header comment above. These are pure
+* ADDITIONS at existing net labels (VDD/CLK/VINP/VINN/OUTP/OUTN); no
+* existing device or lab_pin instance above is touched. GND is intentionally
+* NOT given a port object here: devices/gnd.sym is `global=true`, so it is
+* already the same net at every level of hierarchy without a pin.
+C {devices/ipin.sym} -100 -30 0 0 {name=p_vdd lab=VDD}
+C {devices/ipin.sym} -100 30 0 0 {name=p_clk lab=CLK}
+C {devices/ipin.sym} -100 90 0 0 {name=p_vinp lab=VINP}
+C {devices/ipin.sym} -100 150 0 0 {name=p_vinn lab=VINN}
+C {devices/opin.sym} -100 210 0 0 {name=p_outp lab=OUTP}
+C {devices/opin.sym} -100 270 0 0 {name=p_outn lab=OUTN}
 
