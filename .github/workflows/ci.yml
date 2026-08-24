@@ -35,7 +35,11 @@ on:
 jobs:
   checks:
     name: Repo checks (headless, no PDK)
-    runs-on: ubuntu-latest
+    # This repo is private and its GitHub-hosted minutes bill the org's exhausted
+    # free pool (2am#366). CI runs on the fleet's dedicated runner instead
+    # (2AMLogic/2am#29, runner group ci-heavy) — zero billed minutes. Private
+    # repo: no fork-PR exposure, so no origin-guard expression is needed.
+    runs-on: [self-hosted, heavy]
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +52,11 @@ jobs:
 
   pdk-smoke:
     name: PDK-gated harness smoke test (nightly / workflow_dispatch / 'run-pdk-smoke' label)
-    runs-on: ubuntu-latest
+    # This repo is private and its GitHub-hosted minutes bill the org's exhausted
+    # free pool (2am#366). CI runs on the fleet's dedicated runner instead
+    # (2AMLogic/2am#29, runner group ci-heavy) — zero billed minutes. Private
+    # repo: no fork-PR exposure, so no origin-guard expression is needed.
+    runs-on: [self-hosted, heavy]
     if: >-
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
