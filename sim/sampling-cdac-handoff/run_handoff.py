@@ -61,10 +61,15 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import pdk, toolchain, evidence  # noqa: E402
+from harness import pdk, toolchain, evidence, measure  # noqa: E402
 
 FE_FRAG = EXPERIMENT_DIR / "testbench" / "sampling_frontend_dut.spice"
 CDAC_FRAG = EXPERIMENT_DIR / "testbench" / "cdac_array_dut.spice"
+
+# The two `.meas tran ... find ... at=` names emitted by build_netlist()'s
+# .control block below -- passed to harness.measure.parse() as its required
+# explicit allowlist.
+MEASURE_NAMES = ["top_p_end", "top_n_end"]
 
 # Same three differential test points sim/sampling-frontend/run_transient.py
 # uses, for direct comparability against DR-004's already-recorded in-sample
@@ -140,21 +145,6 @@ def build_netlist(
     return "\n".join(lines) + "\n"
 
 
-def parse_measures(output: str) -> dict[str, float]:
-    result: dict[str, float] = {}
-    for line in output.splitlines():
-        parts = line.split("=")
-        if len(parts) == 2:
-            name = parts[0].strip()
-            try:
-                val = float(parts[1].strip().split()[0])
-            except ValueError:
-                continue
-            if name in ("top_p_end", "top_n_end"):
-                result[name] = val
-    return result
-
-
 def run_point(
     point_name: str,
     vinp: float,
@@ -167,7 +157,7 @@ def run_point(
     netlist = build_netlist(vinp, vinn, code_bits, corner)
     log_name = f"{point_name}_{code_name}_{corner}"
     output = toolchain.run_ngspice(netlist, scratch, log_name)
-    meas = parse_measures(output)
+    meas = measure.parse(output, MEASURE_NAMES)
     return {
         "point": point_name,
         "code": code_name,
