@@ -10,60 +10,35 @@ treats a failed place-and-route as the only hard failure (see that script).
 """
 from __future__ import annotations
 
-import argparse
-import json
 import os
-import subprocess
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
-def _load_json(path: str) -> dict | None:
-    if not os.path.isfile(path):
-        return None
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _tool_version(*args: str) -> str:
-    try:
-        completed = subprocess.run(args, capture_output=True, text=True, timeout=30)
-        return (completed.stdout or completed.stderr or "").strip().splitlines()[0]
-    except Exception:  # noqa: BLE001 -- best-effort provenance line, never fatal
-        return "(unresolvable)"
+from _record_common import (  # noqa: E402
+    build_argparser,
+    git_commit_and_dirty,
+    load_json,
+    tool_version,
+)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out-dir", required=True)
-    parser.add_argument("--record-id", required=True)
-    parser.add_argument("--repo-root", required=True)
-    parser.add_argument("--klt", required=True)
-    parser.add_argument("--pdk-variant", required=True)
-    args = parser.parse_args()
+    args = build_argparser().parse_args()
 
-    pnr = _load_json(os.path.join(args.out_dir, "pnr.json")) or {}
-    drc = _load_json(os.path.join(args.out_dir, "drc.json")) or {}
-    lvs = _load_json(os.path.join(args.out_dir, "lvs.json")) or {}
+    pnr = load_json(os.path.join(args.out_dir, "pnr.json"))
+    drc = load_json(os.path.join(args.out_dir, "drc.json"))
+    lvs = load_json(os.path.join(args.out_dir, "lvs.json"))
 
-    dirty = (
-        subprocess.run(
-            ["git", "-C", args.repo_root, "status", "--porcelain"],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        != ""
-    )
-    commit = subprocess.run(
-        ["git", "-C", args.repo_root, "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    commit, dirty = git_commit_and_dirty(args.repo_root)
 
     lines: list[str] = []
     lines.append(f"# SAR sequencer layout record: {args.record_id}")
     lines.append("")
     lines.append("## Provenance")
-    lines.append(f"- `klt` version: {_tool_version(args.klt, '--version')}")
-    lines.append(f"- OpenROAD version: {_tool_version('openroad', '-version')}")
+    lines.append(f"- `klt` version: {tool_version(args.klt, '--version')}")
+    lines.append(f"- OpenROAD version: {tool_version('openroad', '-version')}")
     lines.append(f"- PDK variant: {args.pdk_variant}")
     lines.append(f"- repo commit: `{commit}`{' (dirty)' if dirty else ''}")
     lines.append("")
