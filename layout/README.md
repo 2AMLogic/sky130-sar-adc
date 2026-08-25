@@ -4,9 +4,12 @@ Layout work for this block is done headlessly with
 [`klayout-tools`](https://github.com/2AMLogic/klayout-tools) (`klt`) against
 the same pinned sky130A PDK the simulation harness uses (`sim/pdk.json`).
 
-Nothing in this directory is SAR ADC layout yet. What is here is the **proof
-that the flow works and that its verdicts are falsifiable** — the gating
-prerequisite for every later layout claim (issue #2).
+`trivial-cell/` below is the **proof that the flow works and that its
+verdicts are falsifiable** — the gating prerequisite for every later layout
+claim (issue #2). `sar-sequencer/` is the first real SAR ADC sub-block layout
+(issue #102, digital standard-cell logic via `klt place-and-route` rather
+than the full-custom `klt draw` flow — see that directory's own README for
+the flow choice and its current DRC-clean/LVS-blocked status).
 
 ## Install
 
