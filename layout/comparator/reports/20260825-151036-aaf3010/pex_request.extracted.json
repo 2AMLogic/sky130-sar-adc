@@ -1,0 +1,46 @@
+{
+  "netlist": "extracted_testbench.spice",
+  "engine": "ngspice",
+  "models": {
+    "lib": "$PDK_ROOT/sky130A/libs.tech/combined/sky130.lib.spice"
+  },
+  "corners": {
+    "process": [
+      "tt"
+    ],
+    "supply_v": {
+      "vinp": [
+        0.9,
+        0.905
+      ],
+      "vinn": [
+        0.9,
+        0.895
+      ]
+    },
+    "temperature_c": [
+      27
+    ]
+  },
+  "analysis": {
+    "kind": "tran",
+    "args": "0.002n 6.6n"
+  },
+  "measurements": [
+    {
+      "name": "outp_pickoff",
+      "spice": ".meas tran outp_pickoff find v(OUTP) at=5.4n",
+      "unit": "V"
+    },
+    {
+      "name": "outn_pickoff",
+      "spice": ".meas tran outn_pickoff find v(OUTN) at=5.4n",
+      "unit": "V"
+    }
+  ],
+  "options": {
+    "timeout_s": 60,
+    "keep_artifacts": false
+  },
+  "netlist_source": "extracted"
+}

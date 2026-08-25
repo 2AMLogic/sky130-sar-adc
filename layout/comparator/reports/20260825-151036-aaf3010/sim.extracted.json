@@ -1,0 +1,130 @@
+{
+  "schema_version": 3,
+  "netlist": {
+    "path": "layout/comparator/reports/20260825-151036-aaf3010/extracted_testbench.spice",
+    "scope": "repo"
+  },
+  "status": "pass",
+  "corner_count": 2,
+  "passed": 2,
+  "failed": 0,
+  "errored": 0,
+  "environment": {
+    "engine": "ngspice",
+    "engine_version": "46",
+    "models_lib": {
+      "path": null,
+      "scope": "external"
+    },
+    "models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+    "netlist_sha256": "303d915485c855d9f837f78ca2eb39d5f48cd837aec83767170bfebbf648c677",
+    "netlist_source": "extracted"
+  },
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130.lib.spice",
+      "content_hash": "sha256:48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+      "released": false
+    },
+    "input": null
+  },
+  "measurements": [
+    {
+      "name": "outp_pickoff",
+      "unit": "V",
+      "limits": null,
+      "status": "pass",
+      "worst_case": {
+        "corner_id": "tt/vinn=0.900_vinp=0.900V/27C",
+        "value": 0.623924,
+        "margin": null
+      }
+    },
+    {
+      "name": "outn_pickoff",
+      "unit": "V",
+      "limits": null,
+      "status": "pass",
+      "worst_case": {
+        "corner_id": "tt/vinn=0.900_vinp=0.900V/27C",
+        "value": 0.624129,
+        "margin": null
+      }
+    }
+  ],
+  "corners": [
+    {
+      "corner_id": "tt/vinn=0.900_vinp=0.900V/27C",
+      "process": "tt",
+      "supply_v": {
+        "vinp": 0.9,
+        "vinn": 0.9
+      },
+      "temperature_c": 27,
+      "status": "pass",
+      "runtime_s": 13.404,
+      "measurements": [
+        {
+          "name": "outp_pickoff",
+          "value": 0.623924,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "outn_pickoff",
+          "value": 0.624129,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": null,
+        "raw": null,
+        "waveform": null,
+        "deck": null
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "tt/vinn=0.895_vinp=0.905V/27C",
+      "process": "tt",
+      "supply_v": {
+        "vinp": 0.905,
+        "vinn": 0.895
+      },
+      "temperature_c": 27,
+      "status": "pass",
+      "runtime_s": 13.355,
+      "measurements": [
+        {
+          "name": "outp_pickoff",
+          "value": 0.635879,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "outn_pickoff",
+          "value": 0.61205,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": null,
+        "raw": null,
+        "waveform": null,
+        "deck": null
+      },
+      "monte_carlo": null
+    }
+  ]
+}
