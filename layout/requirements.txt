@@ -12,4 +12,15 @@
 # in layout/bin/setup-venv.sh) ported from 2AMLogic/sky130-bandgap's
 # layout/requirements.txt (commit 1f04e8524cc2d8c2c7154773749b1b2d3be2ce64),
 # per CLAUDE.md's "Harness bootstrap" instruction.
-klayout-tools==0.2.0
+#
+# Bumped 0.2.0 -> 0.3.0 for issue #101 (comparator sub-block layout): `klt
+# gen-compose`'s 0.2.0 build only routes strictly 2-pin connectivity[] nets
+# (a 3+-pin net -- e.g. this block's VDD/GND/OUTP/OUTN rails, each touching
+# 3-8 device terminals -- comes back in unrouted_nets[] with no metal drawn).
+# 0.3.0 adds bundle (>2-pin) routing as a spanning tree of two-pin legs
+# (2AMLogic/klayout-tools#1094/#1073), which the comparator's own supply/
+# output rails need directly -- not a hand-authored-netlist need, a real gap
+# hit doing this sub-block's layout. No klt gap filed for this one: the
+# capability already exists in a released version newer than the prior pin,
+# so it is a pin bump, not a tool-tracker friction report.
+klayout-tools==0.3.0

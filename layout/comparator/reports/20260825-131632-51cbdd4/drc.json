@@ -1,0 +1,474 @@
+{
+  "schema_version": 1,
+  "file": "/home/ubuntu/loom-workspaces/sky130-sar-adc/.loom/worktrees/issue-101/layout/comparator/reports/20260825-131632-51cbdd4/comparator.gds",
+  "deck": "sky130",
+  "dbu_um": 0.001,
+  "status": "violations",
+  "violation_count": 10,
+  "rule_counts": {
+    "li1.space.1": 2,
+    "met1.space.1": 8
+  },
+  "violations": [
+    {
+      "rule": "li1.space.1",
+      "description": "minimum li1 (local interconnect) spacing",
+      "check": "space",
+      "layer": "li1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$3",
+      "source_path": [
+        "rst__RST",
+        "diff_pair$3"
+      ],
+      "bbox": {
+        "left": 19970,
+        "bottom": 17055,
+        "right": 20010,
+        "top": 33385
+      },
+      "polygon": [
+        [
+          20010,
+          17055
+        ],
+        [
+          19970,
+          17220
+        ],
+        [
+          19970,
+          33220
+        ],
+        [
+          20010,
+          33385
+        ]
+      ]
+    },
+    {
+      "rule": "li1.space.1",
+      "description": "minimum li1 (local interconnect) spacing",
+      "check": "space",
+      "layer": "li1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$3",
+      "source_path": [
+        "rst__RST",
+        "diff_pair$3"
+      ],
+      "bbox": {
+        "left": 20430,
+        "bottom": 17055,
+        "right": 20470,
+        "top": 33385
+      },
+      "polygon": [
+        [
+          20430,
+          17055
+        ],
+        [
+          20430,
+          33385
+        ],
+        [
+          20470,
+          33220
+        ],
+        [
+          20470,
+          17220
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair",
+      "source_path": [
+        "inpair__INPAIR",
+        "diff_pair"
+      ],
+      "bbox": {
+        "left": 4760,
+        "bottom": 3912,
+        "right": 4860,
+        "top": 4528
+      },
+      "polygon": [
+        [
+          4860,
+          3912
+        ],
+        [
+          4760,
+          4010
+        ],
+        [
+          4760,
+          4430
+        ],
+        [
+          4860,
+          4528
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$1",
+      "source_path": [
+        "latn__LATN",
+        "diff_pair$1"
+      ],
+      "bbox": {
+        "left": 10840,
+        "bottom": 1790,
+        "right": 10940,
+        "top": 2308
+      },
+      "polygon": [
+        [
+          10840,
+          1790
+        ],
+        [
+          10840,
+          2210
+        ],
+        [
+          10940,
+          2308
+        ],
+        [
+          10940,
+          1850
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$1",
+      "source_path": [
+        "latn__LATN",
+        "diff_pair$1"
+      ],
+      "bbox": {
+        "left": 10840,
+        "bottom": 6912,
+        "right": 10940,
+        "top": 7528
+      },
+      "polygon": [
+        [
+          10940,
+          6912
+        ],
+        [
+          10840,
+          7010
+        ],
+        [
+          10840,
+          7430
+        ],
+        [
+          10940,
+          7528
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$1",
+      "source_path": [
+        "latn__LATN",
+        "diff_pair$1"
+      ],
+      "bbox": {
+        "left": 11240,
+        "bottom": 2150,
+        "right": 11340,
+        "top": 2308
+      },
+      "polygon": [
+        [
+          11240,
+          2150
+        ],
+        [
+          11240,
+          2308
+        ],
+        [
+          11340,
+          2210
+        ],
+        [
+          11340,
+          2150
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$2",
+      "source_path": [
+        "latp__LATP",
+        "diff_pair$2"
+      ],
+      "bbox": {
+        "left": 15330,
+        "bottom": 3790,
+        "right": 15430,
+        "top": 4308
+      },
+      "polygon": [
+        [
+          15330,
+          3790
+        ],
+        [
+          15330,
+          4210
+        ],
+        [
+          15430,
+          4308
+        ],
+        [
+          15430,
+          3850
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$2",
+      "source_path": [
+        "latp__LATP",
+        "diff_pair$2"
+      ],
+      "bbox": {
+        "left": 15330,
+        "bottom": 12912,
+        "right": 15430,
+        "top": 13528
+      },
+      "polygon": [
+        [
+          15430,
+          12912
+        ],
+        [
+          15330,
+          13010
+        ],
+        [
+          15330,
+          13430
+        ],
+        [
+          15430,
+          13528
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$2",
+      "source_path": [
+        "latp__LATP",
+        "diff_pair$2"
+      ],
+      "bbox": {
+        "left": 15730,
+        "bottom": 4150,
+        "right": 15830,
+        "top": 4308
+      },
+      "polygon": [
+        [
+          15730,
+          4150
+        ],
+        [
+          15730,
+          4308
+        ],
+        [
+          15830,
+          4210
+        ],
+        [
+          15830,
+          4150
+        ]
+      ]
+    },
+    {
+      "rule": "met1.space.1",
+      "description": "minimum met1 spacing",
+      "check": "space",
+      "layer": "met1.drawing",
+      "cell": "gen_compose_0",
+      "source_cell": "diff_pair$3",
+      "source_path": [
+        "rst__RST",
+        "diff_pair$3"
+      ],
+      "bbox": {
+        "left": 19970,
+        "bottom": 24912,
+        "right": 20070,
+        "top": 25528
+      },
+      "polygon": [
+        [
+          20070,
+          24912
+        ],
+        [
+          19970,
+          25010
+        ],
+        [
+          19970,
+          25430
+        ],
+        [
+          20070,
+          25528
+        ]
+      ]
+    }
+  ],
+  "coverage": {
+    "deck_layers": [
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "71/44",
+      "72/20",
+      "89/44",
+      "97/44"
+    ],
+    "layers_checked": [
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20"
+    ],
+    "layers_in_stream_without_rules": [
+      "64/20",
+      "68/5"
+    ],
+    "rules_skipped": [
+      "capm.enclosing.via3.1",
+      "capm.separation.via3.1",
+      "capm.space.1",
+      "capm.width.1",
+      "capm2.enclosing.via4.1",
+      "capm2.separation.via4.1",
+      "capm2.space.1",
+      "capm2.width.1",
+      "met1.enclosing.via.1",
+      "met2.enclosing.via.1",
+      "met2.enclosing.via2.1",
+      "met2.space.1",
+      "met2.width.1",
+      "met3.enclosing.capm.1",
+      "met3.enclosing.via2.1",
+      "met3.enclosing.via3.1",
+      "met3.space.1",
+      "met3.width.1",
+      "met4.enclosing.capm2.1",
+      "met4.enclosing.via3.1",
+      "met4.enclosing.via4.1",
+      "met4.space.1",
+      "met4.width.1",
+      "met5.enclosing.via4.1",
+      "met5.space.1",
+      "met5.width.1",
+      "via.space.1",
+      "via.width.1",
+      "via2.space.1",
+      "via2.width.1",
+      "via3.space.1",
+      "via3.width.1",
+      "via4.space.1",
+      "via4.width.1"
+    ],
+    "voltage_domain_warnings": [],
+    "deck_scope": [
+      "cap2m",
+      "capm",
+      "ct",
+      "difftap",
+      "li",
+      "licon",
+      "m1",
+      "m2",
+      "m3",
+      "m4",
+      "m5",
+      "poly",
+      "via",
+      "via2",
+      "via3",
+      "via4"
+    ]
+  },
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:2e78949d63f03012c505528158948a250e18c2c21c8710c85a23a8243649f4d0",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:bc08fad5ef9dbc00bf2696c220aab8201926c1455c8eefb866bd39b475b85788"
+    }
+  }
+}

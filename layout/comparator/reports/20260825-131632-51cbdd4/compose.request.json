@@ -1,0 +1,215 @@
+{
+  "schema": "klt.gen_compose.request/1",
+  "blocks": [
+    {
+      "id": "tail",
+      "generator_report": "tail.json"
+    },
+    {
+      "id": "inpair",
+      "generator_report": "inpair.json"
+    },
+    {
+      "id": "latn",
+      "generator_report": "latn.json"
+    },
+    {
+      "id": "latp",
+      "generator_report": "latp.json"
+    },
+    {
+      "id": "rst",
+      "generator_report": "rst.json"
+    }
+  ],
+  "placement": {
+    "strategy": "row",
+    "order": [
+      "tail",
+      "inpair",
+      "latn",
+      "latp",
+      "rst"
+    ],
+    "spacing_um": 3.0
+  },
+  "connectivity": [
+    {
+      "net": "VINN",
+      "pins": [
+        {
+          "block": "inpair",
+          "port": "Q1_1_G"
+        },
+        {
+          "block": "inpair",
+          "port": "Q1_2_G"
+        }
+      ]
+    },
+    {
+      "net": "VINP",
+      "pins": [
+        {
+          "block": "inpair",
+          "port": "Q2_1_G"
+        },
+        {
+          "block": "inpair",
+          "port": "Q2_2_G"
+        }
+      ]
+    },
+    {
+      "net": "GND",
+      "pins": [
+        {
+          "block": "tail",
+          "port": "U0_S"
+        },
+        {
+          "block": "latn",
+          "port": "Q1_1_S"
+        },
+        {
+          "block": "latn",
+          "port": "Q2_1_S"
+        }
+      ]
+    },
+    {
+      "net": "CLK",
+      "pins": [
+        {
+          "block": "tail",
+          "port": "U0_G"
+        },
+        {
+          "block": "rst",
+          "port": "Q1_1_G"
+        },
+        {
+          "block": "rst",
+          "port": "Q2_1_G"
+        }
+      ]
+    },
+    {
+      "net": "TAIL",
+      "pins": [
+        {
+          "block": "tail",
+          "port": "U0_D"
+        },
+        {
+          "block": "inpair",
+          "port": "Q1_1_S"
+        },
+        {
+          "block": "inpair",
+          "port": "Q1_2_S"
+        },
+        {
+          "block": "inpair",
+          "port": "Q2_1_S"
+        },
+        {
+          "block": "inpair",
+          "port": "Q2_2_S"
+        }
+      ]
+    },
+    {
+      "net": "VDD",
+      "pins": [
+        {
+          "block": "latp",
+          "port": "Q1_1_S"
+        },
+        {
+          "block": "latp",
+          "port": "Q2_1_S"
+        },
+        {
+          "block": "rst",
+          "port": "Q1_1_S"
+        },
+        {
+          "block": "rst",
+          "port": "Q2_1_S"
+        }
+      ]
+    },
+    {
+      "net": "OUTP",
+      "pins": [
+        {
+          "block": "inpair",
+          "port": "Q1_1_D"
+        },
+        {
+          "block": "inpair",
+          "port": "Q1_2_D"
+        },
+        {
+          "block": "latn",
+          "port": "Q1_1_D"
+        },
+        {
+          "block": "latn",
+          "port": "Q2_1_G"
+        },
+        {
+          "block": "latp",
+          "port": "Q1_1_D"
+        },
+        {
+          "block": "latp",
+          "port": "Q2_1_G"
+        },
+        {
+          "block": "rst",
+          "port": "Q1_1_D"
+        }
+      ]
+    },
+    {
+      "net": "OUTN",
+      "pins": [
+        {
+          "block": "inpair",
+          "port": "Q2_1_D"
+        },
+        {
+          "block": "inpair",
+          "port": "Q2_2_D"
+        },
+        {
+          "block": "latn",
+          "port": "Q2_1_D"
+        },
+        {
+          "block": "latn",
+          "port": "Q1_1_G"
+        },
+        {
+          "block": "latp",
+          "port": "Q2_1_D"
+        },
+        {
+          "block": "latp",
+          "port": "Q1_1_G"
+        },
+        {
+          "block": "rst",
+          "port": "Q2_1_D"
+        }
+      ]
+    }
+  ],
+  "routing": {
+    "layer_role": "metal",
+    "width_um": 0.3,
+    "cross_block_layer_role": "metal2"
+  }
+}
