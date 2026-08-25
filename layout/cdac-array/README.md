@@ -181,9 +181,14 @@ contribution. Only the two edge *columns* are bit-specific, and they carry
 
 Per `CLAUDE.md`'s friction protocol both tool gaps above are filed
 **generically** at `2AMLogic/klayout-tools` — tool behaviour only, no
-design detail — and a future `klt` that can suppress a marked capacitor
-device would let this ring grow a capm plate with no other change to the
-generator (`draw_unit_cap(..., capm=False)` is a one-flag switch).
+design detail: klayout-tools#1387 (the `dummy` marker is not honoured for
+drawn capacitors) and klayout-tools#1388 (the top-plate-via exclusion is
+chip-wide on a zero-oversize deck, so one drawn cap disconnects every
+ordinary via between the bottom-plate metal and the metal above it). A
+future `klt` that closes #1387 would let this ring grow a capm plate with
+no other change to the generator — `draw_unit_cap(..., capm=False)` is a
+one-flag switch — and the guard plates would then need only the deck's
+dummy-marker layer added on top.
 
 ## 6. What this layout does *not* claim
 
