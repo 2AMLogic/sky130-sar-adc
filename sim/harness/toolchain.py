@@ -78,7 +78,23 @@ def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
             timeout=120,
         )
     except subprocess.TimeoutExpired as exc:
-        out = (exc.stdout or "") + (exc.stderr or "")
+        # exc.stdout/exc.stderr can surface as bytes here even though this
+        # call passes text=True: CPython's subprocess.run() only re-decodes
+        # them on the Windows retry path: on POSIX, TimeoutExpired's own
+        # partial-output attributes (captured inside Popen.communicate()
+        # before the timeout fired) are not guaranteed to have gone through
+        # the text-mode decode step the successful-completion path does.
+        # str(...) is a safe, minimal normalization -- bytes.__str__ 's
+        # b'...'-quoted form is acceptable for the last-output message
+        # below, since this is a timeout diagnostic, not a value comparison
+        # (found via a real, reproducible ngspice timeout while gathering
+        # evidence for issue #61, not a hypothetical).
+        def _text(part: str | bytes | None) -> str:
+            if part is None:
+                return ""
+            return part.decode(errors="replace") if isinstance(part, bytes) else part
+
+        out = _text(exc.stdout) + _text(exc.stderr)
         raise RuntimeError(
             f"ngspice timed out after 120s running {netlist_path.name} "
             f"(last output:\n{out[-2000:]})"
