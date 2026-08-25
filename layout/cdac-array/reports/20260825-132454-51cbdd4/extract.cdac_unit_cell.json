@@ -1,0 +1,149 @@
+{
+  "schema_version": 2,
+  "file": "/home/ubuntu/loom-workspaces/sky130-sar-adc/.loom/worktrees/issue-100/layout/cdac-array/reports/20260825-132454-51cbdd4/cdac_unit_cell.gds",
+  "deck": "sky130",
+  "top": "cdac_unit_cell",
+  "dbu_um": 0.001,
+  "netlist_path": "/home/ubuntu/loom-workspaces/sky130-sar-adc/.loom/worktrees/issue-100/layout/cdac-array/reports/20260825-132454-51cbdd4/cdac_unit_cell.extract.spice",
+  "netlist_sha256": "485bb550400cf25a69e388639d07809423784c86e7c01b76488a0dbfb89814bc",
+  "status": "extracted",
+  "device_count": 3,
+  "net_count": 7,
+  "pin_count": 7,
+  "device_counts": {
+    "nfet": 1,
+    "pfet": 1,
+    "sky130_fd_pr__model__cap_mim": 1
+  },
+  "dummy_devices_dropped": 0,
+  "ignored_layers": [],
+  "device_recognition_only_layers": [
+    {
+      "layer": 89,
+      "datatype": 44,
+      "shapes": 1
+    }
+  ],
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "VREFN",
+        "g": "SEL",
+        "d": "BOT",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      }
+    },
+    {
+      "name": "$2",
+      "class": "pfet",
+      "nets": {
+        "s": "VREFP",
+        "g": "SEL",
+        "d": "BOT",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      }
+    },
+    {
+      "name": "$3",
+      "class": "sky130_fd_pr__model__cap_mim",
+      "nets": {
+        "a": "BOT",
+        "b": "TOP"
+      },
+      "params": {
+        "c_f": 8.647288e-15,
+        "area_um2": 3.602404,
+        "perimeter_um": 7.592
+      }
+    }
+  ],
+  "nets": [
+    {
+      "name": "BOT",
+      "pin": true,
+      "device_count": 3
+    },
+    {
+      "name": "SEL",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "TOP",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "VREFN",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "VREFP",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "vsubs",
+      "pin": true,
+      "device_count": 1
+    }
+  ],
+  "warnings": [],
+  "black_box_regions": [],
+  "abstracted_cells": [],
+  "unmodelled_poly": [],
+  "merged_net_labels": [],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
+  "dead_metal": [],
+  "matched_device_groups": [],
+  "pdk": null,
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:2e78949d63f03012c505528158948a250e18c2c21c8710c85a23a8243649f4d0",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:f57e621acf731d1843cc3837de90addd7ac394228c2dc3d0b76ee35ec6ec5d52"
+    }
+  },
+  "parasitics": null,
+  "spef_path": null
+}

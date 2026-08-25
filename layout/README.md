@@ -10,6 +10,11 @@ claim (issue #2). `sar-sequencer/` is the first real SAR ADC sub-block layout
 (issue #102, digital standard-cell logic via `klt place-and-route` rather
 than the full-custom `klt draw` flow — see that directory's own README for
 the flow choice and its current DRC-clean/LVS-blocked status).
+`cdac-array/` is the differential CDAC array (issue #100): full-custom,
+generator-drawn, DRC-clean and LVS-clean against `design/cdac/*.sch`, and
+the block's matching-critical sub-block — see that directory's own README
+for the common-centroid/unit-element strategy and the four extra verdicts
+its flow asserts *because* DRC and LVS say nothing about matching.
 
 ## Install
 
@@ -19,8 +24,11 @@ layout/bin/setup-venv.sh --force  # reinstall (after bumping requirements.txt)
 ```
 
 `layout/.venv/` is git-ignored; `layout/requirements.txt` is the pin
-(`klayout-tools==0.2.0` from PyPI — see that file for why a PyPI release pin
-rather than the git-commit pin `2AMLogic/sky130-bandgap` had to use). `klt`
+(`klayout-tools==0.3.0` from PyPI — see that file for why a PyPI release pin
+rather than the git-commit pin `2AMLogic/sky130-bandgap` had to use; the
+0.2.0 → 0.3.0 bump came with issue #100, whose MiM-cap array needs the
+met2–met5 / via2–via4 connectivity 0.2.0's sky130 extraction deck did not
+have). `klt`
 brings its own KLayout wheel, so no system KLayout install is required. The
 PDK itself comes from `volare` — see `docs/environment-setup.md`.
 
@@ -72,7 +80,7 @@ layout/
     render-record.py               # renders record.md, asserts the verdicts
     drc_violation_fixture.json     # `klt draw` params for the illegal fixture
   trivial-cell/
-    reference.spice                # known-good LVS reference (8 M-cards; see header)
+    reference.spice                # known-good LVS reference (4 M-cards; see header)
     reference.broken-device.spice  # negative control: device-parameter corruption
     reference.broken-topology.spice# negative control: topology corruption
     reports/
@@ -80,6 +88,8 @@ layout/
       <record-id>/                 # append-only: gen/drc/extract/lvs/draw JSON,
                                    # the GDS, the extracted netlist, report.md,
                                    # record.md
+  cdac-array/                      # differential CDAC array (issue #100)
+  sar-sequencer/                   # SAR logic/sequencer (issue #102)
 ```
 
 ## Records are append-only
@@ -111,8 +121,9 @@ pin-and-document-why discipline are near-verbatim; `run-trivial-cell-flow.sh`
 and `render-record.py` follow its structure with the DRC negative control
 (verdicts 5–6) added, as issue #2 requires. The LVS reference netlists were
 re-derived against *this* repo's pinned `klt` version rather than copied — see
-`trivial-cell/reference.spice`'s header for why it carries 8 M-cards rather
-than 4 on this pin.
+`trivial-cell/reference.spice`'s header for the full history: it carried 8
+M-cards on the 0.2.0 pin (which could not tell a generated dummy MOS from a
+real one) and 4 on the current 0.3.0 pin, which can.
 
 Per `CLAUDE.md`'s friction protocol, any awkwardness, gap, or wrong behaviour
 found in `klt` while doing layout work here is filed **generically** at

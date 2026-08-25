@@ -1,0 +1,2160 @@
+* extracted by klt extract --deck sky130
+
+* cell cdac_array
+* pin SELn0
+* pin SELn1
+* pin SELn2
+* pin SELn3
+* pin SELn4
+* pin SELn5
+* pin SELn6
+* pin SELn7
+* pin SELn8
+* pin SELp0
+* pin SELp1
+* pin SELp2
+* pin SELp3
+* pin SELp4
+* pin SELp5
+* pin SELp6
+* pin SELp7
+* pin SELp8
+* pin TOP_N
+* pin TOP_P
+* pin VDD
+* pin VREFN
+* pin VREFP
+* pin vsubs
+.SUBCKT cdac_array SELn0 SELn1 SELn2 SELn3 SELn4 SELn5 SELn6 SELn7 SELn8 SELp0
++ SELp1 SELp2 SELp3 SELp4 SELp5 SELp6 SELp7 SELp8 TOP_N TOP_P VDD VREFN VREFP
++ vsubs
+* device instance $1 r0 *1 4.545,-29.5 nfet
+M$1 \$17 SELp0 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $2 r0 *1 15.545,-29.5 nfet
+M$2 \$18 SELp1 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $3 r0 *1 26.545,-29.5 nfet
+M$3 \$19 SELp2 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $4 r0 *1 37.545,-29.5 nfet
+M$4 \$20 SELp3 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $5 r0 *1 48.545,-29.5 nfet
+M$5 \$21 SELp4 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $6 r0 *1 59.545,-29.5 nfet
+M$6 \$22 SELp5 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $7 r0 *1 70.545,-29.5 nfet
+M$7 \$39 SELp6 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $8 r0 *1 81.545,-29.5 nfet
+M$8 \$38 SELp7 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $9 r0 *1 92.545,-29.5 nfet
+M$9 \$37 SELp8 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $10 r0 *1 103.545,-29.5 nfet
+M$10 \$23 SELn0 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $11 r0 *1 114.545,-29.5 nfet
+M$11 \$24 SELn1 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $12 r0 *1 125.545,-29.5 nfet
+M$12 \$25 SELn2 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $13 r0 *1 136.545,-29.5 nfet
+M$13 \$26 SELn3 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $14 r0 *1 147.545,-29.5 nfet
+M$14 \$27 SELn4 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $15 r0 *1 158.545,-29.5 nfet
+M$15 \$36 SELn5 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $16 r0 *1 169.545,-29.5 nfet
+M$16 \$35 SELn6 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $17 r0 *1 180.545,-29.5 nfet
+M$17 \$34 SELn7 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $18 r0 *1 191.545,-29.5 nfet
+M$18 \$33 SELn8 VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $19 r0 *1 4.545,-26.58 pfet
+M$19 \$17 SELp0 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $20 r0 *1 15.545,-26.58 pfet
+M$20 \$18 SELp1 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $21 r0 *1 26.545,-26.58 pfet
+M$21 \$19 SELp2 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $22 r0 *1 37.545,-26.58 pfet
+M$22 \$20 SELp3 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $23 r0 *1 48.545,-26.58 pfet
+M$23 \$21 SELp4 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $24 r0 *1 59.545,-26.58 pfet
+M$24 \$22 SELp5 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $25 r0 *1 70.545,-26.58 pfet
+M$25 \$39 SELp6 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $26 r0 *1 81.545,-26.58 pfet
+M$26 \$38 SELp7 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $27 r0 *1 92.545,-26.58 pfet
+M$27 \$37 SELp8 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $28 r0 *1 103.545,-26.58 pfet
+M$28 \$23 SELn0 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $29 r0 *1 114.545,-26.58 pfet
+M$29 \$24 SELn1 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $30 r0 *1 125.545,-26.58 pfet
+M$30 \$25 SELn2 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $31 r0 *1 136.545,-26.58 pfet
+M$31 \$26 SELn3 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $32 r0 *1 147.545,-26.58 pfet
+M$32 \$27 SELn4 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $33 r0 *1 158.545,-26.58 pfet
+M$33 \$36 SELn5 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $34 r0 *1 169.545,-26.58 pfet
+M$34 \$35 SELn6 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $35 r0 *1 180.545,-26.58 pfet
+M$35 \$34 SELn7 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $36 r0 *1 191.545,-26.58 pfet
+M$36 \$33 SELn8 VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $37 r0 *1 0,0.35 sky130_fd_pr__model__cap_mim
+C$37 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $38 r0 *1 3.4,0.35 sky130_fd_pr__model__cap_mim
+C$38 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $39 r0 *1 6.8,0.35 sky130_fd_pr__model__cap_mim
+C$39 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $40 r0 *1 10.2,0.35 sky130_fd_pr__model__cap_mim
+C$40 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $41 r0 *1 13.6,0.35 sky130_fd_pr__model__cap_mim
+C$41 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $42 r0 *1 17,0.35 sky130_fd_pr__model__cap_mim
+C$42 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $43 r0 *1 20.4,0.35 sky130_fd_pr__model__cap_mim
+C$43 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $44 r0 *1 23.8,0.35 sky130_fd_pr__model__cap_mim
+C$44 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $45 r0 *1 27.2,0.35 sky130_fd_pr__model__cap_mim
+C$45 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $46 r0 *1 30.6,0.35 sky130_fd_pr__model__cap_mim
+C$46 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $47 r0 *1 34,0.35 sky130_fd_pr__model__cap_mim
+C$47 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $48 r0 *1 37.4,0.35 sky130_fd_pr__model__cap_mim
+C$48 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $49 r0 *1 40.8,0.35 sky130_fd_pr__model__cap_mim
+C$49 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $50 r0 *1 44.2,0.35 sky130_fd_pr__model__cap_mim
+C$50 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $51 r0 *1 47.6,0.35 sky130_fd_pr__model__cap_mim
+C$51 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $52 r0 *1 51,0.35 sky130_fd_pr__model__cap_mim
+C$52 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $53 r0 *1 54.4,0.35 sky130_fd_pr__model__cap_mim
+C$53 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $54 r0 *1 57.8,0.35 sky130_fd_pr__model__cap_mim
+C$54 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $55 r0 *1 61.2,0.35 sky130_fd_pr__model__cap_mim
+C$55 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $56 r0 *1 64.6,0.35 sky130_fd_pr__model__cap_mim
+C$56 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $57 r0 *1 68,0.35 sky130_fd_pr__model__cap_mim
+C$57 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $58 r0 *1 71.4,0.35 sky130_fd_pr__model__cap_mim
+C$58 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $59 r0 *1 74.8,0.35 sky130_fd_pr__model__cap_mim
+C$59 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $60 r0 *1 78.2,0.35 sky130_fd_pr__model__cap_mim
+C$60 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $61 r0 *1 81.6,0.35 sky130_fd_pr__model__cap_mim
+C$61 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $62 r0 *1 85,0.35 sky130_fd_pr__model__cap_mim
+C$62 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $63 r0 *1 88.4,0.35 sky130_fd_pr__model__cap_mim
+C$63 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $64 r0 *1 91.8,0.35 sky130_fd_pr__model__cap_mim
+C$64 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $65 r0 *1 95.2,0.35 sky130_fd_pr__model__cap_mim
+C$65 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $66 r0 *1 98.6,0.35 sky130_fd_pr__model__cap_mim
+C$66 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $67 r0 *1 102,0.35 sky130_fd_pr__model__cap_mim
+C$67 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $68 r0 *1 105.4,0.35 sky130_fd_pr__model__cap_mim
+C$68 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $69 r0 *1 108.8,0.35 sky130_fd_pr__model__cap_mim
+C$69 \$17 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $70 r0 *1 112.2,0.35 sky130_fd_pr__model__cap_mim
+C$70 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $71 r0 *1 115.6,0.35 sky130_fd_pr__model__cap_mim
+C$71 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $72 r0 *1 119,0.35 sky130_fd_pr__model__cap_mim
+C$72 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $73 r0 *1 122.4,0.35 sky130_fd_pr__model__cap_mim
+C$73 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $74 r0 *1 125.8,0.35 sky130_fd_pr__model__cap_mim
+C$74 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $75 r0 *1 129.2,0.35 sky130_fd_pr__model__cap_mim
+C$75 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $76 r0 *1 132.6,0.35 sky130_fd_pr__model__cap_mim
+C$76 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $77 r0 *1 136,0.35 sky130_fd_pr__model__cap_mim
+C$77 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $78 r0 *1 139.4,0.35 sky130_fd_pr__model__cap_mim
+C$78 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $79 r0 *1 142.8,0.35 sky130_fd_pr__model__cap_mim
+C$79 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $80 r0 *1 146.2,0.35 sky130_fd_pr__model__cap_mim
+C$80 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $81 r0 *1 149.6,0.35 sky130_fd_pr__model__cap_mim
+C$81 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $82 r0 *1 153,0.35 sky130_fd_pr__model__cap_mim
+C$82 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $83 r0 *1 156.4,0.35 sky130_fd_pr__model__cap_mim
+C$83 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $84 r0 *1 159.8,0.35 sky130_fd_pr__model__cap_mim
+C$84 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $85 r0 *1 163.2,0.35 sky130_fd_pr__model__cap_mim
+C$85 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $86 r0 *1 166.6,0.35 sky130_fd_pr__model__cap_mim
+C$86 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $87 r0 *1 170,0.35 sky130_fd_pr__model__cap_mim
+C$87 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $88 r0 *1 173.4,0.35 sky130_fd_pr__model__cap_mim
+C$88 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $89 r0 *1 176.8,0.35 sky130_fd_pr__model__cap_mim
+C$89 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $90 r0 *1 180.2,0.35 sky130_fd_pr__model__cap_mim
+C$90 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $91 r0 *1 183.6,0.35 sky130_fd_pr__model__cap_mim
+C$91 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $92 r0 *1 187,0.35 sky130_fd_pr__model__cap_mim
+C$92 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $93 r0 *1 190.4,0.35 sky130_fd_pr__model__cap_mim
+C$93 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $94 r0 *1 193.8,0.35 sky130_fd_pr__model__cap_mim
+C$94 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $95 r0 *1 197.2,0.35 sky130_fd_pr__model__cap_mim
+C$95 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $96 r0 *1 200.6,0.35 sky130_fd_pr__model__cap_mim
+C$96 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $97 r0 *1 204,0.35 sky130_fd_pr__model__cap_mim
+C$97 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $98 r0 *1 207.4,0.35 sky130_fd_pr__model__cap_mim
+C$98 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $99 r0 *1 210.8,0.35 sky130_fd_pr__model__cap_mim
+C$99 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $100 r0 *1 214.2,0.35 sky130_fd_pr__model__cap_mim
+C$100 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $101 r0 *1 0,3.75 sky130_fd_pr__model__cap_mim
+C$101 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $102 r0 *1 3.4,3.75 sky130_fd_pr__model__cap_mim
+C$102 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $103 r0 *1 6.8,3.75 sky130_fd_pr__model__cap_mim
+C$103 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $104 r0 *1 10.2,3.75 sky130_fd_pr__model__cap_mim
+C$104 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $105 r0 *1 13.6,3.75 sky130_fd_pr__model__cap_mim
+C$105 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $106 r0 *1 17,3.75 sky130_fd_pr__model__cap_mim
+C$106 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $107 r0 *1 20.4,3.75 sky130_fd_pr__model__cap_mim
+C$107 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $108 r0 *1 23.8,3.75 sky130_fd_pr__model__cap_mim
+C$108 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $109 r0 *1 27.2,3.75 sky130_fd_pr__model__cap_mim
+C$109 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $110 r0 *1 30.6,3.75 sky130_fd_pr__model__cap_mim
+C$110 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $111 r0 *1 34,3.75 sky130_fd_pr__model__cap_mim
+C$111 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $112 r0 *1 37.4,3.75 sky130_fd_pr__model__cap_mim
+C$112 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $113 r0 *1 40.8,3.75 sky130_fd_pr__model__cap_mim
+C$113 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $114 r0 *1 44.2,3.75 sky130_fd_pr__model__cap_mim
+C$114 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $115 r0 *1 47.6,3.75 sky130_fd_pr__model__cap_mim
+C$115 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $116 r0 *1 51,3.75 sky130_fd_pr__model__cap_mim
+C$116 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $117 r0 *1 54.4,3.75 sky130_fd_pr__model__cap_mim
+C$117 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $118 r0 *1 57.8,3.75 sky130_fd_pr__model__cap_mim
+C$118 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $119 r0 *1 61.2,3.75 sky130_fd_pr__model__cap_mim
+C$119 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $120 r0 *1 64.6,3.75 sky130_fd_pr__model__cap_mim
+C$120 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $121 r0 *1 68,3.75 sky130_fd_pr__model__cap_mim
+C$121 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $122 r0 *1 71.4,3.75 sky130_fd_pr__model__cap_mim
+C$122 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $123 r0 *1 74.8,3.75 sky130_fd_pr__model__cap_mim
+C$123 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $124 r0 *1 78.2,3.75 sky130_fd_pr__model__cap_mim
+C$124 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $125 r0 *1 81.6,3.75 sky130_fd_pr__model__cap_mim
+C$125 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $126 r0 *1 85,3.75 sky130_fd_pr__model__cap_mim
+C$126 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $127 r0 *1 88.4,3.75 sky130_fd_pr__model__cap_mim
+C$127 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $128 r0 *1 91.8,3.75 sky130_fd_pr__model__cap_mim
+C$128 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $129 r0 *1 95.2,3.75 sky130_fd_pr__model__cap_mim
+C$129 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $130 r0 *1 98.6,3.75 sky130_fd_pr__model__cap_mim
+C$130 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $131 r0 *1 102,3.75 sky130_fd_pr__model__cap_mim
+C$131 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $132 r0 *1 105.4,3.75 sky130_fd_pr__model__cap_mim
+C$132 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $133 r0 *1 108.8,3.75 sky130_fd_pr__model__cap_mim
+C$133 \$23 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $134 r0 *1 112.2,3.75 sky130_fd_pr__model__cap_mim
+C$134 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $135 r0 *1 115.6,3.75 sky130_fd_pr__model__cap_mim
+C$135 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $136 r0 *1 119,3.75 sky130_fd_pr__model__cap_mim
+C$136 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $137 r0 *1 122.4,3.75 sky130_fd_pr__model__cap_mim
+C$137 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $138 r0 *1 125.8,3.75 sky130_fd_pr__model__cap_mim
+C$138 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $139 r0 *1 129.2,3.75 sky130_fd_pr__model__cap_mim
+C$139 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $140 r0 *1 132.6,3.75 sky130_fd_pr__model__cap_mim
+C$140 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $141 r0 *1 136,3.75 sky130_fd_pr__model__cap_mim
+C$141 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $142 r0 *1 139.4,3.75 sky130_fd_pr__model__cap_mim
+C$142 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $143 r0 *1 142.8,3.75 sky130_fd_pr__model__cap_mim
+C$143 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $144 r0 *1 146.2,3.75 sky130_fd_pr__model__cap_mim
+C$144 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $145 r0 *1 149.6,3.75 sky130_fd_pr__model__cap_mim
+C$145 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $146 r0 *1 153,3.75 sky130_fd_pr__model__cap_mim
+C$146 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $147 r0 *1 156.4,3.75 sky130_fd_pr__model__cap_mim
+C$147 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $148 r0 *1 159.8,3.75 sky130_fd_pr__model__cap_mim
+C$148 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $149 r0 *1 163.2,3.75 sky130_fd_pr__model__cap_mim
+C$149 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $150 r0 *1 166.6,3.75 sky130_fd_pr__model__cap_mim
+C$150 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $151 r0 *1 170,3.75 sky130_fd_pr__model__cap_mim
+C$151 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $152 r0 *1 173.4,3.75 sky130_fd_pr__model__cap_mim
+C$152 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $153 r0 *1 176.8,3.75 sky130_fd_pr__model__cap_mim
+C$153 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $154 r0 *1 180.2,3.75 sky130_fd_pr__model__cap_mim
+C$154 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $155 r0 *1 183.6,3.75 sky130_fd_pr__model__cap_mim
+C$155 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $156 r0 *1 187,3.75 sky130_fd_pr__model__cap_mim
+C$156 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $157 r0 *1 190.4,3.75 sky130_fd_pr__model__cap_mim
+C$157 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $158 r0 *1 193.8,3.75 sky130_fd_pr__model__cap_mim
+C$158 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $159 r0 *1 197.2,3.75 sky130_fd_pr__model__cap_mim
+C$159 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $160 r0 *1 200.6,3.75 sky130_fd_pr__model__cap_mim
+C$160 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $161 r0 *1 204,3.75 sky130_fd_pr__model__cap_mim
+C$161 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $162 r0 *1 207.4,3.75 sky130_fd_pr__model__cap_mim
+C$162 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $163 r0 *1 210.8,3.75 sky130_fd_pr__model__cap_mim
+C$163 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $164 r0 *1 214.2,3.75 sky130_fd_pr__model__cap_mim
+C$164 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $165 r0 *1 0,7.15 sky130_fd_pr__model__cap_mim
+C$165 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $166 r0 *1 3.4,7.15 sky130_fd_pr__model__cap_mim
+C$166 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $167 r0 *1 6.8,7.15 sky130_fd_pr__model__cap_mim
+C$167 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $168 r0 *1 10.2,7.15 sky130_fd_pr__model__cap_mim
+C$168 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $169 r0 *1 13.6,7.15 sky130_fd_pr__model__cap_mim
+C$169 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $170 r0 *1 17,7.15 sky130_fd_pr__model__cap_mim
+C$170 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $171 r0 *1 20.4,7.15 sky130_fd_pr__model__cap_mim
+C$171 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $172 r0 *1 23.8,7.15 sky130_fd_pr__model__cap_mim
+C$172 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $173 r0 *1 27.2,7.15 sky130_fd_pr__model__cap_mim
+C$173 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $174 r0 *1 30.6,7.15 sky130_fd_pr__model__cap_mim
+C$174 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $175 r0 *1 34,7.15 sky130_fd_pr__model__cap_mim
+C$175 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $176 r0 *1 37.4,7.15 sky130_fd_pr__model__cap_mim
+C$176 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $177 r0 *1 40.8,7.15 sky130_fd_pr__model__cap_mim
+C$177 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $178 r0 *1 44.2,7.15 sky130_fd_pr__model__cap_mim
+C$178 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $179 r0 *1 47.6,7.15 sky130_fd_pr__model__cap_mim
+C$179 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $180 r0 *1 51,7.15 sky130_fd_pr__model__cap_mim
+C$180 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $181 r0 *1 54.4,7.15 sky130_fd_pr__model__cap_mim
+C$181 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $182 r0 *1 57.8,7.15 sky130_fd_pr__model__cap_mim
+C$182 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $183 r0 *1 61.2,7.15 sky130_fd_pr__model__cap_mim
+C$183 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $184 r0 *1 64.6,7.15 sky130_fd_pr__model__cap_mim
+C$184 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $185 r0 *1 68,7.15 sky130_fd_pr__model__cap_mim
+C$185 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $186 r0 *1 71.4,7.15 sky130_fd_pr__model__cap_mim
+C$186 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $187 r0 *1 74.8,7.15 sky130_fd_pr__model__cap_mim
+C$187 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $188 r0 *1 78.2,7.15 sky130_fd_pr__model__cap_mim
+C$188 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $189 r0 *1 81.6,7.15 sky130_fd_pr__model__cap_mim
+C$189 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $190 r0 *1 85,7.15 sky130_fd_pr__model__cap_mim
+C$190 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $191 r0 *1 88.4,7.15 sky130_fd_pr__model__cap_mim
+C$191 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $192 r0 *1 91.8,7.15 sky130_fd_pr__model__cap_mim
+C$192 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $193 r0 *1 95.2,7.15 sky130_fd_pr__model__cap_mim
+C$193 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $194 r0 *1 98.6,7.15 sky130_fd_pr__model__cap_mim
+C$194 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $195 r0 *1 102,7.15 sky130_fd_pr__model__cap_mim
+C$195 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $196 r0 *1 105.4,7.15 sky130_fd_pr__model__cap_mim
+C$196 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $197 r0 *1 108.8,7.15 sky130_fd_pr__model__cap_mim
+C$197 \$19 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $198 r0 *1 112.2,7.15 sky130_fd_pr__model__cap_mim
+C$198 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $199 r0 *1 115.6,7.15 sky130_fd_pr__model__cap_mim
+C$199 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $200 r0 *1 119,7.15 sky130_fd_pr__model__cap_mim
+C$200 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $201 r0 *1 122.4,7.15 sky130_fd_pr__model__cap_mim
+C$201 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $202 r0 *1 125.8,7.15 sky130_fd_pr__model__cap_mim
+C$202 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $203 r0 *1 129.2,7.15 sky130_fd_pr__model__cap_mim
+C$203 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $204 r0 *1 132.6,7.15 sky130_fd_pr__model__cap_mim
+C$204 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $205 r0 *1 136,7.15 sky130_fd_pr__model__cap_mim
+C$205 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $206 r0 *1 139.4,7.15 sky130_fd_pr__model__cap_mim
+C$206 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $207 r0 *1 142.8,7.15 sky130_fd_pr__model__cap_mim
+C$207 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $208 r0 *1 146.2,7.15 sky130_fd_pr__model__cap_mim
+C$208 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $209 r0 *1 149.6,7.15 sky130_fd_pr__model__cap_mim
+C$209 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $210 r0 *1 153,7.15 sky130_fd_pr__model__cap_mim
+C$210 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $211 r0 *1 156.4,7.15 sky130_fd_pr__model__cap_mim
+C$211 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $212 r0 *1 159.8,7.15 sky130_fd_pr__model__cap_mim
+C$212 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $213 r0 *1 163.2,7.15 sky130_fd_pr__model__cap_mim
+C$213 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $214 r0 *1 166.6,7.15 sky130_fd_pr__model__cap_mim
+C$214 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $215 r0 *1 170,7.15 sky130_fd_pr__model__cap_mim
+C$215 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $216 r0 *1 173.4,7.15 sky130_fd_pr__model__cap_mim
+C$216 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $217 r0 *1 176.8,7.15 sky130_fd_pr__model__cap_mim
+C$217 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $218 r0 *1 180.2,7.15 sky130_fd_pr__model__cap_mim
+C$218 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $219 r0 *1 183.6,7.15 sky130_fd_pr__model__cap_mim
+C$219 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $220 r0 *1 187,7.15 sky130_fd_pr__model__cap_mim
+C$220 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $221 r0 *1 190.4,7.15 sky130_fd_pr__model__cap_mim
+C$221 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $222 r0 *1 193.8,7.15 sky130_fd_pr__model__cap_mim
+C$222 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $223 r0 *1 197.2,7.15 sky130_fd_pr__model__cap_mim
+C$223 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $224 r0 *1 200.6,7.15 sky130_fd_pr__model__cap_mim
+C$224 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $225 r0 *1 204,7.15 sky130_fd_pr__model__cap_mim
+C$225 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $226 r0 *1 207.4,7.15 sky130_fd_pr__model__cap_mim
+C$226 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $227 r0 *1 210.8,7.15 sky130_fd_pr__model__cap_mim
+C$227 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $228 r0 *1 214.2,7.15 sky130_fd_pr__model__cap_mim
+C$228 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $229 r0 *1 0,10.55 sky130_fd_pr__model__cap_mim
+C$229 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $230 r0 *1 3.4,10.55 sky130_fd_pr__model__cap_mim
+C$230 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $231 r0 *1 6.8,10.55 sky130_fd_pr__model__cap_mim
+C$231 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $232 r0 *1 10.2,10.55 sky130_fd_pr__model__cap_mim
+C$232 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $233 r0 *1 13.6,10.55 sky130_fd_pr__model__cap_mim
+C$233 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $234 r0 *1 17,10.55 sky130_fd_pr__model__cap_mim
+C$234 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $235 r0 *1 20.4,10.55 sky130_fd_pr__model__cap_mim
+C$235 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $236 r0 *1 23.8,10.55 sky130_fd_pr__model__cap_mim
+C$236 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $237 r0 *1 27.2,10.55 sky130_fd_pr__model__cap_mim
+C$237 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $238 r0 *1 30.6,10.55 sky130_fd_pr__model__cap_mim
+C$238 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $239 r0 *1 34,10.55 sky130_fd_pr__model__cap_mim
+C$239 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $240 r0 *1 37.4,10.55 sky130_fd_pr__model__cap_mim
+C$240 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $241 r0 *1 40.8,10.55 sky130_fd_pr__model__cap_mim
+C$241 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $242 r0 *1 44.2,10.55 sky130_fd_pr__model__cap_mim
+C$242 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $243 r0 *1 47.6,10.55 sky130_fd_pr__model__cap_mim
+C$243 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $244 r0 *1 51,10.55 sky130_fd_pr__model__cap_mim
+C$244 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $245 r0 *1 54.4,10.55 sky130_fd_pr__model__cap_mim
+C$245 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $246 r0 *1 57.8,10.55 sky130_fd_pr__model__cap_mim
+C$246 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $247 r0 *1 61.2,10.55 sky130_fd_pr__model__cap_mim
+C$247 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $248 r0 *1 64.6,10.55 sky130_fd_pr__model__cap_mim
+C$248 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $249 r0 *1 68,10.55 sky130_fd_pr__model__cap_mim
+C$249 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $250 r0 *1 71.4,10.55 sky130_fd_pr__model__cap_mim
+C$250 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $251 r0 *1 74.8,10.55 sky130_fd_pr__model__cap_mim
+C$251 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $252 r0 *1 78.2,10.55 sky130_fd_pr__model__cap_mim
+C$252 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $253 r0 *1 81.6,10.55 sky130_fd_pr__model__cap_mim
+C$253 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $254 r0 *1 85,10.55 sky130_fd_pr__model__cap_mim
+C$254 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $255 r0 *1 88.4,10.55 sky130_fd_pr__model__cap_mim
+C$255 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $256 r0 *1 91.8,10.55 sky130_fd_pr__model__cap_mim
+C$256 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $257 r0 *1 95.2,10.55 sky130_fd_pr__model__cap_mim
+C$257 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $258 r0 *1 98.6,10.55 sky130_fd_pr__model__cap_mim
+C$258 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $259 r0 *1 102,10.55 sky130_fd_pr__model__cap_mim
+C$259 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $260 r0 *1 105.4,10.55 sky130_fd_pr__model__cap_mim
+C$260 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $261 r0 *1 108.8,10.55 sky130_fd_pr__model__cap_mim
+C$261 \$25 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $262 r0 *1 112.2,10.55 sky130_fd_pr__model__cap_mim
+C$262 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $263 r0 *1 115.6,10.55 sky130_fd_pr__model__cap_mim
+C$263 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $264 r0 *1 119,10.55 sky130_fd_pr__model__cap_mim
+C$264 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $265 r0 *1 122.4,10.55 sky130_fd_pr__model__cap_mim
+C$265 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $266 r0 *1 125.8,10.55 sky130_fd_pr__model__cap_mim
+C$266 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $267 r0 *1 129.2,10.55 sky130_fd_pr__model__cap_mim
+C$267 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $268 r0 *1 132.6,10.55 sky130_fd_pr__model__cap_mim
+C$268 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $269 r0 *1 136,10.55 sky130_fd_pr__model__cap_mim
+C$269 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $270 r0 *1 139.4,10.55 sky130_fd_pr__model__cap_mim
+C$270 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $271 r0 *1 142.8,10.55 sky130_fd_pr__model__cap_mim
+C$271 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $272 r0 *1 146.2,10.55 sky130_fd_pr__model__cap_mim
+C$272 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $273 r0 *1 149.6,10.55 sky130_fd_pr__model__cap_mim
+C$273 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $274 r0 *1 153,10.55 sky130_fd_pr__model__cap_mim
+C$274 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $275 r0 *1 156.4,10.55 sky130_fd_pr__model__cap_mim
+C$275 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $276 r0 *1 159.8,10.55 sky130_fd_pr__model__cap_mim
+C$276 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $277 r0 *1 163.2,10.55 sky130_fd_pr__model__cap_mim
+C$277 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $278 r0 *1 166.6,10.55 sky130_fd_pr__model__cap_mim
+C$278 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $279 r0 *1 170,10.55 sky130_fd_pr__model__cap_mim
+C$279 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $280 r0 *1 173.4,10.55 sky130_fd_pr__model__cap_mim
+C$280 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $281 r0 *1 176.8,10.55 sky130_fd_pr__model__cap_mim
+C$281 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $282 r0 *1 180.2,10.55 sky130_fd_pr__model__cap_mim
+C$282 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $283 r0 *1 183.6,10.55 sky130_fd_pr__model__cap_mim
+C$283 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $284 r0 *1 187,10.55 sky130_fd_pr__model__cap_mim
+C$284 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $285 r0 *1 190.4,10.55 sky130_fd_pr__model__cap_mim
+C$285 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $286 r0 *1 193.8,10.55 sky130_fd_pr__model__cap_mim
+C$286 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $287 r0 *1 197.2,10.55 sky130_fd_pr__model__cap_mim
+C$287 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $288 r0 *1 200.6,10.55 sky130_fd_pr__model__cap_mim
+C$288 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $289 r0 *1 204,10.55 sky130_fd_pr__model__cap_mim
+C$289 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $290 r0 *1 207.4,10.55 sky130_fd_pr__model__cap_mim
+C$290 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $291 r0 *1 210.8,10.55 sky130_fd_pr__model__cap_mim
+C$291 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $292 r0 *1 214.2,10.55 sky130_fd_pr__model__cap_mim
+C$292 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $293 r0 *1 0,13.95 sky130_fd_pr__model__cap_mim
+C$293 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $294 r0 *1 3.4,13.95 sky130_fd_pr__model__cap_mim
+C$294 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $295 r0 *1 6.8,13.95 sky130_fd_pr__model__cap_mim
+C$295 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $296 r0 *1 10.2,13.95 sky130_fd_pr__model__cap_mim
+C$296 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $297 r0 *1 13.6,13.95 sky130_fd_pr__model__cap_mim
+C$297 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $298 r0 *1 17,13.95 sky130_fd_pr__model__cap_mim
+C$298 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $299 r0 *1 20.4,13.95 sky130_fd_pr__model__cap_mim
+C$299 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $300 r0 *1 23.8,13.95 sky130_fd_pr__model__cap_mim
+C$300 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $301 r0 *1 27.2,13.95 sky130_fd_pr__model__cap_mim
+C$301 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $302 r0 *1 30.6,13.95 sky130_fd_pr__model__cap_mim
+C$302 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $303 r0 *1 34,13.95 sky130_fd_pr__model__cap_mim
+C$303 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $304 r0 *1 37.4,13.95 sky130_fd_pr__model__cap_mim
+C$304 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $305 r0 *1 40.8,13.95 sky130_fd_pr__model__cap_mim
+C$305 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $306 r0 *1 44.2,13.95 sky130_fd_pr__model__cap_mim
+C$306 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $307 r0 *1 47.6,13.95 sky130_fd_pr__model__cap_mim
+C$307 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $308 r0 *1 51,13.95 sky130_fd_pr__model__cap_mim
+C$308 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $309 r0 *1 54.4,13.95 sky130_fd_pr__model__cap_mim
+C$309 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $310 r0 *1 57.8,13.95 sky130_fd_pr__model__cap_mim
+C$310 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $311 r0 *1 61.2,13.95 sky130_fd_pr__model__cap_mim
+C$311 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $312 r0 *1 64.6,13.95 sky130_fd_pr__model__cap_mim
+C$312 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $313 r0 *1 68,13.95 sky130_fd_pr__model__cap_mim
+C$313 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $314 r0 *1 71.4,13.95 sky130_fd_pr__model__cap_mim
+C$314 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $315 r0 *1 74.8,13.95 sky130_fd_pr__model__cap_mim
+C$315 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $316 r0 *1 78.2,13.95 sky130_fd_pr__model__cap_mim
+C$316 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $317 r0 *1 81.6,13.95 sky130_fd_pr__model__cap_mim
+C$317 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $318 r0 *1 85,13.95 sky130_fd_pr__model__cap_mim
+C$318 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $319 r0 *1 88.4,13.95 sky130_fd_pr__model__cap_mim
+C$319 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $320 r0 *1 91.8,13.95 sky130_fd_pr__model__cap_mim
+C$320 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $321 r0 *1 95.2,13.95 sky130_fd_pr__model__cap_mim
+C$321 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $322 r0 *1 98.6,13.95 sky130_fd_pr__model__cap_mim
+C$322 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $323 r0 *1 102,13.95 sky130_fd_pr__model__cap_mim
+C$323 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $324 r0 *1 105.4,13.95 sky130_fd_pr__model__cap_mim
+C$324 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $325 r0 *1 108.8,13.95 sky130_fd_pr__model__cap_mim
+C$325 \$18 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $326 r0 *1 112.2,13.95 sky130_fd_pr__model__cap_mim
+C$326 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $327 r0 *1 115.6,13.95 sky130_fd_pr__model__cap_mim
+C$327 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $328 r0 *1 119,13.95 sky130_fd_pr__model__cap_mim
+C$328 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $329 r0 *1 122.4,13.95 sky130_fd_pr__model__cap_mim
+C$329 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $330 r0 *1 125.8,13.95 sky130_fd_pr__model__cap_mim
+C$330 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $331 r0 *1 129.2,13.95 sky130_fd_pr__model__cap_mim
+C$331 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $332 r0 *1 132.6,13.95 sky130_fd_pr__model__cap_mim
+C$332 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $333 r0 *1 136,13.95 sky130_fd_pr__model__cap_mim
+C$333 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $334 r0 *1 139.4,13.95 sky130_fd_pr__model__cap_mim
+C$334 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $335 r0 *1 142.8,13.95 sky130_fd_pr__model__cap_mim
+C$335 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $336 r0 *1 146.2,13.95 sky130_fd_pr__model__cap_mim
+C$336 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $337 r0 *1 149.6,13.95 sky130_fd_pr__model__cap_mim
+C$337 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $338 r0 *1 153,13.95 sky130_fd_pr__model__cap_mim
+C$338 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $339 r0 *1 156.4,13.95 sky130_fd_pr__model__cap_mim
+C$339 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $340 r0 *1 159.8,13.95 sky130_fd_pr__model__cap_mim
+C$340 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $341 r0 *1 163.2,13.95 sky130_fd_pr__model__cap_mim
+C$341 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $342 r0 *1 166.6,13.95 sky130_fd_pr__model__cap_mim
+C$342 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $343 r0 *1 170,13.95 sky130_fd_pr__model__cap_mim
+C$343 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $344 r0 *1 173.4,13.95 sky130_fd_pr__model__cap_mim
+C$344 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $345 r0 *1 176.8,13.95 sky130_fd_pr__model__cap_mim
+C$345 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $346 r0 *1 180.2,13.95 sky130_fd_pr__model__cap_mim
+C$346 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $347 r0 *1 183.6,13.95 sky130_fd_pr__model__cap_mim
+C$347 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $348 r0 *1 187,13.95 sky130_fd_pr__model__cap_mim
+C$348 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $349 r0 *1 190.4,13.95 sky130_fd_pr__model__cap_mim
+C$349 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $350 r0 *1 193.8,13.95 sky130_fd_pr__model__cap_mim
+C$350 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $351 r0 *1 197.2,13.95 sky130_fd_pr__model__cap_mim
+C$351 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $352 r0 *1 200.6,13.95 sky130_fd_pr__model__cap_mim
+C$352 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $353 r0 *1 204,13.95 sky130_fd_pr__model__cap_mim
+C$353 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $354 r0 *1 207.4,13.95 sky130_fd_pr__model__cap_mim
+C$354 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $355 r0 *1 210.8,13.95 sky130_fd_pr__model__cap_mim
+C$355 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $356 r0 *1 214.2,13.95 sky130_fd_pr__model__cap_mim
+C$356 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $357 r0 *1 0,17.35 sky130_fd_pr__model__cap_mim
+C$357 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $358 r0 *1 3.4,17.35 sky130_fd_pr__model__cap_mim
+C$358 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $359 r0 *1 6.8,17.35 sky130_fd_pr__model__cap_mim
+C$359 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $360 r0 *1 10.2,17.35 sky130_fd_pr__model__cap_mim
+C$360 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $361 r0 *1 13.6,17.35 sky130_fd_pr__model__cap_mim
+C$361 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $362 r0 *1 17,17.35 sky130_fd_pr__model__cap_mim
+C$362 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $363 r0 *1 20.4,17.35 sky130_fd_pr__model__cap_mim
+C$363 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $364 r0 *1 23.8,17.35 sky130_fd_pr__model__cap_mim
+C$364 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $365 r0 *1 27.2,17.35 sky130_fd_pr__model__cap_mim
+C$365 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $366 r0 *1 30.6,17.35 sky130_fd_pr__model__cap_mim
+C$366 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $367 r0 *1 34,17.35 sky130_fd_pr__model__cap_mim
+C$367 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $368 r0 *1 37.4,17.35 sky130_fd_pr__model__cap_mim
+C$368 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $369 r0 *1 40.8,17.35 sky130_fd_pr__model__cap_mim
+C$369 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $370 r0 *1 44.2,17.35 sky130_fd_pr__model__cap_mim
+C$370 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $371 r0 *1 47.6,17.35 sky130_fd_pr__model__cap_mim
+C$371 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $372 r0 *1 51,17.35 sky130_fd_pr__model__cap_mim
+C$372 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $373 r0 *1 54.4,17.35 sky130_fd_pr__model__cap_mim
+C$373 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $374 r0 *1 57.8,17.35 sky130_fd_pr__model__cap_mim
+C$374 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $375 r0 *1 61.2,17.35 sky130_fd_pr__model__cap_mim
+C$375 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $376 r0 *1 64.6,17.35 sky130_fd_pr__model__cap_mim
+C$376 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $377 r0 *1 68,17.35 sky130_fd_pr__model__cap_mim
+C$377 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $378 r0 *1 71.4,17.35 sky130_fd_pr__model__cap_mim
+C$378 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $379 r0 *1 74.8,17.35 sky130_fd_pr__model__cap_mim
+C$379 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $380 r0 *1 78.2,17.35 sky130_fd_pr__model__cap_mim
+C$380 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $381 r0 *1 81.6,17.35 sky130_fd_pr__model__cap_mim
+C$381 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $382 r0 *1 85,17.35 sky130_fd_pr__model__cap_mim
+C$382 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $383 r0 *1 88.4,17.35 sky130_fd_pr__model__cap_mim
+C$383 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $384 r0 *1 91.8,17.35 sky130_fd_pr__model__cap_mim
+C$384 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $385 r0 *1 95.2,17.35 sky130_fd_pr__model__cap_mim
+C$385 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $386 r0 *1 98.6,17.35 sky130_fd_pr__model__cap_mim
+C$386 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $387 r0 *1 102,17.35 sky130_fd_pr__model__cap_mim
+C$387 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $388 r0 *1 105.4,17.35 sky130_fd_pr__model__cap_mim
+C$388 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $389 r0 *1 108.8,17.35 sky130_fd_pr__model__cap_mim
+C$389 \$24 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $390 r0 *1 112.2,17.35 sky130_fd_pr__model__cap_mim
+C$390 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $391 r0 *1 115.6,17.35 sky130_fd_pr__model__cap_mim
+C$391 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $392 r0 *1 119,17.35 sky130_fd_pr__model__cap_mim
+C$392 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $393 r0 *1 122.4,17.35 sky130_fd_pr__model__cap_mim
+C$393 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $394 r0 *1 125.8,17.35 sky130_fd_pr__model__cap_mim
+C$394 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $395 r0 *1 129.2,17.35 sky130_fd_pr__model__cap_mim
+C$395 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $396 r0 *1 132.6,17.35 sky130_fd_pr__model__cap_mim
+C$396 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $397 r0 *1 136,17.35 sky130_fd_pr__model__cap_mim
+C$397 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $398 r0 *1 139.4,17.35 sky130_fd_pr__model__cap_mim
+C$398 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $399 r0 *1 142.8,17.35 sky130_fd_pr__model__cap_mim
+C$399 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $400 r0 *1 146.2,17.35 sky130_fd_pr__model__cap_mim
+C$400 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $401 r0 *1 149.6,17.35 sky130_fd_pr__model__cap_mim
+C$401 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $402 r0 *1 153,17.35 sky130_fd_pr__model__cap_mim
+C$402 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $403 r0 *1 156.4,17.35 sky130_fd_pr__model__cap_mim
+C$403 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $404 r0 *1 159.8,17.35 sky130_fd_pr__model__cap_mim
+C$404 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $405 r0 *1 163.2,17.35 sky130_fd_pr__model__cap_mim
+C$405 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $406 r0 *1 166.6,17.35 sky130_fd_pr__model__cap_mim
+C$406 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $407 r0 *1 170,17.35 sky130_fd_pr__model__cap_mim
+C$407 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $408 r0 *1 173.4,17.35 sky130_fd_pr__model__cap_mim
+C$408 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $409 r0 *1 176.8,17.35 sky130_fd_pr__model__cap_mim
+C$409 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $410 r0 *1 180.2,17.35 sky130_fd_pr__model__cap_mim
+C$410 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $411 r0 *1 183.6,17.35 sky130_fd_pr__model__cap_mim
+C$411 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $412 r0 *1 187,17.35 sky130_fd_pr__model__cap_mim
+C$412 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $413 r0 *1 190.4,17.35 sky130_fd_pr__model__cap_mim
+C$413 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $414 r0 *1 193.8,17.35 sky130_fd_pr__model__cap_mim
+C$414 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $415 r0 *1 197.2,17.35 sky130_fd_pr__model__cap_mim
+C$415 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $416 r0 *1 200.6,17.35 sky130_fd_pr__model__cap_mim
+C$416 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $417 r0 *1 204,17.35 sky130_fd_pr__model__cap_mim
+C$417 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $418 r0 *1 207.4,17.35 sky130_fd_pr__model__cap_mim
+C$418 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $419 r0 *1 210.8,17.35 sky130_fd_pr__model__cap_mim
+C$419 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $420 r0 *1 214.2,17.35 sky130_fd_pr__model__cap_mim
+C$420 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $421 r0 *1 0,20.75 sky130_fd_pr__model__cap_mim
+C$421 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $422 r0 *1 3.4,20.75 sky130_fd_pr__model__cap_mim
+C$422 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $423 r0 *1 6.8,20.75 sky130_fd_pr__model__cap_mim
+C$423 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $424 r0 *1 10.2,20.75 sky130_fd_pr__model__cap_mim
+C$424 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $425 r0 *1 13.6,20.75 sky130_fd_pr__model__cap_mim
+C$425 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $426 r0 *1 17,20.75 sky130_fd_pr__model__cap_mim
+C$426 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $427 r0 *1 20.4,20.75 sky130_fd_pr__model__cap_mim
+C$427 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $428 r0 *1 23.8,20.75 sky130_fd_pr__model__cap_mim
+C$428 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $429 r0 *1 27.2,20.75 sky130_fd_pr__model__cap_mim
+C$429 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $430 r0 *1 30.6,20.75 sky130_fd_pr__model__cap_mim
+C$430 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $431 r0 *1 34,20.75 sky130_fd_pr__model__cap_mim
+C$431 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $432 r0 *1 37.4,20.75 sky130_fd_pr__model__cap_mim
+C$432 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $433 r0 *1 40.8,20.75 sky130_fd_pr__model__cap_mim
+C$433 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $434 r0 *1 44.2,20.75 sky130_fd_pr__model__cap_mim
+C$434 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $435 r0 *1 47.6,20.75 sky130_fd_pr__model__cap_mim
+C$435 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $436 r0 *1 51,20.75 sky130_fd_pr__model__cap_mim
+C$436 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $437 r0 *1 54.4,20.75 sky130_fd_pr__model__cap_mim
+C$437 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $438 r0 *1 57.8,20.75 sky130_fd_pr__model__cap_mim
+C$438 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $439 r0 *1 61.2,20.75 sky130_fd_pr__model__cap_mim
+C$439 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $440 r0 *1 64.6,20.75 sky130_fd_pr__model__cap_mim
+C$440 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $441 r0 *1 68,20.75 sky130_fd_pr__model__cap_mim
+C$441 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $442 r0 *1 71.4,20.75 sky130_fd_pr__model__cap_mim
+C$442 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $443 r0 *1 74.8,20.75 sky130_fd_pr__model__cap_mim
+C$443 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $444 r0 *1 78.2,20.75 sky130_fd_pr__model__cap_mim
+C$444 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $445 r0 *1 81.6,20.75 sky130_fd_pr__model__cap_mim
+C$445 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $446 r0 *1 85,20.75 sky130_fd_pr__model__cap_mim
+C$446 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $447 r0 *1 88.4,20.75 sky130_fd_pr__model__cap_mim
+C$447 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $448 r0 *1 91.8,20.75 sky130_fd_pr__model__cap_mim
+C$448 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $449 r0 *1 95.2,20.75 sky130_fd_pr__model__cap_mim
+C$449 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $450 r0 *1 98.6,20.75 sky130_fd_pr__model__cap_mim
+C$450 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $451 r0 *1 102,20.75 sky130_fd_pr__model__cap_mim
+C$451 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $452 r0 *1 105.4,20.75 sky130_fd_pr__model__cap_mim
+C$452 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $453 r0 *1 108.8,20.75 sky130_fd_pr__model__cap_mim
+C$453 \$19 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $454 r0 *1 112.2,20.75 sky130_fd_pr__model__cap_mim
+C$454 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $455 r0 *1 115.6,20.75 sky130_fd_pr__model__cap_mim
+C$455 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $456 r0 *1 119,20.75 sky130_fd_pr__model__cap_mim
+C$456 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $457 r0 *1 122.4,20.75 sky130_fd_pr__model__cap_mim
+C$457 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $458 r0 *1 125.8,20.75 sky130_fd_pr__model__cap_mim
+C$458 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $459 r0 *1 129.2,20.75 sky130_fd_pr__model__cap_mim
+C$459 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $460 r0 *1 132.6,20.75 sky130_fd_pr__model__cap_mim
+C$460 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $461 r0 *1 136,20.75 sky130_fd_pr__model__cap_mim
+C$461 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $462 r0 *1 139.4,20.75 sky130_fd_pr__model__cap_mim
+C$462 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $463 r0 *1 142.8,20.75 sky130_fd_pr__model__cap_mim
+C$463 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $464 r0 *1 146.2,20.75 sky130_fd_pr__model__cap_mim
+C$464 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $465 r0 *1 149.6,20.75 sky130_fd_pr__model__cap_mim
+C$465 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $466 r0 *1 153,20.75 sky130_fd_pr__model__cap_mim
+C$466 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $467 r0 *1 156.4,20.75 sky130_fd_pr__model__cap_mim
+C$467 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $468 r0 *1 159.8,20.75 sky130_fd_pr__model__cap_mim
+C$468 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $469 r0 *1 163.2,20.75 sky130_fd_pr__model__cap_mim
+C$469 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $470 r0 *1 166.6,20.75 sky130_fd_pr__model__cap_mim
+C$470 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $471 r0 *1 170,20.75 sky130_fd_pr__model__cap_mim
+C$471 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $472 r0 *1 173.4,20.75 sky130_fd_pr__model__cap_mim
+C$472 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $473 r0 *1 176.8,20.75 sky130_fd_pr__model__cap_mim
+C$473 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $474 r0 *1 180.2,20.75 sky130_fd_pr__model__cap_mim
+C$474 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $475 r0 *1 183.6,20.75 sky130_fd_pr__model__cap_mim
+C$475 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $476 r0 *1 187,20.75 sky130_fd_pr__model__cap_mim
+C$476 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $477 r0 *1 190.4,20.75 sky130_fd_pr__model__cap_mim
+C$477 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $478 r0 *1 193.8,20.75 sky130_fd_pr__model__cap_mim
+C$478 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $479 r0 *1 197.2,20.75 sky130_fd_pr__model__cap_mim
+C$479 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $480 r0 *1 200.6,20.75 sky130_fd_pr__model__cap_mim
+C$480 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $481 r0 *1 204,20.75 sky130_fd_pr__model__cap_mim
+C$481 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $482 r0 *1 207.4,20.75 sky130_fd_pr__model__cap_mim
+C$482 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $483 r0 *1 210.8,20.75 sky130_fd_pr__model__cap_mim
+C$483 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $484 r0 *1 214.2,20.75 sky130_fd_pr__model__cap_mim
+C$484 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $485 r0 *1 0,24.15 sky130_fd_pr__model__cap_mim
+C$485 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $486 r0 *1 3.4,24.15 sky130_fd_pr__model__cap_mim
+C$486 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $487 r0 *1 6.8,24.15 sky130_fd_pr__model__cap_mim
+C$487 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $488 r0 *1 10.2,24.15 sky130_fd_pr__model__cap_mim
+C$488 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $489 r0 *1 13.6,24.15 sky130_fd_pr__model__cap_mim
+C$489 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $490 r0 *1 17,24.15 sky130_fd_pr__model__cap_mim
+C$490 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $491 r0 *1 20.4,24.15 sky130_fd_pr__model__cap_mim
+C$491 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $492 r0 *1 23.8,24.15 sky130_fd_pr__model__cap_mim
+C$492 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $493 r0 *1 27.2,24.15 sky130_fd_pr__model__cap_mim
+C$493 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $494 r0 *1 30.6,24.15 sky130_fd_pr__model__cap_mim
+C$494 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $495 r0 *1 34,24.15 sky130_fd_pr__model__cap_mim
+C$495 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $496 r0 *1 37.4,24.15 sky130_fd_pr__model__cap_mim
+C$496 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $497 r0 *1 40.8,24.15 sky130_fd_pr__model__cap_mim
+C$497 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $498 r0 *1 44.2,24.15 sky130_fd_pr__model__cap_mim
+C$498 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $499 r0 *1 47.6,24.15 sky130_fd_pr__model__cap_mim
+C$499 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $500 r0 *1 51,24.15 sky130_fd_pr__model__cap_mim
+C$500 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $501 r0 *1 54.4,24.15 sky130_fd_pr__model__cap_mim
+C$501 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $502 r0 *1 57.8,24.15 sky130_fd_pr__model__cap_mim
+C$502 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $503 r0 *1 61.2,24.15 sky130_fd_pr__model__cap_mim
+C$503 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $504 r0 *1 64.6,24.15 sky130_fd_pr__model__cap_mim
+C$504 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $505 r0 *1 68,24.15 sky130_fd_pr__model__cap_mim
+C$505 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $506 r0 *1 71.4,24.15 sky130_fd_pr__model__cap_mim
+C$506 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $507 r0 *1 74.8,24.15 sky130_fd_pr__model__cap_mim
+C$507 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $508 r0 *1 78.2,24.15 sky130_fd_pr__model__cap_mim
+C$508 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $509 r0 *1 81.6,24.15 sky130_fd_pr__model__cap_mim
+C$509 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $510 r0 *1 85,24.15 sky130_fd_pr__model__cap_mim
+C$510 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $511 r0 *1 88.4,24.15 sky130_fd_pr__model__cap_mim
+C$511 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $512 r0 *1 91.8,24.15 sky130_fd_pr__model__cap_mim
+C$512 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $513 r0 *1 95.2,24.15 sky130_fd_pr__model__cap_mim
+C$513 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $514 r0 *1 98.6,24.15 sky130_fd_pr__model__cap_mim
+C$514 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $515 r0 *1 102,24.15 sky130_fd_pr__model__cap_mim
+C$515 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $516 r0 *1 105.4,24.15 sky130_fd_pr__model__cap_mim
+C$516 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $517 r0 *1 108.8,24.15 sky130_fd_pr__model__cap_mim
+C$517 \$25 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $518 r0 *1 112.2,24.15 sky130_fd_pr__model__cap_mim
+C$518 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $519 r0 *1 115.6,24.15 sky130_fd_pr__model__cap_mim
+C$519 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $520 r0 *1 119,24.15 sky130_fd_pr__model__cap_mim
+C$520 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $521 r0 *1 122.4,24.15 sky130_fd_pr__model__cap_mim
+C$521 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $522 r0 *1 125.8,24.15 sky130_fd_pr__model__cap_mim
+C$522 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $523 r0 *1 129.2,24.15 sky130_fd_pr__model__cap_mim
+C$523 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $524 r0 *1 132.6,24.15 sky130_fd_pr__model__cap_mim
+C$524 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $525 r0 *1 136,24.15 sky130_fd_pr__model__cap_mim
+C$525 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $526 r0 *1 139.4,24.15 sky130_fd_pr__model__cap_mim
+C$526 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $527 r0 *1 142.8,24.15 sky130_fd_pr__model__cap_mim
+C$527 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $528 r0 *1 146.2,24.15 sky130_fd_pr__model__cap_mim
+C$528 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $529 r0 *1 149.6,24.15 sky130_fd_pr__model__cap_mim
+C$529 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $530 r0 *1 153,24.15 sky130_fd_pr__model__cap_mim
+C$530 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $531 r0 *1 156.4,24.15 sky130_fd_pr__model__cap_mim
+C$531 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $532 r0 *1 159.8,24.15 sky130_fd_pr__model__cap_mim
+C$532 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $533 r0 *1 163.2,24.15 sky130_fd_pr__model__cap_mim
+C$533 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $534 r0 *1 166.6,24.15 sky130_fd_pr__model__cap_mim
+C$534 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $535 r0 *1 170,24.15 sky130_fd_pr__model__cap_mim
+C$535 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $536 r0 *1 173.4,24.15 sky130_fd_pr__model__cap_mim
+C$536 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $537 r0 *1 176.8,24.15 sky130_fd_pr__model__cap_mim
+C$537 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $538 r0 *1 180.2,24.15 sky130_fd_pr__model__cap_mim
+C$538 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $539 r0 *1 183.6,24.15 sky130_fd_pr__model__cap_mim
+C$539 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $540 r0 *1 187,24.15 sky130_fd_pr__model__cap_mim
+C$540 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $541 r0 *1 190.4,24.15 sky130_fd_pr__model__cap_mim
+C$541 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $542 r0 *1 193.8,24.15 sky130_fd_pr__model__cap_mim
+C$542 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $543 r0 *1 197.2,24.15 sky130_fd_pr__model__cap_mim
+C$543 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $544 r0 *1 200.6,24.15 sky130_fd_pr__model__cap_mim
+C$544 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $545 r0 *1 204,24.15 sky130_fd_pr__model__cap_mim
+C$545 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $546 r0 *1 207.4,24.15 sky130_fd_pr__model__cap_mim
+C$546 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $547 r0 *1 210.8,24.15 sky130_fd_pr__model__cap_mim
+C$547 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $548 r0 *1 214.2,24.15 sky130_fd_pr__model__cap_mim
+C$548 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $549 r0 *1 0,27.55 sky130_fd_pr__model__cap_mim
+C$549 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $550 r0 *1 3.4,27.55 sky130_fd_pr__model__cap_mim
+C$550 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $551 r0 *1 6.8,27.55 sky130_fd_pr__model__cap_mim
+C$551 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $552 r0 *1 10.2,27.55 sky130_fd_pr__model__cap_mim
+C$552 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $553 r0 *1 13.6,27.55 sky130_fd_pr__model__cap_mim
+C$553 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $554 r0 *1 17,27.55 sky130_fd_pr__model__cap_mim
+C$554 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $555 r0 *1 20.4,27.55 sky130_fd_pr__model__cap_mim
+C$555 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $556 r0 *1 23.8,27.55 sky130_fd_pr__model__cap_mim
+C$556 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $557 r0 *1 27.2,27.55 sky130_fd_pr__model__cap_mim
+C$557 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $558 r0 *1 30.6,27.55 sky130_fd_pr__model__cap_mim
+C$558 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $559 r0 *1 34,27.55 sky130_fd_pr__model__cap_mim
+C$559 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $560 r0 *1 37.4,27.55 sky130_fd_pr__model__cap_mim
+C$560 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $561 r0 *1 40.8,27.55 sky130_fd_pr__model__cap_mim
+C$561 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $562 r0 *1 44.2,27.55 sky130_fd_pr__model__cap_mim
+C$562 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $563 r0 *1 47.6,27.55 sky130_fd_pr__model__cap_mim
+C$563 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $564 r0 *1 51,27.55 sky130_fd_pr__model__cap_mim
+C$564 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $565 r0 *1 54.4,27.55 sky130_fd_pr__model__cap_mim
+C$565 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $566 r0 *1 57.8,27.55 sky130_fd_pr__model__cap_mim
+C$566 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $567 r0 *1 61.2,27.55 sky130_fd_pr__model__cap_mim
+C$567 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $568 r0 *1 64.6,27.55 sky130_fd_pr__model__cap_mim
+C$568 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $569 r0 *1 68,27.55 sky130_fd_pr__model__cap_mim
+C$569 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $570 r0 *1 71.4,27.55 sky130_fd_pr__model__cap_mim
+C$570 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $571 r0 *1 74.8,27.55 sky130_fd_pr__model__cap_mim
+C$571 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $572 r0 *1 78.2,27.55 sky130_fd_pr__model__cap_mim
+C$572 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $573 r0 *1 81.6,27.55 sky130_fd_pr__model__cap_mim
+C$573 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $574 r0 *1 85,27.55 sky130_fd_pr__model__cap_mim
+C$574 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $575 r0 *1 88.4,27.55 sky130_fd_pr__model__cap_mim
+C$575 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $576 r0 *1 91.8,27.55 sky130_fd_pr__model__cap_mim
+C$576 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $577 r0 *1 95.2,27.55 sky130_fd_pr__model__cap_mim
+C$577 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $578 r0 *1 98.6,27.55 sky130_fd_pr__model__cap_mim
+C$578 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $579 r0 *1 102,27.55 sky130_fd_pr__model__cap_mim
+C$579 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $580 r0 *1 105.4,27.55 sky130_fd_pr__model__cap_mim
+C$580 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $581 r0 *1 108.8,27.55 sky130_fd_pr__model__cap_mim
+C$581 \$25 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $582 r0 *1 112.2,27.55 sky130_fd_pr__model__cap_mim
+C$582 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $583 r0 *1 115.6,27.55 sky130_fd_pr__model__cap_mim
+C$583 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $584 r0 *1 119,27.55 sky130_fd_pr__model__cap_mim
+C$584 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $585 r0 *1 122.4,27.55 sky130_fd_pr__model__cap_mim
+C$585 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $586 r0 *1 125.8,27.55 sky130_fd_pr__model__cap_mim
+C$586 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $587 r0 *1 129.2,27.55 sky130_fd_pr__model__cap_mim
+C$587 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $588 r0 *1 132.6,27.55 sky130_fd_pr__model__cap_mim
+C$588 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $589 r0 *1 136,27.55 sky130_fd_pr__model__cap_mim
+C$589 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $590 r0 *1 139.4,27.55 sky130_fd_pr__model__cap_mim
+C$590 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $591 r0 *1 142.8,27.55 sky130_fd_pr__model__cap_mim
+C$591 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $592 r0 *1 146.2,27.55 sky130_fd_pr__model__cap_mim
+C$592 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $593 r0 *1 149.6,27.55 sky130_fd_pr__model__cap_mim
+C$593 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $594 r0 *1 153,27.55 sky130_fd_pr__model__cap_mim
+C$594 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $595 r0 *1 156.4,27.55 sky130_fd_pr__model__cap_mim
+C$595 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $596 r0 *1 159.8,27.55 sky130_fd_pr__model__cap_mim
+C$596 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $597 r0 *1 163.2,27.55 sky130_fd_pr__model__cap_mim
+C$597 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $598 r0 *1 166.6,27.55 sky130_fd_pr__model__cap_mim
+C$598 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $599 r0 *1 170,27.55 sky130_fd_pr__model__cap_mim
+C$599 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $600 r0 *1 173.4,27.55 sky130_fd_pr__model__cap_mim
+C$600 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $601 r0 *1 176.8,27.55 sky130_fd_pr__model__cap_mim
+C$601 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $602 r0 *1 180.2,27.55 sky130_fd_pr__model__cap_mim
+C$602 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $603 r0 *1 183.6,27.55 sky130_fd_pr__model__cap_mim
+C$603 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $604 r0 *1 187,27.55 sky130_fd_pr__model__cap_mim
+C$604 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $605 r0 *1 190.4,27.55 sky130_fd_pr__model__cap_mim
+C$605 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $606 r0 *1 193.8,27.55 sky130_fd_pr__model__cap_mim
+C$606 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $607 r0 *1 197.2,27.55 sky130_fd_pr__model__cap_mim
+C$607 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $608 r0 *1 200.6,27.55 sky130_fd_pr__model__cap_mim
+C$608 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $609 r0 *1 204,27.55 sky130_fd_pr__model__cap_mim
+C$609 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $610 r0 *1 207.4,27.55 sky130_fd_pr__model__cap_mim
+C$610 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $611 r0 *1 210.8,27.55 sky130_fd_pr__model__cap_mim
+C$611 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $612 r0 *1 214.2,27.55 sky130_fd_pr__model__cap_mim
+C$612 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $613 r0 *1 0,30.95 sky130_fd_pr__model__cap_mim
+C$613 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $614 r0 *1 3.4,30.95 sky130_fd_pr__model__cap_mim
+C$614 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $615 r0 *1 6.8,30.95 sky130_fd_pr__model__cap_mim
+C$615 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $616 r0 *1 10.2,30.95 sky130_fd_pr__model__cap_mim
+C$616 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $617 r0 *1 13.6,30.95 sky130_fd_pr__model__cap_mim
+C$617 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $618 r0 *1 17,30.95 sky130_fd_pr__model__cap_mim
+C$618 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $619 r0 *1 20.4,30.95 sky130_fd_pr__model__cap_mim
+C$619 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $620 r0 *1 23.8,30.95 sky130_fd_pr__model__cap_mim
+C$620 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $621 r0 *1 27.2,30.95 sky130_fd_pr__model__cap_mim
+C$621 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $622 r0 *1 30.6,30.95 sky130_fd_pr__model__cap_mim
+C$622 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $623 r0 *1 34,30.95 sky130_fd_pr__model__cap_mim
+C$623 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $624 r0 *1 37.4,30.95 sky130_fd_pr__model__cap_mim
+C$624 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $625 r0 *1 40.8,30.95 sky130_fd_pr__model__cap_mim
+C$625 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $626 r0 *1 44.2,30.95 sky130_fd_pr__model__cap_mim
+C$626 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $627 r0 *1 47.6,30.95 sky130_fd_pr__model__cap_mim
+C$627 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $628 r0 *1 51,30.95 sky130_fd_pr__model__cap_mim
+C$628 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $629 r0 *1 54.4,30.95 sky130_fd_pr__model__cap_mim
+C$629 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $630 r0 *1 57.8,30.95 sky130_fd_pr__model__cap_mim
+C$630 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $631 r0 *1 61.2,30.95 sky130_fd_pr__model__cap_mim
+C$631 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $632 r0 *1 64.6,30.95 sky130_fd_pr__model__cap_mim
+C$632 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $633 r0 *1 68,30.95 sky130_fd_pr__model__cap_mim
+C$633 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $634 r0 *1 71.4,30.95 sky130_fd_pr__model__cap_mim
+C$634 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $635 r0 *1 74.8,30.95 sky130_fd_pr__model__cap_mim
+C$635 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $636 r0 *1 78.2,30.95 sky130_fd_pr__model__cap_mim
+C$636 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $637 r0 *1 81.6,30.95 sky130_fd_pr__model__cap_mim
+C$637 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $638 r0 *1 85,30.95 sky130_fd_pr__model__cap_mim
+C$638 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $639 r0 *1 88.4,30.95 sky130_fd_pr__model__cap_mim
+C$639 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $640 r0 *1 91.8,30.95 sky130_fd_pr__model__cap_mim
+C$640 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $641 r0 *1 95.2,30.95 sky130_fd_pr__model__cap_mim
+C$641 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $642 r0 *1 98.6,30.95 sky130_fd_pr__model__cap_mim
+C$642 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $643 r0 *1 102,30.95 sky130_fd_pr__model__cap_mim
+C$643 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $644 r0 *1 105.4,30.95 sky130_fd_pr__model__cap_mim
+C$644 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $645 r0 *1 108.8,30.95 sky130_fd_pr__model__cap_mim
+C$645 \$19 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $646 r0 *1 112.2,30.95 sky130_fd_pr__model__cap_mim
+C$646 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $647 r0 *1 115.6,30.95 sky130_fd_pr__model__cap_mim
+C$647 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $648 r0 *1 119,30.95 sky130_fd_pr__model__cap_mim
+C$648 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $649 r0 *1 122.4,30.95 sky130_fd_pr__model__cap_mim
+C$649 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $650 r0 *1 125.8,30.95 sky130_fd_pr__model__cap_mim
+C$650 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $651 r0 *1 129.2,30.95 sky130_fd_pr__model__cap_mim
+C$651 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $652 r0 *1 132.6,30.95 sky130_fd_pr__model__cap_mim
+C$652 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $653 r0 *1 136,30.95 sky130_fd_pr__model__cap_mim
+C$653 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $654 r0 *1 139.4,30.95 sky130_fd_pr__model__cap_mim
+C$654 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $655 r0 *1 142.8,30.95 sky130_fd_pr__model__cap_mim
+C$655 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $656 r0 *1 146.2,30.95 sky130_fd_pr__model__cap_mim
+C$656 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $657 r0 *1 149.6,30.95 sky130_fd_pr__model__cap_mim
+C$657 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $658 r0 *1 153,30.95 sky130_fd_pr__model__cap_mim
+C$658 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $659 r0 *1 156.4,30.95 sky130_fd_pr__model__cap_mim
+C$659 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $660 r0 *1 159.8,30.95 sky130_fd_pr__model__cap_mim
+C$660 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $661 r0 *1 163.2,30.95 sky130_fd_pr__model__cap_mim
+C$661 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $662 r0 *1 166.6,30.95 sky130_fd_pr__model__cap_mim
+C$662 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $663 r0 *1 170,30.95 sky130_fd_pr__model__cap_mim
+C$663 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $664 r0 *1 173.4,30.95 sky130_fd_pr__model__cap_mim
+C$664 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $665 r0 *1 176.8,30.95 sky130_fd_pr__model__cap_mim
+C$665 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $666 r0 *1 180.2,30.95 sky130_fd_pr__model__cap_mim
+C$666 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $667 r0 *1 183.6,30.95 sky130_fd_pr__model__cap_mim
+C$667 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $668 r0 *1 187,30.95 sky130_fd_pr__model__cap_mim
+C$668 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $669 r0 *1 190.4,30.95 sky130_fd_pr__model__cap_mim
+C$669 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $670 r0 *1 193.8,30.95 sky130_fd_pr__model__cap_mim
+C$670 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $671 r0 *1 197.2,30.95 sky130_fd_pr__model__cap_mim
+C$671 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $672 r0 *1 200.6,30.95 sky130_fd_pr__model__cap_mim
+C$672 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $673 r0 *1 204,30.95 sky130_fd_pr__model__cap_mim
+C$673 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $674 r0 *1 207.4,30.95 sky130_fd_pr__model__cap_mim
+C$674 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $675 r0 *1 210.8,30.95 sky130_fd_pr__model__cap_mim
+C$675 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $676 r0 *1 214.2,30.95 sky130_fd_pr__model__cap_mim
+C$676 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $677 r0 *1 0,34.35 sky130_fd_pr__model__cap_mim
+C$677 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $678 r0 *1 3.4,34.35 sky130_fd_pr__model__cap_mim
+C$678 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $679 r0 *1 6.8,34.35 sky130_fd_pr__model__cap_mim
+C$679 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $680 r0 *1 10.2,34.35 sky130_fd_pr__model__cap_mim
+C$680 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $681 r0 *1 13.6,34.35 sky130_fd_pr__model__cap_mim
+C$681 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $682 r0 *1 17,34.35 sky130_fd_pr__model__cap_mim
+C$682 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $683 r0 *1 20.4,34.35 sky130_fd_pr__model__cap_mim
+C$683 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $684 r0 *1 23.8,34.35 sky130_fd_pr__model__cap_mim
+C$684 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $685 r0 *1 27.2,34.35 sky130_fd_pr__model__cap_mim
+C$685 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $686 r0 *1 30.6,34.35 sky130_fd_pr__model__cap_mim
+C$686 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $687 r0 *1 34,34.35 sky130_fd_pr__model__cap_mim
+C$687 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $688 r0 *1 37.4,34.35 sky130_fd_pr__model__cap_mim
+C$688 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $689 r0 *1 40.8,34.35 sky130_fd_pr__model__cap_mim
+C$689 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $690 r0 *1 44.2,34.35 sky130_fd_pr__model__cap_mim
+C$690 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $691 r0 *1 47.6,34.35 sky130_fd_pr__model__cap_mim
+C$691 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $692 r0 *1 51,34.35 sky130_fd_pr__model__cap_mim
+C$692 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $693 r0 *1 54.4,34.35 sky130_fd_pr__model__cap_mim
+C$693 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $694 r0 *1 57.8,34.35 sky130_fd_pr__model__cap_mim
+C$694 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $695 r0 *1 61.2,34.35 sky130_fd_pr__model__cap_mim
+C$695 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $696 r0 *1 64.6,34.35 sky130_fd_pr__model__cap_mim
+C$696 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $697 r0 *1 68,34.35 sky130_fd_pr__model__cap_mim
+C$697 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $698 r0 *1 71.4,34.35 sky130_fd_pr__model__cap_mim
+C$698 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $699 r0 *1 74.8,34.35 sky130_fd_pr__model__cap_mim
+C$699 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $700 r0 *1 78.2,34.35 sky130_fd_pr__model__cap_mim
+C$700 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $701 r0 *1 81.6,34.35 sky130_fd_pr__model__cap_mim
+C$701 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $702 r0 *1 85,34.35 sky130_fd_pr__model__cap_mim
+C$702 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $703 r0 *1 88.4,34.35 sky130_fd_pr__model__cap_mim
+C$703 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $704 r0 *1 91.8,34.35 sky130_fd_pr__model__cap_mim
+C$704 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $705 r0 *1 95.2,34.35 sky130_fd_pr__model__cap_mim
+C$705 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $706 r0 *1 98.6,34.35 sky130_fd_pr__model__cap_mim
+C$706 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $707 r0 *1 102,34.35 sky130_fd_pr__model__cap_mim
+C$707 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $708 r0 *1 105.4,34.35 sky130_fd_pr__model__cap_mim
+C$708 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $709 r0 *1 108.8,34.35 sky130_fd_pr__model__cap_mim
+C$709 \$24 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $710 r0 *1 112.2,34.35 sky130_fd_pr__model__cap_mim
+C$710 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $711 r0 *1 115.6,34.35 sky130_fd_pr__model__cap_mim
+C$711 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $712 r0 *1 119,34.35 sky130_fd_pr__model__cap_mim
+C$712 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $713 r0 *1 122.4,34.35 sky130_fd_pr__model__cap_mim
+C$713 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $714 r0 *1 125.8,34.35 sky130_fd_pr__model__cap_mim
+C$714 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $715 r0 *1 129.2,34.35 sky130_fd_pr__model__cap_mim
+C$715 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $716 r0 *1 132.6,34.35 sky130_fd_pr__model__cap_mim
+C$716 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $717 r0 *1 136,34.35 sky130_fd_pr__model__cap_mim
+C$717 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $718 r0 *1 139.4,34.35 sky130_fd_pr__model__cap_mim
+C$718 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $719 r0 *1 142.8,34.35 sky130_fd_pr__model__cap_mim
+C$719 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $720 r0 *1 146.2,34.35 sky130_fd_pr__model__cap_mim
+C$720 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $721 r0 *1 149.6,34.35 sky130_fd_pr__model__cap_mim
+C$721 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $722 r0 *1 153,34.35 sky130_fd_pr__model__cap_mim
+C$722 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $723 r0 *1 156.4,34.35 sky130_fd_pr__model__cap_mim
+C$723 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $724 r0 *1 159.8,34.35 sky130_fd_pr__model__cap_mim
+C$724 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $725 r0 *1 163.2,34.35 sky130_fd_pr__model__cap_mim
+C$725 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $726 r0 *1 166.6,34.35 sky130_fd_pr__model__cap_mim
+C$726 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $727 r0 *1 170,34.35 sky130_fd_pr__model__cap_mim
+C$727 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $728 r0 *1 173.4,34.35 sky130_fd_pr__model__cap_mim
+C$728 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $729 r0 *1 176.8,34.35 sky130_fd_pr__model__cap_mim
+C$729 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $730 r0 *1 180.2,34.35 sky130_fd_pr__model__cap_mim
+C$730 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $731 r0 *1 183.6,34.35 sky130_fd_pr__model__cap_mim
+C$731 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $732 r0 *1 187,34.35 sky130_fd_pr__model__cap_mim
+C$732 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $733 r0 *1 190.4,34.35 sky130_fd_pr__model__cap_mim
+C$733 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $734 r0 *1 193.8,34.35 sky130_fd_pr__model__cap_mim
+C$734 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $735 r0 *1 197.2,34.35 sky130_fd_pr__model__cap_mim
+C$735 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $736 r0 *1 200.6,34.35 sky130_fd_pr__model__cap_mim
+C$736 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $737 r0 *1 204,34.35 sky130_fd_pr__model__cap_mim
+C$737 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $738 r0 *1 207.4,34.35 sky130_fd_pr__model__cap_mim
+C$738 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $739 r0 *1 210.8,34.35 sky130_fd_pr__model__cap_mim
+C$739 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $740 r0 *1 214.2,34.35 sky130_fd_pr__model__cap_mim
+C$740 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $741 r0 *1 0,37.75 sky130_fd_pr__model__cap_mim
+C$741 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $742 r0 *1 3.4,37.75 sky130_fd_pr__model__cap_mim
+C$742 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $743 r0 *1 6.8,37.75 sky130_fd_pr__model__cap_mim
+C$743 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $744 r0 *1 10.2,37.75 sky130_fd_pr__model__cap_mim
+C$744 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $745 r0 *1 13.6,37.75 sky130_fd_pr__model__cap_mim
+C$745 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $746 r0 *1 17,37.75 sky130_fd_pr__model__cap_mim
+C$746 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $747 r0 *1 20.4,37.75 sky130_fd_pr__model__cap_mim
+C$747 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $748 r0 *1 23.8,37.75 sky130_fd_pr__model__cap_mim
+C$748 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $749 r0 *1 27.2,37.75 sky130_fd_pr__model__cap_mim
+C$749 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $750 r0 *1 30.6,37.75 sky130_fd_pr__model__cap_mim
+C$750 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $751 r0 *1 34,37.75 sky130_fd_pr__model__cap_mim
+C$751 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $752 r0 *1 37.4,37.75 sky130_fd_pr__model__cap_mim
+C$752 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $753 r0 *1 40.8,37.75 sky130_fd_pr__model__cap_mim
+C$753 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $754 r0 *1 44.2,37.75 sky130_fd_pr__model__cap_mim
+C$754 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $755 r0 *1 47.6,37.75 sky130_fd_pr__model__cap_mim
+C$755 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $756 r0 *1 51,37.75 sky130_fd_pr__model__cap_mim
+C$756 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $757 r0 *1 54.4,37.75 sky130_fd_pr__model__cap_mim
+C$757 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $758 r0 *1 57.8,37.75 sky130_fd_pr__model__cap_mim
+C$758 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $759 r0 *1 61.2,37.75 sky130_fd_pr__model__cap_mim
+C$759 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $760 r0 *1 64.6,37.75 sky130_fd_pr__model__cap_mim
+C$760 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $761 r0 *1 68,37.75 sky130_fd_pr__model__cap_mim
+C$761 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $762 r0 *1 71.4,37.75 sky130_fd_pr__model__cap_mim
+C$762 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $763 r0 *1 74.8,37.75 sky130_fd_pr__model__cap_mim
+C$763 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $764 r0 *1 78.2,37.75 sky130_fd_pr__model__cap_mim
+C$764 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $765 r0 *1 81.6,37.75 sky130_fd_pr__model__cap_mim
+C$765 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $766 r0 *1 85,37.75 sky130_fd_pr__model__cap_mim
+C$766 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $767 r0 *1 88.4,37.75 sky130_fd_pr__model__cap_mim
+C$767 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $768 r0 *1 91.8,37.75 sky130_fd_pr__model__cap_mim
+C$768 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $769 r0 *1 95.2,37.75 sky130_fd_pr__model__cap_mim
+C$769 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $770 r0 *1 98.6,37.75 sky130_fd_pr__model__cap_mim
+C$770 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $771 r0 *1 102,37.75 sky130_fd_pr__model__cap_mim
+C$771 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $772 r0 *1 105.4,37.75 sky130_fd_pr__model__cap_mim
+C$772 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $773 r0 *1 108.8,37.75 sky130_fd_pr__model__cap_mim
+C$773 \$18 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $774 r0 *1 112.2,37.75 sky130_fd_pr__model__cap_mim
+C$774 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $775 r0 *1 115.6,37.75 sky130_fd_pr__model__cap_mim
+C$775 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $776 r0 *1 119,37.75 sky130_fd_pr__model__cap_mim
+C$776 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $777 r0 *1 122.4,37.75 sky130_fd_pr__model__cap_mim
+C$777 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $778 r0 *1 125.8,37.75 sky130_fd_pr__model__cap_mim
+C$778 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $779 r0 *1 129.2,37.75 sky130_fd_pr__model__cap_mim
+C$779 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $780 r0 *1 132.6,37.75 sky130_fd_pr__model__cap_mim
+C$780 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $781 r0 *1 136,37.75 sky130_fd_pr__model__cap_mim
+C$781 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $782 r0 *1 139.4,37.75 sky130_fd_pr__model__cap_mim
+C$782 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $783 r0 *1 142.8,37.75 sky130_fd_pr__model__cap_mim
+C$783 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $784 r0 *1 146.2,37.75 sky130_fd_pr__model__cap_mim
+C$784 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $785 r0 *1 149.6,37.75 sky130_fd_pr__model__cap_mim
+C$785 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $786 r0 *1 153,37.75 sky130_fd_pr__model__cap_mim
+C$786 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $787 r0 *1 156.4,37.75 sky130_fd_pr__model__cap_mim
+C$787 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $788 r0 *1 159.8,37.75 sky130_fd_pr__model__cap_mim
+C$788 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $789 r0 *1 163.2,37.75 sky130_fd_pr__model__cap_mim
+C$789 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $790 r0 *1 166.6,37.75 sky130_fd_pr__model__cap_mim
+C$790 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $791 r0 *1 170,37.75 sky130_fd_pr__model__cap_mim
+C$791 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $792 r0 *1 173.4,37.75 sky130_fd_pr__model__cap_mim
+C$792 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $793 r0 *1 176.8,37.75 sky130_fd_pr__model__cap_mim
+C$793 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $794 r0 *1 180.2,37.75 sky130_fd_pr__model__cap_mim
+C$794 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $795 r0 *1 183.6,37.75 sky130_fd_pr__model__cap_mim
+C$795 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $796 r0 *1 187,37.75 sky130_fd_pr__model__cap_mim
+C$796 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $797 r0 *1 190.4,37.75 sky130_fd_pr__model__cap_mim
+C$797 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $798 r0 *1 193.8,37.75 sky130_fd_pr__model__cap_mim
+C$798 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $799 r0 *1 197.2,37.75 sky130_fd_pr__model__cap_mim
+C$799 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $800 r0 *1 200.6,37.75 sky130_fd_pr__model__cap_mim
+C$800 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $801 r0 *1 204,37.75 sky130_fd_pr__model__cap_mim
+C$801 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $802 r0 *1 207.4,37.75 sky130_fd_pr__model__cap_mim
+C$802 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $803 r0 *1 210.8,37.75 sky130_fd_pr__model__cap_mim
+C$803 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $804 r0 *1 214.2,37.75 sky130_fd_pr__model__cap_mim
+C$804 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $805 r0 *1 0,41.15 sky130_fd_pr__model__cap_mim
+C$805 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $806 r0 *1 3.4,41.15 sky130_fd_pr__model__cap_mim
+C$806 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $807 r0 *1 6.8,41.15 sky130_fd_pr__model__cap_mim
+C$807 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $808 r0 *1 10.2,41.15 sky130_fd_pr__model__cap_mim
+C$808 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $809 r0 *1 13.6,41.15 sky130_fd_pr__model__cap_mim
+C$809 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $810 r0 *1 17,41.15 sky130_fd_pr__model__cap_mim
+C$810 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $811 r0 *1 20.4,41.15 sky130_fd_pr__model__cap_mim
+C$811 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $812 r0 *1 23.8,41.15 sky130_fd_pr__model__cap_mim
+C$812 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $813 r0 *1 27.2,41.15 sky130_fd_pr__model__cap_mim
+C$813 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $814 r0 *1 30.6,41.15 sky130_fd_pr__model__cap_mim
+C$814 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $815 r0 *1 34,41.15 sky130_fd_pr__model__cap_mim
+C$815 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $816 r0 *1 37.4,41.15 sky130_fd_pr__model__cap_mim
+C$816 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $817 r0 *1 40.8,41.15 sky130_fd_pr__model__cap_mim
+C$817 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $818 r0 *1 44.2,41.15 sky130_fd_pr__model__cap_mim
+C$818 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $819 r0 *1 47.6,41.15 sky130_fd_pr__model__cap_mim
+C$819 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $820 r0 *1 51,41.15 sky130_fd_pr__model__cap_mim
+C$820 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $821 r0 *1 54.4,41.15 sky130_fd_pr__model__cap_mim
+C$821 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $822 r0 *1 57.8,41.15 sky130_fd_pr__model__cap_mim
+C$822 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $823 r0 *1 61.2,41.15 sky130_fd_pr__model__cap_mim
+C$823 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $824 r0 *1 64.6,41.15 sky130_fd_pr__model__cap_mim
+C$824 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $825 r0 *1 68,41.15 sky130_fd_pr__model__cap_mim
+C$825 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $826 r0 *1 71.4,41.15 sky130_fd_pr__model__cap_mim
+C$826 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $827 r0 *1 74.8,41.15 sky130_fd_pr__model__cap_mim
+C$827 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $828 r0 *1 78.2,41.15 sky130_fd_pr__model__cap_mim
+C$828 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $829 r0 *1 81.6,41.15 sky130_fd_pr__model__cap_mim
+C$829 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $830 r0 *1 85,41.15 sky130_fd_pr__model__cap_mim
+C$830 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $831 r0 *1 88.4,41.15 sky130_fd_pr__model__cap_mim
+C$831 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $832 r0 *1 91.8,41.15 sky130_fd_pr__model__cap_mim
+C$832 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $833 r0 *1 95.2,41.15 sky130_fd_pr__model__cap_mim
+C$833 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $834 r0 *1 98.6,41.15 sky130_fd_pr__model__cap_mim
+C$834 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $835 r0 *1 102,41.15 sky130_fd_pr__model__cap_mim
+C$835 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $836 r0 *1 105.4,41.15 sky130_fd_pr__model__cap_mim
+C$836 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $837 r0 *1 108.8,41.15 sky130_fd_pr__model__cap_mim
+C$837 \$25 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $838 r0 *1 112.2,41.15 sky130_fd_pr__model__cap_mim
+C$838 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $839 r0 *1 115.6,41.15 sky130_fd_pr__model__cap_mim
+C$839 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $840 r0 *1 119,41.15 sky130_fd_pr__model__cap_mim
+C$840 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $841 r0 *1 122.4,41.15 sky130_fd_pr__model__cap_mim
+C$841 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $842 r0 *1 125.8,41.15 sky130_fd_pr__model__cap_mim
+C$842 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $843 r0 *1 129.2,41.15 sky130_fd_pr__model__cap_mim
+C$843 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $844 r0 *1 132.6,41.15 sky130_fd_pr__model__cap_mim
+C$844 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $845 r0 *1 136,41.15 sky130_fd_pr__model__cap_mim
+C$845 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $846 r0 *1 139.4,41.15 sky130_fd_pr__model__cap_mim
+C$846 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $847 r0 *1 142.8,41.15 sky130_fd_pr__model__cap_mim
+C$847 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $848 r0 *1 146.2,41.15 sky130_fd_pr__model__cap_mim
+C$848 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $849 r0 *1 149.6,41.15 sky130_fd_pr__model__cap_mim
+C$849 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $850 r0 *1 153,41.15 sky130_fd_pr__model__cap_mim
+C$850 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $851 r0 *1 156.4,41.15 sky130_fd_pr__model__cap_mim
+C$851 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $852 r0 *1 159.8,41.15 sky130_fd_pr__model__cap_mim
+C$852 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $853 r0 *1 163.2,41.15 sky130_fd_pr__model__cap_mim
+C$853 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $854 r0 *1 166.6,41.15 sky130_fd_pr__model__cap_mim
+C$854 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $855 r0 *1 170,41.15 sky130_fd_pr__model__cap_mim
+C$855 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $856 r0 *1 173.4,41.15 sky130_fd_pr__model__cap_mim
+C$856 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $857 r0 *1 176.8,41.15 sky130_fd_pr__model__cap_mim
+C$857 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $858 r0 *1 180.2,41.15 sky130_fd_pr__model__cap_mim
+C$858 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $859 r0 *1 183.6,41.15 sky130_fd_pr__model__cap_mim
+C$859 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $860 r0 *1 187,41.15 sky130_fd_pr__model__cap_mim
+C$860 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $861 r0 *1 190.4,41.15 sky130_fd_pr__model__cap_mim
+C$861 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $862 r0 *1 193.8,41.15 sky130_fd_pr__model__cap_mim
+C$862 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $863 r0 *1 197.2,41.15 sky130_fd_pr__model__cap_mim
+C$863 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $864 r0 *1 200.6,41.15 sky130_fd_pr__model__cap_mim
+C$864 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $865 r0 *1 204,41.15 sky130_fd_pr__model__cap_mim
+C$865 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $866 r0 *1 207.4,41.15 sky130_fd_pr__model__cap_mim
+C$866 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $867 r0 *1 210.8,41.15 sky130_fd_pr__model__cap_mim
+C$867 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $868 r0 *1 214.2,41.15 sky130_fd_pr__model__cap_mim
+C$868 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $869 r0 *1 0,44.55 sky130_fd_pr__model__cap_mim
+C$869 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $870 r0 *1 3.4,44.55 sky130_fd_pr__model__cap_mim
+C$870 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $871 r0 *1 6.8,44.55 sky130_fd_pr__model__cap_mim
+C$871 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $872 r0 *1 10.2,44.55 sky130_fd_pr__model__cap_mim
+C$872 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $873 r0 *1 13.6,44.55 sky130_fd_pr__model__cap_mim
+C$873 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $874 r0 *1 17,44.55 sky130_fd_pr__model__cap_mim
+C$874 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $875 r0 *1 20.4,44.55 sky130_fd_pr__model__cap_mim
+C$875 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $876 r0 *1 23.8,44.55 sky130_fd_pr__model__cap_mim
+C$876 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $877 r0 *1 27.2,44.55 sky130_fd_pr__model__cap_mim
+C$877 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $878 r0 *1 30.6,44.55 sky130_fd_pr__model__cap_mim
+C$878 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $879 r0 *1 34,44.55 sky130_fd_pr__model__cap_mim
+C$879 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $880 r0 *1 37.4,44.55 sky130_fd_pr__model__cap_mim
+C$880 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $881 r0 *1 40.8,44.55 sky130_fd_pr__model__cap_mim
+C$881 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $882 r0 *1 44.2,44.55 sky130_fd_pr__model__cap_mim
+C$882 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $883 r0 *1 47.6,44.55 sky130_fd_pr__model__cap_mim
+C$883 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $884 r0 *1 51,44.55 sky130_fd_pr__model__cap_mim
+C$884 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $885 r0 *1 54.4,44.55 sky130_fd_pr__model__cap_mim
+C$885 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $886 r0 *1 57.8,44.55 sky130_fd_pr__model__cap_mim
+C$886 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $887 r0 *1 61.2,44.55 sky130_fd_pr__model__cap_mim
+C$887 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $888 r0 *1 64.6,44.55 sky130_fd_pr__model__cap_mim
+C$888 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $889 r0 *1 68,44.55 sky130_fd_pr__model__cap_mim
+C$889 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $890 r0 *1 71.4,44.55 sky130_fd_pr__model__cap_mim
+C$890 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $891 r0 *1 74.8,44.55 sky130_fd_pr__model__cap_mim
+C$891 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $892 r0 *1 78.2,44.55 sky130_fd_pr__model__cap_mim
+C$892 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $893 r0 *1 81.6,44.55 sky130_fd_pr__model__cap_mim
+C$893 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $894 r0 *1 85,44.55 sky130_fd_pr__model__cap_mim
+C$894 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $895 r0 *1 88.4,44.55 sky130_fd_pr__model__cap_mim
+C$895 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $896 r0 *1 91.8,44.55 sky130_fd_pr__model__cap_mim
+C$896 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $897 r0 *1 95.2,44.55 sky130_fd_pr__model__cap_mim
+C$897 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $898 r0 *1 98.6,44.55 sky130_fd_pr__model__cap_mim
+C$898 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $899 r0 *1 102,44.55 sky130_fd_pr__model__cap_mim
+C$899 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $900 r0 *1 105.4,44.55 sky130_fd_pr__model__cap_mim
+C$900 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $901 r0 *1 108.8,44.55 sky130_fd_pr__model__cap_mim
+C$901 \$19 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $902 r0 *1 112.2,44.55 sky130_fd_pr__model__cap_mim
+C$902 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $903 r0 *1 115.6,44.55 sky130_fd_pr__model__cap_mim
+C$903 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $904 r0 *1 119,44.55 sky130_fd_pr__model__cap_mim
+C$904 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $905 r0 *1 122.4,44.55 sky130_fd_pr__model__cap_mim
+C$905 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $906 r0 *1 125.8,44.55 sky130_fd_pr__model__cap_mim
+C$906 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $907 r0 *1 129.2,44.55 sky130_fd_pr__model__cap_mim
+C$907 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $908 r0 *1 132.6,44.55 sky130_fd_pr__model__cap_mim
+C$908 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $909 r0 *1 136,44.55 sky130_fd_pr__model__cap_mim
+C$909 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $910 r0 *1 139.4,44.55 sky130_fd_pr__model__cap_mim
+C$910 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $911 r0 *1 142.8,44.55 sky130_fd_pr__model__cap_mim
+C$911 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $912 r0 *1 146.2,44.55 sky130_fd_pr__model__cap_mim
+C$912 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $913 r0 *1 149.6,44.55 sky130_fd_pr__model__cap_mim
+C$913 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $914 r0 *1 153,44.55 sky130_fd_pr__model__cap_mim
+C$914 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $915 r0 *1 156.4,44.55 sky130_fd_pr__model__cap_mim
+C$915 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $916 r0 *1 159.8,44.55 sky130_fd_pr__model__cap_mim
+C$916 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $917 r0 *1 163.2,44.55 sky130_fd_pr__model__cap_mim
+C$917 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $918 r0 *1 166.6,44.55 sky130_fd_pr__model__cap_mim
+C$918 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $919 r0 *1 170,44.55 sky130_fd_pr__model__cap_mim
+C$919 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $920 r0 *1 173.4,44.55 sky130_fd_pr__model__cap_mim
+C$920 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $921 r0 *1 176.8,44.55 sky130_fd_pr__model__cap_mim
+C$921 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $922 r0 *1 180.2,44.55 sky130_fd_pr__model__cap_mim
+C$922 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $923 r0 *1 183.6,44.55 sky130_fd_pr__model__cap_mim
+C$923 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $924 r0 *1 187,44.55 sky130_fd_pr__model__cap_mim
+C$924 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $925 r0 *1 190.4,44.55 sky130_fd_pr__model__cap_mim
+C$925 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $926 r0 *1 193.8,44.55 sky130_fd_pr__model__cap_mim
+C$926 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $927 r0 *1 197.2,44.55 sky130_fd_pr__model__cap_mim
+C$927 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $928 r0 *1 200.6,44.55 sky130_fd_pr__model__cap_mim
+C$928 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $929 r0 *1 204,44.55 sky130_fd_pr__model__cap_mim
+C$929 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $930 r0 *1 207.4,44.55 sky130_fd_pr__model__cap_mim
+C$930 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $931 r0 *1 210.8,44.55 sky130_fd_pr__model__cap_mim
+C$931 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $932 r0 *1 214.2,44.55 sky130_fd_pr__model__cap_mim
+C$932 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $933 r0 *1 0,47.95 sky130_fd_pr__model__cap_mim
+C$933 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $934 r0 *1 3.4,47.95 sky130_fd_pr__model__cap_mim
+C$934 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $935 r0 *1 6.8,47.95 sky130_fd_pr__model__cap_mim
+C$935 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $936 r0 *1 10.2,47.95 sky130_fd_pr__model__cap_mim
+C$936 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $937 r0 *1 13.6,47.95 sky130_fd_pr__model__cap_mim
+C$937 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $938 r0 *1 17,47.95 sky130_fd_pr__model__cap_mim
+C$938 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $939 r0 *1 20.4,47.95 sky130_fd_pr__model__cap_mim
+C$939 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $940 r0 *1 23.8,47.95 sky130_fd_pr__model__cap_mim
+C$940 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $941 r0 *1 27.2,47.95 sky130_fd_pr__model__cap_mim
+C$941 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $942 r0 *1 30.6,47.95 sky130_fd_pr__model__cap_mim
+C$942 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $943 r0 *1 34,47.95 sky130_fd_pr__model__cap_mim
+C$943 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $944 r0 *1 37.4,47.95 sky130_fd_pr__model__cap_mim
+C$944 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $945 r0 *1 40.8,47.95 sky130_fd_pr__model__cap_mim
+C$945 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $946 r0 *1 44.2,47.95 sky130_fd_pr__model__cap_mim
+C$946 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $947 r0 *1 47.6,47.95 sky130_fd_pr__model__cap_mim
+C$947 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $948 r0 *1 51,47.95 sky130_fd_pr__model__cap_mim
+C$948 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $949 r0 *1 54.4,47.95 sky130_fd_pr__model__cap_mim
+C$949 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $950 r0 *1 57.8,47.95 sky130_fd_pr__model__cap_mim
+C$950 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $951 r0 *1 61.2,47.95 sky130_fd_pr__model__cap_mim
+C$951 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $952 r0 *1 64.6,47.95 sky130_fd_pr__model__cap_mim
+C$952 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $953 r0 *1 68,47.95 sky130_fd_pr__model__cap_mim
+C$953 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $954 r0 *1 71.4,47.95 sky130_fd_pr__model__cap_mim
+C$954 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $955 r0 *1 74.8,47.95 sky130_fd_pr__model__cap_mim
+C$955 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $956 r0 *1 78.2,47.95 sky130_fd_pr__model__cap_mim
+C$956 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $957 r0 *1 81.6,47.95 sky130_fd_pr__model__cap_mim
+C$957 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $958 r0 *1 85,47.95 sky130_fd_pr__model__cap_mim
+C$958 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $959 r0 *1 88.4,47.95 sky130_fd_pr__model__cap_mim
+C$959 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $960 r0 *1 91.8,47.95 sky130_fd_pr__model__cap_mim
+C$960 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $961 r0 *1 95.2,47.95 sky130_fd_pr__model__cap_mim
+C$961 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $962 r0 *1 98.6,47.95 sky130_fd_pr__model__cap_mim
+C$962 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $963 r0 *1 102,47.95 sky130_fd_pr__model__cap_mim
+C$963 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $964 r0 *1 105.4,47.95 sky130_fd_pr__model__cap_mim
+C$964 \$26 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $965 r0 *1 108.8,47.95 sky130_fd_pr__model__cap_mim
+C$965 VREFN TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $966 r0 *1 112.2,47.95 sky130_fd_pr__model__cap_mim
+C$966 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $967 r0 *1 115.6,47.95 sky130_fd_pr__model__cap_mim
+C$967 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $968 r0 *1 119,47.95 sky130_fd_pr__model__cap_mim
+C$968 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $969 r0 *1 122.4,47.95 sky130_fd_pr__model__cap_mim
+C$969 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $970 r0 *1 125.8,47.95 sky130_fd_pr__model__cap_mim
+C$970 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $971 r0 *1 129.2,47.95 sky130_fd_pr__model__cap_mim
+C$971 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $972 r0 *1 132.6,47.95 sky130_fd_pr__model__cap_mim
+C$972 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $973 r0 *1 136,47.95 sky130_fd_pr__model__cap_mim
+C$973 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $974 r0 *1 139.4,47.95 sky130_fd_pr__model__cap_mim
+C$974 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $975 r0 *1 142.8,47.95 sky130_fd_pr__model__cap_mim
+C$975 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $976 r0 *1 146.2,47.95 sky130_fd_pr__model__cap_mim
+C$976 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $977 r0 *1 149.6,47.95 sky130_fd_pr__model__cap_mim
+C$977 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $978 r0 *1 153,47.95 sky130_fd_pr__model__cap_mim
+C$978 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $979 r0 *1 156.4,47.95 sky130_fd_pr__model__cap_mim
+C$979 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $980 r0 *1 159.8,47.95 sky130_fd_pr__model__cap_mim
+C$980 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $981 r0 *1 163.2,47.95 sky130_fd_pr__model__cap_mim
+C$981 \$27 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $982 r0 *1 166.6,47.95 sky130_fd_pr__model__cap_mim
+C$982 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $983 r0 *1 170,47.95 sky130_fd_pr__model__cap_mim
+C$983 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $984 r0 *1 173.4,47.95 sky130_fd_pr__model__cap_mim
+C$984 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $985 r0 *1 176.8,47.95 sky130_fd_pr__model__cap_mim
+C$985 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $986 r0 *1 180.2,47.95 sky130_fd_pr__model__cap_mim
+C$986 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $987 r0 *1 183.6,47.95 sky130_fd_pr__model__cap_mim
+C$987 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $988 r0 *1 187,47.95 sky130_fd_pr__model__cap_mim
+C$988 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $989 r0 *1 190.4,47.95 sky130_fd_pr__model__cap_mim
+C$989 \$36 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $990 r0 *1 193.8,47.95 sky130_fd_pr__model__cap_mim
+C$990 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $991 r0 *1 197.2,47.95 sky130_fd_pr__model__cap_mim
+C$991 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $992 r0 *1 200.6,47.95 sky130_fd_pr__model__cap_mim
+C$992 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $993 r0 *1 204,47.95 sky130_fd_pr__model__cap_mim
+C$993 \$35 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $994 r0 *1 207.4,47.95 sky130_fd_pr__model__cap_mim
+C$994 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $995 r0 *1 210.8,47.95 sky130_fd_pr__model__cap_mim
+C$995 \$34 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $996 r0 *1 214.2,47.95 sky130_fd_pr__model__cap_mim
+C$996 \$33 TOP_N 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $997 r0 *1 0,51.35 sky130_fd_pr__model__cap_mim
+C$997 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $998 r0 *1 3.4,51.35 sky130_fd_pr__model__cap_mim
+C$998 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $999 r0 *1 6.8,51.35 sky130_fd_pr__model__cap_mim
+C$999 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1000 r0 *1 10.2,51.35 sky130_fd_pr__model__cap_mim
+C$1000 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1001 r0 *1 13.6,51.35 sky130_fd_pr__model__cap_mim
+C$1001 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1002 r0 *1 17,51.35 sky130_fd_pr__model__cap_mim
+C$1002 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1003 r0 *1 20.4,51.35 sky130_fd_pr__model__cap_mim
+C$1003 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1004 r0 *1 23.8,51.35 sky130_fd_pr__model__cap_mim
+C$1004 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1005 r0 *1 27.2,51.35 sky130_fd_pr__model__cap_mim
+C$1005 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1006 r0 *1 30.6,51.35 sky130_fd_pr__model__cap_mim
+C$1006 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1007 r0 *1 34,51.35 sky130_fd_pr__model__cap_mim
+C$1007 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1008 r0 *1 37.4,51.35 sky130_fd_pr__model__cap_mim
+C$1008 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1009 r0 *1 40.8,51.35 sky130_fd_pr__model__cap_mim
+C$1009 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1010 r0 *1 44.2,51.35 sky130_fd_pr__model__cap_mim
+C$1010 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1011 r0 *1 47.6,51.35 sky130_fd_pr__model__cap_mim
+C$1011 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1012 r0 *1 51,51.35 sky130_fd_pr__model__cap_mim
+C$1012 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1013 r0 *1 54.4,51.35 sky130_fd_pr__model__cap_mim
+C$1013 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1014 r0 *1 57.8,51.35 sky130_fd_pr__model__cap_mim
+C$1014 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1015 r0 *1 61.2,51.35 sky130_fd_pr__model__cap_mim
+C$1015 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1016 r0 *1 64.6,51.35 sky130_fd_pr__model__cap_mim
+C$1016 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1017 r0 *1 68,51.35 sky130_fd_pr__model__cap_mim
+C$1017 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1018 r0 *1 71.4,51.35 sky130_fd_pr__model__cap_mim
+C$1018 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1019 r0 *1 74.8,51.35 sky130_fd_pr__model__cap_mim
+C$1019 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1020 r0 *1 78.2,51.35 sky130_fd_pr__model__cap_mim
+C$1020 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1021 r0 *1 81.6,51.35 sky130_fd_pr__model__cap_mim
+C$1021 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1022 r0 *1 85,51.35 sky130_fd_pr__model__cap_mim
+C$1022 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1023 r0 *1 88.4,51.35 sky130_fd_pr__model__cap_mim
+C$1023 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1024 r0 *1 91.8,51.35 sky130_fd_pr__model__cap_mim
+C$1024 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1025 r0 *1 95.2,51.35 sky130_fd_pr__model__cap_mim
+C$1025 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1026 r0 *1 98.6,51.35 sky130_fd_pr__model__cap_mim
+C$1026 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1027 r0 *1 102,51.35 sky130_fd_pr__model__cap_mim
+C$1027 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1028 r0 *1 105.4,51.35 sky130_fd_pr__model__cap_mim
+C$1028 \$20 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1029 r0 *1 108.8,51.35 sky130_fd_pr__model__cap_mim
+C$1029 VREFN TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1030 r0 *1 112.2,51.35 sky130_fd_pr__model__cap_mim
+C$1030 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1031 r0 *1 115.6,51.35 sky130_fd_pr__model__cap_mim
+C$1031 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1032 r0 *1 119,51.35 sky130_fd_pr__model__cap_mim
+C$1032 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1033 r0 *1 122.4,51.35 sky130_fd_pr__model__cap_mim
+C$1033 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1034 r0 *1 125.8,51.35 sky130_fd_pr__model__cap_mim
+C$1034 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1035 r0 *1 129.2,51.35 sky130_fd_pr__model__cap_mim
+C$1035 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1036 r0 *1 132.6,51.35 sky130_fd_pr__model__cap_mim
+C$1036 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1037 r0 *1 136,51.35 sky130_fd_pr__model__cap_mim
+C$1037 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1038 r0 *1 139.4,51.35 sky130_fd_pr__model__cap_mim
+C$1038 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1039 r0 *1 142.8,51.35 sky130_fd_pr__model__cap_mim
+C$1039 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1040 r0 *1 146.2,51.35 sky130_fd_pr__model__cap_mim
+C$1040 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1041 r0 *1 149.6,51.35 sky130_fd_pr__model__cap_mim
+C$1041 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1042 r0 *1 153,51.35 sky130_fd_pr__model__cap_mim
+C$1042 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1043 r0 *1 156.4,51.35 sky130_fd_pr__model__cap_mim
+C$1043 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1044 r0 *1 159.8,51.35 sky130_fd_pr__model__cap_mim
+C$1044 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1045 r0 *1 163.2,51.35 sky130_fd_pr__model__cap_mim
+C$1045 \$21 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1046 r0 *1 166.6,51.35 sky130_fd_pr__model__cap_mim
+C$1046 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1047 r0 *1 170,51.35 sky130_fd_pr__model__cap_mim
+C$1047 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1048 r0 *1 173.4,51.35 sky130_fd_pr__model__cap_mim
+C$1048 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1049 r0 *1 176.8,51.35 sky130_fd_pr__model__cap_mim
+C$1049 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1050 r0 *1 180.2,51.35 sky130_fd_pr__model__cap_mim
+C$1050 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1051 r0 *1 183.6,51.35 sky130_fd_pr__model__cap_mim
+C$1051 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1052 r0 *1 187,51.35 sky130_fd_pr__model__cap_mim
+C$1052 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1053 r0 *1 190.4,51.35 sky130_fd_pr__model__cap_mim
+C$1053 \$22 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1054 r0 *1 193.8,51.35 sky130_fd_pr__model__cap_mim
+C$1054 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1055 r0 *1 197.2,51.35 sky130_fd_pr__model__cap_mim
+C$1055 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1056 r0 *1 200.6,51.35 sky130_fd_pr__model__cap_mim
+C$1056 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1057 r0 *1 204,51.35 sky130_fd_pr__model__cap_mim
+C$1057 \$39 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1058 r0 *1 207.4,51.35 sky130_fd_pr__model__cap_mim
+C$1058 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1059 r0 *1 210.8,51.35 sky130_fd_pr__model__cap_mim
+C$1059 \$38 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+* device instance $1060 r0 *1 214.2,51.35 sky130_fd_pr__model__cap_mim
+C$1060 \$37 TOP_P 8.647288e-15 sky130_fd_pr__model__cap_mim
+.ENDS cdac_array
