@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generator": "draw",
+  "gds_path": "/home/ubuntu/loom-workspaces/sky130-sar-adc/.loom/worktrees/issue-100/layout/trivial-cell/reports/20260825-132013-51cbdd4/drc_violation_fixture.gds",
+  "cell_name": "drc_violation_fixture",
+  "dbu_um": 0.001,
+  "shape_count": 1,
+  "label_count": 0,
+  "layers": [
+    {
+      "layer": 65,
+      "datatype": 20,
+      "name": null,
+      "shapes": 1
+    }
+  ],
+  "bbox_um": {
+    "x0": 0.0,
+    "y0": 0.0,
+    "x1": 2.0,
+    "y1": 0.05
+  },
+  "warnings": [
+    "written verbatim by `klt draw`: no PDK awareness and no rule checking were applied; this cell is not guaranteed to be design-legal"
+  ]
+}

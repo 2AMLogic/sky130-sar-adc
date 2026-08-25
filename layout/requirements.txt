@@ -23,4 +23,10 @@
 # hit doing this sub-block's layout. No klt gap filed for this one: the
 # capability already exists in a released version newer than the prior pin,
 # so it is a pin bump, not a tool-tracker friction report.
+#
+# Independently required by issue #100 (CDAC array layout): 0.2.0's sky130
+# extraction deck stops its metals/vias connectivity at met1, so a MiM-cap
+# array with bottom plates on met3 and top-plate rails on met4 is not
+# extractable on that pin at all. 0.3.0's met2-met5/via2-via4 connectivity
+# is what makes the array's `klt extract`/`klt lvs` verdicts possible.
 klayout-tools==0.3.0

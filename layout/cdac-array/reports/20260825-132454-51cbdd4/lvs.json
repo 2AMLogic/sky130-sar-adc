@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "cdac_array.gds",
+  "reference": "cdac_array.lvs-reference.spice",
+  "top": "cdac_array",
+  "reference_top": "CDAC_ARRAY",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": true,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "match",
+  "mismatch_count": 2,
+  "error_count": 0,
+  "category_counts": {
+    "device.body_unverified": 1,
+    "topology": 1
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 42,
+      "reference": 42,
+      "matched": 42
+    },
+    "devices": {
+      "layout": 56,
+      "reference": 56,
+      "matched": 56
+    },
+    "pins": {
+      "layout": 24,
+      "reference": 24,
+      "matched": 24
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.11",
+    "layout_sha256": "7b3c8614e5db6ddcc0fb1f045d5f79abe4bf41eb7e5219ca396dbb7b6545d7e6",
+    "reference_sha256": "cf7530dff5b470eb14220f33e2d59a2f503215a8755b0b9f7ba4cc8a2150eeeb",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:2e78949d63f03012c505528158948a250e18c2c21c8710c85a23a8243649f4d0",
+      "released": false
+    },
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "18 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "nfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "\\$23",
+      "reference": "BOT_N0",
+      "pin": false
+    },
+    {
+      "layout": "\\$24",
+      "reference": "BOT_N1",
+      "pin": false
+    },
+    {
+      "layout": "\\$25",
+      "reference": "BOT_N2",
+      "pin": false
+    },
+    {
+      "layout": "\\$26",
+      "reference": "BOT_N3",
+      "pin": false
+    },
+    {
+      "layout": "\\$27",
+      "reference": "BOT_N4",
+      "pin": false
+    },
+    {
+      "layout": "\\$36",
+      "reference": "BOT_N5",
+      "pin": false
+    },
+    {
+      "layout": "\\$35",
+      "reference": "BOT_N6",
+      "pin": false
+    },
+    {
+      "layout": "\\$34",
+      "reference": "BOT_N7",
+      "pin": false
+    },
+    {
+      "layout": "\\$33",
+      "reference": "BOT_N8",
+      "pin": false
+    },
+    {
+      "layout": "\\$17",
+      "reference": "BOT_P0",
+      "pin": false
+    },
+    {
+      "layout": "\\$18",
+      "reference": "BOT_P1",
+      "pin": false
+    },
+    {
+      "layout": "\\$19",
+      "reference": "BOT_P2",
+      "pin": false
+    },
+    {
+      "layout": "\\$20",
+      "reference": "BOT_P3",
+      "pin": false
+    },
+    {
+      "layout": "\\$21",
+      "reference": "BOT_P4",
+      "pin": false
+    },
+    {
+      "layout": "\\$22",
+      "reference": "BOT_P5",
+      "pin": false
+    },
+    {
+      "layout": "\\$39",
+      "reference": "BOT_P6",
+      "pin": false
+    },
+    {
+      "layout": "\\$38",
+      "reference": "BOT_P7",
+      "pin": false
+    },
+    {
+      "layout": "\\$37",
+      "reference": "BOT_P8",
+      "pin": false
+    },
+    {
+      "layout": "SELn0",
+      "reference": "SELN0",
+      "pin": true
+    },
+    {
+      "layout": "SELn1",
+      "reference": "SELN1",
+      "pin": true
+    },
+    {
+      "layout": "SELn2",
+      "reference": "SELN2",
+      "pin": true
+    },
+    {
+      "layout": "SELn3",
+      "reference": "SELN3",
+      "pin": true
+    },
+    {
+      "layout": "SELn4",
+      "reference": "SELN4",
+      "pin": true
+    },
+    {
+      "layout": "SELn5",
+      "reference": "SELN5",
+      "pin": true
+    },
+    {
+      "layout": "SELn6",
+      "reference": "SELN6",
+      "pin": true
+    },
+    {
+      "layout": "SELn7",
+      "reference": "SELN7",
+      "pin": true
+    },
+    {
+      "layout": "SELn8",
+      "reference": "SELN8",
+      "pin": true
+    },
+    {
+      "layout": "SELp0",
+      "reference": "SELP0",
+      "pin": true
+    },
+    {
+      "layout": "SELp1",
+      "reference": "SELP1",
+      "pin": true
+    },
+    {
+      "layout": "SELp2",
+      "reference": "SELP2",
+      "pin": true
+    },
+    {
+      "layout": "SELp3",
+      "reference": "SELP3",
+      "pin": true
+    },
+    {
+      "layout": "SELp4",
+      "reference": "SELP4",
+      "pin": true
+    },
+    {
+      "layout": "SELp5",
+      "reference": "SELP5",
+      "pin": true
+    },
+    {
+      "layout": "SELp6",
+      "reference": "SELP6",
+      "pin": true
+    },
+    {
+      "layout": "SELp7",
+      "reference": "SELP7",
+      "pin": true
+    },
+    {
+      "layout": "SELp8",
+      "reference": "SELP8",
+      "pin": true
+    },
+    {
+      "layout": "TOP_N",
+      "reference": "TOP_N",
+      "pin": true
+    },
+    {
+      "layout": "TOP_P",
+      "reference": "TOP_P",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VREFN",
+      "reference": "VREFN",
+      "pin": true
+    },
+    {
+      "layout": "VREFP",
+      "reference": "VREFP",
+      "pin": true
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+* cdac_array.lvs-reference.spice -- GENERATED, do not edit by hand.
+*
+* Regenerate with: layout/cdac-array/bin/generate-lvs-reference.py
+* Source of truth: design/cdac/cdac_array.sch (issue #53), netlisted headlessly
+* by xschem and rewritten into `klt extract --deck sky130`'s own device
+* vocabulary. See that script's docstring for the three rewrites and why
+* each is a change of vocabulary rather than of topology.
+*
+* Unit capacitor: the schematic sizes the MiM plate W=L=1.8988 um; the
+* drawn plate is the nearest 1 nm-grid square, 1.898 um, whose
+* capacitance under the extraction deck's own published coefficients
+* (area 2.0 fF/um^2, perimeter 0.19 fF/um) is
+* C_unit = 8.647288000e-15 F. A bit of weight w carries `MF=w` in the
+* schematic and w drawn unit capacitors in the layout, so its reference
+* card is one C of w * C_unit -- which is exactly what `klt lvs`'s
+* `combine_devices` folds the w extracted unit caps into.
+*
+* Substrate: the schematic's VSS (every nfet bulk) appears here as
+* `vsubs`, the name the sky130 extraction deck gives its
+* synthesized global substrate net.
+.SUBCKT cdac_array VREFP VREFN VDD vsubs SELn0 SELp0 SELn1 SELp1 SELn2 SELp2 SELn3 SELp3 SELn4 SELp4 TOP_N TOP_P SELp5 SELn5 SELp6 SELn6 SELn7 SELp7 SELn8 SELp8
+Cp0 BOT_p0 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp0n BOT_p0 SELp0 VREFN vsubs nfet L=0.15U W=1U
+Mp0p BOT_p0 SELp0 VREFP VDD pfet L=0.15U W=2U
+Cp1 BOT_p1 TOP_P 1.729457600e-14 sky130_fd_pr__model__cap_mim
+Mp1n BOT_p1 SELp1 VREFN vsubs nfet L=0.15U W=1U
+Mp1p BOT_p1 SELp1 VREFP VDD pfet L=0.15U W=2U
+Cp2 BOT_p2 TOP_P 3.458915200e-14 sky130_fd_pr__model__cap_mim
+Mp2n BOT_p2 SELp2 VREFN vsubs nfet L=0.15U W=1U
+Mp2p BOT_p2 SELp2 VREFP VDD pfet L=0.15U W=2U
+Cp3 BOT_p3 TOP_P 6.917830400e-14 sky130_fd_pr__model__cap_mim
+Mp3n BOT_p3 SELp3 VREFN vsubs nfet L=0.15U W=1U
+Mp3p BOT_p3 SELp3 VREFP VDD pfet L=0.15U W=2U
+Cp4 BOT_p4 TOP_P 1.383566080e-13 sky130_fd_pr__model__cap_mim
+Mp4n BOT_p4 SELp4 VREFN vsubs nfet L=0.15U W=1U
+Mp4p BOT_p4 SELp4 VREFP VDD pfet L=0.15U W=2U
+Cp5 BOT_p5 TOP_P 2.767132160e-13 sky130_fd_pr__model__cap_mim
+Mp5n BOT_p5 SELp5 VREFN vsubs nfet L=0.15U W=1U
+Mp5p BOT_p5 SELp5 VREFP VDD pfet L=0.15U W=2U
+Cp6 BOT_p6 TOP_P 5.534264320e-13 sky130_fd_pr__model__cap_mim
+Mp6n BOT_p6 SELp6 VREFN vsubs nfet L=0.15U W=1U
+Mp6p BOT_p6 SELp6 VREFP VDD pfet L=0.15U W=2U
+Cp7 BOT_p7 TOP_P 1.106852864e-12 sky130_fd_pr__model__cap_mim
+Mp7n BOT_p7 SELp7 VREFN vsubs nfet L=0.15U W=1U
+Mp7p BOT_p7 SELp7 VREFP VDD pfet L=0.15U W=2U
+Cp8 BOT_p8 TOP_P 2.213705728e-12 sky130_fd_pr__model__cap_mim
+Mp8n BOT_p8 SELp8 VREFN vsubs nfet L=0.15U W=1U
+Mp8p BOT_p8 SELp8 VREFP VDD pfet L=0.15U W=2U
+Cp_term VREFN TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn0 BOT_n0 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn0n BOT_n0 SELn0 VREFN vsubs nfet L=0.15U W=1U
+Mn0p BOT_n0 SELn0 VREFP VDD pfet L=0.15U W=2U
+Cn1 BOT_n1 TOP_N 1.729457600e-14 sky130_fd_pr__model__cap_mim
+Mn1n BOT_n1 SELn1 VREFN vsubs nfet L=0.15U W=1U
+Mn1p BOT_n1 SELn1 VREFP VDD pfet L=0.15U W=2U
+Cn2 BOT_n2 TOP_N 3.458915200e-14 sky130_fd_pr__model__cap_mim
+Mn2n BOT_n2 SELn2 VREFN vsubs nfet L=0.15U W=1U
+Mn2p BOT_n2 SELn2 VREFP VDD pfet L=0.15U W=2U
+Cn3 BOT_n3 TOP_N 6.917830400e-14 sky130_fd_pr__model__cap_mim
+Mn3n BOT_n3 SELn3 VREFN vsubs nfet L=0.15U W=1U
+Mn3p BOT_n3 SELn3 VREFP VDD pfet L=0.15U W=2U
+Cn4 BOT_n4 TOP_N 1.383566080e-13 sky130_fd_pr__model__cap_mim
+Mn4n BOT_n4 SELn4 VREFN vsubs nfet L=0.15U W=1U
+Mn4p BOT_n4 SELn4 VREFP VDD pfet L=0.15U W=2U
+Cn5 BOT_n5 TOP_N 2.767132160e-13 sky130_fd_pr__model__cap_mim
+Mn5n BOT_n5 SELn5 VREFN vsubs nfet L=0.15U W=1U
+Mn5p BOT_n5 SELn5 VREFP VDD pfet L=0.15U W=2U
+Cn6 BOT_n6 TOP_N 5.534264320e-13 sky130_fd_pr__model__cap_mim
+Mn6n BOT_n6 SELn6 VREFN vsubs nfet L=0.15U W=1U
+Mn6p BOT_n6 SELn6 VREFP VDD pfet L=0.15U W=2U
+Cn7 BOT_n7 TOP_N 1.106852864e-12 sky130_fd_pr__model__cap_mim
+Mn7n BOT_n7 SELn7 VREFN vsubs nfet L=0.15U W=1U
+Mn7p BOT_n7 SELn7 VREFP VDD pfet L=0.15U W=2U
+Cn8 BOT_n8 TOP_N 2.213705728e-12 sky130_fd_pr__model__cap_mim
+Mn8n BOT_n8 SELn8 VREFN vsubs nfet L=0.15U W=1U
+Mn8p BOT_n8 SELn8 VREFP VDD pfet L=0.15U W=2U
+Cn_term VREFN TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+.ENDS cdac_array
