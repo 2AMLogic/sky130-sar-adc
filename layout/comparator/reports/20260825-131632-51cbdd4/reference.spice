@@ -1,0 +1,64 @@
+* Hand-written LVS reference netlist for the dynamic comparator sub-block
+* (issue #101), against which layout/comparator/bin/run-flow.sh's composed
+* layout is compared.
+*
+* Topology and device sizing are copied 1:1 from
+* sim/comparator-decision/testbench/comparator_core.spice -- the xschem
+* -derived, already-simulated device fragment for design/comparator.sch
+* (issue #54) -- generalizing every `sky130_fd_pr__{n,p}fet_01v8` instance to
+* the generic `nfet`/`pfet` device classes `klt extract --deck sky130`'s
+* curated deck reports (matching layout/trivial-cell/reference.spice's and
+* layout/sar-sequencer/reference/sar_sequencer.lvs-reference.spice's own
+* convention for the same reason: the layout side of the comparison can only
+* ever report those two generic classes, regardless of the real device
+* flavor). `klt lvs`/`NetlistComparer` compares topology, not net names, so
+* net names below (VDD/GND/CLK/VINP/VINN/OUTP/OUTN/TAIL) do not need to
+* literally match the layout side's own (partly anonymous, `$N`-style) net
+* names -- they are chosen to match design/comparator.sch's own port/net
+* names purely for this file's own readability.
+*
+* Each schematic device (M_INN, M_INP, M_LATN_P/N, M_LATP_P/N, M_RST_P/N) is
+* one lumped M-card at its full schematic W, not split into
+* layout/comparator/bin/gen_blocks.py's own interleaved/multi-leg unit
+* instances -- `klt lvs`'s `options.combine_devices` (set in
+* layout/comparator/bin/run-flow.sh's own lvs.request.json) is what re-lumps
+* the layout side's parallel unit legs back into one equivalent device per
+* schematic instance for comparison, exactly as
+* layout/sar-sequencer/bin/run-flow.sh's own lvs.request.json already relies
+* on for that sub-block's folded/multi-finger standard cells.
+*
+* Body terminals: `add_guard_ring: false` on every `klt gen diff_pair` block
+* (see gen_blocks.py's own "no guard ring" note) means no block draws a
+* substrate/well tap tied to a real GND/VDD net, so every device's body
+* terminal extracts to a deck-synthesized proxy net instead of the real
+* supply rail -- exactly the "device.body_unverified" limitation
+* layout/trivial-cell/README.md's own "The trivial-cell proof" table already
+* documents and accepts for `mos_array` with no ring. This reference still
+* declares the *intended*, schematic-correct body ties (nfet B=GND, pfet
+* B=VDD) rather than hand-matching today's synthesized proxy net names: `klt
+* lvs`'s topology-based comparer reports this class of mismatch as a
+* documented, expected, non-blocking finding (see
+* layout/comparator/reports/<record-id>/record.md's own "Known limitations"
+* section for this run's actual mismatch categories), not something this
+* reference should paper over by inventing a placeholder net that would only
+* coincidentally match one specific run's own anonymous net numbering
+* (explicitly not a stable contract across `klt`/KLayout versions or host
+* platforms, per `klt extract --help`'s own "Anonymous net numbering" note).
+*
+* Provenance: pattern (generic device classes, schematic-derived topology,
+* combine_devices for split/interleaved layout legs) ported from
+* layout/trivial-cell/reference.spice and
+* layout/sar-sequencer/bin/generate-lvs-reference.py, per CLAUDE.md's
+* "Harness bootstrap" instruction -- device list re-derived against this
+* repo's own design/comparator.sch, not copied from either sibling.
+.SUBCKT comparator VDD GND CLK VINP VINN OUTP OUTN
+M_TAIL TAIL CLK GND GND nfet L=0.5U W=8U
+M_INN OUTP VINN TAIL GND nfet L=0.5U W=4U
+M_INP OUTN VINP TAIL GND nfet L=0.5U W=4U
+M_LATN_P OUTP OUTN GND GND nfet L=0.5U W=4U
+M_LATN_N OUTN OUTP GND GND nfet L=0.5U W=4U
+M_LATP_P OUTP OUTN VDD VDD pfet L=0.5U W=8U
+M_LATP_N OUTN OUTP VDD VDD pfet L=0.5U W=8U
+M_RST_P OUTP CLK VDD VDD pfet L=0.5U W=16U
+M_RST_N OUTN CLK VDD VDD pfet L=0.5U W=16U
+.ENDS comparator
