@@ -29,4 +29,15 @@
 # array with bottom plates on met3 and top-plate rails on met4 is not
 # extractable on that pin at all. 0.3.0's met2-met5/via2-via4 connectivity
 # is what makes the array's `klt extract`/`klt lvs` verdicts possible.
+#
+# One non-additive consequence of that bump, found re-running the six-verdict
+# trivial-cell proof against it (issue #104): 0.3.0 also carries the
+# dummy-device-suppression fix (klayout-tools#491/#494) that 0.2.0 predated.
+# `klt extract --deck sky130` on `klt gen mos_array`'s defaults now reports
+# device_count=4, dummy_devices_dropped=4 where 0.2.0 reported
+# device_count=8, dummy_devices_dropped=0 -- so the three trivial-cell LVS
+# reference netlists were re-derived from 8 M-cards to 4 in the same PR (see
+# layout/trivial-cell/reference.spice's header, which forward-referenced
+# exactly this fix). Bump the pin and re-run the proof together; a pin bump
+# alone can silently invalidate the flow's own gating evidence.
 klayout-tools==0.3.0
