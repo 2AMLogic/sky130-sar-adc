@@ -115,10 +115,20 @@ fi
 # fails the check below -- a genuinely new/unexpected xschem message (a Tcl
 # error, a missing symbol, a different ERC class entirely) is not silently
 # absorbed.
+#
+# Separately: installing xschem to a non-default prefix (as CI's from-source
+# build now does, `--prefix=/opt/xschem`) makes xschem print a startup banner
+# -- `Using run time directory XSCHEM_SHAREDIR = ...` once, then
+# `Sourcing ... init file` once per rcfile (its own default rcfile, then
+# sim/xschemrc) -- that a system-default-prefix install does not. This is
+# unrelated to the 3.4.4-vs-3.4.7 version drift above; it depends on install
+# location, not version.
 XSCHEM_OUT_UNEXPECTED="$(printf '%s\n' "${XSCHEM_OUT}" | awk '
   /^SKIP RECORD$/ { in_record = 1; next }
   /^END SKIP RECORD$/ { in_record = 0; next }
   in_record { next }
+  /^Using run time directory XSCHEM_SHAREDIR = / { next }
+  /^Sourcing .*xschemrc init file$/ { next }
   /^open_pdks installation: using / { next }
   /^SKYWATER_MODELS: / { next }
   /^SKYWATER_STDCELLS: / { next }
