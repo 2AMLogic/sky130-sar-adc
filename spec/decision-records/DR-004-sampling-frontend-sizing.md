@@ -9,10 +9,12 @@
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
 - **Related**: #52 (this sub-block), #61 (follow-up: post-edge hold-transition
-  droop, not resolved here), #53 (CDAC array, consumes `Csamp`'s placeholder
-  role), #55 (SAR clock/phase generation, consumes the dead-time finding
-  below), #95 (resolved the `BPREF_x`-hand-off assumption in "Open items"
-  below as false, not just premature -- see "Update (issue #95)"),
+  droop -- root-caused and resolved for the real integrated ADC, see "Update
+  (issue #61)" below), #53 (CDAC array, consumes `Csamp`'s placeholder
+  role), #55 (SAR clock/phase generation -- #61's finding turned out not to
+  require a design change there, see "Update (issue #61)"), #95 (resolved
+  the `BPREF_x`-hand-off assumption in "Open items" below as false, not just
+  premature -- see "Update (issue #95)"),
   `spec/decision-records/DR-001-supply-flavor-scope.md` (ratified 1.8V
   core-device scope this record's every instance stays inside),
   `spec/decision-records/DR-003-numeric-spec-derivation.md` (provisional
@@ -20,7 +22,10 @@
   `design/sampling_frontend.sch`, `sim/sampling-frontend/run_transient.py`,
   `sim/sampling-frontend/records/20260821-072657-433a294.md` (the evidence
   record this decision record explains), `sim/sampling-cdac-handoff/
-  records/20260824-231304-144edeb.md` (#95's own evidence record)
+  records/20260824-231304-144edeb.md` (#95's own evidence record),
+  `sim/sampling-frontend/run_hold_kick.py` and its
+  `sim/sampling-frontend/records/20260825-021113-a237c79.md` (#61's own
+  root-cause/resolution evidence record)
 
 ## Context
 
@@ -313,3 +318,65 @@ handed off"), not the fact that it floats within this sub-block's own
 testbench, and not the observed few-ns timing of the droop itself (see the
 corrected "Not (fully) an artifact..." bullet above). #61 remains open and
 independent.
+
+## Update (issue #61, 2026-08-25)
+
+Issue #61 root-caused the post-edge hold-transition droop named in "Open
+items" above and resolved it for the real integrated ADC. Full derivation,
+the diagnostic methodology (six numbered experiments), and every supporting
+number: `sim/sampling-frontend/run_hold_kick.py` and its evidence record
+`sim/sampling-frontend/records/20260825-021113-a237c79.md`. Summary:
+
+**Root cause, confirmed (not just hypothesized).** The droop is capacitive
+charge injection onto the floating `{TOP_x, BPREF_x}` island from two direct
+device-terminal couplings: `Cmswn_x`/`Cmswp_x`'s gate-drain overlap coupling
+the full-swing `SAMPLE`/`SAMPLEB` transition onto `BPREF_x`, and the
+sampling switch `Msw_x`'s own gate-source overlap coupling its gate
+(`G_x`, swinging from its boosted level to 0) onto `TOP_x`. This is exactly
+the "common-mode capacitive kick ... gate-overlap/off-state junction
+capacitance" hypothesis named above, confirmed (not merely still a leading
+hypothesis) by two independent methods that agree with each other and with
+the measured droop: small-signal `.ac` capacitance extraction of the
+island, and a large-signal added-capacitance sweep whose `dV = Q_inj /
+(C_island + C_add)` fit has `R^2 > 0.98`.
+
+**Resolution: the droop is negligible in the real integrated ADC, and no
+design change is required.** The severity measured above and in
+`sim/sampling-frontend/records/20260821-072657-433a294.md` (hundreds of mV,
+tens to ~170x the provisional LSB single-ended) is specific to exercising
+`sampling_frontend.sch` in isolation, where the injected charge lands on a
+femtofarad-scale island. Attaching the real CDAC array
+(`design/cdac/cdac_array.sch`, #53) to `TOP_x` exactly as
+`design/sar_adc_top.sch` (#56) wires it -- the same charge-injection
+mechanism, unmodified -- loads that same charge onto a node dominated by
+the CDAC array's own ~4.43pF/side of always-driven bit capacitors instead,
+and `dV = Q_inj/C` collapses the droop to well under 1mV (worst case 0.021
+LSB differential error across all 3 standard test points and 3 CDAC
+"previous code" states, tt/27C only). `run_transient.py`'s original
+hold-delta figures are not retracted -- they remain an accurate
+characterization of the isolated testbench; what changes is the answer to
+whether that number carries into the real ADC, and it does not.
+
+**#55 (SAR clock/phase generation): informational only, no design change
+needed.** #55 closed before this finding landed, so this is recorded here
+and as a comment on #55 rather than as a change to its (already-merged)
+design. #55's existing on-die `Invp`/`Invn` SAMPLE/SAMPLEB generation (zero
+explicit dead time) is exactly what issue #61's Experiment 6 used to get
+the negligible full-load result above -- so #55 does not need a
+non-overlap-margin change on this account, reversing the direction "Open
+items" above implied ("a non-overlap margin alone ... did not fully
+suppress the transition-edge droop measured here" -- true in isolation,
+not load-bearing once the real CDAC array is attached). The one caveat
+carried forward to #55/#53: the CDAC array's bit-trial switching must not
+begin moving `SELp<i>`/`SELn<i>` away from the previous-conversion code
+during the first few ns of the SAMPLE falling edge itself -- #61's
+Experiment 6 held the code fixed through the edge, matching #55's own
+sequencing (bit-trial starts only after HOLD is well underway).
+
+**Consequence for the "not yet ready for #28/#29" note above.** This
+sub-block's front end no longer carries an unresolved, unexplained
+several-hundred-mV droop into a full PVT/Monte-Carlo campaign -- the
+isolated-testbench number is now explained and shown not to propagate into
+the real ADC. The residual `ss`-corner settling-headroom item #95 surfaced
+(new Open items bullet above) remains open and is unaffected by this
+update.

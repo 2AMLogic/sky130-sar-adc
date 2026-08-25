@@ -181,6 +181,45 @@ class TestRunnerHelpers(unittest.TestCase):
                         toolchain.run_ngspice("* netlist\n.end\n", scratch, "corner_0")
         self.assertIn("timed out", str(ctx.exception))
 
+    def test_run_ngspice_timeout_with_bytes_output_does_not_crash(self):
+        """Regression test (found while gathering evidence for issue #61):
+        a REAL subprocess timeout can populate TimeoutExpired.stdout with
+        bytes while .stderr stays None (or vice versa) even though
+        subprocess.run() was called with text=True -- CPython only
+        re-decodes those attributes on the Windows retry path; on POSIX,
+        TimeoutExpired's own partial-output attributes (captured inside
+        Popen.communicate() before the timeout fired) are not guaranteed to
+        have gone through the text-mode decode step the successful-
+        completion path does, and ngspice -b's stderr is very often empty
+        (None) while stdout is not. The prior implementation's `(exc.stdout
+        or "") + (exc.stderr or "")` raised `TypeError: can't concat str to
+        bytes` in exactly this MIXED-types case (`"" + bytes` or `bytes +
+        ""`) -- concatenating two REAL bytes values, or two None values,
+        both happen to work fine in plain Python, which is why this needs
+        the mixed case specifically to reproduce. Masked the real "ngspice
+        timed out" RuntimeError with an unrelated crash -- reproduced live
+        via sim/sampling-frontend/run_hold_kick.py (#61) hitting a genuine
+        ngspice timeout on a contended machine. test_run_ngspice_raises_
+        on_timeout() above does not catch this: it constructs
+        TimeoutExpired with no output at all (both attributes default to
+        None), which the buggy code also handled fine -- only a bytes/None
+        mix was broken."""
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(toolchain.shutil, "copyfile"):
+                with mock.patch.object(
+                    toolchain.subprocess,
+                    "run",
+                    side_effect=subprocess.TimeoutExpired(
+                        cmd=["ngspice"], timeout=120,
+                        output=b"partial stdout\n", stderr=None,
+                    ),
+                ):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        toolchain.run_ngspice("* netlist\n.end\n", scratch, "corner_0")
+        self.assertIn("timed out", str(ctx.exception))
+        self.assertIn("partial stdout", str(ctx.exception))
+
 
 class TestTestbenchManifest(unittest.TestCase):
     def test_load_manifest_and_build_netlist(self):
