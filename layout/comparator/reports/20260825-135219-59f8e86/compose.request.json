@@ -1,0 +1,70 @@
+{
+  "schema": "klt.gen_compose.request/1",
+  "pdk": {
+    "variant": "sky130A"
+  },
+  "blocks": [
+    {
+      "id": "tail",
+      "generator_report": "tail.json"
+    },
+    {
+      "id": "inpair",
+      "generator_report": "inpair.json"
+    },
+    {
+      "id": "latn",
+      "generator_report": "latn.json"
+    },
+    {
+      "id": "latp",
+      "generator_report": "latp.json"
+    },
+    {
+      "id": "rst",
+      "generator_report": "rst.json"
+    },
+    {
+      "id": "route",
+      "generator_report": "draw.json"
+    }
+  ],
+  "placement": {
+    "strategy": "explicit",
+    "order": [
+      "tail",
+      "inpair",
+      "latn",
+      "latp",
+      "rst",
+      "route"
+    ],
+    "origins_um": {
+      "tail": {
+        "x": 2.0,
+        "y": 16.0
+      },
+      "inpair": {
+        "x": 5.5,
+        "y": 17.39
+      },
+      "latn": {
+        "x": 10.7,
+        "y": 15.39
+      },
+      "latp": {
+        "x": 14.2,
+        "y": 11.39
+      },
+      "rst": {
+        "x": 18.0,
+        "y": 3.3900000000000006
+      },
+      "route": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  },
+  "connectivity": []
+}

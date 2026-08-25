@@ -1,0 +1,31 @@
+* NEGATIVE CONTROL 1/2 for the comparator LVS flow (issue #101) -- a
+* DELIBERATELY WRONG reference. `klt lvs` MUST report "mismatch" against
+* this file; layout/comparator/bin/render-record.py asserts exactly that
+* (verdict 4) and fails the record if it ever comes back "match".
+*
+* Corruption class: DEVICE PARAMETER ONLY. Exactly one character differs
+* from reference.spice -- M_INN's W is 2U instead of 4U. Every net name,
+* every terminal ordering and every connection is byte-identical to the
+* known-good reference, so a comparison that only checked connectivity would
+* pass this file and prove nothing about parameter checking.
+*
+* Paired with reference.broken-topology.spice, whose corruption is the exact
+* complement (topology changed, every parameter untouched). Two independent
+* corruption classes are the point: either one alone leaves half of what a
+* "match" verdict claims unproven. Same discipline, same reason as
+* layout/trivial-cell/reference.broken-device.spice, which established this
+* convention for the repo (issue #2).
+*
+* DO NOT "FIX" THIS FILE. Its wrongness is the whole point; a change that
+* made it match would silently delete a verification verdict.
+.SUBCKT comparator VDD GND CLK VINP VINN OUTP OUTN
+M_TAIL TAIL CLK GND GND nfet L=0.5U W=8U
+M_INN OUTP VINN TAIL GND nfet L=0.5U W=2U
+M_INP OUTN VINP TAIL GND nfet L=0.5U W=4U
+M_LATN_P OUTP OUTN GND GND nfet L=0.5U W=4U
+M_LATN_N OUTN OUTP GND GND nfet L=0.5U W=4U
+M_LATP_P OUTP OUTN VDD VDD pfet L=0.5U W=8U
+M_LATP_N OUTN OUTP VDD VDD pfet L=0.5U W=8U
+M_RST_P OUTP CLK VDD VDD pfet L=0.5U W=16U
+M_RST_N OUTN CLK VDD VDD pfet L=0.5U W=16U
+.ENDS comparator
