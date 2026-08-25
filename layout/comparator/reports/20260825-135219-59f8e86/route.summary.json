@@ -1,0 +1,140 @@
+{
+  "y_axis_um": 20.0,
+  "block_origins_um": {
+    "tail": {
+      "x": 2.0,
+      "y": 16.0
+    },
+    "inpair": {
+      "x": 5.5,
+      "y": 17.39
+    },
+    "latn": {
+      "x": 10.7,
+      "y": 15.39
+    },
+    "latp": {
+      "x": 14.2,
+      "y": 11.39
+    },
+    "rst": {
+      "x": 18.0,
+      "y": 3.3900000000000006
+    }
+  },
+  "trunk_x_um": {
+    "GND": [
+      1.3,
+      9.6
+    ],
+    "CLK": [
+      1.9,
+      16.4
+    ],
+    "TAIL": [
+      4.3
+    ],
+    "VINN": [
+      4.9
+    ],
+    "VINP": [
+      9.1
+    ],
+    "OUTP": [
+      10.1,
+      16.9
+    ],
+    "OUTN": [
+      10.6,
+      17.4
+    ],
+    "VDD": [
+      17.9,
+      20.3
+    ]
+  },
+  "nets": {
+    "CLK": {
+      "met1_area_um2": 6.348,
+      "met2_area_um2": 9.93,
+      "wire_area_um2": 16.278,
+      "via_count": 5,
+      "mcon_count": 3
+    },
+    "GND": {
+      "met1_area_um2": 4.209,
+      "met2_area_um2": 4.98,
+      "wire_area_um2": 9.189,
+      "via_count": 6,
+      "mcon_count": 4
+    },
+    "OUTN": {
+      "met1_area_um2": 7.242,
+      "met2_area_um2": 8.88,
+      "wire_area_um2": 16.122,
+      "via_count": 9,
+      "mcon_count": 7
+    },
+    "OUTP": {
+      "met1_area_um2": 7.047,
+      "met2_area_um2": 9.18,
+      "wire_area_um2": 16.227,
+      "via_count": 9,
+      "mcon_count": 7
+    },
+    "TAIL": {
+      "met1_area_um2": 3.024,
+      "met2_area_um2": 1.14,
+      "wire_area_um2": 4.164,
+      "via_count": 5,
+      "mcon_count": 5
+    },
+    "VDD": {
+      "met1_area_um2": 3.84,
+      "met2_area_um2": 6.33,
+      "wire_area_um2": 10.17,
+      "via_count": 7,
+      "mcon_count": 5
+    },
+    "VINN": {
+      "met1_area_um2": 1.653,
+      "met2_area_um2": 0.84,
+      "wire_area_um2": 2.493,
+      "via_count": 2,
+      "mcon_count": 2
+    },
+    "VINP": {
+      "met1_area_um2": 1.623,
+      "met2_area_um2": 1.29,
+      "wire_area_um2": 2.913,
+      "via_count": 2,
+      "mcon_count": 2
+    }
+  },
+  "differential_symmetry": [
+    {
+      "pair": [
+        "OUTP",
+        "OUTN"
+      ],
+      "wire_area_um2": [
+        16.227,
+        16.122
+      ],
+      "delta_um2": 0.105,
+      "delta_percent": 0.65
+    },
+    {
+      "pair": [
+        "VINN",
+        "VINP"
+      ],
+      "wire_area_um2": [
+        2.493,
+        2.913
+      ],
+      "delta_um2": 0.42,
+      "delta_percent": 15.54
+    }
+  ]
+}

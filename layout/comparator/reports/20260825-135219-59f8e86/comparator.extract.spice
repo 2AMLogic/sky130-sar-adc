@@ -1,0 +1,34 @@
+* extracted by klt extract --deck sky130
+
+* cell gen_compose_0
+* pin CLK
+* pin GND
+* pin OUTN
+* pin OUTP
+* pin VDD
+* pin VINN
+* pin VINP
+.SUBCKT gen_compose_0 CLK GND OUTN OUTP VDD VINN VINP
+* device instance $1 r0 *1 6.17,18.39 nfet
+M$1 OUTP VINN \$4 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U PD=4.84U
+* device instance $2 r0 *1 7.91,18.39 nfet
+M$2 OUTN VINP \$4 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U PD=4.84U
+* device instance $3 r0 *1 11.37,17.39 nfet
+M$3 OUTP OUTN GND GND nfet L=0.5U W=4U AS=1.68P AD=1.68P PS=8.84U PD=8.84U
+* device instance $4 r0 *1 6.17,21.61 nfet
+M$4 OUTN VINP \$4 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U PD=4.84U
+* device instance $5 r0 *1 7.91,21.61 nfet
+M$5 OUTP VINN \$4 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U PD=4.84U
+* device instance $6 r0 *1 2.67,20 nfet
+M$6 \$4 CLK GND GND nfet L=0.5U W=8U AS=3.36P AD=3.36P PS=16.84U PD=16.84U
+* device instance $7 r0 *1 11.37,22.61 nfet
+M$7 OUTN OUTP GND GND nfet L=0.5U W=4U AS=1.68P AD=1.68P PS=8.84U PD=8.84U
+* device instance $8 r0 *1 14.87,15.39 pfet
+M$8 OUTP OUTN VDD VDD pfet L=0.5U W=8U AS=3.36P AD=3.36P PS=16.84U PD=16.84U
+* device instance $9 r0 *1 18.67,11.39 pfet
+M$9 OUTP CLK VDD VDD pfet L=0.5U W=16U AS=6.72P AD=6.72P PS=32.84U PD=32.84U
+* device instance $10 r0 *1 14.87,24.61 pfet
+M$10 OUTN OUTP VDD VDD pfet L=0.5U W=8U AS=3.36P AD=3.36P PS=16.84U PD=16.84U
+* device instance $11 r0 *1 18.67,28.61 pfet
+M$11 OUTN CLK VDD VDD pfet L=0.5U W=16U AS=6.72P AD=6.72P PS=32.84U PD=32.84U
+.ENDS gen_compose_0

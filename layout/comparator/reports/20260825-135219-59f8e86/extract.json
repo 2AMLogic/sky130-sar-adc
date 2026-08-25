@@ -1,0 +1,298 @@
+{
+  "schema_version": 2,
+  "file": "comparator.gds",
+  "deck": "sky130",
+  "top": "gen_compose_0",
+  "dbu_um": 0.001,
+  "netlist_path": "comparator.extract.spice",
+  "netlist_sha256": "0e00bc80b73f547f1cc79b85616b5518539b6e6470060f19d7453f3618f2be00",
+  "status": "extracted",
+  "device_count": 11,
+  "net_count": 8,
+  "pin_count": 7,
+  "device_counts": {
+    "nfet": 7,
+    "pfet": 4
+  },
+  "dummy_devices_dropped": 0,
+  "ignored_layers": [],
+  "device_recognition_only_layers": [],
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "\\$4",
+        "g": "VINN",
+        "d": "OUTP",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0,
+        "as_um2": 0.84,
+        "ad_um2": 0.84,
+        "ps_um": 4.84,
+        "pd_um": 4.84
+      }
+    },
+    {
+      "name": "$10",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "OUTP",
+        "d": "OUTN",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 8.0,
+        "as_um2": 3.36,
+        "ad_um2": 3.36,
+        "ps_um": 16.84,
+        "pd_um": 16.84
+      }
+    },
+    {
+      "name": "$11",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "CLK",
+        "d": "OUTN",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 16.0,
+        "as_um2": 6.72,
+        "ad_um2": 6.72,
+        "ps_um": 32.84,
+        "pd_um": 32.84
+      }
+    },
+    {
+      "name": "$2",
+      "class": "nfet",
+      "nets": {
+        "s": "\\$4",
+        "g": "VINP",
+        "d": "OUTN",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0,
+        "as_um2": 0.84,
+        "ad_um2": 0.84,
+        "ps_um": 4.84,
+        "pd_um": 4.84
+      }
+    },
+    {
+      "name": "$3",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "OUTN",
+        "d": "OUTP",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 4.0,
+        "as_um2": 1.68,
+        "ad_um2": 1.68,
+        "ps_um": 8.84,
+        "pd_um": 8.84
+      }
+    },
+    {
+      "name": "$4",
+      "class": "nfet",
+      "nets": {
+        "s": "\\$4",
+        "g": "VINP",
+        "d": "OUTN",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0,
+        "as_um2": 0.84,
+        "ad_um2": 0.84,
+        "ps_um": 4.84,
+        "pd_um": 4.84
+      }
+    },
+    {
+      "name": "$5",
+      "class": "nfet",
+      "nets": {
+        "s": "\\$4",
+        "g": "VINN",
+        "d": "OUTP",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0,
+        "as_um2": 0.84,
+        "ad_um2": 0.84,
+        "ps_um": 4.84,
+        "pd_um": 4.84
+      }
+    },
+    {
+      "name": "$6",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "CLK",
+        "d": "\\$4",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 8.0,
+        "as_um2": 3.36,
+        "ad_um2": 3.36,
+        "ps_um": 16.84,
+        "pd_um": 16.84
+      }
+    },
+    {
+      "name": "$7",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "OUTP",
+        "d": "OUTN",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 4.0,
+        "as_um2": 1.68,
+        "ad_um2": 1.68,
+        "ps_um": 8.84,
+        "pd_um": 8.84
+      }
+    },
+    {
+      "name": "$8",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "OUTN",
+        "d": "OUTP",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 8.0,
+        "as_um2": 3.36,
+        "ad_um2": 3.36,
+        "ps_um": 16.84,
+        "pd_um": 16.84
+      }
+    },
+    {
+      "name": "$9",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "CLK",
+        "d": "OUTP",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 16.0,
+        "as_um2": 6.72,
+        "ad_um2": 6.72,
+        "ps_um": 32.84,
+        "pd_um": 32.84
+      }
+    }
+  ],
+  "nets": [
+    {
+      "name": "CLK",
+      "pin": true,
+      "device_count": 3
+    },
+    {
+      "name": "GND",
+      "pin": true,
+      "device_count": 10
+    },
+    {
+      "name": "OUTN",
+      "pin": true,
+      "device_count": 7
+    },
+    {
+      "name": "OUTP",
+      "pin": true,
+      "device_count": 7
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 8
+    },
+    {
+      "name": "VINN",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "VINP",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "\\$4",
+      "pin": false,
+      "device_count": 5
+    }
+  ],
+  "warnings": [
+    "promoted 7 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): CLK, GND, OUTN, OUTP, VDD, VINN, VINP -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
+  ],
+  "black_box_regions": [],
+  "abstracted_cells": [],
+  "unmodelled_poly": [],
+  "merged_net_labels": [],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
+  "dead_metal": [],
+  "matched_device_groups": [],
+  "pdk": null,
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:2e78949d63f03012c505528158948a250e18c2c21c8710c85a23a8243649f4d0",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:1fb71e6b4f021dec91c418e6eda7ef330dfe673286c7f1a7d78b5379316b2cd3"
+    }
+  },
+  "parasitics": null,
+  "spef_path": null
+}

@@ -7,152 +7,233 @@ comparator_core.spice` for the xschem-derived device list this layout's
 connectivity is checked against. Follows `layout/README.md`'s (and
 `layout/trivial-cell/`'s / `layout/sar-sequencer/`'s) record convention.
 
-**Status: partial.** DRC is not yet clean and LVS is not yet clean -- see
-"Composition status" below for the honest, specific writeup. What *is*
-complete: a deliberate, documented matching strategy for the input
-differential pair (the acceptance-criteria-critical sub-circuit for
-input-referred offset, tracked by #29), and five independently DRC-clean
-matched-device blocks with correct, schematic-derived connectivity intent
-that a fixed/future `klt gen-compose` build should be able to route and
-verify without any change to this design's own files.
+**Status: DRC-clean and LVS-clean.** The record referenced by
+`reports/LATEST` carries all six of this flow's verdicts, three positive and
+three negative:
+
+| # | Verdict | Why it is here |
+| --- | --- | --- |
+| 1 | every `klt gen` matched device/pair block is DRC-clean *in isolation* | a composed-DRC failure can be attributed to the routing, not to a device |
+| 2 | `klt drc` reports **clean** on the composed layout | the deliverable itself is rule-legal |
+| 3 | `klt lvs` reports **match** against `reference.spice` | the drawn geometry is the schematic |
+| 4 | `klt lvs` reports **mismatch** against `reference.broken-device.spice` | LVS notices a *device-parameter-only* corruption (one W changed, connectivity untouched) |
+| 5 | `klt lvs` reports **mismatch** against `reference.broken-topology.spice` | LVS notices a *topology-only* corruption (one latch gate un-crossed, every parameter untouched) |
+| 6 | `klt extract` reports **no** unbiased PMOS body net | the drawn n-well tie really biases every PMOS body to VDD, rather than the layout falling back to KLayout's synthesized proxy net |
+
+Verdicts 4-5 are the falsifiability discipline `layout/trivial-cell/`
+established for this repo (issue #2): a "match" verdict means nothing until
+"mismatch" has been shown reachable on the same toolchain in the same run,
+and the two corruption classes are independent on purpose -- a comparison
+that only checked connectivity would pass verdict 4, and one that only
+compared device parameters would pass verdict 5. Verdict 6 is this
+sub-block's own addition: an LVS "match" against a reference that *declared*
+the proxy body net would prove nothing about the ties actually being drawn,
+so the body-tie claim gets its own assertion instead of riding on LVS.
 
 ## Which `klt` flow, and why
 
-`klt gen` (the headless PCell generator harness) for each matched device/
-pair, composed via `klt gen-compose` -- **not** `klt draw` (raw shapes, no
-device recognition) and **not** `klt place-and-route` (digital standard-cell
-flow; this is full-custom analog with a real matching judgement call, the
-opposite of `layout/sar-sequencer/`'s "no analog matching/symmetry judgement
-call" case). `klt gen`'s `diff_pair`/`mos_array` generators are exactly the
-family-1/family-4 "matched analog primitive" generators built for this kind
-of block (`klt gen --list`'s own descriptions).
+**Devices** come from `klt gen`'s `diff_pair`/`mos_array` generators -- the
+family-1/family-4 "matched analog primitive" generators built for exactly this
+kind of block. Not `klt place-and-route` (a digital standard-cell flow; this
+is full-custom analog with a real matching judgement call, the opposite of
+`layout/sar-sequencer/`'s case).
+
+**Placement and every wire** come from `layout/comparator/bin/build_layout.py`,
+emitted as a `klt draw` shape document and merged with the device blocks by
+`klt gen-compose` used as a *placer only* (`placement.strategy: "explicit"`,
+no `routing` block in the request).
+
+That second half is a deliberate change of approach from this issue's first
+increment (PR #108), which asked `klt gen-compose` to route and could not get
+past a partial result. `klt gen-compose`'s own module docstring already says
+its geometry is advisory -- "`klt drc` remains the rule-compliance authority
+on the composed output, so a routed net (`routed: true`) is not a DRC-clean
+guarantee". Measured against this block it is not merely advisory but
+unusable as a signoff path:
+
+- legs it reported `routed: true` landed `li1.space.1`/`met1.space.1`
+  violations, while every input block was independently DRC-clean;
+- a block carrying more than one same-block "self-net" -- which any
+  `splits`-interleaved matched pair inherently does, since each device's own
+  legs must tie together -- can only ever get one of them routed.
+
+Both are filed **generically**, with no design content, at
+[2AMLogic/klayout-tools#1386](https://github.com/2AMLogic/klayout-tools/issues/1386)
+per `CLAUDE.md`'s friction protocol. `klt draw` is the documented escape
+hatch for precisely this situation ("write a primitive GDSII/OASIS stream
+from a JSON shape description" -- the deliberately-dumb write-side verb), and
+routing against a router *this repo controls* is what makes a DRC-clean,
+LVS-clean verdict reachable at all. The device geometry is still 100%
+`klt gen`'s: nothing about the transistors is hand-drawn, and the matching
+strategy below is unchanged from the first increment.
+
+What makes the split safe: every `klt gen` block draws only
+nwell/diff/poly/licon1/li1. **met1 and met2 are entirely unused by the device
+blocks**, so the routing cell owns both planes outright and cannot short into
+a block by running over it -- only a deliberately-placed `mcon` cut connects
+a route to a block's li1 pad.
 
 ## Matching strategy (the judgement call this issue's acceptance criteria calls out)
 
+Two halves, both deliberate: *device* matching, and *routing* symmetry.
+
+### Devices
+
 `design/comparator.sch` has four matched device pairs plus one unmatched
-single device (the tail switch). Effort is *not* spread evenly across them
--- it is concentrated on the one pair the issue's acceptance criteria and
-#29 actually track:
+single device (the tail switch). Effort is *not* spread evenly across them --
+it is concentrated on the one pair the issue's acceptance criteria and #29
+actually track:
 
 - **Input pair, M_INN/M_INP (`inpair` block) -- the matching-critical net.**
-  `klt gen diff_pair --params '{"w_um": 2, "l_um": 0.5, "splits": 2,
-  "flavor": "nfet", ...}'`: a true common-centroid cross-quad ("A B / B A")
-  interleave of two W=2um legs per device, combining to the schematic's
-  W=4um per device (`M_INN`/`M_INP`'s own `sim/comparator-decision/
-  testbench/comparator_core.spice` sizing). This directly targets
-  *gradient-induced* threshold/current mismatch -- a linear process
+  `klt gen diff_pair --params '{"w_um": 2, "l_um": 0.5, "splits": 2, ...}'`:
+  a true common-centroid cross-quad ("A B / B A") interleave of two W=2um legs
+  per device, combining to the schematic's W=4um per device. This directly
+  targets *gradient-induced* threshold/current mismatch -- a linear process
   gradient across the pair cancels to first order under common-centroid
-  interleaving, which a plain side-by-side placement does not achieve. This
-  is the one deliberate layout decision this record substantiates
-  regardless of the composition's own current routing status (see below):
-  the two legs' correct W/L and interleaved placement are drawn and
-  DRC-clean today, independent of whether the rest of the design is fully
-  wired up yet.
+  interleaving, which a plain side-by-side placement does not achieve.
 - **Cross-coupled latch pairs (M_LATN_P/N, M_LATP_P/N) and the reset pair
   (M_RST_P/N).** Symmetric by schematic role (each pair is interchangeable
-  under the OUTP<->OUTN swap) but not the static input-offset net #29
-  tracks -- these affect regeneration symmetry/speed, a second-order offset
-  contributor, not the primary one. `klt gen diff_pair --params '{...,
-  "splits": 1, ...}'`: plain A/B placement, adjacent, identical orientation,
-  single-instance per device at its full schematic width. Proportionate
-  effort: real, deliberate symmetry without spending the interleaved-leg
-  complexity budget where the issue's own acceptance criteria doesn't ask
-  for it.
+  under the OUTP<->OUTN swap) but not the static input-offset net #29 tracks
+  -- these affect regeneration symmetry/speed, a second-order offset
+  contributor, not the primary one. `splits: 1`: plain A/B placement,
+  adjacent, identical orientation, one instance per device at its full
+  schematic width. Proportionate effort: real, deliberate symmetry without
+  spending the interleaved-leg complexity budget where the acceptance
+  criteria doesn't ask for it.
 - **Tail switch, M_TAIL (`tail` block).** A single device, no matching
-  partner -- `klt gen mos_array` 1x1, reusing the same validated
-  unit-device primitive (contact/landing-pad geometry) every other block
-  already uses, rather than a bespoke single-device draw.
+  partner -- `klt gen mos_array` 1x1, reusing the same validated unit-device
+  primitive (contact/landing-pad geometry) every other block already uses.
 
 `layout/comparator/bin/gen_blocks.py`'s own module docstring carries this
-same writeup next to the actual generator params, so the rationale and the
-code it explains never drift apart.
+writeup next to the actual generator params, so the rationale and the code it
+explains never drift apart.
 
-**No guard ring on any block** (`add_guard_ring: false`): composing a closed
-guard/collector ring per block turned out to block `klt gen-compose` from
-reaching almost any of that block's *other* ports -- every port not on the
-ring itself sits inside a closed metal loop that a route cannot legally
-cross without shorting to the ring's own tap net (`klt gen-compose` reports
-this explicitly: `"block '...' has a closed guard/collector ring ... route
-to the ring's own tap port instead, regenerate ... with a routing opening,
-or ... add_guard_ring: false"`). Dropping the ring means every device's body
-terminal extracts to the deck-synthesized `vsubs`/per-block-well proxy net
-documented in `layout/trivial-cell/README.md`'s "device.body_unverified"
-paragraph -- the same accepted, documented limitation the trivial-cell
-proof already carries for `mos_array` with no ring, not a new one introduced
-here. `reference.spice`'s own header explains why the reference still
-declares the *intended* GND/VDD body ties rather than hand-matching this.
+### Floorplan and routing
 
-## Composition status
+Device matching alone does not fix a dynamic comparator's offset. Its
+decision is a *race* between OUTP and OUTN, so unequal wire capacitance on
+the two output nodes biases that race exactly the way a device Vth mismatch
+would. Two things address it:
 
-`klt gen-compose` (pinned `klayout-tools==0.3.0` -- bumped from 0.2.0 for
-this issue; see `layout/requirements.txt`'s own header for why: 0.2.0 has no
-bundle/>2-pin net routing at all, which every rail in this design needs)
-places all five blocks and **partially** routes the connectivity: some nets
-route fully (`CLK`, `VINN`), most route only some of their legs
-(`GND`/`TAIL`/`VDD`/`OUTP`), and two do not route at all (`VINP`/`OUTN`).
-Concretely, on the record referenced by `reports/LATEST`:
+- **A mirror-symmetric floorplan.** Every `diff_pair` block's y origin is
+  chosen so its Q1/Q2 boundary lands on one shared horizontal axis
+  (`Y_AXIS`): the OUTP-side device of every pair below it, the OUTN-side
+  device above it, tail switch and cross-quad centred on it.
+- **Mirror-matched routing.** Each negative-half branch is routed on the
+  mirror image (`2*Y_AXIS - y`) of its positive-half counterpart's own
+  y-track wherever that track is free, rather than on whatever the greedy
+  track search reaches first (`build_layout.py`'s `MIRROR_PIN`).
 
-- **DRC: not clean** -- 10 violations (`li1.space.1`/`met1.space.1`), all
-  traced to metal `klt gen-compose` itself drew for a leg it reported
-  `routed: true`, not to any of the five input blocks (each is independently
-  DRC-clean in isolation -- verified by running `klt drc` directly on each
-  block's own `<id>.gds` before composition).
-- **LVS: mismatch** -- expected, not a surprise, given the above: an
-  unrouted net is a real open circuit in the drawn geometry, so `klt lvs`
-  correctly reports mismatches rather than a false "clean" verdict.
+This is measured, not asserted: `reports/<record-id>/route.summary.json`
+carries per-net met1/met2 area, via and contact counts, and the resulting
+OUTP/OUTN and VINN/VINP imbalance, and `record.md` tabulates them. On the
+committed record the mirror preference takes OUTP/OUTN wire-area imbalance
+from 12.9% (shortest-branch routing) to **0.65%**.
 
-This is a genuine, current `klt gen-compose` capability gap, not a design
-error in this sub-block's own connectivity list (`build_compose_request.py`
-encodes the schematic's real device-by-device net list, cross-checked
-pin-for-pin against `comparator_core.spice`): routing a net shared by more
-than two same-facing (all-drain, or all-drain+gate) block ports in a single
-row, and routing more than one same-block self-net per block, are both
-outside what the pinned build's router can currently do. Filed generically
-(no design content) at
-[2AMLogic/klayout-tools#1386](https://github.com/2AMLogic/klayout-tools/issues/1386)
-per `CLAUDE.md`'s friction protocol.
+Two honest limits on that number:
 
-Follow-up to close this sub-block out to full DRC/LVS-clean is tracked by
-issue #107 (filed alongside this record) -- either once #1386 lands, or via
-a floorplan/explicit-waypoint workaround that doesn't require it.
+- Wire *area* is a proxy for wire capacitance, not a parasitic extraction. A
+  real `klt pex` pass on this sub-block would supersede it.
+- The residual VINN/VINP imbalance is **15.5%**, and it is structural rather
+  than a router failure: the cross-quad's upper-row gate pads put VINN's pad
+  in the right column and VINP's in the left, while their trunks are on
+  opposite sides, so the two wires must cross -- one above the pads, one
+  below -- and cannot share a track. `klt gen`'s unit device also places both
+  halves' gate pads on the same side (above their own diffusion), so gate
+  pads are related by translation, not reflection, and the mirror preference
+  is deliberately not applied to them.
+
+### Body ties
+
+`gen_blocks.py` draws no guard ring on any block (`add_guard_ring: false`):
+composing a *closed* guard/collector ring per block blocked `klt gen-compose`
+from reaching almost any of that block's other ports, since every port not on
+the ring sits inside a closed metal loop a route cannot legally cross.
+
+Rather than leave every device's body on KLayout's synthesized `vsubs` proxy
+net -- the "device.body_unverified" limitation
+`layout/trivial-cell/README.md` documents -- `build_layout.py` draws the two
+body-tie structures directly:
+
+- a **p-substrate tie**: `tap` outside every n-well, contacted up to the GND
+  net, which the sky130 extraction deck merges with every NMOS body terminal
+  through its `connect_global(tap_substrate_outside, substrate_net)` wiring;
+- an **n-well tie**: `tap` inside the well, contacted up to VDD, naming the
+  well net (and so every PMOS body terminal) VDD.
+
+The `latp`/`rst` blocks each draw their own local n-well; the routing cell
+draws one enclosing n-well rectangle that merges them into a single well and
+extends far enough right to hold the well tie. Verdict 6 above asserts the
+result. `reference.spice` therefore declares real `B=GND` / `B=VDD` body
+terminals rather than an aspiration.
 
 ## Running the flow
 
 ```sh
-layout/bin/setup-venv.sh --force        # klayout-tools bumped to 0.3.0, see requirements.txt
+layout/bin/setup-venv.sh                 # once, or after bumping requirements.txt
 source sim/env.sh                        # exports PDK_ROOT/PDK
-layout/comparator/bin/run-flow.sh        # ~1 minute
+layout/comparator/bin/run-flow.sh        # ~1 minute; exit 0 iff all six verdicts hold
 cat layout/comparator/reports/$(cat layout/comparator/reports/LATEST)/record.md
 ```
 
 Each run mints a new timestamped, append-only record under
-`reports/<record-id>/` (same convention as `layout/trivial-cell/reports/`
-and `layout/sar-sequencer/reports/`): the five generated blocks (gds+json),
-the composition request/response, the composed GDS, `klt drc`/`extract`/
-`lvs` JSON envelopes, the reference netlist used, and a human-readable
-`record.md`. `reports/LATEST` points at the newest record id.
+`reports/<record-id>/` (same convention as `layout/trivial-cell/reports/` and
+`layout/sar-sequencer/reports/`). The flow is deterministic -- no randomness
+and no dict-ordering dependence in the router -- so a re-run from a clean
+checkout at the same commit reproduces a byte-identical `comparator.gds`.
 
 ## Files
 
 ```
 layout/comparator/
-  reference.spice                   # hand-authored LVS reference (schematic-correct target)
+  reference.spice                     # LVS reference (schematic-correct target)
+  reference.broken-device.spice       # negative control: device-parameter corruption
+  reference.broken-topology.spice     # negative control: topology corruption
   bin/
-    gen_blocks.py                   # the five klt gen invocations + matching-strategy rationale
-    build_compose_request.py        # gen-compose request: placement + full net-by-net connectivity
-    run-flow.sh                     # orchestrates gen -> compose -> drc -> extract -> lvs -> record
-    render-record.py                # renders record.md from the run's own JSON envelopes
+    gen_blocks.py                     # the five klt gen invocations + matching-strategy rationale
+    build_layout.py                   # floorplan + router: emits the klt draw and gen-compose requests
+    run-flow.sh                       # gen -> per-block drc -> draw -> compose -> drc -> extract -> lvs -> record
+    render-record.py                  # renders record.md, asserts the six verdicts
   reports/
-    LATEST
-    <record-id>/                    # append-only: block gds/json, compose/drc/extract/lvs json,
-                                     # the composed GDS, reference.spice, record.md
+    LATEST                            # record-id of the most recent run
+    <record-id>/                      # append-only, one directory per run:
+                                      #   <block>.gds/.json      the five klt gen blocks
+                                      #   drc.blocks.json        per-block DRC
+                                      #   draw.request.json      every wire, as klt draw input
+                                      #   draw.json, route.gds   the drawn routing cell
+                                      #   route.summary.json     per-net wiring + symmetry metrics
+                                      #   compose.request.json, compose.json
+                                      #   comparator.gds         THE DELIVERABLE
+                                      #   drc.json, extract.json, comparator.extract.spice
+                                      #   lvs.json + the two negative-control envelopes
+                                      #   report.md, record.md
 ```
+
+## Records are append-only
+
+Same rule as `sim/` and `layout/trivial-cell/`: a re-run mints a new
+`<record-id>` (`<YYYYMMDD>-<HHMMSS>-<short-git-sha>`, UTC) and never edits an
+existing report directory. `reports/20260825-131632-51cbdd4/` is the earlier,
+honestly-PARTIAL record from this issue's first increment (PR #108); it stays
+exactly as it was minted. `record.md` stamps the `klt` version, the KLayout
+engine version, the resolved PDK variant + open_pdks commit, the DRC deck's
+content hash, and the repo commit with its dirty flag.
+
+Like `layout/trivial-cell/`'s own bootstrap record, a record is minted from a
+**dirty** working tree by construction -- the flow writes its own report files
+into the repo before `record.md` is rendered. The record says so rather than
+hiding it.
 
 ## Provenance
 
-Pattern (per-block `klt gen` + `klt gen-compose`, timestamped append-only
-reports, honest partial-status record) follows `layout/README.md`'s and
-`layout/sar-sequencer/README.md`'s own conventions; device sizing and
-topology are re-derived from `design/comparator.sch`/
-`comparator_core.spice`, not copied from either sibling or any external
-implementation -- clean-room, per `CLAUDE.md`.
+Pattern (per-block `klt gen`, timestamped append-only reports, positive +
+negative verdicts asserted from JSON envelopes rather than exit codes)
+follows `layout/README.md`'s and `layout/trivial-cell/`'s own conventions;
+device sizing and topology are re-derived from `design/comparator.sch` /
+`comparator_core.spice`, not copied from either sibling sub-block or any
+external implementation -- clean-room, per `CLAUDE.md`.
+
+Per `CLAUDE.md`'s friction protocol, any awkwardness, gap, or wrong behaviour
+found in `klt` while doing layout work here is filed **generically** at
+`2AMLogic/klayout-tools` -- tool gap, no design detail, since that tracker is
+public and this repo is not.

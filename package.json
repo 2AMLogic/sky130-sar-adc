@@ -13,7 +13,7 @@
     "test": "npm run test:compile && npm run test:unit",
     "test:compile": "find sim layout -name '*.py' -not -path 'layout/.venv/*' -print0 | xargs -0 -r -n1 python3 -m py_compile",
     "test:unit": "python3 -m unittest discover --start-directory sim/tests --top-level-directory sim/tests",
-    "lint": "find sim layout -name '*.json' -not -path 'layout/.venv/*' -not -path 'layout/trivial-cell/reports/*' -print0 | xargs -0 -r -n1 python3 -m json.tool > /dev/null && bash -n sim/selftest.sh && bash -n sim/env.sh && bash -n layout/bin/setup-venv.sh && bash -n layout/bin/run-trivial-cell-flow.sh && bash -n loom.sh"
+    "lint": "find sim layout -name '*.json' -not -path 'layout/.venv/*' -not -path 'layout/trivial-cell/reports/*' -print0 | xargs -0 -r -n1 python3 -m json.tool > /dev/null && bash -n sim/selftest.sh && bash -n sim/env.sh && bash -n layout/bin/setup-venv.sh && bash -n layout/bin/run-trivial-cell-flow.sh && bash -n layout/comparator/bin/run-flow.sh && bash -n loom.sh"
   },
   "version": "0.0.0"
 }
