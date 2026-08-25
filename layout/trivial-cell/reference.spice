@@ -2,32 +2,53 @@
 * known-good cell this flow is proven against (issue #2).
 *
 * Topology only, matching `klt gen mos_array`'s pinned-default output
-* (rows=2, cols=2, dummy=1, flavor=nfet -- 2x2 "real" devices plus one
-* dummy column on each side of each row): 4 independent unit NMOS devices,
-* each with its own isolated source/drain/gate net (this generator draws
-* no GDS pin-label text, so there is nothing to name these nets after),
-* bodies tied to the single shared `vsubs` pin. `klt lvs`/`NetlistComparer`
+* (rows=2, cols=2, dummy=1, flavor=nfet -- a 2x2 array of "real" unit NMOS
+* transistors, plus one physical-only dummy column on each side of each
+* row, no well/body layer drawn): 4 independent unit NMOS devices, each
+* with its own isolated source/drain/gate net (this generator draws no GDS
+* pin-label text, so there is nothing to name these nets after), bodies
+* tied to the single shared `vsubs` pin. `klt lvs`/`NetlistComparer`
 * compares topology, not net names, so the arbitrary `d*/g*/s*` names here
 * do not need to match the extracted netlist's own (also arbitrary,
 * `$N`-style) net names.
 *
-* 4 M-cards, not 8 (issue #100 revision): layout/requirements.txt now pins
-* klayout-tools==0.3.0 (bumped from 0.2.0 by issue #100, whose own LVS
-* acceptance criterion needs 0.3.0's met2-met5/via2-4 connectivity and MiM
-* top-plate-via extension -- see design/cdac/README.md's layout-stage notes
-* and this repo's issue #100 PR description for the full derivation). 0.3.0
-* ships the dummy-device-suppression fix this file's previous revision
-* (8 M-cards) explicitly anticipated ("until the running `klt` build can
-* tell the difference, the topologically-correct reference for *this pin*
-* is all 8 physically drawn units") -- `klt extract --deck sky130` on the
-* new pin reports device_count=4, dummy_devices_dropped=4 for this
-* generator's default params (verified against a live re-run of this exact
-* flow, `layout/bin/run-trivial-cell-flow.sh`, after the pin bump): only
-* the 2x2 "real" array's own 4 unit transistors are extracted as devices,
-* the two dummy columns' NMOS instances are recognised and dropped as
-* dummies (`ExtractionDeck.dummy`/`--pdk sky130A`'s `(83, 20)` marker layer,
-* per `klayout_tools/decks/sky130.py`'s 0.3.0 revision) rather than being
-* left as ordinary, schematic-visible devices the way the 0.2.0 pin did.
+* 4 M-cards, not 8: a dummy unit has no schematic counterpart by
+* construction, per the mos_array generator's own docs -- so 4 is the
+* schematically-correct reference, and the earlier 8-card revision of this
+* file was a *workaround* for a known extraction limitation, not a
+* statement about the intended topology. That revision's own header said
+* as much: the previous pin (klayout-tools==0.2.0) predated the
+* dummy-device-suppression fix (klayout-tools#491/#494) and reported
+* device_count=8, dummy_devices_dropped=0 for this generator's defaults,
+* so the only reference that could match *that* pin was all 8 physically
+* drawn units ("until the running `klt` build can tell the difference, the
+* topologically-correct reference for *this pin* is all 8 physically drawn
+* units").
+*
+* layout/requirements.txt now pins klayout-tools==0.3.0 (bumped from 0.2.0
+* by issue #100, whose own LVS acceptance criterion needs 0.3.0's
+* met2-met5/via2-4 connectivity and MiM top-plate-via extension -- see
+* design/cdac/README.md's layout-stage notes and this repo's issue #100 PR
+* description for the full derivation), and 0.3.0 carries that
+* dummy-device-suppression fix: `klt extract --deck sky130` on the new pin
+* reports device_count=4, dummy_devices_dropped=4 for this generator's
+* default params (verified against a live re-run of this exact flow,
+* `layout/bin/run-trivial-cell-flow.sh`). Only the 2x2 "real" array's own 4
+* unit transistors are extracted as devices; the two dummy columns' NMOS
+* instances are recognised and dropped as dummies
+* (`ExtractionDeck.dummy`/`--pdk sky130A`'s `(83, 20)` marker layer, per
+* `klayout_tools/decks/sky130.py`'s 0.3.0 revision) rather than being left
+* as ordinary, schematic-visible devices the way the 0.2.0 pin did. Their
+* unconnected metal0 shows up as `dead_metal` in extract.json instead,
+* which is informational, not a verdict.
+*
+* Issue #104 completed the re-derivation: issue #100's revision updated only
+* this file, leaving reference.broken-device.spice and
+* reference.broken-topology.spice at 8 M-cards, which confounded verdicts
+* 3-4 -- those controls then reported mismatch driven by `device.unmatched`
+* (a 4-vs-8 device-count difference) rather than by the fault each one
+* actually injects. All three references now carry 4 M-cards, so the
+* negative controls falsify on their injected corruption alone.
 *
 * Provenance: pattern (LVS reference authored against the generator's own
 * documented default topology, dummy-count caveat called out explicitly)
@@ -37,7 +58,8 @@
 * against this repo's own pinned klt version, not copied. Revised for the
 * klt 0.3.0 pin bump by issue #100 (mechanical fallout of a shared-fixture
 * dependency bump, not a scope expansion of that issue's own CDAC-array
-* deliverable -- see that issue's PR description).
+* deliverable -- see that issue's PR description), and completed across all
+* three reference netlists by issue #104.
 .SUBCKT trivial_mos_array vsubs
 M1 d1 g1 s1 vsubs nfet L=0.28U W=0.42U
 M2 d2 g2 s2 vsubs nfet L=0.28U W=0.42U

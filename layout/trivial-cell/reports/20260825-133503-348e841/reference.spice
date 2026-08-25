@@ -1,0 +1,42 @@
+* Hand-written LVS reference netlist for `trivial_mos_array`, the trivial
+* known-good cell this flow is proven against (issue #2).
+*
+* Topology only, matching `klt gen mos_array`'s pinned-default output
+* (rows=2, cols=2, dummy=1, flavor=nfet -- a 2x2 array of "real" unit NMOS
+* transistors, plus one physical-only dummy column on each side of each
+* row, no well/body layer drawn): 4 independent unit NMOS devices, each
+* with its own isolated source/drain/gate net (this generator draws no GDS
+* pin-label text, so there is nothing to name these nets after), bodies
+* tied to the single shared `vsubs` pin. `klt lvs`/`NetlistComparer`
+* compares topology, not net names, so the arbitrary `d*/g*/s*` names here
+* do not need to match the extracted netlist's own (also arbitrary,
+* `$N`-style) net names.
+*
+* 4 M-cards, not 8 (issue #104): a dummy unit has no schematic counterpart
+* by construction, per the mos_array generator's own docs -- so 4 is the
+* schematically-correct reference, and the earlier 8-card revision of this
+* file was a *workaround* for a known extraction limitation, not a
+* statement about the intended topology. That revision's own header said
+* as much: the previous pin (klayout-tools==0.2.0) predated the
+* dummy-device-suppression fix (klayout-tools#491/#494) and reported
+* device_count=8, dummy_devices_dropped=0 for this generator's defaults,
+* so the only reference that could match *that* pin was all 8 physically
+* drawn units. The pin bump to klayout-tools==0.3.0 carries that fix:
+* `klt extract --deck sky130` now reports device_count=4,
+* dummy_devices_dropped=4 here, so the workaround is removed and the
+* reference reverts to the generator's documented intent. The four dummy
+* units' unconnected metal0 shows up as `dead_metal` in extract.json
+* instead, which is informational, not a verdict.
+*
+* Provenance: pattern (LVS reference authored against the generator's own
+* documented default topology, dummy-count caveat called out explicitly)
+* ported from 2AMLogic/sky130-bandgap's layout/trivial-cell/reference.spice
+* (commit 1f04e8524cc2d8c2c7154773749b1b2d3be2ce64), per CLAUDE.md's
+* "Harness bootstrap" instruction -- device count and header re-derived
+* against this repo's own pinned klt version, not copied.
+.SUBCKT trivial_mos_array vsubs
+M1 d1 g1 s1 vsubs nfet L=0.28U W=0.42U
+M2 d2 g2 s2 vsubs nfet L=0.28U W=0.42U
+M3 d3 g3 s3 vsubs nfet L=0.28U W=0.42U
+M4 d4 g4 s4 vsubs nfet L=0.28U W=0.42U
+.ENDS trivial_mos_array
