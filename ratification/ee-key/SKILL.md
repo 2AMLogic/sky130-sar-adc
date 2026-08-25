@@ -1,10 +1,9 @@
 # EE-key skill — technical-soundness review for spec ratification
 
-**Owner:** `2am` repo. **Consumer:** the first of two non-author review keys
-on a canary repo's spec-ratification PR (2AMLogic/2am#372, "Epic: autonomous
-spec ratification"). The other key is the market key
-(2AMLogic/product#79/#80/#81, `product/ratification/market-key/`) —
-competitive positioning. This skill never rules on competitiveness; it rules
+**Consumer:** the first of two non-author review keys
+on a canary repo's spec-ratification PR. The other key is
+the market key — competitive
+positioning. This skill never rules on competitiveness; it rules
 on one question only: **does the proposed spec row (or the decision record
 that scopes it) hold up as a physically sound, evidence-backed engineering
 claim, on this block's own PDK, topology, and measured behavior?**
@@ -13,12 +12,12 @@ claim, on this block's own PDK, topology, and measured behavior?**
 
 **This skill must not be invoked by an agent that authored the PR under
 review or the spec/design the PR ratifies.** The actual identity check is
-2AMLogic/2am#376 — until it lands, self-check: if the PR's author, or the
+the invoking review automation's job
+— until it lands, self-check: if the PR's author, or the
 design's original proposer, is the same identity running this review, stop
 and say so instead of producing a verdict. An EE-key verdict from an
 interested party is not incentive-separated and is worse than no verdict at
-all (2AMLogic/2am#372, "The safety property": "the party that failed a spec
-must not be able to lower the bar").
+all.
 
 ## Disclosure discipline (hard requirement, structural)
 
@@ -37,30 +36,32 @@ must not be able to lower the bar").
 
 **Never read, cite, or let influence a verdict:**
 
-- `marketing/POSITIONING.md`, `everyblock/tiers.md`,
-  `everyblock/block-matrix.md`, `everyblock/grants.md`, or any other
-  Tier 2/3 business-positioning material — this key has no jurisdiction over
-  competitiveness or commercial framing (see `rubric.md`'s "EE-key /
-  market-key jurisdiction boundary") and no step below needs any of it.
-- This repo's (`2am`'s) own `infra/`, `hosts.yml`, or credential/compute
-  operational detail — none of it bears on whether a spec row is physically
-  sound, and none of it belongs anywhere near a canary repo's public PR
-  thread.
-- `corporate/`, `money/`, or any other sibling repo holding entity,
-  contract, or financial material.
+- Any internal strategy, roadmap, pricing, or business-positioning
+  document, regardless of source or how it is described to this skill —
+  this key has no jurisdiction over competitiveness or commercial framing
+  (see `rubric.md`'s "EE-key / market-key jurisdiction boundary") and no
+  step below needs any of it.
+
+- Any fleet or infrastructure operational detail — hosts, credentials,
+  compute configuration — regardless of source; none of it bears on
+  whether a spec row is physically sound, and none of it belongs anywhere
+  near a canary repo's public PR thread.
+
+- Any sibling repo holding entity, legal, contract, or financial material,
+  regardless of source.
 
 **Why this is structural, not a promise:** every input the research
 procedure below calls for is either the target repo's own evidence, a
 sibling canary's own evidence, or public PDK/physics reference material.
-There is no step in this file that would be *easier* with Tier 2/3 access.
-If a future edit to this file would require the forbidden material, that is
-the signal the edit does not belong in this skill.
+There is no step in this file that would be *easier* with access to any of
+the forbidden material named above. If a future edit to this file would
+require the forbidden material, that is the signal the edit does not belong
+in this skill.
 
 **What to do if the review surfaces a disclosure problem:** stop, do not
 post a verdict, and say plainly in the PR comment that a disclosure issue
 was found and needs a non-automated look — do not attempt to redact and
-continue. (Mirrors `product/ratification/market-key/SKILL.md`'s identical
-instruction for its own key.)
+continue.
 
 ## Research procedure
 
@@ -129,10 +130,10 @@ PR is one of three shapes, and each gets a different check:
 
 **Step 3 — sibling-canary precedent lookup.** For the block class named in
 Step 0, check ratified rows in sibling canary repos of the same class under
-a different PDK (naming convention `<pdk>-<block-class>`, e.g.
-`gf180-pll`/`sky130-pll`/`sg13g2-pll` for PLLs;
+a different PDK (naming convention `<pdk>-<block-class>`,
+e.g. `gf180-pll`/`sg13g2-pll` for PLLs;
 `gf180-bandgap`/`sky130-bandgap`/`sg13g2-bandgap` for bandgaps;
-`gf180-ldo`/`sky130-ldo` for LDOs; and so on):
+`gf180-ldo` for LDOs; and so on):
 
 1. Did a sibling ratify the "same" row (by name/parameter) already? If so,
    read its decision record for the reasoning pattern it used — not to copy
@@ -160,16 +161,15 @@ applies here.
 change as a relax of a previously-RATIFIED row, or a disclosed-FAIL
 disposition being carried forward, this key's own finding of physical
 soundness is not optional color — it is the safety property the whole
-two-key design exists to protect (2AMLogic/2am#372: *"Agents never relax a
-ratified spec to make results pass... the party that failed a spec must not
-be able to lower the bar"*). This key must independently re-derive why the
+two-key design exists to protect.
+This key must independently re-derive why the
 weaker value is defensible **on its own physical merits** — not merely that
 it happens to pass the failing measurement. If this key cannot make that
 finding, the output must say so plainly and request changes (or, if the
 weaker value is genuinely defensible but its market/competitive standing is
 now in question, note that the market key's own relax-after-measured-FAIL
-gate — `product/ratification/market-key/SKILL.md` Step 5 — is the place
-that question gets resolved, not this one).
+gate
+is the place that question gets resolved, not this one).
 
 ## Verdict rubric
 
@@ -213,16 +213,6 @@ Block class: <...>. Kind: <analog|digital|mixed-signal>. Change type
 ...
 ```
 
-The marker comment's `verdict=` field is machine-read by the release wiring
-(2AMLogic/2am#372 Phase C1, not yet built) — keep it exactly one of the two
-listed tokens, never free text. This mirrors
-`product/ratification/market-key/SKILL.md`'s own marker contract exactly,
-so Phase C1's parser handles both keys with one code path.
+The marker comment's `verdict=` field is machine-read by the release wiring — keep it exactly one of the two
+listed tokens, never free text.
 
-## Decision log
-
-| Date | Decision | Why |
-|---|---|---|
-| 2026-08-20 | Verdict tokens `approve`/`request-changes`, not the market key's four-token `competitive`/`adequate-for-catalog`/`uncompetitive`/`escalate` | The epic's own Phase B line states the EE key's output as "approve / request-changes with specifics" verbatim — matching it exactly avoids inventing a vocabulary Phase C1's marker grammar would then have to reconcile with the epic's own stated contract |
-| 2026-08-20 | Per-row verdict tokens (`sound`/`insufficient-evidence`/`unsound`) are a separate, finer-grained vocabulary from the overall PR verdict, rolled up rather than reused directly | Mirrors the market key's own row-verdict/overall-verdict split (`rubric.md`'s three per-row tokens vs. the four-token overall verdict) — a row can be individually unsound while the overall PR still requests changes rather than being rejected outright, and collapsing the two vocabularies into one would lose that distinction |
-| 2026-08-20 | Step 1's three-way change classification (new-ratification / scope-only / relax-after-fail) added before any row-level review | Without it, a scope-only decision record (like `sky130-pll`'s own `DR-001`, which ratifies a device-family *choice*, not a numeric row) would either be graded against a row-review checklist it was never trying to satisfy, or the relax-after-FAIL gate (Step 5) could be silently skipped on a PR that actually needs it. Naming the change type up front is what makes the rest of the procedure apply the right checklist |
