@@ -78,7 +78,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners, evidence, pdk, toolchain  # noqa: E402
+from harness import corners, evidence, measure, pdk, toolchain  # noqa: E402
 
 DUT_FRAGMENT = EXPERIMENT_DIR / "testbench" / "sampling_frontend_dut.spice"
 # The real CDAC array's regenerated netlist fragment (issue #53), read
@@ -335,20 +335,25 @@ def build_ac_capacitance(
 # Output parsing
 # ---------------------------------------------------------------------------
 
-_MEAS_RE = re.compile(r"^\s*([a-z0-9_]+)\s*=\s*([-+0-9.eE]+)")
+# The 22 `.meas tran ... find ... at=` names build_transient()'s .control
+# block can emit (a superset of build_full_load_transient()'s own 6-name
+# subset) -- passed to harness.measure.parse() as its required explicit
+# allowlist. build_transient()'s optional caller-supplied extra_meas is
+# currently unused by every call site in this file; if a future caller
+# passes extra_meas, its names must be added here too.
+TRAN_MEASURE_NAMES = [
+    "top_p_end", "top_n_end", "bp_p_end", "bp_n_end", "g_p_end", "g_n_end",
+    "boost_p_end", "boost_n_end", "bsbot_p_end", "bsbot_n_end",
+    "top_p_hold", "top_n_hold", "bp_p_hold", "bp_n_hold", "g_p_hold", "g_n_hold",
+    "boost_p_hold", "boost_n_hold", "bsbot_p_hold", "bsbot_n_hold",
+    "top_p_late", "top_n_late",
+]
 
-
-def parse_measures(output: str) -> dict[str, float]:
-    result: dict[str, float] = {}
-    for line in output.splitlines():
-        m = _MEAS_RE.match(line)
-        if not m:
-            continue
-        try:
-            result[m.group(1)] = float(m.group(2))
-        except ValueError:
-            continue
-    return result
+# The 4 scalar names build_ac_capacitance()'s single-frequency-point
+# `print c_top_p c_top_n c_bp_p c_bp_n` emits in the same "name = value"
+# shape (a single-point `ac` analysis condenses to scalar print output, not
+# the multi-row column block parse_ac_print() below handles).
+AC_MEASURE_NAMES = ["c_top_p", "c_top_n", "c_bp_p", "c_bp_n"]
 
 
 _AC_PRINT_RE = re.compile(
@@ -412,7 +417,9 @@ def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
     attempts = 4
     for attempt in range(1, attempts + 1):
         try:
-            return parse_measures(toolchain.run_ngspice(netlist, scratch, tag))
+            return measure.parse(
+                toolchain.run_ngspice(netlist, scratch, tag), TRAN_MEASURE_NAMES
+            )
         except RuntimeError as exc:
             if "timed out" not in str(exc) or attempt == attempts:
                 raise
@@ -472,8 +479,8 @@ def _ac_point(bias: dict[str, float], driven: list[str], scratch: Path,
               tag: str) -> dict[str, float]:
     netlist = build_ac_capacitance(bias=bias, driven=driven)
     out = toolchain.run_ngspice(netlist, scratch, tag)
-    vals = parse_measures(out)
-    needed = ["c_top_p", "c_top_n", "c_bp_p", "c_bp_n"]
+    vals = measure.parse(out, AC_MEASURE_NAMES)
+    needed = AC_MEASURE_NAMES
     if any(k not in vals for k in needed):
         raise RuntimeError(
             f"capacitance extraction for driven={driven} parsed "

@@ -52,9 +52,17 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import pdk, toolchain, evidence  # noqa: E402
+from harness import pdk, toolchain, evidence, measure  # noqa: E402
 
 DUT_FRAGMENT = EXPERIMENT_DIR / "testbench" / "sampling_frontend_dut.spice"
+
+# The six `.meas tran ... find ... at=` names emitted by build_netlist()'s
+# .control block below -- passed to harness.measure.parse() as its required
+# explicit allowlist (see sim/harness/measure.py's docstring for why the
+# harness centralizes this "name = value" line parsing).
+MEASURE_NAMES = [
+    "top_p_end", "top_n_end", "top_p_hold", "top_n_hold", "g_p_end", "g_n_end",
+]
 
 # Differential test points: (name, VINP, VINN). VCM = 0.9V (DR-003/DR-004
 # provisional, V_REF/2 at V_REF = VDD = 1.8V). "worst_case_pp"/"worst_case_np"
@@ -111,29 +119,11 @@ def build_netlist(vinp: float, vinn: float, corner: str, temp_c: float = 27.0) -
     return "\n".join(lines) + "\n"
 
 
-def parse_measures(output: str) -> dict[str, float]:
-    result: dict[str, float] = {}
-    for line in output.splitlines():
-        parts = line.split("=")
-        if len(parts) == 2:
-            name = parts[0].strip()
-            try:
-                val = float(parts[1].strip().split()[0])
-            except ValueError:
-                continue
-            if name in (
-                "top_p_end", "top_n_end", "top_p_hold", "top_n_hold",
-                "g_p_end", "g_n_end",
-            ):
-                result[name] = val
-    return result
-
-
 def run_point(name: str, vinp: float, vinn: float, corner: str, scratch: Path) -> dict:
     netlist = build_netlist(vinp, vinn, corner)
     log_name = f"{name}_{corner}"
     output = toolchain.run_ngspice(netlist, scratch, log_name)
-    meas = parse_measures(output)
+    meas = measure.parse(output, MEASURE_NAMES)
     return {
         "name": name, "corner": corner, "vinp": vinp, "vinn": vinn,
         "netlist": netlist, "log_name": log_name, **meas,
