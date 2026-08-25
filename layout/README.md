@@ -15,6 +15,11 @@ generator-drawn, DRC-clean and LVS-clean against `design/cdac/*.sch`, and
 the block's matching-critical sub-block — see that directory's own README
 for the common-centroid/unit-element strategy and the four extra verdicts
 its flow asserts *because* DRC and LVS say nothing about matching.
+`comparator/` is the full-custom analog counterpart (issue #101, DRC-clean
+and LVS-clean): `klt gen`'s matched-device generators for the transistors,
+a hand-written floorplan/router emitted through `klt draw` for every wire,
+and `klt gen-compose` used as a placer only — see that directory's own README
+for the flow choice, the matching strategy, and its six verdicts.
 
 ## Install
 
