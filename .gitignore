@@ -27,6 +27,11 @@ sim/build/
 
 # layout/ DRC/LVS flow: local klt install, created by layout/bin/setup-venv.sh
 layout/.venv/
+# layout/sar-sequencer/ (issue #102): generate-lvs-reference.py's own output
+# -- regenerated per run-flow.sh run from that run's post-route netlist, and
+# copied into each timestamped reports/<record-id>/ (the committed evidence
+# trail) -- so the top-level copy is scratch, not a tracked source file.
+layout/sar-sequencer/reference/
 # >>> loom-managed (do not edit) >>>
 # Loom runtime state (don't commit these)
 .loom-in-use

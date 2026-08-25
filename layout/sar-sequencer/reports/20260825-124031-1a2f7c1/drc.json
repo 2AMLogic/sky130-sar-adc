@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "file": "/Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-102/layout/sar-sequencer/reports/20260825-124031-1a2f7c1/sar_sequencer.gds",
+  "deck": "sky130",
+  "dbu_um": 0.001,
+  "status": "clean",
+  "violation_count": 0,
+  "rule_counts": {},
+  "violations": [],
+  "coverage": {
+    "deck_layers": [
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20"
+    ],
+    "layers_checked": [
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20"
+    ],
+    "layers_in_stream_without_rules": [
+      "64/5",
+      "64/16",
+      "64/20",
+      "64/59",
+      "67/5",
+      "67/16",
+      "68/5",
+      "68/16",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "78/44",
+      "81/4",
+      "83/44",
+      "93/44",
+      "94/20",
+      "95/20",
+      "122/16",
+      "235/4",
+      "236/0"
+    ],
+    "rules_skipped": []
+  },
+  "provenance": {
+    "klt_version": "0.2.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:3bf7dada5e1dc46d36411c6149a227599f41580edfeb78c00060b5756424f3d3"
+    },
+    "input": {
+      "content_hash": "sha256:3e5adcf0a2ab24e77e7e25fc1573c9fa436fd4be5c80e15393a5f1ea6c676122"
+    }
+  }
+}

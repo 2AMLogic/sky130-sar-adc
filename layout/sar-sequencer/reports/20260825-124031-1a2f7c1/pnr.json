@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "engine": "openroad",
+  "engine_version": "26Q3-1510-g6cb3f2b704",
+  "hdl_toplevel": "sar_sequencer",
+  "status": "ok",
+  "stage_reached": "route",
+  "seed": 1,
+  "die_area_um2": 1812.2,
+  "core_area_um2": 1350.04,
+  "utilization_pct": 51.5292,
+  "wirelength_um": 1288,
+  "worst_slack_ns": 81.8934,
+  "total_negative_slack_ns": 0,
+  "fmax_mhz": 696.086,
+  "setup_violation_count": 0,
+  "hold_violation_count": 0,
+  "estimated_power_mw": 0.0155,
+  "stages": [
+    {
+      "name": "floorplan",
+      "die_area_um2": 1812.2,
+      "core_area_um2": 1350.04,
+      "utilization_pct": 49.5829,
+      "worst_slack_ns": 81.9972,
+      "total_negative_slack_ns": 0
+    },
+    {
+      "name": "place",
+      "die_area_um2": 1812.2,
+      "core_area_um2": 1350.04,
+      "utilization_pct": 49.5829,
+      "worst_slack_ns": 81.9303,
+      "total_negative_slack_ns": 0,
+      "wirelength_um": 1063.07,
+      "fmax_mhz": 714.458,
+      "estimated_power_mw": 0.0109,
+      "setup_violation_count": 0,
+      "hold_violation_count": 0
+    },
+    {
+      "name": "cts",
+      "die_area_um2": 1812.2,
+      "core_area_um2": 1350.04,
+      "utilization_pct": 51.5292,
+      "worst_slack_ns": 81.8891,
+      "total_negative_slack_ns": 0,
+      "wirelength_um": 1124.56,
+      "fmax_mhz": 694.013,
+      "estimated_power_mw": 0.0148,
+      "setup_violation_count": 0,
+      "hold_violation_count": 0
+    },
+    {
+      "name": "route",
+      "die_area_um2": 1812.2,
+      "core_area_um2": 1350.04,
+      "utilization_pct": 51.5292,
+      "worst_slack_ns": 81.8934,
+      "total_negative_slack_ns": 0,
+      "wirelength_um": 1288,
+      "fmax_mhz": 696.086,
+      "estimated_power_mw": 0.0155,
+      "setup_violation_count": 0,
+      "hold_violation_count": 0
+    }
+  ],
+  "macros": [],
+  "def_path": "/Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-102/layout/sar-sequencer/reports/20260825-124031-1a2f7c1/.klt/place-and-route/sar_sequencer.def",
+  "gds_path": "/Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-102/layout/sar-sequencer/reports/20260825-124031-1a2f7c1/.klt/place-and-route/sar_sequencer.gds",
+  "provenance": {
+    "klt_version": "0.2.0",
+    "klayout_version": "0.30.11",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+    },
+    "deck": {
+      "name": "sky130_fd_sc_hd__tt_025C_1v80",
+      "content_hash": "sha256:8e78e14442062dba34d414fca6490b2f6b96038d4510d1438ca44fee31487135"
+    },
+    "input": {
+      "content_hash": "sha256:aa083f063b2bfe53d8b6350cec0c5fa870ae3feb8b93b3cf2f593c5b2b60ae65"
+    }
+  }
+}

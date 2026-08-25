@@ -1,0 +1,17 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "file": "sar_sequencer.gds",
+    "deck": "sky130",
+    "top": "sar_sequencer",
+    "top_cell_pins": true
+  },
+  "reference": {
+    "netlist": "sar_sequencer.lvs-reference.spice",
+    "top": "sar_sequencer"
+  },
+  "options": {
+    "combine_devices": true
+  }
+}

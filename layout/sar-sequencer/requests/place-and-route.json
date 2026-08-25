@@ -1,0 +1,26 @@
+{
+  "engine": "openroad",
+  "netlist": "../netlist/sar_sequencer.v",
+  "hdl_toplevel": "sar_sequencer",
+  "pdk": {
+    "cell_library": "sky130_fd_sc_hd",
+    "corner": "tt_025C_1v80"
+  },
+  "floorplan": {
+    "method": "utilization",
+    "utilization_pct": 45,
+    "aspect_ratio": 1.0,
+    "core_margin_um": 2.0,
+    "site": "unithd"
+  },
+  "io": {
+    "layer_h": "met1",
+    "layer_v": "li1"
+  },
+  "constraints": {
+    "clock_port": "CLK",
+    "clock_period_ns": 83.33
+  },
+  "seed": 1,
+  "target_stage": "route"
+}
