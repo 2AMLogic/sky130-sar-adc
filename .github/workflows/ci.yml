@@ -88,23 +88,73 @@ jobs:
           python-version: "3.11"
 
       - name: Install xschem + ngspice build deps
-        # xschem comes from apt: it only netlists schematics, and every record
-        # pins the netlist it actually ran by SHA-256, so an xschem version
-        # difference is reported as a warning by `--check-env` rather than
-        # blocking the run (see sim/harness/toolchain.py).
+        # Neither tool comes from apt (issue #116): ubuntu-latest's xschem
+        # package (3.4.4-1 as of this comment) is OLDER than
+        # sim/toolchain.json's `xschem_tag` pin (3.4.7) and, critically, does
+        # NOT evaluate the sky130 PDK symbols' `tcleval()`-wrapped parametric
+        # properties (ad/as/pd/ps/nrd/nrs on every MOS device) into concrete
+        # numbers the way 3.4.7 does -- it emits the raw, unevaluated Tcl
+        # expression text into the netlist instead, which is not valid SPICE.
+        # This was invisible until this issue's investigation because
+        # `pdk-smoke` had never actually run end to end before: apt's xschem
+        # also prints extra PDK-banner/ERC/comment-echo chatter to
+        # stdout/stderr that design/regen_netlist.sh's "expect none" check
+        # (now tolerant of it, see that script) took as a hard failure before
+        # ever reaching the parametric-expression difference. Building the
+        # exact pinned tag from source (verified locally against this repo's
+        # own design/sar_adc_top.spice: a fresh `--check` run against the
+        # source-built 3.4.7 matches byte-for-byte) is the only build that
+        # produces a netlist this repo's own regeneration check can trust --
+        # matching the same "apt is too old, build the pinned version"
+        # rationale already used for ngspice below, not a new pattern.
         #
-        # ngspice does NOT come from apt. ubuntu-latest ships ngspice-42,
-        # below sim/toolchain.json's `ngspice_min_major` floor, and the
-        # harness correctly refuses to simulate on a drifted toolchain --
-        # numbers from it would not be comparable with the records already in
-        # sim/. Lowering the pin to match whatever apt happens to ship would
-        # be relaxing the gate to make the check pass, which is precisely what
-        # CLAUDE.md forbids; so CI builds a version that meets the floor
-        # instead. Cached, so this costs ~2 minutes once per pin bump.
+        # ngspice does NOT come from apt either. ubuntu-latest ships
+        # ngspice-42, below sim/toolchain.json's `ngspice_min_major` floor,
+        # and the harness correctly refuses to simulate on a drifted
+        # toolchain -- numbers from it would not be comparable with the
+        # records already in sim/. Lowering the pin to match whatever apt
+        # happens to ship would be relaxing the gate to make the check pass,
+        # which is precisely what CLAUDE.md forbids; so CI builds a version
+        # that meets the floor instead. Both builds are cached, so this costs
+        # a few minutes once per pin bump.
         run: |
           sudo apt-get update
-          sudo apt-get install -y xschem build-essential bison flex \
-            libreadline-dev libx11-dev libxaw7-dev automake libtool
+          sudo apt-get install -y build-essential bison flex \
+            libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
+            libxrender-dev libcairo2-dev tcl-dev tk-dev gawk \
+            automake libtool
+
+      - name: Resolve the pinned xschem version
+        id: xschem-pin
+        # xschem_tag is the bare version-number git tag this repo's own
+        # xschem release uses (e.g. "3.4.7") -- see sim/toolchain.json.
+        run: |
+          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["xschem_tag"])')"
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache xschem build
+        id: cache-xschem
+        uses: actions/cache@v4
+        with:
+          path: /opt/xschem
+          key: xschem-${{ steps.xschem-pin.outputs.version }}-${{ runner.os }}
+
+      - name: Build xschem ${{ steps.xschem-pin.outputs.version }} from source
+        if: steps.cache-xschem.outputs.cache-hit != 'true'
+        run: |
+          V="${{ steps.xschem-pin.outputs.version }}"
+          curl -fsSL -o /tmp/xschem.tar.gz \
+            "https://github.com/StefanSchippers/xschem/archive/refs/tags/${V}.tar.gz"
+          mkdir -p /tmp/xschem-src
+          tar -xzf /tmp/xschem.tar.gz -C /tmp/xschem-src --strip-components=1
+          cd /tmp/xschem-src
+          ./configure --prefix=/opt/xschem
+          make -j"$(nproc)"
+          make install
+
+      - name: Put the built xschem on PATH
+        run: |
+          echo "/opt/xschem/bin" >> "$GITHUB_PATH"
 
       - name: Resolve the pinned ngspice version
         id: ngspice-pin

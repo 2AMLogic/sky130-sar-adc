@@ -40,11 +40,9 @@
 *.opin DOUT0
 *.opin BUSY
 xfe VINP VINN SAMPLE_INT VCM VDD TOP_P TOP_N BPREF_P_NC BPREF_N_NC sampling_frontend
-xcdac VREFP VREFN VDD GND SELn0 DOUT0 SELn1 DOUT1 SELn2 DOUT2 SELn3 DOUT3 SELn4 DOUT4 TOP_N TOP_P DOUT5 SELn5 DOUT6 SELn6 SELn7
-+ DOUT7 SELn8 DOUT8 cdac_array
+xcdac VREFP VREFN VDD GND SELn0 DOUT0 SELn1 DOUT1 SELn2 DOUT2 SELn3 DOUT3 SELn4 DOUT4 TOP_N TOP_P DOUT5 SELn5 DOUT6 SELn6 SELn7 DOUT7 SELn8 DOUT8 cdac_array
 xcmp VDD CLK TOP_P TOP_N COMP_OUT OUTN_NC comparator
-xseq DOUT9 net1 CLK net2 DOUT8 RST_B net3 DOUT7 COMP_OUT DOUT6 net4 net5 DOUT5 DOUT4 net6 DOUT3 net7 DOUT2 net8 net9 DOUT1 net10
-+ DOUT0 net11 SAMPLE_INT BUSY sar_sequencer
+xseq DOUT9 net1 CLK net2 DOUT8 RST_B net3 DOUT7 COMP_OUT DOUT6 net4 net5 DOUT5 DOUT4 net6 DOUT3 net7 DOUT2 net8 net9 DOUT1 net10 DOUT0 net11 SAMPLE_INT BUSY sar_sequencer
 xinv_seln0 DOUT0 VGND VGND VPWR VPWR SELn0 sky130_fd_sc_hd__inv_1
 xinv_seln1 DOUT1 VGND VGND VPWR VPWR SELn1 sky130_fd_sc_hd__inv_1
 xinv_seln2 DOUT2 VGND VGND VPWR VPWR SELn2 sky130_fd_sc_hd__inv_1
@@ -55,7 +53,6 @@ xinv_seln6 DOUT6 VGND VGND VPWR VPWR SELn6 sky130_fd_sc_hd__inv_1
 xinv_seln7 DOUT7 VGND VGND VPWR VPWR SELn7 sky130_fd_sc_hd__inv_1
 xinv_seln8 DOUT8 VGND VGND VPWR VPWR SELn8 sky130_fd_sc_hd__inv_1
 **.ends
-
 * expanding   symbol:  design/sampling_frontend.sym # of pins=9
 ** sym_path: design/sampling_frontend.sym
 ** sch_path: design/sampling_frontend.sch
@@ -69,58 +66,35 @@ xinv_seln8 DOUT8 VGND VGND VPWR VPWR SELn8 sky130_fd_sc_hd__inv_1
 *.opin TOP_N
 *.opin BPREF_P
 *.opin BPREF_N
-XMsw_p VINP G_P TOP_P GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XSa_p BOOST_P SAMPLE VDD BOOST_P sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XSb_p BSBOT_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XScn_p BSBOT_P SAMPLE VINP GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XScp_p BSBOT_P SAMPLEB VINP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XSd_p G_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0
-+ mult=1 m=1
-XSe_p G_P SAMPLEB BOOST_P BOOST_P sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XCmswn_p BPREF_P SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XCmswp_p BPREF_P SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
+XMsw_p VINP G_P TOP_P GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
+XSa_p BOOST_P SAMPLE VDD BOOST_P sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSb_p BSBOT_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XScn_p BSBOT_P SAMPLE VINP GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XScp_p BSBOT_P SAMPLEB VINP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSd_p G_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSe_p G_P SAMPLEB BOOST_P BOOST_P sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswn_p BPREF_P SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswp_p BPREF_P SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XCboot_p BOOST_P BSBOT_P sky130_fd_pr__cap_mim_m3_1 W=9.8 L=9.8 MF=1 m=1
 XCsamp_p TOP_P BPREF_P sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=1 m=1
-XMsw_n VINN G_N TOP_N GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XSa_n BOOST_N SAMPLE VDD BOOST_N sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XSb_n BSBOT_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XScn_n BSBOT_N SAMPLE VINN GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XScp_n BSBOT_N SAMPLEB VINN VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XSd_n G_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0
-+ mult=1 m=1
-XSe_n G_N SAMPLEB BOOST_N BOOST_N sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XCmswn_n BPREF_N SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XCmswp_n BPREF_N SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
-+ sb=0 sd=0 mult=1 m=1
+XMsw_n VINN G_N TOP_N GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
+XSa_n BOOST_N SAMPLE VDD BOOST_N sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSb_n BSBOT_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XScn_n BSBOT_N SAMPLE VINN GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XScp_n BSBOT_N SAMPLEB VINN VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSd_n G_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSe_n G_N SAMPLEB BOOST_N BOOST_N sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswn_n BPREF_N SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswp_n BPREF_N SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XCboot_n BOOST_N BSBOT_N sky130_fd_pr__cap_mim_m3_1 W=9.8 L=9.8 MF=1 m=1
 XCsamp_n TOP_N BPREF_N sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=1 m=1
-XInvp SAMPLEB SAMPLE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XInvn SAMPLEB SAMPLE GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XInvp SAMPLEB SAMPLE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
+XInvn SAMPLEB SAMPLE GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 .ends
-
-
 * expanding   symbol:  design/cdac/cdac_array.sym # of pins=24
 ** sym_path: design/cdac/cdac_array.sym
 ** sch_path: design/cdac/cdac_array.sch
-.subckt cdac_array VREFP VREFN VDD VSS SELn0 SELp0 SELn1 SELp1 SELn2 SELp2 SELn3 SELp3 SELn4 SELp4 TOP_N TOP_P SELp5 SELn5 SELp6
-+ SELn6 SELn7 SELp7 SELn8 SELp8
+.subckt cdac_array VREFP VREFN VDD VSS SELn0 SELp0 SELn1 SELp1 SELn2 SELp2 SELn3 SELp3 SELn4 SELp4 TOP_N TOP_P SELp5 SELn5 SELp6 SELn6 SELn7 SELp7 SELn8 SELp8
 *.ipin SELp0
 *.ipin SELp1
 *.ipin SELp2
@@ -146,100 +120,62 @@ XInvn SAMPLEB SAMPLE GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=
 *.ipin VDD
 *.ipin VSS
 XCp0 BOT_p0 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
-XMp0n BOT_p0 SELp0 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp0p BOT_p0 SELp0 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp0n BOT_p0 SELp0 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp0p BOT_p0 SELp0 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp1 BOT_p1 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
-XMp1n BOT_p1 SELp1 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp1p BOT_p1 SELp1 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp1n BOT_p1 SELp1 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp1p BOT_p1 SELp1 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp2 BOT_p2 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
-XMp2n BOT_p2 SELp2 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp2p BOT_p2 SELp2 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp2n BOT_p2 SELp2 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp2p BOT_p2 SELp2 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp3 BOT_p3 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
-XMp3n BOT_p3 SELp3 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp3p BOT_p3 SELp3 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp3n BOT_p3 SELp3 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp3p BOT_p3 SELp3 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp4 BOT_p4 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
-XMp4n BOT_p4 SELp4 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp4p BOT_p4 SELp4 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp4n BOT_p4 SELp4 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp4p BOT_p4 SELp4 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp5 BOT_p5 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
-XMp5n BOT_p5 SELp5 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp5p BOT_p5 SELp5 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp5n BOT_p5 SELp5 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp5p BOT_p5 SELp5 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp6 BOT_p6 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
-XMp6n BOT_p6 SELp6 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp6p BOT_p6 SELp6 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp6n BOT_p6 SELp6 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp6p BOT_p6 SELp6 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp7 BOT_p7 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
-XMp7n BOT_p7 SELp7 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp7p BOT_p7 SELp7 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp7n BOT_p7 SELp7 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp7p BOT_p7 SELp7 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp8 BOT_p8 TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
-XMp8n BOT_p8 SELp8 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMp8p BOT_p8 SELp8 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMp8n BOT_p8 SELp8 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMp8p BOT_p8 SELp8 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCp_term VREFN TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
 XCn0 BOT_n0 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
-XMn0n BOT_n0 SELn0 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn0p BOT_n0 SELn0 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn0n BOT_n0 SELn0 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn0p BOT_n0 SELn0 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn1 BOT_n1 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
-XMn1n BOT_n1 SELn1 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn1p BOT_n1 SELn1 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn1n BOT_n1 SELn1 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn1p BOT_n1 SELn1 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn2 BOT_n2 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
-XMn2n BOT_n2 SELn2 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn2p BOT_n2 SELn2 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn2n BOT_n2 SELn2 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn2p BOT_n2 SELn2 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn3 BOT_n3 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
-XMn3n BOT_n3 SELn3 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn3p BOT_n3 SELn3 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn3n BOT_n3 SELn3 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn3p BOT_n3 SELn3 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn4 BOT_n4 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
-XMn4n BOT_n4 SELn4 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn4p BOT_n4 SELn4 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn4n BOT_n4 SELn4 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn4p BOT_n4 SELn4 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn5 BOT_n5 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
-XMn5n BOT_n5 SELn5 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn5p BOT_n5 SELn5 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn5n BOT_n5 SELn5 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn5p BOT_n5 SELn5 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn6 BOT_n6 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
-XMn6n BOT_n6 SELn6 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn6p BOT_n6 SELn6 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn6n BOT_n6 SELn6 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn6p BOT_n6 SELn6 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn7 BOT_n7 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
-XMn7n BOT_n7 SELn7 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn7p BOT_n7 SELn7 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn7n BOT_n7 SELn7 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn7p BOT_n7 SELn7 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn8 BOT_n8 TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
-XMn8n BOT_n8 SELn8 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XMn8p BOT_n8 SELn8 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
-+ sd=0 mult=1 m=1
+XMn8n BOT_n8 SELn8 VREFN VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XMn8p BOT_n8 SELn8 VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XCn_term VREFN TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
 .ends
-
-
 * expanding   symbol:  design/comparator.sym # of pins=6
 ** sym_path: design/comparator.sym
 ** sch_path: design/comparator.sch
@@ -250,32 +186,20 @@ XCn_term VREFN TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
 *.ipin VINN
 *.opin OUTP
 *.opin OUTN
-XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XM_INP OUTN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XM_LATN_P OUTP OUTN GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XM_LATN_N OUTN OUTP GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
-+ sd=0 mult=1 m=1
-XM_LATP_P OUTP OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XM_LATP_N OUTN OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XM_RST_P OUTP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0
-+ sb=0 sd=0 mult=1 m=1
-XM_RST_N OUTN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0
-+ sb=0 sd=0 mult=1 m=1
+XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0 sb=0 sd=0 mult=1 m=1
+XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_INP OUTN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_LATN_P OUTP OUTN GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_LATN_N OUTN OUTP GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_LATP_P OUTP OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0 sb=0 sd=0 mult=1 m=1
+XM_LATP_N OUTN OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0 sb=0 sd=0 mult=1 m=1
+XM_RST_P OUTP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
+XM_RST_N OUTN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
 .ends
-
-
 * expanding   symbol:  design/sar_sequencer.sym # of pins=26
 ** sym_path: design/sar_sequencer.sym
 ** sch_path: design/sar_sequencer.sch
-.subckt sar_sequencer DOUT9 PH_B9 CLK PH_B8 DOUT8 RST_B PH_B7 DOUT7 COMP_OUT DOUT6 PH_B6 PH_B5 DOUT5 DOUT4 PH_B4 DOUT3 PH_B3 DOUT2
-+ PH_B2 PH_B1 DOUT1 PH_B0 DOUT0 PH_EOC PH_SAMPLE BUSY
+.subckt sar_sequencer DOUT9 PH_B9 CLK PH_B8 DOUT8 RST_B PH_B7 DOUT7 COMP_OUT DOUT6 PH_B6 PH_B5 DOUT5 DOUT4 PH_B4 DOUT3 PH_B3 DOUT2 PH_B2 PH_B1 DOUT1 PH_B0 DOUT0 PH_EOC PH_SAMPLE BUSY
 *.ipin CLK
 *.ipin RST_B
 *.ipin COMP_OUT
@@ -339,7 +263,6 @@ xbreg1 CLK MUXOUT1 RST_B VGND VGND VPWR VPWR DOUT1 sky130_fd_sc_hd__dfrtp_1
 xmux0 DOUT0 COMP_OUT PH_B0 VGND VGND VPWR VPWR MUXOUT0 sky130_fd_sc_hd__mux2_1
 xbreg0 CLK MUXOUT0 RST_B VGND VGND VPWR VPWR DOUT0 sky130_fd_sc_hd__dfrtp_1
 .ends
-
 .GLOBAL GND
 .GLOBAL VDD
 .end
