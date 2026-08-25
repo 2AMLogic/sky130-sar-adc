@@ -130,18 +130,37 @@ OUTP/OUTN and VINN/VINP imbalance, and `record.md` tabulates them. On the
 committed record the mirror preference takes OUTP/OUTN wire-area imbalance
 from 12.9% (shortest-branch routing) to **0.65%**.
 
-Two honest limits on that number:
+Two honest limits on that number, both since resolved by a real `klt pex`
+parasitic extraction (issue #112, `layout/comparator/pex/`,
+`reports/20260825-151036-aaf3010/record.md`):
 
-- Wire *area* is a proxy for wire capacitance, not a parasitic extraction. A
-  real `klt pex` pass on this sub-block would supersede it.
-- The residual VINN/VINP imbalance is **15.5%**, and it is structural rather
-  than a router failure: the cross-quad's upper-row gate pads put VINN's pad
-  in the right column and VINP's in the left, while their trunks are on
+- Wire *area* was a proxy for wire capacitance, not a parasitic extraction.
+  The real extraction **restates both imbalances in farads and finds them
+  smaller than the area proxy claimed**: OUTP/OUTN total-capacitance
+  imbalance **0.28%** (vs. the area proxy's 0.65%), VINN/VINP
+  **6.84%** (vs. 15.54%) -- same ranking (VINN/VINP the looser-matched
+  pair) either way, so the area proxy's *qualitative* conclusion held, but
+  it over-stated both numbers.
+- The residual VINN/VINP imbalance is real and structural rather than a
+  router failure: the cross-quad's upper-row gate pads put VINN's pad in
+  the right column and VINP's in the left, while their trunks are on
   opposite sides, so the two wires must cross -- one above the pads, one
   below -- and cannot share a track. `klt gen`'s unit device also places both
   halves' gate pads on the same side (above their own diffusion), so gate
   pads are related by translation, not reflection, and the mirror preference
-  is deliberately not applied to them.
+  is deliberately not applied to them. **Whether this residual imbalance is
+  material at this block's offset budget is now answered, not just
+  flagged**: re-simulating the schematic-vs-extracted pick-off statistic at
+  Vindiff=0 isolates a parasitic-driven input-referred offset estimate of
+  roughly **-0.086 mV** -- over two orders of magnitude smaller than the
+  device-mismatch-only offset distribution's own mean (35.24 mV) and stdev
+  (97.08 mV, `sim/comparator-decision/records/20260821-071918-433a294.md`).
+  **Conclusion: noise against the device-mismatch term, not material.** No
+  floorplan change is warranted on offset grounds; the router should not be
+  re-litigated for this reason. See `layout/comparator/pex/README.md` for
+  the full methodology (including two `klt pex` tool gaps this run hit and
+  worked around, filed generically at 2AMLogic/klayout-tools) and
+  `reports/20260825-151036-aaf3010/record.md` for the complete numbers.
 
 ### Body ties
 

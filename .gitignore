@@ -32,6 +32,13 @@ layout/.venv/
 # copied into each timestamped reports/<record-id>/ (the committed evidence
 # trail) -- so the top-level copy is scratch, not a tracked source file.
 layout/sar-sequencer/reference/
+# layout/comparator/pex/ (issue #112): `klt sim`/`klt extract`'s own scratch
+# directory, written next to whatever file it was invoked against (a
+# request JSON, a layout GDS) unless `--outdir` overrides it -- per-corner
+# logs/decks, not evidence. `run_pex.py` cleans its own report-dir copy up
+# at the end of a successful `--record` run; this is defense-in-depth for
+# an interactive `klt sim`/`klt pex` invocation or an interrupted run.
+layout/comparator/**/.klt/
 # >>> loom-managed (do not edit) >>>
 # Loom runtime state (don't commit these)
 .loom-in-use
