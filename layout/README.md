@@ -20,6 +20,14 @@ and LVS-clean): `klt gen`'s matched-device generators for the transistors,
 a hand-written floorplan/router emitted through `klt draw` for every wire,
 and `klt gen-compose` used as a placer only — see that directory's own README
 for the flow choice, the matching strategy, and its six verdicts.
+`sampling-frontend-wells/` is the sampling front end's **n-well isolation
+composition** (issue #122, DRC-clean and LVS-clean): the sub-block's nine
+PFETs partitioned into three physically separate, individually tapped n-well
+islands, because `design/sampling_frontend.sch`'s DR-004 requires `Sa`/`Se`
+to tie their PFET body to `BOOST_P`/`BOOST_N` rather than VDD — see
+`spec/decision-records/DR-007-sampling-frontend-nwell-domains.md` for the
+binding rule and that directory's own README for the recipe, its eleven
+verdicts, and the n-well DRC gap it works around.
 
 ## Install
 
@@ -95,6 +103,8 @@ layout/
                                    # the GDS, the extracted netlist, report.md,
                                    # record.md
   cdac-array/                      # differential CDAC array (issue #100)
+  comparator/                      # dynamic comparator (issue #101)
+  sampling-frontend-wells/         # sampling front end n-well isolation (issue #122)
   sar-sequencer/                   # SAR logic/sequencer (issue #102)
 ```
 
