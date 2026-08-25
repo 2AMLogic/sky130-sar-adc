@@ -28,6 +28,14 @@ name: CI
 #     design/sar_adc_top.spice (the committed full-hierarchy netlist) does
 #     not match a fresh regeneration from the current design/*.sch sources —
 #     staleness is failure.
+#   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
+#     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
+#     layout/requirements.txt against the `klt` version and overall verdict
+#     stamped in the latest layout/trivial-cell/reports/ record, headlessly
+#     (no PDK, no `klt` install). This is the always-on gate that catches a
+#     PR moving the pin without fresh matching evidence -- the class of
+#     regression PR #108 caused and #104 fixed, when the six-verdict proof
+#     itself only runs in the PDK-gated `pdk-smoke` job below.
 
 on:
   push:
