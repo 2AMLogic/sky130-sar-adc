@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "file": "/home/ubuntu/loom-workspaces/sky130-sar-adc/.loom/worktrees/issue-104/layout/trivial-cell/reports/20260825-135406-877505b/trivial_mos_array.gds",
+  "deck": "sky130",
+  "dbu_um": 0.001,
+  "status": "clean",
+  "violation_count": 0,
+  "rule_counts": {},
+  "violations": [],
+  "coverage": {
+    "deck_layers": [
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "71/44",
+      "72/20",
+      "89/44",
+      "97/44"
+    ],
+    "layers_checked": [
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20"
+    ],
+    "layers_in_stream_without_rules": [
+      "83/20"
+    ],
+    "rules_skipped": [
+      "capm.enclosing.via3.1",
+      "capm.separation.via3.1",
+      "capm.space.1",
+      "capm.width.1",
+      "capm2.enclosing.via4.1",
+      "capm2.separation.via4.1",
+      "capm2.space.1",
+      "capm2.width.1",
+      "mcon.space.1",
+      "met1.enclosing.mcon.1",
+      "met1.enclosing.via.1",
+      "met1.space.1",
+      "met1.width.1",
+      "met2.enclosing.via.1",
+      "met2.enclosing.via2.1",
+      "met2.space.1",
+      "met2.width.1",
+      "met3.enclosing.capm.1",
+      "met3.enclosing.via2.1",
+      "met3.enclosing.via3.1",
+      "met3.space.1",
+      "met3.width.1",
+      "met4.enclosing.capm2.1",
+      "met4.enclosing.via3.1",
+      "met4.enclosing.via4.1",
+      "met4.space.1",
+      "met4.width.1",
+      "met5.enclosing.via4.1",
+      "met5.space.1",
+      "met5.width.1",
+      "via.space.1",
+      "via.width.1",
+      "via2.space.1",
+      "via2.width.1",
+      "via3.space.1",
+      "via3.width.1",
+      "via4.space.1",
+      "via4.width.1"
+    ],
+    "voltage_domain_warnings": [],
+    "deck_scope": [
+      "cap2m",
+      "capm",
+      "ct",
+      "difftap",
+      "li",
+      "licon",
+      "m1",
+      "m2",
+      "m3",
+      "m4",
+      "m5",
+      "poly",
+      "via",
+      "via2",
+      "via3",
+      "via4"
+    ]
+  },
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:2e78949d63f03012c505528158948a250e18c2c21c8710c85a23a8243649f4d0",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:7e160c85fde43d130345455f299a3d8c17f49010f4e7bc0c2b8b6e234805d4ac"
+    }
+  }
+}
