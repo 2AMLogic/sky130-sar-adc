@@ -30,26 +30,18 @@ run-flow.sh can fail the run on a regression:
 """
 from __future__ import annotations
 
-import argparse
-import json
 import os
-import subprocess
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
-def _load(path: str) -> dict:
-    if not os.path.isfile(path):
-        return {}
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _tool_version(*args: str) -> str:
-    try:
-        completed = subprocess.run(args, capture_output=True, text=True, timeout=30)
-        return (completed.stdout or completed.stderr or "").strip().splitlines()[0]
-    except Exception:  # noqa: BLE001 -- best-effort provenance line, never fatal
-        return "(unresolvable)"
-
+from _record_common import (  # noqa: E402
+    build_argparser,
+    git_commit_and_dirty,
+    load_json,
+    tool_version,
+)
 
 EXPECTED_ARRAY_DEVICES = {
     "sky130_fd_pr__model__cap_mim": 1024,
@@ -59,20 +51,14 @@ EXPECTED_ARRAY_DEVICES = {
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out-dir", required=True)
-    parser.add_argument("--record-id", required=True)
-    parser.add_argument("--repo-root", required=True)
-    parser.add_argument("--klt", required=True)
-    parser.add_argument("--pdk-variant", required=True)
-    args = parser.parse_args()
+    args = build_argparser().parse_args()
 
-    draw = _load(os.path.join(args.out_dir, "draw.json"))
+    draw = load_json(os.path.join(args.out_dir, "draw.json"))
     # The array's envelopes carry the flat names (it is this sub-block's
     # headline cell); the unit cell's are suffixed. See run-flow.sh.
     per_top = {
         top: {
-            kind: _load(
+            kind: load_json(
                 os.path.join(
                     args.out_dir,
                     f"{kind}.json" if top == "cdac_array" else f"{kind}.{top}.json",
@@ -83,22 +69,15 @@ def main() -> int:
         for top in ("cdac_unit_cell", "cdac_array")
     }
 
-    commit = subprocess.run(
-        ["git", "-C", args.repo_root, "rev-parse", "HEAD"],
-        capture_output=True, text=True,
-    ).stdout.strip()
-    dirty = subprocess.run(
-        ["git", "-C", args.repo_root, "status", "--porcelain"],
-        capture_output=True, text=True,
-    ).stdout.strip() != ""
+    commit, dirty = git_commit_and_dirty(args.repo_root)
 
     verdicts: list[tuple[str, bool, str]] = []
     lines: list[str] = []
     lines.append(f"# CDAC array layout record: {args.record_id}")
     lines.append("")
     lines.append("## Provenance")
-    lines.append(f"- `klt` version: {_tool_version(args.klt, '--version')}")
-    lines.append(f"- xschem version: {_tool_version('xschem', '--version')}")
+    lines.append(f"- `klt` version: {tool_version(args.klt, '--version')}")
+    lines.append(f"- xschem version: {tool_version('xschem', '--version')}")
     lines.append(f"- PDK variant: {args.pdk_variant}")
     array_pdk = (per_top["cdac_array"]["extract"].get("provenance") or {}).get("pdk")
     if array_pdk:
