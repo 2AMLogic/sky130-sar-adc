@@ -1,20 +1,25 @@
 # sky130-sar-adc — target spec
 
-**Status: supply flavour RATIFIED (2026-08-13, DR-001 via #1). Every numeric row
-remains DRAFT — UNRATIFIED.**
+**Status: supply flavour RATIFIED (2026-08-13, DR-001 via #1). `V_REF`,
+LSB, resolution `N`, the CDAC unit-cap/array size, and the comparator
+input-referred-noise budget RATIFIED (2026-08-19, DR-003 via #27). Sample
+rate and the statistical rows (ENOB, INL/DNL — target values only) remain
+DRAFT.**
 
 - **Binding:** the supply flavour — 1.8 V core (`nfet_01v8`/`pfet_01v8`), digital
   on `sky130_fd_sc_hd`. Design, sim and layout may lock to it. See
   [the supply-flavour section](#the-one-that-gates-the-rest-supply-flavor--ratified-2026-08-13),
-  including the **DR-002 tripwire** on input full-scale.
-- **Not binding:** every number in the table below. Each is a starting point
-  carried from the sibling
-  [gf180-sar-adc](https://github.com/2AMLogic/gf180-sar-adc) or a published sky130
-  reference, to be confirmed, amended, or replaced by a decision record under
-  `spec/decision-records/`. Ratifying the flavour settles what the numbers are
-  *derived on*, not what they are.
+  including the **DR-002 tripwire** on input full-scale. Also binding:
+  `V_REF`, LSB, resolution `N`, the CDAC unit-cap/array size, and the
+  comparator input-referred-noise budget — ratified against
+  [DR-003](decision-records/DR-003-numeric-spec-derivation.md). See
+  [the numeric-rows section](#numeric-rows--ratified-2026-08-19) below.
+- **Not binding:** sample rate, and the ENOB/INL-DNL *target values* pending
+  their Monte-Carlo evidence campaign (#29). Each remains a starting point,
+  to be confirmed, amended, or replaced by a decision record under
+  `spec/decision-records/`.
 
-An agent must not treat any numeric row below as settled, must not close a
+An agent must not treat the sample-rate row as settled, must not close a
 `TBD` by porting gf180-sar-adc's 3.3 V figure, and must not relax a ratified
 row to make a result pass.
 
@@ -56,30 +61,89 @@ Higher-voltage arrangements are **deferred by name**, per DR-001:
 > question, never an assumption. Do not treat this ratification as having
 > pre-approved a wider input range.
 
-## DRAFT target table (all provisional)
+## Numeric rows — RATIFIED 2026-08-19
 
-| Parameter | DRAFT target | Carried from / note |
-|---|---|---|
-| Architecture | charge-redistribution SAR, differential, top-plate sampling | gf180-sar-adc |
-| Resolution `N` | 10 bit | gf180-sar-adc; confirm vs area/ENOB tradeoff on sky130 |
-| Sample rate | provisional 100 kS/s–1 MS/s | set by application + comparator/DAC settling on sky130 |
-| ENOB | > 9.0 bit (target), stretch > 9.5 | statistical row — MC evidence required |
-| INL / DNL | ≤ ±1 LSB (target) | statistical — MC + process corners |
-| `V_REF` | **TBD** — follows supply flavor (DR-001) | gf180 was 3.3 V; sky130 likely lower |
-| LSB (differential) | `2·V_REF / 2^N` — **TBD** with `V_REF` | derived |
-| Sampling cap (CDAC unit × array) | floor set by kT/C at target ENOB | gf180 CDAC-sizing memo is the method, not the number |
-| Comparator input-referred noise | fraction of LSB, budgeted (not the whole budget) | gf180 comparator-budget memo |
-| Power | provisional, minimise at rate | report, don't pre-commit |
-| Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | canary standard |
+**Settled.** `V_REF`, LSB, resolution `N`, the CDAC unit-cap/array size, and
+the comparator input-referred-noise budget are ratified against
+[`decision-records/DR-003-numeric-spec-derivation.md`](decision-records/DR-003-numeric-spec-derivation.md),
+which moves `proposed → accepted`, per the operator's approval of the PR
+resolving #27 (canary spec/DR ratification-via-PR standing policy,
+2AMLogic/2am#357: "a builder drafts the ratification/DR as a PR on the
+evidence, and the operator's PR approval is the ratification act"). The
+ruling is DR-003's recommendation without modification:
+
+- **`V_REF = V_DD = 1.8 V`** — at the rail, not above it. Does not trigger
+  the DR-002 tripwire above (the full-scale stays at the ratified core rail).
+- **LSB (differential) = `2·V_REF/2^N` = `3.5156 mV`**.
+- **Resolution `N = 10`** — confirmed as drafted, not changed.
+- **CDAC unit cap `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side** —
+  matching-limited (sky130's own MIM local-mismatch model,
+  `A_C = 2.8 %·µm`); the kT/C floor is `≈ 415×` looser and does not bind.
+- **Comparator input-referred noise `≤ 1.0148 mV rms` (baseline, ENOB > 9.0)
+  / `≤ 0.5859 mV rms` (stretch, ENOB > 9.5)** — one-third of the total
+  non-quantization budget (equal three-way split with kT/C sampling noise
+  and reference/distortion).
+- **Corners: hold `−40/27/125 °C` as drafted (Option A of DR-003 Item 5)**,
+  with the scope note DR-003 records: this repo's only committed
+  verification methodology is transistor-level ngspice SPICE (no
+  OpenSTA/Liberty-based digital signoff step exists or is scheduled), so the
+  125 °C ceiling is unaffected today; any *future* Liberty/STA-based signoff
+  of the SAR logic inherits a 100 °C ceiling automatically
+  (`sky130_fd_sc_hd`'s characterized range) without needing to be
+  re-litigated when that step is added.
+
+**Not ratified by this record — still open, named explicitly, not
+guessed:**
+
+- **Sample rate** — the draft `100 kS/s–1 MS/s` row is not re-derived; no
+  switch-`R_on`/settling data exists yet (needs a CDAC/switch netlist, #24,
+  and a corner campaign, #28).
+- **Item 1's worst-corner (`ss`, `−40 °C`) comparator headroom margin** —
+  the nominal (`tt`, 27 °C) margin is `23.1 mV`, quantified against real
+  sky130 device data (`spec/dr-003-support/vth_probe.spice`); the
+  slow/cold-corner sweep did not converge while drafting DR-003 and is
+  named as open work for the future comparator-topology DR, not asserted
+  here.
+- **A gain-error spec row** — DR-003 Item 3 found the ratified `C_u`'s
+  total-array gain error (`1.42 LSB` at 3σ) would exceed 1 LSB *if* this
+  spec carried a gain-error target, but it does not today; this record
+  flags the spec-completeness gap without inventing a row to close it.
+- **ENOB / INL-DNL target values** — unchanged by this ratification; they
+  remain statistical rows gated on Monte-Carlo evidence (#29), per DR-003
+  Item 6.
+
+Full derivation, reproducible arithmetic (`spec/dr-003-support/calc.py`),
+and the device-level evidence each number is read from:
+[DR-003](decision-records/DR-003-numeric-spec-derivation.md).
+
+## Target table
+
+| Parameter | Target | Status | Carried from / note |
+|---|---|---|---|
+| Architecture | charge-redistribution SAR, differential, top-plate sampling | DRAFT | gf180-sar-adc |
+| Resolution `N` | 10 bit | **RATIFIED** (DR-003 via #27) | confirmed vs area/ENOB tradeoff on sky130 (DR-003 Item 2) |
+| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | not re-derived by DR-003; needs settling data (#24/#28) |
+| ENOB | > 9.0 bit (target), stretch > 9.5 | DRAFT (target value) | statistical row — MC evidence required (#29) |
+| INL / DNL | ≤ ±1 LSB (target) | DRAFT (target value) | statistical — MC + process corners (#29) |
+| `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | derived from the ratified 1.8 V core rail (DR-001) |
+| LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | derived |
+| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | matching-limited; kT/C floor is `≈ 415×` looser |
+| Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | `28.86 %` / `16.67 %` of LSB; one-third of the total non-quant budget |
+| Power | provisional, minimise at rate | DRAFT | report, don't pre-commit |
+| Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | held as drafted; see the Liberty/STA scope note above |
 
 ## What T1 (bronze) will require of this block
 
 Per `klayout-tools/docs/design-evidence-tiers.md`: schematic + regenerated
-netlist; DRC clean; LVS match; full PVT corner sim vs **this table once ratified**;
-**Monte-Carlo** on the statistical rows (ENOB, INL/DNL, offset) with seed +
-sample count + negative control; post-layout (extracted) re-sim; a
-characterization report; testbenches shipped; repo hygiene. Nothing in this file
-is claimable until it is ratified and the evidence exists.
+netlist; DRC clean; LVS match; full PVT corner sim vs **this table's ratified
+rows**; **Monte-Carlo** on the statistical rows (ENOB, INL/DNL, offset) with
+seed + sample count + negative control; post-layout (extracted) re-sim; a
+characterization report; testbenches shipped; repo hygiene. `V_REF`, LSB,
+`N`, the CDAC unit-cap/array size, the comparator noise budget, and the
+corner set are ratified (DR-003 via #27) and evidence may be recorded
+against them now; sample rate and the ENOB/INL-DNL *target values* remain
+DRAFT and nothing against those specific rows is claimable until a future
+record ratifies them.
 
 ## Non-goals (draft)
 
