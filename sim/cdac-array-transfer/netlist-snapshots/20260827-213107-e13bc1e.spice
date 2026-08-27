@@ -1,0 +1,417 @@
+* tb_cdac_array_transfer -- CDAC array DAC transfer characteristic (issue #53).
+*
+* Netlist FRAGMENT. sim/cdac-array-transfer/run_transfer.py supplies the
+* .lib corner section, .temp, .param vdd_val, and the .control/.measure
+* block; this fragment is transient-analysis-only (the harness's generic
+* run_corners.py/tb.json path only emits `.control op`, which cannot
+* express charge redistribution on a floating capacitor network -- see
+* spec/decision-records/DR-005-cdac-array-design.md and
+* sim/cdac-array-transfer/README.md for why this experiment ships its own
+* small runner instead of reusing run_corners.py directly).
+*
+* METHOD. Each of the 5 representative 9-bit sub-array codes below (0,
+* 128, 256, 384, 511 -- spanning the code range; the omitted 507 codes
+* are, by construction, the same cap+2-switch unit-cell pattern per bit,
+* per design/cdac/cdac_array.sch) gets its OWN copy of the array, on
+* BOTH sides (P side driven with the code directly, N side driven with
+* its 9-bit complement, 511-code, i.e. the standard differential-CDAC
+* mirrored drive) so all 5 points are measured in ONE transient run.
+* Every copy shares one reset event at t=1n: an IDEAL testbench-only
+* switch (NOT part of the design source -- issue #53's acceptance
+* criteria explicitly allow an ideal switch model for this exact
+* purpose) pins each copy's top-plate node to Vcm while every bit's
+* bottom plate sits at its pre-code baseline (all bits = 0, i.e. all
+* bottom plates at VREFN); at t=1n the ideal switch opens and, in the
+* SAME instant, every bit position whose target code bit is 1 transitions
+* its REAL nfet_01v8/pfet_01v8 switch pair (design/cdac/cdac_unit_cell.sch's
+* pattern) from VREFN to VREFP. Bit positions whose target bit is 0 never
+* move (their SEL gate is tied directly to the vdd rail throughout, since
+* SEL=1 is this array's 'bit=0 -> VREFN' state -- see
+* design/cdac/cdac_unit_cell.sch header). The resulting top-plate voltage
+* at t=500n (>>RC of any path active in this circuit) is the array's DAC
+* output for that code, read via .measure.
+*
+* IDEAL EXPECTED VALUE (derived from charge conservation, VREFN=0,
+* Vcm=vdd_val/2, C_total=512 unit caps/side per DR-003 Item 3):
+*   vdiff_ideal(code) = vdd_val * (2*code - 511) / 512
+* computed independently in Python by run_transfer.py and compared
+* against the measured vdiff_<code> below.
+
+Vrefp vrefp 0 dc {vdd_val}
+Vrefn vrefn 0 dc 0
+Vdd    vdd   0 dc {vdd_val}
+Vss    vss   0 dc 0
+Vcm    vcm   0 dc {vdd_val/2}
+
+* Shared ideal reset switch control (testbench-only, NOT a design
+* device): high (closed) before t=1n pins every top_<code><side> node to
+* Vcm; low (open) after t=1n lets each float and redistribute charge as
+* its bit-1 positions step to VREFP.
+Vctrl_reset nctrl_reset 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+.model SWMOD SW(Ron=1 Roff=1e12 Vt={vdd_val/2} Vh=0.05)
+
+* ---- code=0 side=P (side_code=0, bits lsb-first=[0, 0, 0, 0, 0, 0, 0, 0, 0])
+Xc_0p0  bot_0p0 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_0p0  bot_0p0 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p0  bot_0p0 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p1  bot_0p1 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_0p1  bot_0p1 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p1  bot_0p1 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p2  bot_0p2 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_0p2  bot_0p2 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p2  bot_0p2 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p3  bot_0p3 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_0p3  bot_0p3 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p3  bot_0p3 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p4  bot_0p4 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_0p4  bot_0p4 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p4  bot_0p4 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p5  bot_0p5 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_0p5  bot_0p5 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p5  bot_0p5 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p6  bot_0p6 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_0p6  bot_0p6 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p6  bot_0p6 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p7  bot_0p7 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_0p7  bot_0p7 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p7  bot_0p7 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_0p8  bot_0p8 top_0p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_0p8  bot_0p8 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0p8  bot_0p8 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_0p vrefn top_0p sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_0p top_0p vcm nctrl_reset 0 SWMOD
+Rdc_0p top_0p vcm 1T
+
+* ---- code=0 side=N (side_code=511, bits lsb-first=[1, 1, 1, 1, 1, 1, 1, 1, 1])
+Vsel_0n0 sel_0n0 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n0  bot_0n0 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_0n0  bot_0n0 sel_0n0 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n0  bot_0n0 sel_0n0 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n1 sel_0n1 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n1  bot_0n1 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_0n1  bot_0n1 sel_0n1 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n1  bot_0n1 sel_0n1 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n2 sel_0n2 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n2  bot_0n2 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_0n2  bot_0n2 sel_0n2 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n2  bot_0n2 sel_0n2 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n3 sel_0n3 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n3  bot_0n3 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_0n3  bot_0n3 sel_0n3 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n3  bot_0n3 sel_0n3 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n4 sel_0n4 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n4  bot_0n4 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_0n4  bot_0n4 sel_0n4 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n4  bot_0n4 sel_0n4 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n5 sel_0n5 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n5  bot_0n5 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_0n5  bot_0n5 sel_0n5 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n5  bot_0n5 sel_0n5 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n6 sel_0n6 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n6  bot_0n6 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_0n6  bot_0n6 sel_0n6 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n6  bot_0n6 sel_0n6 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n7 sel_0n7 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n7  bot_0n7 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_0n7  bot_0n7 sel_0n7 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n7  bot_0n7 sel_0n7 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_0n8 sel_0n8 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_0n8  bot_0n8 top_0n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_0n8  bot_0n8 sel_0n8 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_0n8  bot_0n8 sel_0n8 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_0n vrefn top_0n sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_0n top_0n vcm nctrl_reset 0 SWMOD
+Rdc_0n top_0n vcm 1T
+
+* ---- code=128 side=P (side_code=128, bits lsb-first=[0, 0, 0, 0, 0, 0, 0, 1, 0])
+Xc_128p0  bot_128p0 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_128p0  bot_128p0 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p0  bot_128p0 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128p1  bot_128p1 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_128p1  bot_128p1 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p1  bot_128p1 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128p2  bot_128p2 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_128p2  bot_128p2 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p2  bot_128p2 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128p3  bot_128p3 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_128p3  bot_128p3 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p3  bot_128p3 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128p4  bot_128p4 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_128p4  bot_128p4 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p4  bot_128p4 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128p5  bot_128p5 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_128p5  bot_128p5 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p5  bot_128p5 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128p6  bot_128p6 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_128p6  bot_128p6 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p6  bot_128p6 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128p7 sel_128p7 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128p7  bot_128p7 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_128p7  bot_128p7 sel_128p7 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p7  bot_128p7 sel_128p7 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128p8  bot_128p8 top_128p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_128p8  bot_128p8 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128p8  bot_128p8 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_128p vrefn top_128p sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_128p top_128p vcm nctrl_reset 0 SWMOD
+Rdc_128p top_128p vcm 1T
+
+* ---- code=128 side=N (side_code=383, bits lsb-first=[1, 1, 1, 1, 1, 1, 1, 0, 1])
+Vsel_128n0 sel_128n0 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n0  bot_128n0 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_128n0  bot_128n0 sel_128n0 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n0  bot_128n0 sel_128n0 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128n1 sel_128n1 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n1  bot_128n1 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_128n1  bot_128n1 sel_128n1 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n1  bot_128n1 sel_128n1 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128n2 sel_128n2 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n2  bot_128n2 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_128n2  bot_128n2 sel_128n2 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n2  bot_128n2 sel_128n2 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128n3 sel_128n3 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n3  bot_128n3 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_128n3  bot_128n3 sel_128n3 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n3  bot_128n3 sel_128n3 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128n4 sel_128n4 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n4  bot_128n4 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_128n4  bot_128n4 sel_128n4 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n4  bot_128n4 sel_128n4 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128n5 sel_128n5 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n5  bot_128n5 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_128n5  bot_128n5 sel_128n5 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n5  bot_128n5 sel_128n5 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128n6 sel_128n6 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n6  bot_128n6 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_128n6  bot_128n6 sel_128n6 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n6  bot_128n6 sel_128n6 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_128n7  bot_128n7 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_128n7  bot_128n7 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n7  bot_128n7 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_128n8 sel_128n8 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_128n8  bot_128n8 top_128n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_128n8  bot_128n8 sel_128n8 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_128n8  bot_128n8 sel_128n8 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_128n vrefn top_128n sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_128n top_128n vcm nctrl_reset 0 SWMOD
+Rdc_128n top_128n vcm 1T
+
+* ---- code=256 side=P (side_code=256, bits lsb-first=[0, 0, 0, 0, 0, 0, 0, 0, 1])
+Xc_256p0  bot_256p0 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_256p0  bot_256p0 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p0  bot_256p0 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256p1  bot_256p1 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_256p1  bot_256p1 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p1  bot_256p1 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256p2  bot_256p2 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_256p2  bot_256p2 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p2  bot_256p2 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256p3  bot_256p3 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_256p3  bot_256p3 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p3  bot_256p3 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256p4  bot_256p4 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_256p4  bot_256p4 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p4  bot_256p4 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256p5  bot_256p5 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_256p5  bot_256p5 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p5  bot_256p5 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256p6  bot_256p6 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_256p6  bot_256p6 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p6  bot_256p6 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256p7  bot_256p7 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_256p7  bot_256p7 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p7  bot_256p7 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256p8 sel_256p8 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256p8  bot_256p8 top_256p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_256p8  bot_256p8 sel_256p8 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256p8  bot_256p8 sel_256p8 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_256p vrefn top_256p sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_256p top_256p vcm nctrl_reset 0 SWMOD
+Rdc_256p top_256p vcm 1T
+
+* ---- code=256 side=N (side_code=255, bits lsb-first=[1, 1, 1, 1, 1, 1, 1, 1, 0])
+Vsel_256n0 sel_256n0 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n0  bot_256n0 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_256n0  bot_256n0 sel_256n0 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n0  bot_256n0 sel_256n0 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256n1 sel_256n1 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n1  bot_256n1 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_256n1  bot_256n1 sel_256n1 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n1  bot_256n1 sel_256n1 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256n2 sel_256n2 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n2  bot_256n2 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_256n2  bot_256n2 sel_256n2 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n2  bot_256n2 sel_256n2 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256n3 sel_256n3 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n3  bot_256n3 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_256n3  bot_256n3 sel_256n3 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n3  bot_256n3 sel_256n3 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256n4 sel_256n4 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n4  bot_256n4 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_256n4  bot_256n4 sel_256n4 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n4  bot_256n4 sel_256n4 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256n5 sel_256n5 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n5  bot_256n5 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_256n5  bot_256n5 sel_256n5 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n5  bot_256n5 sel_256n5 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256n6 sel_256n6 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n6  bot_256n6 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_256n6  bot_256n6 sel_256n6 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n6  bot_256n6 sel_256n6 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_256n7 sel_256n7 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_256n7  bot_256n7 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_256n7  bot_256n7 sel_256n7 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n7  bot_256n7 sel_256n7 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_256n8  bot_256n8 top_256n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_256n8  bot_256n8 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_256n8  bot_256n8 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_256n vrefn top_256n sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_256n top_256n vcm nctrl_reset 0 SWMOD
+Rdc_256n top_256n vcm 1T
+
+* ---- code=384 side=P (side_code=384, bits lsb-first=[0, 0, 0, 0, 0, 0, 0, 1, 1])
+Xc_384p0  bot_384p0 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_384p0  bot_384p0 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p0  bot_384p0 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384p1  bot_384p1 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_384p1  bot_384p1 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p1  bot_384p1 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384p2  bot_384p2 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_384p2  bot_384p2 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p2  bot_384p2 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384p3  bot_384p3 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_384p3  bot_384p3 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p3  bot_384p3 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384p4  bot_384p4 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_384p4  bot_384p4 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p4  bot_384p4 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384p5  bot_384p5 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_384p5  bot_384p5 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p5  bot_384p5 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384p6  bot_384p6 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_384p6  bot_384p6 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p6  bot_384p6 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384p7 sel_384p7 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384p7  bot_384p7 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_384p7  bot_384p7 sel_384p7 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p7  bot_384p7 sel_384p7 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384p8 sel_384p8 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384p8  bot_384p8 top_384p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_384p8  bot_384p8 sel_384p8 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384p8  bot_384p8 sel_384p8 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_384p vrefn top_384p sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_384p top_384p vcm nctrl_reset 0 SWMOD
+Rdc_384p top_384p vcm 1T
+
+* ---- code=384 side=N (side_code=127, bits lsb-first=[1, 1, 1, 1, 1, 1, 1, 0, 0])
+Vsel_384n0 sel_384n0 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384n0  bot_384n0 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_384n0  bot_384n0 sel_384n0 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n0  bot_384n0 sel_384n0 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384n1 sel_384n1 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384n1  bot_384n1 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_384n1  bot_384n1 sel_384n1 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n1  bot_384n1 sel_384n1 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384n2 sel_384n2 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384n2  bot_384n2 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_384n2  bot_384n2 sel_384n2 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n2  bot_384n2 sel_384n2 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384n3 sel_384n3 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384n3  bot_384n3 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_384n3  bot_384n3 sel_384n3 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n3  bot_384n3 sel_384n3 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384n4 sel_384n4 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384n4  bot_384n4 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_384n4  bot_384n4 sel_384n4 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n4  bot_384n4 sel_384n4 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384n5 sel_384n5 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384n5  bot_384n5 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_384n5  bot_384n5 sel_384n5 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n5  bot_384n5 sel_384n5 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_384n6 sel_384n6 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_384n6  bot_384n6 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_384n6  bot_384n6 sel_384n6 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n6  bot_384n6 sel_384n6 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384n7  bot_384n7 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_384n7  bot_384n7 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n7  bot_384n7 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_384n8  bot_384n8 top_384n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_384n8  bot_384n8 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_384n8  bot_384n8 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_384n vrefn top_384n sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_384n top_384n vcm nctrl_reset 0 SWMOD
+Rdc_384n top_384n vcm 1T
+
+* ---- code=511 side=P (side_code=511, bits lsb-first=[1, 1, 1, 1, 1, 1, 1, 1, 1])
+Vsel_511p0 sel_511p0 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p0  bot_511p0 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_511p0  bot_511p0 sel_511p0 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p0  bot_511p0 sel_511p0 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p1 sel_511p1 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p1  bot_511p1 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_511p1  bot_511p1 sel_511p1 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p1  bot_511p1 sel_511p1 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p2 sel_511p2 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p2  bot_511p2 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_511p2  bot_511p2 sel_511p2 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p2  bot_511p2 sel_511p2 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p3 sel_511p3 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p3  bot_511p3 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_511p3  bot_511p3 sel_511p3 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p3  bot_511p3 sel_511p3 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p4 sel_511p4 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p4  bot_511p4 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_511p4  bot_511p4 sel_511p4 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p4  bot_511p4 sel_511p4 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p5 sel_511p5 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p5  bot_511p5 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_511p5  bot_511p5 sel_511p5 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p5  bot_511p5 sel_511p5 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p6 sel_511p6 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p6  bot_511p6 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_511p6  bot_511p6 sel_511p6 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p6  bot_511p6 sel_511p6 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p7 sel_511p7 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p7  bot_511p7 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_511p7  bot_511p7 sel_511p7 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p7  bot_511p7 sel_511p7 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vsel_511p8 sel_511p8 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
+Xc_511p8  bot_511p8 top_511p   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_511p8  bot_511p8 sel_511p8 vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511p8  bot_511p8 sel_511p8 vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_511p vrefn top_511p sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_511p top_511p vcm nctrl_reset 0 SWMOD
+Rdc_511p top_511p vcm 1T
+
+* ---- code=511 side=N (side_code=0, bits lsb-first=[0, 0, 0, 0, 0, 0, 0, 0, 0])
+Xc_511n0  bot_511n0 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Xn_511n0  bot_511n0 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n0  bot_511n0 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n1  bot_511n1 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Xn_511n1  bot_511n1 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n1  bot_511n1 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n2  bot_511n2 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Xn_511n2  bot_511n2 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n2  bot_511n2 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n3  bot_511n3 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Xn_511n3  bot_511n3 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n3  bot_511n3 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n4  bot_511n4 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Xn_511n4  bot_511n4 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n4  bot_511n4 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n5  bot_511n5 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Xn_511n5  bot_511n5 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n5  bot_511n5 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n6  bot_511n6 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Xn_511n6  bot_511n6 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n6  bot_511n6 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n7  bot_511n7 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xn_511n7  bot_511n7 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n7  bot_511n7 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_511n8  bot_511n8 top_511n   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_511n8  bot_511n8 vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_511n8  bot_511n8 vdd vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xterm_511n vrefn top_511n sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Sreset_511n top_511n vcm nctrl_reset 0 SWMOD
+Rdc_511n top_511n vcm 1T
+

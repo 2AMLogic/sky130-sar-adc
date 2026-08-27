@@ -258,10 +258,224 @@ def write_evidence(record_id, corners_out_dir, points, info, note: str = "", sup
     return record_path, overall_ok
 
 
+# ---------------------------------------------------------------------------
+# Ratified-campaign record (issue #28): grades the same 9-point OAT sweep
+# above against spec/target-spec.md's now-RATIFIED LSB and CDAC unit-cap/
+# array-size rows, with a genuine per-row pass/fail and a named binding
+# corner -- distinct from write_evidence()'s pre-ratification "informational,
+# no ratified pass/fail threshold exists yet" record above (that record's
+# claim predates ratification and stands unchanged; this is a NEW record,
+# not a Supersedes of it, per sim/README.md's "Correction-supersession vs
+# distinct-claim").
+# ---------------------------------------------------------------------------
+
+# Ratified structural sizing this campaign checks the DUT fragment against
+# (spec/target-spec.md's ratified CDAC unit-cap/array-size row, DR-003 Item
+# 3): C_u realized as a sky130_fd_pr__cap_mim_m3_1 with W=L=1.8988um, and a
+# 9-bit binary-weighted sub-array (MF=2^0..2^8) plus one non-switching
+# MF=1 termination unit, summing to 512 unit caps per side.
+RATIFIED_UNIT_CAP_WL_UM = 1.8988
+RATIFIED_BINARY_WEIGHTS = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+RATIFIED_TERMINATION_WEIGHT = 1
+RATIFIED_ARRAY_SIZE_PER_SIDE = sum(RATIFIED_BINARY_WEIGHTS) + RATIFIED_TERMINATION_WEIGHT  # 512
+
+
+def check_structural_sizing() -> tuple[bool, list[str]]:
+    """Read the DUT fragment's own device lines (not a separate structural
+    model) and confirm every `cap_mim_m3_1` instance's W/L matches the
+    ratified C_u geometry, and that the per-side weight set sums to the
+    ratified 512-unit-cap array size. This is a corner-INVARIANT check (a
+    netlist's device sizing does not change with process/temp/supply), run
+    once, not per PVT point."""
+    import re
+
+    inst_re = re.compile(r"^X(?:c|term)_(\d+)([pn])\d*$")
+
+    text = FRAGMENT.read_text()
+    problems: list[str] = []
+    cap_wls: set[str] = set()
+    weights_by_side: dict[str, list[int]] = {}
+    for line in text.splitlines():
+        s = line.strip()
+        if not s.startswith("X") or "cap_mim_m3_1" not in s:
+            continue
+        parts = s.split()
+        inst_name = parts[0]
+        w = l = mf = None
+        for tok in parts:
+            if tok.startswith("W="):
+                w = tok.split("=", 1)[1]
+            elif tok.startswith("L="):
+                l = tok.split("=", 1)[1]
+            elif tok.startswith("MF="):
+                mf = int(tok.split("=", 1)[1])
+        if w is not None and l is not None:
+            cap_wls.add(f"{w}/{l}")
+        # Instance names look like Xc_<code><side><bit> (bit=0..8) or
+        # Xterm_<code><side> (no trailing bit digit) -- group by the shared
+        # <code><side> pair (NOT the full instance name, which is unique per
+        # bit position) so each array copy's own 9-bit-plus-termination
+        # weight set is summed together, independently per code/side.
+        m = inst_re.match(inst_name)
+        key = f"{m.group(1)}{m.group(2)}" if m else inst_name
+        weights_by_side.setdefault(key, []).append(mf or 0)
+
+    if cap_wls != {f"{RATIFIED_UNIT_CAP_WL_UM}/{RATIFIED_UNIT_CAP_WL_UM}"}:
+        problems.append(
+            f"unit-cap W/L geometry {sorted(cap_wls)} != ratified "
+            f"{RATIFIED_UNIT_CAP_WL_UM}/{RATIFIED_UNIT_CAP_WL_UM}"
+        )
+    bad_totals = {k: sum(v) for k, v in weights_by_side.items() if sum(v) != RATIFIED_ARRAY_SIZE_PER_SIDE}
+    if bad_totals:
+        problems.append(
+            f"per-side unit-cap weight totals != ratified {RATIFIED_ARRAY_SIZE_PER_SIDE}: {bad_totals}"
+        )
+    return (not problems), problems
+
+
+def write_ratified_evidence(record_id, corners_out_dir, points, info, note: str = ""):
+    """Grades the 9-point OAT sweep against spec/target-spec.md's ratified
+    LSB (`2*V_REF/2^N = 3.5156 mV`) and CDAC unit-cap/array-size
+    (`C_u ~= 8.65 fF`, `512` positions/side) rows: (1) a corner-invariant
+    structural check of the DUT fragment's own device sizing against those
+    ratified numbers, and (2) a functional check -- strict monotonicity and
+    correct polarity of the transfer characteristic -- at EVERY corner in
+    the ratified corner set (not just baseline). No ratified numeric
+    error-tolerance exists for this coarse 5-code functional spot-check
+    (DR-003 defers the formal DNL/INL accuracy budget to #29's Monte Carlo
+    campaign), so pass/fail here is monotonicity + polarity, not an
+    error-bound claim; the measured error is still reported, informationally."""
+    struct_ok, struct_problems = check_structural_sizing()
+
+    # Per-corner monotonicity + polarity + margin-to-violation.
+    corner_checks = []
+    for p in points:
+        vals = [p["per_code"][c]["vdiff"] for c in CODES]
+        if any(v is None for v in vals):
+            corner_checks.append(dict(corner_id=p["corner_id"], monotonic=False, correct_sign=False, margin=float("-inf")))
+            continue
+        gaps = [vals[i + 1] - vals[i] for i in range(len(vals) - 1)]
+        monotonic = all(g > 0 for g in gaps)
+        # "correct sign" -- code 0 (all-zero) must sit below Vcm-referenced
+        # zero and code 511 (all-one) above it, matching the ideal formula's
+        # polarity, at every corner (not just tt/27C/1.8V).
+        correct_sign = vals[0] < 0 < vals[-1]
+        margin = min(gaps) if gaps else float("-inf")
+        corner_checks.append(dict(
+            corner_id=p["corner_id"], monotonic=monotonic, correct_sign=correct_sign, margin=margin,
+        ))
+    functional_ok = all(c["monotonic"] and c["correct_sign"] for c in corner_checks)
+    binding = min(corner_checks, key=lambda c: c["margin"])
+
+    max_err_mv = max(
+        abs(p["per_code"][c]["err_mv"])
+        for p in points for c in CODES
+        if p["per_code"][c]["err_mv"] is not None
+    )
+    overall_ok = struct_ok and functional_ok
+
+    record_path = evidence.write_netlist_snapshot(EXPERIMENT_DIR, record_id, FRAGMENT)
+    netlist_sha = evidence.sha256_file(FRAGMENT)
+
+    process_corners_run = sorted({p["process_corner"] for p in points})
+    temps_run = sorted({p["temp_c"] for p in points})
+    supplies_run = sorted({p["supply_v"] for p in points})
+
+    lines: list[str] = []
+    a = lines.append
+    a(f"# Record {record_id}")
+    a("")
+    a(f"- **Record ID**: {record_id}")
+    a(
+        "- **Claim**: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- "
+        "`V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, "
+        "and CDAC unit-cap/array size `C_u ~= 8.65 fF`, `512` positions/side "
+        "(all three RATIFIED, DR-003 via #27). `V_REF` is a fixed design "
+        "constant, not itself a simulated quantity (DR-003's own scope table), "
+        "wired directly into this testbench as `VREFP={vdd_val}`/`VREFN=0` at "
+        "each corner's own supply point -- this record confirms the array "
+        "correctly consumes that assumption, not that a reference-generator "
+        "circuit meets a tolerance (none is ratified). Grades "
+        "design/cdac/cdac_array.sch's own transfer characteristic against the "
+        "ratified LSB/array-size numbers: a corner-invariant structural check "
+        "of the DUT fragment's device sizing, plus a functional (monotonicity "
+        "+ polarity) check across every bound corner of the ratified corner "
+        "set. Distinct from, and does not supersede, this experiment's prior "
+        "pre-ratification record (that record's own claim predates "
+        "ratification and stands unchanged; see sim/README.md's "
+        "'Correction-supersession vs distinct-claim')."
+    )
+    a("- **Netlist provenance**: schematic (`sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice`,"
+      " hand-authored to match `design/cdac/cdac_array.sch`'s unit-cell pattern and sizing --"
+      " see that file's own header for why it is not xschem-netlisted directly)")
+    a(
+        f"- **Corner matrix run**: process={process_corners_run}, "
+        f"temperature_c={temps_run}, supply_v={supplies_run} "
+        f"({len(points)} points, one-at-a-time per sim/README.md)"
+    )
+    a(
+        "- **Structural check**: unit-cap geometry and per-side weight totals read "
+        f"directly from the DUT fragment -- {'PASS' if struct_ok else 'FAIL: ' + '; '.join(struct_problems)} "
+        f"(ratified: `cap_mim_m3_1` W=L={RATIFIED_UNIT_CAP_WL_UM}um, weights "
+        f"{RATIFIED_BINARY_WEIGHTS}+{RATIFIED_TERMINATION_WEIGHT}(term)="
+        f"{RATIFIED_ARRAY_SIZE_PER_SIDE}/side)"
+    )
+    a(
+        "- **Functional check**: strict monotonicity (vdiff strictly increasing "
+        "with code) AND correct polarity (code 0 < 0 < code 511) at EVERY corner "
+        f"-- {'PASS' if functional_ok else 'FAIL'}. No ratified numeric error-tolerance "
+        "exists for this coarse 5-code spot-check (DR-003 defers the formal "
+        "DNL/INL accuracy budget to #29's Monte Carlo campaign); the measured "
+        f"max |error| vs. the ideal charge-redistribution value is "
+        f"{max_err_mv:.4f} mV, reported informationally, not gating this row's "
+        "pass/fail."
+    )
+    if note:
+        a(f"- **Note**: {note}")
+    a(
+        f"- **Binding corner**: `{binding['corner_id']}` (smallest adjacent-code "
+        f"vdiff gap = {binding['margin']:.6g} V, i.e. closest to a monotonicity "
+        "violation) -- recorded regardless of pass/fail, per sim/README.md's "
+        "per-row binding-corner convention."
+    )
+    a(f"- **Overall**: {'PASS' if overall_ok else 'FAIL'}")
+    a("")
+    a("## Per-corner monotonicity / polarity results")
+    a("")
+    a("| corner-id | monotonic | correct polarity | min adjacent-code gap (V) |")
+    a("|---|---|---|---|")
+    for c in corner_checks:
+        a(
+            f"| `{c['corner_id']}` | {'YES' if c['monotonic'] else 'NO'} | "
+            f"{'YES' if c['correct_sign'] else 'NO'} | {c['margin']:.6g} |"
+        )
+    a("")
+    if not overall_ok:
+        a(
+            "This row is reported as FAILING where applicable -- no spec row is "
+            "relaxed to make a result pass, per CLAUDE.md."
+        )
+        a("")
+    lines.extend(evidence.environment_block(
+        pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
+        ngspice_line=toolchain._ngspice_version() or "unknown",
+        netlist_sha256=netlist_sha,
+    ))
+    a("")
+    lines.extend(evidence.footer_lines("sim/cdac-array-transfer/run_transfer.py --ratified-record", ""))
+
+    record_path.write_text("\n".join(lines))
+    return record_path, overall_ok
+
+
 def main():
     ap = argparse.ArgumentParser(description="CDAC array DAC transfer-characteristic runner")
     ap.add_argument("--check-env", action="store_true")
     ap.add_argument("--record", action="store_true")
+    ap.add_argument(
+        "--ratified-record", action="store_true",
+        help="also write the ratified-spec-row campaign record (issue #28)",
+    )
     ap.add_argument("--supersedes", default="")
     ap.add_argument("--note", default="")
     ap.add_argument("--quiet", action="store_true")
@@ -278,14 +492,31 @@ def main():
         return 3
 
     record_id, corners_out_dir, points, info = run(quiet=args.quiet)
+    exit_code = 0
     if args.record:
         record_path, ok = write_evidence(
             record_id, corners_out_dir, points, info, note=args.note, supersedes=args.supersedes
         )
         print(f"wrote {record_path}")
         print("PASS" if ok else "FAIL")
-        return 0 if ok else 1
-    return 0
+        exit_code = 0 if ok else 1
+    if args.ratified_record:
+        # Re-mint a fresh record_id/corners_out_dir for the ratified-campaign
+        # record: it is its own append-only record, not a rename of the one
+        # above, per sim/README.md's "distinct claim" convention -- but reuse
+        # the SAME simulated points (no need to re-run ngspice).
+        ratified_record_id = evidence.new_record_id()
+        ratified_corners_out_dir = EXPERIMENT_DIR / "corners" / ratified_record_id
+        ratified_corners_out_dir.mkdir(parents=True, exist_ok=True)
+        for p in points:
+            (ratified_corners_out_dir / f"{p['corner_id']}.log").write_text(p["log_text"])
+        record_path, ok = write_ratified_evidence(
+            ratified_record_id, ratified_corners_out_dir, points, info, note=args.note
+        )
+        print(f"wrote {record_path}")
+        print("PASS" if ok else "FAIL")
+        exit_code = exit_code or (0 if ok else 1)
+    return exit_code
 
 
 if __name__ == "__main__":

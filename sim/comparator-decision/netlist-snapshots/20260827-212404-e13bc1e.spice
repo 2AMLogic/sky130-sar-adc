@@ -1,0 +1,26 @@
+* comparator-decision input-referred noise (reduced sub-model: cross-coupled latch pair replaced by diode-connected (self-biased) loads; CLK held at VDD (steady evaluate bias, tail on)) corner=tt temp=27.0C supply=1.8V (issue #54/#28)
+.lib /home/ubuntu/.volare/sky130A/libs.tech/combined/sky130.lib.spice tt
+.temp 27.0
+.param vdd_val = 1.8
+
+Vdd VDD 0 dc {vdd_val}
+Vclkfix CLK 0 dc {vdd_val}
+Vinp VINP 0 dc 0.9 AC 1
+Vinn VINN 0 dc 0.9
+
+XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1
+XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1
+XM_INP OUTN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1
+XM_LATN_P OUTP OUTP GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1
+XM_LATN_N OUTN OUTN GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1
+XM_LATP_P OUTP OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1
+XM_LATP_N OUTN OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1
+
+.control
+option sparse
+op
+print v(TAIL) v(OUTP) v(OUTN)
+noise v(outp,outn) Vinp dec 20 1000 1e+09 20
+print inoise_total onoise_total
+.endc
+.end
