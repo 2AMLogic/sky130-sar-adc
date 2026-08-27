@@ -12,6 +12,8 @@ required; every source here is an ideal differential DC/pulse stimulus.
     python3 sim/comparator-decision/run.py regen --record
     python3 sim/comparator-decision/run.py offset --record --n 16 --seed 1
     python3 sim/comparator-decision/run.py noise --record
+    python3 sim/comparator-decision/run.py noise-corners --record
+        # full ratified PVT corner sweep of the noise measurement (issue #28)
 
 Why this is a bespoke driver, not sim/run_corners.py or sim/monte_carlo.py:
 those two runners are deliberately built around a single ngspice analysis
@@ -77,6 +79,19 @@ NOISE_FSTART_HZ = 1e3
 NOISE_FSTOP_HZ = 1e9  # ~1/regeneration-time-constant order of magnitude
 # (regen-sweep records below resolve sub-mV differentials within ~1-2 ns),
 # not an arbitrary round number -- see the decision record.
+
+# --- Ratified corner-set axes (issue #28), per spec/target-spec.md's
+# "Numeric rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply,
+# sky130 process corners. VDD above (1.8V) is now also the ratified V_REF/
+# V_DD value (DR-003 Item 1), not only a provisional planning constant.
+SUPPLY_TOLERANCE = 0.10
+TEMPS_C = [-40, 27, 125]
+PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+# Ratified comparator input-referred noise budget (DR-003 Item 4 /
+# spec/target-spec.md's ratified row): baseline (ENOB>9.0) and stretch
+# (ENOB>9.5) thresholds, in V rms (differential, input-referred).
+NOISE_BUDGET_BASELINE_V = 1.0148e-3
+NOISE_BUDGET_STRETCH_V = 0.5859e-3
 
 
 def _dut_lines() -> str:
@@ -574,18 +589,19 @@ VBIAS_NOTE = (
 )
 
 
-def _noise_deck(info: pdk.PdkInfo, corner: str, temp_c: float) -> str:
+def _noise_deck(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float = VDD) -> str:
+    vcm = supply_v / 2.0
     lines = [
         f"* comparator-decision input-referred noise ({VBIAS_NOTE}) "
-        f"corner={corner} temp={temp_c}C (issue #54)",
+        f"corner={corner} temp={temp_c}C supply={supply_v}V (issue #54/#28)",
         f".lib {info.ngspice_lib} {corner}",
         f".temp {temp_c}",
-        f".param vdd_val = {VDD}",
+        f".param vdd_val = {supply_v}",
         "",
         "Vdd VDD 0 dc {vdd_val}",
         "Vclkfix CLK 0 dc {vdd_val}",
-        f"Vinp VINP 0 dc {VCM} AC 1",
-        f"Vinn VINN 0 dc {VCM}",
+        f"Vinp VINP 0 dc {vcm} AC 1",
+        f"Vinn VINN 0 dc {vcm}",
         "",
         "XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1",
         "XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
@@ -625,14 +641,17 @@ class NoiseResult:
     log_text: str
     corner: str
     temp_c: float
+    supply_v: float = VDD
 
 
-def run_noise(corner: str = "tt", temp_c: float = 27.0, quiet: bool = False) -> tuple[NoiseResult, str]:
+def run_noise(
+    corner: str = "tt", temp_c: float = 27.0, supply_v: float = VDD, quiet: bool = False,
+) -> tuple[NoiseResult, str]:
     info = _pdk_info()
     with tempfile.TemporaryDirectory(prefix="comparator-decision-noise-") as scratch:
         scratch_dir = Path(scratch)
         log_name = "noise"
-        deck = _noise_deck(info, corner, temp_c)
+        deck = _noise_deck(info, corner, temp_c, supply_v)
         log_text = _run(deck, scratch_dir, log_name)
 
     parsed = measure.parse(log_text, ["inoise_total", "onoise_total", "v(tail)", "v(outp)", "v(outn)"])
@@ -659,10 +678,127 @@ def run_noise(corner: str = "tt", temp_c: float = 27.0, quiet: bool = False) -> 
     result = NoiseResult(
         single_ended_rms_v=single_ended, differential_rms_v=differential,
         op_tail_v=op_tail, op_outp_v=op_outp, op_outn_v=op_outn,
-        log_text=log_text, corner=corner, temp_c=temp_c,
+        log_text=log_text, corner=corner, temp_c=temp_c, supply_v=supply_v,
     )
-    netlist_sha = evidence.sha256_text(_noise_deck(info, corner, temp_c))
+    netlist_sha = evidence.sha256_text(_noise_deck(info, corner, temp_c, supply_v))
     return result, netlist_sha
+
+
+def run_noise_corners(quiet: bool = False) -> tuple[list[NoiseResult], str]:
+    """Full ratified-corner-set sweep of run_noise() (issue #28): the OAT PVT
+    grid built from the ratified corner set (spec/target-spec.md's "Numeric
+    rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
+    process corners), substantiating the ratified comparator input-referred
+    noise-budget row rather than the single nominal-point record alone."""
+    info = _pdk_info()
+    supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
+    grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
+    results: list[NoiseResult] = []
+    for process_corner, temp_c, supply_v in grid:
+        result, _ = run_noise(corner=process_corner, temp_c=temp_c, supply_v=supply_v, quiet=quiet)
+        results.append(result)
+        if not quiet:
+            cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+            print(f"  {cid}: differential noise = {result.differential_rms_v * 1000:.4f} mV rms")
+    netlist_sha = evidence.sha256_text(_noise_deck(info, "tt", 27.0, VDD))
+    return results, netlist_sha
+
+
+def write_noise_campaign_evidence(results: list[NoiseResult], netlist_sha: str, note: str = "") -> Path:
+    record_id = evidence.new_record_id()
+    corners_dir = EXPERIMENT_DIR / "corners" / record_id
+    corners_dir.mkdir(parents=True, exist_ok=True)
+    info = pdk.resolve()
+    for r in results:
+        cid = corners_mod.corner_id(r.corner, r.temp_c, r.supply_v)
+        (corners_dir / f"{cid}.log").write_text(r.log_text)
+
+    record_path = evidence.write_netlist_snapshot_text(
+        EXPERIMENT_DIR, record_id, _noise_deck(info, "tt", 27.0, VDD)
+    )
+
+    binding = max(results, key=lambda r: r.differential_rms_v)
+    binding_cid = corners_mod.corner_id(binding.corner, binding.temp_c, binding.supply_v)
+    overall_ok = binding.differential_rms_v <= NOISE_BUDGET_BASELINE_V
+    meets_stretch = binding.differential_rms_v <= NOISE_BUDGET_STRETCH_V
+
+    process_corners_run = sorted({r.corner for r in results})
+    temps_run = sorted({r.temp_c for r in results})
+    supplies_run = sorted({r.supply_v for r in results})
+
+    lines: list[str] = []
+    a = lines.append
+    a(f"# Record {record_id}")
+    a("")
+    a(f"- **Record ID**: {record_id}")
+    a(
+        "- **Claim**: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- "
+        "Comparator input-referred noise `<=1.0148 mV rms` (baseline, ENOB>9.0) / "
+        "`<=0.5859 mV rms` (stretch, ENOB>9.5) (RATIFIED, DR-003 via #27). Measures "
+        "design/comparator.sch's (reduced sub-model, see Methodology) differential "
+        "input-referred noise across the full ratified corner set and grades it "
+        "against the ratified baseline threshold -- a genuine pass/fail against a "
+        "ratified spec/target-spec.md line, distinct from the prior single-point "
+        "nominal-corner record (informational at the time it was written, DR-003 "
+        "then being only `proposed`)."
+    )
+    a("- **Netlist provenance**: schematic, reduced sub-model (see Methodology)")
+    a(
+        f"- **Corner matrix run**: process={process_corners_run}, "
+        f"temperature_c={temps_run}, supply_v={supplies_run} "
+        f"({len(results)} points, one-at-a-time per sim/README.md)"
+    )
+    a(
+        f"- **Noise methodology**: `ac-based`, integration bandwidth "
+        f"{NOISE_FSTART_HZ:g}Hz-{NOISE_FSTOP_HZ:g}Hz (see sim/comparator-decision/run.py "
+        "module docstring for the bandwidth choice's derivation from the "
+        "regen-time-vs-Vindiff record). REDUCED SUB-MODEL, not the full "
+        f"comparator_core.spice fragment: {VBIAS_NOTE}. This is a named, "
+        "flagged simplification (excludes the cross-coupled latch pair's "
+        "own regenerative-phase noise contribution) -- see "
+        "spec/decision-records/DR-004-comparator-topology-and-noise-budget.md "
+        "for the full derivation and its limitations. This simplification carries "
+        "over unchanged from the prior nominal-point record; it is a methodology "
+        "limitation, not something this corner campaign relaxes to force a pass."
+    )
+    if note:
+        a(f"- **Note**: {note}")
+    a(
+        f"- **Binding corner**: `{binding_cid}` (worst-case differential "
+        f"input-referred noise = {binding.differential_rms_v * 1000:.4f} mV rms) -- "
+        "recorded regardless of pass/fail, per sim/README.md's per-row "
+        "binding-corner convention."
+    )
+    a(
+        f"- **Overall**: {'PASS' if overall_ok else 'FAIL'} vs. the ratified baseline "
+        f"threshold ({NOISE_BUDGET_BASELINE_V * 1000:.4f} mV rms); "
+        f"{'also meets' if meets_stretch else 'does NOT meet'} the stretch threshold "
+        f"({NOISE_BUDGET_STRETCH_V * 1000:.4f} mV rms) at the binding corner."
+    )
+    a("")
+    a("## Per-corner differential input-referred noise")
+    a("")
+    a("| corner-id | single-ended noise (mV rms) | differential noise (mV rms) | vs. baseline (<=1.0148 mV) |")
+    a("|---|---|---|---|")
+    for r in sorted(results, key=lambda r: -r.differential_rms_v):
+        cid = corners_mod.corner_id(r.corner, r.temp_c, r.supply_v)
+        ok = r.differential_rms_v <= NOISE_BUDGET_BASELINE_V
+        a(
+            f"| `{cid}` | {r.single_ended_rms_v * 1000:.4f} | {r.differential_rms_v * 1000:.4f} | "
+            f"{'PASS' if ok else 'FAIL'} |"
+        )
+    a("")
+    a(
+        "No spec row is relaxed to make this result pass or fail -- the ratified "
+        "baseline/stretch thresholds above are quoted verbatim from "
+        "spec/target-spec.md, per CLAUDE.md's 'do not relax a spec line to make a "
+        "result pass' rule."
+    )
+    a("")
+    a("- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 device noise "
+      "models via ngspice's `.noise` analysis; no literature/foundry-doc noise figure used)")
+    a("")
+    return _finalize_record(lines, record_path, info, netlist_sha, "noise-corners")
 
 
 def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") -> Path:
@@ -745,7 +881,10 @@ def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="comparator-decision standalone testbench driver (issue #54)")
-    ap.add_argument("mode", nargs="?", choices=["regen", "offset", "noise"], help="which characterization to run")
+    ap.add_argument(
+        "mode", nargs="?", choices=["regen", "offset", "noise", "noise-corners"],
+        help="which characterization to run",
+    )
     ap.add_argument("--check-env", action="store_true", help="check toolchain + PDK, print summary, exit")
     ap.add_argument("--corner", default="tt")
     ap.add_argument("--temp", type=float, default=27.0)
@@ -794,6 +933,14 @@ def main(argv: list[str] | None = None) -> int:
             path = write_noise_evidence(result, netlist_sha, note=args.note)
             print(f"wrote {path}")
         return 0
+
+    if args.mode == "noise-corners":
+        results, netlist_sha = run_noise_corners(quiet=args.quiet)
+        if args.record:
+            path = write_noise_campaign_evidence(results, netlist_sha, note=args.note)
+            print(f"wrote {path}")
+        binding = max(results, key=lambda r: r.differential_rms_v)
+        return 0 if binding.differential_rms_v <= NOISE_BUDGET_BASELINE_V else 1
 
     return 2
 

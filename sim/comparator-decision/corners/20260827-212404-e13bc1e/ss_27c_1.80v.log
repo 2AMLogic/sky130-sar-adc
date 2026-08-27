@@ -1,0 +1,28 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * comparator-decision input-referred noise (reduced sub-model: cross-coupled latch pair replaced by diode-connected (self-biased) loads; clk held at vdd (steady evaluate bias, tail on)) corner=ss temp=27.0c supply=1.8v (issue #54/#28)
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+ Reference value :  0.00000e+00
+No. of Data Rows : 1
+v(tail) = 2.667539e-02
+v(outp) = 5.127429e-01
+v(outn) = 5.127429e-01
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 7
+
+No. of Data Rows : 1
+inoise_total = 5.177079e-04
+onoise_total = 6.136345e-04
+Note: Simulation executed from .control section 
