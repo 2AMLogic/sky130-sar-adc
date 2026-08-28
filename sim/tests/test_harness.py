@@ -310,6 +310,49 @@ class TestRunnerHelpers(unittest.TestCase):
         self.assertIn("timed out", str(ctx.exception))
         self.assertIn("partial stdout", str(ctx.exception))
 
+    def test_toolchain_timeout_s_defaults_when_unset(self):
+        """No SIM_NGSPICE_TIMEOUT_S override -> the historical 120s default
+        (issue #133)."""
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(toolchain.TIMEOUT_ENV_VAR, None)
+            self.assertEqual(toolchain.toolchain_timeout_s(), toolchain.DEFAULT_TOOLCHAIN_TIMEOUT_S)
+
+    def test_toolchain_timeout_s_honors_env_override(self):
+        """SIM_NGSPICE_TIMEOUT_S raises (or lowers) the budget without
+        touching source (issue #133)."""
+        with mock.patch.dict(os.environ, {toolchain.TIMEOUT_ENV_VAR: "300"}):
+            self.assertEqual(toolchain.toolchain_timeout_s(), 300.0)
+
+    def test_toolchain_timeout_s_rejects_non_numeric_override(self):
+        with mock.patch.dict(os.environ, {toolchain.TIMEOUT_ENV_VAR: "not-a-number"}):
+            with self.assertRaises(RuntimeError) as ctx:
+                toolchain.toolchain_timeout_s()
+        self.assertIn(toolchain.TIMEOUT_ENV_VAR, str(ctx.exception))
+
+    def test_toolchain_timeout_s_rejects_non_positive_override(self):
+        with mock.patch.dict(os.environ, {toolchain.TIMEOUT_ENV_VAR: "0"}):
+            with self.assertRaises(RuntimeError):
+                toolchain.toolchain_timeout_s()
+
+    def test_run_ngspice_uses_env_override_and_reports_it_in_the_timeout(self):
+        """The timeout diagnostic message reports the ACTUAL (overridden)
+        budget used, and tells the user how to raise it further (issue
+        #133) -- not the old hardcoded '120s' literal."""
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.dict(os.environ, {toolchain.TIMEOUT_ENV_VAR: "7"}):
+                with mock.patch.object(toolchain.shutil, "copyfile"):
+                    with mock.patch.object(
+                        toolchain.subprocess,
+                        "run",
+                        side_effect=subprocess.TimeoutExpired(cmd=["ngspice"], timeout=7),
+                    ) as mock_run:
+                        with self.assertRaises(RuntimeError) as ctx:
+                            toolchain.run_ngspice("* netlist\n.end\n", scratch, "corner_0")
+        self.assertEqual(mock_run.call_args.kwargs["timeout"], 7.0)
+        self.assertIn("timed out after 7s", str(ctx.exception))
+        self.assertIn(toolchain.TIMEOUT_ENV_VAR, str(ctx.exception))
+
 
 class TestTestbenchManifest(unittest.TestCase):
     def test_load_manifest_and_build_netlist(self):
