@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import subprocess
 import sys
@@ -144,9 +145,14 @@ class Draw:
     log_text: str
 
 
-def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Path, log_name: str) -> Draw:
-    netlist = build_netlist(info, corner, TEMP_C, NOMINAL_SUPPLY_V, seed)
-    log_text = toolchain.run_ngspice(netlist, scratch_dir, log_name)
+def _parse_draw(seed: int | None, log_text: str) -> Draw:
+    """Compute a single draw's DNL/INL statistics from an ngspice batch
+    log's text -- shared by `_one_draw()` (fresh simulation) and
+    `reanalyze_from_logs()` (re-scoring an ALREADY-COMMITTED log from a
+    prior record's `mc-draws/<record-id>/` directory against a different
+    candidate target, with no new ngspice invocation). Keeping this pure
+    (log text in, Draw out) is what makes the reanalysis path possible
+    without re-running the expensive simulation."""
     names = measure_names()
     parsed = measure.parse(log_text, names)
     vdiff = {}
@@ -179,6 +185,12 @@ def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Pat
     )
 
 
+def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Path, log_name: str) -> Draw:
+    netlist = build_netlist(info, corner, TEMP_C, NOMINAL_SUPPLY_V, seed)
+    log_text = toolchain.run_ngspice(netlist, scratch_dir, log_name)
+    return _parse_draw(seed, log_text)
+
+
 @dataclass
 class McResult:
     seed: int
@@ -187,6 +199,7 @@ class McResult:
     mismatch_corner: str
     draws: list[Draw] = field(default_factory=list)
     negctrl: list[Draw] = field(default_factory=list)
+    source_record_id: str | None = None  # set only by reanalyze_from_logs()
 
 
 def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = False) -> McResult:
@@ -214,7 +227,60 @@ def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = 
     return McResult(seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, draws=draws, negctrl=negctrl)
 
 
-def _run_klt_yield(dnl_samples: list[float], inl_samples: list[float], out_json_path: Path) -> dict | None:
+_LOG_NAME_RE = re.compile(r"^(?P<kind>draw|negctrl)_(?P<idx>\d+)_seed(?P<seed>-?\d+)\.log$")
+
+
+def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McResult:
+    """Re-derive an McResult from a PRIOR record's already-committed
+    `mc-draws/<source_record_id>/*.log` files -- NO new ngspice invocation.
+    Used to re-score already-collected evidence against a DIFFERENT
+    candidate INL/DNL target (issue #129: DR-007 proposes a revised,
+    evidence-derived target; this lets that proposal cite a real `klt
+    yield` verdict against the SAME underlying draws #29 already ran,
+    rather than re-simulating ~35 minutes of ngspice for numbers that
+    would come out identical). Mirrors sim/enob-estimate/run_enob.py's own
+    'derived/composite -- no new ngspice netlist executed' convention."""
+    draws_dir = EXPERIMENT_DIR / "mc-draws" / source_record_id
+    if not draws_dir.is_dir():
+        raise FileNotFoundError(f"no mc-draws/ directory for source record {source_record_id}: {draws_dir}")
+
+    mismatch_corner = corners_mod.mismatch_corner_for(corner)
+    by_idx: dict[str, dict[int, tuple[int, Path]]] = {"draw": {}, "negctrl": {}}
+    for log_path in draws_dir.glob("*.log"):
+        m = _LOG_NAME_RE.match(log_path.name)
+        if not m:
+            continue
+        by_idx[m.group("kind")][int(m.group("idx"))] = (int(m.group("seed")), log_path)
+
+    if not by_idx["draw"] or not by_idx["negctrl"]:
+        raise FileNotFoundError(f"mc-draws/{source_record_id} is missing draw_*.log or negctrl_*.log files")
+
+    def _load(kind: str) -> list[Draw]:
+        out = []
+        for idx in sorted(by_idx[kind]):
+            seed, path = by_idx[kind][idx]
+            out.append(_parse_draw(seed, path.read_text()))
+        return out
+
+    draws = _load("draw")
+    negctrl = _load("negctrl")
+    n = len(draws)
+    if len(negctrl) != n:
+        raise ValueError(f"mc-draws/{source_record_id}: {n} draw logs but {len(negctrl)} negctrl logs (expected equal)")
+    seed = min(s for s, _ in by_idx["draw"].values())
+    return McResult(
+        seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner,
+        draws=draws, negctrl=negctrl, source_record_id=source_record_id,
+    )
+
+
+def _run_klt_yield(
+    dnl_samples: list[float],
+    inl_samples: list[float],
+    out_json_path: Path,
+    target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
+    target_yield: float = 0.99,
+) -> dict | None:
     """Invoke `klt yield` against the DNL/INL per-draw worst-case samples,
     using spec/target-spec.md's DRAFT (NOT ratified) INL/DNL target row as
     an informational limit. Returns the parsed JSON report, or None if
@@ -227,9 +293,9 @@ def _run_klt_yield(dnl_samples: list[float], inl_samples: list[float], out_json_
                 "unit": "LSB",
                 "samples": dnl_samples,
                 "limits": {
-                    "min": -DRAFT_INL_DNL_TARGET_LSB,
-                    "max": DRAFT_INL_DNL_TARGET_LSB,
-                    "target_yield": 0.99,
+                    "min": -target_limit_lsb,
+                    "max": target_limit_lsb,
+                    "target_yield": target_yield,
                 },
             },
             {
@@ -237,9 +303,9 @@ def _run_klt_yield(dnl_samples: list[float], inl_samples: list[float], out_json_
                 "unit": "LSB",
                 "samples": inl_samples,
                 "limits": {
-                    "min": -DRAFT_INL_DNL_TARGET_LSB,
-                    "max": DRAFT_INL_DNL_TARGET_LSB,
-                    "target_yield": 0.99,
+                    "min": -target_limit_lsb,
+                    "max": target_limit_lsb,
+                    "target_yield": target_yield,
                 },
             },
         ]
@@ -267,7 +333,12 @@ def _run_klt_yield(dnl_samples: list[float], inl_samples: list[float], out_json_
         sample_path.unlink(missing_ok=True)
 
 
-def write_evidence(result: McResult, note: str = "") -> tuple[Path, bool]:
+def write_evidence(
+    result: McResult,
+    note: str = "",
+    target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
+    target_yield: float = 0.99,
+) -> tuple[Path, bool]:
     record_id = evidence.new_record_id()
     draws_dir = EXPERIMENT_DIR / "mc-draws" / record_id
     draws_dir.mkdir(parents=True, exist_ok=True)
@@ -297,7 +368,7 @@ def write_evidence(result: McResult, note: str = "") -> tuple[Path, bool]:
     rel_se_pct = 100.0 / (2 * (n - 1)) ** 0.5 if n > 1 else float("inf")
 
     yield_json_path = EXPERIMENT_DIR / "yield-reports" / f"{record_id}.json"
-    yield_report = _run_klt_yield(dnl_draws, inl_draws, yield_json_path)
+    yield_report = _run_klt_yield(dnl_draws, inl_draws, yield_json_path, target_limit_lsb, target_yield)
 
     info = pdk.resolve()
     lines: list[str] = []
@@ -305,22 +376,41 @@ def write_evidence(result: McResult, note: str = "") -> tuple[Path, bool]:
     a(f"# Monte Carlo record {record_id}")
     a("")
     a(f"- **Record ID**: {record_id}")
-    a(
-        "- **Claim**: `spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
-        "(`<= +-1 LSB`, target value, NOT ratified: target-spec.md's own \"Not "
-        "ratified by this record\" list names ENOB/INL-DNL target values as still "
-        "open pending this Monte-Carlo campaign, issue #29). This record supplies "
-        "that campaign's DNL/INL evidence: mismatch-driven Monte Carlo statistics "
-        "of design/cdac/cdac_array.sch's own DAC transfer characteristic, in "
-        "isolation from the sampling front end, comparator, and SAR logic -- "
-        "informs, but (per #53's own precedent) does not by itself substantiate a "
-        "full end-to-end ADC DNL/INL claim (see the UNITS/scope note below)."
-    )
-    a(
-        "- **Netlist provenance**: schematic, generated (`sim/cdac-array-transfer/gen_fragment.py`, "
-        "verified byte-for-byte against #53's hand-authored `testbench/tb_cdac_array_transfer.spice` "
-        "for that fragment's own 5 codes -- see `sim/tests/test_cdac_fragment_gen.py`)"
-    )
+    if result.source_record_id:
+        a(
+            "- **Claim**: `spec/target-spec.md#target-table` -- INL/DNL row, re-scored "
+            f"against a CANDIDATE REVISED target ({target_limit_lsb:g} LSB, target_yield="
+            f"{target_yield:g}) that issue #129's `spec/decision-records/DR-007-*.md` "
+            "proposes (evidence-derived, per #29's shortfall against the original DRAFT "
+            "`<= +-1 LSB` row -- see that record). This record supplies that re-scoring: "
+            "the SAME underlying DNL/INL draws, re-evaluated against the candidate revised "
+            "bound, informs (does not by itself ratify) DR-007's proposal."
+        )
+        a(
+            f"- **Reanalysis, not a new simulation**: derived/composite -- NO new ngspice "
+            f"invocation. Re-parses the already-committed `mc-draws/{result.source_record_id}/`"
+            f" logs from source record `sim/cdac-array-transfer/records/{result.source_record_id}.md` "
+            "(issue #29) with the SAME DNL/INL computation `_parse_draw()` uses, then re-runs "
+            "`klt yield` against the candidate revised limit above -- mirrors "
+            "`sim/enob-estimate/run_enob.py`'s own 'derived/composite' provenance convention."
+        )
+    else:
+        a(
+            "- **Claim**: `spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
+            "(`<= +-1 LSB`, target value, NOT ratified: target-spec.md's own \"Not "
+            "ratified by this record\" list names ENOB/INL-DNL target values as still "
+            "open pending this Monte-Carlo campaign, issue #29). This record supplies "
+            "that campaign's DNL/INL evidence: mismatch-driven Monte Carlo statistics "
+            "of design/cdac/cdac_array.sch's own DAC transfer characteristic, in "
+            "isolation from the sampling front end, comparator, and SAR logic -- "
+            "informs, but (per #53's own precedent) does not by itself substantiate a "
+            "full end-to-end ADC DNL/INL claim (see the UNITS/scope note below)."
+        )
+        a(
+            "- **Netlist provenance**: schematic, generated (`sim/cdac-array-transfer/gen_fragment.py`, "
+            "verified byte-for-byte against #53's hand-authored `testbench/tb_cdac_array_transfer.spice` "
+            "for that fragment's own 5 codes -- see `sim/tests/test_cdac_fragment_gen.py`)"
+        )
     a(
         f"- **Statistical convention**: mismatch corner `{result.mismatch_corner}`, N={n}, "
         f"seed={result.seed} (draws use seed, seed+1, ..., seed+N-1), PVT point "
@@ -396,9 +486,14 @@ def write_evidence(result: McResult, note: str = "") -> tuple[Path, bool]:
     a("## Machine-checkable yield evidence (`klt yield`)")
     a("")
     if yield_report is not None:
+        target_desc = (
+            f"DR-007's CANDIDATE REVISED (proposed, not ratified) INL/DNL target "
+            f"(`<= +-{target_limit_lsb:g} LSB`)"
+            if result.source_record_id else
+            f"spec/target-spec.md's DRAFT (not ratified) INL/DNL target row (`<= +-{target_limit_lsb:g} LSB`)"
+        )
         a(
-            "Against spec/target-spec.md's DRAFT (not ratified) INL/DNL target row "
-            f"(`<= +-{DRAFT_INL_DNL_TARGET_LSB:.1f} LSB`), target_yield=0.99, 95% confidence -- "
+            f"Against {target_desc}, target_yield={target_yield:g}, 95% confidence -- "
             "reported here as INFORMATIONAL evidence toward a future ratification decision "
             "record, NOT a pass/fail against a ratified spec/target-spec.md line (per "
             "CLAUDE.md, a DRAFT value is never quoted as if settled). Full JSON report: "
@@ -438,16 +533,20 @@ def write_evidence(result: McResult, note: str = "") -> tuple[Path, bool]:
         )
         a("")
     a(
-        "No spec row is relaxed to make this result pass or fail -- the DRAFT target above is "
-        "quoted verbatim from spec/target-spec.md and explicitly labeled DRAFT throughout, per "
+        "No spec row is relaxed to make this result pass or fail -- the target above is "
+        "quoted verbatim from its source (spec/target-spec.md's DRAFT row, or DR-007's "
+        "candidate revised proposal) and explicitly labeled DRAFT/candidate throughout, per "
         "CLAUDE.md's 'do not invent settled numbers to replace the drafts' rule."
     )
     a("")
+    extra_env = {"MC seed": str(result.seed), "MC N": str(n)}
+    if result.source_record_id:
+        extra_env["Reanalysis of"] = f"`sim/cdac-array-transfer/records/{result.source_record_id}.md` (no new ngspice run)"
     lines.extend(evidence.environment_block(
         pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
         ngspice_line=toolchain._ngspice_version() or "unknown",
         netlist_sha256=netlist_sha,
-        extra={"MC seed": str(result.seed), "MC N": str(n)},
+        extra=extra_env,
     ))
     a("")
     lines.extend(evidence.footer_lines("sim/cdac-array-transfer/run_mc.py", ""))
@@ -465,6 +564,24 @@ def main() -> int:
     ap.add_argument("--corner", default=BASE_CORNER)
     ap.add_argument("--note", default="")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument(
+        "--reanalyze", metavar="RECORD_ID", default=None,
+        help=(
+            "Re-score a PRIOR record's already-committed mc-draws/<RECORD_ID>/ logs "
+            "against --target-limit-lsb / --target-yield, with NO new ngspice run "
+            "(issue #129: evidencing DR-007's candidate revised target from the SAME "
+            "draws #29 already collected). Mutually exclusive with --n/--seed (which "
+            "only apply to a fresh simulation)."
+        ),
+    )
+    ap.add_argument(
+        "--target-limit-lsb", type=float, default=DRAFT_INL_DNL_TARGET_LSB,
+        help="candidate INL/DNL |limit| in ratified LSB for the klt yield evaluation (default: the DRAFT spec row's 1.0)",
+    )
+    ap.add_argument(
+        "--target-yield", type=float, default=0.99,
+        help="target_yield passed to klt yield (default: 0.99, matching the DRAFT spec row's convention)",
+    )
     args = ap.parse_args()
 
     if args.check_env:
@@ -472,10 +589,19 @@ def main() -> int:
         print(f"PDK: found={info.found} variant={info.variant} error={info.error!r}")
         return 0 if info.found else 3
 
-    result = run_mc(seed=args.seed, n=args.n, corner=args.corner, quiet=args.quiet)
+    if args.reanalyze:
+        result = reanalyze_from_logs(args.reanalyze, corner=args.corner)
+        if not args.quiet:
+            for i, d in enumerate(result.draws):
+                print(f"  draw {i} (seed={d.seed}, {result.mismatch_corner}): DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB")
+    else:
+        result = run_mc(seed=args.seed, n=args.n, corner=args.corner, quiet=args.quiet)
     exit_code = 0
     if args.record:
-        record_path, ok = write_evidence(result, note=args.note)
+        record_path, ok = write_evidence(
+            result, note=args.note,
+            target_limit_lsb=args.target_limit_lsb, target_yield=args.target_yield,
+        )
         print(f"wrote {record_path}")
         print("PASS" if ok else "FAIL")
         exit_code = 0 if ok else 1
