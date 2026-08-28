@@ -257,6 +257,80 @@ When ADC statistical rows land, a Monte Carlo record also states:
 - **Sigma level** — the sigma the pass/fail criterion corresponds to.
 - **N justification** — why N is large enough for the sigma claimed.
 
+## Statistical-row Monte Carlo campaigns (issue #29)
+
+Issue #29 applies the Monte Carlo machinery above (proven by `mc-smoke`) to
+the three statistical rows T1 item 6 names: ENOB, INL/DNL, and
+comparator/ADC offset. Distinct from `mc-smoke` (a harness self-test) and
+from issue #28's PVT corner campaigns (which validate the RATIFIED
+deterministic rows — `V_REF`/LSB/`N`/CDAC sizing/comparator noise — against
+process/temperature/supply, not mismatch): these records combine WITH that
+corner evidence rather than substituting for it, per each record's own
+"Statistical convention" / "Subset-corner justification" text.
+
+- **`sim/cdac-array-transfer/run_mc.py`** — Monte Carlo DNL/INL campaign.
+  Extends #53/#28's deterministic 5-code transfer-curve experiment (same
+  directory) with mismatch draws (`tt_mm`) over a larger, programmatically
+  generated code set (`sim/cdac-array-transfer/gen_fragment.py`, verified
+  byte-for-byte against the hand-authored 5-code fragment by
+  `sim/tests/test_cdac_fragment_gen.py`) covering every major-carry
+  transition — the textbook worst-DNL location for a binary-weighted CDAC.
+  Reports max|DNL| / max|INL| distributions in ratified-LSB units, against
+  the target-spec.md's DRAFT (not ratified) `<= 1 LSB` target row,
+  informationally.
+- **`sim/comparator-decision/run.py offset`** (existing driver, reused) —
+  re-run at a CI-justified `N` (see each record's own N-justification
+  field, computed by the same relative-standard-error formula
+  `cdac-array-transfer/run_mc.py` uses) rather than issue #54's original
+  N=16 first-pass. No ratified (or even DRAFT) numeric offset row exists
+  in target-spec.md, so this stays a distribution-only characterization
+  (no `klt yield` step — see that record for why a limit-less measurement
+  cannot feed one).
+- **`sim/enob-estimate/run_enob.py`** — a new experiment directory. A
+  `behavioral-accelerated` ENOB estimate (sim/README.md's own Linearity/
+  Dynamic-test methodology vocabulary) composing quantization noise
+  (analytic), comparator input-referred noise (issue #28's ratified corner
+  campaign, NOT re-simulated), CDAC-mismatch nonlinearity (this issue's own
+  `cdac-array-transfer` Monte Carlo campaign), and kT/C sampling noise
+  (analytic) in quadrature via the same `SNR = 6.02·ENOB + 1.76 dB`
+  relationship `spec/dr-003-support/calc.py` already uses in the forward
+  direction. Explicitly NOT a dynamic-test (FFT) measurement — see the
+  script's module docstring for why a full-chip transient FFT campaign
+  (needing a top-level testbench that does not exist yet) is out of scope,
+  and the record's own "LIMITATIONS" field for what this estimate excludes.
+
+### `klt yield` — machine-checkable yield evidence
+
+Per `klayout-tools/docs/design-evidence-tiers.md` item 6, a statistical
+row's machine-checkable evidence is a `klt yield` JSON report: yield
+estimate + confidence interval + sample-size verdict + Cpk/sigma-to-spec
+against the row's own limits. The records above invoke it directly
+(`klt yield <sample-set.json> --format json`), writing the raw JSON report
+under `sim/<experiment>/yield-reports/<record-id>.json` alongside a summary
+table in the `.md` record. Because ENOB and INL/DNL are still DRAFT (not
+ratified) target-spec.md rows, these `klt yield` invocations use the DRAFT
+target values as an **informational** limit — explicitly labeled DRAFT
+throughout, never presented as a pass/fail against a ratified line, per
+`CLAUDE.md`'s "do not invent settled numbers to replace the drafts" rule.
+Comparator offset has no numeric row at all (not even DRAFT), so it gets no
+`klt yield` step — a limit-less measurement is a `klt yield` input error by
+design, not a tool gap.
+
+`klt yield`'s native `klt_yield_native` extension (the Rust statistics core
+behind the yield/Cpk math) is not published as a prebuilt wheel — a fresh
+`uv tool install klayout-tools@git+...` install (this repo's documented
+`klt` install path) hits `the klt_yield_native extension is not installed`
+until it is built from a `2AMLogic/klayout-tools` source checkout via
+`maturin develop --release` inside `native/yield/` (matching the Python
+interpreter `klt`'s own install actually runs on — a `uv tool install`
+resolves its own pinned interpreter, which may differ from the system
+default; `maturin build --release --interpreter <that interpreter>` plus
+`uv pip install --python <that interpreter> <wheel>` handles the mismatch).
+This exact packaging gap is already filed and tracked generically at
+`2AMLogic/klayout-tools#1061` (closed `COMPLETED`, documents this same
+build-from-checkout remediation) per `CLAUDE.md`'s friction protocol — this
+record does not re-file it.
+
 ## ADC-specific extensions (ported from gf180-sar-adc)
 
 Required only on records substantiating the corresponding kind of claim; kept

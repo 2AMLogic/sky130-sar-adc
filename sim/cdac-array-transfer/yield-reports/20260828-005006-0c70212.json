@@ -1,0 +1,200 @@
+{
+  "samples": "/tmp/tmp4m8kwj81.json",
+  "limits": null,
+  "source": {
+    "kind": "sample-set",
+    "netlist": null,
+    "monte_carlo": null,
+    "sample_count": 80
+  },
+  "schema_version": 1,
+  "confidence": 0.95,
+  "target_ci_halfwidth": 0.01,
+  "min_samples": 2,
+  "status": "fail",
+  "measurement_count": 2,
+  "measurements": [
+    {
+      "name": "dnl_max_lsb",
+      "unit": "LSB",
+      "n": 40,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "limits": {
+        "min": -1.0,
+        "max": 1.0,
+        "target_yield": 0.99
+      },
+      "source_corners": [],
+      "distribution": {
+        "model": "normal",
+        "mean": 0.7833477926954041,
+        "stddev": 0.3122500127606204,
+        "min": 0.32746899533511065,
+        "max": 1.9715695756058744,
+        "median": 0.7879167140744254,
+        "skewness": 1.4816902319978198,
+        "excess_kurtosis": 3.565111236978132,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 0.9079492056550662,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "rejected"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.825,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.6722098666384142,
+            "high": 0.9266172706479148
+          },
+          "n": 40
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.7561093784372439,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.6478601724758122,
+            "high": 0.8643585843986756
+          },
+          "n": 40
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 1.0675206395872143,
+        "cpk": 0.23128070290978395,
+        "cpk_confidence_interval": {
+          "low": 0.11593292091664416,
+          "high": 0.34662848490292375
+        },
+        "sigma_to_spec": 0.6938421087293518,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.3477987627499325,
+          "high": 1.0398854547087713
+        },
+        "limiting_side": "upper"
+      },
+      "sample_size": {
+        "n": 40,
+        "observed_ci_halfwidth": 0.12720370200475029,
+        "target_ci_halfwidth": 0.01,
+        "required_n": 5547,
+        "required_n_for_target": null,
+        "verdict": "insufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'dnl_max_lsb': the sample set is not consistent with a normal distribution (Anderson-Darling A2* = 0.9079 > 0.787); treat the parametric yield estimate and Cpk as indicative only and prefer the empirical estimate",
+        "measurement 'dnl_max_lsb': N = 40 resolves the yield only to +/-0.1272 at 95% confidence; 5547 samples are needed for the requested +/-0.01",
+        "measurement 'dnl_max_lsb': the observed pass rate (0.825000) is at or below the 0.99 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ]
+    },
+    {
+      "name": "inl_max_lsb",
+      "unit": "LSB",
+      "n": 40,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "limits": {
+        "min": -1.0,
+        "max": 1.0,
+        "target_yield": 0.99
+      },
+      "source_corners": [],
+      "distribution": {
+        "model": "normal",
+        "mean": 0.7190518625510188,
+        "stddev": 0.2084204697996485,
+        "min": 0.3817538779906908,
+        "max": 1.3147104579888451,
+        "median": 0.689429212240282,
+        "skewness": 0.5860664106735648,
+        "excess_kurtosis": 0.14832177106472288,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 0.3007141611456954,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "consistent"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.925,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.7961352512671012,
+            "high": 0.9842578201489585
+          },
+          "n": 40
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.9111687594404962,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.8423183471584985,
+            "high": 0.980019171722494
+          },
+          "n": 40
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 1.5993310717213225,
+        "cpk": 0.44932908576438846,
+        "cpk_confidence_interval": {
+          "low": 0.3057532477821173,
+          "high": 0.5929049237466596
+        },
+        "sigma_to_spec": 1.3479872572931653,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.917259743346352,
+          "high": 1.778714771239979
+        },
+        "limiting_side": "upper"
+      },
+      "sample_size": {
+        "n": 40,
+        "observed_ci_halfwidth": 0.09406128444092865,
+        "target_ci_halfwidth": 0.01,
+        "required_n": 2666,
+        "required_n_for_target": null,
+        "verdict": "insufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'inl_max_lsb': N = 40 resolves the yield only to +/-0.0941 at 95% confidence; 2666 samples are needed for the requested +/-0.01",
+        "measurement 'inl_max_lsb': the observed pass rate (0.925000) is at or below the 0.99 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ]
+    }
+  ],
+  "warnings": [
+    "no measurement declared a negative_control -- this campaign has no seeded, known-bad variant demonstrating that the statistics above can actually detect a degraded design; see docs/cli/yield.md#negative-control"
+  ]
+}

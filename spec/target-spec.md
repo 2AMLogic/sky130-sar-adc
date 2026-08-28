@@ -110,7 +110,23 @@ guessed:**
   flags the spec-completeness gap without inventing a row to close it.
 - **ENOB / INL-DNL target values** — unchanged by this ratification; they
   remain statistical rows gated on Monte-Carlo evidence (#29), per DR-003
-  Item 6.
+  Item 6. **Evidence now exists** (issue #29: `sim/cdac-array-transfer/`
+  Monte Carlo DNL/INL campaign, `sim/comparator-decision/` offset Monte
+  Carlo campaign, `sim/enob-estimate/` behavioral-accelerated ENOB
+  estimate) — see each record's own `klt yield` report against these DRAFT
+  targets. **The evidence reports the DRAFT targets are not currently
+  met** at the nominal (`tt`/27 °C/1.8 V) mismatch corner sampled: the CDAC
+  mismatch Monte Carlo campaign's `klt yield` verdict is `0.825`/`0.925`
+  empirical yield (N=40) against the `≤ ±1 LSB` target's `0.99` target
+  yield, and the composite behavioral ENOB estimate is `8.491`
+  bit (mean-case) / `7.749` bit (worst-case) against the `> 9.0` bit
+  baseline target — both informational (the target values are DRAFT, not
+  ratified), neither relaxed nor reinterpreted to force a pass, per
+  `CLAUDE.md`'s "do not relax a spec line to make a result pass" rule.
+  That evidence existing (or its shortfall) does not itself ratify or
+  reject these target values; ratification (or a superseding decision
+  record, if the targets prove unmeetable as currently designed) is a
+  future decision record's job, not this one's.
 
 Full derivation, reproducible arithmetic (`spec/dr-003-support/calc.py`),
 and the device-level evidence each number is read from:
@@ -123,8 +139,8 @@ and the device-level evidence each number is read from:
 | Architecture | charge-redistribution SAR, differential, top-plate sampling | DRAFT | gf180-sar-adc |
 | Resolution `N` | 10 bit | **RATIFIED** (DR-003 via #27) | confirmed vs area/ENOB tradeoff on sky130 (DR-003 Item 2) |
 | Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | not re-derived by DR-003; needs settling data (#24/#28) |
-| ENOB | > 9.0 bit (target), stretch > 9.5 | DRAFT (target value) | statistical row — MC evidence required (#29) |
-| INL / DNL | ≤ ±1 LSB (target) | DRAFT (target value) | statistical — MC + process corners (#29) |
+| ENOB | > 9.0 bit (target), stretch > 9.5 | DRAFT (target value) | statistical row — MC evidence campaign complete (#29, `sim/enob-estimate/`), ratification still open |
+| INL / DNL | ≤ ±1 LSB (target) | DRAFT (target value) | statistical — MC evidence campaign complete (#29, `sim/cdac-array-transfer/`), combined with #28's process corners; ratification still open |
 | `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | derived from the ratified 1.8 V core rail (DR-001) |
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | derived |
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | matching-limited; kT/C floor is `≈ 415×` looser |

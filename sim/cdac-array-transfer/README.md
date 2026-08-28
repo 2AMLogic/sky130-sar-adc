@@ -57,3 +57,25 @@ charge-redistribution value computed independently in `run_transfer.py`.
 
 Follows `sim/README.md`'s convention (`testbench/`, `netlist-snapshots/`,
 `corners/`, `records/`) except for the `tb.json` omission explained above.
+
+## Monte Carlo DNL/INL campaign (issue #29)
+
+`run_mc.py` (a third, separate driver, alongside `run_transfer.py` above)
+extends this same DUT with a mismatch (`tt_mm`) Monte Carlo campaign over a
+larger, programmatically generated code set (`gen_fragment.py` — verified
+byte-for-byte against `testbench/tb_cdac_array_transfer.spice`'s own 5-code
+hand-authored fragment by `sim/tests/test_cdac_fragment_gen.py`, then reused
+to generate the additional major-carry-transition codes a real DNL/INL
+Monte Carlo needs, which the original quartile-spaced 5-code set cannot
+express — see `run_mc.py`'s own module docstring for the full derivation):
+
+```sh
+source sim/env.sh
+python3 sim/cdac-array-transfer/run_mc.py --check-env
+python3 sim/cdac-array-transfer/run_mc.py --n 40 --seed 1 --record
+```
+
+Writes into this same directory's `mc-draws/`, `netlist-snapshots/`,
+`records/`, and (new) `yield-reports/` — a `klt yield` JSON report per
+record, see `sim/README.md`'s "Statistical-row Monte Carlo campaigns"
+section for the machine-checkable-evidence convention this follows.
