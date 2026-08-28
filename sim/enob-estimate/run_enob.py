@@ -43,6 +43,15 @@ Requires --cdac-mc-record naming the sim/cdac-array-transfer/ Monte Carlo
 record (run_mc.py) this estimate draws its CDAC-mismatch contribution from,
 so the composite record's provenance is explicit and reproducible rather
 than silently picking "the latest" (append-only evidence, sim/README.md).
+
+--target-baseline-bit / --target-stretch-bit / --target-yield (issue #129)
+let this SAME already-composed estimate be re-scored against a CANDIDATE
+REVISED ENOB target (e.g. spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md's
+proposal) without re-deriving the noise budget -- default to the DRAFT spec
+row's 9.0/9.5/0.99 so an unqualified `--record` run is unchanged:
+
+    python3 sim/enob-estimate/run_enob.py --cdac-mc-record <record-id> \
+        --target-baseline-bit 7.5 --target-stretch-bit 8.0 --record
 """
 
 from __future__ import annotations
@@ -147,14 +156,19 @@ def read_cdac_mc_inl(record_id: str) -> dict:
     }
 
 
-def _run_klt_yield(enob_samples: list[float], out_json_path: Path) -> dict | None:
+def _run_klt_yield(
+    enob_samples: list[float],
+    out_json_path: Path,
+    target_baseline_bit: float = 9.0,
+    target_yield: float = 0.99,
+) -> dict | None:
     doc = {
         "measurements": [
             {
                 "name": "enob_bit",
                 "unit": "bit",
                 "samples": enob_samples,
-                "limits": {"min": 9.0, "target_yield": 0.99},
+                "limits": {"min": target_baseline_bit, "target_yield": target_yield},
             },
         ]
     }
@@ -186,7 +200,20 @@ def main() -> int:
     ap.add_argument("--cdac-mc-record", required=True, help="sim/cdac-array-transfer/ Monte Carlo record-id (run_mc.py) to draw the CDAC-mismatch contribution from")
     ap.add_argument("--record", action="store_true")
     ap.add_argument("--note", default="")
+    ap.add_argument(
+        "--target-baseline-bit", type=float, default=9.0,
+        help="candidate ENOB baseline target in bits (default: the DRAFT spec row's 9.0; issue #129's DR-007 evaluates a candidate revised value here)",
+    )
+    ap.add_argument(
+        "--target-stretch-bit", type=float, default=9.5,
+        help="candidate ENOB stretch target in bits (default: the DRAFT spec row's 9.5)",
+    )
+    ap.add_argument(
+        "--target-yield", type=float, default=0.99,
+        help="target_yield passed to klt yield (default: 0.99, matching the DRAFT spec row's convention)",
+    )
     args = ap.parse_args()
+    is_candidate = args.target_baseline_bit != 9.0 or args.target_stretch_bit != 9.5
 
     cdac = read_cdac_mc_inl(args.cdac_mc_record)
     sq = sigma_quant(LSB_V)
@@ -225,7 +252,10 @@ def main() -> int:
     record_path = records_dir / f"{record_id}.md"
 
     yield_dir = EXPERIMENT_DIR / "yield-reports"
-    yield_report = _run_klt_yield([enob_mean_case, enob_worst_case], yield_dir / f"{record_id}.json")
+    yield_report = _run_klt_yield(
+        [enob_mean_case, enob_worst_case], yield_dir / f"{record_id}.json",
+        target_baseline_bit=args.target_baseline_bit, target_yield=args.target_yield,
+    )
 
     inputs_manifest = json.dumps({
         "comparator_noise_record": COMPARATOR_NOISE_SOURCE_RECORD,
@@ -242,16 +272,30 @@ def main() -> int:
     a(f"# Record {record_id}")
     a("")
     a(f"- **Record ID**: {record_id}")
-    a(
-        "- **Claim**: `spec/target-spec.md#target-table` -- ENOB DRAFT target row "
-        "(`> 9.0 bit` baseline / `> 9.5 bit` stretch, target value, NOT ratified: "
-        "target-spec.md's own \"Not ratified by this record\" list names ENOB/INL-DNL "
-        "target values as still open pending this Monte-Carlo campaign, issue #29). "
-        "This record supplies a BEHAVIORAL-ACCELERATED ENOB estimate (not a dynamic-test "
-        "FFT measurement -- see Methodology) composed from three already-run experiments' "
-        "OWN evidence, combined in quadrature via the standard "
-        "`SNR = 6.02*ENOB + 1.76 dB` relationship."
-    )
+    if is_candidate:
+        a(
+            "- **Claim**: `spec/target-spec.md#target-table` -- ENOB row, re-scored against a "
+            f"CANDIDATE REVISED target (`> {args.target_baseline_bit:g} bit` baseline / "
+            f"`> {args.target_stretch_bit:g} bit` stretch, target_yield={args.target_yield:g}) that "
+            "issue #129's `spec/decision-records/DR-007-*.md` proposes (evidence-derived, per "
+            "#29's shortfall against the original DRAFT `> 9.0`/`> 9.5` row -- see that record). "
+            "This record supplies a BEHAVIORAL-ACCELERATED ENOB estimate (not a dynamic-test "
+            "FFT measurement -- see Methodology) composed from three already-run experiments' "
+            "OWN evidence, combined in quadrature via the standard "
+            "`SNR = 6.02*ENOB + 1.76 dB` relationship, then compared against DR-007's candidate "
+            "revised target rather than the original DRAFT row."
+        )
+    else:
+        a(
+            "- **Claim**: `spec/target-spec.md#target-table` -- ENOB DRAFT target row "
+            "(`> 9.0 bit` baseline / `> 9.5 bit` stretch, target value, NOT ratified: "
+            "target-spec.md's own \"Not ratified by this record\" list names ENOB/INL-DNL "
+            "target values as still open pending this Monte-Carlo campaign, issue #29). "
+            "This record supplies a BEHAVIORAL-ACCELERATED ENOB estimate (not a dynamic-test "
+            "FFT measurement -- see Methodology) composed from three already-run experiments' "
+            "OWN evidence, combined in quadrature via the standard "
+            "`SNR = 6.02*ENOB + 1.76 dB` relationship."
+        )
     a(
         "- **Netlist provenance**: derived/composite -- no new ngspice netlist is executed "
         f"by this script; it combines `{COMPARATOR_NOISE_SOURCE_RECORD}` (issue #28's ratified "
@@ -295,23 +339,30 @@ def main() -> int:
     )
     if args.note:
         a(f"- **Note**: {args.note}")
+    target_label = "DR-007 candidate" if is_candidate else "DRAFT"
     a(
         f"- **Measured value(s)**: achieved ENOB (mean-case CDAC mismatch) = "
         f"**{enob_mean_case:.3f} bit**; achieved ENOB (worst-case CDAC mismatch) = "
-        f"**{enob_worst_case:.3f} bit** -- both against the DRAFT target row `> 9.0` (baseline) / "
-        f"`> 9.5` (stretch), reported INFORMATIONALLY, not as pass/fail against a ratified line."
+        f"**{enob_worst_case:.3f} bit** -- both against the {target_label} target row "
+        f"`> {args.target_baseline_bit:g}` (baseline) / `> {args.target_stretch_bit:g}` (stretch), "
+        "reported INFORMATIONALLY, not as pass/fail against a ratified line."
     )
     a("")
     a("## Composed noise budget and resulting ENOB")
     a("")
-    a("| scenario | sigma_nonquant (mV rms) | sigma_total (mV rms) | achieved ENOB (bit) | vs DRAFT baseline (>9.0) | vs DRAFT stretch (>9.5) |")
+    a(
+        f"| scenario | sigma_nonquant (mV rms) | sigma_total (mV rms) | achieved ENOB (bit) | "
+        f"vs {target_label} baseline (>{args.target_baseline_bit:g}) | "
+        f"vs {target_label} stretch (>{args.target_stretch_bit:g}) |"
+    )
     a("|---|---|---|---|---|---|")
     for label, inl_v, enob in (("mean-case", inl_mean_v, enob_mean_case), ("worst-case", inl_worst_v, enob_worst_case)):
         snq = total_nonquant(inl_v)
         stot = math.sqrt(sq ** 2 + snq ** 2)
         a(
             f"| {label} | {snq * 1000:.4f} | {stot * 1000:.4f} | {enob:.3f} | "
-            f"{'meets' if enob > 9.0 else 'does NOT meet'} | {'meets' if enob > 9.5 else 'does NOT meet'} |"
+            f"{'meets' if enob > args.target_baseline_bit else 'does NOT meet'} | "
+            f"{'meets' if enob > args.target_stretch_bit else 'does NOT meet'} |"
         )
     a("")
     a("## Machine-checkable yield evidence (`klt yield`)")
@@ -319,10 +370,10 @@ def main() -> int:
     if yield_report is not None:
         a(
             "Two-point sample set (mean-case, worst-case achieved ENOB above) against "
-            "spec/target-spec.md's DRAFT (not ratified) baseline ENOB target (`> 9.0 bit`), "
-            "target_yield=0.99, 95% confidence -- INFORMATIONAL, not a ratified pass/fail. "
-            f"Full JSON report: `sim/enob-estimate/yield-reports/{record_id}.json`. With only "
-            "two points this is a demonstration of the machine-checkable-evidence PATH (same "
+            f"the {target_label} baseline ENOB target (`> {args.target_baseline_bit:g} bit`), "
+            f"target_yield={args.target_yield:g}, 95% confidence -- INFORMATIONAL, not a ratified "
+            f"pass/fail. Full JSON report: `sim/enob-estimate/yield-reports/{record_id}.json`. With "
+            "only two points this is a demonstration of the machine-checkable-evidence PATH (same "
             "invocation issue #29's other two statistical rows use), not a real yield claim -- "
             "see the sample-size verdict below, which says so explicitly."
         )
@@ -344,11 +395,20 @@ def main() -> int:
             "2AMLogic/klayout-tools#1061 (already-filed, COMPLETED packaging gap; not a new gap)."
         )
     a("")
-    a(
-        "No spec row is relaxed to make this result pass or fail -- the DRAFT targets above "
-        "are quoted verbatim from spec/target-spec.md and explicitly labeled DRAFT throughout, "
-        "per CLAUDE.md's 'do not invent settled numbers to replace the drafts' rule."
-    )
+    if is_candidate:
+        a(
+            "No spec row is relaxed to make this result pass or fail -- the target above is "
+            "DR-007's CANDIDATE REVISED value (issue #129), explicitly labeled candidate/not-"
+            "ratified throughout; it does not itself amend spec/target-spec.md (only the "
+            "operator's approval of that decision record's own ratification act does, per "
+            "CLAUDE.md's 'do not invent settled numbers to replace the drafts' rule)."
+        )
+    else:
+        a(
+            "No spec row is relaxed to make this result pass or fail -- the DRAFT targets above "
+            "are quoted verbatim from spec/target-spec.md and explicitly labeled DRAFT throughout, "
+            "per CLAUDE.md's 'do not invent settled numbers to replace the drafts' rule."
+        )
     a("")
     lines.extend(evidence.environment_block(
         pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}" if info.found else "not resolved (post-processing record, no ngspice run)",

@@ -4,7 +4,10 @@
 LSB, resolution `N`, the CDAC unit-cap/array size, and the comparator
 input-referred-noise budget RATIFIED (2026-08-19, DR-003 via #27). Sample
 rate and the statistical rows (ENOB, INL/DNL — target values only) remain
-DRAFT.**
+DRAFT; the ENOB/INL-DNL target *values* now cite
+[DR-007](decision-records/DR-007-revised-enob-inl-dnl-targets.md)'s
+evidence-derived candidates (2026-08-28, proposed via #129) in place of the
+original, un-evidenced draft numbers, still pending operator ratification.**
 
 - **Binding:** the supply flavour — 1.8 V core (`nfet_01v8`/`pfet_01v8`), digital
   on `sky130_fd_sc_hd`. Design, sim and layout may lock to it. See
@@ -15,9 +18,12 @@ DRAFT.**
   [DR-003](decision-records/DR-003-numeric-spec-derivation.md). See
   [the numeric-rows section](#numeric-rows--ratified-2026-08-19) below.
 - **Not binding:** sample rate, and the ENOB/INL-DNL *target values* pending
-  their Monte-Carlo evidence campaign (#29). Each remains a starting point,
-  to be confirmed, amended, or replaced by a decision record under
-  `spec/decision-records/`.
+  operator ratification of [DR-007](decision-records/DR-007-revised-enob-inl-dnl-targets.md)
+  (issue #129) — that record proposes revised candidate values from #29's own
+  Monte-Carlo evidence campaign, superseding (as a target-spec.md *row*, not
+  as evidence — #29's own records stand unedited) the original un-evidenced
+  draft numbers. Each remains a starting point, to be confirmed, amended, or
+  replaced by a further decision record under `spec/decision-records/`.
 
 An agent must not treat the sample-rate row as settled, must not close a
 `TBD` by porting gf180-sar-adc's 3.3 V figure, and must not relax a ratified
@@ -128,6 +134,17 @@ guessed:**
   record, if the targets prove unmeetable as currently designed) is a
   future decision record's job, not this one's.
 
+  **Update (2026-08-28, DR-007 via #129):** that future decision record now
+  exists. [DR-007](decision-records/DR-007-revised-enob-inl-dnl-targets.md)
+  reads this same #29 evidence and proposes revised, evidence-derived
+  candidate target values — `INL / DNL ≤ ±2.0 LSB` (was `≤ ±1 LSB`) and
+  `ENOB > 7.5 bit` baseline / `> 8.0 bit` stretch (was `> 9.0`/`> 9.5`) — see
+  the Target table below. DR-007 is **proposed**, not yet operator-ratified;
+  it does not close the redesign path (a larger CDAC unit cap, quantified at
+  roughly `9.9×` `C_u` in DR-007's "Alternatives considered") — that stays
+  named as future work, not foreclosed by taking the lower-cost revised-target
+  path now.
+
 Full derivation, reproducible arithmetic (`spec/dr-003-support/calc.py`),
 and the device-level evidence each number is read from:
 [DR-003](decision-records/DR-003-numeric-spec-derivation.md).
@@ -139,8 +156,8 @@ and the device-level evidence each number is read from:
 | Architecture | charge-redistribution SAR, differential, top-plate sampling | DRAFT | gf180-sar-adc |
 | Resolution `N` | 10 bit | **RATIFIED** (DR-003 via #27) | confirmed vs area/ENOB tradeoff on sky130 (DR-003 Item 2) |
 | Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | not re-derived by DR-003; needs settling data (#24/#28) |
-| ENOB | > 9.0 bit (target), stretch > 9.5 | DRAFT (target value) | statistical row — MC evidence campaign complete (#29, `sim/enob-estimate/`), ratification still open |
-| INL / DNL | ≤ ±1 LSB (target) | DRAFT (target value) | statistical — MC evidence campaign complete (#29, `sim/cdac-array-transfer/`), combined with #28's process corners; ratification still open |
+| ENOB | > 7.5 bit (target), stretch > 8.0 | DRAFT (target value, DR-007 candidate) | statistical row — MC evidence campaign complete (#29, `sim/enob-estimate/`); revised candidate proposed (DR-007 via #129, was `> 9.0`/`> 9.5`); ratification still open |
+| INL / DNL | ≤ ±2.0 LSB (target) | DRAFT (target value, DR-007 candidate) | statistical — MC evidence campaign complete (#29, `sim/cdac-array-transfer/`), combined with #28's process corners; revised candidate proposed (DR-007 via #129, was `≤ ±1 LSB`); ratification still open |
 | `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | derived from the ratified 1.8 V core rail (DR-001) |
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | derived |
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | matching-limited; kT/C floor is `≈ 415×` looser |

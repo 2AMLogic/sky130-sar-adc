@@ -79,3 +79,30 @@ Writes into this same directory's `mc-draws/`, `netlist-snapshots/`,
 `records/`, and (new) `yield-reports/` — a `klt yield` JSON report per
 record, see `sim/README.md`'s "Statistical-row Monte Carlo campaigns"
 section for the machine-checkable-evidence convention this follows.
+
+### Re-scoring an existing campaign against a candidate target (issue #129)
+
+`run_mc.py` also supports **re-analyzing a PRIOR record's already-committed
+`mc-draws/<record-id>/` logs against a different candidate INL/DNL bound**,
+with NO new ngspice invocation — used by
+`spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md` to evidence a
+candidate revised target from the SAME draws issue #29 already collected,
+rather than re-running a ~35-minute N=40 campaign for numbers that would come
+out identical:
+
+```sh
+source sim/env.sh
+python3 sim/cdac-array-transfer/run_mc.py \
+  --reanalyze 20260828-005006-0c70212 \
+  --target-limit-lsb 2.0 --target-yield 0.99 \
+  --record
+```
+
+This mints a new (append-only) record whose `## DNL/INL distributions` table
+reproduces the source record's statistics exactly (same draws, re-scored),
+with its `Claim`/`klt yield` sections framed against the candidate target
+instead of `spec/target-spec.md`'s row — see
+`sim/tests/test_cdac_mc_reanalyze.py` for the byte-for-byte reproduction
+check. `--target-limit-lsb`/`--target-yield` also apply to a **fresh** `--n`
+run (default `1.0`/`0.99`, matching the DRAFT spec row), for evaluating a
+brand-new campaign against a non-default candidate directly.
