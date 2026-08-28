@@ -374,9 +374,9 @@ def run_corner_campaign(record: bool, quiet: bool = False) -> int:
             "record against `DR-006-sar-sequencer-bit-count-and-timing-budget.md` "
             "(that record's own claim predates ratification and stands unchanged).",
             "- **Netlist provenance**: schematic (`design/sar_sequencer.sch`)",
-            f"- **Corner matrix run**: process={process_corners_run}, "
-            f"temperature_c={temps_run}, supply_v={supplies_run} "
-            f"({len(points)} points, one-at-a-time per sim/README.md)",
+            corners_mod.corner_matrix_summary_line(
+                process_corners_run, temps_run, supplies_run, len(points)
+            ),
             "- **Divergence from the shared PVT/MC harness**: this experiment does not run through "
             "`sim/run_corners.py`/`sim/monte_carlo.py` (their shared `.control` block only supports "
             "`.op` analysis; this is a transient/digital sequencing check) -- see "

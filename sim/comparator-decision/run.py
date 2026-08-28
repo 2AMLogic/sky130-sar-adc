@@ -744,9 +744,9 @@ def write_noise_campaign_evidence(results: list[NoiseResult], netlist_sha: str, 
     )
     a("- **Netlist provenance**: schematic, reduced sub-model (see Methodology)")
     a(
-        f"- **Corner matrix run**: process={process_corners_run}, "
-        f"temperature_c={temps_run}, supply_v={supplies_run} "
-        f"({len(results)} points, one-at-a-time per sim/README.md)"
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(results)
+        )
     )
     a(
         f"- **Noise methodology**: `ac-based`, integration bandwidth "

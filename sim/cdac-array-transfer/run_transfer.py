@@ -204,9 +204,9 @@ def write_evidence(record_id, corners_out_dir, points, info, note: str = "", sup
     temps_run = sorted({p["temp_c"] for p in points})
     supplies_run = sorted({p["supply_v"] for p in points})
     a(
-        f"- **Corner matrix run**: process={process_corners_run}, "
-        f"temperature_c={temps_run}, supply_v={supplies_run} "
-        f"({len(points)} points, one-at-a-time per sim/README.md)"
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(points)
+        )
     )
     a(
         "- **Linearity methodology**: `reduced-code-set-major-carry` -- 5 of the "
@@ -409,9 +409,9 @@ def write_ratified_evidence(record_id, corners_out_dir, points, info, note: str 
       " hand-authored to match `design/cdac/cdac_array.sch`'s unit-cell pattern and sizing --"
       " see that file's own header for why it is not xschem-netlisted directly)")
     a(
-        f"- **Corner matrix run**: process={process_corners_run}, "
-        f"temperature_c={temps_run}, supply_v={supplies_run} "
-        f"({len(points)} points, one-at-a-time per sim/README.md)"
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(points)
+        )
     )
     a(
         "- **Structural check**: unit-cap geometry and per-side weight totals read "

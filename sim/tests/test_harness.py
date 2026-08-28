@@ -62,6 +62,20 @@ class TestCorners(unittest.TestCase):
     def test_supply_points_zero_tolerance(self):
         self.assertEqual(corners.supply_points(1.8, 0.0), [1.8])
 
+    def test_corner_matrix_summary_line_format(self):
+        # Exact string shared by every experiment driver's "Corner matrix
+        # run" evidence-record bullet (issue #127) -- must stay
+        # byte-identical to the inline format it replaced.
+        line = corners.corner_matrix_summary_line(
+            ["ff", "ss", "tt"], [-40.0, 27.0, 125.0], [1.62, 1.8, 1.98], 9
+        )
+        self.assertEqual(
+            line,
+            "- **Corner matrix run**: process=['ff', 'ss', 'tt'], "
+            "temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] "
+            "(9 points, one-at-a-time per sim/README.md)",
+        )
+
     def test_oat_grid_baseline_only(self):
         # All axes collapse to a single (baseline-only) value -> just the
         # baseline point, no duplicates.
