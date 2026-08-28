@@ -374,6 +374,34 @@ a record in place defeats it. Note that `.gitignore` carves `*.log` exceptions
 for `sim/*/corners/**` and `sim/*/mc-draws/**` precisely so this raw evidence
 is committed rather than swept up by the generic log-ignore rule.
 
+## The aggregated characterization report (issue #30)
+
+`records/*.md` are the append-only evidence trail; `docs/characterization-
+report.md` is the **aggregated, generated artifact** that ties every
+`spec/target-spec.md` Target-table row (including DRAFT/unratified/
+unmeasured rows -- coverage is stated honestly, not just the rows that
+pass) to the specific record(s) its verdict rests on, per
+`klayout-tools/docs/design-evidence-tiers.md` T1 item 8.
+
+- **Generator**: `sim/report/generate.py`, driven by the row-to-citation
+  data in `sim/report/manifest.py`. Every citation's `Record ID`,
+  `Overall`/`Statistical convention`/`Measured value(s)`, `Corner matrix
+  run`, and `Supersedes` fields are re-extracted from the cited record file
+  at generation time rather than hand-transcribed, so the report cannot
+  silently drift from what a cited record currently says.
+- **Mechanical freshness**: `sim/report/generate.py --check` (wired into
+  `npm run check:report`, part of `npm run check:ci`) regenerates the
+  report in memory and fails if it differs from the committed
+  `docs/characterization-report.md`, if a cited record path no longer
+  exists, or if any cited record has been superseded by a sibling record in
+  the same `records/` directory (via that sibling's own **Supersedes**
+  field) -- see `find_superseding_sibling()`/`check_freshness()` in that
+  module.
+- **Regenerate after any evidence change**: `python3 sim/report/generate.py
+  --write`, then re-run `--check` before committing.
+- This report records no operator grant; see its own "No-grant statement"
+  section.
+
 ## The harness acceptance test (`sim/selftest.sh`)
 
 `sim/selftest.sh` is the harness's own gate, wired into `npm run check:ci`:
