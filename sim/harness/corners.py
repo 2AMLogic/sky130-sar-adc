@@ -50,6 +50,23 @@ def supply_points(nominal_v: float, tolerance: float) -> list[float]:
     return points
 
 
+def corner_matrix_summary_line(
+    process_corners: list, temps_c: list, supplies_v: list, n_points: int
+) -> str:
+    """The "Corner matrix run" evidence-record bullet line shared by every
+    experiment driver's OAT-corner-campaign record writer (cdac-array-transfer,
+    comparator-decision, sar-sequencer-behavioral -- see sim/README.md's
+    one-at-a-time convention). Callers still do their own sorted-unique
+    extraction of the axis values (the input *shapes* differ per site --
+    dicts vs. dataclass attributes) and pass the resulting lists in here;
+    only the final formatted string is centralized."""
+    return (
+        f"- **Corner matrix run**: process={process_corners}, "
+        f"temperature_c={temps_c}, supply_v={supplies_v} "
+        f"({n_points} points, one-at-a-time per sim/README.md)"
+    )
+
+
 def oat_grid(
     baseline_process: str,
     baseline_temp: float,
