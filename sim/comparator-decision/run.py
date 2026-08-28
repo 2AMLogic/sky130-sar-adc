@@ -478,22 +478,30 @@ def write_offset_evidence(result: OffsetResult, netlist_sha: str, note: str = ""
     a("")
     a(f"- **Record ID**: {record_id}")
     a(
-        "- **Claim**: pending #1/#27 -- characterizes design/comparator.sch's "
-        "mismatch-driven input offset. Not compared against a ratified "
-        "spec/target-spec.md row (offset is not yet a numeric row there); "
-        "informational for the future comparator-topology decision record."
+        "- **Claim**: None numeric -- characterizes design/comparator.sch's "
+        "mismatch-driven input offset for issue #29's statistical-evidence "
+        "campaign (T1 item 6: ENOB, INL/DNL, comparator/ADC offset). "
+        "spec/target-spec.md carries no numeric offset row (ratified or "
+        "DRAFT) to grade this against -- DR-003 characterizes noise, not "
+        "offset, as the comparator's ratified budget line -- so this record "
+        "is a distribution-only characterization, informational for the "
+        "future comparator-topology decision record, not a pass/fail claim."
     )
     a(f"- **Netlist provenance**: schematic (`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}`)")
+    rel_se_pct = 100.0 / (2 * (result.n - 1)) ** 0.5 if result.n > 1 else float("inf")
     a(
         f"- **Statistical convention**: mismatch corner `{result.mismatch_corner}`, "
         f"N={result.n}, seed={result.seed} (draws use seed, seed+1, ..., "
         f"seed+N-1), PVT point process={result.corner} temp=27.0C supply={VDD}V. "
-        f"**N justification**: N={result.n} is a first-pass characterization "
-        "sample, not a sigma-adequate count for a 3-sigma yield claim -- "
-        "matches this repo's mc-smoke harness-proof convention "
-        "(sim/mc-smoke/) of stating N honestly as a plumbing/first-look "
-        "size; a larger N is future work once a comparator-topology "
-        "decision record needs a real sigma claim."
+        f"**N justification**: relative standard error on the estimated offset "
+        f"stdev, SE(s)/s ~= 1/sqrt(2(N-1)) for an approximately-Gaussian "
+        f"per-draw statistic (same formula sim/cdac-array-transfer/run_mc.py's "
+        f"own N-justification uses) -- N={result.n} gives {rel_se_pct:.1f}%. This "
+        "is a distribution-SHAPE-adequate sample, not a sample size adequate for "
+        "a tight yield-fraction claim at high confidence (that needs O(100s)); "
+        "no numeric offset spec row exists to compute a yield/Cpk claim against "
+        "in the first place (see Overall note below), so this record reports the "
+        "distribution itself rather than a `klt yield` verdict."
     )
     a(
         f"- **Methodology**: linearized pick-off statistic at "
