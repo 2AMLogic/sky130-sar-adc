@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+import json
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -114,6 +116,45 @@ def write_netlist_snapshot(experiment_dir: Path, record_id: str, netlist_fragmen
     implementations (PVT corner runner and Monte Carlo runner) -- see
     module docstring."""
     return write_netlist_snapshot_text(experiment_dir, record_id, netlist_fragment.read_text())
+
+
+def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
+    """Invoke `klt yield` against an already-built `measurements` list (each
+    caller constructs its own `"name"`/`"unit"`/`"samples"`/`"limits"`
+    entries -- see sim/cdac-array-transfer/run_mc.py and
+    sim/enob-estimate/run_enob.py for the two current callers), writing the
+    scratch sample file to a tempfile and the parsed report to
+    `out_json_path`. Returns the parsed JSON report, or None if `klt` / its
+    native yield extension is unavailable, its output isn't valid JSON, or
+    the report itself carries an `"error"` key (recorded as an honest gap
+    in the calling record rather than silently skipped).
+
+    Extracted (issue #131) from the two byte-identical `_run_klt_yield`
+    private helpers PR #130 introduced independently in both callers -- only
+    this tempfile/subprocess/parse/cleanup plumbing was shared; each
+    caller's own `measurements`-list construction stays at its call site."""
+    doc = {"measurements": measurements}
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump(doc, f)
+        sample_path = Path(f.name)
+    try:
+        proc = subprocess.run(
+            ["klt", "yield", str(sample_path), "--format", "json"],
+            capture_output=True, text=True, timeout=60,
+        )
+        try:
+            report = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            return None
+        out_json_path.parent.mkdir(parents=True, exist_ok=True)
+        out_json_path.write_text(json.dumps(report, indent=2))
+        if "error" in report:
+            return None
+        return report
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    finally:
+        sample_path.unlink(missing_ok=True)
 
 
 def footer_lines(written_by: str, supersedes: str) -> list[str]:

@@ -45,10 +45,8 @@ DNL/INL row). DNL/INL below are computed in units of the ratified ADC LSB
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import statistics
-import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -274,65 +272,6 @@ def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McR
     )
 
 
-def _run_klt_yield(
-    dnl_samples: list[float],
-    inl_samples: list[float],
-    out_json_path: Path,
-    target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
-    target_yield: float = 0.99,
-) -> dict | None:
-    """Invoke `klt yield` against the DNL/INL per-draw worst-case samples,
-    using spec/target-spec.md's DRAFT (NOT ratified) INL/DNL target row as
-    an informational limit. Returns the parsed JSON report, or None if
-    `klt` / its native yield extension is unavailable (recorded as an
-    honest gap in the record rather than silently skipped)."""
-    doc = {
-        "measurements": [
-            {
-                "name": "dnl_max_lsb",
-                "unit": "LSB",
-                "samples": dnl_samples,
-                "limits": {
-                    "min": -target_limit_lsb,
-                    "max": target_limit_lsb,
-                    "target_yield": target_yield,
-                },
-            },
-            {
-                "name": "inl_max_lsb",
-                "unit": "LSB",
-                "samples": inl_samples,
-                "limits": {
-                    "min": -target_limit_lsb,
-                    "max": target_limit_lsb,
-                    "target_yield": target_yield,
-                },
-            },
-        ]
-    }
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-        json.dump(doc, f)
-        sample_path = Path(f.name)
-    try:
-        proc = subprocess.run(
-            ["klt", "yield", str(sample_path), "--format", "json"],
-            capture_output=True, text=True, timeout=60,
-        )
-        try:
-            report = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            return None
-        out_json_path.parent.mkdir(parents=True, exist_ok=True)
-        out_json_path.write_text(json.dumps(report, indent=2))
-        if "error" in report:
-            return None
-        return report
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-    finally:
-        sample_path.unlink(missing_ok=True)
-
-
 def write_evidence(
     result: McResult,
     note: str = "",
@@ -368,7 +307,31 @@ def write_evidence(
     rel_se_pct = 100.0 / (2 * (n - 1)) ** 0.5 if n > 1 else float("inf")
 
     yield_json_path = EXPERIMENT_DIR / "yield-reports" / f"{record_id}.json"
-    yield_report = _run_klt_yield(dnl_draws, inl_draws, yield_json_path, target_limit_lsb, target_yield)
+    yield_report = evidence.run_klt_yield(
+        [
+            {
+                "name": "dnl_max_lsb",
+                "unit": "LSB",
+                "samples": dnl_draws,
+                "limits": {
+                    "min": -target_limit_lsb,
+                    "max": target_limit_lsb,
+                    "target_yield": target_yield,
+                },
+            },
+            {
+                "name": "inl_max_lsb",
+                "unit": "LSB",
+                "samples": inl_draws,
+                "limits": {
+                    "min": -target_limit_lsb,
+                    "max": target_limit_lsb,
+                    "target_yield": target_yield,
+                },
+            },
+        ],
+        yield_json_path,
+    )
 
     info = pdk.resolve()
     lines: list[str] = []
