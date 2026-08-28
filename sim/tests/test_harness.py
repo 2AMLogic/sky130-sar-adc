@@ -5,6 +5,7 @@ sim/selftest.sh stage 1/4)."""
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -132,6 +133,81 @@ class TestEvidence(unittest.TestCase):
         self.assertGreaterEqual(len(parts), 3)
         self.assertEqual(len(parts[0]), 8)
         self.assertEqual(len(parts[1]), 6)
+
+
+class TestRunKltYield(unittest.TestCase):
+    """evidence.run_klt_yield() -- shared plumbing extracted (issue #131)
+    from the two byte-identical `_run_klt_yield` private helpers PR #130
+    introduced independently in sim/cdac-array-transfer/run_mc.py and
+    sim/enob-estimate/run_enob.py. Mirrors those two helpers' own behavior
+    exactly: `klt` missing / a malformed report / an `"error"` key all
+    return None rather than raising, so a missing/broken toolchain becomes
+    an honest evidence-record gap instead of a crash."""
+
+    def _measurements(self):
+        return [
+            {
+                "name": "x",
+                "unit": "LSB",
+                "samples": [0.1, 0.2, 0.3],
+                "limits": {"min": -1.0, "max": 1.0, "target_yield": 0.99},
+            },
+        ]
+
+    def test_missing_klt_binary_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "yield-reports" / "rec.json"
+            with mock.patch.object(evidence.subprocess, "run", side_effect=FileNotFoundError()):
+                report = evidence.run_klt_yield(self._measurements(), out_path)
+        self.assertIsNone(report)
+        self.assertFalse(out_path.exists())
+
+    def test_timeout_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "yield-reports" / "rec.json"
+            with mock.patch.object(
+                evidence.subprocess, "run",
+                side_effect=subprocess.TimeoutExpired(cmd=["klt"], timeout=60),
+            ):
+                report = evidence.run_klt_yield(self._measurements(), out_path)
+        self.assertIsNone(report)
+        self.assertFalse(out_path.exists())
+
+    def test_malformed_json_output_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "yield-reports" / "rec.json"
+            fake_proc = subprocess.CompletedProcess(args=["klt"], returncode=0, stdout="not json", stderr="")
+            with mock.patch.object(evidence.subprocess, "run", return_value=fake_proc):
+                report = evidence.run_klt_yield(self._measurements(), out_path)
+        self.assertIsNone(report)
+        self.assertFalse(out_path.exists())
+
+    def test_error_key_in_report_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "yield-reports" / "rec.json"
+            fake_proc = subprocess.CompletedProcess(
+                args=["klt"], returncode=1, stdout=json.dumps({"error": "no native extension"}), stderr="",
+            )
+            with mock.patch.object(evidence.subprocess, "run", return_value=fake_proc):
+                report = evidence.run_klt_yield(self._measurements(), out_path)
+        self.assertIsNone(report)
+
+    def test_valid_report_is_returned_and_written_to_out_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "yield-reports" / "rec.json"
+            fake_report = {"measurements": [{"name": "x", "n": 3}]}
+            fake_proc = subprocess.CompletedProcess(
+                args=["klt"], returncode=0, stdout=json.dumps(fake_report), stderr="",
+            )
+            with mock.patch.object(evidence.subprocess, "run", return_value=fake_proc) as run_mock:
+                report = evidence.run_klt_yield(self._measurements(), out_path)
+            self.assertEqual(report, fake_report)
+            self.assertTrue(out_path.is_file())
+            self.assertEqual(json.loads(out_path.read_text()), fake_report)
+            called_args = run_mock.call_args.args[0]
+            self.assertEqual(called_args[:2], ["klt", "yield"])
+            self.assertEqual(called_args[3], "--format")
+            self.assertTrue(called_args[2].endswith(".json"))
 
 
 class TestRunnerHelpers(unittest.TestCase):

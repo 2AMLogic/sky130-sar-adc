@@ -61,9 +61,7 @@ import hashlib
 import json
 import math
 import re
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parent.parent
@@ -156,45 +154,6 @@ def read_cdac_mc_inl(record_id: str) -> dict:
     }
 
 
-def _run_klt_yield(
-    enob_samples: list[float],
-    out_json_path: Path,
-    target_baseline_bit: float = 9.0,
-    target_yield: float = 0.99,
-) -> dict | None:
-    doc = {
-        "measurements": [
-            {
-                "name": "enob_bit",
-                "unit": "bit",
-                "samples": enob_samples,
-                "limits": {"min": target_baseline_bit, "target_yield": target_yield},
-            },
-        ]
-    }
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-        json.dump(doc, f)
-        sample_path = Path(f.name)
-    try:
-        proc = subprocess.run(
-            ["klt", "yield", str(sample_path), "--format", "json"],
-            capture_output=True, text=True, timeout=60,
-        )
-        try:
-            report = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            return None
-        out_json_path.parent.mkdir(parents=True, exist_ok=True)
-        out_json_path.write_text(json.dumps(report, indent=2))
-        if "error" in report:
-            return None
-        return report
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-    finally:
-        sample_path.unlink(missing_ok=True)
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description="Behavioral-accelerated ENOB estimate (issue #29)")
     ap.add_argument("--cdac-mc-record", required=True, help="sim/cdac-array-transfer/ Monte Carlo record-id (run_mc.py) to draw the CDAC-mismatch contribution from")
@@ -252,9 +211,16 @@ def main() -> int:
     record_path = records_dir / f"{record_id}.md"
 
     yield_dir = EXPERIMENT_DIR / "yield-reports"
-    yield_report = _run_klt_yield(
-        [enob_mean_case, enob_worst_case], yield_dir / f"{record_id}.json",
-        target_baseline_bit=args.target_baseline_bit, target_yield=args.target_yield,
+    yield_report = evidence.run_klt_yield(
+        [
+            {
+                "name": "enob_bit",
+                "unit": "bit",
+                "samples": [enob_mean_case, enob_worst_case],
+                "limits": {"min": args.target_baseline_bit, "target_yield": args.target_yield},
+            },
+        ],
+        yield_dir / f"{record_id}.json",
     )
 
     inputs_manifest = json.dumps({
