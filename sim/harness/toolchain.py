@@ -19,6 +19,7 @@ reported, but does not invalidate anything and must not block a PVT run.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -29,6 +30,42 @@ from pathlib import Path
 from . import pdk
 
 SIM_DIR = Path(__file__).resolve().parent.parent
+
+# Wall-clock budget for a single toolchain subprocess invocation (ngspice
+# transient/op run, or an experiment's own xschem netlisting step -- see
+# TIMEOUT_ENV_VAR below). A single knob rather than one literal per call
+# site (issue #133): a genuinely hung run must still fail fast, but the
+# fixed 120s default previously hardcoded here (and duplicated at
+# sim/sar-sequencer-behavioral/run_testbench.py's own xschem subprocess.run
+# call) made the documented cold-start invocation fail on a slower-but-
+# still-progressing host.
+DEFAULT_TOOLCHAIN_TIMEOUT_S = 120
+TIMEOUT_ENV_VAR = "SIM_NGSPICE_TIMEOUT_S"
+
+
+def toolchain_timeout_s() -> float:
+    """Wall-clock budget (seconds) for one toolchain subprocess invocation
+    (ngspice -b, or an experiment's own xschem netlisting step).
+
+    Defaults to DEFAULT_TOOLCHAIN_TIMEOUT_S. Overridable via the
+    SIM_NGSPICE_TIMEOUT_S environment variable so a slow-but-progressing
+    host (see issue #133) does not require editing this file -- a
+    genuinely hung run still fails, just against whatever budget is set
+    here rather than a hardcoded literal.
+    """
+    raw = os.environ.get(TIMEOUT_ENV_VAR, "").strip()
+    if not raw:
+        return DEFAULT_TOOLCHAIN_TIMEOUT_S
+    try:
+        value = float(raw)
+    except ValueError:
+        raise RuntimeError(
+            f"{TIMEOUT_ENV_VAR}={raw!r} is not a number of seconds "
+            f"(e.g. {TIMEOUT_ENV_VAR}=300)"
+        ) from None
+    if value <= 0:
+        raise RuntimeError(f"{TIMEOUT_ENV_VAR}={raw!r} must be > 0 seconds")
+    return value
 
 
 @dataclass
@@ -58,7 +95,10 @@ def _ngspice_major(version_str: str) -> int | None:
 
 def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
     """Write `netlist_text` into `scratch_dir` and invoke ngspice on it,
-    enforcing a 120s timeout and raising RuntimeError on a nonzero exit.
+    enforcing the toolchain_timeout_s() budget (default
+    DEFAULT_TOOLCHAIN_TIMEOUT_S = 120s, overridable via the
+    SIM_NGSPICE_TIMEOUT_S env var -- see toolchain_timeout_s()) and raising
+    RuntimeError on a nonzero exit.
 
     Shared by sim/harness/runner.py (PVT corner sweeps) and
     sim/harness/mc_runner.py (Monte Carlo sweeps) -- both shell out to
@@ -69,13 +109,14 @@ def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
     shutil.copyfile(SIM_DIR / "spiceinit", scratch_dir / ".spiceinit")
     netlist_path = scratch_dir / f"{log_name}.spice"
     netlist_path.write_text(netlist_text)
+    timeout_s = toolchain_timeout_s()
     try:
         proc = subprocess.run(
             ["ngspice", "-b", str(netlist_path)],
             cwd=scratch_dir,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=timeout_s,
         )
     except subprocess.TimeoutExpired as exc:
         # exc.stdout/exc.stderr can surface as bytes here even though this
@@ -96,8 +137,11 @@ def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
 
         out = _text(exc.stdout) + _text(exc.stderr)
         raise RuntimeError(
-            f"ngspice timed out after 120s running {netlist_path.name} "
-            f"(last output:\n{out[-2000:]})"
+            f"ngspice timed out after {timeout_s:g}s running {netlist_path.name} "
+            f"(last output:\n{out[-2000:]})\n"
+            f"If ngspice was still making progress (not hung), raise the budget "
+            f"with e.g. {TIMEOUT_ENV_VAR}=300 (seconds) in the environment before "
+            f"re-running."
         ) from exc
     output = proc.stdout + proc.stderr
     if proc.returncode != 0:

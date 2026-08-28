@@ -105,7 +105,20 @@ def netlist_dut(scratch_dir: Path) -> Path:
         "-o", str(scratch_dir),
         str(DESIGN_SCH),
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    # Shares its timeout budget with toolchain.run_ngspice()'s own ngspice
+    # invocations (issue #133) rather than a second hardcoded literal here,
+    # so SIM_NGSPICE_TIMEOUT_S raises both this step's and the .tran run's
+    # budget together on a slower-but-still-progressing host.
+    timeout_s = toolchain.toolchain_timeout_s()
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"xschem netlisting of {DESIGN_SCH} timed out after {timeout_s:g}s. "
+            f"If xschem was still making progress (not hung), raise the budget "
+            f"with e.g. {toolchain.TIMEOUT_ENV_VAR}=300 (seconds) in the "
+            f"environment before re-running."
+        ) from exc
     out_path = scratch_dir / "sar_sequencer.spice"
     if proc.returncode != 0 or not out_path.is_file():
         raise RuntimeError(
