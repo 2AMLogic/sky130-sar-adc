@@ -43,24 +43,17 @@ KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
 TOP=sar_sequencer
 
-if [[ ! -x "$KLT" ]]; then
-  echo "run-flow.sh: $KLT not found -- run layout/bin/setup-venv.sh first" >&2
-  exit 1
-fi
+source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-if ! "$KLT" pdk find --pdk "$PDK_VARIANT" >/dev/null; then
-  echo "run-flow.sh: no resolvable $PDK_VARIANT PDK -- see sim/pdk.json for the pin" >&2
-  exit 1
-fi
+require_klt "$KLT"
+require_pdk "$KLT" "$PDK_VARIANT"
 
 if ! command -v openroad >/dev/null 2>&1; then
   echo "run-flow.sh: no 'openroad' binary on \$PATH -- see docs/environment-setup.md" >&2
   exit 1
 fi
 
-TS_UTC="$(date -u +%Y%m%d-%H%M%S)"
-SHORT_SHA="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-RECORD_ID="${TS_UTC}-${SHORT_SHA}"
+RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$SAR_SEQ_DIR/reports/$RECORD_ID"
 mkdir -p "$OUT_DIR/.klt/place-and-route"
 echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"

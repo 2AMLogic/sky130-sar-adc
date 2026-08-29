@@ -36,19 +36,12 @@ CELL=trivial_mos_array
 FIXTURE=drc_violation_fixture
 PDK_VARIANT=sky130A
 
-if [[ ! -x "$KLT" ]]; then
-  echo "run-trivial-cell-flow.sh: $KLT not found -- run layout/bin/setup-venv.sh first" >&2
-  exit 1
-fi
+source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-if ! "$KLT" pdk find --pdk "$PDK_VARIANT" >/dev/null; then
-  echo "run-trivial-cell-flow.sh: no resolvable $PDK_VARIANT PDK -- see sim/pdk.json for the pin" >&2
-  exit 1
-fi
+require_klt "$KLT"
+require_pdk "$KLT" "$PDK_VARIANT"
 
-TS_UTC="$(date -u +%Y%m%d-%H%M%S)"
-SHORT_SHA="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-RECORD_ID="${TS_UTC}-${SHORT_SHA}"
+RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$CELL_DIR/reports/$RECORD_ID"
 mkdir -p "$OUT_DIR"
 echo "run-trivial-cell-flow.sh: record $RECORD_ID -> $OUT_DIR"
