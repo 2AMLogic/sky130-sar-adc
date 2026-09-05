@@ -1,0 +1,365 @@
+# Chipalooza Challenge #4 (Sky130) — 10-bit SAR ADC proposal
+
+**Status of this document: DRAFT design record, not a submission-ready
+proposal.** Open Circuit Design's [Chipalooza Challenge
+#4](https://opencircuitdesign.com/chipalooza/) rules page (`rules-4.html`)
+had not published as of this document's authoring (2026-09-05); the
+epic tracking table (2AMLogic/2am#542) lists a 2026-11-09 publish date.
+Per this issue's own acceptance criteria, this document assumes the common
+structure shared by Challenges #2/#3 (`rules-2.html`/`rules-3.html`) until
+`rules-4.html` publishes, and does not block on the unpublished rules. **When
+`rules-4.html` publishes, a follow-up pass must re-verify every slot-budget
+number and rail assumption in §2 against the actual text** — nothing here is
+final.
+
+**Source repository**: `2AMLogic/sky130-sar-adc` (`visibility: public`,
+flipped 2026-08-25 per Epic #542 Phase 4A — confirmed via `gh repo view`
+at authoring time). Every number in §4 is transcribed from this
+repository's own append-only `sim/` evidence and from
+[`spec/target-spec.md`](../../spec/target-spec.md) /
+[`docs/characterization-report.md`](../../docs/characterization-report.md),
+with a dated citation to the record it came from. Per `CLAUDE.md`'s
+clean-room rule, nothing in this document is derived from, or checked
+against, any other party's implementation — every figure traces to this
+repo's own design sources or its own re-runnable `sim/` testbenches.
+
+This document reports the design's status **honestly, including where it
+falls short of the brief's full sign-off bar** — per `CLAUDE.md`'s "no claim
+without a testbench" and "no spec row is relaxed to make a result pass"
+rules, and per this issue's own acceptance criteria ("every spec row states
+met/unmet... no row is relaxed to make it pass"). It is not written as if it
+were submission-ready; it is a snapshot of where the design stands and what
+remains before it would be.
+
+---
+
+## 1. Type of IP block
+
+A 10-bit, single-channel, differential, top-plate-sampled
+Successive-Approximation-Register (SAR) analog-to-digital converter,
+implemented entirely on Sky130's 1.8 V core device flavor
+(`nfet_01v8`/`pfet_01v8`) with `sky130_fd_sc_hd` standard cells for the
+digital SEL-inverter drivers. Provisional sample rate range: 100 kS/s – 1
+MS/s (DRAFT, not yet re-derived from settling data — see §4).
+
+---
+
+## 2. I/O list, including test ports
+
+### 2.1 Rails: this block is ratified single-supply, 1.8 V core throughout
+
+**This section corrects an assumption in this issue's own filed body.** The
+issue that requested this document assumed, as a starting point, "Sky130's
+native rails (1.8V digital / 3.3V analog)" — i.e. that the analog signal
+path would run on a 3.3 V-class device. That is **not** what this repository
+has designed or ratified. Per
+[`spec/target-spec.md`](../../spec/target-spec.md) (supply flavor ratified
+2026-08-13, [DR-001](../../spec/decision-records/DR-001-supply-flavor-scope.md);
+numeric rows ratified 2026-08-19,
+[DR-003](../../spec/decision-records/DR-003-numeric-spec-derivation.md)):
+
+- The **entire** signal path — CDAC array, sampling front end, comparator,
+  and SAR sequencer — is built on the **1.8 V core** device flavor
+  (`nfet_01v8`/`pfet_01v8`), the same rail as the digital logic. There is no
+  separate 3.3 V (or higher) analog rail anywhere in this design.
+- `V_REF = V_DD = 1.8 V` — **at** the core rail, not above it. Per the
+  ratified DR-002 tripwire in `spec/target-spec.md`, a higher-voltage or
+  mixed-voltage arrangement (thick-oxide front end, `nfet_g5v0d10v5`/
+  `pfet_g5v0d10v5`) is explicitly **deferred**, and would require its own
+  ratification (a DR-002 follow-on) before any switch is drawn on it. This
+  design has never simulated, laid out, or characterized any device above
+  the 1.8 V core rail.
+- CLAUDE.md's framing of the pass-device flavor for a "3.3 V input" as "a
+  ratification question, not an assumption" describes a decision this repo
+  has not had to make, because the ratified full-scale input range never
+  exceeds 1.8 V (see §6). If a future Challenge #4 slot budget forces a
+  wider input range, that would trip the DR-002 tripwire and require a new
+  decision record — it is not assumed here.
+
+Every row in §4 below is therefore reported at a single supply point,
+1.8 V ± 10 % (1.62 / 1.80 / 1.98 V), not two rails.
+
+### 2.2 Pad table, mapped to the assumed Challenge #4 slot budget
+
+Per this issue's stated common structure: 24 digital control inputs, 12
+digital test outputs, 4 shared (multiplexed) analog lines, 0–4 dedicated
+pads, harness-supplied bias/bandgap reference, SPI control interface
+supplied by the harness (not per-block).
+
+| Signal | Dir | Assumed Challenge slot | Count used | Notes |
+|---|---|---|---|---|
+| `VDD` | supply | 1.8 V digital/analog rail (shared) | — (rail, not a slot line item) | Single supply for the whole block — analog and digital share the same rail (§2.1) |
+| `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 0–4) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
+| `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
+| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every existing testbench drives it from an ideal source; this repo has no derived drive-impedance/decoupling budget for `VCM` (same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row) |
+| `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
+| `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
+| `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
+| `BUSY` | out | digital test output | 1 | Conversion-in-progress strobe |
+
+**Totals against the assumed budget**: 2 of ≤24 digital control inputs
+(`CLK`, `RST_B`), 11 of ≤12 digital test outputs (`DOUT9..0` + `BUSY`), 3 of
+0–4 dedicated pads if `VINP`/`VINN`/`VCM` alone are counted as dedicated, **or
+5 of 0–4 if `VREFP`/`VREFN` must also be dedicated pads rather than a shared
+harness reference** — the latter would exceed a 4-pad dedicated ceiling.
+This is stated as an open slot-budget risk, not resolved by assumption (see
+§7); it cannot be resolved definitively until `rules-4.html` publishes and
+states the real per-signal budget categories.
+
+There is **no on-chip SPI interface** in this design — `design/sar_adc_top.sch`
+exposes only the parallel `CLK`/`RST_B`/`DOUT*`/`BUSY` port set (see §2.3).
+This is a plain design fact (the netlist's own port list,
+`design/sar_adc_top.spice`), not a ratified interface-scope decision record
+the way the port-parity sibling `gf180-sar-adc` has one (`DR-0005`) — no
+equivalent decision record exists in this repo. If Challenge #4's SPI
+control interface must reach this block's own control/readback ports rather
+than only global harness configuration, a small interface-adapter
+sub-block would need to be designed; that is not assumed to already exist.
+
+### 2.3 What this repo's own port list is, verbatim
+
+`design/sar_adc_top.spice`'s top-level subcircuit port list (regenerated
+from `design/sar_adc_top.sch`, staleness-checked in CI by
+`design/regen_netlist.sh --check`):
+
+```
+.subckt sar_adc_top VINP VINN VDD VREFP VREFN VCM CLK RST_B \
+  DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 BUSY
+```
+
+Nothing is added or dropped in §2.2's mapping above — it is exactly this
+netlist's own external port list, categorized against the assumed slot
+budget.
+
+---
+
+## 3. Functional description
+
+The converter samples a differential input onto a binary-weighted, 512
+(unit-cap) positions-per-side capacitive DAC (CDAC) array
+(`design/cdac/cdac_array.sch`), then resolves 10 bits by successive
+approximation against an internal comparator
+(`design/comparator.sch`), using top-plate sampling with a "free" MSB
+decision resolved directly from the sampled charge — the sampling front
+end (`design/sampling_frontend.sch`) holds the top plate through a
+bootstrapped switch network during acquisition, and the CDAC array itself
+implements the remaining 9-bit binary-weighted sub-array plus a
+non-switching termination unit per side
+([DR-005](../../spec/decision-records/DR-005-cdac-array-design.md)). A
+synchronous ring sequencer (`design/sar_sequencer.sch`) runs the conversion
+over `N + 2 = 12` master-clock periods, provisionally one clock per phase,
+uniformly — 1 sample phase, 10 bit-trial phases (MSB first), and 1
+end-of-conversion phase
+([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)).
+The full hierarchy is captured in `design/sar_adc_top.sch` and its
+regenerated netlist `design/sar_adc_top.spice`.
+
+**Physical readiness, stated plainly**: schematic capture is complete and
+regenerates cleanly for every sub-block and the assembled top level. Layout
+exists **per sub-block only** — `layout/cdac-array/` and
+`layout/comparator/` are full-custom, DRC-clean and LVS-clean;
+`layout/sar-sequencer/` is a standard-cell place-and-route flow, DRC-clean
+but LVS-blocked (tracked, #102); the sampling front end has no committed
+layout yet (tracked, #99). **No top-level assembled ADC layout (GDS) exists
+yet** — the routed integration of the four sub-block layouts into one
+top-level GDS matching `design/sar_adc_top.sch`'s hierarchy is tracked as
+issue #103, itself blocked on #99/#100/#101/#102, all rolled up under the
+layout epic #25. This is the single largest gap between this design and the
+brief's sign-off bar (§4, §7).
+
+---
+
+## 4. Target specification at Sky130's ratified 1.8 V rail
+
+Every row below is reported at this repository's own ratified PVT grid —
+process corners `{ff, fs, sf, ss, tt}`, temperature `{−40, 27, 125} °C`,
+supply `{1.62, 1.80, 1.98} V`, one-at-a-time (9 points) — per
+`spec/target-spec.md`'s "Numeric rows — RATIFIED 2026-08-19" section and
+`sim/README.md`'s "Corner-grid shape." No row below has ever been measured
+at, or claimed to hold at, any rail above 1.8 V core (§2.1).
+
+The verdict column below distinguishes three cases per this issue's own
+acceptance criterion ("every spec row states met/unmet... no row is
+relaxed"):
+- **MET** — spec row is ratified and evidence shows it passes at every
+  bound corner.
+- **UNMET** — spec row is ratified and evidence shows a specific,
+  named shortfall at a specific corner (not relaxed to hide it).
+- **DRAFT / not ratified** — the target-spec row itself is not yet an
+  operator-ratified number; evidence may exist and is reported
+  informationally, but there is no ratified line to grade a verdict
+  against.
+- **BLOCKED** — no evidence exists yet; names the specific issue that would
+  produce it.
+
+This table mirrors, and is derived from,
+[`docs/characterization-report.md`](../../docs/characterization-report.md) —
+a machine-checked, regenerable aggregation (`sim/report/generate.py --check`,
+wired into CI) tying every `spec/target-spec.md` row to its evidence. Where
+the two differ in wording, `docs/characterization-report.md` is the
+authoritative, regenerable source; this table restates it for the Chipalooza
+audience with an explicit Challenge-brief verdict column.
+
+| Parameter | Target (min/typ/max) | Status | Verdict at Sky130 1.8 V rail | Source (dated) |
+|---|---|---|---|---|
+| Architecture | charge-redistribution SAR, differential, top-plate sampling | DRAFT (descriptive) | Implemented as described | `design/sar_adc_top.sch`, `design/cdac/cdac_array.sch`, `design/sampling_frontend.sch`, `design/comparator.sch`, `design/sar_sequencer.sch` |
+| Resolution `N` | 10 bit | **RATIFIED** (DR-003 via #27) | **MET** — 9/9 corners, correct MSB-first bit-by-bit capture | [`sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md`](../../sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md) |
+| `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | **MET** — structural + functional/monotonicity check, 9/9 corners | [`sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`](../../sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md) |
+| LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | **MET** — same record as `V_REF` | same record |
+| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | **MET** — sim structural check (9/9 corners) AND independent layout evidence: DRC-clean, LVS-match, drawn `C_u = 8.6473 fF`, unit-cap count 1024 (512/side × 2) | same record; [`layout/cdac-array/reports/20260825-132454-51cbdd4/record.md`](../../layout/cdac-array/reports/20260825-132454-51cbdd4/record.md) |
+| Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.9591 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)) | [`sim/comparator-decision/records/20260827-212404-e13bc1e.md`](../../sim/comparator-decision/records/20260827-212404-e13bc1e.md) |
+| Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | `sim/harness-corner-smoke/records/`, `sim/mc-smoke/records/` |
+| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **BLOCKED / UNMEASURED** — no switch-`R_on`/CDAC-settling campaign exists; timing budget (1.2–12 MHz clock) is a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)) | none — needs a full-hierarchy settling campaign, unassigned as of this writing |
+| ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only, DOES NOT MEET even the un-ratified DR-007 candidate**: 8.491 bit (mean-case CDAC mismatch) meets the DR-007 candidate but 7.749 bit (worst-case) does not; neither number is graded against a ratified line because none exists | [`sim/enob-estimate/records/20260828-005033-0c70212.md`](../../sim/enob-estimate/records/20260828-005033-0c70212.md) |
+| INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim; not re-evaluated against DR-007's wider ±2.0 LSB candidate in this document (no new campaign run here) | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) |
+| Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
+| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **BLOCKED** — no top-level layout exists (§3, §7); no area figure to report | — |
+| Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **PARTIAL** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean but LVS-blocked (#102) | `layout/sar-sequencer/README.md` |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (itself blocked on #99/#100/#101/#102), all under epic #25 | — |
+| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **UNMET / BLOCKED** — same blocker as above | — |
+
+### Reproducing this table
+
+Every citation above is re-runnable from a clean clone with the PDK
+installed, per [`docs/environment-setup.md`](../../docs/environment-setup.md).
+`python3 sim/run_corners.py --list` enumerates the corner-run experiments
+cited; `python3 sim/monte_carlo.py --list` enumerates the Monte Carlo
+campaigns (ENOB/INL/DNL rows). `python3 sim/report/generate.py --check`
+verifies `docs/characterization-report.md` — the machine-checked source this
+table restates — is fresh against current `sim/`/`layout/` evidence; it was
+run as part of authoring this document and passed
+(`OK: ... is fresh and up to date (11 rows)`).
+
+---
+
+## 5. Test-plan outline (packaged part, if fabricated)
+
+This section is written against this design's *current* port list (§2) and
+would need revision once §7's open items (differential-reference budget,
+top-level layout) close.
+
+1. **Bring-up / DC sanity.** Apply `VDD` = 1.8 V, `VREFP`/`VREFN` (0/1.8 V or
+   the harness-supplied equivalent), `VCM` = 0.9 V. Confirm quiescent supply
+   current with no input applied, `CLK` free-running, `RST_B` deasserted.
+2. **Functional / decode check.** Drive `VINP`/`VINN` to a small set of known
+   DC levels spanning 0–`V_REF`. Capture `DOUT9..0` on each `BUSY`
+   deassertion and confirm monotonically increasing codes with increasing
+   differential input.
+3. **Static linearity (INL/DNL).** A code-density (histogram) test against
+   the target row's eventual ratified bound (currently DRAFT, DR-007
+   candidate ≤ ±2.0 LSB).
+4. **Dynamic performance (ENOB).** Drive a low-distortion sine near Nyquist,
+   coherent with `CLK`, and FFT-derive SNDR/ENOB from a captured `DOUT*`
+   record. Compare against whatever value DR-007 (or a superseding record)
+   eventually ratifies — no ratified ENOB target exists today.
+5. **Sample-rate / clock-margin sweep.** Sweep `CLK` frequency across the
+   provisional 1.2–12 MHz range (§4) and record where functional decode
+   first degrades — this is the silicon measurement that would finally
+   produce the settling-time evidence `spec/target-spec.md`'s sample-rate row
+   is still waiting on.
+6. **Power.** Measure `VDD` supply current at a representative sample rate.
+
+No test-equipment list or bench schedule is proposed here — that is
+downstream of a packaged part existing, which is itself downstream of §3/§7's
+open layout work.
+
+---
+
+## 6. Input interface note
+
+- **Differential only.** This design has no single-ended mode; the unused
+  gf180-sar-adc-style `MODE` pin does not exist here (a design divergence,
+  not an oversight — this repo's CDAC/sampling-frontend topology was
+  designed differential-only from the start,
+  [DR-005](../../spec/decision-records/DR-005-cdac-array-design.md)).
+- **Full-scale range**: 0–`V_REF` = 0–1.8 V single-ended per side; the
+  differential LSB is `2·V_REF/2^N = 3.5156 mV`, i.e. a `2·V_REF = 3.6 V`
+  differential full-scale span. This stays entirely within the 1.8 V core
+  rail per §2.1 — it does not, and is not proposed to, extend to any
+  higher-voltage rail.
+- **Which pads carry the input and reference**: `VINP`/`VINN` (dedicated
+  pads) carry the analog input; `VREFP`/`VREFN` set the full-scale
+  reference (differential — see §2.2's open item on whether the harness's
+  bandgap reference can supply this directly); `VCM` sets the common-mode
+  operating point.
+
+---
+
+## 7. Open items before this design would be ready for the brief's sign-off bar
+
+Stated in order of size, and each pointing at the issue that already tracks
+it — this document does not invent new tracking for work this repo's issue
+tracker already owns.
+
+1. **Top-level layout does not exist (the largest gap).** No assembled,
+   DRC/LVS-clean GDS for `sar_adc_top` exists in this repo. Tracked as
+   #103 (top-level routing/assembly), itself blocked on #99 (sampling
+   front-end layout), #100 (CDAC array layout — **done**, DRC/LVS-clean),
+   #101 (comparator layout — **done**, DRC/LVS-clean), and #102 (SAR
+   sequencer layout — place-and-route done, DRC-clean, LVS currently
+   blocked). All four roll up under epic #25 / tracker #23. **This is the
+   single blocker for the brief's "post-layout PVT simulation and
+   DRC/LVS-clean GDS in-repo" acceptance criterion** — that criterion is
+   marked UNMET / BLOCKED in §4, not fabricated or optimistically assumed.
+2. **Sample rate is not re-derived.** `spec/target-spec.md`'s
+   100 kS/s–1 MS/s row remains DRAFT; no switch-`R_on`/CDAC-settling
+   campaign exists (needs the full hierarchy's transistor-level layout, not
+   just the schematic). This gates the timing-budget row (DR-006) from
+   becoming anything more than a mechanical consequence of an unratified
+   number.
+3. **ENOB / INL-DNL target values are proposed, not ratified.**
+   [DR-007](../../spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md)
+   proposes revised, evidence-derived candidates (ENOB > 7.5/8.0 bit,
+   INL/DNL ≤ ±2.0 LSB) reading #29's own completed Monte Carlo campaign, but
+   is `proposed`, awaiting operator ratification. Until it (or a superseding
+   record) ratifies, §4's ENOB/INL-DNL rows stay informational, per
+   `CLAUDE.md`'s "do not relax a spec line to make a result pass" rule —
+   this document does not treat DR-007's candidate numbers as settled.
+4. **Differential-reference vs. single "bandgap reference" slot mismatch**
+   (§2.2). This design's `VREFP`/`VREFN` pair does not map cleanly onto a
+   single bias/bandgap-reference budget line the way the port-parity
+   sibling `gf180-sar-adc`'s single-ended `V_REF` does. Genuinely new,
+   surfaced by writing this document — not previously tracked. Whether this
+   is resolvable (harness-supplied differential pair) or needs a small
+   on-chip single-to-differential conversion is unresolved and is not
+   guessed at here; it should be revisited once `rules-4.html` states the
+   real slot categories.
+5. **`VCM` drive-impedance/decoupling budget is not derived**, the same
+   class of gap the sibling `gf180-sar-adc` proposal names for its own
+   `V_CM` row — every testbench in this repo drives `VCM` ideally.
+6. **`rules-4.html` has not published.** Every slot-budget assumption in §2
+   is carried from Challenges #2/#3's common structure, not from Challenge
+   #4's own (unpublished) text. Per this issue's own acceptance criterion, a
+   follow-up pass is required once it publishes, to verify or correct §2's
+   numbers — not performed here because the source does not exist yet.
+
+None of the above is treated as blocking the *existence* of this document —
+per this issue's acceptance criteria, the document itself, honestly stating
+current status against every spec row, is the deliverable this pass
+produces. The brief's full sign-off bar (item 1 above, chiefly) is not met
+and is not claimed to be met.
+
+---
+
+## 8. Licensing and EDA flow
+
+- **License**: this repository — schematics, layout, testbenches, decision
+  records, and every evidence record cited above — is licensed
+  [Apache-2.0](../../LICENSE), Copyright 2026 2AM Logic. It satisfies the
+  common structure's requirement for a standard open license with
+  modifiable sources public. (Note: `README.md`'s "Private for now" section
+  predates the 2026-08-25 visibility flip to public and is stale relative
+  to the repository's actual current visibility, confirmed via `gh repo
+  view` at authoring time — a pre-existing documentation gap, not
+  introduced by this document, and out of this issue's scope to fix here.)
+- **Flow**: fully open-source. Schematic capture and netlisting via
+  [xschem](https://xschem.sourceforge.io/); simulation via
+  [ngspice](https://ngspice.sourceforge.io/); layout, DRC, LVS, and
+  extraction via [KLayout](https://www.klayout.de/) driven by
+  [klayout-tools](https://github.com/2AMLogic/klayout-tools/) (`klt`); the
+  sky130A PDK fetched and pinned via
+  [volare](https://github.com/efabless/volare)
+  (`docs/environment-setup.md`, `sim/pdk.json`). Every simulation record
+  cites its exact pinned toolchain versions (`sim/toolchain.json`), and
+  every layout record cites the `klt` version and PDK commit it ran
+  against.
