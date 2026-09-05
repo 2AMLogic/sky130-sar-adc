@@ -214,7 +214,7 @@ audience with an explicit Challenge-brief verdict column.
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | **MET** — sim structural check (9/9 corners); independent layout evidence also exists (DRC-clean, drawn `C_u = 8.6473 fF`, unit-cap count 1024 = 512/side × 2), but that record's LVS "match" verdict does not reproduce against its own committed artefacts — an open, unresolved regression (#148) — so the layout evidence is DRC-confirmed only, not currently LVS-confirmed | same record; [`layout/cdac-array/reports/20260825-132454-51cbdd4/record.md`](../../layout/cdac-array/reports/20260825-132454-51cbdd4/record.md) (LVS verdict disputed, see #148) |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.9591 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)) | [`sim/comparator-decision/records/20260827-212404-e13bc1e.md`](../../sim/comparator-decision/records/20260827-212404-e13bc1e.md) |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | `sim/harness-corner-smoke/records/`, `sim/mc-smoke/records/` |
-| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **BLOCKED / UNMEASURED** — no switch-`R_on`/CDAC-settling campaign exists; timing budget (1.2–12 MHz clock) is a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)) | none — needs a full-hierarchy settling campaign, unassigned as of this writing |
+| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **BLOCKED / UNMEASURED (narrowed, not closed)** — no full-hierarchy switch-`R_on`/CDAC-settling + comparator-decision campaign exists yet; timing budget (1.2–12 MHz clock) is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). A first-pass, single-corner (`tt`/27 °C/1.8 V) CDAC-array-only settling budget now exists and rules out the array's own switch-settling as the bottleneck (worst case 11.39 ns at bit 8/MSB, 7.3x margin inside the DR-006-derived 83.33 ns worst-case phase budget) — the comparator's own decision delay and full PVT coverage remain unmeasured | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC-array mechanism only); comparator decision delay and full-hierarchy PVT campaign still unassigned |
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only, DOES NOT MEET even the un-ratified DR-007 candidate**: 8.491 bit (mean-case CDAC mismatch) meets the DR-007 candidate but 7.749 bit (worst-case) does not; neither number is graded against a ratified line because none exists | [`sim/enob-estimate/records/20260828-005033-0c70212.md`](../../sim/enob-estimate/records/20260828-005033-0c70212.md) |
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim; not re-evaluated against DR-007's wider ±2.0 LSB candidate in this document (no new campaign run here) | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
@@ -315,12 +315,36 @@ tracker already owns.
    brief's "post-layout PVT simulation and DRC/LVS-clean GDS in-repo"
    acceptance criterion** — that criterion is marked UNMET / BLOCKED in §4,
    not fabricated or optimistically assumed.
-2. **Sample rate is not re-derived.** `spec/target-spec.md`'s
-   100 kS/s–1 MS/s row remains DRAFT; no switch-`R_on`/CDAC-settling
-   campaign exists (needs the full hierarchy's transistor-level layout, not
-   just the schematic). This gates the timing-budget row (DR-006) from
-   becoming anything more than a mechanical consequence of an unratified
-   number.
+2. **Sample rate is not re-derived (narrowed this pass, not closed).**
+   `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
+   single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
+   the CDAC array's own bottom-plate-switch/top-plate-node RC network
+   (`design/cdac/cdac_array.sch`) — now exists
+   ([`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md)),
+   made possible by DR-006's own gating condition finally clearing (that
+   record predates `design/cdac/cdac_array.sch` and `design/comparator.sch`
+   existing; both now do). It isolates and quantifies a genuine, testable
+   property of this array's own component values: every one of its 9
+   per-side bit switches is the SAME fixed transistor size regardless of
+   bit weight, while the capacitor each one drives scales binarily
+   (1..256 unit caps) — so the top-plate settling time constant is **not**
+   monotonic in bit position, and for this design's own weights it peaks
+   at bit 8 (the MSB of the 9-bit sub-array, closest to half the array's
+   total capacitance), not at the array's largest bit by a naive
+   "biggest cap is always slowest" intuition. Measured worst case: 11.39 ns
+   to settle to 99% at bit 8, a 7.3x margin inside the DR-006-derived
+   worst-case (12 MHz) 83.33 ns bit-trial phase budget — ruling out the
+   CDAC array's own switch-settling as the sample-rate bottleneck at this
+   corner. This does **not** close the open item: the comparator's own
+   decision (propagation) delay (`design/comparator.sch` exists, but no
+   timing campaign has been run against it), sequencer logic delay, and
+   full PVT coverage of even this one mechanism (switch `R_on` varies
+   materially with process/temperature) are all still unmeasured, and any
+   of those could dominate where the CDAC array itself does not. This
+   still gates the timing-budget row (DR-006) from becoming anything more
+   than a mechanical consequence of an unratified number, but the sample-
+   rate row is no longer entirely unmeasured — one candidate bottleneck
+   has been checked and cleared.
 3. **ENOB / INL-DNL target values are proposed, not ratified.**
    [DR-007](../../spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md)
    proposes revised, evidence-derived candidates (ENOB > 7.5/8.0 bit,
