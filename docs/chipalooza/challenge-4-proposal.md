@@ -156,16 +156,21 @@ regenerated netlist `design/sar_adc_top.spice`.
 
 **Physical readiness, stated plainly**: schematic capture is complete and
 regenerates cleanly for every sub-block and the assembled top level. Layout
-exists **per sub-block only** — `layout/cdac-array/`, `layout/comparator/`,
-and `layout/sar-sequencer/` (a standard-cell place-and-route flow) are all
-DRC-clean and LVS-clean; the sampling front end has no committed layout yet
-(tracked, #99). **No top-level assembled ADC layout (GDS) exists yet** — the
-routed integration of the four sub-block layouts into one top-level GDS
-matching `design/sar_adc_top.sch`'s hierarchy is tracked as issue #103,
-itself blocked on #99 (the sampling front end's still-uncommitted layout;
-#100/#101/#102 are done), all rolled up under the layout epic #25. This is
-the single largest gap between this design and the brief's sign-off bar
-(§4, §7).
+exists **per sub-block only** — `layout/comparator/` and
+`layout/sar-sequencer/` (a standard-cell place-and-route flow) are DRC-clean
+and LVS-clean. `layout/cdac-array/` is DRC-clean, but its committed LVS
+"match" verdict does not reproduce against its own committed artefacts
+(byte-identical GDS/reference-SPICE inputs, the same toolchain versions its
+own provenance block stamps) — a regression discovered 2026-09-05 and tracked,
+unresolved, as #148 (see §4, §7 item 1). The sampling front end has no
+committed layout yet (tracked, #99). **No top-level assembled ADC layout
+(GDS) exists yet** — the routed integration of the four sub-block layouts
+into one top-level GDS matching `design/sar_adc_top.sch`'s hierarchy is
+tracked as issue #103, itself blocked on #99 (the sampling front end's
+still-uncommitted layout, and the only one of the four sub-block issues still
+open); #100/#101/#102 are closed, though #100's LVS-clean claim is disputed
+per #148 above. All roll up under the layout epic #25. This is the single
+largest gap between this design and the brief's sign-off bar (§4, §7).
 
 ---
 
@@ -206,7 +211,7 @@ audience with an explicit Challenge-brief verdict column.
 | Resolution `N` | 10 bit | **RATIFIED** (DR-003 via #27) | **MET** — 9/9 corners, correct MSB-first bit-by-bit capture | [`sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md`](../../sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md) |
 | `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | **MET** — structural + functional/monotonicity check, 9/9 corners | [`sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`](../../sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md) |
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | **MET** — same record as `V_REF` | same record |
-| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | **MET** — sim structural check (9/9 corners) AND independent layout evidence: DRC-clean, LVS-match, drawn `C_u = 8.6473 fF`, unit-cap count 1024 (512/side × 2) | same record; [`layout/cdac-array/reports/20260825-132454-51cbdd4/record.md`](../../layout/cdac-array/reports/20260825-132454-51cbdd4/record.md) |
+| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | **MET** — sim structural check (9/9 corners); independent layout evidence also exists (DRC-clean, drawn `C_u = 8.6473 fF`, unit-cap count 1024 = 512/side × 2), but that record's LVS "match" verdict does not reproduce against its own committed artefacts — an open, unresolved regression (#148) — so the layout evidence is DRC-confirmed only, not currently LVS-confirmed | same record; [`layout/cdac-array/reports/20260825-132454-51cbdd4/record.md`](../../layout/cdac-array/reports/20260825-132454-51cbdd4/record.md) (LVS verdict disputed, see #148) |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.9591 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)) | [`sim/comparator-decision/records/20260827-212404-e13bc1e.md`](../../sim/comparator-decision/records/20260827-212404-e13bc1e.md) |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | `sim/harness-corner-smoke/records/`, `sim/mc-smoke/records/` |
 | Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **BLOCKED / UNMEASURED** — no switch-`R_on`/CDAC-settling campaign exists; timing budget (1.2–12 MHz clock) is a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)) | none — needs a full-hierarchy settling campaign, unassigned as of this writing |
@@ -293,15 +298,23 @@ tracker already owns.
 
 1. **Top-level layout does not exist (the largest gap).** No assembled,
    DRC/LVS-clean GDS for `sar_adc_top` exists in this repo. Tracked as
-   #103 (top-level routing/assembly), itself blocked on #99 (sampling
-   front-end layout — **the sole remaining blocker**), #100 (CDAC array
-   layout — **done**, DRC/LVS-clean), #101 (comparator layout — **done**,
-   DRC/LVS-clean), and #102 (SAR sequencer layout — **done**, DRC-clean
-   and LVS-clean as of #141). All four roll up under epic #25 / tracker
-   #23. **This is the single blocker for the brief's "post-layout PVT
-   simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** —
-   that criterion is marked UNMET / BLOCKED in §4, not fabricated or
-   optimistically assumed.
+   #103 (top-level routing/assembly), which lists #99, #100, #101, and #102
+   as its four sub-block dependencies. #99 (sampling front-end layout) has no
+   committed layout yet and is the only one of the four sub-block issues
+   still open (`loom:building`, actively in progress). #101 (comparator
+   layout — **done**, DRC/LVS-clean) and #102 (SAR sequencer layout —
+   **done**, DRC-clean and LVS-clean as of #141) are closed and settled.
+   #100 (CDAC array layout) is closed and its layout is DRC-clean, but its
+   committed LVS "match" verdict was found, 2026-09-05, not to reproduce
+   against its own committed artefacts — byte-identical GDS/reference-SPICE
+   inputs, the same toolchain versions its own provenance block stamps, now
+   report mismatch (48 errors). This is an open, unresolved regression
+   tracked as #148 — this document no longer reports #100 as LVS-clean
+   pending that issue's resolution. All four sub-block issues and #103 roll
+   up under epic #25 / tracker #23. **This is the single blocker for the
+   brief's "post-layout PVT simulation and DRC/LVS-clean GDS in-repo"
+   acceptance criterion** — that criterion is marked UNMET / BLOCKED in §4,
+   not fabricated or optimistically assumed.
 2. **Sample rate is not re-derived.** `spec/target-spec.md`'s
    100 kS/s–1 MS/s row remains DRAFT; no switch-`R_on`/CDAC-settling
    campaign exists (needs the full hierarchy's transistor-level layout, not
