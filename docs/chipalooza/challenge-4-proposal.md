@@ -156,16 +156,16 @@ regenerated netlist `design/sar_adc_top.spice`.
 
 **Physical readiness, stated plainly**: schematic capture is complete and
 regenerates cleanly for every sub-block and the assembled top level. Layout
-exists **per sub-block only** — `layout/cdac-array/` and
-`layout/comparator/` are full-custom, DRC-clean and LVS-clean;
-`layout/sar-sequencer/` is a standard-cell place-and-route flow, DRC-clean
-but LVS-blocked (tracked, #102); the sampling front end has no committed
-layout yet (tracked, #99). **No top-level assembled ADC layout (GDS) exists
-yet** — the routed integration of the four sub-block layouts into one
-top-level GDS matching `design/sar_adc_top.sch`'s hierarchy is tracked as
-issue #103, itself blocked on #99/#100/#101/#102, all rolled up under the
-layout epic #25. This is the single largest gap between this design and the
-brief's sign-off bar (§4, §7).
+exists **per sub-block only** — `layout/cdac-array/`, `layout/comparator/`,
+and `layout/sar-sequencer/` (a standard-cell place-and-route flow) are all
+DRC-clean and LVS-clean; the sampling front end has no committed layout yet
+(tracked, #99). **No top-level assembled ADC layout (GDS) exists yet** — the
+routed integration of the four sub-block layouts into one top-level GDS
+matching `design/sar_adc_top.sch`'s hierarchy is tracked as issue #103,
+itself blocked on #99 (the sampling front end's still-uncommitted layout;
+#100/#101/#102 are done), all rolled up under the layout epic #25. This is
+the single largest gap between this design and the brief's sign-off bar
+(§4, §7).
 
 ---
 
@@ -214,8 +214,8 @@ audience with an explicit Challenge-brief verdict column.
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim; not re-evaluated against DR-007's wider ±2.0 LSB candidate in this document (no new campaign run here) | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
 | Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **BLOCKED** — no top-level layout exists (§3, §7); no area figure to report | — |
-| Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **PARTIAL** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean but LVS-blocked (#102) | `layout/sar-sequencer/README.md` |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (itself blocked on #99/#100/#101/#102), all under epic #25 | — |
+| Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (itself blocked on #99, sampling front end layout), all under epic #25 | — |
 | **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **UNMET / BLOCKED** — same blocker as above | — |
 
 ### Reproducing this table

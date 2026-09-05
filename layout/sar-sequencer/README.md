@@ -36,6 +36,17 @@ place-and-route`.
 own derived `f_clk,max` (the faster, more timing-demanding end of its
 provisional `1.2 MHz – 12 MHz` range) — not an arbitrary number.
 
+**Power delivery (`requests/place-and-route.json`'s `power` block)**: a real
+PDN (`tapcell` well/substrate ties, `VPWR`/`VGND` global-connect, and
+met1/met4/met5 straps — parameters taken from
+`OpenROAD-flow-scripts`'s own published `platforms/sky130hd/pdn.tcl`
+reference config, Apache/BSD-licensed EDA tooling config, not anyone's
+silicon), not the row-rail-only obstruction `klt place-and-route` draws by
+default when `power` is omitted. This is required for a *connected* `VPWR`/
+`VGND`, not just an obstruction-shaped one — see "LVS reference provenance"
+below for why an unconnected PDN made this sub-block's own LVS
+un-passable, independent of any `klt` tool gap.
+
 ## Running the flow
 
 ```sh
@@ -62,10 +73,10 @@ points at the newest record id.
   clock constraint above with **zero setup/hold timing violations**.
 - **DRC: clean.** `klt drc --deck sky130` reports 0 violations against the
   routed GDS.
-- **LVS: blocked by a `klt`/klayout-tools tool gap, not a design defect** —
-  see "LVS reference provenance" below for the full investigation. A generic
-  writeup has been filed at `2AMLogic/klayout-tools#1385` (tool-gap only, per
-  `CLAUDE.md`'s friction protocol).
+- **LVS: clean.** `klt lvs` reports `status: "match"`, 760/760 devices and
+  395/395 nets matched, 0 mismatches — see "LVS reference provenance" below
+  for the three-part fix that got here from the `mismatch` verdict PR #105
+  originally recorded.
 
 ## LVS reference provenance
 
@@ -89,50 +100,83 @@ derived topology) and flattens every instance against the sky130 PDK's own
 official per-cell transistor-level CDL models
 (`$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl`,
 Apache-2.0 licensed, SkyWater's own release — not reverse-engineered from
-anyone's silicon or netlist). This reproducibly produces a reference whose
-device count matches the layout-extracted netlist's own **exactly** (760 =
-760, after `klt lvs`'s `options.combine_devices` reconciles multi-finger
-layout splits against the CDL's single-device abstraction).
+anyone's silicon or netlist).
 
-Despite that exact device-count parity, `klt lvs` still reports `mismatch`
-with `matched: 0` nets/devices on both sides. Root cause, isolated by direct
-inspection of the merged GDS's own layer/label content
-(`klt layers`/`klt extract --top-cell-pins`):
+### History: from `mismatch` (PR #105) to `match` (issue #102's own re-investigation)
 
-- The sky130 extraction deck only scans two layers for pin-name text
-  (`decks/sky130.py`'s `metal_labels = ((67, 5), (68, 5))` — li1.pin/
-  met1.pin). The very first attempt used `met2`/`met3` for
-  `place-and-route.json`'s `io.layer_h`/`io.layer_v` (a typical OpenROAD I/O-
-  pin layer choice) and produced **zero** usable top-level pin names; the
-  request now uses `li1`/`met1` instead, which the deck does scan.
-- Even so, `klt extract --top-cell-pins` (intended to promote only labels
-  drawn directly in the top cell) still produces collided, `|`-joined pin
-  names (e.g. `A0|DOUT2|Q`) and dozens of near-duplicate `CLK$1`..`CLK$18`
-  entries for what should be ~4 real clock-tree segments. This traces to how
-  a DEF→GDS merge fundamentally differs from a hand-drawn hierarchical
-  layout: DEF's own `NETS` section records every net's physical pin
-  connections as `(component, local-pin-name)` pairs, and every one of those
-  connection points is geometrically *in the top cell* once the design is
-  flattened by routing — unlike a hand-drawn `klt draw` layout, where a
-  sub-cell's own internal pin labels are genuinely nested inside that
-  instance's own view. `--top-cell-pins`'s "only labels drawn directly in
-  the top cell" heuristic is exactly right for the latter and cannot
-  distinguish the two for the former, so it ends up promoting per-instance
-  local-pin-name labels (`A0`, `Q`, `S`, …) and clock-tree-segment labels
-  right alongside genuine top-level design ports.
-- Without a reliable set of top-level pin names, `klt lvs`'s
-  `NetlistComparer` has no anchor to seed net/device correspondence on a
-  ~760-device graph, and reports a full mismatch even though the two sides'
-  device populations are demonstrably identical in count.
+PR #105 reached place-and-route + DRC-clean but recorded `klt lvs` as
+`mismatch` with `matched: 0` nets/devices on both sides, despite the
+reference's device count matching the layout-extracted netlist's own
+**exactly** (760 = 760). It root-caused that to a `klt extract`
+pin-name-promotion gap on a DEF→GDS-merged layout and filed
+`2AMLogic/klayout-tools#1385` (fixed upstream by klt#1391/#1397, released in
+klayout-tools 0.4.0). Bumping `layout/requirements.txt`'s pin to 0.4.0 and
+switching this flow's LVS step from inline extraction
+(`layout.top_cell_pins: true`) to a pre-extraction pass using the new `klt
+extract --def-pins <def_path>` (deriving the declared pin set directly from
+the routed DEF's own `PINS` section, instead of guessing from GDS label
+nesting) did produce clean, canonical top-level pin names — but `klt lvs`
+**still** reported a full `mismatch` (0/760, 0/415 nets/devices), even with
+an explicit `hints.same_nets` assertion pairing `CLK` to `CLK` outright
+rejected. Since `klt lvs` self-compare (the extracted netlist against an
+unmodified copy of itself) matched 100% at this same scale, and neither pin
+order nor a wholesale net-identity merge broke that self-compare, the
+remaining full mismatch was not a `klt` engine limitation — it was a real
+topological difference between the routed layout and this reference. Direct
+inspection of the extracted netlist found two:
 
-This is a `klt place-and-route` (Epic #391) / `klt extract`+`klt lvs` (Epic
-#153) integration gap, not a defect in this sub-block's design or in the
-reference-generation approach above — filed generically at
-`2AMLogic/klayout-tools#1385` per `CLAUDE.md`'s friction protocol
-(design-specific detail intentionally omitted from that filing). `bin/run-flow.sh` always
-records whichever verdict `klt lvs` actually reports, so a rerun against a
-future `klt` release that closes this gap will simply show `match` in
-`record.md` with no script change required.
+1. **The layout's `VPWR`/`VGND` were not single, unified nets.** `klt
+   place-and-route` without a `request.power` block only draws a row-rail
+   *obstruction* (`add_pdn_stripe -followpins` + `pdngen -dont_add_pins`,
+   with no vertical straps) — enough to keep the router from routing through
+   the rail, but not enough to tie every row's local power/ground segment
+   into one global net. The routed GDS carried **7 disconnected `VGND`
+   islands and 7 disconnected `VPWR` islands** (`VGND`, `VGND$1`..`VGND$6`,
+   and the `VPWR` equivalents) — while the reference, like every real
+   integration of this sub-block, assumes one global `VPWR` and one global
+   `VGND`. Since nearly every device's body/supply terminal touches one of
+   these nets, a 7-way split versus a 1-node reference poisoned enough of
+   the graph to prevent `NetlistComparer` from establishing *any*
+   correspondence, even with an exact device-count match and an explicit
+   `same_nets` hint. Fixed by adding a real PDN
+   (`requests/place-and-route.json`'s `power` block: `tapcell`
+   well/substrate ties, `add_global_connection`/`pdngen` merging every
+   `VPWR`/`VPB`/`VDDPE`/`VDDCE`-pattern pin into one `VPWR` net and every
+   `VGND`/`VNB`/`VSSE`-pattern pin into one `VGND` net, plus met1/met4/met5
+   straps) — parameters taken directly from `OpenROAD-flow-scripts`'s own
+   published `platforms/sky130hd/pdn.tcl` reference config (Apache/BSD EDA
+   tooling config, not anyone's silicon). This is a place-and-route
+   *request* fix in this repo's own files, not a `klt` defect or gap: `klt
+   place-and-route` already supports a full PDN via `request.power` — this
+   sub-block's own request just hadn't asked for one. With the PDN in
+   place, `VPWR`/`VGND` also become genuine promoted top-level pins (a real
+   block-level P/G interface `pdngen`'s own `-pins` promotes), so
+   `top_ports` in `generate-lvs-reference.py` now declares them too.
+2. **`generate-lvs-reference.py` ignored the CDL's `m=` (finger-count)
+   parameter.** `sky130_fd_sc_hd__buf_4`'s own CDL declares its output-stage
+   transistors as `m=4` (four parallel fingers, not one finger at 4x the
+   width) — `klt extract`'s `combine_devices` correctly folds the four
+   physically-drawn layout fingers into one schematic-equivalent device at
+   4x the per-finger width (confirmed: this sub-block's raw pre-fold
+   `device_count` of 778 folds to exactly 760, matching 3 `buf_4` instances
+   x 2 multi-finger output transistors x 3 folded-away redundant fingers),
+   but the reference generator was reading only the CDL's bare per-finger
+   `w=` and ignoring `m=` — understating that folded device's true width 4x
+   for every `buf_4` instance's output stage. Fixed by scaling
+   `w = CDL's w= * CDL's m=` when building each device's SPICE card (using
+   `decimal.Decimal`, not `float`, so e.g. `0.65 * 4` prints as the exact
+   `2.6` a human would write). With this fixed, the residual mismatch (24
+   entries, all on the three `buf_4` clock-buffer instances'
+   `device.unmatched`/`net.merged`/`net.split`) also cleared.
+
+Once both were fixed, a fresh run reached `status: "match"`, 760/760
+devices and 395/395 nets, 0 mismatches — with `--def-pins` alone (no
+`--def-net-names` needed): `klt lvs` compares topology, not net *names*, so
+the merged/joined pin-label names `--def-pins` still leaves in place (e.g.
+`A0|DOUT0|Q`) never blocked the match once the underlying connectivity graph
+was actually correct. `bin/run-flow.sh` always records whichever verdict
+`klt lvs` actually reports, so a regression would show up as `mismatch` in
+`record.md` with no script change required to detect it.
 
 ## Files
 
@@ -142,9 +186,9 @@ layout/sar-sequencer/
   netlist/
     sar_sequencer.v                # hand-verified structural netlist (not RTL) -- see "Which klt flow" above
   requests/
-    place-and-route.json           # klt place-and-route request (clock/floorplan/io per above)
+    place-and-route.json           # klt place-and-route request (clock/floorplan/io/power per above)
   bin/
-    run-flow.sh                    # place-and-route -> DRC -> post-route netlist dump -> LVS reference -> LVS -> record
+    run-flow.sh                    # place-and-route -> DRC -> post-route netlist dump -> LVS reference -> extract --def-pins -> LVS -> record
     generate-lvs-reference.py      # flattens a structural Verilog netlist against the PDK's own CDL models
     render-record.py               # renders record.md from the JSON envelopes run-flow.sh produced
   reference/                       # generate-lvs-reference.py's own output -- regenerated per run, git-ignored

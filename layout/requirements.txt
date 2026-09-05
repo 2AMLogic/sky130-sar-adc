@@ -40,4 +40,20 @@
 # layout/trivial-cell/reference.spice's header, which forward-referenced
 # exactly this fix). Bump the pin and re-run the proof together; a pin bump
 # alone can silently invalidate the flow's own gating evidence.
-klayout-tools==0.3.0
+#
+# Bumped 0.3.0 -> 0.4.0 for issue #102 (SAR logic/sequencer layout): PR #105
+# (place-and-route via `klt place-and-route`/OpenROAD) reached DRC-clean but
+# hit an `klt extract`/`klt lvs` integration gap on the routed, DEF-merged
+# GDS -- `--top-cell-pins` cannot distinguish a genuine top-level port from
+# an internal DEF NETS connection point once the whole design is flattened
+# into the top cell, so `klt lvs` had no reliable pin anchor and reported a
+# full mismatch despite an exact (760=760) device-count match. Filed
+# generically at 2AMLogic/klayout-tools#1385. 0.4.0 (first PyPI release
+# after 0.3.0) ships both fixes: klt#1391 (surfaces a `warnings[]` entry
+# when pin promotion produces zero usable top-level pins) and klt#1397/#1390
+# (`klt extract --def-pins <def_path>`, which derives the declared
+# top-level pin set directly from the routed DEF's own `PINS` section
+# instead of guessing from GDS label nesting). `--def-pins` is what
+# layout/sar-sequencer/bin/run-flow.sh now uses to reach a clean LVS
+# verdict -- see that sub-block's README.md for the re-run writeup.
+klayout-tools==0.4.0

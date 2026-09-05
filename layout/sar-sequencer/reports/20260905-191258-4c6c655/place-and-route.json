@@ -1,6 +1,6 @@
 {
   "engine": "openroad",
-  "netlist": "../netlist/sar_sequencer.v",
+  "netlist": "sar_sequencer.v",
   "hdl_toplevel": "sar_sequencer",
   "pdk": {
     "cell_library": "sky130_fd_sc_hd",

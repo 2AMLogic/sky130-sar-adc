@@ -23,17 +23,18 @@
 # design/sar_sequencer.sch, not RTL) -> `klt drc` -> a small OpenROAD script
 # dumping the *post-route* gate-level netlist (clock-tree/repair cells
 # included) -> generate-lvs-reference.py (flattens that netlist against the
-# PDK's own official CDL device models) -> `klt lvs`.
+# PDK's own official CDL device models) -> `klt extract --def-pins` -> `klt
+# lvs`.
 #
 # LVS status (see README.md "LVS reference provenance" / the filed
 # klayout-tools issue for the full writeup): this script always runs `klt
-# lvs` and records whatever verdict it reports -- it does not assume
-# "mismatch" is the expected outcome, so a rerun against a future klt
-# release that closes the filed gap will simply record "match" without any
-# script change. `set -e` is deliberately not applied to the `klt lvs`
-# invocation (mismatch is exit 3, a normal documented verdict, not a script
-# failure -- matching run-trivial-cell-flow.sh's own `|| true` convention
-# for the same reason).
+# lvs` and records whatever verdict it reports -- it does not assume any
+# particular outcome, so a rerun against a future klt release simply
+# records whatever verdict that release reaches without any script change.
+# `set -e` is deliberately not applied to the `klt extract`/`klt lvs`
+# invocations (a non-clean/mismatch verdict is a normal documented exit
+# code, not a script failure -- matching run-trivial-cell-flow.sh's own
+# `|| true` convention for the same reason).
 set -euo pipefail
 
 SAR_SEQ_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -79,7 +80,7 @@ fi
 # layout/trivial-cell/reports/<record-id>/'s flat convention -- the
 # `.klt/place-and-route/` scratch subdirectory (per-stage ODB checkpoints,
 # Tcl scripts, raw -metrics dumps) is a debug cache, not a deliverable, and
-# is pruned at the end of this script (step 7) rather than committed.
+# is pruned at the end of this script (step 8) rather than committed.
 cp "$OUT_DIR/.klt/place-and-route/${TOP}.gds" "$OUT_DIR/${TOP}.gds"
 cp "$OUT_DIR/.klt/place-and-route/${TOP}.def" "$OUT_DIR/${TOP}.def"
 GDS="$OUT_DIR/${TOP}.gds"
@@ -107,16 +108,30 @@ python3 "$SAR_SEQ_DIR/bin/generate-lvs-reference.py" "$OUT_DIR/${TOP}_post_route
 REFERENCE_SRC="$SAR_SEQ_DIR/reference/sar_sequencer.lvs-reference.spice"
 cp "$REFERENCE_SRC" "$OUT_DIR/sar_sequencer.lvs-reference.spice"
 
-# --- 5. LVS: layout (extracted inline) vs. the generated reference ---------
+# --- 5. Extract, deriving the declared pin set from the routed DEF ---------
+# `--def-pins` (klt 0.4.0, klayout-tools#1390/#1397) replaces the earlier
+# inline `layout.top_cell_pins: true` LVS request (klt 0.2.0/0.3.0):
+# `--top-cell-pins`'s "only labels drawn directly in the top cell" heuristic
+# cannot tell a genuine top-level design port from an internal DEF NETS
+# connection point once a DEF->GDS merge flattens the whole design into the
+# top cell -- see README.md "LVS reference provenance" for the full
+# investigation and 2AMLogic/klayout-tools#1385, the tool gap filed against
+# the earlier (0.3.0-era) attempt. `--def-pins "${TOP}.def"` instead derives
+# the declared pin set directly from the routed DEF's own PINS section, so
+# extraction runs as an explicit pre-step here (its own committed
+# extract.spice/extract.json) rather than inline inside the `klt lvs`
+# request.
+"$KLT" extract "$GDS" --deck sky130 --top "$TOP" --def-pins "$OUT_DIR/${TOP}.def" \
+  -o "$OUT_DIR/${TOP}.extract.spice" --format json > "$OUT_DIR/extract.json" || true
+
+# --- 6. LVS: pre-extracted layout netlist vs. the generated reference -------
 cat > "$OUT_DIR/lvs.request.json" <<EOF
 {
   "schema": "klt.lvs.request/1",
   "engine": "klayout",
   "layout": {
-    "file": "${TOP}.gds",
-    "deck": "sky130",
-    "top": "${TOP}",
-    "top_cell_pins": true
+    "netlist": "${TOP}.extract.spice",
+    "top": "${TOP}"
   },
   "reference": {
     "netlist": "sar_sequencer.lvs-reference.spice",
@@ -129,12 +144,12 @@ cat > "$OUT_DIR/lvs.request.json" <<EOF
 EOF
 "$KLT" lvs "$OUT_DIR/lvs.request.json" --format json > "$OUT_DIR/lvs.json" || true
 
-# --- 6. Record summary --------------------------------------------------
+# --- 7. Record summary --------------------------------------------------
 python3 "$SAR_SEQ_DIR/bin/render-record.py" \
   --out-dir "$OUT_DIR" --record-id "$RECORD_ID" --repo-root "$REPO_ROOT" \
   --klt "$KLT" --pdk-variant "$PDK_VARIANT" > "$OUT_DIR/record.md"
 
-# --- 7. Prune the .klt/ scratch cache ---------------------------------------
+# --- 8. Prune the .klt/ scratch cache ---------------------------------------
 # Per-stage ODB checkpoints, generated Tcl, and raw -metrics dumps are a
 # debug cache (megabytes of binary state), not a deliverable -- the flat
 # copies made in steps 1/3 above already carry everything this record needs.
