@@ -156,9 +156,11 @@ regenerated netlist `design/sar_adc_top.spice`.
 
 **Physical readiness, stated plainly**: schematic capture is complete and
 regenerates cleanly for every sub-block and the assembled top level. Layout
-exists **per sub-block only** — `layout/comparator/`, `layout/sar-sequencer/`
-(a standard-cell place-and-route flow), and `layout/cdac-array/` are
-DRC-clean and LVS-clean. `layout/cdac-array/`'s original LVS "match" verdict
+exists **per sub-block, for all four sub-blocks** — `layout/comparator/`,
+`layout/sar-sequencer/` (a standard-cell place-and-route flow),
+`layout/cdac-array/`, and `layout/sampling-frontend/` are all DRC-clean and
+LVS-clean; #99/#100/#101/#102 (the four sub-block layout issues) are all now
+**closed**. `layout/cdac-array/`'s original LVS "match" verdict
 (`reports/20260825-132454-51cbdd4/`) did not reproduce against its own
 committed artefacts — a regression discovered 2026-09-05 and tracked as
 #148 — but #148's own investigation found and fixed the root cause (`klt
@@ -167,15 +169,19 @@ identical-valued parallel unit capacitors into one combined device; the
 fix compares the array's 1024 drawn unit capacitors 1:1 against the
 reference instead, with no folding needed on either side) and minted a
 fresh record, `reports/20260905-220338-9fb9b04/`, whose LVS match
-reproduces on repeat runs. The sampling front end has no committed layout
-yet (tracked, #99). **No top-level assembled ADC layout (GDS) exists yet**
-— the routed integration of the four sub-block layouts into one top-level
-GDS matching `design/sar_adc_top.sch`'s hierarchy is tracked as issue #103,
-itself blocked on #99 (the sampling front end's still-uncommitted layout,
-and the only one of the four sub-block issues still open); #100/#101/#102
-are closed, and #100's LVS-clean claim now has a reproducible record behind
-it (#148 resolved). All roll up under the layout epic #25. This is the
-single largest gap between this design and the brief's sign-off bar
+reproduces on repeat runs. The sampling front end (#99) closed via PR #152
+(merged 2026-09-05T23:22:50Z): 24/24 devices, 17/17 nets, 12/12 pins,
+DRC-clean and LVS-clean, with three negative-control mismatches confirming
+the checker's sensitivity — see
+[`layout/sampling-frontend/reports/20260905-204934-f012255/record.md`](../../layout/sampling-frontend/reports/20260905-204934-f012255/record.md).
+**No top-level assembled ADC layout (GDS) exists yet** — the routed
+integration of the four sub-block layouts into one top-level GDS matching
+`design/sar_adc_top.sch`'s hierarchy is tracked as issue #103. All four of
+#103's sub-block dependencies are now closed (Curator re-check, 2026-09-05:
+`loom:blocked` removed, `loom:curated` applied) — #103 itself has not yet
+been claimed or built; it is the sole remaining item and awaits `loom:issue`
+promotion and a Builder pass. All roll up under the layout epic #25. This is
+the single largest gap between this design and the brief's sign-off bar
 (§4, §7).
 
 ---
@@ -226,7 +232,7 @@ audience with an explicit Challenge-brief verdict column.
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
 | Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **BLOCKED** — no top-level layout exists (§3, §7); no area figure to report | — |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (itself blocked on #99, sampling front end layout), all under epic #25 | — |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (all four sub-block dependencies #99-#102 closed as of 2026-09-05, #103 itself not yet built), under epic #25 | — |
 | **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **UNMET / BLOCKED** — same blocker as above | — |
 
 ### Reproducing this table
@@ -305,24 +311,32 @@ tracker already owns.
 1. **Top-level layout does not exist (the largest gap).** No assembled,
    DRC/LVS-clean GDS for `sar_adc_top` exists in this repo. Tracked as
    #103 (top-level routing/assembly), which lists #99, #100, #101, and #102
-   as its four sub-block dependencies. #99 (sampling front-end layout) has no
-   committed layout yet and is the only one of the four sub-block issues
-   still open (`loom:building`, actively in progress). #101 (comparator
-   layout — **done**, DRC/LVS-clean) and #102 (SAR sequencer layout —
-   **done**, DRC-clean and LVS-clean as of #141) are closed and settled.
-   #100 (CDAC array layout) is closed and its layout is DRC-clean. Its
-   original committed LVS "match" verdict was found, 2026-09-05, not to
-   reproduce against its own committed artefacts — byte-identical
-   GDS/reference-SPICE inputs, the same toolchain versions its own
-   provenance block stamps, reported mismatch (48 errors). That regression,
-   tracked as #148, has since been root-caused (`klt lvs`'s
+   as its four sub-block dependencies — **all four are now closed.** #99
+   (sampling front-end layout) closed via PR #152 (merged
+   2026-09-05T23:22:50Z): DRC-clean and LVS-clean, 24/24 devices, 17/17
+   nets, 12/12 pins matched, with three negative controls confirming the
+   checker catches a body-tie, device-parameter, and capacitor-top-plate-net
+   corruption respectively (record:
+   [`layout/sampling-frontend/reports/20260905-204934-f012255/record.md`](../../layout/sampling-frontend/reports/20260905-204934-f012255/record.md)).
+   #101 (comparator layout — **done**, DRC/LVS-clean) and #102 (SAR
+   sequencer layout — **done**, DRC-clean and LVS-clean as of #141) are
+   closed and settled. #100 (CDAC array layout) is closed and its layout is
+   DRC-clean. Its original committed LVS "match" verdict was found,
+   2026-09-05, not to reproduce against its own committed artefacts —
+   byte-identical GDS/reference-SPICE inputs, the same toolchain versions
+   its own provenance block stamps, reported mismatch (48 errors). That
+   regression, tracked as #148, has since been root-caused (`klt lvs`'s
    `options.combine_devices` unreliably re-summing hundreds of
    identical-valued parallel unit capacitors into one combined device) and
    fixed (the array's 1024 drawn unit capacitors now compare 1:1 against
    the reference, with no folding needed); the replacement record's LVS
    match reproduces on repeat runs, so #100 is once again reported
-   LVS-clean here. All four sub-block issues and #103 roll up under epic
-   #25 / tracker #23. **This is the single blocker for the
+   LVS-clean here. With all four sub-block dependencies closed, #103's
+   Curator dependency re-check (2026-09-05) removed its `loom:blocked`
+   label and applied `loom:curated` — #103 is now unblocked but **has not
+   yet been claimed or built**; it awaits `loom:issue` promotion and a
+   Builder pass. All four sub-block issues and #103 roll up under epic
+   #25 / tracker #23. **#103 is now the single remaining blocker for the
    brief's "post-layout PVT simulation and DRC/LVS-clean GDS in-repo"
    acceptance criterion** — that criterion is marked UNMET / BLOCKED in §4,
    not fabricated or optimistically assumed.
