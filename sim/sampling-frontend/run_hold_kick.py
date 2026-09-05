@@ -67,7 +67,6 @@ DR-003 Item 2 is quoted as a *reference scale*, never as a pass/fail gate.
 from __future__ import annotations
 
 import argparse
-import math
 import re
 import sys
 import time
