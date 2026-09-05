@@ -294,13 +294,14 @@ tracker already owns.
 1. **Top-level layout does not exist (the largest gap).** No assembled,
    DRC/LVS-clean GDS for `sar_adc_top` exists in this repo. Tracked as
    #103 (top-level routing/assembly), itself blocked on #99 (sampling
-   front-end layout), #100 (CDAC array layout — **done**, DRC/LVS-clean),
-   #101 (comparator layout — **done**, DRC/LVS-clean), and #102 (SAR
-   sequencer layout — place-and-route done, DRC-clean, LVS currently
-   blocked). All four roll up under epic #25 / tracker #23. **This is the
-   single blocker for the brief's "post-layout PVT simulation and
-   DRC/LVS-clean GDS in-repo" acceptance criterion** — that criterion is
-   marked UNMET / BLOCKED in §4, not fabricated or optimistically assumed.
+   front-end layout — **the sole remaining blocker**), #100 (CDAC array
+   layout — **done**, DRC/LVS-clean), #101 (comparator layout — **done**,
+   DRC/LVS-clean), and #102 (SAR sequencer layout — **done**, DRC-clean
+   and LVS-clean as of #141). All four roll up under epic #25 / tracker
+   #23. **This is the single blocker for the brief's "post-layout PVT
+   simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** —
+   that criterion is marked UNMET / BLOCKED in §4, not fabricated or
+   optimistically assumed.
 2. **Sample rate is not re-derived.** `spec/target-spec.md`'s
    100 kS/s–1 MS/s row remains DRAFT; no switch-`R_on`/CDAC-settling
    campaign exists (needs the full hierarchy's transistor-level layout, not
