@@ -184,7 +184,6 @@ def main() -> int:
     # FIXED comparator-noise and kT/C contributors, so the resulting ENOB
     # sample set inherits the CDAC campaign's own draw-to-draw spread
     # (rather than collapsing to a single point estimate).
-    cdac_record_path = CDAC_DIR / "records" / f"{args.cdac_mc_record}.md"
     # Recover the raw per-draw INL values by re-reading the CDAC record's
     # own reported distribution (mean/stdev/min/max) is NOT enough to
     # reconstruct N individual draws; instead this composes the ENOB
