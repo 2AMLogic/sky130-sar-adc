@@ -56,4 +56,63 @@
 # instead of guessing from GDS label nesting). `--def-pins` is what
 # layout/sar-sequencer/bin/run-flow.sh now uses to reach a clean LVS
 # verdict -- see that sub-block's README.md for the re-run writeup.
+#
+# Independently required by issue #99 (the full sampling front end sub-block
+# layout), which reached the same 0.3.0 -> 0.4.0 bump on its own branch,
+# concurrently and for entirely different reasons. #102's block above landed
+# the pin move on `main` first; this block is kept alongside it rather than
+# folded into it, because the two rationales are independent evidence for the
+# same pin -- same convention as the #101/#100 pair for the 0.2.0 -> 0.3.0
+# bump above. Two reasons, both hit directly building that layout:
+#
+#   1. MiM top-plate connectivity (the blocking one). `klt extract`'s
+#      capacitor top-plate-via exclusion -- the rule that stops a MiM cap's
+#      own via, which the DRM *requires* to overlap the bottom plate, from
+#      reading as a short between the two plates -- was scoped on the 0.3.0
+#      pin to the capacitor's `bottom_plate` layer in full, i.e. to EVERY
+#      met3 shape drawn anywhere in the layout. Since a legal via3 is
+#      enclosed by met3 by construction, that removed every via3 in the
+#      design from the deck's generic met3<->met4 connectivity as soon as any
+#      `capm` was drawn. A MiM cap's top plate therefore could not be routed
+#      down to met2/met1 at all: all four of this sub-block's cap top plates
+#      extracted as isolated single-terminal nets, and LVS could not match.
+#      0.4.0 narrows the exclusion to `bottom_region.interacting(top_region)`
+#      -- met3 that actually touches a `capm` plate -- which is the fix.
+#      Verified directly: same GDS, 0.3.0 extracts 21 nets with four
+#      single-terminal cap plates, 0.4.0 extracts 17 nets with none.
+#
+#   2. n-well DRC rules (klayout-tools#1420). 0.3.0's curated sky130 rule
+#      table carried NO rules on layer 64 at all, so a deliberately-split
+#      n-well -- which is exactly what DR-004/DR-007's body-tie domains are --
+#      passed DRC vacuously on the rules that govern the split. That is why
+#      layout/sampling-frontend-wells/ (issue #122) had to hand-transcribe
+#      `drc/nwell_isolation.drc` and run it through `klt drc --engine klayout
+#      --deck-file`. 0.4.0 adds `nwell.width.1`/`nwell.space.1` to the curated
+#      deck, so layout/sampling-frontend/'s flow checks the well split with
+#      the same deck it checks everything else with, needs no `klayout`
+#      binary, and takes ~4 s.
+#
+# Re-run with the bump, per the discipline the paragraph above states:
+#   - layout/bin/run-trivial-cell-flow.sh  -- all six verdicts PASS, no
+#     reference change needed (unlike the 0.2.0 -> 0.3.0 bump).
+#   - layout/comparator/bin/run-flow.sh    -- all six verdicts PASS.
+#   - layout/sampling-frontend/bin/run-flow.sh -- the new flow, all eleven.
+# Two sibling flows could NOT be re-verified here, and neither outcome is
+# evidence for or against this bump:
+#   - layout/cdac-array/ (#148) -- its committed LVS "match" verdict does not
+#     reproduce on its own committed artefacts under ANY tool combination
+#     tried, 0.3.0 + klayout 0.30.11 (the exact toolchain its own record
+#     stamps) included. Pre-existing, and almost certainly the known
+#     nondeterminism in KLayout's combine_devices() rather than a pin
+#     question; tracked separately, with the full version matrix.
+#   - layout/sampling-frontend-wells/ (#149) -- needs a working `klayout`
+#     binary for its `--engine klayout` stages; the binary in this environment
+#     hangs (`klayout -v` alone never returns). This bump DOES invalidate that
+#     flow's verdict 5 ("`klt drc --deck sky130` reports the illegal n-well
+#     fixture CLEAN"), which was gap evidence for reason 2 above -- the gap is
+#     now closed, so that verdict must be inverted, not re-run as-is. Not
+#     edited blind here; #149 carries the measurement and the work.
+#     (Since landed on `main` as PR #155, which retired that flow's
+#     hand-written drc/nwell_isolation.drc deck and inverted verdict 5 --
+#     exactly the outcome anticipated here, measured against klt 0.4.0.)
 klayout-tools==0.4.0
