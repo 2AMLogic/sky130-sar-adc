@@ -37,14 +37,19 @@ the same deck in the same run.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
+from _record_common_strict import (  # noqa: E402
+    build_argparser_strict,
+    git_field,
+    load_json_strict,
+)
 from gen_blocks import DEVICES, DOMAIN_TAP_NET  # noqa: E402
 
 BLOCKS = tuple(row[0] for row in DEVICES)
@@ -57,16 +62,8 @@ EXPECTED_BODY = {row[1]: DOMAIN_TAP_NET[row[2]] for row in DEVICES}
 #: KLayout's anonymous `$n` device naming.
 DEVICE_KEY = {(row[5], row[6], row[7]): row[1] for row in DEVICES}
 
-
-def _load(path: Path) -> dict:
-    with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _git(repo_root: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(repo_root), *args], check=True, capture_output=True, text=True
-    ).stdout.strip()
+_load = load_json_strict
+_git = git_field
 
 
 def _extracted_bodies(extract: dict) -> tuple[dict[str, str], list[str]]:
@@ -91,12 +88,7 @@ def _extracted_bodies(extract: dict) -> tuple[dict[str, str], list[str]]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out-dir", required=True, type=Path)
-    ap.add_argument("--record-id", required=True)
-    ap.add_argument("--repo-root", required=True, type=Path)
-    ap.add_argument("--klt", required=True)
-    ap.add_argument("--pdk-variant", required=True)
+    ap = build_argparser_strict()
     args = ap.parse_args()
 
     out_dir: Path = args.out_dir

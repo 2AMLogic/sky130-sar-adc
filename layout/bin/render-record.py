@@ -26,39 +26,30 @@ reachable on the same deck in the same run.
 
 from __future__ import annotations
 
-import argparse
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _record_common_strict import (  # noqa: E402
+    build_argparser_strict,
+    git_field,
+    load_json_strict,
+)
 
 # The rule the injected fixture is built to violate. Asserted by name, not
 # just by count: a nonzero violation_count from some *other* rule would prove
 # the deck flags something, but not that it flags the geometry we planted.
 EXPECTED_INJECTED_RULE = "diff.width.1"
 
-
-def _load(path: Path) -> dict:
-    with path.open() as f:
-        return json.load(f)
-
-
-def _git(repo_root: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(repo_root), *args],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+_load = load_json_strict
+_git = git_field
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out-dir", required=True, type=Path)
-    ap.add_argument("--record-id", required=True)
-    ap.add_argument("--repo-root", required=True, type=Path)
-    ap.add_argument("--klt", required=True)
-    ap.add_argument("--pdk-variant", required=True)
+    ap = build_argparser_strict()
     args = ap.parse_args()
 
     out_dir: Path = args.out_dir
