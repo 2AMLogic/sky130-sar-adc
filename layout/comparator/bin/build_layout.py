@@ -84,7 +84,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
+
+from _geometry_common import DBU, nm  # noqa: E402
+from _geometry_common import Rect as _Rect  # noqa: E402
 
 # --- layer table (sky130A GDS numbers, as klt's own curated deck names them) --
 L_NWELL = (64, 20)
@@ -111,14 +117,6 @@ TRACK_PITCH_UM = 0.50  # y pitch for met1 branches: 0.30 wire + 0.20 gap
 PAD_MARGIN_UM = 0.12  # keep an mcon this far inside its li1 pad's own edges
 LICON_UM = 0.17
 LICON_PITCH_UM = 0.60
-
-DBU = 1000  # nm per um
-
-
-def nm(value_um: float) -> int:
-    """Micrometres -> integer nanometres (the layout database unit)."""
-    return int(round(value_um * DBU))
-
 
 # --- schematic connectivity --------------------------------------------------
 # Net -> [(block id, port name)], transcribed device-by-device from
@@ -310,21 +308,15 @@ class RouteError(RuntimeError):
     """The greedy track router could not place a branch."""
 
 
-class Rect:
-    """An axis-aligned rectangle in integer nanometres."""
+class Rect(_Rect):
+    """An axis-aligned rectangle in integer nanometres.
 
-    __slots__ = ("x0", "y0", "x1", "y1")
+    ``__slots__``, ``__init__``, ``um()``, ``centred()`` and ``as_um()`` are
+    the shared shell inherited from `layout/bin/_geometry_common.py`;
+    ``within()`` below is this router's own sub-block-specific extension.
+    """
 
-    def __init__(self, x0: int, y0: int, x1: int, y1: int) -> None:
-        self.x0, self.y0, self.x1, self.y1 = x0, y0, x1, y1
-
-    @classmethod
-    def um(cls, x0: float, y0: float, x1: float, y1: float) -> "Rect":
-        return cls(nm(x0), nm(y0), nm(x1), nm(y1))
-
-    @classmethod
-    def centred(cls, cx: float, cy: float, w: float, h: float) -> "Rect":
-        return cls(nm(cx - w / 2), nm(cy - h / 2), nm(cx + w / 2), nm(cy + h / 2))
+    __slots__ = ()
 
     def within(self, other: "Rect", clearance: int) -> bool:
         """True when ``self`` comes closer than ``clearance`` to ``other``."""
@@ -334,9 +326,6 @@ class Rect:
             and self.y0 - clearance < other.y1
             and other.y0 < self.y1 + clearance
         )
-
-    def as_um(self) -> list[float]:
-        return [self.x0 / DBU, self.y0 / DBU, self.x1 / DBU, self.y1 / DBU]
 
 
 class Pin:
