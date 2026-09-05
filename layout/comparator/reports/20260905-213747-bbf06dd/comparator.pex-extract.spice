@@ -1,0 +1,184 @@
+* extracted by klt extract --deck sky130
+* parasitic model (--parasitics):
+* - capacitance: net-to-ground for every net's own (non-coupled) area/perimeter, plus net-to-net for the vertical-overlap coupling `coupling` describes below -- a coupled net pair gets a direct capacitor between their two hub nodes, not just capacitors to the deck's ground/substrate net
+* - coupling: vertical overlap (crossover) unconditionally -- where one net's conductor on an adjacent metal level sits directly over another *distinct* net's conductor, that overlap area is charged between the two nets instead of to ground (issue #760) -- plus lateral (same-layer, sidewall) coupling, but only for a net pair naming one of the caller's declared `--critical-net` nets (issue #976): facing-edge length within that layer's own minimum-spacing lookback is charged between the two nets, *additively* (not deducted from either net's substrate fringe term, unlike the vertical case -- a known simplification). Any same-layer pair with neither side named `--critical-net`, and fringe shielding in general, are still not modelled
+* - resistance: single lumped series resistance per net, distributed as a star across that net's device terminals (issue #592) -- not a per-segment, distributed RC ladder, *unless* `--distributed-rc` names this net via `--critical-net` (issue #977, Epic #709 Phase 2b): then the net's terminals are ordered along their approximate physical spread and its total R/C is broken into a chain of per-segment resistors (segment length proportional to inter-terminal distance) with a ground capacitor at each terminal node (proportional to its adjacent segment length/2), instead of one star hub -- still an approximation (terminal position is a device-placement proxy, not true per-segment routing geometry), but a strictly finer-grained one than the single-hub star
+* - frequency: quasi-static -- one frequency-independent R and C per net; no skin effect, no distributed transmission-line behavior
+
+* cell gen_compose_0
+* pin CLK
+* pin GND
+* pin OUTN
+* pin OUTP
+* pin VDD
+* pin VINN
+* pin VINP
+.SUBCKT gen_compose_0 CLK GND OUTN OUTP VDD VINN VINP
+* device instance $1 r0 *1 6.17,18.39 nfet
+X$1 OUTP__t0 VINN__t1 \$5__t0 GND__t3 sky130_fd_pr__nfet_01v8 L=0.5 W=2 AS=0.84
++ AD=0.84 PS=4.84 PD=4.84
+* device instance $2 r0 *1 7.91,18.39 nfet
+X$2 OUTN__t6 VINP__t0 \$5__t4 GND__t4 sky130_fd_pr__nfet_01v8 L=0.5 W=2 AS=0.84
++ AD=0.84 PS=4.84 PD=4.84
+* device instance $3 r0 *1 11.37,17.39 nfet
+X$3 OUTP__t1 OUTN__t3 GND__t0 GND__t7 sky130_fd_pr__nfet_01v8 L=0.5 W=4 AS=1.68
++ AD=1.68 PS=8.84 PD=8.84
+* device instance $4 r0 *1 6.17,21.61 nfet
+X$4 OUTN__t5 VINP__t1 \$5__t3 GND__t5 sky130_fd_pr__nfet_01v8 L=0.5 W=2 AS=0.84
++ AD=0.84 PS=4.84 PD=4.84
+* device instance $5 r0 *1 7.91,21.61 nfet
+X$5 OUTP__t6 VINN__t0 \$5__t2 GND__t6 sky130_fd_pr__nfet_01v8 L=0.5 W=2 AS=0.84
++ AD=0.84 PS=4.84 PD=4.84
+* device instance $6 r0 *1 2.67,20 nfet
+X$6 \$5__t1 CLK__t0 GND__t1 GND__t9 sky130_fd_pr__nfet_01v8 L=0.5 W=8 AS=3.36
++ AD=3.36 PS=16.84 PD=16.84
+* device instance $7 r0 *1 11.37,22.61 nfet
+X$7 OUTN__t4 OUTP__t2 GND__t2 GND__t8 sky130_fd_pr__nfet_01v8 L=0.5 W=4 AS=1.68
++ AD=1.68 PS=8.84 PD=8.84
+* device instance $8 r0 *1 14.87,15.39 pfet
+X$8 OUTP__t3 OUTN__t0 VDD__t0 VDD__t1 sky130_fd_pr__pfet_01v8 L=0.5 W=8 AS=3.36
++ AD=3.36 PS=16.84 PD=16.84
+* device instance $9 r0 *1 18.67,11.39 pfet
+X$9 OUTP__t4 CLK__t2 VDD__t2 VDD__t3 sky130_fd_pr__pfet_01v8 L=0.5 W=16 AS=6.72
++ AD=6.72 PS=32.84 PD=32.84
+* device instance $10 r0 *1 14.87,24.61 pfet
+X$10 OUTN__t2 OUTP__t5 VDD__t7 VDD__t6 sky130_fd_pr__pfet_01v8 L=0.5 W=8
++ AS=3.36 AD=3.36 PS=16.84 PD=16.84
+* device instance $11 r0 *1 18.67,28.61 pfet
+X$11 OUTN__t1 CLK__t1 VDD__t5 VDD__t4 sky130_fd_pr__pfet_01v8 L=0.5 W=16
++ AS=6.72 AD=6.72 PS=32.84 PD=32.84
+* device instance _5_t0 r0 *1 0,0 
+R_5_t0 \$5__t0 \$5 84.9359298245
+* device instance _5_t1 r0 *1 0,0 
+R_5_t1 \$5__t1 \$5 184.431735551
+* device instance _5_t2 r0 *1 0,0 
+R_5_t2 \$5__t2 \$5 125.2156524
+* device instance _5_t3 r0 *1 0,0 
+R_5_t3 \$5__t3 \$5 84.9359298245
+* device instance _5_t4 r0 *1 0,0 
+R_5_t4 \$5__t4 \$5 125.2156524
+* device instance _5 r0 *1 0,0 
+C_5 \$5 vsubs 3.018558e-15
+* device instance CLK_t0 r0 *1 0,0 
+RCLK_t0 CLK__t0 CLK 239.827265891
+* device instance CLK_t1 r0 *1 0,0 
+RCLK_t1 CLK__t1 CLK 227.716167054
+* device instance CLK_t2 r0 *1 0,0 
+RCLK_t2 CLK__t2 CLK 227.716167054
+* device instance CLK r0 *1 0,0 
+CCLK CLK vsubs 5.431525e-15
+* device instance GND_t0 r0 *1 0,0 
+RGND_t0 GND__t0 GND 84.2731260247
+* device instance GND_t1 r0 *1 0,0 
+RGND_t1 GND__t1 GND 101.431907598
+* device instance GND_t2 r0 *1 0,0 
+RGND_t2 GND__t2 GND 84.2731260247
+* device instance GND_t3 r0 *1 0,0 
+RGND_t3 GND__t3 GND 45.8227911456
+* device instance GND_t4 r0 *1 0,0 
+RGND_t4 GND__t4 GND 31.2375492071
+* device instance GND_t5 r0 *1 0,0 
+RGND_t5 GND__t5 GND 45.8227911456
+* device instance GND_t6 r0 *1 0,0 
+RGND_t6 GND__t6 GND 31.2375492071
+* device instance GND_t7 r0 *1 0,0 
+RGND_t7 GND__t7 GND 84.2731260247
+* device instance GND_t8 r0 *1 0,0 
+RGND_t8 GND__t8 GND 84.2731260247
+* device instance GND_t9 r0 *1 0,0 
+RGND_t9 GND__t9 GND 101.431907598
+* device instance GND r0 *1 0,0 
+CGND GND vsubs 5.030714e-15
+* device instance OUTN_t0 r0 *1 0,0 
+ROUTN_t0 OUTN__t0 OUTN 261.362338798
+* device instance OUTN_t1 r0 *1 0,0 
+ROUTN_t1 OUTN__t1 OUTN 399.490506058
+* device instance OUTN_t2 r0 *1 0,0 
+ROUTN_t2 OUTN__t2 OUTN 175.653847795
+* device instance OUTN_t3 r0 *1 0,0 
+ROUTN_t3 OUTN__t3 OUTN 159.4462656
+* device instance OUTN_t4 r0 *1 0,0 
+ROUTN_t4 OUTN__t4 OUTN 64.9384658314
+* device instance OUTN_t5 r0 *1 0,0 
+ROUTN_t5 OUTN__t5 OUTN 244.545653797
+* device instance OUTN_t6 r0 *1 0,0 
+ROUTN_t6 OUTN__t6 OUTN 208.25282212
+* device instance OUTN r0 *1 0,0 
+COUTN OUTN vsubs 8.478517e-15
+* device instance OUTP_t0 r0 *1 0,0 
+ROUTP_t0 OUTP__t0 OUTP 244.56964486
+* device instance OUTP_t1 r0 *1 0,0 
+ROUTP_t1 OUTP__t1 OUTP 64.9448365961
+* device instance OUTP_t2 r0 *1 0,0 
+ROUTP_t2 OUTP__t2 OUTP 159.461908018
+* device instance OUTP_t3 r0 *1 0,0 
+ROUTP_t3 OUTP__t3 OUTP 175.671080253
+* device instance OUTP_t4 r0 *1 0,0 
+ROUTP_t4 OUTP__t4 OUTP 399.52969793
+* device instance OUTP_t5 r0 *1 0,0 
+ROUTP_t5 OUTP__t5 OUTP 261.387979656
+* device instance OUTP_t6 r0 *1 0,0 
+ROUTP_t6 OUTP__t6 OUTP 208.273252688
+* device instance OUTP r0 *1 0,0 
+COUTP OUTP vsubs 8.507114e-15
+* device instance VDD_t0 r0 *1 0,0 
+RVDD_t0 VDD__t0 VDD 153.197983408
+* device instance VDD_t1 r0 *1 0,0 
+RVDD_t1 VDD__t1 VDD 153.197983408
+* device instance VDD_t2 r0 *1 0,0 
+RVDD_t2 VDD__t2 VDD 270.902041592
+* device instance VDD_t3 r0 *1 0,0 
+RVDD_t3 VDD__t3 VDD 270.902041592
+* device instance VDD_t4 r0 *1 0,0 
+RVDD_t4 VDD__t4 VDD 270.902041592
+* device instance VDD_t5 r0 *1 0,0 
+RVDD_t5 VDD__t5 VDD 270.902041592
+* device instance VDD_t6 r0 *1 0,0 
+RVDD_t6 VDD__t6 VDD 153.197983408
+* device instance VDD_t7 r0 *1 0,0 
+RVDD_t7 VDD__t7 VDD 153.197983408
+* device instance VDD r0 *1 0,0 
+CVDD VDD vsubs 8.453453e-15
+* device instance VINN_t0 r0 *1 0,0 
+RVINN_t0 VINN__t0 VINN 202.60765
+* device instance VINN_t1 r0 *1 0,0 
+RVINN_t1 VINN__t1 VINN 202.60765
+* device instance VINN r0 *1 0,0 
+CVINN VINN vsubs 1.274818e-15
+* device instance VINP_t0 r0 *1 0,0 
+RVINP_t0 VINP__t0 VINP 202.8995
+* device instance VINP_t1 r0 *1 0,0 
+RVINP_t1 VINP__t1 VINP 202.8995
+* device instance VINP r0 *1 0,0 
+CVINP VINP vsubs 1.393956e-15
+* device instance cc__5_OUTN r0 *1 0,0 
+Ccc__5_OUTN \$5 OUTN 2.8778e-17
+* device instance cc__5_OUTP r0 *1 0,0 
+Ccc__5_OUTP \$5 OUTP 2.8778e-17
+* device instance cc__5_VINN r0 *1 0,0 
+Ccc__5_VINN \$5 VINN 3.6989e-17
+* device instance cc_CLK_OUTN r0 *1 0,0 
+Ccc_CLK_OUTN CLK OUTN 2.4095e-17
+* device instance cc_CLK_OUTP r0 *1 0,0 
+Ccc_CLK_OUTP CLK OUTP 2.4095e-17
+* device instance cc_CLK_VDD r0 *1 0,0 
+Ccc_CLK_VDD CLK VDD 2.4095e-17
+* device instance cc_GND_OUTN r0 *1 0,0 
+Ccc_GND_OUTN GND OUTN 5.3957e-17
+* device instance cc_GND_OUTP r0 *1 0,0 
+Ccc_GND_OUTP GND OUTP 6.2579e-17
+* device instance cc_OUTN_OUTP r0 *1 0,0 
+Ccc_OUTN_OUTP OUTN OUTP 1.15029e-16
+* device instance cc_OUTN_VDD r0 *1 0,0 
+Ccc_OUTN_VDD OUTN VDD 7.931e-17
+* device instance cc_OUTN_VINN r0 *1 0,0 
+Ccc_OUTN_VINN OUTN VINN 1.2471e-17
+* device instance cc_OUTN_VINP r0 *1 0,0 
+Ccc_OUTN_VINP OUTN VINP 1.2047e-17
+* device instance cc_OUTP_VDD r0 *1 0,0 
+Ccc_OUTP_VDD OUTP VDD 7.931e-17
+* device instance cc_OUTP_VINP r0 *1 0,0 
+Ccc_OUTP_VINP OUTP VINP 1.2047e-17
+* device instance vsubs_dctie r0 *1 0,0 
+Rvsubs_dctie vsubs 0 1e+12
+.ENDS gen_compose_0

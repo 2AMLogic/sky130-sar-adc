@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
-"""Comparator sub-block PEX flow (issue #112): `klt extract --parasitics
---pdk` the composed layout, re-simulate the schematic-vs-extracted pick-off
-delta at Vindiff=0 (routing/parasitic-only imbalance) and Vindiff=+10mV
-(gain calibration), and mint a new append-only evidence record under
-layout/comparator/reports/.
+"""Comparator sub-block PEX flow (issue #112): a single `klt pex` call
+extracts the composed layout's parasitics, re-simulates the schematic-vs-
+extracted pick-off delta at Vindiff=0 (routing/parasitic-only imbalance) and
+Vindiff=+10mV (gain calibration), and diffs the two -- plus one `klt extract
+--parasitics` call for the full per-net R/C table AC1/AC2 want (`klt pex`'s
+own JSON only echoes an aggregate `extraction.model` scope note, not
+per-net values). Together these mint a new append-only evidence record
+under layout/comparator/reports/.
 
-Not a `klt pex` invocation end-to-end: `klt pex` itself hit two independent
-tool bugs on this sub-block (see README.md in this directory for both
-citations and the workaround detail), so this script performs the same
-three logical steps `klt pex` documents (extract -> re-simulate each leg ->
-diff) as separate `klt extract`/`klt sim` subprocess calls instead, with
-`normalize_extracted_units.py`'s workaround applied to the extracted
-netlist in between. `klt extract --parasitics` (step 1) is unaffected by
-either bug and runs exactly as `klt pex` would run it internally.
+Until klayout-tools==0.4.0 (issue #146), this script instead ran `klt pex`'s
+three logical steps (extract, re-simulate each leg, diff) as three separate
+subprocess calls, with a local unit-normalization workaround
+(`normalize_extracted_units.py`, now deleted) applied to the extracted
+netlist in between -- working around two upstream `klt pex` bugs
+(2AMLogic/klayout-tools#1395/#1396). Both are fixed in 0.4.0 (this repo's
+pinned version): #1395's `models.lib` mis-resolution no longer reproduces,
+and #1396's sky130 unit-suffix mismatch is fixed at the source (`klt
+extract --pdk sky130A --parasitics` now emits bare-micron geometry
+directly, so the old normalization step's own re-normalization of already-
+bare values now corrupts device geometry by ~1e6x instead of fixing
+anything -- verified empirically re-running the old workaround against
+0.4.0 before deleting it). See README.md's "Why not just `klt pex`" section
+(marked historical) for the full prior writeup.
 
     python3 layout/comparator/pex/run_pex.py --check-env
     python3 layout/comparator/pex/run_pex.py --record
@@ -50,6 +59,9 @@ PICKOFF_AT_NS = 5.4  # RESET_NS(5) + RESET_TR_NS(0.1) + PICKOFF_NS(0.3),
 # matching sim/comparator-decision/run.py's own PICKOFF_NS pick-off point.
 CAL_VINDIFF_MV = 10.0  # index-1 corner point's Vindiff (see testbench.spice)
 
+ZERO_CORNER_ID = "tt/vinn=0.900_vinp=0.900V/27C"
+CAL_CORNER_ID = "tt/vinn=0.895_vinp=0.905V/27C"
+
 
 def _run_klt(args: list[str], cwd: Path) -> dict:
     """Run `klt <args> --format json` with `cwd` as the working directory and
@@ -58,9 +70,7 @@ def _run_klt(args: list[str], cwd: Path) -> dict:
     path that would leak this machine's home directory and worktree number
     into a COMMITTED evidence file (the same leak {path, scope}-normalized
     fields, docs/cli/env-provenance.md, exist to prevent on the fields that
-    already got that treatment; `klt extract`'s `file`/`netlist_path` fields
-    have not, as of klt 0.3.0, so this call-site avoids it by construction
-    instead)."""
+    already got that treatment)."""
     proc = subprocess.run(
         ["klt", *args, "--format", "json"], capture_output=True, text=True, cwd=str(cwd)
     )
@@ -73,13 +83,16 @@ def _run_klt(args: list[str], cwd: Path) -> dict:
     return payload
 
 
-def _pickoff_diffs(sim_json: dict) -> dict[str, tuple[float, float]]:
-    """corner_id -> (outp_v, outn_v)."""
-    out: dict[str, tuple[float, float]] = {}
-    for corner in sim_json.get("corners", []):
-        values = {m["name"]: m["value"] for m in corner["measurements"]}
-        out[corner["corner_id"]] = (values["outp_pickoff"], values["outn_pickoff"])
-    return out
+def _pickoff_diffs(delta: list[dict], value_key: str) -> dict[str, tuple[float, float]]:
+    """`klt pex`'s `delta[]` -> corner_id -> (outp_v, outn_v), reading either
+    `schematic_value` or `extracted_value` (`value_key`) from each row."""
+    by_corner: dict[str, dict[str, float]] = {}
+    for row in delta:
+        by_corner.setdefault(row["corner_id"], {})[row["spec_row"]] = row[value_key]
+    return {
+        corner_id: (values["outp_pickoff"], values["outn_pickoff"])
+        for corner_id, values in by_corner.items()
+    }
 
 
 def run(record: bool, quiet: bool = False) -> int:
@@ -99,12 +112,16 @@ def run(record: bool, quiet: bool = False) -> int:
     out_dir = REPORTS_DIR / record_id
     out_dir.mkdir(parents=True, exist_ok=False)
 
-    # --- Step 1: klt extract --parasitics --pdk (unaffected by either
-    # filed bug -- this is the actual parasitic-annotated netlist AC1 asks
-    # for, produced the identical way `klt pex` would produce it). ---
-    raw_spice_name = "comparator.pex-extract.raw.spice"
-    raw_spice = out_dir / raw_spice_name
     gds_rel = os.path.relpath(gds_path, out_dir)
+
+    # --- Step 1: `klt extract --parasitics --pdk` for the full per-net R/C
+    # table AC1/AC2 want -- `klt pex` below runs this same extraction
+    # internally, but its own JSON only echoes an aggregate
+    # `extraction.model` scope note, not `parasitics.nets[]`'s per-net
+    # values, so a standalone `klt extract` call is still needed for the
+    # table (duplicating the extraction pass is the accepted cost; both
+    # calls extract the identical layout with the identical deck). ---
+    spice_name = "comparator.pex-extract.spice"
     extract_json = _run_klt(
         [
             "extract",
@@ -117,7 +134,7 @@ def run(record: bool, quiet: bool = False) -> int:
             str(info.root),
             "--parasitics",
             "-o",
-            raw_spice_name,
+            spice_name,
         ],
         cwd=out_dir,
     )
@@ -129,59 +146,54 @@ def run(record: bool, quiet: bool = False) -> int:
         print(f"  klt extract --parasitics: {extract_json['status']} "
               f"({extract_json['device_count']} devices, {extract_json['net_count']} nets)")
 
-    # --- Step 1b: workaround (see normalize_extracted_units.py). ---
-    normalized_spice = out_dir / "comparator.pex-extract.normalized.spice"
-    subprocess.run(
-        [
-            sys.executable,
-            str(PEX_DIR / "normalize_extracted_units.py"),
-            str(raw_spice),
-            str(normalized_spice),
-        ],
-        check=True,
-    )
-
-    # --- Step 2: re-simulate both legs (schematic DUT unmodified;
-    # extracted DUT is the just-normalized netlist). ---
-    for name in ("comparator_pex_reference.spice", "testbench.spice", "extracted_testbench.spice"):
+    # --- Step 2: `klt pex` -- extraction (again, internally) + re-simulate
+    # both legs (schematic side unmodified; extracted side generated by
+    # `klt pex` itself via its DUT-`.include`-swap convention, docs/cli/
+    # pex.md) + diff, all in one call. Supersedes the former
+    # extract/normalize/sim/sim/diff workaround now that
+    # 2AMLogic/klayout-tools#1395/#1396 are fixed in the pinned 0.4.0. ---
+    for name in ("comparator_pex_reference.spice", "testbench.spice", "pex_request.json"):
         shutil.copy(PEX_DIR / name, out_dir / name)
 
-    base_request = json.loads((PEX_DIR / "pex_request.json").read_text())
-
-    schematic_request = dict(base_request, netlist="testbench.spice")
-    (out_dir / "pex_request.schematic.json").write_text(
-        json.dumps(schematic_request, indent=2) + "\n"
+    # `-o`/`--outdir` are given explicitly (both scoped under this record's
+    # own `.klt/` scratch subtree, cleaned up below) so `klt pex`'s own
+    # extracted-netlist and per-corner-artifact output lands inside this
+    # record's out_dir instead of its default "next to <layout>" location
+    # -- which, unqualified, would write scratch files into `layout_dir`
+    # (the shared, committed layout-drawing output directory every record
+    # reads `comparator.gds` from) rather than this run's own evidence
+    # directory.
+    (out_dir / ".klt").mkdir(exist_ok=True)
+    pex_json = _run_klt(
+        [
+            "pex",
+            gds_rel,
+            "pex_request.json",
+            "--deck",
+            "sky130",
+            "--pdk",
+            info.variant,
+            "--pdk-root",
+            str(info.root),
+            "-o",
+            ".klt/pex-extracted.spice",
+            "--outdir",
+            ".klt/pex",
+        ],
+        cwd=out_dir,
     )
-    extracted_request = dict(
-        base_request, netlist="extracted_testbench.spice", netlist_source="extracted"
-    )
-    (out_dir / "pex_request.extracted.json").write_text(
-        json.dumps(extracted_request, indent=2) + "\n"
-    )
-
-    sim_schematic = _run_klt(["sim", "pex_request.schematic.json"], cwd=out_dir)
-    (out_dir / "sim.schematic.json").write_text(json.dumps(sim_schematic, indent=2) + "\n")
-    sim_extracted = _run_klt(["sim", "pex_request.extracted.json"], cwd=out_dir)
-    (out_dir / "sim.extracted.json").write_text(json.dumps(sim_extracted, indent=2) + "\n")
-
-    if sim_schematic.get("status") != "pass" or sim_extracted.get("status") != "pass":
-        print(
-            f"klt sim did not pass on both legs (schematic={sim_schematic.get('status')}, "
-            f"extracted={sim_extracted.get('status')})",
-            file=sys.stderr,
-        )
+    (out_dir / "pex.json").write_text(json.dumps(pex_json, indent=2) + "\n")
+    if pex_json.get("status") != "pass":
+        print(f"klt pex did not pass: {pex_json}", file=sys.stderr)
         return 1
 
-    sch = _pickoff_diffs(sim_schematic)
-    ext = _pickoff_diffs(sim_extracted)
+    sch = _pickoff_diffs(pex_json["delta"], "schematic_value")
+    ext = _pickoff_diffs(pex_json["delta"], "extracted_value")
 
-    zero_id = "tt/vinn=0.900_vinp=0.900V/27C"
-    cal_id = "tt/vinn=0.895_vinp=0.905V/27C"
-
-    sch_zero_diff = sch[zero_id][0] - sch[zero_id][1]
-    ext_zero_diff = ext[zero_id][0] - ext[zero_id][1]
-    sch_cal_diff = sch[cal_id][0] - sch[cal_id][1]
-    ext_cal_diff = ext[cal_id][0] - ext[cal_id][1]
+    sch_zero_diff = sch[ZERO_CORNER_ID][0] - sch[ZERO_CORNER_ID][1]
+    ext_zero_diff = ext[ZERO_CORNER_ID][0] - ext[ZERO_CORNER_ID][1]
+    sch_cal_diff = sch[CAL_CORNER_ID][0] - sch[CAL_CORNER_ID][1]
+    ext_cal_diff = ext[CAL_CORNER_ID][0] - ext[CAL_CORNER_ID][1]
 
     sch_gain = sch_cal_diff / (CAL_VINDIFF_MV / 1000.0)
     ext_gain = ext_cal_diff / (CAL_VINDIFF_MV / 1000.0)
@@ -220,10 +232,10 @@ def run(record: bool, quiet: bool = False) -> int:
         )
         print(f"wrote {path}")
 
-    # `klt sim`'s own scratch dir (per-corner decks/logs, not evidence --
-    # every measured value is already captured in sim.schematic.json/
-    # sim.extracted.json above). See .gitignore's own comment for why this
-    # is defense-in-depth, not the only guard.
+    # `klt pex`'s (and `klt extract`'s) own scratch dirs (per-corner decks/
+    # logs, not evidence -- every measured value is already captured in
+    # pex.json/extract.json above). See .gitignore's own comment for why
+    # this is defense-in-depth, not the only guard.
     shutil.rmtree(out_dir / ".klt", ignore_errors=True)
 
     return 0
@@ -248,45 +260,28 @@ def write_record(
     )
     a("")
     a(
-        "**Not a `klt pex` invocation end-to-end.** `klt pex` itself hit "
-        "two independent tool bugs on this sub-block, both filed "
-        "generically at 2AMLogic/klayout-tools per CLAUDE.md's friction "
-        "protocol (see `layout/comparator/pex/README.md` for the full "
-        "writeup and issue links):"
+        "Generated by two `klt` calls: `klt extract --parasitics` (for the "
+        "full per-net R/C table AC1/AC2 need -- `klt pex` below runs this "
+        "same extraction internally but its own JSON only echoes an "
+        "aggregate scope note, not per-net values) and a single `klt pex "
+        "<layout>.gds pex_request.json --deck sky130 --pdk sky130A "
+        "--pdk-root $PDK_ROOT` call, which extracts (again), re-simulates "
+        "both the schematic and extracted legs, and diffs them in one step "
+        "(issue #146). Earlier records under this directory instead ran "
+        "`klt pex`'s three logical steps as three separate subprocess "
+        "calls with a local unit-normalization workaround in between, "
+        "working around two upstream `klt pex` bugs "
+        "(2AMLogic/klayout-tools#1395/#1396) that are fixed in this repo's "
+        "pinned `klt` 0.4.0 -- see `layout/comparator/pex/README.md`'s "
+        "\"Why not just `klt pex`\" section (now historical) for that "
+        "prior writeup, and `layout/comparator/pex/run_pex.py`'s own "
+        "module docstring for how the fix was verified before the "
+        "workaround was deleted."
     )
     a("")
     a(
-        "1. `klt pex`'s generated extracted-side request copy re-resolves "
-        "a relative `models.lib` path against the *original request "
-        "file's own directory* instead of the PDK-variant directory "
-        "`models.pdk` resolves it against -- `model library not found`, "
-        "even though the identical request runs fine standalone via `klt "
-        "sim` and on `klt pex`'s own schematic-side leg."
-    )
-    a(
-        "2. `klt extract --pdk sky130A --parasitics`'s sky130 MOS binding "
-        "writes device geometry (`L`/`W`/`AS`/`AD`/`PS`/`PD`) with "
-        "explicit SPICE unit suffixes (e.g. `L=0.5U`); sky130's vendor "
-        "model deck sets `.option scale=1.0u` and "
-        "`sky130_fd_pr__nfet_01v8`/`pfet_01v8`'s own internal NRD/NRS "
-        "default-value formula assumes bare, suffix-free micron literals "
-        "-- feeding it unit-suffixed values makes the computed default "
-        "NRD/NRS come out ~1e6x too large, and ngspice refuses the device "
-        "with a generic `could not find a valid modelname` (verified on a "
-        "single-device minimal repro)."
-    )
-    a("")
-    a(
-        "This record instead runs the same three logical steps `klt pex` "
-        "documents (extract, re-simulate each leg, diff) as separate "
-        "commands: `klt extract --parasitics` (unaffected by either bug -- "
-        "the actual parasitic-annotated netlist, produced exactly as `klt "
-        "pex` would produce it internally) followed by `klt sim` on each "
-        "leg by hand, with "
-        "`layout/comparator/pex/normalize_extracted_units.py`'s "
-        "value-preserving unit-suffix workaround applied to the extracted "
-        "netlist in between. `layout/comparator/pex/run_pex.py` is this "
-        "record's generator; re-run it to reproduce."
+        "`layout/comparator/pex/run_pex.py` is this record's generator; "
+        "re-run it to reproduce."
     )
     a("")
     a("## Provenance")
@@ -345,7 +340,7 @@ def write_record(
     )
     a("")
 
-    a("## AC3: schematic-vs-extracted pick-off delta (`klt sim`, tt/27C/1.8V)")
+    a("## AC3: schematic-vs-extracted pick-off delta (`klt pex`, tt/27C/1.8V)")
     a("")
     a(
         f"Pick-off statistic v(OUTP)-v(OUTN) at t={PICKOFF_AT_NS}ns after the "
@@ -363,8 +358,8 @@ def write_record(
     a(f"| gain (from +{CAL_VINDIFF_MV:.0f}mV point) | {sch_gain:.4f} V/V | {ext_gain:.4f} V/V |")
     a("")
     a(
-        "Full `klt sim` JSON responses: `sim.schematic.json`, "
-        "`sim.extracted.json`."
+        "Full `klt pex` JSON response (both legs' per-corner measured "
+        "values live in its `delta[]`): `pex.json`."
     )
     a("")
 
@@ -394,11 +389,27 @@ def write_record(
         f"(i.e. the mean is {mean_multiple:.0f}x larger, the stdev "
         f"{stdev_multiple:.0f}x larger, than this estimate)."
     )
+    # Worded from the actual multiples rather than a fixed "two orders of
+    # magnitude" claim: this pick-off-differential quantity sits so close
+    # to the simulator's own noise floor (both legs' Vindiff=0 diffs are
+    # single- to low-triple-digit microvolts) that a `klt`/ngspice version
+    # bump alone measurably moves the multiple run to run (issue #146
+    # re-ran this record against klt 0.4.0 for the first time and saw the
+    # extracted-side diff move by ~7x versus the prior 0.3.0-era record,
+    # entirely within this same noise regime) -- a hard-coded order-of-
+    # magnitude count would silently go stale the next time that happens.
+    smallest_multiple = min(mean_multiple, stdev_multiple)
+    if smallest_multiple >= 100:
+        magnitude_phrase = "over two orders of magnitude smaller"
+    elif smallest_multiple >= 10:
+        magnitude_phrase = "over an order of magnitude smaller"
+    else:
+        magnitude_phrase = f"{smallest_multiple:.0f}x smaller"
     a(
         "- **Conclusion: the routing-driven component is noise against the "
         "device-mismatch term, not material at this block's offset "
-        "budget.** The parasitic-driven offset estimate above is over two "
-        "orders of magnitude smaller than either the mean or the stdev of "
+        f"budget.** The parasitic-driven offset estimate above is {magnitude_phrase} "
+        "than either the mean or the stdev of "
         "the device-mismatch-only offset distribution -- device mismatch, "
         "not routing/parasitic imbalance, is what would need to "
         "shrink to move this comparator's offset budget. No floorplan "
@@ -418,14 +429,13 @@ def write_record(
     a("")
     a("```")
     a(f"{out_dir.name}/")
-    a("  comparator.pex-extract.raw.spice        klt extract --parasitics --pdk raw output")
-    a("  comparator.pex-extract.normalized.spice  + normalize_extracted_units.py workaround applied")
-    a("  extract.json                             klt extract --parasitics JSON envelope")
-    a("  comparator_pex_reference.spice           schematic DUT snapshot")
-    a("  testbench.spice / extracted_testbench.spice   both legs' klt-sim netlists")
-    a("  pex_request.schematic.json / pex_request.extracted.json   both legs' klt-sim requests")
-    a("  sim.schematic.json / sim.extracted.json  klt sim JSON responses")
-    a("  record.md                                this file")
+    a("  comparator.pex-extract.spice   klt extract --parasitics --pdk output (per-net R/C table source)")
+    a("  extract.json                   klt extract --parasitics JSON envelope")
+    a("  comparator_pex_reference.spice schematic DUT snapshot")
+    a("  testbench.spice                pex testbench (klt pex swaps its .include for the extracted netlist)")
+    a("  pex_request.json               klt pex request (corners/analysis/measurements)")
+    a("  pex.json                       klt pex JSON response (extraction summary + delta[])")
+    a("  record.md                      this file")
     a("```")
     a("")
 

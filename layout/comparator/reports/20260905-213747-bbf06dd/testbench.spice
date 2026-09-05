@@ -1,0 +1,49 @@
+* testbench.spice -- `klt pex` testbench body for the comparator sub-block
+* (issue #112), reusing sim/comparator-decision/run.py's own pick-off
+* methodology: a single reset(CLK=0)->evaluate(CLK=VDD) transient edge,
+* Vindiff applied as a DC differential on VINP/VINN, decision statistic
+* v(OUTP)/v(OUTN) sampled PICKOFF_NS=0.3ns after the evaluate edge starts
+* (RESET_NS=5ns + RESET_TR_NS=0.1ns -> absolute pick-off time 5.4ns) -- see
+* that file's `_pickoff_deck()` for the numbers this reproduces.
+*
+* Two corner points, swept together via `corners.supply_v` on the
+* `vinp_v`/`vinn_v` params below (see pex_request.json):
+*   - index 0: vinp_v=vinn_v=0.9V -- Vindiff=0. Both legs' *devices* are
+*     identical on both the schematic DUT and (since `klt pex` extracts
+*     this composed layout's real device instances, not a stochastically
+*     mismatched draw) the extracted netlist too -- so a nonzero pick-off
+*     differential at this point isolates the ROUTING/parasitic-driven
+*     imbalance alone, with device mismatch structurally excluded from the
+*     comparison.
+*   - index 1: vinp_v=0.905V, vinn_v=0.895V -- Vindiff=+10mV, one of
+*     run.py's own VINDIFF_GAIN_CAL_MV gain-calibration points, included so
+*     the index-0 delta can be converted to an input-referred quantity via
+*     the same zero-intercept-gain technique run.py's `offset` subcommand
+*     uses, without re-deriving a new methodology for this issue.
+*
+* `.include`s the schematic-equivalent DUT (comparator_pex_reference.spice
+* -- see that file's own header for why it exists as a separate,
+* `.SUBCKT`-wrapped file rather than reusing comparator_core.spice
+* directly). `klt pex` rewrites only that one line to point at its own
+* freshly `--parasitics`-extracted netlist for the extracted-side leg; the
+* schematic-side leg runs this file completely unmodified.
+.param vdd_val=1.8
+
+Vdd VDD 0 DC {vdd_val}
+Vclk CLK 0 PULSE(0 {vdd_val} 5n 0.1n 0.1n 1.5n 16.6n)
+* Vinp/Vinn's DC values are the `corners.supply_v` alter target below --
+* ngspice's `alter <name>=<value>` command sets a named SOURCE's own DC
+* value directly (case-insensitive device-name match); it does NOT resolve
+* a `.param`-only indirection (verified empirically: keying
+* `corners.supply_v` off a `.param` name here silently no-ops with a
+* logged "no such device or model name" rather than failing the run, since
+* `klt sim`'s failure classification does not (yet) treat an `alter`
+* target-not-found line as its own diagnostic code -- see
+* docs/cli/sim.md's "Corner axes"/`corners.supply_v`). So these are literal
+* DC sources, not `.param`-substituted, and `pex_request.json`'s
+* `supply_v` keys name them directly (`vinp`/`vinn`).
+Vinp VINP 0 DC 0.9
+Vinn VINN 0 DC 0.9
+
+.include "comparator_pex_reference.spice"
+Xdut CLK GND OUTN OUTP VDD VINN VINP gen_compose_0
