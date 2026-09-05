@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "file": "sampling_frontend_pwells.gds",
+  "deck": "nwell_isolation.drc",
+  "engine": "klayout",
+  "dbu_um": 0.001,
+  "status": "clean",
+  "violation_count": 0,
+  "rule_counts": {},
+  "violations": [],
+  "coverage": {
+    "deck_layers": [],
+    "layers_checked": [],
+    "layers_in_stream_without_rules": [],
+    "rules_skipped": [],
+    "voltage_domain_warnings": [],
+    "deck_scope": []
+  },
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "nwell_isolation.drc",
+      "content_hash": "sha256:261c99091bc7f93f31b0a6cfb7d7246fc493c924974d49403375fdbbbaa44561",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:374ea5d9b51f52bd240e567b4d385c2850d36e70650f300eaf7010cd9607b62e"
+    }
+  }
+}

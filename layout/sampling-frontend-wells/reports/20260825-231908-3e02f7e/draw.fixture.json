@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "generator": "draw",
+  "gds_path": "nwell_isolation_fixture.gds",
+  "cell_name": "NWELL_ISOLATION_FIXTURE",
+  "dbu_um": 0.001,
+  "shape_count": 7,
+  "label_count": 0,
+  "layers": [
+    {
+      "layer": 64,
+      "datatype": 20,
+      "name": null,
+      "shapes": 5
+    },
+    {
+      "layer": 65,
+      "datatype": 44,
+      "name": null,
+      "shapes": 1
+    },
+    {
+      "layer": 65,
+      "datatype": 20,
+      "name": null,
+      "shapes": 1
+    }
+  ],
+  "bbox_um": {
+    "x0": 0.0,
+    "y0": 0.0,
+    "x1": 31.5,
+    "y1": 2.0
+  },
+  "warnings": [
+    "written verbatim by `klt draw`: no PDK awareness and no rule checking were applied; this cell is not guaranteed to be design-legal"
+  ]
+}

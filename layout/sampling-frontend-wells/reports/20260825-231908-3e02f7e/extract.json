@@ -1,0 +1,291 @@
+{
+  "schema_version": 2,
+  "file": "sampling_frontend_pwells.gds",
+  "deck": "sky130",
+  "top": "gen_compose_0",
+  "dbu_um": 0.001,
+  "netlist_path": "sampling_frontend_pwells.extract.spice",
+  "netlist_sha256": "1a8269bc2884f0bbb2188d6884e4b46d967f78ace0e5f688a3273267aa39e270",
+  "status": "extracted",
+  "device_count": 9,
+  "net_count": 14,
+  "pin_count": 14,
+  "device_counts": {
+    "pfet": 9
+  },
+  "dummy_devices_dropped": 0,
+  "ignored_layers": [],
+  "device_recognition_only_layers": [],
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "devices": [
+    {
+      "name": "$1",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "SAMPLE",
+        "d": "BOOST_P",
+        "b": "BOOST_P"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0,
+        "as_um2": 0.42,
+        "ad_um2": 0.42,
+        "ps_um": 2.84,
+        "pd_um": 2.84
+      }
+    },
+    {
+      "name": "$2",
+      "class": "pfet",
+      "nets": {
+        "s": "BOOST_P",
+        "g": "SAMPLEB",
+        "d": "G_P",
+        "b": "BOOST_P"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      }
+    },
+    {
+      "name": "$3",
+      "class": "pfet",
+      "nets": {
+        "s": "VINP",
+        "g": "SAMPLEB",
+        "d": "BSBOT_P",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      }
+    },
+    {
+      "name": "$4",
+      "class": "pfet",
+      "nets": {
+        "s": "VCM",
+        "g": "SAMPLEB",
+        "d": "BPREF_P",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      }
+    },
+    {
+      "name": "$5",
+      "class": "pfet",
+      "nets": {
+        "s": "VCM",
+        "g": "SAMPLEB",
+        "d": "BPREF_N",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      }
+    },
+    {
+      "name": "$6",
+      "class": "pfet",
+      "nets": {
+        "s": "VINN",
+        "g": "SAMPLEB",
+        "d": "BSBOT_N",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      }
+    },
+    {
+      "name": "$7",
+      "class": "pfet",
+      "nets": {
+        "s": "BOOST_N",
+        "g": "SAMPLEB",
+        "d": "G_N",
+        "b": "BOOST_N"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      }
+    },
+    {
+      "name": "$8",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "SAMPLE",
+        "d": "BOOST_N",
+        "b": "BOOST_N"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0,
+        "as_um2": 0.42,
+        "ad_um2": 0.42,
+        "ps_um": 2.84,
+        "pd_um": 2.84
+      }
+    },
+    {
+      "name": "$9",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "SAMPLE",
+        "d": "SAMPLEB",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      }
+    }
+  ],
+  "nets": [
+    {
+      "name": "BOOST_N",
+      "pin": true,
+      "device_count": 4
+    },
+    {
+      "name": "BOOST_P",
+      "pin": true,
+      "device_count": 4
+    },
+    {
+      "name": "BPREF_N",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "BPREF_P",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "BSBOT_N",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "BSBOT_P",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "G_N",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "G_P",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "SAMPLE",
+      "pin": true,
+      "device_count": 3
+    },
+    {
+      "name": "SAMPLEB",
+      "pin": true,
+      "device_count": 7
+    },
+    {
+      "name": "VCM",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 8
+    },
+    {
+      "name": "VINN",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "VINP",
+      "pin": true,
+      "device_count": 1
+    }
+  ],
+  "warnings": [
+    "promoted 14 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BOOST_N, BOOST_P, BPREF_N, BPREF_P, BSBOT_N, BSBOT_P, G_N, G_P, SAMPLE, SAMPLEB, VCM, VDD, VINN, VINP -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
+  ],
+  "black_box_regions": [],
+  "abstracted_cells": [],
+  "unmodelled_poly": [],
+  "merged_net_labels": [],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
+  "dead_metal": [],
+  "matched_device_groups": [],
+  "pdk": null,
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:2e78949d63f03012c505528158948a250e18c2c21c8710c85a23a8243649f4d0",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:374ea5d9b51f52bd240e567b4d385c2850d36e70650f300eaf7010cd9607b62e"
+    }
+  },
+  "parasitics": null,
+  "spef_path": null
+}

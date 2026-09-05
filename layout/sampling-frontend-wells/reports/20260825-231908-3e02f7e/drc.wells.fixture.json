@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "file": "nwell_isolation_fixture.gds",
+  "deck": "nwell_isolation.drc",
+  "engine": "klayout",
+  "dbu_um": 0.001,
+  "status": "violations",
+  "violation_count": 10,
+  "rule_counts": {
+    "difftap.10": 4,
+    "difftap.8": 4,
+    "nwell.1": 1,
+    "nwell.2a": 1
+  },
+  "violations": [
+    {
+      "rule": "difftap.10",
+      "description": "difftap.10 : min. n+tap enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.10",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 20000,
+        "bottom": 0,
+        "right": 20000,
+        "top": 1000
+      },
+      "polygon": null
+    },
+    {
+      "rule": "difftap.10",
+      "description": "difftap.10 : min. n+tap enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.10",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 20000,
+        "bottom": 0,
+        "right": 21000,
+        "top": 0
+      },
+      "polygon": null
+    },
+    {
+      "rule": "difftap.10",
+      "description": "difftap.10 : min. n+tap enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.10",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 20000,
+        "bottom": 1000,
+        "right": 21000,
+        "top": 1000
+      },
+      "polygon": null
+    },
+    {
+      "rule": "difftap.10",
+      "description": "difftap.10 : min. n+tap enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.10",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 21000,
+        "bottom": 0,
+        "right": 21000,
+        "top": 1000
+      },
+      "polygon": null
+    },
+    {
+      "rule": "difftap.8",
+      "description": "difftap.8 : min. p+diff enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.8",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 30000,
+        "bottom": 0,
+        "right": 30000,
+        "top": 1500
+      },
+      "polygon": null
+    },
+    {
+      "rule": "difftap.8",
+      "description": "difftap.8 : min. p+diff enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.8",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 30000,
+        "bottom": 0,
+        "right": 31500,
+        "top": 0
+      },
+      "polygon": null
+    },
+    {
+      "rule": "difftap.8",
+      "description": "difftap.8 : min. p+diff enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.8",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 30000,
+        "bottom": 1500,
+        "right": 31500,
+        "top": 1500
+      },
+      "polygon": null
+    },
+    {
+      "rule": "difftap.8",
+      "description": "difftap.8 : min. p+diff enclosure by nwell : 0.18um",
+      "check": "external",
+      "layer": "difftap.8",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 31500,
+        "bottom": 0,
+        "right": 31500,
+        "top": 1500
+      },
+      "polygon": null
+    },
+    {
+      "rule": "nwell.1",
+      "description": "nwell.1 : min. nwell width : 0.84um",
+      "check": "external",
+      "layer": "nwell.1",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 10000,
+        "bottom": 0,
+        "right": 10600,
+        "top": 2000
+      },
+      "polygon": null
+    },
+    {
+      "rule": "nwell.2a",
+      "description": "nwell.2a : min. nwell spacing (merged if less) : 1.27um",
+      "check": "external",
+      "layer": "nwell.2a",
+      "cell": "NWELL_ISOLATION_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 2000,
+        "bottom": 0,
+        "right": 2500,
+        "top": 2000
+      },
+      "polygon": null
+    }
+  ],
+  "coverage": {
+    "deck_layers": [],
+    "layers_checked": [],
+    "layers_in_stream_without_rules": [],
+    "rules_skipped": [],
+    "voltage_domain_warnings": [],
+    "deck_scope": []
+  },
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "nwell_isolation.drc",
+      "content_hash": "sha256:261c99091bc7f93f31b0a6cfb7d7246fc493c924974d49403375fdbbbaa44561",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:2d73f7c8fc6b06230bc855f4d53887635e81a8ce923ea04d9ca2f622f8d06ea3"
+    }
+  }
+}
