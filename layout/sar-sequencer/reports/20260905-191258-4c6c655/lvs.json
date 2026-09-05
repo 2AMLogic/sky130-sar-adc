@@ -1,0 +1,2031 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "sar_sequencer.extract.spice",
+  "reference": "sar_sequencer.lvs-reference.spice",
+  "top": "SAR_SEQUENCER",
+  "reference_top": "SAR_SEQUENCER",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": true,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "match",
+  "mismatch_count": 0,
+  "error_count": 0,
+  "category_counts": {},
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 395,
+      "reference": 395,
+      "matched": 395
+    },
+    "devices": {
+      "layout": 760,
+      "reference": 760,
+      "matched": 760
+    },
+    "pins": {
+      "layout": 30,
+      "reference": 28,
+      "matched": 30
+    }
+  },
+  "device_classes": null,
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "979d2e1d40bf19f458e310acfc0c4552f8349b533ffa77ffac10e3223c4108a4",
+    "reference_sha256": "85d1cb4a44e79a44e8ae646d3f2c1483ae914ecbebcb9545615d4f7065607ddf",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": null,
+    "input": null
+  },
+  "mismatches": [],
+  "net_correspondence": [
+    {
+      "layout": "A|BUSY|X",
+      "reference": "BUSY",
+      "pin": true
+    },
+    {
+      "layout": "A|CLK",
+      "reference": "CLK",
+      "pin": true
+    },
+    {
+      "layout": "\\$184",
+      "reference": "CLKBUF_0_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "\\$85",
+      "reference": "CLKBUF_1_0__F_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "\\$337",
+      "reference": "CLKBUF_1_1__F_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "Y",
+      "reference": "CLKLOAD0_Y",
+      "pin": false
+    },
+    {
+      "layout": "A|X",
+      "reference": "CLKNET_0_CLK",
+      "pin": false
+    },
+    {
+      "layout": "A|CLK|X",
+      "reference": "CLKNET_1_0__LEAF_CLK",
+      "pin": true
+    },
+    {
+      "layout": "CLK|X",
+      "reference": "CLKNET_1_1__LEAF_CLK",
+      "pin": true
+    },
+    {
+      "layout": "A1|COMP_OUT",
+      "reference": "COMP_OUT",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT0|Q",
+      "reference": "DOUT0",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT1|Q",
+      "reference": "DOUT1",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT2|Q",
+      "reference": "DOUT2",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT3|Q",
+      "reference": "DOUT3",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT4|Q",
+      "reference": "DOUT4",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT5|Q",
+      "reference": "DOUT5",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT6|Q",
+      "reference": "DOUT6",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT7|Q",
+      "reference": "DOUT7",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT8|Q",
+      "reference": "DOUT8",
+      "pin": true
+    },
+    {
+      "layout": "A0|DOUT9|Q",
+      "reference": "DOUT9",
+      "pin": true
+    },
+    {
+      "layout": "D|X$9",
+      "reference": "MUXOUT0",
+      "pin": false
+    },
+    {
+      "layout": "D|X$8",
+      "reference": "MUXOUT1",
+      "pin": false
+    },
+    {
+      "layout": "D|X$5",
+      "reference": "MUXOUT2",
+      "pin": false
+    },
+    {
+      "layout": "D|X$4",
+      "reference": "MUXOUT3",
+      "pin": false
+    },
+    {
+      "layout": "D|X$7",
+      "reference": "MUXOUT4",
+      "pin": false
+    },
+    {
+      "layout": "D|X$2",
+      "reference": "MUXOUT5",
+      "pin": false
+    },
+    {
+      "layout": "D|X",
+      "reference": "MUXOUT6",
+      "pin": false
+    },
+    {
+      "layout": "D|X$3",
+      "reference": "MUXOUT7",
+      "pin": false
+    },
+    {
+      "layout": "D|X$1",
+      "reference": "MUXOUT8",
+      "pin": false
+    },
+    {
+      "layout": "D|X$6",
+      "reference": "MUXOUT9",
+      "pin": false
+    },
+    {
+      "layout": "A|X$1",
+      "reference": "ORG1",
+      "pin": false
+    },
+    {
+      "layout": "B|X",
+      "reference": "ORG2",
+      "pin": false
+    },
+    {
+      "layout": "C|X",
+      "reference": "ORG3",
+      "pin": false
+    },
+    {
+      "layout": "B|D|PH_B0|Q|S",
+      "reference": "PH_B0",
+      "pin": true
+    },
+    {
+      "layout": "A|D|PH_B1|Q|S",
+      "reference": "PH_B1",
+      "pin": true
+    },
+    {
+      "layout": "D|PH_B2|Q|S",
+      "reference": "PH_B2",
+      "pin": true
+    },
+    {
+      "layout": "C|D|PH_B3|Q|S",
+      "reference": "PH_B3",
+      "pin": true
+    },
+    {
+      "layout": "B|D|PH_B4|Q|S",
+      "reference": "PH_B4",
+      "pin": true
+    },
+    {
+      "layout": "A|D|PH_B5|Q|S",
+      "reference": "PH_B5",
+      "pin": true
+    },
+    {
+      "layout": "D|PH_B6|Q|S",
+      "reference": "PH_B6",
+      "pin": true
+    },
+    {
+      "layout": "C|D|PH_B7|Q|S",
+      "reference": "PH_B7",
+      "pin": true
+    },
+    {
+      "layout": "B|D|PH_B8|Q|S",
+      "reference": "PH_B8",
+      "pin": true
+    },
+    {
+      "layout": "A|D|PH_B9|Q|S",
+      "reference": "PH_B9",
+      "pin": true
+    },
+    {
+      "layout": "C|PH_EOC|Q",
+      "reference": "PH_EOC",
+      "pin": true
+    },
+    {
+      "layout": "D|PH_SAMPLE|Y",
+      "reference": "PH_SAMPLE",
+      "pin": true
+    },
+    {
+      "layout": "RESET_B|RST_B",
+      "reference": "RST_B",
+      "pin": true
+    },
+    {
+      "layout": "VGND",
+      "reference": "VGND",
+      "pin": true
+    },
+    {
+      "layout": "VPB|VPWR",
+      "reference": "VPWR",
+      "pin": true
+    },
+    {
+      "layout": "\\$376",
+      "reference": "XBREG0_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$377",
+      "reference": "XBREG0_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$378",
+      "reference": "XBREG0_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$379",
+      "reference": "XBREG0_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$391",
+      "reference": "XBREG0_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$389",
+      "reference": "XBREG0_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$385",
+      "reference": "XBREG0_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$393",
+      "reference": "XBREG0_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$394",
+      "reference": "XBREG0_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$387",
+      "reference": "XBREG0_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$381",
+      "reference": "XBREG0_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$388",
+      "reference": "XBREG0_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$380",
+      "reference": "XBREG0_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$345",
+      "reference": "XBREG1_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$346",
+      "reference": "XBREG1_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$347",
+      "reference": "XBREG1_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$348",
+      "reference": "XBREG1_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$349",
+      "reference": "XBREG1_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$361",
+      "reference": "XBREG1_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$358",
+      "reference": "XBREG1_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$354",
+      "reference": "XBREG1_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$356",
+      "reference": "XBREG1_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$359",
+      "reference": "XBREG1_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$351",
+      "reference": "XBREG1_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$360",
+      "reference": "XBREG1_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$350",
+      "reference": "XBREG1_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$147",
+      "reference": "XBREG2_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$148",
+      "reference": "XBREG2_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$149",
+      "reference": "XBREG2_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$150",
+      "reference": "XBREG2_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$152",
+      "reference": "XBREG2_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$178",
+      "reference": "XBREG2_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$180",
+      "reference": "XBREG2_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$151",
+      "reference": "XBREG2_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$165",
+      "reference": "XBREG2_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$179",
+      "reference": "XBREG2_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$154",
+      "reference": "XBREG2_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$177",
+      "reference": "XBREG2_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$153",
+      "reference": "XBREG2_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$304",
+      "reference": "XBREG3_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$305",
+      "reference": "XBREG3_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$306",
+      "reference": "XBREG3_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$307",
+      "reference": "XBREG3_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$324",
+      "reference": "XBREG3_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$317",
+      "reference": "XBREG3_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$319",
+      "reference": "XBREG3_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$326",
+      "reference": "XBREG3_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$329",
+      "reference": "XBREG3_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$318",
+      "reference": "XBREG3_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$309",
+      "reference": "XBREG3_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$316",
+      "reference": "XBREG3_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$308",
+      "reference": "XBREG3_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$330",
+      "reference": "XBREG4_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$331",
+      "reference": "XBREG4_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$332",
+      "reference": "XBREG4_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$333",
+      "reference": "XBREG4_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$334",
+      "reference": "XBREG4_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$363",
+      "reference": "XBREG4_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$365",
+      "reference": "XBREG4_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$352",
+      "reference": "XBREG4_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$355",
+      "reference": "XBREG4_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$364",
+      "reference": "XBREG4_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$336",
+      "reference": "XBREG4_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$362",
+      "reference": "XBREG4_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$335",
+      "reference": "XBREG4_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$49",
+      "reference": "XBREG5_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$50",
+      "reference": "XBREG5_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$51",
+      "reference": "XBREG5_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$52",
+      "reference": "XBREG5_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$53",
+      "reference": "XBREG5_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$66",
+      "reference": "XBREG5_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$68",
+      "reference": "XBREG5_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$75",
+      "reference": "XBREG5_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$78",
+      "reference": "XBREG5_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$67",
+      "reference": "XBREG5_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$55",
+      "reference": "XBREG5_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$65",
+      "reference": "XBREG5_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$54",
+      "reference": "XBREG5_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$17",
+      "reference": "XBREG6_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$18",
+      "reference": "XBREG6_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$20",
+      "reference": "XBREG6_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$21",
+      "reference": "XBREG6_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$23",
+      "reference": "XBREG6_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$48",
+      "reference": "XBREG6_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$45",
+      "reference": "XBREG6_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$22",
+      "reference": "XBREG6_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$37",
+      "reference": "XBREG6_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$47",
+      "reference": "XBREG6_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$25",
+      "reference": "XBREG6_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$46",
+      "reference": "XBREG6_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$24",
+      "reference": "XBREG6_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$185",
+      "reference": "XBREG7_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$186",
+      "reference": "XBREG7_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$187",
+      "reference": "XBREG7_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$188",
+      "reference": "XBREG7_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$189",
+      "reference": "XBREG7_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$194",
+      "reference": "XBREG7_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$196",
+      "reference": "XBREG7_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$199",
+      "reference": "XBREG7_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$200",
+      "reference": "XBREG7_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$197",
+      "reference": "XBREG7_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$191",
+      "reference": "XBREG7_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$195",
+      "reference": "XBREG7_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$190",
+      "reference": "XBREG7_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$27",
+      "reference": "XBREG8_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$28",
+      "reference": "XBREG8_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$30",
+      "reference": "XBREG8_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$31",
+      "reference": "XBREG8_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$33",
+      "reference": "XBREG8_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$43",
+      "reference": "XBREG8_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$41",
+      "reference": "XBREG8_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$32",
+      "reference": "XBREG8_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$38",
+      "reference": "XBREG8_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$42",
+      "reference": "XBREG8_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$35",
+      "reference": "XBREG8_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$44",
+      "reference": "XBREG8_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$34",
+      "reference": "XBREG8_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$242",
+      "reference": "XBREG9_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$243",
+      "reference": "XBREG9_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$244",
+      "reference": "XBREG9_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$245",
+      "reference": "XBREG9_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$257",
+      "reference": "XBREG9_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$254",
+      "reference": "XBREG9_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$252",
+      "reference": "XBREG9_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$259",
+      "reference": "XBREG9_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$260",
+      "reference": "XBREG9_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$255",
+      "reference": "XBREG9_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$247",
+      "reference": "XBREG9_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$253",
+      "reference": "XBREG9_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$246",
+      "reference": "XBREG9_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$281",
+      "reference": "XMUX0_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$294",
+      "reference": "XMUX0_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$295",
+      "reference": "XMUX0_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$293",
+      "reference": "XMUX0_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$290",
+      "reference": "XMUX0_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$280",
+      "reference": "XMUX0_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$278",
+      "reference": "XMUX1_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$298",
+      "reference": "XMUX1_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$299",
+      "reference": "XMUX1_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$291",
+      "reference": "XMUX1_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$292",
+      "reference": "XMUX1_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$277",
+      "reference": "XMUX1_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$182",
+      "reference": "XMUX2_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$193",
+      "reference": "XMUX2_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$192",
+      "reference": "XMUX2_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$201",
+      "reference": "XMUX2_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$202",
+      "reference": "XMUX2_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$181",
+      "reference": "XMUX2_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$112",
+      "reference": "XMUX3_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$126",
+      "reference": "XMUX3_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$125",
+      "reference": "XMUX3_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$144",
+      "reference": "XMUX3_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$145",
+      "reference": "XMUX3_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$110",
+      "reference": "XMUX3_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$265",
+      "reference": "XMUX4_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$297",
+      "reference": "XMUX4_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$296",
+      "reference": "XMUX4_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$285",
+      "reference": "XMUX4_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$286",
+      "reference": "XMUX4_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$264",
+      "reference": "XMUX4_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$81",
+      "reference": "XMUX5_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$107",
+      "reference": "XMUX5_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$106",
+      "reference": "XMUX5_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$91",
+      "reference": "XMUX5_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$92",
+      "reference": "XMUX5_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$80",
+      "reference": "XMUX5_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$84",
+      "reference": "XMUX6_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$108",
+      "reference": "XMUX6_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$109",
+      "reference": "XMUX6_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$93",
+      "reference": "XMUX6_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$94",
+      "reference": "XMUX6_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$83",
+      "reference": "XMUX6_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$88",
+      "reference": "XMUX7_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$104",
+      "reference": "XMUX7_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$105",
+      "reference": "XMUX7_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$98",
+      "reference": "XMUX7_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$97",
+      "reference": "XMUX7_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$87",
+      "reference": "XMUX7_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$90",
+      "reference": "XMUX8_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$102",
+      "reference": "XMUX8_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$103",
+      "reference": "XMUX8_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$96",
+      "reference": "XMUX8_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$95",
+      "reference": "XMUX8_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$89",
+      "reference": "XMUX8_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$215",
+      "reference": "XMUX9_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$230",
+      "reference": "XMUX9_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$231",
+      "reference": "XMUX9_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$223",
+      "reference": "XMUX9_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$222",
+      "reference": "XMUX9_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$214",
+      "reference": "XMUX9_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$224",
+      "reference": "XOR_BUSY_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$225",
+      "reference": "XOR_BUSY_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$221",
+      "reference": "XOR_BUSY_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$172",
+      "reference": "XOR_G1_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$171",
+      "reference": "XOR_G1_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$170",
+      "reference": "XOR_G1_SNDPC",
+      "pin": false
+    },
+    {
+      "layout": "\\$168",
+      "reference": "XOR_G1_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$228",
+      "reference": "XOR_G2_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$227",
+      "reference": "XOR_G2_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$226",
+      "reference": "XOR_G2_SNDPC",
+      "pin": false
+    },
+    {
+      "layout": "\\$218",
+      "reference": "XOR_G2_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$287",
+      "reference": "XOR_G3_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$288",
+      "reference": "XOR_G3_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$284",
+      "reference": "XOR_G3_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$338",
+      "reference": "XRINGB0_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$339",
+      "reference": "XRINGB0_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$340",
+      "reference": "XRINGB0_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$341",
+      "reference": "XRINGB0_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$342",
+      "reference": "XRINGB0_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$368",
+      "reference": "XRINGB0_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$366",
+      "reference": "XRINGB0_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$353",
+      "reference": "XRINGB0_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$357",
+      "reference": "XRINGB0_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$367",
+      "reference": "XRINGB0_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$344",
+      "reference": "XRINGB0_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$369",
+      "reference": "XRINGB0_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$343",
+      "reference": "XRINGB0_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$266",
+      "reference": "XRINGB1_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$267",
+      "reference": "XRINGB1_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$268",
+      "reference": "XRINGB1_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$269",
+      "reference": "XRINGB1_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$271",
+      "reference": "XRINGB1_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$300",
+      "reference": "XRINGB1_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$302",
+      "reference": "XRINGB1_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$270",
+      "reference": "XRINGB1_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$289",
+      "reference": "XRINGB1_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$303",
+      "reference": "XRINGB1_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$273",
+      "reference": "XRINGB1_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$301",
+      "reference": "XRINGB1_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$272",
+      "reference": "XRINGB1_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$370",
+      "reference": "XRINGB2_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$371",
+      "reference": "XRINGB2_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$372",
+      "reference": "XRINGB2_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$373",
+      "reference": "XRINGB2_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$390",
+      "reference": "XRINGB2_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$382",
+      "reference": "XRINGB2_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$386",
+      "reference": "XRINGB2_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$392",
+      "reference": "XRINGB2_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$395",
+      "reference": "XRINGB2_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$384",
+      "reference": "XRINGB2_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$375",
+      "reference": "XRINGB2_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$383",
+      "reference": "XRINGB2_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$374",
+      "reference": "XRINGB2_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$236",
+      "reference": "XRINGB3_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$237",
+      "reference": "XRINGB3_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$238",
+      "reference": "XRINGB3_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$239",
+      "reference": "XRINGB3_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$256",
+      "reference": "XRINGB3_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$249",
+      "reference": "XRINGB3_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$251",
+      "reference": "XRINGB3_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$258",
+      "reference": "XRINGB3_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$261",
+      "reference": "XRINGB3_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$250",
+      "reference": "XRINGB3_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$241",
+      "reference": "XRINGB3_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$248",
+      "reference": "XRINGB3_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$240",
+      "reference": "XRINGB3_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$203",
+      "reference": "XRINGB4_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$204",
+      "reference": "XRINGB4_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$205",
+      "reference": "XRINGB4_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$206",
+      "reference": "XRINGB4_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$208",
+      "reference": "XRINGB4_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$233",
+      "reference": "XRINGB4_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$235",
+      "reference": "XRINGB4_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$207",
+      "reference": "XRINGB4_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$216",
+      "reference": "XRINGB4_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$234",
+      "reference": "XRINGB4_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$211",
+      "reference": "XRINGB4_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$232",
+      "reference": "XRINGB4_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$210",
+      "reference": "XRINGB4_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$113",
+      "reference": "XRINGB5_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$114",
+      "reference": "XRINGB5_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$115",
+      "reference": "XRINGB5_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$116",
+      "reference": "XRINGB5_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$137",
+      "reference": "XRINGB5_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$129",
+      "reference": "XRINGB5_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$132",
+      "reference": "XRINGB5_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$140",
+      "reference": "XRINGB5_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$146",
+      "reference": "XRINGB5_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$130",
+      "reference": "XRINGB5_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$118",
+      "reference": "XRINGB5_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$127",
+      "reference": "XRINGB5_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$117",
+      "reference": "XRINGB5_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$58",
+      "reference": "XRINGB6_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$59",
+      "reference": "XRINGB6_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$60",
+      "reference": "XRINGB6_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$61",
+      "reference": "XRINGB6_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$62",
+      "reference": "XRINGB6_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$72",
+      "reference": "XRINGB6_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$69",
+      "reference": "XRINGB6_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$76",
+      "reference": "XRINGB6_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$77",
+      "reference": "XRINGB6_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$70",
+      "reference": "XRINGB6_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$64",
+      "reference": "XRINGB6_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$71",
+      "reference": "XRINGB6_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$63",
+      "reference": "XRINGB6_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$2",
+      "reference": "XRINGB7_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$3",
+      "reference": "XRINGB7_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$4",
+      "reference": "XRINGB7_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$5",
+      "reference": "XRINGB7_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$6",
+      "reference": "XRINGB7_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$10",
+      "reference": "XRINGB7_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$11",
+      "reference": "XRINGB7_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$15",
+      "reference": "XRINGB7_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$16",
+      "reference": "XRINGB7_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$12",
+      "reference": "XRINGB7_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$8",
+      "reference": "XRINGB7_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$9",
+      "reference": "XRINGB7_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$7",
+      "reference": "XRINGB7_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$119",
+      "reference": "XRINGB8_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$120",
+      "reference": "XRINGB8_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$121",
+      "reference": "XRINGB8_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$122",
+      "reference": "XRINGB8_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$138",
+      "reference": "XRINGB8_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$134",
+      "reference": "XRINGB8_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$128",
+      "reference": "XRINGB8_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$141",
+      "reference": "XRINGB8_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$143",
+      "reference": "XRINGB8_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$131",
+      "reference": "XRINGB8_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$124",
+      "reference": "XRINGB8_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$133",
+      "reference": "XRINGB8_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$123",
+      "reference": "XRINGB8_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$157",
+      "reference": "XRINGB9_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$158",
+      "reference": "XRINGB9_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$159",
+      "reference": "XRINGB9_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$160",
+      "reference": "XRINGB9_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$162",
+      "reference": "XRINGB9_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$176",
+      "reference": "XRINGB9_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$173",
+      "reference": "XRINGB9_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$161",
+      "reference": "XRINGB9_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$166",
+      "reference": "XRINGB9_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$174",
+      "reference": "XRINGB9_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$164",
+      "reference": "XRINGB9_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$175",
+      "reference": "XRINGB9_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$163",
+      "reference": "XRINGB9_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$310",
+      "reference": "XRINGEOC_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$311",
+      "reference": "XRINGEOC_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$312",
+      "reference": "XRINGEOC_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$313",
+      "reference": "XRINGEOC_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$325",
+      "reference": "XRINGEOC_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$322",
+      "reference": "XRINGEOC_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$320",
+      "reference": "XRINGEOC_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$327",
+      "reference": "XRINGEOC_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$328",
+      "reference": "XRINGEOC_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$323",
+      "reference": "XRINGEOC_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$315",
+      "reference": "XRINGEOC_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$321",
+      "reference": "XRINGEOC_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$314",
+      "reference": "XRINGEOC_S0",
+      "pin": false
+    }
+  ]
+}

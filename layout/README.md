@@ -8,8 +8,8 @@ the same pinned sky130A PDK the simulation harness uses (`sim/pdk.json`).
 verdicts are falsifiable** — the gating prerequisite for every later layout
 claim (issue #2). `sar-sequencer/` is the first real SAR ADC sub-block layout
 (issue #102, digital standard-cell logic via `klt place-and-route` rather
-than the full-custom `klt draw` flow — see that directory's own README for
-the flow choice and its current DRC-clean/LVS-blocked status).
+than the full-custom `klt draw` flow, DRC-clean and LVS-clean — see that
+directory's own README for the flow choice and its LVS history).
 `cdac-array/` is the differential CDAC array (issue #100): full-custom,
 generator-drawn, DRC-clean and LVS-clean against `design/cdac/*.sch`, and
 the block's matching-critical sub-block — see that directory's own README

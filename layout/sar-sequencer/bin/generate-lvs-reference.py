@@ -64,6 +64,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from decimal import Decimal
 
 LAYOUT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SAR_SEQ_DIR = os.path.join(LAYOUT_DIR, "sar-sequencer")
@@ -157,7 +158,27 @@ def _extract_cdl_subckt(cdl_text: str, name: str) -> tuple[list[str], list[tuple
         toks = line.split()
         inst, drain, gate, source, body, model = toks[0], *toks[1:6]
         params = dict(t.split("=", 1) for t in toks[6:] if "=" in t)
-        devices.append((inst, drain, gate, source, body, model, params.get("w"), params.get("l")))
+        # `m=` is the CDL's own parallel-finger multiplier (e.g.
+        # sky130_fd_sc_hd__buf_4's own output-stage MMIN2/MMIP2 devices are
+        # drawn as `m=4` -- 4 identical fingers -- not `w=4x` in one finger;
+        # its distinct `mult=` field is an unrelated LDD/stress-modeling
+        # parameter, not a device count). `klt extract`'s `combine_devices`
+        # folds those same 4 physically-drawn layout fingers into one
+        # schematic-equivalent device with 4x the per-finger W (verified:
+        # this sub-block's raw pre-fold device_count of 778 folds to exactly
+        # 760 post-combine -- 18 fewer, matching 3 buf_4 instances x 2
+        # multi-finger output-stage transistors x (m=4 - 1) redundant
+        # fingers folded away). A reference M-card using the CDL's bare
+        # per-finger `w=` instead of `w= * m` would understate that folded
+        # device's true width 4x -- exactly the residual NetlistComparer
+        # `device.unmatched`/`net.merged`/`net.split` mismatch this comment
+        # fixes (issue #102's own investigation; see README.md "LVS
+        # reference provenance").
+        # `Decimal` (not `float`) so e.g. 0.65 * 4 prints as the exact `2.6`
+        # a human/`klt` would write, not a binary-float artifact like
+        # `2.6000000000000005`.
+        w = Decimal(params["w"]) * int(Decimal(params.get("m", "1")))
+        devices.append((inst, drain, gate, source, body, model, w, params.get("l")))
     return pins, devices
 
 
@@ -219,6 +240,14 @@ def main() -> int:
         + [f"PH_B{n}" for n in range(9, -1, -1)]
         + ["PH_EOC", "PH_SAMPLE", "BUSY"]
         + [f"DOUT{n}" for n in range(9, -1, -1)]
+        # `requests/place-and-route.json`'s `power` block (added for issue
+        # #102's LVS fix, see README.md "LVS reference provenance") gives
+        # this sub-block a real PDN, whose topmost strap layer `klt
+        # place-and-route` promotes as a genuine block-level P/G interface
+        # (`define_pdn_grid -pins`) -- so VPWR/VGND are real top-level ports
+        # of the routed design now, not just internal net names every
+        # device implicitly ties to.
+        + ["VPWR", "VGND"]
     )
 
     out_lines = [
