@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "sampling_frontend_pwells.gds",
+  "reference": "reference.broken-body-tie.spice",
+  "top": "gen_compose_0",
+  "reference_top": "SAMPLING_FRONTEND_PWELLS",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": true,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "mismatch",
+  "mismatch_count": 14,
+  "error_count": 12,
+  "category_counts": {
+    "device.unmatched": 4,
+    "net.unmatched": 8,
+    "topology": 2
+  },
+  "category_error_counts": {
+    "device.unmatched": 4,
+    "net.unmatched": 8
+  },
+  "counts": {
+    "nets": {
+      "layout": 14,
+      "reference": 14,
+      "matched": 7
+    },
+    "devices": {
+      "layout": 9,
+      "reference": 9,
+      "matched": 5
+    },
+    "pins": {
+      "layout": 14,
+      "reference": 14,
+      "matched": 18
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.11",
+    "layout_sha256": "374ea5d9b51f52bd240e567b4d385c2850d36e70650f300eaf7010cd9607b62e",
+    "reference_sha256": "bed03f85374bdd3a931141c28436424277e41e80e8124e1bd691c5fefd57dec3",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.3.0",
+    "klayout_version": "0.30.11",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:2e78949d63f03012c505528158948a250e18c2c21c8710c85a23a8243649f4d0",
+      "released": false
+    },
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1",
+        "reference": "_SA_P",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$2",
+        "reference": "_SE_P",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$7",
+        "reference": "_SE_N",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$8",
+        "reference": "_SA_N",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "BOOST_N",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "BOOST_P",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "G_N",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "G_P",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "reference net has no layout counterpart",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BOOST_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "reference net has no layout counterpart",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BOOST_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "reference net has no layout counterpart",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "G_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "reference net has no layout counterpart",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "G_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BPREF_N",
+      "reference": "BPREF_N",
+      "pin": true
+    },
+    {
+      "layout": "BPREF_P",
+      "reference": "BPREF_P",
+      "pin": true
+    },
+    {
+      "layout": "BSBOT_N",
+      "reference": "BSBOT_N",
+      "pin": true
+    },
+    {
+      "layout": "BSBOT_P",
+      "reference": "BSBOT_P",
+      "pin": true
+    },
+    {
+      "layout": "VCM",
+      "reference": "VCM",
+      "pin": true
+    },
+    {
+      "layout": "VINN",
+      "reference": "VINN",
+      "pin": true
+    },
+    {
+      "layout": "VINP",
+      "reference": "VINP",
+      "pin": true
+    }
+  ]
+}

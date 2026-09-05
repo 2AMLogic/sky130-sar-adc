@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "Deliberately illegal fixture for nwell_isolation.drc's negative control",
+    "(issue #122). One defect per rule that deck carries, kept far enough",
+    "apart that each fires exactly one rule:",
+    "",
+    "  nwell.2a   two 2.0 x 2.0 um nwell islands 0.50 um apart -- below the",
+    "             1.27 um minimum spacing, i.e. the exact failure mode a",
+    "             deliberately-split well risks and the one klt's curated",
+    "             sky130 deck cannot see (it carries no nwell rules at all).",
+    "  nwell.1    a 0.60 um wide nwell stripe -- below the 0.84 um minimum.",
+    "  difftap.10 a tap coincident with its nwell -- 0 um enclosure, below",
+    "             the 0.18 um minimum n+tap enclosure by nwell.",
+    "  difftap.8  a diff coincident with its nwell -- 0 um enclosure, below",
+    "             the 0.18 um minimum p+diff enclosure by nwell.",
+    "",
+    "Written with `klt draw`, which writes geometry verbatim with no rule",
+    "checking -- exactly what a DRC negative control needs, the same way",
+    "layout/bin/drc_violation_fixture.json is the negative control for the",
+    "trivial-cell flow's curated-deck verdict."
+  ],
+  "shapes": [
+    {"layer": [64, 20], "rect_um": [0.0, 0.0, 2.0, 2.0]},
+    {"layer": [64, 20], "rect_um": [2.5, 0.0, 4.5, 2.0]},
+
+    {"layer": [64, 20], "rect_um": [10.0, 0.0, 10.6, 2.0]},
+
+    {"layer": [64, 20], "rect_um": [20.0, 0.0, 21.0, 1.0]},
+    {"layer": [65, 44], "rect_um": [20.0, 0.0, 21.0, 1.0]},
+
+    {"layer": [64, 20], "rect_um": [30.0, 0.0, 31.5, 1.5]},
+    {"layer": [65, 20], "rect_um": [30.0, 0.0, 31.5, 1.5]}
+  ]
+}
