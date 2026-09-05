@@ -20,33 +20,44 @@ islands. Every NFET in that schematic ties its body to the p-substrate, which
 NFET can participate in — or falsify — a well-isolation claim. `#99` inherits
 the recipe below; it does not have to re-derive it.
 
-**Status: DRC-clean (curated deck *and* the n-well rules that deck omits),
-LVS-clean, and every PFET body extracts on its own island's tap net.** The
-record referenced by `reports/LATEST` carries all eleven of this flow's
-verdicts, seven positive and four negative:
+**Status: DRC-clean, LVS-clean, and every PFET body extracts on its own
+island's tap net.** The record referenced by `reports/LATEST` carries all
+eight of this flow's verdicts, six positive and two negative:
 
 | # | Verdict | Why it is here |
 | --- | --- | --- |
 | 1 | every `klt gen` PFET block is DRC-clean *in isolation* | a composed-DRC failure can be attributed to the wells/routing, not to a device |
-| 2 | `klt drc --deck sky130` reports **clean** on the composed layout | the deliverable is legal against the rules that deck carries |
-| 3 | the composed layout is **clean** against sky130's own `nwell.1`/`nwell.2a`/`difftap.8`/`difftap.10` | the rules that actually govern a well *split* — which deck 2 does not carry at all (see "The DRC gap" below) |
-| 4 | the same well deck reports **violations**, naming `nwell.2a`, on a deliberately-illegal fixture | verdict 3 means nothing until "violations" is shown reachable on the same deck in the same run |
-| 5 | `klt drc --deck sky130` reports that **same** illegal fixture **clean** | the gap in verdict 3's premise, recorded as reproducible evidence rather than asserted in prose |
-| 6 | `klt precheck` passes | geometry hygiene; every pin label lands on drawn metal |
-| 7 | `klt extract` reports **no** unbiased PMOS body net | no PMOS body fell back to KLayout's anonymous, DC-floating proxy net |
-| 8 | `klt extract` reports **each** PFET's body on its own island's tap net — `Sa`/`Se` on `BOOST_P`/`BOOST_N`, the other five on `VDD` | **this is the question #122 asked**; verdict 7 alone would be satisfied by one VDD well over everything |
-| 9 | `klt lvs` reports **match** against `reference.spice` | the drawn geometry is the schematic, body column included |
-| 10 | `klt lvs` reports **mismatch** against `reference.broken-body-tie.spice` | LVS notices a *body-terminal-only* corruption (the four boosted bodies moved to VDD, nothing else changed) |
-| 11 | `klt lvs` reports **mismatch** against `reference.broken-device.spice` | LVS notices a *device-parameter-only* corruption (one W changed, connectivity untouched) |
+| 2 | `klt drc --deck sky130` reports **clean** on the composed layout | as of klt 0.4.0 this deck carries `nwell.width.1`/`nwell.space.1` directly, so this single verdict *is* the well-isolation claim — see "The DRC gap this recipe used to work around" below |
+| 3 | that same curated deck reports **violations**, naming `nwell.space.1`, on a deliberately-illegal well-split fixture | verdict 2 means nothing until "violations" is shown reachable on the same deck in the same run |
+| 4 | `klt precheck` passes | geometry hygiene; every pin label lands on drawn metal |
+| 5 | `klt extract` reports **no** unbiased PMOS body net | no PMOS body fell back to KLayout's anonymous, DC-floating proxy net |
+| 6 | `klt extract` reports **each** PFET's body on its own island's tap net — `Sa`/`Se` on `BOOST_P`/`BOOST_N`, the other five on `VDD` | **this is the question #122 asked**; verdict 5 alone would be satisfied by one VDD well over everything |
+| 7 | `klt lvs` reports **match** against `reference.spice` | the drawn geometry is the schematic, body column included |
+| 8a | `klt lvs` reports **mismatch** against `reference.broken-body-tie.spice` | LVS notices a *body-terminal-only* corruption (the four boosted bodies moved to VDD, nothing else changed) |
+| 8b | `klt lvs` reports **mismatch** against `reference.broken-device.spice` | LVS notices a *device-parameter-only* corruption (one W changed, connectivity untouched) |
 
-Verdicts 10–11 are the falsifiability discipline `layout/trivial-cell/`
-established for this repo (issue #2), with verdict 10 specialised to this
+Verdicts 8a–8b are the falsifiability discipline `layout/trivial-cell/`
+established for this repo (issue #2), with 8a specialised to this
 sub-block's own claim. It is the important one: a layout that silently drew one
 VDD-tied well over the whole PFET set would still be DRC-clean, would still
 extract nine PFETs, would still have every source/gate/drain net right, and
-would still report `unbiased_pmos_body_nets: []`. Verdict 10 is what makes
-verdict 9 evidence rather than an artefact of a checker that ignores the body
+would still report `unbiased_pmos_body_nets: []`. Verdict 8a is what makes
+verdict 7 evidence rather than an artefact of a checker that ignores the body
 column.
+
+**History (issue #149):** this table used to carry eleven verdicts across
+*two* DRC decks. klt 0.3.0's curated sky130 deck carried no n-well rules at
+all, so a hand-written DRC-DSL deck (`drc/nwell_isolation.drc`, run through
+`klt drc --engine klayout --deck-file`, which shells out to a standalone
+`klayout` binary) carried the isolation claim, with the curated deck's
+vacuous "clean" on the same illegal fixture recorded as evidence of the gap
+itself (the old verdict 5). klt 0.4.0 added `nwell.width.1`/`nwell.space.1`
+to the curated deck (2AMLogic/klayout-tools#1420), which **inverted** that
+verdict — the curated deck no longer reports the illegal fixture clean, it
+reports it as violations — so #149 retired the hand-written deck and its
+`--engine klayout` stages (this repo's environment has no working `klayout`
+binary to run them with anyway) and collapsed the old verdicts 2–5 into the
+new verdicts 2–3 above.
 
 ## The recipe
 
@@ -82,56 +93,78 @@ and the geometry it describes cannot drift apart; this is the summary.
 
    **No `nwell.pin` (64/5) well label is drawn anywhere, deliberately.** A drawn
    well label would name the well even if the tap routing were broken, turning
-   verdict 8 into a tautology. The name has to arrive through real
+   verdict 6 into a tautology. The name has to arrive through real
    connectivity or not at all.
 
-4. **Verify the split with rules the default deck does not carry** — see below.
+4. **Verify the split against a deck that actually carries n-well rules** — see
+   below.
 
-### The DRC gap this recipe has to work around
+### The DRC gap this recipe used to work around (closed by klt 0.4.0)
 
-`klt drc --deck sky130`'s curated rule table (klt 0.3.0) contains **no n-well
-rules at all**: its rule ids cover poly/diff/li1/mcon/met1–met5/via–via4/capm/
-capm2 and nothing on layer 64. A *deliberately* split well therefore passes it
-vacuously on exactly the rules that govern the split. Two n-well rectangles
-0.5 µm apart — illegal, and physically one merged well on silicon — come back
-`status: clean, violation_count: 0`.
+`klt drc --deck sky130`'s curated rule table, at klt 0.3.0, contained **no
+n-well rules at all**: its rule ids covered poly/diff/li1/mcon/met1–met5/
+via–via4/capm/capm2 and nothing on layer 64. A *deliberately* split well
+therefore passed it vacuously on exactly the rules that govern the split. Two
+n-well rectangles 0.5 µm apart — illegal, and physically one merged well on
+silicon — came back `status: clean, violation_count: 0`.
 
-`klt drc --engine klayout --pdk sky130A` does not close it either: it resolves
+`klt drc --engine klayout --pdk sky130A` did not close it either: it resolves
 the PDK's own `sky130A.lydrc`, but that deck defaults its front-end-of-line
 rule group off (`FEOL = false`) and klt's klayout engine at the 0.3.0 pin
-passes only `-rd input=` / `-rd report=`, with no way to set the deck variables
-that would switch FEOL on. The same fixture comes back "clean" through that
+passed only `-rd input=` / `-rd report=`, with no way to set the deck variables
+that would switch FEOL on. The same fixture came back "clean" through that
 path too, and because that engine reports an empty `coverage` block, nothing in
-the envelope says a whole rule group was skipped.
+the envelope said a whole rule group was skipped.
 
-**Workaround, in `drc/nwell_isolation.drc`**: a minimal DRC-DSL deck
-transcribing sky130's own `nwell.1` / `nwell.2a` / `difftap.8` / `difftap.10`
-(thresholds and line numbers cited in that file's header), run through
-`klt drc --engine klayout --deck-file` so klt is still the runner and the
-report parser. `drc/nwell_isolation_fixture.json` is its negative control, and
-the flow records the *same* fixture through the curated deck so the gap itself
-is committed evidence rather than a claim in a README.
+**klt 0.4.0 closed the gap directly** (2AMLogic/klayout-tools#1420,
+transcribed from sky130's own `nwell.1`/`nwell.2a`): the curated deck now
+carries `nwell.width.1` and `nwell.space.1`. Measured directly, drawing
+`drc/nwell_violation_fixture.json` (two 2×2 µm n-well islands 0.5 µm apart,
+plus a 0.6 µm-wide n-well stripe) and running it through `klt drc --deck
+sky130`:
+
+```
+status: violations, violation_count: 2,
+rule_counts: {'nwell.space.1': 1, 'nwell.width.1': 1}
+```
+
+That is the negative control `run-flow.sh` now records directly (no second
+deck, no standalone `klayout` binary) — see the verdict table above.
+
+**What is still not covered**: `nwell.width.1`/`nwell.space.1` do not cover
+sky130's `difftap.8`/`difftap.10` (minimum p+diff/n+tap enclosure by n-well).
+This sub-block's old hand-written deck (`drc/nwell_isolation.drc`, retired by
+#149) approximated those two rules by dropping their official `and(nsdm)`/
+`and(psdm)` implant-layer scoping — an approximation that was exact for this
+PFET-only cell but stated in that file's header as unsafe to copy into a
+sibling sub-block with a p-substrate tap. klt 0.4.0 deliberately does not
+transcribe difftap.8/difftap.10 into the curated deck either (they are
+implant-scoped, and no `klt gen` generator in this repo's flows draws
+`psdm`/`nsdm`), and this repo's environment has no working `klayout` binary
+to check them any other way (`klayout -v` hangs indefinitely here). So this
+flow currently checks n-well width/spacing only, not tap/diff enclosure by
+n-well — a real, open gap, not one this issue closes.
 
 This is not a general-purpose FEOL deck and must not be read as one:
-`klt drc --deck sky130` remains the authority for the rules it does carry, and
-neither deck checks poly/implant/density rules on this layout.
+`klt drc --deck sky130` remains the authority only for the rules it carries,
+and it does not check poly/implant/density rules on this layout.
 
-Both findings are filed **generically**, with no design content, at
+Findings filed **generically**, with no design content, at
 `2AMLogic/klayout-tools` per `CLAUDE.md`'s friction protocol:
 
 - [klayout-tools#1420](https://github.com/2AMLogic/klayout-tools/issues/1420) —
-  the curated sky130 deck carries no well-layer rules (filed by this issue);
+  the curated sky130 deck carried no well-layer rules (filed by this issue,
+  since **closed** upstream by the klt 0.4.0 release measured above);
 - [klayout-tools#1421](https://github.com/2AMLogic/klayout-tools/issues/1421) —
   no `klt gen` primitive for a named-net well/tap island isolated from a
   caller-specified set of other wells, i.e. the generator that would have made
-  `bin/build_layout.py`'s hand-composition unnecessary (filed by this issue);
+  `bin/build_layout.py`'s hand-composition unnecessary (filed by this issue,
+  since closed upstream; this flow still composes the island by hand via
+  `klt draw`, unaffected either way);
 - [klayout-tools#1302](https://github.com/2AMLogic/klayout-tools/issues/1302) —
-  the klayout engine's deck-variable gap. Already filed and **closed upstream**
-  on 2026-08-22, but 0.3.0 is still the newest PyPI release as of 2026-08-25,
-  so the fix is not in this repo's pin. When a release carrying it lands and
-  `layout/requirements.txt` moves to it, re-check whether the PDK's own FEOL
-  group can be driven directly and retire `drc/nwell_isolation.drc` rather than
-  maintaining a transcription in parallel.
+  the klayout engine's deck-variable gap. Filed and closed upstream on
+  2026-08-22; moot for this sub-block now that its `--engine klayout` stages
+  are retired.
 
 ### Why not `klt gen guard_ring`
 
@@ -167,13 +200,14 @@ composes one through `klt draw`, the documented escape hatch for exactly that.
 ```sh
 layout/bin/setup-venv.sh                            # once, or after bumping requirements.txt
 source sim/env.sh                                   # exports PDK_ROOT/PDK
-layout/sampling-frontend-wells/bin/run-flow.sh      # ~30 s; exit 0 iff all eleven verdicts hold
+layout/sampling-frontend-wells/bin/run-flow.sh      # ~30 s; exit 0 iff all eight verdicts hold
 cat layout/sampling-frontend-wells/reports/$(cat layout/sampling-frontend-wells/reports/LATEST)/record.md
 ```
 
-Also needs a `klayout` binary on PATH: the well-rule stages run through
-`klt drc --engine klayout`, which shells out to it. `run-flow.sh` checks for it
-up front and fails with a clear message rather than skipping the stage.
+No standalone `klayout` binary is needed (issue #149): every stage runs
+through klt's headless `--engine curated` DRC, `klt extract`, and `klt lvs`
+(`engine: "klayout"` in the LVS request means klt's bundled `klayout` *Python
+package*, not a standalone binary on PATH).
 
 Each run mints a new timestamped, append-only record under `reports/<record-id>/`
 (same convention as `layout/trivial-cell/reports/` and
@@ -189,13 +223,12 @@ layout/sampling-frontend-wells/
   reference.broken-body-tie.spice     # negative control: the four boosted bodies moved to VDD
   reference.broken-device.spice       # negative control: device-parameter corruption
   drc/
-    nwell_isolation.drc               # sky130's n-well rules, transcribed (the curated deck has none)
-    nwell_isolation_fixture.json      # negative control for that deck, one defect per rule
+    nwell_violation_fixture.json      # negative control: an illegal n-well split, run through the curated deck directly
   bin/
     gen_blocks.py                     # the nine klt gen calls + the device/domain table (source of truth)
     build_layout.py                   # THE RECIPE: well partition, taps, floorplan, routing
-    run-flow.sh                       # gen -> per-block drc -> draw -> compose -> drc x4 -> precheck -> extract -> lvs x3 -> record
-    render-record.py                  # renders record.md, asserts the eleven verdicts
+    run-flow.sh                       # gen -> per-block drc -> draw -> compose -> drc x2 -> precheck -> extract -> lvs x3 -> record
+    render-record.py                  # renders record.md, asserts the eight verdicts
   reports/
     LATEST                            # record-id of the most recent run
     <record-id>/                      # append-only, one directory per run:
@@ -206,10 +239,9 @@ layout/sampling-frontend-wells/
                                       #   draw.json, route.gds       the drawn well/routing cell
                                       #   compose.request.json, compose.json
                                       #   sampling_frontend_pwells.gds   THE DELIVERABLE
-                                      #   drc.json                   curated deck, composed layout
-                                      #   drc.wells.json             n-well deck, composed layout
-                                      #   drc.wells.fixture.json     n-well deck, illegal fixture (must fail)
-                                      #   drc.curated.fixture.json   curated deck, same fixture (the gap)
+                                      #   drc.json                   curated deck, composed layout (n-well isolation verdict, as of klt 0.4.0)
+                                      #   nwell_violation_fixture.json/.gds, draw.fixture.json
+                                      #   drc.curated.fixture.json   curated deck, illegal-fixture negative control
                                       #   precheck.json
                                       #   extract.json, *.extract.spice
                                       #   lvs.json + the two negative-control envelopes
@@ -221,8 +253,8 @@ layout/sampling-frontend-wells/
 Same rule as `sim/`, `layout/trivial-cell/` and `layout/comparator/`: a re-run
 mints a new `<record-id>` (`<YYYYMMDD>-<HHMMSS>-<short-git-sha>`, UTC) and
 never edits an existing report directory. `record.md` stamps the `klt` version,
-the KLayout engine version, the resolved PDK variant + open_pdks commit, both
-DRC decks' content hashes, and the repo commit with its dirty flag.
+the KLayout engine version, the resolved PDK variant + open_pdks commit, the
+curated DRC deck's content hash, and the repo commit with its dirty flag.
 
 Like every other layout record in this repo, a record is minted from a **dirty**
 working tree by construction — the flow writes its own report files into the

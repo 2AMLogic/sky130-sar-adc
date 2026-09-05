@@ -11,9 +11,12 @@
 #   source sim/env.sh                               # exports PDK_ROOT/PDK
 #   layout/sampling-frontend-wells/bin/run-flow.sh  # ~30 s
 #
-# Requires: layout/.venv (see setup-venv.sh), a resolvable sky130A PDK install
-# (same pin as sim/pdk.json) and a `klayout` binary on PATH (the well-rule
-# stages below run `klt drc --engine klayout`, which shells out to it).
+# Requires: layout/.venv (see setup-venv.sh) and a resolvable sky130A PDK
+# install (same pin as sim/pdk.json). No standalone `klayout` binary is
+# needed: every stage below runs through klt's headless `--engine curated`
+# DRC (issue #149 retired the `--engine klayout --deck-file
+# drc/nwell_isolation.drc` stages once klt 0.4.0's curated sky130 deck grew
+# `nwell.width.1`/`nwell.space.1` -- see ../README.md's verdict table).
 #
 # Flow:
 #   1. `klt gen` x9      -- one PFET block per schematic PFET (gen_blocks.py).
@@ -21,11 +24,16 @@
 #   3. build_layout.py   -- floorplan, n-well partition, taps, routing.
 #   4. `klt draw`        -- writes the well/tap/routing cell verbatim.
 #   5. `klt gen-compose` -- places the nine blocks + that cell (placer only).
-#   6. `klt drc`         -- curated sky130 deck on the composed layout: CLEAN.
-#   7. `klt drc` x2      -- the n-well rules the curated deck does NOT carry,
-#                           via `--engine klayout --deck-file
-#                           drc/nwell_isolation.drc`: CLEAN on the layout,
-#                           VIOLATIONS on the deliberately-illegal fixture.
+#   6. `klt drc`         -- curated sky130 deck on the composed layout: CLEAN
+#                           -- this is now also the n-well isolation verdict,
+#                           since the curated deck carries nwell.width.1/
+#                           nwell.space.1 as of klt 0.4.0.
+#   7. `klt drc`         -- the SAME curated deck against a deliberately
+#                           illegal fixture (two n-well islands closer than
+#                           `nwell.2a`'s minimum spacing): VIOLATIONS, naming
+#                           `nwell.space.1` -- without which verdict 6 would
+#                           be indistinguishable from a deck that matched
+#                           nothing (see drc/nwell_violation_fixture.json).
 #   8. `klt precheck`    -- layout hygiene + pin labels land on drawn metal.
 #   9. `klt extract`     -- netlist + the body-tie verdicts (this is the one
 #                           that answers #122's question directly).
@@ -49,19 +57,13 @@ REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
 TOP=gen_compose_0
-WELL_DECK="$WELLS_DIR/drc/nwell_isolation.drc"
+VIOLATION_FIXTURE="$WELLS_DIR/drc/nwell_violation_fixture.json"
 BLOCKS=(sa_p se_p scp_p cmswp_p invp cmswp_n scp_n se_n sa_n)
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
 require_klt "$KLT"
 require_pdk "$KLT" "$PDK_VARIANT"
-
-if ! command -v klayout >/dev/null; then
-  echo "run-flow.sh: no 'klayout' binary on PATH -- stage 7's n-well rules run" >&2
-  echo "  through 'klt drc --engine klayout', which shells out to it." >&2
-  exit 1
-fi
 
 RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$WELLS_DIR/reports/$RECORD_ID"
@@ -103,28 +105,25 @@ fi
 mv "$OUT_DIR/${TOP}.gds" "$OUT_DIR/sampling_frontend_pwells.gds"
 
 # --- 6. Curated-deck DRC on the composed layout: must be CLEAN -------------
+# As of klt 0.4.0 this is also the n-well isolation verdict: the curated
+# sky130 deck carries nwell.width.1/nwell.space.1 directly (issue #149), so a
+# deliberately split well that violated nwell.2a's spacing would show up
+# here without a second deck.
 ( cd "$OUT_DIR" && "$KLT" drc sampling_frontend_pwells.gds --deck sky130 \
     --format json > drc.json ) || true
 
-# --- 7. The n-well rules the curated deck does not carry -------------------
-# Positive: the composed layout must be clean against nwell.1 / nwell.2a /
-# difftap.8 / difftap.10.  Negative: the deliberately-illegal fixture must
-# come back with violations naming those same rules -- without which "clean"
-# above would be indistinguishable from a deck that matched nothing (exactly
-# the failure mode `klt drc --deck sky130` has here).  See
-# drc/nwell_isolation.drc's header.
-cp "$WELL_DECK" "$OUT_DIR/nwell_isolation.drc"
-cp "$WELLS_DIR/drc/nwell_isolation_fixture.json" "$OUT_DIR/nwell_isolation_fixture.json"
-( cd "$OUT_DIR" && "$KLT" drc sampling_frontend_pwells.gds --engine klayout \
-    --deck-file nwell_isolation.drc --format json > drc.wells.json ) || true
-( cd "$OUT_DIR" && "$KLT" draw --params nwell_isolation_fixture.json \
-    --cell-name NWELL_ISOLATION_FIXTURE -o nwell_isolation_fixture.gds \
+# --- 7. DRC negative control: the curated deck must FIRE on an illegal well
+# split -------------------------------------------------------------------
+# Two n-well islands closer than nwell.2a's 1.27 um minimum spacing --
+# without this, "clean" above would be indistinguishable from a deck that
+# matched nothing (the failure mode this sub-block's README used to record
+# against klt 0.3.0's curated deck, which carried no n-well rules at all).
+# See drc/nwell_violation_fixture.json's header.
+cp "$VIOLATION_FIXTURE" "$OUT_DIR/nwell_violation_fixture.json"
+( cd "$OUT_DIR" && "$KLT" draw --params nwell_violation_fixture.json \
+    --cell-name NWELL_VIOLATION_FIXTURE -o nwell_violation_fixture.gds \
     --format json > draw.fixture.json )
-( cd "$OUT_DIR" && "$KLT" drc nwell_isolation_fixture.gds --engine klayout \
-    --deck-file nwell_isolation.drc --format json > drc.wells.fixture.json ) || true
-# The same fixture through the curated deck, recorded to make the gap itself
-# reproducible evidence rather than a claim in a README.
-( cd "$OUT_DIR" && "$KLT" drc nwell_isolation_fixture.gds --deck sky130 \
+( cd "$OUT_DIR" && "$KLT" drc nwell_violation_fixture.gds --deck sky130 \
     --format json > drc.curated.fixture.json ) || true
 
 # --- 8. Layout hygiene + pin labels land on drawn metal --------------------

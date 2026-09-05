@@ -75,10 +75,11 @@ Binding consequences of that partition, for any layout of this sub-block:
    control that moves only the four boosted bodies to VDD must report
    `mismatch`.
 5. **The n-well rules must be checked with a deck that carries them.**
-   `klt drc --deck sky130` (klt 0.3.0) carries no n-well rules at all, so it
-   reports a well-spacing violation as "clean"; see
-   `layout/sampling-frontend-wells/README.md` for the gap, the workaround
-   deck, and its negative control.
+   `klt drc --deck sky130` at klt 0.3.0 carried no n-well rules at all, so it
+   reported a well-spacing violation as "clean"; klt 0.4.0 closed that gap
+   (2AMLogic/klayout-tools#1420) by adding it directly to the curated deck.
+   See `layout/sampling-frontend-wells/README.md` for the measurement and its
+   negative control.
 
 This record fixes the *partition and its verification obligations*. It does
 not fix a floorplan: island shape, device order and area are a layout choice,
