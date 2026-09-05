@@ -57,3 +57,18 @@
 # layout/sar-sequencer/bin/run-flow.sh now uses to reach a clean LVS
 # verdict -- see that sub-block's README.md for the re-run writeup.
 klayout-tools==0.4.0
+#
+# `klayout` itself was left unpinned here until issue #148: `klayout-tools`
+# declares it as a dependency but does not pin an exact version, so `pip
+# install` resolved whatever was newest on the day of the install (0.30.11
+# in August 2026, 0.30.12 by September). Every DRC/extract/LVS verdict in
+# `layout/` depends on this package (it is what actually implements
+# KLayout's native `NetlistComparer`/`DeviceExtractor*`/DRC engine that
+# `klayout_tools` wraps), so leaving it unpinned meant a verdict recorded on
+# one day was not reproducible-by-construction on another -- exactly the gap
+# issue #148's investigation had to rule out (by hand, across a four-cell
+# version matrix) before it could conclude the root cause was elsewhere.
+# Pinned to the version resolved when that issue's fix was verified, so the
+# whole evidence chain (`klt` + the KLayout engine it wraps) is pinned, not
+# just half of it.
+klayout==0.30.12

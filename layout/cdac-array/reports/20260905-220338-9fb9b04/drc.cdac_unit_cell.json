@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "file": "/Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-148/layout/cdac-array/reports/20260905-220338-9fb9b04/cdac_unit_cell.gds",
+  "deck": "sky130",
+  "dbu_um": 0.001,
+  "status": "clean",
+  "violation_count": 0,
+  "rule_counts": {},
+  "violations": [],
+  "coverage": {
+    "deck_layers": [
+      "64/20",
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "71/44",
+      "72/20",
+      "89/44",
+      "97/44"
+    ],
+    "layers_checked": [
+      "64/20",
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "89/44"
+    ],
+    "layers_in_stream_without_rules": [
+      "64/5",
+      "66/5",
+      "68/5",
+      "71/5"
+    ],
+    "rules_skipped": [
+      "capm2.enclosing.via4.1",
+      "capm2.separation.via4.1",
+      "capm2.space.1",
+      "capm2.width.1",
+      "met4.enclosing.capm2.1",
+      "met4.enclosing.via4.1",
+      "met5.enclosing.via4.1",
+      "met5.space.1",
+      "met5.width.1",
+      "via4.space.1",
+      "via4.width.1"
+    ],
+    "voltage_domain_warnings": [],
+    "deck_scope": [
+      "cap2m",
+      "capm",
+      "ct",
+      "difftap",
+      "li",
+      "licon",
+      "m1",
+      "m2",
+      "m3",
+      "m4",
+      "m5",
+      "nwell",
+      "poly",
+      "via",
+      "via2",
+      "via3",
+      "via4"
+    ]
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:24aaa4327a05f92932703d7a12ff312444f52d1eb7aa0317151ff1e87748d51e"
+    }
+  }
+}

@@ -115,7 +115,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 - **Status**: RATIFIED
 - **Conditions**: sim: structural check (unit-cap geometry + per-side weight totals) at every corner of the ratified sim record. layout: drawn/extracted physical geometry, DRC + LVS against design/cdac/cdac_array.sch, single-point (no corner sweep -- DRC/LVS are corner-invariant structural checks, not PVT-dependent measurements).
 - **Verdict**: PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, LVS match, unit-cap count 1024 = 512/side x 2, common-centroid checks all pass). Drawn unit cap 8.6473 fF vs. ratified C_u ~= 8.65 fF.
-- **Notes**: Layout evidence is independent, physical confirmation of the sim-only structural check.
+- **Notes**: Layout evidence is independent, physical confirmation of the sim-only structural check. Supersedes layout/cdac-array/reports/20260825-132454-51cbdd4/, whose LVS 'match' verdict did not reproduce on its own committed artefacts -- see layout/cdac-array/README.md and issue #148.
 
 **Evidence:**
 
@@ -123,8 +123,8 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.65 fF`, `512` positions/side (all three RATIFIED, D…
-- `layout/cdac-array/reports/20260825-132454-51cbdd4/record.md` (layout evidence -- see manifest.BLIND_SPOTS for the caveat on layout freshness)
-  - CDAC array layout record: 20260825-132454-51cbdd4
+- `layout/cdac-array/reports/20260905-220338-9fb9b04/record.md` (layout evidence -- see manifest.BLIND_SPOTS for the caveat on layout freshness)
+  - CDAC array layout record: 20260905-220338-9fb9b04
 
 ### Comparator input-referred noise
 

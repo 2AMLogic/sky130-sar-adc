@@ -50,19 +50,86 @@ read out of `klt`'s own JSON envelope rather than off a process exit code:
 | 7 | Bits 8..4 additionally have it exactly on the centre in X |
 | 8 | Every bit's P-side and N-side X centroids coincide |
 
-Verdicts 5–8 exist because **1–4 do not say what they look like they say**.
-`klt lvs`'s `combine_devices` folds `w` parallel unit capacitors into a
-single device *before* comparing, so an LVS match is equally happy with one
-scaled plate per bit as with `w` unit elements — and neither DRC nor LVS
-has any opinion at all about where those elements sit. Verdict 5 pins the
-unit-element decomposition using the *pre-combination* device count;
-verdicts 6–8 pin the placement using centroids computed from the same
-placement functions the geometry is drawn from. Without them, a
-matching-poor rewrite of this generator would sail through 1–4.
+Verdicts 6–8 exist because **1–4 have no opinion at all about placement**:
+DRC and LVS are topology-only, silent about where a matched device
+physically sits. Verdict 5 is independent confirmation of the same
+extracted-device-count fact verdict 4's own literal comparison already
+requires (see "`options.combine_devices` — issue #148" below); it stays as
+a belt-and-braces check on the extraction side alone, cheap and orthogonal
+to the LVS pairing. Verdicts 6–8 pin the placement using centroids computed
+from the same placement functions the geometry is drawn from. Without
+them, a matching-poor rewrite of this generator that still drew exactly
+1024 unit elements in the wrong places would sail through 1–5.
 
 The LVS reference is **regenerated from the schematic on every run**
 (step 0 of `run-flow.sh`), never trusted from the committed copy: a match
 against a stale reference proves nothing about today's schematic.
+
+## `options.combine_devices` — issue #148
+
+**`reports/20260825-132454-51cbdd4/`'s LVS "match" verdict did not
+reproduce.** Re-running `klt lvs` today against that record's own committed,
+byte-identical `cdac_array.gds`/`cdac_array.lvs-reference.spice`, with the
+same toolchain versions its own provenance block stamps, reports
+**mismatch** (48 errors), not match — and that mismatch reproduces 100% of
+the time (10/10 repeat runs against those exact artefacts), so the original
+"match" was itself the anomaly, not today's "mismatch" (see issue #148 for
+the full diagnosis, including a version matrix ruling out a `klt`/`klayout`
+version-drift explanation). **`reports/20260905-220338-9fb9b04/` (this
+sub-block's current `LATEST`) supersedes it** with a fix that reproduces
+match on every repeat run against its own committed artefacts (20/20, on
+the `klt==0.4.0`/`klayout==0.30.12` pin `layout/requirements.txt` now
+carries).
+
+Root cause: the original flow's LVS request set `options.combine_devices:
+true`, needed (at the time) to fold each bit's `w` physically drawn unit
+capacitors into one device before comparing against a reference that
+declared one combined `C` card of `w × C_unit` per bit. `w` ranges up to
+256 here (the MSB), and issue #148 found that `klayout.db.Netlist.
+combine_devices()` does not reliably re-sum `w` identical-valued parallel
+capacitors at that scale: it correctly *sums* the capacitor device class's
+secondary `A`/`P` (area/perimeter) parameters across the group, but on
+some runs leaves the *primary* `C` (capacitance) parameter at a single
+input instance's own unmerged unit value instead of the summed total —
+silently, with **no exception and no `device.combine_incomplete` warning**
+(the documented, already-mitigated nondeterminism from
+klayout-tools#1185), so `klt lvs`'s own retry-on-exception mitigation for
+that issue has nothing to catch. Depending on which numeric outcome a
+given run happens to hit, the comparison can come back as: a spurious
+`device.property` mismatch on `a`/`p` (when `C` summed correctly but the
+reference has no syntax to declare the layout's now-nonzero combined
+`A`/`P`, since a plain SPICE `C` card only carries a value); a spurious
+mismatch on `c` itself (when `C` did not sum); or, on the original 2026-08-25
+run, evidently neither — a lucky pass.
+
+**The fix (issue #148) does not touch the reference-vs-layout `A`/`P`
+question at all — it removes `combine_devices` from the picture entirely.**
+`bin/generate-lvs-reference.py` now emits `w` separate unit-value `C` cards
+per bit (one reference card per physically drawn unit capacitor) instead of
+one combined card of `w × C_unit`, and `bin/run-flow.sh`'s LVS request sets
+`options.combine_devices: false`. `klt lvs` now performs a literal,
+uncombined, device-for-device comparison — 1024 drawn unit capacitors
+against 1024 reference unit cards — which needs no device-merging pass on
+either side and is a *strictly stronger* check than the folded comparison
+ever was: it already fails if the array is not built from exactly `w`
+identical unit elements per bit, with no separate extracted-device-count
+verdict required to prove that fact (verdict 5, above, is now a redundant
+but harmless independent confirmation of the same thing).
+
+This is a `klayout-tools`/KLayout defect, not a usage error in this repo's
+own LVS request (`combine_devices: true` was klt's own documented, intended
+mechanism for exactly this folding use case): filed generically (no
+design-specific detail, per `CLAUDE.md`'s friction protocol) at
+[klayout-tools#1497](https://github.com/2AMLogic/klayout-tools/issues/1497)
+-- a distinct failure mode from the already-tracked #1185/#466
+(`RuntimeError`-on-partial-match, which has a documented retry mitigation):
+this one never raises, so the existing exception-based mitigation for
+#1185 cannot catch or retry against it. Should a future `klayout-tools`
+release close #1497 with a guarantee that a combined device's primary
+parameter (`C`) survives combining intact, `combine_devices: true` plus a
+combined-card reference could be restored — but the per-unit form above is
+simpler, needs no such guarantee, and is not planned to change back
+without a concrete reason to.
 
 ---
 
@@ -90,8 +157,10 @@ carries a **perimeter** term as well as an area term, so a single plate of
 `√w` times the perimeter, not `w` times. Ratio accuracy in a
 binary-weighted CDAC depends on the weights being exact multiples, and only
 a unit-element decomposition delivers that by construction. (It also means
-the LVS reference for a bit of weight `w` is exactly `w × C_unit`, which is
-what `generate-lvs-reference.py` emits.)
+the LVS reference for a bit of weight `w` is `w` separate unit-value `C`
+cards, not one combined card of `w × C_unit` — see "`options.combine_devices`
+— issue #148" below for why the reference is literal unit cards rather than
+a scaled single device.)
 
 ## 2. Common centroid in X: dyadic mirror-pair columns
 

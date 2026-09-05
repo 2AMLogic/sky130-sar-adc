@@ -94,6 +94,19 @@ for TOP in "${TOPS[@]}"; do
   set -e
 
   # --- 4. LVS ---------------------------------------------------------------
+  # `options.combine_devices: false` (issue #148, bit flipped from `true`):
+  # the reference now carries one C card per physically drawn unit
+  # capacitor (bin/generate-lvs-reference.py), not one combined card per
+  # bit weight, so there is nothing left to fold on either side.
+  # `combine_devices: true` used to be load-bearing here, and it turned out
+  # not to be reliable at this array's scale: issue #148 found
+  # `klayout.db.Netlist.combine_devices()` silently leaving a combined
+  # capacitor's primary `C` parameter at a single input instance's
+  # unmerged value (while correctly summing the secondary `A`/`P` geometry
+  # parameters) for groups of hundreds of identical-valued parallel
+  # devices, with no exception and no `device.combine_incomplete` warning
+  # -- see README.md's "The matching strategy" for the full writeup and
+  # `reports/LATEST`'s record for this run's own repeat-count evidence.
   cat > "$OUT_DIR/lvs${SUFFIX}.request.json" <<EOF
 {
   "schema": "klt.lvs.request/1",
@@ -109,7 +122,7 @@ for TOP in "${TOPS[@]}"; do
     "top": "${TOP}"
   },
   "options": {
-    "combine_devices": true
+    "combine_devices": false
   }
 }
 EOF

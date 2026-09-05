@@ -21,15 +21,33 @@ statement:
    `ad`/`as`/`pd`/`ps` and friends are xschem-computed stimulus parameters
    the layout extractor does not model, and are dropped).
 
-2. `sky130_fd_pr__cap_mim_m3_1` with `MF=w` becomes one `C` card of value
-   `w * C_unit` on the deck's `sky130_fd_pr__model__cap_mim` class.
-   `design/cdac/README.md` states outright that `MF=w` is netlist-level
-   shorthand for *w parallel unit cells*; the layout draws those w units
-   literally, and `klt lvs`'s `options.combine_devices` folds w parallel
-   caps back into one device of w times the value -- so one `C` card of
-   `w * C_unit` is the faithful reference for both. `C_unit` is imported
-   from `cdac_layout.py`, where it is derived from the drawn plate size and
-   the extraction deck's own published area/perimeter coefficients.
+2. `sky130_fd_pr__cap_mim_m3_1` with `MF=w` becomes `w` separate `C` cards,
+   each of value `C_unit`, on the deck's `sky130_fd_pr__model__cap_mim`
+   class -- one reference card per physically drawn unit capacitor, not one
+   combined card of `w * C_unit` (issue #148). `design/cdac/README.md`
+   states outright that `MF=w` is netlist-level shorthand for *w parallel
+   unit cells*; the layout draws those `w` units literally, so `w` literal
+   unit-value `C` cards is the *literal* translation, not a scaled
+   stand-in. This also means the LVS request no longer needs
+   `options.combine_devices` at all: issue #148 found that
+   `klayout.db.Netlist.combine_devices()` does not reliably fold `w`
+   identical-valued parallel capacitors into one correctly-summed device
+   for `w` in the hundreds (it is documented as run-to-run nondeterministic
+   for a *different* reason, klayout-tools#1185's partial-match
+   `RuntimeError`, but issue #148's own investigation found a second,
+   silent failure mode with no exception at all: the combined device's
+   *primary* `C` parameter is left at a single input instance's unmerged
+   value while the *secondary* `A`/`P` geometry parameters are correctly
+   summed -- see `layout/cdac-array/README.md`'s "The matching strategy",
+   `combine_devices()` section, for the full writeup). Comparing `w`
+   drawn units against `w` reference units 1:1 sidesteps that code path
+   entirely: `klt lvs` now performs a literal, uncombined device-for-device
+   match, which is a *stronger* check than the folded comparison ever was
+   (it needs no separate extracted-device-count verdict to prove the array
+   is built from unit elements -- LVS itself now fails if it is not).
+   `C_unit` is imported from `cdac_layout.py`, where it is derived from the
+   drawn plate size and the extraction deck's own published area/perimeter
+   coefficients.
 
 3. The schematic's `VSS` (every nfet's bulk) becomes `vsubs`, the name
    `klt extract`'s sky130 deck gives the synthesized global substrate net
@@ -179,10 +197,18 @@ def rewrite(top: str, netlist: str) -> str:
             if len(nets) != 2:
                 raise SystemExit(f"generate-lvs-reference.py: bad cap card: {line}")
             weight = int(params.get("mf", "1"))
-            value = weight * CAP_UNIT_F
-            cards.append(
-                f"{device_name('C', name)} {nets[0]} {nets[1]} {value:.9e} {CAP_CLASS}"
-            )
+            # `w` literal unit-value `C` cards, not one combined card of
+            # `w * C_unit` (issue #148): see this module's docstring, item 2,
+            # for why a combined card requires `klt lvs`'s
+            # `options.combine_devices`, and why that option is not reliable
+            # for `w` in the hundreds. One drawn unit capacitor per card
+            # keeps the comparison literal and needs no combining at all.
+            base = device_name("C", name)
+            for unit in range(weight):
+                instance = base if weight == 1 else f"{base}_{unit}"
+                cards.append(
+                    f"{instance} {nets[0]} {nets[1]} {CAP_UNIT_F:.9e} {CAP_CLASS}"
+                )
         else:
             raise SystemExit(
                 f"generate-lvs-reference.py: unrecognised device model {model!r} "
@@ -207,9 +233,12 @@ def rewrite(top: str, netlist: str) -> str:
 * capacitance under the extraction deck's own published coefficients
 * (area 2.0 fF/um^2, perimeter 0.19 fF/um) is
 * C_unit = {CAP_UNIT_F:.9e} F. A bit of weight w carries `MF=w` in the
-* schematic and w drawn unit capacitors in the layout, so its reference
-* card is one C of w * C_unit -- which is exactly what `klt lvs`'s
-* `combine_devices` folds the w extracted unit caps into.
+* schematic and w drawn unit capacitors in the layout, so its reference is
+* w separate C cards of C_unit each -- one per physically drawn unit,
+* compared 1:1 against the layout's own w extracted unit devices with no
+* `klt lvs` `combine_devices` folding needed on either side (issue #148:
+* `Netlist.combine_devices()` does not reliably re-sum w identical-valued
+* parallel capacitors into one device for w in the hundreds).
 *
 * Substrate: the schematic's VSS (every nfet bulk) appears here as
 * `{SUBSTRATE_NET}`, the name the sky130 extraction deck gives its
