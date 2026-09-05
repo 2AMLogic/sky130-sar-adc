@@ -52,15 +52,10 @@ TOP=gen_compose_0
 WELL_DECK="$WELLS_DIR/drc/nwell_isolation.drc"
 BLOCKS=(sa_p se_p scp_p cmswp_p invp cmswp_n scp_n se_n sa_n)
 
-if [[ ! -x "$KLT" ]]; then
-  echo "run-flow.sh: $KLT not found -- run layout/bin/setup-venv.sh first" >&2
-  exit 1
-fi
+source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-if ! "$KLT" pdk find --pdk "$PDK_VARIANT" >/dev/null; then
-  echo "run-flow.sh: no resolvable $PDK_VARIANT PDK -- see sim/pdk.json for the pin" >&2
-  exit 1
-fi
+require_klt "$KLT"
+require_pdk "$KLT" "$PDK_VARIANT"
 
 if ! command -v klayout >/dev/null; then
   echo "run-flow.sh: no 'klayout' binary on PATH -- stage 7's n-well rules run" >&2
@@ -68,9 +63,7 @@ if ! command -v klayout >/dev/null; then
   exit 1
 fi
 
-TS_UTC="$(date -u +%Y%m%d-%H%M%S)"
-SHORT_SHA="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-RECORD_ID="${TS_UTC}-${SHORT_SHA}"
+RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$WELLS_DIR/reports/$RECORD_ID"
 mkdir -p "$OUT_DIR"
 echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
