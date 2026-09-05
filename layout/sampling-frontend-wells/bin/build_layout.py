@@ -54,15 +54,17 @@ yields a layout that can still pass DRC while being electrically wrong.
    label, because a drawn label would name the well even if the tap routing
    were broken, and would turn the extraction verdict into a tautology.
 
-4. **Verify the split with rules the default deck does not carry.** `klt
-   drc --deck sky130`'s curated rule table (klt 0.3.0) contains no n-well
-   rules at all -- no width, no spacing, no enclosure -- so a *deliberately*
-   split well passes it vacuously on exactly the rules that govern the split.
-   `drc/nwell_isolation.drc` in this directory transcribes sky130's own
-   ``nwell.1``/``nwell.2a`` and is run through `klt drc --engine klayout
-   --deck-file`, with a negative-control fixture proving it fires. See that
-   file's header and `../README.md` for the full writeup and the upstream
-   friction report.
+4. **Verify the split with a deck that actually carries n-well rules.** `klt
+   drc --deck sky130`'s curated rule table did not, at klt 0.3.0 -- no width,
+   no spacing, no enclosure -- so a *deliberately* split well passed it
+   vacuously on exactly the rules that govern the split. klt 0.4.0 closed
+   that gap (2AMLogic/klayout-tools#1420): the curated deck now carries
+   ``nwell.width.1``/``nwell.space.1`` directly, checkable with
+   `run-flow.sh`'s existing `klt drc --deck sky130` call and a
+   negative-control fixture (`drc/nwell_violation_fixture.json`) proving it
+   fires. See `../README.md` for the full writeup and issue #149, which
+   retired the hand-written `--engine klayout` deck this recipe used to
+   need.
 
 Why not `klt gen guard_ring`
 ----------------------------
@@ -297,9 +299,9 @@ def floorplan(blocks: dict[str, dict]) -> tuple[dict, list[dict]]:
 def _assert_well_isolation(domains: list[dict]) -> None:
     """Every pair of adjacent islands must clear ``nwell.2a`` with margin.
 
-    Checked here as well as by `drc/nwell_isolation.drc` on the finished GDS:
-    a build-time failure names the offending pair, a DRC failure only names a
-    coordinate.
+    Checked here as well as by `klt drc --deck sky130` (nwell.space.1, as of
+    klt 0.4.0) on the finished GDS: a build-time failure names the offending
+    pair, a DRC failure only names a coordinate.
     """
     for a, b in zip(domains, domains[1:]):
         gap = b["well"]["x0"] - a["well"]["x1"]

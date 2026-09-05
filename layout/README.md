@@ -26,8 +26,9 @@ PFETs partitioned into three physically separate, individually tapped n-well
 islands, because `design/sampling_frontend.sch`'s DR-004 requires `Sa`/`Se`
 to tie their PFET body to `BOOST_P`/`BOOST_N` rather than VDD — see
 `spec/decision-records/DR-007-sampling-frontend-nwell-domains.md` for the
-binding rule and that directory's own README for the recipe, its eleven
-verdicts, and the n-well DRC gap it works around.
+binding rule and that directory's own README for the recipe and its eight
+verdicts (klt 0.4.0 closed the n-well DRC gap this flow used to work around
+with a second, hand-written deck; see issue #149).
 
 ## Install
 

@@ -1,0 +1,41 @@
+* NEGATIVE CONTROL, body-tie corruption -- reference.spice with the four
+* boosted-body PFETs' body terminals moved back to VDD, and NOTHING else
+* changed (same devices, same W/L, same source/gate/drain connectivity).
+*
+* This is the single most important control in this flow. The mistake #122
+* exists to make impossible is a layout that silently draws one VDD-tied
+* n-well over the whole PFET set instead of three isolated islands: it would
+* still pass DRC, still extract nine PFETs, still have every source/gate/drain
+* net correct -- and would be electrically wrong in exactly the way
+* design/sampling_frontend.sch's DR-004 forbids (BOOST_x rises above VDD
+* during sampling, so a VDD-tied body on Sa/Se forward-biases their drain/body
+* junction and injects substrate current).
+*
+* This file IS that wrong layout's netlist. `klt lvs` must report **mismatch**
+* against it. If it reported "match", the LVS verdict against reference.spice
+* would prove nothing about the body tie -- the comparison would simply be
+* blind to the body column, and the flow's positive verdict would be an
+* artefact of the checker rather than evidence about the layout.
+*
+* Corruption is body-terminal-only and is confined to these four lines:
+*
+*   M_SA_P  ... BOOST_P -> VDD
+*   M_SE_P  ... BOOST_P -> VDD
+*   M_SE_N  ... BOOST_N -> VDD
+*   M_SA_N  ... BOOST_N -> VDD
+*
+* Same falsifiability discipline layout/trivial-cell/ established for this
+* repo (issue #2) and layout/comparator/ extended: a "match" verdict means
+* nothing until "mismatch" has been shown reachable on the same toolchain in
+* the same run.
+.SUBCKT sampling_frontend_pwells VDD SAMPLE SAMPLEB VINP VINN VCM BOOST_P BOOST_N G_P G_N BSBOT_P BSBOT_N BPREF_P BPREF_N
+M_SA_P    BOOST_P SAMPLE  VDD     VDD     pfet L=0.5U  W=1U
+M_SE_P    G_P     SAMPLEB BOOST_P VDD     pfet L=0.15U W=1U
+M_SCP_P   BSBOT_P SAMPLEB VINP    VDD     pfet L=0.15U W=1U
+M_CMSWP_P BPREF_P SAMPLEB VCM     VDD     pfet L=0.15U W=1U
+M_INVP    SAMPLEB SAMPLE  VDD     VDD     pfet L=0.15U W=2U
+M_CMSWP_N BPREF_N SAMPLEB VCM     VDD     pfet L=0.15U W=1U
+M_SCP_N   BSBOT_N SAMPLEB VINN    VDD     pfet L=0.15U W=1U
+M_SE_N    G_N     SAMPLEB BOOST_N VDD     pfet L=0.15U W=1U
+M_SA_N    BOOST_N SAMPLE  VDD     VDD     pfet L=0.5U  W=1U
+.ENDS sampling_frontend_pwells

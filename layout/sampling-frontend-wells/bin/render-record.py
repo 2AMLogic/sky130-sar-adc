@@ -6,34 +6,49 @@ Standard library only (matching sim/harness/'s no-extra-runtime-dependency
 convention).
 
 Exits non-zero -- *after* writing record.md, so the evidence trail still
-carries a record of the failure -- if any of the ten expected verdicts do not
-hold:
+carries a record of the failure -- if any of the eight expected verdicts do
+not hold:
 
   1. every `klt gen` PFET block is independently DRC-clean before composition
-  2. `klt drc --deck sky130` on the composed layout is clean
-  3. the composed layout is clean against sky130's own n-well rules
-     (nwell.1 / nwell.2a / difftap.8 / difftap.10, run through
-     `klt drc --engine klayout --deck-file drc/nwell_isolation.drc`)
-  4. that same well deck reports VIOLATIONS on the deliberately-illegal
-     fixture, naming nwell.2a among them -- without which verdict 3 would be
-     indistinguishable from a deck that matched nothing
-  5. `klt drc --deck sky130` reports the same fixture CLEAN -- the recorded,
-     reproducible evidence for why verdict 3 needs its own deck at all
-  6. `klt precheck` passes (geometry hygiene; pin labels land on drawn metal)
-  7. extraction reports no unbiased PMOS body net
-  8. extraction reports each PFET's body on the net its own n-well island's
+  2. `klt drc --deck sky130` on the composed layout is clean -- as of klt
+     0.4.0 this is also the n-well isolation verdict (nwell.width.1 /
+     nwell.space.1 are now part of the curated deck; issue #149)
+  3. that same curated deck reports VIOLATIONS, naming `nwell.space.1`, on a
+     deliberately-illegal fixture (two n-well islands closer than nwell.2a's
+     minimum spacing) -- without which verdict 2 would be indistinguishable
+     from a deck that matched nothing
+  4. `klt precheck` passes (geometry hygiene; pin labels land on drawn metal)
+  5. extraction reports no unbiased PMOS body net
+  6. extraction reports each PFET's body on the net its own n-well island's
      tap is routed to -- Sa/Se on BOOST_P/BOOST_N, everything else on VDD
-  9. LVS reports "match" against reference.spice
- 10. LVS reports "mismatch" against BOTH negative controls (body-tie
+  7. LVS reports "match" against reference.spice
+  8. LVS reports "mismatch" against BOTH negative controls (body-tie
      corruption, device-parameter corruption)
 
-Verdict 8 is the one issue #122 exists to answer, and verdict 10's body-tie
-control is what stops verdict 9 from being circular: an LVS "match" against a
+Verdict 6 is the one issue #122 exists to answer, and verdict 8's body-tie
+control is what stops verdict 7 from being circular: an LVS "match" against a
 reference that declared the wrong body would prove only that the comparison
-ignores the body column. Verdicts 4-5 apply the same falsifiability
+ignores the body column. Verdicts 2-3 apply the same falsifiability
 discipline to DRC that layout/trivial-cell/ established for this repo
 (issue #2) -- "clean" means nothing until "violations" is shown reachable on
 the same deck in the same run.
+
+Until issue #149, verdicts 2-3 above were four separate verdicts spanning two
+decks: klt 0.3.0's curated sky130 deck carried no n-well rules at all, so a
+hand-written DRC-DSL deck (`drc/nwell_isolation.drc`, transcribing sky130's
+own nwell.1/nwell.2a/difftap.8/difftap.10 and run via
+`klt drc --engine klayout --deck-file`, which shells out to a standalone
+`klayout` binary) carried the isolation claim, with the curated deck's
+vacuous "clean" on the same illegal fixture recorded as the gap's own
+evidence. klt 0.4.0 closed that gap (2AMLogic/klayout-tools#1420) by adding
+nwell.width.1/nwell.space.1 to the curated deck, so #149 retired the
+hand-written deck and its `--engine klayout` stages (this environment has no
+working `klayout` binary anyway) and collapsed the four verdicts into the two
+above. difftap.8/difftap.10 are not carried forward: klt 0.4.0 deliberately
+does not transcribe them (they are implant-scoped -- `and(nsdm)`/`and(psdm)`
+in sky130's own deck -- and no `klt gen` generator in this repo's flows draws
+psdm/nsdm), so there is currently no way to check them in this repo's flow at
+all. See ../README.md for the full writeup.
 """
 from __future__ import annotations
 
@@ -97,8 +112,6 @@ def main() -> int:
     compose = _load(out_dir / "compose.json")
     wells = _load(out_dir / "wells.summary.json")
     drc = _load(out_dir / "drc.json")
-    drc_wells = _load(out_dir / "drc.wells.json")
-    drc_wells_fixture = _load(out_dir / "drc.wells.fixture.json")
     drc_curated_fixture = _load(out_dir / "drc.curated.fixture.json")
     precheck = _load(out_dir / "precheck.json")
     extract = _load(out_dir / "extract.json")
@@ -142,24 +155,16 @@ def main() -> int:
             not dirty_blocks,
         ),
         (
-            "`klt drc --deck sky130` on the composed layout is clean",
+            "`klt drc --deck sky130` on the composed layout is clean "
+            "(as of klt 0.4.0, this includes the n-well isolation verdict: "
+            "nwell.width.1 / nwell.space.1 are part of the curated deck)",
             drc.get("status") == "clean",
         ),
         (
-            "the composed layout is clean against sky130's own n-well rules "
-            "(nwell.1 / nwell.2a / difftap.8 / difftap.10)",
-            drc_wells.get("status") == "clean",
-        ),
-        (
-            "DRC negative control: the illegal fixture reports violations "
-            "naming `nwell.2a` on that same well deck",
-            drc_wells_fixture.get("status") == "violations"
-            and "nwell.2a" in (drc_wells_fixture.get("rule_counts") or {}),
-        ),
-        (
-            "gap evidence: `klt drc --deck sky130` reports that same illegal "
-            "fixture CLEAN (it carries no n-well rules)",
-            drc_curated_fixture.get("status") == "clean",
+            "DRC negative control: the same curated deck reports violations "
+            "naming `nwell.space.1` on a deliberately-illegal well split",
+            drc_curated_fixture.get("status") == "violations"
+            and "nwell.space.1" in (drc_curated_fixture.get("rule_counts") or {}),
         ),
         (
             "`klt precheck` passes (geometry hygiene; every pin label lands "
@@ -228,11 +233,9 @@ def main() -> int:
     a(f"- repo commit: `{sha}` on `{branch}`{' (dirty working tree)' if dirty else ''}")
     a(
         f"- curated DRC deck: `{drc.get('deck')}` "
-        f"({drc.get('provenance', {}).get('deck', {}).get('content_hash')})"
-    )
-    a(
-        f"- n-well DRC deck: `{Path(str(drc_wells.get('deck'))).name}` "
-        f"({drc_wells.get('provenance', {}).get('deck', {}).get('content_hash')})"
+        f"({drc.get('provenance', {}).get('deck', {}).get('content_hash')}) "
+        "-- as of klt 0.4.0 this deck alone carries the n-well isolation "
+        "rules (nwell.width.1 / nwell.space.1); see #149"
     )
     a("")
 
@@ -325,24 +328,15 @@ def main() -> int:
     a(
         f"| DRC, curated deck (composed layout) | {drc.get('status')} | "
         f"violation_count={drc.get('violation_count')}, "
-        f"rule_counts={drc.get('rule_counts')} |"
+        f"rule_counts={drc.get('rule_counts')} -- includes the n-well "
+        "isolation rules as of klt 0.4.0 |"
     )
     a(
-        f"| DRC, n-well deck (composed layout) | {drc_wells.get('status')} | "
-        f"violation_count={drc_wells.get('violation_count')}, "
-        f"rule_counts={drc_wells.get('rule_counts')} |"
-    )
-    a(
-        f"| DRC, n-well deck (illegal fixture) | {drc_wells_fixture.get('status')} | "
-        f"violation_count={drc_wells_fixture.get('violation_count')}, "
-        f"rule_counts={drc_wells_fixture.get('rule_counts')} |"
-    )
-    a(
-        f"| DRC, curated deck (same illegal fixture) | "
+        f"| DRC, curated deck (illegal well-split fixture) | "
         f"{drc_curated_fixture.get('status')} | "
-        f"violation_count={drc_curated_fixture.get('violation_count')} -- the "
-        "curated deck carries no n-well rules, which is why the deck above "
-        "exists |"
+        f"violation_count={drc_curated_fixture.get('violation_count')}, "
+        f"rule_counts={drc_curated_fixture.get('rule_counts')} -- negative "
+        "control for the row above |"
     )
     a(
         f"| precheck | {precheck.get('status')} | "
