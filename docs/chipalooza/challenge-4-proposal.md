@@ -91,7 +91,7 @@ supplied by the harness (not per-block).
 | `VDD` | supply | 1.8 V digital/analog rail (shared) | — (rail, not a slot line item) | Single supply for the whole block — analog and digital share the same rail (§2.1) |
 | `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 0–4) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
 | `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
-| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every existing testbench drives it from an ideal source; this repo has no derived drive-impedance/decoupling budget for `VCM` (same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row) |
+| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A single-corner (`tt`/27 °C/1.8 V) drive-impedance/decoupling *budget* now exists ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md)), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 5) |
 | `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
 | `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
@@ -324,9 +324,44 @@ tracker already owns.
    on-chip single-to-differential conversion is unresolved and is not
    guessed at here; it should be revisited once `rules-4.html` states the
    real slot categories.
-5. **`VCM` drive-impedance/decoupling budget is not derived**, the same
-   class of gap the sibling `gf180-sar-adc` proposal names for its own
-   `V_CM` row — every testbench in this repo drives `VCM` ideally.
+5. **`VCM` drive-impedance/decoupling budget: quantified, not yet closed.**
+   A single-corner (`tt`/27 °C/1.8 V) sweep against the unmodified sampling
+   front-end DUT
+   ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md))
+   replaces `VCM`'s ideal source with a series `R_source` (plus optional
+   on-die `C_decouple`) and measures the resulting differential sampled-value
+   error at the end of the SAMPLE window, at the DR-006-derived worst-case
+   acquisition window (83.333 ns, `f_clk` = 12 MHz) and this repo's
+   pre-existing 400 ns testbench convention:
+   - Worst-case (83.3 ns) window: bare (undecoupled) `R_source` budget is
+     ≤ 10 kΩ for ≤ 1 provisional LSB of differential error, ≤ 100 Ω for
+     ≤ 0.1 LSB.
+   - **Counterintuitive finding, stated plainly rather than smoothed over**:
+     the *longer* 400 ns legacy window is the more demanding case for this
+     mechanism, not the shorter DR-006 window — the smallest nonzero
+     `R_source` tested (10 kΩ) already exceeds 1 LSB of error at 400 ns
+     (−4.229 mV) versus 83.3 ns (−2.331 mV) at the same resistance. A longer
+     acquisition window lets more net charge flow from `VCM` through
+     `R_source` into the sampled network, so — for this particular error
+     mechanism — a shorter window is *not* automatically the worst case, the
+     opposite of the usual incomplete-settling assumption. This means any
+     future full-PVT campaign for this budget must sweep both ends of the
+     provisional sample-rate range, not just the fastest clock.
+   - At a marginal `R_source` = 30 kΩ (worst-case window), a decoupling
+     capacitor ≥ 100 pF at the on-die `VCM` node recovers the differential
+     error to ≤ 1 provisional LSB.
+   - This is a first-pass, single-corner budget, not a fabrication-ready
+     spec: switch `R_on` (which sets the effective time constant this
+     mechanism depends on) varies materially with process/temperature, so a
+     full PVT sweep of this same budget is still open (same class of gap as
+     #28's corner campaigns for the rest of this sub-block). It also does not
+     establish what `R_source`/`C_decouple` an actual on-chip `VCM`
+     buffer or off-chip reference network would present — no such buffer
+     exists in this design yet. What it newly establishes is the *target*
+     such a (not-yet-designed) block would need to meet.
+   No claim here is graded against a ratified spec row (`spec/target-spec.md`
+   is entirely DRAFT, #1/#27; the DR-006 acquisition window is itself
+   downstream of the DRAFT sample-rate row, Item 2 above).
 6. **`rules-4.html` has not published.** Every slot-budget assumption in §2
    is carried from Challenges #2/#3's common structure, not from Challenge
    #4's own (unpublished) text. Per this issue's own acceptance criterion, a
