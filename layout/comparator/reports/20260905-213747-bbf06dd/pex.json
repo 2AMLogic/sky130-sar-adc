@@ -1,0 +1,105 @@
+{
+  "schema_version": 2,
+  "status": "pass",
+  "layout": {
+    "path": "layout/comparator/reports/20260825-135219-59f8e86/comparator.gds",
+    "scope": "repo"
+  },
+  "netlist": {
+    "path": "layout/comparator/reports/20260905-213747-bbf06dd/.klt/pex-extracted.spice",
+    "scope": "repo"
+  },
+  "reference_netlist": {
+    "path": "layout/comparator/reports/20260905-213747-bbf06dd/comparator_pex_reference.spice",
+    "scope": "repo"
+  },
+  "extraction": {
+    "deck": "sky130",
+    "device_count": 11,
+    "net_count": 8,
+    "netlist_sha256": "8ea0c882d47df5ce313f6e43a0fea2fc60279f788a68e3b7f9a38317a5d23712",
+    "model": {
+      "capacitance": "net-to-ground for every net's own (non-coupled) area/perimeter, plus net-to-net for the vertical-overlap coupling `coupling` describes below -- a coupled net pair gets a direct capacitor between their two hub nodes, not just capacitors to the deck's ground/substrate net",
+      "coupling": "vertical overlap (crossover) unconditionally -- where one net's conductor on an adjacent metal level sits directly over another *distinct* net's conductor, that overlap area is charged between the two nets instead of to ground (issue #760) -- plus lateral (same-layer, sidewall) coupling, but only for a net pair naming one of the caller's declared `--critical-net` nets (issue #976): facing-edge length within that layer's own minimum-spacing lookback is charged between the two nets, *additively* (not deducted from either net's substrate fringe term, unlike the vertical case -- a known simplification). Any same-layer pair with neither side named `--critical-net`, and fringe shielding in general, are still not modelled",
+      "resistance": "single lumped series resistance per net, distributed as a star across that net's device terminals (issue #592) -- not a per-segment, distributed RC ladder, *unless* `--distributed-rc` names this net via `--critical-net` (issue #977, Epic #709 Phase 2b): then the net's terminals are ordered along their approximate physical spread and its total R/C is broken into a chain of per-segment resistors (segment length proportional to inter-terminal distance) with a ground capacitor at each terminal node (proportional to its adjacent segment length/2), instead of one star hub -- still an approximation (terminal position is a device-placement proxy, not true per-segment routing geometry), but a strictly finer-grained one than the single-hub star",
+      "frequency": "quasi-static -- one frequency-independent R and C per net; no skin effect, no distributed transmission-line behavior"
+    },
+    "critical_nets": [],
+    "distributed_rc": false,
+    "mom_rlc_override": null
+  },
+  "testbenches": [
+    {
+      "request": {
+        "path": "layout/comparator/reports/20260905-213747-bbf06dd/pex_request.json",
+        "scope": "repo"
+      },
+      "schematic_netlist": {
+        "path": "layout/comparator/reports/20260905-213747-bbf06dd/comparator_pex_reference.spice",
+        "scope": "repo"
+      },
+      "corner_count": 2,
+      "measurement_names": [
+        "outp_pickoff",
+        "outn_pickoff"
+      ]
+    }
+  ],
+  "corner_count": 2,
+  "delta": [
+    {
+      "spec_row": "outp_pickoff",
+      "corner_id": "tt/vinn=0.900_vinp=0.900V/27C",
+      "schematic_value": 0.552058,
+      "extracted_value": 0.624758,
+      "delta_pct": 13.169,
+      "status": "pass"
+    },
+    {
+      "spec_row": "outn_pickoff",
+      "corner_id": "tt/vinn=0.900_vinp=0.900V/27C",
+      "schematic_value": 0.552069,
+      "extracted_value": 0.623294,
+      "delta_pct": 12.901,
+      "status": "pass"
+    },
+    {
+      "spec_row": "outp_pickoff",
+      "corner_id": "tt/vinn=0.895_vinp=0.905V/27C",
+      "schematic_value": 0.573353,
+      "extracted_value": 0.637997,
+      "delta_pct": 11.275,
+      "status": "pass"
+    },
+    {
+      "spec_row": "outn_pickoff",
+      "corner_id": "tt/vinn=0.895_vinp=0.905V/27C",
+      "schematic_value": 0.530993,
+      "extracted_value": 0.609907,
+      "delta_pct": 14.862,
+      "status": "pass"
+    }
+  ],
+  "passed": 4,
+  "failed": 0,
+  "errored": 0,
+  "pin_count_mismatch": null,
+  "flat_dut_mismatch": null,
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "--pdk-root flag",
+      "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+    },
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:1fb71e6b4f021dec91c418e6eda7ef330dfe673286c7f1a7d78b5379316b2cd3"
+    }
+  }
+}

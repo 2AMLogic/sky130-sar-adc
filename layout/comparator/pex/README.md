@@ -21,7 +21,7 @@ two results relate, and `layout/comparator/reports/<record-id>/record.md`
   testbench's `.include` at it directly would trip `klt pex`'s
   `flat_dut_mismatch` check instead of working; see that file's own header
   comment for the full reasoning.
-- `testbench.spice` -- schematic-side `klt sim`/`klt pex` testbench body:
+- `testbench.spice` -- the one testbench `klt pex` runs on both legs:
   reset(CLK=0)->evaluate(CLK=VDD) transient stimulus, reusing
   `run.py`'s own pick-off methodology/timing constants (`RESET_NS`,
   `RESET_TR_NS`, `PICKOFF_NS`). Two corner points via `corners.supply_v` on
@@ -29,16 +29,12 @@ two results relate, and `layout/comparator/reports/<record-id>/record.md`
   Vindiff=0 (isolates the routing/parasitic-driven imbalance, since neither
   leg's devices are stochastically mismatched at this corner) and
   Vindiff=+10mV (a `run.py` `VINDIFF_GAIN_CAL_MV` gain-calibration point).
-- `extracted_testbench.spice` -- byte-identical stimulus to
-  `testbench.spice`; the only difference is its `.include` target, pointed
-  at a per-record extracted netlist (see "Why not just `klt pex`" below for
-  why this is a separate, hand-maintained file rather than something `klt
-  pex` generates for us).
+  Run unmodified for the schematic-side leg; `klt pex` itself generates the
+  extracted-side leg by swapping this file's one `.include` line for its
+  own freshly-extracted netlist (docs/cli/pex.md's "The DUT `.include`
+  swap") -- no hand-maintained extracted-side copy needed.
 - `pex_request.json` -- canonical `klt sim`/`klt pex`-format request
-  (corners, analysis, measurements). `run_pex.py` derives both legs'
-  concrete request copies from this one file at run time.
-- `normalize_extracted_units.py` -- workaround for
-  2AMLogic/klayout-tools#1396 (see below); mechanical, value-preserving.
+  (corners, analysis, measurements), passed to `klt pex` as-is.
 - `run_pex.py` -- this record's generator. Run it to reproduce:
 
   ```sh
@@ -56,12 +52,15 @@ two results relate, and `layout/comparator/reports/<record-id>/record.md`
   is the *drawing* flow's, i.e. which `comparator.gds` to extract from --
   this flow only reads it).
 
-## Why not just `klt pex`
+## Why not just `klt pex` (historical -- resolved by issue #146)
 
-The issue's own acceptance criteria say "`klt pex` (or the documented
-equivalent)" for exactly this reason: `klt pex` end-to-end hit **two
-independent tool bugs** on this sub-block, both filed generically per
-`CLAUDE.md`'s friction protocol (no design-specific detail in either):
+Until klayout-tools==0.4.0 (this repo's currently pinned version), `run_pex.py`
+could not call `klt pex` end-to-end: it hit **two independent tool bugs** on
+this sub-block, both filed generically per `CLAUDE.md`'s friction protocol
+(no design-specific detail in either), and worked around locally instead of
+waiting on the upstream fix. Both are now fixed upstream and confirmed
+present in the pinned 0.4.0 (issue #146), so `run_pex.py` now makes the
+single `klt pex` call this section used to say it couldn't:
 
 1. **[2AMLogic/klayout-tools#1395](https://github.com/2AMLogic/klayout-tools/issues/1395)**
    -- `klt pex`'s generated extracted-side request copy re-resolves a
@@ -69,51 +68,44 @@ independent tool bugs** on this sub-block, both filed generically per
    directory* instead of the PDK-variant directory `models.pdk` resolves it
    against: `model library not found`, even though the identical request
    runs fine standalone via `klt sim` and on `klt pex`'s own schematic-side
-   leg (an unmodified re-run of the same request).
+   leg (an unmodified re-run of the same request). Fixed by merged PR
+   [#1403](https://github.com/2AMLogic/klayout-tools/pull/1403).
 2. **[2AMLogic/klayout-tools#1396](https://github.com/2AMLogic/klayout-tools/issues/1396)**
-   -- `klt extract --pdk sky130A --parasitics`'s sky130 MOS binding writes
-   device geometry (`L`/`W`/`AS`/`AD`/`PS`/`PD`) with explicit SPICE unit
-   suffixes (`L=0.5U`); sky130's vendor model deck sets `.option
+   -- `klt extract --pdk sky130A --parasitics`'s sky130 MOS binding used to
+   write device geometry (`L`/`W`/`AS`/`AD`/`PS`/`PD`) with explicit SPICE
+   unit suffixes (`L=0.5U`); sky130's vendor model deck sets `.option
    scale=1.0u`, and `sky130_fd_pr__nfet_01v8`/`pfet_01v8`'s own internal
    NRD/NRS default-value formula assumes bare, suffix-free micron literals.
-   Feeding it unit-suffixed values makes the computed default NRD/NRS come
-   out ~1e6x too large and ngspice refuses the device ("could not find a
-   valid modelname") -- verified on a single-device minimal repro, isolated
-   from this sub-block's own topology.
+   Feeding it unit-suffixed values made the computed default NRD/NRS come
+   out ~1e6x too large and ngspice refused the device ("could not find a
+   valid modelname"). Fixed by merged PR
+   [#1404](https://github.com/2AMLogic/klayout-tools/pull/1404), which added
+   a per-PDK-family `GEOMETRY_STYLE_BARE_UM` so sky130 extraction now emits
+   bare-micron geometry directly.
 
-Bug 1 blocks `klt pex` from completing at all on a request whose `models`
-field uses the `{"pdk": ..., "lib": "<relative path>"}` form (the
-form `docs/cli/sim.md` documents as the normal case). Bug 2 would still
-break the extracted-side simulation even with bug 1 worked around (`klt
-pex`'s own internal extraction step hits it, not just a caller's manual
-`klt extract` call).
+`run_pex.py` used to run the same three logical steps `klt pex`'s own
+documentation describes (extract, re-simulate each leg, diff) as three
+separate commands, with a local `normalize_extracted_units.py` script
+rewriting the extracted netlist's unit-suffixed geometry fields to bare
+micron numbers (bug 2's workaround) in between the extract and re-simulate
+steps, and a hand-maintained `extracted_testbench.spice` standing in for
+what `klt pex`'s own `.include`-swap machinery would otherwise generate
+(bug 1's workaround, since that machinery was what hit bug 1).
 
-`run_pex.py` instead runs the same three logical steps `klt pex`'s own
-documentation describes (extract, re-simulate each leg, diff) as separate
-commands:
-
-1. `klt extract --parasitics --pdk sky130A` -- **unaffected by either bug**;
-   this is the actual parasitic-annotated netlist, produced exactly as `klt
-   pex` would produce it internally. This step alone already satisfies AC1
-   ("a real `klt pex` parasitic extraction... producing a
-   parasitic-annotated netlist") and AC2 (`extract.json`'s
-   `parasitics.nets[]` has every net's ground + coupled capacitance, in
-   farads, directly -- no simulation needed for that part).
-2. `normalize_extracted_units.py`'s workaround, applied to the extracted
-   netlist (bug 2's fix, done locally rather than waiting on the upstream
-   patch).
-3. `klt sim` on each leg separately (bug 1's fix -- both legs' requests are
-   generated from `pex_request.json` by `run_pex.py` itself, with each
-   leg's own already-correct `netlist` field, rather than relying on `klt
-   pex`'s own buggy request-copy machinery).
-4. The schematic-vs-extracted delta, computed and written into `record.md`
-   by `run_pex.py` directly (the same computation `klt pex`'s own `delta[]`
-   would produce, done in Python here instead).
-
-Once both upstream issues are fixed, this workaround can be deleted and
-`run_pex.py` replaced with a single `klt pex layout.gds pex_request.json
---deck sky130 --pdk sky130A --pdk-root $PDK_ROOT` call -- `pex_request.json`
-is deliberately kept in the exact shape that call already expects.
+Both files are deleted as of issue #146 -- re-running the old workaround
+against the pinned 0.4.0 before deleting it confirmed why: `klt extract`'s
+sky130 output is *already* bare-micron now (bug 2's fix), so
+`normalize_extracted_units.py`'s re-normalization of already-bare values
+made the geometry ~1e6x wrong in the *opposite* direction and the
+extracted-side `klt sim` leg errored out -- the workaround had gone from
+necessary to actively harmful the moment the pin moved to 0.4.0, not merely
+redundant. `run_pex.py` now calls `klt pex <layout>.gds pex_request.json
+--deck sky130 --pdk sky130A --pdk-root $PDK_ROOT` directly for the
+re-simulate-both-legs-and-diff step, alongside a standalone `klt extract
+--parasitics` call kept only because `klt pex`'s own JSON response echoes
+just an aggregate extraction-model scope note, not the full per-net R/C
+table AC1/AC2 need (see `run_pex.py`'s module docstring for the exact
+before/after code path).
 
 ## The `alter` gotcha (why `testbench.spice`'s sources are literal, not `.param`)
 
@@ -125,9 +117,11 @@ inside a source's `DC` value. Keying `corners.supply_v` off a `.param` name
 silently no-ops (ngspice logs `Error: no such device or model name <param>`,
 but `klt sim`'s failure classification does not treat an unresolved `alter`
 target as its own diagnostic code, so the corner still "passes" with the
-un-altered default value). `testbench.spice`/`extracted_testbench.spice`
-therefore declare `Vinp`/`Vinn` as literal DC sources and key
-`corners.supply_v` off their source names (`vinp`/`vinn`) directly.
+un-altered default value). `testbench.spice` therefore declares `Vinp`/
+`Vinn` as literal DC sources and keys `corners.supply_v` off their source
+names (`vinp`/`vinn`) directly -- `klt pex`'s extracted-side leg reuses
+these same source declarations unmodified (it only ever swaps the
+`.include` line), so this applies identically to both legs.
 
 ## What AC2's capacitance numbers do and do not establish
 
