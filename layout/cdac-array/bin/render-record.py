@@ -14,13 +14,15 @@ run-flow.sh can fail the run on a regression:
   3. `klt drc` reports **clean** on cdac_array
   4. `klt lvs` reports **match** on cdac_array
   5. `klt extract` finds exactly 1024 MiM unit capacitors + 18 nfet + 18 pfet
-     in cdac_array -- the count check that makes verdict 4 mean what it looks
-     like it means. `klt lvs`'s `combine_devices` folds w parallel unit caps
-     into one device before comparing, so an LVS "match" alone would be
-     equally happy with one big plate per bit; only the pre-combination
-     extracted device count proves the array is actually built out of 1024
-     identical unit elements, which is the whole matching argument (see
-     README.md).
+     in cdac_array. Since issue #148 (see README.md's "`options.combine_devices`
+     -- issue #148"), verdict 4's own LVS comparison is already literal and
+     uncombined -- it compares 1024 drawn unit capacitors against 1024
+     reference unit cards 1:1, so it already fails if the array is not built
+     from exactly 1024 identical unit elements. This verdict is therefore a
+     redundant, but cheap and orthogonal, independent confirmation of the
+     same fact on the extraction side alone -- not the load-bearing check it
+     used to be back when LVS folded w parallel unit caps into one device
+     before comparing (see README.md).
   6. The common-centroid placement actually holds: every weighted bit's
      unit-capacitor centroid sits exactly on the array's own centre in Y,
      bits 8..4 also in X, and each bit's P-side and N-side centroids
@@ -146,11 +148,13 @@ def main() -> int:
     verdicts.append(("cdac_array: 1024 unit caps + 18 nfet + 18 pfet extracted", unit_elements_ok, str(got)))
     lines.append("## Unit-element check")
     lines.append(
-        "`klt lvs`'s `combine_devices` folds `w` parallel unit caps into one "
-        "device before comparing, so an LVS match alone cannot tell a "
-        "1024-unit-element array from 18 single scaled plates. The "
-        "*pre-combination* extracted device count can, and this record "
-        "asserts it:"
+        "Since issue #148, `klt lvs`'s own comparison (verdict 4, above) is "
+        "already literal and uncombined -- it compares this array's 1024 "
+        "drawn unit capacitors against 1024 reference unit cards 1:1, with "
+        "no `combine_devices` folding on either side, so an LVS match alone "
+        "already implies the array is built from exactly 1024 unit elements. "
+        "This is therefore a redundant, but cheap and independent, "
+        "confirmation of the same fact from the extraction side alone:"
     )
     lines.append(f"- expected: `{EXPECTED_ARRAY_DEVICES}`")
     lines.append(f"- extracted: `{got}` -- **{'OK' if unit_elements_ok else 'MISMATCH'}**")

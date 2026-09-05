@@ -196,9 +196,15 @@ ROWS: tuple[Row, ...] = (
             "checks all pass). Drawn unit cap 8.6473 fF vs. ratified C_u ~= "
             "8.65 fF."
         ),
-        notes="Layout evidence is independent, physical confirmation of the sim-only structural check.",
+        notes=(
+            "Layout evidence is independent, physical confirmation of the "
+            "sim-only structural check. Supersedes "
+            "layout/cdac-array/reports/20260825-132454-51cbdd4/, whose LVS "
+            "'match' verdict did not reproduce on its own committed "
+            "artefacts -- see layout/cdac-array/README.md and issue #148."
+        ),
         sim_citations=("sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",),
-        layout_citations=("layout/cdac-array/reports/20260825-132454-51cbdd4/record.md",),
+        layout_citations=("layout/cdac-array/reports/20260905-220338-9fb9b04/record.md",),
     ),
     Row(
         id="comparator-noise",

@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "cdac_unit_cell.gds",
+  "reference": "cdac_unit_cell.lvs-reference.spice",
+  "top": "cdac_unit_cell",
+  "reference_top": "CDAC_UNIT_CELL",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "match",
+  "mismatch_count": 2,
+  "error_count": 0,
+  "category_counts": {
+    "device.body_unverified": 1,
+    "topology": 1
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 7,
+      "reference": 7,
+      "matched": 7
+    },
+    "devices": {
+      "layout": 3,
+      "reference": 3,
+      "matched": 3
+    },
+    "pins": {
+      "layout": 7,
+      "reference": 7,
+      "matched": 7
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "24aaa4327a05f92932703d7a12ff312444f52d1eb7aa0317151ff1e87748d51e",
+    "reference_sha256": "6ece7c88f940fbf72c2aa2303dc18b154723bac2d0b4958a61c962d5cf8ab1a9",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "1 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "nfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BOT",
+      "reference": "BOT",
+      "pin": true
+    },
+    {
+      "layout": "SEL",
+      "reference": "SEL",
+      "pin": true
+    },
+    {
+      "layout": "TOP",
+      "reference": "TOP",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VREFN",
+      "reference": "VREFN",
+      "pin": true
+    },
+    {
+      "layout": "VREFP",
+      "reference": "VREFP",
+      "pin": true
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
+    }
+  ]
+}
