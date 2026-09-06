@@ -323,11 +323,26 @@ def _finalize_record(
     netlist_sha: str,
     cmd: str,
     extra: dict[str, str] | None = None,
+    supersedes: str = "",
 ) -> Path:
     """Shared tail for the write_*_evidence() functions below: append the
     environment block + footer boilerplate and write the record. `cmd` is
     the subcommand name (e.g. "regen", "offset", "noise"), used to build
-    the "Written by" attribution."""
+    the "Written by" attribution.
+
+    `supersedes` is the prior `<record-id>` this record REPLACES for the same
+    claim, per sim/README.md's "Correction-supersession vs distinct-claim"
+    rule -- empty (rendered "(none)") for a record that tests a different
+    claim, however closely related. It is machine-load-bearing, not
+    decoration: `sim/report/generate.py --check`'s freshness gate
+    (`find_superseding_sibling()`) fails the build when a record cited by
+    `sim/report/manifest.py` has been superseded by a sibling in the same
+    `records/` directory, and it discovers that ONLY through the sibling's own
+    **Supersedes** field. A re-characterization that mints new records without
+    filling this in leaves the superseded ones citable forever with nothing to
+    detect it. It is a CLI argument rather than a constant because which
+    record is superseded is a per-run fact.
+    """
     lines.extend(evidence.environment_block(
         pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
         ngspice_line=toolchain._ngspice_version() or "unknown",
@@ -335,12 +350,15 @@ def _finalize_record(
         extra=extra,
     ))
     lines.append("")
-    lines.extend(evidence.footer_lines(f"sim/comparator-decision/run.py {cmd}", ""))
+    lines.extend(evidence.footer_lines(f"sim/comparator-decision/run.py {cmd}", supersedes))
     record_path.write_text("\n".join(lines))
     return record_path
 
 
-def write_regen_evidence(points: list[RegenPoint], netlist_sha: str, corner: str, temp_c: float, note: str = "") -> Path:
+def write_regen_evidence(
+    points: list[RegenPoint], netlist_sha: str, corner: str, temp_c: float,
+    note: str = "", supersedes: str = "",
+) -> Path:
     record_id = evidence.new_record_id()
     corners_dir = EXPERIMENT_DIR / "corners" / record_id
     corners_dir.mkdir(parents=True, exist_ok=True)
@@ -401,7 +419,7 @@ def write_regen_evidence(points: list[RegenPoint], netlist_sha: str, corner: str
         "that, not a quantitative claim against any ratified settling-time row."
     )
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "regen")
+    return _finalize_record(lines, record_path, info, netlist_sha, "regen", supersedes=supersedes)
 
 
 # ---------------------------------------------------------------------------
@@ -561,6 +579,7 @@ def run_regen_corners(
 
 def write_regen_corners_evidence(
     points: list[RegenCornerPoint], netlist_sha: str, note: str = "",
+    supersedes: str = "",
 ) -> Path:
     record_id = evidence.new_record_id()
     corners_dir = EXPERIMENT_DIR / "corners" / record_id
@@ -906,7 +925,7 @@ def write_regen_corners_evidence(
         "mismatch would only add to it."
     )
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "regen-corners")
+    return _finalize_record(lines, record_path, info, netlist_sha, "regen-corners", supersedes=supersedes)
 
 
 # ---------------------------------------------------------------------------
@@ -1065,7 +1084,9 @@ def run_offset_mc(
     return result, netlist_sha
 
 
-def write_offset_evidence(result: OffsetResult, netlist_sha: str, note: str = "") -> Path:
+def write_offset_evidence(
+    result: OffsetResult, netlist_sha: str, note: str = "", supersedes: str = "",
+) -> Path:
     record_id = evidence.new_record_id()
     draws_dir = EXPERIMENT_DIR / "mc-draws" / record_id
     draws_dir.mkdir(parents=True, exist_ok=True)
@@ -1164,6 +1185,7 @@ def write_offset_evidence(result: OffsetResult, netlist_sha: str, note: str = ""
     return _finalize_record(
         lines, record_path, info, netlist_sha, "offset",
         extra={"MC seed": str(result.seed), "MC N": str(result.n)},
+        supersedes=supersedes,
     )
 
 
@@ -1177,15 +1199,65 @@ def write_offset_evidence(result: OffsetResult, netlist_sha: str, note: str = ""
 # analysis on the full comparator_core.spice fragment is not meaningful
 # (ngspice would either fail to converge on `.op`, or converge to a rail
 # where the devices are far outside their useful small-signal region).
-# Instead this uses a REDUCED sub-model: the same tail + input pair, but
-# with the cross-coupled latch pair's gates DIODE-CONNECTED to their own
-# drains (self-biased) instead of cross-coupled to the opposite side's drain
-# -- this removes the positive-feedback loop (no more regeneration) while
-# keeping a physically-motivated nonlinear load impedance at each output
-# node, self-consistently finding its own DC bias point (no external bias
-# voltage guess required). This is a standard "break the loop for small-
-# signal analysis" technique (generic circuit-analysis practice, not
-# specific to any implementation).
+# Instead this uses a REDUCED sub-model: the tail + input pair, with the
+# devices on the input pair's own drain nodes DIODE-CONNECTED (self-biased)
+# so the stage finds its own DC bias point without an external bias-voltage
+# guess, and with the positive-feedback cross-coupling removed. This is a
+# standard "break the loop for small-signal analysis" technique (generic
+# circuit-analysis practice, not specific to any implementation).
+#
+# ISSUE #175 / DR-004 AMENDMENT A -- WHICH DEVICES THE SUB-MODEL KEEPS, AND
+# WHY THAT CHANGED WITH THE TOPOLOGY.
+#
+# The selection rule, stated once so it can be checked rather than trusted:
+# model the phase in which a StrongARM latch's input-referred noise is
+# actually generated -- the INTEGRATION phase, from the evaluate edge until
+# the latch NMOS pair turns on. During that phase the tail is on and the
+# input pair is in saturation, converting Vindiff into the differential
+# current that discharges the DIP/DIN nodes; every other device is off (the
+# latch NMOS pair sits at Vgs = v(OUT) - v(DI) ~ 0 because both nodes are
+# still precharged, the latch PMOS pair likewise, and all four reset PMOS are
+# off at CLK = VDD). So the sub-model keeps the tail + input pair and, purely
+# to give the DIP/DIN nodes a DC bias that a `.op`-based `.noise` analysis
+# needs at all, diode-connects the one VDD-side device already attached to
+# each of those nodes -- the DI-node precharge PMOS (XM_RST_DIP/XM_RST_DIN).
+#
+# Before #175 that same rule selected the cross-coupled latch pair itself,
+# because the input pair's drains WERE the OUTP/OUTN nodes and those devices
+# were what sat on them. The amendment moved the input-pair drains onto
+# DIP/DIN, so the rule now selects the DI-node precharge devices. The
+# methodology is unchanged; the device list it picks out changed because the
+# netlist did.
+#
+# TWO ALTERNATIVES WERE MEASURED AND REJECTED (both at tt/27C/1.8V, so the
+# rejection is checkable rather than asserted):
+#
+#  * A LITERAL loop-break of all nine core devices -- keep the latch pairs,
+#    diode-connect them in place, leave them in series between OUTP/OUTN and
+#    DIP/DIN. This is well-defined but DISQUALIFIED BY ITS OWN OPERATING
+#    POINT, not by its answer: the amended stack is four devices tall
+#    (VDD -> diode PMOS -> OUT -> diode NMOS -> DI -> input NMOS -> TAIL ->
+#    tail NMOS -> GND), which does not fit in 1.8 V, so the whole network
+#    settles subthreshold -- v(TAIL) = 4.4 mV, v(DIP) = 21.9 mV, i.e. the
+#    input pair is off rather than saturated. Its 8.6921 mV rms single-ended
+#    result describes a bias point the comparator never occupies.
+#  * The same literal loop-break PLUS diode-connected DI precharge devices to
+#    restore the bias (all eleven devices). This DOES bias sensibly
+#    (v(TAIL) = 28.7 mV, v(DIP) = 383.1 mV -- the input pair saturated,
+#    matching the model actually used) and gives 1.0867 mV rms single-ended.
+#    It is rejected on the selection rule above rather than on that number:
+#    it forces the latch NMOS pair to CONDUCT, which is exactly what they do
+#    not do during integration, so its extra noise term is not "the
+#    regenerative contribution measured properly" -- it is a different
+#    artifact, and a larger departure from the modelled phase than the
+#    omission it purports to fix. The genuine regenerative-noise gap stays
+#    open, named in DR-004's Open items exactly as before.
+#
+# Recording the rejected numbers here is deliberate: the model this file uses
+# yields a SMALLER figure than one of the alternatives, so the reason for the
+# choice must be inspectable. It is the operating-point/phase argument above,
+# and it would have selected the same model had the numbers come out the
+# other way round.
 #
 # The AC stimulus is single-ended (Vinp gets AC=1, Vinn stays pure DC), and
 # ngspice's `inoise_total` (referred back through Vinp) is reported as a
@@ -1200,8 +1272,12 @@ def write_offset_evidence(result: OffsetResult, netlist_sha: str, note: str = ""
 # topology DR."
 
 VBIAS_NOTE = (
-    "reduced sub-model: cross-coupled latch pair replaced by diode-connected "
-    "(self-biased) loads; CLK held at VDD (steady evaluate bias, tail on)"
+    "reduced sub-model of the INTEGRATION phase (DR-004 Amendment A, issue "
+    "#175): tail + input pair, with the DI-node precharge PMOS pair "
+    "diode-connected (self-biased) as the loads on the input pair's own drain "
+    "nodes DIP/DIN, and the cross-coupled latch pairs omitted because they are "
+    "off (Vgs ~ 0) until regeneration begins; CLK held at VDD (steady evaluate "
+    "bias, tail on); noise taken at v(DIP,DIN)"
 )
 
 
@@ -1220,12 +1296,10 @@ def _noise_deck(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float =
         f"Vinn VINN 0 dc {vcm}",
         "",
         "XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1",
-        "XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        "XM_INP OUTN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        "XM_LATN_P OUTP OUTP GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        "XM_LATN_N OUTN OUTN GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
-        "XM_LATP_P OUTP OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1",
-        "XM_LATP_N OUTN OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1",
+        "XM_INN DIP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
+        "XM_INP DIN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1",
+        "XM_RST_DIP DIP DIP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1",
+        "XM_RST_DIN DIN DIN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1",
         "",
         ".control",
         # sim/spiceinit sets 'option klu' repo-wide for corner-sweep speed,
@@ -1238,8 +1312,8 @@ def _noise_deck(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float =
         # unaffected.
         "option sparse",
         "op",
-        "print v(TAIL) v(OUTP) v(OUTN)",
-        f"noise v(outp,outn) Vinp dec 20 {NOISE_FSTART_HZ:g} {NOISE_FSTOP_HZ:g} 20",
+        "print v(TAIL) v(DIP) v(DIN)",
+        f"noise v(dip,din) Vinp dec 20 {NOISE_FSTART_HZ:g} {NOISE_FSTOP_HZ:g} 20",
         "print inoise_total onoise_total",
         ".endc",
         ".end",
@@ -1252,8 +1326,12 @@ class NoiseResult:
     single_ended_rms_v: float
     differential_rms_v: float
     op_tail_v: float
-    op_outp_v: float
-    op_outn_v: float
+    # The sub-model's own output nodes. Before DR-004 Amendment A (issue #175)
+    # the input pair's drains were OUTP/OUTN; the amendment moved them to the
+    # internal nodes DIP/DIN, which are what this deck now biases, probes and
+    # takes `noise v(dip,din)` across.
+    op_dip_v: float
+    op_din_v: float
     log_text: str
     corner: str
     temp_c: float
@@ -1270,30 +1348,30 @@ def run_noise(
         deck = _noise_deck(info, corner, temp_c, supply_v)
         log_text = _run(deck, scratch_dir, log_name)
 
-    parsed = measure.parse(log_text, ["inoise_total", "onoise_total", "v(tail)", "v(outp)", "v(outn)"])
+    parsed = measure.parse(log_text, ["inoise_total", "onoise_total", "v(tail)", "v(dip)", "v(din)"])
     # ngspice's `print` echoes lowercased vector names for v(...) forms;
     # measure.parse's regex requires the LHS to look like an identifier
     # (letters/digits/underscore), which `v(tail)` does not match (parens)
     # -- so parse those three directly here instead of relying on
     # measure.parse for them.
-    op_tail = op_outp = op_outn = float("nan")
+    op_tail = op_dip = op_din = float("nan")
     for line in log_text.splitlines():
         s = line.strip()
         if s.startswith("v(tail)"):
             op_tail = float(s.split("=")[1])
-        elif s.startswith("v(outp)"):
-            op_outp = float(s.split("=")[1])
-        elif s.startswith("v(outn)"):
-            op_outn = float(s.split("=")[1])
+        elif s.startswith("v(dip)"):
+            op_dip = float(s.split("=")[1])
+        elif s.startswith("v(din)"):
+            op_din = float(s.split("=")[1])
     single_ended = parsed.get("inoise_total", float("nan"))
     differential = single_ended * (2 ** 0.5)
     if not quiet:
-        print(f"  op: TAIL={op_tail:.4f}V OUTP={op_outp:.4f}V OUTN={op_outn:.4f}V")
+        print(f"  op: TAIL={op_tail:.4f}V DIP={op_dip:.4f}V DIN={op_din:.4f}V")
         print(f"  inoise_total (single-ended) = {single_ended * 1000:.4f} mV rms")
         print(f"  differential estimate (x sqrt(2)) = {differential * 1000:.4f} mV rms")
     result = NoiseResult(
         single_ended_rms_v=single_ended, differential_rms_v=differential,
-        op_tail_v=op_tail, op_outp_v=op_outp, op_outn_v=op_outn,
+        op_tail_v=op_tail, op_dip_v=op_dip, op_din_v=op_din,
         log_text=log_text, corner=corner, temp_c=temp_c, supply_v=supply_v,
     )
     netlist_sha = evidence.sha256_text(_noise_deck(info, corner, temp_c, supply_v))
@@ -1320,7 +1398,10 @@ def run_noise_corners(quiet: bool = False) -> tuple[list[NoiseResult], str]:
     return results, netlist_sha
 
 
-def write_noise_campaign_evidence(results: list[NoiseResult], netlist_sha: str, note: str = "") -> Path:
+def write_noise_campaign_evidence(
+    results: list[NoiseResult], netlist_sha: str, note: str = "",
+    supersedes: str = "",
+) -> Path:
     record_id = evidence.new_record_id()
     corners_dir = EXPERIMENT_DIR / "corners" / record_id
     corners_dir.mkdir(parents=True, exist_ok=True)
@@ -1373,9 +1454,15 @@ def write_noise_campaign_evidence(results: list[NoiseResult], netlist_sha: str, 
         "flagged simplification (excludes the cross-coupled latch pair's "
         "own regenerative-phase noise contribution) -- see "
         "spec/decision-records/DR-004-comparator-topology-and-noise-budget.md "
-        "for the full derivation and its limitations. This simplification carries "
-        "over unchanged from the prior nominal-point record; it is a methodology "
-        "limitation, not something this corner campaign relaxes to force a pass."
+        "for the full derivation and its limitations. The EXCLUSION is unchanged "
+        "from every prior record in this experiment -- it is a standing "
+        "methodology limitation, not something this corner campaign relaxes to "
+        "force a pass. The DEVICE LIST implementing it did change with DR-004 "
+        "Amendment A (issue #175): the sub-model's selection rule picks the "
+        "VDD-side devices sitting on the input pair's own drain nodes, which the "
+        "amendment moved from OUTP/OUTN to DIP/DIN. See that amendment's section "
+        "A2 for the rule, and for the two alternative sub-models measured and "
+        "rejected against it."
     )
     if note:
         a(f"- **Note**: {note}")
@@ -1414,10 +1501,12 @@ def write_noise_campaign_evidence(results: list[NoiseResult], netlist_sha: str, 
     a("- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 device noise "
       "models via ngspice's `.noise` analysis; no literature/foundry-doc noise figure used)")
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "noise-corners")
+    return _finalize_record(lines, record_path, info, netlist_sha, "noise-corners", supersedes=supersedes)
 
 
-def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") -> Path:
+def write_noise_evidence(
+    result: NoiseResult, netlist_sha: str, note: str = "", supersedes: str = "",
+) -> Path:
     record_id = evidence.new_record_id()
     runs_dir = EXPERIMENT_DIR / "corners" / record_id
     runs_dir.mkdir(parents=True, exist_ok=True)
@@ -1464,7 +1553,7 @@ def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") 
     a("| Quantity | Value | Corner condition |")
     a("|---|---|---|")
     a(f"| Op point: v(TAIL) | {result.op_tail_v:.4f} V | {result.corner}/{result.temp_c}C/{VDD}V |")
-    a(f"| Op point: v(OUTP)=v(OUTN) | {result.op_outp_v:.4f} V | {result.corner}/{result.temp_c}C/{VDD}V |")
+    a(f"| Op point: v(DIP)=v(DIN) | {result.op_dip_v:.4f} V | {result.corner}/{result.temp_c}C/{VDD}V |")
     a(
         f"| Single-ended input-referred noise (`inoise_total`, referred through Vinp) | "
         f"{result.single_ended_rms_v * 1000:.4f} mV rms | {result.corner}/{result.temp_c}C/{VDD}V |"
@@ -1487,7 +1576,7 @@ def write_noise_evidence(result: NoiseResult, netlist_sha: str, note: str = "") 
     a("- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 device noise "
       "models via ngspice's `.noise` analysis; no literature/foundry-doc noise figure used)")
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "noise")
+    return _finalize_record(lines, record_path, info, netlist_sha, "noise", supersedes=supersedes)
 
 
 # ---------------------------------------------------------------------------
@@ -1508,6 +1597,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--n", type=int, default=16, help="offset: MC sample count")
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
     ap.add_argument("--note", default="")
+    ap.add_argument(
+        "--supersedes", default="",
+        help=(
+            "prior <record-id> this run REPLACES for the same claim (e.g. a "
+            "re-characterization after a topology change). Written into the "
+            "record's **Supersedes** field, which sim/report/generate.py "
+            "--check reads to detect a manifest still citing the superseded "
+            "record. Omit for a record making a different claim."
+        ),
+    )
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
 
@@ -1527,7 +1626,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode == "regen":
         points, netlist_sha = run_regen_sweep(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
         if args.record:
-            path = write_regen_evidence(points, netlist_sha, args.corner, args.temp, note=args.note)
+            path = write_regen_evidence(
+                points, netlist_sha, args.corner, args.temp, note=args.note,
+                supersedes=args.supersedes,
+            )
             print(f"wrote {path}")
         unresolved = [p for p in points if p.regen_time_ns is None]
         return 0 if not unresolved else 1
@@ -1535,7 +1637,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode == "regen-corners":
         points, netlist_sha = run_regen_corners(quiet=args.quiet)
         if args.record:
-            path = write_regen_corners_evidence(points, netlist_sha, note=args.note)
+            path = write_regen_corners_evidence(
+                points, netlist_sha, note=args.note, supersedes=args.supersedes,
+            )
             print(f"wrote {path}")
         problems = [p for p in points if p.classify() not in ("DECIDED", "CONTROL-OK")]
         for p in problems:
@@ -1553,7 +1657,9 @@ def main(argv: list[str] | None = None) -> int:
             corner=args.corner, temp_c=args.temp, seed=args.seed, n=args.n, quiet=args.quiet
         )
         if args.record:
-            path = write_offset_evidence(result, netlist_sha, note=args.note)
+            path = write_offset_evidence(
+                result, netlist_sha, note=args.note, supersedes=args.supersedes,
+            )
             print(f"wrote {path}")
         negctrl_stdev = statistics.pstdev(result.negctrl_offset_v) if len(result.negctrl_offset_v) > 1 else 0.0
         draws_stdev = statistics.pstdev(result.draws_offset_v) if len(result.draws_offset_v) > 1 else 0.0
@@ -1562,14 +1668,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode == "noise":
         result, netlist_sha = run_noise(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
         if args.record:
-            path = write_noise_evidence(result, netlist_sha, note=args.note)
+            path = write_noise_evidence(
+                result, netlist_sha, note=args.note, supersedes=args.supersedes,
+            )
             print(f"wrote {path}")
         return 0
 
     if args.mode == "noise-corners":
         results, netlist_sha = run_noise_corners(quiet=args.quiet)
         if args.record:
-            path = write_noise_campaign_evidence(results, netlist_sha, note=args.note)
+            path = write_noise_campaign_evidence(
+                results, netlist_sha, note=args.note, supersedes=args.supersedes,
+            )
             print(f"wrote {path}")
         binding = max(results, key=lambda r: r.differential_rms_v)
         return 0 if binding.differential_rms_v <= NOISE_BUDGET_BASELINE_V else 1

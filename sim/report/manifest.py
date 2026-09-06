@@ -84,12 +84,17 @@ ROWS: tuple[Row, ...] = (
             "individually; neither campaign is a sample-rate measurement. "
             "(a) CDAC-array bottom-plate-switch settling: `tt`/27C/1.8V "
             "single point only. (b) Comparator decision (regeneration) delay: "
-            "the full ratified OAT grid was attempted (process {ff, fs, sf, "
-            "ss, tt} x temperature {-40, 27, 125} C x supply {1.62, 1.8, "
-            "1.98} V, 9 one-at-a-time points), but it did not complete -- see "
-            "the verdict."
+            "the full ratified OAT grid (process {ff, fs, sf, ss, tt} x "
+            "temperature {-40, 27, 125} C x supply {1.62, 1.8, 1.98} V, 9 "
+            "one-at-a-time points), now PVT-complete after issue #175's "
+            "reset-integrity topology fix (DR-004 Amendment A)."
         ),
-        verdict="UNMEASURED (two mechanisms probed, one of them BLOCKED by a design finding)",
+        verdict=(
+            "UNMEASURED as an end-to-end sample-rate figure (two mechanisms "
+            "probed individually, not combined); comparator decision delay "
+            "is now a PVT-complete measurement, PASS on its own reset-"
+            "integrity control (9/9 corners HELD)"
+        ),
         notes=(
             "No end-to-end sample-rate campaign exists. Two of its input terms "
             "have been probed separately, and this row reports both honestly "
@@ -99,23 +104,27 @@ ROWS: tuple[Row, ...] = (
             "83.333 ns worst-case phase budget -- so the array's own settling "
             "is not the bottleneck at that corner. Switch R_on varies "
             "materially with process/temperature and no other corner has been "
-            "run. (b) The comparator's own decision delay could NOT be "
-            "measured across the grid: its reset-integrity negative control "
-            "(Vindiff = 0 mV) fails at several ratified corner points, where "
-            "the latch separates to the rails during the CLK=0 reset phase "
-            "with no input applied, so the post-edge output is not a response "
-            "to the input and no delay is extractable there. Delays measured "
-            "at the corners whose control did hold are sub-2 ns but cover a "
-            "subset of the grid and must not be quoted as PVT-complete. The "
-            "sequencer's logic delay and the sampling front end's acquisition "
-            "remain entirely unmeasured. Named as open work by "
+            "run. (b) The comparator's own decision delay is now PVT-complete: "
+            "issue #175 (DR-004 Amendment A) moved the cross-coupled NMOS "
+            "latch pair's sources off hard-wired GND onto the input pair's "
+            "own precharged drain nodes, closing the reset-integrity defect "
+            "the prior pass surfaced (Vindiff = 0 mV control now HELD at all "
+            "9 ratified corners, 0.00 uA reset-phase static current at every "
+            "corner). All 27/27 input-driven decision points resolved within "
+            "the 15.0 ns evaluate window; binding corner `tt_27c_1.62v` at "
+            "Vindiff = +0.5 mV, decision delay 4.3575 ns, 19.1x inside the "
+            "DR-006-derived 83.333 ns worst-case phase budget (headroom "
+            "against a DRAFT figure, not a pass against a ratified line). "
+            "The sequencer's logic delay and the sampling front end's "
+            "acquisition remain entirely unmeasured, so this is still not an "
+            "end-to-end sample-rate number. Named as open work by "
             "spec/target-spec.md's own 'Not ratified by this record' list "
             "(#24/#28); DR-006's 1.2-12 MHz clock range remains a mechanical "
             "consequence of this DRAFT row, not a derived result."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
-            "sim/comparator-decision/records/20260906-052758-662a84d.md",
+            "sim/comparator-decision/records/20260906-074451-7724af3.md",
         ),
     ),
     Row(
@@ -134,7 +143,7 @@ ROWS: tuple[Row, ...] = (
         ),
         verdict=(
             "DOES NOT MEET the DRAFT baseline target (>9.0 bit), informationally: "
-            "8.491 bit (mean-case CDAC mismatch) / 7.749 bit (worst-case). Target "
+            "8.506 bit (mean-case CDAC mismatch) / 7.755 bit (worst-case). Target "
             "not ratified -- not a pass/fail against a ratified line."
         ),
         notes=(
@@ -143,9 +152,13 @@ ROWS: tuple[Row, ...] = (
             "campaign), treats CDAC INL as an rms noise-like term rather than "
             "input-correlated distortion, reuses the comparator's REDUCED SUB-"
             "MODEL noise figure, and deliberately excludes comparator offset. "
-            "See the cited record's own LIMITATIONS field for the full list."
+            "Re-run this pass (issue #175) against the amended comparator noise "
+            "figure (0.8643 mV rms, down from 0.9591 mV rms) -- achieved ENOB "
+            "moved from 8.491/7.749 to 8.506/7.755 bit; the pass/fail outcome is "
+            "unchanged. See the cited record's own LIMITATIONS field for the "
+            "full list."
         ),
-        sim_citations=("sim/enob-estimate/records/20260828-005033-0c70212.md",),
+        sim_citations=("sim/enob-estimate/records/20260906-082749-7724af3.md",),
     ),
     Row(
         id="inl-dnl",
@@ -242,17 +255,20 @@ ROWS: tuple[Row, ...] = (
         conditions=(
             "Full ratified corner set, 9 OAT points, `ac-based` noise "
             "methodology, integration bandwidth 1 kHz - 1 GHz. REDUCED SUB-"
-            "MODEL (cross-coupled latch pair replaced by diode-connected loads, "
-            "CLK held at VDD) -- named, flagged simplification, see "
+            "MODEL (the input pair's own precharged drain-node PMOS pair "
+            "diode-connected as loads, cross-coupled latch pairs omitted, "
+            "CLK held at VDD) -- named, flagged simplification, re-derived "
+            "against the amended device set by issue #175 (DR-004 Amendment "
+            "A), see "
             "spec/decision-records/DR-004-comparator-topology-and-noise-budget.md."
         ),
         verdict=(
             "PASS vs. baseline (<=1.0148 mV rms) at every corner, binding "
-            "corner `tt_125c_1.80v` = 0.9591 mV rms; does NOT meet the stretch "
+            "corner `tt_125c_1.80v` = 0.8643 mV rms; does NOT meet the stretch "
             "threshold (<=0.5859 mV rms) at the binding corner."
         ),
         notes="",
-        sim_citations=("sim/comparator-decision/records/20260827-212404-e13bc1e.md",),
+        sim_citations=("sim/comparator-decision/records/20260906-065109-eedd532.md",),
     ),
     Row(
         id="power",
@@ -291,7 +307,7 @@ ROWS: tuple[Row, ...] = (
         sim_citations=(
             "sim/harness-corner-smoke/records/20260814-020959-98d9186.md",
             "sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",
-            "sim/comparator-decision/records/20260827-212404-e13bc1e.md",
+            "sim/comparator-decision/records/20260906-065109-eedd532.md",
             "sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md",
         ),
     ),
@@ -324,32 +340,35 @@ spec-row evidence.
 
 BLIND_SPOTS = (
     (
-        "Comparator RESET does not hold at every ratified corner -- a design "
-        "finding, not a harness limitation. With the inputs shorted to the "
-        "common mode (Vindiff = 0 mV, a negative control), "
-        "`design/comparator.sch`'s outputs separate to the rails DURING the "
-        "CLK=0 reset phase at several ratified corner points, because the "
-        "cross-coupled NMOS latch pair's sources are tied directly to GND and "
-        "therefore conduct throughout reset, in opposition to the reset PMOS "
-        "pair. The resulting balanced level is an unstable equilibrium (and "
-        "draws static supply current), so corner/temperature asymmetry is "
-        "amplified to a decision before the clock edge arrives. Consequence: "
-        "at the affected corners the comparator enters a bit trial already "
-        "committed, so its output is not determined by the CDAC top-plate "
-        "charge -- a functional exposure, not only a timing one. No ADC-level "
-        "transient has ever exercised the real comparator inside the full "
-        "hierarchy (the sequencer campaign is behavioural; the ENOB estimate "
-        "composes a noise term rather than simulating the latch), which is "
-        "why this did not surface earlier. This also bounds what the "
-        "comparator offset and noise rows mean: both were characterized only "
-        "at tt/27C/1.8V-class conditions where the reset does hold."
+        "Comparator RESET-integrity defect (FIXED by issue #175 / DR-004 "
+        "Amendment A, kept here as history, not a live gap). Through PR #176, "
+        "`design/comparator.sch`'s outputs separated to the rails DURING the "
+        "CLK=0 reset phase at 3 of 9 ratified corner points with the inputs "
+        "shorted to the common mode (Vindiff = 0 mV negative control), because "
+        "the cross-coupled NMOS latch pair's sources were tied directly to "
+        "GND and therefore conducted throughout reset, in opposition to the "
+        "reset PMOS pair -- an unstable equilibrium that amplified corner/"
+        "temperature asymmetry to a decision before the clock edge arrived. "
+        "Issue #175 moved those sources onto the input pair's own precharged "
+        "drain nodes (DIP/DIN), closing the DC path and the amplification "
+        "mechanism: the re-run campaign "
+        "(`sim/comparator-decision/records/20260906-074451-7724af3.md`) shows "
+        "9/9 reset-integrity controls HELD and 0.00 uA reset-phase static "
+        "current at every corner. No ADC-level transient has ever exercised "
+        "the real comparator inside the full hierarchy (the sequencer "
+        "campaign is behavioural; the ENOB estimate composes a noise term "
+        "rather than simulating the latch) -- still true post-fix, and still "
+        "why a defect of this kind could recur undetected by those two "
+        "campaigns alone."
     ),
     (
-        "Comparator noise methodology is a REDUCED SUB-MODEL (cross-coupled "
-        "latch pair replaced by diode-connected loads) -- excludes the "
-        "latch's own regenerative-phase noise contribution. Carried "
-        "unchanged into the ratified corner campaign and into the ENOB "
-        "composite. See DR-004."
+        "Comparator noise methodology is a REDUCED SUB-MODEL (the input "
+        "pair's own precharged drain-node PMOS pair diode-connected as "
+        "loads, cross-coupled latch pairs omitted) -- excludes the latch's "
+        "own regenerative-phase noise contribution. Carried unchanged (as a "
+        "methodology limitation) into the ratified corner campaign and into "
+        "the ENOB composite, across the issue #175 topology amendment. See "
+        "DR-004."
     ),
     (
         "ENOB is a behavioral-accelerated composite, not a dynamic-test "
@@ -393,11 +412,18 @@ BLIND_SPOTS = (
         "for one of five layout sub-blocks -- not a warning-level nit."
     ),
     (
-        "Comparator layout LVS is a genuine MATCH but carries one warning-"
-        "severity finding ('device class has no counterpart on the other "
-        "side, but no devices of this class were extracted either -- not a "
-        "real topology mismatch', error_count=0) -- noted for completeness, "
-        "not gating."
+        "Comparator layout LVS is now a MISMATCH against the current "
+        "schematic (as of issue #175 / DR-004 Amendment A's topology "
+        "change) -- `reports/LATEST` still records a genuine match, but that "
+        "was against the pre-amendment 9-device topology. The drawn "
+        "geometry has not been updated: it still implements 9 devices "
+        "where the schematic now has 11 (the two DIP/DIN precharge PMOS "
+        "are not drawn), confirmed via a falsifiability control that "
+        "reproduces the old match against the superseded reference and a "
+        "genuine mismatch (8 unmatched devices) against the amended one -- "
+        "`layout/comparator/reports/20260906-064104-eedd532/`. Re-drawing "
+        "the block is tracked as issue #180, not bundled into #175's "
+        "topology fix. See `layout/comparator/README.md`'s status section."
     ),
     (
         "Uncombined evidence legs: `sim/sampling-frontend/` and "

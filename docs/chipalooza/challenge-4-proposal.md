@@ -301,9 +301,9 @@ audience with an explicit Challenge-brief verdict column.
 | `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | **MET** — structural + functional/monotonicity check, 9/9 corners | [`sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`](../../sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md) |
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | **MET** — same record as `V_REF` | same record |
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | **MET** — sim structural check (9/9 corners); independent layout evidence also exists and is now DRC- and LVS-confirmed (drawn `C_u = 8.6473 fF`, unit-cap count 1024 = 512/side × 2). The original record's LVS "match" did not reproduce against its own committed artefacts (#148); #148's fix compares the array's 1024 drawn unit capacitors 1:1 against the reference (no `combine_devices` folding) and its replacement record's match reproduces on repeat runs | same record; [`layout/cdac-array/reports/20260905-220338-9fb9b04/record.md`](../../layout/cdac-array/reports/20260905-220338-9fb9b04/record.md) (supersedes `reports/20260825-132454-51cbdd4/`, see #148) |
-| Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.9591 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)). **Caveat added this pass**: `tt_125c_1.80v` is one of the corners where the comparator's reset *does* hold (§7 Item 3); this row says nothing about the corners where it does not, and a DR-004 topology fix for #175 would require re-running this campaign | [`sim/comparator-decision/records/20260827-212404-e13bc1e.md`](../../sim/comparator-decision/records/20260827-212404-e13bc1e.md) |
+| Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.8643 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)). Re-measured this pass against issue #175's amended (reset-integrity-fixed) device set — the binding-corner figure moved from 0.9591 to 0.8643 mV rms; the pass/fail outcome is unchanged | [`sim/comparator-decision/records/20260906-065109-eedd532.md`](../../sim/comparator-decision/records/20260906-065109-eedd532.md) |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | `sim/harness-corner-smoke/records/`, `sim/mc-smoke/records/` |
-| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **BLOCKED / UNMEASURED (one mechanism cleared, one now blocked by a design finding)** — no full-hierarchy campaign exists; the 1.2–12 MHz timing budget is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is bounded at one corner (`tt`/27 °C/1.8 V): worst case 11.39 ns at bit 8/MSB, 7.3× inside the DR-006-derived 83.33 ns phase budget — not the bottleneck at that corner. (b) The comparator's decision delay was taken to the full ratified PVT grid this pass and **could not be measured across it**: the campaign's Vindiff = 0 mV reset-integrity negative control fails at several corner points, where the latch resolves to the rails during the reset phase with no input applied (see §7 Item 2 and the new §7 Item 3). Delays at the corners whose control held are sub-2 ns, but that is a subset of the grid, not a PVT-complete number. Sequencer logic delay and front-end acquisition remain wholly unmeasured | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, one corner); [`sim/comparator-decision/records/20260906-052758-662a84d.md`](../../sim/comparator-decision/records/20260906-052758-662a84d.md) (comparator mechanism, full grid attempted) |
+| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (one mechanism now PVT-complete)** — no full-hierarchy campaign exists; the 1.2–12 MHz timing budget is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is bounded at one corner (`tt`/27 °C/1.8 V): worst case 11.39 ns at bit 8/MSB, 7.3× inside the DR-006-derived 83.33 ns phase budget — not the bottleneck at that corner. (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). Sequencer logic delay and front-end acquisition remain wholly unmeasured, so this is still not an end-to-end sample-rate number | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, one corner); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete) |
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only, DOES NOT MEET even the un-ratified DR-007 candidate**: 8.491 bit (mean-case CDAC mismatch) meets the DR-007 candidate but 7.749 bit (worst-case) does not; neither number is graded against a ratified line because none exists | [`sim/enob-estimate/records/20260828-005033-0c70212.md`](../../sim/enob-estimate/records/20260828-005033-0c70212.md) |
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim; not re-evaluated against DR-007's wider ±2.0 LSB candidate in this document (no new campaign run here) | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
@@ -514,60 +514,66 @@ tracker already owns.
    has been checked and cleared.
 
    **The comparator's own decision delay was taken to the full ratified PVT
-   grid this pass, and the attempt did not produce a PVT-complete number —
-   it produced a design finding instead** ([`sim/comparator-decision/records/20260906-052758-662a84d.md`](../../sim/comparator-decision/records/20260906-052758-662a84d.md),
-   written by `sim/comparator-decision/run.py regen-corners`). The campaign
-   carries a Vindiff = 0 mV **reset-integrity negative control** at every
-   corner point: with the inputs shorted to the common mode there is no
-   correct decision to make, so the latch must stay balanced until the
-   evaluate edge. That control **fails at several ratified corner points**,
-   where the outputs separate to the rails during the CLK = 0 reset phase
-   with no input applied. At those corners the post-edge output is not a
-   response to the input, so no decision delay is extractable — and a naive
-   threshold-crossing search reports a physically meaningless `0.0000 ns`
-   for exactly those points, which is why the control exists and why the
-   record names each such cell `RESET-NOT-HELD` rather than giving it a
-   number. Decision delays at the corners whose control *did* hold are
-   sub-2 ns and comfortably inside the DR-006 phase budget, but they cover
-   a subset of the grid and are not quoted here as a PVT-complete result.
-   The underlying defect is Item 3 below; until it is resolved, the
-   comparator half of the bit-trial timing budget stays open, and so does
-   this item.
-3. **The comparator's reset phase is not PVT-robust (new this pass, and a
-   functional exposure, not only a timing one).** The reset-integrity
-   control described in Item 2 isolates a real property of
-   `design/comparator.sch` as drawn: the cross-coupled NMOS latch pair
-   (`XM_LATN_P`/`XM_LATN_N`) has both sources tied directly to `GND`, so it
-   conducts throughout the CLK = 0 reset phase, in opposition to the reset
-   PMOS pair (`XM_RST_P`/`XM_RST_N`). Two independent measurements in the
-   record confirm the mechanism rather than assuming it: the reset-phase
-   output level is **not** the rail (a winning precharge would sit at
-   `v(OUTP) = v(OUTN) = V_DD`), and the reset phase draws **static supply
-   current**, because a DC path `VDD → reset PMOS → output node → latch
-   NMOS → GND` is open the whole time. That balanced level is an *unstable*
-   equilibrium — both latch NMOS devices sit well above threshold, so the
-   cross-coupled loop gain exceeds unity and any asymmetry (corner skew,
-   temperature, or the input pair's own subthreshold conduction) is
-   amplified to the rails inside the reset window. The corners where the
-   control fails are the skewed and cold ones, which is the signature of an
-   amplified asymmetry rather than of a slow settle. **Consequence**: at
-   those corners the comparator enters each bit trial already committed to
-   an output, so the bit it produces is not determined by the charge on the
-   CDAC top plate. This had not surfaced before because no ADC-level
-   transient in this repository has ever exercised the real comparator
-   inside the full hierarchy — the sequencer campaign is behavioural, and
-   the ENOB estimate composes a comparator *noise* term rather than
-   simulating the latch. It also bounds what the existing comparator offset
-   and noise rows mean: both were characterized only at conditions where
-   the reset does hold. **Not fixed here**: the remedy is a topology change
-   to `design/comparator.sch` (the textbook fix is to stop the NMOS latch
-   conducting during reset, e.g. by returning its sources to a clocked
-   internal node instead of hard-wiring them to `GND`), which needs its own
-   decision record amending
-   [DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md),
-   a re-netlist, and a re-run of every committed comparator-decision record
-   (offset, noise, noise-corners) against the new device set. Tracked as
-   **#175**.
+   grid this pass, and the pass is now a PVT-complete result** after issue
+   #175 (DR-004 Amendment A) closed the reset-integrity defect Item 3 below
+   originally described
+   ([`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md),
+   written by `sim/comparator-decision/run.py regen-corners`, superseding
+   [`20260906-052758-662a84d.md`](../../sim/comparator-decision/records/20260906-052758-662a84d.md)).
+   The campaign carries a Vindiff = 0 mV **reset-integrity negative
+   control** at every corner point: with the inputs shorted to the common
+   mode there is no correct decision to make, so the latch must stay
+   balanced until the evaluate edge. That control now **HOLDS at all 9
+   ratified corner points** (pre-edge `v(OUTP) - v(OUTN) = +0.0000 V` and
+   reset-phase static supply current `= 0.00 µA` at every corner), and all
+   27/27 input-driven decision points resolved within the 15.0 ns evaluate
+   window. Binding corner `tt_27c_1.62v` at Vindiff = +0.5 mV: decision delay
+   `4.3575 ns`, `19.1×` inside the DR-006-derived 83.333 ns worst-case
+   bit-trial phase budget — headroom against a DRAFT, not-yet-ratified
+   figure, not a pass against a ratified spec line. Item 3 below is now
+   resolved rather than open; the comparator half of the bit-trial timing
+   budget is no longer blocked by a design finding, though the sequencer's
+   logic delay and the sampling front end's acquisition remain wholly
+   unmeasured, so this is still not an end-to-end sample-rate number.
+3. **The comparator's reset phase was not PVT-robust — FIXED this pass by
+   issue #175 (DR-004 Amendment A), kept here as history rather than
+   silently deleted.** The reset-integrity control described in Item 2
+   isolated a real property of the pre-amendment `design/comparator.sch`:
+   the cross-coupled NMOS latch pair (`XM_LATN_P`/`XM_LATN_N`) had both
+   sources tied directly to `GND`, so it conducted throughout the CLK = 0
+   reset phase, in opposition to the reset PMOS pair
+   (`XM_RST_P`/`XM_RST_N`). Two independent measurements in the
+   pre-amendment record confirmed the mechanism rather than assuming it:
+   the reset-phase output level was **not** the rail (a winning precharge
+   would sit at `v(OUTP) = v(OUTN) = V_DD`), and the reset phase drew
+   **static supply current**, because a DC path `VDD → reset PMOS → output
+   node → latch NMOS → GND` was open the whole time. That balanced level
+   was an *unstable* equilibrium — both latch NMOS devices sat well above
+   threshold, so the cross-coupled loop gain exceeded unity and any
+   asymmetry (corner skew, temperature, or the input pair's own
+   subthreshold conduction) was amplified to the rails inside the reset
+   window. **Consequence** (as it stood before the fix): at those corners
+   the comparator entered each bit trial already committed to an output, so
+   the bit it produced was not determined by the charge on the CDAC top
+   plate. This had not surfaced before because no ADC-level transient in
+   this repository has ever exercised the real comparator inside the full
+   hierarchy — the sequencer campaign is behavioural, and the ENOB estimate
+   composes a comparator *noise* term rather than simulating the latch (both
+   still true post-fix — this class of defect could recur undetected by
+   those two campaigns alone). **Fix, landed this pass**: `design/
+   comparator.sch` now returns the latch NMOS pair's sources to the input
+   pair's own precharged drain nodes (`DIP`/`DIN`, new CLK-gated PMOS
+   precharge devices, 9 devices → 11) instead of hard-wiring them to `GND`,
+   per
+   [DR-004 Amendment A](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md#amendment-a-issue-175-2026-09-06-reset-integrity-topology-fix).
+   The testbench fragment was re-netlisted, and every committed
+   comparator-decision record (`regen`, `regen-corners`, `offset`, `noise`,
+   `noise-corners`) was re-run against the amended device set, each minting
+   a new record that supersedes its pre-amendment predecessor (Item 2's
+   citation above is the `regen-corners` result: 9/9 reset-integrity
+   controls now HELD). `layout/comparator/`'s LVS match is invalidated by
+   this device-level change and is **not** re-drawn in this pass — tracked
+   separately as issue #180.
 4. **ENOB / INL-DNL target values are proposed, not ratified.**
    [DR-007](../../spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md)
    proposes revised, evidence-derived candidates (ENOB > 7.5/8.0 bit,

@@ -7,9 +7,12 @@ a fresh full-chip transient FFT simulation:
   1. Ideal quantization noise -- analytic, from the ratified LSB
      (`sigma_quant = LSB/sqrt(12)`).
   2. Comparator input-referred noise -- the WORST-CASE (binding-corner)
-     value from issue #28's ratified full-PVT-corner campaign
-     (sim/comparator-decision/records/20260827-212404-e13bc1e.md,
-     `tt_125c_1.80v`, 0.9591 mV rms differential).
+     value from issue #28's ratified full-PVT-corner campaign, re-run
+     against DR-004 Amendment A's amended comparator device set
+     (sim/comparator-decision/records/20260906-065109-eedd532.md,
+     `tt_125c_1.80v`, 0.8643 mV rms differential). That record supersedes
+     20260827-212404-e13bc1e, whose 0.9591 mV rms figure measured the
+     9-device topology issue #175 replaced.
   3. CDAC unit-cap mismatch-driven nonlinearity -- issue #29's own Monte
      Carlo campaign (sim/cdac-array-transfer/records/<mc-record-id>.md),
      converted from its max|INL| distribution (in ratified LSB) back to an
@@ -79,14 +82,25 @@ V_REF = 1.8
 LSB_V = 2 * V_REF / (2 ** N_BITS)  # 3.5156 mV, ratified
 
 # --- Source #2: comparator input-referred noise, issue #28's ratified
-# corner campaign. Transcribed from the binding-corner row of
-# sim/comparator-decision/records/20260827-212404-e13bc1e.md (re-run
-# `python3 sim/comparator-decision/run.py noise-corners` to reproduce
-# independently) -- NOT re-simulated here, per this repo's "combine with,
-# not substitute for, the item-5 corner evidence" convention (issue #29 AC).
-COMPARATOR_NOISE_SOURCE_RECORD = "sim/comparator-decision/records/20260827-212404-e13bc1e.md"
+# corner campaign. Transcribed from the binding-corner row of the record
+# named below (re-run `python3 sim/comparator-decision/run.py noise-corners`
+# to reproduce independently) -- NOT re-simulated here, per this repo's
+# "combine with, not substitute for, the item-5 corner evidence" convention
+# (issue #29 AC).
+#
+# Re-pointed by issue #175: DR-004 Amendment A changed the comparator
+# topology (the cross-coupled NMOS latch pair's sources moved off hard-wired
+# GND onto the input pair's own drain nodes DIP/DIN, which gained their own
+# CLK-gated PMOS precharge devices), so every pre-amendment
+# sim/comparator-decision/ record measures a device set that no longer
+# exists. Leaving this constant pointing at 20260827-212404-e13bc1e would
+# make this estimate a composite of one current and one superseded
+# measurement -- silently, since nothing recomputes a transcribed constant.
+# The binding corner is unchanged (tt_125c_1.80v); the value moved
+# 0.9591 -> 0.8643 mV rms.
+COMPARATOR_NOISE_SOURCE_RECORD = "sim/comparator-decision/records/20260906-065109-eedd532.md"
 COMPARATOR_NOISE_BINDING_CORNER = "tt_125c_1.80v"
-COMPARATOR_NOISE_DIFF_V = 0.9591e-3  # V rms, differential, worst-case (125C)
+COMPARATOR_NOISE_DIFF_V = 0.8643e-3  # V rms, differential, worst-case (125C)
 
 # --- Source #4: kT/C sampling noise, same formula and worst-case (125C)
 # corner spec/dr-003-support/calc.py uses, re-derived here (not imported --
