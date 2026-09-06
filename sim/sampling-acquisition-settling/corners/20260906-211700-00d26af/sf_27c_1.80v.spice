@@ -1,0 +1,81 @@
+* sampling-frontend acquisition-window settling (issue #121) -- corner=sf temp=27.0C
+.lib /home/ubuntu/.volare/sky130A/libs.tech/combined/sky130.lib.spice sf
+.temp 27.0
+
+Vdd VDD 0 dc 1.8
+Vvcm VCM 0 dc 0.9
+Vinp VINP 0 pwl(0n 0.2 130n 0.2 130.2n 1.6 330n 1.6)
+Vinn VINN 0 pwl(0n 1.6 130n 1.6 130.2n 0.2 330n 0.2)
+Vsample SAMPLE 0 pwl(0n 0 10n 0 10.2n 1.8 110n 1.8 110.2n 0 160n 0 160.2n 1.8 310n 1.8 310.2n 0 330n 0)
+
+* sampling_frontend_dut.spice -- regenerated netlist FRAGMENT (devices only)
+* for design/sampling_frontend.sch (issue #52). NOT hand-edited: regenerate
+* with, from the repo root:
+*
+*   source sim/env.sh
+*   xschem -x -n -s -q --rcfile sim/xschemrc -o /tmp/xschem_out design/sampling_frontend.sch
+*   grep -v '^\*\*' /tmp/xschem_out/sampling_frontend.spice | grep -v '^\.end$' \
+*     > sim/sampling-frontend/testbench/sampling_frontend_dut.spice
+*
+* Every device is sky130_fd_pr__{n,p}fet_01v8 or sky130_fd_pr__cap_mim_m3_1
+* (ratified 1.8V core flavor + MiM cap, DR-001) -- grep for g5v0d10v5 below
+* to confirm zero matches (the schematic's own AC check).
+XMsw_p VINP G_P TOP_P GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XSa_p BOOST_P SAMPLE VDD BOOST_P sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XSb_p BSBOT_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XScn_p BSBOT_P SAMPLE VINP GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XScp_p BSBOT_P SAMPLEB VINP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XSd_p G_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0
++ mult=1 m=1
+XSe_p G_P SAMPLEB BOOST_P BOOST_P sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XCmswn_p BPREF_P SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XCmswp_p BPREF_P SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XCboot_p BOOST_P BSBOT_P sky130_fd_pr__cap_mim_m3_1 W=9.8 L=9.8 MF=1 m=1
+XCsamp_p TOP_P BPREF_P sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=1 m=1
+XMsw_n VINN G_N TOP_N GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XSa_n BOOST_N SAMPLE VDD BOOST_N sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XSb_n BSBOT_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XScn_n BSBOT_N SAMPLE VINN GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+XScp_n BSBOT_N SAMPLEB VINN VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XSd_n G_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0
++ mult=1 m=1
+XSe_n G_N SAMPLEB BOOST_N BOOST_N sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XCmswn_n BPREF_N SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XCmswp_n BPREF_N SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0
++ sb=0 sd=0 mult=1 m=1
+XCboot_n BOOST_N BSBOT_N sky130_fd_pr__cap_mim_m3_1 W=9.8 L=9.8 MF=1 m=1
+XCsamp_n TOP_N BPREF_N sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=1 m=1
+XInvp SAMPLEB SAMPLE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0
++ sd=0 mult=1 m=1
+XInvn SAMPLEB SAMPLE GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
++ sd=0 mult=1 m=1
+.GLOBAL GND
+
+
+.control
+tran 0.02n 330.0n
+meas tran t_settle_p_50 TRIG AT=160.1n TARG V(TOP_P) VAL=0.9 TD=160.1n CROSS=1
+meas tran t_settle_p_90 TRIG AT=160.1n TARG V(TOP_P) VAL=1.46 TD=160.1n CROSS=1
+meas tran budget_p find v(TOP_P) at=243.43333333333334n
+meas tran confirm_p find v(TOP_P) at=305.0n
+meas tran t_settle_n_50 TRIG AT=160.1n TARG V(TOP_N) VAL=0.9 TD=160.1n CROSS=1
+meas tran t_settle_n_90 TRIG AT=160.1n TARG V(TOP_N) VAL=0.34 TD=160.1n CROSS=1
+meas tran budget_n find v(TOP_N) at=243.43333333333334n
+meas tran confirm_n find v(TOP_N) at=305.0n
+.endc
+.end

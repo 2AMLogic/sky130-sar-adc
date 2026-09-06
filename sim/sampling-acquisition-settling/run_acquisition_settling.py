@@ -118,6 +118,9 @@ Usage (from the repo root, after ``source sim/env.sh``)::
 
     python3 sim/sampling-acquisition-settling/run_acquisition_settling.py
     python3 sim/sampling-acquisition-settling/run_acquisition_settling.py --record
+    # Full ratified PVT grid (9 OAT points, same axes sim/comparator-decision/
+    # sweeps) instead of the single tt/27C/1.8V corner above:
+    python3 sim/sampling-acquisition-settling/run_acquisition_settling.py --corners --record
 """
 
 from __future__ import annotations
@@ -133,7 +136,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import evidence, measure, pdk, toolchain  # noqa: E402
+from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
 
 # Same regenerated DUT fragment sim/sampling-frontend/run_transient.py and
 # sim/sampling-frontend/run_hold_kick.py already use (design/
@@ -149,6 +152,21 @@ TEMP_C = 27.0
 LSB_DIFF_MV_PROVISIONAL = 3.5156  # DR-003 Item 2, provisional pending #27 --
 # reference scale only, same convention sim/sampling-frontend/
 # run_transient.py's own "hold delta" figures already use.
+
+# Ratified corner-set axes (issue #28), per spec/target-spec.md's "Numeric
+# rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
+# process corners -- the same axes sim/comparator-decision/'s own
+# regen-corners campaign sweeps. Used only by the optional --corners mode
+# below; the single-corner (tt/27C/1.8V) default behavior above is
+# unchanged.
+SUPPLY_TOLERANCE = 0.10
+TEMPS_C = [-40, 27, 125]
+PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+
+# The single-corner (tt/27C/1.8V) record --corners's own evidence record
+# cross-references as "the finding this campaign extends" -- PR #204,
+# sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md.
+SINGLE_CORNER_SEED_RECORD = "20260906-202424-cb7e7aa"
 
 EDGE_TR_NS = 0.2  # rise/fall time for every edge below -- same convention
 # sim/cdac-bit-trial-settling/'s own EDGE_TR_NS.
@@ -347,9 +365,16 @@ def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
     raise AssertionError("unreachable")  # loop always returns or raises above
 
 
-def run_all(scratch: Path) -> tuple[list[dict], list[dict], str]:
-    netlist = build_transient()
-    m = _run(netlist, scratch, "acquisition_settling")
+def run_all(
+    scratch: Path,
+    corner: str = CORNER,
+    temp_c: float = TEMP_C,
+    vdd: float = VDD,
+    quiet: bool = False,
+    tag: str = "acquisition_settling",
+) -> tuple[list[dict], list[dict], str]:
+    netlist = build_transient(corner=corner, temp_c=temp_c, vdd=vdd)
+    m = _run(netlist, scratch, tag)
 
     crossing_rows = []
     budget_rows = []
@@ -371,16 +396,69 @@ def run_all(scratch: Path) -> tuple[list[dict], list[dict], str]:
                 "side": side, "node": node, "fraction": frac,
                 "v_initial": v_initial, "v_final": v_final, "delay_ns": delay_ns,
             })
-        t90 = m.get(f"t_settle_{side}_90")
-        t90_str = f"{t90 * 1e9:.5f} ns" if t90 is not None else "N/A (no crossing found)"
-        budget_str = f"{budget_err_mv:+.5f} mV" if budget_err_mv is not None else "N/A"
-        confirm_str = f"{confirm_err_mv:+.5f} mV" if confirm_err_mv is not None else "N/A"
-        print(
-            f"{node}: {v_initial}V -> {v_final}V  t_settle_90%={t90_str}  "
-            f"residual@{T_PHASE_WORST_NS:.3f}ns-budget={budget_str}  "
-            f"residual@confirm={confirm_str}"
-        )
+        if not quiet:
+            t90 = m.get(f"t_settle_{side}_90")
+            t90_str = f"{t90 * 1e9:.5f} ns" if t90 is not None else "N/A (no crossing found)"
+            budget_str = f"{budget_err_mv:+.5f} mV" if budget_err_mv is not None else "N/A"
+            confirm_str = f"{confirm_err_mv:+.5f} mV" if confirm_err_mv is not None else "N/A"
+            print(
+                f"{node}: {v_initial}V -> {v_final}V  t_settle_90%={t90_str}  "
+                f"residual@{T_PHASE_WORST_NS:.3f}ns-budget={budget_str}  "
+                f"residual@confirm={confirm_str}"
+            )
     return crossing_rows, budget_rows, netlist
+
+
+def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
+    """Full ratified-corner-set OAT sweep of run_all(): the same PVT grid
+    sim/comparator-decision/'s own regen-corners campaign uses
+    (spec/target-spec.md's "Numeric rows -- RATIFIED 2026-08-19" section:
+    -40/27/125C, +-10% supply, sky130 process corners), applied to this
+    experiment's own worst-node budget/confirm residual at each point. This
+    does NOT change the single-corner (tt/27C/1.8V) mechanism this script
+    measures -- it re-runs the identical stimulus/measurement at 9 PVT
+    points instead of 1, to see whether the tt/27C/1.8V finding (does not
+    clear the DR-006 worst-case phase budget) holds, worsens, or improves
+    across process/temperature/supply.
+    """
+    pdk.resolve_or_raise()
+    supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
+    grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
+
+    points: list[dict] = []
+    for process_corner, temp_c, supply_v in grid:
+        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+        if not quiet:
+            print(f"{cid}:")
+        crossing_rows, budget_rows, netlist = run_all(
+            scratch, corner=process_corner, temp_c=temp_c, vdd=supply_v,
+            quiet=quiet, tag=f"acquisition_settling_{cid}",
+        )
+        complete = all(r["delay_ns"] is not None for r in crossing_rows) and all(
+            r["budget_err_mv"] is not None and r["confirm_err_mv"] is not None
+            for r in budget_rows
+        )
+        worst = None
+        if complete:
+            worst = max(budget_rows, key=lambda r: abs(r["budget_err_mv"]))
+        points.append({
+            "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
+            "corner_id": cid, "complete": complete,
+            "crossing_rows": crossing_rows, "budget_rows": budget_rows,
+            "worst_node": worst["node"] if worst else None,
+            "worst_budget_err_mv": worst["budget_err_mv"] if worst else None,
+            "worst_confirm_err_mv": (
+                next(r["confirm_err_mv"] for r in budget_rows if r["node"] == worst["node"])
+                if worst else None
+            ),
+            "netlist": netlist,
+        })
+        if not quiet and worst is not None:
+            print(
+                f"  worst node {worst['node']}: "
+                f"residual@budget={worst['budget_err_mv']:+.4f} mV"
+            )
+    return points
 
 
 def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sample: str) -> None:
@@ -659,9 +737,194 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
     print(f"\nWrote record: {record_path}")
 
 
+def write_corners_record(points: list[dict]) -> Path:
+    """Evidence record for the full ratified-PVT-grid --corners campaign,
+    same `corners/<record_id>/` per-point-log layout
+    sim/comparator-decision/'s own regen-corners campaign uses."""
+    record_id = evidence.new_record_id()
+    corners_dir = EXPERIMENT_DIR / "corners" / record_id
+    corners_dir.mkdir(parents=True, exist_ok=True)
+    for p in points:
+        (corners_dir / f"{p['corner_id']}.spice").write_text(p["netlist"])
+
+    # Netlist snapshot: the tt/27C/1.8V baseline point's own deck, the same
+    # single-point convention write_record() above uses, so a reader can
+    # diff it directly against that single-corner record's own snapshot.
+    baseline = next(
+        (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0 and p["supply_v"] == VDD),
+        points[0],
+    )
+    record_path = evidence.write_netlist_snapshot_text(EXPERIMENT_DIR, record_id, baseline["netlist"])
+    netlist_sha = evidence.sha256_text(baseline["netlist"])
+
+    info = pdk.resolve()
+    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
+    ng_version = toolchain._ngspice_version() or "unknown"
+
+    process_corners_run = sorted({p["corner"] for p in points})
+    temps_run = sorted({p["temp_c"] for p in points})
+    supplies_run = sorted({p["supply_v"] for p in points})
+
+    incomplete = [p for p in points if not p["complete"]]
+    complete_points = [p for p in points if p["complete"]]
+
+    lines: list[str] = []
+    a = lines.append
+    a(f"# Sampling front end acquisition-window settling budget -- full PVT grid -- {record_id}")
+    a("")
+    a(f"- **Record ID**: {record_id}")
+    a(
+        "- **Claim**: extends the single-corner (tt/27C/1.8V) finding in "
+        f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+        f"({SINGLE_CORNER_SEED_RECORD}.md) -- that this design's "
+        "own bootstrapped sampling switch does NOT settle a new worst-case "
+        "differential input value within the DR-006 worst-case (12 MHz) "
+        "phase budget -- to the FULL ratified PVT corner set "
+        "(spec/target-spec.md's \"Numeric rows -- RATIFIED 2026-08-19\" "
+        "section: -40/27/125C, +-10% supply, sky130 process corners), the "
+        "same OAT grid sim/comparator-decision/'s own regen-corners "
+        "campaign sweeps. Identical stimulus and measurement methodology "
+        "as the single-corner record (see that record's own module "
+        "docstring for the full stimulus-shape rationale and the two "
+        "documented `.meas TRIG/TARG` pitfalls this script works around) "
+        "-- only the corner point changes per run. No claim here is graded "
+        "against a ratified spec row: `spec/target-spec.md`'s sample-rate "
+        "row is entirely DRAFT (#1/#27), and the DR-006 phase-period "
+        "figures quoted below are themselves downstream of that DRAFT row."
+    )
+    a(
+        "- **Netlist provenance**: `design/sampling_frontend.sch`'s "
+        "already-regenerated fragment "
+        "(`sim/sampling-frontend/testbench/sampling_frontend_dut.spice`), "
+        "unchanged from the single-corner record -- only `.lib`/`.temp`/"
+        "`Vdd` vary per corner point. Netlist snapshot above is the "
+        "tt/27C/1.8V baseline point; every point's own deck is committed "
+        f"under `corners/{record_id}/`."
+    )
+    a(
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(points)
+        )
+    )
+    a("")
+    a("## Worst-node residual at the DR-006 worst-case phase budget, per corner")
+    a("")
+    a(
+        f"Same fixed-time read as the single-corner record, taken "
+        f"{T_PHASE_WORST_NS:.3f} ns (worst-case, f_clk=12 MHz) after SAMPLE "
+        "pulse #2's own trigger point, at every corner. \"Worst node\" is "
+        "whichever of `TOP_P`/`TOP_N` has the larger-magnitude residual at "
+        "that corner (not necessarily the same node at every corner)."
+    )
+    a("")
+    a("| Corner | Worst node | Residual @ budget (mV) | Residual @ confirm (mV) | x half-LSB |")
+    a("|---|---|---|---|---|")
+    half_lsb_mv = LSB_DIFF_MV_PROVISIONAL / 2
+    for p in points:
+        if not p["complete"]:
+            a(f"| `{p['corner_id']}` | -- | INCOMPLETE | INCOMPLETE | -- |")
+            continue
+        ratio = abs(p["worst_budget_err_mv"]) / half_lsb_mv
+        a(
+            f"| `{p['corner_id']}` | `{p['worst_node']}` | "
+            f"{p['worst_budget_err_mv']:+.4f} | {p['worst_confirm_err_mv']:+.4f} | "
+            f"{ratio:.1f}x |"
+        )
+    a("")
+
+    notes: list[str] = []
+    if incomplete:
+        bad = ", ".join(p["corner_id"] for p in incomplete)
+        notes.append(
+            f"**{len(incomplete)}/{len(points)} corner points produced "
+            f"incomplete measurements ({bad})** -- treat this record as "
+            "partial evidence at those points, not a passing or failing "
+            "result, until re-run clean."
+        )
+    if complete_points:
+        binding = max(complete_points, key=lambda p: abs(p["worst_budget_err_mv"]))
+        best = min(complete_points, key=lambda p: abs(p["worst_budget_err_mv"]))
+        all_over_half_lsb = all(
+            abs(p["worst_budget_err_mv"]) > half_lsb_mv for p in complete_points
+        )
+        notes.append(
+            f"**Binding corner (largest residual): `{binding['corner_id']}`**, "
+            f"`{binding['worst_node']}` still "
+            f"{abs(binding['worst_budget_err_mv']):.3f} mV from its ideal "
+            f"target value {T_PHASE_WORST_NS:.3f} ns after the acquiring "
+            f"edge -- ~{abs(binding['worst_budget_err_mv']) / half_lsb_mv:.1f}x "
+            f"the provisional differential LSB's half-step. Best corner: "
+            f"`{best['corner_id']}`, "
+            f"{abs(best['worst_budget_err_mv']):.3f} mV "
+            f"(~{abs(best['worst_budget_err_mv']) / half_lsb_mv:.1f}x)."
+        )
+        if all_over_half_lsb:
+            notes.append(
+                "**Every one of the 9 ratified corner points exceeds the "
+                "provisional differential LSB's half-step at the DR-006 "
+                "worst-case phase budget** -- the single-corner (tt/27C/"
+                "1.8V) finding was not a corner-specific artifact; this "
+                "mechanism does not clear the budget anywhere on the "
+                "ratified PVT grid at this design's current sizing. This "
+                "still does not violate any ratified spec row (the "
+                "sample-rate row is entirely DRAFT), but it raises the "
+                "weight of this finding from \"one corner, narrows the "
+                "open item\" to \"every ratified corner, same conclusion\" "
+                "-- consistent with, and strengthening, DR-006's own "
+                "deferred non-uniform phase allocation alternative."
+            )
+        else:
+            notes.append(
+                "Not every corner point exceeds the half-LSB reference "
+                "scale -- the mechanism's severity varies across the "
+                "PVT grid; see the per-corner table above for which "
+                "points clear it."
+            )
+    notes.append(
+        "This campaign re-runs the SAME single mechanism (the sampling "
+        "front end's own acquisition of a new worst-case input value once "
+        "SAMPLE re-asserts) across the full ratified PVT grid -- it does "
+        "NOT combine with the other three named mechanisms (CDAC "
+        "settling, comparator decision delay, sequencer logic delay) into "
+        "an end-to-end sample-rate figure, and none of those other three "
+        "has itself been taken to this full grid except the comparator's "
+        "own decision-delay campaign. A full sample-rate re-derivation "
+        "(`docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2) "
+        "still needs all four combined, over the full PVT grid, which "
+        "remains open."
+    )
+
+    a("## Result")
+    a("")
+    for n in notes:
+        a("- " + n)
+    a("")
+
+    lines.extend(evidence.environment_block(
+        pdk_line, f"ngspice {ng_version}", netlist_sha,
+        extra={"tran step": f"{TRAN_STEP_NS} ns"},
+    ))
+    a("")
+    lines.extend(evidence.footer_lines(
+        "sim/sampling-acquisition-settling/run_acquisition_settling.py", ""
+    ))
+
+    record_path.write_text("\n".join(lines) + "\n")
+    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
+    latest_path.write_text(f"{record_id}.md\n")
+    print(f"\nWrote record: {record_path}")
+    return record_path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--record", action="store_true", help="write an evidence record")
+    parser.add_argument(
+        "--corners", action="store_true",
+        help="run the full ratified PVT grid (9 OAT points) instead of the "
+        "single tt/27C/1.8V corner",
+    )
+    parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
     check = toolchain.check_env()
@@ -676,6 +939,23 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="sampling-acquisition-settling-") as tmp:
         scratch = Path(tmp)
+
+        if args.corners:
+            points = run_corners(scratch, quiet=args.quiet)
+            incomplete = [p for p in points if not p["complete"]]
+            if incomplete:
+                print(
+                    f"FAIL: {len(incomplete)}/{len(points)} corner points "
+                    "produced incomplete measurements."
+                )
+                if args.record:
+                    write_corners_record(points)
+                return 1
+            print(f"\nOVERALL: PASS (all {len(points)} corner points produced values)")
+            if args.record:
+                write_corners_record(points)
+            return 0
+
         crossing_rows, budget_rows, netlist_sample = run_all(scratch)
 
         incomplete = any(r["delay_ns"] is None for r in crossing_rows) or any(
