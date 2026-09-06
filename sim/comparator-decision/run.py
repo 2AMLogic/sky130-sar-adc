@@ -514,7 +514,10 @@ def run_regen_corners(
     built from the ratified corner set (spec/target-spec.md's "Numeric rows
     -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
     process corners), at CORNERS_VINDIFF_SWEEP_MV."""
-    info = pdk.resolve_or_raise()
+    # Fail fast on an unresolvable PDK before spending the corner grid's
+    # runtime -- the returned PdkInfo is unused here (run_regen_sweep()
+    # re-resolves it for each point), so the call is kept, not the binding.
+    pdk.resolve_or_raise()
     sweep = vindiff_sweep_mv or CORNERS_VINDIFF_SWEEP_MV
     supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
     grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
