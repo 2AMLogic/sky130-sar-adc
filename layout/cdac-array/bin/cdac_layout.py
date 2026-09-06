@@ -48,6 +48,10 @@ from pathlib import Path
 
 import klayout.db as kdb
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
+
+from _geometry_common import DBU, nm  # noqa: E402
+
 # --------------------------------------------------------------------------- #
 # sky130 layer table (klayout_tools.decks.sky130, klt==0.3.0 -- see
 # layout/requirements.txt). (layer, datatype) pairs, verified against that
@@ -72,8 +76,6 @@ VIA3 = (70, 44)
 MET4 = (71, 20)
 MET4_PIN = (71, 5)
 CAPM = (89, 44)
-
-DBU_UM = 0.001
 
 # --------------------------------------------------------------------------- #
 # Rule-derived sizing. Every number below clears the corresponding threshold
@@ -194,10 +196,6 @@ GATE_L_UM = 0.15
 # --------------------------------------------------------------------------- #
 # Geometry helpers
 # --------------------------------------------------------------------------- #
-def um(v: float) -> int:
-    return int(round(v / DBU_UM))
-
-
 class Canvas:
     """A `kdb.Cell` plus the layer-index cache and the handful of drawing
     primitives this generator needs."""
@@ -214,7 +212,7 @@ class Canvas:
 
     def rect(self, layer, x0: float, y0: float, x1: float, y1: float) -> None:
         self.cell.shapes(self._idx(layer)).insert(
-            kdb.Box(um(x0), um(y0), um(x1), um(y1))
+            kdb.Box(nm(x0), nm(y0), nm(x1), nm(y1))
         )
 
     def square(self, layer, cx: float, cy: float, side: float) -> None:
@@ -222,7 +220,7 @@ class Canvas:
         self.rect(layer, cx - h, cy - h, cx + h, cy + h)
 
     def label(self, layer, cx: float, cy: float, text: str) -> None:
-        self.cell.shapes(self._idx(layer)).insert(kdb.Text(text, um(cx), um(cy)))
+        self.cell.shapes(self._idx(layer)).insert(kdb.Text(text, nm(cx), nm(cy)))
 
     def wire(self, layer, x0: float, y0: float, x1: float, y1: float, w: float = WIRE_W) -> None:
         """An axis-aligned wire of width `w` between two points (the ends are
@@ -397,7 +395,7 @@ class SwitchTemplate:
 
         def _copy(src_ly: kdb.Layout, ox: float, oy: float) -> None:
             src_top = src_ly.top_cell()
-            trans = kdb.Trans(um(ox), um(oy))
+            trans = kdb.Trans(nm(ox), nm(oy))
             for src_li in src_ly.layer_indexes():
                 info = src_ly.get_info(src_li)
                 dst_li = c.layout.layer(info)
@@ -881,14 +879,14 @@ def main() -> int:
         tmpdir = Path(td)
         if args.unit_cell_out:
             ly = kdb.Layout()
-            ly.dbu = DBU_UM
+            ly.dbu = 1 / DBU
             cell = ly.create_cell("cdac_unit_cell")
             summary["unit_cell"] = build_unit_cell(ly, cell, tmpdir)
             ly.write(str(args.unit_cell_out))
             print(f"wrote {args.unit_cell_out}")
         if args.array_out:
             ly = kdb.Layout()
-            ly.dbu = DBU_UM
+            ly.dbu = 1 / DBU
             cell = ly.create_cell("cdac_array")
             summary["array"] = build_array(ly, cell, tmpdir)
             ly.write(str(args.array_out))
