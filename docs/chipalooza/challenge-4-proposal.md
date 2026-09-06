@@ -177,15 +177,25 @@ the checker's sensitivity — see
 **No top-level assembled ADC layout (GDS) exists yet** — the routed
 integration of the four sub-block layouts into one top-level GDS matching
 `design/sar_adc_top.sch`'s hierarchy is tracked as issue #103. All four of
-#103's sub-block dependencies are now closed (Curator re-check, 2026-09-05:
-`loom:blocked` removed, `loom:curated` applied), and #103 has since advanced
-further: Champion promoted it to `loom:issue` (review comment,
-2026-09-05T23:47:57Z) and a Builder claimed it (`loom:building`, lease
-acquired 2026-09-05T23:52:56Z) — implementation is in progress but **not yet
-merged** (live check, this pass: issue still `OPEN`, no top-level GDS or
-`layout/sar-adc-top/` evidence committed yet). All roll up under the layout
-epic #25. This is the single largest gap between this design and the brief's
-sign-off bar (§4, §7).
+#103's original sub-block dependencies are closed, and #103 has since
+shipped a fifth composition-level block it needs directly,
+`layout/seln-inverters/` (the nine `SELn<i> = NOT(DOUT<i>)` glue inverters
+`design/sar_adc_top.sch` adds at the integration level; DRC-clean and
+LVS-clean on its own, PR #166). That same PR's floorplan/routing
+investigation — direct KLayout-API inspection of every sub-block's own
+committed GDS geometry, not just each block's published pin-position table —
+found a real sub-block-layout completeness gap: `cdac_array`'s (#100) `VDD`
+pin is a bare `nwell` region with no drawn tap/contact anywhere on it, and
+its `SELp<i>`/`SELn<i>` pins are bare-poly straps with no safe field-poly
+landing area, so neither can be physically contacted by a top-level
+composition without risking a silent electrical defect. That gap is now
+tracked as **#165** (`loom:issue`, not yet claimed) and #103 is **blocked on
+it** (`loom:blocked` re-applied) — every *other* top-level pin was
+independently verified to have real, externally-reachable conductor, so the
+composition/routing plan is otherwise ready to execute once #165 lands (see
+`layout/sar-adc-top/README.md` for the full per-pin geometry investigation).
+All roll up under the layout epic #25. This is the single largest gap
+between this design and the brief's sign-off bar (§4, §7).
 
 ---
 
@@ -235,7 +245,7 @@ audience with an explicit Challenge-brief verdict column.
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
 | Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **BLOCKED** — no top-level layout exists (§3, §7); no area figure to report | — |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (all four sub-block dependencies #99-#102 closed as of 2026-09-05, #103 itself not yet built), under epic #25 | — |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (all four original sub-block dependencies #99-#102 closed, #103 itself now blocked on #165, a sub-block-layout completeness gap on `cdac_array`'s VDD/SELp/SELn pins), under epic #25 | — |
 | **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **UNMET / BLOCKED** — same blocker as above | — |
 
 ### Reproducing this table
@@ -334,17 +344,32 @@ tracker already owns.
    fixed (the array's 1024 drawn unit capacitors now compare 1:1 against
    the reference, with no folding needed); the replacement record's LVS
    match reproduces on repeat runs, so #100 is once again reported
-   LVS-clean here. With all four sub-block dependencies closed, #103's
-   Curator dependency re-check (2026-09-05) removed its `loom:blocked`
-   label and applied `loom:curated`, Champion promoted it to `loom:issue`
-   (2026-09-05T23:47:57Z), and a Builder claimed it (`loom:building`, lease
-   acquired 2026-09-05T23:52:56Z) — **it is now actively being built, but
-   has not yet merged** (live check, this pass: issue still `OPEN`, no
-   `layout/sar-adc-top/`-style top-level GDS evidence committed yet). All
-   four sub-block issues and #103 roll up under epic #25 / tracker #23.
-   **#103 is now the single remaining blocker for the brief's "post-layout
-   PVT simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** —
-   that criterion is marked UNMET / BLOCKED in §4, not fabricated or
+   LVS-clean here. With all four original sub-block dependencies closed,
+   #103 was promoted (`loom:issue`, 2026-09-05T23:47:57Z) and claimed by a
+   Builder (`loom:building`, lease acquired 2026-09-05T23:52:56Z), which
+   shipped a fifth composition-level block the assembly needs directly —
+   `layout/seln-inverters/` (nine `SELn<i> = NOT(DOUT<i>)` glue inverters
+   `design/sar_adc_top.sch` adds at the integration level; DRC-clean and
+   LVS-clean, PR #166) — plus a floorplan/routing investigation that probed
+   every sub-block's own committed GDS geometry directly (not just each
+   block's published pin-position table). That investigation found a real
+   sub-block-layout completeness gap, not a floorplan/routing question this
+   issue can resolve on its own: `cdac_array`'s (#100) `VDD` pin is a bare
+   `nwell` region with zero drawn tap/contact, and its `SELp<i>`/`SELn<i>`
+   pins are bare-poly straps with no safe field-poly landing area — neither
+   can be physically contacted by a top-level composition without risking a
+   silent electrical defect (full detail in
+   `layout/sar-adc-top/README.md`). That gap is tracked as **#165**
+   (`cdac_array: VDD (nwell) and SELp/SELn (poly gate) pins have no
+   externally-contactable landing geometry`, `loom:issue`, not yet claimed),
+   and #103 is **`loom:blocked` on it again** — every *other* top-level pin
+   was independently verified to have real, externally-reachable conductor,
+   so the composition/routing plan is otherwise ready to execute once #165
+   lands. All four original sub-block issues, #165, and #103 roll up under
+   epic #25 / tracker #23. **#103 (now gated on #165) is the single
+   remaining blocker for the brief's "post-layout PVT simulation and
+   DRC/LVS-clean GDS in-repo" acceptance criterion** — that criterion is
+   marked UNMET / BLOCKED in §4, not fabricated or
    optimistically assumed.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
