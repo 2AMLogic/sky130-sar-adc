@@ -131,6 +131,39 @@ combined-card reference could be restored — but the per-unit form above is
 simpler, needs no such guarantee, and is not planned to change back
 without a concrete reason to.
 
+## VDD and SELp/SELn landing geometry — issue #165
+
+`cdac_array`'s `VDD` pin used to be a bare `nwell` rectangle with no tap or
+contact drawn on it, and each `SELp<i>`/`SELn<i>` (i=0..8) pin used to be a
+bare poly strap held at exactly the switch transistors' own channel width
+end to end. Both were LVS-clean at this sub-block's own scope (the reference
+subckt's ports only need to resolve to *some* named node), but neither had
+any drawn conductor a top-level assembly (issue #103) could physically land
+a wire on — sky130 has no global n-well connectivity fallback the way it
+does for an unconnected p-substrate body (which is why `GND` connects for
+free chip-wide but `VDD` did not).
+
+Fixed with:
+
+- **`VDD`**: a real n-well tap (`tap.drawing` + li1 + a licon1 column,
+  mirroring `layout/comparator/bin/build_layout.py`'s own `tap_shapes()`
+  recipe) contacted up through mcon to a met1 landing pad, placed in the
+  open gap between the VREFN riser and the first switch's own diffusion —
+  clear of every switch's geometry.
+- **`SELp<i>`/`SELn<i>`**: a poly landing extension merged onto each gate-tie
+  strap *outside* the diffusion-overlap region — specifically inside
+  `SwitchTemplate.GAP_UM`'s own vertical clearance between the nfet and pfet
+  blocks, which is diffusion-free by construction — offset away from the
+  switch's own drain li1 riser, ending in a licon1/li1 pad sized to the same
+  0.42 µm-square field-poly convention `klt gen mos_array`'s own gate pads
+  use. The strap itself is untouched at its original channel width, so
+  nothing here can be read as widening the transistors' extracted gate
+  length.
+
+Verified directly against `klt extract`'s per-device report: every one of
+the 18 switch transistors' `L=0.15U` is byte-identical before and after (see
+the PR for issue #165), and DRC/LVS both stay clean.
+
 ---
 
 # The matching strategy

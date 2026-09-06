@@ -1,0 +1,28 @@
+* cdac_unit_cell.lvs-reference.spice -- GENERATED, do not edit by hand.
+*
+* Regenerate with: layout/cdac-array/bin/generate-lvs-reference.py
+* Source of truth: design/cdac/cdac_unit_cell.sch (issue #53), netlisted headlessly
+* by xschem and rewritten into `klt extract --deck sky130`'s own device
+* vocabulary. See that script's docstring for the three rewrites and why
+* each is a change of vocabulary rather than of topology.
+*
+* Unit capacitor: the schematic sizes the MiM plate W=L=1.8988 um; the
+* drawn plate is the nearest 1 nm-grid square, 1.898 um, whose
+* capacitance under the extraction deck's own published coefficients
+* (area 2.0 fF/um^2, perimeter 0.19 fF/um) is
+* C_unit = 8.647288000e-15 F. A bit of weight w carries `MF=w` in the
+* schematic and w drawn unit capacitors in the layout, so its reference is
+* w separate C cards of C_unit each -- one per physically drawn unit,
+* compared 1:1 against the layout's own w extracted unit devices with no
+* `klt lvs` `combine_devices` folding needed on either side (issue #148:
+* `Netlist.combine_devices()` does not reliably re-sum w identical-valued
+* parallel capacitors into one device for w in the hundreds).
+*
+* Substrate: the schematic's VSS (every nfet bulk) appears here as
+* `vsubs`, the name the sky130 extraction deck gives its
+* synthesized global substrate net.
+.SUBCKT cdac_unit_cell TOP BOT SEL VREFP VREFN VDD vsubs
+C1 BOT TOP 8.647288000e-15 sky130_fd_pr__model__cap_mim
+M1 BOT SEL VREFN vsubs nfet L=0.15U W=1U
+M2 BOT SEL VREFP VDD pfet L=0.15U W=2U
+.ENDS cdac_unit_cell
