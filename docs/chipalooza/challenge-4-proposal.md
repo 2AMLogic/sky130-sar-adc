@@ -322,8 +322,8 @@ audience with an explicit Challenge-brief verdict column.
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.8643 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)). Re-measured this pass against issue #175's amended (reset-integrity-fixed) device set — the binding-corner figure moved from 0.9591 to 0.8643 mV rms; the pass/fail outcome is unchanged | [`sim/comparator-decision/records/20260906-065109-eedd532.md`](../../sim/comparator-decision/records/20260906-065109-eedd532.md) |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | `sim/harness-corner-smoke/records/`, `sim/mc-smoke/records/` |
 | Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (one mechanism now PVT-complete)** — no full-hierarchy campaign exists; the 1.2–12 MHz timing budget is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is bounded at one corner (`tt`/27 °C/1.8 V): worst case 11.39 ns at bit 8/MSB, 7.3× inside the DR-006-derived 83.33 ns phase budget — not the bottleneck at that corner. (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). Sequencer logic delay and front-end acquisition remain wholly unmeasured, so this is still not an end-to-end sample-rate number | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, one corner); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete) |
-| ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only, DOES NOT MEET even the un-ratified DR-007 candidate**: 8.491 bit (mean-case CDAC mismatch) meets the DR-007 candidate but 7.749 bit (worst-case) does not; neither number is graded against a ratified line because none exists | [`sim/enob-estimate/records/20260828-005033-0c70212.md`](../../sim/enob-estimate/records/20260828-005033-0c70212.md) |
-| INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim; not re-evaluated against DR-007's wider ±2.0 LSB candidate in this document (no new campaign run here) | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) |
+| ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only — no ratified line exists to grade against.** Against `spec/target-spec.md`'s *current* DRAFT row (DR-007's candidate pair): 8.506 bit (mean-case CDAC mismatch) **meets** both the > 7.5 baseline and the > 8.0 stretch; 7.755 bit (worst-case CDAC mismatch) **meets the > 7.5 baseline but NOT the > 8.0 stretch**. Against the *original*, pre-DR-007 DRAFT row (> 9.0 / > 9.5) neither figure meets either bound. Re-composed this pass against DR-004 Amendment A's amended comparator-noise figure (0.8643 mV rms, down from 0.9591 — the same figure the comparator-noise row above already cites), moving the estimate from 8.491/7.749 to 8.506/7.755; the met/unmet outcome is unchanged in kind. **Correction**: this row previously headlined "DOES NOT MEET even the un-ratified DR-007 candidate", which overstated the shortfall — the source record's own scoring table marks the worst case as *meeting* the > 7.5 baseline, failing only the > 8.0 stretch (see §7 Item 4) | [`sim/enob-estimate/records/20260906-173830-6f04f59.md`](../../sim/enob-estimate/records/20260906-173830-6f04f59.md) (DR-007-candidate scoring, composed from the post-amendment comparator noise); [`sim/enob-estimate/records/20260906-082749-7724af3.md`](../../sim/enob-estimate/records/20260906-082749-7724af3.md) (identical figures scored against the original > 9.0 / > 9.5 row — the record `docs/characterization-report.md` pins) |
+| INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim. A re-scoring against DR-007's wider ±2.0 LSB candidate **does** exist in-repo (a pure re-parse of the same 40 committed mismatch draws, no new ngspice run): its worst single draw is max\|DNL\| = 1.9716 LSB and max\|INL\| = 1.3147 LSB, i.e. every sampled draw falls inside the ±2.0 LSB candidate bound — but `klt yield` produced no report in that record's environment (a known, already-filed packaging gap, klayout-tools#1061), so there is **no machine-checked yield-fraction verdict against the candidate bound**, and N=40 is not sized for a tight yield-fraction claim in any case. Not graded met/unmet here: the candidate bound is not ratified | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) (original ≤ ±1 LSB scoring — the record `docs/characterization-report.md` pins); [`sim/cdac-array-transfer/records/20260828-022618-f36913e.md`](../../sim/cdac-array-transfer/records/20260828-022618-f36913e.md) (DR-007-candidate re-scoring of the same draws) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
 | Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². Unchanged by issue #180's comparator re-draw (re-verified against the latest report below). This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json) |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
@@ -519,6 +519,17 @@ tracker already owns.
    waiting on a `klayout-tools` release newer than the PyPI-pinned 0.4.0 to
    consume klayout-tools#1515's `--pin-source-cells` fix — unchanged by this
    update.
+
+   **Re-verified 2026-09-06 (this pass, live, no new layout work)**: #103 is
+   still open and still carries `loom:blocked`, and PyPI's `klayout-tools`
+   still tops out at **0.4.0** — the version `layout/requirements.txt`
+   already pins — so klayout-tools#1515's fix remains merged-but-unreleased
+   and the LVS-match blocker is unchanged. No new top-level layout record
+   was produced this pass, and none is claimed: §4's "post-layout PVT
+   simulation, full ADC" row stays **UNMET / BLOCKED** and its "DRC/LVS-clean
+   GDS, full ADC" row stays **PARTIAL (DRC met, LVS unmet)**, citing the same
+   `20260906-101939-1250ff4` record as before. The brief's sign-off bar
+   (acceptance criterion 3) is therefore still not met.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
@@ -666,6 +677,51 @@ tracker already owns.
    record) ratifies, §4's ENOB/INL-DNL rows stay informational, per
    `CLAUDE.md`'s "do not relax a spec line to make a result pass" rule —
    this document does not treat DR-007's candidate numbers as settled.
+
+   **Update this pass (2026-09-06)**: DR-007's status was re-checked live —
+   still `proposed`, still not ratified, so this item does not close. Two
+   traceability defects in §4's rows were found and fixed, however:
+   - The **ENOB row was one amendment stale**. It cited
+     `sim/enob-estimate/records/20260828-005033-0c70212.md` (8.491/7.749
+     bit), composed from the *pre*-DR-004-Amendment-A comparator-noise
+     figure of 0.9591 mV rms — even though the comparator-noise row directly
+     above it had already been updated to the amended 0.8643 mV rms figure.
+     The machine-checked `docs/characterization-report.md` had already
+     carried the re-composed 8.506/7.755 figures since issue #175's pass;
+     §4 had not. No post-amendment record scored those figures against
+     DR-007's *candidate* pair (the only candidate-scored record,
+     `20260828-024246-f36913e.md`, is also pre-amendment), so this pass
+     minted one —
+     [`sim/enob-estimate/records/20260906-173830-6f04f59.md`](../../sim/enob-estimate/records/20260906-173830-6f04f59.md),
+     a derived/composite re-scoring with no new ngspice run, per
+     `sim/enob-estimate/run_enob.py`'s own `--target-baseline-bit`/
+     `--target-stretch-bit` path — so §4's DR-007-candidate verdict now
+     traces to current evidence instead of pre-amendment evidence.
+   - The **ENOB row's verdict was mis-stated**. It headlined "DOES NOT MEET
+     even the un-ratified DR-007 candidate", but DR-007's candidate pair is
+     `> 7.5 bit` baseline / `> 8.0 bit` stretch, and both the old and the
+     re-composed worst-case figures (7.749, now 7.755 bit) clear the > 7.5
+     baseline — the shortfall is against the > 8.0 *stretch* only, exactly
+     as the source records' own scoring tables report. Overstating a
+     shortfall is as much a departure from the evidence as understating
+     one; the row now states the baseline/stretch split explicitly rather
+     than collapsing it.
+   - The **INL/DNL row claimed no DR-007-candidate re-evaluation existed**
+     ("not re-evaluated against DR-007's wider ±2.0 LSB candidate in this
+     document"). One does:
+     [`sim/cdac-array-transfer/records/20260828-022618-f36913e.md`](../../sim/cdac-array-transfer/records/20260828-022618-f36913e.md)
+     re-parses the same 40 committed mismatch draws against the ±2.0 LSB
+     candidate. It is now cited — with its own limitation stated rather
+     than smoothed over: `klt yield` produced no report in that record's
+     environment, so it establishes only that every sampled draw's worst
+     case (max\|DNL\| = 1.9716 LSB, max\|INL\| = 1.3147 LSB) falls inside
+     the candidate bound, **not** a machine-checked yield-fraction verdict
+     against it. Unlike the ENOB estimate, this record is unaffected by
+     DR-004 Amendment A (it composes no comparator term), so its numbers
+     did not drift and no re-run was needed.
+
+   Neither correction changes any met/unmet outcome in kind, and neither
+   ratifies anything: DR-007's candidates remain candidates.
 5. **Differential-reference vs. single "bandgap reference" slot mismatch**
    (§2.2). This design's `VREFP`/`VREFN` pair does not map cleanly onto a
    single bias/bandgap-reference budget line the way the port-parity
@@ -718,6 +774,11 @@ tracker already owns.
    #4's own (unpublished) text. Per this issue's own acceptance criterion, a
    follow-up pass is required once it publishes, to verify or correct §2's
    numbers — not performed here because the source does not exist yet.
+   **Re-checked 2026-09-06**: `https://opencircuitdesign.com/chipalooza/rules-4.html`
+   still returns HTTP 404, consistent with the epic's tracked 2026-11-09
+   publish date. §2's numbers therefore stay assumptions, and no slot-budget
+   figure in this document has been reconciled against Challenge #4's own
+   rules — that reconciliation remains owed, not silently assumed done.
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
