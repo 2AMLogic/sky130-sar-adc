@@ -178,11 +178,14 @@ the checker's sensitivity — see
 integration of the four sub-block layouts into one top-level GDS matching
 `design/sar_adc_top.sch`'s hierarchy is tracked as issue #103. All four of
 #103's sub-block dependencies are now closed (Curator re-check, 2026-09-05:
-`loom:blocked` removed, `loom:curated` applied) — #103 itself has not yet
-been claimed or built; it is the sole remaining item and awaits `loom:issue`
-promotion and a Builder pass. All roll up under the layout epic #25. This is
-the single largest gap between this design and the brief's sign-off bar
-(§4, §7).
+`loom:blocked` removed, `loom:curated` applied), and #103 has since advanced
+further: Champion promoted it to `loom:issue` (review comment,
+2026-09-05T23:47:57Z) and a Builder claimed it (`loom:building`, lease
+acquired 2026-09-05T23:52:56Z) — implementation is in progress but **not yet
+merged** (live check, this pass: issue still `OPEN`, no top-level GDS or
+`layout/sar-adc-top/` evidence committed yet). All roll up under the layout
+epic #25. This is the single largest gap between this design and the brief's
+sign-off bar (§4, §7).
 
 ---
 
@@ -333,13 +336,16 @@ tracker already owns.
    match reproduces on repeat runs, so #100 is once again reported
    LVS-clean here. With all four sub-block dependencies closed, #103's
    Curator dependency re-check (2026-09-05) removed its `loom:blocked`
-   label and applied `loom:curated` — #103 is now unblocked but **has not
-   yet been claimed or built**; it awaits `loom:issue` promotion and a
-   Builder pass. All four sub-block issues and #103 roll up under epic
-   #25 / tracker #23. **#103 is now the single remaining blocker for the
-   brief's "post-layout PVT simulation and DRC/LVS-clean GDS in-repo"
-   acceptance criterion** — that criterion is marked UNMET / BLOCKED in §4,
-   not fabricated or optimistically assumed.
+   label and applied `loom:curated`, Champion promoted it to `loom:issue`
+   (2026-09-05T23:47:57Z), and a Builder claimed it (`loom:building`, lease
+   acquired 2026-09-05T23:52:56Z) — **it is now actively being built, but
+   has not yet merged** (live check, this pass: issue still `OPEN`, no
+   `layout/sar-adc-top/`-style top-level GDS evidence committed yet). All
+   four sub-block issues and #103 roll up under epic #25 / tracker #23.
+   **#103 is now the single remaining blocker for the brief's "post-layout
+   PVT simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** —
+   that criterion is marked UNMET / BLOCKED in §4, not fabricated or
+   optimistically assumed.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
