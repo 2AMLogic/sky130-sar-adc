@@ -1,0 +1,26 @@
+VERSION 5.8 ;
+DESIGN sar_adc_top ;
+UNITS DISTANCE MICRONS 1000 ;
+DIEAREA ( 0 0 ) ( 1000 1000 ) ;
+PINS 19 ;
+    - VINP ;
+    - VINN ;
+    - VDD ;
+    - VREFP ;
+    - VREFN ;
+    - VCM ;
+    - CLK ;
+    - RST_B ;
+    - DOUT9 ;
+    - DOUT8 ;
+    - DOUT7 ;
+    - DOUT6 ;
+    - DOUT5 ;
+    - DOUT4 ;
+    - DOUT3 ;
+    - DOUT2 ;
+    - DOUT1 ;
+    - DOUT0 ;
+    - BUSY ;
+END PINS
+END DESIGN

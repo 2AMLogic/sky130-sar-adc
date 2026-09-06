@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Floorplan + route the dynamic comparator sub-block (issue #101).
+"""Floorplan + route the dynamic comparator sub-block (issue #101, re-drawn
+for DR-004 Amendment A's 11-device topology in issue #180).
 
 Emits the two documents `layout/comparator/bin/run-flow.sh` feeds to `klt`:
 
@@ -7,7 +8,7 @@ Emits the two documents `layout/comparator/bin/run-flow.sh` feeds to `klt`:
   sub-block (met1 branches, met2 trunks, mcon/via cuts, the two body-tie tap
   structures, the merged n-well, and the seven top-level pin labels), drawn in
   the *composed* coordinate system.
-* ``compose.request.json`` -- a ``klt gen-compose`` request that places the five
+* ``compose.request.json`` -- a ``klt gen-compose`` request that places the six
   matched device blocks `gen_blocks.py` generated, plus the routing cell above,
   at explicit origins, with **no** ``routing`` block.
 
@@ -121,20 +122,32 @@ LICON_PITCH_UM = 0.60
 # --- schematic connectivity --------------------------------------------------
 # Net -> [(block id, port name)], transcribed device-by-device from
 # design/comparator.sch (sim/comparator-decision/testbench/comparator_core.spice
-# is the xschem-derived device list this was checked against, pin for pin):
+# is the xschem-derived device list this was checked against, pin for pin),
+# post DR-004 Amendment A (issue #175/#180): the input pair's drains moved off
+# OUTP/OUTN onto their own internal nodes DIP/DIN, the latch NMOS pair's
+# sources moved off GND onto those same nodes, and a CLK-gated PMOS precharge
+# device was added on each (M_RST_DIP/M_RST_DIN, the `rstd` block):
 #
-#   XM_TAIL   TAIL CLK  GND  -> tail.U0        (D G S)
-#   XM_INN    OUTP VINN TAIL -> inpair.Q1_{1,2}
-#   XM_INP    OUTN VINP TAIL -> inpair.Q2_{1,2}
-#   XM_LATN_P OUTP OUTN GND  -> latn.Q1_1
-#   XM_LATN_N OUTN OUTP GND  -> latn.Q2_1
-#   XM_LATP_P OUTP OUTN VDD  -> latp.Q1_1
-#   XM_LATP_N OUTN OUTP VDD  -> latp.Q2_1
-#   XM_RST_P  OUTP CLK  VDD  -> rst.Q1_1
-#   XM_RST_N  OUTN CLK  VDD  -> rst.Q2_1
+#   XM_TAIL    TAIL CLK  GND -> tail.U0        (D G S)
+#   XM_INN     DIP  VINN TAIL -> inpair.Q1_{1,2}
+#   XM_INP     DIN  VINP TAIL -> inpair.Q2_{1,2}
+#   XM_LATN_P  OUTP OUTN DIP -> latn.Q1_1      (D G S)
+#   XM_LATN_N  OUTN OUTP DIN -> latn.Q2_1
+#   XM_LATP_P  OUTP OUTN VDD -> latp.Q1_1
+#   XM_LATP_N  OUTN OUTP VDD -> latp.Q2_1
+#   XM_RST_P   OUTP CLK  VDD -> rst.Q1_1
+#   XM_RST_N   OUTN CLK  VDD -> rst.Q2_1
+#   XM_RST_DIP DIP  CLK  VDD -> rstd.Q1_1
+#   XM_RST_DIN DIN  CLK  VDD -> rstd.Q2_1
 NET_PINS: dict[str, list[tuple[str, str]]] = {
-    "GND": [("tail", "U0_S"), ("latn", "Q1_1_S"), ("latn", "Q2_1_S")],
-    "CLK": [("tail", "U0_G"), ("rst", "Q1_1_G"), ("rst", "Q2_1_G")],
+    "GND": [("tail", "U0_S")],
+    "CLK": [
+        ("tail", "U0_G"),
+        ("rst", "Q1_1_G"),
+        ("rst", "Q2_1_G"),
+        ("rstd", "Q1_1_G"),
+        ("rstd", "Q2_1_G"),
+    ],
     "TAIL": [
         ("tail", "U0_D"),
         ("inpair", "Q1_1_S"),
@@ -147,12 +160,12 @@ NET_PINS: dict[str, list[tuple[str, str]]] = {
         ("latp", "Q2_1_S"),
         ("rst", "Q1_1_S"),
         ("rst", "Q2_1_S"),
+        ("rstd", "Q1_1_S"),
+        ("rstd", "Q2_1_S"),
     ],
     "VINN": [("inpair", "Q1_1_G"), ("inpair", "Q1_2_G")],
     "VINP": [("inpair", "Q2_1_G"), ("inpair", "Q2_2_G")],
     "OUTP": [
-        ("inpair", "Q1_1_D"),
-        ("inpair", "Q1_2_D"),
         ("latn", "Q1_1_D"),
         ("latn", "Q2_1_G"),
         ("latp", "Q1_1_D"),
@@ -160,27 +173,39 @@ NET_PINS: dict[str, list[tuple[str, str]]] = {
         ("rst", "Q1_1_D"),
     ],
     "OUTN": [
-        ("inpair", "Q2_1_D"),
-        ("inpair", "Q2_2_D"),
         ("latn", "Q2_1_D"),
         ("latn", "Q1_1_G"),
         ("latp", "Q2_1_D"),
         ("latp", "Q1_1_G"),
         ("rst", "Q2_1_D"),
     ],
+    "DIP": [
+        ("inpair", "Q1_1_D"),
+        ("inpair", "Q1_2_D"),
+        ("latn", "Q1_1_S"),
+        ("rstd", "Q1_1_D"),
+    ],
+    "DIN": [
+        ("inpair", "Q2_1_D"),
+        ("inpair", "Q2_2_D"),
+        ("latn", "Q2_1_S"),
+        ("rstd", "Q2_1_D"),
+    ],
 }
 
-#: Nets promoted to top-level pins (labelled on met1.pin).  TAIL is deliberately
-#: absent: it is an internal node of design/comparator.sch, and the LVS
-#: reference declares exactly these seven ports.
+#: Nets promoted to top-level pins (labelled on met1.pin).  TAIL, DIP and DIN
+#: are deliberately absent: they are internal nodes of design/comparator.sch,
+#: and the LVS reference declares exactly these seven ports.
 PIN_NETS = ("VDD", "GND", "CLK", "VINP", "VINN", "OUTP", "OUTN")
 
 #: Order the nets are routed in.  Two rules, both load-bearing:
 #:   * a gate-fed net goes first -- a gate pad is only 0.42 um tall, so its mcon
 #:     y is essentially pinned and it has the least freedom to be routed around;
 #:   * the *positive* half of each differential pair goes before its negative
-#:     half, because the negative half mirrors it (see MIRROR_PIN).
-ROUTE_ORDER = ("VINN", "VINP", "CLK", "OUTP", "OUTN", "TAIL", "GND", "VDD")
+#:     half, because the negative half mirrors it (see MIRROR_PIN). DIP (the
+#:     M_INN-side node) is the positive half of the DIP/DIN pair and routes
+#:     before DIN for the same reason OUTP routes before OUTN.
+ROUTE_ORDER = ("VINN", "VINP", "CLK", "OUTP", "OUTN", "DIP", "DIN", "TAIL", "GND", "VDD")
 
 #: Mirror pairing for the differential signal nets: ``negative-half pin ->
 #: positive-half pin it is the Y_AXIS mirror image of``.
@@ -213,12 +238,20 @@ ROUTE_ORDER = ("VINN", "VINP", "CLK", "OUTP", "OUTN", "TAIL", "GND", "VDD")
 #: true mirror images (they span their device's full height, and the floorplan
 #: aligns the Q1/Q2 boundary to ``Y_AXIS``), which is where the mirror
 #: preference buys something real.
+#: Post-#180: `inpair`'s drain pins now feed DIP/DIN (not OUTP/OUTN -- see
+#: NET_PINS), and `latn`'s *source* pins join them (the latch NMOS sources
+#: moved off GND onto DIP/DIN). The pairing relationships themselves are
+#: unchanged -- Q1 <-> Q2 by device role -- only which net drives each pin.
+#: `rstd`'s drain pins (the new precharge devices) get the same Q1<->Q2
+#: mirror treatment as every other two-device block's D pins.
 MIRROR_PIN: dict[tuple[str, str], tuple[str, str]] = {
     ("inpair", "Q2_1_D"): ("inpair", "Q1_2_D"),  # (right, above) <-> (right, below)
     ("inpair", "Q2_2_D"): ("inpair", "Q1_1_D"),  # (left,  above) <-> (left,  below)
     ("latn", "Q2_1_D"): ("latn", "Q1_1_D"),
+    ("latn", "Q2_1_S"): ("latn", "Q1_1_S"),
     ("latp", "Q2_1_D"): ("latp", "Q1_1_D"),
     ("rst", "Q2_1_D"): ("rst", "Q1_1_D"),
+    ("rstd", "Q2_1_D"): ("rstd", "Q1_1_D"),
 }
 
 #: The gate-side counterpart of MIRROR_PIN: ``pin -> pin whose y-track it should
@@ -244,60 +277,81 @@ SAME_TRACK_PIN: dict[tuple[str, str], tuple[str, str]] = {
 Y_AXIS = 20.0
 
 #: Block x origins (left to right).  Channel widths are ~2 um -- enough for the
-#: two met2 trunks each channel carries plus clearance.
+#: met2 trunks each channel carries plus clearance.  `rstd` (the DR-004
+#: Amendment A precharge pair, issue #180) sits to the right of `rst`, inside
+#: the same merged n-well -- see NWELL_BOX/TAPS below, both widened to reach it.
 BLOCK_X = {
     "tail": 2.00,
     "inpair": 5.50,
     "latn": 10.70,
     "latp": 14.20,
     "rst": 18.00,
+    "rstd": 23.00,
 }
 
 #: Per-block y offset applied to Y_AXIS.  For a two-device diff_pair block this
 #: is the block-local y of the Q1/Q2 boundary (so the boundary lands on
 #: Y_AXIS); for the single-device blocks it is the device's own centre.
+#: `rstd` is a W=4um diff_pair -- same unit-device geometry as `latn` (its
+#: port y-coordinates are byte-identical; only the pfet n-well margin shifts
+#: the bbox, not the active-area layout), so it reuses `latn`'s anchor.
 BLOCK_Y_ANCHOR = {
     "tail": 4.00,  # centre of the single W=8 tail device
     "inpair": 2.61,  # centre of the 2x2 cross-quad
     "latn": 4.61,  # Q1 top (4.00) .. Q2 bottom (5.22) midpoint
     "latp": 8.61,
     "rst": 16.61,
+    "rstd": 4.61,  # same W=4um port geometry as latn -- see docstring above
 }
 
 #: Per-net met2 trunk x positions.  Sorted across all nets these are >= 0.5 um
 #: apart, which clears m2.2 (0.14) with a 0.30 um wire by a wide margin.  A net
-#: with two entries gets one met1 spine joining them.
+#: with N>1 entries gets N-1 met1 spines chaining them into one wire (see
+#: `build()`'s `zip(trunks, trunks[1:])` loop).  GND now needs only one trunk:
+#: post-#180 its only real pins are the tail source and the GND tap (both near
+#: x~0-2) -- the latch NMOS sources that used to need a second, distant trunk
+#: moved onto DIP/DIN. DIP/DIN and a third CLK/VDD trunk reach the new `rstd`
+#: block and the VDD tap it displaced further right.
 TRUNK_X = {
-    "GND": (1.30, 9.60),
-    "CLK": (1.90, 16.40),
+    "GND": (1.30,),
+    "CLK": (1.90, 16.40, 23.80),
     "TAIL": (4.30,),
     "VINN": (4.90,),
     "VINP": (9.10,),
     "OUTP": (10.10, 16.90),
     "OUTN": (10.60, 17.40),
-    "VDD": (17.90, 20.30),
+    "DIP": (7.40, 22.60),
+    "DIN": (7.90, 23.20),
+    "VDD": (17.90, 20.30, 24.40),
 }
 
-#: Preferred y for each net's spine (the one long wire per two-trunk net).
-#: Chosen in the sparsely-used bands above and below the nfet cluster.
+#: Preferred y for each net's spine (one long wire per multi-trunk net; every
+#: chained segment of a >2-trunk net reuses the same hint).  Chosen in the
+#: sparsely-used bands above and below the nfet cluster.  GND dropped its
+#: entry (single trunk now, no spine); DIP/DIN reuse the band GND's old
+#: second trunk freed up.
 SPINE_HINT_Y = {
-    "GND": 13.50,
     "CLK": 38.30,
     "OUTP": 12.50,
     "OUTN": 11.50,
+    "DIP": 13.50,
+    "DIN": 14.50,
     "VDD": 22.50,
 }
 
-#: Body-tie structures.  ``inside_well`` picks which body the tie serves.
+#: Body-tie structures.  ``inside_well`` picks which body the tie serves.  The
+#: VDD (n-well) tie moved right of `rstd` (issue #180) to keep it inside the
+#: same merged n-well without crowding the new block's own diffusion.
 TAPS = {
     "GND": {"x0": 0.00, "x1": 0.60, "y0": 17.00, "y1": 23.00, "inside_well": False},
-    "VDD": {"x0": 21.00, "x1": 21.60, "y0": 17.00, "y1": 23.00, "inside_well": True},
+    "VDD": {"x0": 25.50, "x1": 26.10, "y0": 17.00, "y1": 23.00, "inside_well": True},
 }
 
-#: One n-well rectangle enclosing both pfet blocks' own local wells (merging
-#: them into a single well) and extending right far enough to hold the well tie.
-#: Kept clear of every nfet block: the rightmost nfet geometry ends at x ~ 12.0.
-NWELL_BOX = {"x0": 13.90, "y0": 2.50, "x1": 24.00, "y1": 38.50}
+#: One n-well rectangle enclosing every pfet block's own local well (merging
+#: them into a single well) and extending right far enough to hold `rstd` and
+#: the well tie. Kept clear of every nfet block: the rightmost nfet geometry
+#: ends at x ~ 12.0.
+NWELL_BOX = {"x0": 13.90, "y0": 2.50, "x1": 26.60, "y1": 38.50}
 
 #: y-track grid for met1 branches.
 TRACK_Y0 = 1.50
@@ -674,6 +728,11 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         "differential_symmetry": [
             _symmetry(per_net, "OUTP", "OUTN"),
             _symmetry(per_net, "VINN", "VINP"),
+            # DIP/DIN (issue #180): the input pair's own drain nodes and the
+            # latch NMOS sources now land here, so unequal DIP/DIN wire
+            # capacitance biases the decision exactly like OUTP/OUTN's own
+            # imbalance does -- measured with the same rigor, not asserted.
+            _symmetry(per_net, "DIP", "DIN"),
         ],
     }
     return draw_params, compose_request, route_summary

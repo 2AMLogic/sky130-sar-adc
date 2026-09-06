@@ -1,0 +1,2119 @@
+* sar_adc_top.lvs-reference.spice -- GENERATED, do not edit by hand.
+* Regenerate with: layout/sar-adc-top/bin/generate-lvs-reference.py
+* Assembles the five already-verified sub-block reference subckts
+* below (unmodified) into one hierarchical top-level netlist per
+* design/sar_adc_top.sch -- see this script's own module docstring.
+
+* --- from layout/sampling-frontend/reference.spice --------------------
+* Hand-written LVS reference netlist for the FULL sampling front end sub-block
+* (issue #99), against which layout/sampling-frontend/bin/run-flow.sh's
+* composed layout is compared.
+*
+* Scope: every device design/sampling_frontend.sch instantiates -- eleven
+* `sky130_fd_pr__nfet_01v8`, nine `sky130_fd_pr__pfet_01v8` and four
+* `sky130_fd_pr__cap_mim_m3_1` -- unlike
+* layout/sampling-frontend-wells/reference.spice, which is deliberately the
+* PFET-only slice that issue #122 needed to falsify a well-isolation claim.
+*
+* Topology and device sizing are transcribed 1:1 from
+* sim/sampling-frontend/testbench/sampling_frontend_dut.spice -- the
+* xschem-derived, already-simulated device fragment for
+* design/sampling_frontend.sch (issue #52) -- and generalized to the generic
+* `pfet`/`nfet` device classes and the `sky130_fd_pr__model__cap_mim` class
+* that `klt extract --deck sky130`'s curated deck reports (the same convention
+* layout/comparator/reference.spice, layout/cdac-array/'s generated reference
+* and layout/trivial-cell/reference.spice all use, and for the same reason:
+* the layout side can only ever report the generic class).
+*
+* THE BODY COLUMN IS LOAD-BEARING, per DR-004 / DR-007.
+* In an M-card `M<name> D G S B ...` the fourth net is the body terminal. Four
+* of the nine PFETs declare a body that is NOT VDD:
+*
+*   M_SA_P / M_SE_P  -> BOOST_P
+*   M_SA_N / M_SE_N  -> BOOST_N
+*
+* because BOOST_x rises above VDD during sampling, so a VDD-tied body would
+* forward-bias those devices' drain/body junction once BOOST exceeds VDD by a
+* diode drop. bin/build_layout.py draws three physically separate n-well
+* islands and routes each island's tap to its own domain net, so `klt extract`
+* resolves each PMOS body from the island it actually sits in;
+* reference.broken-body-tie.spice is the negative control that proves LVS can
+* *see* the body column at all.
+*
+* THE CAPACITOR TOP PLATES ARE ALSO LOAD-BEARING, and are the reason this file
+* could not exist before layout/requirements.txt moved to klt 0.4.0. On the
+* 0.3.0 pin, `klt extract`'s MiM-cap top-plate-via exclusion was scoped to the
+* whole drawn met3 layer rather than to met3 that actually touches a capm
+* plate, so every legal via3 in the layout was dropped from the deck's generic
+* via3 connectivity and all four cap top plates extracted as isolated,
+* single-terminal nets (`extract.json`'s own `single_terminal_nets[]` flagged
+* them). reference.broken-topology.spice is the negative control for exactly
+* that failure mode: it moves the two sampling caps' top plates off TOP_P/TOP_N
+* and must be reported as a mismatch.
+*
+* Capacitance values are the curated deck's own two-term law for
+* sky130_fd_pr__cap_mim_m3_1, C = camimc*W*L + cpmimc*2*(W+L) with
+* camimc = 2.0 fF/um^2 and cpmimc = 0.19 fF/um (klt's sky130 extraction deck,
+* tt corner), evaluated at the schematic's drawn plate sizes:
+*   Cboot: W=L=9.8 um  -> 2.0e-15*96.04   + 1.9e-16*39.2  = 1.99528e-13 F
+*   Csamp: W=L=46.9 um -> 2.0e-15*2199.61 + 1.9e-16*187.6 = 4.434864e-12 F
+*
+* Net names below match design/sampling_frontend.sch's own net names;
+* `klt lvs`/`NetlistComparer` compares topology rather than net names, but the
+* layout side draws eleven of them as met2.pin labels so the reported net
+* correspondence reads directly. GND is the twelfth port: it has no drawn pin
+* label, because `klt extract` synthesizes the NMOS body/substrate net
+* (`vsubs`) globally and the drawn p-substrate tap merges GND into it (see
+* bin/build_layout.py's docstring).
+*
+* Provenance: pattern (generic device classes, schematic-derived topology,
+* positive + negative controls) follows layout/comparator/reference.spice and
+* layout/sampling-frontend-wells/reference.spice; the device list is
+* re-derived from this repo's own design/sampling_frontend.sch, not copied from
+* any sibling or external implementation -- clean-room, per CLAUDE.md.
+.SUBCKT sampling_frontend VDD GND SAMPLE VCM VINP VINN TOP_P TOP_N BPREF_P
++ BPREF_N BOOST_P BOOST_N
+* --- input sampling switches (the matched differential pair) ---------------
+M_MSW_P   VINP    G_P     TOP_P   GND     nfet L=0.15U W=2U
+M_MSW_N   VINN    G_N     TOP_N   GND     nfet L=0.15U W=2U
+* --- bootstrap / precharge NFETs -------------------------------------------
+M_SB_P    BSBOT_P SAMPLEB GND     GND     nfet L=0.15U W=1U
+M_SCN_P   BSBOT_P SAMPLE  VINP    GND     nfet L=0.15U W=1U
+M_SD_P    G_P     SAMPLEB GND     GND     nfet L=0.5U  W=1U
+M_CMSWN_P BPREF_P SAMPLE  VCM     GND     nfet L=0.15U W=1U
+M_CMSWN_N BPREF_N SAMPLE  VCM     GND     nfet L=0.15U W=1U
+M_SD_N    G_N     SAMPLEB GND     GND     nfet L=0.5U  W=1U
+M_SCN_N   BSBOT_N SAMPLE  VINN    GND     nfet L=0.15U W=1U
+M_SB_N    BSBOT_N SAMPLEB GND     GND     nfet L=0.15U W=1U
+M_INVN    SAMPLEB SAMPLE  GND     GND     nfet L=0.15U W=1U
+* --- bootstrap / precharge PFETs (body column per DR-004) ------------------
+M_SA_P    BOOST_P SAMPLE  VDD     BOOST_P pfet L=0.5U  W=1U
+M_SE_P    G_P     SAMPLEB BOOST_P BOOST_P pfet L=0.15U W=1U
+M_SCP_P   BSBOT_P SAMPLEB VINP    VDD     pfet L=0.15U W=1U
+M_CMSWP_P BPREF_P SAMPLEB VCM     VDD     pfet L=0.15U W=1U
+M_INVP    SAMPLEB SAMPLE  VDD     VDD     pfet L=0.15U W=2U
+M_CMSWP_N BPREF_N SAMPLEB VCM     VDD     pfet L=0.15U W=1U
+M_SCP_N   BSBOT_N SAMPLEB VINN    VDD     pfet L=0.15U W=1U
+M_SE_N    G_N     SAMPLEB BOOST_N BOOST_N pfet L=0.15U W=1U
+M_SA_N    BOOST_N SAMPLE  VDD     BOOST_N pfet L=0.5U  W=1U
+* --- MiM capacitors: bottom plate first (P1), top plate second (P2) --------
+C_CBOOT_P BSBOT_P BOOST_P 1.99528e-13 sky130_fd_pr__model__cap_mim
+C_CBOOT_N BSBOT_N BOOST_N 1.99528e-13 sky130_fd_pr__model__cap_mim
+C_CSAMP_P BPREF_P TOP_P   4.434864e-12 sky130_fd_pr__model__cap_mim
+C_CSAMP_N BPREF_N TOP_N   4.434864e-12 sky130_fd_pr__model__cap_mim
+.ENDS sampling_frontend
+
+* --- from layout/cdac-array/reference/cdac_array.lvs-reference.spice --------------------
+* cdac_array.lvs-reference.spice -- GENERATED, do not edit by hand.
+*
+* Regenerate with: layout/cdac-array/bin/generate-lvs-reference.py
+* Source of truth: design/cdac/cdac_array.sch (issue #53), netlisted headlessly
+* by xschem and rewritten into `klt extract --deck sky130`'s own device
+* vocabulary. See that script's docstring for the three rewrites and why
+* each is a change of vocabulary rather than of topology.
+*
+* Unit capacitor: the schematic sizes the MiM plate W=L=1.8988 um; the
+* drawn plate is the nearest 1 nm-grid square, 1.898 um, whose
+* capacitance under the extraction deck's own published coefficients
+* (area 2.0 fF/um^2, perimeter 0.19 fF/um) is
+* C_unit = 8.647288000e-15 F. A bit of weight w carries `MF=w` in the
+* schematic and w drawn unit capacitors in the layout, so its reference is
+* w separate C cards of C_unit each -- one per physically drawn unit,
+* compared 1:1 against the layout's own w extracted unit devices with no
+* `klt lvs` `combine_devices` folding needed on either side (issue #148:
+* `Netlist.combine_devices()` does not reliably re-sum w identical-valued
+* parallel capacitors into one device for w in the hundreds).
+*
+* Substrate: the schematic's VSS (every nfet bulk) appears here as
+* `vsubs`, the name the sky130 extraction deck gives its
+* synthesized global substrate net.
+.SUBCKT cdac_array VREFP VREFN VDD vsubs SELn0 SELp0 SELn1 SELp1 SELn2 SELp2 SELn3 SELp3 SELn4 SELp4 TOP_N TOP_P SELp5 SELn5 SELp6 SELn6 SELn7 SELp7 SELn8 SELp8
+Cp0 BOT_p0 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp0n BOT_p0 SELp0 VREFN vsubs nfet L=0.15U W=1U
+Mp0p BOT_p0 SELp0 VREFP VDD pfet L=0.15U W=2U
+Cp1_0 BOT_p1 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp1_1 BOT_p1 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp1n BOT_p1 SELp1 VREFN vsubs nfet L=0.15U W=1U
+Mp1p BOT_p1 SELp1 VREFP VDD pfet L=0.15U W=2U
+Cp2_0 BOT_p2 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp2_1 BOT_p2 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp2_2 BOT_p2 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp2_3 BOT_p2 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp2n BOT_p2 SELp2 VREFN vsubs nfet L=0.15U W=1U
+Mp2p BOT_p2 SELp2 VREFP VDD pfet L=0.15U W=2U
+Cp3_0 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp3_1 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp3_2 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp3_3 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp3_4 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp3_5 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp3_6 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp3_7 BOT_p3 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp3n BOT_p3 SELp3 VREFN vsubs nfet L=0.15U W=1U
+Mp3p BOT_p3 SELp3 VREFP VDD pfet L=0.15U W=2U
+Cp4_0 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_1 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_2 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_3 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_4 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_5 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_6 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_7 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_8 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_9 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_10 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_11 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_12 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_13 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_14 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp4_15 BOT_p4 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp4n BOT_p4 SELp4 VREFN vsubs nfet L=0.15U W=1U
+Mp4p BOT_p4 SELp4 VREFP VDD pfet L=0.15U W=2U
+Cp5_0 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_1 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_2 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_3 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_4 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_5 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_6 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_7 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_8 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_9 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_10 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_11 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_12 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_13 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_14 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_15 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_16 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_17 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_18 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_19 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_20 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_21 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_22 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_23 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_24 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_25 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_26 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_27 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_28 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_29 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_30 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp5_31 BOT_p5 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp5n BOT_p5 SELp5 VREFN vsubs nfet L=0.15U W=1U
+Mp5p BOT_p5 SELp5 VREFP VDD pfet L=0.15U W=2U
+Cp6_0 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_1 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_2 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_3 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_4 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_5 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_6 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_7 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_8 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_9 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_10 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_11 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_12 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_13 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_14 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_15 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_16 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_17 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_18 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_19 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_20 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_21 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_22 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_23 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_24 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_25 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_26 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_27 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_28 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_29 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_30 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_31 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_32 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_33 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_34 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_35 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_36 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_37 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_38 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_39 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_40 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_41 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_42 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_43 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_44 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_45 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_46 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_47 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_48 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_49 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_50 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_51 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_52 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_53 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_54 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_55 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_56 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_57 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_58 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_59 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_60 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_61 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_62 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp6_63 BOT_p6 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp6n BOT_p6 SELp6 VREFN vsubs nfet L=0.15U W=1U
+Mp6p BOT_p6 SELp6 VREFP VDD pfet L=0.15U W=2U
+Cp7_0 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_1 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_2 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_3 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_4 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_5 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_6 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_7 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_8 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_9 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_10 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_11 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_12 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_13 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_14 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_15 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_16 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_17 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_18 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_19 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_20 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_21 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_22 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_23 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_24 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_25 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_26 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_27 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_28 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_29 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_30 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_31 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_32 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_33 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_34 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_35 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_36 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_37 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_38 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_39 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_40 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_41 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_42 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_43 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_44 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_45 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_46 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_47 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_48 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_49 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_50 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_51 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_52 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_53 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_54 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_55 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_56 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_57 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_58 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_59 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_60 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_61 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_62 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_63 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_64 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_65 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_66 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_67 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_68 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_69 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_70 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_71 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_72 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_73 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_74 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_75 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_76 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_77 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_78 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_79 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_80 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_81 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_82 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_83 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_84 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_85 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_86 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_87 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_88 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_89 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_90 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_91 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_92 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_93 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_94 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_95 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_96 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_97 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_98 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_99 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_100 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_101 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_102 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_103 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_104 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_105 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_106 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_107 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_108 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_109 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_110 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_111 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_112 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_113 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_114 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_115 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_116 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_117 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_118 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_119 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_120 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_121 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_122 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_123 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_124 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_125 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_126 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp7_127 BOT_p7 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp7n BOT_p7 SELp7 VREFN vsubs nfet L=0.15U W=1U
+Mp7p BOT_p7 SELp7 VREFP VDD pfet L=0.15U W=2U
+Cp8_0 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_1 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_2 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_3 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_4 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_5 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_6 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_7 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_8 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_9 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_10 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_11 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_12 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_13 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_14 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_15 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_16 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_17 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_18 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_19 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_20 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_21 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_22 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_23 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_24 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_25 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_26 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_27 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_28 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_29 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_30 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_31 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_32 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_33 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_34 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_35 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_36 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_37 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_38 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_39 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_40 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_41 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_42 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_43 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_44 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_45 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_46 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_47 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_48 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_49 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_50 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_51 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_52 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_53 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_54 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_55 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_56 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_57 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_58 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_59 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_60 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_61 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_62 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_63 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_64 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_65 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_66 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_67 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_68 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_69 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_70 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_71 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_72 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_73 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_74 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_75 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_76 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_77 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_78 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_79 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_80 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_81 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_82 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_83 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_84 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_85 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_86 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_87 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_88 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_89 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_90 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_91 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_92 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_93 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_94 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_95 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_96 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_97 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_98 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_99 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_100 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_101 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_102 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_103 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_104 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_105 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_106 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_107 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_108 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_109 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_110 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_111 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_112 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_113 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_114 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_115 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_116 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_117 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_118 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_119 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_120 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_121 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_122 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_123 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_124 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_125 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_126 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_127 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_128 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_129 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_130 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_131 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_132 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_133 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_134 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_135 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_136 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_137 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_138 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_139 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_140 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_141 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_142 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_143 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_144 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_145 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_146 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_147 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_148 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_149 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_150 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_151 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_152 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_153 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_154 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_155 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_156 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_157 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_158 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_159 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_160 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_161 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_162 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_163 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_164 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_165 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_166 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_167 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_168 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_169 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_170 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_171 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_172 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_173 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_174 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_175 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_176 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_177 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_178 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_179 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_180 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_181 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_182 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_183 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_184 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_185 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_186 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_187 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_188 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_189 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_190 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_191 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_192 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_193 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_194 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_195 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_196 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_197 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_198 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_199 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_200 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_201 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_202 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_203 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_204 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_205 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_206 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_207 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_208 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_209 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_210 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_211 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_212 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_213 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_214 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_215 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_216 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_217 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_218 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_219 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_220 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_221 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_222 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_223 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_224 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_225 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_226 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_227 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_228 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_229 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_230 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_231 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_232 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_233 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_234 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_235 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_236 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_237 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_238 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_239 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_240 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_241 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_242 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_243 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_244 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_245 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_246 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_247 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_248 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_249 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_250 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_251 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_252 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_253 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_254 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cp8_255 BOT_p8 TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mp8n BOT_p8 SELp8 VREFN vsubs nfet L=0.15U W=1U
+Mp8p BOT_p8 SELp8 VREFP VDD pfet L=0.15U W=2U
+Cp_term VREFN TOP_P 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn0 BOT_n0 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn0n BOT_n0 SELn0 VREFN vsubs nfet L=0.15U W=1U
+Mn0p BOT_n0 SELn0 VREFP VDD pfet L=0.15U W=2U
+Cn1_0 BOT_n1 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn1_1 BOT_n1 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn1n BOT_n1 SELn1 VREFN vsubs nfet L=0.15U W=1U
+Mn1p BOT_n1 SELn1 VREFP VDD pfet L=0.15U W=2U
+Cn2_0 BOT_n2 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn2_1 BOT_n2 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn2_2 BOT_n2 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn2_3 BOT_n2 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn2n BOT_n2 SELn2 VREFN vsubs nfet L=0.15U W=1U
+Mn2p BOT_n2 SELn2 VREFP VDD pfet L=0.15U W=2U
+Cn3_0 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn3_1 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn3_2 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn3_3 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn3_4 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn3_5 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn3_6 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn3_7 BOT_n3 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn3n BOT_n3 SELn3 VREFN vsubs nfet L=0.15U W=1U
+Mn3p BOT_n3 SELn3 VREFP VDD pfet L=0.15U W=2U
+Cn4_0 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_1 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_2 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_3 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_4 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_5 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_6 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_7 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_8 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_9 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_10 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_11 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_12 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_13 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_14 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn4_15 BOT_n4 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn4n BOT_n4 SELn4 VREFN vsubs nfet L=0.15U W=1U
+Mn4p BOT_n4 SELn4 VREFP VDD pfet L=0.15U W=2U
+Cn5_0 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_1 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_2 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_3 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_4 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_5 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_6 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_7 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_8 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_9 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_10 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_11 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_12 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_13 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_14 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_15 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_16 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_17 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_18 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_19 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_20 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_21 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_22 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_23 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_24 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_25 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_26 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_27 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_28 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_29 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_30 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn5_31 BOT_n5 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn5n BOT_n5 SELn5 VREFN vsubs nfet L=0.15U W=1U
+Mn5p BOT_n5 SELn5 VREFP VDD pfet L=0.15U W=2U
+Cn6_0 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_1 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_2 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_3 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_4 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_5 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_6 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_7 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_8 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_9 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_10 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_11 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_12 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_13 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_14 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_15 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_16 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_17 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_18 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_19 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_20 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_21 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_22 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_23 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_24 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_25 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_26 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_27 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_28 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_29 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_30 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_31 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_32 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_33 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_34 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_35 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_36 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_37 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_38 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_39 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_40 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_41 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_42 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_43 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_44 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_45 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_46 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_47 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_48 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_49 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_50 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_51 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_52 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_53 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_54 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_55 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_56 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_57 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_58 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_59 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_60 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_61 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_62 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn6_63 BOT_n6 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn6n BOT_n6 SELn6 VREFN vsubs nfet L=0.15U W=1U
+Mn6p BOT_n6 SELn6 VREFP VDD pfet L=0.15U W=2U
+Cn7_0 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_1 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_2 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_3 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_4 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_5 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_6 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_7 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_8 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_9 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_10 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_11 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_12 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_13 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_14 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_15 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_16 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_17 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_18 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_19 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_20 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_21 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_22 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_23 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_24 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_25 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_26 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_27 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_28 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_29 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_30 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_31 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_32 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_33 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_34 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_35 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_36 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_37 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_38 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_39 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_40 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_41 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_42 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_43 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_44 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_45 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_46 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_47 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_48 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_49 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_50 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_51 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_52 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_53 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_54 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_55 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_56 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_57 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_58 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_59 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_60 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_61 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_62 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_63 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_64 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_65 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_66 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_67 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_68 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_69 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_70 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_71 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_72 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_73 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_74 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_75 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_76 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_77 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_78 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_79 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_80 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_81 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_82 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_83 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_84 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_85 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_86 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_87 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_88 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_89 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_90 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_91 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_92 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_93 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_94 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_95 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_96 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_97 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_98 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_99 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_100 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_101 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_102 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_103 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_104 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_105 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_106 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_107 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_108 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_109 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_110 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_111 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_112 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_113 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_114 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_115 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_116 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_117 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_118 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_119 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_120 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_121 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_122 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_123 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_124 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_125 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_126 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn7_127 BOT_n7 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn7n BOT_n7 SELn7 VREFN vsubs nfet L=0.15U W=1U
+Mn7p BOT_n7 SELn7 VREFP VDD pfet L=0.15U W=2U
+Cn8_0 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_1 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_2 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_3 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_4 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_5 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_6 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_7 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_8 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_9 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_10 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_11 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_12 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_13 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_14 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_15 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_16 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_17 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_18 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_19 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_20 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_21 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_22 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_23 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_24 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_25 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_26 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_27 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_28 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_29 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_30 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_31 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_32 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_33 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_34 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_35 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_36 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_37 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_38 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_39 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_40 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_41 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_42 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_43 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_44 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_45 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_46 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_47 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_48 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_49 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_50 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_51 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_52 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_53 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_54 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_55 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_56 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_57 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_58 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_59 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_60 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_61 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_62 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_63 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_64 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_65 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_66 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_67 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_68 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_69 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_70 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_71 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_72 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_73 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_74 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_75 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_76 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_77 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_78 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_79 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_80 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_81 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_82 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_83 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_84 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_85 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_86 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_87 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_88 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_89 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_90 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_91 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_92 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_93 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_94 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_95 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_96 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_97 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_98 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_99 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_100 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_101 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_102 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_103 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_104 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_105 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_106 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_107 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_108 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_109 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_110 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_111 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_112 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_113 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_114 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_115 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_116 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_117 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_118 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_119 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_120 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_121 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_122 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_123 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_124 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_125 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_126 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_127 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_128 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_129 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_130 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_131 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_132 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_133 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_134 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_135 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_136 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_137 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_138 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_139 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_140 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_141 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_142 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_143 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_144 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_145 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_146 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_147 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_148 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_149 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_150 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_151 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_152 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_153 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_154 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_155 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_156 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_157 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_158 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_159 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_160 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_161 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_162 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_163 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_164 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_165 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_166 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_167 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_168 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_169 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_170 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_171 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_172 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_173 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_174 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_175 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_176 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_177 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_178 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_179 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_180 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_181 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_182 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_183 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_184 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_185 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_186 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_187 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_188 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_189 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_190 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_191 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_192 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_193 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_194 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_195 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_196 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_197 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_198 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_199 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_200 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_201 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_202 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_203 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_204 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_205 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_206 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_207 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_208 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_209 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_210 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_211 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_212 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_213 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_214 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_215 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_216 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_217 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_218 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_219 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_220 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_221 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_222 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_223 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_224 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_225 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_226 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_227 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_228 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_229 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_230 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_231 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_232 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_233 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_234 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_235 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_236 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_237 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_238 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_239 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_240 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_241 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_242 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_243 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_244 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_245 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_246 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_247 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_248 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_249 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_250 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_251 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_252 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_253 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_254 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Cn8_255 BOT_n8 TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+Mn8n BOT_n8 SELn8 VREFN vsubs nfet L=0.15U W=1U
+Mn8p BOT_n8 SELn8 VREFP VDD pfet L=0.15U W=2U
+Cn_term VREFN TOP_N 8.647288000e-15 sky130_fd_pr__model__cap_mim
+.ENDS cdac_array
+
+* --- from layout/comparator/reference.spice --------------------
+* Hand-written LVS reference netlist for the dynamic comparator sub-block
+* (issue #101), against which layout/comparator/bin/run-flow.sh's composed
+* layout is compared.
+*
+* Topology and device sizing are copied 1:1 from
+* sim/comparator-decision/testbench/comparator_core.spice -- the xschem
+* -derived, already-simulated device fragment for design/comparator.sch
+* (issue #54) -- generalizing every `sky130_fd_pr__{n,p}fet_01v8` instance to
+* the generic `nfet`/`pfet` device classes `klt extract --deck sky130`'s
+* curated deck reports (matching layout/trivial-cell/reference.spice's and
+* layout/sar-sequencer/reference/sar_sequencer.lvs-reference.spice's own
+* convention for the same reason: the layout side of the comparison can only
+* ever report those two generic classes, regardless of the real device
+* flavor).
+*
+* !!! THIS REFERENCE IS AHEAD OF THE DRAWN LAYOUT (issue #175). !!!
+* DR-004 Amendment A changed design/comparator.sch from the 9-device variant
+* this block was drawn against to the 11-device StrongARM arrangement below:
+* the input pair's drains moved onto their own internal nodes DIP/DIN, the
+* cross-coupled NMOS pair's sources moved from GND onto those same nodes, and
+* two CLK-gated PMOS precharge devices (M_RST_DIP/M_RST_DIN) were added on
+* them. The device list below is re-derived from the amended
+* sim/comparator-decision/testbench/comparator_core.spice, per this file's own
+* "copied 1:1" contract -- leaving it at the superseded device set would make
+* an LVS "match" a statement about a schematic that no longer exists.
+*
+* Consequence, stated rather than hidden: the composed layout under
+* layout/comparator/reports/ still implements the PRE-amendment topology, so
+* `klt lvs` against this reference now correctly reports MISMATCH. That is
+* the honest verdict, not a regression to route around -- see
+* layout/comparator/README.md's status section and the re-layout follow-up
+* issue it names. #175 deliberately does not redraw the block: that is a
+* full sub-block layout job (new device block, new DIP/DIN routing on the
+* mirror-symmetric axis, fresh DRC), the same size of task as issue #101
+* which drew it the first time.
+*
+* Each schematic device (M_INN, M_INP, M_LATN_P/N, M_LATP_P/N, M_RST_P/N,
+* M_RST_DIP/DIN) is one lumped M-card at its full schematic W, not split into
+* layout/comparator/bin/gen_blocks.py's own interleaved/multi-leg unit
+* instances -- `klt lvs`'s `options.combine_devices` (set in
+* layout/comparator/bin/run-flow.sh's own lvs.request.json) is what re-lumps
+* the layout side's parallel unit legs back into one equivalent device per
+* schematic instance for comparison, exactly as
+* layout/sar-sequencer/bin/run-flow.sh's own lvs.request.json already relies
+* on for that sub-block's folded/multi-finger standard cells. Concretely: the
+* input pair's four common-centroid W=2u legs re-lump into the two W=4u
+* devices declared below.
+*
+* Body terminals are REAL here, not aspirational: layout/comparator/bin/
+* build_layout.py draws a p-substrate tie (tap outside every n-well,
+* contacted up to GND) and an n-well tie (tap inside the well, contacted up
+* to VDD), so `klt extract` resolves every nfet body to GND and every pfet
+* body to VDD rather than to KLayout's synthesized `vsubs`/anonymous proxy
+* net. run-flow.sh's own record asserts that separately from the LVS verdict
+* (`unbiased_pmos_body_nets` must be empty) -- see render-record.py's verdict
+* 6, because an LVS "match" against a reference that declared the proxy net
+* would prove nothing about the ties actually being drawn.
+*
+* Net names below (VDD/GND/CLK/VINP/VINN/OUTP/OUTN/TAIL/DIP/DIN) match
+* design/comparator.sch's own port/net names; `klt lvs`/`NetlistComparer`
+* compares topology rather than net names, but the layout side draws the same
+* seven names as met1.pin labels so the reported net correspondence reads
+* directly.
+*
+* Provenance: pattern (generic device classes, schematic-derived topology,
+* combine_devices for split/interleaved layout legs) ported from
+* layout/trivial-cell/reference.spice and
+* layout/sar-sequencer/bin/generate-lvs-reference.py, per CLAUDE.md's
+* "Harness bootstrap" instruction -- device list re-derived against this
+* repo's own design/comparator.sch, not copied from either sibling.
+.SUBCKT comparator VDD GND CLK VINP VINN OUTP OUTN
+M_TAIL TAIL CLK GND GND nfet L=0.5U W=8U
+M_INN DIP VINN TAIL GND nfet L=0.5U W=4U
+M_INP DIN VINP TAIL GND nfet L=0.5U W=4U
+M_LATN_P OUTP OUTN DIP GND nfet L=0.5U W=4U
+M_LATN_N OUTN OUTP DIN GND nfet L=0.5U W=4U
+M_LATP_P OUTP OUTN VDD VDD pfet L=0.5U W=8U
+M_LATP_N OUTN OUTP VDD VDD pfet L=0.5U W=8U
+M_RST_P OUTP CLK VDD VDD pfet L=0.5U W=16U
+M_RST_N OUTN CLK VDD VDD pfet L=0.5U W=16U
+M_RST_DIP DIP CLK VDD VDD pfet L=0.5U W=4U
+M_RST_DIN DIN CLK VDD VDD pfet L=0.5U W=4U
+.ENDS comparator
+
+* --- from layout/sar-sequencer/reports/20260905-191258-4c6c655/sar_sequencer.lvs-reference.spice --------------------
+* LVS reference for the SAR logic/sequencer sub-block (issue #102).
+*
+* Mechanically generated -- DO NOT HAND-EDIT. Regenerate with:
+*   layout/sar-sequencer/bin/generate-lvs-reference.py [netlist.v]
+*
+* Topology source: sar-sequencer/reports/20260905-191258-4c6c655/sar_sequencer_post_route.v
+* (klt place-and-route's own post-route `write_verilog` dump -- see
+* layout/sar-sequencer/README.md, 'LVS reference provenance', for
+* why the LVS reference has to be the *post-route* netlist, not the
+* pre-P&R structural netlist).
+*
+* Flat, transistor-level (klt extract --deck sky130 is a flat
+* extractor), device classes generalized to nfet/pfet (matching that
+* deck's own generalization of every drawn NMOS/PMOS regardless of
+* flavor). Device models: the sky130 PDK's own official CDL
+* (libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl), Apache-2.0
+* licensed, SkyWater's own release -- not reverse-engineered.
+.SUBCKT sar_sequencer CLK RST_B COMP_OUT PH_B9 PH_B8 PH_B7 PH_B6 PH_B5 PH_B4 PH_B3 PH_B2 PH_B1 PH_B0 PH_EOC PH_SAMPLE BUSY DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 VPWR VGND
+Mclkbuf_0_CLK_MMIN1 clkbuf_0_CLK_Ab CLK VGND VGND nfet L=0.15U W=0.65U
+Mclkbuf_0_CLK_MMIN2 clknet_0_CLK clkbuf_0_CLK_Ab VGND VGND nfet L=0.15U W=2.60U
+Mclkbuf_0_CLK_MMIP1 clkbuf_0_CLK_Ab CLK VPWR VPWR pfet L=0.15U W=1.0U
+Mclkbuf_0_CLK_MMIP2 clknet_0_CLK clkbuf_0_CLK_Ab VPWR VPWR pfet L=0.15U W=4.0U
+Mclkbuf_1_0__f_CLK_MMIN1 clkbuf_1_0__f_CLK_Ab clknet_0_CLK VGND VGND nfet L=0.15U W=0.65U
+Mclkbuf_1_0__f_CLK_MMIN2 clknet_1_0__leaf_CLK clkbuf_1_0__f_CLK_Ab VGND VGND nfet L=0.15U W=2.60U
+Mclkbuf_1_0__f_CLK_MMIP1 clkbuf_1_0__f_CLK_Ab clknet_0_CLK VPWR VPWR pfet L=0.15U W=1.0U
+Mclkbuf_1_0__f_CLK_MMIP2 clknet_1_0__leaf_CLK clkbuf_1_0__f_CLK_Ab VPWR VPWR pfet L=0.15U W=4.0U
+Mclkbuf_1_1__f_CLK_MMIN1 clkbuf_1_1__f_CLK_Ab clknet_0_CLK VGND VGND nfet L=0.15U W=0.65U
+Mclkbuf_1_1__f_CLK_MMIN2 clknet_1_1__leaf_CLK clkbuf_1_1__f_CLK_Ab VGND VGND nfet L=0.15U W=2.60U
+Mclkbuf_1_1__f_CLK_MMIP1 clkbuf_1_1__f_CLK_Ab clknet_0_CLK VPWR VPWR pfet L=0.15U W=1.0U
+Mclkbuf_1_1__f_CLK_MMIP2 clknet_1_1__leaf_CLK clkbuf_1_1__f_CLK_Ab VPWR VPWR pfet L=0.15U W=4.0U
+Mclkload0_MMIN1 clkload0_Y clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.65U
+Mclkload0_MMIP1 clkload0_Y clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg0_MI46 xbreg0_clkpos xbreg0_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI42 xbreg0_db xbreg0_clkneg xbreg0_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg0_MI656 xbreg0_net82 xbreg0_s0 xbreg0_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI657 xbreg0_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI33 xbreg0_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI4 xbreg0_M0 xbreg0_clkpos xbreg0_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg0_MI34 xbreg0_net93 xbreg0_M1 xbreg0_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI655 xbreg0_s0 xbreg0_clkneg xbreg0_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg0_MI653 DOUT0 xbreg0_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg0_MI654 xbreg0_net81 xbreg0_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI44 xbreg0_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI647 xbreg0_M1 xbreg0_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg0_MI39 xbreg0_db MUXOUT0 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg0_MI649 xbreg0_M1 xbreg0_clkpos xbreg0_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg0_MI47 xbreg0_clkpos xbreg0_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg0_MI43 xbreg0_db xbreg0_clkpos xbreg0_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI662 xbreg0_net165 xbreg0_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI659 xbreg0_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI664 xbreg0_s0 xbreg0_clkpos xbreg0_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI658 xbreg0_net82 xbreg0_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI30 xbreg0_net144 xbreg0_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI31 xbreg0_M0 xbreg0_clkneg xbreg0_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI32 xbreg0_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI660 DOUT0 xbreg0_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg0_MI45 xbreg0_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg0_MI648 xbreg0_M1 xbreg0_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg0_MI40 xbreg0_db MUXOUT0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg0_MI650 xbreg0_M1 xbreg0_clkneg xbreg0_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI46 xbreg1_clkpos xbreg1_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI42 xbreg1_db xbreg1_clkneg xbreg1_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg1_MI656 xbreg1_net82 xbreg1_s0 xbreg1_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI657 xbreg1_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI33 xbreg1_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI4 xbreg1_M0 xbreg1_clkpos xbreg1_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg1_MI34 xbreg1_net93 xbreg1_M1 xbreg1_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI655 xbreg1_s0 xbreg1_clkneg xbreg1_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg1_MI653 DOUT1 xbreg1_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg1_MI654 xbreg1_net81 xbreg1_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI44 xbreg1_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI647 xbreg1_M1 xbreg1_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg1_MI39 xbreg1_db MUXOUT1 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg1_MI649 xbreg1_M1 xbreg1_clkpos xbreg1_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg1_MI47 xbreg1_clkpos xbreg1_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg1_MI43 xbreg1_db xbreg1_clkpos xbreg1_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI662 xbreg1_net165 xbreg1_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI659 xbreg1_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI664 xbreg1_s0 xbreg1_clkpos xbreg1_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI658 xbreg1_net82 xbreg1_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI30 xbreg1_net144 xbreg1_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI31 xbreg1_M0 xbreg1_clkneg xbreg1_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI32 xbreg1_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI660 DOUT1 xbreg1_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg1_MI45 xbreg1_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg1_MI648 xbreg1_M1 xbreg1_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg1_MI40 xbreg1_db MUXOUT1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg1_MI650 xbreg1_M1 xbreg1_clkneg xbreg1_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI46 xbreg2_clkpos xbreg2_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI42 xbreg2_db xbreg2_clkneg xbreg2_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg2_MI656 xbreg2_net82 xbreg2_s0 xbreg2_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI657 xbreg2_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI33 xbreg2_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI4 xbreg2_M0 xbreg2_clkpos xbreg2_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg2_MI34 xbreg2_net93 xbreg2_M1 xbreg2_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI655 xbreg2_s0 xbreg2_clkneg xbreg2_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg2_MI653 DOUT2 xbreg2_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg2_MI654 xbreg2_net81 xbreg2_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI44 xbreg2_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI647 xbreg2_M1 xbreg2_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg2_MI39 xbreg2_db MUXOUT2 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg2_MI649 xbreg2_M1 xbreg2_clkpos xbreg2_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg2_MI47 xbreg2_clkpos xbreg2_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg2_MI43 xbreg2_db xbreg2_clkpos xbreg2_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI662 xbreg2_net165 xbreg2_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI659 xbreg2_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI664 xbreg2_s0 xbreg2_clkpos xbreg2_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI658 xbreg2_net82 xbreg2_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI30 xbreg2_net144 xbreg2_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI31 xbreg2_M0 xbreg2_clkneg xbreg2_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI32 xbreg2_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI660 DOUT2 xbreg2_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg2_MI45 xbreg2_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg2_MI648 xbreg2_M1 xbreg2_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg2_MI40 xbreg2_db MUXOUT2 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg2_MI650 xbreg2_M1 xbreg2_clkneg xbreg2_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI46 xbreg3_clkpos xbreg3_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI42 xbreg3_db xbreg3_clkneg xbreg3_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg3_MI656 xbreg3_net82 xbreg3_s0 xbreg3_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI657 xbreg3_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI33 xbreg3_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI4 xbreg3_M0 xbreg3_clkpos xbreg3_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg3_MI34 xbreg3_net93 xbreg3_M1 xbreg3_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI655 xbreg3_s0 xbreg3_clkneg xbreg3_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg3_MI653 DOUT3 xbreg3_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg3_MI654 xbreg3_net81 xbreg3_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI44 xbreg3_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI647 xbreg3_M1 xbreg3_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg3_MI39 xbreg3_db MUXOUT3 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg3_MI649 xbreg3_M1 xbreg3_clkpos xbreg3_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg3_MI47 xbreg3_clkpos xbreg3_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg3_MI43 xbreg3_db xbreg3_clkpos xbreg3_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI662 xbreg3_net165 xbreg3_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI659 xbreg3_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI664 xbreg3_s0 xbreg3_clkpos xbreg3_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI658 xbreg3_net82 xbreg3_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI30 xbreg3_net144 xbreg3_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI31 xbreg3_M0 xbreg3_clkneg xbreg3_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI32 xbreg3_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI660 DOUT3 xbreg3_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg3_MI45 xbreg3_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg3_MI648 xbreg3_M1 xbreg3_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg3_MI40 xbreg3_db MUXOUT3 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg3_MI650 xbreg3_M1 xbreg3_clkneg xbreg3_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI46 xbreg4_clkpos xbreg4_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI42 xbreg4_db xbreg4_clkneg xbreg4_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg4_MI656 xbreg4_net82 xbreg4_s0 xbreg4_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI657 xbreg4_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI33 xbreg4_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI4 xbreg4_M0 xbreg4_clkpos xbreg4_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg4_MI34 xbreg4_net93 xbreg4_M1 xbreg4_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI655 xbreg4_s0 xbreg4_clkneg xbreg4_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg4_MI653 DOUT4 xbreg4_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg4_MI654 xbreg4_net81 xbreg4_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI44 xbreg4_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI647 xbreg4_M1 xbreg4_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg4_MI39 xbreg4_db MUXOUT4 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg4_MI649 xbreg4_M1 xbreg4_clkpos xbreg4_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg4_MI47 xbreg4_clkpos xbreg4_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg4_MI43 xbreg4_db xbreg4_clkpos xbreg4_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI662 xbreg4_net165 xbreg4_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI659 xbreg4_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI664 xbreg4_s0 xbreg4_clkpos xbreg4_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI658 xbreg4_net82 xbreg4_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI30 xbreg4_net144 xbreg4_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI31 xbreg4_M0 xbreg4_clkneg xbreg4_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI32 xbreg4_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI660 DOUT4 xbreg4_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg4_MI45 xbreg4_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg4_MI648 xbreg4_M1 xbreg4_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg4_MI40 xbreg4_db MUXOUT4 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg4_MI650 xbreg4_M1 xbreg4_clkneg xbreg4_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI46 xbreg5_clkpos xbreg5_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI42 xbreg5_db xbreg5_clkneg xbreg5_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg5_MI656 xbreg5_net82 xbreg5_s0 xbreg5_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI657 xbreg5_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI33 xbreg5_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI4 xbreg5_M0 xbreg5_clkpos xbreg5_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg5_MI34 xbreg5_net93 xbreg5_M1 xbreg5_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI655 xbreg5_s0 xbreg5_clkneg xbreg5_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg5_MI653 DOUT5 xbreg5_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg5_MI654 xbreg5_net81 xbreg5_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI44 xbreg5_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI647 xbreg5_M1 xbreg5_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg5_MI39 xbreg5_db MUXOUT5 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg5_MI649 xbreg5_M1 xbreg5_clkpos xbreg5_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg5_MI47 xbreg5_clkpos xbreg5_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg5_MI43 xbreg5_db xbreg5_clkpos xbreg5_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI662 xbreg5_net165 xbreg5_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI659 xbreg5_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI664 xbreg5_s0 xbreg5_clkpos xbreg5_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI658 xbreg5_net82 xbreg5_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI30 xbreg5_net144 xbreg5_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI31 xbreg5_M0 xbreg5_clkneg xbreg5_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI32 xbreg5_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI660 DOUT5 xbreg5_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg5_MI45 xbreg5_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg5_MI648 xbreg5_M1 xbreg5_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg5_MI40 xbreg5_db MUXOUT5 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg5_MI650 xbreg5_M1 xbreg5_clkneg xbreg5_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI46 xbreg6_clkpos xbreg6_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI42 xbreg6_db xbreg6_clkneg xbreg6_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg6_MI656 xbreg6_net82 xbreg6_s0 xbreg6_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI657 xbreg6_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI33 xbreg6_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI4 xbreg6_M0 xbreg6_clkpos xbreg6_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg6_MI34 xbreg6_net93 xbreg6_M1 xbreg6_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI655 xbreg6_s0 xbreg6_clkneg xbreg6_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg6_MI653 DOUT6 xbreg6_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg6_MI654 xbreg6_net81 xbreg6_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI44 xbreg6_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI647 xbreg6_M1 xbreg6_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg6_MI39 xbreg6_db MUXOUT6 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg6_MI649 xbreg6_M1 xbreg6_clkpos xbreg6_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg6_MI47 xbreg6_clkpos xbreg6_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg6_MI43 xbreg6_db xbreg6_clkpos xbreg6_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI662 xbreg6_net165 xbreg6_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI659 xbreg6_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI664 xbreg6_s0 xbreg6_clkpos xbreg6_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI658 xbreg6_net82 xbreg6_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI30 xbreg6_net144 xbreg6_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI31 xbreg6_M0 xbreg6_clkneg xbreg6_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI32 xbreg6_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI660 DOUT6 xbreg6_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg6_MI45 xbreg6_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg6_MI648 xbreg6_M1 xbreg6_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg6_MI40 xbreg6_db MUXOUT6 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg6_MI650 xbreg6_M1 xbreg6_clkneg xbreg6_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI46 xbreg7_clkpos xbreg7_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI42 xbreg7_db xbreg7_clkneg xbreg7_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg7_MI656 xbreg7_net82 xbreg7_s0 xbreg7_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI657 xbreg7_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI33 xbreg7_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI4 xbreg7_M0 xbreg7_clkpos xbreg7_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg7_MI34 xbreg7_net93 xbreg7_M1 xbreg7_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI655 xbreg7_s0 xbreg7_clkneg xbreg7_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg7_MI653 DOUT7 xbreg7_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg7_MI654 xbreg7_net81 xbreg7_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI44 xbreg7_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI647 xbreg7_M1 xbreg7_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg7_MI39 xbreg7_db MUXOUT7 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg7_MI649 xbreg7_M1 xbreg7_clkpos xbreg7_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg7_MI47 xbreg7_clkpos xbreg7_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg7_MI43 xbreg7_db xbreg7_clkpos xbreg7_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI662 xbreg7_net165 xbreg7_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI659 xbreg7_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI664 xbreg7_s0 xbreg7_clkpos xbreg7_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI658 xbreg7_net82 xbreg7_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI30 xbreg7_net144 xbreg7_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI31 xbreg7_M0 xbreg7_clkneg xbreg7_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI32 xbreg7_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI660 DOUT7 xbreg7_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg7_MI45 xbreg7_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg7_MI648 xbreg7_M1 xbreg7_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg7_MI40 xbreg7_db MUXOUT7 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg7_MI650 xbreg7_M1 xbreg7_clkneg xbreg7_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI46 xbreg8_clkpos xbreg8_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI42 xbreg8_db xbreg8_clkneg xbreg8_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg8_MI656 xbreg8_net82 xbreg8_s0 xbreg8_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI657 xbreg8_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI33 xbreg8_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI4 xbreg8_M0 xbreg8_clkpos xbreg8_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg8_MI34 xbreg8_net93 xbreg8_M1 xbreg8_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI655 xbreg8_s0 xbreg8_clkneg xbreg8_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg8_MI653 DOUT8 xbreg8_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg8_MI654 xbreg8_net81 xbreg8_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI44 xbreg8_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI647 xbreg8_M1 xbreg8_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg8_MI39 xbreg8_db MUXOUT8 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg8_MI649 xbreg8_M1 xbreg8_clkpos xbreg8_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg8_MI47 xbreg8_clkpos xbreg8_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg8_MI43 xbreg8_db xbreg8_clkpos xbreg8_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI662 xbreg8_net165 xbreg8_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI659 xbreg8_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI664 xbreg8_s0 xbreg8_clkpos xbreg8_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI658 xbreg8_net82 xbreg8_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI30 xbreg8_net144 xbreg8_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI31 xbreg8_M0 xbreg8_clkneg xbreg8_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI32 xbreg8_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI660 DOUT8 xbreg8_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg8_MI45 xbreg8_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg8_MI648 xbreg8_M1 xbreg8_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg8_MI40 xbreg8_db MUXOUT8 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg8_MI650 xbreg8_M1 xbreg8_clkneg xbreg8_s0 VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI46 xbreg9_clkpos xbreg9_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI42 xbreg9_db xbreg9_clkneg xbreg9_M0 VGND nfet L=0.15U W=0.36U
+Mxbreg9_MI656 xbreg9_net82 xbreg9_s0 xbreg9_net108 VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI657 xbreg9_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI33 xbreg9_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI4 xbreg9_M0 xbreg9_clkpos xbreg9_net93 VGND nfet L=0.15U W=0.36U
+Mxbreg9_MI34 xbreg9_net93 xbreg9_M1 xbreg9_net101 VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI655 xbreg9_s0 xbreg9_clkneg xbreg9_net81 VGND nfet L=0.15U W=0.36U
+Mxbreg9_MI653 DOUT9 xbreg9_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxbreg9_MI654 xbreg9_net81 xbreg9_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI44 xbreg9_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI647 xbreg9_M1 xbreg9_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxbreg9_MI39 xbreg9_db MUXOUT9 VGND VGND nfet L=0.15U W=0.42U
+Mxbreg9_MI649 xbreg9_M1 xbreg9_clkpos xbreg9_s0 VGND nfet L=0.15U W=0.36U
+Mxbreg9_MI47 xbreg9_clkpos xbreg9_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg9_MI43 xbreg9_db xbreg9_clkpos xbreg9_M0 VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI662 xbreg9_net165 xbreg9_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI659 xbreg9_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI664 xbreg9_s0 xbreg9_clkpos xbreg9_net165 VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI658 xbreg9_net82 xbreg9_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI30 xbreg9_net144 xbreg9_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI31 xbreg9_M0 xbreg9_clkneg xbreg9_net144 VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI32 xbreg9_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI660 DOUT9 xbreg9_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxbreg9_MI45 xbreg9_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxbreg9_MI648 xbreg9_M1 xbreg9_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxbreg9_MI40 xbreg9_db MUXOUT9 VPWR VPWR pfet L=0.15U W=0.42U
+Mxbreg9_MI650 xbreg9_M1 xbreg9_clkneg xbreg9_s0 VPWR pfet L=0.15U W=0.42U
+Mxinv_sample_MMIN1 PH_SAMPLE BUSY VGND VGND nfet L=0.15U W=0.65U
+Mxinv_sample_MMIP1 PH_SAMPLE BUSY VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux0_MMNA00 xmux0_xb DOUT0 xmux0_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux0_MMNA01 xmux0_smdNA0 xmux0_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux0_MMNA10 xmux0_xb COMP_OUT xmux0_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux0_MMNA11 xmux0_sndNA1 PH_B0 VGND VGND nfet L=0.15U W=0.42U
+Mxmux0_MMIN1 xmux0_Sb PH_B0 VGND VGND nfet L=0.15U W=0.42U
+Mxmux0_MMIN2 MUXOUT0 xmux0_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux0_MMPA00 VPWR PH_B0 xmux0_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux0_MMPA01 xmux0_sndPS DOUT0 xmux0_xb VPWR pfet L=0.15U W=0.42U
+Mxmux0_MMPA10 VPWR xmux0_Sb xmux0_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux0_MMPA11 xmux0_sndPSb COMP_OUT xmux0_xb VPWR pfet L=0.15U W=0.42U
+Mxmux0_MMIP1 xmux0_Sb PH_B0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux0_MMIP2 MUXOUT0 xmux0_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux1_MMNA00 xmux1_xb DOUT1 xmux1_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux1_MMNA01 xmux1_smdNA0 xmux1_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux1_MMNA10 xmux1_xb COMP_OUT xmux1_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux1_MMNA11 xmux1_sndNA1 PH_B1 VGND VGND nfet L=0.15U W=0.42U
+Mxmux1_MMIN1 xmux1_Sb PH_B1 VGND VGND nfet L=0.15U W=0.42U
+Mxmux1_MMIN2 MUXOUT1 xmux1_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux1_MMPA00 VPWR PH_B1 xmux1_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux1_MMPA01 xmux1_sndPS DOUT1 xmux1_xb VPWR pfet L=0.15U W=0.42U
+Mxmux1_MMPA10 VPWR xmux1_Sb xmux1_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux1_MMPA11 xmux1_sndPSb COMP_OUT xmux1_xb VPWR pfet L=0.15U W=0.42U
+Mxmux1_MMIP1 xmux1_Sb PH_B1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux1_MMIP2 MUXOUT1 xmux1_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux2_MMNA00 xmux2_xb DOUT2 xmux2_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux2_MMNA01 xmux2_smdNA0 xmux2_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux2_MMNA10 xmux2_xb COMP_OUT xmux2_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux2_MMNA11 xmux2_sndNA1 PH_B2 VGND VGND nfet L=0.15U W=0.42U
+Mxmux2_MMIN1 xmux2_Sb PH_B2 VGND VGND nfet L=0.15U W=0.42U
+Mxmux2_MMIN2 MUXOUT2 xmux2_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux2_MMPA00 VPWR PH_B2 xmux2_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux2_MMPA01 xmux2_sndPS DOUT2 xmux2_xb VPWR pfet L=0.15U W=0.42U
+Mxmux2_MMPA10 VPWR xmux2_Sb xmux2_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux2_MMPA11 xmux2_sndPSb COMP_OUT xmux2_xb VPWR pfet L=0.15U W=0.42U
+Mxmux2_MMIP1 xmux2_Sb PH_B2 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux2_MMIP2 MUXOUT2 xmux2_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux3_MMNA00 xmux3_xb DOUT3 xmux3_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux3_MMNA01 xmux3_smdNA0 xmux3_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux3_MMNA10 xmux3_xb COMP_OUT xmux3_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux3_MMNA11 xmux3_sndNA1 PH_B3 VGND VGND nfet L=0.15U W=0.42U
+Mxmux3_MMIN1 xmux3_Sb PH_B3 VGND VGND nfet L=0.15U W=0.42U
+Mxmux3_MMIN2 MUXOUT3 xmux3_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux3_MMPA00 VPWR PH_B3 xmux3_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux3_MMPA01 xmux3_sndPS DOUT3 xmux3_xb VPWR pfet L=0.15U W=0.42U
+Mxmux3_MMPA10 VPWR xmux3_Sb xmux3_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux3_MMPA11 xmux3_sndPSb COMP_OUT xmux3_xb VPWR pfet L=0.15U W=0.42U
+Mxmux3_MMIP1 xmux3_Sb PH_B3 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux3_MMIP2 MUXOUT3 xmux3_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux4_MMNA00 xmux4_xb DOUT4 xmux4_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux4_MMNA01 xmux4_smdNA0 xmux4_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux4_MMNA10 xmux4_xb COMP_OUT xmux4_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux4_MMNA11 xmux4_sndNA1 PH_B4 VGND VGND nfet L=0.15U W=0.42U
+Mxmux4_MMIN1 xmux4_Sb PH_B4 VGND VGND nfet L=0.15U W=0.42U
+Mxmux4_MMIN2 MUXOUT4 xmux4_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux4_MMPA00 VPWR PH_B4 xmux4_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux4_MMPA01 xmux4_sndPS DOUT4 xmux4_xb VPWR pfet L=0.15U W=0.42U
+Mxmux4_MMPA10 VPWR xmux4_Sb xmux4_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux4_MMPA11 xmux4_sndPSb COMP_OUT xmux4_xb VPWR pfet L=0.15U W=0.42U
+Mxmux4_MMIP1 xmux4_Sb PH_B4 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux4_MMIP2 MUXOUT4 xmux4_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux5_MMNA00 xmux5_xb DOUT5 xmux5_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux5_MMNA01 xmux5_smdNA0 xmux5_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux5_MMNA10 xmux5_xb COMP_OUT xmux5_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux5_MMNA11 xmux5_sndNA1 PH_B5 VGND VGND nfet L=0.15U W=0.42U
+Mxmux5_MMIN1 xmux5_Sb PH_B5 VGND VGND nfet L=0.15U W=0.42U
+Mxmux5_MMIN2 MUXOUT5 xmux5_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux5_MMPA00 VPWR PH_B5 xmux5_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux5_MMPA01 xmux5_sndPS DOUT5 xmux5_xb VPWR pfet L=0.15U W=0.42U
+Mxmux5_MMPA10 VPWR xmux5_Sb xmux5_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux5_MMPA11 xmux5_sndPSb COMP_OUT xmux5_xb VPWR pfet L=0.15U W=0.42U
+Mxmux5_MMIP1 xmux5_Sb PH_B5 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux5_MMIP2 MUXOUT5 xmux5_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux6_MMNA00 xmux6_xb DOUT6 xmux6_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux6_MMNA01 xmux6_smdNA0 xmux6_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux6_MMNA10 xmux6_xb COMP_OUT xmux6_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux6_MMNA11 xmux6_sndNA1 PH_B6 VGND VGND nfet L=0.15U W=0.42U
+Mxmux6_MMIN1 xmux6_Sb PH_B6 VGND VGND nfet L=0.15U W=0.42U
+Mxmux6_MMIN2 MUXOUT6 xmux6_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux6_MMPA00 VPWR PH_B6 xmux6_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux6_MMPA01 xmux6_sndPS DOUT6 xmux6_xb VPWR pfet L=0.15U W=0.42U
+Mxmux6_MMPA10 VPWR xmux6_Sb xmux6_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux6_MMPA11 xmux6_sndPSb COMP_OUT xmux6_xb VPWR pfet L=0.15U W=0.42U
+Mxmux6_MMIP1 xmux6_Sb PH_B6 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux6_MMIP2 MUXOUT6 xmux6_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux7_MMNA00 xmux7_xb DOUT7 xmux7_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux7_MMNA01 xmux7_smdNA0 xmux7_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux7_MMNA10 xmux7_xb COMP_OUT xmux7_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux7_MMNA11 xmux7_sndNA1 PH_B7 VGND VGND nfet L=0.15U W=0.42U
+Mxmux7_MMIN1 xmux7_Sb PH_B7 VGND VGND nfet L=0.15U W=0.42U
+Mxmux7_MMIN2 MUXOUT7 xmux7_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux7_MMPA00 VPWR PH_B7 xmux7_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux7_MMPA01 xmux7_sndPS DOUT7 xmux7_xb VPWR pfet L=0.15U W=0.42U
+Mxmux7_MMPA10 VPWR xmux7_Sb xmux7_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux7_MMPA11 xmux7_sndPSb COMP_OUT xmux7_xb VPWR pfet L=0.15U W=0.42U
+Mxmux7_MMIP1 xmux7_Sb PH_B7 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux7_MMIP2 MUXOUT7 xmux7_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux8_MMNA00 xmux8_xb DOUT8 xmux8_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux8_MMNA01 xmux8_smdNA0 xmux8_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux8_MMNA10 xmux8_xb COMP_OUT xmux8_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux8_MMNA11 xmux8_sndNA1 PH_B8 VGND VGND nfet L=0.15U W=0.42U
+Mxmux8_MMIN1 xmux8_Sb PH_B8 VGND VGND nfet L=0.15U W=0.42U
+Mxmux8_MMIN2 MUXOUT8 xmux8_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux8_MMPA00 VPWR PH_B8 xmux8_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux8_MMPA01 xmux8_sndPS DOUT8 xmux8_xb VPWR pfet L=0.15U W=0.42U
+Mxmux8_MMPA10 VPWR xmux8_Sb xmux8_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux8_MMPA11 xmux8_sndPSb COMP_OUT xmux8_xb VPWR pfet L=0.15U W=0.42U
+Mxmux8_MMIP1 xmux8_Sb PH_B8 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux8_MMIP2 MUXOUT8 xmux8_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxmux9_MMNA00 xmux9_xb DOUT9 xmux9_smdNA0 VGND nfet L=0.15U W=0.42U
+Mxmux9_MMNA01 xmux9_smdNA0 xmux9_Sb VGND VGND nfet L=0.15U W=0.42U
+Mxmux9_MMNA10 xmux9_xb COMP_OUT xmux9_sndNA1 VGND nfet L=0.15U W=0.42U
+Mxmux9_MMNA11 xmux9_sndNA1 PH_B9 VGND VGND nfet L=0.15U W=0.42U
+Mxmux9_MMIN1 xmux9_Sb PH_B9 VGND VGND nfet L=0.15U W=0.42U
+Mxmux9_MMIN2 MUXOUT9 xmux9_xb VGND VGND nfet L=0.15U W=0.65U
+Mxmux9_MMPA00 VPWR PH_B9 xmux9_sndPS VPWR pfet L=0.15U W=0.42U
+Mxmux9_MMPA01 xmux9_sndPS DOUT9 xmux9_xb VPWR pfet L=0.15U W=0.42U
+Mxmux9_MMPA10 VPWR xmux9_Sb xmux9_sndPSb VPWR pfet L=0.15U W=0.42U
+Mxmux9_MMPA11 xmux9_sndPSb COMP_OUT xmux9_xb VPWR pfet L=0.15U W=0.42U
+Mxmux9_MMIP1 xmux9_Sb PH_B9 VPWR VPWR pfet L=0.15U W=0.42U
+Mxmux9_MMIP2 MUXOUT9 xmux9_xb VPWR VPWR pfet L=0.15U W=1.0U
+Mxor_busy_MMP0 VPWR ORG1 xor_busy_sndPA VPWR pfet L=0.15U W=0.42U
+Mxor_busy_MMP1 xor_busy_sndPA ORG2 xor_busy_sndPB VPWR pfet L=0.15U W=0.42U
+Mxor_busy_MMP2 xor_busy_sndPB ORG3 xor_busy_y VPWR pfet L=0.15U W=0.42U
+Mxor_busy_MMIP3 BUSY xor_busy_y VPWR VPWR pfet L=0.15U W=1.0U
+Mxor_busy_MMN0 xor_busy_y ORG1 VGND VGND nfet L=0.15U W=0.42U
+Mxor_busy_MMN1 xor_busy_y ORG2 VGND VGND nfet L=0.15U W=0.42U
+Mxor_busy_MMN2 xor_busy_y ORG3 VGND VGND nfet L=0.15U W=0.42U
+Mxor_busy_MMIN3 BUSY xor_busy_y VGND VGND nfet L=0.15U W=0.65U
+Mxor_g1_MMP0 VPWR PH_B9 xor_g1_sndPA VPWR pfet L=0.15U W=0.42U
+Mxor_g1_MMP1 xor_g1_sndPA PH_B8 xor_g1_sndPB VPWR pfet L=0.15U W=0.42U
+Mxor_g1_MMP2 xor_g1_sndPB PH_B7 xor_g1_sndPC VPWR pfet L=0.15U W=0.42U
+Mxor_g1_MMP3 xor_g1_sndPC PH_B6 xor_g1_y VPWR pfet L=0.15U W=0.42U
+Mxor_g1_MMIP4 ORG1 xor_g1_y VPWR VPWR pfet L=0.15U W=1.0U
+Mxor_g1_MMN0 xor_g1_y PH_B9 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g1_MMN1 xor_g1_y PH_B8 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g1_MMN2 xor_g1_y PH_B7 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g1_MMN3 xor_g1_y PH_B6 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g1_MMIN4 ORG1 xor_g1_y VGND VGND nfet L=0.15U W=0.65U
+Mxor_g2_MMP0 VPWR PH_B5 xor_g2_sndPA VPWR pfet L=0.15U W=0.42U
+Mxor_g2_MMP1 xor_g2_sndPA PH_B4 xor_g2_sndPB VPWR pfet L=0.15U W=0.42U
+Mxor_g2_MMP2 xor_g2_sndPB PH_B3 xor_g2_sndPC VPWR pfet L=0.15U W=0.42U
+Mxor_g2_MMP3 xor_g2_sndPC PH_B2 xor_g2_y VPWR pfet L=0.15U W=0.42U
+Mxor_g2_MMIP4 ORG2 xor_g2_y VPWR VPWR pfet L=0.15U W=1.0U
+Mxor_g2_MMN0 xor_g2_y PH_B5 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g2_MMN1 xor_g2_y PH_B4 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g2_MMN2 xor_g2_y PH_B3 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g2_MMN3 xor_g2_y PH_B2 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g2_MMIN4 ORG2 xor_g2_y VGND VGND nfet L=0.15U W=0.65U
+Mxor_g3_MMP0 VPWR PH_B1 xor_g3_sndPA VPWR pfet L=0.15U W=0.42U
+Mxor_g3_MMP1 xor_g3_sndPA PH_B0 xor_g3_sndPB VPWR pfet L=0.15U W=0.42U
+Mxor_g3_MMP2 xor_g3_sndPB PH_EOC xor_g3_y VPWR pfet L=0.15U W=0.42U
+Mxor_g3_MMIP3 ORG3 xor_g3_y VPWR VPWR pfet L=0.15U W=1.0U
+Mxor_g3_MMN0 xor_g3_y PH_B1 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g3_MMN1 xor_g3_y PH_B0 VGND VGND nfet L=0.15U W=0.42U
+Mxor_g3_MMN2 xor_g3_y PH_EOC VGND VGND nfet L=0.15U W=0.42U
+Mxor_g3_MMIN3 ORG3 xor_g3_y VGND VGND nfet L=0.15U W=0.65U
+Mxringb0_MI46 xringb0_clkpos xringb0_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb0_MI42 xringb0_db xringb0_clkneg xringb0_M0 VGND nfet L=0.15U W=0.36U
+Mxringb0_MI656 xringb0_net82 xringb0_s0 xringb0_net108 VGND nfet L=0.15U W=0.42U
+Mxringb0_MI657 xringb0_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb0_MI33 xringb0_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb0_MI4 xringb0_M0 xringb0_clkpos xringb0_net93 VGND nfet L=0.15U W=0.36U
+Mxringb0_MI34 xringb0_net93 xringb0_M1 xringb0_net101 VGND nfet L=0.15U W=0.42U
+Mxringb0_MI655 xringb0_s0 xringb0_clkneg xringb0_net81 VGND nfet L=0.15U W=0.36U
+Mxringb0_MI653 PH_B0 xringb0_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb0_MI654 xringb0_net81 xringb0_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb0_MI44 xringb0_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb0_MI647 xringb0_M1 xringb0_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb0_MI39 xringb0_db PH_B1 VGND VGND nfet L=0.15U W=0.42U
+Mxringb0_MI649 xringb0_M1 xringb0_clkpos xringb0_s0 VGND nfet L=0.15U W=0.36U
+Mxringb0_MI47 xringb0_clkpos xringb0_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb0_MI43 xringb0_db xringb0_clkpos xringb0_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI662 xringb0_net165 xringb0_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI659 xringb0_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI664 xringb0_s0 xringb0_clkpos xringb0_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI658 xringb0_net82 xringb0_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI30 xringb0_net144 xringb0_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI31 xringb0_M0 xringb0_clkneg xringb0_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI32 xringb0_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI660 PH_B0 xringb0_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb0_MI45 xringb0_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb0_MI648 xringb0_M1 xringb0_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb0_MI40 xringb0_db PH_B1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb0_MI650 xringb0_M1 xringb0_clkneg xringb0_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI46 xringb1_clkpos xringb1_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb1_MI42 xringb1_db xringb1_clkneg xringb1_M0 VGND nfet L=0.15U W=0.36U
+Mxringb1_MI656 xringb1_net82 xringb1_s0 xringb1_net108 VGND nfet L=0.15U W=0.42U
+Mxringb1_MI657 xringb1_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb1_MI33 xringb1_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb1_MI4 xringb1_M0 xringb1_clkpos xringb1_net93 VGND nfet L=0.15U W=0.36U
+Mxringb1_MI34 xringb1_net93 xringb1_M1 xringb1_net101 VGND nfet L=0.15U W=0.42U
+Mxringb1_MI655 xringb1_s0 xringb1_clkneg xringb1_net81 VGND nfet L=0.15U W=0.36U
+Mxringb1_MI653 PH_B1 xringb1_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb1_MI654 xringb1_net81 xringb1_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb1_MI44 xringb1_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb1_MI647 xringb1_M1 xringb1_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb1_MI39 xringb1_db PH_B2 VGND VGND nfet L=0.15U W=0.42U
+Mxringb1_MI649 xringb1_M1 xringb1_clkpos xringb1_s0 VGND nfet L=0.15U W=0.36U
+Mxringb1_MI47 xringb1_clkpos xringb1_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb1_MI43 xringb1_db xringb1_clkpos xringb1_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI662 xringb1_net165 xringb1_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI659 xringb1_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI664 xringb1_s0 xringb1_clkpos xringb1_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI658 xringb1_net82 xringb1_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI30 xringb1_net144 xringb1_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI31 xringb1_M0 xringb1_clkneg xringb1_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI32 xringb1_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI660 PH_B1 xringb1_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb1_MI45 xringb1_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb1_MI648 xringb1_M1 xringb1_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb1_MI40 xringb1_db PH_B2 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb1_MI650 xringb1_M1 xringb1_clkneg xringb1_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI46 xringb2_clkpos xringb2_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb2_MI42 xringb2_db xringb2_clkneg xringb2_M0 VGND nfet L=0.15U W=0.36U
+Mxringb2_MI656 xringb2_net82 xringb2_s0 xringb2_net108 VGND nfet L=0.15U W=0.42U
+Mxringb2_MI657 xringb2_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb2_MI33 xringb2_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb2_MI4 xringb2_M0 xringb2_clkpos xringb2_net93 VGND nfet L=0.15U W=0.36U
+Mxringb2_MI34 xringb2_net93 xringb2_M1 xringb2_net101 VGND nfet L=0.15U W=0.42U
+Mxringb2_MI655 xringb2_s0 xringb2_clkneg xringb2_net81 VGND nfet L=0.15U W=0.36U
+Mxringb2_MI653 PH_B2 xringb2_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb2_MI654 xringb2_net81 xringb2_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb2_MI44 xringb2_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb2_MI647 xringb2_M1 xringb2_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb2_MI39 xringb2_db PH_B3 VGND VGND nfet L=0.15U W=0.42U
+Mxringb2_MI649 xringb2_M1 xringb2_clkpos xringb2_s0 VGND nfet L=0.15U W=0.36U
+Mxringb2_MI47 xringb2_clkpos xringb2_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb2_MI43 xringb2_db xringb2_clkpos xringb2_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI662 xringb2_net165 xringb2_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI659 xringb2_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI664 xringb2_s0 xringb2_clkpos xringb2_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI658 xringb2_net82 xringb2_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI30 xringb2_net144 xringb2_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI31 xringb2_M0 xringb2_clkneg xringb2_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI32 xringb2_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI660 PH_B2 xringb2_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb2_MI45 xringb2_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb2_MI648 xringb2_M1 xringb2_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb2_MI40 xringb2_db PH_B3 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb2_MI650 xringb2_M1 xringb2_clkneg xringb2_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI46 xringb3_clkpos xringb3_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb3_MI42 xringb3_db xringb3_clkneg xringb3_M0 VGND nfet L=0.15U W=0.36U
+Mxringb3_MI656 xringb3_net82 xringb3_s0 xringb3_net108 VGND nfet L=0.15U W=0.42U
+Mxringb3_MI657 xringb3_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb3_MI33 xringb3_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb3_MI4 xringb3_M0 xringb3_clkpos xringb3_net93 VGND nfet L=0.15U W=0.36U
+Mxringb3_MI34 xringb3_net93 xringb3_M1 xringb3_net101 VGND nfet L=0.15U W=0.42U
+Mxringb3_MI655 xringb3_s0 xringb3_clkneg xringb3_net81 VGND nfet L=0.15U W=0.36U
+Mxringb3_MI653 PH_B3 xringb3_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb3_MI654 xringb3_net81 xringb3_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb3_MI44 xringb3_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb3_MI647 xringb3_M1 xringb3_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb3_MI39 xringb3_db PH_B4 VGND VGND nfet L=0.15U W=0.42U
+Mxringb3_MI649 xringb3_M1 xringb3_clkpos xringb3_s0 VGND nfet L=0.15U W=0.36U
+Mxringb3_MI47 xringb3_clkpos xringb3_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb3_MI43 xringb3_db xringb3_clkpos xringb3_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI662 xringb3_net165 xringb3_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI659 xringb3_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI664 xringb3_s0 xringb3_clkpos xringb3_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI658 xringb3_net82 xringb3_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI30 xringb3_net144 xringb3_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI31 xringb3_M0 xringb3_clkneg xringb3_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI32 xringb3_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI660 PH_B3 xringb3_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb3_MI45 xringb3_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb3_MI648 xringb3_M1 xringb3_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb3_MI40 xringb3_db PH_B4 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb3_MI650 xringb3_M1 xringb3_clkneg xringb3_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI46 xringb4_clkpos xringb4_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb4_MI42 xringb4_db xringb4_clkneg xringb4_M0 VGND nfet L=0.15U W=0.36U
+Mxringb4_MI656 xringb4_net82 xringb4_s0 xringb4_net108 VGND nfet L=0.15U W=0.42U
+Mxringb4_MI657 xringb4_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb4_MI33 xringb4_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb4_MI4 xringb4_M0 xringb4_clkpos xringb4_net93 VGND nfet L=0.15U W=0.36U
+Mxringb4_MI34 xringb4_net93 xringb4_M1 xringb4_net101 VGND nfet L=0.15U W=0.42U
+Mxringb4_MI655 xringb4_s0 xringb4_clkneg xringb4_net81 VGND nfet L=0.15U W=0.36U
+Mxringb4_MI653 PH_B4 xringb4_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb4_MI654 xringb4_net81 xringb4_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb4_MI44 xringb4_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb4_MI647 xringb4_M1 xringb4_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb4_MI39 xringb4_db PH_B5 VGND VGND nfet L=0.15U W=0.42U
+Mxringb4_MI649 xringb4_M1 xringb4_clkpos xringb4_s0 VGND nfet L=0.15U W=0.36U
+Mxringb4_MI47 xringb4_clkpos xringb4_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb4_MI43 xringb4_db xringb4_clkpos xringb4_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI662 xringb4_net165 xringb4_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI659 xringb4_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI664 xringb4_s0 xringb4_clkpos xringb4_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI658 xringb4_net82 xringb4_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI30 xringb4_net144 xringb4_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI31 xringb4_M0 xringb4_clkneg xringb4_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI32 xringb4_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI660 PH_B4 xringb4_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb4_MI45 xringb4_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb4_MI648 xringb4_M1 xringb4_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb4_MI40 xringb4_db PH_B5 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb4_MI650 xringb4_M1 xringb4_clkneg xringb4_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI46 xringb5_clkpos xringb5_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb5_MI42 xringb5_db xringb5_clkneg xringb5_M0 VGND nfet L=0.15U W=0.36U
+Mxringb5_MI656 xringb5_net82 xringb5_s0 xringb5_net108 VGND nfet L=0.15U W=0.42U
+Mxringb5_MI657 xringb5_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb5_MI33 xringb5_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb5_MI4 xringb5_M0 xringb5_clkpos xringb5_net93 VGND nfet L=0.15U W=0.36U
+Mxringb5_MI34 xringb5_net93 xringb5_M1 xringb5_net101 VGND nfet L=0.15U W=0.42U
+Mxringb5_MI655 xringb5_s0 xringb5_clkneg xringb5_net81 VGND nfet L=0.15U W=0.36U
+Mxringb5_MI653 PH_B5 xringb5_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb5_MI654 xringb5_net81 xringb5_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb5_MI44 xringb5_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb5_MI647 xringb5_M1 xringb5_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb5_MI39 xringb5_db PH_B6 VGND VGND nfet L=0.15U W=0.42U
+Mxringb5_MI649 xringb5_M1 xringb5_clkpos xringb5_s0 VGND nfet L=0.15U W=0.36U
+Mxringb5_MI47 xringb5_clkpos xringb5_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb5_MI43 xringb5_db xringb5_clkpos xringb5_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI662 xringb5_net165 xringb5_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI659 xringb5_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI664 xringb5_s0 xringb5_clkpos xringb5_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI658 xringb5_net82 xringb5_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI30 xringb5_net144 xringb5_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI31 xringb5_M0 xringb5_clkneg xringb5_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI32 xringb5_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI660 PH_B5 xringb5_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb5_MI45 xringb5_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb5_MI648 xringb5_M1 xringb5_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb5_MI40 xringb5_db PH_B6 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb5_MI650 xringb5_M1 xringb5_clkneg xringb5_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI46 xringb6_clkpos xringb6_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb6_MI42 xringb6_db xringb6_clkneg xringb6_M0 VGND nfet L=0.15U W=0.36U
+Mxringb6_MI656 xringb6_net82 xringb6_s0 xringb6_net108 VGND nfet L=0.15U W=0.42U
+Mxringb6_MI657 xringb6_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb6_MI33 xringb6_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb6_MI4 xringb6_M0 xringb6_clkpos xringb6_net93 VGND nfet L=0.15U W=0.36U
+Mxringb6_MI34 xringb6_net93 xringb6_M1 xringb6_net101 VGND nfet L=0.15U W=0.42U
+Mxringb6_MI655 xringb6_s0 xringb6_clkneg xringb6_net81 VGND nfet L=0.15U W=0.36U
+Mxringb6_MI653 PH_B6 xringb6_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb6_MI654 xringb6_net81 xringb6_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb6_MI44 xringb6_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb6_MI647 xringb6_M1 xringb6_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb6_MI39 xringb6_db PH_B7 VGND VGND nfet L=0.15U W=0.42U
+Mxringb6_MI649 xringb6_M1 xringb6_clkpos xringb6_s0 VGND nfet L=0.15U W=0.36U
+Mxringb6_MI47 xringb6_clkpos xringb6_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb6_MI43 xringb6_db xringb6_clkpos xringb6_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI662 xringb6_net165 xringb6_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI659 xringb6_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI664 xringb6_s0 xringb6_clkpos xringb6_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI658 xringb6_net82 xringb6_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI30 xringb6_net144 xringb6_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI31 xringb6_M0 xringb6_clkneg xringb6_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI32 xringb6_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI660 PH_B6 xringb6_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb6_MI45 xringb6_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb6_MI648 xringb6_M1 xringb6_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb6_MI40 xringb6_db PH_B7 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb6_MI650 xringb6_M1 xringb6_clkneg xringb6_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI46 xringb7_clkpos xringb7_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb7_MI42 xringb7_db xringb7_clkneg xringb7_M0 VGND nfet L=0.15U W=0.36U
+Mxringb7_MI656 xringb7_net82 xringb7_s0 xringb7_net108 VGND nfet L=0.15U W=0.42U
+Mxringb7_MI657 xringb7_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb7_MI33 xringb7_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb7_MI4 xringb7_M0 xringb7_clkpos xringb7_net93 VGND nfet L=0.15U W=0.36U
+Mxringb7_MI34 xringb7_net93 xringb7_M1 xringb7_net101 VGND nfet L=0.15U W=0.42U
+Mxringb7_MI655 xringb7_s0 xringb7_clkneg xringb7_net81 VGND nfet L=0.15U W=0.36U
+Mxringb7_MI653 PH_B7 xringb7_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb7_MI654 xringb7_net81 xringb7_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb7_MI44 xringb7_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb7_MI647 xringb7_M1 xringb7_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb7_MI39 xringb7_db PH_B8 VGND VGND nfet L=0.15U W=0.42U
+Mxringb7_MI649 xringb7_M1 xringb7_clkpos xringb7_s0 VGND nfet L=0.15U W=0.36U
+Mxringb7_MI47 xringb7_clkpos xringb7_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb7_MI43 xringb7_db xringb7_clkpos xringb7_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI662 xringb7_net165 xringb7_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI659 xringb7_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI664 xringb7_s0 xringb7_clkpos xringb7_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI658 xringb7_net82 xringb7_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI30 xringb7_net144 xringb7_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI31 xringb7_M0 xringb7_clkneg xringb7_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI32 xringb7_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI660 PH_B7 xringb7_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb7_MI45 xringb7_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb7_MI648 xringb7_M1 xringb7_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb7_MI40 xringb7_db PH_B8 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb7_MI650 xringb7_M1 xringb7_clkneg xringb7_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI46 xringb8_clkpos xringb8_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb8_MI42 xringb8_db xringb8_clkneg xringb8_M0 VGND nfet L=0.15U W=0.36U
+Mxringb8_MI656 xringb8_net82 xringb8_s0 xringb8_net108 VGND nfet L=0.15U W=0.42U
+Mxringb8_MI657 xringb8_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb8_MI33 xringb8_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb8_MI4 xringb8_M0 xringb8_clkpos xringb8_net93 VGND nfet L=0.15U W=0.36U
+Mxringb8_MI34 xringb8_net93 xringb8_M1 xringb8_net101 VGND nfet L=0.15U W=0.42U
+Mxringb8_MI655 xringb8_s0 xringb8_clkneg xringb8_net81 VGND nfet L=0.15U W=0.36U
+Mxringb8_MI653 PH_B8 xringb8_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb8_MI654 xringb8_net81 xringb8_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb8_MI44 xringb8_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb8_MI647 xringb8_M1 xringb8_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb8_MI39 xringb8_db PH_B9 VGND VGND nfet L=0.15U W=0.42U
+Mxringb8_MI649 xringb8_M1 xringb8_clkpos xringb8_s0 VGND nfet L=0.15U W=0.36U
+Mxringb8_MI47 xringb8_clkpos xringb8_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb8_MI43 xringb8_db xringb8_clkpos xringb8_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI662 xringb8_net165 xringb8_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI659 xringb8_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI664 xringb8_s0 xringb8_clkpos xringb8_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI658 xringb8_net82 xringb8_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI30 xringb8_net144 xringb8_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI31 xringb8_M0 xringb8_clkneg xringb8_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI32 xringb8_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI660 PH_B8 xringb8_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb8_MI45 xringb8_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb8_MI648 xringb8_M1 xringb8_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb8_MI40 xringb8_db PH_B9 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb8_MI650 xringb8_M1 xringb8_clkneg xringb8_s0 VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI46 xringb9_clkpos xringb9_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringb9_MI42 xringb9_db xringb9_clkneg xringb9_M0 VGND nfet L=0.15U W=0.36U
+Mxringb9_MI656 xringb9_net82 xringb9_s0 xringb9_net108 VGND nfet L=0.15U W=0.42U
+Mxringb9_MI657 xringb9_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb9_MI33 xringb9_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringb9_MI4 xringb9_M0 xringb9_clkpos xringb9_net93 VGND nfet L=0.15U W=0.36U
+Mxringb9_MI34 xringb9_net93 xringb9_M1 xringb9_net101 VGND nfet L=0.15U W=0.42U
+Mxringb9_MI655 xringb9_s0 xringb9_clkneg xringb9_net81 VGND nfet L=0.15U W=0.36U
+Mxringb9_MI653 PH_B9 xringb9_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringb9_MI654 xringb9_net81 xringb9_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringb9_MI44 xringb9_clkneg clknet_1_0__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringb9_MI647 xringb9_M1 xringb9_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringb9_MI39 xringb9_db PH_SAMPLE VGND VGND nfet L=0.15U W=0.42U
+Mxringb9_MI649 xringb9_M1 xringb9_clkpos xringb9_s0 VGND nfet L=0.15U W=0.36U
+Mxringb9_MI47 xringb9_clkpos xringb9_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb9_MI43 xringb9_db xringb9_clkpos xringb9_M0 VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI662 xringb9_net165 xringb9_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI659 xringb9_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI664 xringb9_s0 xringb9_clkpos xringb9_net165 VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI658 xringb9_net82 xringb9_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI30 xringb9_net144 xringb9_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI31 xringb9_M0 xringb9_clkneg xringb9_net144 VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI32 xringb9_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI660 PH_B9 xringb9_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringb9_MI45 xringb9_clkneg clknet_1_0__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringb9_MI648 xringb9_M1 xringb9_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringb9_MI40 xringb9_db PH_SAMPLE VPWR VPWR pfet L=0.15U W=0.42U
+Mxringb9_MI650 xringb9_M1 xringb9_clkneg xringb9_s0 VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI46 xringeoc_clkpos xringeoc_clkneg VGND VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI42 xringeoc_db xringeoc_clkneg xringeoc_M0 VGND nfet L=0.15U W=0.36U
+Mxringeoc_MI656 xringeoc_net82 xringeoc_s0 xringeoc_net108 VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI657 xringeoc_net108 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI33 xringeoc_net101 RST_B VGND VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI4 xringeoc_M0 xringeoc_clkpos xringeoc_net93 VGND nfet L=0.15U W=0.36U
+Mxringeoc_MI34 xringeoc_net93 xringeoc_M1 xringeoc_net101 VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI655 xringeoc_s0 xringeoc_clkneg xringeoc_net81 VGND nfet L=0.15U W=0.36U
+Mxringeoc_MI653 PH_EOC xringeoc_net82 VGND VGND nfet L=0.15U W=0.65U
+Mxringeoc_MI654 xringeoc_net81 xringeoc_net82 VGND VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI44 xringeoc_clkneg clknet_1_1__leaf_CLK VGND VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI647 xringeoc_M1 xringeoc_M0 VGND VGND nfet L=0.15U W=0.64U
+Mxringeoc_MI39 xringeoc_db PH_B0 VGND VGND nfet L=0.15U W=0.42U
+Mxringeoc_MI649 xringeoc_M1 xringeoc_clkpos xringeoc_s0 VGND nfet L=0.15U W=0.36U
+Mxringeoc_MI47 xringeoc_clkpos xringeoc_clkneg VPWR VPWR pfet L=0.15U W=0.64U
+Mxringeoc_MI43 xringeoc_db xringeoc_clkpos xringeoc_M0 VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI662 xringeoc_net165 xringeoc_net82 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI659 xringeoc_net82 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI664 xringeoc_s0 xringeoc_clkpos xringeoc_net165 VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI658 xringeoc_net82 xringeoc_s0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI30 xringeoc_net144 xringeoc_M1 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI31 xringeoc_M0 xringeoc_clkneg xringeoc_net144 VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI32 xringeoc_net144 RST_B VPWR VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI660 PH_EOC xringeoc_net82 VPWR VPWR pfet L=0.15U W=1.0U
+Mxringeoc_MI45 xringeoc_clkneg clknet_1_1__leaf_CLK VPWR VPWR pfet L=0.15U W=0.64U
+Mxringeoc_MI648 xringeoc_M1 xringeoc_M0 VPWR VPWR pfet L=0.15U W=0.84U
+Mxringeoc_MI40 xringeoc_db PH_B0 VPWR VPWR pfet L=0.15U W=0.42U
+Mxringeoc_MI650 xringeoc_M1 xringeoc_clkneg xringeoc_s0 VPWR pfet L=0.15U W=0.42U
+.ENDS sar_sequencer
+
+* --- from layout/seln-inverters/reports/20260906-002022-a36e06f/seln_inverters.lvs-reference.spice --------------------
+* LVS reference for the SELn<i> inverter bank (issue #103).
+*
+* Mechanically generated -- DO NOT HAND-EDIT. Regenerate with:
+*   layout/seln-inverters/bin/generate-lvs-reference.py [netlist.v]
+*
+* Topology source: seln-inverters/reports/20260906-002022-a36e06f/seln_inverters_post_route.v
+* (klt place-and-route's own post-route `write_verilog` dump).
+*
+* Flat, transistor-level (klt extract --deck sky130 is a flat
+* extractor), device classes generalized to nfet/pfet. Device
+* models: the sky130 PDK's own official CDL
+* (libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl), Apache-2.0
+* licensed, SkyWater's own release -- not reverse-engineered.
+.SUBCKT seln_inverters DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 SELn8 SELn7 SELn6 SELn5 SELn4 SELn3 SELn2 SELn1 SELn0 VPWR VGND
+Mxinv_seln0_MMIN1 SELn0 DOUT0 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln0_MMIP1 SELn0 DOUT0 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln1_MMIN1 SELn1 DOUT1 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln1_MMIP1 SELn1 DOUT1 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln2_MMIN1 SELn2 DOUT2 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln2_MMIP1 SELn2 DOUT2 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln3_MMIN1 SELn3 DOUT3 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln3_MMIP1 SELn3 DOUT3 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln4_MMIN1 SELn4 DOUT4 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln4_MMIP1 SELn4 DOUT4 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln5_MMIN1 SELn5 DOUT5 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln5_MMIP1 SELn5 DOUT5 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln6_MMIN1 SELn6 DOUT6 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln6_MMIP1 SELn6 DOUT6 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln7_MMIN1 SELn7 DOUT7 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln7_MMIP1 SELn7 DOUT7 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln8_MMIN1 SELn8 DOUT8 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln8_MMIP1 SELn8 DOUT8 VPWR VPWR pfet L=0.15U W=1.0U
+.ENDS seln_inverters
+
+* --- top-level composition (design/sar_adc_top.sch) ----------
+.SUBCKT sar_adc_top VINP VINN VDD VREFP VREFN VCM CLK RST_B DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 BUSY
+* sampling_frontend (layout/sampling-frontend/reference.spice ports:
+* VDD GND SAMPLE VCM VINP VINN TOP_P TOP_N BPREF_P BPREF_N BOOST_P BOOST_N)
+Xfe VDD GND SAMPLE_INT VCM VINP VINN TOP_P TOP_N BPREF_P_NC BPREF_N_NC BOOST_P_NC BOOST_N_NC sampling_frontend
+* cdac_array (layout/cdac-array/reference/cdac_array.lvs-reference.spice
+* ports: VREFP VREFN VDD vsubs SELn0 SELp0 .. SELn8 SELp8, TOP_N/TOP_P
+* mid-list -- mirrored verbatim from design/sar_adc_top.spice's own xcdac)
+Xcdac VREFP VREFN VDD GND SELn0 DOUT0 SELn1 DOUT1 SELn2 DOUT2 SELn3 DOUT3 SELn4 DOUT4 TOP_N TOP_P DOUT5 SELn5 DOUT6 SELn6 SELn7 DOUT7 SELn8 DOUT8 cdac_array
+* comparator (layout/comparator/reference.spice ports:
+* VDD GND CLK VINP VINN OUTP OUTN)
+Xcmp VDD GND CLK TOP_P TOP_N COMP_OUT OUTN_NC comparator
+* sar_sequencer (this sub-block's own LATEST reports/<id>/
+* sar_sequencer.lvs-reference.spice ports: CLK RST_B COMP_OUT PH_B9..PH_B0
+* PH_EOC PH_SAMPLE BUSY DOUT9..DOUT0 VPWR VGND -- PH_B<i>/PH_EOC left
+* dead-ended per design/sar_adc_top.sch's own documented integration gap;
+* VPWR/VGND left as this instance's own self-contained rail, per that same
+* gap note extended to a second digital instance -- see
+* layout/sar-adc-top/README.md "GND / VPWR / VGND")
+Xseq CLK RST_B COMP_OUT PH_B9_NC PH_B8_NC PH_B7_NC PH_B6_NC PH_B5_NC PH_B4_NC PH_B3_NC PH_B2_NC PH_B1_NC PH_B0_NC PH_EOC_NC SAMPLE_INT BUSY DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 VPWR_SEQ VGND_SEQ sar_sequencer
+* seln_inverters (this issue's own glue macro -- LATEST reports/<id>/
+* seln_inverters.lvs-reference.spice ports: DOUT8..DOUT0 SELn8..SELn0
+* VPWR VGND; VPWR/VGND left as ITS OWN separate self-contained rail, not
+* tied to sar_sequencer's -- see the same README note above)
+Xinv DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 SELn8 SELn7 SELn6 SELn5 SELn4 SELn3 SELn2 SELn1 SELn0 VPWR_SELN VGND_SELN seln_inverters
+.ENDS

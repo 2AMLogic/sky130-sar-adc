@@ -7,36 +7,16 @@ comparator_core.spice` for the xschem-derived device list this layout's
 connectivity is checked against. Follows `layout/README.md`'s (and
 `layout/trivial-cell/`'s / `layout/sar-sequencer/`'s) record convention.
 
-> **Status: SUPERSEDED BY A SCHEMATIC CHANGE (issue #175) — this layout no
-> longer implements `design/comparator.sch`.**
->
-> DR-004 Amendment A changed the comparator topology: the cross-coupled NMOS
-> latch pair's sources moved off hard-wired `GND` onto the input pair's own
-> drain nodes `DIP`/`DIN`, and those nodes gained their own CLK-gated PMOS
-> precharge devices — 9 devices became 11. The geometry under
-> `reports/LATEST` was drawn against the pre-amendment schematic, so its LVS
-> "match" verdict is now a statement about a schematic that no longer exists.
->
-> Re-checked rather than assumed, with a falsifiability control:
-> `reports/20260906-064104-eedd532/` runs one `klt lvs` request against the
-> unmodified composed GDS twice, changing only the reference netlist —
-> **match** against the superseded 9-device reference (so the toolchain
-> reproduces the recorded verdict), **mismatch** against the amended
-> 11-device `reference.spice` (8 unmatched devices, `DIP`/`DIN` merged away).
->
-> `reference.spice` in this directory HAS been updated to the amended device
-> set, per its own "copied 1:1 from `comparator_core.spice`" contract. The
-> **geometry has not** — re-drawing it is a full sub-block layout job (a
-> sixth `klt gen` block, `DIP`/`DIN` on the mirror-symmetric routing plan, a
-> fresh six-verdict proof), tracked as its own issue rather than bundled into
-> #175's topology fix (issue #180). Until that lands, treat every verdict below, and
-> everything under `pex/`, as describing the superseded topology.
->
-> `reports/LATEST` still points at `20260825-135219-59f8e86` on purpose: that
-> is the last actual *flow* run, and the re-check above is not one.
-
-**Historical status (accurate for the pre-#175 topology): DRC-clean and
-LVS-clean.** The record referenced by `reports/LATEST` carries all six of this
+**Status: DRC-clean and LVS-clean against DR-004 Amendment A's 11-device
+topology (issue #180).** The layout was re-drawn to match the amended
+schematic from issue #175 (the cross-coupled NMOS latch pair's sources moved
+off hard-wired `GND` onto the input pair's own drain nodes `DIP`/`DIN`, with
+a CLK-gated PMOS precharge device added on each -- 9 devices became 11): a
+sixth `klt gen` block (`rstd`, the `M_RST_DIP`/`M_RST_DIN` precharge pair),
+`DIP`/`DIN` added to the floorplan/routing with the same mirror-symmetry
+treatment `OUTP`/`OUTN` already had, and the latch NMOS source terminals
+re-routed off the `GND` rail onto `DIP`/`DIN`. The record referenced by
+`reports/LATEST` (`reports/20260906-113406-2d66a6a/`) carries all six of this
 flow's verdicts, three positive and three negative:
 
 | # | Verdict | Why it is here |
@@ -107,10 +87,11 @@ Two halves, both deliberate: *device* matching, and *routing* symmetry.
 
 ### Devices
 
-`design/comparator.sch` has four matched device pairs plus one unmatched
-single device (the tail switch). Effort is *not* spread evenly across them --
-it is concentrated on the one pair the issue's acceptance criteria and #29
-actually track:
+`design/comparator.sch` has five matched device pairs plus one unmatched
+single device (the tail switch) -- DR-004 Amendment A (issue #175/#180) added
+the fifth pair, the `M_RST_DIP`/`M_RST_DIN` precharge devices on `DIP`/`DIN`.
+Effort is *not* spread evenly across them -- it is concentrated on the one
+pair the issue's acceptance criteria and #29 actually track:
 
 - **Input pair, M_INN/M_INP (`inpair` block) -- the matching-critical net.**
   `klt gen diff_pair --params '{"w_um": 2, "l_um": 0.5, "splits": 2, ...}'`:
@@ -119,15 +100,19 @@ actually track:
   targets *gradient-induced* threshold/current mismatch -- a linear process
   gradient across the pair cancels to first order under common-centroid
   interleaving, which a plain side-by-side placement does not achieve.
-- **Cross-coupled latch pairs (M_LATN_P/N, M_LATP_P/N) and the reset pair
-  (M_RST_P/N).** Symmetric by schematic role (each pair is interchangeable
-  under the OUTP<->OUTN swap) but not the static input-offset net #29 tracks
-  -- these affect regeneration symmetry/speed, a second-order offset
-  contributor, not the primary one. `splits: 1`: plain A/B placement,
-  adjacent, identical orientation, one instance per device at its full
-  schematic width. Proportionate effort: real, deliberate symmetry without
-  spending the interleaved-leg complexity budget where the acceptance
-  criteria doesn't ask for it.
+- **Cross-coupled latch pairs (M_LATN_P/N, M_LATP_P/N), the reset pair
+  (M_RST_P/N), and the DIP/DIN precharge pair (M_RST_DIP/M_RST_DIN, `rstd`).**
+  Symmetric by schematic role (each pair is interchangeable under the
+  OUTP<->OUTN / DIP<->DIN swap) but not the static input-offset net #29
+  tracks -- these affect regeneration/precharge symmetry or speed, a
+  second-order offset contributor, not the primary one. `splits: 1`: plain
+  A/B placement, adjacent, identical orientation, one instance per device at
+  its full schematic width. Proportionate effort: real, deliberate symmetry
+  without spending the interleaved-leg complexity budget where the
+  acceptance criteria doesn't ask for it. `rstd` is sized W=4um per device
+  (not W=16um like the existing `rst` block) -- "same class" means the same
+  generator/`splits` treatment, not the same width; see
+  `reference.spice`/`comparator_core.spice` for the amended sizing.
 - **Tail switch, M_TAIL (`tail` block).** A single device, no matching
   partner -- `klt gen mos_array` 1x1, reusing the same validated unit-device
   primitive (contact/landing-pad geometry) every other block already uses.
@@ -141,34 +126,40 @@ explains never drift apart.
 Device matching alone does not fix a dynamic comparator's offset. Its
 decision is a *race* between OUTP and OUTN, so unequal wire capacitance on
 the two output nodes biases that race exactly the way a device Vth mismatch
-would. Two things address it:
+would. Post-#180, the same is true of `DIP`/`DIN`: the input pair's own
+drain nodes and the latch NMOS sources land there, so unequal `DIP`/`DIN`
+wire capacitance biases the decision the same way. Two things address it:
 
 - **A mirror-symmetric floorplan.** Every `diff_pair` block's y origin is
   chosen so its Q1/Q2 boundary lands on one shared horizontal axis
   (`Y_AXIS`): the OUTP-side device of every pair below it, the OUTN-side
-  device above it, tail switch and cross-quad centred on it.
+  device above it, tail switch and cross-quad centred on it. `rstd` (the
+  DIP/DIN precharge pair) follows the same rule -- it reuses `latn`'s own
+  anchor, since a W=4um `diff_pair`'s port geometry is identical regardless
+  of flavor (only the pfet n-well margin changes the bbox, not the active
+  area).
 - **Mirror-matched routing.** Each negative-half branch is routed on the
   mirror image (`2*Y_AXIS - y`) of its positive-half counterpart's own
   y-track wherever that track is free, rather than on whatever the greedy
-  track search reaches first (`build_layout.py`'s `MIRROR_PIN`).
+  track search reaches first (`build_layout.py`'s `MIRROR_PIN`) -- applied to
+  `DIP`/`DIN` with the same rigor as `OUTP`/`OUTN`.
 
 This is measured, not asserted: `reports/<record-id>/route.summary.json`
 carries per-net met1/met2 area, via and contact counts, and the resulting
-OUTP/OUTN and VINN/VINP imbalance, and `record.md` tabulates them. On the
-committed record the mirror preference takes OUTP/OUTN wire-area imbalance
-from 12.9% (shortest-branch routing) to **0.65%**.
+OUTP/OUTN, VINN/VINP and DIP/DIN imbalance, and `record.md` tabulates them.
+On the current record (`reports/20260906-113406-2d66a6a/`) the mirror
+preference yields **OUTP/OUTN 2.84%**, **VINN/VINP 15.54%**, and
+**DIP/DIN 6.7%** wire-area imbalance.
 
-Two honest limits on that number, both since resolved by a real `klt pex`
-parasitic extraction (issue #112, `layout/comparator/pex/`,
+Two honest limits on any of these numbers, both discussed at length by the
+real `klt pex` parasitic extraction issue #112 ran against the pre-#180
+geometry (`layout/comparator/pex/`,
 `reports/20260825-151036-aaf3010/record.md`):
 
-- Wire *area* was a proxy for wire capacitance, not a parasitic extraction.
-  The real extraction **restates both imbalances in farads and finds them
-  smaller than the area proxy claimed**: OUTP/OUTN total-capacitance
-  imbalance **0.28%** (vs. the area proxy's 0.65%), VINN/VINP
-  **6.84%** (vs. 15.54%) -- same ranking (VINN/VINP the looser-matched
-  pair) either way, so the area proxy's *qualitative* conclusion held, but
-  it over-stated both numbers.
+- Wire *area* is a proxy for wire capacitance, not a parasitic extraction.
+  On the pre-#180 geometry the real extraction restated the OUTP/OUTN and
+  VINN/VINP imbalances in farads and found them smaller than the area proxy
+  claimed (same qualitative ranking, smaller magnitude either way).
 - The residual VINN/VINP imbalance is real and structural rather than a
   router failure: the cross-quad's upper-row gate pads put VINN's pad in
   the right column and VINP's in the left, while their trunks are on
@@ -176,19 +167,21 @@ parasitic extraction (issue #112, `layout/comparator/pex/`,
   below -- and cannot share a track. `klt gen`'s unit device also places both
   halves' gate pads on the same side (above their own diffusion), so gate
   pads are related by translation, not reflection, and the mirror preference
-  is deliberately not applied to them. **Whether this residual imbalance is
-  material at this block's offset budget is now answered, not just
-  flagged**: re-simulating the schematic-vs-extracted pick-off statistic at
-  Vindiff=0 isolates a parasitic-driven input-referred offset estimate of
-  roughly **-0.086 mV** -- over two orders of magnitude smaller than the
-  device-mismatch-only offset distribution's own mean (35.24 mV) and stdev
-  (97.08 mV, `sim/comparator-decision/records/20260821-071918-433a294.md`).
-  **Conclusion: noise against the device-mismatch term, not material.** No
-  floorplan change is warranted on offset grounds; the router should not be
-  re-litigated for this reason. See `layout/comparator/pex/README.md` for
-  the full methodology (including two `klt pex` tool gaps this run hit and
-  worked around, filed generically at 2AMLogic/klayout-tools) and
-  `reports/20260825-151036-aaf3010/record.md` for the complete numbers.
+  is deliberately not applied to them.
+
+`layout/comparator/pex/` has been re-run against the post-#180 geometry
+(`reports/20260906-101231-1250ff4/record.md`): it restates OUTP/OUTN in
+farads (1.964% total-capacitance imbalance) and VINN/VINP (5.977%), both
+smaller than the area proxy's numbers, same ranking as before. **Its AC3/AC4
+"is the routing-driven offset material" conclusion is currently UNCONFIRMED**
+for this topology, though -- see `layout/comparator/pex/README.md`'s status
+note and issue #187: the extracted-side leg's pick-off measurements look
+suspect (a sign-flipped gain vs. the schematic side), most likely because the
+fixed pick-off timing `pex/testbench.spice` uses was calibrated against the
+pre-#175 topology's regeneration profile, not the amended one. No floorplan
+change is warranted on the evidence in hand; whether the parasitic-driven
+term is material is an open question issue #187 tracks, not a settled "not
+material" the way the pre-#180 geometry's own PEX record could claim.
 
 ### Body ties
 
@@ -208,11 +201,11 @@ body-tie structures directly:
 - an **n-well tie**: `tap` inside the well, contacted up to VDD, naming the
   well net (and so every PMOS body terminal) VDD.
 
-The `latp`/`rst` blocks each draw their own local n-well; the routing cell
-draws one enclosing n-well rectangle that merges them into a single well and
-extends far enough right to hold the well tie. Verdict 6 above asserts the
-result. `reference.spice` therefore declares real `B=GND` / `B=VDD` body
-terminals rather than an aspiration.
+The `latp`/`rst`/`rstd` blocks each draw their own local n-well; the routing
+cell draws one enclosing n-well rectangle that merges them into a single well
+and extends far enough right to hold `rstd` and the well tie. Verdict 6 above
+asserts the result. `reference.spice` therefore declares real `B=GND` /
+`B=VDD` body terminals rather than an aspiration.
 
 ## Running the flow
 
@@ -237,14 +230,14 @@ layout/comparator/
   reference.broken-device.spice       # negative control: device-parameter corruption
   reference.broken-topology.spice     # negative control: topology corruption
   bin/
-    gen_blocks.py                     # the five klt gen invocations + matching-strategy rationale
+    gen_blocks.py                     # the six klt gen invocations + matching-strategy rationale
     build_layout.py                   # floorplan + router: emits the klt draw and gen-compose requests
     run-flow.sh                       # gen -> per-block drc -> draw -> compose -> drc -> extract -> lvs -> record
     render-record.py                  # renders record.md, asserts the six verdicts
   reports/
     LATEST                            # record-id of the most recent run
     <record-id>/                      # append-only, one directory per run:
-                                      #   <block>.gds/.json      the five klt gen blocks
+                                      #   <block>.gds/.json      the six klt gen blocks
                                       #   drc.blocks.json        per-block DRC
                                       #   draw.request.json      every wire, as klt draw input
                                       #   draw.json, route.gds   the drawn routing cell
@@ -261,10 +254,13 @@ layout/comparator/
 Same rule as `sim/` and `layout/trivial-cell/`: a re-run mints a new
 `<record-id>` (`<YYYYMMDD>-<HHMMSS>-<short-git-sha>`, UTC) and never edits an
 existing report directory. `reports/20260825-131632-51cbdd4/` is the earlier,
-honestly-PARTIAL record from this issue's first increment (PR #108); it stays
-exactly as it was minted. `record.md` stamps the `klt` version, the KLayout
-engine version, the resolved PDK variant + open_pdks commit, the DRC deck's
-content hash, and the repo commit with its dirty flag.
+honestly-PARTIAL record from this issue's first increment (PR #108);
+`reports/20260825-135219-59f8e86/` and `reports/20260906-064104-eedd532/`
+describe the pre-#180 (9-device) topology; all stay exactly as they were
+minted. `reports/20260906-113406-2d66a6a/` (`reports/LATEST`) is the current
+record, against the amended 11-device topology. `record.md` stamps the `klt`
+version, the KLayout engine version, the resolved PDK variant + open_pdks
+commit, the DRC deck's content hash, and the repo commit with its dirty flag.
 
 Like `layout/trivial-cell/`'s own bootstrap record, a record is minted from a
 **dirty** working tree by construction -- the flow writes its own report files

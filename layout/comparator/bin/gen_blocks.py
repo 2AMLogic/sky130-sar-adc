@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Generate the five `klt gen diff_pair`/`mos_array` sub-blocks that
+"""Generate the six `klt gen diff_pair`/`mos_array` sub-blocks that
 layout/comparator/bin/run-flow.sh composes into the dynamic comparator
-layout (issue #101).
+layout (issue #101, re-drawn for DR-004 Amendment A's 11-device topology in
+issue #180).
 
 Device sizing here is a 1:1 mirror of design/comparator.sch's own W/L per
 device (sim/comparator-decision/testbench/comparator_core.spice is the
@@ -23,16 +24,22 @@ layout/comparator/README.md "Matching strategy" for the full writeup):
   common-centroid layout, the textbook reason this topology exists), the
   dominant systematic-offset mechanism a plain side-by-side placement does
   not address.
-* **Cross-coupled latch pairs (M_LATN_P/N, M_LATN_N; M_LATP_P/N) and the
-  reset pair (M_RST_P/N)** -- symmetric by schematic role (each pair's two
-  devices are interchangeable under the OUTP<->OUTN swap) but not the
-  input-offset-critical net #29 tracks -- get `diff_pair`'s plain `splits=1`
-  A/B placement: adjacent, identical orientation, single-instance per device
-  at its full schematic width. This is proportionate effort: real symmetry
-  (no gratuitous single-sided placement choice), without spending the
-  interleaved-leg complexity budget on pairs whose own mismatch mainly
-  affects regeneration symmetry/speed, not the static input offset this
-  issue's acceptance criteria calls out by name.
+* **Cross-coupled latch pairs (M_LATN_P/N, M_LATN_N; M_LATP_P/N), the
+  reset pair (M_RST_P/N), and the DIP/DIN precharge pair added by DR-004
+  Amendment A (M_RST_DIP/M_RST_DIN, `rstd`)** -- symmetric by schematic role
+  (each pair's two devices are interchangeable under the OUTP<->OUTN /
+  DIP<->DIN swap) but not the input-offset-critical net #29 tracks -- get
+  `diff_pair`'s plain `splits=1` A/B placement: adjacent, identical
+  orientation, single-instance per device at its full schematic width. This
+  is proportionate effort: real symmetry (no gratuitous single-sided
+  placement choice), without spending the interleaved-leg complexity budget
+  on pairs whose own mismatch mainly affects regeneration symmetry/speed
+  (the latch/reset pairs) or precharge-transient symmetry (the new DIP/DIN
+  pair), not the static input offset this issue's acceptance criteria calls
+  out by name. `rstd` is sized W=4um per device, matching the amended
+  `reference.spice`/`comparator_core.spice` -- not the existing `rst`
+  block's W=16um; "same class" means the same generator/`splits` treatment,
+  not the same width.
 * **Tail switch (M_TAIL, `tail`)** -- a single device, no matching partner --
   drawn via `mos_array` 1x1 (dummy=0): the array generator was chosen over a
   hand-rolled single-device draw only to reuse the same validated unit-device
@@ -123,6 +130,19 @@ BLOCKS = [
         "RST",
         {
             "w_um": 16.0,
+            "l_um": 0.5,
+            "splits": 1,
+            "flavor": "pfet",
+            "add_guard_ring": False,
+            "gate_contact": True,
+        },
+    ),
+    (
+        "rstd",
+        "diff_pair",
+        "RSTD",
+        {
+            "w_um": 4.0,
             "l_um": 0.5,
             "splits": 1,
             "flavor": "pfet",
