@@ -321,7 +321,7 @@ audience with an explicit Challenge-brief verdict column.
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | **MET** — sim structural check (9/9 corners); independent layout evidence also exists and is now DRC- and LVS-confirmed (drawn `C_u = 8.6473 fF`, unit-cap count 1024 = 512/side × 2). The original record's LVS "match" did not reproduce against its own committed artefacts (#148); #148's fix compares the array's 1024 drawn unit capacitors 1:1 against the reference (no `combine_devices` folding) and its replacement record's match reproduces on repeat runs | same record; [`layout/cdac-array/reports/20260905-220338-9fb9b04/record.md`](../../layout/cdac-array/reports/20260905-220338-9fb9b04/record.md) (supersedes `reports/20260825-132454-51cbdd4/`, see #148) |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.8643 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)). Re-measured this pass against issue #175's amended (reset-integrity-fixed) device set — the binding-corner figure moved from 0.9591 to 0.8643 mV rms; the pass/fail outcome is unchanged | [`sim/comparator-decision/records/20260906-065109-eedd532.md`](../../sim/comparator-decision/records/20260906-065109-eedd532.md) |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | `sim/harness-corner-smoke/records/`, `sim/mc-smoke/records/` |
-| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (one mechanism now PVT-complete)** — no full-hierarchy campaign exists; the 1.2–12 MHz timing budget is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is bounded at one corner (`tt`/27 °C/1.8 V): worst case 11.39 ns at bit 8/MSB, 7.3× inside the DR-006-derived 83.33 ns phase budget — not the bottleneck at that corner. (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). Sequencer logic delay and front-end acquisition remain wholly unmeasured, so this is still not an end-to-end sample-rate number | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, one corner); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete) |
+| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (three of four mechanisms now checked, one PVT-complete)** — no full-hierarchy campaign exists; the 1.2–12 MHz timing budget is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is bounded at one corner (`tt`/27 °C/1.8 V): worst case 11.39 ns at bit 8/MSB, 7.3× inside the DR-006-derived 83.33 ns phase budget — not the bottleneck at that corner. (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). (c) The SAR sequencer's own CLK-to-phase-output logic delay is now also bounded at one corner (`tt`/27 °C/1.8 V), covering all 11 of its own ring-sequencer phase transitions: worst case 0.3123 ns (phase `b1`), 266.9× inside the DR-006 budget — the smallest of the three mechanisms measured so far by a wide margin, and not the bottleneck at this corner. The sampling front end's own acquisition-window timing remains wholly unmeasured, so this is still not an end-to-end sample-rate number | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, one corner); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete); [`sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md`](../../sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md) (sequencer mechanism, one corner) |
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only — no ratified line exists to grade against.** Against `spec/target-spec.md`'s *current* DRAFT row (DR-007's candidate pair): 8.506 bit (mean-case CDAC mismatch) **meets** both the > 7.5 baseline and the > 8.0 stretch; 7.755 bit (worst-case CDAC mismatch) **meets the > 7.5 baseline but NOT the > 8.0 stretch**. Against the *original*, pre-DR-007 DRAFT row (> 9.0 / > 9.5) neither figure meets either bound. Re-composed this pass against DR-004 Amendment A's amended comparator-noise figure (0.8643 mV rms, down from 0.9591 — the same figure the comparator-noise row above already cites), moving the estimate from 8.491/7.749 to 8.506/7.755; the met/unmet outcome is unchanged in kind. **Correction**: this row previously headlined "DOES NOT MEET even the un-ratified DR-007 candidate", which overstated the shortfall — the source record's own scoring table marks the worst case as *meeting* the > 7.5 baseline, failing only the > 8.0 stretch (see §7 Item 4) | [`sim/enob-estimate/records/20260906-173830-6f04f59.md`](../../sim/enob-estimate/records/20260906-173830-6f04f59.md) (DR-007-candidate scoring, composed from the post-amendment comparator noise); [`sim/enob-estimate/records/20260906-082749-7724af3.md`](../../sim/enob-estimate/records/20260906-082749-7724af3.md) (identical figures scored against the original > 9.0 / > 9.5 row — the record `docs/characterization-report.md` pins) |
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim. A re-scoring against DR-007's wider ±2.0 LSB candidate **does** exist in-repo (a pure re-parse of the same 40 committed mismatch draws, no new ngspice run): its worst single draw is max\|DNL\| = 1.9716 LSB and max\|INL\| = 1.3147 LSB, i.e. every sampled draw falls inside the ±2.0 LSB candidate bound — but `klt yield` produced no report in that record's environment (a known, already-filed packaging gap, klayout-tools#1061), so there is **no machine-checked yield-fraction verdict against the candidate bound**, and N=40 is not sized for a tight yield-fraction claim in any case. Not graded met/unmet here: the candidate bound is not ratified | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) (original ≤ ±1 LSB scoring — the record `docs/characterization-report.md` pins); [`sim/cdac-array-transfer/records/20260828-022618-f36913e.md`](../../sim/cdac-array-transfer/records/20260828-022618-f36913e.md) (DR-007-candidate re-scoring of the same draws) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
@@ -554,8 +554,9 @@ tracker already owns.
    decision (propagation) delay (`design/comparator.sch` exists, but no
    timing campaign has been run against it), sequencer logic delay, and
    full PVT coverage of even this one mechanism (switch `R_on` varies
-   materially with process/temperature) are all still unmeasured, and any
-   of those could dominate where the CDAC array itself does not. This
+   materially with process/temperature) were, at the time this record was
+   written, all still unmeasured, and any of those could dominate where the
+   CDAC array itself does not. This
    still gates the timing-budget row (DR-006) from becoming anything more
    than a mechanical consequence of an unratified number, but the sample-
    rate row is no longer entirely unmeasured — one candidate bottleneck
@@ -580,9 +581,45 @@ tracker already owns.
    bit-trial phase budget — headroom against a DRAFT, not-yet-ratified
    figure, not a pass against a ratified spec line. Item 3 below is now
    resolved rather than open; the comparator half of the bit-trial timing
-   budget is no longer blocked by a design finding, though the sequencer's
-   logic delay and the sampling front end's acquisition remain wholly
-   unmeasured, so this is still not an end-to-end sample-rate number.
+   budget is no longer blocked by a design finding, though at the time this
+   record was written the sequencer's logic delay and the sampling front
+   end's acquisition remained wholly unmeasured, so this was still not an
+   end-to-end sample-rate number.
+
+   **The sequencer's own CLK-to-phase-output logic delay was measured this
+   pass, single-corner (`tt`/27 °C/1.8 V) first-pass** — a third mechanism
+   now checked, same "first-pass, single-corner budget" precedent
+   `sim/vcm-drive-budget/` and `sim/cdac-bit-trial-settling/` already
+   established
+   ([`sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md`](../../sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md),
+   written by the new `sim/sequencer-logic-delay/run_sequencer_logic_delay.py`).
+   It isolates a genuinely different mechanism than either of the two above:
+   `design/sar_sequencer.sch`'s own (N+2)-stage, N=10, one-hot walking-ring
+   sequencer (built entirely from `sky130_fd_sc_hd` standard cells, per that
+   schematic's own header comment) advances one phase per CLK rising edge;
+   this record measures, for all 11 of its CLK-edge-driven phase transitions
+   (`ph_b9`..`ph_b0`, `ph_eoc`), the propagation delay from the 50% crossing
+   of the triggering CLK edge to the 50% crossing of that phase's own output
+   node — the sequencer's own real gate delay, not an idealized digital
+   abstraction, since the DUT is netlisted from real `nfet_01v8`/`pfet_01v8`
+   transistor-level standard-cell models (the same DUT
+   `sim/sar-sequencer-behavioral/` already proves functionally correct;
+   `COMP_OUT` is tied fixed here because the ring's own phase outputs do not
+   depend on it — only the separate `DOUT*` capture registers do). Measured
+   worst case: 0.3123 ns at phase `b1`, a 266.9× margin inside the
+   DR-006-derived worst-case (12 MHz) 83.333 ns bit-trial phase budget — by
+   a wide margin the smallest of the three mechanisms checked so far
+   (CDAC settling 11.39 ns, comparator decision 4.3575 ns, sequencer logic
+   delay 0.3123 ns), consistent with a handful of standard-cell gate delays
+   being intrinsically much faster than either an RC-settling or a
+   regenerative-latch mechanism. This still does **not** close the open
+   item: the sampling front end's own acquisition-window timing remains
+   wholly unmeasured (the fourth and last named mechanism), and none of the
+   three mechanisms checked so far has been taken to the full ratified PVT
+   grid except the comparator's — real standard-cell gate delay varies
+   materially with process/temperature/supply, so this record's single-point
+   margin, while large, is not yet a PVT-complete result the way the
+   comparator's own decision-delay campaign now is.
 3. **The comparator's reset phase was not PVT-robust — FIXED this pass by
    issue #175 (DR-004 Amendment A), kept here as history rather than
    silently deleted.** The reset-integrity control described in Item 2
