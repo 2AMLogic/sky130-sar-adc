@@ -189,8 +189,9 @@ pin is a bare `nwell` region with no drawn tap/contact anywhere on it, and
 its `SELp<i>`/`SELn<i>` pins are bare-poly straps with no safe field-poly
 landing area, so neither can be physically contacted by a top-level
 composition without risking a silent electrical defect. That gap is now
-tracked as **#165** (`loom:issue`, not yet claimed) and #103 is **blocked on
-it** (`loom:blocked` re-applied) — every *other* top-level pin was
+tracked as **#165** (claimed by a Builder, `loom:building` since
+2026-09-06T01:40:47Z) and #103 is **blocked on it** (`loom:blocked`
+re-applied) — every *other* top-level pin was
 independently verified to have real, externally-reachable conductor, so the
 composition/routing plan is otherwise ready to execute once #165 lands (see
 `layout/sar-adc-top/README.md` for the full per-pin geometry investigation).
@@ -361,8 +362,9 @@ tracker already owns.
    silent electrical defect (full detail in
    `layout/sar-adc-top/README.md`). That gap is tracked as **#165**
    (`cdac_array: VDD (nwell) and SELp/SELn (poly gate) pins have no
-   externally-contactable landing geometry`, `loom:issue`, not yet claimed),
-   and #103 is **`loom:blocked` on it again** — every *other* top-level pin
+   externally-contactable landing geometry`, claimed by a Builder,
+   `loom:building` since 2026-09-06T01:40:47Z), and #103 is
+   **`loom:blocked` on it again** — every *other* top-level pin
    was independently verified to have real, externally-reachable conductor,
    so the composition/routing plan is otherwise ready to execute once #165
    lands. All four original sub-block issues, #165, and #103 roll up under
