@@ -1,0 +1,35 @@
+{
+  "engine": "openroad",
+  "netlist": "../netlist/seln_inverters.v",
+  "hdl_toplevel": "seln_inverters",
+  "pdk": {
+    "cell_library": "sky130_fd_sc_hd",
+    "corner": "tt_025C_1v80"
+  },
+  "floorplan": {
+    "method": "utilization",
+    "utilization_pct": 0.5,
+    "aspect_ratio": 1.0,
+    "core_margin_um": 2.0,
+    "site": "unithd"
+  },
+  "io": {
+    "layer_h": "met1",
+    "layer_v": "li1"
+  },
+  "power": {
+    "power_net": "VPWR",
+    "ground_net": "VGND",
+    "straps": [
+      {"layer": "met1", "width_um": 0.48, "pitch_um": 5.44, "offset_um": 0.0, "followpins": true},
+      {"layer": "met4", "width_um": 1.6, "pitch_um": 27.14, "offset_um": 13.57},
+      {"layer": "met5", "width_um": 1.6, "pitch_um": 27.2, "offset_um": 13.6}
+    ]
+  },
+  "constraints": {
+    "clock_port": "CTS_NO_SUCH_CLOCK",
+    "clock_period_ns": 1000.0
+  },
+  "seed": 1,
+  "target_stage": "route"
+}

@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "seln_inverters.extract.spice",
+  "reference": "seln_inverters.lvs-reference.spice",
+  "top": "SELN_INVERTERS",
+  "reference_top": "SELN_INVERTERS",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": true,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "match",
+  "mismatch_count": 9,
+  "error_count": 0,
+  "category_counts": {
+    "topology": 9
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 20,
+      "reference": 20,
+      "matched": 20
+    },
+    "devices": {
+      "layout": 18,
+      "reference": 18,
+      "matched": 18
+    },
+    "pins": {
+      "layout": 20,
+      "reference": 20,
+      "matched": 20
+    }
+  },
+  "device_classes": null,
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "6a6e69e9068c5b9c4a4683d1e9919ee8a00d736f42291a7f302beb272612db50",
+    "reference_sha256": "4ecb51b602d2f851632360fd4dbaa000846e904a507d71d06e9cdcd21bd85f6b",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": null,
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN0|Y",
+        "reference": "SELN0"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN1|Y",
+        "reference": "SELN1"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN2|Y",
+        "reference": "SELN2"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN3|Y",
+        "reference": "SELN3"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN4|Y",
+        "reference": "SELN4"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN5|Y",
+        "reference": "SELN5"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN6|Y",
+        "reference": "SELN6"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN7|Y",
+        "reference": "SELN7"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "SELN8|Y",
+        "reference": "SELN8"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "A|DOUT0",
+      "reference": "DOUT0",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT1",
+      "reference": "DOUT1",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT2",
+      "reference": "DOUT2",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT3",
+      "reference": "DOUT3",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT4",
+      "reference": "DOUT4",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT5",
+      "reference": "DOUT5",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT6",
+      "reference": "DOUT6",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT7",
+      "reference": "DOUT7",
+      "pin": true
+    },
+    {
+      "layout": "A|DOUT8",
+      "reference": "DOUT8",
+      "pin": true
+    },
+    {
+      "layout": "SELN0|Y",
+      "reference": "SELN0",
+      "pin": true
+    },
+    {
+      "layout": "SELN1|Y",
+      "reference": "SELN1",
+      "pin": true
+    },
+    {
+      "layout": "SELN2|Y",
+      "reference": "SELN2",
+      "pin": true
+    },
+    {
+      "layout": "SELN3|Y",
+      "reference": "SELN3",
+      "pin": true
+    },
+    {
+      "layout": "SELN4|Y",
+      "reference": "SELN4",
+      "pin": true
+    },
+    {
+      "layout": "SELN5|Y",
+      "reference": "SELN5",
+      "pin": true
+    },
+    {
+      "layout": "SELN6|Y",
+      "reference": "SELN6",
+      "pin": true
+    },
+    {
+      "layout": "SELN7|Y",
+      "reference": "SELN7",
+      "pin": true
+    },
+    {
+      "layout": "SELN8|Y",
+      "reference": "SELN8",
+      "pin": true
+    },
+    {
+      "layout": "VGND",
+      "reference": "VGND",
+      "pin": true
+    },
+    {
+      "layout": "VPB|VPWR",
+      "reference": "VPWR",
+      "pin": true
+    }
+  ]
+}

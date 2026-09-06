@@ -1,0 +1,709 @@
+{
+  "schema_version": 3,
+  "file": "/Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-103/layout/seln-inverters/reports/20260906-002022-a36e06f/seln_inverters.gds",
+  "deck": "sky130",
+  "top": "seln_inverters",
+  "dbu_um": 0.001,
+  "netlist_path": "/Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-103/layout/seln-inverters/reports/20260906-002022-a36e06f/seln_inverters.extract.spice",
+  "netlist_sha256": "6a6e69e9068c5b9c4a4683d1e9919ee8a00d736f42291a7f302beb272612db50",
+  "status": "extracted",
+  "device_count": 18,
+  "net_count": 20,
+  "pin_count": 20,
+  "device_counts": {
+    "nfet": 9,
+    "pfet": 9
+  },
+  "dummy_devices_dropped": 0,
+  "ignored_layers": [
+    {
+      "layer": 64,
+      "datatype": 16,
+      "shapes": 6
+    },
+    {
+      "layer": 64,
+      "datatype": 59,
+      "shapes": 5
+    },
+    {
+      "layer": 67,
+      "datatype": 16,
+      "shapes": 3
+    },
+    {
+      "layer": 68,
+      "datatype": 16,
+      "shapes": 32
+    },
+    {
+      "layer": 72,
+      "datatype": 16,
+      "shapes": 5
+    },
+    {
+      "layer": 78,
+      "datatype": 44,
+      "shapes": 6
+    },
+    {
+      "layer": 81,
+      "datatype": 4,
+      "shapes": 6
+    },
+    {
+      "layer": 83,
+      "datatype": 44,
+      "shapes": 6
+    },
+    {
+      "layer": 93,
+      "datatype": 44,
+      "shapes": 7
+    },
+    {
+      "layer": 95,
+      "datatype": 20,
+      "shapes": 1
+    },
+    {
+      "layer": 122,
+      "datatype": 16,
+      "shapes": 6
+    },
+    {
+      "layer": 235,
+      "datatype": 4,
+      "shapes": 1
+    },
+    {
+      "layer": 236,
+      "datatype": 0,
+      "shapes": 1
+    }
+  ],
+  "device_recognition_only_layers": [
+    {
+      "layer": 94,
+      "datatype": 20,
+      "shapes": 7
+    }
+  ],
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT4",
+        "d": "SELn4|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$10",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT4",
+        "d": "SELn4|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$11",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT6",
+        "d": "SELn6|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$12",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT5",
+        "d": "SELn5|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$13",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT8",
+        "d": "SELn8|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$14",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT3",
+        "d": "SELn3|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$15",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT2",
+        "d": "SELn2|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$16",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT7",
+        "d": "SELn7|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$17",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT0",
+        "d": "SELn0|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$18",
+      "class": "pfet",
+      "nets": {
+        "s": "VPB|VPWR",
+        "g": "A|DOUT1",
+        "d": "SELn1|Y",
+        "b": "VPB|VPWR"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.26,
+        "ad_um2": 0.26,
+        "ps_um": 2.52,
+        "pd_um": 2.52
+      }
+    },
+    {
+      "name": "$2",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT6",
+        "d": "SELn6|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$3",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT5",
+        "d": "SELn5|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$4",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT8",
+        "d": "SELn8|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$5",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT3",
+        "d": "SELn3|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$6",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT2",
+        "d": "SELn2|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$7",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT7",
+        "d": "SELn7|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$8",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT0",
+        "d": "SELn0|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    },
+    {
+      "name": "$9",
+      "class": "nfet",
+      "nets": {
+        "s": "VGND",
+        "g": "A|DOUT1",
+        "d": "SELn1|Y",
+        "b": "VGND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 0.65,
+        "as_um2": 0.169,
+        "ad_um2": 0.169,
+        "ps_um": 1.82,
+        "pd_um": 1.82
+      }
+    }
+  ],
+  "nets": [
+    {
+      "name": "A|DOUT0",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT1",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT2",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT3",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT4",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT5",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT6",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT7",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "A|DOUT8",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn0|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn1|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn2|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn3|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn4|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn5|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn6|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn7|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "SELn8|Y",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "VGND",
+      "pin": true,
+      "device_count": 18
+    },
+    {
+      "name": "VPB|VPWR",
+      "pin": true,
+      "device_count": 18
+    }
+  ],
+  "warnings": [
+    "net 'A|DOUT0' merges 2 distinct labels (A, DOUT0) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT1' merges 2 distinct labels (A, DOUT1) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT2' merges 2 distinct labels (A, DOUT2) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT3' merges 2 distinct labels (A, DOUT3) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT4' merges 2 distinct labels (A, DOUT4) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT5' merges 2 distinct labels (A, DOUT5) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT6' merges 2 distinct labels (A, DOUT6) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT7' merges 2 distinct labels (A, DOUT7) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'A|DOUT8' merges 2 distinct labels (A, DOUT8) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn0|Y' merges 2 distinct labels (SELn0, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn1|Y' merges 2 distinct labels (SELn1, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn2|Y' merges 2 distinct labels (SELn2, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn3|Y' merges 2 distinct labels (SELn3, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn4|Y' merges 2 distinct labels (SELn4, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn5|Y' merges 2 distinct labels (SELn5, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn6|Y' merges 2 distinct labels (SELn6, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn7|Y' merges 2 distinct labels (SELn7, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'SELn8|Y' merges 2 distinct labels (SELn8, Y) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "net 'VPB|VPWR' merges 2 distinct labels (VPB, VPWR) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
+    "13 layers (64/16, 64/59, 67/16, 68/16, 72/16, 78/44, 81/4, 83/44, 93/44, 95/20, 122/16, 235/4, 236/0) carrying 85 shapes are outside 'sky130' deck's connectivity graph -- this geometry is invisible to extraction, so a net routed only through it extracts as multiple disconnected nets instead of one, which will silently mismatch a downstream `klt lvs` reference netlist -- see ignored_layers[] for the full per-layer shape counts. See docs/cli/extract.md's 'ignored_layers' field documentation."
+  ],
+  "black_box_regions": [],
+  "abstracted_cells": [],
+  "unmodelled_poly": [],
+  "merged_net_labels": [
+    {
+      "net": "A|DOUT0",
+      "labels": [
+        "A",
+        "DOUT0"
+      ]
+    },
+    {
+      "net": "A|DOUT1",
+      "labels": [
+        "A",
+        "DOUT1"
+      ]
+    },
+    {
+      "net": "A|DOUT2",
+      "labels": [
+        "A",
+        "DOUT2"
+      ]
+    },
+    {
+      "net": "A|DOUT3",
+      "labels": [
+        "A",
+        "DOUT3"
+      ]
+    },
+    {
+      "net": "A|DOUT4",
+      "labels": [
+        "A",
+        "DOUT4"
+      ]
+    },
+    {
+      "net": "A|DOUT5",
+      "labels": [
+        "A",
+        "DOUT5"
+      ]
+    },
+    {
+      "net": "A|DOUT6",
+      "labels": [
+        "A",
+        "DOUT6"
+      ]
+    },
+    {
+      "net": "A|DOUT7",
+      "labels": [
+        "A",
+        "DOUT7"
+      ]
+    },
+    {
+      "net": "A|DOUT8",
+      "labels": [
+        "A",
+        "DOUT8"
+      ]
+    },
+    {
+      "net": "SELn0|Y",
+      "labels": [
+        "SELn0",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn1|Y",
+      "labels": [
+        "SELn1",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn2|Y",
+      "labels": [
+        "SELn2",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn3|Y",
+      "labels": [
+        "SELn3",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn4|Y",
+      "labels": [
+        "SELn4",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn5|Y",
+      "labels": [
+        "SELn5",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn6|Y",
+      "labels": [
+        "SELn6",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn7|Y",
+      "labels": [
+        "SELn7",
+        "Y"
+      ]
+    },
+    {
+      "net": "SELn8|Y",
+      "labels": [
+        "SELn8",
+        "Y"
+      ]
+    },
+    {
+      "net": "VPB|VPWR",
+      "labels": [
+        "VPB",
+        "VPWR"
+      ]
+    }
+  ],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
+  "dead_metal": [],
+  "matched_device_groups": [],
+  "pdk": null,
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:d89d8e2af60e0ea96d449ee469516b5e9e685071f981d5a3343cb9309b018494"
+    }
+  },
+  "parasitics": null,
+  "spef_path": null
+}
