@@ -107,3 +107,24 @@ def oat_grid(
         _add(baseline_process, baseline_temp, supply_v)
 
     return grid
+
+
+def ratified_oat_grid(
+    nominal_v: float,
+    tolerance: float,
+    process_corners: list[str],
+    temps_c: list[float],
+) -> list[tuple[str, float, float]]:
+    """oat_grid() built on the ratified "tt"/27C baseline convention
+    (spec/target-spec.md's "Numeric rows -- RATIFIED 2026-08-19" section:
+    tt process corner, 27C, nominal supply, as the OAT star's center
+    point). Every --corners driver in sim/ that sweeps the ratified corner
+    set anchors its grid on this same baseline; this helper centralizes the
+    supply_points() + oat_grid() chain those call sites previously
+    hand-repeated (issue #211 -- see sim/harness/corners.py's docstring for
+    why the baseline itself is a repo convention, not a hardcoded spec
+    value: nominal_v/process_corners/temps_c are still supplied by the
+    caller's own testbench manifest)."""
+    return oat_grid(
+        "tt", 27.0, nominal_v, process_corners, temps_c, supply_points(nominal_v, tolerance)
+    )

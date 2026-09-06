@@ -311,9 +311,8 @@ def run_corner_campaign(record: bool, quiet: bool = False) -> int:
                 print(f"  {ln}")
             return 1
 
-        supply_pts = corners_mod.supply_points(NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE)
-        grid = corners_mod.oat_grid(
-            "tt", 27.0, NOMINAL_SUPPLY_V, PROCESS_CORNERS, TEMPS_C, supply_pts
+        grid = corners_mod.ratified_oat_grid(
+            NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
         )
 
         points = []
