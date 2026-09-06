@@ -13,14 +13,14 @@
 # install (same pin as sim/pdk.json; `volare enable --pdk sky130 <sha>`).
 #
 # Flow:
-#   1. `klt gen` x5      -- one matched device/pair block per schematic device
+#   1. `klt gen` x6      -- one matched device/pair block per schematic device
 #                           group (see gen_blocks.py's "Matching strategy").
-#   2. `klt drc` x5      -- each block on its own must be clean before it is
+#   2. `klt drc` x6      -- each block on its own must be clean before it is
 #                           allowed into the composition.
 #   3. build_layout.py   -- floorplan + route: emits the `klt draw` request for
 #                           every wire and the `klt gen-compose` placement.
 #   4. `klt draw`        -- writes the routing/tap/well cell verbatim.
-#   5. `klt gen-compose` -- places the five blocks + the routing cell at
+#   5. `klt gen-compose` -- places the six blocks + the routing cell at
 #                           explicit origins. No `routing` block: this flow
 #                           does its own routing (see build_layout.py's
 #                           docstring for why).
@@ -50,7 +50,7 @@ REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
 TOP=gen_compose_0
-BLOCKS=(tail inpair latn latp rst)
+BLOCKS=(tail inpair latn latp rst rstd)
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
@@ -62,7 +62,7 @@ OUT_DIR="$COMPARATOR_DIR/reports/$RECORD_ID"
 mkdir -p "$OUT_DIR"
 echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
 
-# --- 1. Generate the five matched-device/pair blocks -----------------------
+# --- 1. Generate the six matched-device/pair blocks ------------------------
 python3 "$COMPARATOR_DIR/bin/gen_blocks.py" "$OUT_DIR" --klt "$KLT" --pdk "$PDK_VARIANT"
 
 # --- 2. Per-block DRC: every input block must be clean in isolation ---------

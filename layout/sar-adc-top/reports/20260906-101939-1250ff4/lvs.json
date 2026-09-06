@@ -1,0 +1,3766 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "sar_adc_top.extract.spice",
+  "reference": "sar_adc_top.lvs-reference.spice",
+  "top": "GEN_COMPOSE_0",
+  "reference_top": "SAR_ADC_TOP",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": true,
+    "flatten_layout": false,
+    "flatten_reference": true,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "mismatch",
+  "mismatch_count": 98,
+  "error_count": 97,
+  "category_counts": {
+    "device.unmatched": 75,
+    "net.merged": 12,
+    "net.split": 10,
+    "topology.flattened": 1
+  },
+  "category_error_counts": {
+    "device.unmatched": 75,
+    "net.merged": 12,
+    "net.split": 10
+  },
+  "counts": {
+    "nets": {
+      "layout": 444,
+      "reference": 446,
+      "matched": 412
+    },
+    "devices": {
+      "layout": 869,
+      "reference": 869,
+      "matched": 794
+    },
+    "pins": {
+      "layout": 23,
+      "reference": 19,
+      "matched": 23
+    }
+  },
+  "device_classes": null,
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "98c5b005d1b5d2367dd1f78efa14e858e14083e5680e5f5e2b9f42cb9a64bd3a",
+    "reference_sha256": "354cb0099b5ec6a7d98d72e9ccac8f462edd5bd6996f57df6f0f50b3ca938927",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": null,
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1026",
+        "reference": "CDAC.P2_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1090",
+        "reference": "CDAC.N2_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1154",
+        "reference": "CDAC.P1_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1218",
+        "reference": "CDAC.N1_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1794",
+        "reference": "CDAC.P0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1858",
+        "reference": "CDAC.P_TERM",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1890",
+        "reference": "FE._CBOOT_P",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1891",
+        "reference": "FE._CBOOT_N",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1892",
+        "reference": "FE._CSAMP_N",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$1893",
+        "reference": "FE._CSAMP_P",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$323",
+        "reference": "INV.XINV_SELN4_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$391",
+        "reference": "INV.XINV_SELN6_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$392",
+        "reference": "INV.XINV_SELN5_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$393",
+        "reference": "INV.XINV_SELN8_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$394",
+        "reference": "INV.XINV_SELN3_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$395",
+        "reference": "INV.XINV_SELN2_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$396",
+        "reference": "INV.XINV_SELN7_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$397",
+        "reference": "INV.XINV_SELN0_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$398",
+        "reference": "INV.XINV_SELN1_MMIN1",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$399",
+        "reference": "CDAC.P0N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$400",
+        "reference": "CDAC.P1N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$401",
+        "reference": "CDAC.P2N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$402",
+        "reference": "CDAC.P3N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$403",
+        "reference": "CDAC.P4N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$404",
+        "reference": "CDAC.P5N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$405",
+        "reference": "CDAC.P6N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$406",
+        "reference": "CDAC.P7N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$407",
+        "reference": "CDAC.P8N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$408",
+        "reference": "CDAC.N0N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$409",
+        "reference": "CDAC.N1N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$410",
+        "reference": "CDAC.N2N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$411",
+        "reference": "CDAC.N3N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$412",
+        "reference": "CDAC.N4N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$413",
+        "reference": "CDAC.N5N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$414",
+        "reference": "CDAC.N6N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$415",
+        "reference": "CDAC.N7N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$416",
+        "reference": "CDAC.N8N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$417",
+        "reference": "CMP._TAIL",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$418",
+        "reference": "CMP._INP",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$419",
+        "reference": "CMP._INN",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$420",
+        "reference": "FE._MSW_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$423",
+        "reference": "FE._MSW_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$424",
+        "reference": "CMP._LATN_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$425",
+        "reference": "CMP._LATN_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$426",
+        "reference": "FE._SB_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$427",
+        "reference": "FE._SCN_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$428",
+        "reference": "FE._SD_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$429",
+        "reference": "FE._CMSWN_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$430",
+        "reference": "FE._CMSWN_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$431",
+        "reference": "FE._SD_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$432",
+        "reference": "FE._SCN_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$433",
+        "reference": "FE._SB_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$434",
+        "reference": "FE._INVN",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$851",
+        "reference": "FE._SA_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$852",
+        "reference": "FE._SE_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$853",
+        "reference": "FE._SCP_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$854",
+        "reference": "FE._CMSWP_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$856",
+        "reference": "FE._CMSWP_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$857",
+        "reference": "FE._SCP_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$858",
+        "reference": "FE._SE_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$859",
+        "reference": "FE._SA_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$866",
+        "reference": "CDAC.P8_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$867",
+        "reference": "CDAC.P7_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$869",
+        "reference": "CDAC.P6_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$873",
+        "reference": "CDAC.P5_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$881",
+        "reference": "CDAC.P4_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$897",
+        "reference": "CDAC.P3_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$898",
+        "reference": "CDAC.N_TERM",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$930",
+        "reference": "CDAC.N8_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$931",
+        "reference": "CDAC.N7_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$933",
+        "reference": "CDAC.N6_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$937",
+        "reference": "CDAC.N5_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$945",
+        "reference": "CDAC.N4_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$961",
+        "reference": "CDAC.N3_0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$962",
+        "reference": "CDAC.N0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BOOST_N_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BOOST_P_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BPREF_N_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BPREF_P_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE.BSBOT_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE.BSBOT_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE.G_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE.G_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "GND"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "TOP_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "TOP_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "VGND_SELN"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "BOOST_N",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "BOOST_P",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "BPREF_N",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "BPREF_P",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "TOP_N|VINN",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "TOP_P|VINP",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "\\$429",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "\\$431",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "\\$436",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "\\$437",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology.flattened",
+      "severity": "warning",
+      "description": "options.flatten_reference flattened the reference netlist before comparing: 6 circuit(s) were collapsed into 1 top-level circuit(s), substituting every subcircuit-call instance in place -- this compare verified topology only after removing the original hierarchy boundaries on this side (see docs/cli/lvs.md, \"topology.flattened\")",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "A|BUSY|X",
+      "reference": "BUSY",
+      "pin": true
+    },
+    {
+      "layout": "\\$412",
+      "reference": "CDAC.BOT_N0",
+      "pin": false
+    },
+    {
+      "layout": "\\$413",
+      "reference": "CDAC.BOT_N1",
+      "pin": false
+    },
+    {
+      "layout": "\\$414",
+      "reference": "CDAC.BOT_N2",
+      "pin": false
+    },
+    {
+      "layout": "\\$415",
+      "reference": "CDAC.BOT_N3",
+      "pin": false
+    },
+    {
+      "layout": "\\$416",
+      "reference": "CDAC.BOT_N4",
+      "pin": false
+    },
+    {
+      "layout": "\\$421",
+      "reference": "CDAC.BOT_N5",
+      "pin": false
+    },
+    {
+      "layout": "\\$420",
+      "reference": "CDAC.BOT_N6",
+      "pin": false
+    },
+    {
+      "layout": "\\$419",
+      "reference": "CDAC.BOT_N7",
+      "pin": false
+    },
+    {
+      "layout": "\\$418",
+      "reference": "CDAC.BOT_N8",
+      "pin": false
+    },
+    {
+      "layout": "\\$406",
+      "reference": "CDAC.BOT_P0",
+      "pin": false
+    },
+    {
+      "layout": "\\$407",
+      "reference": "CDAC.BOT_P1",
+      "pin": false
+    },
+    {
+      "layout": "\\$408",
+      "reference": "CDAC.BOT_P2",
+      "pin": false
+    },
+    {
+      "layout": "\\$409",
+      "reference": "CDAC.BOT_P3",
+      "pin": false
+    },
+    {
+      "layout": "\\$410",
+      "reference": "CDAC.BOT_P4",
+      "pin": false
+    },
+    {
+      "layout": "\\$411",
+      "reference": "CDAC.BOT_P5",
+      "pin": false
+    },
+    {
+      "layout": "\\$424",
+      "reference": "CDAC.BOT_P6",
+      "pin": false
+    },
+    {
+      "layout": "\\$423",
+      "reference": "CDAC.BOT_P7",
+      "pin": false
+    },
+    {
+      "layout": "\\$422",
+      "reference": "CDAC.BOT_P8",
+      "pin": false
+    },
+    {
+      "layout": "\\$442",
+      "reference": "CMP.DIN",
+      "pin": false
+    },
+    {
+      "layout": "\\$441",
+      "reference": "CMP.DIP",
+      "pin": false
+    },
+    {
+      "layout": "\\$443",
+      "reference": "CMP.TAIL",
+      "pin": false
+    },
+    {
+      "layout": "A0|DOUT9|Q",
+      "reference": "DOUT9",
+      "pin": true
+    },
+    {
+      "layout": "\\$438",
+      "reference": "FE.SAMPLEB",
+      "pin": false
+    },
+    {
+      "layout": "OUTN",
+      "reference": "OUTN_NC",
+      "pin": false
+    },
+    {
+      "layout": "B|D|PH_B0|Q|S",
+      "reference": "PH_B0_NC",
+      "pin": false
+    },
+    {
+      "layout": "A|D|PH_B1|Q|S",
+      "reference": "PH_B1_NC",
+      "pin": false
+    },
+    {
+      "layout": "D|PH_B2|Q|S",
+      "reference": "PH_B2_NC",
+      "pin": false
+    },
+    {
+      "layout": "C|D|PH_B3|Q|S",
+      "reference": "PH_B3_NC",
+      "pin": false
+    },
+    {
+      "layout": "B|D|PH_B4|Q|S",
+      "reference": "PH_B4_NC",
+      "pin": false
+    },
+    {
+      "layout": "A|D|PH_B5|Q|S",
+      "reference": "PH_B5_NC",
+      "pin": false
+    },
+    {
+      "layout": "D|PH_B6|Q|S",
+      "reference": "PH_B6_NC",
+      "pin": false
+    },
+    {
+      "layout": "C|D|PH_B7|Q|S",
+      "reference": "PH_B7_NC",
+      "pin": false
+    },
+    {
+      "layout": "B|D|PH_B8|Q|S",
+      "reference": "PH_B8_NC",
+      "pin": false
+    },
+    {
+      "layout": "A|D|PH_B9|Q|S",
+      "reference": "PH_B9_NC",
+      "pin": false
+    },
+    {
+      "layout": "C|PH_EOC|Q",
+      "reference": "PH_EOC_NC",
+      "pin": false
+    },
+    {
+      "layout": "RESET_B|RST_B",
+      "reference": "RST_B",
+      "pin": true
+    },
+    {
+      "layout": "\\$182",
+      "reference": "SEQ.CLKBUF_0_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "\\$87",
+      "reference": "SEQ.CLKBUF_1_0__F_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "\\$337",
+      "reference": "SEQ.CLKBUF_1_1__F_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "Y",
+      "reference": "SEQ.CLKLOAD0_Y",
+      "pin": false
+    },
+    {
+      "layout": "A|X$1",
+      "reference": "SEQ.CLKNET_0_CLK",
+      "pin": false
+    },
+    {
+      "layout": "A|CLK|X",
+      "reference": "SEQ.CLKNET_1_0__LEAF_CLK",
+      "pin": true
+    },
+    {
+      "layout": "CLK|X",
+      "reference": "SEQ.CLKNET_1_1__LEAF_CLK",
+      "pin": true
+    },
+    {
+      "layout": "D|X$9",
+      "reference": "SEQ.MUXOUT0",
+      "pin": false
+    },
+    {
+      "layout": "D|X$8",
+      "reference": "SEQ.MUXOUT1",
+      "pin": false
+    },
+    {
+      "layout": "D|X$5",
+      "reference": "SEQ.MUXOUT2",
+      "pin": false
+    },
+    {
+      "layout": "D|X$4",
+      "reference": "SEQ.MUXOUT3",
+      "pin": false
+    },
+    {
+      "layout": "D|X$7",
+      "reference": "SEQ.MUXOUT4",
+      "pin": false
+    },
+    {
+      "layout": "D|X$2",
+      "reference": "SEQ.MUXOUT5",
+      "pin": false
+    },
+    {
+      "layout": "D|X",
+      "reference": "SEQ.MUXOUT6",
+      "pin": false
+    },
+    {
+      "layout": "D|X$3",
+      "reference": "SEQ.MUXOUT7",
+      "pin": false
+    },
+    {
+      "layout": "D|X$1",
+      "reference": "SEQ.MUXOUT8",
+      "pin": false
+    },
+    {
+      "layout": "D|X$6",
+      "reference": "SEQ.MUXOUT9",
+      "pin": false
+    },
+    {
+      "layout": "A|X",
+      "reference": "SEQ.ORG1",
+      "pin": false
+    },
+    {
+      "layout": "B|X",
+      "reference": "SEQ.ORG2",
+      "pin": false
+    },
+    {
+      "layout": "C|X",
+      "reference": "SEQ.ORG3",
+      "pin": false
+    },
+    {
+      "layout": "\\$378",
+      "reference": "SEQ.XBREG0_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$379",
+      "reference": "SEQ.XBREG0_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$380",
+      "reference": "SEQ.XBREG0_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$381",
+      "reference": "SEQ.XBREG0_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$383",
+      "reference": "SEQ.XBREG0_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$393",
+      "reference": "SEQ.XBREG0_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$396",
+      "reference": "SEQ.XBREG0_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$382",
+      "reference": "SEQ.XBREG0_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$395",
+      "reference": "SEQ.XBREG0_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$394",
+      "reference": "SEQ.XBREG0_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$385",
+      "reference": "SEQ.XBREG0_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$392",
+      "reference": "SEQ.XBREG0_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$384",
+      "reference": "SEQ.XBREG0_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$346",
+      "reference": "SEQ.XBREG1_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$347",
+      "reference": "SEQ.XBREG1_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$348",
+      "reference": "SEQ.XBREG1_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$349",
+      "reference": "SEQ.XBREG1_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$351",
+      "reference": "SEQ.XBREG1_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$369",
+      "reference": "SEQ.XBREG1_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$362",
+      "reference": "SEQ.XBREG1_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$350",
+      "reference": "SEQ.XBREG1_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$357",
+      "reference": "SEQ.XBREG1_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$363",
+      "reference": "SEQ.XBREG1_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$353",
+      "reference": "SEQ.XBREG1_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$368",
+      "reference": "SEQ.XBREG1_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$352",
+      "reference": "SEQ.XBREG1_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$146",
+      "reference": "SEQ.XBREG2_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$147",
+      "reference": "SEQ.XBREG2_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$149",
+      "reference": "SEQ.XBREG2_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$150",
+      "reference": "SEQ.XBREG2_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$152",
+      "reference": "SEQ.XBREG2_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$166",
+      "reference": "SEQ.XBREG2_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$170",
+      "reference": "SEQ.XBREG2_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$151",
+      "reference": "SEQ.XBREG2_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$169",
+      "reference": "SEQ.XBREG2_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$168",
+      "reference": "SEQ.XBREG2_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$155",
+      "reference": "SEQ.XBREG2_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$167",
+      "reference": "SEQ.XBREG2_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$153",
+      "reference": "SEQ.XBREG2_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$303",
+      "reference": "SEQ.XBREG3_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$304",
+      "reference": "SEQ.XBREG3_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$305",
+      "reference": "SEQ.XBREG3_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$306",
+      "reference": "SEQ.XBREG3_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$308",
+      "reference": "SEQ.XBREG3_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$320",
+      "reference": "SEQ.XBREG3_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$323",
+      "reference": "SEQ.XBREG3_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$307",
+      "reference": "SEQ.XBREG3_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$321",
+      "reference": "SEQ.XBREG3_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$322",
+      "reference": "SEQ.XBREG3_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$310",
+      "reference": "SEQ.XBREG3_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$319",
+      "reference": "SEQ.XBREG3_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$309",
+      "reference": "SEQ.XBREG3_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$329",
+      "reference": "SEQ.XBREG4_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$330",
+      "reference": "SEQ.XBREG4_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$331",
+      "reference": "SEQ.XBREG4_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$332",
+      "reference": "SEQ.XBREG4_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$334",
+      "reference": "SEQ.XBREG4_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$359",
+      "reference": "SEQ.XBREG4_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$361",
+      "reference": "SEQ.XBREG4_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$333",
+      "reference": "SEQ.XBREG4_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$355",
+      "reference": "SEQ.XBREG4_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$360",
+      "reference": "SEQ.XBREG4_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$336",
+      "reference": "SEQ.XBREG4_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$358",
+      "reference": "SEQ.XBREG4_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$335",
+      "reference": "SEQ.XBREG4_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$50",
+      "reference": "SEQ.XBREG5_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$51",
+      "reference": "SEQ.XBREG5_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$53",
+      "reference": "SEQ.XBREG5_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$54",
+      "reference": "SEQ.XBREG5_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$56",
+      "reference": "SEQ.XBREG5_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$71",
+      "reference": "SEQ.XBREG5_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$74",
+      "reference": "SEQ.XBREG5_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$55",
+      "reference": "SEQ.XBREG5_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$73",
+      "reference": "SEQ.XBREG5_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$72",
+      "reference": "SEQ.XBREG5_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$58",
+      "reference": "SEQ.XBREG5_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$70",
+      "reference": "SEQ.XBREG5_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$57",
+      "reference": "SEQ.XBREG5_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$19",
+      "reference": "SEQ.XBREG6_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$20",
+      "reference": "SEQ.XBREG6_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$22",
+      "reference": "SEQ.XBREG6_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$23",
+      "reference": "SEQ.XBREG6_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$25",
+      "reference": "SEQ.XBREG6_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$41",
+      "reference": "SEQ.XBREG6_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$44",
+      "reference": "SEQ.XBREG6_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$24",
+      "reference": "SEQ.XBREG6_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$43",
+      "reference": "SEQ.XBREG6_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$42",
+      "reference": "SEQ.XBREG6_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$28",
+      "reference": "SEQ.XBREG6_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$40",
+      "reference": "SEQ.XBREG6_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$27",
+      "reference": "SEQ.XBREG6_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$184",
+      "reference": "SEQ.XBREG7_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$185",
+      "reference": "SEQ.XBREG7_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$186",
+      "reference": "SEQ.XBREG7_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$187",
+      "reference": "SEQ.XBREG7_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$189",
+      "reference": "SEQ.XBREG7_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$196",
+      "reference": "SEQ.XBREG7_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$200",
+      "reference": "SEQ.XBREG7_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$188",
+      "reference": "SEQ.XBREG7_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$198",
+      "reference": "SEQ.XBREG7_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$199",
+      "reference": "SEQ.XBREG7_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$191",
+      "reference": "SEQ.XBREG7_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$197",
+      "reference": "SEQ.XBREG7_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$190",
+      "reference": "SEQ.XBREG7_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$30",
+      "reference": "SEQ.XBREG8_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$31",
+      "reference": "SEQ.XBREG8_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$33",
+      "reference": "SEQ.XBREG8_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$34",
+      "reference": "SEQ.XBREG8_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$36",
+      "reference": "SEQ.XBREG8_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$46",
+      "reference": "SEQ.XBREG8_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$49",
+      "reference": "SEQ.XBREG8_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$35",
+      "reference": "SEQ.XBREG8_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$47",
+      "reference": "SEQ.XBREG8_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$48",
+      "reference": "SEQ.XBREG8_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$38",
+      "reference": "SEQ.XBREG8_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$45",
+      "reference": "SEQ.XBREG8_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$37",
+      "reference": "SEQ.XBREG8_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$242",
+      "reference": "SEQ.XBREG9_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$243",
+      "reference": "SEQ.XBREG9_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$244",
+      "reference": "SEQ.XBREG9_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$245",
+      "reference": "SEQ.XBREG9_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$247",
+      "reference": "SEQ.XBREG9_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$256",
+      "reference": "SEQ.XBREG9_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$259",
+      "reference": "SEQ.XBREG9_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$246",
+      "reference": "SEQ.XBREG9_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$257",
+      "reference": "SEQ.XBREG9_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$258",
+      "reference": "SEQ.XBREG9_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$249",
+      "reference": "SEQ.XBREG9_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$255",
+      "reference": "SEQ.XBREG9_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$248",
+      "reference": "SEQ.XBREG9_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$281",
+      "reference": "SEQ.XMUX0_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$293",
+      "reference": "SEQ.XMUX0_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$294",
+      "reference": "SEQ.XMUX0_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$289",
+      "reference": "SEQ.XMUX0_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$290",
+      "reference": "SEQ.XMUX0_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$278",
+      "reference": "SEQ.XMUX0_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$276",
+      "reference": "SEQ.XMUX1_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$297",
+      "reference": "SEQ.XMUX1_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$298",
+      "reference": "SEQ.XMUX1_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$287",
+      "reference": "SEQ.XMUX1_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$288",
+      "reference": "SEQ.XMUX1_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$273",
+      "reference": "SEQ.XMUX1_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$181",
+      "reference": "SEQ.XMUX2_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$195",
+      "reference": "SEQ.XMUX2_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$192",
+      "reference": "SEQ.XMUX2_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$193",
+      "reference": "SEQ.XMUX2_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$194",
+      "reference": "SEQ.XMUX2_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$179",
+      "reference": "SEQ.XMUX2_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$114",
+      "reference": "SEQ.XMUX3_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$135",
+      "reference": "SEQ.XMUX3_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$133",
+      "reference": "SEQ.XMUX3_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$132",
+      "reference": "SEQ.XMUX3_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$134",
+      "reference": "SEQ.XMUX3_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$111",
+      "reference": "SEQ.XMUX3_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$263",
+      "reference": "SEQ.XMUX4_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$296",
+      "reference": "SEQ.XMUX4_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$295",
+      "reference": "SEQ.XMUX4_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$284",
+      "reference": "SEQ.XMUX4_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$285",
+      "reference": "SEQ.XMUX4_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$261",
+      "reference": "SEQ.XMUX4_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$83",
+      "reference": "SEQ.XMUX5_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$97",
+      "reference": "SEQ.XMUX5_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$94",
+      "reference": "SEQ.XMUX5_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$95",
+      "reference": "SEQ.XMUX5_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$96",
+      "reference": "SEQ.XMUX5_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$80",
+      "reference": "SEQ.XMUX5_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$86",
+      "reference": "SEQ.XMUX6_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$101",
+      "reference": "SEQ.XMUX6_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$98",
+      "reference": "SEQ.XMUX6_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$99",
+      "reference": "SEQ.XMUX6_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$100",
+      "reference": "SEQ.XMUX6_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$84",
+      "reference": "SEQ.XMUX6_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$91",
+      "reference": "SEQ.XMUX7_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$105",
+      "reference": "SEQ.XMUX7_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$103",
+      "reference": "SEQ.XMUX7_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$102",
+      "reference": "SEQ.XMUX7_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$104",
+      "reference": "SEQ.XMUX7_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$89",
+      "reference": "SEQ.XMUX7_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$93",
+      "reference": "SEQ.XMUX8_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$108",
+      "reference": "SEQ.XMUX8_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$107",
+      "reference": "SEQ.XMUX8_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$106",
+      "reference": "SEQ.XMUX8_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$109",
+      "reference": "SEQ.XMUX8_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$92",
+      "reference": "SEQ.XMUX8_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$219",
+      "reference": "SEQ.XMUX9_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$228",
+      "reference": "SEQ.XMUX9_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$229",
+      "reference": "SEQ.XMUX9_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$226",
+      "reference": "SEQ.XMUX9_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$227",
+      "reference": "SEQ.XMUX9_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$217",
+      "reference": "SEQ.XMUX9_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$225",
+      "reference": "SEQ.XOR_BUSY_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$224",
+      "reference": "SEQ.XOR_BUSY_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$215",
+      "reference": "SEQ.XOR_BUSY_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$173",
+      "reference": "SEQ.XOR_G1_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$172",
+      "reference": "SEQ.XOR_G1_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$171",
+      "reference": "SEQ.XOR_G1_SNDPC",
+      "pin": false
+    },
+    {
+      "layout": "\\$156",
+      "reference": "SEQ.XOR_G1_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$223",
+      "reference": "SEQ.XOR_G2_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$221",
+      "reference": "SEQ.XOR_G2_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$222",
+      "reference": "SEQ.XOR_G2_SNDPC",
+      "pin": false
+    },
+    {
+      "layout": "\\$211",
+      "reference": "SEQ.XOR_G2_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$292",
+      "reference": "SEQ.XOR_G3_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$291",
+      "reference": "SEQ.XOR_G3_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "\\$283",
+      "reference": "SEQ.XOR_G3_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$338",
+      "reference": "SEQ.XRINGB0_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$339",
+      "reference": "SEQ.XRINGB0_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$340",
+      "reference": "SEQ.XRINGB0_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$341",
+      "reference": "SEQ.XRINGB0_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$343",
+      "reference": "SEQ.XRINGB0_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$364",
+      "reference": "SEQ.XRINGB0_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$367",
+      "reference": "SEQ.XRINGB0_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$342",
+      "reference": "SEQ.XRINGB0_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$356",
+      "reference": "SEQ.XRINGB0_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$366",
+      "reference": "SEQ.XRINGB0_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$345",
+      "reference": "SEQ.XRINGB0_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$365",
+      "reference": "SEQ.XRINGB0_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$344",
+      "reference": "SEQ.XRINGB0_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$264",
+      "reference": "SEQ.XRINGB1_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$265",
+      "reference": "SEQ.XRINGB1_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$266",
+      "reference": "SEQ.XRINGB1_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$267",
+      "reference": "SEQ.XRINGB1_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$269",
+      "reference": "SEQ.XRINGB1_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$300",
+      "reference": "SEQ.XRINGB1_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$301",
+      "reference": "SEQ.XRINGB1_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$268",
+      "reference": "SEQ.XRINGB1_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$286",
+      "reference": "SEQ.XRINGB1_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$302",
+      "reference": "SEQ.XRINGB1_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$271",
+      "reference": "SEQ.XRINGB1_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$299",
+      "reference": "SEQ.XRINGB1_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$270",
+      "reference": "SEQ.XRINGB1_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$370",
+      "reference": "SEQ.XRINGB2_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$371",
+      "reference": "SEQ.XRINGB2_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$372",
+      "reference": "SEQ.XRINGB2_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$373",
+      "reference": "SEQ.XRINGB2_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$375",
+      "reference": "SEQ.XRINGB2_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$388",
+      "reference": "SEQ.XRINGB2_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$391",
+      "reference": "SEQ.XRINGB2_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$374",
+      "reference": "SEQ.XRINGB2_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$390",
+      "reference": "SEQ.XRINGB2_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$389",
+      "reference": "SEQ.XRINGB2_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$377",
+      "reference": "SEQ.XRINGB2_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$387",
+      "reference": "SEQ.XRINGB2_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$376",
+      "reference": "SEQ.XRINGB2_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$234",
+      "reference": "SEQ.XRINGB3_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$235",
+      "reference": "SEQ.XRINGB3_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$236",
+      "reference": "SEQ.XRINGB3_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$237",
+      "reference": "SEQ.XRINGB3_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$239",
+      "reference": "SEQ.XRINGB3_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$251",
+      "reference": "SEQ.XRINGB3_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$254",
+      "reference": "SEQ.XRINGB3_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$238",
+      "reference": "SEQ.XRINGB3_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$253",
+      "reference": "SEQ.XRINGB3_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$252",
+      "reference": "SEQ.XRINGB3_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$241",
+      "reference": "SEQ.XRINGB3_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$250",
+      "reference": "SEQ.XRINGB3_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$240",
+      "reference": "SEQ.XRINGB3_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$202",
+      "reference": "SEQ.XRINGB4_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$203",
+      "reference": "SEQ.XRINGB4_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$204",
+      "reference": "SEQ.XRINGB4_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$205",
+      "reference": "SEQ.XRINGB4_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$207",
+      "reference": "SEQ.XRINGB4_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$233",
+      "reference": "SEQ.XRINGB4_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$230",
+      "reference": "SEQ.XRINGB4_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$206",
+      "reference": "SEQ.XRINGB4_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$220",
+      "reference": "SEQ.XRINGB4_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$231",
+      "reference": "SEQ.XRINGB4_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$210",
+      "reference": "SEQ.XRINGB4_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$232",
+      "reference": "SEQ.XRINGB4_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$209",
+      "reference": "SEQ.XRINGB4_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$115",
+      "reference": "SEQ.XRINGB5_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$116",
+      "reference": "SEQ.XRINGB5_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$117",
+      "reference": "SEQ.XRINGB5_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$118",
+      "reference": "SEQ.XRINGB5_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$120",
+      "reference": "SEQ.XRINGB5_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$137",
+      "reference": "SEQ.XRINGB5_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$139",
+      "reference": "SEQ.XRINGB5_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$119",
+      "reference": "SEQ.XRINGB5_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$145",
+      "reference": "SEQ.XRINGB5_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$138",
+      "reference": "SEQ.XRINGB5_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$122",
+      "reference": "SEQ.XRINGB5_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$136",
+      "reference": "SEQ.XRINGB5_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$121",
+      "reference": "SEQ.XRINGB5_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$62",
+      "reference": "SEQ.XRINGB6_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$63",
+      "reference": "SEQ.XRINGB6_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$64",
+      "reference": "SEQ.XRINGB6_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$65",
+      "reference": "SEQ.XRINGB6_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$67",
+      "reference": "SEQ.XRINGB6_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$76",
+      "reference": "SEQ.XRINGB6_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$79",
+      "reference": "SEQ.XRINGB6_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$66",
+      "reference": "SEQ.XRINGB6_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$78",
+      "reference": "SEQ.XRINGB6_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$77",
+      "reference": "SEQ.XRINGB6_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$69",
+      "reference": "SEQ.XRINGB6_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$75",
+      "reference": "SEQ.XRINGB6_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$68",
+      "reference": "SEQ.XRINGB6_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$4",
+      "reference": "SEQ.XRINGB7_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$5",
+      "reference": "SEQ.XRINGB7_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$7",
+      "reference": "SEQ.XRINGB7_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$8",
+      "reference": "SEQ.XRINGB7_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$10",
+      "reference": "SEQ.XRINGB7_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$15",
+      "reference": "SEQ.XRINGB7_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$17",
+      "reference": "SEQ.XRINGB7_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$9",
+      "reference": "SEQ.XRINGB7_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$18",
+      "reference": "SEQ.XRINGB7_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$16",
+      "reference": "SEQ.XRINGB7_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$12",
+      "reference": "SEQ.XRINGB7_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$14",
+      "reference": "SEQ.XRINGB7_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$11",
+      "reference": "SEQ.XRINGB7_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$124",
+      "reference": "SEQ.XRINGB8_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$125",
+      "reference": "SEQ.XRINGB8_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$126",
+      "reference": "SEQ.XRINGB8_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$127",
+      "reference": "SEQ.XRINGB8_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$129",
+      "reference": "SEQ.XRINGB8_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$141",
+      "reference": "SEQ.XRINGB8_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$143",
+      "reference": "SEQ.XRINGB8_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$128",
+      "reference": "SEQ.XRINGB8_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$144",
+      "reference": "SEQ.XRINGB8_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$142",
+      "reference": "SEQ.XRINGB8_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$131",
+      "reference": "SEQ.XRINGB8_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$140",
+      "reference": "SEQ.XRINGB8_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$130",
+      "reference": "SEQ.XRINGB8_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$158",
+      "reference": "SEQ.XRINGB9_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$159",
+      "reference": "SEQ.XRINGB9_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$160",
+      "reference": "SEQ.XRINGB9_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$161",
+      "reference": "SEQ.XRINGB9_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$163",
+      "reference": "SEQ.XRINGB9_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$174",
+      "reference": "SEQ.XRINGB9_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$178",
+      "reference": "SEQ.XRINGB9_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$162",
+      "reference": "SEQ.XRINGB9_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$176",
+      "reference": "SEQ.XRINGB9_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$177",
+      "reference": "SEQ.XRINGB9_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$165",
+      "reference": "SEQ.XRINGB9_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$175",
+      "reference": "SEQ.XRINGB9_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$164",
+      "reference": "SEQ.XRINGB9_S0",
+      "pin": false
+    },
+    {
+      "layout": "\\$311",
+      "reference": "SEQ.XRINGEOC_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "\\$312",
+      "reference": "SEQ.XRINGEOC_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "\\$313",
+      "reference": "SEQ.XRINGEOC_DB",
+      "pin": false
+    },
+    {
+      "layout": "\\$314",
+      "reference": "SEQ.XRINGEOC_M0",
+      "pin": false
+    },
+    {
+      "layout": "\\$316",
+      "reference": "SEQ.XRINGEOC_M1",
+      "pin": false
+    },
+    {
+      "layout": "\\$325",
+      "reference": "SEQ.XRINGEOC_NET101",
+      "pin": false
+    },
+    {
+      "layout": "\\$328",
+      "reference": "SEQ.XRINGEOC_NET108",
+      "pin": false
+    },
+    {
+      "layout": "\\$315",
+      "reference": "SEQ.XRINGEOC_NET144",
+      "pin": false
+    },
+    {
+      "layout": "\\$326",
+      "reference": "SEQ.XRINGEOC_NET165",
+      "pin": false
+    },
+    {
+      "layout": "\\$327",
+      "reference": "SEQ.XRINGEOC_NET81",
+      "pin": false
+    },
+    {
+      "layout": "\\$318",
+      "reference": "SEQ.XRINGEOC_NET82",
+      "pin": false
+    },
+    {
+      "layout": "\\$324",
+      "reference": "SEQ.XRINGEOC_NET93",
+      "pin": false
+    },
+    {
+      "layout": "\\$317",
+      "reference": "SEQ.XRINGEOC_S0",
+      "pin": false
+    },
+    {
+      "layout": "VCM",
+      "reference": "VCM",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VINN",
+      "reference": "VINN",
+      "pin": true
+    },
+    {
+      "layout": "VINP",
+      "reference": "VINP",
+      "pin": true
+    },
+    {
+      "layout": "VPB|VPWR$1",
+      "reference": "VPWR_SELN",
+      "pin": false
+    },
+    {
+      "layout": "VPB|VPWR",
+      "reference": "VPWR_SEQ",
+      "pin": false
+    },
+    {
+      "layout": "VREFN",
+      "reference": "VREFN",
+      "pin": true
+    },
+    {
+      "layout": "VREFP",
+      "reference": "VREFP",
+      "pin": true
+    }
+  ]
+}

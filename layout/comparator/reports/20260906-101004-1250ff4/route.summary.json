@@ -1,0 +1,179 @@
+{
+  "y_axis_um": 20.0,
+  "block_origins_um": {
+    "tail": {
+      "x": 2.0,
+      "y": 16.0
+    },
+    "inpair": {
+      "x": 5.5,
+      "y": 17.39
+    },
+    "latn": {
+      "x": 10.7,
+      "y": 15.39
+    },
+    "latp": {
+      "x": 14.2,
+      "y": 11.39
+    },
+    "rst": {
+      "x": 18.0,
+      "y": 3.3900000000000006
+    },
+    "rstd": {
+      "x": 23.0,
+      "y": 15.39
+    }
+  },
+  "trunk_x_um": {
+    "GND": [
+      1.3
+    ],
+    "CLK": [
+      1.9,
+      16.4,
+      23.8
+    ],
+    "TAIL": [
+      4.3
+    ],
+    "VINN": [
+      4.9
+    ],
+    "VINP": [
+      9.1
+    ],
+    "OUTP": [
+      10.1,
+      16.9
+    ],
+    "OUTN": [
+      10.6,
+      17.4
+    ],
+    "DIP": [
+      7.4,
+      22.6
+    ],
+    "DIN": [
+      7.9,
+      23.2
+    ],
+    "VDD": [
+      17.9,
+      20.3,
+      24.4
+    ]
+  },
+  "nets": {
+    "CLK": {
+      "met1_area_um2": 8.865,
+      "met2_area_um2": 15.57,
+      "wire_area_um2": 24.435,
+      "via_count": 9,
+      "mcon_count": 5
+    },
+    "DIN": {
+      "met1_area_um2": 6.744,
+      "met2_area_um2": 4.83,
+      "wire_area_um2": 11.574,
+      "via_count": 6,
+      "mcon_count": 4
+    },
+    "DIP": {
+      "met1_area_um2": 7.044,
+      "met2_area_um2": 3.78,
+      "wire_area_um2": 10.824,
+      "via_count": 6,
+      "mcon_count": 4
+    },
+    "GND": {
+      "met1_area_um2": 0.663,
+      "met2_area_um2": 0.09,
+      "wire_area_um2": 0.753,
+      "via_count": 2,
+      "mcon_count": 2
+    },
+    "OUTN": {
+      "met1_area_um2": 5.202,
+      "met2_area_um2": 8.88,
+      "wire_area_um2": 14.082,
+      "via_count": 7,
+      "mcon_count": 5
+    },
+    "OUTP": {
+      "met1_area_um2": 5.307,
+      "met2_area_um2": 9.18,
+      "wire_area_um2": 14.487,
+      "via_count": 7,
+      "mcon_count": 5
+    },
+    "TAIL": {
+      "met1_area_um2": 3.537,
+      "met2_area_um2": 1.29,
+      "wire_area_um2": 4.827,
+      "via_count": 5,
+      "mcon_count": 5
+    },
+    "VDD": {
+      "met1_area_um2": 6.174,
+      "met2_area_um2": 7.62,
+      "wire_area_um2": 13.794,
+      "via_count": 11,
+      "mcon_count": 7
+    },
+    "VINN": {
+      "met1_area_um2": 1.653,
+      "met2_area_um2": 0.84,
+      "wire_area_um2": 2.493,
+      "via_count": 2,
+      "mcon_count": 2
+    },
+    "VINP": {
+      "met1_area_um2": 1.623,
+      "met2_area_um2": 1.29,
+      "wire_area_um2": 2.913,
+      "via_count": 2,
+      "mcon_count": 2
+    }
+  },
+  "differential_symmetry": [
+    {
+      "pair": [
+        "OUTP",
+        "OUTN"
+      ],
+      "wire_area_um2": [
+        14.487,
+        14.082
+      ],
+      "delta_um2": 0.405,
+      "delta_percent": 2.84
+    },
+    {
+      "pair": [
+        "VINN",
+        "VINP"
+      ],
+      "wire_area_um2": [
+        2.493,
+        2.913
+      ],
+      "delta_um2": 0.42,
+      "delta_percent": 15.54
+    },
+    {
+      "pair": [
+        "DIP",
+        "DIN"
+      ],
+      "wire_area_um2": [
+        10.824,
+        11.574
+      ],
+      "delta_um2": 0.75,
+      "delta_percent": 6.7
+    }
+  ]
+}

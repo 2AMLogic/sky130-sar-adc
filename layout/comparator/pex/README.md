@@ -1,3 +1,25 @@
+## Status: AC3/AC4's "not material" conclusion is UNCONFIRMED for the current record
+
+`reports/20260906-101231-1250ff4/record.md` -- the record generated against
+the DR-004 Amendment A layout landed by issue #180 -- shows the
+extracted-side leg's pick-off measurements clustered within a sub-mV to
+low-mV spread across every corner (vs. the schematic side's much larger,
+clean separation), which flips the extracted-side "gain" negative
+(-0.576 V/V vs. the schematic side's +1.873 V/V). The likely cause: the
+fixed pick-off instant (`PICKOFF_AT_NS=5.4ns`, see `testbench.spice`) was
+calibrated against the **pre-#175** topology's regeneration timing, and
+issue #175/#121's own decision-delay campaign already found the amended
+topology's regeneration profile differs -- the extracted (parasitic-loaded)
+leg plausibly has not resolved a decision by the same fixed snapshot the old
+pin used. AC3/AC4's "routing-driven offset is noise against device
+mismatch" conclusion in that record is therefore built on a measurement that
+compares the two legs at different points in their own regeneration curves,
+not a validated apples-to-apples offset figure. Tracked as issue #187 (this
+repo's own tracker, not `2AMLogic/klayout-tools` -- the timing question is
+about this design's regeneration dynamics, not a `klt` tool gap). The record
+itself is kept, append-only, as honest evidence of what the run measured;
+this caveat is what keeps that measurement from being over-read as settled.
+
 # layout/comparator/pex/ -- real `klt pex` parasitic verification (issue #112)
 
 Supersedes the wire-*area* symmetry proxy

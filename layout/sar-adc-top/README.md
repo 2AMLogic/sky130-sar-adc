@@ -168,19 +168,29 @@ routing this net requires a new landing pad that does not yet exist. See
 summarized in "Status" above and in "Recommended composition mechanism"
 below.
 
-### `comparator` (top cell `gen_compose_0` in `layout/comparator/reports/20260825-135219-59f8e86/comparator.gds`)
+### `comparator` (top cell `gen_compose_0` in `layout/comparator/reports/20260906-101004-1250ff4/comparator.gds`)
 
-bbox: `(0.0, 2.5)` to `(24.0, 38.65)`. All pins on layer `68/5` (met1.pin).
+bbox: `(0.0, 2.5)` to `(26.6, 38.65)` -- widened from `(24.0, 38.65)` by
+issue #180's re-draw (the sixth `klt gen` block, `rstd`, and the `DIP`/`DIN`
+precharge devices it added, per DR-004 Amendment A). All pins on layer `68/5`
+(met1.pin).
 
 | Pin | x_um | y_um |
 | --- | --- | --- |
 | GND | 1.30 | 20.00 |
 | VINN | 4.90 | 20.00 |
 | VINP | 9.10 | 20.00 |
-| OUTP | 10.10 | 18.50 |
-| OUTN | 10.60 | 18.00 |
+| OUTP | 10.10 | 17.50 |
+| OUTN | 10.60 | 22.50 |
 | VDD | 17.90 | 15.00 |
 | CLK | 1.90 | 24.50 |
+
+OUTP/OUTN moved (18.50->17.50, 18.00->22.50 in y) as a direct consequence of
+#180's re-route: those nets' `NET_PINS` no longer start with the input
+pair's own drain pins (moved to the new internal `DIP`/`DIN` nodes), which
+changes which pin the greedy router processes -- and therefore which y-track
+it lands on -- first. `DIP`/`DIN` themselves are not top-level pins (internal
+nodes, like `TAIL`), so they do not appear in this table.
 
 Unlike the other three full-custom blocks, `comparator` has a **real drawn
 `GND` pin** (7-port reference, `.SUBCKT comparator VDD GND CLK VINP VINN OUTP

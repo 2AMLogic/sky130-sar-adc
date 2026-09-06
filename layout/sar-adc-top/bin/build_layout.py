@@ -248,7 +248,7 @@ OFFSETS = {
 BBOX = {
     "cdac_array": (-4.5, -35.0, 218.7, 55.85),
     "sampling_frontend": (0.0, -2.4, 195.56, 58.05),
-    "comparator": (0.0, 2.5, 24.0, 38.65),
+    "comparator": (0.0, 2.5, 26.6, 38.65),
     "sar_sequencer": (0.0, 0.0, 42.57, 42.57),
     "seln_inverters": (0.0, 0.0, 86.195, 86.195),
 }
@@ -293,8 +293,8 @@ PIN = {
     ("comparator", "GND"): (1.3, 20.0, MET1),
     ("comparator", "VINN"): (4.9, 20.0, MET1),
     ("comparator", "VINP"): (9.1, 20.0, MET1),
-    ("comparator", "OUTP"): (10.1, 18.5, MET1),
-    ("comparator", "OUTN"): (10.6, 18.0, MET1),
+    ("comparator", "OUTP"): (10.1, 17.5, MET1),
+    ("comparator", "OUTN"): (10.6, 22.5, MET1),
     ("comparator", "VDD"): (17.9, 15.0, MET1),
     ("comparator", "CLK"): (1.9, 24.5, MET1),
     ("sar_sequencer", "PH_SAMPLE"): (42.272, 17.85, MET1),
