@@ -10,7 +10,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 |---|---|---|---|
 | Architecture | DRAFT | N/A (DRAFT, descriptive row) | (none -- see detail below) |
 | Resolution `N` | RATIFIED | PASS (9/9 corners) | 1 record(s), see detail below |
-| Sample rate | DRAFT | UNMEASURED | (none -- see detail below) |
+| Sample rate | DRAFT | UNMEASURED (two mechanisms probed, one of them BLOCKED by a design finding) | 2 record(s), see detail below |
 | ENOB | DRAFT (target value) | DOES NOT MEET the DRAFT baseline target (>9.0 bit), informationally: 8.491 bit (mean-case CDAC mism… | 1 record(s), see detail below |
 | INL / DNL | DRAFT (target value) | DOES NOT MEET the DRAFT target (<= +-1 LSB, target_yield=0.99), informationally: empirical yield 0.… | 2 record(s), see detail below |
 | `V_REF` | RATIFIED | PASS (structural + functional/monotonicity check, 9/9 corners) | 1 record(s), see detail below |
@@ -47,10 +47,19 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 ### Sample rate
 
 - **Status**: DRAFT
-- **Conditions**: N/A -- no campaign has been run.
-- **Verdict**: UNMEASURED
-- **Notes**: No switch-R_on/settling-time campaign exists under sim/. It needs a CDAC/switch netlist and a dedicated corner campaign; the completed corner campaigns (issue #28) covered the RATIFIED deterministic rows (V_REF/LSB/N/sizing/comparator noise), not sample rate. Named as open work by spec/target-spec.md's own 'Not ratified by this record' list (#24/#28).
+- **Conditions**: Two of the constituent mechanisms have now been probed individually; neither campaign is a sample-rate measurement. (a) CDAC-array bottom-plate-switch settling: `tt`/27C/1.8V single point only. (b) Comparator decision (regeneration) delay: the full ratified OAT grid was attempted (process {ff, fs, sf, ss, tt} x temperature {-40, 27, 125} C x supply {1.62, 1.8, 1.98} V, 9 one-at-a-time points), but it did not complete -- see the verdict.
+- **Verdict**: UNMEASURED (two mechanisms probed, one of them BLOCKED by a design finding)
+- **Notes**: No end-to-end sample-rate campaign exists. Two of its input terms have been probed separately, and this row reports both honestly rather than adding them up. (a) The CDAC array's own switch-R_on/top-plate settling is bounded at ONE corner: worst case 11.3861 ns (bit 8, rise), 7.3x inside the DR-006-derived 83.333 ns worst-case phase budget -- so the array's own settling is not the bottleneck at that corner. Switch R_on varies materially with process/temperature and no other corner has been run. (b) The comparator's own decision delay could NOT be measured across the grid: its reset-integrity negative control (Vindiff = 0 mV) fails at several ratified corner points, where the latch separates to the rails during the CLK=0 reset phase with no input applied, so the post-edge output is not a response to the input and no delay is extractable there. Delays measured at the corners whose control did hold are sub-2 ns but cover a subset of the grid and must not be quoted as PVT-complete. The sequencer's logic delay and the sampling front end's acquisition remain entirely unmeasured. Named as open work by spec/target-spec.md's own 'Not ratified by this record' list (#24/#28); DR-006's 1.2-12 MHz clock range remains a mechanical consequence of this DRAFT row, not a derived result.
 
+**Evidence:**
+
+- `sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md` (Record ID `20260905-220919-bbf06dd`, Supersedes: (none))
+  - Result: (no Overall/Statistical convention/Measured value(s) field found)
+  - Claim: quantifies, for the first time in this repo, how long the CDAC array's own shared top-plate node (`design/cdac/cdac_array.sch`) takes to settle after a single bit's SEL toggles at the start of its own bit-trial phase, i…
+- `sim/comparator-decision/records/20260906-052758-662a84d.md` (Record ID `20260906-052758-662a84d`, Supersedes: (none))
+  - Overall: FAIL (DESIGN FINDING) -- the reset-integrity control fails at 3 of 9 ratified corner points (`sf_27c_1.80v`, `tt_-40c_1.80v`, `tt_27c_1.62v`). At those corners the comparator's differential output has already separated to the rails DURING the CLK=0 reset phase with ZERO differential input applied, so the post-edge output is not a response to the input and NO decision delay is extractable there. Counting the applied-input points too, 4 of 9 corner points show at least one reset-not-held run (9 of 27 input-driven runs). A PVT-complete decision-delay figure therefore does not exist yet and is NOT reported by this record.
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: pending #1/#27 -- attempts to characterize design/comparator.sch's decision (regeneration) delay vs. differential input across the FULL ratified PVT corner set, and reports what that attempt actually found. There is no…
 
 ### ENOB
 
@@ -201,6 +210,7 @@ spec-row evidence.
 
 Enumerated, not omitted: deck coverage gaps, warning-level LVS findings (and one non-warning LVS mismatch), uncombined evidence legs, and modelled-but-not-extracted items.
 
+- Comparator RESET does not hold at every ratified corner -- a design finding, not a harness limitation. With the inputs shorted to the common mode (Vindiff = 0 mV, a negative control), `design/comparator.sch`'s outputs separate to the rails DURING the CLK=0 reset phase at several ratified corner points, because the cross-coupled NMOS latch pair's sources are tied directly to GND and therefore conduct throughout reset, in opposition to the reset PMOS pair. The resulting balanced level is an unstable equilibrium (and draws static supply current), so corner/temperature asymmetry is amplified to a decision before the clock edge arrives. Consequence: at the affected corners the comparator enters a bit trial already committed, so its output is not determined by the CDAC top-plate charge -- a functional exposure, not only a timing one. No ADC-level transient has ever exercised the real comparator inside the full hierarchy (the sequencer campaign is behavioural; the ENOB estimate composes a noise term rather than simulating the latch), which is why this did not surface earlier. This also bounds what the comparator offset and noise rows mean: both were characterized only at tt/27C/1.8V-class conditions where the reset does hold.
 - Comparator noise methodology is a REDUCED SUB-MODEL (cross-coupled latch pair replaced by diode-connected loads) -- excludes the latch's own regenerative-phase noise contribution. Carried unchanged into the ratified corner campaign and into the ENOB composite. See DR-004.
 - ENOB is a behavioral-accelerated composite, not a dynamic-test (FFT) measurement: it excludes settling, slewing, aperture jitter and reference droop; treats CDAC INL as an rms noise-like term rather than input-correlated distortion; and deliberately excludes comparator offset.
 - Comparator/ADC offset has no numeric spec row (ratified or DRAFT). `sim/comparator-decision/`'s offset Monte Carlo (N=24, `tt_mm`, seed=1) is a distribution-only characterization with no `klt yield` pass/fail step -- a limit-less measurement is a `klt yield` input error by design, per sim/README.md.
