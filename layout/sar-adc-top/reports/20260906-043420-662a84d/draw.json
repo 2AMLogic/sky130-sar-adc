@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "generator": "draw",
+  "gds_path": "route.gds",
+  "cell_name": "ROUTE",
+  "dbu_um": 0.001,
+  "shape_count": 698,
+  "label_count": 19,
+  "layers": [
+    {
+      "layer": 69,
+      "datatype": 20,
+      "name": null,
+      "shapes": 164
+    },
+    {
+      "layer": 70,
+      "datatype": 20,
+      "name": null,
+      "shapes": 107
+    },
+    {
+      "layer": 69,
+      "datatype": 44,
+      "name": null,
+      "shapes": 49
+    },
+    {
+      "layer": 71,
+      "datatype": 20,
+      "name": null,
+      "shapes": 57
+    },
+    {
+      "layer": 70,
+      "datatype": 44,
+      "name": null,
+      "shapes": 32
+    },
+    {
+      "layer": 68,
+      "datatype": 20,
+      "name": null,
+      "shapes": 163
+    },
+    {
+      "layer": 68,
+      "datatype": 44,
+      "name": null,
+      "shapes": 90
+    },
+    {
+      "layer": 67,
+      "datatype": 20,
+      "name": null,
+      "shapes": 18
+    },
+    {
+      "layer": 67,
+      "datatype": 44,
+      "name": null,
+      "shapes": 18
+    },
+    {
+      "layer": 71,
+      "datatype": 5,
+      "name": null,
+      "shapes": 0
+    },
+    {
+      "layer": 68,
+      "datatype": 5,
+      "name": null,
+      "shapes": 0
+    },
+    {
+      "layer": 69,
+      "datatype": 5,
+      "name": null,
+      "shapes": 0
+    }
+  ],
+  "bbox_um": {
+    "x0": -20.2,
+    "y0": -161.6,
+    "x1": 260.2,
+    "y1": 223.9
+  },
+  "warnings": [
+    "written verbatim by `klt draw`: no PDK awareness and no rule checking were applied; this cell is not guaranteed to be design-legal"
+  ]
+}

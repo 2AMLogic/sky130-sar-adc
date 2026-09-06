@@ -11,20 +11,47 @@ touched.**
 
 ## Status (as of this record)
 
-**Not yet closed, and now known to be blocked on a real, verified dependency
-rather than an open question.** This PR ships the fifth block this assembly
-needs (`layout/seln-inverters/`, DRC-clean and LVS-clean on its own) and the
-floorplan/routing investigation below. The investigation went past "what
-should the composition request look like" into actually probing every
-sub-block's own committed GDS geometry (direct KLayout API inspection, not
-just the pin-position tables each block's own README already published), and
-found that two of `cdac_array`'s pins (#100) have **no drawn conductor a
-top-level assembly can physically contact** — not a floorplan/routing
-question this issue can resolve, but a sub-block-layout completeness gap
-filed as **#165** (`cdac_array: VDD (nwell) and SELp/SELn (poly gate) pins
-have no externally-contactable landing geometry`). See "GND / VPWR / VGND"
-and "Recommended composition mechanism" below for the verified detail; the
-short version:
+**Placement + interconnect routing complete and DRC-clean at the top level;
+LVS blocked on a tool gap, not a routing defect.** `layout/sar-adc-top/bin/
+build_layout.py` places all five sub-blocks (`klt gen-compose`, explicit
+placement, each named as a `blocks[].cell` entry per #1189) and hand-routes
+every net `design/sar_adc_top.sch` calls for (`klt draw`), following the
+floorplan/routing plan this document works out below. `klt drc` on the
+composed layout is **clean (0 violations)**. A full-hierarchy, unfiltered
+`klt extract` was checked net-by-net by hand against the intended
+interconnect (see the latest `reports/<record-id>/record.md`'s own
+"Connectivity verification" table) — every one of the ~30 top-level nets
+this assembly routes extracts as its own distinct, correctly-scoped net,
+with exactly the intended cross-sub-block membership and no unintended
+shorts. That table is the direct evidence backing this issue's own
+DRC/interconnect-correctness claims.
+
+`klt lvs` itself still reports a mismatch, but not because the routing is
+wrong: no available `klt extract` declared-pin mechanism
+(`--top-cell-pins`/`--pins`/`--def-pins`) reproducibly promotes *exactly*
+this design's own intended 19-port top-level interface once composed from
+five independently-labeled sub-blocks with no governing top-level DEF (two
+of the five are placed-and-routed standard-cell macros carrying their own
+internal, generic net labels — `A`, `X`, `Q`, `Y`, `D`, `S` — that collide
+with this design's own port names once everything is flattened for
+extraction). Filed generically at klayout-tools#1513 (see "LVS pin
+declaration blocker" below for the full trace of why each of the three
+mechanisms fails differently). This mirrors, one level up, the exact class
+of gap `layout/sar-sequencer/`'s own `--def-pins` fix (klayout-tools#1390)
+already resolved for a *single* placed-and-routed macro — this is the same
+root cause recurring at the *composition* scale, where there is no single
+governing DEF to anchor it on.
+
+An earlier increment of this issue (previous revision of this document)
+found and fixed a real sub-block-layout completeness gap while working out
+this same floorplan: two of `cdac_array`'s pins (#100) had **no drawn
+conductor a top-level assembly could physically contact**. That gap was
+filed and closed as **#165** (`cdac_array: VDD (nwell) and SELp/SELn (poly
+gate) pins have no externally-contactable landing geometry`) before this
+increment's own routing pass began; the section immediately below is kept
+for the record of what that investigation found. See "GND / VPWR / VGND"
+and "Recommended composition mechanism" further down for the routing detail
+that followed once #165 landed; the short version of the original finding:
 
 - `cdac_array.VDD` is a bare `nwell` rectangle with a text label and **zero**
   drawn `tap`/`licon1`/`li1`/metal anywhere on it (`cdac_layout.py`'s own
@@ -270,24 +297,28 @@ declarations and its item-2 "known integration gap" note:
   schematic's own header already documents, extended to cover two separate
   digital instances rather than just analog-vs-digital.)
 
-## Recommended composition mechanism: `klt gen-compose`, not hand-drawn routing
+## Composition mechanism actually used: `klt gen-compose` as a pure placer
 
-Every existing full-custom sub-block flow in this repo (`comparator/`,
-`sampling-frontend/`, `sampling-frontend-wells/`) uses `klt gen-compose`
-**purely as a placer** (`connectivity: []`) and hand-authors every wire via
-`klt draw`, because those flows route matching-critical, transistor-level
-nets where geometry control matters. Top-level block-to-block interconnect
-is a different problem — five pre-verified, opaque blocks, not
-matching-critical transistor placement — and `klt gen-compose`'s own
-`routing`/`connectivity[]` mechanism (issue #1073's N-pin `route_bundle`:
-a routed minimum spanning tree over a net's pins, each leg through
-`route_two_pin`'s own via-drop/obstacle/collision handling) is designed for
-exactly this case. Each block would be declared as a `blocks[].cell` entry
-(an *existing* GDS cell, not a fresh `klt gen` report) with hand-declared
-`ports[]` taken directly from the tables above.
+The section below is kept as the *investigation record* that led to this
+decision; what `layout/sar-adc-top/bin/build_layout.py` actually implements
+resolved open question 4 the other way from what this section originally
+proposed: `klt gen-compose` is used **purely as a placer**
+(`connectivity: []`, every block a `blocks[].cell` entry per #1189), and
+**every** net — digital and analog alike, not just `TOP_P`/`TOP_N`/`VDD` —
+is hand-routed via `klt draw`, matching every other full-custom flow in this
+repo (`comparator/`, `sampling-frontend/`, `sampling-frontend-wells/`) for
+the same reason: `klt gen-compose`'s own bundle router's geometry is
+advisory (`klt drc` remains the authority), and this composition's own
+mixed digital/analog, multi-metal-layer interconnect needs the same
+explicit layer-alternation control (met1/met2 in the digital channel,
+met3/met4 in the analog crossings — see `build_layout.py`'s own docstring)
+that made getting a first attempt to a clean `klt drc` verdict tractable at
+all. Once #165 landed, the two originally-blocked nets (`VDD`,
+`SELp<i>`/`SELn<i>`) routed the same way as everything else — no separate
+mechanism was needed for them specifically.
 
-**Not yet attempted end-to-end** (and now blocked on #165 for two of the
-nets below). Open questions before that attempt:
+Open questions this investigation worked through before that implementation
+(kept for the record):
 
 1. ~~`cdac_array.VDD`'s pin sits on the well layer...~~ **Resolved (by
    investigation, not by a fix): not a "which layer does `gen-compose`
@@ -340,45 +371,91 @@ nets below). Open questions before that attempt:
    between *already-real* metal ports, never manufactures a landing point on
    a bare well/poly shape.
 
-## Remaining work (tracked against #103, not yet done)
+## LVS pin declaration blocker (klayout-tools#1513)
 
-- [ ] **Blocked on #165** (`cdac_array.VDD`/`SELp`/`SELn` have no
-      externally-contactable landing geometry — see "Status" above). This is
-      a real dependency, not an open design question: the composition/
-      routing plan below is otherwise ready to execute, but `VDD` and the 18
-      `SELp<i>`/`SELn<i>` nets cannot be physically routed until #165 lands.
-- [ ] Once #165 lands: place all five blocks via `klt gen-compose`
-      `placement.strategy: "explicit"` (per the resolved floorplan strategy
-      in open question 3 above), each sourced as a `blocks[].cell` entry (an
-      existing GDS cell `gen-compose` did not itself generate, #1189) rather
-      than a `generator_report` — none of these five blocks came from `klt
-      gen`/`klt draw` in this issue's own flow.
-- [ ] Hand-route (`klt draw`, not `gen-compose`'s own bundle router — see
-      open question 4) the interconnect table above, using #165's new
-      landing pads for `VDD`/`SELp`/`SELn` once they exist. Reuse
-      `layout/comparator/bin/build_layout.py`'s `Router`/`Pin`/track-based
-      channel-routing pattern (already proven DRC-clean in this repo) rather
-      than re-deriving one from scratch.
-- [ ] Produce and commit the composed top-level GDS under this directory,
+`layout/sar-adc-top/bin/run-flow.sh` tries all three of `klt extract`'s own
+declared-top-level-pin mechanisms in sequence (see that script's own step 7
+and `render-record.py`'s own summary), and none reproduces exactly this
+design's intended 19-port interface once the five sub-blocks are composed
+and flattened:
+
+- **`--top-cell-pins`**: demotes this flow's *own* genuine top-level pin
+  labels too, since `build_layout.py`'s own `route` block — where every one
+  of them lives — is an *instanced* sub-cell of the composed top cell, not
+  the literal top cell itself (the same shape `layout/comparator/bin/
+  build_layout.py`'s own comment already documents choosing *not* to use
+  `--top-cell-pins` for, for the identical reason — but that flow's own five
+  sub-blocks are freshly-generated `klt gen` device primitives with no
+  competing internal pin labels of their own, so it never hits the
+  *over*-promotion problem below either).
+- **`--pins`** (issue #514): does an exact string match against each
+  promoted net's own name — but once a genuine top-level port merges with an
+  internal macro's own generic pin label (e.g. `sar_sequencer`'s own first
+  clock-buffer gate, literally named `A` in its post-route netlist, sharing
+  a net with this design's own `CLK`), `klt extract`'s own net-naming joins
+  every label found on that net into one string (`A,CLK` internally) — and
+  there is no way to express an already-comma-joined name as a single
+  `--pins` token, since `--pins`'s own argument syntax uses that same comma
+  as its *item* separator. Confirmed empirically: `--pins CLK` reports "0
+  declared pin names matched," full stop.
+- **`--def-pins`** (issue #1390): the automatic, DEF-derived counterpart —
+  works around `--pins`'s limitation by matching *any* comma-joined
+  component instead of the whole string, so declaring `CLK` alone does
+  reach the `A,CLK` net above. But two of this design's five sub-blocks are
+  independently-synthesized standard-cell macros, each free to reuse the
+  same generic labels (`A`/`X`/`Q`/`Y`) for *unrelated* internal nodes — a
+  downstream, already-buffered copy of the clock net, entirely internal to
+  `sar_sequencer`, also happens to carry `CLK` as one of *its own* joined
+  labels (an artifact of the same generic reuse, not an actual electrical
+  connection to this design's own top-level `CLK` port — see this
+  investigation's own connectivity-verification table, which shows the true
+  `CLK` net's device count separately and correctly). `--def-pins CLK`
+  cannot distinguish "the net whose only relevant label is `CLK`" from "any
+  net with `CLK` among several labels," so it over-promotes: the composed
+  layout ends up with 23 promoted pins against this design's own 19,
+  guaranteeing an `LVS` pin-count mismatch regardless of how correct the
+  underlying routing is.
+
+Filed generically (no design-specific detail) at
+[klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513)
+per `CLAUDE.md`'s friction protocol — the same protocol, and the same class
+of gap, that produced klayout-tools#1385/#1390 for a single placed-and-routed
+macro (`layout/sar-sequencer/`'s own LVS reference provenance section); this
+is that same gap recurring one composition level up, where there is no
+single top-level DEF left to anchor `--def-pins` on.
+
+## Remaining work (tracked against #103)
+
+- [x] Place all five blocks via `klt gen-compose` `placement.strategy:
+      "explicit"`, each sourced as a `blocks[].cell` entry (#1189).
+- [x] Hand-route (`klt draw`) every net in the interconnect table above.
+      `layout/sar-adc-top/bin/build_layout.py` documents the concrete
+      floorplan/layer-alternation scheme that made this tractable (met1
+      horizontals / met2 verticals in the dense digital channel, met3
+      horizontals / met4 verticals in the analog-region crossings — see that
+      module's own docstring and its `analog_leg()`/`DROP_X` comments for
+      the specific same-layer collisions found and fixed along the way).
+- [x] Produce and commit the composed top-level GDS under this directory,
       following the `layout/trivial-cell/` record convention
       (`reports/<timestamp>-<sha>/` with `draw.json`/`compose.json`,
-      `drc.json`, `extract.json`, `lvs.json`, `record.md`).
-- [ ] Build the top-level LVS reference: a hierarchical SPICE netlist calling
-      each sub-block's own already-generated flat reference subckt
-      (`layout/cdac-array/reference/cdac_array.lvs-reference.spice`,
-      `layout/comparator/reference.spice`,
-      `layout/sar-sequencer/reports/<LATEST>/sar_sequencer.lvs-reference.spice`,
-      `layout/sampling-frontend/reference.spice`,
-      `layout/seln-inverters/reference/seln_inverters.lvs-reference.spice`)
-      plus the top-level interconnect, run through `klt lvs` with
-      `options.flatten_reference: true` (`klt lvs`'s own structural
-      flatten, issue #1085) so hierarchy-local net scoping — the exact
-      VPWR/VGND-domain-separation behavior described above — is preserved
-      automatically rather than hand-derived.
-- [ ] `klt drc`/`klt lvs` clean at the top level; record which of #103's own
-      acceptance-criteria items (T1 items 3/4/7) that unblocks, and confirm
-      whether `klt pex` (now implemented, unlike the tooling gap #103's own
-      body anticipated) is usable for item 7's post-layout verification.
+      `drc.json`, `extract.json`/`extract.unfiltered.json`, `lvs.json`,
+      `record.md`).
+- [x] `klt drc` clean at the top level (0 violations).
+- [x] Build the top-level LVS reference (`layout/sar-adc-top/bin/
+      generate-lvs-reference.py`): a hierarchical SPICE netlist calling each
+      sub-block's own already-generated flat reference subckt plus the
+      top-level interconnect, run through `klt lvs` with
+      `options.flatten_reference: true` (issue #1085).
+- [ ] **Blocked on klayout-tools#1513** (see above) for an actual `klt
+      lvs` **match** verdict — the connectivity itself is verified correct
+      by the unfiltered-extraction, net-by-net check in each record's own
+      `record.md`; what remains is a promoted-pin-count reconciliation this
+      repo cannot fix on its own.
+- [ ] Once klayout-tools#1513 (or an equivalent workaround) resolves: confirm
+      which of #103's own acceptance-criteria items (T1 items 3/4/7) an
+      actual `match` verdict unblocks, and whether `klt pex` (now
+      implemented, unlike the tooling gap #103's own body anticipated) is
+      usable for item 7's post-layout verification.
 
 ## Provenance
 
