@@ -70,10 +70,29 @@ comparison are themselves downstream of the DRAFT sample-rate row (Section
 7 Item 2), the same convention `sim/cdac-bit-trial-settling/`'s own record
 already follows.
 
+FULL-PVT-GRID MODE (``--corners``, added 2026-09-06). The single-corner
+caveat above is what the ``--corners`` mode exists to close: it re-runs the
+IDENTICAL stimulus and the identical 11 TRIG/TARG `.meas` statements at each
+of the 9 one-at-a-time points of this repo's ratified corner set
+(spec/target-spec.md's "Numeric rows -- RATIFIED 2026-08-19" section:
+process `{tt, ss, ff, sf, fs}` x temperature `{-40, 27, 125} C` x supply
+`{1.62, 1.8, 1.98} V`), the same OAT grid `sim/comparator-decision/`'s own
+`regen-corners` campaign and `sim/sampling-acquisition-settling/`'s own
+`--corners` mode already sweep. Only the `.lib` corner, `.temp`, and the
+`vdd_val` parameter change per point -- the DUT netlist, the stimulus
+shape, and the measurement convention are byte-identical to the
+single-corner default. The 50% threshold tracks the supply at each point
+(`vdd/2`), which is the standard propagation-delay convention, not a
+per-corner threshold relaxation. The single-corner default behavior is
+unchanged; `--corners` is purely additive.
+
 Usage (from the repo root, after ``source sim/env.sh``)::
 
     python3 sim/sequencer-logic-delay/run_sequencer_logic_delay.py
     python3 sim/sequencer-logic-delay/run_sequencer_logic_delay.py --record
+    # Full ratified PVT grid (9 OAT points) instead of the single
+    # tt/27C/1.8V corner above:
+    python3 sim/sequencer-logic-delay/run_sequencer_logic_delay.py --corners --record
 
 A slower-but-progressing host may need a larger toolchain timeout budget
 (the sky130_fd_sc_hd "combined" corner .lib carries a large fixed
@@ -98,7 +117,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import evidence, pdk, toolchain  # noqa: E402
+from harness import corners as corners_mod, evidence, pdk, toolchain  # noqa: E402
 
 DESIGN_SCH = REPO_ROOT / "design" / "sar_sequencer.sch"
 XSCHEMRC = REPO_ROOT / "sim" / "xschemrc"
@@ -106,6 +125,21 @@ XSCHEMRC = REPO_ROOT / "sim" / "xschemrc"
 VDD = 1.8
 CORNER = "tt"
 TEMP_C = 27.0
+
+# Ratified corner-set axes (issue #28), per spec/target-spec.md's "Numeric
+# rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
+# process corners -- the same axes sim/comparator-decision/'s own
+# regen-corners campaign and sim/sampling-acquisition-settling/'s own
+# --corners mode sweep. Used only by the optional --corners mode below; the
+# single-corner (tt/27C/1.8V) default behavior above is unchanged.
+SUPPLY_TOLERANCE = 0.10
+TEMPS_C = [-40, 27, 125]
+PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+
+# The single-corner (tt/27C/1.8V) record --corners's own evidence record
+# cross-references as "the finding this campaign extends" -- PR #203,
+# sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md.
+SINGLE_CORNER_SEED_RECORD = "20260906-192230-1b5c996"
 
 # CLK/RST_B stimulus -- same shape and relative timing as
 # sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice's
@@ -301,10 +335,16 @@ def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
     raise AssertionError("unreachable")  # loop always returns or raises above
 
 
-def run_all(scratch: Path) -> tuple[list[dict], str]:
+def netlist_and_check(scratch: Path, quiet: bool = False) -> str:
+    """Netlist the DUT once and assert every instance resolves to
+    sky130_fd_sc_hd. Split out of run_all() so the --corners campaign can
+    reuse ONE netlisting step across all 9 corner points -- the schematic
+    does not depend on the corner, only the `.lib`/`.temp`/`vdd_val` lines
+    the transient deck adds around it do."""
     dut_path = netlist_dut(scratch / "netlist")
     dut_text = dut_path.read_text()
-    print(f"OK: {DESIGN_SCH.relative_to(REPO_ROOT)} netlisted cleanly ({dut_path}).")
+    if not quiet:
+        print(f"OK: {DESIGN_SCH.relative_to(REPO_ROOT)} netlisted cleanly ({dut_path}).")
 
     non_hd = [
         ln for ln in dut_text.splitlines()
@@ -316,10 +356,25 @@ def run_all(scratch: Path) -> tuple[list[dict], str]:
             f"netlist: {non_hd}"
         )
     n_instances = len([ln for ln in dut_text.splitlines() if ln.strip().startswith("x")])
-    print(f"OK: all {n_instances} standard-cell instances resolve to sky130_fd_sc_hd.")
+    if not quiet:
+        print(f"OK: all {n_instances} standard-cell instances resolve to sky130_fd_sc_hd.")
+    return dut_text
 
-    netlist, edge_times = build_transient(dut_text)
-    m = _run(netlist, scratch, "sequencer_logic_delay")
+
+def run_point(
+    scratch: Path,
+    dut_text: str,
+    *,
+    corner: str = CORNER,
+    temp_c: float = TEMP_C,
+    vdd: float = VDD,
+    quiet: bool = False,
+    tag: str = "sequencer_logic_delay",
+) -> tuple[list[dict], str]:
+    """One PVT point: build the transient deck around an already-netlisted
+    DUT, run it, and return (per-phase rows, deck text)."""
+    netlist, edge_times = build_transient(dut_text, corner=corner, temp_c=temp_c, vdd=vdd)
+    m = _run(netlist, scratch, tag)
 
     rows = []
     for name in MEASURE_NAMES:
@@ -331,10 +386,72 @@ def run_all(scratch: Path) -> tuple[list[dict], str]:
             "trig_edge_ns": edge_times[name],
             "delay_ns": delay_ns,
         })
-        delay_str = f"{delay_ns:.5f} ns" if delay_ns is not None else "N/A (no crossing found)"
-        print(f"{name}: trig_edge={edge_times[name]:.1f}ns  delay={delay_str}")
+        if not quiet:
+            delay_str = (
+                f"{delay_ns:.5f} ns" if delay_ns is not None else "N/A (no crossing found)"
+            )
+            print(f"{name}: trig_edge={edge_times[name]:.1f}ns  delay={delay_str}")
 
     return rows, netlist
+
+
+def run_all(scratch: Path) -> tuple[list[dict], str]:
+    """Single-corner (tt/27C/1.8V) default path -- unchanged behavior."""
+    dut_text = netlist_and_check(scratch)
+    return run_point(scratch, dut_text)
+
+
+def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
+    """Full ratified-corner-set OAT sweep of run_point(): the same PVT grid
+    sim/comparator-decision/'s own regen-corners campaign and
+    sim/sampling-acquisition-settling/'s own --corners mode use
+    (spec/target-spec.md's "Numeric rows -- RATIFIED 2026-08-19" section:
+    -40/27/125C, +-10% supply, sky130 process corners), applied to this
+    experiment's own per-phase CLK-to-phase-output propagation delay. This
+    does NOT change the mechanism measured -- it re-runs the identical
+    stimulus and the identical 11 `.meas` statements at 9 PVT points instead
+    of 1, to see whether the tt/27C/1.8V finding (266.9x margin inside the
+    DR-006-derived worst-case phase budget) holds, worsens, or improves
+    across process/temperature/supply. Real standard-cell gate delay varies
+    materially with all three axes, which is exactly why the single-corner
+    record declined to call itself PVT-complete.
+    """
+    pdk.resolve_or_raise()
+    dut_text = netlist_and_check(scratch, quiet=quiet)
+    supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
+    grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
+
+    points: list[dict] = []
+    for process_corner, temp_c, supply_v in grid:
+        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+        if not quiet:
+            print(f"{cid}:")
+        rows, netlist = run_point(
+            scratch, dut_text, corner=process_corner, temp_c=temp_c, vdd=supply_v,
+            quiet=True, tag=f"sequencer_logic_delay_{cid}",
+        )
+        valid = [r for r in rows if r["delay_ns"] is not None]
+        complete = len(valid) == len(rows)
+        worst = max(valid, key=lambda r: r["delay_ns"]) if valid else None
+        points.append({
+            "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
+            "corner_id": cid, "complete": complete, "rows": rows,
+            "worst_phase": worst["phase"] if worst else None,
+            "worst_delay_ns": worst["delay_ns"] if worst else None,
+            "netlist": netlist,
+        })
+        if not quiet:
+            if worst is not None:
+                print(
+                    f"  worst phase `{worst['phase']}`: "
+                    f"delay={worst['delay_ns']:.5f} ns "
+                    f"({T_PHASE_WORST_NS / worst['delay_ns']:.1f}x inside the "
+                    f"{T_PHASE_WORST_NS:.3f} ns DR-006 budget)"
+                    + ("" if complete else "  [INCOMPLETE: some phases had no crossing]")
+                )
+            else:
+                print("  INCOMPLETE: no phase produced a TRIG/TARG crossing")
+    return points
 
 
 def write_record(rows: list[dict], netlist_sample: str) -> None:
@@ -479,9 +596,229 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
     print(f"\nWrote record: {record_path}")
 
 
+def write_corners_record(points: list[dict]) -> Path:
+    """Evidence record for the full ratified-PVT-grid --corners campaign,
+    same `corners/<record_id>/` per-point-deck layout
+    sim/comparator-decision/'s own regen-corners campaign and
+    sim/sampling-acquisition-settling/'s own --corners mode already use."""
+    record_id = evidence.new_record_id()
+    corners_dir = EXPERIMENT_DIR / "corners" / record_id
+    corners_dir.mkdir(parents=True, exist_ok=True)
+    for p in points:
+        (corners_dir / f"{p['corner_id']}.spice").write_text(p["netlist"])
+
+    # Netlist snapshot: the tt/27C/1.8V baseline point's own deck, the same
+    # single-point convention write_record() above uses, so a reader can
+    # diff it directly against the single-corner record's own snapshot.
+    baseline = next(
+        (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0 and p["supply_v"] == VDD),
+        points[0],
+    )
+    record_path = evidence.write_netlist_snapshot_text(
+        EXPERIMENT_DIR, record_id, baseline["netlist"]
+    )
+    netlist_sha = evidence.sha256_text(baseline["netlist"])
+
+    info = pdk.resolve()
+    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
+    ng_version = toolchain._ngspice_version() or "unknown"
+
+    process_corners_run = sorted({p["corner"] for p in points})
+    temps_run = sorted({p["temp_c"] for p in points})
+    supplies_run = sorted({p["supply_v"] for p in points})
+
+    incomplete = [p for p in points if not p["complete"]]
+    complete_points = [p for p in points if p["complete"]]
+
+    lines: list[str] = []
+    a = lines.append
+    a(
+        "# SAR sequencer CLK-to-phase-output propagation-delay budget -- "
+        f"full PVT grid -- {record_id}"
+    )
+    a("")
+    a(f"- **Record ID**: {record_id}")
+    a(
+        "- **Claim**: extends the single-corner (tt/27C/1.8V) finding in "
+        f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+        f"({SINGLE_CORNER_SEED_RECORD}.md) -- that "
+        "`design/sar_sequencer.sch`'s own walking-one ring sequencer "
+        "produces a valid one-hot phase-select output far inside the "
+        "DR-006-derived worst-case (12 MHz) bit-trial phase budget -- to "
+        "the FULL ratified PVT corner set (spec/target-spec.md's \"Numeric "
+        "rows -- RATIFIED 2026-08-19\" section: -40/27/125C, +-10% supply, "
+        "sky130 process corners), the same OAT grid "
+        "sim/comparator-decision/'s own regen-corners campaign and "
+        "sim/sampling-acquisition-settling/'s own --corners mode sweep. "
+        "Identical stimulus, identical DUT, and the identical 11 TRIG/TARG "
+        "`.meas` statements as the single-corner record (see that record "
+        "and this script's own module docstring for the edge-to-phase "
+        "mapping derivation) -- only the corner point changes per run. No "
+        "claim here is graded against a ratified spec row: "
+        "`spec/target-spec.md`'s sample-rate row is entirely DRAFT "
+        "(#1/#27), and the DR-006 phase-period figures quoted below are "
+        "themselves downstream of that DRAFT row."
+    )
+    a(
+        "- **Netlist provenance**: `design/sar_sequencer.sch`, netlisted "
+        "fresh by `xschem` ONCE per campaign run and reused unchanged at "
+        "every corner point (the schematic does not depend on the corner) "
+        "-- only `.lib`/`.temp`/`vdd_val` vary per point. No schematic "
+        "change; this script adds only the CLK/RST_B/COMP_OUT stimulus and "
+        "the propagation-delay `.meas` statements. Netlist snapshot above "
+        "is the tt/27C/1.8V baseline point's deck; every point's own deck "
+        f"is committed under `corners/{record_id}/`."
+    )
+    a(
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(points)
+        )
+    )
+    a(
+        "- **Threshold convention**: the 50% crossing threshold is `vdd/2` "
+        "at each point, tracking that point's own supply (1.62/1.8/1.98 V "
+        "-> 0.81/0.9/0.99 V). That is the standard propagation-delay "
+        "convention, not a per-corner threshold relaxation."
+    )
+    a(
+        "- **Phases measured**: all 11 CLK-edge-driven ring phases "
+        "(`ph_b9`..`ph_b0`, `ph_eoc`) at every corner point -- "
+        f"{11 * len(points)} phase measurements in total. `ph_sample` is "
+        "excluded at every point for the same reason as the single-corner "
+        "record: it is asynchronously reset-preset, not CLK-edge-driven."
+    )
+    a(
+        "- **DR-006 phase-period reference points**: "
+        f"{T_PHASE_WORST_NS:.3f} ns (worst case, f_clk=12 MHz, one CLK "
+        f"period per bit-trial phase) and {T_PHASE_SLOW_NS:.2f} ns (slow "
+        "end, f_clk=1.2 MHz) -- quoted for comparison only, not a pass/"
+        "fail gate against a ratified row."
+    )
+    a("")
+    a("## Worst-phase CLK-to-phase-output delay, per corner")
+    a("")
+    a(
+        "\"Worst phase\" is whichever of the 11 ring phases has the largest "
+        "delay at that corner (not necessarily the same phase at every "
+        "corner). Margin is the DR-006-derived worst-case (12 MHz) "
+        f"{T_PHASE_WORST_NS:.3f} ns phase budget divided by that delay."
+    )
+    a("")
+    a("| Corner | Worst phase | Worst delay (ns) | Margin vs. DR-006 budget | Phases measured |")
+    a("|---|---|---|---|---|")
+    for p in points:
+        n_valid = len([r for r in p["rows"] if r["delay_ns"] is not None])
+        if p["worst_delay_ns"] is None:
+            a(f"| `{p['corner_id']}` | -- | INCOMPLETE | -- | {n_valid}/{len(p['rows'])} |")
+            continue
+        margin = T_PHASE_WORST_NS / p["worst_delay_ns"]
+        a(
+            f"| `{p['corner_id']}` | `{p['worst_phase']}` | "
+            f"{p['worst_delay_ns']:.5f} | {margin:.1f}x | "
+            f"{n_valid}/{len(p['rows'])} |"
+        )
+    a("")
+
+    notes: list[str] = []
+    if incomplete:
+        bad = ", ".join(p["corner_id"] for p in incomplete)
+        notes.append(
+            f"**{len(incomplete)}/{len(points)} corner points produced "
+            f"incomplete measurements ({bad})** -- treat this record as "
+            "partial evidence at those points, not a passing or failing "
+            "result, until re-run clean."
+        )
+    if complete_points:
+        binding = max(complete_points, key=lambda p: p["worst_delay_ns"])
+        best = min(complete_points, key=lambda p: p["worst_delay_ns"])
+        binding_margin = T_PHASE_WORST_NS / binding["worst_delay_ns"]
+        spread = binding["worst_delay_ns"] / best["worst_delay_ns"]
+        all_clear = all(
+            p["worst_delay_ns"] < T_PHASE_WORST_NS for p in complete_points
+        )
+        notes.append(
+            f"**Binding corner (largest delay): `{binding['corner_id']}`**, "
+            f"phase `{binding['worst_phase']}` at "
+            f"{binding['worst_delay_ns']:.4f} ns -- {binding_margin:.1f}x "
+            f"inside the DR-006-derived worst-case (12 MHz) "
+            f"{T_PHASE_WORST_NS:.3f} ns phase budget. Fastest corner: "
+            f"`{best['corner_id']}`, {best['worst_delay_ns']:.4f} ns "
+            f"({T_PHASE_WORST_NS / best['worst_delay_ns']:.1f}x). "
+            f"Worst-to-best spread across the ratified grid: {spread:.2f}x."
+        )
+        if all_clear:
+            notes.append(
+                f"**All {len(complete_points)}/{len(points)} ratified corner "
+                "points clear the DR-006-derived worst-case phase budget**, "
+                "every one of them by more than two orders of magnitude -- "
+                "the single-corner (tt/27C/1.8V) finding was not a "
+                "corner-specific artifact, and the sequencer's own "
+                "logic delay is not the sample-rate bottleneck anywhere on "
+                "this design's ratified PVT grid. This raises the weight of "
+                "that finding from \"one corner, narrows the open item\" to "
+                "\"every ratified corner, same conclusion\", and takes this "
+                "mechanism from single-corner to PVT-complete. Headroom "
+                "against a DRAFT, not-yet-ratified figure -- not a pass "
+                "against a ratified spec line."
+            )
+        else:
+            over = ", ".join(
+                p["corner_id"] for p in complete_points
+                if p["worst_delay_ns"] >= T_PHASE_WORST_NS
+            )
+            notes.append(
+                f"**Not every corner point clears the DR-006-derived "
+                f"worst-case phase budget** ({over} exceed it) -- the "
+                "single-corner (tt/27C/1.8V) margin did NOT hold across the "
+                "ratified PVT grid; see the per-corner table above."
+            )
+    notes.append(
+        "This campaign re-runs the SAME single mechanism (the sequencer's "
+        "own CLK-to-phase-output logic delay, `design/sar_sequencer.sch`) "
+        "across the full ratified PVT grid -- it does NOT combine with the "
+        "other three named mechanisms (CDAC array switch settling, "
+        "comparator decision delay, sampling front-end acquisition) into an "
+        "end-to-end sample-rate figure. Of those three, the comparator's "
+        "own decision delay and the sampling front end's own acquisition "
+        "are already PVT-complete (the latter does NOT clear this same "
+        "budget at any ratified corner); CDAC array switch settling remains "
+        "single-corner only. A full sample-rate re-derivation "
+        "(`docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2) still "
+        "needs all four combined, over the full PVT grid, which remains "
+        "open."
+    )
+
+    a("## Result")
+    a("")
+    for n in notes:
+        a("- " + n)
+    a("")
+
+    lines.extend(evidence.environment_block(
+        pdk_line, f"ngspice {ng_version}", netlist_sha,
+        extra={"tran step": f"{TRAN_STEP_NS} ns"},
+    ))
+    a("")
+    lines.extend(evidence.footer_lines(
+        "sim/sequencer-logic-delay/run_sequencer_logic_delay.py", ""
+    ))
+
+    record_path.write_text("\n".join(lines) + "\n")
+    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
+    latest_path.write_text(f"{record_id}.md\n")
+    print(f"\nWrote record: {record_path}")
+    return record_path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--record", action="store_true", help="write an evidence record")
+    parser.add_argument(
+        "--corners", action="store_true",
+        help="run the full ratified PVT grid (9 OAT points) instead of the "
+        "single tt/27C/1.8V corner",
+    )
+    parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
     check = toolchain.check_env()
@@ -496,6 +833,26 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="sequencer-logic-delay-") as tmp:
         scratch = Path(tmp)
+
+        if args.corners:
+            points = run_corners(scratch, quiet=args.quiet)
+            incomplete = [p for p in points if not p["complete"]]
+            if incomplete:
+                print(
+                    f"FAIL: {len(incomplete)}/{len(points)} corner points "
+                    "produced incomplete measurements."
+                )
+                if args.record:
+                    write_corners_record(points)
+                return 1
+            print(
+                f"\nOVERALL: PASS (all {len(points)} corner points produced "
+                f"all {len(MEASURE_NAMES)} phase delays)"
+            )
+            if args.record:
+                write_corners_record(points)
+            return 0
+
         rows, netlist_sample = run_all(scratch)
 
         if any(r["delay_ns"] is None for r in rows):

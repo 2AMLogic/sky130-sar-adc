@@ -89,22 +89,26 @@ ROWS: tuple[Row, ...] = (
             "{1.62, 1.8, 1.98} V, 9 one-at-a-time points), now PVT-complete "
             "after issue #175's reset-integrity topology fix (DR-004 "
             "Amendment A). (c) Sequencer CLK-to-phase-output logic delay: "
-            "`tt`/27C/1.8V single point only, covering all 11 ring-sequencer "
-            "phase transitions. (d) Sampling front end acquisition (a new "
+            "now ALSO PVT-complete (the same full ratified OAT grid, 9 "
+            "one-at-a-time points), covering all 11 ring-sequencer phase "
+            "transitions at every point (99 phase measurements). (d) "
+            "Sampling front end acquisition (a new "
             "worst-case, rail-to-rail differential input value acquired "
             "once SAMPLE re-asserts): now ALSO PVT-complete (the same full "
             "ratified OAT grid, 9 one-at-a-time points), one step direction."
         ),
         verdict=(
             "UNMEASURED as an end-to-end sample-rate figure (four "
-            "mechanisms probed individually, not combined); two of the four "
-            "mechanisms are now PVT-complete -- comparator decision delay "
-            "PASSes its own reset-integrity control (9/9 corners HELD) and "
-            "clears the DR-006 worst-case phase budget at every corner, "
-            "while the sampling front end's own acquisition FAILS to clear "
-            "the same budget at EVERY ONE of the 9 ratified corners (see "
-            "notes); the remaining two mechanisms (CDAC settling, sequencer "
-            "logic delay) are single-corner only and clear the budget there"
+            "mechanisms probed individually, not combined); three of the "
+            "four mechanisms are now PVT-complete -- comparator decision "
+            "delay PASSes its own reset-integrity control (9/9 corners "
+            "HELD) and clears the DR-006 worst-case phase budget at every "
+            "corner, sequencer logic delay clears the same budget at every "
+            "corner by more than two orders of magnitude, while the "
+            "sampling front end's own acquisition FAILS to clear it at "
+            "EVERY ONE of the 9 ratified corners (see notes); the one "
+            "remaining mechanism (CDAC settling) is single-corner only and "
+            "clears the budget there"
         ),
         notes=(
             "No end-to-end sample-rate campaign exists. All four of its "
@@ -128,11 +132,20 @@ ROWS: tuple[Row, ...] = (
             "DR-006-derived 83.333 ns worst-case phase budget (headroom "
             "against a DRAFT figure, not a pass against a ratified line). "
             "(c) The SAR sequencer's own CLK-to-phase-output logic delay is "
-            "bounded at ONE corner across all 11 of its own ring-sequencer "
-            "phase transitions: worst case 0.3123 ns (phase b1), 266.9x "
-            "inside the DR-006-derived 83.333 ns worst-case phase budget -- "
-            "by far the smallest of the four mechanisms measured, and not "
-            "the bottleneck at that corner. (d) The sampling front end's "
+            "now PVT-complete across all 11 of its own ring-sequencer phase "
+            "transitions at all 9 ratified corner points (99 phase "
+            "measurements, all producing a valid crossing): binding "
+            "(slowest) corner `ss_27c_1.80v`, phase b1 at 0.4237 ns, 196.7x "
+            "inside the DR-006-derived 83.333 ns worst-case phase budget; "
+            "fastest corner `ff_27c_1.80v` at 0.2480 ns (336.1x); "
+            "worst-to-best spread across the whole grid only 1.71x, and the "
+            "tt/27C/1.8V point reproduces the single-corner record's own "
+            "0.3123 ns exactly. Slow process and low supply are the two "
+            "slow directions; temperature is nearly inert (0.3211 ns at "
+            "-40 C vs. 0.3038 ns at 125 C). All 9/9 corners clear the "
+            "budget by more than two orders of magnitude -- by far the "
+            "smallest of the four mechanisms measured, and not the "
+            "bottleneck at any ratified corner. (d) The sampling front end's "
             "own acquisition of a NEW worst-case (rail-to-rail) differential "
             "input value, once SAMPLE re-asserts, was first bounded at ONE "
             "corner (tt/27C/1.8V): the fast early settling (50%/90% of the "
@@ -166,6 +179,7 @@ ROWS: tuple[Row, ...] = (
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
             "sim/comparator-decision/records/20260906-074451-7724af3.md",
             "sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md",
+            "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md",
         ),

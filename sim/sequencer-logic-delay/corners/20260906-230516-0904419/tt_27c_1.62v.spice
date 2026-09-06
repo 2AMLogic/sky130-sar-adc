@@ -1,0 +1,104 @@
+* sequencer-logic-delay -- standalone CLK-to-phase-output
+* propagation-delay testbench (issue #121), NOT routed through
+* sim/run_corners.py / sim/monte_carlo.py -- same divergence
+* sim/sar-sequencer-behavioral/run_testbench.py's own module
+* docstring already documents (their shared .control block only
+* supports .op analysis; this is a transient/digital timing check).
+* corner=tt temp=27.0C supply=1.62V
+.lib /Users/rwalters/.volare/sky130A/libs.tech/combined/sky130.lib.spice tt
+.temp 27.0
+.param vdd_val = 1.62
+.include /Users/rwalters/.volare/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice
+
+** sch_path: /Users/rwalters/GitHub/sky130-sar-adc/.loom/worktrees/issue-121/design/sar_sequencer.sch
+**.subckt sar_sequencer DOUT9 PH_B9 CLK PH_B8 DOUT8 RST_B PH_B7 DOUT7 COMP_OUT DOUT6 PH_B6 PH_B5 DOUT5 DOUT4 PH_B4 DOUT3 PH_B3
+*+ DOUT2 PH_B2 PH_B1 DOUT1 PH_B0 DOUT0 PH_EOC PH_SAMPLE BUSY
+*.ipin CLK
+*.ipin RST_B
+*.ipin COMP_OUT
+*.opin PH_B9
+*.opin PH_B8
+*.opin PH_B7
+*.opin PH_B6
+*.opin PH_B5
+*.opin PH_B4
+*.opin PH_B3
+*.opin PH_B2
+*.opin PH_B1
+*.opin PH_B0
+*.opin PH_EOC
+*.opin PH_SAMPLE
+*.opin BUSY
+*.opin DOUT9
+*.opin DOUT8
+*.opin DOUT7
+*.opin DOUT6
+*.opin DOUT5
+*.opin DOUT4
+*.opin DOUT3
+*.opin DOUT2
+*.opin DOUT1
+*.opin DOUT0
+xringb9 CLK PH_SAMPLE RST_B VGND VGND VPWR VPWR PH_B9 sky130_fd_sc_hd__dfrtp_1
+xringb8 CLK PH_B9 RST_B VGND VGND VPWR VPWR PH_B8 sky130_fd_sc_hd__dfrtp_1
+xringb7 CLK PH_B8 RST_B VGND VGND VPWR VPWR PH_B7 sky130_fd_sc_hd__dfrtp_1
+xringb6 CLK PH_B7 RST_B VGND VGND VPWR VPWR PH_B6 sky130_fd_sc_hd__dfrtp_1
+xringb5 CLK PH_B6 RST_B VGND VGND VPWR VPWR PH_B5 sky130_fd_sc_hd__dfrtp_1
+xringb4 CLK PH_B5 RST_B VGND VGND VPWR VPWR PH_B4 sky130_fd_sc_hd__dfrtp_1
+xringb3 CLK PH_B4 RST_B VGND VGND VPWR VPWR PH_B3 sky130_fd_sc_hd__dfrtp_1
+xringb2 CLK PH_B3 RST_B VGND VGND VPWR VPWR PH_B2 sky130_fd_sc_hd__dfrtp_1
+xringb1 CLK PH_B2 RST_B VGND VGND VPWR VPWR PH_B1 sky130_fd_sc_hd__dfrtp_1
+xringb0 CLK PH_B1 RST_B VGND VGND VPWR VPWR PH_B0 sky130_fd_sc_hd__dfrtp_1
+xringeoc CLK PH_B0 RST_B VGND VGND VPWR VPWR PH_EOC sky130_fd_sc_hd__dfrtp_1
+xor_g1 PH_B9 PH_B8 PH_B7 PH_B6 VGND VGND VPWR VPWR ORG1 sky130_fd_sc_hd__or4_1
+xor_g2 PH_B5 PH_B4 PH_B3 PH_B2 VGND VGND VPWR VPWR ORG2 sky130_fd_sc_hd__or4_1
+xor_g3 PH_B1 PH_B0 PH_EOC VGND VGND VPWR VPWR ORG3 sky130_fd_sc_hd__or3_1
+xor_busy ORG1 ORG2 ORG3 VGND VGND VPWR VPWR BUSY sky130_fd_sc_hd__or3_1
+xinv_sample BUSY VGND VGND VPWR VPWR PH_SAMPLE sky130_fd_sc_hd__inv_1
+xmux9 DOUT9 COMP_OUT PH_B9 VGND VGND VPWR VPWR MUXOUT9 sky130_fd_sc_hd__mux2_1
+xbreg9 CLK MUXOUT9 RST_B VGND VGND VPWR VPWR DOUT9 sky130_fd_sc_hd__dfrtp_1
+xmux8 DOUT8 COMP_OUT PH_B8 VGND VGND VPWR VPWR MUXOUT8 sky130_fd_sc_hd__mux2_1
+xbreg8 CLK MUXOUT8 RST_B VGND VGND VPWR VPWR DOUT8 sky130_fd_sc_hd__dfrtp_1
+xmux7 DOUT7 COMP_OUT PH_B7 VGND VGND VPWR VPWR MUXOUT7 sky130_fd_sc_hd__mux2_1
+xbreg7 CLK MUXOUT7 RST_B VGND VGND VPWR VPWR DOUT7 sky130_fd_sc_hd__dfrtp_1
+xmux6 DOUT6 COMP_OUT PH_B6 VGND VGND VPWR VPWR MUXOUT6 sky130_fd_sc_hd__mux2_1
+xbreg6 CLK MUXOUT6 RST_B VGND VGND VPWR VPWR DOUT6 sky130_fd_sc_hd__dfrtp_1
+xmux5 DOUT5 COMP_OUT PH_B5 VGND VGND VPWR VPWR MUXOUT5 sky130_fd_sc_hd__mux2_1
+xbreg5 CLK MUXOUT5 RST_B VGND VGND VPWR VPWR DOUT5 sky130_fd_sc_hd__dfrtp_1
+xmux4 DOUT4 COMP_OUT PH_B4 VGND VGND VPWR VPWR MUXOUT4 sky130_fd_sc_hd__mux2_1
+xbreg4 CLK MUXOUT4 RST_B VGND VGND VPWR VPWR DOUT4 sky130_fd_sc_hd__dfrtp_1
+xmux3 DOUT3 COMP_OUT PH_B3 VGND VGND VPWR VPWR MUXOUT3 sky130_fd_sc_hd__mux2_1
+xbreg3 CLK MUXOUT3 RST_B VGND VGND VPWR VPWR DOUT3 sky130_fd_sc_hd__dfrtp_1
+xmux2 DOUT2 COMP_OUT PH_B2 VGND VGND VPWR VPWR MUXOUT2 sky130_fd_sc_hd__mux2_1
+xbreg2 CLK MUXOUT2 RST_B VGND VGND VPWR VPWR DOUT2 sky130_fd_sc_hd__dfrtp_1
+xmux1 DOUT1 COMP_OUT PH_B1 VGND VGND VPWR VPWR MUXOUT1 sky130_fd_sc_hd__mux2_1
+xbreg1 CLK MUXOUT1 RST_B VGND VGND VPWR VPWR DOUT1 sky130_fd_sc_hd__dfrtp_1
+xmux0 DOUT0 COMP_OUT PH_B0 VGND VGND VPWR VPWR MUXOUT0 sky130_fd_sc_hd__mux2_1
+xbreg0 CLK MUXOUT0 RST_B VGND VGND VPWR VPWR DOUT0 sky130_fd_sc_hd__dfrtp_1
+**.ends
+
+VVPWR VPWR 0 DC {vdd_val}
+VVGND VGND 0 DC 0
+VCLK CLK 0 PULSE(0 {vdd_val} 50.0n 1.0n 1.0n 50.0n 100.0n)
+VRSTB RST_B 0 PWL(0 0 219.0n 0 221.0n {vdd_val} 1280.5n {vdd_val})
+* Tied fixed -- design/sar_sequencer.sch's own ring/phase-generator
+* chain (ph_sample/ph_b9..ph_b0/ph_eoc) does not depend on
+* COMP_OUT at all; only the separate DOUT* capture registers do
+* (see module docstring). DOUT*/COMP_OUT correctness is out of
+* this experiment's scope -- already proven by
+* sim/sar-sequencer-behavioral/.
+VCOMP COMP_OUT 0 DC 0
+
+.tran 0.1n 1280.5n
+.meas tran delay_b9 TRIG AT=250.5n TARG V(ph_b9) VAL=0.81 CROSS=1
+.meas tran delay_b8 TRIG AT=350.5n TARG V(ph_b8) VAL=0.81 CROSS=1
+.meas tran delay_b7 TRIG AT=450.5n TARG V(ph_b7) VAL=0.81 CROSS=1
+.meas tran delay_b6 TRIG AT=550.5n TARG V(ph_b6) VAL=0.81 CROSS=1
+.meas tran delay_b5 TRIG AT=650.5n TARG V(ph_b5) VAL=0.81 CROSS=1
+.meas tran delay_b4 TRIG AT=750.5n TARG V(ph_b4) VAL=0.81 CROSS=1
+.meas tran delay_b3 TRIG AT=850.5n TARG V(ph_b3) VAL=0.81 CROSS=1
+.meas tran delay_b2 TRIG AT=950.5n TARG V(ph_b2) VAL=0.81 CROSS=1
+.meas tran delay_b1 TRIG AT=1050.5n TARG V(ph_b1) VAL=0.81 CROSS=1
+.meas tran delay_b0 TRIG AT=1150.5n TARG V(ph_b0) VAL=0.81 CROSS=1
+.meas tran delay_eoc TRIG AT=1250.5n TARG V(ph_eoc) VAL=0.81 CROSS=1
+.end
