@@ -12,8 +12,8 @@ p-substrate and is a non-issue for well isolation (`klt extract` synthesizes
 one shared substrate net for NMOS bodies regardless of drawn geometry -- see
 `layout/comparator/README.md`'s "Body ties" note).
 
-Why the domain table lives here rather than in `build_layout.py`
-----------------------------------------------------------------
+Why the domain table lives in a shared module rather than in `build_layout.py`
+-------------------------------------------------------------------------------
 `design/sampling_frontend.sch`'s decision record DR-004 requires a
 *non-standard* PFET body tie: `Sa_p`/`Se_p` tie their body to `BOOST_P` and
 `Sa_n`/`Se_n` to `BOOST_N` -- a boosted node that rises above VDD during
@@ -27,10 +27,12 @@ PMOS's body terminal is whatever net the tap inside its own n-well island
 carries (`klt extract`'s sky130 deck derives the PMOS body from
 `active & nwell` and names it from the tap that reaches that island). So
 "which body net" and "which n-well island" are the same fact, and it is
-recorded once, here, as ``DOMAIN`` on each device row -- `build_layout.py`
-reads it to decide both the well partition and the tap net, and
-`render-record.py` re-derives the expected body net from it when asserting
-the extracted result.
+recorded once, as ``DOMAIN`` on each device row of `layout/bin/
+_pfet_devices.py`'s shared ``PFET_DEVICES`` table (imported here as
+``DEVICES``, and by `layout/sampling-frontend/bin/gen_blocks.py` as
+``PFET_DEVICES`` -- see issue #208) -- `build_layout.py` reads it to decide
+both the well partition and the tap net, and `render-record.py` re-derives
+the expected body net from it when asserting the extracted result.
 
 Device sizing is a 1:1 transcription of
 `sim/sampling-frontend/testbench/sampling_frontend_dut.spice` (the
@@ -65,47 +67,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-#: The three n-well domains this sub-block's PFETs partition into, in
-#: left-to-right floorplan order, mapped to the net each domain's well tap is
-#: routed to.  The whole point of the composition: three *physically
-#: separate* n-well islands, not one well at VDD.
-DOMAIN_TAP_NET = {
-    "boost_p": "BOOST_P",
-    "vdd": "VDD",
-    "boost_n": "BOOST_N",
-}
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
-#: One row per `sky130_fd_pr__pfet_01v8` instance of
-#: `design/sampling_frontend.sch`, transcribed from
-#: `sim/sampling-frontend/testbench/sampling_frontend_dut.spice`'s
-#: `X<name> D G S B sky130_fd_pr__pfet_01v8 L=.. W=..` cards:
-#:
-#:   XSa_p    BOOST_P SAMPLE  VDD     BOOST_P  L=0.5  W=1
-#:   XScp_p   BSBOT_P SAMPLEB VINP    VDD      L=0.15 W=1
-#:   XSe_p    G_P     SAMPLEB BOOST_P BOOST_P  L=0.15 W=1
-#:   XCmswp_p BPREF_P SAMPLEB VCM     VDD      L=0.15 W=1
-#:   XSa_n    BOOST_N SAMPLE  VDD     BOOST_N  L=0.5  W=1
-#:   XScp_n   BSBOT_N SAMPLEB VINN    VDD      L=0.15 W=1
-#:   XSe_n    G_N     SAMPLEB BOOST_N BOOST_N  L=0.15 W=1
-#:   XCmswp_n BPREF_N SAMPLEB VCM     VDD      L=0.15 W=1
-#:   XInvp    SAMPLEB SAMPLE  VDD     VDD      L=0.15 W=2
-#:
-#: ``body`` is not stored separately: it is ``DOMAIN_TAP_NET[domain]`` by
-#: construction, which is exactly the invariant this flow exists to prove.
-#: Order below is the floorplan order (all of one domain's devices adjacent),
-#: which is what makes a single n-well rectangle per domain possible.
-DEVICES = [
-    # (block id, schematic name, domain, W um, L um, S net, G net, D net)
-    ("sa_p", "Sa_p", "boost_p", 1.0, 0.5, "VDD", "SAMPLE", "BOOST_P"),
-    ("se_p", "Se_p", "boost_p", 1.0, 0.15, "BOOST_P", "SAMPLEB", "G_P"),
-    ("scp_p", "Scp_p", "vdd", 1.0, 0.15, "VINP", "SAMPLEB", "BSBOT_P"),
-    ("cmswp_p", "Cmswp_p", "vdd", 1.0, 0.15, "VCM", "SAMPLEB", "BPREF_P"),
-    ("invp", "Invp", "vdd", 2.0, 0.15, "VDD", "SAMPLE", "SAMPLEB"),
-    ("cmswp_n", "Cmswp_n", "vdd", 1.0, 0.15, "VCM", "SAMPLEB", "BPREF_N"),
-    ("scp_n", "Scp_n", "vdd", 1.0, 0.15, "VINN", "SAMPLEB", "BSBOT_N"),
-    ("se_n", "Se_n", "boost_n", 1.0, 0.15, "BOOST_N", "SAMPLEB", "G_N"),
-    ("sa_n", "Sa_n", "boost_n", 1.0, 0.5, "VDD", "SAMPLE", "BOOST_N"),
-]
+from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES as DEVICES  # noqa: E402
 
 #: Nets promoted to top-level pins.  Every net in this cell is external to it
 #: (it is a PFET-only slice of a larger schematic), so all fourteen are ports.

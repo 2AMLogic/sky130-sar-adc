@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "file": "sampling_frontend_pwells.gds",
+  "dbu_um": 0.001,
+  "status": "pass",
+  "check_count": 5,
+  "checks": [
+    {
+      "name": "offgrid",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    },
+    {
+      "name": "zero_area",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    },
+    {
+      "name": "cell_names",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    },
+    {
+      "name": "layer_whitelist",
+      "status": "skipped",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": "no --allowed-layers given"
+    },
+    {
+      "name": "pin_labels_over_drawing",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    }
+  ],
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": null
+  }
+}

@@ -364,7 +364,7 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         add_column(domain["net"], tap_x, tap_y)
 
     # --- per-device pin columns --------------------------------------------
-    for block_id, _name, _domain, _w, _l, s_net, g_net, d_net in DEVICES:
+    for block_id, _name, _domain, _w, _l, d_net, g_net, s_net in DEVICES:
         block = blocks[block_id]
         ox = origins[block_id]["x"]
         bbox = block["bbox"]

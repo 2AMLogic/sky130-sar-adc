@@ -16,12 +16,13 @@ the `.sch` file's pin placement.
 
 Three device groups
 --------------------
-* **PFET domain set (`PFET_DEVICES`)** -- unchanged from
-  `layout/sampling-frontend-wells/bin/gen_blocks.py`: nine `mos_array` 1x1
-  PFETs, each tagged with the n-well domain (`boost_p`/`vdd`/`boost_n`) its
-  body tie belongs to per DR-004/DR-007. `build_layout.py` reads `domain` to
-  reproduce the exact three-island recipe #122 verified, rather than
-  re-deriving it.
+* **PFET domain set (`PFET_DEVICES`)** -- imported from `layout/bin/
+  _pfet_devices.py`, shared verbatim with
+  `layout/sampling-frontend-wells/bin/gen_blocks.py` (issue #208): nine
+  `mos_array` 1x1 PFETs, each tagged with the n-well domain
+  (`boost_p`/`vdd`/`boost_n`) its body tie belongs to per DR-004/DR-007.
+  `build_layout.py` reads `domain` to reproduce the exact three-island recipe
+  #122 verified, rather than re-deriving it.
 * **NFET set (`NFET_DEVICES`)** -- eleven NFETs, all drawn `mos_array` 1x1
   (`dummy: 0`, `gate_contact: true`), including the differential input pair
   `Msw_p`/`Msw_n`.
@@ -81,33 +82,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-#: The three n-well domains the PFETs partition into, mapped to the net each
-#: domain's well tap is routed to -- unchanged from issue #122's own recipe.
-DOMAIN_TAP_NET = {
-    "boost_p": "BOOST_P",
-    "vdd": "VDD",
-    "boost_n": "BOOST_N",
-}
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
-#: One row per `sky130_fd_pr__pfet_01v8` instance, transcribed from
-#: `sim/sampling-frontend/testbench/sampling_frontend_dut.spice`'s
-#: `X<name> D G S B sky130_fd_pr__pfet_01v8 L=.. W=..` cards. Identical to
-#: `layout/sampling-frontend-wells/bin/gen_blocks.py`'s own `DEVICES` table --
-#: this is the same nine devices, the same recipe, reused rather than
-#: re-derived.
-#:
-#: (block id, schematic name, domain, W um, L um, D net, G net, S net)
-PFET_DEVICES = [
-    ("sa_p", "Sa_p", "boost_p", 1.0, 0.5, "BOOST_P", "SAMPLE", "VDD"),
-    ("se_p", "Se_p", "boost_p", 1.0, 0.15, "G_P", "SAMPLEB", "BOOST_P"),
-    ("scp_p", "Scp_p", "vdd", 1.0, 0.15, "BSBOT_P", "SAMPLEB", "VINP"),
-    ("cmswp_p", "Cmswp_p", "vdd", 1.0, 0.15, "BPREF_P", "SAMPLEB", "VCM"),
-    ("invp", "Invp", "vdd", 2.0, 0.15, "SAMPLEB", "SAMPLE", "VDD"),
-    ("cmswp_n", "Cmswp_n", "vdd", 1.0, 0.15, "BPREF_N", "SAMPLEB", "VCM"),
-    ("scp_n", "Scp_n", "vdd", 1.0, 0.15, "BSBOT_N", "SAMPLEB", "VINN"),
-    ("se_n", "Se_n", "boost_n", 1.0, 0.15, "G_N", "SAMPLEB", "BOOST_N"),
-    ("sa_n", "Sa_n", "boost_n", 1.0, 0.5, "BOOST_N", "SAMPLE", "VDD"),
-]
+from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES  # noqa: E402
 
 #: One row per `sky130_fd_pr__nfet_01v8` instance, including `Msw_p`/`Msw_n`
 #: (see the matching-strategy note above for why they are plain singles here,

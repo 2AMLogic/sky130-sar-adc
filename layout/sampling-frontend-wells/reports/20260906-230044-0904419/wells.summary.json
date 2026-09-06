@@ -1,0 +1,242 @@
+{
+  "well_gap_drawn_um": 1.6,
+  "nwell_2a_rule_um": 1.27,
+  "domains": [
+    {
+      "id": "boost_p",
+      "tap_net": "BOOST_P",
+      "members": [
+        "sa_p",
+        "se_p"
+      ],
+      "schematic_devices": [
+        "Sa_p",
+        "Se_p"
+      ],
+      "well_um": {
+        "x0": 0.0,
+        "y0": -2.4,
+        "x1": 6.74,
+        "y1": 2.37
+      },
+      "tap_um": {
+        "x0": 0.4,
+        "x1": 1.0,
+        "y0": -1.8,
+        "y1": -0.6
+      }
+    },
+    {
+      "id": "vdd",
+      "tap_net": "VDD",
+      "members": [
+        "scp_p",
+        "cmswp_p",
+        "invp",
+        "cmswp_n",
+        "scp_n"
+      ],
+      "schematic_devices": [
+        "Scp_p",
+        "Cmswp_p",
+        "Invp",
+        "Cmswp_n",
+        "Scp_n"
+      ],
+      "well_um": {
+        "x0": 8.34,
+        "y0": -2.4,
+        "x1": 24.68,
+        "y1": 3.37
+      },
+      "tap_um": {
+        "x0": 8.74,
+        "x1": 9.34,
+        "y0": -1.8,
+        "y1": -0.6
+      }
+    },
+    {
+      "id": "boost_n",
+      "tap_net": "BOOST_N",
+      "members": [
+        "se_n",
+        "sa_n"
+      ],
+      "schematic_devices": [
+        "Se_n",
+        "Sa_n"
+      ],
+      "well_um": {
+        "x0": 26.28,
+        "y0": -2.4,
+        "x1": 33.27,
+        "y1": 2.37
+      },
+      "tap_um": {
+        "x0": 26.68,
+        "x1": 27.28,
+        "y0": -1.8,
+        "y1": -0.6
+      }
+    }
+  ],
+  "island_gaps_um": [
+    1.6,
+    1.6
+  ],
+  "block_origins_um": {
+    "sa_p": {
+      "x": 2.0,
+      "y": 0.0
+    },
+    "se_p": {
+      "x": 5.2,
+      "y": 0.0
+    },
+    "scp_p": {
+      "x": 10.34,
+      "y": 0.0
+    },
+    "cmswp_p": {
+      "x": 13.54,
+      "y": 0.0
+    },
+    "invp": {
+      "x": 16.74,
+      "y": 0.0
+    },
+    "cmswp_n": {
+      "x": 19.939999999999998,
+      "y": 0.0
+    },
+    "scp_n": {
+      "x": 23.139999999999997,
+      "y": 0.0
+    },
+    "se_n": {
+      "x": 28.279999999999998,
+      "y": 0.0
+    },
+    "sa_n": {
+      "x": 31.479999999999997,
+      "y": 0.0
+    }
+  },
+  "nets": {
+    "SAMPLEB": {
+      "track_y_um": 4.2,
+      "columns_um": [
+        5.745,
+        10.885,
+        14.085,
+        18.43,
+        20.485,
+        23.685,
+        28.825
+      ],
+      "pin_count": 7
+    },
+    "SAMPLE": {
+      "track_y_um": 4.7,
+      "columns_um": [
+        2.67,
+        17.285,
+        32.15
+      ],
+      "pin_count": 3
+    },
+    "VDD": {
+      "track_y_um": 5.2,
+      "columns_um": [
+        1.4,
+        9.04,
+        16.14,
+        30.88
+      ],
+      "pin_count": 4
+    },
+    "VCM": {
+      "track_y_um": 5.7,
+      "columns_um": [
+        12.94,
+        19.34
+      ],
+      "pin_count": 2
+    },
+    "BOOST_P": {
+      "track_y_um": 6.2,
+      "columns_um": [
+        0.7,
+        3.94,
+        4.6
+      ],
+      "pin_count": 3
+    },
+    "BOOST_N": {
+      "track_y_um": 6.7,
+      "columns_um": [
+        26.98,
+        27.68,
+        33.42
+      ],
+      "pin_count": 3
+    },
+    "VINP": {
+      "track_y_um": 7.2,
+      "columns_um": [
+        9.74
+      ],
+      "pin_count": 1
+    },
+    "VINN": {
+      "track_y_um": 7.7,
+      "columns_um": [
+        22.54
+      ],
+      "pin_count": 1
+    },
+    "BSBOT_P": {
+      "track_y_um": 8.2,
+      "columns_um": [
+        12.03
+      ],
+      "pin_count": 1
+    },
+    "BSBOT_N": {
+      "track_y_um": 8.7,
+      "columns_um": [
+        24.83
+      ],
+      "pin_count": 1
+    },
+    "G_P": {
+      "track_y_um": 9.2,
+      "columns_um": [
+        6.89
+      ],
+      "pin_count": 1
+    },
+    "G_N": {
+      "track_y_um": 9.7,
+      "columns_um": [
+        29.97
+      ],
+      "pin_count": 1
+    },
+    "BPREF_P": {
+      "track_y_um": 10.2,
+      "columns_um": [
+        15.23
+      ],
+      "pin_count": 1
+    },
+    "BPREF_N": {
+      "track_y_um": 10.7,
+      "columns_um": [
+        21.63
+      ],
+      "pin_count": 1
+    }
+  }
+}

@@ -74,8 +74,11 @@ EXPECTED_BODY = {row[1]: DOMAIN_TAP_NET[row[2]] for row in DEVICES}
 
 #: schematic device name -> (source net, gate net, drain net), used to line an
 #: extracted device up with its schematic counterpart without relying on
-#: KLayout's anonymous `$n` device naming.
-DEVICE_KEY = {(row[5], row[6], row[7]): row[1] for row in DEVICES}
+#: KLayout's anonymous `$n` device naming. `DEVICES`' own column order is
+#: (..., D net, G net, S net); reordered to (S, G, D) here to match the key
+#: shape `_extracted_bodies` below builds from `klt extract`'s own `nets`
+#: dict.
+DEVICE_KEY = {(row[7], row[6], row[5]): row[1] for row in DEVICES}
 
 _load = load_json_strict
 _git = git_field
