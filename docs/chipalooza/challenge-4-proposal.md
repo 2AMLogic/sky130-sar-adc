@@ -201,8 +201,53 @@ including these 18 plus `VDD`, has now been independently verified to have
 real, externally-reachable conductor, so the composition/routing plan is
 ready to execute once #103 is reclaimed (see
 `layout/sar-adc-top/README.md` for the full per-pin geometry investigation).
-All roll up under the layout epic #25. This is the single largest gap
-between this design and the brief's sign-off bar (§4, §7).
+All roll up under the layout epic #25.
+
+**Top-level assembly has since landed (PR #174, merged
+2026-09-06T04:46:23Z), partially closing that gap.** A composed, routed
+`sar_adc_top.gds` now exists at
+[`layout/sar-adc-top/reports/20260906-043420-662a84d/sar_adc_top.gds`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/),
+placing all five sub-block layouts
+(`sampling_frontend`/`cdac_array`/`comparator`/`sar_sequencer`/
+`seln_inverters`) via `klt gen-compose` and hand-routing every net
+`design/sar_adc_top.sch` calls for via `klt draw`:
+
+- **`klt drc`**: **clean, 0 violations**, on the fully composed top-level
+  layout ([`drc.json`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/drc.json)).
+- **Connectivity**: verified net-by-net against the intended interconnect via
+  an unfiltered `klt extract` (no declared-pin restriction) — every one of
+  this design's top-level nets extracts as its own distinct, correctly-scoped
+  node with the intended cross-sub-block membership; see the record's own
+  connectivity table
+  ([`record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md)).
+  One row (`CLK`) shows three separate extracted net-name strings rather than
+  a single match, which reads as a discrepancy in that table alone — but per
+  `layout/sar-adc-top/README.md`'s "LVS pin declaration blocker" section this
+  is a net-naming artifact of two sub-blocks' independently-synthesized
+  standard-cell macros reusing generic internal labels (`A`/`X`), not a real
+  electrical short or open; the true `CLK` net's device count is verified
+  separately and correctly in that same investigation.
+- **`klt lvs`**: **still reports a mismatch** — not from a routing defect,
+  but because no available `klt extract` declared-pin mechanism
+  (`--top-cell-pins`/`--pins`/`--def-pins`) reproducibly promotes exactly
+  this design's own intended 19-port top-level interface once composed from
+  five independently-labeled sub-blocks with no governing top-level DEF (two
+  of the five are placed-and-routed standard-cell macros carrying their own
+  internal, generic net labels that collide with this design's own ports
+  once flattened for extraction: layout=867/reference=867 devices,
+  matched=812, 23 pins promoted against an expected 19). Filed generically
+  at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513)
+  (still **open** as of this pass) per this repo's friction protocol — the
+  same class of gap klayout-tools#1385/#1390 already fixed for a single
+  placed-and-routed macro, recurring one composition level up.
+
+**#103 itself remains open, `loom:blocked`** — the Curator's 2026-09-06
+dependency re-check confirmed the block reason changed from "no assembly
+exists" to "assembly exists, DRC-clean and connectivity-verified, but an
+automated LVS **match** verdict is blocked on the upstream klayout-tools#1513
+pin-declaration gap," and no post-layout PVT re-simulation of the assembled
+top level has been run. This narrows, but does not close, the single largest
+gap between this design and the brief's sign-off bar (§4, §7).
 
 ---
 
@@ -250,10 +295,10 @@ audience with an explicit Challenge-brief verdict column.
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only, DOES NOT MEET even the un-ratified DR-007 candidate**: 8.491 bit (mean-case CDAC mismatch) meets the DR-007 candidate but 7.749 bit (worst-case) does not; neither number is graded against a ratified line because none exists | [`sim/enob-estimate/records/20260828-005033-0c70212.md`](../../sim/enob-estimate/records/20260828-005033-0c70212.md) |
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim; not re-evaluated against DR-007's wider ±2.0 LSB candidate in this document (no new campaign run here) | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
-| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **BLOCKED** — no top-level layout exists (§3, §7); no area figure to report | — |
+| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260906-043420-662a84d/compose.json`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/compose.json) |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (all four original sub-block dependencies #99-#102 closed; the #165 sub-block-layout completeness gap on `cdac_array`'s VDD/SELp/SELn pins that re-blocked #103 has since closed via PR #170, but #103 itself still carries `loom:blocked` pending its own dependency re-check), under epic #25 | — |
-| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **UNMET / BLOCKED** — same blocker as above | — |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — a top-level layout now exists (PR #174) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; blocked on #103 (`loom:blocked`, now for the LVS-match reason below, not a missing assembly), under epic #25 | [`layout/sar-adc-top/reports/20260906-043420-662a84d/record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md) |
+| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, LVS UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS. `klt lvs`: mismatch (867/867 devices, matched 812; 23 pins promoted vs. 19 expected) — root-caused as an upstream `klt extract` declared-pin-promotion gap, not a routing defect (net-by-net connectivity independently verified correct via unfiltered extraction); filed at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513) (open). #103 remains `loom:blocked` pending that upstream fix | [`layout/sar-adc-top/reports/20260906-043420-662a84d/record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
 
 ### Reproducing this table
 
@@ -379,15 +424,36 @@ tracker already owns.
    DRC/LVS/common-centroid checks were re-run clean against the new
    geometry. Every top-level pin — the 18 SEL nets and `VDD` included — has
    now been independently verified to have real, externally-reachable
-   conductor, so the composition/routing plan is ready to execute. #103
-   itself, however, still carries `loom:blocked` as of this pass — a
-   Curator dependency re-check against #165's closure has not yet landed on
-   #103, so it has not yet been reclaimed by a Builder. All four original
-   sub-block issues, #165, and #103 roll up under epic #25 / tracker #23.
-   **#103 is the single remaining blocker for the brief's "post-layout PVT
-   simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** — that
-   criterion is marked UNMET / BLOCKED in §4, not fabricated or
-   optimistically assumed.
+   conductor, so the composition/routing plan was ready to execute — and it
+   has since been executed. **PR #174 (merged 2026-09-06T04:46:23Z)** placed
+   all five sub-block layouts via `klt gen-compose` and hand-routed every net
+   `design/sar_adc_top.sch` calls for via `klt draw`, producing a committed
+   `sar_adc_top.gds`
+   ([`layout/sar-adc-top/reports/20260906-043420-662a84d/`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/)):
+   `klt drc` is clean (0 violations), and connectivity is verified net-by-net
+   correct via an unfiltered `klt extract` against the intended interconnect.
+   `klt lvs` itself still reports a mismatch (867/867 devices, matched 812;
+   23 pins promoted vs. the design's own 19) — not from a routing defect, but
+   because no `klt extract` declared-pin mechanism reliably promotes exactly
+   this design's own top-level interface once composed from five
+   independently-labeled sub-blocks with no governing top-level DEF (two of
+   the five are placed-and-routed standard-cell macros whose own internal,
+   generic net labels collide with this design's ports once flattened).
+   Filed generically at
+   [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513)
+   (open as of this pass) per this repo's friction protocol — full trace in
+   `layout/sar-adc-top/README.md`'s "LVS pin declaration blocker" section.
+   **#103 itself remains open, `loom:blocked`, for this new reason** (the
+   Curator's 2026-09-06 re-check confirmed the block reason moved from "no
+   assembly exists" to "assembly exists, DRC-clean and
+   connectivity-verified, but an automated LVS match is blocked on
+   klayout-tools#1513") — re-check once that upstream issue closes. All four
+   original sub-block issues, #165, #103, and PR #174 roll up under epic #25
+   / tracker #23. **#103 is still the blocker for the brief's "post-layout
+   PVT simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** —
+   DRC-clean is now met, LVS-clean is not, and no post-layout PVT
+   re-simulation of the assembled top level has been run; that criterion is
+   marked PARTIAL/UNMET in §4, not fabricated or optimistically assumed.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
