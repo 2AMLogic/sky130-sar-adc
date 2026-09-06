@@ -170,18 +170,22 @@ geometry (`layout/comparator/pex/`,
   is deliberately not applied to them.
 
 `layout/comparator/pex/` has been re-run against the post-#180 geometry
-(`reports/20260906-101231-1250ff4/record.md`): it restates OUTP/OUTN in
+(`reports/20260906-152000-eace0b6/record.md`): it restates OUTP/OUTN in
 farads (1.964% total-capacitance imbalance) and VINN/VINP (5.977%), both
-smaller than the area proxy's numbers, same ranking as before. **Its AC3/AC4
-"is the routing-driven offset material" conclusion is currently UNCONFIRMED**
-for this topology, though -- see `layout/comparator/pex/README.md`'s status
-note and issue #187: the extracted-side leg's pick-off measurements look
-suspect (a sign-flipped gain vs. the schematic side), most likely because the
-fixed pick-off timing `pex/testbench.spice` uses was calibrated against the
-pre-#175 topology's regeneration profile, not the amended one. No floorplan
-change is warranted on the evidence in hand; whether the parasitic-driven
-term is material is an open question issue #187 tracks, not a settled "not
-material" the way the pre-#180 geometry's own PEX record could claim.
+smaller than the area proxy's numbers, same ranking as before. Its AC3/AC4
+"is the routing-driven offset material" conclusion is **confirmed** for
+this topology: an earlier re-run against the same geometry
+(`reports/20260906-101231-1250ff4/record.md`) had a sign-flipped extracted-
+side gain because the fixed pick-off timing `pex/testbench.spice` used was
+calibrated against the pre-#175 topology's regeneration profile, not the
+amended one -- issue #187's transient-sweep investigation
+(`pex/regen_probe.py`, `reports/20260906-144802-eace0b6/record.md`)
+re-derived the correct instant for this topology's extracted leg
+(`PICKOFF_NS`=1.2ns / `PICKOFF_AT_NS`=6.3ns, up from 0.3ns/5.4ns) and
+`reports/20260906-152000-eace0b6/record.md` re-ran AC3/AC4 with it: both
+legs' gains are now positive, and the routing-driven offset estimate
+remains over an order of magnitude smaller than the device-mismatch-only
+offset distribution. No floorplan change is warranted on offset grounds.
 
 ### Body ties
 

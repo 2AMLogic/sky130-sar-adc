@@ -1,0 +1,63 @@
+* comparator_pex_reference.spice -- schematic-equivalent DUT for `klt pex`
+* (issue #112), NOT a copy/edit of
+* sim/comparator-decision/testbench/comparator_core.spice.
+*
+* `klt pex`'s DUT-swap convention (docs/cli/pex.md, "The DUT `.include`
+* swap") needs a testbench whose single `.include`/`.inc` line names a file
+* that plausibly declares the SAME `.SUBCKT <name> <pins...>` interface as
+* `klt extract`'s own output -- `klt extract`'s output is always
+* `.SUBCKT`-wrapped (this sub-block's own top cell name, `gen_compose_0`,
+* pin order `CLK GND OUTN OUTP VDD VINN VINP`, verified against a live
+* `klt extract --parasitics --pdk sky130A` run against
+* layout/comparator/reports/<record-id>/comparator.gds). Pointing
+* `pex/testbench.spice`'s `.include` directly at comparator_core.spice
+* would trip `klt pex`'s `flat_dut_mismatch` check instead
+* (docs/cli/pex.md): that fragment is FLAT (top-level device cards, no
+* `.SUBCKT` wrapper -- by design, see its own header comment, since
+* sim/comparator-decision/run.py's bespoke pick-off methodology drives its
+* nets directly rather than through a subcircuit instantiation). So this
+* file exists purely to add the `.SUBCKT`/`.ENDS` wrapper `klt pex`
+* requires around the identical device list -- the devices, sizes, and net
+* names below are copied byte-for-byte from comparator_core.spice (itself
+* generated from design/comparator.sch via xschem, issue #54); nothing
+* about the topology or sizing is re-derived or re-judged here.
+*
+* Re-derived for DR-004 Amendment A (issue #175/#180): comparator_core.spice
+* now carries 11 devices -- the input pair's drains land on their own
+* internal nodes DIP/DIN rather than OUTP/OUTN, the cross-coupled NMOS latch
+* pair's sources return to DIP/DIN instead of GND, and DIP/DIN each carry
+* their own CLK-gated PMOS precharge device (XM_RST_DIP/XM_RST_DIN). DIP/DIN
+* are internal nodes here exactly like TAIL -- neither is a
+* `.SUBCKT gen_compose_0` port, matching `klt extract`'s own pin list for
+* this sub-block (unchanged: CLK GND OUTN OUTP VDD VINN VINP).
+*
+* Body terminals are the same real GND/VDD ties comparator_core.spice
+* already declares (not layout/comparator/bin/build_layout.py's drawn tap
+* structures -- those are layout-only geometry with no schematic-side
+* counterpart; the *result* they achieve, every NMOS body at GND and every
+* PMOS body at VDD, is what this schematic DUT asserts directly on each
+* instance line, matching layout/comparator/reference.spice's own approach).
+.SUBCKT gen_compose_0 CLK GND OUTN OUTP VDD VINN VINP
+XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_INN DIP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_INP DIN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_LATN_P OUTP OUTN DIP GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_LATN_N OUTN OUTP DIN GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_LATP_P OUTP OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_LATP_N OUTN OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_RST_P OUTP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_RST_N OUTN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_RST_DIP DIP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_RST_DIN DIN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+.ENDS gen_compose_0
