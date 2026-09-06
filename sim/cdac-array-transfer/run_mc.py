@@ -98,10 +98,6 @@ ENDPOINT_LO, ENDPOINT_HI = 0, 511
 ARRAY_IDEAL_STEP_V = 2 * NOMINAL_SUPPLY_V / 512  # this array's own ideal code-to-code step
 
 
-def ideal_vdiff(code: int, vdd_val: float = NOMINAL_SUPPLY_V) -> float:
-    return vdd_val * (2 * code - 511) / 512
-
-
 def build_netlist(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float, rndseed: int | None) -> str:
     lines: list[str] = []
     a = lines.append
