@@ -9,7 +9,7 @@ Exits non-zero -- *after* writing record.md, so the evidence trail still
 carries a record of the failure -- if any of the six expected verdicts do not
 hold:
 
-  1. every one of the five `klt gen` matched device/pair blocks is
+  1. every one of the six `klt gen` matched device/pair blocks is
      independently DRC-clean before composition
   2. DRC on the composed comparator layout is clean
   3. LVS reports "match" against the known-good reference
@@ -47,7 +47,7 @@ from _record_common_strict import (  # noqa: E402
     load_json_strict,
 )
 
-BLOCKS = ("tail", "inpair", "latn", "latp", "rst")
+BLOCKS = ("tail", "inpair", "latn", "latp", "rst", "rstd")
 
 _load = load_json_strict
 _git = git_field

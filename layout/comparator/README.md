@@ -16,7 +16,7 @@ sixth `klt gen` block (`rstd`, the `M_RST_DIP`/`M_RST_DIN` precharge pair),
 `DIP`/`DIN` added to the floorplan/routing with the same mirror-symmetry
 treatment `OUTP`/`OUTN` already had, and the latch NMOS source terminals
 re-routed off the `GND` rail onto `DIP`/`DIN`. The record referenced by
-`reports/LATEST` (`reports/20260906-101004-1250ff4/`) carries all six of this
+`reports/LATEST` (`reports/20260906-113406-2d66a6a/`) carries all six of this
 flow's verdicts, three positive and three negative:
 
 | # | Verdict | Why it is here |
@@ -147,7 +147,7 @@ wire capacitance biases the decision the same way. Two things address it:
 This is measured, not asserted: `reports/<record-id>/route.summary.json`
 carries per-net met1/met2 area, via and contact counts, and the resulting
 OUTP/OUTN, VINN/VINP and DIP/DIN imbalance, and `record.md` tabulates them.
-On the current record (`reports/20260906-101004-1250ff4/`) the mirror
+On the current record (`reports/20260906-113406-2d66a6a/`) the mirror
 preference yields **OUTP/OUTN 2.84%**, **VINN/VINP 15.54%**, and
 **DIP/DIN 6.7%** wire-area imbalance.
 
@@ -257,7 +257,7 @@ existing report directory. `reports/20260825-131632-51cbdd4/` is the earlier,
 honestly-PARTIAL record from this issue's first increment (PR #108);
 `reports/20260825-135219-59f8e86/` and `reports/20260906-064104-eedd532/`
 describe the pre-#180 (9-device) topology; all stay exactly as they were
-minted. `reports/20260906-101004-1250ff4/` (`reports/LATEST`) is the current
+minted. `reports/20260906-113406-2d66a6a/` (`reports/LATEST`) is the current
 record, against the amended 11-device topology. `record.md` stamps the `klt`
 version, the KLayout engine version, the resolved PDK variant + open_pdks
 commit, the DRC deck's content hash, and the repo commit with its dirty flag.

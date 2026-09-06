@@ -1,0 +1,39 @@
+* NEGATIVE CONTROL 2/2 for the comparator LVS flow (issue #101, re-derived
+* for DR-004 Amendment A's 11-device topology in issue #180) -- a
+* DELIBERATELY WRONG reference. `klt lvs` MUST report "mismatch" against
+* this file; layout/comparator/bin/render-record.py asserts exactly that
+* (verdict 5) and fails the record if it ever comes back "match".
+*
+* Corruption class: TOPOLOGY ONLY. M_LATN_N's gate is tied to OUTN instead
+* of OUTP -- i.e. the regenerative latch's cross-coupling is broken into a
+* self-gated device on one side. Every device's L and W is byte-identical to
+* the known-good reference, so a comparison that only compared device
+* parameters would pass this file and prove nothing about connectivity
+* checking.
+*
+* The specific edit is chosen to be the kind of wrong that matters here: the
+* cross-coupled pair IS the regeneration mechanism, and a layout that wired
+* one side straight instead of crossed would still contain the right eleven
+* devices at the right sizes. If LVS cannot tell those two apart, its
+* "match" verdict on this sub-block is worthless.
+*
+* Paired with reference.broken-device.spice (parameters changed, topology
+* untouched). Same discipline, same reason as
+* layout/trivial-cell/reference.broken-topology.spice, which established
+* this convention for the repo (issue #2).
+*
+* DO NOT "FIX" THIS FILE. Its wrongness is the whole point; a change that
+* made it match would silently delete a verification verdict.
+.SUBCKT comparator VDD GND CLK VINP VINN OUTP OUTN
+M_TAIL TAIL CLK GND GND nfet L=0.5U W=8U
+M_INN DIP VINN TAIL GND nfet L=0.5U W=4U
+M_INP DIN VINP TAIL GND nfet L=0.5U W=4U
+M_LATN_P OUTP OUTN DIP GND nfet L=0.5U W=4U
+M_LATN_N OUTN OUTN DIN GND nfet L=0.5U W=4U
+M_LATP_P OUTP OUTN VDD VDD pfet L=0.5U W=8U
+M_LATP_N OUTN OUTP VDD VDD pfet L=0.5U W=8U
+M_RST_P OUTP CLK VDD VDD pfet L=0.5U W=16U
+M_RST_N OUTN CLK VDD VDD pfet L=0.5U W=16U
+M_RST_DIP DIP CLK VDD VDD pfet L=0.5U W=4U
+M_RST_DIN DIN CLK VDD VDD pfet L=0.5U W=4U
+.ENDS comparator
