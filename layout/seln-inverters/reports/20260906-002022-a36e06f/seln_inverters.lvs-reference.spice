@@ -1,0 +1,33 @@
+* LVS reference for the SELn<i> inverter bank (issue #103).
+*
+* Mechanically generated -- DO NOT HAND-EDIT. Regenerate with:
+*   layout/seln-inverters/bin/generate-lvs-reference.py [netlist.v]
+*
+* Topology source: seln-inverters/reports/20260906-002022-a36e06f/seln_inverters_post_route.v
+* (klt place-and-route's own post-route `write_verilog` dump).
+*
+* Flat, transistor-level (klt extract --deck sky130 is a flat
+* extractor), device classes generalized to nfet/pfet. Device
+* models: the sky130 PDK's own official CDL
+* (libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl), Apache-2.0
+* licensed, SkyWater's own release -- not reverse-engineered.
+.SUBCKT seln_inverters DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 SELn8 SELn7 SELn6 SELn5 SELn4 SELn3 SELn2 SELn1 SELn0 VPWR VGND
+Mxinv_seln0_MMIN1 SELn0 DOUT0 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln0_MMIP1 SELn0 DOUT0 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln1_MMIN1 SELn1 DOUT1 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln1_MMIP1 SELn1 DOUT1 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln2_MMIN1 SELn2 DOUT2 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln2_MMIP1 SELn2 DOUT2 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln3_MMIN1 SELn3 DOUT3 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln3_MMIP1 SELn3 DOUT3 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln4_MMIN1 SELn4 DOUT4 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln4_MMIP1 SELn4 DOUT4 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln5_MMIN1 SELn5 DOUT5 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln5_MMIP1 SELn5 DOUT5 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln6_MMIN1 SELn6 DOUT6 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln6_MMIP1 SELn6 DOUT6 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln7_MMIN1 SELn7 DOUT7 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln7_MMIP1 SELn7 DOUT7 VPWR VPWR pfet L=0.15U W=1.0U
+Mxinv_seln8_MMIN1 SELn8 DOUT8 VGND VGND nfet L=0.15U W=0.65U
+Mxinv_seln8_MMIP1 SELn8 DOUT8 VPWR VPWR pfet L=0.15U W=1.0U
+.ENDS seln_inverters

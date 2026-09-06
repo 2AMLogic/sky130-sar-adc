@@ -29,6 +29,14 @@ to tie their PFET body to `BOOST_P`/`BOOST_N` rather than VDD — see
 binding rule and that directory's own README for the recipe and its eight
 verdicts (klt 0.4.0 closed the n-well DRC gap this flow used to work around
 with a second, hand-written deck; see issue #149).
+`seln-inverters/` is new top-level glue logic the integration schematic adds
+directly (issue #103, DRC-clean and LVS-clean): nine `sky130_fd_sc_hd__inv_1`
+instances computing `SELn<i> = NOT(DOUT<i>)` for the CDAC array's N-side
+switch control, placed and routed via `klt place-and-route` like
+`sar-sequencer/`. `sar-adc-top/` is the top-level assembly of all five blocks
+into one GDS per `design/sar_adc_top.sch`'s hierarchy (issue #103) — see that
+directory's own README for the per-block pin geometry, net list, and
+composition status (in progress as of this record).
 
 ## Install
 
@@ -107,6 +115,8 @@ layout/
   comparator/                      # dynamic comparator (issue #101)
   sampling-frontend-wells/         # sampling front end n-well isolation (issue #122)
   sar-sequencer/                   # SAR logic/sequencer (issue #102)
+  seln-inverters/                  # SELn<i>=NOT(DOUT<i>) inverter bank, new top-level glue logic (issue #103)
+  sar-adc-top/                     # top-level assembly of all five blocks above (issue #103, in progress)
 ```
 
 ## Records are append-only

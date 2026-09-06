@@ -32,6 +32,9 @@ layout/.venv/
 # copied into each timestamped reports/<record-id>/ (the committed evidence
 # trail) -- so the top-level copy is scratch, not a tracked source file.
 layout/sar-sequencer/reference/
+# layout/seln-inverters/ (issue #103): same regenerated-scratch reasoning as
+# layout/sar-sequencer/reference/ above.
+layout/seln-inverters/reference/
 # layout/comparator/pex/ (issue #112): `klt sim`/`klt extract`'s own scratch
 # directory, written next to whatever file it was invoked against (a
 # request JSON, a layout GDS) unless `--outdir` overrides it -- per-corner
