@@ -55,8 +55,10 @@ import klayout.db as kdb
 # --------------------------------------------------------------------------- #
 NWELL = (64, 20)
 NWELL_PIN = (64, 5)
+TAP = (65, 44)
 POLY = (66, 20)
 POLY_PIN = (66, 5)
+LICON1 = (66, 44)
 LI1 = (67, 20)
 MCON = (67, 44)
 MET1 = (68, 20)
@@ -88,6 +90,7 @@ DBU_UM = 0.001
 #   capm.width 1.00  capm.space 0.84   met3.enclosing.capm 0.14
 #   capm.enclosing.via3 0.14           capm.separation.via3 0.14
 #   mcon.space 0.19
+#   poly.enclosing.licon 0.05          li1.enclosing.licon1 0.0 (coverage only)
 # --------------------------------------------------------------------------- #
 VIA_S = 0.20  # via2/via3 square side
 VIA1_S = 0.15  # via1 square side
@@ -95,6 +98,44 @@ MCON_S = 0.17  # mcon square side
 PAD_HALF = 0.16  # met1/met2 landing-pad half-side
 WIRE_W = 0.30  # generic li1/met1/met2 wire width
 MET4_W = 0.40  # met4 rail/bus width
+LICON_S = 0.17  # licon1 square side (matches this repo's other flows' contacts)
+
+# --------------------------------------------------------------------------- #
+# Issue #165: `VDD` (bare nwell) and the 18 `SELp<i>`/`SELn<i>` gate straps
+# (bare, channel-width poly) had no externally-contactable landing geometry --
+# LVS-clean at the sub-block level (the reference subckt's ports only need to
+# resolve to *some* named node), but with no real metal/contact a top-level
+# router could land a wire on. Fixed here with a real n-well tap (VDD) and a
+# per-net poly landing extension (SELp/SELn), both placed so the fix cannot
+# touch -- and is verified not to touch -- any transistor's own channel.
+# --------------------------------------------------------------------------- #
+#: n-well body tie for VDD: `tap.drawing` + li1 + a licon1 column, mirroring
+#: `layout/comparator/bin/build_layout.py`'s own `tap_shapes()` recipe (that
+#: deck carries no `nwell.enclosing(tap...)` rule -- see its own docstring --
+#: so this box only has to clear the nwell's own width/space rules, which the
+#: switch row's already-generous `NWELL_MARGIN` handles).
+VDD_TAP_CX = 1.00  # x, in the wide gap between the VREFN riser (x=-2.00) and
+#                    the first switch's own diffusion (x=3.85) -- clear of both
+VDD_TAP_W = 1.00  # tap+li1 box width
+VDD_TAP_MARGIN = 0.30  # inset from the nwell's own pfet-row Y extent
+VDD_TAP_LICON_PITCH = 0.60  # matches comparator's own LICON_PITCH_UM
+
+#: Per-switch SEL (gate-tie strap) landing pad. `SwitchTemplate.stamp()`'s own
+#: strap is deliberately held at exactly the channel poly width (`GATE_L_UM`)
+#: end to end -- see that method's own comment -- so this extension is a
+#: *separate* rectangle merged onto the strap well outside either device's
+#: diffusion, in the vertical clearance `SwitchTemplate.GAP_UM` guarantees is
+#: diffusion-free by construction (neither the nfet nor the pfet block's own
+#: bbox extends into it). `SEL_PAD_DX` offsets the pad away from gate_x, in
+#: -x, so it clears the switch's own drain li1 riser (`dx = nfet_d[0]`,
+#: `gate_x + 0.335` relative) by >= 0.6 um -- landing directly on gate_x
+#: itself came within 0.02 um of that riser (an li1.space.1 violation), found
+#: empirically re-running `klt drc` against the first version of this fix
+#: (see the PR description).
+SEL_PAD_SIDE = 0.42  # poly landing pad -- matches `klt gen mos_array`'s own
+#                       0.42 x 0.42 field-poly gate-pad convention
+SEL_LI1_SIDE = 0.29  # li1 pad over the licon1 cut
+SEL_PAD_DX = -0.60  # pad centre x offset from gate_x
 
 # --------------------------------------------------------------------------- #
 # The unit capacitor. `design/cdac/cdac_unit_cell.sch` sizes it
@@ -254,6 +295,47 @@ def connect_bottom(c: Canvas, cx: float, cy: float, strap_x: float) -> None:
     if abs(strap_x - cx) > 1e-9:
         c.wire(MET1, cx, y, strap_x, y)
         c.via1(strap_x, y)
+
+
+def nwell_tap(c: Canvas, x0: float, y0: float, x1: float, y1: float) -> None:
+    """A real n-well body tie: `tap.drawing` + li1 over the same box, plus a
+    column of licon1 cuts on `VDD_TAP_LICON_PITCH` -- issue #165's fix for
+    `VDD`, mirroring `layout/comparator/bin/build_layout.py`'s own
+    `tap_shapes()` recipe (no `diff.drawing` needed under a tap; see that
+    file's own "Body ties" docstring section)."""
+    c.rect(TAP, x0, y0, x1, y1)
+    c.rect(LI1, x0, y0, x1, y1)
+    cx = (x0 + x1) / 2.0
+    y = y0 + VDD_TAP_LICON_PITCH / 2.0
+    while y + VDD_TAP_LICON_PITCH / 2.0 <= y1 + 1e-9:
+        c.square(LICON1, cx, y, LICON_S)
+        y += VDD_TAP_LICON_PITCH
+
+
+def sel_landing_pad(
+    c: Canvas, gate_x: float, pad_y: float, strap_half: float
+) -> tuple[float, float]:
+    """Draw one SEL net's poly landing extension + licon1/li1 contact --
+    issue #165's fix for the 18 `SELp<i>`/`SELn<i>` pins.
+
+    `pad_y` must fall inside `SwitchTemplate.GAP_UM`'s own vertical clearance
+    between the nfet and pfet blocks, which is diffusion-free by construction
+    (see that constant's docstring) -- so widening the poly here, unlike
+    anywhere the strap crosses either device's own diffusion, cannot be read
+    as changing the transistors' gate length. The new rectangle is offset
+    `SEL_PAD_DX` from `gate_x` (away from the switch's own drain li1 riser)
+    and merged onto the existing channel-width strap by sharing its right
+    edge with the strap's own edge at `gate_x + strap_half`, so the two
+    rectangles union into one poly shape without altering the strap itself.
+    Returns the landing pad's centre, which the caller also uses as the
+    net's own pin-label position.
+    """
+    pad_cx = gate_x + SEL_PAD_DX
+    half = SEL_PAD_SIDE / 2.0
+    c.rect(POLY, pad_cx - half, pad_y - half, gate_x + strap_half, pad_y + half)
+    c.square(LI1, pad_cx, pad_y, SEL_LI1_SIDE)
+    c.square(LICON1, pad_cx, pad_y, LICON_S)
+    return pad_cx, pad_y
 
 
 # --------------------------------------------------------------------------- #
@@ -617,7 +699,14 @@ def build_array(layout: kdb.Layout, cell: kdb.Cell, tmpdir: Path) -> dict:
         ox = SW_X0 + index * SW_PITCH
         sw = tmpl.stamp(c, ox, SW_Y0)
         sel = ("SELp" if net.startswith("BOT_p") else "SELn") + net[-1]
-        c.label(POLY_PIN, sw["gate_x"], sw["gate_y"], sel)
+        # Issue #165: label the net at its own externally-contactable landing
+        # pad (see `sel_landing_pad`'s docstring), not at `sw["gate_y"]` --
+        # the midpoint between the two gate pads, which direct inspection of
+        # the drawn GDS found sits inside the pfet's own channel-diffusion
+        # overlap region.
+        pad_y = SW_Y0 + tmpl.nfet_h + SwitchTemplate.GAP_UM / 2.0
+        pad_x, pad_y = sel_landing_pad(c, sw["gate_x"], pad_y, GATE_L_UM / 2.0)
+        c.label(POLY_PIN, pad_x, pad_y, sel)
 
         # BOT: nfet drain <-> pfet drain <-> this bit's met1 bus, all on one
         # li1 riser. li1 crosses every met1 bus it passes on the way up
@@ -663,6 +752,19 @@ def build_array(layout: kdb.Layout, cell: kdb.Cell, tmpdir: Path) -> dict:
     # VDD: one nwell rectangle over the pfet row only.
     c.rect(NWELL, sw_x_lo - 0.6, well_y0 - NWELL_MARGIN, sw_x_hi + 0.6, well_y1 + NWELL_MARGIN)
     c.label(NWELL_PIN, sw_x_lo, (well_y0 + well_y1) / 2.0, "VDD")
+
+    # Issue #165: a real n-well body tie for VDD, contacted up through
+    # licon1/li1/mcon/met1 to an externally-reachable landing pad -- the bare
+    # nwell above has no drawn conductor a top-level assembly can physically
+    # contact (sky130 has no global n-well connectivity fallback the way it
+    # does for an unconnected p-substrate body). Placed at VDD_TAP_CX, in the
+    # wide gap between the VREFN riser (x=-2.00) and the first switch's own
+    # diffusion (x=3.85) -- clear of both, and of every other switch's own
+    # geometry (SW_PITCH=11.0 apart).
+    tap_x0, tap_x1 = VDD_TAP_CX - VDD_TAP_W / 2.0, VDD_TAP_CX + VDD_TAP_W / 2.0
+    tap_y0, tap_y1 = well_y0 + VDD_TAP_MARGIN, well_y1 - VDD_TAP_MARGIN
+    nwell_tap(c, tap_x0, tap_y0, tap_x1, tap_y1)
+    c.mcon(VDD_TAP_CX, (tap_y0 + tap_y1) / 2.0)
 
     return {
         "unit_counts": unit_counts,

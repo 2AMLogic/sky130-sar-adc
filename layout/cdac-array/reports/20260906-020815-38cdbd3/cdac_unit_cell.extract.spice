@@ -1,0 +1,18 @@
+* extracted by klt extract --deck sky130
+
+* cell cdac_unit_cell
+* pin BOT
+* pin SEL
+* pin TOP
+* pin VDD
+* pin VREFN
+* pin VREFP
+* pin vsubs
+.SUBCKT cdac_unit_cell BOT SEL TOP VDD VREFN VREFP vsubs
+* device instance $1 r0 *1 5.545,-9.5 nfet
+M$1 BOT SEL VREFN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $2 r0 *1 5.545,-6.58 pfet
+M$2 BOT SEL VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $3 r0 *1 0,0.35 sky130_fd_pr__model__cap_mim
+C$3 BOT TOP 8.647288e-15 sky130_fd_pr__model__cap_mim
+.ENDS cdac_unit_cell
