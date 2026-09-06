@@ -188,12 +188,18 @@ found a real sub-block-layout completeness gap: `cdac_array`'s (#100) `VDD`
 pin is a bare `nwell` region with no drawn tap/contact anywhere on it, and
 its `SELp<i>`/`SELn<i>` pins are bare-poly straps with no safe field-poly
 landing area, so neither can be physically contacted by a top-level
-composition without risking a silent electrical defect. That gap is now
-tracked as **#165** (claimed by a Builder, `loom:building` since
-2026-09-06T01:40:47Z) and #103 is **blocked on it** (`loom:blocked`
-re-applied) — every *other* top-level pin was
-independently verified to have real, externally-reachable conductor, so the
-composition/routing plan is otherwise ready to execute once #165 lands (see
+composition without risking a silent electrical defect. That gap was
+tracked as **#165** and has since **closed** — PR #170 (merged
+2026-09-06T02:19:15Z) added a real n-well tap for `VDD` and a poly landing
+pad for each of the 18 `SELp<i>`/`SELn<i>` nets, re-ran `cdac_array`'s own
+DRC/LVS flow clean, and confirmed via a diff of the extracted netlist that
+every switch transistor's `L`/`W`/`AS`/`AD`/`PS`/`PD` is byte-identical to
+the prior record (no silent device-sizing change). #103 itself still
+carries `loom:blocked` as of this pass — its own dependency re-check
+against #165's closure has not yet landed — but every top-level pin,
+including these 18 plus `VDD`, has now been independently verified to have
+real, externally-reachable conductor, so the composition/routing plan is
+ready to execute once #103 is reclaimed (see
 `layout/sar-adc-top/README.md` for the full per-pin geometry investigation).
 All roll up under the layout epic #25. This is the single largest gap
 between this design and the brief's sign-off bar (§4, §7).
@@ -246,7 +252,7 @@ audience with an explicit Challenge-brief verdict column.
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
 | Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **BLOCKED** — no top-level layout exists (§3, §7); no area figure to report | — |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (all four original sub-block dependencies #99-#102 closed, #103 itself now blocked on #165, a sub-block-layout completeness gap on `cdac_array`'s VDD/SELp/SELn pins), under epic #25 | — |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — no top-level layout exists to extract from; blocked on #103 (all four original sub-block dependencies #99-#102 closed; the #165 sub-block-layout completeness gap on `cdac_array`'s VDD/SELp/SELn pins that re-blocked #103 has since closed via PR #170, but #103 itself still carries `loom:blocked` pending its own dependency re-check), under epic #25 | — |
 | **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **UNMET / BLOCKED** — same blocker as above | — |
 
 ### Reproducing this table
@@ -360,18 +366,27 @@ tracker already owns.
    pins are bare-poly straps with no safe field-poly landing area — neither
    can be physically contacted by a top-level composition without risking a
    silent electrical defect (full detail in
-   `layout/sar-adc-top/README.md`). That gap is tracked as **#165**
+   `layout/sar-adc-top/README.md`). That gap was tracked as **#165**
    (`cdac_array: VDD (nwell) and SELp/SELn (poly gate) pins have no
-   externally-contactable landing geometry`, claimed by a Builder,
-   `loom:building` since 2026-09-06T01:40:47Z), and #103 is
-   **`loom:blocked` on it again** — every *other* top-level pin
-   was independently verified to have real, externally-reachable conductor,
-   so the composition/routing plan is otherwise ready to execute once #165
-   lands. All four original sub-block issues, #165, and #103 roll up under
-   epic #25 / tracker #23. **#103 (now gated on #165) is the single
-   remaining blocker for the brief's "post-layout PVT simulation and
-   DRC/LVS-clean GDS in-repo" acceptance criterion** — that criterion is
-   marked UNMET / BLOCKED in §4, not fabricated or
+   externally-contactable landing geometry`) and has since **closed**: PR
+   #170 (merged 2026-09-06T02:19:15Z) added a real n-well tap (contacted up
+   through `licon1`/`mcon` to a met1 landing pad, mirroring
+   `layout/comparator/`'s own `tap_shapes()` recipe) for `VDD`, and a poly
+   landing pad for each of the 18 `SELp<i>`/`SELn<i>` gate-tie straps,
+   placed inside the switch template's own diffusion-free clearance so the
+   original channel width — and every switch transistor's extracted
+   `L`/`W`/`AS`/`AD`/`PS`/`PD` — is unchanged. `cdac_array`'s own
+   DRC/LVS/common-centroid checks were re-run clean against the new
+   geometry. Every top-level pin — the 18 SEL nets and `VDD` included — has
+   now been independently verified to have real, externally-reachable
+   conductor, so the composition/routing plan is ready to execute. #103
+   itself, however, still carries `loom:blocked` as of this pass — a
+   Curator dependency re-check against #165's closure has not yet landed on
+   #103, so it has not yet been reclaimed by a Builder. All four original
+   sub-block issues, #165, and #103 roll up under epic #25 / tracker #23.
+   **#103 is the single remaining blocker for the brief's "post-layout PVT
+   simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** — that
+   criterion is marked UNMET / BLOCKED in §4, not fabricated or
    optimistically assumed.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
