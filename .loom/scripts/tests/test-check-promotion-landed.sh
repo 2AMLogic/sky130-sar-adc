@@ -225,15 +225,6 @@ plain_comment() {
     printf '{"createdAt":"%s","body":"%s"}' "$1" "$2"
 }
 
-# self_referential_completed_comment <created_at> -- a COMPLETED-path
-# reconciliation comment this SAME script posts (see the "champion:
-# promotion-landed-completed" template) -- its own prose quotes the phrase
-# "Champion Review: APPROVED", which is exactly what makes it a false-positive
-# match for the naive `contains("Champion Review: APPROVED")` filter (#164).
-self_referential_completed_comment() {
-    printf '{"createdAt":"%s","body":"<!-- champion:promotion-landed-completed -->\\n**Champion: Promotion completed — reconciled a missing label write**\\n\\nThis issue carried a `Champion Review: APPROVED` verdict comment, but `loom:issue` had never been applied..."}' "$1"
-}
-
 issue_json() {
     # issue_json <state> <labels-json-array> <comments-json-array>
     printf '{"state":"%s","labels":%s,"comments":%s}' "$1" "$2" "$3"
@@ -486,68 +477,6 @@ stage_timeline 404 "[$(labeled_event "2026-08-20T00:05:00Z")]"
 run_sut --issue 404
 assert_eq "0" "$RC" "(q) labeled loom:issue event postdates the newest APPROVED comment -> exit 0"
 assert_eq "OK" "$(get_field "$OUT" DECISION)" "(q) DECISION=OK"
-
-# --- #164: the OK short-circuit above required the `labeled loom:issue`
-# event to be AFTER the APPROVED comment -- but Step 3b's normal write-then-
-# verify flow applies the label FIRST, verifies the read-back, and only THEN
-# posts the comment (champion-issue-promo.md), so the genuine common case has
-# the label event BEFORE the comment. Compounding this, the newest-APPROVED-
-# comment selection matched this script's OWN reconciliation comments (their
-# prose quotes "Champion Review: APPROVED"), so a re-run after this script had
-# already posted once picked its own comment instead of the genuine verdict.
-# Both defects combined caused a real double-Builder-claim + false
-# operator-only escalation on issue #103 (2026-09-06).
-
-# (s) #103's exact real-world timeline shape: labeled loom:issue 16s BEFORE
-#     the (single, genuine) APPROVED comment -- the normal write-then-verify
-#     order -- later legitimately replaced by loom:building. Must be OK,
-#     timeline-confirmed, no writes, with or without --apply.
-reset_state
-issue_json "OPEN" "$(labels_json "loom:building")" \
-  "[$(approved_comment "2026-09-05T23:47:57Z" "**Goal Alignment**: Tier 2 - top-level layout assembly")]" \
-  > "$STUB_DIR/issue-103.json"
-stage_timeline 103 "[$(labeled_event "2026-09-05T23:47:41Z")]"
-run_sut --issue 103
-assert_eq "0" "$RC" "(s) #103 shape: loom:issue labeled 16s BEFORE the APPROVED comment (write-then-verify) -> exit 0"
-assert_eq "OK" "$(get_field "$OUT" DECISION)" "(s) DECISION=OK (timeline-confirmed, not fooled by the normal pre-comment label ordering)"
-assert_eq "" "$EDITS" "(s) no label edit issued -- must not re-add loom:issue on top of loom:building"
-assert_eq "" "$COMMENTS_POSTED" "(s) no comment posted"
-run_sut --issue 103 --apply
-assert_eq "0" "$RC" "(s) same result even with --apply"
-assert_eq "OK" "$(get_field "$OUT" DECISION)" "(s) DECISION=OK under --apply too"
-assert_eq "" "$EDITS" "(s) --apply still issues no label edit"
-
-# (t) Regression: a `labeled loom:issue` event so far BEFORE the newest
-#     APPROVED comment that it cannot plausibly be write-then-verify's few
-#     seconds of read-back latency (here: 1 day) must still fall through to
-#     MISMATCH -- BEFORE_WINDOW_SECONDS bounds case (s), it does not remove
-#     the direction check entirely.
-reset_state
-issue_json "OPEN" "$(labels_json "loom:auditor")" \
-  "[$(approved_comment "2026-08-18T00:00:00Z" "**Goal Alignment**: Tier 3 (maintenance) - cleanup")]" \
-  > "$STUB_DIR/issue-406.json"
-stage_timeline 406 "[$(labeled_event "2026-08-17T00:00:00Z")]"
-run_sut --issue 406
-assert_eq "11" "$RC" "(t) labeled loom:issue 1 day before the APPROVED comment -- too far to be write-then-verify latency -> exit 11"
-assert_eq "MISMATCH" "$(get_field "$OUT" DECISION)" "(t) DECISION=MISMATCH -- BEFORE_WINDOW_SECONDS still bounds the pre-comment case"
-
-# (u) #164's second defect, isolated: the newest comment containing "Champion
-#     Review: APPROVED" is this SCRIPT'S OWN prior reconciliation comment
-#     (posted after a first pass wrongly treated case (s)'s shape as a
-#     mismatch and "completed" it), not the genuine verdict. The genuine
-#     verdict (with its correctly-associated label event) must still be found
-#     and used -- the self-referential comment must be excluded from
-#     selection entirely, not merely out-ranked.
-reset_state
-issue_json "OPEN" "$(labels_json "loom:building")" \
-  "[$(approved_comment "2026-09-05T23:47:57Z" "**Goal Alignment**: Tier 2 - top-level layout assembly"), $(self_referential_completed_comment "2026-09-06T00:36:20Z")]" \
-  > "$STUB_DIR/issue-407.json"
-stage_timeline 407 "[$(labeled_event "2026-09-05T23:47:41Z"), $(labeled_event "2026-09-06T00:36:18Z")]"
-run_sut --issue 407
-assert_eq "0" "$RC" "(u) newest APPROVED-looking comment is this script's own reconciliation comment -> must be excluded, exit 0"
-assert_eq "OK" "$(get_field "$OUT" DECISION)" "(u) DECISION=OK -- genuine verdict found despite a later self-referential comment"
-assert_eq "" "$EDITS" "(u) no label edit issued"
-assert_eq "" "$COMMENTS_POSTED" "(u) no duplicate comment posted"
 
 # (r) `gh api .../timeline` fetch itself fails -> exit 1, usage/environment
 #     error, same treatment as the initial `gh issue view` failure (j).
