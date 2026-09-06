@@ -101,9 +101,9 @@ _INSTANCE_RE = re.compile(
 _PORT_CONN_RE = re.compile(r"\.\s*(\w+)\s*\(\s*([^()]*?)\s*\)")
 
 
-def parse_verilog_netlist(path: str) -> tuple[str, list[str], list[tuple[str, str, dict[str, str]]]]:
+def parse_verilog_netlist(path: str) -> tuple[str, list[tuple[str, str, dict[str, str]]]]:
     """Parse a flat structural Verilog netlist into
-    ``(top_module_name, ports, instances)``, where ``instances`` is a list of
+    ``(top_module_name, instances)``, where ``instances`` is a list of
     ``(instance_name, cell_type, {signal_pin: net_or_None})`` -- ``None`` for
     an explicitly unconnected port (e.g. ``.Y()``), never an empty string.
 
@@ -128,7 +128,7 @@ def parse_verilog_netlist(path: str) -> tuple[str, list[str], list[tuple[str, st
                 pin_map[port_name] = connection
         instances.append((inst_name, cell_type, pin_map))
 
-    return top_name, [], instances
+    return top_name, instances
 
 
 def _extract_cdl_subckt(cdl_text: str, name: str) -> tuple[list[str], list[tuple]]:
@@ -221,7 +221,7 @@ def main() -> int:
     for cell_type in CELL_TYPES:
         cell_defs[cell_type] = _extract_cdl_subckt(cdl_text, cell_type)
 
-    top_name, _unused_ports, instances = parse_verilog_netlist(netlist_path)
+    top_name, instances = parse_verilog_netlist(netlist_path)
     if not instances:
         print(
             f"generate-lvs-reference.py: no standard-cell instances found in "
