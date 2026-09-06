@@ -620,13 +620,44 @@ tracker already owns.
    ([`layout/comparator/reports/20260906-113406-2d66a6a/record.md`](../../layout/comparator/reports/20260906-113406-2d66a6a/record.md)).
    `layout/sar-adc-top/` (which composes this sub-block) was re-verified
    against the updated geometry in the same PR — see the updated Item 1
-   above for that record's citation and figures. **New, non-gating finding
-   from the same PR, not this criterion's concern**: a PEX re-run over the
-   new geometry found the extracted-side gain sign-flipped vs. the schematic
-   side for this topology, most likely a pick-off-timing calibration
-   artifact from the pre-#175 topology; flagged rather than resolved, and
-   tracked separately as issue #187 — it does not bear on LVS/DRC cleanliness
-   or on any spec row graded in §4.
+   above for that record's citation and figures. A PEX re-run over the new
+   geometry initially found the extracted-side gain sign-flipped vs. the
+   schematic side for this topology, most likely a pick-off-timing
+   calibration artifact from the pre-#175 topology; flagged as a distinct,
+   non-gating finding and tracked as issue #187 — **since closed, this
+   pass**, via PR #190 (merged 2026-09-06T15:29:27Z).
+
+   **Update this pass (2026-09-06, issue #187 closed via PR #190)**: the
+   root cause was confirmed exactly as hypothesized — the fixed pick-off
+   instant (`PICKOFF_AT_NS=5.4ns`) was calibrated against the pre-#175
+   topology's regeneration timing and was genuinely too early for the
+   amended topology's *extracted* (parasitic-loaded) leg, whose real R/C on
+   `DIP`/`DIN` and `OUTP`/`OUTN` measurably delays its regeneration onset
+   relative to the ideal schematic leg
+   ([`layout/comparator/reports/20260906-144802-eace0b6/record.md`](../../layout/comparator/reports/20260906-144802-eace0b6/record.md)).
+   A corrected pick-off instant (`PICKOFF_NS=1.2ns` / `PICKOFF_AT_NS=6.3ns`,
+   spot-checked at `ss/-40C` and `ff/125C`) was re-derived and applied to
+   `testbench.spice`/`pex_request.json`/`run_pex.py`, and a fresh
+   `run_pex.py --record` run reproduces AC3/AC4 with both legs now
+   correctly signed and positive (schematic +22.7683 V/V, extracted
+   +11.9740 V/V); the re-derived input-referred parasitic-driven offset
+   estimate (−0.94872 mV) remains over an order of magnitude smaller than
+   the device-mismatch-only offset distribution's mean/stdev, so the
+   original "routing-driven offset is noise against device mismatch, not
+   material" conclusion now rests on a validated, non-sign-flipped
+   measurement instead of a timing artifact
+   ([`layout/comparator/reports/20260906-152000-eace0b6/record.md`](../../layout/comparator/reports/20260906-152000-eace0b6/record.md),
+   which supersedes the sign-flipped `20260906-101231-1250ff4` record —
+   kept, untouched and append-only, as honest evidence of what that earlier
+   run measured). A distinct, generic `klt pex` tool gap surfaced re-running
+   the corrected timing (a relative `-o`/`--outdir` makes the extracted-side
+   DUT-swap testbench's `.include` line unresolvable once `klt pex`'s
+   internal `klt sim` call runs ngspice from its own per-corner working
+   directory), filed at
+   [klayout-tools#1525](https://github.com/2AMLogic/klayout-tools/issues/1525)
+   per this repo's friction protocol and worked around locally with
+   absolute paths. This finding remains non-gating — it does not bear on
+   LVS/DRC cleanliness or on any spec row graded in §4.
 4. **ENOB / INL-DNL target values are proposed, not ratified.**
    [DR-007](../../spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md)
    proposes revised, evidence-derived candidates (ENOB > 7.5/8.0 bit,
