@@ -7,9 +7,37 @@ comparator_core.spice` for the xschem-derived device list this layout's
 connectivity is checked against. Follows `layout/README.md`'s (and
 `layout/trivial-cell/`'s / `layout/sar-sequencer/`'s) record convention.
 
-**Status: DRC-clean and LVS-clean.** The record referenced by
-`reports/LATEST` carries all six of this flow's verdicts, three positive and
-three negative:
+> **Status: SUPERSEDED BY A SCHEMATIC CHANGE (issue #175) — this layout no
+> longer implements `design/comparator.sch`.**
+>
+> DR-004 Amendment A changed the comparator topology: the cross-coupled NMOS
+> latch pair's sources moved off hard-wired `GND` onto the input pair's own
+> drain nodes `DIP`/`DIN`, and those nodes gained their own CLK-gated PMOS
+> precharge devices — 9 devices became 11. The geometry under
+> `reports/LATEST` was drawn against the pre-amendment schematic, so its LVS
+> "match" verdict is now a statement about a schematic that no longer exists.
+>
+> Re-checked rather than assumed, with a falsifiability control:
+> `reports/20260906-064104-eedd532/` runs one `klt lvs` request against the
+> unmodified composed GDS twice, changing only the reference netlist —
+> **match** against the superseded 9-device reference (so the toolchain
+> reproduces the recorded verdict), **mismatch** against the amended
+> 11-device `reference.spice` (8 unmatched devices, `DIP`/`DIN` merged away).
+>
+> `reference.spice` in this directory HAS been updated to the amended device
+> set, per its own "copied 1:1 from `comparator_core.spice`" contract. The
+> **geometry has not** — re-drawing it is a full sub-block layout job (a
+> sixth `klt gen` block, `DIP`/`DIN` on the mirror-symmetric routing plan, a
+> fresh six-verdict proof), tracked as its own issue rather than bundled into
+> #175's topology fix (issue #180). Until that lands, treat every verdict below, and
+> everything under `pex/`, as describing the superseded topology.
+>
+> `reports/LATEST` still points at `20260825-135219-59f8e86` on purpose: that
+> is the last actual *flow* run, and the re-check above is not one.
+
+**Historical status (accurate for the pre-#175 topology): DRC-clean and
+LVS-clean.** The record referenced by `reports/LATEST` carries all six of this
+flow's verdicts, three positive and three negative:
 
 | # | Verdict | Why it is here |
 | --- | --- | --- |

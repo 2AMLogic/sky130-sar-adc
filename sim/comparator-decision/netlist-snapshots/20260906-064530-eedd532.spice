@@ -1,0 +1,24 @@
+* comparator-decision input-referred noise (reduced sub-model of the INTEGRATION phase (DR-004 Amendment A, issue #175): tail + input pair, with the DI-node precharge PMOS pair diode-connected (self-biased) as the loads on the input pair's own drain nodes DIP/DIN, and the cross-coupled latch pairs omitted because they are off (Vgs ~ 0) until regeneration begins; CLK held at VDD (steady evaluate bias, tail on); noise taken at v(DIP,DIN)) corner=tt temp=27.0C supply=1.8V (issue #54/#28)
+.lib /Users/rwalters/.volare/sky130A/libs.tech/combined/sky130.lib.spice tt
+.temp 27.0
+.param vdd_val = 1.8
+
+Vdd VDD 0 dc {vdd_val}
+Vclkfix CLK 0 dc {vdd_val}
+Vinp VINP 0 dc 0.9 AC 1
+Vinn VINN 0 dc 0.9
+
+XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1
+XM_INN DIP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1
+XM_INP DIN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1
+XM_RST_DIP DIP DIP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1
+XM_RST_DIN DIN DIN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1
+
+.control
+option sparse
+op
+print v(TAIL) v(DIP) v(DIN)
+noise v(dip,din) Vinp dec 20 1000 1e+09 20
+print inoise_total onoise_total
+.endc
+.end

@@ -11,7 +11,7 @@
 * and does not drift when an unrelated commit elsewhere touches HEAD.
 *   design/sampling_frontend.sch: sha256:87427978ab7b1724adf76cab5eb6567919cbfa3dec84096249b3b8c0843b1681
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
-*   design/comparator.sch: sha256:e1d89bcfa81edf816c1c56dfeee1ab3a208b1ff093df0ffa5cc519282f0fa154
+*   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
 *   design/sar_sequencer.sch: sha256:ca08e38f7420a083b8ccb3e507a17afc6b32a6f01d5f42af846619393b67b9c1
 *   design/sar_adc_top.sch: sha256:da0ac384875c1d052e7c8a9add1acbcfa57d1c1cd5f8588dcd30c9e5810572d1
 *
@@ -187,14 +187,16 @@ XCn_term VREFN TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
 *.opin OUTP
 *.opin OUTN
 XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0 sb=0 sd=0 mult=1 m=1
-XM_INN OUTP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
-XM_INP OUTN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
-XM_LATN_P OUTP OUTN GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
-XM_LATN_N OUTN OUTP GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_INN DIP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_INP DIN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_LATN_P OUTP OUTN DIP GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_LATN_N OUTN OUTP DIN GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
 XM_LATP_P OUTP OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0 sb=0 sd=0 mult=1 m=1
 XM_LATP_N OUTN OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0 sb=0 sd=0 mult=1 m=1
 XM_RST_P OUTP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
 XM_RST_N OUTN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
+XM_RST_DIP DIP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
+XM_RST_DIN DIN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1 m=1
 .ends
 * expanding   symbol:  design/sar_sequencer.sym # of pins=26
 ** sym_path: design/sar_sequencer.sym

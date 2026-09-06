@@ -7,10 +7,21 @@
   record does not close that either). Nothing here is binding until that act
   happens.
 - **Date**: 2026-08-21
-- **Decided by**: Builder agent, issue #54
+- **Amended**: 2026-09-06 — **Amendment A (issue #175)**, at the end of this
+  record: the reset-phase topology decision this record's Decision §1 left
+  implicit is changed, and Decision §2's noise measurement is re-taken against
+  the amended device set. **Read Amendment A before acting on anything in the
+  body below**: the body describes the 9-device variant, which no longer
+  exists. Nothing in the body is deleted or rewritten — a decision record's
+  history is the point of having one.
+- **Decided by**: Builder agent, issue #54 (body); Builder agent, issue #175
+  (Amendment A)
 - **Supersedes**: none
-- **Superseded by**: (none while this record stands)
-- **Related**: #54 (this design sub-block), `spec/decision-records/DR-001-supply-flavor-scope.md`
+- **Superseded by**: (none while this record stands; Amendment A amends it in
+  place rather than superseding it — the no-preamp decision and the noise
+  budget both survive unchanged)
+- **Related**: #54 (this design sub-block), #175 (Amendment A — the
+  reset-integrity defect and its fix), `spec/decision-records/DR-001-supply-flavor-scope.md`
   (Consequence §3 — headroom argument this record's topology decision rests
   on), `spec/decision-records/DR-003-numeric-spec-derivation.md` (Item 1 — the
   23 mV nominal common-mode headroom margin; Item 4 — the provisional
@@ -309,3 +320,207 @@ or by issue #54's PR.
 - **Ratification** — like DR-003, nothing in this record is binding until an
   operator ratification act rules on it; no such issue is filed yet for this
   record specifically (it is closer to DR-003's status than DR-001's).
+
+## Amendment A (issue #175, 2026-09-06): reset-integrity topology fix
+
+**Read this section before acting on anything in the body above.** The body
+documents a 9-device variant of `design/comparator.sch` that no longer
+exists. This amendment changes the topology, re-measures Decision §2's noise
+claim against the new device set, and leaves everything else in the body
+(Decision §1's no-preamp call, the noise budget itself, the Alternatives
+considered) standing unchanged — it amends this record in place rather than
+superseding it, per this record's own header.
+
+### Context: what the pre-amendment topology got wrong
+
+Issue #121's decision-delay PVT campaign carries a Vindiff = 0 mV
+reset-integrity **negative control**: with the inputs shorted to the common
+mode there is no correct decision to make, so the latch must stay balanced
+until the evaluate edge. Record
+[`sim/comparator-decision/records/20260906-052758-662a84d.md`](../../sim/comparator-decision/records/20260906-052758-662a84d.md)
+found that control **failed at 3 of the 9 ratified corner points**
+(`sf_27c_1.80v`, `tt_-40c_1.80v`, `tt_27c_1.62v`), with the outputs
+separating to opposite rails *during* the CLK = 0 reset phase with no input
+applied — onset as early as 2.746 ns into a 5.0 ns reset window, and at some
+corners the divergence was already present at `t = 0.000 ns` (a bistable DC
+operating point, not a slow settle). Counting applied-input runs too, 4 of 9
+corner points showed at least one reset-not-held run.
+
+The mechanism, read off that record's own measurements: the pre-amendment
+9-device topology tied the cross-coupled NMOS latch pair's (`XM_LATN_P`/
+`XM_LATN_N`) sources directly to `GND`, so those devices conducted
+throughout the CLK = 0 reset phase, in opposition to the reset PMOS pair
+(`XM_RST_P`/`XM_RST_N`). Two measurements followed directly: the reset-phase
+output level sat at ~0.78·V_DD rather than the rail, and the reset phase
+drew 0.52–1.25 mA of **static** supply current, because a DC path
+`VDD → reset PMOS → output node → latch NMOS → GND` was open the whole time.
+That balanced level was an **unstable equilibrium** — both latch NMOS
+devices sat well above threshold, so the cross-coupled loop gain exceeded
+unity and any asymmetry (corner skew, temperature, input-pair subthreshold
+conduction) was amplified to the rails inside the reset window. This is a
+**functional** exposure, not only a timing one: at the affected corners the
+comparator entered each bit trial already committed to an output, so the bit
+it produced was not determined by the charge on the CDAC top plate.
+
+### Decision: return the latch NMOS sources to a precharged internal node
+
+`design/comparator.sch` is amended to the textbook StrongARM arrangement:
+the NMOS input pair's drains land on their own internal nodes `DIP`/`DIN`
+(previously they were `OUTP`/`OUTN` directly), the cross-coupled NMOS latch
+pair's sources move from `GND` onto those same `DIP`/`DIN` nodes, and two new
+CLK-gated PMOS precharge devices (`M_RST_DIP`, `M_RST_DIN`, `W = 4 µm` — sized
+to match the latch NMOS pair they precharge against, not oversized like
+`M_RST_P`/`M_RST_N`, since they face no reset-phase contention at all) precharge
+`DIP`/`DIN` to `VDD` alongside the existing `OUTP`/`OUTN` precharge pair. The
+device count goes from 9 to 11.
+
+**Why this closes the defect.** During CLK = 0 reset, once `DIP`/`DIN` reach
+`VDD` (precharged by `M_RST_DIP`/`M_RST_DIN`), every latch NMOS device sits at
+`Vgs = 0` exactly — gate at `VDD` from the opposite precharged output, source
+at `VDD` from its own precharged drain node. The cross-coupled loop gain is
+therefore zero, the reset state is a **stable** equilibrium rather than an
+amplified one, and no DC path from `VDD` to `GND` exists through the latch at
+all. `M_RST_P`/`M_RST_N` (`W = 16 µm`) are left at their pre-amendment size
+on purpose, so this amendment carries exactly one topology delta and the
+re-characterization below is attributable to that delta alone — the width's
+now-unmotivated justification (it was sized to *fight* the very NMOS
+pull-down this amendment removes) is carried forward as an open item, not
+silently re-tuned.
+
+**Node convention is unchanged**: `XM_INN` (gate `VINN`) still discharges the
+node `XM_LATN_P` (drain `OUTP`) sources from — that node is now called `DIP`
+instead of being `OUTP` itself — so a larger `VINN` still pulls `OUTP` down,
+exactly as before the amendment.
+
+**Re-netlist.** `sim/comparator-decision/testbench/comparator_core.spice` was
+regenerated from the amended schematic via the documented xschem flow
+(`xschem -x -n -s -q --rcfile sim/xschemrc -o <dir> design/comparator.sch`,
+per that file's own header) and verified, independently of the driver script,
+to reproduce byte-for-byte against a fresh netlist run for this PR. `design/
+sar_adc_top.spice`'s pinned `design/comparator.sch` SHA-256 was updated to
+match.
+
+### Re-characterization: every committed comparator-decision campaign re-run
+
+Per `sim/README.md`'s append-only convention, each campaign below mints a
+**new** record that supersedes its pre-amendment predecessor via that
+record's own `Supersedes` field — no committed record is edited, and no
+citation elsewhere in this repo is left pointing at the superseded device set
+without a fix (see the file list in the PR that lands this amendment).
+
+- **`regen-corners` (the fix's own acceptance test)** —
+  [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md),
+  supersedes `20260906-052758-662a84d`. **PASS: 9/9 reset-integrity controls
+  now HELD** (every corner's pre-edge `v(OUTP) - v(OUTN) = +0.0000 V`, and
+  reset-phase static supply current `= 0.00 µA` at every corner — both
+  direct confirmations that the DC path the pre-amendment topology opened no
+  longer exists), and all 27/27 input-driven decision points resolved within
+  the 15.0 ns evaluate window. This is the **PVT-complete decision-delay
+  figure** the pre-amendment record could not produce: binding corner
+  `tt_27c_1.62v` at `Vindiff = +0.5 mV`, decision delay `4.3575 ns`, `19.1×`
+  inside DR-006's provisional 83.333 ns worst-case bit-trial phase budget
+  (a headroom statement against a DRAFT, not-yet-ratified figure, not a pass
+  against a ratified spec line).
+- **`regen`** (nominal `tt`/27 °C single-corner sweep) — re-run, superseding
+  `20260821-065653-433a294`, against the amended 11-device netlist.
+- **`offset`** (mismatch-driven offset Monte Carlo, `tt_mm`, `N = 24`,
+  seed `1`) — re-run, superseding `20260828-004101-0c70212`, against the
+  amended 11-device netlist.
+- **`noise`** (nominal-point reduced sub-model) —
+  [`sim/comparator-decision/records/20260906-064530-eedd532.md`](../../sim/comparator-decision/records/20260906-064530-eedd532.md),
+  supersedes `20260821-072003-433a294`: `0.6808 mV rms` differential
+  (`tt`/27 °C), down slightly from the pre-amendment `0.7064 mV rms`.
+- **`noise-corners`** (full ratified PVT grid, reduced sub-model) —
+  [`sim/comparator-decision/records/20260906-065109-eedd532.md`](../../sim/comparator-decision/records/20260906-065109-eedd532.md),
+  supersedes `20260827-212404-e13bc1e`: **PASS** vs. the ratified baseline
+  (`≤ 1.0148 mV rms`) at every corner, binding corner `tt_125c_1.80v` =
+  `0.8643 mV rms` (down from the pre-amendment `0.9591 mV rms`); still does
+  **not** meet the stretch threshold (`≤ 0.5859 mV rms`) at that corner — the
+  same qualitative outcome as before the amendment, at a slightly better
+  number.
+
+**Why the noise sub-model's device selection changed.** The reduced sub-model
+(Decision §2) breaks the cross-coupled latch's positive-feedback loop for a
+`.noise` analysis by diode-connecting whichever devices sit on the input
+pair's own drain nodes. Pre-amendment, that was the cross-coupled latch pair
+itself (its sources were `GND`, its drains were `OUTP`/`OUTN`, the input
+pair's own drains). Post-amendment, the input pair's drains are `DIP`/`DIN`,
+so the rule now selects the `DIP`/`DIN` precharge PMOS pair
+(`M_RST_DIP`/`M_RST_DIN`) instead — the selection **rule** is unchanged; the
+device list it names changed because the netlist did.
+`sim/comparator-decision/run.py`'s module comment documents two alternative
+sub-models measured and rejected against that same rule (a literal loop-break
+of all nine original devices, which turned out to bias the input pair
+subthreshold, and that same loop-break plus diode-connected precharge
+devices, which biases correctly but forces the latch NMOS pair to conduct —
+exactly what they do not do during integration).
+
+**Every quantitative comparator claim in this repository as of this
+amendment now derives from the 11-device topology.** No committed
+`sim/comparator-decision/records/*.md` file cites the superseded 9-device
+device set as its own PVT-complete or corner-complete claim without either
+being superseded above or (for the single-corner nominal records this
+amendment did not itself re-derive further downstream numbers from, e.g. the
+issue #29 offset campaign) being re-run as part of this same PR.
+
+### Layout: LVS invalidated, tracked as its own issue
+
+A device-level topology change invalidates `layout/comparator/`'s existing
+LVS "match" verdict, since the drawn geometry still implements the
+pre-amendment 9-device topology. Re-checked rather than assumed:
+`layout/comparator/reports/20260906-064104-eedd532/` runs the identical `klt
+lvs` request twice against the identical, unmodified composed GDS, changing
+only the reference netlist — **match** against the superseded 9-device
+reference (the toolchain reproduces the previously-recorded verdict) and
+**mismatch** against the amended 11-device `layout/comparator/reference.spice`
+(8 unmatched devices, `DIP`/`DIN` merged away in the drawn geometry). Re-drawing
+the block is a full sub-block layout job — the same scale of work as the
+original layout (#101) — and is deliberately **not** bundled into this
+amendment; it is tracked as issue #180.
+
+### Spec lines affected
+
+**Still none.** As with the body above, this amendment changes no line of
+`spec/target-spec.md`. The re-measured noise figures (`noise`/`noise-corners`
+above) test the same ratified baseline/stretch thresholds the body already
+cited — this amendment updates which record substantiates that claim, not
+the claim's own numeric target.
+
+### Consequences
+
+1. **The functional exposure named in issue #175 is closed**, with a direct,
+   re-runnable negative control (`regen-corners`, 9/9 HELD) rather than an
+   inference from the mechanism alone.
+2. **The comparator's decision-delay figure is now PVT-complete** for the
+   first time — `sim/report/manifest.py`'s sample-rate row and
+   `docs/chipalooza/challenge-4-proposal.md` §7 Item 2/3 are updated in the
+   same PR to cite it and to retire the "BLOCKED by a design finding"
+   wording that described the pre-amendment attempt.
+3. **The reduced sub-model's own limitation (Decision §2 — it excludes the
+   cross-coupled latch pair's regenerative-phase noise contribution) is
+   unchanged by this amendment** — it is a methodology gap independent of
+   which devices happen to sit on the input pair's drain nodes, and remains
+   open (see Open items, unchanged, and the updated item below on the
+   now-unmotivated `M_RST_P`/`M_RST_N` sizing).
+4. **`M_RST_P`/`M_RST_N`'s `W = 16 µm` sizing is no longer motivated by its
+   original justification** (overriding the latch NMOS pair's own
+   direct-to-`GND` pull-down, which no longer exists) but is deliberately
+   left unchanged in this amendment, per the Decision section above — a new
+   open item, not a silent re-tune.
+5. **`layout/comparator/`'s LVS match is invalidated** and re-drawing the
+   block is deferred to issue #180, per the Layout section above.
+
+### Updated open items (in addition to the unchanged list above)
+
+- **`layout/comparator/` re-draw** (issue #180) — the block must be redrawn
+  against the amended 11-device schematic with `DIP`/`DIN` routed on the
+  mirror-symmetric axis, and the full six-verdict DRC+LVS proof re-run.
+- **`M_RST_P`/`M_RST_N` re-sizing** — now unmotivated by the reset-contention
+  argument that originally forced `W = 16 µm` (Consequences §4 above); a
+  future record could re-tune these down to reduce output-node capacitance
+  (faster regeneration) now that the DC-path defect they were compensating
+  for no longer exists. Not attempted here, to keep this amendment to a
+  single topology delta.
+- **Ratification** — unchanged from the body: nothing in this record,
+  including this amendment, is binding until an operator ratification act
+  rules on it.

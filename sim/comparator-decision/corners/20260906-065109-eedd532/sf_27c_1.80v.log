@@ -1,0 +1,28 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * comparator-decision input-referred noise (reduced sub-model of the integration phase (dr-004 amendment a, issue #175): tail + input pair, with the di-node precharge pmos pair diode-connected (self-biased) as the loads on the input pair's own drain nodes dip/din, and the cross-coupled latch pairs omitted because they are off (vgs ~ 0) until regeneration begins; clk held at vdd (steady evaluate bias, tail on); noise taken at v(dip,din)) corner=sf temp=27.0c supply=1.8v (issue #54/#28)
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+ Reference value :  0.00000e+00
+No. of Data Rows : 1
+v(tail) = 3.239476e-02
+v(dip) = 2.916047e-01
+v(din) = 2.916047e-01
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+No. of Data Rows : 7
+
+No. of Data Rows : 1
+inoise_total = 4.801365e-04
+onoise_total = 6.770941e-04
+Note: Simulation executed from .control section 
