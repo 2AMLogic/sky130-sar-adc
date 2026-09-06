@@ -79,15 +79,43 @@ ROWS: tuple[Row, ...] = (
         spec_row="Sample rate",
         status="DRAFT",
         spec_anchor="spec/target-spec.md#target-table",
-        conditions="N/A -- no campaign has been run.",
-        verdict="UNMEASURED",
+        conditions=(
+            "Two of the constituent mechanisms have now been probed "
+            "individually; neither campaign is a sample-rate measurement. "
+            "(a) CDAC-array bottom-plate-switch settling: `tt`/27C/1.8V "
+            "single point only. (b) Comparator decision (regeneration) delay: "
+            "the full ratified OAT grid was attempted (process {ff, fs, sf, "
+            "ss, tt} x temperature {-40, 27, 125} C x supply {1.62, 1.8, "
+            "1.98} V, 9 one-at-a-time points), but it did not complete -- see "
+            "the verdict."
+        ),
+        verdict="UNMEASURED (two mechanisms probed, one of them BLOCKED by a design finding)",
         notes=(
-            "No switch-R_on/settling-time campaign exists under sim/. It needs a "
-            "CDAC/switch netlist and a dedicated corner campaign; the completed "
-            "corner campaigns (issue #28) covered the RATIFIED deterministic "
-            "rows (V_REF/LSB/N/sizing/comparator noise), not sample rate. Named "
-            "as open work by spec/target-spec.md's own 'Not ratified by this "
-            "record' list (#24/#28)."
+            "No end-to-end sample-rate campaign exists. Two of its input terms "
+            "have been probed separately, and this row reports both honestly "
+            "rather than adding them up. (a) The CDAC array's own "
+            "switch-R_on/top-plate settling is bounded at ONE corner: worst "
+            "case 11.3861 ns (bit 8, rise), 7.3x inside the DR-006-derived "
+            "83.333 ns worst-case phase budget -- so the array's own settling "
+            "is not the bottleneck at that corner. Switch R_on varies "
+            "materially with process/temperature and no other corner has been "
+            "run. (b) The comparator's own decision delay could NOT be "
+            "measured across the grid: its reset-integrity negative control "
+            "(Vindiff = 0 mV) fails at several ratified corner points, where "
+            "the latch separates to the rails during the CLK=0 reset phase "
+            "with no input applied, so the post-edge output is not a response "
+            "to the input and no delay is extractable there. Delays measured "
+            "at the corners whose control did hold are sub-2 ns but cover a "
+            "subset of the grid and must not be quoted as PVT-complete. The "
+            "sequencer's logic delay and the sampling front end's acquisition "
+            "remain entirely unmeasured. Named as open work by "
+            "spec/target-spec.md's own 'Not ratified by this record' list "
+            "(#24/#28); DR-006's 1.2-12 MHz clock range remains a mechanical "
+            "consequence of this DRAFT row, not a derived result."
+        ),
+        sim_citations=(
+            "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
+            "sim/comparator-decision/records/20260906-052758-662a84d.md",
         ),
     ),
     Row(
@@ -295,6 +323,27 @@ spec-row evidence.
 """
 
 BLIND_SPOTS = (
+    (
+        "Comparator RESET does not hold at every ratified corner -- a design "
+        "finding, not a harness limitation. With the inputs shorted to the "
+        "common mode (Vindiff = 0 mV, a negative control), "
+        "`design/comparator.sch`'s outputs separate to the rails DURING the "
+        "CLK=0 reset phase at several ratified corner points, because the "
+        "cross-coupled NMOS latch pair's sources are tied directly to GND and "
+        "therefore conduct throughout reset, in opposition to the reset PMOS "
+        "pair. The resulting balanced level is an unstable equilibrium (and "
+        "draws static supply current), so corner/temperature asymmetry is "
+        "amplified to a decision before the clock edge arrives. Consequence: "
+        "at the affected corners the comparator enters a bit trial already "
+        "committed, so its output is not determined by the CDAC top-plate "
+        "charge -- a functional exposure, not only a timing one. No ADC-level "
+        "transient has ever exercised the real comparator inside the full "
+        "hierarchy (the sequencer campaign is behavioural; the ENOB estimate "
+        "composes a noise term rather than simulating the latch), which is "
+        "why this did not surface earlier. This also bounds what the "
+        "comparator offset and noise rows mean: both were characterized only "
+        "at tt/27C/1.8V-class conditions where the reset does hold."
+    ),
     (
         "Comparator noise methodology is a REDUCED SUB-MODEL (cross-coupled "
         "latch pair replaced by diode-connected loads) -- excludes the "
