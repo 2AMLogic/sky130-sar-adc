@@ -1,24 +1,45 @@
-## Status: AC3/AC4's "not material" conclusion is UNCONFIRMED for the current record
+## Status: AC3/AC4's "not material" conclusion is CONFIRMED at a corrected pick-off instant (issue #187)
 
 `reports/20260906-101231-1250ff4/record.md` -- the record generated against
-the DR-004 Amendment A layout landed by issue #180 -- shows the
+the DR-004 Amendment A layout landed by issue #180 -- showed the
 extracted-side leg's pick-off measurements clustered within a sub-mV to
 low-mV spread across every corner (vs. the schematic side's much larger,
-clean separation), which flips the extracted-side "gain" negative
-(-0.576 V/V vs. the schematic side's +1.873 V/V). The likely cause: the
-fixed pick-off instant (`PICKOFF_AT_NS=5.4ns`, see `testbench.spice`) was
-calibrated against the **pre-#175** topology's regeneration timing, and
-issue #175/#121's own decision-delay campaign already found the amended
-topology's regeneration profile differs -- the extracted (parasitic-loaded)
-leg plausibly has not resolved a decision by the same fixed snapshot the old
-pin used. AC3/AC4's "routing-driven offset is noise against device
-mismatch" conclusion in that record is therefore built on a measurement that
-compares the two legs at different points in their own regeneration curves,
-not a validated apples-to-apples offset figure. Tracked as issue #187 (this
-repo's own tracker, not `2AMLogic/klayout-tools` -- the timing question is
-about this design's regeneration dynamics, not a `klt` tool gap). The record
-itself is kept, append-only, as honest evidence of what the run measured;
-this caveat is what keeps that measurement from being over-read as settled.
+clean separation), which flipped the extracted-side "gain" negative
+(-0.576 V/V vs. the schematic side's +1.873 V/V). Root cause, confirmed by
+issue #187's investigation: the fixed pick-off instant
+(`PICKOFF_AT_NS=5.4ns`, i.e. `PICKOFF_NS=0.3ns` after the evaluate edge) was
+calibrated against the **pre-#175** topology's regeneration timing, and was
+genuinely too early for the amended topology's *extracted* (parasitic-
+loaded) leg -- `layout/comparator/pex/regen_probe.py`'s reset->evaluate
+transient sweep (`reports/20260906-144802-eace0b6/record.md`) measured the
+extracted leg's own regeneration onset directly and found it materially
+delayed relative to the ideal schematic leg (real R/C on `DIP`/`DIN` and
+`OUTP`/`OUTN` slows the extracted leg's early transient), so the old fixed
+snapshot compared the two legs at different points in their own
+regeneration curves -- not an apples-to-apples offset figure. That record's
+"Recommendation" section re-derives a corrected instant, **`PICKOFF_NS`
+=1.2ns / `PICKOFF_AT_NS`=6.3ns**, at which both legs give a clean,
+correctly-signed, non-saturated pick-off (spot-checked at `ss/-40C` and
+`ff/125C` too). `testbench.spice`/`pex_request.json`/`run_pex.py` now use
+that corrected instant, and a fresh `run_pex.py --record` run
+(`reports/20260906-152000-eace0b6/record.md`) reproduces AC3/AC4 with it:
+both legs' gains are now positive (schematic +22.7683 V/V, extracted
++11.9740 V/V), and the re-derived input-referred parasitic-driven offset
+estimate (-0.94872 mV) is still over an order of magnitude smaller than the
+device-mismatch-only offset distribution's mean and stdev -- the same
+"routing-driven offset is noise against device mismatch, not material"
+conclusion the original (stale-timing) record drew, now resting on a
+validated measurement instead of a sign-flipped artifact. The
+20260906-101231-1250ff4 record itself is kept, append-only, as honest
+evidence of what that run measured; this note is what keeps it from being
+over-read as still-settled.
+
+A distinct, generic `klt pex` tool gap surfaced re-running the corrected
+timing: a relative `-o`/`--outdir` makes the extracted-side DUT-swap
+testbench's `.include` line unresolvable once `klt pex`'s internal `klt sim`
+call runs ngspice from its own per-corner working directory. Filed at
+2AMLogic/klayout-tools#1525 (generic, no design detail) and worked around
+locally in `run_pex.py` by passing both as absolute paths.
 
 # layout/comparator/pex/ -- real `klt pex` parasitic verification (issue #112)
 
@@ -57,6 +78,22 @@ two results relate, and `layout/comparator/reports/<record-id>/record.md`
   swap") -- no hand-maintained extracted-side copy needed.
 - `pex_request.json` -- canonical `klt sim`/`klt pex`-format request
   (corners, analysis, measurements), passed to `klt pex` as-is.
+- `regen_probe.py` -- standalone investigation driver (issue #187) that
+  re-derives `testbench.spice`'s fixed pick-off instant for a given
+  topology by running `sim/comparator-decision/run.py`'s own reset->evaluate
+  transient-sweep methodology against BOTH the schematic DUT and a fresh
+  `klt extract --parasitics` of the current `reports/LATEST` layout, on the
+  `.SUBCKT`-wrapped instantiation convention this directory's flow needs
+  (see its own module docstring for why it is not folded into `run.py`
+  directly). Not part of the normal `run_pex.py --record` flow -- run it
+  only when re-examining whether the pick-off instant still fits a given
+  topology's regeneration profile:
+
+  ```sh
+  python3 layout/comparator/pex/regen_probe.py --check-env
+  python3 layout/comparator/pex/regen_probe.py --record
+  ```
+
 - `run_pex.py` -- this record's generator. Run it to reproduce:
 
   ```sh
@@ -128,6 +165,16 @@ re-simulate-both-legs-and-diff step, alongside a standalone `klt extract
 just an aggregate extraction-model scope note, not the full per-net R/C
 table AC1/AC2 need (see `run_pex.py`'s module docstring for the exact
 before/after code path).
+
+A third, unrelated gap surfaced re-running this same `klt pex` call for
+issue #187: a relative `-o`/`--outdir` makes the extracted-side DUT-swap
+testbench's `.include` line unresolvable once `klt pex`'s internal `klt
+sim` call runs ngspice from its own per-corner working directory. Filed
+generically at
+[2AMLogic/klayout-tools#1525](https://github.com/2AMLogic/klayout-tools/issues/1525);
+`run_pex.py` works around it locally by passing both as absolute paths
+(still scoped under the record's own `.klt/` scratch subtree) rather than
+waiting on the upstream fix.
 
 ## The `alter` gotcha (why `testbench.spice`'s sources are literal, not `.param`)
 

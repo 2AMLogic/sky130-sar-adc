@@ -23,6 +23,14 @@ anything -- verified empirically re-running the old workaround against
 0.4.0 before deleting it). See README.md's "Why not just `klt pex`" section
 (marked historical) for the full prior writeup.
 
+A third, unrelated `klt pex` gap surfaced re-deriving the pick-off timing
+for issue #187: passing `-o`/`--outdir` as RELATIVE paths makes the
+extracted-side DUT-swap testbench's `.include` line unresolvable once
+`klt pex`'s internal `klt sim` call runs ngspice from its own per-corner
+working directory (2AMLogic/klayout-tools#1525, filed generically). Worked
+around locally by passing both as ABSOLUTE paths (still under this record's
+own `.klt/` scratch subtree) -- see the `_run_klt(["pex", ...])` call below.
+
     python3 layout/comparator/pex/run_pex.py --check-env
     python3 layout/comparator/pex/run_pex.py --record
 """
@@ -55,8 +63,17 @@ OFFSET_RECORD = (
 OFFSET_MISMATCH_MEAN_MV = 35.24
 OFFSET_MISMATCH_STDEV_MV = 97.08
 
-PICKOFF_AT_NS = 5.4  # RESET_NS(5) + RESET_TR_NS(0.1) + PICKOFF_NS(0.3),
-# matching sim/comparator-decision/run.py's own PICKOFF_NS pick-off point.
+PICKOFF_AT_NS = 6.3  # RESET_NS(5) + RESET_TR_NS(0.1) + PICKOFF_NS(1.2).
+# Re-derived for DR-004 Amendment A's extracted (parasitic-loaded) leg
+# (issue #187): the original PICKOFF_NS=0.3 (matching sim/comparator-
+# decision/run.py's own pick-off point at the time) was calibrated against
+# the pre-#175 topology and produced a sign-flipped extracted-side pick-off
+# differential once real routing parasitics were in the loop (negative for
+# a positive applied Vindiff -- see reports/20260906-101231-1250ff4/
+# record.md's AC3). layout/comparator/pex/regen_probe.py's reset->evaluate
+# transient sweep (reports/20260906-144802-eace0b6/record.md) re-derived
+# this instant directly from the extracted leg's own regeneration timing;
+# see testbench.spice's header for the same history.
 CAL_VINDIFF_MV = 10.0  # index-1 corner point's Vindiff (see testbench.spice)
 
 ZERO_CORNER_ID = "tt/vinn=0.900_vinp=0.900V/27C"
@@ -155,14 +172,22 @@ def run(record: bool, quiet: bool = False) -> int:
     for name in ("comparator_pex_reference.spice", "testbench.spice", "pex_request.json"):
         shutil.copy(PEX_DIR / name, out_dir / name)
 
-    # `-o`/`--outdir` are given explicitly (both scoped under this record's
-    # own `.klt/` scratch subtree, cleaned up below) so `klt pex`'s own
-    # extracted-netlist and per-corner-artifact output lands inside this
-    # record's out_dir instead of its default "next to <layout>" location
-    # -- which, unqualified, would write scratch files into `layout_dir`
-    # (the shared, committed layout-drawing output directory every record
-    # reads `comparator.gds` from) rather than this run's own evidence
-    # directory.
+    # `-o`/`--outdir` are given as ABSOLUTE paths (both still scoped under
+    # this record's own `.klt/` scratch subtree, cleaned up below) -- issue
+    # #187 found that a RELATIVE `-o` here (`.klt/pex-extracted.spice`) makes
+    # `klt pex` write that same relative string into the extracted-side
+    # testbench's `.include` line, but `klt sim`'s own per-corner execution
+    # model runs ngspice from a corner-specific working directory nested
+    # under `--outdir`, not from this `cwd` -- so the relative `.include`
+    # no longer resolves there and every extracted-side corner errors
+    # (`Could not find include file .klt/pex-extracted.spice`), even though
+    # the identical testbench runs fine standalone via `klt sim`. Absolute
+    # paths sidestep the mismatch entirely, and `klt`'s own path-scoping
+    # still reports them as repo-relative/`scope: "repo"` in the JSON
+    # response below (verified: an absolute path under the repo checkout
+    # comes back re-relativized, not leaked) -- see
+    # 2AMLogic/klayout-tools#1525 (filed generically, no design detail) for
+    # the upstream gap this works around.
     (out_dir / ".klt").mkdir(exist_ok=True)
     pex_json = _run_klt(
         [
@@ -176,9 +201,9 @@ def run(record: bool, quiet: bool = False) -> int:
             "--pdk-root",
             str(info.root),
             "-o",
-            ".klt/pex-extracted.spice",
+            str(out_dir / ".klt" / "pex-extracted.spice"),
             "--outdir",
-            ".klt/pex",
+            str(out_dir / ".klt" / "pex"),
         ],
         cwd=out_dir,
     )
@@ -350,6 +375,26 @@ def write_record(
         f"routing/parasitic-driven imbalance, device mismatch structurally "
         f"excluded) and Vindiff=+{CAL_VINDIFF_MV:.0f}mV (gain calibration, "
         "one of `run.py`'s own `VINDIFF_GAIN_CAL_MV` points)."
+    )
+    a("")
+    a(
+        f"**Pick-off instant (issue #187): {PICKOFF_AT_NS}ns, not the "
+        "original 5.4ns.** `layout/comparator/reports/20260906-101231-"
+        "1250ff4/record.md`'s AC3 (against the same DR-004 Amendment A "
+        "topology this record's layout also carries) measured a "
+        "sign-flipped, near-degenerate extracted-side gain "
+        "(-0.576 V/V vs. the schematic side's +1.873 V/V) at the "
+        "original fixed 5.4ns instant. "
+        "`layout/comparator/pex/regen_probe.py`'s reset->evaluate transient "
+        "sweep (`reports/20260906-144802-eace0b6/record.md`) found that "
+        "instant was too early for this topology's extracted (parasitic-"
+        "loaded) leg -- its regeneration onset is measurably delayed "
+        f"relative to the ideal schematic leg -- and re-derived {PICKOFF_AT_NS}ns "
+        "as a corrected instant at which both legs give a clean, "
+        "correctly-signed, non-saturated pick-off (see that record's "
+        "\"Recommendation\" section, including a corner spot check at "
+        "ss/-40C and ff/125C). The gains below use the corrected instant; "
+        "both are now positive."
     )
     a("")
     a("| | schematic (ideal) | extracted (parasitic-annotated) |")
