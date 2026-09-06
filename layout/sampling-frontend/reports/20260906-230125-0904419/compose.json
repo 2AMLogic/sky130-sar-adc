@@ -1,0 +1,478 @@
+{
+  "schema_version": 1,
+  "generator": "gen-compose",
+  "cell_name": "gen_compose_0",
+  "gds_path": "gen_compose_0.gds",
+  "pdk": {
+    "name": "sky130A",
+    "variant": "sky130A",
+    "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+  },
+  "bbox_um": {
+    "x0": 0.0,
+    "y0": -2.4,
+    "x1": 195.56,
+    "y1": 58.050000000000004
+  },
+  "ports": [],
+  "blocks": [
+    {
+      "id": "sa_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SA_P",
+      "offset_um": {
+        "x": 2.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 1.85,
+        "y0": -0.15,
+        "x1": 3.49,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "se_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SE_P",
+      "offset_um": {
+        "x": 5.2,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 5.05,
+        "y0": -0.15,
+        "x1": 6.44,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scp_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCP_P",
+      "offset_um": {
+        "x": 10.34,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 10.19,
+        "y0": -0.15,
+        "x1": 11.58,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswp_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWP_P",
+      "offset_um": {
+        "x": 13.54,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 13.389999999999999,
+        "y0": -0.15,
+        "x1": 14.78,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "invp",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "INVP",
+      "offset_um": {
+        "x": 16.74,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 16.59,
+        "y0": -0.15,
+        "x1": 17.979999999999997,
+        "y1": 2.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswp_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWP_N",
+      "offset_um": {
+        "x": 19.939999999999998,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 19.79,
+        "y0": -0.15,
+        "x1": 21.179999999999996,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scp_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCP_N",
+      "offset_um": {
+        "x": 23.139999999999997,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 22.99,
+        "y0": -0.15,
+        "x1": 24.379999999999995,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "se_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SE_N",
+      "offset_um": {
+        "x": 28.279999999999998,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 28.13,
+        "y0": -0.15,
+        "x1": 29.519999999999996,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sa_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SA_N",
+      "offset_um": {
+        "x": 31.479999999999997,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 31.33,
+        "y0": -0.15,
+        "x1": 32.97,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "msw_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MSW_P",
+      "offset_um": {
+        "x": 42.47,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 42.47,
+        "y0": 0.0,
+        "x1": 43.56,
+        "y1": 2.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "msw_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MSW_N",
+      "offset_um": {
+        "x": 44.76,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 44.76,
+        "y0": 0.0,
+        "x1": 45.85,
+        "y1": 2.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sb_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SB_P",
+      "offset_um": {
+        "x": 47.05,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 47.05,
+        "y0": 0.0,
+        "x1": 48.14,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scn_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCN_P",
+      "offset_um": {
+        "x": 49.339999999999996,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 49.339999999999996,
+        "y0": 0.0,
+        "x1": 50.43,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sd_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SD_P",
+      "offset_um": {
+        "x": 51.629999999999995,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 51.629999999999995,
+        "y0": 0.0,
+        "x1": 52.97,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswn_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWN_P",
+      "offset_um": {
+        "x": 54.169999999999995,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 54.169999999999995,
+        "y0": 0.0,
+        "x1": 55.26,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswn_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWN_N",
+      "offset_um": {
+        "x": 56.459999999999994,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 56.459999999999994,
+        "y0": 0.0,
+        "x1": 57.55,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sd_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SD_N",
+      "offset_um": {
+        "x": 58.74999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 58.74999999999999,
+        "y0": 0.0,
+        "x1": 60.089999999999996,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scn_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCN_N",
+      "offset_um": {
+        "x": 61.28999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 61.28999999999999,
+        "y0": 0.0,
+        "x1": 62.379999999999995,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sb_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SB_N",
+      "offset_um": {
+        "x": 63.57999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 63.57999999999999,
+        "y0": 0.0,
+        "x1": 64.66999999999999,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "invn",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "INVN",
+      "offset_um": {
+        "x": 65.86999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 65.86999999999999,
+        "y0": 0.0,
+        "x1": 66.96,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cboot",
+      "source": "generator_report",
+      "generator": "cap_array",
+      "cell_name": "CBOOT",
+      "offset_um": {
+        "x": 74.16,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 74.16,
+        "y0": 0.0,
+        "x1": 96.25999999999999,
+        "y1": 10.8
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "csamp",
+      "source": "generator_report",
+      "generator": "cap_array",
+      "cell_name": "CSAMP",
+      "offset_um": {
+        "x": 99.25999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 99.25999999999999,
+        "y0": 0.0,
+        "x1": 195.56,
+        "y1": 47.9
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "route",
+      "source": "generator_report",
+      "generator": "draw",
+      "cell_name": "ROUTE",
+      "offset_um": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 0.0,
+        "y0": -2.4,
+        "x1": 171.82,
+        "y1": 58.050000000000004
+      },
+      "orientation": "none"
+    }
+  ],
+  "nets": [],
+  "pins": [],
+  "unrouted_nets": [],
+  "drc_hints": {
+    "min_spacing_um": null,
+    "matched_groups": [
+      {
+        "matched_group_id": "mos_array:1x1:common_centroid",
+        "blocks": [
+          "sa_p",
+          "se_p",
+          "scp_p",
+          "cmswp_p",
+          "invp",
+          "cmswp_n",
+          "scp_n",
+          "se_n",
+          "sa_n",
+          "msw_p",
+          "msw_n",
+          "sb_p",
+          "scn_p",
+          "sd_p",
+          "cmswn_p",
+          "cmswn_n",
+          "sd_n",
+          "scn_n",
+          "sb_n",
+          "invn"
+        ],
+        "placement_symmetric": null
+      },
+      {
+        "matched_group_id": "cap_array:2",
+        "blocks": [
+          "cboot",
+          "csamp"
+        ],
+        "placement_symmetric": null
+      }
+    ],
+    "notes": []
+  },
+  "warnings": [
+    "block 'route' is placed 0.00um from block 'sa_p' (strategy: explicit), closer than sa_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'se_p' (strategy: explicit), closer than se_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scp_p' (strategy: explicit), closer than scp_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswp_p' (strategy: explicit), closer than cmswp_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'invp' (strategy: explicit), closer than invp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswp_n' (strategy: explicit), closer than cmswp_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scp_n' (strategy: explicit), closer than scp_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'se_n' (strategy: explicit), closer than se_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sa_n' (strategy: explicit), closer than sa_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'msw_p' (strategy: explicit), closer than msw_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'msw_n' (strategy: explicit), closer than msw_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sb_p' (strategy: explicit), closer than sb_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scn_p' (strategy: explicit), closer than scn_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sd_p' (strategy: explicit), closer than sd_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswn_p' (strategy: explicit), closer than cmswn_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswn_n' (strategy: explicit), closer than cmswn_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sd_n' (strategy: explicit), closer than sd_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scn_n' (strategy: explicit), closer than scn_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sb_n' (strategy: explicit), closer than sb_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'invn' (strategy: explicit), closer than invn's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cboot' (strategy: explicit), closer than cboot's own declared drc_hints.min_spacing_um of 0.50um",
+    "block 'route' is placed 0.00um from block 'csamp' (strategy: explicit), closer than csamp's own declared drc_hints.min_spacing_um of 0.50um"
+  ]
+}

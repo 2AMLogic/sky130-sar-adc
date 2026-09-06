@@ -1,0 +1,24 @@
+* NEGATIVE CONTROL, device-parameter corruption -- reference.spice with one
+* device width changed (M_SA_P W=1U -> W=4U) and connectivity, including every
+* body terminal, left completely untouched.
+*
+* Independent of reference.broken-body-tie.spice on purpose: a comparison that
+* only checked connectivity would pass this control while failing the body-tie
+* one, and one that only compared parameters would do the reverse. Both are
+* needed before "match" against reference.spice carries information.
+*
+* `klt lvs` must report **mismatch** against this file.
+*
+* Same discipline as layout/trivial-cell/reference.broken-device.spice
+* (issue #2) and layout/comparator/reference.broken-device.spice.
+.SUBCKT sampling_frontend_pwells VDD SAMPLE SAMPLEB VINP VINN VCM BOOST_P BOOST_N G_P G_N BSBOT_P BSBOT_N BPREF_P BPREF_N
+M_SA_P    BOOST_P SAMPLE  VDD     BOOST_P pfet L=0.5U  W=4U
+M_SE_P    G_P     SAMPLEB BOOST_P BOOST_P pfet L=0.15U W=1U
+M_SCP_P   BSBOT_P SAMPLEB VINP    VDD     pfet L=0.15U W=1U
+M_CMSWP_P BPREF_P SAMPLEB VCM     VDD     pfet L=0.15U W=1U
+M_INVP    SAMPLEB SAMPLE  VDD     VDD     pfet L=0.15U W=2U
+M_CMSWP_N BPREF_N SAMPLEB VCM     VDD     pfet L=0.15U W=1U
+M_SCP_N   BSBOT_N SAMPLEB VINN    VDD     pfet L=0.15U W=1U
+M_SE_N    G_N     SAMPLEB BOOST_N BOOST_N pfet L=0.15U W=1U
+M_SA_N    BOOST_N SAMPLE  VDD     BOOST_N pfet L=0.5U  W=1U
+.ENDS sampling_frontend_pwells

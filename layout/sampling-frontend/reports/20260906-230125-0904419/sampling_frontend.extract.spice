@@ -1,0 +1,73 @@
+* extracted by klt extract --deck sky130
+
+* cell gen_compose_0
+* pin BOOST_N
+* pin BOOST_P
+* pin BPREF_N
+* pin BPREF_P
+* pin SAMPLE
+* pin TOP_N
+* pin TOP_P
+* pin VCM
+* pin VDD
+* pin VINN
+* pin VINP
+* pin vsubs
+.SUBCKT gen_compose_0 BOOST_N BOOST_P BPREF_N BPREF_P SAMPLE TOP_N TOP_P VCM
++ VDD VINN VINP vsubs
+* device instance $1 r0 *1 47.595,0.5 nfet
+M$1 \$8 \$15 vsubs vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $2 r0 *1 49.885,0.5 nfet
+M$2 \$8 SAMPLE VINP vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $3 r0 *1 52.3,0.5 nfet
+M$3 \$6 \$15 vsubs vsubs nfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U PD=2.84U
+* device instance $4 r0 *1 54.715,0.5 nfet
+M$4 BPREF_P SAMPLE VCM vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $5 r0 *1 57.005,0.5 nfet
+M$5 BPREF_N SAMPLE VCM vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $6 r0 *1 59.42,0.5 nfet
+M$6 \$14 \$15 vsubs vsubs nfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U PD=2.84U
+* device instance $7 r0 *1 61.835,0.5 nfet
+M$7 \$13 SAMPLE VINN vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $8 r0 *1 64.125,0.5 nfet
+M$8 \$13 \$15 vsubs vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $9 r0 *1 66.415,0.5 nfet
+M$9 \$15 SAMPLE vsubs vsubs nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $10 r0 *1 43.015,1 nfet
+M$10 VINP \$6 TOP_P vsubs nfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $11 r0 *1 45.305,1 nfet
+M$11 VINN \$14 TOP_N vsubs nfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $12 r0 *1 2.67,0.5 pfet
+M$12 BOOST_P SAMPLE VDD BOOST_P pfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U
++ PD=2.84U
+* device instance $13 r0 *1 5.745,0.5 pfet
+M$13 \$6 \$15 BOOST_P BOOST_P pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $14 r0 *1 10.885,0.5 pfet
+M$14 \$8 \$15 VINP VDD pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $15 r0 *1 14.085,0.5 pfet
+M$15 BPREF_P \$15 VCM VDD pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $16 r0 *1 20.485,0.5 pfet
+M$16 BPREF_N \$15 VCM VDD pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $17 r0 *1 23.685,0.5 pfet
+M$17 \$13 \$15 VINN VDD pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $18 r0 *1 28.825,0.5 pfet
+M$18 \$14 \$15 BOOST_N BOOST_N pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $19 r0 *1 32.15,0.5 pfet
+M$19 BOOST_N SAMPLE VDD BOOST_N pfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U
++ PD=2.84U
+* device instance $20 r0 *1 17.285,1 pfet
+M$20 \$15 SAMPLE VDD VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $21 r0 *1 79.56,5.4 sky130_fd_pr__model__cap_mim
+C$21 \$8 BOOST_P 1.99528e-13 sky130_fd_pr__model__cap_mim
+* device instance $22 r0 *1 90.86,5.4 sky130_fd_pr__model__cap_mim
+C$22 \$13 BOOST_N 1.99528e-13 sky130_fd_pr__model__cap_mim
+* device instance $23 r0 *1 123.21,23.95 sky130_fd_pr__model__cap_mim
+C$23 BPREF_P TOP_P 4.434864e-12 sky130_fd_pr__model__cap_mim
+* device instance $24 r0 *1 171.61,23.95 sky130_fd_pr__model__cap_mim
+C$24 BPREF_N TOP_N 4.434864e-12 sky130_fd_pr__model__cap_mim
+.ENDS gen_compose_0

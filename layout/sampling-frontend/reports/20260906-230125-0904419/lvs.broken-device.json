@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "sampling_frontend.gds",
+  "reference": "reference.broken-device.spice",
+  "top": "gen_compose_0",
+  "reference_top": "SAMPLING_FRONTEND",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "mismatch",
+  "mismatch_count": 9,
+  "error_count": 7,
+  "category_counts": {
+    "device.body_unverified": 1,
+    "device.property": 5,
+    "topology": 3
+  },
+  "category_error_counts": {
+    "device.property": 5,
+    "topology": 2
+  },
+  "counts": {
+    "nets": {
+      "layout": 17,
+      "reference": 17,
+      "matched": 13
+    },
+    "devices": {
+      "layout": 24,
+      "reference": 24,
+      "matched": 23
+    },
+    "pins": {
+      "layout": 12,
+      "reference": 12,
+      "matched": 12
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "82461fd70545fc8ae9e5c5fb7c0b093bc02140174802d6d3db02464efe77d9f6",
+    "reference_sha256": "c34dbc13455351865d8550778d7289791e40949ca0fc119a784b7d1669d26c10",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "11 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "nfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.property",
+      "severity": "error",
+      "description": "matched device parameter 'w_um' differs",
+      "side": "both",
+      "net": null,
+      "device": {
+        "layout": "\\$10",
+        "reference": "_MSW_P",
+        "class": "nfet"
+      },
+      "property": {
+        "name": "w_um",
+        "layout": 2.0,
+        "reference": 3.0
+      },
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.property",
+      "severity": "error",
+      "description": "matched device parameter 'as' differs",
+      "side": "both",
+      "net": null,
+      "device": {
+        "layout": "\\$10",
+        "reference": "_MSW_P",
+        "class": "nfet"
+      },
+      "property": {
+        "name": "as",
+        "layout": 0.94,
+        "reference": 0.0
+      },
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.property",
+      "severity": "error",
+      "description": "matched device parameter 'ad' differs",
+      "side": "both",
+      "net": null,
+      "device": {
+        "layout": "\\$10",
+        "reference": "_MSW_P",
+        "class": "nfet"
+      },
+      "property": {
+        "name": "ad",
+        "layout": 0.94,
+        "reference": 0.0
+      },
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.property",
+      "severity": "error",
+      "description": "matched device parameter 'ps' differs",
+      "side": "both",
+      "net": null,
+      "device": {
+        "layout": "\\$10",
+        "reference": "_MSW_P",
+        "class": "nfet"
+      },
+      "property": {
+        "name": "ps",
+        "layout": 4.94,
+        "reference": 0.0
+      },
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.property",
+      "severity": "error",
+      "description": "matched device parameter 'pd' differs",
+      "side": "both",
+      "net": null,
+      "device": {
+        "layout": "\\$10",
+        "reference": "_MSW_P",
+        "class": "nfet"
+      },
+      "property": {
+        "name": "pd",
+        "layout": 4.94,
+        "reference": 0.0
+      },
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "nets were paired despite a name/identity conflict",
+      "side": "both",
+      "net": {
+        "layout": "\\$6",
+        "reference": "G_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "nets were paired despite a name/identity conflict",
+      "side": "both",
+      "net": {
+        "layout": "vsubs",
+        "reference": "GND"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BOOST_N",
+      "reference": "BOOST_N",
+      "pin": true
+    },
+    {
+      "layout": "BOOST_P",
+      "reference": "BOOST_P",
+      "pin": true
+    },
+    {
+      "layout": "BPREF_N",
+      "reference": "BPREF_N",
+      "pin": true
+    },
+    {
+      "layout": "BPREF_P",
+      "reference": "BPREF_P",
+      "pin": true
+    },
+    {
+      "layout": "\\$13",
+      "reference": "BSBOT_N",
+      "pin": false
+    },
+    {
+      "layout": "\\$8",
+      "reference": "BSBOT_P",
+      "pin": false
+    },
+    {
+      "layout": "\\$14",
+      "reference": "G_N",
+      "pin": false
+    },
+    {
+      "layout": "SAMPLE",
+      "reference": "SAMPLE",
+      "pin": true
+    },
+    {
+      "layout": "\\$15",
+      "reference": "SAMPLEB",
+      "pin": false
+    },
+    {
+      "layout": "TOP_N",
+      "reference": "TOP_N",
+      "pin": true
+    },
+    {
+      "layout": "VCM",
+      "reference": "VCM",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VINN",
+      "reference": "VINN",
+      "pin": true
+    }
+  ]
+}
