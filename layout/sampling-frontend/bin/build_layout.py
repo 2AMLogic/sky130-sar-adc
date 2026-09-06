@@ -105,7 +105,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
+from _geometry_common import Rect as _Rect  # noqa: E402
 from gen_blocks import (  # noqa: E402
     CAP_DEVICES,
     DOMAIN_TAP_NET,
@@ -127,8 +129,6 @@ L_VIA2 = (69, 44)
 L_MET3 = (70, 20)
 L_VIA3 = (70, 44)
 L_MET4 = (71, 20)
-
-DBU = 1000  # nm per um
 
 # --- rule-derived geometry (sky130 deck thresholds + margin) -----------------
 WIRE_UM = 0.30  # met1/met2 wire + landing-pad width (m1.1/m2.1 minimum 0.14)
@@ -263,23 +263,18 @@ PIN_NETS = (
 INTERNAL_BODY_TIE_LABELS = ("BOOST_P", "BOOST_N")
 
 
-def nm(value_um: float) -> int:
-    return int(round(value_um * DBU))
+class Rect(_Rect):
+    """An axis-aligned rectangle in integer nanometres.
 
+    ``__slots__``, ``__init__``, ``um()``, ``centred()`` and ``as_um()`` are
+    the shared shell inherited from `layout/bin/_geometry_common.py`;
+    ``hwire()``/``vwire()`` below are this sub-block's own wiring extension
+    (verbatim from `layout/sampling-frontend-wells/bin/build_layout.py`,
+    whose own recipe this module builds on top of -- see this module's
+    docstring).
+    """
 
-class Rect:
-    __slots__ = ("x0", "y0", "x1", "y1")
-
-    def __init__(self, x0: int, y0: int, x1: int, y1: int) -> None:
-        self.x0, self.y0, self.x1, self.y1 = x0, y0, x1, y1
-
-    @classmethod
-    def um(cls, x0: float, y0: float, x1: float, y1: float) -> "Rect":
-        return cls(nm(x0), nm(y0), nm(x1), nm(y1))
-
-    @classmethod
-    def centred(cls, cx: float, cy: float, w: float, h: float) -> "Rect":
-        return cls(nm(cx - w / 2), nm(cy - h / 2), nm(cx + w / 2), nm(cy + h / 2))
+    __slots__ = ()
 
     @classmethod
     def hwire(cls, xa: float, xb: float, y: float, width: float = WIRE_UM) -> "Rect":
@@ -290,9 +285,6 @@ class Rect:
     def vwire(cls, x: float, ya: float, yb: float, width: float = WIRE_UM) -> "Rect":
         lo, hi = (ya, yb) if ya <= yb else (yb, ya)
         return cls.um(x - width / 2, lo - width / 2, x + width / 2, hi + width / 2)
-
-    def as_um(self) -> list[float]:
-        return [self.x0 / DBU, self.y0 / DBU, self.x1 / DBU, self.y1 / DBU]
 
 
 class BuildError(RuntimeError):
