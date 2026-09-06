@@ -237,17 +237,29 @@ placing all five sub-block layouts
   once flattened for extraction: layout=867/reference=867 devices,
   matched=812, 23 pins promoted against an expected 19). Filed generically
   at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513)
-  (still **open** as of this pass) per this repo's friction protocol — the
-  same class of gap klayout-tools#1385/#1390 already fixed for a single
-  placed-and-routed macro, recurring one composition level up.
+  per this repo's friction protocol — the same class of gap
+  klayout-tools#1385/#1390 already fixed for a single placed-and-routed
+  macro, recurring one composition level up. **Update this pass**:
+  klayout-tools#1513 **closed** 2026-09-06T06:45:36Z, fixed by
+  klayout-tools#1515 (merged the same minute) adding `--pin-source-cells`, a
+  new `klt extract`/`klt lvs` mechanism that resolves a composed assembly's
+  top-level ports by physical label position rather than string matching —
+  exactly this gap. **Not yet consumable**: PyPI's `klayout-tools` package
+  still tops out at 0.4.0 (`pip index versions klayout-tools` /
+  `pypi.org/pypi/klayout-tools/json`, checked 2026-09-06), the same version
+  already pinned in `layout/requirements.txt` — the fix is merged to
+  `klayout-tools`'s `main` but has not been cut into a release yet.
 
 **#103 itself remains open, `loom:blocked`** — the Curator's 2026-09-06
 dependency re-check confirmed the block reason changed from "no assembly
 exists" to "assembly exists, DRC-clean and connectivity-verified, but an
 automated LVS **match** verdict is blocked on the upstream klayout-tools#1513
 pin-declaration gap," and no post-layout PVT re-simulation of the assembled
-top level has been run. This narrows, but does not close, the single largest
-gap between this design and the brief's sign-off bar (§4, §7).
+top level has been run. The upstream gap itself has since closed (fixed,
+unreleased — see above), narrowing the block reason one step further to
+"waiting on a `klayout-tools` release newer than the pinned 0.4.0," not an
+open upstream question. This narrows, but does not close, the single
+largest gap between this design and the brief's sign-off bar (§4, §7).
 
 ---
 
@@ -298,7 +310,7 @@ audience with an explicit Challenge-brief verdict column.
 | Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260906-043420-662a84d/compose.json`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/compose.json) |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
 | **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — a top-level layout now exists (PR #174) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; blocked on #103 (`loom:blocked`, now for the LVS-match reason below, not a missing assembly), under epic #25 | [`layout/sar-adc-top/reports/20260906-043420-662a84d/record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md) |
-| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, LVS UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS. `klt lvs`: mismatch (867/867 devices, matched 812; 23 pins promoted vs. 19 expected) — root-caused as an upstream `klt extract` declared-pin-promotion gap, not a routing defect (net-by-net connectivity independently verified correct via unfiltered extraction); filed at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513) (open). #103 remains `loom:blocked` pending that upstream fix | [`layout/sar-adc-top/reports/20260906-043420-662a84d/record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
+| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, LVS UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS. `klt lvs`: mismatch (867/867 devices, matched 812; 23 pins promoted vs. 19 expected) — root-caused as an upstream `klt extract` declared-pin-promotion gap, not a routing defect (net-by-net connectivity independently verified correct via unfiltered extraction); filed at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513), which **closed 2026-09-06** fixed by klayout-tools#1515 (`--pin-source-cells`) but is not yet consumable — PyPI still tops out at 0.4.0, the version already pinned in `layout/requirements.txt`. #103 remains `loom:blocked`, now pending a `klayout-tools` release rather than an open upstream fix | [`layout/sar-adc-top/reports/20260906-043420-662a84d/record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
 
 ### Reproducing this table
 
@@ -441,19 +453,35 @@ tracker already owns.
    generic net labels collide with this design's ports once flattened).
    Filed generically at
    [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513)
-   (open as of this pass) per this repo's friction protocol — full trace in
+   per this repo's friction protocol — full trace in
    `layout/sar-adc-top/README.md`'s "LVS pin declaration blocker" section.
-   **#103 itself remains open, `loom:blocked`, for this new reason** (the
-   Curator's 2026-09-06 re-check confirmed the block reason moved from "no
-   assembly exists" to "assembly exists, DRC-clean and
-   connectivity-verified, but an automated LVS match is blocked on
-   klayout-tools#1513") — re-check once that upstream issue closes. All four
-   original sub-block issues, #165, #103, and PR #174 roll up under epic #25
-   / tracker #23. **#103 is still the blocker for the brief's "post-layout
-   PVT simulation and DRC/LVS-clean GDS in-repo" acceptance criterion** —
-   DRC-clean is now met, LVS-clean is not, and no post-layout PVT
-   re-simulation of the assembled top level has been run; that criterion is
-   marked PARTIAL/UNMET in §4, not fabricated or optimistically assumed.
+   **Update this pass**: klayout-tools#1513 **closed** 2026-09-06T06:45:36Z,
+   fixed by klayout-tools#1515 (merged the same minute), which adds
+   `--pin-source-cells` — a `klt extract`/`klt lvs` mechanism that resolves a
+   composed assembly's top-level ports by physical label position instead of
+   string-matching internal net labels, exactly the mismatch this issue hit.
+   **Not yet actionable**: PyPI's `klayout-tools` package still tops out at
+   0.4.0 (checked 2026-09-06 via `pip index versions klayout-tools` and
+   `pypi.org/pypi/klayout-tools/json`) — the same version already pinned in
+   `layout/requirements.txt` — so the fix is merged to `main` upstream but
+   not yet in a cuttable release; bumping the pin today would not pick it up.
+   **#103 itself remains open, `loom:blocked`, for a narrower reason than
+   before** (the Curator's 2026-09-06 re-checks tracked this in two steps:
+   first confirming the block reason moved from "no assembly exists" to
+   "assembly exists, DRC-clean and connectivity-verified, but an automated
+   LVS match is blocked on klayout-tools#1513," then — once #1513 itself
+   closed — confirming the block is "not yet actionable" rather than
+   resolved, since the fix has no release to consume yet) — re-check once a
+   `klayout-tools` release `> 0.4.0` publishes, then bump the pin and re-run
+   `layout/sar-adc-top/`'s `klt lvs` with `--pin-source-cells` naming the two
+   placed-and-routed macro sub-cells (`sar_sequencer`, `seln_inverters`) to
+   confirm it actually clears the mismatch. All four original sub-block
+   issues, #165, #103, and PR #174 roll up under epic #25 / tracker #23.
+   **#103 is still the blocker for the brief's "post-layout PVT simulation
+   and DRC/LVS-clean GDS in-repo" acceptance criterion** — DRC-clean is now
+   met, LVS-clean is not, and no post-layout PVT re-simulation of the
+   assembled top level has been run; that criterion is marked PARTIAL/UNMET
+   in §4, not fabricated or optimistically assumed.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
