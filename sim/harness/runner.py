@@ -213,9 +213,9 @@ def write_evidence(
     temps_run = sorted({p.temp_c for p in result.points})
     supplies_run = sorted({p.supply_v for p in result.points})
     a(
-        f"- **Corner matrix run**: process={process_corners_run}, "
-        f"temperature_c={temps_run}, supply_v={supplies_run} "
-        f"({len(result.points)} points)"
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(result.points)
+        )
     )
     if note:
         a(f"- **Note**: {note}")
