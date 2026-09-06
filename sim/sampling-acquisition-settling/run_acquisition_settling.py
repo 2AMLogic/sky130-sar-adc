@@ -422,8 +422,7 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     across process/temperature/supply.
     """
     pdk.resolve_or_raise()
-    supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
-    grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
+    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
 
     points: list[dict] = []
     for process_corner, temp_c, supply_v in grid:

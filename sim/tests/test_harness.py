@@ -115,6 +115,22 @@ class TestCorners(unittest.TestCase):
         self.assertEqual(len(grid), len(set(grid)))
         self.assertEqual(grid[0], ("tt", 27, 1.8))
 
+    def test_ratified_oat_grid_matches_manual_supply_points_plus_oat_grid_chain(self):
+        # ratified_oat_grid() is the "tt"/27C-baseline supply_points() +
+        # oat_grid() chain every --corners driver hand-repeated (issue #211)
+        # -- must return byte-identical grids to that manual two-call chain.
+        process_corners = ["tt", "ss", "ff", "sf", "fs"]
+        temps_c = [-40, 27, 125]
+        nominal_v = 1.8
+        tolerance = 0.10
+
+        supply_pts = corners.supply_points(nominal_v, tolerance)
+        expected = corners.oat_grid(
+            "tt", 27.0, nominal_v, process_corners, temps_c, supply_pts
+        )
+        actual = corners.ratified_oat_grid(nominal_v, tolerance, process_corners, temps_c)
+        self.assertEqual(actual, expected)
+
 
 class TestEvidence(unittest.TestCase):
     def test_sha256_is_deterministic(self):

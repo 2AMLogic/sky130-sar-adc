@@ -519,8 +519,7 @@ def run_regen_corners(
     # re-resolves it for each point), so the call is kept, not the binding.
     pdk.resolve_or_raise()
     sweep = vindiff_sweep_mv or CORNERS_VINDIFF_SWEEP_MV
-    supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
-    grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
+    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
     points: list[RegenCornerPoint] = []
     for process_corner, temp_c, supply_v in grid:
         cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
@@ -1353,8 +1352,7 @@ def run_noise_corners(quiet: bool = False) -> tuple[list[NoiseResult], str]:
     process corners), substantiating the ratified comparator input-referred
     noise-budget row rather than the single nominal-point record alone."""
     info = pdk.resolve_or_raise()
-    supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
-    grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
+    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
     results: list[NoiseResult] = []
     for process_corner, temp_c, supply_v in grid:
         result, _ = run_noise(corner=process_corner, temp_c=temp_c, supply_v=supply_v, quiet=quiet)
