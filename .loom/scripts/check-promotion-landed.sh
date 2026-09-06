@@ -58,9 +58,12 @@
 # Exit codes:
 #   0  = OK (no APPROVED verdict comment; loom:issue already present; or
 #        loom:issue is currently absent but the label timeline shows it WAS
-#        applied after the newest APPROVED comment and the issue has since
-#        legitimately progressed further, e.g. loom:issue -> loom:building or
-#        -> loom:blocked — nothing to reconcile in any of these cases, #6933).
+#        applied in association with the newest APPROVED comment (after it by
+#        any margin, or within BEFORE_WINDOW_SECONDS before it — matching
+#        Step 3b's normal write-then-verify ordering, #164) and the issue has
+#        since legitimately progressed further, e.g. loom:issue ->
+#        loom:building or -> loom:blocked — nothing to reconcile in any of
+#        these cases, #6933/#164).
 #        ALSO used for DECISION=ALREADY_ESCALATED (tier unrecoverable, but the
 #        issue already carries loom:operator-only from a prior run — a human
 #        already owns it, nothing further to do, #6942).
@@ -145,8 +148,22 @@ HAS_ISSUE_LABEL="$(jq -e '.labels[] | select(.name=="loom:issue")' <<<"$ISSUE_JS
 # Newest comment (by createdAt) whose body contains the APPROVED verdict
 # marker text Step 3b's template writes — compact JSON (`-c`, not `-r`) since
 # this is an object, not a scalar.
+#
+# EXCLUDES this script's own reconciliation comments (`<!-- champion:
+# promotion-landed-* -->`, posted below on the COMPLETED/ESCALATED paths):
+# their prose quotes the phrase "Champion Review: APPROVED" while describing
+# what happened, which otherwise makes them match this same `contains()`
+# filter. Left unexcluded, a re-run of this script after it already posted
+# one of its own comments picks THAT comment as the "newest APPROVED verdict"
+# instead of the genuine one — this is exactly what happened on issue #103
+# (2026-09-06): pass 2 selected pass 1's own `champion:promotion-landed-
+# completed` comment as APPROVED_COMMENT, which shifted APPROVED_AT forward
+# past the genuine verdict and broke the timeline-confirmation check below
+# (#164).
 APPROVED_COMMENT="$(jq -c '
-  [.comments[] | select(.body != null and (.body | contains("Champion Review: APPROVED")))]
+  [.comments[] | select(.body != null
+    and (.body | contains("Champion Review: APPROVED"))
+    and ((.body | contains("<!-- champion:promotion-landed")) | not))]
   | sort_by(.createdAt)
   | last // empty
 ' <<<"$ISSUE_JSON" 2>/dev/null || true)"
@@ -165,9 +182,9 @@ fi
 # issue has SINCE legitimately progressed further (loom:issue -> loom:building,
 # or -> loom:blocked), which looks identical to a lost write from labels alone
 # when judged from the current label set only. Before concluding MISMATCH,
-# check the label timeline for a `labeled loom:issue` event that happened
-# AFTER the newest APPROVED comment: if one exists, the promotion landed and
-# this is not #6862's failure mode at all (#6933).
+# check the label timeline for a `labeled loom:issue` event associated with
+# the newest APPROVED comment: if one exists, the promotion landed and this
+# is not #6862's failure mode at all (#6933).
 APPROVED_AT="$(jq -r '.createdAt // empty' <<<"$APPROVED_COMMENT")"
 
 TIMELINE_JSON="$(gh api "repos/{owner}/{repo}/issues/$ISSUE/timeline" --paginate 2>"$GH_STDERR")" || {
@@ -185,9 +202,51 @@ LATEST_LABELED_AT="$(jq -r '
   | last // empty
 ' <<<"$TIMELINE_JSON" 2>/dev/null || true)"
 
-if [[ -n "$LATEST_LABELED_AT" && -n "$APPROVED_AT" && "$LATEST_LABELED_AT" > "$APPROVED_AT" ]]; then
-  emit "OK" "loom:issue was applied after the APPROVED comment and the issue has since progressed — nothing to reconcile"
-  exit 0
+# "Associated with" the newest APPROVED comment means one of:
+#   (a) the label event is AFTER the comment, by any margin — the shape a
+#       LATER backstop reconciliation produces (this script's own COMPLETED
+#       path applies loom:issue only after the verdict comment already
+#       exists, #6862); or
+#   (b) the label event is AT OR SHORTLY BEFORE the comment — the shape
+#       Step 3b's normal write-then-verify flow produces: `promote_labels`
+#       applies loom:issue, its own read-back CONFIRMS the write landed, and
+#       only then does it post the verdict comment (see champion-issue-
+#       promo.md's Step 3b) — so in the common case the label event
+#       legitimately precedes the comment by however long that read-back
+#       took (observed: 16s on issue #103), not the other way around. A
+#       strict "must be after" comparison (the pre-#164 behavior) can never
+#       match this — the single most common shape — which is why the OK
+#       short-circuit did not fire for #103 (#164).
+#
+# (b) is bounded by BEFORE_WINDOW_SECONDS so a `labeled loom:issue` event
+# from a much older, unrelated approval cycle (regression tests (n)/(p): a
+# label event 1 day / 9 days before a brand-new APPROVED comment) still
+# falls through to MISMATCH rather than being mistaken for evidence this
+# verdict's write landed.
+BEFORE_WINDOW_SECONDS=120
+
+# Portable ISO-8601 -> epoch-seconds: GNU `date -d` first, BSD/macOS `date -j
+# -f` fallback (matches the existing dual-path idiom in
+# check-evaluating-staleness.sh, judge-fallback-guard.sh, sweep-run-registry.sh).
+iso_to_epoch() {
+  date -u -d "$1" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null || echo ""
+}
+
+if [[ -n "$LATEST_LABELED_AT" && -n "$APPROVED_AT" ]]; then
+  if [[ "$LATEST_LABELED_AT" > "$APPROVED_AT" ]]; then
+    emit "OK" "loom:issue was applied after the APPROVED comment and the issue has since progressed — nothing to reconcile"
+    exit 0
+  fi
+
+  LABEL_EPOCH="$(iso_to_epoch "$LATEST_LABELED_AT")"
+  APPROVED_EPOCH="$(iso_to_epoch "$APPROVED_AT")"
+  if [[ -n "$LABEL_EPOCH" && -n "$APPROVED_EPOCH" ]]; then
+    GAP=$((APPROVED_EPOCH - LABEL_EPOCH))
+    if [[ "$GAP" -ge 0 && "$GAP" -le "$BEFORE_WINDOW_SECONDS" ]]; then
+      emit "OK" "loom:issue was applied ${GAP}s before the APPROVED comment (write-then-verify) and the issue has since progressed — nothing to reconcile"
+      exit 0
+    fi
+  fi
 fi
 
 # --- MISMATCH: an APPROVED verdict exists but loom:issue never landed --------
