@@ -105,13 +105,6 @@ import argparse
 import json
 from pathlib import Path
 
-DBU = 1000  # nm per um
-
-
-def nm(v: float) -> int:
-    return int(round(v * DBU))
-
-
 # --------------------------------------------------------------------------- #
 # sky130 layer table (same numbering every other layout/ flow in this repo
 # uses -- klayout_tools.decks.sky130, klt==0.4.0).
