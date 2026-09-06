@@ -261,6 +261,24 @@ unreleased — see above), narrowing the block reason one step further to
 open upstream question. This narrows, but does not close, the single
 largest gap between this design and the brief's sign-off bar (§4, §7).
 
+**Update this pass (2026-09-06)**: the composed layout above has since been
+re-verified against a real geometry change, not just re-stated. Issue #175
+(DR-004 Amendment A, §7 Item 3) changed `design/comparator.sch`'s device
+count (9 → 11), which invalidated `layout/comparator/`'s own LVS match;
+issue #180 closed via PR #188 (merged 2026-09-06T12:27:03Z), re-drawing that
+sub-block against the amended topology and re-establishing its own LVS
+match, then re-running `layout/sar-adc-top/`'s full flow against the updated
+geometry. The outcome is unchanged in kind, restated with fresh numbers: DRC
+stays clean, connectivity stays independently verified correct, and `klt
+lvs` still mismatches for the identical upstream reason (now
+layout=869/reference=869 devices, matched=794, 23 pins promoted vs. 19
+expected — the small count shift from 867/867/812 tracks the comparator's
+own +2-device change, not a new or different defect). See
+[`layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md)
+(`reports/LATEST`), which supersedes the `20260906-043420-662a84d` record
+cited above for the pre-#180 geometry. §4's rows below now cite this newer
+record.
+
 ---
 
 ## 4. Target specification at Sky130's ratified 1.8 V rail
@@ -307,10 +325,10 @@ audience with an explicit Challenge-brief verdict column.
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only, DOES NOT MEET even the un-ratified DR-007 candidate**: 8.491 bit (mean-case CDAC mismatch) meets the DR-007 candidate but 7.749 bit (worst-case) does not; neither number is graded against a ratified line because none exists | [`sim/enob-estimate/records/20260828-005033-0c70212.md`](../../sim/enob-estimate/records/20260828-005033-0c70212.md) |
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim; not re-evaluated against DR-007's wider ±2.0 LSB candidate in this document (no new campaign run here) | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
-| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260906-043420-662a84d/compose.json`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/compose.json) |
+| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². Unchanged by issue #180's comparator re-draw (re-verified against the latest report below). This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json) |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — a top-level layout now exists (PR #174) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; blocked on #103 (`loom:blocked`, now for the LVS-match reason below, not a missing assembly), under epic #25 | [`layout/sar-adc-top/reports/20260906-043420-662a84d/record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md) |
-| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, LVS UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS. `klt lvs`: mismatch (867/867 devices, matched 812; 23 pins promoted vs. 19 expected) — root-caused as an upstream `klt extract` declared-pin-promotion gap, not a routing defect (net-by-net connectivity independently verified correct via unfiltered extraction); filed at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513), which **closed 2026-09-06** fixed by klayout-tools#1515 (`--pin-source-cells`) but is not yet consumable — PyPI still tops out at 0.4.0, the version already pinned in `layout/requirements.txt`. #103 remains `loom:blocked`, now pending a `klayout-tools` release rather than an open upstream fix | [`layout/sar-adc-top/reports/20260906-043420-662a84d/record.md`](../../layout/sar-adc-top/reports/20260906-043420-662a84d/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — a top-level layout now exists (PR #174, re-verified against the amended comparator geometry by PR #188) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; blocked on #103 (`loom:blocked`, now for the LVS-match reason below, not a missing assembly), under epic #25 | [`layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md) |
+| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, LVS UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS, re-confirmed after issue #180's comparator re-draw. `klt lvs`: mismatch (869/869 devices, matched 794; 23 pins promoted vs. 19 expected — the device/matched-count shift from the prior record's 867/867/812 tracks the comparator's own +2-device topology change, not a new defect) — root-caused as an upstream `klt extract` declared-pin-promotion gap, not a routing defect (net-by-net connectivity independently verified correct via unfiltered extraction); filed at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513), which **closed 2026-09-06** fixed by klayout-tools#1515 (`--pin-source-cells`) but is not yet consumable — PyPI still tops out at 0.4.0, the version already pinned in `layout/requirements.txt`. #103 remains `loom:blocked`, now pending a `klayout-tools` release rather than an open upstream fix | [`layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
 
 ### Reproducing this table
 
@@ -482,6 +500,25 @@ tracker already owns.
    met, LVS-clean is not, and no post-layout PVT re-simulation of the
    assembled top level has been run; that criterion is marked PARTIAL/UNMET
    in §4, not fabricated or optimistically assumed.
+
+   **Update this pass (2026-09-06, following issue #180's comparator
+   re-draw)**: `layout/sar-adc-top/` was re-verified against the amended
+   comparator geometry (11-device topology, DR-004 Amendment A) in the same
+   PR (#188) that closed #180, minting a fresh record that supersedes
+   `reports/20260906-043420-662a84d/`:
+   [`layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md)
+   (`reports/LATEST` now points here). Verdicts are unchanged in kind —
+   `klt drc` clean (0 violations), connectivity independently verified
+   net-by-net correct (same one net-naming artifact on `CLK`, still not a
+   real short/open), `klt lvs` still a mismatch for the same upstream
+   pin-declaration reason (devices layout=869/reference=869, matched=794;
+   23 pins promoted vs. 19 expected — the small device/matched-count shift
+   from the prior record's 867/867/812 is the comparator's own +2-device
+   topology change (9 → 11) propagating through the composed count, not a
+   new or different defect). #103 itself remains open/`loom:blocked`, still
+   waiting on a `klayout-tools` release newer than the PyPI-pinned 0.4.0 to
+   consume klayout-tools#1515's `--pin-source-cells` fix — unchanged by this
+   update.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
@@ -571,9 +608,25 @@ tracker already owns.
    `noise-corners`) was re-run against the amended device set, each minting
    a new record that supersedes its pre-amendment predecessor (Item 2's
    citation above is the `regen-corners` result: 9/9 reset-integrity
-   controls now HELD). `layout/comparator/`'s LVS match is invalidated by
-   this device-level change and is **not** re-drawn in this pass — tracked
-   separately as issue #180.
+   controls now HELD). `layout/comparator/`'s LVS match, invalidated by that
+   device-level change, is **fixed as of this pass** — issue #180 closed via
+   PR #188 (merged 2026-09-06T12:27:03Z): the sub-block was re-drawn against
+   the amended 11-device topology (a sixth `klt gen` block, `rstd`, for the
+   new `M_RST_DIP`/`M_RST_DIN` CLK-gated PMOS precharge devices, plus
+   `DIP`/`DIN` added to the floorplan/routing), and its own LVS **match** is
+   re-established: 11/11 devices, 10/10 nets, 7/7 pins matched, both
+   negative controls (device-parameter and topology corruption) still report
+   mismatch as intended
+   ([`layout/comparator/reports/20260906-113406-2d66a6a/record.md`](../../layout/comparator/reports/20260906-113406-2d66a6a/record.md)).
+   `layout/sar-adc-top/` (which composes this sub-block) was re-verified
+   against the updated geometry in the same PR — see the updated Item 1
+   above for that record's citation and figures. **New, non-gating finding
+   from the same PR, not this criterion's concern**: a PEX re-run over the
+   new geometry found the extracted-side gain sign-flipped vs. the schematic
+   side for this topology, most likely a pick-off-timing calibration
+   artifact from the pre-#175 topology; flagged rather than resolved, and
+   tracked separately as issue #187 — it does not bear on LVS/DRC cleanliness
+   or on any spec row graded in §4.
 4. **ENOB / INL-DNL target values are proposed, not ratified.**
    [DR-007](../../spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md)
    proposes revised, evidence-derived candidates (ENOB > 7.5/8.0 bit,
