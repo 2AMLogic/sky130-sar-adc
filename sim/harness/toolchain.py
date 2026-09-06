@@ -156,6 +156,34 @@ def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
     return output
 
 
+def read_wrdata_csv(path: Path, n_vectors: int) -> list[list[float]]:
+    """Parse an ngspice `wrdata` output file: one row per timestep, with
+    each requested vector contributing its OWN (time, value) column pair --
+    ngspice repeats the time column once per vector rather than sharing a
+    single time column (verified empirically: `wrdata f.csv v(a) v(b) v(c)`
+    writes 2*3=6 columns per row, `time0 a time1 b time2 c`, not 1+3=4).
+    Returns `n_vectors + 1` lists: the shared time axis (taken from the
+    first vector's own time column) first, then one value list per
+    requested vector, in the order they were named in the `wrdata`
+    command."""
+    series: list[list[float]] = [[] for _ in range(n_vectors + 1)]
+    expected_cols = 2 * n_vectors
+    for line in path.read_text().splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        try:
+            vals = [float(x) for x in parts]
+        except ValueError:
+            continue
+        if len(vals) < expected_cols:
+            continue
+        series[0].append(vals[0])
+        for i in range(n_vectors):
+            series[i + 1].append(vals[2 * i + 1])
+    return series
+
+
 def _xschem_version() -> str | None:
     if shutil.which("xschem") is None:
         return None

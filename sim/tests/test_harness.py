@@ -643,6 +643,85 @@ class TestPdkResolve(unittest.TestCase):
             self.assertEqual(info.error, "")
 
 
+class TestPdkResolveOrRaise(unittest.TestCase):
+    """resolve_or_raise() -- the resolve()-or-RuntimeError helper shared by
+    sim/comparator-decision/run.py and layout/comparator/pex/regen_probe.py
+    (issue #195), previously defined identically in both."""
+
+    def _resolve_with_root(self, root: Path) -> pdk.PdkInfo:
+        with mock.patch.dict(os.environ, {"PDK_ROOT": str(root), "PDK": "sky130A"}):
+            return pdk.resolve_or_raise()
+
+    def test_missing_pdk_raises_runtime_error_with_resolve_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(RuntimeError) as ctx:
+                self._resolve_with_root(Path(tmp))
+            self.assertIn("no PDK variant directory", str(ctx.exception))
+
+    def test_fully_present_pdk_returns_the_resolved_info(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = pdk.load_pdk_json()
+            variant_dir = Path(tmp) / "sky130A"
+            ngspice_lib = variant_dir / cfg["ngspice_lib"]
+            ngspice_lib.parent.mkdir(parents=True)
+            ngspice_lib.write_text("")
+
+            info = self._resolve_with_root(Path(tmp))
+            self.assertTrue(info.found)
+            self.assertEqual(info.error, "")
+
+
+class TestReadWrdataCsv(unittest.TestCase):
+    """toolchain.read_wrdata_csv() -- the ngspice `wrdata` CSV parser
+    shared by sim/comparator-decision/run.py and
+    layout/comparator/pex/regen_probe.py (issue #195), previously defined
+    identically in both."""
+
+    def test_parses_repeated_time_column_per_vector(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "out.csv"
+            # 2 vectors -> 4 columns per row: time0 outp time1 outn
+            csv_path.write_text(
+                "0.0 0.9 0.0 0.9\n"
+                "1e-9 1.1 1e-9 0.7\n"
+                "2e-9 1.7 2e-9 0.1\n"
+            )
+            t, outp, outn = toolchain.read_wrdata_csv(csv_path, 2)
+            self.assertEqual(t, [0.0, 1e-9, 2e-9])
+            self.assertEqual(outp, [0.9, 1.1, 1.7])
+            self.assertEqual(outn, [0.9, 0.7, 0.1])
+
+    def test_skips_blank_and_non_numeric_lines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "out.csv"
+            csv_path.write_text(
+                "\n"
+                "Values in table:\n"
+                "0.0 0.5 0.0 0.5\n"
+                "\n"
+                "1e-9 0.6 1e-9 0.4\n"
+            )
+            t, outp, outn = toolchain.read_wrdata_csv(csv_path, 2)
+            self.assertEqual(t, [0.0, 1e-9])
+            self.assertEqual(outp, [0.5, 0.6])
+            self.assertEqual(outn, [0.5, 0.4])
+
+    def test_short_rows_below_expected_columns_are_dropped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "out.csv"
+            # expected_cols = 2*3 = 6; a stray 4-column row must be skipped,
+            # not misread as a valid (but wrong) row.
+            csv_path.write_text(
+                "0.0 0.1 0.0 0.1\n"
+                "1e-9 0.2 1e-9 0.3 1e-9 0.4\n"
+            )
+            t, a_vec, b_vec, c_vec = toolchain.read_wrdata_csv(csv_path, 3)
+            self.assertEqual(t, [1e-9])
+            self.assertEqual(a_vec, [0.2])
+            self.assertEqual(b_vec, [0.3])
+            self.assertEqual(c_vec, [0.4])
+
+
 class TestPdkResolvedCommit(unittest.TestCase):
     """pdk.resolved_commit() (display) vs. resolved_commit_verified()
     (fail-closed gate input) -- issue #8: these used to be the same

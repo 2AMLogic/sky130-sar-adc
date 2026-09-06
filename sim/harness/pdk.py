@@ -114,6 +114,20 @@ def resolved_commit(info: PdkInfo) -> str:
     return info.open_pdks_commit_expected + " (unverified -- non-volare layout)"
 
 
+def resolve_or_raise() -> PdkInfo:
+    """resolve(), raising RuntimeError instead of returning an unfound
+    PdkInfo. For callers (e.g. sim/comparator-decision/run.py's and
+    layout/comparator/pex/regen_probe.py's driver functions) that treat an
+    unresolvable PDK as a hard error rather than something they can report
+    a CLI exit code for themselves -- see toolchain.check_env() / each
+    script's own `--check-env` handling for the exit-code convention used
+    where a graceful, non-raising report is wanted instead."""
+    info = resolve()
+    if not info.found:
+        raise RuntimeError(f"PDK not resolvable: {info.error}")
+    return info
+
+
 def print_env(info: PdkInfo) -> str:
     """Eval-able shell export lines, for `source sim/env.sh`."""
     return f'export PDK_ROOT="{info.root}"\nexport PDK="{info.variant}"\n'

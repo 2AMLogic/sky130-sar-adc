@@ -102,41 +102,6 @@ def _dut_lines() -> str:
     return DUT_FRAGMENT.read_text()
 
 
-def _pdk_info() -> pdk.PdkInfo:
-    info = pdk.resolve()
-    if not info.found:
-        raise RuntimeError(f"PDK not resolvable: {info.error}")
-    return info
-
-
-def _read_wrdata_csv(path: Path, n_vectors: int) -> list[list[float]]:
-    """Parse an ngspice `wrdata` output file: one row per timestep, with
-    each requested vector contributing its OWN (time, value) column pair --
-    ngspice repeats the time column once per vector rather than sharing a
-    single time column (verified empirically: `wrdata f.csv v(a) v(b) v(c)`
-    writes 2*3=6 columns per row, `time0 a time1 b time2 c`, not 1+3=4).
-    Returns `n_vectors + 1` lists: the shared time axis (taken from the
-    first vector's own time column) first, then one value list per
-    requested vector, in the order they were named in the `wrdata`
-    command."""
-    series: list[list[float]] = [[] for _ in range(n_vectors + 1)]
-    expected_cols = 2 * n_vectors
-    for line in path.read_text().splitlines():
-        parts = line.split()
-        if not parts:
-            continue
-        try:
-            vals = [float(x) for x in parts]
-        except ValueError:
-            continue
-        if len(vals) < expected_cols:
-            continue
-        series[0].append(vals[0])
-        for i in range(n_vectors):
-            series[i + 1].append(vals[2 * i + 1])
-    return series
-
-
 def _run(deck_text: str, scratch_dir: Path, log_name: str) -> str:
     return toolchain.run_ngspice(deck_text, scratch_dir, log_name)
 
@@ -242,7 +207,7 @@ def run_regen_sweep(
     supply_v: float = VDD, evaluate_ns: float = EVALUATE_NS,
     probe_supply_current: bool = False,
 ) -> tuple[list[RegenPoint], str]:
-    info = _pdk_info()
+    info = pdk.resolve_or_raise()
     vindiff_sweep_mv = vindiff_sweep_mv or DEFAULT_VINDIFF_SWEEP_MV
     evaluate_start_ns = RESET_NS + RESET_TR_NS
     # The "decided" threshold tracks the rail (0.5*supply), the same fraction
@@ -264,9 +229,9 @@ def run_regen_sweep(
             log_text = _run(deck, scratch_dir, log_name)
             csv_path = scratch_dir / f"{log_name}.csv"
             if probe_supply_current:
-                t, clk, outp, outn, idd = _read_wrdata_csv(csv_path, 4)
+                t, clk, outp, outn, idd = toolchain.read_wrdata_csv(csv_path, 4)
             else:
-                t, clk, outp, outn = _read_wrdata_csv(csv_path, 3)
+                t, clk, outp, outn = toolchain.read_wrdata_csv(csv_path, 3)
                 idd = None
             sign = 1.0 if vindiff_mv >= 0 else -1.0
             regen_ns = None
@@ -549,7 +514,7 @@ def run_regen_corners(
     built from the ratified corner set (spec/target-spec.md's "Numeric rows
     -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
     process corners), at CORNERS_VINDIFF_SWEEP_MV."""
-    info = _pdk_info()
+    info = pdk.resolve_or_raise()
     sweep = vindiff_sweep_mv or CORNERS_VINDIFF_SWEEP_MV
     supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
     grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
@@ -996,7 +961,7 @@ def _pickoff_deck(
 
 
 def _pickoff_value(csv_path: Path) -> float:
-    t, outp, outn = _read_wrdata_csv(csv_path, 2)
+    t, outp, outn = toolchain.read_wrdata_csv(csv_path, 2)
     target = (RESET_NS + RESET_TR_NS + PICKOFF_NS) * 1e-9
     idx = min(range(len(t)), key=lambda i: abs(t[i] - target))
     return outp[idx] - outn[idx]
@@ -1020,7 +985,7 @@ class OffsetResult:
 def run_offset_mc(
     corner: str = "tt", temp_c: float = 27.0, seed: int = 1, n: int = 16, quiet: bool = False,
 ) -> tuple[OffsetResult, str]:
-    info = _pdk_info()
+    info = pdk.resolve_or_raise()
     mismatch_corner = corners_mod.mismatch_corner_for(corner)
     logs: dict[str, str] = {}
 
@@ -1341,7 +1306,7 @@ class NoiseResult:
 def run_noise(
     corner: str = "tt", temp_c: float = 27.0, supply_v: float = VDD, quiet: bool = False,
 ) -> tuple[NoiseResult, str]:
-    info = _pdk_info()
+    info = pdk.resolve_or_raise()
     with tempfile.TemporaryDirectory(prefix="comparator-decision-noise-") as scratch:
         scratch_dir = Path(scratch)
         log_name = "noise"
@@ -1384,7 +1349,7 @@ def run_noise_corners(quiet: bool = False) -> tuple[list[NoiseResult], str]:
     rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
     process corners), substantiating the ratified comparator input-referred
     noise-budget row rather than the single nominal-point record alone."""
-    info = _pdk_info()
+    info = pdk.resolve_or_raise()
     supply_pts = corners_mod.supply_points(VDD, SUPPLY_TOLERANCE)
     grid = corners_mod.oat_grid("tt", 27.0, VDD, PROCESS_CORNERS, TEMPS_C, supply_pts)
     results: list[NoiseResult] = []

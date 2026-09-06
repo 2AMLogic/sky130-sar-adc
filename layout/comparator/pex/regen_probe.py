@@ -97,36 +97,6 @@ RECOMMENDED_PICKOFF_NS = 1.2
 RECOMMENDED_PICKOFF_AT_NS = RESET_NS + RESET_TR_NS + RECOMMENDED_PICKOFF_NS
 
 
-def _pdk_info() -> pdk.PdkInfo:
-    info = pdk.resolve()
-    if not info.found:
-        raise RuntimeError(f"PDK not resolvable: {info.error}")
-    return info
-
-
-def _read_wrdata_csv(path: Path, n_vectors: int) -> list[list[float]]:
-    """Same parsing convention as
-    sim/comparator-decision/run.py's `_read_wrdata_csv` -- see that
-    function's docstring for why ngspice's `wrdata` repeats the time column
-    once per vector rather than sharing a single time column."""
-    series: list[list[float]] = [[] for _ in range(n_vectors + 1)]
-    expected_cols = 2 * n_vectors
-    for line in path.read_text().splitlines():
-        parts = line.split()
-        if not parts:
-            continue
-        try:
-            vals = [float(x) for x in parts]
-        except ValueError:
-            continue
-        if len(vals) < expected_cols:
-            continue
-        series[0].append(vals[0])
-        for i in range(n_vectors):
-            series[i + 1].append(vals[2 * i + 1])
-    return series
-
-
 def _run_klt_extract(gds_path: Path, out_dir: Path, info: pdk.PdkInfo) -> Path:
     """`klt extract --parasitics` on the current `reports/LATEST` layout,
     writing the extracted `.SUBCKT gen_compose_0 ...` netlist into `out_dir`
@@ -191,11 +161,12 @@ def _deck(
         ".control",
         f"tran {TRAN_STEP_NS}n {tstop_ns}n",
         # Exactly 2 vectors (OUTP, OUTN) -- must match `_run_point`'s
-        # `_read_wrdata_csv(..., 2)` call below. An earlier version of this
-        # line also wrote `v(CLK)` (3 vectors) while `_run_point` still read
-        # back only 2, which silently mis-assigned columns rather than
-        # erroring (`_read_wrdata_csv`'s `len(vals) < expected_cols` guard
-        # passed since 6 columns >= its expected 4): the "outp" series was
+        # `toolchain.read_wrdata_csv(..., 2)` call below. An earlier version
+        # of this line also wrote `v(CLK)` (3 vectors) while `_run_point`
+        # still read back only 2, which silently mis-assigned columns
+        # rather than erroring (`read_wrdata_csv`'s `len(vals) <
+        # expected_cols` guard passed since 6 columns >= its expected 4):
+        # the "outp" series was
         # actually v(CLK) and the "outn" series was actually the real
         # v(OUTP), with the true v(OUTN) column dropped entirely. That bug
         # produced a spurious, sign-flipped-looking "regeneration" signature
@@ -215,7 +186,7 @@ def _run_point(
 ) -> tuple[list[float], list[float], list[float]]:
     deck_text = _deck(dut_file, corner, temp_c, vindiff_mv, log_name, info)
     toolchain.run_ngspice(deck_text, scratch_dir, log_name)
-    t, outp, outn = _read_wrdata_csv(scratch_dir / f"{log_name}.csv", 2)
+    t, outp, outn = toolchain.read_wrdata_csv(scratch_dir / f"{log_name}.csv", 2)
     return t, outp, outn
 
 
@@ -237,7 +208,7 @@ def _pickoff_at(t: list[float], outp: list[float], outn: list[float], pickoff_ns
 
 
 def run(record: bool, quiet: bool = False) -> int:
-    info = _pdk_info()
+    info = pdk.resolve_or_raise()
 
     latest_layout_id = (REPORTS_DIR / "LATEST").read_text().strip()
     layout_dir = REPORTS_DIR / latest_layout_id
