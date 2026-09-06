@@ -26,12 +26,21 @@ Writes: layout/seln-inverters/reference/seln_inverters.lvs-reference.spice
 from __future__ import annotations
 
 import os
-import re
 import sys
-from decimal import Decimal
+from pathlib import Path
 
 LAYOUT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BLOCK_DIR = os.path.join(LAYOUT_DIR, "seln-inverters")
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
+
+from _lvs_reference_common import (  # noqa: E402
+    _extract_cdl_subckt,
+    _generalize_model,
+    _resolve_pdk_root,
+    parse_verilog_netlist,
+)
+
 DEFAULT_NETLIST = os.path.join(
     BLOCK_DIR, "requests", ".klt", "place-and-route", "seln_inverters_post_route.v"
 )
@@ -40,80 +49,6 @@ OUT_PATH = os.path.join(
 )
 
 CELL_TYPES = ("sky130_fd_sc_hd__inv_1",)
-
-_MODULE_RE = re.compile(r"^module\s+(\w+)\s*\(", re.M)
-_INSTANCE_RE = re.compile(
-    r"\b(" + "|".join(re.escape(c) for c in CELL_TYPES) + r")\s+(\w+)\s*\((.*?)\)\s*;",
-    re.S,
-)
-_PORT_CONN_RE = re.compile(r"\.\s*(\w+)\s*\(\s*([^()]*?)\s*\)")
-
-
-def parse_verilog_netlist(path: str) -> tuple[str, list[tuple[str, str, dict[str, str]]]]:
-    with open(path, encoding="utf-8") as handle:
-        text = handle.read()
-
-    module_match = _MODULE_RE.search(text)
-    if module_match is None:
-        raise SystemExit(f"generate-lvs-reference.py: no 'module' found in {path}")
-    top_name = module_match.group(1)
-
-    instances: list[tuple[str, str, dict[str, str]]] = []
-    for cell_type, inst_name, port_list_text in _INSTANCE_RE.findall(text):
-        pin_map: dict[str, str] = {}
-        for port_name, connection in _PORT_CONN_RE.findall(port_list_text):
-            connection = connection.strip()
-            if connection:
-                pin_map[port_name] = connection
-        instances.append((inst_name, cell_type, pin_map))
-
-    return top_name, instances
-
-
-def _extract_cdl_subckt(cdl_text: str, name: str) -> tuple[list[str], list[tuple]]:
-    pat = re.compile(rf"^\.SUBCKT {re.escape(name)} (.*?)\n(.*?)^\.ENDS", re.S | re.M)
-    match = pat.search(cdl_text)
-    if match is None:
-        raise SystemExit(f"generate-lvs-reference.py: '{name}' not found in CDL")
-    pins = match.group(1).split()
-    lines = []
-    current = ""
-    for line in match.group(2).split("\n"):
-        if line.startswith("*"):
-            continue
-        if line.startswith("+"):
-            current += " " + line[1:].strip()
-        else:
-            if current:
-                lines.append(current)
-            current = line.strip()
-    if current:
-        lines.append(current)
-
-    devices = []
-    for line in lines:
-        if not line.startswith("M"):
-            continue
-        toks = line.split()
-        inst, drain, gate, source, body, model = toks[0], *toks[1:6]
-        params = dict(t.split("=", 1) for t in toks[6:] if "=" in t)
-        w = Decimal(params["w"]) * int(Decimal(params.get("m", "1")))
-        devices.append((inst, drain, gate, source, body, model, w, params.get("l")))
-    return pins, devices
-
-
-def _generalize_model(model: str) -> str:
-    if "nfet" in model:
-        return "nfet"
-    if "pfet" in model:
-        return "pfet"
-    raise SystemExit(f"generate-lvs-reference.py: unrecognized model '{model}'")
-
-
-def _resolve_pdk_root() -> str:
-    root = os.environ.get("PDK_ROOT") or os.path.expanduser("~/.volare")
-    variant = os.environ.get("PDK", "sky130A")
-    return os.path.join(root, variant)
 
 
 def main() -> int:
@@ -141,7 +76,7 @@ def main() -> int:
     for cell_type in CELL_TYPES:
         cell_defs[cell_type] = _extract_cdl_subckt(cdl_text, cell_type)
 
-    top_name, instances = parse_verilog_netlist(netlist_path)
+    top_name, instances = parse_verilog_netlist(netlist_path, CELL_TYPES)
     if not instances:
         print(
             f"generate-lvs-reference.py: no standard-cell instances found in "
