@@ -76,14 +76,28 @@ repeated per corner:
     demanding case for this mechanism, not the worst-case window -- this
     mode is what closes that finding's own "not yet corner-complete" gap.
 
-Only one window is swept per invocation; the C_decouple sweep stays
-single-corner-only for both, same precedent the other mechanism campaigns'
-own first-pass/full-grid split already established. Nothing about the
-single-corner default path above is changed; ``--corners``/``--window`` are
-purely additive.
+Only one window is swept per invocation.
+
+A second selector, ``--sweep {rsource,decouple}`` (added 2026-09-07), chooses
+which *leg* of the budget ``--corners`` repeats per corner:
+
+  - ``rsource`` (default): the bare (undecoupled) R_source sweep described
+    above.
+  - ``decouple``: the C_decouple sweep -- the last leg of this budget that
+    was still single-corner-only. Each corner is decoupled against its OWN
+    marginal R_source (``marginal_r_source()``, re-derived from that same
+    corner's own bare sweep in the same invocation), never a value borrowed
+    from the ``tt``/27C/1.8V point, because the bare budget itself is already
+    known to vary by more than an order of magnitude across the grid
+    (``records/20260907-052526-f589273.md``). The bare sweep therefore still
+    runs per corner in this mode; only the reported leg differs.
+
+Nothing about the single-corner default path above is changed;
+``--corners``/``--window``/``--sweep`` are purely additive.
 
     python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record
     python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --window legacy --record
+    python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --sweep decouple --record
 """
 
 from __future__ import annotations
@@ -325,7 +339,10 @@ def run_sweep(point: str, sample_width_ns: float, window_label: str,
 
 
 def run_decouple_sweep(point: str, sample_width_ns: float, window_label: str,
-                        r_source_ohm: float, scratch: Path) -> list[dict]:
+                        r_source_ohm: float, scratch: Path,
+                        corner: str = "tt", temp_c: float = 27.0,
+                        vdd: float = VDD_NOM,
+                        quiet: bool = False) -> list[dict]:
     vinp, vinn = TEST_POINTS[point]
     rows = []
     baseline = None
@@ -334,9 +351,11 @@ def run_decouple_sweep(point: str, sample_width_ns: float, window_label: str,
             build_transient(vinp=vinp, vinn=vinn,
                             sample_width_ns=sample_width_ns,
                             r_source_ohm=r_source_ohm,
-                            c_decouple_f=c_decouple),
+                            c_decouple_f=c_decouple,
+                            corner=corner, temp_c=temp_c, vdd=vdd),
             scratch,
-            f"csweep_{window_label}_{point}_{c_decouple:g}",
+            f"csweep_{window_label}_{point}_{corner}_{temp_c:g}_{vdd:g}_"
+            f"{r_source_ohm:g}_{c_decouple:g}",
         )
         diff = m["top_p_end"] - m["top_n_end"]
         row = {"c_decouple_f": c_decouple, "diff_v": diff, **m}
@@ -345,13 +364,14 @@ def run_decouple_sweep(point: str, sample_width_ns: float, window_label: str,
         row["diff_err_mv"] = (diff - baseline) * 1000
         row["diff_err_lsb"] = row["diff_err_mv"] / LSB_DIFF_MV_PROVISIONAL
         rows.append(row)
-        print(
-            f"[{window_label:6}] {point:14} R_source={r_source_ohm:.0f} ohm "
-            f"C_decouple={c_decouple * 1e12:7.1f} pF  "
-            f"VCM(end)={m['vcm_end']:.4f} V  "
-            f"diff_err={row['diff_err_mv']:+8.4f} mV "
-            f"({row['diff_err_lsb']:+7.4f} LSB)"
-        )
+        if not quiet:
+            print(
+                f"[{window_label:6}] {point:14} R_source={r_source_ohm:.0f} ohm "
+                f"C_decouple={c_decouple * 1e12:7.1f} pF  "
+                f"VCM(end)={m['vcm_end']:.4f} V  "
+                f"diff_err={row['diff_err_mv']:+8.4f} mV "
+                f"({row['diff_err_lsb']:+7.4f} LSB)"
+            )
     return rows
 
 
@@ -362,6 +382,22 @@ def find_budget(rows: list[dict], threshold_lsb: float) -> float | None:
     point stays under (a right-censored bound, reported as such)."""
     ok = [r for r in rows if abs(r["diff_err_lsb"]) <= threshold_lsb]
     return ok[-1] if ok else None
+
+
+def marginal_r_source(rows: list[dict], r_source_list: list[float]) -> float:
+    """The R_source a decoupling sweep should be run against: the smallest
+    swept R_source whose bare (C_decouple = 0) differential error already
+    exceeds 1 provisional LSB -- i.e. a case decoupling would actually have
+    to rescue. Falls back to the largest swept R_source if no swept point
+    exceeds 1 LSB (report that plainly, do not invent one). This is the
+    single-corner default path's own definition, factored out so the
+    --corners --sweep decouple mode can re-derive it per corner from that
+    SAME corner's own bare sweep rather than borrowing the tt/27C/1.8V
+    value -- the bare budget is already known to span >= an order of
+    magnitude across the ratified grid
+    (records/20260907-052526-f589273.md)."""
+    over_1lsb = [r for r in rows if abs(r["diff_err_lsb"]) > 1.0]
+    return over_1lsb[0]["r_source_ohm"] if over_1lsb else r_source_list[-1]
 
 
 def run_corners(scratch: Path, point: str = DEFAULT_POINT,
@@ -404,6 +440,275 @@ def run_corners(scratch: Path, point: str = DEFAULT_POINT,
                    else f"< {r_source_list[1]:.0f} ohm (none found)")
             )
     return points
+
+
+def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
+                          window: str = "worst",
+                          quiet: bool = False) -> list[dict]:
+    """Full ratified-corner-set OAT sweep of the C_decouple leg of this
+    budget at ONE acquisition window -- the last leg that was still
+    single-corner-only. Per corner: run that corner's own bare R_source
+    sweep first, take its `marginal_r_source()`, then sweep C_decouple
+    against THAT resistance. Nothing about the mechanism changes: identical
+    DUT fragment, identical C_DECOUPLE_SWEEP_F list, identical diff_err
+    definition (referenced to that same corner/R_source's own
+    C_decouple = 0 point) as the single-corner default path -- only the
+    `.lib` corner, `.temp`, supply voltage, and the per-corner marginal
+    R_source vary."""
+    sample_ns, r_source_list = WINDOW_CONFIG[window]
+    grid = corners_mod.ratified_oat_grid(VDD_NOM, SUPPLY_TOLERANCE,
+                                          PROCESS_CORNERS, TEMPS_C)
+    points: list[dict] = []
+    for process_corner, temp_c, supply_v in grid:
+        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+        bare_rows = run_sweep(point, sample_ns, window, scratch,
+                              r_source_list=r_source_list,
+                              corner=process_corner, temp_c=temp_c,
+                              vdd=supply_v, quiet=True)
+        marginal_r = marginal_r_source(bare_rows, r_source_list)
+        rows = run_decouple_sweep(point, sample_ns, window, marginal_r,
+                                  scratch, corner=process_corner,
+                                  temp_c=temp_c, vdd=supply_v, quiet=True)
+        budget_1lsb = find_budget(rows, 1.0)
+        points.append({
+            "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
+            "corner_id": cid, "rows": rows, "bare_rows": bare_rows,
+            "marginal_r_source_ohm": marginal_r,
+            "budget_1lsb_f": budget_1lsb["c_decouple_f"] if budget_1lsb else None,
+            "budget_1lsb_censored": bool(budget_1lsb and
+                budget_1lsb["c_decouple_f"] == C_DECOUPLE_SWEEP_F[-1]),
+        })
+        if not quiet:
+            b1 = points[-1]["budget_1lsb_f"]
+            print(
+                f"{cid}: marginal R_source = {marginal_r:.0f} ohm, "
+                "1-LSB C_decouple budget = "
+                + (f"<= {b1 * 1e12:.2f} pF" if b1 is not None
+                   else "none found in the swept range")
+            )
+    return points
+
+
+def write_corners_decouple_record(points: list[dict], point: str,
+                                   window: str = "worst") -> Path:
+    """Evidence record for `run_corners_decouple()` -- same provenance /
+    scope / no-ratified-claim conventions as `write_corners_record()`, with
+    the C_decouple axis in place of the R_source axis."""
+    record_id = evidence.new_record_id()
+    netlist_text = DUT_FRAGMENT.read_text()
+    record_path = evidence.write_netlist_snapshot_text(
+        EXPERIMENT_DIR, record_id, netlist_text
+    )
+    netlist_sha = evidence.sha256_text(netlist_text)
+    info = pdk.resolve()
+    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
+    ng_version = toolchain._ngspice_version() or "unknown"
+
+    process_corners_run = sorted({p["corner"] for p in points})
+    temps_run = sorted({p["temp_c"] for p in points})
+    supplies_run = sorted({p["supply_v"] for p in points})
+    sample_ns, _r_source_list = WINDOW_CONFIG[window]
+    window_desc = WINDOW_DESCRIPTION[window]
+    other_window = "legacy" if window == "worst" else "worst"
+    other_window_desc = WINDOW_DESCRIPTION[other_window]
+
+    lines: list[str] = []
+    a = lines.append
+    a(f"# VCM drive-impedance budget -- full PVT grid -- {window} window -- "
+      f"C_decouple sweep -- {record_id}")
+    a("")
+    a("- **Record ID**: " + record_id)
+    a(
+        "- **Claim**: extends the single-corner (tt/27C/1.8V) `C_decouple` "
+        f"sweep in [`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+        f"({SINGLE_CORNER_SEED_RECORD}.md) -- at the {window_desc} "
+        "acquisition window only -- to the FULL ratified PVT corner set "
+        "(spec/target-spec.md's \"Numeric rows -- RATIFIED 2026-08-19\" "
+        "section), the same OAT grid this mechanism's own bare R_source "
+        "campaigns and every other "
+        "`docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2 "
+        "mechanism campaign already sweep. Identical DUT fragment "
+        "(`sim/sampling-frontend/testbench/sampling_frontend_dut.spice`, "
+        "unmodified), identical `C_DECOUPLE_SWEEP_F` list, identical "
+        "diff_err definition (referenced to that same corner/R_source's own "
+        "C_decouple = 0 point) as the single-corner record. **Unlike the "
+        "bare R_source full-grid campaigns, each corner here is decoupled "
+        "against its OWN marginal R_source** (`marginal_r_source()`, "
+        "re-derived from that same corner's own bare sweep in the same "
+        "invocation) rather than a value borrowed from tt/27C/1.8V -- the "
+        "bare budget is already known to span >= an order of magnitude "
+        "across this grid ([`records/20260907-052526-f589273.md`]"
+        "(20260907-052526-f589273.md)), so a single borrowed resistance "
+        "would not be the marginal case at most corners. No claim here is "
+        "graded against a ratified spec row: `spec/target-spec.md` is "
+        "entirely DRAFT (#1/#27); `LSB_DIFF_MV_PROVISIONAL` is a reference "
+        "scale, never a pass/fail gate; the DR-006 acquisition window is "
+        "itself downstream of the DRAFT sample-rate row (Section 7 Item 2)."
+    )
+    a(
+        "- **Netlist provenance**: unmodified "
+        "`sim/sampling-frontend/testbench/sampling_frontend_dut.spice`, "
+        "read in place -- not duplicated, same convention as the "
+        "single-corner record. This record's own harness adds only the "
+        "ideal-source/R_source/C_decouple network into `VCM` and the SAMPLE "
+        "pulse source, with `.lib`/`.temp`/vdd varying per corner point; "
+        "neither is stated in the DUT fragment itself."
+    )
+    a(
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(points)
+        )
+    )
+    a(
+        f"- **Scope**: only the `{point}` test point's C_decouple sweep at "
+        f"the {window_desc} window ({sample_ns:.3f} ns) is reported per "
+        f"corner, over the "
+        f"`[{', '.join(f'{c * 1e12:g}' for c in C_DECOUPLE_SWEEP_F)}]` pF "
+        "sweep list, each "
+        "corner at its own marginal R_source (see the table below). The "
+        f"{other_window_desc} window's own C_decouple sweep stays "
+        "single-corner-only (tt/27C/1.8V), deferred to a future pass -- the "
+        "same one-window-per-pass precedent this mechanism's own bare "
+        "R_source full-grid work already established."
+    )
+    a("")
+    a("## C_decouple budget for <= 1 provisional LSB of differential error, per corner")
+    a("")
+    a(
+        "\"Budget\" is the LAST (largest, in ascending sweep order) swept "
+        "C_decouple for which `abs(diff_err_lsb) <= 1.0` still holds at that "
+        "corner's own marginal R_source -- see `find_budget()` in this "
+        "script, the same convention the bare R_source full-grid records "
+        "already use, applied to the C_decouple axis here. It is **not** "
+        "necessarily the smallest sufficient C_decouple, and larger values "
+        "are not guaranteed to also work: the single-corner seed record's "
+        "own C_decouple sweep already found this error is **not** monotonic "
+        "in C_decouple (a bigger cap lengthens the same node's settling "
+        "time constant as much as it stiffens its DC impedance). A budget "
+        f"equal to the largest swept value "
+        f"({C_DECOUPLE_SWEEP_F[-1] * 1e12:.0f} pF) is right-censored. "
+        "\"None found\" means no swept C_decouple value, at that corner's "
+        "own marginal R_source, keeps the error within 1 LSB -- decoupling "
+        "alone does not rescue that corner within the swept range."
+    )
+    a("")
+    a("| Corner | Marginal R_source (ohm) | 1-LSB C_decouple budget (pF) |")
+    a("|---|---|---|")
+    for p in points:
+        b1 = p["budget_1lsb_f"]
+        b1_str = "none found" if b1 is None else (
+            f"<= {b1 * 1e12:.2f}"
+            + (" (right-censored)" if p["budget_1lsb_censored"] else "")
+        )
+        a(f"| `{p['corner_id']}` | {p['marginal_r_source_ohm']:.0f} | {b1_str} |")
+    a("")
+
+    a("## Per-corner C_decouple sweeps")
+    a("")
+    a(
+        "Full swept data behind the budget table above -- `diff_err` is "
+        "referenced to that same corner/R_source's own C_decouple = 0 row, "
+        "so it isolates exactly the contribution of the decoupling "
+        "capacitor at that corner."
+    )
+    a("")
+    a("| Corner | R_source (ohm) | C_decouple (pF) | VCM(end) (V) | diff_err (mV) | diff_err (LSB, informational) |")
+    a("|---|---|---|---|---|---|")
+    for p in points:
+        for r in p["rows"]:
+            a(
+                f"| `{p['corner_id']}` | {p['marginal_r_source_ohm']:.0f} | "
+                f"{r['c_decouple_f'] * 1e12:.2f} | {r['vcm_end']:.5f} | "
+                f"{r['diff_err_mv']:+.4f} | {r['diff_err_lsb']:+.4f} |"
+            )
+    a("")
+
+    rescued = [p for p in points if p["budget_1lsb_f"] is not None]
+    unrescued = [p for p in points if p["budget_1lsb_f"] is None]
+    notes: list[str] = []
+    if rescued:
+        largest = max(p["budget_1lsb_f"] for p in rescued)
+        smallest = min(p["budget_1lsb_f"] for p in rescued)
+        largest_label = ", ".join(
+            f"`{p['corner_id']}`" for p in rescued if p["budget_1lsb_f"] == largest
+        )
+        smallest_label = ", ".join(
+            f"`{p['corner_id']}`" for p in rescued if p["budget_1lsb_f"] == smallest
+        )
+        notes.append(
+            f"**Decoupling alone brings the differential error inside 1 "
+            f"provisional LSB at {len(rescued)} of {len(points)} ratified "
+            f"corners**, each at that corner's own marginal R_source. Among "
+            f"those, the largest working value found is "
+            f"{largest * 1e12:.2f} pF ({largest_label}) and the smallest is "
+            f"{smallest * 1e12:.2f} pF ({smallest_label}). Per the table "
+            "note above these are points already confirmed to work, not "
+            "guaranteed floors -- this error is not monotonic in "
+            "C_decouple."
+        )
+    if unrescued:
+        unrescued_label = ", ".join(f"`{p['corner_id']}`" for p in unrescued)
+        notes.append(
+            f"**{len(unrescued)} of {len(points)} ratified corners are NOT "
+            "rescued by any swept C_decouple** at their own marginal "
+            f"R_source ({unrescued_label}): at those corners the real drive "
+            "path needs a lower source resistance, not just more "
+            "capacitance."
+        )
+    else:
+        notes.append(
+            "No ratified corner was left unrescued within the swept "
+            "C_decouple range -- but see the non-monotonicity caveat above "
+            "before reading any of these as a floor."
+        )
+    notes.append(
+        "The per-corner marginal R_source values in the table above are "
+        "themselves re-derived from each corner's own bare sweep in this "
+        "same invocation, and reproduce the bare R_source full-grid "
+        "campaign's own per-corner shape "
+        "([`records/20260907-052526-f589273.md`]"
+        "(20260907-052526-f589273.md)) rather than assuming the "
+        "tt/27C/1.8V value applies everywhere."
+    )
+    notes.append(
+        f"This campaign repeats ONLY the C_decouple sweep at the "
+        f"{window_desc} window. The {other_window_desc} window's own "
+        "C_decouple sweep remains single-corner (tt/27C/1.8V) only; a "
+        "full-grid pass over it is a natural next step, the same "
+        "one-window-per-pass precedent this mechanism's own bare R_source "
+        "full-grid campaigns already established. It does not, on its own, "
+        "establish what R_source/C_decouple an actual on-chip VCM buffer or "
+        "off-chip reference network would present -- no such buffer exists "
+        "in this design yet (docs/chipalooza/challenge-4-proposal.md "
+        "Section 2.2)."
+    )
+
+    a("## Result")
+    a("")
+    for n in notes:
+        a(f"- {n}")
+    a("")
+
+    a("## Reproduction")
+    a("")
+    window_flag = "" if window == "worst" else f" --window {window}"
+    a(
+        "```\npython3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners"
+        f"{window_flag} --sweep decouple --record\n```"
+    )
+    a("")
+    lines += evidence.environment_block(
+        pdk_line, ng_version, netlist_sha,
+        extra={"toolchain pin file": "sim/toolchain.json"},
+    )
+    lines += evidence.footer_lines(
+        written_by="run_vcm_drive_budget.py", supersedes="none"
+    )
+    record_path.write_text("\n".join(lines) + "\n")
+    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
+    latest_path.write_text(f"{record_id}.md\n")
+    print(f"\nWrote record: {record_path}")
+    return record_path
 
 
 def write_corners_record(points: list[dict], point: str,
@@ -795,6 +1100,13 @@ def main() -> int:
              "pre-existing 400 ns testbench convention). Ignored without "
              "--corners.",
     )
+    ap.add_argument(
+        "--sweep", default="rsource", choices=["rsource", "decouple"],
+        help="which leg of the budget --corners repeats per corner: "
+             "'rsource' (bare undecoupled R_source sweep, default) or "
+             "'decouple' (C_decouple sweep, each corner at its own marginal "
+             "R_source). Ignored without --corners.",
+    )
     args = ap.parse_args()
 
     scratch = Path("/tmp") / "sim-vcm-drive-budget"
@@ -803,7 +1115,15 @@ def main() -> int:
     if args.corners:
         sample_ns, _ = WINDOW_CONFIG[args.window]
         print(f"=== VCM drive-budget: full ratified PVT grid "
-              f"({args.window} {sample_ns:.3f} ns window only) ===")
+              f"({args.sweep} sweep, {args.window} {sample_ns:.3f} ns "
+              f"window only) ===")
+        if args.sweep == "decouple":
+            points = run_corners_decouple(scratch, point=args.point,
+                                          window=args.window)
+            if args.record:
+                write_corners_decouple_record(points, args.point,
+                                              window=args.window)
+            return 0
         points = run_corners(scratch, point=args.point, window=args.window)
         if args.record:
             write_corners_record(points, args.point, window=args.window)
@@ -823,13 +1143,11 @@ def main() -> int:
     sweeps.append(("legacy (400 ns)", T_SAMPLE_LEGACY_NS, legacy_rows,
                    R_SOURCE_SWEEP_LEGACY_OHM))
 
-    # Pick a representative "marginal" R_source for the decoupling sweep:
-    # the largest R_source in the worst-case sweep whose bare (C_decouple=0)
-    # error already exceeds 1 provisional LSB -- i.e. a case decoupling
-    # would actually need to rescue. Falls back to the largest swept
-    # R_source if none exceed 1 LSB (report that plainly, do not invent one).
-    over_1lsb = [r for r in worst_rows if abs(r["diff_err_lsb"]) > 1.0]
-    marginal_r = over_1lsb[0]["r_source_ohm"] if over_1lsb else R_SOURCE_SWEEP_OHM[-1]
+    # Pick a representative "marginal" R_source for the decoupling sweep --
+    # see marginal_r_source()'s own docstring for the definition (shared
+    # with the --corners --sweep decouple path, which re-derives it per
+    # corner).
+    marginal_r = marginal_r_source(worst_rows, R_SOURCE_SWEEP_OHM)
 
     print(f"\n=== C_decouple sweep at R_source={marginal_r:.0f} ohm, "
           f"worst-case window ===")

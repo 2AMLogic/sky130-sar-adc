@@ -91,7 +91,7 @@ supplied by the harness (not per-block).
 | `VDD` | supply | 1.8 V digital/analog rail (shared) | — (rail, not a slot line item) | Single supply for the whole block — analog and digital share the same rail (§2.1) |
 | `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 0–4) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
 | `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
-| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists: full-ratified-PVT-grid for the bare (undecoupled) `R_source` sweep at both the worst-case and legacy windows; single-corner (`tt`/27 °C/1.8 V) only for the `C_decouple` sweep ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md), [`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md), [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md)), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
+| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists: full-ratified-PVT-grid for the bare (undecoupled) `R_source` sweep at both the worst-case and legacy windows, and (as of this pass) for the `C_decouple` sweep at the worst-case window; single-corner (`tt`/27 °C/1.8 V) only for the legacy window's own `C_decouple` sweep ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md), [`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md), [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md), [`sim/vcm-drive-budget/records/20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md)), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
 | `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
 | `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
@@ -943,8 +943,10 @@ tracker already owns.
    guessed at here; it should be revisited once `rules-4.html` states the
    real slot categories.
 6. **`VCM` drive-impedance/decoupling budget: quantified at every ratified
-   corner for both bare `R_source` sweeps (worst-case and legacy windows);
-   the decoupling leg remains single-corner — not yet closed.**
+   corner for both bare `R_source` sweeps (worst-case and legacy windows)
+   and, as of this pass, for the `C_decouple` sweep at the worst-case
+   window; only the legacy window's own `C_decouple` sweep remains
+   single-corner — not yet closed.**
    A single-corner (`tt`/27 °C/1.8 V) sweep against the unmodified sampling
    front-end DUT
    ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md))
@@ -970,7 +972,10 @@ tracker already owns.
      provisional sample-rate range, not just the fastest clock.
    - At a marginal `R_source` = 30 kΩ (worst-case window), a decoupling
      capacitor ≥ 100 pF at the on-die `VCM` node recovers the differential
-     error to ≤ 1 provisional LSB.
+     error to ≤ 1 provisional LSB. (The `≥` is too generous — see the
+     full-grid `C_decouple` update below, which reproduces this same sweep
+     and finds the next swept point up, 1000 pF, already back outside
+     1 LSB at this corner.)
    - This is a first-pass, single-corner budget, not a fabrication-ready
      spec: switch `R_on` (which sets the effective time constant this
      mechanism depends on) varies materially with process/temperature, so a
@@ -1061,6 +1066,63 @@ tracker already owns.
    not any single assumed-representative corner. With both full-PVT-grid
    `R_source` sweeps now complete, the only remaining single-corner-only
    leg of this budget is the `C_decouple` sweep (both windows).
+
+   **Update this pass (2026-09-07, third full-grid campaign): the
+   `C_decouple` sweep at the worst-case (83.333 ns) window was also taken
+   to the full ratified PVT grid** — closing that leg at this window, via a
+   new `--sweep decouple` option on the same `--corners` mode
+   ([`sim/vcm-drive-budget/records/20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md)).
+   Scope note that matters for reading the numbers: unlike the two bare
+   `R_source` full-grid passes, **each corner here is decoupled against its
+   OWN marginal `R_source`**, re-derived from that same corner's own bare
+   sweep in the same invocation rather than borrowed from the
+   `tt`/27 °C/1.8 V point — the bare budget was already shown above to span
+   30× across this grid, so a single borrowed resistance would not be the
+   marginal case at most corners. Those re-derived marginal resistances
+   reproduce the bare full-grid campaign's own per-corner shape
+   (3 kΩ at the two tightest corners `fs_27c_1.80v`/`tt_27c_1.62v`, 100 kΩ
+   at the loosest `tt_-40c_1.80v`), so the two campaigns are consistent, not
+   competing.
+
+   **Result: at every one of the 9 ratified corners, decoupling alone does
+   bring the differential error back inside 1 provisional LSB — but the
+   capacitance required is not corner-invariant, and the error is not
+   monotonic in `C_decouple`.** The working values found span three orders
+   of magnitude: 1 pF at `ss_27c_1.80v` and `tt_-40c_1.80v`, 10 pF at
+   `fs_27c_1.80v`/`tt_125c_1.80v`/`tt_27c_1.62v`, 100 pF at
+   `tt_27c_1.80v`/`ff_27c_1.80v`/`tt_27c_1.98v`, and 1000 pF
+   (right-censored — every swept value stayed under threshold) at
+   `sf_27c_1.80v`. The `tt`/27 °C/1.8 V point reports ≤ 100 pF, and its
+   whole swept row set is numerically identical to the single-corner
+   record's own `C_decouple` table (same `R_source` = 30 kΩ, same five
+   points, same values to the digit) — the two records reproduce each other
+   rather than merely agreeing in verdict. **One correction that falls out
+   of that comparison**: the third bullet above restates the single-corner
+   record's own "a decoupling capacitor ≥ 100 pF … recovers the
+   differential error to ≤ 1 provisional LSB" phrasing, and the `≥` is
+   slightly too generous — at that very corner the next swept point up,
+   1000 pF, is already back *outside* 1 LSB (−1.0271 LSB). Read that bullet
+   as "100 pF, the largest swept value that works", not as an open-ended
+   floor. **Stated plainly rather than smoothed over**:
+   because the single-corner record already established that this error is
+   *not* monotonic in `C_decouple` (a larger cap lengthens the same node's
+   settling time constant as much as it stiffens its DC impedance), each
+   per-corner figure names a value already confirmed to work at that
+   corner's own marginal `R_source`, **not** a floor above which every
+   larger value also works — the full-grid data shows this directly, e.g.
+   at `ss_27c_1.80v` the 1 pF point is inside 1 LSB while 10 / 100 / 1000 pF
+   are all outside it. A future on-chip `VCM` buffer or off-chip reference
+   network therefore cannot be sized by picking the largest number in this
+   table and assuming it covers every corner; the sizing has to be checked
+   per corner, against both axes. This does not violate any ratified spec
+   row (`spec/target-spec.md` is entirely DRAFT, and no such buffer exists
+   yet to size), and it does not close this open item: **the legacy (400 ns)
+   window's own `C_decouple` sweep is now the sole remaining
+   single-corner-only leg of this budget**, and the legacy window was
+   already shown, single-corner, to be the *more* demanding case for this
+   mechanism — so that pass is the natural next step, on the same
+   one-window-per-pass precedent the two bare `R_source` full-grid passes
+   established.
 
    No claim here is graded against a ratified spec row (`spec/target-spec.md`
    is entirely DRAFT, #1/#27; the DR-006 acquisition window is itself
