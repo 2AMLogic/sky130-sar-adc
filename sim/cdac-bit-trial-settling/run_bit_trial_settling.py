@@ -370,33 +370,6 @@ def build_transient(
 MEASURE_NAMES = [MEASURE_PREFIX_CONFIRM]
 TRIG_TARG_NAMES = [f"t_settle_{int(f * 100)}" for f in FRACTIONS]
 
-# sim/harness/measure.py's parse() requires "name = value" with nothing
-# trailing (a right-anchored regex) -- correct for the plain `.meas tran X
-# find ...` lines this repo's other experiments use, but ngspice's
-# TRIG/TARG crossing-based measures (this script's own t_settle_* lines)
-# print extra " targ=... trig=..." context on the SAME line, which that
-# anchor rejects outright (silently yielding no match, not an exception).
-# Parsed locally here rather than by changing the shared harness module,
-# since no other sim/ experiment in this repo uses a TRIG/TARG measure yet.
-_TRIG_TARG_RE_TMPL = r"^{name}\s*=\s*([-+0-9.eE]+)"
-
-
-def _parse_trig_targ(log_text: str, names: list[str]) -> dict[str, float]:
-    import re
-
-    out: dict[str, float] = {}
-    for name in names:
-        pattern = re.compile(_TRIG_TARG_RE_TMPL.format(name=re.escape(name)))
-        for line in log_text.splitlines():
-            m = pattern.match(line.strip())
-            if m:
-                try:
-                    out[name] = float(m.group(1))
-                except ValueError:
-                    pass
-                break
-    return out
-
 
 def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
     """A few bounded retries with backoff absorb transient contention from
@@ -410,7 +383,7 @@ def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
         try:
             log_text = toolchain.run_ngspice(netlist, scratch, tag)
             m = measure.parse(log_text, MEASURE_NAMES)
-            m.update(_parse_trig_targ(log_text, TRIG_TARG_NAMES))
+            m.update(measure.parse(log_text, TRIG_TARG_NAMES, anchored=False))
             return m
         except RuntimeError as exc:
             if "timed out" not in str(exc) or attempt == attempts:
