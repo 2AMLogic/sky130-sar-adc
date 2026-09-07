@@ -56,22 +56,34 @@ upstream numbers ratify.
 FULL-PVT-GRID MODE (``--corners``, added 2026-09-07). The single-corner
 caveat above ("switch R_on varies materially with process/temperature, so a
 full PVT sweep of this same budget is still open") is what this mode exists
-to close for the bare (undecoupled) R_source budget at the DR-006 worst-case
-(83.333 ns) acquisition window: it re-runs that one sweep (the
-``worst_case_pp`` test point, the full ``R_SOURCE_SWEEP_OHM`` list) at the
-same ratified 9-point one-at-a-time (OAT) PVT grid every other
+to close for the bare (undecoupled) R_source budget: it re-runs that one
+sweep (the ``worst_case_pp`` test point) at the same ratified 9-point
+one-at-a-time (OAT) PVT grid every other
 ``docs/chipalooza/challenge-4-proposal.md`` Section 7 Item 2 mechanism
 campaign now sweeps (process ``{ff, fs, sf, ss, tt}`` x temperature
 ``{-40, 27, 125} C`` x supply ``{1.62, 1.8, 1.98} V``,
 ``spec/target-spec.md``'s "Numeric rows -- RATIFIED 2026-08-19" section).
-Scope is deliberately narrower than the single-corner default run: only the
-worst-case (12 MHz) window's bare R_source sweep is repeated per corner --
-the legacy (400 ns) window and the C_decouple sweep stay single-corner-only,
-same precedent the other mechanism campaigns' own first-pass/full-grid split
-already established. Nothing about the single-corner default path above is
-changed; ``--corners`` is purely additive.
+A new ``--window {worst,legacy}`` selector (added 2026-09-07, alongside
+``--corners``) chooses which acquisition window's bare R_source sweep is
+repeated per corner:
+
+  - ``worst`` (default): the DR-006 worst-case (12 MHz, 83.333 ns) window,
+    the full ``R_SOURCE_SWEEP_OHM`` list.
+  - ``legacy``: this repo's pre-existing 400 ns testbench convention, the
+    reduced ``R_SOURCE_SWEEP_LEGACY_OHM`` list (same reduced-runtime
+    rationale as the single-corner default path's own legacy sweep). The
+    single-corner record already found the legacy window to be the MORE
+    demanding case for this mechanism, not the worst-case window -- this
+    mode is what closes that finding's own "not yet corner-complete" gap.
+
+Only one window is swept per invocation; the C_decouple sweep stays
+single-corner-only for both, same precedent the other mechanism campaigns'
+own first-pass/full-grid split already established. Nothing about the
+single-corner default path above is changed; ``--corners``/``--window`` are
+purely additive.
 
     python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record
+    python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --window legacy --record
 """
 
 from __future__ import annotations
@@ -145,6 +157,30 @@ PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
 # The single-corner (tt/27C/1.8V) record --corners's own evidence record
 # cross-references as "the finding this campaign extends".
 SINGLE_CORNER_SEED_RECORD = "20260905-201703-f012255"
+
+# --corners --window {worst,legacy}: (sample_width_ns, r_source_sweep_list)
+# per window. "worst" is the DR-006-derived worst-case (12 MHz) acquisition
+# window at the full R_SOURCE_SWEEP_OHM resolution; "legacy" is this repo's
+# pre-existing 400 ns testbench convention at the reduced
+# R_SOURCE_SWEEP_LEGACY_OHM resolution (same runtime-bounding rationale as
+# the single-corner default path's own legacy sweep, see
+# R_SOURCE_SWEEP_LEGACY_OHM above).
+WINDOW_CONFIG = {
+    "worst": (T_SAMPLE_WORST_NS, R_SOURCE_SWEEP_OHM),
+    "legacy": (T_SAMPLE_LEGACY_NS, R_SOURCE_SWEEP_LEGACY_OHM),
+}
+WINDOW_DESCRIPTION = {
+    "worst": f"DR-006 worst-case (12 MHz, {T_SAMPLE_WORST_NS:.3f} ns)",
+    "legacy": f"legacy ({T_SAMPLE_LEGACY_NS:.1f} ns) testbench convention",
+}
+# Bare (undecoupled) 1-LSB R_source budget the single-corner
+# (tt/27C/1.8V) seed record (SINGLE_CORNER_SEED_RECORD) reports per window
+# -- read directly from that record's own "## Result" section, used only to
+# phrase this campaign's own "tightens vs. the single-corner finding" note.
+SINGLE_CORNER_SEED_BUDGET_1LSB_OHM = {
+    "worst": 10e3,
+    "legacy": 0.0,
+}
 
 
 def _preamble(corner: str, temp_c: float, title: str) -> list[str]:
@@ -329,21 +365,25 @@ def find_budget(rows: list[dict], threshold_lsb: float) -> float | None:
 
 
 def run_corners(scratch: Path, point: str = DEFAULT_POINT,
+                window: str = "worst",
                 quiet: bool = False) -> list[dict]:
     """Full ratified-corner-set OAT sweep of the bare (undecoupled)
-    R_source budget at the DR-006 worst-case (83.333 ns) acquisition
-    window only -- the same PVT grid every other Section 7 Item 2 mechanism
+    R_source budget at ONE acquisition window (`window`, "worst" or
+    "legacy") -- the same PVT grid every other Section 7 Item 2 mechanism
     campaign now sweeps. Does NOT change the mechanism measured: identical
-    DUT fragment, identical R_source sweep list, identical diff_err
-    definition (referenced to that SAME corner's own R_source=0 point) as
-    the single-corner default path -- only the `.lib` corner, `.temp`, and
-    supply voltage vary per point."""
+    DUT fragment, identical per-window R_source sweep list
+    (`WINDOW_CONFIG[window]`), identical diff_err definition (referenced to
+    that SAME corner's own R_source=0 point) as the single-corner default
+    path -- only the `.lib` corner, `.temp`, and supply voltage vary per
+    point."""
+    sample_ns, r_source_list = WINDOW_CONFIG[window]
     grid = corners_mod.ratified_oat_grid(VDD_NOM, SUPPLY_TOLERANCE,
                                           PROCESS_CORNERS, TEMPS_C)
     points: list[dict] = []
     for process_corner, temp_c, supply_v in grid:
         cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
-        rows = run_sweep(point, T_SAMPLE_WORST_NS, "worst", scratch,
+        rows = run_sweep(point, sample_ns, window, scratch,
+                          r_source_list=r_source_list,
                           corner=process_corner, temp_c=temp_c, vdd=supply_v,
                           quiet=True)
         budget_1lsb = find_budget(rows, 1.0)
@@ -353,7 +393,7 @@ def run_corners(scratch: Path, point: str = DEFAULT_POINT,
             "corner_id": cid, "rows": rows,
             "budget_1lsb_ohm": budget_1lsb["r_source_ohm"] if budget_1lsb else None,
             "budget_1lsb_censored": bool(budget_1lsb and
-                budget_1lsb["r_source_ohm"] == R_SOURCE_SWEEP_OHM[-1]),
+                budget_1lsb["r_source_ohm"] == r_source_list[-1]),
             "budget_p1lsb_ohm": budget_p1lsb["r_source_ohm"] if budget_p1lsb else None,
         })
         if not quiet:
@@ -361,12 +401,13 @@ def run_corners(scratch: Path, point: str = DEFAULT_POINT,
             print(
                 f"{cid}: 1-LSB R_source budget = "
                 + (f"<= {b1:.0f} ohm" if b1 is not None
-                   else f"< {R_SOURCE_SWEEP_OHM[1]:.0f} ohm (none found)")
+                   else f"< {r_source_list[1]:.0f} ohm (none found)")
             )
     return points
 
 
-def write_corners_record(points: list[dict], point: str) -> Path:
+def write_corners_record(points: list[dict], point: str,
+                          window: str = "worst") -> Path:
     record_id = evidence.new_record_id()
     netlist_text = DUT_FRAGMENT.read_text()
     record_path = evidence.write_netlist_snapshot_text(
@@ -380,17 +421,21 @@ def write_corners_record(points: list[dict], point: str) -> Path:
     process_corners_run = sorted({p["corner"] for p in points})
     temps_run = sorted({p["temp_c"] for p in points})
     supplies_run = sorted({p["supply_v"] for p in points})
+    sample_ns, r_source_list = WINDOW_CONFIG[window]
+    window_desc = WINDOW_DESCRIPTION[window]
+    other_window = "legacy" if window == "worst" else "worst"
+    other_window_desc = WINDOW_DESCRIPTION[other_window]
 
     lines: list[str] = []
     a = lines.append
-    a(f"# VCM drive-impedance budget -- full PVT grid -- {record_id}")
+    a(f"# VCM drive-impedance budget -- full PVT grid -- {window} window -- {record_id}")
     a("")
     a("- **Record ID**: " + record_id)
     a(
         "- **Claim**: extends the single-corner (tt/27C/1.8V) bare "
         f"(undecoupled) R_source budget in [`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
-        f"({SINGLE_CORNER_SEED_RECORD}.md) -- at the DR-006-derived "
-        "worst-case (12 MHz, 83.333 ns) acquisition window only -- to the "
+        f"({SINGLE_CORNER_SEED_RECORD}.md) -- at the {window_desc} "
+        "acquisition window only -- to the "
         "FULL ratified PVT corner set (spec/target-spec.md's \"Numeric "
         "rows -- RATIFIED 2026-08-19\" section), the same OAT grid every "
         "other `docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2 "
@@ -422,9 +467,10 @@ def write_corners_record(points: list[dict], point: str) -> Path:
     a(
         f"- **Scope, narrower than the single-corner default run**: only "
         f"the `{point}` test point's bare (undecoupled) R_source sweep at "
-        f"the worst-case ({T_SAMPLE_WORST_NS:.3f} ns) window is repeated "
-        "per corner. The legacy (400 ns) window and the C_decouple sweep "
-        "stay single-corner-only (tt/27C/1.8V), deferred to a future pass, "
+        f"the {window_desc} window ({sample_ns:.3f} ns) is repeated "
+        f"per corner, over the reduced `{r_source_list}` sweep list. The "
+        f"{other_window_desc} window and the C_decouple sweep stay "
+        "single-corner-only (tt/27C/1.8V), deferred to a future pass, "
         "same first-pass/full-grid split precedent the other mechanism "
         "campaigns already established."
     )
@@ -434,10 +480,10 @@ def write_corners_record(points: list[dict], point: str) -> Path:
     a(
         "\"Budget\" is the largest swept R_source (ohm) at which "
         "`abs(diff_err_lsb) <= 1.0` still holds at that corner -- see "
-        "`find_budget()` in this script. A budget equal to the largest "
-        "swept value (100000 ohm) is right-censored: every swept value "
-        "stayed under threshold, so the true budget is >= that value, not "
-        "necessarily equal to it."
+        f"`find_budget()` in this script. A budget equal to the largest "
+        f"swept value ({r_source_list[-1]:.0f} ohm) is right-censored: every "
+        "swept value stayed under threshold, so the true budget is >= that "
+        "value, not necessarily equal to it."
     )
     a("")
     a("| Corner | 1-LSB R_source budget (ohm) | 0.1-LSB R_source budget (ohm) |")
@@ -461,7 +507,6 @@ def write_corners_record(points: list[dict], point: str) -> Path:
         best_ties = [p for p in scored if p["budget_1lsb_ohm"] == best_val]
         binding = binding_ties[0]
         best = best_ties[0]
-        spread = (best_val / binding_val if binding_val > 0 else float("inf"))
         binding_label = (
             f"`{binding['corner_id']}`" if len(binding_ties) == 1
             else "tied at " + ", ".join(f"`{p['corner_id']}`" for p in binding_ties)
@@ -470,14 +515,31 @@ def write_corners_record(points: list[dict], point: str) -> Path:
             f"`{best['corner_id']}`" if len(best_ties) == 1
             else "tied at " + ", ".join(f"`{p['corner_id']}`" for p in best_ties)
         )
+        if binding_val > 0:
+            spread_phrase = (
+                f"Worst-to-best spread across the ratified grid: "
+                f"{best_val / binding_val:.1f}x -- the bare R_source budget "
+                "is **not** corner-invariant."
+            )
+        else:
+            # binding_val == 0: a ratio is undefined/uninformative (division
+            # by the zero floor) -- state the spread in words instead of a
+            # misleading "infx".
+            spread_phrase = (
+                "The tightest corner(s) allow **zero** margin for any "
+                "nonzero drive impedance, while the loosest corner(s) allow "
+                f"up to <= {best_val:.0f} ohm"
+                + (" (right-censored)" if best["budget_1lsb_censored"] else "")
+                + " -- the bare R_source budget is **not** corner-invariant "
+                "(a ratio is not meaningful when the tightest corner's own "
+                "budget is zero)."
+            )
         notes.append(
             f"**Binding corner(s) (tightest 1-LSB budget): {binding_label}**, "
             f"<= {binding_val:.0f} ohm. Loosest corner(s): {best_label}, "
             f"<= {best_val:.0f} ohm"
             + (" (right-censored)" if best["budget_1lsb_censored"] else "")
-            + f". Worst-to-best spread across the ratified grid: "
-            f"{spread:.1f}x -- the bare R_source budget is **not** "
-            "corner-invariant."
+            + f". {spread_phrase}"
         )
         tt_pt = next(
             (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0
@@ -490,29 +552,67 @@ def write_corners_record(points: list[dict], point: str) -> Path:
                 "consistent with (reproduces) the single-corner record's "
                 "own finding for the same window/point."
             )
-        if binding_val < 10e3:
+        seed_budget = SINGLE_CORNER_SEED_BUDGET_1LSB_OHM[window]
+        if seed_budget > 0 and binding_val < seed_budget:
             notes.append(
                 f"**This tightens, not merely restates, the single-corner "
                 f"finding**: the single-corner (tt/27C/1.8V) record reports "
-                f"a <= 10 kOhm bare budget at this window, but the binding "
-                f"corner(s) across the ratified grid ({binding_label}) "
-                f"is/are <= {binding_val:.0f} ohm -- "
-                f"{10e3 / binding_val:.1f}x tighter. Any "
+                f"a <= {seed_budget:.0f} ohm bare budget at this window, but "
+                f"the binding corner(s) across the ratified grid "
+                f"({binding_label}) is/are <= {binding_val:.0f} ohm -- "
+                f"{seed_budget / binding_val:.1f}x tighter. Any "
                 "future on-chip VCM buffer / off-chip reference network "
                 "sizing that targets only the tt/27C/1.8V figure would "
                 "under-budget the real worst-case corner."
             )
+        elif seed_budget == 0 and binding_val == 0:
+            zero_pts = [p for p in scored if p["budget_1lsb_ohm"] == 0]
+            if len(zero_pts) == len(scored):
+                notes.append(
+                    "**This confirms, at every ratified corner, the "
+                    "single-corner record's already-tightest finding**: the "
+                    "single-corner (tt/27C/1.8V) record already reports a "
+                    "<= 0 ohm bare budget at this window (even R_source=0's "
+                    "own ideal-source baseline is the only point inside 1 "
+                    "provisional LSB -- the smallest nonzero R_source tested "
+                    "already exceeds it), and every one of the 9 ratified "
+                    "corners reproduces that same floor. This window offers "
+                    "**zero** margin for any nonzero drive impedance, at any "
+                    "ratified corner -- consistent with the single-corner "
+                    "record's own finding that the legacy window is the MORE "
+                    "demanding case for this mechanism, not merely restating "
+                    "it at one point."
+                )
+            else:
+                zero_label = ", ".join(f"`{p['corner_id']}`" for p in zero_pts)
+                best_raw_label = ", ".join(f"`{p['corner_id']}`" for p in best_ties)
+                notes.append(
+                    "**This reveals the single-corner (tt/27C/1.8V) <= 0 ohm "
+                    "finding is itself corner-dependent, not a uniform "
+                    f"floor**: {len(zero_pts)} of {len(scored)} ratified "
+                    f"corners ({zero_label}) reproduce that same <= 0 ohm "
+                    "floor (zero margin for any nonzero drive impedance at "
+                    "those corners), but the remaining "
+                    f"{len(scored) - len(zero_pts)} corner(s) recover a "
+                    f"positive budget, up to <= {best_val:.0f} ohm"
+                    + (" (right-censored)" if best["budget_1lsb_censored"] else "")
+                    + f" at {best_raw_label}. Any future on-chip VCM buffer / "
+                    "off-chip reference network sizing must still budget for "
+                    "the zero-margin corner(s) above, not the tt/27C/1.8V "
+                    "point alone -- the single-corner record's own scope "
+                    "note (single point, not yet corner-complete) was "
+                    "correct to flag this as unresolved."
+                )
     else:
         notes.append(
             "No corner point found a positive 1-LSB R_source budget within "
             "the swept range -- see the per-corner table above."
         )
     notes.append(
-        "This campaign repeats ONLY the bare (undecoupled) R_source sweep "
-        "at the DR-006 worst-case window, at every ratified corner. The "
-        "legacy (400 ns) window -- already shown, single-corner, to be the "
-        "MORE demanding case for this mechanism -- and the C_decouple "
-        "sweep remain single-corner (tt/27C/1.8V) only; a full-grid pass "
+        f"This campaign repeats ONLY the bare (undecoupled) R_source sweep "
+        f"at the {window_desc} window, at every ratified corner. The "
+        f"{other_window_desc} window and the C_decouple sweep remain "
+        "single-corner (tt/27C/1.8V) only; a full-grid pass "
         "over either is a natural next step, same open-item shape as the "
         "other Section 7 Item 2 mechanisms before their own full-grid "
         "passes landed. It does not, on its own, establish what R_source/"
@@ -529,8 +629,10 @@ def write_corners_record(points: list[dict], point: str) -> Path:
 
     a("## Reproduction")
     a("")
+    window_flag = "" if window == "worst" else f" --window {window}"
     a(
-        "```\npython3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record\n```"
+        "```\npython3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners"
+        f"{window_flag} --record\n```"
     )
     a("")
     lines += evidence.environment_block(
@@ -683,7 +785,15 @@ def main() -> int:
         "--corners", action="store_true",
         help="run the full ratified PVT grid (9 OAT points) instead of the "
              "single-corner (tt/27C/1.8V) default -- bare R_source sweep at "
-             "the DR-006 worst-case window only (see module docstring)",
+             "one acquisition window only, selected by --window (see module "
+             "docstring)",
+    )
+    ap.add_argument(
+        "--window", default="worst", choices=list(WINDOW_CONFIG),
+        help="acquisition window swept by --corners: 'worst' (DR-006 "
+             "worst-case, 12 MHz, default) or 'legacy' (this repo's "
+             "pre-existing 400 ns testbench convention). Ignored without "
+             "--corners.",
     )
     args = ap.parse_args()
 
@@ -691,11 +801,12 @@ def main() -> int:
     scratch.mkdir(parents=True, exist_ok=True)
 
     if args.corners:
-        print("=== VCM drive-budget: full ratified PVT grid "
-              f"(worst-case {T_SAMPLE_WORST_NS:.3f} ns window only) ===")
-        points = run_corners(scratch, point=args.point)
+        sample_ns, _ = WINDOW_CONFIG[args.window]
+        print(f"=== VCM drive-budget: full ratified PVT grid "
+              f"({args.window} {sample_ns:.3f} ns window only) ===")
+        points = run_corners(scratch, point=args.point, window=args.window)
         if args.record:
-            write_corners_record(points, args.point)
+            write_corners_record(points, args.point, window=args.window)
         return 0
 
     sweeps = []
