@@ -56,6 +56,7 @@ SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
 from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
+from harness.mc_runner import _draw_n  # noqa: E402
 from gen_fragment import gen_fragment  # noqa: E402
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
@@ -202,22 +203,22 @@ def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = 
         raise RuntimeError(f"PDK not resolvable: {info.error}")
     mismatch_corner = corners_mod.mismatch_corner_for(corner)
 
-    draws: list[Draw] = []
-    negctrl: list[Draw] = []
+    def one_draw(draw_corner: str, this_seed: int, scratch_dir: Path, log_name: str) -> Draw:
+        return _one_draw(info, draw_corner, this_seed, scratch_dir, log_name)
+
+    def describe(d: Draw) -> str:
+        return f"DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB"
+
     with tempfile.TemporaryDirectory(prefix="sim-cdac-mc-") as scratch:
         scratch_dir = Path(scratch)
-        for i in range(n):
-            this_seed = seed + i
-            d = _one_draw(info, mismatch_corner, this_seed, scratch_dir, f"draw_{i}")
-            draws.append(d)
-            if not quiet:
-                print(f"  draw {i} (seed={this_seed}, {mismatch_corner}): DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB")
-        for i in range(n):
-            this_seed = seed + i
-            d = _one_draw(info, corner, this_seed, scratch_dir, f"negctrl_{i}")
-            negctrl.append(d)
-            if not quiet:
-                print(f"  negctrl {i} (seed={this_seed}, {corner}): DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB")
+        draws = _draw_n(
+            one_draw, mismatch_corner, seed, n,
+            scratch_dir, quiet, log_prefix="draw", label="draw", describe_fn=describe,
+        )
+        negctrl = _draw_n(
+            one_draw, corner, seed, n,
+            scratch_dir, quiet, log_prefix="negctrl", label="negctrl", describe_fn=describe,
+        )
     return McResult(seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, draws=draws, negctrl=negctrl)
 
 
