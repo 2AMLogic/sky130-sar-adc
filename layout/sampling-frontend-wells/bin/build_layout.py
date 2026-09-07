@@ -198,23 +198,12 @@ TRACK_ORDER = (
 class Rect(_Rect):
     """An axis-aligned rectangle in integer nanometres.
 
-    ``__slots__``, ``__init__``, ``um()``, ``centred()`` and ``as_um()`` are
-    the shared shell inherited from `layout/bin/_geometry_common.py`;
-    ``hwire()``/``vwire()`` below are this sub-block's own well-tie-wiring
-    extension.
+    ``__slots__``, ``__init__``, ``um()``, ``centred()``, ``as_um()``,
+    ``hwire()`` and ``vwire()`` are all the shared shell inherited from
+    `layout/bin/_geometry_common.py`.
     """
 
     __slots__ = ()
-
-    @classmethod
-    def hwire(cls, xa: float, xb: float, y: float, width: float = WIRE_UM) -> "Rect":
-        lo, hi = (xa, xb) if xa <= xb else (xb, xa)
-        return cls.um(lo - width / 2, y - width / 2, hi + width / 2, y + width / 2)
-
-    @classmethod
-    def vwire(cls, x: float, ya: float, yb: float, width: float = WIRE_UM) -> "Rect":
-        lo, hi = (ya, yb) if ya <= yb else (yb, ya)
-        return cls.um(x - width / 2, lo - width / 2, x + width / 2, hi + width / 2)
 
 
 class BuildError(RuntimeError):
