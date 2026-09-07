@@ -45,6 +45,23 @@ class TestMeasureParse(unittest.TestCase):
         parsed = measure.parse(log, ["x"])
         self.assertEqual(parsed["x"], 1.0)
 
+    def test_anchored_default_rejects_trailing_trig_targ_context(self):
+        # ngspice's TRIG/TARG crossing `.meas` prints extra " targ=...
+        # trig=..." context on the same line -- the default anchored match
+        # must reject it (issue #229).
+        log = "t_settle_50 = 1.234500e-09 targ= 1.2345e-09 trig=0"
+        parsed = measure.parse(log, ["t_settle_50"])
+        self.assertNotIn("t_settle_50", parsed)
+
+    def test_unanchored_parses_trig_targ_trailing_context(self):
+        log = "t_settle_50 = 1.234500e-09 targ= 1.2345e-09 trig=0"
+        parsed = measure.parse(log, ["t_settle_50"], anchored=False)
+        self.assertAlmostEqual(parsed["t_settle_50"], 1.2345e-09)
+
+    def test_unanchored_still_matches_plain_lines(self):
+        parsed = measure.parse("vgs_nfet = 1.0", ["vgs_nfet"], anchored=False)
+        self.assertAlmostEqual(parsed["vgs_nfet"], 1.0)
+
 
 class TestCorners(unittest.TestCase):
     def test_mismatch_corner_for(self):

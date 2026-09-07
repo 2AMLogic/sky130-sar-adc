@@ -106,7 +106,6 @@ against this cell library pays -- see
 from __future__ import annotations
 
 import argparse
-import re
 import subprocess
 import sys
 import tempfile
@@ -117,7 +116,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, evidence, pdk, toolchain  # noqa: E402
+from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
 
 DESIGN_SCH = REPO_ROOT / "design" / "sar_sequencer.sch"
 XSCHEMRC = REPO_ROOT / "sim" / "xschemrc"
@@ -179,31 +178,6 @@ T_PHASE_WORST_NS = 1.0e3 / 12.0   # 83.333... ns @ f_clk_max = 12 MHz
 T_PHASE_SLOW_NS = 1.0e3 / 1.2     # 833.33... ns @ f_clk_min = 1.2 MHz
 
 MEASURE_NAMES = [f"delay_{node[3:]}" for node in PHASE_NODES]  # "delay_b9".."delay_b0","delay_eoc"
-
-# ngspice's TRIG(AT=)/TARG(...CROSS=1) measure prints extra " targ=...
-# trig=..." context on the SAME line as "name = value" -- sim/harness's
-# shared measure.parse() uses a right-anchored regex that rejects this
-# outright (silently yielding no match, not an exception). Parsed locally
-# here, the identical workaround sim/cdac-bit-trial-settling/
-# run_bit_trial_settling.py's own `_parse_trig_targ()` already established
-# (no other sim/ experiment in this repo uses a TRIG/TARG measure yet, so
-# this is not lifted into the shared harness module).
-_TRIG_TARG_RE_TMPL = r"^{name}\s*=\s*([-+0-9.eE]+)"
-
-
-def _parse_trig_targ(log_text: str, names: list[str]) -> dict[str, float]:
-    out: dict[str, float] = {}
-    for name in names:
-        pattern = re.compile(_TRIG_TARG_RE_TMPL.format(name=re.escape(name)))
-        for line in log_text.splitlines():
-            m = pattern.match(line.strip())
-            if m:
-                try:
-                    out[name] = float(m.group(1))
-                except ValueError:
-                    pass
-                break
-    return out
 
 
 def netlist_dut(scratch_dir: Path) -> Path:
@@ -322,7 +296,7 @@ def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
     for attempt in range(1, attempts + 1):
         try:
             log_text = toolchain.run_ngspice(netlist, scratch, tag)
-            return _parse_trig_targ(log_text, MEASURE_NAMES)
+            return measure.parse(log_text, MEASURE_NAMES, anchored=False)
         except RuntimeError as exc:
             if "timed out" not in str(exc) or attempt == attempts:
                 raise

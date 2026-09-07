@@ -126,7 +126,6 @@ Usage (from the repo root, after ``source sim/env.sh``)::
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 import tempfile
 from pathlib import Path
@@ -248,31 +247,6 @@ SIDES = {
 TRIG_TARG_NAMES = [f"t_settle_{side}_{int(f * 100)}" for side in SIDES for f in FRACTIONS]
 MEASURE_NAMES = [f"{stat}_{side}" for side in SIDES for stat in ("budget", "confirm")]
 
-# ngspice's TRIG(AT=)/TARG(...CROSS=1) measure prints extra " targ=...
-# trig=..." context on the SAME line as "name = value" -- sim/harness's
-# shared measure.parse() uses a right-anchored regex that rejects this
-# outright (silently yielding no match, not an exception). Parsed locally
-# here, the identical workaround sim/cdac-bit-trial-settling/
-# run_bit_trial_settling.py's and sim/sequencer-logic-delay/
-# run_sequencer_logic_delay.py's own `_parse_trig_targ()` already
-# established.
-_TRIG_TARG_RE_TMPL = r"^{name}\s*=\s*([-+0-9.eE]+)"
-
-
-def _parse_trig_targ(log_text: str, names: list[str]) -> dict[str, float]:
-    out: dict[str, float] = {}
-    for name in names:
-        pattern = re.compile(_TRIG_TARG_RE_TMPL.format(name=re.escape(name)))
-        for line in log_text.splitlines():
-            m = pattern.match(line.strip())
-            if m:
-                try:
-                    out[name] = float(m.group(1))
-                except ValueError:
-                    pass
-                break
-    return out
-
 
 def _pwl(points: list[tuple[float, float]]) -> str:
     return "pwl(" + " ".join(f"{t:g}n {v:g}" for t, v in points) + ")"
@@ -351,7 +325,7 @@ def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
         try:
             log_text = toolchain.run_ngspice(netlist, scratch, tag)
             m = measure.parse(log_text, MEASURE_NAMES)
-            m.update(_parse_trig_targ(log_text, TRIG_TARG_NAMES))
+            m.update(measure.parse(log_text, TRIG_TARG_NAMES, anchored=False))
             return m
         except RuntimeError as exc:
             if "timed out" not in str(exc) or attempt == attempts:
