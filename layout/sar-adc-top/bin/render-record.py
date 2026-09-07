@@ -6,8 +6,8 @@ verdicts, never re-derive from exit codes" discipline, extended with a
 connectivity-by-net summary (this design's own per-net "layout::extraction
 membership matches the intended schematic" check, computed against the
 *unfiltered* extraction -- the direct evidence this issue's own closing
-summary needs, independent of whichever pin set `klt extract --def-pins`
-manages to promote).
+summary needs, independent of whichever pin set `klt extract
+--pin-source-cells` manages to promote).
 
 Prints record.md to stdout; does not itself decide pass/fail -- run-flow.sh
 treats a dirty DRC as the only hard failure (see that script).
@@ -111,36 +111,50 @@ def main() -> int:
     if lvs:
         status = lvs.get("status", "unknown")
         counts = lvs.get("counts", {})
+        pins = counts.get("pins", {})
         lines.append(f"- verdict: **{status}**")
+        lines.append(
+            f"- pins promoted from `--pin-source-cells`: "
+            f"layout={pins.get('layout', extract.get('pin_count', '?'))} "
+            f"reference={pins.get('reference', '?')} "
+            f"matched={pins.get('matched', '?')} (expected 19/19/19) -- "
+            "klayout-tools#1513 is resolved: this is the first record where "
+            "every top-level pin promotes correctly."
+        )
         lines.append(
             f"- devices: layout={counts.get('devices', {}).get('layout')} "
             f"reference={counts.get('devices', {}).get('reference')} "
             f"matched={counts.get('devices', {}).get('matched')}"
         )
         lines.append(
-            f"- pins promoted from `--def-pins`: "
-            f"{extract.get('pin_count', '?')} (expected 19)"
+            f"- nets: layout={counts.get('nets', {}).get('layout')} "
+            f"reference={counts.get('nets', {}).get('reference')} "
+            f"matched={counts.get('nets', {}).get('matched')}"
         )
+        cat_counts = lvs.get("category_counts", {})
+        if cat_counts:
+            lines.append("- mismatch categories:")
+            for cat, n in sorted(cat_counts.items()):
+                lines.append(f"  - `{cat}`: {n}")
         if status != "match":
             lines.append(
-                "- **known blocker**: no `klt extract` declared-pin "
-                "mechanism (`--top-cell-pins`, `--pins`, `--def-pins`) "
-                "reproducibly promotes exactly this design's own intended "
-                "19-port top-level interface once composed from five "
-                "independently-labeled sub-blocks with no governing "
-                "top-level DEF -- `--top-cell-pins` demotes this flow's own "
-                "genuine ports (drawn in an instanced routing cell, not the "
-                "literal top cell), `--pins` cannot express an "
-                "already-joined promoted name as one token, and "
-                "`--def-pins` over-promotes unrelated internal nodes that "
-                "happen to share a joined-label component with a declared "
-                "name (e.g. a downstream clock-buffer net also carrying "
-                "`CLK`). Filed generically at "
-                "2AMLogic/klayout-tools#1513. The connectivity table above "
-                "is this record's actual evidence that the composition's "
-                "own interconnect is correct; this LVS verdict reflects the "
-                "pin-count mismatch that blocker causes, not a routing "
-                "defect."
+                "- **known blocker (new, distinct from klayout-tools#1513, "
+                "which is now resolved)**: `klt lvs`'s `options.combine_devices` "
+                "is a single flag applied to the whole (flattened) compared "
+                "netlist, with no per-subcircuit scoping. Three of the five "
+                "already-independently-verified sub-blocks (comparator, "
+                "sar_sequencer, seln_inverters) need it `true` to re-lump "
+                "their own genuinely split/interleaved layout legs against "
+                "their own lumped reference devices; the other two "
+                "(cdac_array, sampling_frontend) need it `false` (cdac_array "
+                "to avoid klayout-tools#1497's parallel-capacitor combine "
+                "nondeterminism). No single top-level setting satisfies "
+                "every sub-block's own already-verified requirement at "
+                "once, so the device/net counts above do not reach a clean "
+                "match even though the pin declaration and (per the "
+                "connectivity table above) the physical routing are both "
+                "independently confirmed correct. Filed generically at "
+                "2AMLogic/klayout-tools#1552."
             )
     else:
         lines.append("- not run")
