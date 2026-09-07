@@ -885,11 +885,8 @@ def run_full_load(scratch: Path) -> dict:
 def run_corner_grid(scratch: Path) -> dict:
     print("\n=== PVT (OAT) grid: as-drawn (BPREF_x floating) vs fixed "
           "(BPREF_x driven) ===")
-    grid = corners.oat_grid(
-        baseline_process="tt", baseline_temp=27.0, baseline_supply=VDD_NOM,
-        process_corners=["tt", "ss", "ff", "sf", "fs"],
-        temperatures_c=[-40.0, 27.0, 125.0],
-        supply_voltages=corners.supply_points(VDD_NOM, 0.10),
+    grid = corners.ratified_oat_grid(
+        VDD_NOM, 0.10, ["tt", "ss", "ff", "sf", "fs"], [-40.0, 27.0, 125.0]
     )
     rows = []
     for point, (vinp_nom, vinn_nom) in TEST_POINTS.items():
