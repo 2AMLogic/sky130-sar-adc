@@ -53,10 +53,25 @@ names). What this DOES produce, for the first time, is a concrete R_source /
 C_decouple relationship the design can be checked against once any of those
 upstream numbers ratify.
 
-Usage (from the repo root, after ``source sim/env.sh``)::
+FULL-PVT-GRID MODE (``--corners``, added 2026-09-07). The single-corner
+caveat above ("switch R_on varies materially with process/temperature, so a
+full PVT sweep of this same budget is still open") is what this mode exists
+to close for the bare (undecoupled) R_source budget at the DR-006 worst-case
+(83.333 ns) acquisition window: it re-runs that one sweep (the
+``worst_case_pp`` test point, the full ``R_SOURCE_SWEEP_OHM`` list) at the
+same ratified 9-point one-at-a-time (OAT) PVT grid every other
+``docs/chipalooza/challenge-4-proposal.md`` Section 7 Item 2 mechanism
+campaign now sweeps (process ``{ff, fs, sf, ss, tt}`` x temperature
+``{-40, 27, 125} C`` x supply ``{1.62, 1.8, 1.98} V``,
+``spec/target-spec.md``'s "Numeric rows -- RATIFIED 2026-08-19" section).
+Scope is deliberately narrower than the single-corner default run: only the
+worst-case (12 MHz) window's bare R_source sweep is repeated per corner --
+the legacy (400 ns) window and the C_decouple sweep stay single-corner-only,
+same precedent the other mechanism campaigns' own first-pass/full-grid split
+already established. Nothing about the single-corner default path above is
+changed; ``--corners`` is purely additive.
 
-    python3 sim/vcm-drive-budget/run_vcm_drive_budget.py
-    python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --record
+    python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record
 """
 
 from __future__ import annotations
@@ -71,7 +86,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import evidence, measure, pdk, toolchain  # noqa: E402
+from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
 
 DUT_FRAGMENT = (
     SIM_DIR / "sampling-frontend" / "testbench" / "sampling_frontend_dut.spice"
@@ -115,6 +130,21 @@ R_SOURCE_SWEEP_LEGACY_OHM = [0.0, 10e3, 100e3]
 # after the bare sweep above identifies it) to quantify how much on-die/at-
 # pad decoupling relaxes the bare-R_source budget.
 C_DECOUPLE_SWEEP_F = [0.0, 1e-12, 10e-12, 100e-12, 1e-9]
+
+# Ratified corner-set axes (issue #28), per spec/target-spec.md's "Numeric
+# rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
+# process corners -- the same axes every other Section 7 Item 2 mechanism
+# campaign (sim/cdac-bit-trial-settling/, sim/comparator-decision/,
+# sim/sequencer-logic-delay/, sim/sampling-acquisition-settling/) sweeps.
+# Used only by the optional --corners mode below; the single-corner
+# (tt/27C/1.8V) default behavior above is unchanged.
+SUPPLY_TOLERANCE = 0.10
+TEMPS_C = [-40, 27, 125]
+PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+
+# The single-corner (tt/27C/1.8V) record --corners's own evidence record
+# cross-references as "the finding this campaign extends".
+SINGLE_CORNER_SEED_RECORD = "20260905-201703-f012255"
 
 
 def _preamble(corner: str, temp_c: float, title: str) -> list[str]:
@@ -225,7 +255,9 @@ def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
 
 def run_sweep(point: str, sample_width_ns: float, window_label: str,
               scratch: Path,
-              r_source_list: list[float] | None = None) -> list[dict]:
+              r_source_list: list[float] | None = None,
+              corner: str = "tt", temp_c: float = 27.0, vdd: float = VDD_NOM,
+              quiet: bool = False) -> list[dict]:
     vinp, vinn = TEST_POINTS[point]
     rows = []
     baseline = None
@@ -234,9 +266,10 @@ def run_sweep(point: str, sample_width_ns: float, window_label: str,
         m = _run(
             build_transient(vinp=vinp, vinn=vinn,
                             sample_width_ns=sample_width_ns,
-                            r_source_ohm=r_source),
+                            r_source_ohm=r_source,
+                            corner=corner, temp_c=temp_c, vdd=vdd),
             scratch,
-            f"rsweep_{window_label}_{point}_{r_source:g}",
+            f"rsweep_{window_label}_{point}_{corner}_{temp_c:g}_{vdd:g}_{r_source:g}",
         )
         diff = m["top_p_end"] - m["top_n_end"]
         row = {"r_source_ohm": r_source, "diff_v": diff, **m}
@@ -245,12 +278,13 @@ def run_sweep(point: str, sample_width_ns: float, window_label: str,
         row["diff_err_mv"] = (diff - baseline) * 1000
         row["diff_err_lsb"] = row["diff_err_mv"] / LSB_DIFF_MV_PROVISIONAL
         rows.append(row)
-        print(
-            f"[{window_label:6}] {point:14} R_source={r_source:9.0f} ohm  "
-            f"VCM(end)={m['vcm_end']:.4f} V  "
-            f"diff_err={row['diff_err_mv']:+8.4f} mV "
-            f"({row['diff_err_lsb']:+7.4f} LSB)"
-        )
+        if not quiet:
+            print(
+                f"[{window_label:6}] {point:14} R_source={r_source:9.0f} ohm  "
+                f"VCM(end)={m['vcm_end']:.4f} V  "
+                f"diff_err={row['diff_err_mv']:+8.4f} mV "
+                f"({row['diff_err_lsb']:+7.4f} LSB)"
+            )
     return rows
 
 
@@ -292,6 +326,225 @@ def find_budget(rows: list[dict], threshold_lsb: float) -> float | None:
     point stays under (a right-censored bound, reported as such)."""
     ok = [r for r in rows if abs(r["diff_err_lsb"]) <= threshold_lsb]
     return ok[-1] if ok else None
+
+
+def run_corners(scratch: Path, point: str = DEFAULT_POINT,
+                quiet: bool = False) -> list[dict]:
+    """Full ratified-corner-set OAT sweep of the bare (undecoupled)
+    R_source budget at the DR-006 worst-case (83.333 ns) acquisition
+    window only -- the same PVT grid every other Section 7 Item 2 mechanism
+    campaign now sweeps. Does NOT change the mechanism measured: identical
+    DUT fragment, identical R_source sweep list, identical diff_err
+    definition (referenced to that SAME corner's own R_source=0 point) as
+    the single-corner default path -- only the `.lib` corner, `.temp`, and
+    supply voltage vary per point."""
+    grid = corners_mod.ratified_oat_grid(VDD_NOM, SUPPLY_TOLERANCE,
+                                          PROCESS_CORNERS, TEMPS_C)
+    points: list[dict] = []
+    for process_corner, temp_c, supply_v in grid:
+        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+        rows = run_sweep(point, T_SAMPLE_WORST_NS, "worst", scratch,
+                          corner=process_corner, temp_c=temp_c, vdd=supply_v,
+                          quiet=True)
+        budget_1lsb = find_budget(rows, 1.0)
+        budget_p1lsb = find_budget(rows, 0.1)
+        points.append({
+            "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
+            "corner_id": cid, "rows": rows,
+            "budget_1lsb_ohm": budget_1lsb["r_source_ohm"] if budget_1lsb else None,
+            "budget_1lsb_censored": bool(budget_1lsb and
+                budget_1lsb["r_source_ohm"] == R_SOURCE_SWEEP_OHM[-1]),
+            "budget_p1lsb_ohm": budget_p1lsb["r_source_ohm"] if budget_p1lsb else None,
+        })
+        if not quiet:
+            b1 = points[-1]["budget_1lsb_ohm"]
+            print(
+                f"{cid}: 1-LSB R_source budget = "
+                + (f"<= {b1:.0f} ohm" if b1 is not None
+                   else f"< {R_SOURCE_SWEEP_OHM[1]:.0f} ohm (none found)")
+            )
+    return points
+
+
+def write_corners_record(points: list[dict], point: str) -> Path:
+    record_id = evidence.new_record_id()
+    netlist_text = DUT_FRAGMENT.read_text()
+    record_path = evidence.write_netlist_snapshot_text(
+        EXPERIMENT_DIR, record_id, netlist_text
+    )
+    netlist_sha = evidence.sha256_text(netlist_text)
+    info = pdk.resolve()
+    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
+    ng_version = toolchain._ngspice_version() or "unknown"
+
+    process_corners_run = sorted({p["corner"] for p in points})
+    temps_run = sorted({p["temp_c"] for p in points})
+    supplies_run = sorted({p["supply_v"] for p in points})
+
+    lines: list[str] = []
+    a = lines.append
+    a(f"# VCM drive-impedance budget -- full PVT grid -- {record_id}")
+    a("")
+    a("- **Record ID**: " + record_id)
+    a(
+        "- **Claim**: extends the single-corner (tt/27C/1.8V) bare "
+        f"(undecoupled) R_source budget in [`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+        f"({SINGLE_CORNER_SEED_RECORD}.md) -- at the DR-006-derived "
+        "worst-case (12 MHz, 83.333 ns) acquisition window only -- to the "
+        "FULL ratified PVT corner set (spec/target-spec.md's \"Numeric "
+        "rows -- RATIFIED 2026-08-19\" section), the same OAT grid every "
+        "other `docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2 "
+        "mechanism campaign now sweeps. Identical DUT fragment "
+        "(`sim/sampling-frontend/testbench/sampling_frontend_dut.spice`, "
+        "unmodified), identical R_source sweep list, identical diff_err "
+        "definition (referenced to that same corner's own R_source=0 "
+        "point) as the single-corner record -- only the `.lib` corner, "
+        "`.temp`, and supply voltage vary per point. No claim here is "
+        "graded against a ratified spec row: `spec/target-spec.md` is "
+        "entirely DRAFT (#1/#27); `LSB_DIFF_MV_PROVISIONAL` is a reference "
+        "scale, never a pass/fail gate; the DR-006 acquisition window is "
+        "itself downstream of the DRAFT sample-rate row (Section 7 Item 2)."
+    )
+    a(
+        "- **Netlist provenance**: unmodified "
+        "`sim/sampling-frontend/testbench/sampling_frontend_dut.spice`, "
+        "read in place -- not duplicated, same convention as the "
+        "single-corner record. This record's own harness adds only the "
+        "ideal-source/R_source network into `VCM` and the SAMPLE pulse "
+        "source, with `.lib`/`.temp`/vdd varying per corner point; neither "
+        "is stated in the DUT fragment itself."
+    )
+    a(
+        corners_mod.corner_matrix_summary_line(
+            process_corners_run, temps_run, supplies_run, len(points)
+        )
+    )
+    a(
+        f"- **Scope, narrower than the single-corner default run**: only "
+        f"the `{point}` test point's bare (undecoupled) R_source sweep at "
+        f"the worst-case ({T_SAMPLE_WORST_NS:.3f} ns) window is repeated "
+        "per corner. The legacy (400 ns) window and the C_decouple sweep "
+        "stay single-corner-only (tt/27C/1.8V), deferred to a future pass, "
+        "same first-pass/full-grid split precedent the other mechanism "
+        "campaigns already established."
+    )
+    a("")
+    a("## Bare R_source budget for <= 1 provisional LSB of differential error, per corner")
+    a("")
+    a(
+        "\"Budget\" is the largest swept R_source (ohm) at which "
+        "`abs(diff_err_lsb) <= 1.0` still holds at that corner -- see "
+        "`find_budget()` in this script. A budget equal to the largest "
+        "swept value (100000 ohm) is right-censored: every swept value "
+        "stayed under threshold, so the true budget is >= that value, not "
+        "necessarily equal to it."
+    )
+    a("")
+    a("| Corner | 1-LSB R_source budget (ohm) | 0.1-LSB R_source budget (ohm) |")
+    a("|---|---|---|")
+    for p in points:
+        b1 = p["budget_1lsb_ohm"]
+        b1_str = "none (< smallest nonzero tested)" if b1 is None else (
+            f"<= {b1:.0f}" + (" (right-censored)" if p["budget_1lsb_censored"] else "")
+        )
+        bp1 = p["budget_p1lsb_ohm"]
+        bp1_str = "none (< smallest nonzero tested)" if bp1 is None else f"<= {bp1:.0f}"
+        a(f"| `{p['corner_id']}` | {b1_str} | {bp1_str} |")
+    a("")
+
+    scored = [p for p in points if p["budget_1lsb_ohm"] is not None]
+    notes: list[str] = []
+    if scored:
+        binding_val = min(p["budget_1lsb_ohm"] for p in scored)
+        best_val = max(p["budget_1lsb_ohm"] for p in scored)
+        binding_ties = [p for p in scored if p["budget_1lsb_ohm"] == binding_val]
+        best_ties = [p for p in scored if p["budget_1lsb_ohm"] == best_val]
+        binding = binding_ties[0]
+        best = best_ties[0]
+        spread = (best_val / binding_val if binding_val > 0 else float("inf"))
+        binding_label = (
+            f"`{binding['corner_id']}`" if len(binding_ties) == 1
+            else "tied at " + ", ".join(f"`{p['corner_id']}`" for p in binding_ties)
+        )
+        best_label = (
+            f"`{best['corner_id']}`" if len(best_ties) == 1
+            else "tied at " + ", ".join(f"`{p['corner_id']}`" for p in best_ties)
+        )
+        notes.append(
+            f"**Binding corner(s) (tightest 1-LSB budget): {binding_label}**, "
+            f"<= {binding_val:.0f} ohm. Loosest corner(s): {best_label}, "
+            f"<= {best_val:.0f} ohm"
+            + (" (right-censored)" if best["budget_1lsb_censored"] else "")
+            + f". Worst-to-best spread across the ratified grid: "
+            f"{spread:.1f}x -- the bare R_source budget is **not** "
+            "corner-invariant."
+        )
+        tt_pt = next(
+            (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0
+             and p["supply_v"] == VDD_NOM), None,
+        )
+        if tt_pt is not None and tt_pt["budget_1lsb_ohm"] is not None:
+            notes.append(
+                f"The `tt`/27C/1.8V point in this grid measures a 1-LSB "
+                f"budget of <= {tt_pt['budget_1lsb_ohm']:.0f} ohm, "
+                "consistent with (reproduces) the single-corner record's "
+                "own finding for the same window/point."
+            )
+        if binding_val < 10e3:
+            notes.append(
+                f"**This tightens, not merely restates, the single-corner "
+                f"finding**: the single-corner (tt/27C/1.8V) record reports "
+                f"a <= 10 kOhm bare budget at this window, but the binding "
+                f"corner(s) across the ratified grid ({binding_label}) "
+                f"is/are <= {binding_val:.0f} ohm -- "
+                f"{10e3 / binding_val:.1f}x tighter. Any "
+                "future on-chip VCM buffer / off-chip reference network "
+                "sizing that targets only the tt/27C/1.8V figure would "
+                "under-budget the real worst-case corner."
+            )
+    else:
+        notes.append(
+            "No corner point found a positive 1-LSB R_source budget within "
+            "the swept range -- see the per-corner table above."
+        )
+    notes.append(
+        "This campaign repeats ONLY the bare (undecoupled) R_source sweep "
+        "at the DR-006 worst-case window, at every ratified corner. The "
+        "legacy (400 ns) window -- already shown, single-corner, to be the "
+        "MORE demanding case for this mechanism -- and the C_decouple "
+        "sweep remain single-corner (tt/27C/1.8V) only; a full-grid pass "
+        "over either is a natural next step, same open-item shape as the "
+        "other Section 7 Item 2 mechanisms before their own full-grid "
+        "passes landed. It does not, on its own, establish what R_source/"
+        "C_decouple an actual on-chip VCM buffer or off-chip reference "
+        "network would present -- no such buffer exists in this design "
+        "yet (docs/chipalooza/challenge-4-proposal.md Section 2.2)."
+    )
+
+    a("## Result")
+    a("")
+    for n in notes:
+        a(f"- {n}")
+    a("")
+
+    a("## Reproduction")
+    a("")
+    a(
+        "```\npython3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record\n```"
+    )
+    a("")
+    lines += evidence.environment_block(
+        pdk_line, ng_version, netlist_sha,
+        extra={"toolchain pin file": "sim/toolchain.json"},
+    )
+    lines += evidence.footer_lines(
+        written_by="run_vcm_drive_budget.py", supersedes="none"
+    )
+    record_path.write_text("\n".join(lines) + "\n")
+    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
+    latest_path.write_text(f"{record_id}.md\n")
+    print(f"\nWrote record: {record_path}")
+    return record_path
 
 
 def write_record(all_results: dict) -> None:
@@ -426,10 +679,24 @@ def main() -> int:
                     help="write an evidence record under records/")
     ap.add_argument("--point", default=DEFAULT_POINT, choices=list(TEST_POINTS),
                     help="primary differential test point for the R_source sweep")
+    ap.add_argument(
+        "--corners", action="store_true",
+        help="run the full ratified PVT grid (9 OAT points) instead of the "
+             "single-corner (tt/27C/1.8V) default -- bare R_source sweep at "
+             "the DR-006 worst-case window only (see module docstring)",
+    )
     args = ap.parse_args()
 
     scratch = Path("/tmp") / "sim-vcm-drive-budget"
     scratch.mkdir(parents=True, exist_ok=True)
+
+    if args.corners:
+        print("=== VCM drive-budget: full ratified PVT grid "
+              f"(worst-case {T_SAMPLE_WORST_NS:.3f} ns window only) ===")
+        points = run_corners(scratch, point=args.point)
+        if args.record:
+            write_corners_record(points, args.point)
+        return 0
 
     sweeps = []
     print("=== R_source sweep: DR-006 worst-case window "

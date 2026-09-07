@@ -91,7 +91,7 @@ supplied by the harness (not per-block).
 | `VDD` | supply | 1.8 V digital/analog rail (shared) | — (rail, not a slot line item) | Single supply for the whole block — analog and digital share the same rail (§2.1) |
 | `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 0–4) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
 | `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
-| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A single-corner (`tt`/27 °C/1.8 V) drive-impedance/decoupling *budget* now exists ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md)), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
+| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, single-corner (`tt`/27 °C/1.8 V) for the legacy-window and decoupling legs and full-ratified-PVT-grid for the bare (undecoupled) worst-case-window budget ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md), [`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md)), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
 | `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
 | `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
@@ -942,7 +942,9 @@ tracker already owns.
    on-chip single-to-differential conversion is unresolved and is not
    guessed at here; it should be revisited once `rules-4.html` states the
    real slot categories.
-6. **`VCM` drive-impedance/decoupling budget: quantified, not yet closed.**
+6. **`VCM` drive-impedance/decoupling budget: quantified at every ratified
+   corner for the bare worst-case-window sweep; the legacy-window and
+   decoupling legs remain single-corner — not yet closed.**
    A single-corner (`tt`/27 °C/1.8 V) sweep against the unmodified sampling
    front-end DUT
    ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md))
@@ -953,7 +955,8 @@ tracker already owns.
    pre-existing 400 ns testbench convention:
    - Worst-case (83.3 ns) window: bare (undecoupled) `R_source` budget is
      ≤ 10 kΩ for ≤ 1 provisional LSB of differential error, ≤ 100 Ω for
-     ≤ 0.1 LSB.
+     ≤ 0.1 LSB, **at the `tt`/27 °C/1.8 V point only** (see the full-grid
+     update below for how this holds across the ratified PVT grid).
    - **Counterintuitive finding, stated plainly rather than smoothed over**:
      the *longer* 400 ns legacy window is the more demanding case for this
      mechanism, not the shorter DR-006 window — the smallest nonzero
@@ -977,6 +980,41 @@ tracker already owns.
      buffer or off-chip reference network would present — no such buffer
      exists in this design yet. What it newly establishes is the *target*
      such a (not-yet-designed) block would need to meet.
+
+   **Update this pass (2026-09-07): the bare (undecoupled) `R_source` budget
+   at the worst-case (83.333 ns) window was taken to the full ratified PVT
+   grid** — the same 9-point one-at-a-time (OAT) sweep (process
+   `{ff, fs, sf, ss, tt}` × temperature `{−40, 27, 125} °C` × supply
+   `{1.62, 1.8, 1.98} V`) every other mechanism in this section now uses —
+   added to `sim/vcm-drive-budget/run_vcm_drive_budget.py` as a new
+   `--corners` mode alongside the existing single-corner default
+   ([`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md)).
+   Scope is deliberately narrower than the single-corner pass above: only
+   the bare (undecoupled) `R_source` sweep at the worst-case window is
+   repeated per corner; the legacy (400 ns) window and the `C_decouple`
+   sweep remain single-corner (`tt`/27 °C/1.8 V) only, deferred to a future
+   pass. **This is the opposite outcome from the CDAC-settling, comparator,
+   and sequencer mechanisms above (§7 Item 2), whose single-corner margins
+   all held up as PVT-complete comfortably — here the single-corner figure
+   under-states the real worst case**: the `tt`/27 °C/1.8 V point in the
+   grid reproduces the single-corner record's own ≤ 10 kΩ figure exactly,
+   but the binding corners across the full grid — `fs_27c_1.80v` and
+   `tt_27c_1.62v`, tied — are ≤ 1 kΩ, **10× tighter**. The loosest corners
+   — `ss_27c_1.80v` and `tt_-40c_1.80v`, tied — are ≤ 30 kΩ, so the bare
+   1-LSB budget spans a full **30× across the ratified grid**, confirming
+   the single-corner caveat ("switch `R_on` varies materially with
+   process/temperature") was not overstated: this budget is genuinely far
+   from corner-invariant. A future on-chip `VCM` buffer or off-chip
+   reference network sized only against the `tt`/27 °C/1.8 V figure would
+   under-budget the real worst-case corner by an order of magnitude. This
+   does not violate any ratified spec row — `spec/target-spec.md` is
+   entirely DRAFT, and no on-chip `VCM` buffer exists yet to size against
+   this budget in the first place — but it sharpens, not merely narrows,
+   the open item: any future full-PVT pass over the legacy (400 ns) window
+   (already shown, single-corner, to be the *more* demanding case for this
+   mechanism than the worst-case window) is a natural, and now higher-
+   priority, next step.
+
    No claim here is graded against a ratified spec row (`spec/target-spec.md`
    is entirely DRAFT, #1/#27; the DR-006 acquisition window is itself
    downstream of the DRAFT sample-rate row, Item 2 above).
