@@ -1,0 +1,44 @@
+* issue #121 CDAC bit-trial settling -- corner=ss temp=27.0C vdd=1.8 test_bit=8 direction=rise
+.lib /Users/rwalters/.volare/sky130A/libs.tech/combined/sky130.lib.spice ss
+.temp 27.0
+.model SWMOD SW(Ron=1 Roff=1e12 Vt=0.9 Vh=0.05)
+
+Vdd VDD 0 dc 1.8
+Vvrefp VREFP 0 dc 1.8
+Vvrefn VREFN 0 dc 0
+Vcm VCM 0 dc 0.9
+* Ideal (testbench-only) reset switch + anti-floating leak --
+* same convention as sim/cdac-array-transfer/testbench/
+* tb_cdac_array_transfer.spice's own Sreset_.../Rdc_... pattern.
+Vctrl_reset NCTRL_RESET 0 pwl(0 1.8 0.9n 1.8 1.1n 0 40.0n 0)
+Sreset TOP VCM NCTRL_RESET 0 SWMOD
+Rdc TOP VCM 1T
+Vsel_test SEL_TEST 0 pwl(0 1.8 0.9n 1.8 1.1n 0.0 40.0n 0.0)
+Vbot0 bot0 0 dc 0
+Xc_bit0 bot0 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+Vbot1 bot1 0 dc 0
+Xc_bit1 bot1 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2
+Vbot2 bot2 0 dc 0
+Xc_bit2 bot2 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 m=4
+Vbot3 bot3 0 dc 0
+Xc_bit3 bot3 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 m=8
+Vbot4 bot4 0 dc 0
+Xc_bit4 bot4 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 m=16
+Vbot5 bot5 0 dc 0
+Xc_bit5 bot5 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 m=32
+Vbot6 bot6 0 dc 0
+Xc_bit6 bot6 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 m=64
+Vbot7 bot7 0 dc 0
+Xc_bit7 bot7 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 m=128
+Xc_bit8 bot8 TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 m=256
+Xn_bit8 bot8 SEL_TEST VREFN 0 sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_bit8 bot8 SEL_TEST VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_term VREFN TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
+.control
+tran 5.0p 40.0n
+meas tran t_settle_50 TRIG AT=1.0n TARG V(TOP) VAL=1.35 CROSS=1
+meas tran t_settle_90 TRIG AT=1.0n TARG V(TOP) VAL=1.71 CROSS=1
+meas tran t_settle_99 TRIG AT=1.0n TARG V(TOP) VAL=1.791 CROSS=1
+meas tran vtop_confirm find v(TOP) at=39.0n
+.endc
+.end
