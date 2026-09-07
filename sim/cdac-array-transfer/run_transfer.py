@@ -101,22 +101,13 @@ def run(process_corners=None, temps_c=None, quiet: bool = False):
 
     process_corners = process_corners or PROCESS_CORNERS
     temps_c = temps_c or TEMPS_C
-    supply_points = corners_mod.supply_points(NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE)
-
-    baseline_process = "tt" if "tt" in process_corners else process_corners[0]
-    baseline_temp = 27 if 27 in temps_c else temps_c[0]
-    baseline_supply = NOMINAL_SUPPLY_V
 
     # See harness.corners.oat_grid()'s docstring for why this is a
     # one-at-a-time (OAT / "star") grid rather than a full factorial
-    # |process|x|temp|x|supply| grid.
-    grid = corners_mod.oat_grid(
-        baseline_process,
-        baseline_temp,
-        baseline_supply,
-        process_corners,
-        temps_c,
-        supply_points,
+    # |process|x|temp|x|supply| grid; ratified_oat_grid() anchors it on the
+    # repo's ratified "tt"/27C baseline convention (issue #211).
+    grid = corners_mod.ratified_oat_grid(
+        NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, process_corners, temps_c
     )
 
     record_id = evidence.new_record_id()
