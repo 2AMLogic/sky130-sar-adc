@@ -11,20 +11,38 @@ touched.**
 
 ## Status (as of this record)
 
-**Placement + interconnect routing complete and DRC-clean at the top level;
-LVS blocked on a tool gap, not a routing defect.** `layout/sar-adc-top/bin/
-build_layout.py` places all five sub-blocks (`klt gen-compose`, explicit
-placement, each named as a `blocks[].cell` entry per #1189) and hand-routes
-every net `design/sar_adc_top.sch` calls for (`klt draw`), following the
-floorplan/routing plan this document works out below. `klt drc` on the
-composed layout is **clean (0 violations)**. A full-hierarchy, unfiltered
-`klt extract` was checked net-by-net by hand against the intended
-interconnect (see the latest `reports/<record-id>/record.md`'s own
-"Connectivity verification" table) — every one of the ~30 top-level nets
-this assembly routes extracts as its own distinct, correctly-scoped net,
-with exactly the intended cross-sub-block membership and no unintended
-shorts. That table is the direct evidence backing this issue's own
-DRC/interconnect-correctness claims.
+**Placement + interconnect routing complete and DRC-clean at the top level.
+The LVS *pin-declaration* blocker (klayout-tools#1513) is now resolved; LVS
+itself still does not reach a clean match, blocked on a second, distinct
+tool gap (klayout-tools#1552) — see "LVS device/topology blocker" below.**
+`layout/sar-adc-top/bin/build_layout.py` places all five sub-blocks (`klt
+gen-compose`, explicit placement, each named as a `blocks[].cell` entry per
+#1189) and hand-routes every net `design/sar_adc_top.sch` calls for (`klt
+draw`), following the floorplan/routing plan this document works out below.
+`klt drc` on the composed layout is **clean (0 violations)**. A
+full-hierarchy, unfiltered `klt extract` was checked net-by-net by hand
+against the intended interconnect (see the latest
+`reports/<record-id>/record.md`'s own "Connectivity verification" table) —
+every one of the ~30 top-level nets this assembly routes extracts as its own
+distinct, correctly-scoped net, with exactly the intended cross-sub-block
+membership and no unintended shorts. That table is the direct evidence
+backing this issue's own DRC/interconnect-correctness claims.
+
+`klt extract --pin-source-cells` (klayout-tools#1515, merged 2026-09-06)
+now promotes exactly this design's own intended 19 top-level pins — 19/19/19
+promoted/reference/matched, where none of `--top-cell-pins`/`--pins`/
+`--def-pins` could reach better than a 23-vs-19 over-promotion (see "LVS pin
+declaration: resolved" below for the fix and why it works). `klt lvs`
+itself still reports a **mismatch**, but for an unrelated reason discovered
+only once the pin blocker cleared: `options.combine_devices` has no
+per-subcircuit scoping, and this design's five already-independently-verified
+sub-blocks need *opposing* settings (see "LVS device/topology blocker"
+below). Neither blocker reflects a routing defect — the connectivity table
+above and the resolved pin counts are independent, positive evidence the
+composition and its interconnect are correct.
+
+<details>
+<summary>Historical trace: why `--top-cell-pins`/`--pins`/`--def-pins` each failed (kept for the record; resolved by `--pin-source-cells`, see below)</summary>
 
 `klt lvs` itself still reports a mismatch, but not because the routing is
 wrong: no available `klt extract` declared-pin mechanism
@@ -41,6 +59,8 @@ of gap `layout/sar-sequencer/`'s own `--def-pins` fix (klayout-tools#1390)
 already resolved for a *single* placed-and-routed macro — this is the same
 root cause recurring at the *composition* scale, where there is no single
 governing DEF to anchor it on.
+
+</details>
 
 An earlier increment of this issue (previous revision of this document)
 found and fixed a real sub-block-layout completeness gap while working out
@@ -381,13 +401,51 @@ Open questions this investigation worked through before that implementation
    between *already-real* metal ports, never manufactures a landing point on
    a bare well/poly shape.
 
-## LVS pin declaration blocker (klayout-tools#1513)
+## LVS pin declaration: resolved (klayout-tools#1513 → #1515)
 
-`layout/sar-adc-top/bin/run-flow.sh` tries all three of `klt extract`'s own
-declared-top-level-pin mechanisms in sequence (see that script's own step 7
-and `render-record.py`'s own summary), and none reproduces exactly this
-design's intended 19-port interface once the five sub-blocks are composed
-and flattened:
+**Resolved.** `klt extract --pin-source-cells route__SAR_ADC_TOP_ROUTE`
+(klayout-tools#1515, merged 2026-09-06) now promotes exactly this design's
+own intended 19 top-level pins — 19/19/19 promoted/reference/matched, per
+every record from `reports/20260907-110058-a546200/` onward. Two changes
+were needed together, both in `layout/sar-adc-top/bin/run-flow.sh`:
+
+1. **`--pin-source-cells <cell>`** resolves a named cell's own drawn pin
+   labels to their real net *by position*, not by name — sidestepping every
+   failure mode the three name-matching mechanisms hit (below). This
+   flow's own 19 external-pin labels are all drawn directly in the routing
+   cell `build_layout.py`'s own interconnect populates (step 3 of
+   `run-flow.sh`), so naming that one cell as the pin source is exactly the
+   filter this composition needs.
+2. **The routing cell needed a globally-unique name first.** Every other
+   `bin/build_layout.py` flow in this repo (`comparator/`,
+   `sampling-frontend/`) also names its own internal routing cell `ROUTE`
+   by convention — so once all five sub-block GDS files are merged into one
+   composed layout, there are *three* distinct cells that could answer to
+   that name (this flow's own top-level one, plus one buried inside each of
+   `comparator`'s and `sampling_frontend`'s own internal composition).
+   `--pin-source-cells ROUTE` matched **none** of them (0 pins promoted) —
+   `klt gen-compose`'s own deterministic `"<block-id>__<cell-name>"` naming
+   (docs/cli/gen-compose.md, #1189) means none of the three is literally
+   named `ROUTE` after composition; each is `<block>__ROUTE` (or
+   `<block>__ROUTE$N` where a same-named cell from a different source GDS
+   also collided during the underlying GDS merge). Renaming this flow's own
+   cell to `SAR_ADC_TOP_ROUTE` (via `klt draw --cell-name`) makes it
+   globally unique, so `--pin-source-cells route__SAR_ADC_TOP_ROUTE`
+   (the block id `route` this flow's own compose request already uses,
+   `__`, the new cell name) resolves unambiguously — confirmed empirically:
+   the ambiguous `ROUTE` name promotes 0 pins; the disambiguated
+   `route__SAR_ADC_TOP_ROUTE` promotes exactly 19.
+
+Requires a `klt` build with klayout-tools#1515 — see "Provenance" below;
+`layout/requirements.txt`'s pinned `klayout-tools==0.4.0` predates it.
+
+<details>
+<summary>Historical trace: why <code>--top-cell-pins</code>/<code>--pins</code>/<code>--def-pins</code> each failed (kept for the record)</summary>
+
+`layout/sar-adc-top/bin/run-flow.sh` used to try each of `klt extract`'s
+three *name-matching* declared-top-level-pin mechanisms in sequence, and
+none reproduced exactly this design's intended 19-port interface once the
+five sub-blocks were composed and flattened:
 
 - **`--top-cell-pins`**: demotes this flow's *own* genuine top-level pin
   labels too, since `build_layout.py`'s own `route` block — where every one
@@ -432,7 +490,86 @@ per `CLAUDE.md`'s friction protocol — the same protocol, and the same class
 of gap, that produced klayout-tools#1385/#1390 for a single placed-and-routed
 macro (`layout/sar-sequencer/`'s own LVS reference provenance section); this
 is that same gap recurring one composition level up, where there is no
-single top-level DEF left to anchor `--def-pins` on.
+single top-level DEF left to anchor `--def-pins` on. Closed by
+[klayout-tools#1515](https://github.com/2AMLogic/klayout-tools/issues/1515),
+merged 2026-09-06 — see above.
+
+</details>
+
+## LVS device/topology blocker (klayout-tools#1552)
+
+**New blocker, discovered only once the pin-declaration blocker above
+cleared** — reaching 19/19/19 pins was necessary but not sufficient for a
+`klt lvs` **match**. With `--pin-source-cells` wired in and
+`options.combine_devices: true` (the same top-level LVS request
+`run-flow.sh` already used), `klt lvs` reports:
+
+| | layout | reference | matched |
+| --- | --- | --- | --- |
+| pins | 19 | 19 | 19 |
+| devices | 869 | 869 | 794 |
+| nets | 444 | 446 | 412 |
+
+— `status: mismatch`, `device.unmatched: 75`, `net.merged: 12`,
+`net.split: 10`, `topology.flattened: 1` (see the latest
+`reports/<record-id>/lvs.json` for the full per-mismatch detail).
+
+**Root cause: `options.combine_devices` has no per-subcircuit scoping, and
+this design's five sub-blocks need opposing settings.** Each sub-block's own
+already-closed, already-independently-verified LVS record was reached with
+its own deliberately-chosen `combine_devices` setting:
+
+| Sub-block | `combine_devices` | Why |
+| --- | --- | --- |
+| `cdac_array` | `false` | Its own reference emits one uncombined unit `C` card per physically-drawn MiM cap (issue #148) specifically to avoid `Netlist.combine_devices()`'s documented nondeterminism on large parallel-capacitor groups (klayout-tools#1497) — `true` risks silently corrupting an already-verified array. |
+| `sampling_frontend` | `false` | No parallel devices to fold (each of its 24 devices is schematically distinct) — a deliberate no-op choice, not a requirement, per that flow's own `run-flow.sh` comment. |
+| `comparator` | `true` | Its own layout genuinely draws split/interleaved unit-width legs (e.g. the input pair's four common-centroid `W=2u` legs) that must be re-lumped to match the reference's lumped `W=4u` devices. |
+| `sar_sequencer` | `true` | Folded/multi-finger standard cells need re-lumping the same way. |
+| `seln_inverters` | `true` | Same as `sar_sequencer`. |
+
+`klt lvs`'s `options.combine_devices` is a single flag applied once to the
+*whole* (flattened) compared netlist — there is no way to apply `false` to
+the `cdac_array`/`sampling_frontend` region and `true` to the
+`comparator`/`sar_sequencer`/`seln_inverters` region of the same compare.
+Both global settings were measured directly against this composition:
+
+- `combine_devices: true` (the setting `run-flow.sh` uses, since it is the
+  *less-wrong* of the two): 98 mismatches, the table above. The 75
+  `device.unmatched` entries concentrate almost entirely in `cdac_array` (38
+  devices — reintroducing klayout-tools#1497's own already-tracked
+  nondeterminism) and `sampling_frontend` (23 devices, which have nothing of
+  their own to fold — `combine_devices()` appears to consider parallel-device
+  groups across the *whole* flattened netlist, not scoped to within a
+  sub-block's own original hierarchy boundary, so a shared top-level rail
+  connecting unrelated sub-blocks is enough to perturb a sub-block that was
+  independently verified device-for-device correct in isolation), plus 5 in
+  `comparator` and 9 in `seln_inverters`.
+- `combine_devices: false`: 2197 mismatches (2168 `device.unmatched`) — as
+  expected, since `comparator`/`sar_sequencer`/`seln_inverters` genuinely
+  need the folding this setting disables.
+
+Neither setting is correct for this composition, and no third option exists
+in `klt lvs`'s current request schema. This does not indicate a routing
+defect: the pin declaration above and the unfiltered, net-by-net
+connectivity check both independently confirm the composition's own new
+interconnect is correct: what remains unverified by a `klt lvs` **match**
+specifically is each sub-block's *own* internal device-level correctness at
+the composed scale — already independently verified at each sub-block's own
+scope (#99–#102's own closed, clean LVS records), which this blocker
+prevents from being *re-confirmed* in the composed context, not from being
+verified at all for the first time.
+
+Filed generically (no design-specific detail) at
+[klayout-tools#1552](https://github.com/2AMLogic/klayout-tools/issues/1552)
+per `CLAUDE.md`'s friction protocol, proposing (in increasing order of
+effort): per-subcircuit `combine_devices` scoping in the `klt lvs` request;
+hierarchy-preserving extraction/comparison (the "real fix" klayout-tools#1085
+named but did not implement, choosing `options.flatten_reference` instead);
+or a documented `--abstract-cells` + matching hand-authored reference recipe
+that would let this design's own five already-verified sub-blocks be
+compared as opaque, pinned black boxes at the top level — reducing the
+top-level compare to pure interconnect/topology, where `combine_devices` has
+nothing left to disagree about.
 
 ## Remaining work (tracked against #103)
 
@@ -456,16 +593,40 @@ single top-level DEF left to anchor `--def-pins` on.
       sub-block's own already-generated flat reference subckt plus the
       top-level interconnect, run through `klt lvs` with
       `options.flatten_reference: true` (issue #1085).
-- [ ] **Blocked on klayout-tools#1513** (see above) for an actual `klt
+- [x] `klt extract --pin-source-cells` reaches 19/19/19 promoted/reference/
+      matched top-level pins (klayout-tools#1513/#1515, resolved).
+- [ ] **Blocked on klayout-tools#1552** (see above) for an actual `klt
       lvs` **match** verdict — the connectivity itself is verified correct
       by the unfiltered-extraction, net-by-net check in each record's own
-      `record.md`; what remains is a promoted-pin-count reconciliation this
-      repo cannot fix on its own.
-- [ ] Once klayout-tools#1513 (or an equivalent workaround) resolves: confirm
-      which of #103's own acceptance-criteria items (T1 items 3/4/7) an
-      actual `match` verdict unblocks, and whether `klt pex` (now
+      `record.md`, and the pin declaration is now exact; what remains is a
+      `combine_devices` scoping gap this repo cannot fix on its own.
+- [ ] Once klayout-tools#1552 (or an equivalent workaround) resolves: confirm
+      an actual `match` verdict, and revisit whether `klt pex` (now
       implemented, unlike the tooling gap #103's own body anticipated) is
-      usable for item 7's post-layout verification.
+      usable for T1 item 7's post-layout verification — not attempted this
+      increment, since `klt pex` presumes a device/net correspondence to
+      attach parasitics onto, which does not yet exist here.
+
+### T1 items 3/4/7: what this issue makes checkable at the top level
+
+Per #103's own acceptance criteria, this is the accounting of which items
+this issue's work makes checkable (run, with a real verdict) versus which
+remain tool-blocked, as of this record:
+
+- **Item 3 (DRC clean)**: **checkable and clean.** `klt drc` reports 0
+  violations on the fully composed 5-block layout (unchanged since PR #174).
+- **Item 4 (LVS clean)**: **checkable, not yet clean.** The pin-declaration
+  half of the blocker (klayout-tools#1513) is resolved this increment — `klt
+  lvs` now runs with an exact 19/19/19 pin correspondence instead of
+  refusing to seed a comparison at all. It still reports `mismatch`, blocked
+  on the distinct `combine_devices` scoping gap above (klayout-tools#1552).
+- **Item 7 (post-layout verification via `klt pex`)**: **not attempted,
+  blocked on item 4.** `klt pex` is implemented upstream (unlike the tooling
+  gap #103's own body anticipated when filed), but extracting parasitics
+  presumes the device/net correspondence a clean LVS match would establish;
+  running it against a netlist `klt lvs` itself cannot yet confirm
+  corresponds to the schematic would not produce meaningful top-level
+  evidence. Left for the follow-up that resolves klayout-tools#1552.
 
 ## Provenance
 
@@ -473,3 +634,36 @@ Clean room: this document only records geometry already drawn by this
 repo's own sub-block flows (#99–#102) and this issue's own new
 `layout/seln-inverters/` macro — no third-party layout, floorplan, or netlist
 was consulted.
+
+### `klt` build required: post-0.4.0, not yet on PyPI
+
+`reports/20260907-110058-a546200/` (and every later record using
+`--pin-source-cells`) was generated with a `klt` build from
+klayout-tools commit
+[`2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5`](https://github.com/2AMLogic/klayout-tools/commit/2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5)
+(#1515, "feat(extract): add `--pin-source-cells` for gen-compose'd
+multi-macro pin declaration", merged 2026-09-06) — or any later commit.
+**This is a real, honest gap against #103's own reproducibility acceptance
+criterion**, not glossed over: `layout/requirements.txt` still pins
+`klayout-tools==0.4.0` (PyPI's latest published release as of 2026-09-07 —
+re-checked live via `pip index versions klayout-tools` this session, still
+capped at 0.4.0), and that release predates #1515 — the pinned
+`layout/.venv/bin/klt` `layout/bin/setup-venv.sh` installs does **not** have
+`--pin-source-cells`.
+
+Until a `klayout-tools` release newer than 0.4.0 ships and
+`layout/requirements.txt` can bump its pin to it, reproducing this record's
+own `extract.json`/`lvs.json` requires building `klt` directly from that
+commit (or later) — e.g. `pip install
+'git+https://github.com/2AMLogic/klayout-tools@2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5'`
+— and pointing `layout/sar-adc-top/bin/run-flow.sh` at it via the
+`SAR_ADC_TOP_KLT` environment variable (see that script's own header
+comment), rather than the pinned `layout/.venv/bin/klt`. Every other step
+this flow runs (draw/gen-compose/drc/unfiltered-extract) is unaffected and
+reproduces identically on the pinned 0.4.0 build; only step 7's
+`--pin-source-cells` extraction and the `klt lvs` run downstream of it need
+the newer commit. This override is deliberately scoped to this one flow via
+an env var, not a blanket `layout/requirements.txt` bump to an unreleased
+commit SHA, which would break `pip install -r requirements.txt` (no such
+version exists on PyPI) for every other `layout/` flow that does not need
+this fix.

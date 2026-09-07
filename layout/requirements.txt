@@ -115,6 +115,21 @@
 #     (Since landed on `main` as PR #155, which retired that flow's
 #     hand-written drc/nwell_isolation.drc deck and inverted verdict 5 --
 #     exactly the outcome anticipated here, measured against klt 0.4.0.)
+#
+# layout/sar-adc-top/ (issue #103) needs a klt build NEWER than this 0.4.0
+# pin for one specific step: `klt extract --pin-source-cells`
+# (klayout-tools#1515, merged 2026-09-06, commit
+# 2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5) postdates 0.4.0, and PyPI has
+# not published a release newer than 0.4.0 yet (re-checked 2026-09-07 via
+# `pip index versions klayout-tools`). This pin is deliberately NOT bumped
+# to that commit SHA here -- `pip install -r requirements.txt` cannot
+# resolve a git commit that isn't a PyPI version, and every other `layout/`
+# flow works fine on 0.4.0 -- so bumping this file would break every other
+# flow's reproducibility to fix one. layout/sar-adc-top/bin/run-flow.sh's
+# own `SAR_ADC_TOP_KLT` env override lets that one flow point at a newer
+# build instead; see layout/sar-adc-top/README.md's "Provenance" section
+# for the exact commit and the full trace. Bump this pin (and drop that
+# override) once a qualifying klayout-tools release ships.
 klayout-tools==0.4.0
 #
 # `klayout` itself was left unpinned here until issue #148: `klayout-tools`
