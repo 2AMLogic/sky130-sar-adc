@@ -279,6 +279,38 @@ own +2-device change, not a new or different defect). See
 cited above for the pre-#180 geometry. §4's rows below now cite this newer
 record.
 
+**Update this pass (2026-09-07)**: the klayout-tools#1513 pin-declaration
+blocker described above is now resolved, not merely fixed-upstream-but-
+unreleased. PR #227 found that this flow's own routing cell was named the
+generic `ROUTE`, colliding with `comparator`'s and `sampling_frontend`'s own
+internal `ROUTE` cells once all five sub-block GDS files are composed —
+exactly what was defeating pin-declaration by physical position. Renaming
+this flow's routing cell to a globally-unique `SAR_ADC_TOP_ROUTE` and
+signing off with `klt lvs --pin-source-cells route__SAR_ADC_TOP_ROUTE`
+(built against klayout-tools commit `2313dd0`, i.e. klayout-tools#1515,
+via a `SAR_ADC_TOP_KLT` override — `--pin-source-cells` still predates the
+PyPI-pinned `0.4.0`) reaches an exact 19/19/19 promoted/reference/matched
+top-level pin correspondence for the first time. `klt lvs` itself still
+does not reach a clean device-level match: with the pin gap gone, a second,
+distinct gap surfaced — `klt lvs`'s `options.combine_devices` is a single
+flag applied to the whole flattened netlist, with no per-subcircuit
+scoping, and three of the five sub-blocks (comparator, sar_sequencer,
+seln_inverters) need it `true` while the other two (cdac_array,
+sampling_frontend) need it `false` — no single top-level setting satisfies
+every sub-block's own already-verified requirement at once (devices:
+layout=869/reference=869, matched=794 — unchanged from the prior record,
+since the same 869/869 flattened netlist is being compared, only the pin
+promotion changed). Filed generically at
+[klayout-tools#1552](https://github.com/2AMLogic/klayout-tools/issues/1552)
+per this repo's friction protocol. That issue has since closed too, fixed
+by klayout-tools#1556 (commit `5598e540`) — but like klayout-tools#1515
+before it, the fix has not reached a published release: `klayout-tools` is
+still at `v0.4.0` on both PyPI and the upstream repo's own tags, predating
+both fixes. See
+[`layout/sar-adc-top/reports/20260907-110058-a546200/record.md`](../../layout/sar-adc-top/reports/20260907-110058-a546200/record.md)
+(`reports/LATEST`), which supersedes the `20260906-101939-1250ff4` record
+above. §4's rows below now cite this newer record.
+
 ---
 
 ## 4. Target specification at Sky130's ratified 1.8 V rail
@@ -327,8 +359,8 @@ audience with an explicit Challenge-brief verdict column.
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0155 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md` (non-gating, cited for completeness only) |
 | Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². Unchanged by issue #180's comparator re-draw (re-verified against the latest report below). This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json) |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — a top-level layout now exists (PR #174, re-verified against the amended comparator geometry by PR #188) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; blocked on #103 (`loom:blocked`, now for the LVS-match reason below, not a missing assembly), under epic #25 | [`layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md) |
-| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, LVS UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS, re-confirmed after issue #180's comparator re-draw. `klt lvs`: mismatch (869/869 devices, matched 794; 23 pins promoted vs. 19 expected — the device/matched-count shift from the prior record's 867/867/812 tracks the comparator's own +2-device topology change, not a new defect) — root-caused as an upstream `klt extract` declared-pin-promotion gap, not a routing defect (net-by-net connectivity independently verified correct via unfiltered extraction); filed at [klayout-tools#1513](https://github.com/2AMLogic/klayout-tools/issues/1513), which **closed 2026-09-06** fixed by klayout-tools#1515 (`--pin-source-cells`) but is not yet consumable — PyPI still tops out at 0.4.0, the version already pinned in `layout/requirements.txt`. #103 remains `loom:blocked`, now pending a `klayout-tools` release rather than an open upstream fix | [`layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — a top-level layout now exists (PR #174, re-verified against the amended comparator geometry by PR #188, then again against PR #227's pin-declaration fix) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; blocked on #103 (`loom:blocked`, now for the LVS device-match reason below, not a missing assembly or pin-declaration gap), under epic #25 | [`layout/sar-adc-top/reports/20260907-110058-a546200/record.md`](../../layout/sar-adc-top/reports/20260907-110058-a546200/record.md) |
+| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS, re-confirmed after PR #227. `klt lvs` pin promotion: **exact** — layout=19/reference=19/matched=19 — via PR #227's `--pin-source-cells` fix (klayout-tools#1513/#1515), resolving the prior pin-declaration mismatch. `klt lvs` device match: still a mismatch (869/869 devices, matched 794 — unchanged, since the same flattened netlist is compared, only pin promotion changed) — root-caused to a second, distinct upstream gap: `options.combine_devices` has no per-subcircuit scoping, and the five sub-blocks do not all need the same setting. Filed at [klayout-tools#1552](https://github.com/2AMLogic/klayout-tools/issues/1552), which **closed**, fixed by klayout-tools#1556 (commit `5598e540`), but like klayout-tools#1515 before it, not yet in a published release — PyPI still tops out at 0.4.0. #103 remains `loom:blocked`, still pending a `klayout-tools` release (now needing both #1515 and #1556) rather than an open upstream question | [`layout/sar-adc-top/reports/20260907-110058-a546200/record.md`](../../layout/sar-adc-top/reports/20260907-110058-a546200/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
 
 ### Reproducing this table
 
@@ -530,6 +562,43 @@ tracker already owns.
    GDS, full ADC" row stays **PARTIAL (DRC met, LVS unmet)**, citing the same
    `20260906-101939-1250ff4` record as before. The brief's sign-off bar
    (acceptance criterion 3) is therefore still not met.
+
+   **Update this pass (2026-09-07, PR #227 — pin-declaration blocker
+   resolved, a second, distinct blocker surfaces)**: PR #227 renamed this
+   flow's own routing cell from the generic `ROUTE` (which collided with
+   `comparator`'s and `sampling_frontend`'s own internal `ROUTE` cells once
+   composed) to a globally-unique `SAR_ADC_TOP_ROUTE`, then re-signed off
+   with `klt lvs --pin-source-cells route__SAR_ADC_TOP_ROUTE` (built against
+   klayout-tools commit `2313dd0`, i.e. klayout-tools#1515, via a new
+   `SAR_ADC_TOP_KLT` env override — the PyPI-pinned `0.4.0` in
+   `layout/requirements.txt` still predates that commit). This reaches an
+   **exact 19/19/19** promoted/reference/matched top-level pin
+   correspondence — klayout-tools#1513 is resolved, not merely
+   fixed-upstream-but-unreleased as the previous update described. `klt lvs`
+   itself still does not reach a clean match: with the pin gap gone, a
+   second, distinct gap surfaced — `options.combine_devices` is a single
+   flag over the whole flattened netlist with no per-subcircuit scoping,
+   and three sub-blocks (comparator, sar_sequencer, seln_inverters) need it
+   `true` while the other two (cdac_array, sampling_frontend) need it
+   `false`; devices remain layout=869/reference=869, matched=794 (unchanged
+   from the prior record — the same flattened netlist, only pin promotion
+   changed). Filed generically at
+   [klayout-tools#1552](https://github.com/2AMLogic/klayout-tools/issues/1552)
+   per this repo's friction protocol. That issue has since closed too,
+   fixed by klayout-tools#1556 (commit `5598e540`) — but, like #1515 before
+   it, not yet in a published release: `klayout-tools` is still `v0.4.0` on
+   both PyPI and the upstream repo's own tags. New record, superseding
+   `20260906-101939-1250ff4`:
+   [`layout/sar-adc-top/reports/20260907-110058-a546200/record.md`](../../layout/sar-adc-top/reports/20260907-110058-a546200/record.md)
+   (`reports/LATEST` now points here). §4's two blocked rows are updated to
+   cite this record and the narrower (device-match-only, not
+   pin-declaration) blocker. **#103 remains open, `loom:blocked`** — the
+   Curator's 2026-09-07 re-checks confirm the block reason is now "waiting
+   on a `klayout-tools` release newer than `v0.4.0` that includes both
+   commit `2313dd0` (#1515) and commit `5598e540` (#1556)," not an open
+   upstream question of any kind. The brief's sign-off bar (acceptance
+   criterion 3) is therefore still not met, though the remaining gap is
+   narrower than at any prior update in this section.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
