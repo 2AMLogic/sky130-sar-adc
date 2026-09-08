@@ -1,3 +1,13 @@
+* sampling-frontend acquisition-window settling (issue #121) -- corner=tt temp=125C
+.lib /home/ubuntu/.volare/sky130A/libs.tech/combined/sky130.lib.spice tt
+.temp 125
+
+Vdd VDD 0 dc 1.8
+Vvcm VCM 0 dc 0.9
+Vinp VINP 0 pwl(0n 0.2 130n 0.2 130.2n 1.6 330n 1.6)
+Vinn VINN 0 pwl(0n 1.6 130n 1.6 130.2n 0.2 330n 0.2)
+Vsample SAMPLE 0 pwl(0n 0 10n 0 10.2n 1.8 110n 1.8 110.2n 0 160n 0 160.2n 1.8 310n 1.8 310.2n 0 330n 0)
+
 * sampling_frontend_dut.spice -- regenerated netlist FRAGMENT (devices only)
 * for design/sampling_frontend.sch (issue #52). NOT hand-edited: regenerate
 * with, from the repo root:
@@ -55,3 +65,17 @@ XInvp SAMPLEB SAMPLE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=
 XInvn SAMPLEB SAMPLE GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0
 + sd=0 mult=1 m=1
 .GLOBAL GND
+
+
+.control
+tran 0.02n 330.0n
+meas tran t_settle_p_50 TRIG AT=160.1n TARG V(TOP_P) VAL=0.9 TD=160.1n CROSS=1
+meas tran t_settle_p_90 TRIG AT=160.1n TARG V(TOP_P) VAL=1.46 TD=160.1n CROSS=1
+meas tran budget_p find v(TOP_P) at=243.43333333333334n
+meas tran confirm_p find v(TOP_P) at=305.0n
+meas tran t_settle_n_50 TRIG AT=160.1n TARG V(TOP_N) VAL=0.9 TD=160.1n CROSS=1
+meas tran t_settle_n_90 TRIG AT=160.1n TARG V(TOP_N) VAL=0.34 TD=160.1n CROSS=1
+meas tran budget_n find v(TOP_N) at=243.43333333333334n
+meas tran confirm_n find v(TOP_N) at=305.0n
+.endc
+.end

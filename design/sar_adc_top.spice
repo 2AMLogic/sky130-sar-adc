@@ -9,7 +9,7 @@
 * (reproduce with: sha256sum <path>). This is the file-content hash, not
 * a git commit reference, so it stays meaningful in a shallow CI clone
 * and does not drift when an unrelated commit elsewhere touches HEAD.
-*   design/sampling_frontend.sch: sha256:87427978ab7b1724adf76cab5eb6567919cbfa3dec84096249b3b8c0843b1681
+*   design/sampling_frontend.sch: sha256:59a1888aa4bc4491454dd9f0d5a209da42f0f32c36d1bdf6e217e13a285b2f01
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
 *   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
 *   design/sar_sequencer.sch: sha256:ca08e38f7420a083b8ccb3e507a17afc6b32a6f01d5f42af846619393b67b9c1
@@ -67,25 +67,25 @@ xinv_seln8 DOUT8 VGND VGND VPWR VPWR SELn8 sky130_fd_sc_hd__inv_1
 *.opin BPREF_P
 *.opin BPREF_N
 XMsw_p VINP G_P TOP_P GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
-XSa_p BOOST_P SAMPLE VDD BOOST_P sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSa_p BOOST_P G_P VDD BOOST_P sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XSb_p BSBOT_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XScn_p BSBOT_P SAMPLE VINP GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XScp_p BSBOT_P SAMPLEB VINP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XSd_p G_P SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XSe_p G_P SAMPLEB BOOST_P BOOST_P sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
-XCmswn_p BPREF_P SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
-XCmswp_p BPREF_P SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswn_p BPREF_P SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswp_p BPREF_P SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
 XCboot_p BOOST_P BSBOT_P sky130_fd_pr__cap_mim_m3_1 W=9.8 L=9.8 MF=1 m=1
 XCsamp_p TOP_P BPREF_P sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=1 m=1
 XMsw_n VINN G_N TOP_N GND sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
-XSa_n BOOST_N SAMPLE VDD BOOST_N sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XSa_n BOOST_N G_N VDD BOOST_N sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XSb_n BSBOT_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XScn_n BSBOT_N SAMPLE VINN GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XScp_n BSBOT_N SAMPLEB VINN VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XSd_n G_N SAMPLEB GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XSe_n G_N SAMPLEB BOOST_N BOOST_N sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
-XCmswn_n BPREF_N SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
-XCmswp_n BPREF_N SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswn_n BPREF_N SAMPLE VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
+XCmswp_n BPREF_N SAMPLEB VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0 sb=0 sd=0 mult=1 m=1
 XCboot_n BOOST_N BSBOT_N sky130_fd_pr__cap_mim_m3_1 W=9.8 L=9.8 MF=1 m=1
 XCsamp_n TOP_N BPREF_N sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=1 m=1
 XInvp SAMPLEB SAMPLE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
