@@ -713,15 +713,13 @@ def write_corners_decouple_record(points: list[dict], point: str,
 
 def write_corners_record(points: list[dict], point: str,
                           window: str = "worst") -> Path:
-    record_id = evidence.new_record_id()
     netlist_text = DUT_FRAGMENT.read_text()
-    record_path = evidence.write_netlist_snapshot_text(
-        EXPERIMENT_DIR, record_id, netlist_text
-    )
-    netlist_sha = evidence.sha256_text(netlist_text)
-    info = pdk.resolve()
-    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
-    ng_version = toolchain._ngspice_version() or "unknown"
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
+    record_id = prov.record_id
+    record_path = prov.record_path
+    netlist_sha = prov.netlist_sha
+    pdk_line = prov.pdk_line
+    ng_version = prov.ng_version
 
     process_corners_run = sorted({p["corner"] for p in points})
     temps_run = sorted({p["temp_c"] for p in points})
