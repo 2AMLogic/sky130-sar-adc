@@ -17,6 +17,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import pdk, toolchain
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -116,6 +118,39 @@ def write_netlist_snapshot(experiment_dir: Path, record_id: str, netlist_fragmen
     implementations (PVT corner runner and Monte Carlo runner) -- see
     module docstring."""
     return write_netlist_snapshot_text(experiment_dir, record_id, netlist_fragment.read_text())
+
+
+@dataclass
+class ProvenanceInfo:
+    record_id: str
+    record_path: Path
+    netlist_sha: str
+    pdk_line: str
+    ng_version: str
+
+
+def resolve_provenance(experiment_dir: Path, netlist_text: str) -> ProvenanceInfo:
+    """Mint a record-id, snapshot `netlist_text` under `experiment_dir`, and
+    resolve the PDK/ngspice provenance line -- the ~6-line preamble every
+    per-block `sim/*/run_*.py` write_record() repeated identically before
+    rendering its own Markdown body (issue #235; sibling extraction to #20's
+    write_evidence() boilerplate dedup and #217's ratified_oat_grid()).
+    Callers snapshotting a netlist fragment already on disk should pass
+    `fragment.read_text()` -- byte-identical to the older
+    write_netlist_snapshot() + sha256_file() pairing this replaces."""
+    record_id = new_record_id()
+    record_path = write_netlist_snapshot_text(experiment_dir, record_id, netlist_text)
+    netlist_sha = sha256_text(netlist_text)
+    info = pdk.resolve()
+    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
+    ng_version = toolchain._ngspice_version() or "unknown"
+    return ProvenanceInfo(
+        record_id=record_id,
+        record_path=record_path,
+        netlist_sha=netlist_sha,
+        pdk_line=pdk_line,
+        ng_version=ng_version,
+    )
 
 
 def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:

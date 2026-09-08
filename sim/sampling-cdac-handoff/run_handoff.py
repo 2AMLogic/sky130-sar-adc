@@ -219,14 +219,13 @@ def main() -> int:
 
 
 def write_record(results: list[dict]) -> None:
-    record_id = evidence.new_record_id()
     combined_netlist_text = FE_FRAG.read_text() + "\n\n" + CDAC_FRAG.read_text()
-    record_path = evidence.write_netlist_snapshot_text(EXPERIMENT_DIR, record_id, combined_netlist_text)
-    netlist_sha = evidence.sha256_text(combined_netlist_text)
-
-    info = pdk.resolve()
-    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
-    ng_version = toolchain._ngspice_version() or "unknown"
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, combined_netlist_text)
+    record_id = prov.record_id
+    record_path = prov.record_path
+    netlist_sha = prov.netlist_sha
+    pdk_line = prov.pdk_line
+    ng_version = prov.ng_version
 
     lines = []
     a = lines.append

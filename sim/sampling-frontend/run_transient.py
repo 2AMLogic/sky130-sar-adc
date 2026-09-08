@@ -172,16 +172,15 @@ def main() -> int:
 
 
 def write_record(results: list[dict]) -> None:
-    record_id = evidence.new_record_id()
     # Snapshot the DUT fragment actually simulated (not a full corner netlist,
     # since each test point renders its own -- the fragment is what's common
     # and reproducible across all of them).
-    record_path = evidence.write_netlist_snapshot(EXPERIMENT_DIR, record_id, DUT_FRAGMENT)
-    netlist_sha = evidence.sha256_file(DUT_FRAGMENT)
-
-    info = pdk.resolve()
-    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
-    ng_version = toolchain._ngspice_version() or "unknown"
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, DUT_FRAGMENT.read_text())
+    record_id = prov.record_id
+    record_path = prov.record_path
+    netlist_sha = prov.netlist_sha
+    pdk_line = prov.pdk_line
+    ng_version = prov.ng_version
 
     lines = []
     a = lines.append
