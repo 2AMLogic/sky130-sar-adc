@@ -91,7 +91,7 @@ supplied by the harness (not per-block).
 | `VDD` | supply | 1.8 V digital/analog rail (shared) | — (rail, not a slot line item) | Single supply for the whole block — analog and digital share the same rail (§2.1) |
 | `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 0–4) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
 | `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
-| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists: full-ratified-PVT-grid for the bare (undecoupled) `R_source` sweep at both the worst-case and legacy windows, and (as of this pass) for the `C_decouple` sweep at the worst-case window; single-corner (`tt`/27 °C/1.8 V) only for the legacy window's own `C_decouple` sweep ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md), [`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md), [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md), [`sim/vcm-drive-budget/records/20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md)), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
+| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, and is now full-ratified-PVT-grid on every one of its four legs (bare `R_source` at both the worst-case and legacy windows, `C_decouple` at both the worst-case and — as of this pass — the legacy window too) ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md), [`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md), [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md), [`sim/vcm-drive-budget/records/20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md), [`sim/vcm-drive-budget/records/20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md)), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
 | `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
 | `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
@@ -1011,11 +1011,12 @@ tracker already owns.
    on-chip single-to-differential conversion is unresolved and is not
    guessed at here; it should be revisited once `rules-4.html` states the
    real slot categories.
-6. **`VCM` drive-impedance/decoupling budget: quantified at every ratified
-   corner for both bare `R_source` sweeps (worst-case and legacy windows)
-   and, as of this pass, for the `C_decouple` sweep at the worst-case
-   window; only the legacy window's own `C_decouple` sweep remains
-   single-corner — not yet closed.**
+6. **`VCM` drive-impedance/decoupling budget: as of this pass, quantified at
+   every ratified corner on all four legs (bare `R_source` and `C_decouple`,
+   each at both the worst-case and legacy windows) — the "still
+   single-corner-only" gap this item tracked is now closed; the item stays
+   open only because no on-chip `VCM` buffer/reference network exists yet
+   for this budget to size.**
    A single-corner (`tt`/27 °C/1.8 V) sweep against the unmodified sampling
    front-end DUT
    ([`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md))
@@ -1192,6 +1193,37 @@ tracker already owns.
    mechanism — so that pass is the natural next step, on the same
    one-window-per-pass precedent the two bare `R_source` full-grid passes
    established.
+
+   **Update this pass (2026-09-08): the legacy (400 ns) window's own
+   `C_decouple` sweep was also taken to the full ratified PVT grid** —
+   closing the "sole remaining single-corner-only leg" flagged immediately
+   above, via `--corners --window legacy --sweep decouple`, the same option
+   combination the worst-case-window `C_decouple` campaign already
+   established
+   ([`sim/vcm-drive-budget/records/20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md)).
+   Scope matches that precedent exactly: each of the 9 ratified corners is
+   decoupled against its OWN marginal `R_source`, re-derived from that
+   corner's own bare legacy-window sweep in the same invocation (reproducing
+   the legacy-window bare-`R_source` full-grid campaign's own per-corner
+   shape: 10 kΩ at four corners, 100 kΩ at the other five) — never a value
+   borrowed from the `tt`/27 °C/1.8 V point. **Result: decoupling alone
+   brings the differential error inside 1 provisional LSB at all 9/9
+   ratified corners at this window too**, closing out the finding this
+   item's own legacy-window bare-`R_source` pass left open (that window
+   offers zero bare-impedance margin at 4 of 9 corners) — a decoupling
+   capacitor rescues every one of those corners when sized per-corner.
+   The working values span three orders of magnitude across the grid
+   (1 pF at `ss_27c_1.80v`, 10 pF at three corners, 100 pF at `tt_27c_1.80v`,
+   1000 pF, right-censored, at the remaining three), the same
+   non-corner-invariant, non-monotonic-in-`C_decouple` shape the
+   worst-case-window campaign already established — so, as with that
+   campaign, no single capacitor value read off this table covers every
+   corner; sizing still has to be checked per corner, against both axes.
+   **With all four legs of this budget (bare `R_source` and `C_decouple`,
+   each at both windows) now PVT-complete, this open item is no longer
+   gated on corner coverage** — it stays open only because no on-chip `VCM`
+   buffer or off-chip reference network exists yet in this design to size
+   against the target these four campaigns jointly establish (§2.2).
 
    No claim here is graded against a ratified spec row (`spec/target-spec.md`
    is entirely DRAFT, #1/#27; the DR-006 acquisition window is itself
