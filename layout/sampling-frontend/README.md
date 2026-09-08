@@ -22,6 +22,21 @@ every PFET body extracting on the n-well island DR-004 requires. The record
 referenced by `reports/LATEST` carries all eleven verdicts, seven positive and
 four negative:
 
+**Re-verified against `design/sampling_frontend.sch` post-issue-#236 (issue
+#245, record `20260908-070934-80df05e`)**: `Sa_p`/`Sa_n`'s gate moved from
+`SAMPLE` to the switch's own gate node `G_P`/`G_N` (net reconnection only,
+same population), and `Cmswn_p`/`Cmswn_n`/`Cmswp_p`/`Cmswp_n` widened from
+`W=1um` to `W=16um` -- both re-drawn in `bin/gen_blocks.py` and transcribed
+into `reference.spice` (and the three `reference.broken-*.spice` negative
+controls, each keeping its own specific corruption). The device/net/pin
+counts above are **unchanged** (24/24/17/17/12/12): #236 was a net
+reconnection plus a width change on four pre-existing devices, not a
+device count change, and the wider `Cmsw` pair only grew each device's own
+drawn bbox (`build_layout.py`'s floorplan/routing already derives every
+column and track position from each block's own reported bbox, so no
+floorplan constant needed hand-adjustment). All eleven verdicts below still
+hold.
+
 | # | Verdict | Why it is here |
 | --- | --- | --- |
 | 1 | every `klt gen` block is DRC-clean *in isolation* | a composed-DRC failure is attributable to the wells/routing, not to a device |

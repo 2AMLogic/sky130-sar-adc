@@ -1068,7 +1068,27 @@ def write_record(all_results: dict) -> None:
         extra={"toolchain pin file": "sim/toolchain.json"},
     )
     lines += evidence.footer_lines(
-        written_by="run_vcm_drive_budget.py", supersedes="none"
+        written_by="run_vcm_drive_budget.py",
+        supersedes=(
+            f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+            f"({SINGLE_CORNER_SEED_RECORD}.md) -- same single-corner "
+            "(tt/27C/1.8V) default-path measurement (worst-case/legacy "
+            "R_source sweeps + the marginal-R_source C_decouple sweep), "
+            "re-run against design/sampling_frontend.sch post-issue-#236 "
+            "(Sa_p/Sa_n's gate moved from SAMPLE to G_P/G_N; Cmswn/Cmswp "
+            "widened from W=1um to W=16um -- issue #245). That record's own "
+            "DUT netlist sha256 differs from this record's own (below), "
+            "confirming the DUT fragment actually changed between the two "
+            "runs, not just the record id. Issue #245 explicitly scoped "
+            "only this single-corner default path's re-run; the four "
+            "existing --corners-mode records "
+            "(20260907-052526-f589273, 20260907-090200-7768162, "
+            "20260907-104958-a546200, 20260908-021006-f48a228) were "
+            "measured against the SAME pre-#236 DUT netlist sha256 as "
+            f"{SINGLE_CORNER_SEED_RECORD} and are therefore also stale, but "
+            "re-deriving the full PVT grid is a separate, not-yet-done "
+            "follow-up (issue #248), not superseded by this record."
+        ),
     )
     record_path.write_text("\n".join(lines) + "\n")
     print(f"\nWrote record: {record_path}")

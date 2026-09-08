@@ -284,7 +284,20 @@ PIN = {
     ("cdac_array", "VREFP"): (-2.0, -34.8, MET1),
     ("cdac_array", "VREFN"): (-2.0, -33.4, MET2),
     ("sampling_frontend", "VDD"): (1.76, 50.90, MET2),
-    ("sampling_frontend", "SAMPLE"): (2.67, 50.40, MET2),
+    # Re-verified post-issue-#236/#245: Sa_p/Sa_n's gate moved from SAMPLE to
+    # G_P/G_N, so they no longer contribute a SAMPLE column -- the SAMPLE
+    # net's own leftmost (`xs[0]`) column/pin-label position, which
+    # `layout/sampling-frontend/bin/build_layout.py` always places its
+    # met2.pin label at, moved from 2.67 (formerly Sa_p's own gate column,
+    # the leftmost of the net's old 8 contributing columns) to 17.285 (now
+    # the net's leftmost of 6 remaining columns -- verified directly against
+    # `layout/sampling-frontend/reports/LATEST/layout.summary.json`'s own
+    # `nets.SAMPLE.columns_um[0]`). track_y (50.40) is unchanged: the
+    # widened Cmswn/Cmswp pair grew only in Y within their own block (W runs
+    # vertically for this generator), not tall enough to overtake Csamp
+    # (still this sub-block's tallest block), so `track_y0` itself did not
+    # move.
+    ("sampling_frontend", "SAMPLE"): (17.285, 50.40, MET2),
     ("sampling_frontend", "VINP"): (10.10, 53.40, MET2),
     ("sampling_frontend", "VINN"): (22.90, 53.90, MET2),
     ("sampling_frontend", "VCM"): (13.30, 51.90, MET2),

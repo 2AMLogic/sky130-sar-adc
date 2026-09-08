@@ -1,0 +1,7 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": { "netlist": "sar_adc_top.extract.spice", "top": "gen_compose_0" },
+  "reference": { "netlist": "sar_adc_top.lvs-reference.spice", "top": "sar_adc_top" },
+  "options": { "combine_devices": true, "flatten_reference": true }
+}
