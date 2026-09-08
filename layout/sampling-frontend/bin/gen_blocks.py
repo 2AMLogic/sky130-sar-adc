@@ -16,19 +16,20 @@ the `.sch` file's pin placement.
 
 Three device groups
 --------------------
-* **PFET domain set (`PFET_DEVICES`)** -- based on `layout/bin/
-  _pfet_devices.py`'s shared table (issue #208), still shared verbatim with
+* **PFET domain set (`PFET_DEVICES`)** -- `layout/bin/_pfet_devices.py`'s
+  shared table (issue #208), still shared verbatim with
   `layout/sampling-frontend-wells/bin/gen_blocks.py` for the n-well-domain
   tagging (`boost_p`/`vdd`/`boost_n`) each PFET's body tie belongs to per
   DR-004/DR-007. `build_layout.py` reads `domain` to reproduce the exact
-  three-island recipe #122 verified, rather than re-deriving it. As of issue
-  #245, this module's own `PFET_DEVICES` is no longer byte-identical to the
-  shared table: it applies two small, local post-issue-#236 overrides (see
-  the override block right after the import below) that the shared table
-  itself does NOT carry, because `layout/sampling-frontend-wells/`'s own
-  reference netlist still deliberately encodes the pre-#236
-  connectivity/sizing (out of #245's scope; that sub-block's own claim --
-  body-tie domain isolation -- does not depend on either changed field).
+  three-island recipe #122 verified, rather than re-deriving it. Between
+  issues #245 and #248 this module carried two small, local post-issue-#236
+  overrides (`Sa_{p,n}`'s gate net, `Cmswp_{p,n}`'s width) that the shared
+  table did not yet carry, because `layout/sampling-frontend-wells/`'s own
+  reference netlist still encoded the pre-#236 connectivity/sizing at the
+  time; issue #248 decided that sub-block should track the current schematic
+  state too (see its own `README.md`), updated the shared table directly,
+  and folded this local override block back in -- `PFET_DEVICES` here is
+  once again byte-identical to the shared table's own `PFET_DEVICES`.
 * **NFET set (`NFET_DEVICES`)** -- eleven NFETs, all drawn `mos_array` 1x1
   (`dummy: 0`, `gate_contact: true`), including the differential input pair
   `Msw_p`/`Msw_n`.
@@ -90,38 +91,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
-from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES as _SHARED_PFET_DEVICES  # noqa: E402
-
-#: Post-issue-#236 overrides to the shared `_pfet_devices.py` table (issue
-#: #245's own re-verification): `design/sampling_frontend.sch` moved
-#: `Sa_p`/`Sa_n`'s gate from `SAMPLE` to the switch's own gate node
-#: `G_P`/`G_N`, and widened `Cmswp_p`/`Cmswp_n` from `W=1um` to `W=16um` (see
-#: that schematic's own "Bootstrap precharge gating" / "Cmswn/Cmswp sizing"
-#: header comments). Applied HERE, as a local patch, rather than edited in
-#: place in `layout/bin/_pfet_devices.py`: that module is also imported by
-#: `layout/sampling-frontend-wells/bin/gen_blocks.py` (issue #122's
-#: well-isolation composition study), whose own `reference.spice` still
-#: encodes the pre-#236 connectivity/sizing on purpose (that sub-block's own
-#: claim -- PMOS body-tie domain isolation -- is orthogonal to Sa's gate net
-#: or Cmsw's width, so it was not in issue #245's scope). Editing the shared
-#: table in place would have silently broken that unrelated sub-block's LVS
-#: match. See issue #248 (filed alongside #245) for reconciling the shared
-#: table once `sampling-frontend-wells/` itself is revisited.
-_POST_236_GATE_NET = {"sa_p": "G_P", "sa_n": "G_N"}
-_POST_236_WIDTH_UM = {"cmswp_p": 16.0, "cmswp_n": 16.0}
-PFET_DEVICES = [
-    (
-        block_id,
-        name,
-        domain,
-        _POST_236_WIDTH_UM.get(block_id, w_um),
-        l_um,
-        d_net,
-        _POST_236_GATE_NET.get(block_id, g_net),
-        s_net,
-    )
-    for block_id, name, domain, w_um, l_um, d_net, g_net, s_net in _SHARED_PFET_DEVICES
-]
+from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES  # noqa: E402
 
 #: One row per `sky130_fd_pr__nfet_01v8` instance, including `Msw_p`/`Msw_n`
 #: (see the matching-strategy note above for why they are plain singles here,

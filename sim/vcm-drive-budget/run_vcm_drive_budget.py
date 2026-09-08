@@ -172,6 +172,20 @@ PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
 # cross-references as "the finding this campaign extends".
 SINGLE_CORNER_SEED_RECORD = "20260905-201703-f012255"
 
+# issue #248: the four pre-issue-#236 --corners-mode records, one per
+# (--sweep, --window) combination, that this same combination's post-#236
+# re-run supersedes. All four were measured against the SAME pre-#236 DUT
+# netlist sha256 as SINGLE_CORNER_SEED_RECORD -- itself already superseded by
+# issue #245's single-corner re-run (records/20260908-074408-80df05e.md) --
+# but #245 explicitly scoped only the single-corner default path, leaving
+# these four full-PVT-grid records stale until now.
+CORNERS_SUPERSEDES_RECORD = {
+    ("rsource", "worst"): "20260907-052526-f589273",
+    ("rsource", "legacy"): "20260907-090200-7768162",
+    ("decouple", "worst"): "20260907-104958-a546200",
+    ("decouple", "legacy"): "20260908-021006-f48a228",
+}
+
 # --corners --window {worst,legacy}: (sample_width_ns, r_source_sweep_list)
 # per window. "worst" is the DR-006-derived worst-case (12 MHz) acquisition
 # window at the full R_SOURCE_SWEEP_OHM resolution; "legacy" is this repo's
@@ -699,8 +713,24 @@ def write_corners_decouple_record(points: list[dict], point: str,
         pdk_line, ng_version, netlist_sha,
         extra={"toolchain pin file": "sim/toolchain.json"},
     )
+    old_id = CORNERS_SUPERSEDES_RECORD[("decouple", window)]
     lines += evidence.footer_lines(
-        written_by="run_vcm_drive_budget.py", supersedes="none"
+        written_by="run_vcm_drive_budget.py",
+        supersedes=(
+            f"[`records/{old_id}.md`]({old_id}.md) -- same full ratified "
+            f"PVT-grid C_decouple sweep at the {window} window (each corner "
+            "at its own marginal R_source), measured against the "
+            "pre-issue-#236 `design/sampling_frontend.sch` (`Sa_p`/`Sa_n`'s "
+            "gate on `SAMPLE`, `Cmswn`/`Cmswp` at `W=1um`). This record "
+            "re-runs the identical sweep against the post-#236 DUT fragment "
+            "(`Sa_p`/`Sa_n`'s gate moved to `G_P`/`G_N`; `Cmswn`/`Cmswp` "
+            "widened to `W=16um` -- issue #236, re-verified in layout as "
+            "#245), closing the follow-up issue #245 itself explicitly "
+            "deferred (issue #248). This record's own DUT netlist sha256 "
+            "(below) differs from the superseded record's, confirming the "
+            "fix is actually reflected, not a no-op re-run against a "
+            "cached fragment."
+        ),
     )
     record_path.write_text("\n".join(lines) + "\n")
     latest_path = EXPERIMENT_DIR / "records" / "LATEST"
@@ -940,8 +970,24 @@ def write_corners_record(points: list[dict], point: str,
         pdk_line, ng_version, netlist_sha,
         extra={"toolchain pin file": "sim/toolchain.json"},
     )
+    old_id = CORNERS_SUPERSEDES_RECORD[("rsource", window)]
     lines += evidence.footer_lines(
-        written_by="run_vcm_drive_budget.py", supersedes="none"
+        written_by="run_vcm_drive_budget.py",
+        supersedes=(
+            f"[`records/{old_id}.md`]({old_id}.md) -- same full ratified "
+            f"PVT-grid bare (undecoupled) R_source sweep at the {window} "
+            "window, measured against the pre-issue-#236 "
+            "`design/sampling_frontend.sch` (`Sa_p`/`Sa_n`'s gate on "
+            "`SAMPLE`, `Cmswn`/`Cmswp` at `W=1um`). This record re-runs the "
+            "identical sweep against the post-#236 DUT fragment "
+            "(`Sa_p`/`Sa_n`'s gate moved to `G_P`/`G_N`; `Cmswn`/`Cmswp` "
+            "widened to `W=16um` -- issue #236, re-verified in layout as "
+            "#245), closing the follow-up issue #245 itself explicitly "
+            "deferred (issue #248). This record's own DUT netlist sha256 "
+            "(below) differs from the superseded record's, confirming the "
+            "fix is actually reflected, not a no-op re-run against a "
+            "cached fragment."
+        ),
     )
     record_path.write_text("\n".join(lines) + "\n")
     latest_path = EXPERIMENT_DIR / "records" / "LATEST"
