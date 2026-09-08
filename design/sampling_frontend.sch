@@ -37,6 +37,20 @@ v {xschem version=3.4.7 file_version=1.2
 * near VDD (constant, NOT degrading as VIN approaches the rail) instead of
 * the VDD - VIN a plain switch would be left with.
 *
+* Sa's GATE IS DRIVEN BY G, NOT BY SAMPLE (issue #236 fix -- see the
+* "Bootstrap precharge gating" block below for the measurement that forced
+* this). Sa's own source terminal IS the boosted node: during sampling
+* BOOST sits at ~VIN+VDD, well ABOVE VDD, so for this PFET the BOOST side
+* is the source and the VDD side is the drain. Gating it from a VDD-level
+* SAMPLE therefore leaves V_sg = BOOST - VDD ~= VIN -- i.e. an overdrive of
+* up to a full VIN, which turns Sa back ON and discharges the boosted node
+* into VDD, exactly the opposite of the intended off state. G solves this
+* with no extra device: G is held at GND by Sd during hold (so Sa is ON and
+* precharges BOOST to VDD, as required) and is shorted to BOOST by Se
+* during sampling (so Sa's gate tracks its own source, V_sg ~= 0, and Sa is
+* genuinely OFF for the whole sample phase). No other node in this circuit
+* has both of those properties.
+*
 * Floating-body note (verified against a real leakage bug found while
 * deriving this circuit -- see spec/decision-records/DR-004): Sa and Se
 * both tie their PFET body to the BOOST node itself (not to a fixed VDD
@@ -56,6 +70,26 @@ v {xschem version=3.4.7 file_version=1.2
 * VIN=1.6V). Lengthening Sa/Sd to L=0.5um (W=1um unchanged) fixes this --
 * in-sample settling is now sub-mV at every tested point, per
 * sim/sampling-frontend/records/20260821-072657-433a294.md.
+*
+* Bootstrap precharge gating (Sa gate = G, issue #236). The L=0.5um fix
+* above and this one are DIFFERENT mechanisms on the SAME node, and should
+* not be conflated: L=0.5um attacked Sa/Sd's SUBTHRESHOLD leakage (a device
+* property), and it moved the long-transient DC endpoint of TOP_x to the
+* right value; it did NOT remove the droop itself, because with Sa's gate
+* tied to a VDD-level SAMPLE the device was never in subthreshold in the
+* first place -- as derived in "Sa's GATE IS DRIVEN BY G" above, it sat at
+* V_sg ~= VIN, i.e. an ON device, and the longer channel only throttled how
+* fast it discharged BOOST. sim/sampling-acquisition-settling/ measured
+* what that costs on a real acquisition: with the old SAMPLE gating,
+* BOOST_P fell from 3.195V to 2.697V (about 500mV) across a single
+* DR-006-derived worst-case (12MHz, 83.333ns) SAMPLE phase at tt/27C/1.8V,
+* steadily eroding Msw's overdrive and leaving TOP_P 23.4mV short of its
+* new value at the end of that phase -- at EVERY one of the 9 ratified PVT
+* corners (records/20260906-211700-00d26af.md, the finding issue #236 was
+* filed for). With Sa gated by G instead, the same probe holds BOOST_P flat
+* at 3.302V for the whole phase and the residual falls to 7.9mV at the same
+* corner. This costs no device, no area, and no extra current: it is a
+* net re-connection only.
 *
 * Known, named-not-closed limitation (see DR-004 "Open items" and issue #61,
 * NOT a settled problem): even with the Sa/Sd fix above, TOP_P/TOP_N move
@@ -112,6 +146,31 @@ v {xschem version=3.4.7 file_version=1.2
 * half), unlike the full-range analog input the Msw/Scn/Scp devices must
 * pass.
 *
+* Cmswn/Cmswp sizing (W=16um, NOT W=1um; issue #236). This transmission
+* gate is in SERIES with Csamp on the acquisition path, not a bystander:
+* while SAMPLE is high, TOP_x is driven toward VIN through Msw AND
+* BPREF_x --- the far plate of the same Csamp --- must simultaneously be
+* driven back to VCM through this gate, from wherever the rising edge left
+* it (Csamp couples TOP_x's own step onto the floating BPREF_x, so BPREF_P
+* starts a worst-case acquisition around 2.16V, ~1.26V away from VCM). The
+* two nodes relax together with a time constant set by (R_Msw + R_Cmsw) x
+* Csamp, and with Csamp at DR-003's provisional ~4.43pF/side a W=1um gate's
+* own R_on dominates that sum. Measured, not assumed
+* (sim/sampling-acquisition-settling/, tt/27C/1.62V, the binding corner):
+* with Sa's gating already fixed per issue #236, widening ONLY Cmswn/Cmswp
+* moves the residual at the DR-006 worst-case phase budget from 30.2mV
+* (W=1) to 2.2mV (W=8) to 0.8mV (W=16), while widening Msw 4x instead of
+* the gate barely helps (7.9mV -> 3.2mV at tt/27C/1.8V) --- i.e. the
+* limiter is this gate, not the sampling switch. W=16um is a conservative
+* value confirmed to work with ~2x margin at the binding corner, not an
+* optimised one (same convention as the Sa/Sd L=0.5um choice above); at
+* L=0.15um it costs ~2.4um^2 of device area per device against a 46.9um x
+* 46.9um Csamp, but it DOES raise the peak current this front end draws
+* from the shared VCM rail every SAMPLE assertion --- so
+* sim/vcm-drive-budget/'s R_source/C_decouple budget must be re-derived
+* against this sizing (tracked separately; see that experiment's own
+* records for which sizing each was measured at).
+*
 * Csamp_{p,n} are lumped PLACEHOLDER capacitors standing in for the not-yet
 * -drawn CDAC array's total per-side capacitance (C_side, #53's scope) --
 * NOT a claim about the array's actual unit-cell/array structure. Sized
@@ -150,7 +209,7 @@ C {devices/lab_pin.sym} 20 30 0 0 {name=l3 lab=TOP_P}
 C {devices/gnd.sym} 20 0 0 0 {name=lgnd4 lab=GND}
 C {sky130_fd_pr/pfet_01v8.sym} 300 0 0 0 {name=Sa_p W=1 L=0.5 nf=1 mult=1}
 C {devices/lab_pin.sym} 320 30 0 0 {name=l5 lab=BOOST_P}
-C {devices/lab_pin.sym} 280 0 0 0 {name=l6 lab=SAMPLE}
+C {devices/lab_pin.sym} 280 0 0 0 {name=l6 lab=G_P}
 C {devices/lab_pin.sym} 320 -30 0 0 {name=l7 lab=VDD}
 C {devices/lab_pin.sym} 320 0 0 0 {name=l8 lab=BOOST_P}
 C {sky130_fd_pr/nfet_01v8.sym} 600 0 0 0 {name=Sb_p W=1 L=0.15 nf=1 mult=1}
@@ -178,12 +237,12 @@ C {devices/lab_pin.sym} 20 330 0 0 {name=l25 lab=G_P}
 C {devices/lab_pin.sym} -20 300 0 0 {name=l26 lab=SAMPLEB}
 C {devices/lab_pin.sym} 20 270 0 0 {name=l27 lab=BOOST_P}
 C {devices/lab_pin.sym} 20 300 0 0 {name=l28 lab=BOOST_P}
-C {sky130_fd_pr/nfet_01v8.sym} 300 300 0 0 {name=Cmswn_p W=1 L=0.15 nf=1 mult=1}
+C {sky130_fd_pr/nfet_01v8.sym} 300 300 0 0 {name=Cmswn_p W=16 L=0.15 nf=1 mult=1}
 C {devices/lab_pin.sym} 320 270 0 0 {name=l29 lab=BPREF_P}
 C {devices/lab_pin.sym} 280 300 0 0 {name=l30 lab=SAMPLE}
 C {devices/lab_pin.sym} 320 330 0 0 {name=l31 lab=VCM}
 C {devices/gnd.sym} 320 300 0 0 {name=lgnd32 lab=GND}
-C {sky130_fd_pr/pfet_01v8.sym} 600 300 0 0 {name=Cmswp_p W=1 L=0.15 nf=1 mult=1}
+C {sky130_fd_pr/pfet_01v8.sym} 600 300 0 0 {name=Cmswp_p W=16 L=0.15 nf=1 mult=1}
 C {devices/lab_pin.sym} 620 330 0 0 {name=l33 lab=BPREF_P}
 C {devices/lab_pin.sym} 580 300 0 0 {name=l34 lab=SAMPLEB}
 C {devices/lab_pin.sym} 620 270 0 0 {name=l35 lab=VCM}
@@ -201,7 +260,7 @@ C {devices/lab_pin.sym} 20 630 0 0 {name=l43 lab=TOP_N}
 C {devices/gnd.sym} 20 600 0 0 {name=lgnd44 lab=GND}
 C {sky130_fd_pr/pfet_01v8.sym} 300 600 0 0 {name=Sa_n W=1 L=0.5 nf=1 mult=1}
 C {devices/lab_pin.sym} 320 630 0 0 {name=l45 lab=BOOST_N}
-C {devices/lab_pin.sym} 280 600 0 0 {name=l46 lab=SAMPLE}
+C {devices/lab_pin.sym} 280 600 0 0 {name=l46 lab=G_N}
 C {devices/lab_pin.sym} 320 570 0 0 {name=l47 lab=VDD}
 C {devices/lab_pin.sym} 320 600 0 0 {name=l48 lab=BOOST_N}
 C {sky130_fd_pr/nfet_01v8.sym} 600 600 0 0 {name=Sb_n W=1 L=0.15 nf=1 mult=1}
@@ -229,12 +288,12 @@ C {devices/lab_pin.sym} 20 930 0 0 {name=l65 lab=G_N}
 C {devices/lab_pin.sym} -20 900 0 0 {name=l66 lab=SAMPLEB}
 C {devices/lab_pin.sym} 20 870 0 0 {name=l67 lab=BOOST_N}
 C {devices/lab_pin.sym} 20 900 0 0 {name=l68 lab=BOOST_N}
-C {sky130_fd_pr/nfet_01v8.sym} 300 900 0 0 {name=Cmswn_n W=1 L=0.15 nf=1 mult=1}
+C {sky130_fd_pr/nfet_01v8.sym} 300 900 0 0 {name=Cmswn_n W=16 L=0.15 nf=1 mult=1}
 C {devices/lab_pin.sym} 320 870 0 0 {name=l69 lab=BPREF_N}
 C {devices/lab_pin.sym} 280 900 0 0 {name=l70 lab=SAMPLE}
 C {devices/lab_pin.sym} 320 930 0 0 {name=l71 lab=VCM}
 C {devices/gnd.sym} 320 900 0 0 {name=lgnd72 lab=GND}
-C {sky130_fd_pr/pfet_01v8.sym} 600 900 0 0 {name=Cmswp_n W=1 L=0.15 nf=1 mult=1}
+C {sky130_fd_pr/pfet_01v8.sym} 600 900 0 0 {name=Cmswp_n W=16 L=0.15 nf=1 mult=1}
 C {devices/lab_pin.sym} 620 930 0 0 {name=l73 lab=BPREF_N}
 C {devices/lab_pin.sym} 580 900 0 0 {name=l74 lab=SAMPLEB}
 C {devices/lab_pin.sym} 620 870 0 0 {name=l75 lab=VCM}

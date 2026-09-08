@@ -114,6 +114,36 @@ referenced only as a familiar scale for the residual "confirm" error, the
 same convention `sim/sampling-frontend/run_transient.py`'s own "hold delta"
 figures already use.
 
+WHAT THIS EXPERIMENT FOUND, AND WHAT WAS CHANGED BECAUSE OF IT (issue #236).
+Its first two records (`records/20260906-202424-cb7e7aa.md`, single corner;
+`records/20260906-211700-00d26af.md`, full ratified PVT grid) found the
+pre-#236 `design/sampling_frontend.sch` outside the provisional
+differential LSB's half-step at the DR-006 worst-case phase budget at all
+9 ratified corners. Instrumenting `BOOST_x` directly (rather than inferring
+from `TOP_x` alone) isolated TWO independent limiters, and issue #236 fixed
+both in the schematic:
+
+  1. **`Sa`, the bootstrap precharge PFET, was not off during sampling.**
+     Its gate was tied to `SAMPLE` (a VDD-level signal) while its own
+     source is `BOOST_x`, which the bootstrap drives to ~`VIN + VDD`. That
+     leaves `V_sg = BOOST - VDD ~= VIN` -- an ON device, not a leaky off
+     one -- so it discharged the boosted node into `VDD` throughout the
+     sample phase: `BOOST_P` measured 3.195 V -> 2.697 V across one
+     83.333 ns budget window at tt/27C/1.8V, eroding `Msw`'s overdrive.
+     Re-gating `Sa` from `G_x` (GND during hold, shorted to `BOOST_x` by
+     `Se` during sampling) holds `BOOST_P` flat at 3.302 V and moves the
+     tt/27C/1.8V residual from 23.4 mV to 7.9 mV.
+  2. **The common-mode reference transmission gate (`Cmswn`/`Cmswp`) was
+     the limiter that remained.** It sits in series with `Csamp` on the
+     acquisition path: `BPREF_x` (`Csamp`'s far plate) is dragged by the
+     acquiring `TOP_x` step and must be driven back to `VCM` through this
+     gate, so the pair relaxes with `(R_Msw + R_Cmsw) * Csamp`. At W=1um
+     that gate dominated the sum. Widening it to W=16um moves the binding
+     corner's (tt/27C/1.62V) residual from 30.2 mV (Sa fixed only) to
+     0.8 mV; widening `Msw` 4x instead barely helps (7.9 -> 3.2 mV at
+     tt/27C/1.8V), which is what identifies the gate rather than the
+     sampling switch as the limiter.
+
 Usage (from the repo root, after ``source sim/env.sh``)::
 
     python3 sim/sampling-acquisition-settling/run_acquisition_settling.py
@@ -166,6 +196,17 @@ PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
 # cross-references as "the finding this campaign extends" -- PR #204,
 # sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md.
 SINGLE_CORNER_SEED_RECORD = "20260906-202424-cb7e7aa"
+
+# The pre-fix full-PVT-grid record this experiment's --corners mode now
+# SUPERSEDES: it measured the SAME stimulus against the pre-issue-#236
+# `design/sampling_frontend.sch` (Sa gated by SAMPLE, Cmswn/Cmswp at W=1um)
+# and found 9/9 ratified corners outside the provisional half-LSB reference
+# scale. Every corners record minted after the schematic fix points back at
+# it rather than editing it, per sim/README.md's append-only convention.
+CORNERS_SUPERSEDES_RECORD = "20260906-211700-00d26af"
+
+# The single-corner record's own superseded predecessor, for the same reason.
+SINGLE_CORNER_SUPERSEDES_RECORD = "20260906-202424-cb7e7aa"
 
 EDGE_TR_NS = 0.2  # rise/fall time for every edge below -- same convention
 # sim/cdac-bit-trial-settling/'s own EDGE_TR_NS.
@@ -461,9 +502,8 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
         "sample-rate re-derivation, not that re-derivation itself. No claim "
         "against a ratified spec row: `spec/target-spec.md` is entirely "
         "DRAFT (#1/#27); the DR-006 phase-period figures quoted below are "
-        "themselves downstream of the DRAFT sample-rate row. **Unlike the "
-        "other three mechanisms already checked, this one does NOT come "
-        "back with a comfortable margin -- see Result below.**"
+        "themselves downstream of the DRAFT sample-rate row. See Result "
+        "below for how this run's own numbers came out."
     )
     a(
         "- **Netlist provenance**: `design/sampling_frontend.sch`'s already-"
@@ -599,25 +639,44 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
         worst_budget = max(budget_rows, key=lambda r: abs(r["budget_err_mv"]))
         half_lsb_mv = LSB_DIFF_MV_PROVISIONAL / 2
         ratio = abs(worst_budget["budget_err_mv"]) / half_lsb_mv
+        cleared = abs(worst_budget["budget_err_mv"]) <= half_lsb_mv
         notes.append(
-            "**Finding: at this corner, the sampling front end's own "
-            "acquisition mechanism does NOT settle within the DR-006 "
-            "worst-case (12 MHz) phase budget** -- worst case "
-            f"`{worst_budget['node']}` is still "
+            (
+                "**Finding: at this corner, the sampling front end's own "
+                "acquisition mechanism settles to within the provisional "
+                "differential LSB's half-step inside the DR-006 worst-case "
+                "(12 MHz) phase budget**"
+                if cleared else
+                "**Finding: at this corner, the sampling front end's own "
+                "acquisition mechanism does NOT settle within the DR-006 "
+                "worst-case (12 MHz) phase budget**"
+            )
+            + " -- worst case "
+            f"`{worst_budget['node']}` is "
             f"{abs(worst_budget['budget_err_mv']):.3f} mV "
             f"(single-ended) from its ideal target value "
             f"{T_PHASE_WORST_NS:.3f} ns after the acquiring edge, "
             f"~{ratio:.1f}x the provisional differential LSB's half-step "
             f"({half_lsb_mv:.4f} mV, DR-003 Item 2, pending #27, quoted as "
             "a reference scale, not a pass/fail gate against a ratified "
-            "row). This is the opposite outcome from the other three "
-            "mechanisms checked so far (CDAC settling, comparator decision "
-            "delay, sequencer logic delay), each of which cleared the same "
-            "budget with a double-digit-or-larger margin -- the sampling "
-            "front end's own acquisition, not any of those three, is the "
-            "likely bottleneck for an end-to-end sample-rate figure at the "
-            "fast (12 MHz / ~1 MS/s) end of the DRAFT range, at this "
-            "corner."
+            "row). "
+            + (
+                "This puts the sampling front end's own acquisition "
+                "alongside the other three named mechanisms (CDAC "
+                "settling, comparator decision delay, sequencer logic "
+                "delay), each of which also clears the same budget at this "
+                "corner -- it is no longer the standout bottleneck the "
+                "pre-issue-#236 schematic made it."
+                if cleared else
+                "This is the opposite outcome from the other three "
+                "mechanisms checked so far (CDAC settling, comparator "
+                "decision delay, sequencer logic delay), each of which "
+                "cleared the same budget with a double-digit-or-larger "
+                "margin -- the sampling front end's own acquisition, not "
+                "any of those three, is the likely bottleneck for an "
+                "end-to-end sample-rate figure at the fast (12 MHz / "
+                "~1 MS/s) end of the DRAFT range, at this corner."
+            )
         )
         confirm_notes = ", ".join(
             f"{r['node']} {r['confirm_err_mv']:+.4f} mV" for r in budget_rows
@@ -628,43 +687,22 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
             f"~{(CONFIRM_AT_NS - TRIG_AT_NS) / T_PHASE_WORST_NS:.1f}x the "
             "DR-006 worst-case phase budget, but still well short of the "
             f"{T_PHASE_SLOW_NS:.0f} ns slow-end single-phase budget): "
-            f"{confirm_notes} -- still not sub-mV (contrast "
-            "`sim/sampling-frontend/run_transient.py`'s own report of "
-            "sub-mV settling by its legacy 400 ns window's own probe "
-            "point, ~399 ns after the edge -- this record's own debug "
-            "trace, described in the module docstring, reproduces that "
-            "same eventual sub-mV convergence by ~399 ns in a matching "
-            "single-pulse check; the residual tail decays slowly enough "
-            "that it is still tens of mV at this record's own much-"
-            "earlier `confirm` point). The mechanism traced during "
-            "debugging (not asserted without evidence): the bootstrap "
-            "precharge PFET `Sa` sits in a reverse-`Vds` orientation once "
-            "`BOOST_x` is driven above `VDD` by the boost itself, and its "
-            "own imperfect off-state in that orientation lets `BOOST_x` "
-            "droop measurably over tens of ns during the sample phase, "
-            "gradually reducing `Msw`'s gate overdrive and slowing the "
-            "final approach to the target value -- a real, second-order "
-            "settling tail this design's original sizing "
-            "(`spec/decision-records/DR-004-sampling-frontend-sizing.md`) "
-            "did not have DR-006's tighter phase-budget figure to check "
-            "against yet (DR-006 postdates neither schematic, but predates "
-            "the settling-time data needed to check either against it -- "
-            "see DR-006's own \"Alternatives considered\": a non-uniform "
-            "phase allocation was explicitly deferred for exactly this "
-            "kind of missing data)."
+            f"{confirm_notes}."
         )
         notes.append(
-            "This does NOT mean the design is broken or that any spec row "
-            "is violated -- `spec/target-spec.md`'s sample-rate row is "
-            "entirely DRAFT, and DR-006's uniform-one-phase-per-CLK-period "
-            "allocation was always stated as a placeholder pending exactly "
-            "this kind of settling-time evidence. What this record "
-            "establishes is a concrete, first, real data point suggesting "
-            "the eventual non-uniform phase allocation DR-006 anticipated "
-            "(a longer SAMPLE phase) may be needed at the fast end of the "
-            "DRAFT sample-rate range -- narrowing, not closing, the open "
-            "item, and surfacing a genuine design risk rather than a "
-            "reassuring margin, honestly reported either way."
+            "No claim here is a pass or a fail against a ratified spec row "
+            "-- `spec/target-spec.md`'s sample-rate row is entirely DRAFT, "
+            "and DR-006's uniform-one-phase-per-CLK-period allocation was "
+            "always stated as a placeholder pending exactly this kind of "
+            "settling-time evidence. The two acquisition-limiting "
+            "mechanisms this experiment isolated in `design/"
+            "sampling_frontend.sch` (issue #236: the bootstrap precharge "
+            "PFET `Sa` conducting rather than turning off once `BOOST_x` "
+            "is boosted above `VDD`, and the common-mode reference "
+            "transmission gate's own R_on in series with `Csamp` via the "
+            "floating `BPREF_x` node) are documented in that schematic's "
+            "own header comment; whichever way the numbers above come out, "
+            "they are reported as measured."
         )
     notes.append(
         "This is a first-pass, single-corner (tt/27C/1.8V), single-"
@@ -679,11 +717,7 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
         "tt/27C/1.8V. A full sample-rate re-derivation "
         "(`docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2) "
         "needs all four combined, over the full PVT grid, which remains "
-        "open. What this record newly establishes is that all four named "
-        "mechanisms have now been quantified individually, at least at "
-        "one corner -- three comfortably clear the DR-006-derived phase "
-        "budget, and this fourth one, measured here for the first time, "
-        "does not."
+        "open."
     )
 
     a("## Result")
@@ -701,7 +735,11 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
     ))
     a("")
     lines.extend(evidence.footer_lines(
-        "sim/sampling-acquisition-settling/run_acquisition_settling.py", ""
+        "sim/sampling-acquisition-settling/run_acquisition_settling.py",
+        f"[`records/{SINGLE_CORNER_SUPERSEDES_RECORD}.md`]"
+        f"({SINGLE_CORNER_SUPERSEDES_RECORD}.md) -- same stimulus, same "
+        "single tt/27C/1.8V point, measured against the pre-issue-#236 "
+        "`design/sampling_frontend.sch`",
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
@@ -746,32 +784,41 @@ def write_corners_record(points: list[dict]) -> Path:
     a("")
     a(f"- **Record ID**: {record_id}")
     a(
-        "- **Claim**: extends the single-corner (tt/27C/1.8V) finding in "
-        f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
-        f"({SINGLE_CORNER_SEED_RECORD}.md) -- that this design's "
-        "own bootstrapped sampling switch does NOT settle a new worst-case "
-        "differential input value within the DR-006 worst-case (12 MHz) "
-        "phase budget -- to the FULL ratified PVT corner set "
+        "- **Claim**: re-measures, at the FULL ratified PVT corner set "
         "(spec/target-spec.md's \"Numeric rows -- RATIFIED 2026-08-19\" "
-        "section: -40/27/125C, +-10% supply, sky130 process corners), the "
+        "section: -40/27/125C, +-10% supply, sky130 process corners -- the "
         "same OAT grid sim/comparator-decision/'s own regen-corners "
-        "campaign sweeps. Identical stimulus and measurement methodology "
-        "as the single-corner record (see that record's own module "
-        "docstring for the full stimulus-shape rationale and the two "
-        "documented `.meas TRIG/TARG` pitfalls this script works around) "
-        "-- only the corner point changes per run. No claim here is graded "
-        "against a ratified spec row: `spec/target-spec.md`'s sample-rate "
-        "row is entirely DRAFT (#1/#27), and the DR-006 phase-period "
-        "figures quoted below are themselves downstream of that DRAFT row."
+        "campaign sweeps), how far `design/sampling_frontend.sch`'s own "
+        "bootstrapped sampling switch is from a NEW, worst-case "
+        "(rail-to-rail differential) input value at the end of the DR-006 "
+        "worst-case (12 MHz) phase budget. Stimulus and measurement "
+        "methodology are byte-identical to the superseded record named "
+        "below (see the single-corner record "
+        f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+        f"({SINGLE_CORNER_SEED_RECORD}.md) for the full stimulus-shape "
+        "rationale and the two documented `.meas TRIG/TARG` pitfalls this "
+        "script works around) -- what changed is the DUT, not the "
+        "experiment. No claim here is graded against a ratified spec row: "
+        "`spec/target-spec.md`'s sample-rate row is entirely DRAFT "
+        "(#1/#27), and the DR-006 phase-period figures quoted below are "
+        "themselves downstream of that DRAFT row."
     )
     a(
         "- **Netlist provenance**: `design/sampling_frontend.sch`'s "
-        "already-regenerated fragment "
+        "regenerated fragment "
         "(`sim/sampling-frontend/testbench/sampling_frontend_dut.spice`), "
-        "unchanged from the single-corner record -- only `.lib`/`.temp`/"
-        "`Vdd` vary per corner point. Netlist snapshot above is the "
-        "tt/27C/1.8V baseline point; every point's own deck is committed "
-        f"under `corners/{record_id}/`."
+        "re-netlisted from the schematic after issue #236's two-part "
+        "design fix -- (i) the bootstrap precharge PFET `Sa_{p,n}`'s gate "
+        "moved from `SAMPLE` to the switch gate node `G_{p,n}`, so `Sa` is "
+        "genuinely off (V_sg ~= 0) while `BOOST_x` is boosted above `VDD` "
+        "instead of sitting at V_sg ~= VIN and discharging it; and (ii) "
+        "the common-mode reference transmission gate `Cmswn/Cmswp_{p,n}` "
+        "widened from W=1um to W=16um, because its own R_on -- in series "
+        "with `Csamp` on the acquisition path via the floating `BPREF_x` "
+        "node -- was the limiter that remained once (i) was applied. No "
+        "other device changed. Only `.lib`/`.temp`/`Vdd` vary per corner "
+        "point; netlist snapshot above is the tt/27C/1.8V baseline point, "
+        f"and every point's own deck is committed under `corners/{record_id}/`."
     )
     a(
         corners_mod.corner_matrix_summary_line(
@@ -819,6 +866,9 @@ def write_corners_record(points: list[dict]) -> Path:
         all_over_half_lsb = all(
             abs(p["worst_budget_err_mv"]) > half_lsb_mv for p in complete_points
         )
+        all_under_half_lsb = all(
+            abs(p["worst_budget_err_mv"]) <= half_lsb_mv for p in complete_points
+        )
         notes.append(
             f"**Binding corner (largest residual): `{binding['corner_id']}`**, "
             f"`{binding['worst_node']}` still "
@@ -830,7 +880,30 @@ def write_corners_record(points: list[dict]) -> Path:
             f"{abs(best['worst_budget_err_mv']):.3f} mV "
             f"(~{abs(best['worst_budget_err_mv']) / half_lsb_mv:.1f}x)."
         )
-        if all_over_half_lsb:
+        if all_under_half_lsb:
+            notes.append(
+                f"**All {len(complete_points)}/{len(points)} ratified "
+                "corner points now land INSIDE the provisional differential "
+                "LSB's half-step at the DR-006 worst-case phase budget** -- "
+                "the mechanism this experiment isolates clears that "
+                "reference scale everywhere on the ratified PVT grid, "
+                "including at the corner "
+                f"(`{binding['corner_id']}`) that binds it. The superseded "
+                f"record ([`records/{CORNERS_SUPERSEDES_RECORD}.md`]"
+                f"({CORNERS_SUPERSEDES_RECORD}.md)) measured the identical "
+                "stimulus against the pre-issue-#236 schematic and found "
+                "the opposite at every one of the same 9 points (binding "
+                "corner `tt_27c_1.62v` at 67.190 mV, ~38.2x the half-step; "
+                "best corner `tt_27c_1.98v` at 9.000 mV, ~5.1x). This is "
+                "still NOT a pass against a ratified spec row -- "
+                "`spec/target-spec.md`'s sample-rate row is entirely DRAFT "
+                "(#1/#27) and the half-LSB figure is DR-003 Item 2's "
+                "provisional value quoted as a reference scale -- but it "
+                "removes this mechanism from the list of reasons a "
+                "uniform-phase DR-006 allocation could not hold at the "
+                "fast (12 MHz) end of the DRAFT range."
+            )
+        elif all_over_half_lsb:
             notes.append(
                 "**Every one of the 9 ratified corner points exceeds the "
                 "provisional differential LSB's half-step at the DR-006 "
@@ -865,6 +938,23 @@ def write_corners_record(points: list[dict]) -> Path:
         "still needs all four combined, over the full PVT grid, which "
         "remains open."
     )
+    notes.append(
+        "**Scope of the DUT change this record measures, stated so it can "
+        "be argued with.** Issue #236's fix touches `design/"
+        "sampling_frontend.sch` only, and only two things in it: `Sa`'s "
+        "gate net and `Cmswn/Cmswp`'s width (see \"Netlist provenance\" "
+        "above). It does not change the SAMPLE/hold phase allocation, so "
+        "DR-006's uniform one-CLK-period-per-phase budget is unchanged and "
+        "the other three mechanisms' own campaigns "
+        "(`sim/cdac-bit-trial-settling/`, `sim/comparator-decision/`, "
+        "`sim/sequencer-logic-delay/`) are measured against the same "
+        "budget as before and are not invalidated by it. Three things ARE "
+        "invalidated and are NOT re-derived here: `sim/vcm-drive-budget/`'s "
+        "R_source/C_decouple budget (a wider `Cmsw` draws more peak "
+        "current from the shared `VCM` rail), `layout/sampling-frontend/`'s "
+        "LVS match, and `layout/sar-adc-top/`'s composition of it -- each "
+        "tracked separately rather than asserted clean here."
+    )
 
     a("## Result")
     a("")
@@ -878,7 +968,11 @@ def write_corners_record(points: list[dict]) -> Path:
     ))
     a("")
     lines.extend(evidence.footer_lines(
-        "sim/sampling-acquisition-settling/run_acquisition_settling.py", ""
+        "sim/sampling-acquisition-settling/run_acquisition_settling.py",
+        f"[`records/{CORNERS_SUPERSEDES_RECORD}.md`]"
+        f"({CORNERS_SUPERSEDES_RECORD}.md) -- same stimulus and same 9-point "
+        "ratified OAT grid, measured against the pre-issue-#236 "
+        "`design/sampling_frontend.sch`",
     ))
 
     record_path.write_text("\n".join(lines) + "\n")

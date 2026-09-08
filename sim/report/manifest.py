@@ -97,20 +97,23 @@ ROWS: tuple[Row, ...] = (
             "worst-case, rail-to-rail differential input value acquired "
             "once SAMPLE re-asserts): now ALSO PVT-complete (the same full "
             "ratified OAT grid, 9 one-at-a-time points), one step direction. "
-            "All four mechanisms are now PVT-complete."
+            "All four mechanisms are now PVT-complete. Issue #236 fixed the "
+            "sampling front end's own acquisition mechanism (the fourth) "
+            "after it was found to fail the DR-006 phase budget at every "
+            "ratified corner; re-measured against the full grid, it now "
+            "clears the budget at all 9."
         ),
         verdict=(
             "UNMEASURED as an end-to-end sample-rate figure (four "
             "mechanisms probed individually, not combined); all four "
-            "mechanisms are now PVT-complete -- CDAC settling and "
-            "sequencer logic delay both clear the DR-006 worst-case phase "
-            "budget at every corner by a wide margin, comparator decision "
-            "delay PASSes its own reset-integrity control (9/9 corners "
-            "HELD) and also clears the budget at every corner, while the "
-            "sampling front end's own acquisition FAILS to clear it at "
-            "EVERY ONE of the 9 ratified corners (see notes) -- the "
-            "sole mechanism of the four that does not clear the budget "
-            "anywhere on the grid"
+            "mechanisms are now PVT-complete AND all four now clear the "
+            "DR-006 worst-case phase budget at every ratified corner -- "
+            "CDAC settling and sequencer logic delay by a wide margin, "
+            "comparator decision delay PASSes its own reset-integrity "
+            "control (9/9 corners HELD) and also clears the budget at "
+            "every corner, and the sampling front end's own acquisition "
+            "(the sole mechanism that previously failed at every corner) "
+            "now also clears it at all 9, after issue #236's circuit fix"
         ),
         notes=(
             "No end-to-end sample-rate campaign exists. All four of its "
@@ -179,19 +182,36 @@ ROWS: tuple[Row, ...] = (
             "corner-specific artifact. Binding corner `tt_27c_1.62v`: "
             "TOP_P residual 67.19 mV, 38.2x the half-LSB, 2.9x worse than "
             "the tt/27C/1.8V baseline point; best corner `tt_27c_1.98v`: "
-            "9.00 mV, 5.1x the half-LSB. UNLIKE the other three mechanisms, "
-            "this one does NOT clear the DR-006 worst-case (12 MHz) phase "
-            "budget ANYWHERE on the ratified grid -- it is the only "
-            "mechanism found to be a likely bottleneck rather than a "
-            "comfortable margin, at the fast end of the DRAFT sample-rate "
-            "range, and this is a PVT-complete finding, not a "
-            "single-corner one. Named as open work by spec/target-spec.md's "
+            "9.00 mV, 5.1x the half-LSB. Issue #236 fixed this: "
+            "instrumenting `BOOST_x` directly found two independent "
+            "limiters. (1) The bootstrap precharge PFET `Sa`'s gate was "
+            "tied to `SAMPLE` (a VDD-level signal) while `Sa`'s own source "
+            "is `BOOST_x` (driven to ~VIN+VDD during sampling) -- V_sg = "
+            "BOOST_x - VDD ~= VIN, an ON device discharging the boosted "
+            "node throughout the sample phase, not the leaky-off device "
+            "originally assumed. Re-gating `Sa` from the switch's own gate "
+            "node `G_x` instead (already GND during hold, shorted to "
+            "`BOOST_x` during sampling) makes `Sa` genuinely off. (2) With "
+            "(1) applied, the common-mode reference transmission gate "
+            "`Cmswn`/`Cmswp` -- in series with `Csamp` via the floating "
+            "`BPREF_x` node -- was the limiter that remained; widened from "
+            "W=1um to W=16um. Re-measured against the full ratified PVT "
+            "grid with both fixes applied: ALL 9/9 corners now clear the "
+            "DR-006 worst-case (12 MHz) phase budget, worst case "
+            "`tt_27c_1.62v` at 0.380 mV (~0.2x the half-LSB) vs. that same "
+            "corner's pre-fix 67.190 mV (~38.2x). This mechanism is no "
+            "longer the standout bottleneck of the four -- all four now "
+            "clear the budget at every ratified corner. Three things this "
+            "fix touches are explicitly NOT yet re-derived: "
+            "`sim/vcm-drive-budget/`'s R_source/C_decouple budget (a wider "
+            "`Cmsw` draws more peak current from the shared `VCM` rail), "
+            "and `layout/sampling-frontend/`'s LVS match and "
+            "`layout/sar-adc-top/`'s composition of it (both now stale "
+            "against the new `Sa` gate net and `Cmsw` width) -- tracked as "
+            "issue #245. Named as open work by spec/target-spec.md's "
             "own 'Not ratified by this record' list (#24/#28); DR-006's "
             "1.2-12 MHz clock range remains a mechanical consequence of "
-            "this DRAFT row, not a derived result, and DR-006's own "
-            "deferred non-uniform-phase-allocation alternative is now "
-            "supported by PVT-complete, not just single-corner, evidence "
-            "for all four mechanisms."
+            "this DRAFT row, not a derived result."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
@@ -200,7 +220,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md",
             "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
-            "sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md",
+            "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
         ),
     ),
     Row(
