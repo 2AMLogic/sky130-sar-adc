@@ -714,12 +714,6 @@ def write_corners_record(points: list[dict]) -> Path:
     """Evidence record for the full ratified-PVT-grid --corners campaign,
     same `corners/<record_id>/` per-point-log layout
     sim/comparator-decision/'s own regen-corners campaign uses."""
-    record_id = evidence.new_record_id()
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
-    for p in points:
-        (corners_dir / f"{p['corner_id']}.spice").write_text(p["netlist"])
-
     # Netlist snapshot: the tt/27C/1.8V baseline point's own deck, the same
     # single-point convention write_record() above uses, so a reader can
     # diff it directly against that single-corner record's own snapshot.
@@ -727,12 +721,17 @@ def write_corners_record(points: list[dict]) -> Path:
         (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0 and p["supply_v"] == VDD),
         points[0],
     )
-    record_path = evidence.write_netlist_snapshot_text(EXPERIMENT_DIR, record_id, baseline["netlist"])
-    netlist_sha = evidence.sha256_text(baseline["netlist"])
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, baseline["netlist"])
+    record_id = prov.record_id
+    record_path = prov.record_path
+    netlist_sha = prov.netlist_sha
+    pdk_line = prov.pdk_line
+    ng_version = prov.ng_version
 
-    info = pdk.resolve()
-    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
-    ng_version = toolchain._ngspice_version() or "unknown"
+    corners_dir = EXPERIMENT_DIR / "corners" / record_id
+    corners_dir.mkdir(parents=True, exist_ok=True)
+    for p in points:
+        (corners_dir / f"{p['corner_id']}.spice").write_text(p["netlist"])
 
     process_corners_run = sorted({p["corner"] for p in points})
     temps_run = sorted({p["temp_c"] for p in points})
