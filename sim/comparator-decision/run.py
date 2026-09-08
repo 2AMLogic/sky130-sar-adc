@@ -206,7 +206,7 @@ def run_regen_sweep(
     vindiff_sweep_mv: list[float] | None = None, quiet: bool = False,
     supply_v: float = VDD, evaluate_ns: float = EVALUATE_NS,
     probe_supply_current: bool = False,
-) -> tuple[list[RegenPoint], str]:
+) -> list[RegenPoint]:
     info = pdk.resolve_or_raise()
     vindiff_sweep_mv = vindiff_sweep_mv or DEFAULT_VINDIFF_SWEEP_MV
     evaluate_start_ns = RESET_NS + RESET_TR_NS
@@ -277,14 +277,14 @@ def run_regen_sweep(
                         + "]"
                     )
                 print(f"  vindiff={vindiff_mv:+.4f}mV -> regen_time={shown}{extra}")
-    netlist_sha = evidence.sha256_file(DUT_FRAGMENT)
-    return points, netlist_sha
+    return points
 
 
 def _finalize_record(
     lines: list[str],
     record_path: Path,
-    info: pdk.PdkInfo,
+    pdk_line: str,
+    ng_version: str,
     netlist_sha: str,
     cmd: str,
     extra: dict[str, str] | None = None,
@@ -309,8 +309,8 @@ def _finalize_record(
     record is superseded is a per-run fact.
     """
     lines.extend(evidence.environment_block(
-        pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
-        ngspice_line=toolchain._ngspice_version() or "unknown",
+        pdk_line=pdk_line,
+        ngspice_line=ng_version,
         netlist_sha256=netlist_sha,
         extra=extra,
     ))
@@ -321,19 +321,18 @@ def _finalize_record(
 
 
 def write_regen_evidence(
-    points: list[RegenPoint], netlist_sha: str, corner: str, temp_c: float,
+    points: list[RegenPoint], corner: str, temp_c: float,
     note: str = "", supersedes: str = "",
 ) -> Path:
-    record_id = evidence.new_record_id()
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
+    record_id = prov.record_id
+    record_path = prov.record_path
     corners_dir = EXPERIMENT_DIR / "corners" / record_id
     corners_dir.mkdir(parents=True, exist_ok=True)
     for p in points:
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
         (corners_dir / f"vindiff_{safe}.log").write_text(p.log_text)
 
-    record_path = evidence.write_netlist_snapshot(EXPERIMENT_DIR, record_id, DUT_FRAGMENT)
-
-    info = pdk.resolve()
     lines: list[str] = []
     a = lines.append
     a(f"# Record {record_id}")
@@ -384,7 +383,10 @@ def write_regen_evidence(
         "that, not a quantitative claim against any ratified settling-time row."
     )
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "regen", supersedes=supersedes)
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "regen", supersedes=supersedes,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -509,7 +511,7 @@ class RegenCornerPoint:
 
 def run_regen_corners(
     vindiff_sweep_mv: list[float] | None = None, quiet: bool = False,
-) -> tuple[list[RegenCornerPoint], str]:
+) -> list[RegenCornerPoint]:
     """Full ratified-corner-set sweep of run_regen_sweep(): the OAT PVT grid
     built from the ratified corner set (spec/target-spec.md's "Numeric rows
     -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
@@ -525,7 +527,7 @@ def run_regen_corners(
         cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
         if not quiet:
             print(f"{cid}:")
-        sweep_points, _ = run_regen_sweep(
+        sweep_points = run_regen_sweep(
             corner=process_corner, temp_c=temp_c, vindiff_sweep_mv=sweep,
             quiet=quiet, supply_v=supply_v, evaluate_ns=CORNERS_EVALUATE_NS,
             probe_supply_current=True,
@@ -540,15 +542,16 @@ def run_regen_corners(
                 reset_divergence_onset_ns=p.reset_divergence_onset_ns,
                 reset_static_idd_a=p.reset_static_idd_a,
             ))
-    netlist_sha = evidence.sha256_file(DUT_FRAGMENT)
-    return points, netlist_sha
+    return points
 
 
 def write_regen_corners_evidence(
-    points: list[RegenCornerPoint], netlist_sha: str, note: str = "",
+    points: list[RegenCornerPoint], note: str = "",
     supersedes: str = "",
 ) -> Path:
-    record_id = evidence.new_record_id()
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
+    record_id = prov.record_id
+    record_path = prov.record_path
     corners_dir = EXPERIMENT_DIR / "corners" / record_id
     corners_dir.mkdir(parents=True, exist_ok=True)
     for p in points:
@@ -556,9 +559,6 @@ def write_regen_corners_evidence(
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
         (corners_dir / f"{cid}__vindiff_{safe}.log").write_text(p.log_text)
 
-    record_path = evidence.write_netlist_snapshot(EXPERIMENT_DIR, record_id, DUT_FRAGMENT)
-
-    info = pdk.resolve()
     controls = [p for p in points if p.vindiff_mv == 0.0]
     measured = [p for p in points if p.vindiff_mv != 0.0]
     decided = [p for p in measured if p.classify() == "DECIDED"]
@@ -892,7 +892,10 @@ def write_regen_corners_evidence(
         "mismatch would only add to it."
     )
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "regen-corners", supersedes=supersedes)
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "regen-corners", supersedes=supersedes,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -986,7 +989,7 @@ class OffsetResult:
 
 def run_offset_mc(
     corner: str = "tt", temp_c: float = 27.0, seed: int = 1, n: int = 16, quiet: bool = False,
-) -> tuple[OffsetResult, str]:
+) -> OffsetResult:
     info = pdk.resolve_or_raise()
     mismatch_corner = corners_mod.mismatch_corner_for(corner)
     logs: dict[str, str] = {}
@@ -1047,27 +1050,25 @@ def run_offset_mc(
         negctrl_pickoff=negctrl_pickoff, negctrl_offset_v=negctrl_offset_v,
         seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, logs=logs,
     )
-    netlist_sha = evidence.sha256_file(DUT_FRAGMENT)
-    return result, netlist_sha
+    return result
 
 
 def write_offset_evidence(
-    result: OffsetResult, netlist_sha: str, note: str = "", supersedes: str = "",
+    result: OffsetResult, note: str = "", supersedes: str = "",
 ) -> Path:
-    record_id = evidence.new_record_id()
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
+    record_id = prov.record_id
+    record_path = prov.record_path
     draws_dir = EXPERIMENT_DIR / "mc-draws" / record_id
     draws_dir.mkdir(parents=True, exist_ok=True)
     for name, text in result.logs.items():
         (draws_dir / f"{name}.log").write_text(text)
-
-    record_path = evidence.write_netlist_snapshot(EXPERIMENT_DIR, record_id, DUT_FRAGMENT)
 
     negctrl_stdev = statistics.pstdev(result.negctrl_offset_v) if len(result.negctrl_offset_v) > 1 else 0.0
     negctrl_ok = negctrl_stdev == 0.0
     draws_stdev = statistics.pstdev(result.draws_offset_v) if len(result.draws_offset_v) > 1 else 0.0
     draws_mean = statistics.fmean(result.draws_offset_v) if result.draws_offset_v else float("nan")
 
-    info = pdk.resolve()
     lines: list[str] = []
     a = lines.append
     a(f"# Monte Carlo record {record_id}")
@@ -1150,7 +1151,7 @@ def write_offset_evidence(
     a(f"| {len(result.negctrl_offset_v)} | {negctrl_mean * 1000:.4f} | {negctrl_stdev * 1000:.6g} |")
     a("")
     return _finalize_record(
-        lines, record_path, info, netlist_sha, "offset",
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha, "offset",
         extra={"MC seed": str(result.seed), "MC N": str(result.n)},
         supersedes=supersedes,
     )
@@ -1307,7 +1308,7 @@ class NoiseResult:
 
 def run_noise(
     corner: str = "tt", temp_c: float = 27.0, supply_v: float = VDD, quiet: bool = False,
-) -> tuple[NoiseResult, str]:
+) -> NoiseResult:
     info = pdk.resolve_or_raise()
     with tempfile.TemporaryDirectory(prefix="comparator-decision-noise-") as scratch:
         scratch_dir = Path(scratch)
@@ -1341,44 +1342,41 @@ def run_noise(
         op_tail_v=op_tail, op_dip_v=op_dip, op_din_v=op_din,
         log_text=log_text, corner=corner, temp_c=temp_c, supply_v=supply_v,
     )
-    netlist_sha = evidence.sha256_text(_noise_deck(info, corner, temp_c, supply_v))
-    return result, netlist_sha
+    return result
 
 
-def run_noise_corners(quiet: bool = False) -> tuple[list[NoiseResult], str]:
+def run_noise_corners(quiet: bool = False) -> list[NoiseResult]:
     """Full ratified-corner-set sweep of run_noise() (issue #28): the OAT PVT
     grid built from the ratified corner set (spec/target-spec.md's "Numeric
     rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
     process corners), substantiating the ratified comparator input-referred
     noise-budget row rather than the single nominal-point record alone."""
-    info = pdk.resolve_or_raise()
+    pdk.resolve_or_raise()
     grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
     results: list[NoiseResult] = []
     for process_corner, temp_c, supply_v in grid:
-        result, _ = run_noise(corner=process_corner, temp_c=temp_c, supply_v=supply_v, quiet=quiet)
+        result = run_noise(corner=process_corner, temp_c=temp_c, supply_v=supply_v, quiet=quiet)
         results.append(result)
         if not quiet:
             cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
             print(f"  {cid}: differential noise = {result.differential_rms_v * 1000:.4f} mV rms")
-    netlist_sha = evidence.sha256_text(_noise_deck(info, "tt", 27.0, VDD))
-    return results, netlist_sha
+    return results
 
 
 def write_noise_campaign_evidence(
-    results: list[NoiseResult], netlist_sha: str, note: str = "",
+    results: list[NoiseResult], note: str = "",
     supersedes: str = "",
 ) -> Path:
-    record_id = evidence.new_record_id()
+    info = pdk.resolve()
+    netlist_text = _noise_deck(info, "tt", 27.0, VDD)
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
+    record_id = prov.record_id
+    record_path = prov.record_path
     corners_dir = EXPERIMENT_DIR / "corners" / record_id
     corners_dir.mkdir(parents=True, exist_ok=True)
-    info = pdk.resolve()
     for r in results:
         cid = corners_mod.corner_id(r.corner, r.temp_c, r.supply_v)
         (corners_dir / f"{cid}.log").write_text(r.log_text)
-
-    record_path = evidence.write_netlist_snapshot_text(
-        EXPERIMENT_DIR, record_id, _noise_deck(info, "tt", 27.0, VDD)
-    )
 
     binding = max(results, key=lambda r: r.differential_rms_v)
     binding_cid = corners_mod.corner_id(binding.corner, binding.temp_c, binding.supply_v)
@@ -1467,21 +1465,23 @@ def write_noise_campaign_evidence(
     a("- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 device noise "
       "models via ngspice's `.noise` analysis; no literature/foundry-doc noise figure used)")
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "noise-corners", supersedes=supersedes)
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "noise-corners", supersedes=supersedes,
+    )
 
 
 def write_noise_evidence(
-    result: NoiseResult, netlist_sha: str, note: str = "", supersedes: str = "",
+    result: NoiseResult, note: str = "", supersedes: str = "",
 ) -> Path:
-    record_id = evidence.new_record_id()
+    info = pdk.resolve()
+    netlist_text = _noise_deck(info, result.corner, result.temp_c)
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
+    record_id = prov.record_id
+    record_path = prov.record_path
     runs_dir = EXPERIMENT_DIR / "corners" / record_id
     runs_dir.mkdir(parents=True, exist_ok=True)
     (runs_dir / "noise.log").write_text(result.log_text)
-
-    info = pdk.resolve()
-    record_path = evidence.write_netlist_snapshot_text(
-        EXPERIMENT_DIR, record_id, _noise_deck(info, result.corner, result.temp_c)
-    )
 
     lines: list[str] = []
     a = lines.append
@@ -1542,7 +1542,10 @@ def write_noise_evidence(
     a("- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 device noise "
       "models via ngspice's `.noise` analysis; no literature/foundry-doc noise figure used)")
     a("")
-    return _finalize_record(lines, record_path, info, netlist_sha, "noise", supersedes=supersedes)
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "noise", supersedes=supersedes,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1590,10 +1593,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if args.mode == "regen":
-        points, netlist_sha = run_regen_sweep(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
+        points = run_regen_sweep(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
         if args.record:
             path = write_regen_evidence(
-                points, netlist_sha, args.corner, args.temp, note=args.note,
+                points, args.corner, args.temp, note=args.note,
                 supersedes=args.supersedes,
             )
             print(f"wrote {path}")
@@ -1601,10 +1604,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if not unresolved else 1
 
     if args.mode == "regen-corners":
-        points, netlist_sha = run_regen_corners(quiet=args.quiet)
+        points = run_regen_corners(quiet=args.quiet)
         if args.record:
             path = write_regen_corners_evidence(
-                points, netlist_sha, note=args.note, supersedes=args.supersedes,
+                points, note=args.note, supersedes=args.supersedes,
             )
             print(f"wrote {path}")
         problems = [p for p in points if p.classify() not in ("DECIDED", "CONTROL-OK")]
@@ -1619,12 +1622,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if not problems else 1
 
     if args.mode == "offset":
-        result, netlist_sha = run_offset_mc(
+        result = run_offset_mc(
             corner=args.corner, temp_c=args.temp, seed=args.seed, n=args.n, quiet=args.quiet
         )
         if args.record:
             path = write_offset_evidence(
-                result, netlist_sha, note=args.note, supersedes=args.supersedes,
+                result, note=args.note, supersedes=args.supersedes,
             )
             print(f"wrote {path}")
         negctrl_stdev = statistics.pstdev(result.negctrl_offset_v) if len(result.negctrl_offset_v) > 1 else 0.0
@@ -1632,19 +1635,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if (negctrl_stdev == 0.0 and draws_stdev > 0) else 1
 
     if args.mode == "noise":
-        result, netlist_sha = run_noise(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
+        result = run_noise(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
         if args.record:
             path = write_noise_evidence(
-                result, netlist_sha, note=args.note, supersedes=args.supersedes,
+                result, note=args.note, supersedes=args.supersedes,
             )
             print(f"wrote {path}")
         return 0
 
     if args.mode == "noise-corners":
-        results, netlist_sha = run_noise_corners(quiet=args.quiet)
+        results = run_noise_corners(quiet=args.quiet)
         if args.record:
             path = write_noise_campaign_evidence(
-                results, netlist_sha, note=args.note, supersedes=args.supersedes,
+                results, note=args.note, supersedes=args.supersedes,
             )
             print(f"wrote {path}")
         binding = max(results, key=lambda r: r.differential_rms_v)
