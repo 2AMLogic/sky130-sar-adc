@@ -195,6 +195,65 @@ composes one through `klt draw`, the documented escape hatch for exactly that.
   that is a `klt pex` question for the real layout, in `#99`'s scope, exactly
   as `layout/comparator/pex/` did for the comparator.
 
+## Tracking `design/sampling_frontend.sch` (issue #248)
+
+**Decision: this sub-block tracks the schematic's current state, not a
+pinned historical snapshot.** Issue #236 moved `Sa_p`/`Sa_n`'s gate from
+`SAMPLE` to their own switch's gate node `G_P`/`G_N`, and widened
+`Cmswn_{p,n}`/`Cmswp_{p,n}` from `W=1um` to `W=16um` (DR-006 acquisition-
+window settling). Issue #245 re-derived the two pieces of evidence that
+change directly invalidated (`layout/sampling-frontend/`'s own LVS reference,
+and `sim/vcm-drive-budget/`'s single-corner record) but deliberately left
+this sub-block's own `reference.spice` and the shared `layout/bin/
+_pfet_devices.py` table untouched, to avoid silently breaking this
+sub-block's LVS match while its own reconciliation was still undecided.
+
+Issue #248 made that decision explicit and resolved it as "track": this
+sub-block's own claim (PMOS body-tie domain isolation between `BOOST_x` and
+`VDD`) does not depend on `Sa`'s gate net or `Cmswp`'s width, so neither
+changed field threatens anything this flow actually verifies. Leaving the
+shared table and this directory's `reference.spice` pinned indefinitely
+would mean a reader of either file sees claimed connectivity/sizing that no
+longer matches `design/sampling_frontend.sch` — real staleness, and the
+falsifiability fixtures would silently start negating a *superseded*
+netlist rather than the live one. Accordingly `layout/bin/_pfet_devices.py`,
+`reference.spice`, `reference.broken-body-tie.spice`, and
+`reference.broken-device.spice` were all updated to the post-#236 state, and
+`layout/sampling-frontend/bin/gen_blocks.py`'s local post-#236 override
+(added by #245 for exactly the reason above) was folded back into the
+now-current shared table, leaving that module's `PFET_DEVICES` once again
+byte-identical to the shared one.
+
+**The re-run was not free, and that is the interesting part.** Widening
+`Cmswp_{p,n}` to `W=16um` grows those two blocks' own drawn bbox from
+`y1=1.97 um` to `y1=16.97 um` (this generator draws `W` vertically), which
+put the met2 track band's old *fixed* constant `TRACK_Y0_UM = 4.20` **inside**
+those blocks — four `met1.space.1` violations where each wide device's gate
+column ran back down alongside its own S/D hwire jog endpoints. The fix is
+structural rather than a re-tuned constant: `bin/build_layout.py` now derives
+the band's `y0` from the tallest block's own reported bbox top plus
+`TRACK_Y0_MARGIN_UM`, and `_assert_track_clearance()` fails the build if that
+invariant is ever violated again. This was verified in both directions —
+restoring the old fixed `4.20` reproduces exactly those four violations at
+`Cmswp_p`/`Cmswp_n`'s own x positions, and the assertion raises `BuildError`
+on the same input.
+
+With that change all eight verdicts in this directory's status table still
+hold (record `20260908-103045-f3e2914`: LVS match against `reference.spice`,
+mismatch against both negative controls, curated-deck DRC clean, the n-well
+violation fixture still reporting `nwell.space.1`). `layout/sampling-frontend/`'s
+own flow was re-run too, since it imports the same shared table (record
+`20260908-103116-f3e2914`, all eleven verdicts holding); its composed
+`sampling_frontend.gds` is **byte-identical** (sha256 `4c000751…a85e6e`) to
+#245's own record, confirming the fold-in changed no drawn geometry and that
+`layout/sar-adc-top/`'s committed composition — which consumed that GDS —
+needs no re-run.
+
+If a future schematic change touches a field this sub-block's own claim
+*does* depend on (either PFET's `domain`, or the body-tie topology itself),
+that would be a materially different decision — re-argue it explicitly
+rather than assuming this same "track" precedent still applies.
+
 ## Running the flow
 
 ```sh

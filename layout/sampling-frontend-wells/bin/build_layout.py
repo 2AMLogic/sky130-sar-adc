@@ -83,8 +83,10 @@ Routing style
 Deliberately simpler than `layout/comparator/`'s greedy channel router,
 because this floorplan is a single row and every net's pin set is small:
 
-* every net owns one **met2** horizontal track at its own y, above the device
-  row (``TRACK_Y0`` + k * ``TRACK_PITCH_UM``);
+* every net owns one **met2** horizontal track at its own y, above the
+  TALLEST device block in the whole row (the tracks' own y0 is derived at
+  build time from the tallest block's own bbox top, ``TRACK_Y0_MARGIN_UM``
+  above it -- see :func:`build` -- plus k * ``TRACK_PITCH_UM``);
 * every pin reaches its track on a **met1** column: a source/drain pin first
   jogs horizontally at its own pad y into the free channel beside its block
   (left for S, right for D), then rises; a gate pin -- whose landing pad
@@ -170,8 +172,25 @@ BLOCK_PITCH_UM = 3.20
 CHANNEL_LEFT_UM = 0.45
 CHANNEL_RIGHT_UM = 0.45
 
-#: met2 per-net track band, above the tallest device block.
-TRACK_Y0_UM = 4.20
+#: met2 per-net track band, above the tallest device block. The band's own
+#: y0 (``track_y0`` in :func:`build`) is derived at build time as the
+#: tallest block's own bbox top (``max(bbox["y1"] for ... in blocks)``) plus
+#: this margin -- NOT a fixed absolute y -- so a device W change that grows a
+#: block's own height (e.g. issue #236/#248's Cmswp_{p,n} widening from
+#: W=1um to W=16um) cannot silently put the track band, and therefore a
+#: low-index net's gate column, back INSIDE that same block's own S/D pad
+#: height. A gate pin's own landing pad is always near the TOP of its block
+#: (`gate_contact` raises it clear of S/D metal -- see the module docstring's
+#: "Routing style" section), so once every track sits above every block's
+#: own top, every gate column's own rise is short and never has to travel
+#: back down through its own block's S/D pad height to reach a low-index
+#: track -- which is exactly the failure a fixed, too-low band constant
+#: produced here before this was made block-height-derived (a WIRE_UM +
+#: MET_SPACE_UM met1.space.1 violation between the gate column and both the
+#: S and D hwires' jog endpoints, at the S/D pads' own mid-height y, once a
+#: block grew tall enough that its own vertical midpoint fell inside the old
+#: fixed band).
+TRACK_Y0_MARGIN_UM = 0.60
 TRACK_PITCH_UM = 0.50
 
 #: Order the met2 tracks are assigned in (bottom-up). Supplies and the two
@@ -307,6 +326,29 @@ def _assert_column_pitch(columns: dict[float, str]) -> None:
             )
 
 
+def _assert_track_clearance(track_y0: float, blocks: dict[str, dict]) -> None:
+    """The lowest met2 track must sit above every block's own bbox top.
+
+    If it did not, a low-index net's gate column (which always rises from
+    near the TOP of its own block, per ``gate_contact``) would have to
+    travel back DOWN through that same block's own S/D pad height to reach
+    the track -- passing directly alongside the S/D hwires' jog endpoints at
+    the S/D pads' own mid-height y, a met1.space.1 violation this module hit
+    directly when Cmswp_{p,n} grew from W=1um to W=16um (issue #248) while
+    ``TRACK_Y0_UM`` was still a fixed constant tuned for the old, short
+    devices. Re-derived from the actual block geometry on every build,
+    same discipline as :func:`_assert_column_pitch`.
+    """
+    tallest = max(block["bbox"]["y1"] for block in blocks.values())
+    if track_y0 < tallest + 1e-9:
+        raise BuildError(
+            f"track band y0={track_y0:.3f} um does not clear the tallest "
+            f"block's own bbox top ({tallest:.3f} um) -- a gate column "
+            "would have to route back down through its own block's S/D "
+            "pad height to reach the lowest-index track"
+        )
+
+
 def tap_shapes(spec: dict) -> tuple[list[tuple[tuple[int, int], Rect]], float, float]:
     """Draw one well-tap structure; returns its shapes and its mcon landing point."""
     x0, x1, y0, y1 = spec["x0"], spec["x1"], spec["y0"], spec["y1"]
@@ -386,10 +428,17 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
     if missing:
         raise BuildError(f"nets with no assigned met2 track: {sorted(missing)}")
 
+    # The track band's own y0: above EVERY block's own bbox top (not just
+    # the domain being routed), so a gate column never has to travel back
+    # down through its own block's S/D pad height -- see
+    # TRACK_Y0_MARGIN_UM's own docstring and _assert_track_clearance().
+    track_y0 = max(block["bbox"]["y1"] for block in blocks.values()) + TRACK_Y0_MARGIN_UM
+    _assert_track_clearance(track_y0, blocks)
+
     # --- met2 per-net tracks + the met1 columns that reach them -------------
     summary_nets: dict[str, dict] = {}
     for index, net in enumerate(TRACK_ORDER):
-        track_y = TRACK_Y0_UM + index * TRACK_PITCH_UM
+        track_y = track_y0 + index * TRACK_PITCH_UM
         cols = sorted(net_columns[net])
         for x, y_from in cols:
             shapes.append((L_MET1, Rect.vwire(x, y_from, track_y)))
