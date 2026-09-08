@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "sampling_frontend.gds",
+  "reference": "reference.broken-body-tie.spice",
+  "top": "gen_compose_0",
+  "reference_top": "SAMPLING_FRONTEND",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "mismatch",
+  "mismatch_count": 9,
+  "error_count": 7,
+  "category_counts": {
+    "device.body_unverified": 1,
+    "device.unmatched": 4,
+    "topology": 4
+  },
+  "category_error_counts": {
+    "device.unmatched": 4,
+    "topology": 3
+  },
+  "counts": {
+    "nets": {
+      "layout": 17,
+      "reference": 17,
+      "matched": 11
+    },
+    "devices": {
+      "layout": 24,
+      "reference": 24,
+      "matched": 20
+    },
+    "pins": {
+      "layout": 12,
+      "reference": 12,
+      "matched": 12
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "4c000751926650fc0fac4992390e1ad33fa42ca5d01643b0715bf8b3e2a85e6e",
+    "reference_sha256": "bb478a0e161160f84d9dac688778566bf0c80d554dac12f562ed0949a12e9332",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "11 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "nfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$12",
+        "reference": "_SA_P",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$13",
+        "reference": "_SE_P",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$16",
+        "reference": "_SE_N",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$17",
+        "reference": "_SA_N",
+        "class": "pfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "nets were paired despite a name/identity conflict",
+      "side": "both",
+      "net": {
+        "layout": "\\$11",
+        "reference": "G_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "nets were paired despite a name/identity conflict",
+      "side": "both",
+      "net": {
+        "layout": "\\$5",
+        "reference": "G_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "nets were paired despite a name/identity conflict",
+      "side": "both",
+      "net": {
+        "layout": "\\$6",
+        "reference": "SAMPLEB"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BPREF_N",
+      "reference": "BPREF_N",
+      "pin": true
+    },
+    {
+      "layout": "BPREF_P",
+      "reference": "BPREF_P",
+      "pin": true
+    },
+    {
+      "layout": "\\$10",
+      "reference": "BSBOT_N",
+      "pin": false
+    },
+    {
+      "layout": "\\$8",
+      "reference": "BSBOT_P",
+      "pin": false
+    },
+    {
+      "layout": "vsubs",
+      "reference": "GND",
+      "pin": true
+    },
+    {
+      "layout": "SAMPLE",
+      "reference": "SAMPLE",
+      "pin": true
+    },
+    {
+      "layout": "TOP_N",
+      "reference": "TOP_N",
+      "pin": true
+    },
+    {
+      "layout": "TOP_P",
+      "reference": "TOP_P",
+      "pin": true
+    },
+    {
+      "layout": "VCM",
+      "reference": "VCM",
+      "pin": true
+    },
+    {
+      "layout": "VINN",
+      "reference": "VINN",
+      "pin": true
+    },
+    {
+      "layout": "VINP",
+      "reference": "VINP",
+      "pin": true
+    }
+  ]
+}

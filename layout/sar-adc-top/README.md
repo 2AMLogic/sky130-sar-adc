@@ -15,6 +15,32 @@ touched.**
 The LVS *pin-declaration* blocker (klayout-tools#1513) is now resolved; LVS
 itself still does not reach a clean match, blocked on a second, distinct
 tool gap (klayout-tools#1552) — see "LVS device/topology blocker" below.**
+
+**Re-run for issue #245** (`layout/sampling-frontend/`'s own re-verification
+after issue #236's `Sa`/`Cmsw` sizing change), record
+`20260908-072857-80df05e`: DRC is still clean, and the LVS mismatch verdict
+is numerically **identical** to the pre-#245 baseline
+(`reports/20260907-110058-a546200/`) — devices 869/869/794, nets 444/446/412,
+mismatch categories `device.unmatched`=75/`net.merged`=12/`net.split`=10/
+`topology.flattened`=1, all unchanged. That identity is itself evidence, not
+a coincidence: it confirms `layout/sampling-frontend/`'s re-drawn geometry
+(post-#236) recomposes into the assembly exactly as before, once this
+sub-block's own new `SAMPLE` pin position — which DID move, from
+`x_um=2.67` to `x_um=17.285` in that sub-block's own local frame, because
+`Sa_p`/`Sa_n` no longer contribute a `SAMPLE`-net column once their gate net
+became `G_P`/`G_N` — is threaded through to this assembly's own hardcoded
+per-pin routing table (`bin/build_layout.py`'s `PIN` dict, updated this same
+issue). Before that table was updated, a same-day trial run showed exactly
+what an un-updated pin coordinate produces: `SAMPLE_INT` disconnected
+entirely from the connectivity table (0 matches, where every other net still
+matched) and the LVS device-match count dropped by 4 (794 → 790) — a real,
+if easily overlooked, consequence of a sub-block's own internal net-label
+placement moving that this composition's own hand-transcribed pin table does
+not track automatically. **This LVS mismatch remains the SAME pre-existing,
+unrelated `combine_devices`-scoping gap** tracked in
+`docs/chipalooza/challenge-4-proposal.md` §3/§7 Item 1 and klayout-tools#1552
+— issue #245 re-ran this composition as an additional confirming data point
+against that already-open finding, not a new or different blocker.
 `layout/sar-adc-top/bin/build_layout.py` places all five sub-blocks (`klt
 gen-compose`, explicit placement, each named as a `blocks[].cell` entry per
 #1189) and hand-routes every net `design/sar_adc_top.sch` calls for (`klt
@@ -129,15 +155,27 @@ which is what `--def-pins` already treats as authoritative — see
 committed), in micrometers, and must be translated by whatever placement
 offset the composition finally chooses.
 
-### `sampling_frontend` (top cell in `layout/sampling-frontend/reports/20260905-204934-f012255/sampling_frontend.gds`)
+### `sampling_frontend` (top cell in `layout/sampling-frontend/reports/20260908-070934-80df05e/sampling_frontend.gds`, re-verified post-issue-#236/#245)
 
 bbox: `(0.0, -2.4)` to `(195.56, 58.05)`. All pins on layer `69/5` (met2.pin)
 except `GND`, which has **no drawn pin** — see "GND/substrate" below.
 
+**SAMPLE's own `x_um` moved from `2.67` to `17.285` as of issue #245**: this
+sub-block's own `build_layout.py` always labels a net's met2.pin at that
+net's *leftmost* contributing column (`xs[0]`), and issue #236 moved
+`Sa_p`/`Sa_n`'s gate from `SAMPLE` to `G_P`/`G_N` — the two devices that used
+to supply `SAMPLE`'s own leftmost column (2.67, in `Sa_p`'s own PFET-row
+position). Track `y_um` (50.40) is unchanged: the wider `Cmswn`/`Cmswp` pair
+this same issue widened only grew in `y` within their own block (this
+generator draws `W` vertically), not tall enough to overtake `Csamp` (still
+this sub-block's tallest block), so the shared met2 track band itself did
+not move. Every other pin below is unchanged (verified directly against the
+new record's own `layout.summary.json`).
+
 | Pin | x_um | y_um |
 | --- | --- | --- |
 | VDD | 1.76 | 50.90 |
-| SAMPLE | 2.67 | 50.40 |
+| SAMPLE | 17.285 | 50.40 |
 | BOOST_P | 0.70 | 52.40 |
 | VINP | 10.10 | 53.40 |
 | VCM | 13.30 | 51.90 |
