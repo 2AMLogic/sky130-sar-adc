@@ -1213,8 +1213,10 @@ tracker already owns.
    offers zero bare-impedance margin at 4 of 9 corners) — a decoupling
    capacitor rescues every one of those corners when sized per-corner.
    The working values span three orders of magnitude across the grid
-   (1 pF at `ss_27c_1.80v`, 10 pF at three corners, 100 pF at `tt_27c_1.80v`,
-   1000 pF, right-censored, at the remaining three), the same
+   (1 pF at `ss_27c_1.80v`, 10 pF at `ff_27c_1.80v`/`fs_27c_1.80v`/
+   `tt_125c_1.80v`/`tt_27c_1.62v`, 100 pF at `tt_27c_1.80v`, 1000 pF,
+   right-censored, at the remaining three: `sf_27c_1.80v`/`tt_-40c_1.80v`/
+   `tt_27c_1.98v`), the same
    non-corner-invariant, non-monotonic-in-`C_decouple` shape the
    worst-case-window campaign already established — so, as with that
    campaign, no single capacitor value read off this table covers every
