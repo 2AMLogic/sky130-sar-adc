@@ -952,21 +952,18 @@ def _isolated_baseline_droop(results: dict) -> tuple[float, float] | None:
 
 
 def write_record(results: dict) -> None:
-    record_id = evidence.new_record_id()
     combined_netlist_text = (
         "* -- Experiments 1-5 (island root-cause/fix diagnostics): --\n"
         + DUT_FRAGMENT.read_text()
         + "\n\n* -- Experiment 6 (full-load): additionally includes --\n"
         + CDAC_FRAGMENT.read_text()
     )
-    record_path = evidence.write_netlist_snapshot_text(
-        EXPERIMENT_DIR, record_id, combined_netlist_text
-    )
-    netlist_sha = evidence.sha256_text(combined_netlist_text)
-
-    info = pdk.resolve()
-    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
-    ng_version = toolchain._ngspice_version() or "unknown"
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, combined_netlist_text)
+    record_id = prov.record_id
+    record_path = prov.record_path
+    netlist_sha = prov.netlist_sha
+    pdk_line = prov.pdk_line
+    ng_version = prov.ng_version
 
     lines: list[str] = []
     a = lines.append

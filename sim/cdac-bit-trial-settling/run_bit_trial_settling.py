@@ -549,14 +549,12 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
 
 
 def write_record(rows: list[dict], netlist_sample: str) -> None:
-    record_id = evidence.new_record_id()
-    record_path = evidence.write_netlist_snapshot_text(
-        EXPERIMENT_DIR, record_id, netlist_sample
-    )
-    netlist_sha = evidence.sha256_text(netlist_sample)
-    info = pdk.resolve()
-    pdk_line = f"{info.variant} @ {pdk.resolved_commit(info)}"
-    ng_version = toolchain._ngspice_version() or "unknown"
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_sample)
+    record_id = prov.record_id
+    record_path = prov.record_path
+    netlist_sha = prov.netlist_sha
+    pdk_line = prov.pdk_line
+    ng_version = prov.ng_version
 
     lines: list[str] = []
     a = lines.append
