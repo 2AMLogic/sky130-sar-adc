@@ -1260,6 +1260,16 @@ tracker already owns.
    figure in this document has been reconciled against Challenge #4's own
    rules — that reconciliation remains owed, not silently assumed done.
 
+   **Re-checked 2026-09-08**: `https://opencircuitdesign.com/chipalooza/rules-4.html`
+   still returns HTTP 404 (the parent `chipalooza/` index itself returns 200
+   and still names "Challenge #4" only in the launch-date table, not as a
+   published brief). Cross-checked live against 2AMLogic/2am#542's own
+   tracking table, which still lists Challenge #4 as "launches 2026-11-09" —
+   unchanged from the prior re-check, no date slip either direction. Nothing
+   in §2 changes as a result; recorded here only to keep this item's own
+   "not silently assumed done" discipline current rather than let the last
+   live check go stale.
+
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
 current status against every spec row, is the deliverable this pass
