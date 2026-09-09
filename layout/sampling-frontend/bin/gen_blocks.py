@@ -84,13 +84,12 @@ module's docstring).
 from __future__ import annotations
 
 import argparse
-import json
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
+from _gen_common import add_klt_pdk_args, run_gen, write_and_check  # noqa: E402
 from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES  # noqa: E402
 
 #: One row per `sky130_fd_pr__nfet_01v8` instance, including `Msw_p`/`Msw_n`
@@ -139,41 +138,6 @@ CAP_DEVICES = [
 ]
 
 
-def _run(
-    klt: str, pdk: str, generator: str, params: dict, cell_name: str, gds_path: Path
-) -> tuple[str, str]:
-    cmd = [
-        klt,
-        "gen",
-        generator,
-        "--params",
-        json.dumps(params),
-        "--pdk",
-        pdk,
-        "--cell-name",
-        cell_name,
-        "-o",
-        str(gds_path),
-        "--format",
-        "json",
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    return result.stdout, result.stderr
-
-
-def _write_and_check(block_id: str, stdout: str, stderr: str, json_path: Path) -> dict | None:
-    json_path.write_text(stdout)
-    try:
-        report = json.loads(stdout)
-    except json.JSONDecodeError:
-        print(f"gen_blocks.py: {block_id}: non-JSON output:\n{stdout}\n{stderr}", file=sys.stderr)
-        return None
-    if report.get("error"):
-        print(f"gen_blocks.py: {block_id}: generator error: {report['error']}", file=sys.stderr)
-        return None
-    return report
-
-
 def pfet_params(w_um: float, l_um: float) -> dict:
     return {
         "w_um": w_um,
@@ -201,41 +165,38 @@ def nfet_params(w_um: float, l_um: float) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("out_dir", type=Path, help="directory to write <id>.gds/<id>.json into")
-    parser.add_argument("--klt", default="klt", help="path to the klt executable")
-    parser.add_argument("--pdk", default="sky130A", help="PDK variant")
+    parser = add_klt_pdk_args(argparse.ArgumentParser(description=__doc__))
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     ok = True
 
     for block_id, name, _domain, w_um, l_um, *_nets in PFET_DEVICES:
-        stdout, stderr = _run(
+        stdout, stderr = run_gen(
             args.klt, args.pdk, "mos_array", pfet_params(w_um, l_um), name.upper(),
             args.out_dir / f"{block_id}.gds",
         )
-        report = _write_and_check(block_id, stdout, stderr, args.out_dir / f"{block_id}.json")
+        report = write_and_check(block_id, stdout, stderr, args.out_dir / f"{block_id}.json")
         ok = ok and report is not None
         if report:
             print(f"gen_blocks.py: {block_id} (pfet {w_um}/{l_um}um): {report.get('device_count')} device")
 
     for block_id, name, w_um, l_um, *_nets in NFET_DEVICES:
-        stdout, stderr = _run(
+        stdout, stderr = run_gen(
             args.klt, args.pdk, "mos_array", nfet_params(w_um, l_um), name.upper(),
             args.out_dir / f"{block_id}.gds",
         )
-        report = _write_and_check(block_id, stdout, stderr, args.out_dir / f"{block_id}.json")
+        report = write_and_check(block_id, stdout, stderr, args.out_dir / f"{block_id}.json")
         ok = ok and report is not None
         if report:
             print(f"gen_blocks.py: {block_id} (nfet {w_um}/{l_um}um): {report.get('device_count')} device")
 
     for block_id, plate_um, _legs in CAP_DEVICES:
         cap_params = {"plate_w_um": plate_um, "plate_h_um": plate_um, "num": 2, "spacing_um": 0.5}
-        stdout, stderr = _run(
+        stdout, stderr = run_gen(
             args.klt, args.pdk, "cap_array", cap_params, block_id.upper(), args.out_dir / f"{block_id}.gds"
         )
-        report = _write_and_check(block_id, stdout, stderr, args.out_dir / f"{block_id}.json")
+        report = write_and_check(block_id, stdout, stderr, args.out_dir / f"{block_id}.json")
         ok = ok and report is not None
         if report:
             print(f"gen_blocks.py: {block_id} (cap_array {plate_um}x{plate_um}um, num=2): {report.get('device_count')} devices")
