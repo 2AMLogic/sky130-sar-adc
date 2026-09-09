@@ -60,10 +60,12 @@ here.
 from __future__ import annotations
 
 import argparse
-import json
-import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
+
+from _gen_common import add_klt_pdk_args, run_gen, write_and_check  # noqa: E402
 
 # (id, generator, cell_name, params) -- params intentionally spelled out in
 # full (not derived from comparator_core.spice at runtime) so this script has
@@ -154,10 +156,7 @@ BLOCKS = [
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("out_dir", type=Path, help="directory to write <id>.gds/<id>.json into")
-    parser.add_argument("--klt", default="klt", help="path to the klt executable")
-    parser.add_argument("--pdk", default="sky130A", help="PDK variant")
+    parser = add_klt_pdk_args(argparse.ArgumentParser(description=__doc__))
     args = parser.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -165,30 +164,9 @@ def main() -> int:
     for block_id, generator, cell_name, params in BLOCKS:
         gds_path = args.out_dir / f"{block_id}.gds"
         json_path = args.out_dir / f"{block_id}.json"
-        cmd = [
-            args.klt,
-            "gen",
-            generator,
-            "--params",
-            json.dumps(params),
-            "--pdk",
-            args.pdk,
-            "--cell-name",
-            cell_name,
-            "-o",
-            str(gds_path),
-            "--format",
-            "json",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        json_path.write_text(result.stdout)
-        try:
-            report = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            print(f"gen_blocks.py: {block_id}: non-JSON output:\n{result.stdout}\n{result.stderr}", file=sys.stderr)
-            return 1
-        if report.get("error"):
-            print(f"gen_blocks.py: {block_id}: generator error: {report['error']}", file=sys.stderr)
+        stdout, stderr = run_gen(args.klt, args.pdk, generator, params, cell_name, gds_path)
+        report = write_and_check(block_id, stdout, stderr, json_path)
+        if report is None:
             return 1
         print(f"gen_blocks.py: wrote {json_path} ({report.get('device_count')} device(s))")
         block_ids.append(block_id)
