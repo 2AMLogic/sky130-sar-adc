@@ -113,7 +113,17 @@ ROWS: tuple[Row, ...] = (
             "control (9/9 corners HELD) and also clears the budget at "
             "every corner, and the sampling front end's own acquisition "
             "(the sole mechanism that previously failed at every corner) "
-            "now also clears it at all 9, after issue #236's circuit fix"
+            "now also clears it at all 9, after issue #236's circuit fix. "
+            "Separately (issue #254): the first WHOLE-ADC transient (not a "
+            "per-mechanism probe) drove the committed `design/sar_adc_top."
+            "spice` through complete conversions at the DR-006 worst-case "
+            "12 MHz clock across the full ratified 9-corner grid; its "
+            "12-CLK-period phase structure (BUSY/PH_SAMPLE timing) PASSES "
+            "at 8/9 corners (informational -- this experiment binds no "
+            "spec row), but code correctness FAILS at 9/9 corners (every "
+            "DC input at every corner captures the saturated code 1023), "
+            "so no end-to-end sample rate can be derived from it either -- "
+            "see the Findings entry below and issue #259."
         ),
         notes=(
             "No end-to-end sample-rate campaign exists. All four of its "
@@ -211,7 +221,34 @@ ROWS: tuple[Row, ...] = (
             "issue #245. Named as open work by spec/target-spec.md's "
             "own 'Not ratified by this record' list (#24/#28); DR-006's "
             "1.2-12 MHz clock range remains a mechanical consequence of "
-            "this DRAFT row, not a derived result."
+            "this DRAFT row, not a derived result. (e) Issue #254's "
+            "`sim/full-conversion-transient/` campaign is the first to "
+            "drive the whole assembled `sar_adc_top` netlist (all four "
+            "sub-blocks together, real comparator, real sequencer) rather "
+            "than one mechanism in isolation. Its own phase-timing check "
+            "(BUSY high during EOC, low again by the next conversion's "
+            "SAMPLE phase -- the same 12-CLK-period structure "
+            "`sim/sar-sequencer-behavioral/` proved against an IDEAL "
+            "COMP_OUT stimulus) reproduces at 8/9 ratified corners "
+            "(`ff_27c_1.80v` is the one exception), corroborating (a)/(c) "
+            "above at the whole-ADC level. But the captured DOUT9..DOUT0 "
+            "code itself is wrong at all 9/9 corners (every DC input "
+            "saturates to code 1023) -- a NEW, whole-ADC-only finding none "
+            "of the four isolated mechanisms above could have surfaced, "
+            "since each drives its own sub-block with an ideal stimulus "
+            "for every OTHER sub-block. A `--mechanism-probe` diagnostic "
+            "(delaying the comparator's own capture-clock edge relative to "
+            "its strobe, testbench-only, not a committed design change) "
+            "produces different, non-saturated codes at the same input "
+            "set, pointing at a comparator-decision-capture timing "
+            "relationship in `design/sar_adc_top.sch`'s wiring as the "
+            "likely mechanism -- filed as issue #259 rather than asserted "
+            "here as a root cause. This finding does not change (a)-(d)'s "
+            "own per-mechanism PASS verdicts against the DR-006 phase "
+            "budget; it shows those four passing budgets are not "
+            "sufficient for the assembled ADC to produce a correct code, "
+            "which is exactly why this row remains UNMEASURED rather than "
+            "closed out."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
@@ -221,6 +258,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
+            "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
         ),
     ),
     Row(
@@ -371,17 +409,42 @@ ROWS: tuple[Row, ...] = (
         spec_row="Power",
         status="DRAFT",
         spec_anchor="spec/target-spec.md#target-table",
-        conditions="N/A -- no full-block power campaign exists.",
-        verdict="UNMEASURED",
+        conditions=(
+            "Issue #254's `sim/full-conversion-transient/` campaign, full "
+            "ratified OAT grid (9 one-at-a-time points): average supply/"
+            "reference current over one steady-state conversion (12 CLK "
+            "periods at the DR-006 worst-case 12 MHz clock), per rail "
+            "(`VDD`, `VPWR`, `VREFP`, `VCM`, `VREFN`), `P = sum(V_source * "
+            "|avg I_source|)`. ADC core only -- no reference buffer, clock "
+            "generator, or output driver exists in this design yet, so a "
+            "real system's reference/clock power is not included."
+        ),
+        verdict=(
+            "UNMEASURED as a Power-row figure/target (informational first "
+            "current/power evidence only, not a pass/fail against any "
+            "target -- 'report, don't pre-commit')"
+        ),
         notes=(
-            "One unrelated, non-gating data point exists outside sim/'s "
-            "evidence trail: `layout/sar-sequencer/reports/"
+            "First supply-current measurement of any kind on this block. "
+            "Binding (highest-power) corner `tt_27c_1.98v`: 14.743 uW; "
+            "lowest `tt_27c_1.62v`: 8.692 uW; tt/27C/1.80V baseline point: "
+            "11.101 uW. NOTE: this same campaign's own code-correctness "
+            "check FAILS at all 9 ratified corners (see the Sample rate "
+            "row above and issue #259), so these current/power numbers are "
+            "measured on a conversion that is NOT resolving to the correct "
+            "code -- they characterize the circuit's steady-state current "
+            "draw under the DR-006 12 MHz clock schedule, not the current "
+            "draw of a functionally-correct conversion. Re-measure once the "
+            "code-correctness defect is fixed, before treating this figure "
+            "as durable. One unrelated, non-gating data point also exists "
+            "outside sim/'s evidence trail: `layout/sar-sequencer/reports/"
             "20260825-124031-1a2f7c1/record.md`'s OpenROAD PnR estimate for "
             "the digital SAR-sequencer sub-block ONLY (0.0155 mW) -- a static "
             "EDA-tool estimate, not a simulated/measured full-ADC number, and "
             "not tied to the ratified corner set. Cited for completeness, not "
             "as spec-row evidence."
         ),
+        sim_citations=("sim/full-conversion-transient/records/20260910-190240-2d1d196.md",),
     ),
     Row(
         id="corners",
