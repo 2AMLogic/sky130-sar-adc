@@ -12,8 +12,8 @@
 *   design/sampling_frontend.sch: sha256:59a1888aa4bc4491454dd9f0d5a209da42f0f32c36d1bdf6e217e13a285b2f01
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
 *   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
-*   design/sar_sequencer.sch: sha256:9d76813255ceb43a7f2dcde6cba04d6396cb9e7767c3e0f2cce178b5db849999
-*   design/sar_adc_top.sch: sha256:ac42656ef918a18309cd3bb7bdd3143c13a9076c90f9fc075f99680f5113b608
+*   design/sar_sequencer.sch: sha256:cda7b91cdc3a624688399b0a328d97435149bedf3fa63b2fb8b6d1a5cea5a653
+*   design/sar_adc_top.sch: sha256:ff3ef781ce7029f7356185f52ced09d41a047b6dc82e9a046d788644b37e50af
 *
 * Every device instance below is a ratified flavour (nfet_01v8/pfet_01v8/
 * cap_mim_m3_1 sky130_fd_pr primitives, or sky130_fd_sc_hd standard
@@ -63,15 +63,6 @@ xand_seln7 DOUT7 DOUT9N VGND VGND VPWR VPWR SELn7 sky130_fd_sc_hd__and2_1
 xand_selp7 DOUT9 DOUT7 VGND VGND VPWR VPWR SELp7 sky130_fd_sc_hd__and2_1
 xand_seln8 DOUT8 DOUT9N VGND VGND VPWR VPWR SELn8 sky130_fd_sc_hd__and2_1
 xand_selp8 DOUT9 DOUT8 VGND VGND VPWR VPWR SELp8 sky130_fd_sc_hd__and2_1
-xxor_code0 DOUT0 DOUT9N VGND VGND VPWR VPWR ADCOUT0 sky130_fd_sc_hd__xor2_1
-xxor_code1 DOUT1 DOUT9N VGND VGND VPWR VPWR ADCOUT1 sky130_fd_sc_hd__xor2_1
-xxor_code2 DOUT2 DOUT9N VGND VGND VPWR VPWR ADCOUT2 sky130_fd_sc_hd__xor2_1
-xxor_code3 DOUT3 DOUT9N VGND VGND VPWR VPWR ADCOUT3 sky130_fd_sc_hd__xor2_1
-xxor_code4 DOUT4 DOUT9N VGND VGND VPWR VPWR ADCOUT4 sky130_fd_sc_hd__xor2_1
-xxor_code5 DOUT5 DOUT9N VGND VGND VPWR VPWR ADCOUT5 sky130_fd_sc_hd__xor2_1
-xxor_code6 DOUT6 DOUT9N VGND VGND VPWR VPWR ADCOUT6 sky130_fd_sc_hd__xor2_1
-xxor_code7 DOUT7 DOUT9N VGND VGND VPWR VPWR ADCOUT7 sky130_fd_sc_hd__xor2_1
-xxor_code8 DOUT8 DOUT9N VGND VGND VPWR VPWR ADCOUT8 sky130_fd_sc_hd__xor2_1
 **.ends
 * expanding   symbol:  design/sampling_frontend.sym # of pins=9
 ** sym_path: design/sampling_frontend.sym
@@ -264,8 +255,6 @@ xor_g2 PH_B5 PH_B4 PH_B3 PH_B2 VGND VGND VPWR VPWR ORG2 sky130_fd_sc_hd__or4_1
 xor_g3 PH_B1 PH_B0 PH_EOC VGND VGND VPWR VPWR ORG3 sky130_fd_sc_hd__or3_1
 xor_busy ORG1 ORG2 ORG3 VGND VGND VPWR VPWR BUSY sky130_fd_sc_hd__or3_1
 xinv_sample BUSY VGND VGND VPWR VPWR PH_SAMPLE sky130_fd_sc_hd__inv_1
-xor_g4 PH_B1 PH_B0 VGND VGND VPWR VPWR ORG4 sky130_fd_sc_hd__or2_1
-xor_busybits ORG1 ORG2 ORG4 VGND VGND VPWR VPWR BUSY_BITS sky130_fd_sc_hd__or3_1
 xmux9 DOUT9 COMP_OUT PH_B9 VGND VGND VPWR VPWR MUXOUT9 sky130_fd_sc_hd__mux2_1
 xbreg9 CLK MUXOUT9 RST_B VGND VGND VPWR VPWR DOUT9 sky130_fd_sc_hd__dfrtp_1
 xmux8 DOUT8 COMP_EFF PH_B8 VGND VGND VPWR VPWR MUXOUT8 sky130_fd_sc_hd__mux2_1
@@ -288,23 +277,23 @@ xmux0 DOUT0 COMP_EFF PH_B0 VGND VGND VPWR VPWR MUXOUT0 sky130_fd_sc_hd__mux2_1
 xbreg0 CLK DFEED0 RST_B VGND VGND VPWR VPWR DOUT0 sky130_fd_sc_hd__dfrtp_1
 xxnor_compeff COMP_OUT DOUT9 VGND VGND VPWR VPWR COMP_EFF sky130_fd_sc_hd__xnor2_1
 xpre8 MUXOUT8 PH_B9 VGND VGND VPWR VPWR PRESET8 sky130_fd_sc_hd__or2_1
-xclr8 PRESET8 BUSY_BITS VGND VGND VPWR VPWR DFEED8 sky130_fd_sc_hd__and2_1
+xclr8 PRESET8 BUSY VGND VGND VPWR VPWR DFEED8 sky130_fd_sc_hd__and2_1
 xpre7 MUXOUT7 PH_B8 VGND VGND VPWR VPWR PRESET7 sky130_fd_sc_hd__or2_1
-xclr7 PRESET7 BUSY_BITS VGND VGND VPWR VPWR DFEED7 sky130_fd_sc_hd__and2_1
+xclr7 PRESET7 BUSY VGND VGND VPWR VPWR DFEED7 sky130_fd_sc_hd__and2_1
 xpre6 MUXOUT6 PH_B7 VGND VGND VPWR VPWR PRESET6 sky130_fd_sc_hd__or2_1
-xclr6 PRESET6 BUSY_BITS VGND VGND VPWR VPWR DFEED6 sky130_fd_sc_hd__and2_1
+xclr6 PRESET6 BUSY VGND VGND VPWR VPWR DFEED6 sky130_fd_sc_hd__and2_1
 xpre5 MUXOUT5 PH_B6 VGND VGND VPWR VPWR PRESET5 sky130_fd_sc_hd__or2_1
-xclr5 PRESET5 BUSY_BITS VGND VGND VPWR VPWR DFEED5 sky130_fd_sc_hd__and2_1
+xclr5 PRESET5 BUSY VGND VGND VPWR VPWR DFEED5 sky130_fd_sc_hd__and2_1
 xpre4 MUXOUT4 PH_B5 VGND VGND VPWR VPWR PRESET4 sky130_fd_sc_hd__or2_1
-xclr4 PRESET4 BUSY_BITS VGND VGND VPWR VPWR DFEED4 sky130_fd_sc_hd__and2_1
+xclr4 PRESET4 BUSY VGND VGND VPWR VPWR DFEED4 sky130_fd_sc_hd__and2_1
 xpre3 MUXOUT3 PH_B4 VGND VGND VPWR VPWR PRESET3 sky130_fd_sc_hd__or2_1
-xclr3 PRESET3 BUSY_BITS VGND VGND VPWR VPWR DFEED3 sky130_fd_sc_hd__and2_1
+xclr3 PRESET3 BUSY VGND VGND VPWR VPWR DFEED3 sky130_fd_sc_hd__and2_1
 xpre2 MUXOUT2 PH_B3 VGND VGND VPWR VPWR PRESET2 sky130_fd_sc_hd__or2_1
-xclr2 PRESET2 BUSY_BITS VGND VGND VPWR VPWR DFEED2 sky130_fd_sc_hd__and2_1
+xclr2 PRESET2 BUSY VGND VGND VPWR VPWR DFEED2 sky130_fd_sc_hd__and2_1
 xpre1 MUXOUT1 PH_B2 VGND VGND VPWR VPWR PRESET1 sky130_fd_sc_hd__or2_1
-xclr1 PRESET1 BUSY_BITS VGND VGND VPWR VPWR DFEED1 sky130_fd_sc_hd__and2_1
+xclr1 PRESET1 BUSY VGND VGND VPWR VPWR DFEED1 sky130_fd_sc_hd__and2_1
 xpre0 MUXOUT0 PH_B1 VGND VGND VPWR VPWR PRESET0 sky130_fd_sc_hd__or2_1
-xclr0 PRESET0 BUSY_BITS VGND VGND VPWR VPWR DFEED0 sky130_fd_sc_hd__and2_1
+xclr0 PRESET0 BUSY VGND VGND VPWR VPWR DFEED0 sky130_fd_sc_hd__and2_1
 .ends
 .GLOBAL GND
 .GLOBAL VDD

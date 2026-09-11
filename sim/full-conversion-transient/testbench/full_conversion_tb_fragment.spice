@@ -47,62 +47,70 @@ VINN VINN 0 PWL(0.0000n {vdd_val*0.89} 1950.0000n {vdd_val*0.89} 1951.0000n {vdd
 
 .tran 0.5n 6283.3333n
 
-* --- captured output code, read mid-SAMPLE of each conversion ---------
-* conversion 1: Vd = -0.78*V_REF, read at 2158.3333 ns
-.meas tran d9_c1 find v(dout9) at=2158.3333n
-.meas tran d8_c1 find v(dout8) at=2158.3333n
-.meas tran d7_c1 find v(dout7) at=2158.3333n
-.meas tran d6_c1 find v(dout6) at=2158.3333n
-.meas tran d5_c1 find v(dout5) at=2158.3333n
-.meas tran d4_c1 find v(dout4) at=2158.3333n
-.meas tran d3_c1 find v(dout3) at=2158.3333n
-.meas tran d2_c1 find v(dout2) at=2158.3333n
-.meas tran d1_c1 find v(dout1) at=2158.3333n
-.meas tran d0_c1 find v(dout0) at=2158.3333n
-* conversion 2: Vd = -0.25*V_REF, read at 3158.3333 ns
-.meas tran d9_c2 find v(dout9) at=3158.3333n
-.meas tran d8_c2 find v(dout8) at=3158.3333n
-.meas tran d7_c2 find v(dout7) at=3158.3333n
-.meas tran d6_c2 find v(dout6) at=3158.3333n
-.meas tran d5_c2 find v(dout5) at=3158.3333n
-.meas tran d4_c2 find v(dout4) at=3158.3333n
-.meas tran d3_c2 find v(dout3) at=3158.3333n
-.meas tran d2_c2 find v(dout2) at=3158.3333n
-.meas tran d1_c2 find v(dout1) at=3158.3333n
-.meas tran d0_c2 find v(dout0) at=3158.3333n
-* conversion 3: Vd = +0.00*V_REF, read at 4158.3333 ns
-.meas tran d9_c3 find v(dout9) at=4158.3333n
-.meas tran d8_c3 find v(dout8) at=4158.3333n
-.meas tran d7_c3 find v(dout7) at=4158.3333n
-.meas tran d6_c3 find v(dout6) at=4158.3333n
-.meas tran d5_c3 find v(dout5) at=4158.3333n
-.meas tran d4_c3 find v(dout4) at=4158.3333n
-.meas tran d3_c3 find v(dout3) at=4158.3333n
-.meas tran d2_c3 find v(dout2) at=4158.3333n
-.meas tran d1_c3 find v(dout1) at=4158.3333n
-.meas tran d0_c3 find v(dout0) at=4158.3333n
-* conversion 4: Vd = +0.25*V_REF, read at 5158.3333 ns
-.meas tran d9_c4 find v(dout9) at=5158.3333n
-.meas tran d8_c4 find v(dout8) at=5158.3333n
-.meas tran d7_c4 find v(dout7) at=5158.3333n
-.meas tran d6_c4 find v(dout6) at=5158.3333n
-.meas tran d5_c4 find v(dout5) at=5158.3333n
-.meas tran d4_c4 find v(dout4) at=5158.3333n
-.meas tran d3_c4 find v(dout3) at=5158.3333n
-.meas tran d2_c4 find v(dout2) at=5158.3333n
-.meas tran d1_c4 find v(dout1) at=5158.3333n
-.meas tran d0_c4 find v(dout0) at=5158.3333n
-* conversion 5: Vd = +0.78*V_REF, read at 6158.3333 ns
-.meas tran d9_c5 find v(dout9) at=6158.3333n
-.meas tran d8_c5 find v(dout8) at=6158.3333n
-.meas tran d7_c5 find v(dout7) at=6158.3333n
-.meas tran d6_c5 find v(dout6) at=6158.3333n
-.meas tran d5_c5 find v(dout5) at=6158.3333n
-.meas tran d4_c5 find v(dout4) at=6158.3333n
-.meas tran d3_c5 find v(dout3) at=6158.3333n
-.meas tran d2_c5 find v(dout2) at=6158.3333n
-.meas tran d1_c5 find v(dout1) at=6158.3333n
-.meas tran d0_c5 find v(dout0) at=6158.3333n
+* --- captured output code, read mid-PH_EOC of each conversion (issue
+* #263: DOUT8..0 are cleared during PH_SAMPLE, so this must be read
+* before PH_SAMPLE begins, not during it). Bits 8..0 read the
+* ADCOUT<i> offset-binary-recoded nodes (design/sar_adc_top.sch,
+* issue #263), NOT the internal DOUT<i> search register directly --
+* DOUT<i> is a sign+true-magnitude value for the DOUT9=0 branch, not
+* the ratified offset-binary code (see that recoding stage's own
+* header comment). Bit 9 (the sign bit) needs no recoding and reads
+* DOUT9 directly. ------------------------------------------------
+* conversion 1: Vd = -0.78*V_REF, read at 2075.0000 ns
+.meas tran d9_c1 find v(dout9) at=2075.0000n
+.meas tran d8_c1 find v(adcout8) at=2075.0000n
+.meas tran d7_c1 find v(adcout7) at=2075.0000n
+.meas tran d6_c1 find v(adcout6) at=2075.0000n
+.meas tran d5_c1 find v(adcout5) at=2075.0000n
+.meas tran d4_c1 find v(adcout4) at=2075.0000n
+.meas tran d3_c1 find v(adcout3) at=2075.0000n
+.meas tran d2_c1 find v(adcout2) at=2075.0000n
+.meas tran d1_c1 find v(adcout1) at=2075.0000n
+.meas tran d0_c1 find v(adcout0) at=2075.0000n
+* conversion 2: Vd = -0.25*V_REF, read at 3075.0000 ns
+.meas tran d9_c2 find v(dout9) at=3075.0000n
+.meas tran d8_c2 find v(adcout8) at=3075.0000n
+.meas tran d7_c2 find v(adcout7) at=3075.0000n
+.meas tran d6_c2 find v(adcout6) at=3075.0000n
+.meas tran d5_c2 find v(adcout5) at=3075.0000n
+.meas tran d4_c2 find v(adcout4) at=3075.0000n
+.meas tran d3_c2 find v(adcout3) at=3075.0000n
+.meas tran d2_c2 find v(adcout2) at=3075.0000n
+.meas tran d1_c2 find v(adcout1) at=3075.0000n
+.meas tran d0_c2 find v(adcout0) at=3075.0000n
+* conversion 3: Vd = +0.00*V_REF, read at 4075.0000 ns
+.meas tran d9_c3 find v(dout9) at=4075.0000n
+.meas tran d8_c3 find v(adcout8) at=4075.0000n
+.meas tran d7_c3 find v(adcout7) at=4075.0000n
+.meas tran d6_c3 find v(adcout6) at=4075.0000n
+.meas tran d5_c3 find v(adcout5) at=4075.0000n
+.meas tran d4_c3 find v(adcout4) at=4075.0000n
+.meas tran d3_c3 find v(adcout3) at=4075.0000n
+.meas tran d2_c3 find v(adcout2) at=4075.0000n
+.meas tran d1_c3 find v(adcout1) at=4075.0000n
+.meas tran d0_c3 find v(adcout0) at=4075.0000n
+* conversion 4: Vd = +0.25*V_REF, read at 5075.0000 ns
+.meas tran d9_c4 find v(dout9) at=5075.0000n
+.meas tran d8_c4 find v(adcout8) at=5075.0000n
+.meas tran d7_c4 find v(adcout7) at=5075.0000n
+.meas tran d6_c4 find v(adcout6) at=5075.0000n
+.meas tran d5_c4 find v(adcout5) at=5075.0000n
+.meas tran d4_c4 find v(adcout4) at=5075.0000n
+.meas tran d3_c4 find v(adcout3) at=5075.0000n
+.meas tran d2_c4 find v(adcout2) at=5075.0000n
+.meas tran d1_c4 find v(adcout1) at=5075.0000n
+.meas tran d0_c4 find v(adcout0) at=5075.0000n
+* conversion 5: Vd = +0.78*V_REF, read at 6075.0000 ns
+.meas tran d9_c5 find v(dout9) at=6075.0000n
+.meas tran d8_c5 find v(adcout8) at=6075.0000n
+.meas tran d7_c5 find v(adcout7) at=6075.0000n
+.meas tran d6_c5 find v(adcout6) at=6075.0000n
+.meas tran d5_c5 find v(adcout5) at=6075.0000n
+.meas tran d4_c5 find v(adcout4) at=6075.0000n
+.meas tran d3_c5 find v(adcout3) at=6075.0000n
+.meas tran d2_c5 find v(adcout2) at=6075.0000n
+.meas tran d1_c5 find v(adcout1) at=6075.0000n
+.meas tran d0_c5 find v(adcout0) at=6075.0000n
 
 * --- phase structure: BUSY and PH_SAMPLE (SAMPLE_INT) per CLK period --
 * Expected per conversion: BUSY = 1 for periods 0..10 (10 bit trials +

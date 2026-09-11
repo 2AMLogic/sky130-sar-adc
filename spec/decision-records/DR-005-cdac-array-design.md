@@ -186,3 +186,15 @@ criterion ("No spec row edited, no grant recorded").
   array's physical edges — owner: the same future layout sub-block.
 - **Ratification of the numeric inputs this design consumes** (`V_REF`,
   `C_u`) — owner: issue #27, per DR-003.
+
+**UPDATE (issue #263, `spec/decision-records/DR-008-cdac-top-level-switching-polarity.md`):**
+this record's Decision item 1 (each unit cell's own conventional two-rail
+`SEL` switch, no `Vcm`) is unaffected and stands. A related but distinct
+question this record did not name explicitly — which top-level signal
+drives `SELp<i>`/`SELn<i>` and when, once a SAR sequencer and comparator
+exist to close the loop — was left implicit in `design/sar_adc_top.sch`
+(issue #56) rather than decided here, and issue #56's own unconditional
+`SELp<i>=DOUT<i>` / `SELn<i>=NOT(DOUT<i>)` choice did not survive
+closed-loop verification (2 LSB/bit native step, unreachable codes under
+the ratified `N=10` decode). DR-008 is that top-level decision: gate each
+side by the free sign bit (DOUT9) so only one plate moves per bit decision.
