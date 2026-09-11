@@ -143,22 +143,59 @@ v {xschem version=3.4.7 file_version=1.2
 *    standard cells, referenced as bare literal net-name INSTANCE
 *    PROPERTIES per the sky130_stdcells xschem symbol library's own format
 *    string -- see that file's own header, "n-well (VPB) and substrate
-*    (VNB) taps are tied to VPWR/VGND") are NOT the same xschem-tracked net
-*    and CANNOT be tied together by schematic-level wiring here: VPWR/VGND
-*    are not real ipin/opin/lab_pin objects anywhere in
-*    design/sar_sequencer.sch, they are literal text substituted directly
+*    (VNB) taps are tied to VPWR/VGND") are NOT the same xschem-tracked net,
+*    and VPWR/VGND cannot be WIRED to anything by schematic-level
+*    connectivity here: they are not real ipin/opin/lab_pin objects anywhere
+*    in design/sar_sequencer.sch, they are literal text substituted directly
 *    onto each std-cell's SPICE device line by that symbol library's own
 *    format string (`@VPWR`/`@VGND`, a property lookup, not `@@pin`, a net
-*    lookup) -- there is no schematic-graph node for this integration to
-*    connect to, at this or any hierarchy level. This is a deliberate,
-*    precedented divergence, not an oversight: sim/sar-sequencer-behavioral/
-*    run_testbench.py's OWN standalone testbench already drives VPWR/VGND
-*    with its own dedicated sources (`VVPWR VPWR 0 DC 1.8` /
-*    `VVGND VGND 0 DC 0`) independent of this schematic, exactly the
-*    pattern a future full-ADC testbench (#28/#29/#31) must repeat when it
-*    assembles its own simulation deck around this netlist -- adding a
-*    `.global` equivalence or an ideal 0V tie source at THAT testbench's
-*    assembly step, not inside this structural schematic.
+*    lookup) -- there is no schematic-graph node to draw a wire to, at this
+*    or any hierarchy level. All of that remains true and unchanged.
+*
+*    REVISED (issue #258) -- what this file previously concluded FROM the
+*    paragraph above was wrong, and the conclusion is replaced here rather
+*    than left standing: "cannot be wired" is not the same as "cannot be
+*    declared". Those literal names are ordinary SPICE node names, so
+*    ordinary SPICE subcircuit scoping applies to them -- a node name that
+*    is neither a formal port of its enclosing `.subckt` nor declared
+*    `.GLOBAL` is PRIVATE to that one subcircuit instance. Because
+*    design/sar_sequencer.sym carries no VPWR/VGND pins, the netlisted
+*    `.subckt sar_sequencer` has neither rail in its formal port list, so
+*    every standard cell inside the `xseq` instance below used to be
+*    scoped to a private, unpowered copy of both rails whenever this
+*    netlist was simulated as a whole. That failure mode is silent -- the
+*    digital array drifts to intermediate voltages instead of erroring --
+*    which is exactly why it survived until #254's first whole-ADC
+*    campaign; #258 pinned it with four independent checks. The nine
+*    xinv_seln* instances THIS file adds never showed it only because
+*    sar_adc_top is netlisted flat (its own `.subckt` line is emitted
+*    commented out), so their VPWR/VGND references were already top-level.
+*
+*    The fix is the two `global=true` label instances added below
+*    (lvpwr1 / lvgnd1). They make the netlister emit `.GLOBAL VPWR` and
+*    `.GLOBAL VGND` next to the `.GLOBAL GND` / `.GLOBAL VDD` cards this
+*    file already produced for the analog rails, which is what makes each
+*    rail ONE net across the whole hierarchy instead of one private copy
+*    per subcircuit instance. No wire is needed for this, and none is drawn:
+*    the devices/vdd.sym `lvdd1` instance below is likewise unattached and
+*    is already exactly what emits `.GLOBAL VDD`. Declaring VPWR/VGND
+*    global does NOT merge them into VDD/GND -- they stay distinct nets
+*    from the analog rails, so the digital and analog supplies remain
+*    separable for future noise-isolation work.
+*
+*    An enclosing testbench must still SOURCE these two rails; this
+*    schematic declares them, it does not power them.
+*    sim/sar-sequencer-behavioral/run_testbench.py's OWN standalone
+*    testbench does that with `VVPWR VPWR 0 DC 1.8` / `VVGND VGND 0 DC 0`,
+*    and sim/full-conversion-transient/ (#254) does the same at its own
+*    deck-assembly step -- both remain correct and neither is made
+*    redundant. One correction to the previous wording, though: it offered
+*    "a `.global` equivalence OR an ideal 0V tie source" at the testbench
+*    as equivalent alternatives. They were never equivalent for the nested
+*    case. A tie source alone ties only the TOP-LEVEL node of that name and
+*    never reaches `xseq`'s private copy; only the global declaration does.
+*    With the declaration now made here, a testbench needs only the
+*    sources.
 *
 * Every device instance anywhere in this hierarchy (including the 9 new
 * inv_1 instances this file adds) is ratified-flavour: nfet_01v8/pfet_01v8
@@ -270,6 +307,15 @@ C {devices/lab_pin.sym} 2850 220 0 0 {name=l73 lab=BUSY}
 
 * --- VDD tie for the three analog blocks (front end / comparator / cdac_array) ---
 C {devices/vdd.sym} -1300 -480 0 0 {name=lvdd1 lab=VDD}
+* --- VPWR/VGND global declaration for the sky130_fd_sc_hd standard cells (#258) ---
+* Both are `global=true` label instances, unattached on purpose (exactly like
+* lvdd1 above): their only job is to make the netlister emit `.GLOBAL VPWR` /
+* `.GLOBAL VGND`, so the digital rails are ONE net across the whole hierarchy
+* rather than private per-`.subckt` copies -- without them the standard cells
+* inside `xseq` float. Distinct nets from VDD/GND: declared here, sourced by
+* the enclosing testbench. See header note 2 above for the full rationale.
+C {devices/vdd.sym} -1300 -560 0 0 {name=lvpwr1 lab=VPWR}
+C {devices/gnd.sym} -1300 -520 0 0 {name=lvgnd1 lab=VGND}
 * --- SELn<i> = NOT(DOUT<i>) inverters (ratified sky130_fd_sc_hd inv_1) ---
 C {sky130_stdcells/inv_1.sym} 1400 500 0 0 {name=xinv_seln0 VNB=VGND VPB=VPWR}
 C {devices/lab_pin.sym} 1360 500 0 0 {name=l_inv0_a lab=DOUT0}

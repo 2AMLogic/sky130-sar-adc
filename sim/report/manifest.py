@@ -248,7 +248,21 @@ ROWS: tuple[Row, ...] = (
             "budget; it shows those four passing budgets are not "
             "sufficient for the assembled ADC to produce a correct code, "
             "which is exactly why this row remains UNMEASURED rather than "
-            "closed out."
+            "closed out. (f) Issue #258 then made "
+            "`design/sar_adc_top.spice` self-contained -- it now emits "
+            "`.GLOBAL VPWR` / `.GLOBAL VGND` alongside the analog rails' "
+            "own cards, so the standard cells nested inside its `xseq` "
+            "instance are no longer scoped to a private, unpowered copy "
+            "of the digital rails whenever the netlist is simulated as a "
+            "whole. The campaign in (e) was re-run against that fixed "
+            "netlist and reproduces every finding unchanged (same 1023 "
+            "saturation at 9/9 corners, same 8/9 phase structure, same "
+            "per-corner power). That is the expected outcome rather than "
+            "a null result: (e)'s own testbench already supplied the "
+            "missing declaration at its own deck-assembly step, so #258 "
+            "moves the declaration into the netlist without changing what "
+            "this campaign measures. The re-run therefore does NOT "
+            "supersede (e), and #259 stands exactly where it did."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
@@ -259,6 +273,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
+            "sim/full-conversion-transient/records/20260911-071010-f0e45fa.md",
         ),
     ),
     Row(
@@ -442,9 +457,17 @@ ROWS: tuple[Row, ...] = (
             "the digital SAR-sequencer sub-block ONLY (0.0155 mW) -- a static "
             "EDA-tool estimate, not a simulated/measured full-ADC number, and "
             "not tied to the ratified corner set. Cited for completeness, not "
-            "as spec-row evidence."
+            "as spec-row evidence. Re-measured unchanged after issue #258's "
+            "netlist-scoping fix (`.GLOBAL VPWR`/`.GLOBAL VGND` now declared "
+            "by `design/sar_adc_top.spice` itself): every per-corner figure "
+            "above reproduces to the digit in the second record cited below, "
+            "so the caveat about these numbers being measured on a "
+            "functionally-incorrect conversion is unchanged too."
         ),
-        sim_citations=("sim/full-conversion-transient/records/20260910-190240-2d1d196.md",),
+        sim_citations=(
+            "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
+            "sim/full-conversion-transient/records/20260911-071010-f0e45fa.md",
+        ),
     ),
     Row(
         id="corners",
