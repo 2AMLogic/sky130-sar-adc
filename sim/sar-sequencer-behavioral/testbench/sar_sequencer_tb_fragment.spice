@@ -19,6 +19,25 @@
 * Cycle 1 target code (b9..b0) = 1100101011b = 811 decimal
 * Cycle 2 target code (b9..b0) = 0011010100b = 212 decimal
 *
+* UPDATE (#263): design/sar_sequencer.sch now derives each bit-8..0
+* decision from COMP_EFF = XNOR(COMP_OUT, DOUT9), not raw COMP_OUT --
+* DOUT9 (this design's free sign bit, decided first with no trial
+* perturbation, unaffected by this change) selects which single CDAC side
+* each subsequent bit's trial perturbation switches (design/sar_adc_top.sch),
+* and the comparator's fixed polarity means "keep the trial" is COMP_OUT=1
+* for the DOUT9=1 branch but COMP_OUT=0 for the DOUT9=0 branch -- see
+* design/sar_sequencer.sch's own "COMP_EFF" header comment for the full
+* derivation. Cycle 1's target code has b9=1, so COMP_EFF=COMP_OUT
+* (passthrough) throughout cycle 1 and its stimulus below is UNCHANGED
+* (bit i's driven COMP_OUT level already equals its target bit, exactly as
+* before this issue). Cycle 2's target code has b9=0, so COMP_EFF=NOT
+* (COMP_OUT) for its bit8..0 windows: the driven COMP_OUT level for each of
+* those nine windows is the CODE2 target bit INVERTED (bit9's own window is
+* unaffected, same direct-capture convention as cycle 1's). EXPECTED_BITS
+* in run_testbench.py is unchanged by this -- it still asserts the CODE1/
+* CODE2 TARGET values; only what COMP_OUT must be DRIVEN AT to produce that
+* target under the new decision-directed logic changed here.
+*
 * Rail-referenced via the {vdd_val} .param (issue #28's PVT corner
 * campaign): the caller (sim/sar-sequencer-behavioral/run_testbench.py)
 * supplies `.param vdd_val = <supply_v>` ahead of this fragment so the
@@ -31,7 +50,7 @@ VVGND VGND 0 DC 0
 
 VCLK CLK 0 PULSE(0 {vdd_val} 50n 1n 1n 50n 100n)
 VRSTB RST_B 0 PWL(0 0 219n 0 221n {vdd_val} 2700n {vdd_val})
-VCOMP COMP_OUT 0 PWL(0.0n 0.00 269.9n 0.00 270.1n {vdd_val} 369.9n {vdd_val} 370.1n {vdd_val} 469.9n {vdd_val} 470.1n 0.00 569.9n 0.00 570.1n 0.00 669.9n 0.00 670.1n {vdd_val} 769.9n {vdd_val} 770.1n 0.00 869.9n 0.00 870.1n {vdd_val} 969.9n {vdd_val} 970.1n 0.00 1069.9n 0.00 1070.1n {vdd_val} 1169.9n {vdd_val} 1170.1n {vdd_val} 1469.9n {vdd_val} 1470.1n 0.00 1569.9n 0.00 1570.1n 0.00 1669.9n 0.00 1670.1n {vdd_val} 1769.9n {vdd_val} 1770.1n {vdd_val} 1869.9n {vdd_val} 1870.1n 0.00 1969.9n 0.00 1970.1n {vdd_val} 2069.9n {vdd_val} 2070.1n 0.00 2169.9n 0.00 2170.1n {vdd_val} 2269.9n {vdd_val} 2270.1n 0.00 2369.9n 0.00 2370.1n 0.00 2700.0n 0.00)
+VCOMP COMP_OUT 0 PWL(0.0n 0.00 269.9n 0.00 270.1n {vdd_val} 369.9n {vdd_val} 370.1n {vdd_val} 469.9n {vdd_val} 470.1n 0.00 569.9n 0.00 570.1n 0.00 669.9n 0.00 670.1n {vdd_val} 769.9n {vdd_val} 770.1n 0.00 869.9n 0.00 870.1n {vdd_val} 969.9n {vdd_val} 970.1n 0.00 1069.9n 0.00 1070.1n {vdd_val} 1169.9n {vdd_val} 1170.1n {vdd_val} 1469.9n {vdd_val} 1470.1n 0.00 1569.9n 0.00 1570.1n {vdd_val} 1669.9n {vdd_val} 1670.1n 0.00 1769.9n 0.00 1770.1n 0.00 1869.9n 0.00 1870.1n {vdd_val} 1969.9n {vdd_val} 1970.1n 0.00 2069.9n 0.00 2070.1n {vdd_val} 2169.9n {vdd_val} 2170.1n 0.00 2269.9n 0.00 2270.1n {vdd_val} 2369.9n {vdd_val} 2370.1n {vdd_val} 2700.0n {vdd_val})
 
 .tran 0.5n 2700n
 

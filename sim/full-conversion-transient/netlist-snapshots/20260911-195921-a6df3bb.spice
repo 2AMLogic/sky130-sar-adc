@@ -13,7 +13,7 @@
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
 *   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
 *   design/sar_sequencer.sch: sha256:9d76813255ceb43a7f2dcde6cba04d6396cb9e7767c3e0f2cce178b5db849999
-*   design/sar_adc_top.sch: sha256:ac42656ef918a18309cd3bb7bdd3143c13a9076c90f9fc075f99680f5113b608
+*   design/sar_adc_top.sch: sha256:ff3ef781ce7029f7356185f52ced09d41a047b6dc82e9a046d788644b37e50af
 *
 * Every device instance below is a ratified flavour (nfet_01v8/pfet_01v8/
 * cap_mim_m3_1 sky130_fd_pr primitives, or sky130_fd_sc_hd standard
@@ -63,15 +63,6 @@ xand_seln7 DOUT7 DOUT9N VGND VGND VPWR VPWR SELn7 sky130_fd_sc_hd__and2_1
 xand_selp7 DOUT9 DOUT7 VGND VGND VPWR VPWR SELp7 sky130_fd_sc_hd__and2_1
 xand_seln8 DOUT8 DOUT9N VGND VGND VPWR VPWR SELn8 sky130_fd_sc_hd__and2_1
 xand_selp8 DOUT9 DOUT8 VGND VGND VPWR VPWR SELp8 sky130_fd_sc_hd__and2_1
-xxor_code0 DOUT0 DOUT9N VGND VGND VPWR VPWR ADCOUT0 sky130_fd_sc_hd__xor2_1
-xxor_code1 DOUT1 DOUT9N VGND VGND VPWR VPWR ADCOUT1 sky130_fd_sc_hd__xor2_1
-xxor_code2 DOUT2 DOUT9N VGND VGND VPWR VPWR ADCOUT2 sky130_fd_sc_hd__xor2_1
-xxor_code3 DOUT3 DOUT9N VGND VGND VPWR VPWR ADCOUT3 sky130_fd_sc_hd__xor2_1
-xxor_code4 DOUT4 DOUT9N VGND VGND VPWR VPWR ADCOUT4 sky130_fd_sc_hd__xor2_1
-xxor_code5 DOUT5 DOUT9N VGND VGND VPWR VPWR ADCOUT5 sky130_fd_sc_hd__xor2_1
-xxor_code6 DOUT6 DOUT9N VGND VGND VPWR VPWR ADCOUT6 sky130_fd_sc_hd__xor2_1
-xxor_code7 DOUT7 DOUT9N VGND VGND VPWR VPWR ADCOUT7 sky130_fd_sc_hd__xor2_1
-xxor_code8 DOUT8 DOUT9N VGND VGND VPWR VPWR ADCOUT8 sky130_fd_sc_hd__xor2_1
 **.ends
 * expanding   symbol:  design/sampling_frontend.sym # of pins=9
 ** sym_path: design/sampling_frontend.sym

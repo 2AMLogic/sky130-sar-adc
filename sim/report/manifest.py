@@ -291,7 +291,40 @@ ROWS: tuple[Row, ...] = (
             "UNMEASURED for the same reason as before -- the four "
             "per-mechanism budgets still are not sufficient for the "
             "assembled ADC to produce a correct code -- but the reason is "
-            "now a search-algorithm defect, not a capture-timing one."
+            "now a search-algorithm defect, not a capture-timing one. "
+            "(h) Issue #263 then fixed all three of those: `PRESET<i>` "
+            "(one added `or2_1` per bit) applies the trial perturbation at "
+            "the edge that opens each bit's own trial; the CDAC bits now "
+            "clear at the `PH_EOC -> PH_SAMPLE` edge -- a FULL CLK period "
+            "before the sampling switch opens, gated by a new `BUSY_BITS` "
+            "signal (excludes `PH_EOC`, unlike the pre-existing `BUSY` "
+            "output pin) rather than racing the switch's own opening edge "
+            "as an earlier draft of this fix did; and "
+            "`spec/decision-records/DR-008-cdac-top-level-switching-"
+            "polarity.md` replaces the unconditional complementary "
+            "`SELp`/`SELn` drive with decision-directed single-side "
+            "switching plus a `COMP_EFF = XNOR(COMP_OUT, DOUT9)` "
+            "per-branch polarity correction and an `ADCOUT<i> = DOUT<i> "
+            "XOR DOUT9N` offset-binary output-recoding stage (DOUT8..0 "
+            "read directly is a sign+true-magnitude value for the "
+            "DOUT9=0 branch, not the ratified offset-binary code -- see "
+            "DR-008's own 'Correction' section). Net effect at the "
+            "ratified 9-corner grid: the `-0.25*V_REF` input now reads "
+            "back its exact ideal code (384, 0 LSB error) at all 9 "
+            "corners; `+0.00*V_REF`/`+0.25*V_REF` read back a small, "
+            "corner-invariant 2-3 LSB high. The two near-full-scale "
+            "inputs (`+-0.78*V_REF`) still fail badly and "
+            "corner-invariantly (worst |error| 71-124 LSB negative side, "
+            "a flat 112 LSB / code-1023 saturation on the positive side) "
+            "-- a NEW, large-differential-input-specific defect this pass "
+            "surfaced but did not resolve, tracked by DR-008's own Open "
+            "items and a dedicated follow-up issue (leading hypothesis: a "
+            "top-plate common-mode excursion under single-side switching "
+            "that the comparator's already-documented ~23 mV nominal "
+            "headroom margin, DR-004, cannot absorb at large codes -- not "
+            "yet confirmed by a targeted trace). So this row remains "
+            "UNMEASURED: 4/5 inputs are at or very near the ratified "
+            "target now, but the grid is not yet 9/9-at-+-1-LSB."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
@@ -302,7 +335,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260911-132101-add8859.md",
+            "sim/full-conversion-transient/records/20260911-204111-a6df3bb.md",
         ),
     ),
     Row(
@@ -504,11 +537,25 @@ ROWS: tuple[Row, ...] = (
             "UNMEASURED: the conversion still does not resolve to the correct "
             "code (see the Sample rate row above and issue #263), so this is "
             "the steady-state current draw of a switching-but-not-converging "
-            "conversion. Re-measure again once #263 lands."
+            "conversion. UPDATE (issue #263): the third record cited below "
+            "re-measures the same campaign after #263's trial-perturbation, "
+            "per-conversion-clear, and decision-directed-switching fixes "
+            "(see the Sample rate row's own (h) paragraph for the full "
+            "writeup) -- binding (highest-power) corner `tt_27c_1.98v` "
+            "35.453 uW, lowest `tt_27c_1.62v` 22.361 uW, tt/27C/1.80V "
+            "baseline 28.823 uW, a further increase consistent with more "
+            "of the array now switching correctly per bit trial. The "
+            "caveat still stands and this row still remains UNMEASURED: "
+            "4 of 5 inputs are now at or very near their ideal code, but "
+            "the two near-full-scale inputs still fail badly (see Sample "
+            "rate row (h) and DR-008's Open items), so this is still the "
+            "current draw of a conversion that is not yet correct across "
+            "its full input range. Re-measure again once the residual "
+            "large-signal defect is fixed."
         ),
         sim_citations=(
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260911-132101-add8859.md",
+            "sim/full-conversion-transient/records/20260911-204111-a6df3bb.md",
         ),
     ),
     Row(

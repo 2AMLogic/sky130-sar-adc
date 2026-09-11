@@ -48,11 +48,23 @@ T_CLK_NS`, `design/sar_sequencer.sch`'s ring puts conversion `c` at:
 | `12c + 10` | `PH_EOC` | code complete and stable from edge `12c + 10` |
 | `12c + 11` | `PH_SAMPLE` | `BUSY` low; front end acquires conversion `c+1` |
 
-so the code for conversion `c` is read in the middle of period `12c + 11`
-(stable from edge `12c + 10` until conversion `c+1`'s own `DOUT9` capture
-at edge `12c + 13`), and `BUSY` must read `1` for periods `12c + 0 ..
-12c + 10` and `0` for period `12c + 11` -- the "conversion completes inside
-12 CLK periods, no missing or duplicated phase" check.
+so the code for conversion `c` is read in the middle of period `12c + 10`
+(`PH_EOC` -- stable from edge `12c + 10` until it is CLEARED to 0 at edge
+`12c + 11`, `design/sar_sequencer.sch`'s own per-conversion CDAC clear,
+issue #263: `DOUT8..DOUT0` are forced to 0 starting at the `PH_EOC ->
+PH_SAMPLE` edge, a full CLK period before `design/sar_adc_top.sch`'s
+sampling switch opens at the following `PH_SAMPLE -> PH_B9` edge, so the
+clear lands while the switch is still closed rather than racing its
+opening). This is a NARROWER stable window than an earlier draft of this
+fix assumed (mid-`PH_SAMPLE`, period `12c + 11`) -- reading mid-`PH_EOC`
+instead is what that earlier draft's own re-run corner campaign exposed as
+necessary: with the code cleared during `PH_SAMPLE`, a mid-`PH_SAMPLE`
+read sees the CLEARED value (0), not the decided one. `BUSY` must still
+read `1` for periods `12c + 0 .. 12c + 10` and `0` for period `12c + 11`
+-- the "conversion completes inside 12 CLK periods, no missing or
+duplicated phase" check -- unaffected by the code-read-timing change
+above, since `BUSY` (unlike the clear's own `BUSY_BITS` gating signal)
+still includes `PH_EOC`.
 """
 
 from __future__ import annotations
@@ -114,10 +126,12 @@ def t_phase_mid_ns(conversion: int, phase: int) -> float:
 
 def t_code_read_ns(conversion: int) -> float:
     """When the 10 captured bits of `conversion` are read: the middle of that
-    conversion's own SAMPLE period (period 11), where the code has been
-    complete since edge `12c + 10` and is not overwritten until edge
-    `12c + 13`."""
-    return t_phase_mid_ns(conversion, PHASES_PER_CONVERSION - 1)
+    conversion's own PH_EOC period (period 10), where the code has been
+    complete and stable since edge `12c + 10` and is not cleared until edge
+    `12c + 11` (design/sar_sequencer.sch's per-conversion CDAC clear, issue
+    #263 -- see this module's own docstring for why the stable window ends
+    at PH_EOC, not PH_SAMPLE)."""
+    return t_phase_mid_ns(conversion, PHASES_PER_CONVERSION - 2)
 
 
 def t_input_step_ns(conversion: int) -> float:
@@ -278,7 +292,15 @@ def fragment_text() -> str:
         "",
         f".tran {TRAN_STEP_NS:g}n {stop:.4f}n",
         "",
-        "* --- captured output code, read mid-SAMPLE of each conversion ---------",
+        "* --- captured output code, read mid-PH_EOC of each conversion (issue",
+        "* #263: DOUT8..0 are cleared during PH_SAMPLE, so this must be read",
+        "* before PH_SAMPLE begins, not during it). Bits 8..0 read the",
+        "* ADCOUT<i> offset-binary-recoded nodes (design/sar_adc_top.sch,",
+        "* issue #263), NOT the internal DOUT<i> search register directly --",
+        "* DOUT<i> is a sign+true-magnitude value for the DOUT9=0 branch, not",
+        "* the ratified offset-binary code (see that recoding stage's own",
+        "* header comment). Bit 9 (the sign bit) needs no recoding and reads",
+        "* DOUT9 directly. ------------------------------------------------",
     ]
     for c in measured_conversions():
         t_read = t_code_read_ns(c)
@@ -287,7 +309,8 @@ def fragment_text() -> str:
             f"read at {t_read:.4f} ns"
         )
         for name, b in zip(code_measure_names(c), range(N_BITS - 1, -1, -1)):
-            lines.append(f".meas tran {name} find v(dout{b}) at={t_read:.4f}n")
+            node = "dout9" if b == N_BITS - 1 else f"adcout{b}"
+            lines.append(f".meas tran {name} find v({node}) at={t_read:.4f}n")
     lines += [
         "",
         "* --- phase structure: BUSY and PH_SAMPLE (SAMPLE_INT) per CLK period --",
