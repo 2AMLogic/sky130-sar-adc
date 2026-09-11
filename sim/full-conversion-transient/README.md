@@ -47,6 +47,8 @@ toolchain (`sim/toolchain.json`). Other useful invocations:
 python3 sim/full-conversion-transient/run_conversion.py                 # baseline corner only
 python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
 python3 sim/full-conversion-transient/run_conversion.py --node-trace      # issue #259 node-level trace
+python3 sim/full-conversion-transient/run_conversion.py --corners --record \
+    --supersedes <record-id>   # name the prior record this one replaces (e.g. after a design/ fix)
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```

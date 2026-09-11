@@ -75,22 +75,89 @@ v {xschem version=3.4.7 file_version=1.2
 *   switching) has no corresponding CDAC SEL pin; it is wired ONLY to this
 *   block's own DOUT9 output.
 *
-*   This SELp=DOUT / SELn=NOT(DOUT) polarity is a STATED, DOCUMENTED
-*   WIRING DECISION, not a verified-correct claim: no closed-loop SAR
-*   conversion testbench has been run against this exact top-level netlist
-*   as of this issue. End-to-end functional/polarity verification (does a
-*   real conversion actually converge to the right code) is explicitly
-*   deferred to the future per-row/Monte-Carlo testbenches this issue's own
-*   acceptance criteria reference (#28/#29/#31) -- consistent with
-*   CLAUDE.md's "no claim without a testbench": this schematic is a
-*   structural wiring artifact, not itself a verification result.
+*   This SELp=DOUT / SELn=NOT(DOUT) polarity was a STATED, DOCUMENTED
+*   WIRING DECISION, not a verified-correct claim, at issue #56: no
+*   closed-loop SAR conversion testbench had been run against this exact
+*   top-level netlist then, and end-to-end functional/polarity verification
+*   was explicitly deferred. UPDATE (#254, #257): that verification has now
+*   run (sim/full-conversion-transient/), and this wiring does NOT survive
+*   it. Driving both array sides unconditionally and complementarily makes
+*   every bit contribute +-2*w_i LSB (both plates move, oppositely), so the
+*   array's own step is 2 LSB -- nine binary bits then span the whole
+*   +-V_REF range by themselves, the bipolar array already encodes the sign,
+*   and DOUT9 (the "free" MSB, which drives no CDAC pin) contributes nothing
+*   to the DAC. DR-003 Item 3's free-MSB architecture wants
+*   decision-directed single-side switching (1 LSB per unit weight, 9
+*   magnitude bits + 1 sign bit = the ratified N=10) instead. Tracked, with
+*   the measured evidence, in issue #263 -- this paragraph is left standing
+*   (not deleted) because the wiring it describes is still what is drawn
+*   below.
 *
-*   comparator.CLK = sar_sequencer.CLK = this block's own top-level CLK
-*   (the comparator evaluates/resets on the same master clock edge as
-*   every SAR bit-trial phase). A more refined design might gate the
-*   comparator's clock so it only toggles while BUSY; that refinement is
-*   out of this issue's wiring-correctness scope and is not required by
-*   any acceptance criterion here.
+*   comparator.CLK = CLKN = NOT(sar_adc_top.CLK) (issue #257's fix). This
+*   supersedes the "comparator.CLK = sar_sequencer.CLK ... gating the
+*   comparator's clock is out of scope" wiring note this paragraph carried
+*   through issue #56: that deferred risk has now been measured, and it was
+*   real. Through #56 this pin was tied directly to the same top-level CLK
+*   net every xbreg9..xbreg0 bit-capture register (design/sar_sequencer.sch,
+*   sky130_fd_sc_hd dfrtp_1, positive-edge-triggered) samples on. A
+*   node-level trace
+*   (sim/full-conversion-transient/records/20260911-103820-fd35266.md, via
+*   #259/#262) showed that is a structural half-period ORDERING defect, not
+*   a skew/setup-hold margin: design/comparator.sch's dynamic latch destroys
+*   its decision (precharges OUTP/OUTN back to VDD through XM_RST_P/XM_RST_N,
+*   PFETs gated by its own CLK pin) for the ENTIRE CLK=0 half-period, while
+*   xbreg9..xbreg0 capture on CLK's RISING edge -- the edge that ENDS that
+*   reset half, a full half-period after the decision was destroyed, never
+*   the CLK=1 evaluate half in which it briefly existed. COMP_OUT read VDD
+*   1 ns before 20/20 traced capturing edges, and the captured code
+*   saturated to 1023 for every input at every ratified corner, 910 LSB
+*   worst-case error
+*   (sim/full-conversion-transient/records/20260910-190240-2d1d196.md,
+*   #254/#260, reproduced post-#258 by .../20260911-071010-f0e45fa.md).
+*
+*   The fix: xinv_clkcap (ratified sky130_fd_sc_hd inv_1, added below)
+*   generates CLKN = NOT(CLK), and comparator.CLK is re-pointed from CLK to
+*   CLKN -- design/comparator.sch itself is untouched, and so is
+*   sar_sequencer.CLK (still the raw top-level CLK), so the ring sequencer's
+*   own already-verified phase generation and every register's capture
+*   instant are exactly where they were. What changes is only WHICH half of
+*   each bit-trial period the comparator spends resetting: with CLKN on its
+*   strobe, CLK=1 (the first half of the period, right after the
+*   phase-advancing/bit-capturing edge, while the CDAC is still settling) is
+*   the comparator's RESET half, and CLK=0 (the second half) is its EVALUATE
+*   half -- which ends at the next CLK rising edge, the very edge
+*   xbreg9..xbreg0 capture on. The capturing edge now lands at the END of a
+*   live evaluate window instead of deep inside a reset window. That is a
+*   structural reordering of the two halves, not a trimmed delay; the trace
+*   above is explicit that no amount of skew can close a half-period
+*   ordering fault, and none is attempted here.
+*
+*   Why this holds at every ratified PVT point, not just the simulated ones:
+*   the ordering itself is PVT-independent (it is a half-period of the
+*   master clock, not a delay). The one PVT-sensitive term left is the
+*   margin at the capturing edge: reset now begins one xinv_clkcap gate
+*   delay AFTER that edge (CLKN falls after CLK rises), plus the comparator's
+*   own precharge ramp on OUTP/OUTN, versus dfrtp_1's hold requirement --
+*   an inverter delay and a flip-flop hold time, both sky130_fd_sc_hd cells
+*   evaluated at the same corner, so they track each other rather than
+*   diverging at an extreme. Measured: the 9-corner campaign below captures
+*   an input-dependent decision at every bit trial at all 9 ratified points,
+*   with no corner-to-corner variation at all.
+*
+*   Verified by sim/full-conversion-transient/ (issue #254's campaign,
+*   re-run post-fix; see the newest record there, which names this schematic
+*   as its provenance and states which record it supersedes): the captured
+*   code is no longer stuck at 1023 -- it now tracks the applied input, the
+*   worst-case code error drops 910 -> 384 LSB, and the phase-timing /
+*   completion check passes at 9/9 corners (it was 8/9 pre-fix,
+*   ff_27c_1.80v being the exception). NOT YET CONVERGING, and this
+*   schematic does not claim it does: the conversion still resolves to a
+*   fixed wrong code sequence at every corner, for reasons that have nothing
+*   to do with this clock relationship -- the SAR search applies no trial
+*   perturbation before each decision and never clears the CDAC bits between
+*   conversions, and the SELp/SELn wiring in the paragraph above drives both
+*   array sides unconditionally. That residual is diagnosed and tracked in
+*   issue #263; do not re-open the clock relationship for it.
 *
 *   PH_B9..PH_B0/PH_EOC (the sequencer's internal one-hot phase signals)
 *   are deliberately left unconnected at this integration level -- they
@@ -282,7 +349,7 @@ C {devices/lab_pin.sym} 750 210 0 0 {name=l52 lab=DOUT8}
 
 * --- comparator (xcmp) pins ---
 C {devices/lab_pin.sym} 1650 -430 0 0 {name=l53 lab=VDD}
-C {devices/lab_pin.sym} 1650 -410 0 0 {name=l54 lab=CLK}
+C {devices/lab_pin.sym} 1650 -410 0 0 {name=l54 lab=CLKN}
 C {devices/lab_pin.sym} 1650 -390 0 0 {name=l55 lab=TOP_P}
 C {devices/lab_pin.sym} 1650 -370 0 0 {name=l56 lab=TOP_N}
 C {devices/lab_pin.sym} 1950 -430 0 0 {name=l57 lab=COMP_OUT}
@@ -316,6 +383,14 @@ C {devices/vdd.sym} -1300 -480 0 0 {name=lvdd1 lab=VDD}
 * the enclosing testbench. See header note 2 above for the full rationale.
 C {devices/vdd.sym} -1300 -560 0 0 {name=lvpwr1 lab=VPWR}
 C {devices/gnd.sym} -1300 -520 0 0 {name=lvgnd1 lab=VGND}
+* --- CLKN = NOT(CLK) capture-clock generator (issue #257) -- feeds ONLY
+* comparator.CLK below, so the comparator's own reset/evaluate halves are
+* swapped relative to sar_sequencer.CLK (still raw CLK, unchanged), fixing
+* the shared-CLK-net half-period capture-ordering defect. See the header
+* comment's "comparator.CLK = CLKN" paragraph for the full derivation.
+C {sky130_stdcells/inv_1.sym} 1650 -600 0 0 {name=xinv_clkcap VNB=VGND VPB=VPWR}
+C {devices/lab_pin.sym} 1610 -600 0 0 {name=l_clkcap_a lab=CLK}
+C {devices/lab_pin.sym} 1690 -600 0 0 {name=l_clkcap_y lab=CLKN}
 * --- SELn<i> = NOT(DOUT<i>) inverters (ratified sky130_fd_sc_hd inv_1) ---
 C {sky130_stdcells/inv_1.sym} 1400 500 0 0 {name=xinv_seln0 VNB=VGND VPB=VPWR}
 C {devices/lab_pin.sym} 1360 500 0 0 {name=l_inv0_a lab=DOUT0}

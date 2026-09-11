@@ -118,12 +118,18 @@ ROWS: tuple[Row, ...] = (
             "per-mechanism probe) drove the committed `design/sar_adc_top."
             "spice` through complete conversions at the DR-006 worst-case "
             "12 MHz clock across the full ratified 9-corner grid; its "
-            "12-CLK-period phase structure (BUSY/PH_SAMPLE timing) PASSES "
+            "12-CLK-period phase structure (BUSY/PH_SAMPLE timing) PASSED "
             "at 8/9 corners (informational -- this experiment binds no "
-            "spec row), but code correctness FAILS at 9/9 corners (every "
-            "DC input at every corner captures the saturated code 1023), "
-            "so no end-to-end sample rate can be derived from it either -- "
-            "see the Findings entry below and issue #259."
+            "spec row), but code correctness FAILED at 9/9 corners (every "
+            "DC input at every corner captured the saturated code 1023), "
+            "so no end-to-end sample rate could be derived from it either "
+            "-- see the Findings entry below and issue #259. After issue "
+            "#257's capture-timing fix (`comparator.CLK` driven from "
+            "`CLKN`) the same campaign re-run reports the phase structure "
+            "at 9/9 corners and an input-tracking (no longer saturated) "
+            "code, worst error 910 -> 384 LSB -- but still not the correct "
+            "code at any corner, so this row stays UNMEASURED; the "
+            "remaining defect is the SAR search itself, tracked in #263."
         ),
         notes=(
             "No end-to-end sample-rate campaign exists. All four of its "
@@ -262,7 +268,30 @@ ROWS: tuple[Row, ...] = (
             "missing declaration at its own deck-assembly step, so #258 "
             "moves the declaration into the netlist without changing what "
             "this campaign measures. The re-run therefore does NOT "
-            "supersede (e), and #259 stands exactly where it did."
+            "supersede (e), and #259 stands exactly where it did. "
+            "(g) Issue #257 then fixed the capture-timing relationship "
+            "#259's node-level trace pinned down: `comparator.CLK` is now "
+            "driven from `CLKN = NOT(CLK)` (`design/sar_adc_top.sch`), so "
+            "the comparator's evaluate half ends AT the bit-capture "
+            "registers' own rising capturing edge instead of a half-period "
+            "after its decision was destroyed. The campaign in (e)/(f) was "
+            "re-run against that fixed netlist -- the record cited below "
+            "supersedes (f)'s -- and the phase-timing check now reproduces "
+            "at 9/9 ratified corners (the `ff_27c_1.80v` exception noted "
+            "above is gone), strengthening (a)/(c) at the whole-ADC level. "
+            "The captured code is no longer stuck at 1023: it now tracks "
+            "the applied differential (`0, 0, 768, 896, 1023` for the five "
+            "DC inputs) and the worst code error drops 910 -> 384 LSB. It "
+            "is still WRONG at 9/9 corners, bit-identical at every corner "
+            "(no PVT dependence at all), for a second and independent "
+            "reason the fix uncovered and issue #263 now tracks: the SAR "
+            "search applies no trial perturbation before each decision, "
+            "never clears the CDAC bits between conversions, and drives "
+            "both array sides unconditionally. So this row stays "
+            "UNMEASURED for the same reason as before -- the four "
+            "per-mechanism budgets still are not sufficient for the "
+            "assembled ADC to produce a correct code -- but the reason is "
+            "now a search-algorithm defect, not a capture-timing one."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
@@ -273,7 +302,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260911-071010-f0e45fa.md",
+            "sim/full-conversion-transient/records/20260911-132101-add8859.md",
         ),
     ),
     Row(
@@ -460,13 +489,26 @@ ROWS: tuple[Row, ...] = (
             "as spec-row evidence. Re-measured unchanged after issue #258's "
             "netlist-scoping fix (`.GLOBAL VPWR`/`.GLOBAL VGND` now declared "
             "by `design/sar_adc_top.spice` itself): every per-corner figure "
-            "above reproduces to the digit in the second record cited below, "
-            "so the caveat about these numbers being measured on a "
-            "functionally-incorrect conversion is unchanged too."
+            "above reproduced to the digit, so the caveat about these numbers "
+            "being measured on a functionally-incorrect conversion was "
+            "unchanged too. SUPERSEDED FIGURES (issue #257): the second "
+            "record cited below re-measures the same campaign on the "
+            "post-#257 DUT (`comparator.CLK` driven from `CLKN`, so the bit "
+            "trials now capture live comparator decisions instead of the "
+            "comparator's reset level), and the power roughly doubles because "
+            "the CDAC and the SAR register are now actually switching every "
+            "conversion instead of sitting in a stuck all-ones code: binding "
+            "(highest-power) corner `tt_27c_1.98v` 26.760 uW, lowest "
+            "`tt_27c_1.62v` 16.750 uW, tt/27C/1.80V baseline 21.874 uW. The "
+            "caveat itself still stands and is the reason this row remains "
+            "UNMEASURED: the conversion still does not resolve to the correct "
+            "code (see the Sample rate row above and issue #263), so this is "
+            "the steady-state current draw of a switching-but-not-converging "
+            "conversion. Re-measure again once #263 lands."
         ),
         sim_citations=(
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260911-071010-f0e45fa.md",
+            "sim/full-conversion-transient/records/20260911-132101-add8859.md",
         ),
     ),
     Row(
