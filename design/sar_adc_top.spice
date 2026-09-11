@@ -13,7 +13,7 @@
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
 *   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
 *   design/sar_sequencer.sch: sha256:ca08e38f7420a083b8ccb3e507a17afc6b32a6f01d5f42af846619393b67b9c1
-*   design/sar_adc_top.sch: sha256:8c800364d666703d22251381b6fd65212c4a96a712f1ce262243222df09694ae
+*   design/sar_adc_top.sch: sha256:ca1d90a20c82e6e36bafa222e801c58d8a132eca80cd3e4bf44fb4bdf9af8b80
 *
 * Every device instance below is a ratified flavour (nfet_01v8/pfet_01v8/
 * cap_mim_m3_1 sky130_fd_pr primitives, or sky130_fd_sc_hd standard
@@ -41,8 +41,9 @@
 *.opin BUSY
 xfe VINP VINN SAMPLE_INT VCM VDD TOP_P TOP_N BPREF_P_NC BPREF_N_NC sampling_frontend
 xcdac VREFP VREFN VDD GND SELn0 DOUT0 SELn1 DOUT1 SELn2 DOUT2 SELn3 DOUT3 SELn4 DOUT4 TOP_N TOP_P DOUT5 SELn5 DOUT6 SELn6 SELn7 DOUT7 SELn8 DOUT8 cdac_array
-xcmp VDD CLK TOP_P TOP_N COMP_OUT OUTN_NC comparator
+xcmp VDD CLKN TOP_P TOP_N COMP_OUT OUTN_NC comparator
 xseq DOUT9 net1 CLK net2 DOUT8 RST_B net3 DOUT7 COMP_OUT DOUT6 net4 net5 DOUT5 DOUT4 net6 DOUT3 net7 DOUT2 net8 net9 DOUT1 net10 DOUT0 net11 SAMPLE_INT BUSY sar_sequencer
+xinv_clkcap CLK VGND VGND VPWR VPWR CLKN sky130_fd_sc_hd__inv_1
 xinv_seln0 DOUT0 VGND VGND VPWR VPWR SELn0 sky130_fd_sc_hd__inv_1
 xinv_seln1 DOUT1 VGND VGND VPWR VPWR SELn1 sky130_fd_sc_hd__inv_1
 xinv_seln2 DOUT2 VGND VGND VPWR VPWR SELn2 sky130_fd_sc_hd__inv_1
