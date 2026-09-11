@@ -406,7 +406,12 @@ def _bits_str(bits: list[int | None]) -> str:
     return "".join("?" if b is None else str(b) for b in bits)
 
 
-def write_record(points: list[dict], netlist_text: str, probe: dict | None = None) -> Path:
+def write_record(
+    points: list[dict],
+    netlist_text: str,
+    probe: dict | None = None,
+    supersedes: str = "",
+) -> Path:
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
     corners_dir = EXPERIMENT_DIR / "corners" / prov.record_id
     corners_dir.mkdir(parents=True, exist_ok=True)
@@ -607,7 +612,8 @@ def write_record(points: list[dict], netlist_text: str, probe: dict | None = Non
     a("")
     lines.extend(
         evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --corners --record", ""
+            "sim/full-conversion-transient/run_conversion.py --corners --record",
+            supersedes,
         )
     )
 
@@ -1408,8 +1414,29 @@ def main() -> int:
         help="run this many ngspice corner points concurrently (default 1; results "
         "are independent processes, so this changes runtime only)",
     )
+    ap.add_argument(
+        "--supersedes", default="", metavar="RECORD_ID",
+        help="record-id of the prior record of THIS experiment that the new record "
+        "replaces for the same claim -- e.g. the previous corner campaign, when the "
+        "DUT it graded has since been changed in design/. Written into the record's "
+        "**Supersedes** field (sim/README.md's append-only convention: the prior "
+        "record is never edited, only pointed back to). Leave unset for a record "
+        "that makes a distinct claim rather than replacing one. The named record "
+        "must already exist under records/.",
+    )
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
+
+    if args.supersedes and not (
+        EXPERIMENT_DIR / "records" / f"{args.supersedes}.md"
+    ).is_file():
+        print(
+            f"FAIL: --supersedes {args.supersedes}: no such record under "
+            f"{os.path.relpath(EXPERIMENT_DIR / 'records', REPO_ROOT)}/ -- a "
+            "**Supersedes** field must point at a record that exists.",
+            file=sys.stderr,
+        )
+        return 2
 
     check = toolchain.check_env()
     if args.check_env:
@@ -1474,7 +1501,7 @@ def main() -> int:
         )
 
         if args.record:
-            write_record(points, netlist_text, probe)
+            write_record(points, netlist_text, probe, args.supersedes)
 
     return 0 if overall_ok else 1
 
