@@ -24,6 +24,7 @@ five-minute-per-corner simulation:
 
 from __future__ import annotations
 
+import shutil
 import sys
 import tempfile
 import unittest
@@ -244,6 +245,225 @@ class TestRecordRendering(unittest.TestCase):
             self.assertIn("ss_27c_1.80v", report_generate.extract_field(text, "Binding corner"))
             self.assertTrue((tmp_dir / "corners" / "REC" / "ss_27c_1.80v.log").is_file())
             self.assertEqual((tmp_dir / "records" / "LATEST").read_text().strip(), "REC.md")
+
+
+class TestNodeTracePlan(unittest.TestCase):
+    """Pure, PDK-free coverage of run_conversion.py's issue #259 `--node-trace`
+    helpers: the measurement plan and the `.meas` lines it emits."""
+
+    def test_ten_phases_msb_first(self):
+        plan = rc.node_trace_plan(2)
+        self.assertEqual(len(plan), tb.N_BITS)
+        self.assertEqual([e["phase"] for e in plan], list(range(tb.N_BITS)))
+        self.assertEqual([e["bit"] for e in plan], list(range(tb.N_BITS - 1, -1, -1)))
+
+    def test_measure_lines_cover_every_name_exactly_once(self):
+        plan = rc.node_trace_plan(2)
+        lines = rc.node_trace_measure_lines(plan)
+        for name in rc._node_trace_names(plan):
+            self.assertEqual(
+                sum(1 for ln in lines if f".meas tran {name} " in ln),
+                1,
+                f"node-trace measurement {name!r} is not emitted exactly once",
+            )
+
+    def test_measurement_names_are_unique_across_traced_conversions(self):
+        """Two conversions are probed in one deck, so their `.meas` names must
+        not collide -- a collision would silently make one conversion's table
+        report the other's samples."""
+        names: list[str] = []
+        for conversion in rc.NODE_TRACE_CONVERSIONS:
+            names += rc._node_trace_names(rc.node_trace_plan(conversion))
+        self.assertEqual(len(names), len(set(names)), "duplicate .meas name across conversions")
+
+    def test_traced_conversions_are_an_opposite_sign_msb_pair(self):
+        """The MSB-trial control is only discriminating if the traced
+        conversions disagree on the ideal MSB -- otherwise a matching
+        mid-evaluate level proves nothing about input dependence."""
+        msbs = set()
+        for conversion in rc.NODE_TRACE_CONVERSIONS:
+            code = tb.ideal_code(tb.input_fraction(conversion))
+            msbs.add((code >> (tb.N_BITS - 1)) & 1)
+        self.assertEqual(msbs, {0, 1})
+
+    def test_mid_and_pre_edge_times_land_inside_the_bit_trials_own_period(self):
+        conversion = 2
+        plan = rc.node_trace_plan(conversion)
+        for entry in plan:
+            k_start = tb.PHASES_PER_CONVERSION * conversion + entry["phase"]
+            t_start = tb.t_edge_ns(k_start)
+            t_end = tb.t_edge_ns(k_start + 1)
+            self.assertLess(t_start, entry["t_mid"])
+            self.assertLess(entry["t_mid"], t_end)
+            self.assertLess(t_start, entry["t_pre"])
+            self.assertLess(entry["t_pre"], t_end)
+            # t_pre sits inside the comparator's CLK-low reset half (the
+            # second half of the period), not the CLK-high evaluate half.
+            self.assertGreater(entry["t_pre"], t_start + tb.T_CLK_NS * 0.5)
+            # t_post is after the capturing edge that ends this phase.
+            self.assertGreater(entry["t_post"], t_end)
+
+
+def _synthetic_node_trace(corner_id, process, temp, supply, *, all_reset, msb_tracks=True):
+    """Build a run_node_trace_point()-shaped dict without invoking ngspice.
+
+    `all_reset=True` mirrors the as-committed finding (every bit trial's
+    COMP_OUT already at VDD before its capturing edge); `all_reset=False`
+    mimics a hypothetical fix where the pre-edge/post-edge values track the
+    ideal per-bit decision instead. `msb_tracks=False` mimics a comparator
+    whose evaluate-half output is stuck low regardless of input -- the case
+    where the MSB-trial control must refuse to conclude."""
+    threshold = 0.5 * supply
+
+    def hi(v: float) -> str:
+        return "1" if v > threshold else "0"
+
+    conversions = []
+    for conversion in rc.NODE_TRACE_CONVERSIONS:
+        plan = rc.node_trace_plan(conversion)
+        frac = tb.input_fraction(conversion)
+        ideal_code = tb.ideal_code(frac)
+        phases = []
+        for entry in plan:
+            ideal_bit = (ideal_code >> entry["bit"]) & 1
+            captured_v = supply if (all_reset or ideal_bit) else 0.0
+            # The MSB trial is the only one whose evaluate-half output is
+            # expected to follow the input; later trials are corrupted.
+            is_msb = entry["phase"] == 0
+            mid_v = supply if (msb_tracks and is_msb and ideal_bit) else 0.0
+            v = dict(
+                clk_mid=supply, clk_pre=0.0,
+                compout_mid=mid_v,
+                compout_pre=captured_v, compoutn_mid=supply, compoutn_pre=supply,
+                dout_post=captured_v,
+            )
+            phases.append(
+                dict(
+                    phase=entry["phase"], bit=entry["bit"], ideal_bit=ideal_bit, v=v,
+                    clk_mid_hi=hi(v["clk_mid"]), clk_pre_hi=hi(v["clk_pre"]),
+                    compout_mid_hi=hi(v["compout_mid"]), compout_pre_hi=hi(v["compout_pre"]),
+                    compoutn_mid_hi=hi(v["compoutn_mid"]), compoutn_pre_hi=hi(v["compoutn_pre"]),
+                    dout_post_hi=hi(v["dout_post"]),
+                )
+            )
+        conversions.append(
+            dict(conversion=conversion, fraction=frac, ideal_code=ideal_code, phases=phases)
+        )
+
+    return dict(
+        corner_id=corner_id, process_corner=process, temp_c=temp, supply_v=supply,
+        conversions=conversions, missing=[],
+        log_text=f"* synthetic log for {corner_id}\n", wall_s=1.0,
+    )
+
+
+class TestMsbEvaluateControl(unittest.TestCase):
+    """The MSB-trial control separates 'the decision is made and then
+    destroyed before capture' from 'no decision is ever made' -- issue #259.
+    It must only report `tracks_input` when the traced conversions actually
+    disagree on the ideal MSB AND every one of them matches."""
+
+    def test_tracks_input_when_msb_follows_the_sign_of_each_input(self):
+        point = _synthetic_node_trace("tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=True)
+        control = rc.msb_evaluate_control(point)
+        self.assertTrue(control["discriminating"])
+        self.assertTrue(control["tracks_input"])
+
+    def test_does_not_track_input_when_the_comparator_is_stuck(self):
+        point = _synthetic_node_trace(
+            "tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=True, msb_tracks=False
+        )
+        control = rc.msb_evaluate_control(point)
+        self.assertFalse(control["tracks_input"])
+
+
+class TestWriteNodeTraceRecord(unittest.TestCase):
+    """write_node_trace_record() must render the mechanism finding
+    correctly from decoded per-phase data and never touch records/LATEST
+    (that file names the corner-campaign record, not a targeted diagnostic
+    like this one) -- issue #259."""
+
+    def _write(self, traces: dict) -> tuple[Path, Path]:
+        # mkdtemp(), not TemporaryDirectory() -- the caller reads the
+        # returned path's contents AFTER this helper returns, so the
+        # directory must outlive this method (a `with` block here would
+        # delete it on return, before the caller ever reads the file).
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(netlist_text)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        try:
+            rc.EXPERIMENT_DIR = tmp_dir
+            evidence.resolve_provenance = fake_resolve
+            path = rc.write_node_trace_record(traces, "* synthetic netlist\n")
+        finally:
+            rc.EXPERIMENT_DIR = real_dir
+            evidence.resolve_provenance = real_resolve
+        return path, tmp_dir
+
+    def test_uniform_all_ones_capture_is_reported_as_uniform(self):
+        traces = {
+            "tt_27c_1.62v": _synthetic_node_trace("tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=True),
+            "ff_27c_1.80v": _synthetic_node_trace("ff_27c_1.80v", "ff", 27.0, 1.80, all_reset=True),
+        }
+        path, tmp_dir = self._write(traces)
+        text = path.read_text()
+        self.assertIn("**Uniform.**", text)
+        self.assertIn("comparator core is alive and input-dependent", text)
+        # Both traced conversions must appear as their own table.
+        for conversion in rc.NODE_TRACE_CONVERSIONS:
+            self.assertIn(f"### Conversion {conversion} ", text)
+        self.assertFalse((tmp_dir / "records" / "LATEST").exists())
+        for corner_id in traces:
+            self.assertTrue(
+                (tmp_dir / "diagnostics" / "REC" / f"node-trace-{corner_id}.log").is_file()
+            )
+
+    def test_a_mix_of_correct_and_stuck_bits_is_reported_as_not_uniform(self):
+        traces = {
+            "tt_27c_1.62v": _synthetic_node_trace("tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=False),
+            "ff_27c_1.80v": _synthetic_node_trace("ff_27c_1.80v", "ff", 27.0, 1.80, all_reset=False),
+        }
+        path, _tmp_dir = self._write(traces)
+        text = path.read_text()
+        self.assertIn("NOT uniform", text)
+
+    def test_a_stuck_comparator_refuses_to_conclude_the_core_is_alive(self):
+        """If the MSB control does not discriminate, the record must say so
+        rather than asserting the capture-edge finding is sufficient."""
+        traces = {
+            "tt_27c_1.62v": _synthetic_node_trace(
+                "tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=True, msb_tracks=False
+            ),
+            "ff_27c_1.80v": _synthetic_node_trace(
+                "ff_27c_1.80v", "ff", 27.0, 1.80, all_reset=True, msb_tracks=False
+            ),
+        }
+        path, _tmp_dir = self._write(traces)
+        text = path.read_text()
+        self.assertIn("Inconclusive", text)
+        self.assertNotIn("comparator core is alive and input-dependent", text)
+
+    def test_no_design_fix_is_proposed_and_no_spec_row_is_claimed(self):
+        traces = {
+            "tt_27c_1.62v": _synthetic_node_trace("tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=True),
+        }
+        path, _tmp_dir = self._write(traces)
+        text = path.read_text()
+        self.assertIn("No design fix is proposed or implemented", text)
+        self.assertIn("diagnostic/investigation only", text)
 
 
 if __name__ == "__main__":
