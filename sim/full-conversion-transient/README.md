@@ -46,6 +46,7 @@ toolchain (`sim/toolchain.json`). Other useful invocations:
 ```sh
 python3 sim/full-conversion-transient/run_conversion.py                 # baseline corner only
 python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
+python3 sim/full-conversion-transient/run_conversion.py --node-trace      # issue #259 node-level trace
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
@@ -89,7 +90,8 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | `netlist-snapshots/<record-id>.spice` | The frozen DUT netlist the record was produced from (byte-identical to `design/sar_adc_top.spice` at the recorded commit). |
 | `corners/<record-id>/<corner-id>.log` | Raw ngspice output, one per ratified corner point. |
 | `diagnostics/<record-id>/*.log` | `--mechanism-probe` raw output (see below). Kept separate from `corners/` because one of the two runs is on a **modified** netlist and must never be read as a corner result. |
-| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest. |
+| `diagnostics/<record-id>/node-trace-<corner-id>.log` | `--node-trace` raw output (issue #259, see below) — on the **unmodified** DUT, unlike the mechanism probe. |
+| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace` records are separate, targeted diagnostics and never update `LATEST`. |
 
 ## Deck assembly: the two load-bearing details
 
@@ -114,6 +116,35 @@ code comes out wrong. The modified netlist exists only inside the run's scratch
 deck — nothing is ever written back to `design/`, and the modified run never
 contributes to a corner result.
 
+## The node-level trace (`--node-trace`, issue #259)
+
+A second, more targeted **diagnostic**, not a corner campaign and not
+evidence for any spec row. Unlike `--mechanism-probe`, it runs the
+**as-committed, unmodified** DUT — it only appends read-only `.meas tran ...
+find v(...)` probes after the committed fragment, never re-points any
+instance's strobe. At each of the two corners issue #259's Acceptance
+Criteria name (the binding corner and the corner where the
+phase-timing/completion check itself also fails), it samples `COMP_OUT`
+(`OUTP`) and its differential partner `OUTN_NC` (`OUTN`) against `CLK`, at
+every one of the 10 bit-trial capturing edges — both mid-evaluate and 1 ns
+before each capturing edge — plus the corresponding bit-capture register's
+own output 2 ns after that edge. It always writes its own evidence record
+under `records/` (never `records/LATEST`, which stays pointed at the
+corner-campaign result).
+
+**Two conversions are probed per run, and the pair is load-bearing.** Extra
+`.meas` cards sample a transient that runs anyway, so tracing conversion 2
+(`Vd = −0.25·V_REF`, ideal MSB `0`) *and* conversion 4 (`Vd = +0.25·V_REF`,
+ideal MSB `1`) costs no extra simulation time. Their ideal MSB decisions
+differ on purpose: the MSB trial is the only bit trial whose CDAC state
+cannot already be corrupted by an earlier mis-captured bit, so comparing the
+two conversions' MSB-trial *evaluate-half* output is the control that
+separates "the decision is made correctly and then destroyed before capture"
+(a capture-timing defect) from "no usable decision is ever made" (a dead
+comparator). Both would otherwise look identical — a stuck code. If that
+control ever stops discriminating, the record says so and explicitly refuses
+to conclude, rather than reporting the capture-edge finding as sufficient.
+
 ## Findings
 
 The first recorded campaign (`records/LATEST`) is a **FAIL** at every ratified
@@ -123,3 +154,23 @@ follow-up issue — see the record itself and
 [issue #259](https://github.com/2AMLogic/sky130-sar-adc/issues/259). Nothing
 here relaxes a spec line to make a result pass; the failure is recorded as a
 finding, per `CLAUDE.md`.
+
+Issue #259's own `--node-trace` record pins the mechanism down at node level.
+The comparator and the bit-capture registers share the same `CLK` *net* but
+use **opposite edges of it, in the wrong order**: the comparator's decision
+exists only during the `CLK`-high evaluate half and is destroyed on the
+**falling** edge (`XM_RST_P`/`XM_RST_N` pull both `OUTP` and `OUTN` to
+`VDD`), while `xbreg9..xbreg0` sample on the **rising** edge that ends the
+following reset half. `COMP_OUT` is therefore already back at `VDD` (digital
+`1`) before every single capturing edge, at both traced corners, and every
+register dutifully captures a `1` — hence code 1023. The deficit is a fixed
+half-period of ordering, not a setup/hold margin, which is why all 9 ratified
+corners fail identically.
+
+This confirms — and refines —
+[issue #257](https://github.com/2AMLogic/sky130-sar-adc/issues/257)'s
+proposed root cause, and rules out
+[issue #258](https://github.com/2AMLogic/sky130-sar-adc/issues/258)'s
+floating-rail mechanism (already fixed by PR #261, with the saturation
+unchanged across that fix). It does not itself implement a design fix — out
+of scope for #259.
