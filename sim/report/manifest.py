@@ -324,7 +324,45 @@ ROWS: tuple[Row, ...] = (
             "headroom margin, DR-004, cannot absorb at large codes -- not "
             "yet confirmed by a targeted trace). So this row remains "
             "UNMEASURED: 4/5 inputs are at or very near the ratified "
-            "target now, but the grid is not yet 9/9-at-+-1-LSB."
+            "target now, but the grid is not yet 9/9-at-+-1-LSB. "
+            "(i) Issue #263's second pass then closed the mid-scale "
+            "residual from (h). Probing the comparator's OWN differential "
+            "input at every bit-trial decision instant showed the residual "
+            "was not a settling or search defect at all but a systematic, "
+            "corner-invariant, input-referred comparator OFFSET created by "
+            "this integration level itself: `design/sar_adc_top.sch` "
+            "loaded `comparator.OUTP` (= `COMP_OUT`) with two standard-cell "
+            "input pins inside `xseq` while leaving `comparator.OUTN` "
+            "entirely unloaded, and in a StrongARM-class latch (DR-004) an "
+            "output-node capacitance imbalance biases the regeneration race "
+            "directly -- no device mismatch needed. Measured: `COMP_OUT` "
+            "read `1` at a true input of -7.0 mV (-2.0 LSB) and -10.5 mV "
+            "(-3.0 LSB) at a ~897 mV top-plate common mode, and at -3.7 mV "
+            "(-1.05 LSB) at ~676 mV. "
+            "`spec/decision-records/DR-009-comparator-output-load-balance-"
+            "and-half-lsb-offset.md` fixes it with a matched dummy load on "
+            "`OUTN` (the same two cells on the same two pin positions, with "
+            "the same nets on their other inputs), and adds the classic "
+            "half-LSB quantizer offset -- one CDAC-unit-sized cap on `TOP_N` "
+            "switched `VREFP -> VCM` (half the reference swing = exactly "
+            "0.5 LSB) from the `PH_B9 -> PH_B8` edge, plus a matching dummy "
+            "cell on `TOP_P` -- to re-centre the SAR's mid-rise search "
+            "against the ideal code's mid-tread convention. Net effect at "
+            "the ratified 9-corner grid (newest record cited below): all "
+            "three mid-scale inputs are now within +-1 LSB at 9/9 corners "
+            "(`-0.25*V_REF` -1 LSB, `+0.00*V_REF` -1/0 LSB, `+0.25*V_REF` "
+            "+1 LSB), up from 1/5 to 3/5 inputs per corner. The two "
+            "near-full-scale inputs are bit-for-bit UNCHANGED by both "
+            "fixes, which is itself evidence that their defect (#265) is "
+            "neither of these two mechanisms. This row therefore still "
+            "remains UNMEASURED, now for exactly one reason: the "
+            "`+-0.78*V_REF` non-convergence of issue #265, plus the array's "
+            "~1% absolute GAIN error DR-009 identifies and deliberately "
+            "does not close (a top-plate parasitic of ~4 unit caps, "
+            "dominated by the comparator's own input gate capacitance; 0 "
+            "LSB at mid-scale, ~1 LSB at +-0.25*V_REF, ~3 LSB at "
+            "+-0.78*V_REF -- it needs an array unit-cap sizing decision or "
+            "an explicit gain-error spec row, neither of which exists yet)."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
@@ -335,7 +373,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260911-204111-a6df3bb.md",
+            "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
         ),
     ),
     Row(
@@ -551,11 +589,30 @@ ROWS: tuple[Row, ...] = (
             "rate row (h) and DR-008's Open items), so this is still the "
             "current draw of a conversion that is not yet correct across "
             "its full input range. Re-measure again once the residual "
-            "large-signal defect is fixed."
+            "large-signal defect is fixed. UPDATE (issue #263, second "
+            "pass): the newest record cited below "
+            "(`20260912-002315-9aaf1ca`, which supersedes the "
+            "`20260911-204111-a6df3bb` figures quoted just above and is "
+            "cited in its place) re-measures the same "
+            "campaign again after DR-009's comparator-output load "
+            "balancing and half-LSB quantizer offset (Sample rate row "
+            "paragraph (i)) -- binding (highest-power) corner "
+            "`tt_27c_1.98v` 34.237 uW, lowest `tt_27c_1.62v` 21.600 uW, "
+            "tt/27C/1.80V baseline 27.971 uW: within ~3% of the previous "
+            "record at every corner, as expected for a change that adds "
+            "4 standard cells, 2 unit capacitors and 6 switch FETs and "
+            "corrects WHICH way a few marginal bit decisions go rather "
+            "than how many transitions the array makes. The caveat still "
+            "stands and this row still remains UNMEASURED: the three "
+            "mid-scale inputs are now all within +-1 LSB at 9/9 corners, "
+            "but the two near-full-scale inputs are unchanged and still "
+            "fail badly (issue #265), so this is still the current draw "
+            "of a conversion that is not correct across its full input "
+            "range."
         ),
         sim_citations=(
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260911-204111-a6df3bb.md",
+            "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
         ),
     ),
     Row(

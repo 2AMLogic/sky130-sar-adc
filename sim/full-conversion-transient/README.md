@@ -48,6 +48,7 @@ python3 sim/full-conversion-transient/run_conversion.py                 # baseli
 python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
 python3 sim/full-conversion-transient/run_conversion.py --node-trace      # issue #259 node-level trace
 python3 sim/full-conversion-transient/run_conversion.py --cm-trace        # issue #265 common-mode trace
+python3 sim/full-conversion-transient/run_conversion.py --decision-margin-trace  # issue #263 / DR-009
 python3 sim/full-conversion-transient/run_conversion.py --corners --record \
     --supersedes <record-id>   # name the prior record this one replaces (e.g. after a design/ fix)
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
@@ -95,7 +96,8 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | `diagnostics/<record-id>/*.log` | `--mechanism-probe` raw output (see below). Kept separate from `corners/` because one of the two runs is on a **modified** netlist and must never be read as a corner result. |
 | `diagnostics/<record-id>/node-trace-<corner-id>.log` | `--node-trace` raw output (issue #259, see below) — on the **unmodified** DUT, unlike the mechanism probe. |
 | `diagnostics/<record-id>/cm-trace-<corner-id>.log` | `--cm-trace` raw output (issue #265, see below) — on the **unmodified** DUT. |
-| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace` records are separate, targeted diagnostics and never update `LATEST`. |
+| `diagnostics/<record-id>/decision-margin-<variant>-<corner-id>.log` | `--decision-margin-trace` raw output (issue #263 / DR-009, see below). Two variants per corner: `as-committed` (unmodified DUT) and `unbalanced-control` (testbench-only modification — never a corner result). |
+| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace`/`--decision-margin-trace` records are separate, targeted diagnostics and never update `LATEST`. |
 
 ## Deck assembly: the two load-bearing details
 
@@ -191,6 +193,37 @@ reduced dynamic range — filed as
 [issue #267](https://github.com/2AMLogic/sky130-sar-adc/issues/267) rather
 than attempted here).
 
+## The decision-margin trace (`--decision-margin-trace`, issue #263 / DR-009)
+
+The fourth **diagnostic** mode, and the one that answers a question none of
+the others can: *is a wrong code the search's fault or the comparator's?*
+The corner campaign only sees codes, and `--node-trace` samples the
+comparator's **output** pair. This mode samples its **input** — `v(TOP_P) −
+v(TOP_N)`, plus the top-plate common mode — at the last instant before each
+bit trial's evaluate half opens (the DAC has had half a CLK period to settle
+and the latch has not begun to load it), and pairs it with the decision the
+comparator then produced and the bit the register captured. A decision that
+disagrees with the *sign of the comparator's own input* is a comparator
+defect by construction; one that agrees, while the code still comes out
+wrong, is a search or decode defect.
+
+Like `--mechanism-probe` (and unlike `--node-trace`) it runs the DUT twice:
+`as-committed`, and an `unbalanced-control` copy with DR-009's two
+comparator-output balancing dummy instances deleted at deck-assembly time,
+which reproduces the pre-DR-009 asymmetric loading. **The pair is the
+measurement**: both variants present the comparator with the same residuals
+and decide them differently, which is what makes "the offset is created by
+the output loading" evidence rather than inference. The modification is
+testbench-only and is never written back to `design/`; if the two dummy
+instances are ever renamed, the probe fails loudly instead of silently
+tracing the wrong netlist.
+
+Three mid-scale conversions are traced (`−0.25`, `+0.00`, `+0.25·V_REF`) —
+the inputs whose late bit trials present residuals of order 1 LSB, where a
+few-mV offset changes the answer. The near-full-scale conversions belong to
+[issue #265](https://github.com/2AMLogic/sky130-sar-adc/issues/265) and are
+deliberately not traced here.
+
 ## Findings
 
 The first recorded campaign (`records/LATEST`) is a **FAIL** at every ratified
@@ -220,3 +253,21 @@ proposed root cause, and rules out
 floating-rail mechanism (already fixed by PR #261, with the saturation
 unchanged across that fix). It does not itself implement a design fix — out
 of scope for #259.
+
+**Where this stands now (issue #263, both passes).** The paragraphs above are
+kept as the record of how the investigation went; they describe the
+*pre-#257* campaign, not the current one. Since then: #257 fixed the
+capture-edge ordering; #263's first pass
+(`spec/decision-records/DR-008-...`) added the trial perturbation, the
+per-conversion CDAC clear and decision-directed single-side switching with
+offset-binary output recoding; #263's second pass
+(`spec/decision-records/DR-009-...`) balanced the comparator's differential
+output load and added a half-LSB quantizer offset. The newest campaign
+record resolves **all three mid-scale inputs to within ±1 LSB at 9/9
+ratified corners**. It is still recorded as an overall **FAIL**, for exactly
+one remaining reason: the two near-full-scale inputs (`±0.78·V_REF`) do not
+converge — [issue #265](https://github.com/2AMLogic/sky130-sar-adc/issues/265)
+— and DR-009's own "Open items" names a second, smaller contributor that is
+not closed either (the array's ~1% absolute gain error, which is 0 LSB at
+mid-scale but ~3 LSB near full scale). Read `records/LATEST`, not this
+section, for the current numbers.
