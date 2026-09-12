@@ -256,6 +256,14 @@ offset-binary output converter plays in many real SAR ADCs.
   either, though far closer than the large-signal cases) at every corner —
   worth a future, smaller investigation, not blocking, and plausibly a
   distinct, easier-to-close residual from the large-signal one above.
+  **Settled by `spec/decision-records/DR-009-comparator-output-load-balance-and-half-lsb-offset.md`**
+  (issue #263, second pass): it was a systematic input-referred comparator
+  offset created by this schematic's own asymmetric loading of the
+  comparator's differential output pair, plus the SAR's half-LSB
+  mid-rise/mid-tread quantization misalignment. The guess above that it was
+  a distinct, easier-to-close mechanism from the large-signal one was
+  correct. DR-009 also identifies, and deliberately does NOT close, the
+  array's ~1% absolute gain error that both this record's open items share.
 - **A second, decision-directed-stimulus `sim/cdac-array-transfer/` record**
   for direct before/after comparison — owner: future work, not blocking
   (see "Consequences" above).

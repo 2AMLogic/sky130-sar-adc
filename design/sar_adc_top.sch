@@ -49,9 +49,15 @@ v {xschem version=3.4.7 file_version=1.2
 *   single-ended ideal bit decision; comparator.OUTP is used directly
 *   (non-inverting per comparator.sch's own documented convention:
 *   Vin,diff = VINP-VINN > 0 => OUTP settles high = "1" decision).
-*   comparator.OUTN is intentionally left on its own dead-end net
-*   (OUTN_NC) at this integration level -- not needed by the sequencer,
-*   which has no complementary-decision input.
+*   comparator.OUTN is not needed by the sequencer (which has no
+*   complementary-decision input), but it is NOT left unloaded: it carries
+*   a matched dummy load mirroring COMP_OUT's own fanout, added by issue
+*   #263 -- see "COMPARATOR DIFFERENTIAL-OUTPUT LOAD BALANCING" below for
+*   why an unloaded OUTN is a systematic input-referred offset, not a
+*   harmless dead end. The net keeps its historical name OUTN_NC (it was
+*   genuinely a no-connect when #56 drew it); renaming it would churn
+*   layout/sar-adc-top/'s LVS reference artifacts, which are issue #103's
+*   to re-derive and are already stale against this schematic.
 *
 *   sar_sequencer.PH_SAMPLE -> sampling_frontend.SAMPLE (bridged via the
 *   SAMPLE_INT net below): the sequencer, not this schematic, is the
@@ -205,6 +211,119 @@ v {xschem version=3.4.7 file_version=1.2
 *   are deliberately left unconnected at this integration level -- they
 *   are internal to the SAR control loop, not needed by any other
 *   sub-block or by this top-level symbol's own external pin list.
+*
+* ============================================================================
+* COMPARATOR DIFFERENTIAL-OUTPUT LOAD BALANCING (issue #263, second pass)
+* ============================================================================
+* design/comparator.sch is a StrongARM-class dynamic latch (DR-004): a
+* clocked tail pair whose two output nodes OUTP/OUTN start each evaluate
+* phase pre-charged to VDD and then REGENERATE -- whichever node discharges
+* first turns off its cross-coupled partner and wins. The differential pair
+* only seeds that race; the race itself is decided by the two output nodes'
+* own RC. Any capacitive imbalance between OUTP and OUTN therefore appears
+* directly as a systematic, input-referred comparator OFFSET, with no
+* device mismatch needed -- it is present in a nominal, mismatch-free
+* netlist.
+*
+* As drawn by #56 this schematic loaded the two outputs ASYMMETRICALLY:
+* COMP_OUT (= comparator.OUTP) drives two standard-cell input pins inside
+* xseq (xmux9.A1 and xxnor_compeff.A -- see design/sar_sequencer.sch),
+* while comparator.OUTN was a dead-end net with no load at all. The extra
+* pin capacitance slows OUTP's discharge, so OUTN wins ties and COMP_OUT is
+* biased toward reading 1 ("input differential is positive") -- exactly the
+* sign and magnitude of the residual error issue #263's second pass
+* measured: with the comparator's own differential input probed at every
+* bit-trial decision instant, COMP_OUT read 1 at a true input of -7.0 mV
+* (-2.0 LSB) and -10.5 mV (-3.0 LSB) at a top-plate common mode of ~897 mV,
+* and at -3.7 mV (-1.05 LSB) at ~676 mV: an input-referred offset of about
+* -5 mV at mid common mode growing past -10 mV near VDD/2 + 0.4 V, i.e.
+* 1.5-3 LSB of code error, corner-invariant. (The common-mode dependence is
+* consistent with the same mechanism: a higher input common mode discharges
+* the tail-pair drains faster, shortening the integration window that
+* amplifies the input before regeneration starts, so a FIXED output-node
+* imbalance refers back to a LARGER input-equivalent offset.)
+*
+* Fix: load comparator.OUTN with a matched dummy -- xdum_mux_n /
+* xdum_xnor_n below, one sky130_fd_sc_hd__mux2_1 and one
+* sky130_fd_sc_hd__xnor2_1, the same two cells and the same two pin
+* positions COMP_OUT drives inside xseq, with their OTHER inputs wired to
+* the SAME nets the real cells see (xmux9's A0=DOUT9 / S=PH_B9,
+* xxnor_compeff's B=DOUT9) so the dummy pins' state-dependent capacitance
+* tracks the real ones cycle by cycle rather than only on average. Both
+* dummy outputs are deliberate no-connects (DUMLOAD_MUX_NC /
+* DUMLOAD_XNOR_NC): these cells exist only to present an input
+* capacitance. This is a top-level integration fix, exactly like the
+* SELp/SELn gating above -- design/comparator.sch itself is unchanged, so
+* DR-004's ratified topology/sizing and sim/comparator-decision/'s own
+* records stand. Measured effect (sim/full-conversion-transient, tt/27C/
+* 1.8V): every bit-trial decision in the three mid-scale conversions now
+* matches the sign of the comparator's own probed differential input, down
+* to inputs of 0.18 LSB, where before three decisions per conversion were
+* inverted.
+*
+* ============================================================================
+* HALF-LSB QUANTIZER OFFSET (issue #263, second pass)
+* ============================================================================
+* With the comparator offset above removed, what is left is the SAR's own
+* quantization convention. A successive-approximation search that keeps a
+* trial only while the residual has not changed sign converges to a
+* residual in [0, 1) LSB (DOUT9=1 branch) or (-1, 0] LSB (DOUT9=0 branch),
+* so the captured code is floor(Vd/LSB)-like: its transitions sit at
+* INTEGER multiples of the LSB, while spec/target-spec.md's ideal
+* offset-binary code (sim/full-conversion-transient/gen_full_conversion_tb
+* .py's ideal_code(), round(Vd/LSB) + 2^(N-1)) has its transitions at HALF
+* integers. That is the textbook half-LSB misalignment between a mid-rise
+* search and a mid-tread ideal: a systematic -0.5 LSB code offset, which on
+* its own is within the +-1 LSB acceptance band but stacks with the array's
+* gain error (see below) and pushed -0.25*V_REF to -2 LSB.
+*
+* Fix: the classic half-LSB offset capacitor, added here at the top level
+* rather than inside the array. Choff_n is a CDAC-unit-sized MiM cap
+* (W=L=1.8988, identical to design/cdac/cdac_unit_cell.sch's C_u) from
+* TOP_N to its own bottom plate BOT_OFF_N, which is switched between VREFP
+* and VCM by Moff_n_refp / Moff_n_cmn / Moff_n_cmp. One unit cap over HALF
+* the reference swing (VREFP -> VCM = V_REF/2, since VCM = V_DD/2 = V_REF/2
+* by DR-003) is exactly half the 1-LSB step one unit cap makes over the
+* full swing under the decision-directed single-side switching above -- so
+* the offset is set by the reference ratio, not by a sub-unit capacitor
+* whose ratio to C_u would be a matching liability. Lowering TOP_N by
+* 0.5 LSB raises TOP_P - TOP_N by +0.5 LSB, which is the direction that
+* re-centres the quantizer: captured code becomes floor(Vd/LSB + 0.5) =
+* round(Vd/LSB), matching ideal_code() (and the DOUT9=0 branch's own
+* mirrored expression) to within the 1-LSB granularity of the ones'
+* -complement output recoding.
+*
+* Enable timing is load-bearing. HALF_LSB_EN = BUSY AND NOT(PH_B9)
+* (xand_halflsb, one and2b_1; HALF_LSB_ENN = its inverse, xinv_halflsb):
+* the offset cap sits at VREFP through the whole SAMPLE phase and through
+* the bit-9 (sign) trial, and switches to VCM only at the PH_B9 -> PH_B8
+* edge, a full CLK period AFTER the sampling switch has opened. Gating on
+* BUSY alone would switch it on the very edge SAMPLE_INT falls on, racing
+* the sampling switch's own turn-off -- the injected charge would partly
+* drain back into the input source and the offset would be a
+* corner-dependent fraction of 0.5 LSB instead of 0.5 LSB. Applying it
+* from PH_B8 (not PH_B9) means the sign decision itself is taken on the
+* un-offset residual; that only matters for |Vd| < 1 LSB, where both
+* branches land within the +-1 LSB band anyway.
+*
+* Choff_p + Moff_p_refp/Moff_p_cmn/Moff_p_cmp are the matching dummy on
+* the other side: the same cap and the same three switch devices, with
+* their gates tied off (VGND/VPWR) so that side's bottom plate is held at
+* VREFP permanently. They inject no offset; they exist so both top plates
+* see the same total capacitance and the same switch junction parasitics,
+* i.e. so the two sign branches have the SAME gain.
+*
+* Residual, NOT closed here: the array's absolute gain. The measured
+* per-bit step is ~0.99 LSB, not 1.000 LSB, because the top plates carry
+* ~4-5 unit caps' worth of parasitic (the comparator's own input gate
+* capacitance dominates) on top of the array's 512 C_u, and a top-plate
+* -sampled CDAC divides its redistribution by that total while the sampled
+* input is NOT divided. That is a ~0.8-1.0% GAIN error -- it is 0 at
+* mid-scale, ~1 LSB at +-0.25*V_REF and ~3 LSB at +-0.78*V_REF, so it
+* cannot be fixed by any offset and needs an array unit-cap sizing
+* decision (or an explicit gain-error spec row). Tracked separately; see
+* spec/decision-records/DR-009-comparator-output-load-balance-and-half-lsb
+* -offset.md "Open items".
 *
 * ============================================================================
 * KNOWN, NAMED-NOT-CLOSED INTEGRATION GAP (one remains open; item 1 below was
@@ -403,6 +522,14 @@ C {devices/lab_pin.sym} 1950 -410 0 0 {name=l58 lab=OUTN_NC}
 * --- sar_sequencer (xseq) pins ---
 C {devices/lab_pin.sym} 2850 -220 0 0 {name=l59 lab=DOUT9}
 C {devices/lab_pin.sym} 2550 -220 0 0 {name=l60 lab=CLK}
+* PH_B9 is the one ring phase this integration level now names (issue #263):
+* the MSB-trial phase gates both the half-LSB offset cap's enable
+* (HALF_LSB_EN = BUSY AND NOT PH_B9, so the offset lands a full CLK period
+* after the sampling switch opens) and the comparator-OUTN dummy mux's own
+* select pin (so the dummy load mirrors xmux9's state cycle by cycle). The
+* other ring phases PH_B8..PH_B0/PH_EOC stay unconnected here, exactly as
+* the header's "internal to the SAR control loop" note describes.
+C {devices/lab_pin.sym} 2850 -200 0 0 {name=l_phb9 lab=PH_B9}
 C {devices/lab_pin.sym} 2850 -160 0 0 {name=l61 lab=DOUT8}
 C {devices/lab_pin.sym} 2550 -200 0 0 {name=l62 lab=RST_B}
 C {devices/lab_pin.sym} 2850 -120 0 0 {name=l63 lab=DOUT7}
@@ -590,5 +717,91 @@ C {sky130_stdcells/xor2_1.sym} 1900 1300 0 0 {name=xxor_code8 VNB=VGND VPB=VPWR}
 C {devices/lab_pin.sym} 1840 1280 0 0 {name=l_code8_a lab=DOUT8}
 C {devices/lab_pin.sym} 1840 1320 0 0 {name=l_code8_b lab=DOUT9N}
 C {devices/lab_pin.sym} 1960 1300 0 0 {name=l_code8_y lab=ADCOUT8}
+
+* --- Comparator differential-output load balancing (issue #263, second
+* pass): a matched dummy load on comparator.OUTN (net OUTN_NC), mirroring
+* the two standard-cell input pins COMP_OUT drives inside xseq. Same cells
+* (mux2_1 + xnor2_1), same pin positions (mux A1, xnor A), and the same
+* nets on their other inputs (mux A0 = DOUT9, mux S = PH_B9, xnor B =
+* DOUT9) as design/sar_sequencer.sch's xmux9 / xxnor_compeff, so the two
+* comparator output nodes see equal, equally state-dependent capacitance.
+* Without this, OUTP is the heavier node and the latch is biased toward
+* COMP_OUT=1, a systematic 1.5-3 LSB input-referred offset -- see the
+* header's "COMPARATOR DIFFERENTIAL-OUTPUT LOAD BALANCING" section for the
+* measured numbers. Both outputs are deliberate no-connects.
+C {sky130_stdcells/mux2_1.sym} 1700 1700 0 0 {name=xdum_mux_n VNB=VGND VPB=VPWR}
+C {devices/lab_pin.sym} 1660 1680 0 0 {name=l_dummux_a0 lab=DOUT9}
+C {devices/lab_pin.sym} 1660 1720 0 0 {name=l_dummux_a1 lab=OUTN_NC}
+C {devices/lab_pin.sym} 1660 1760 0 0 {name=l_dummux_s lab=PH_B9}
+C {devices/lab_pin.sym} 1740 1700 0 0 {name=l_dummux_x lab=DUMLOAD_MUX_NC}
+C {sky130_stdcells/xnor2_1.sym} 1700 1850 0 0 {name=xdum_xnor_n VNB=VGND VPB=VPWR}
+C {devices/lab_pin.sym} 1640 1830 0 0 {name=l_dumxnor_a lab=OUTN_NC}
+C {devices/lab_pin.sym} 1640 1870 0 0 {name=l_dumxnor_b lab=DOUT9}
+C {devices/lab_pin.sym} 1760 1850 0 0 {name=l_dumxnor_y lab=DUMLOAD_XNOR_NC}
+
+* --- Half-LSB quantizer offset (issue #263, second pass). HALF_LSB_EN =
+* BUSY AND NOT(PH_B9): asserted from the PH_B9 -> PH_B8 edge (one whole
+* CLK period after the sampling switch opens, so the offset charge cannot
+* leak back into the input source) through PH_EOC, de-asserted for the
+* whole SAMPLE phase. See the header's "HALF-LSB QUANTIZER OFFSET"
+* section.
+C {sky130_stdcells/and2b_1.sym} 2200 1700 0 0 {name=xand_halflsb VNB=VGND VPB=VPWR}
+C {devices/lab_pin.sym} 2140 1680 0 0 {name=l_hl_an lab=PH_B9}
+C {devices/lab_pin.sym} 2140 1720 0 0 {name=l_hl_b lab=BUSY}
+C {devices/lab_pin.sym} 2260 1700 0 0 {name=l_hl_x lab=HALF_LSB_EN}
+C {sky130_stdcells/inv_1.sym} 2200 1800 0 0 {name=xinv_halflsb VNB=VGND VPB=VPWR}
+C {devices/lab_pin.sym} 2160 1800 0 0 {name=l_hln_a lab=HALF_LSB_EN}
+C {devices/lab_pin.sym} 2240 1800 0 0 {name=l_hln_y lab=HALF_LSB_ENN}
+
+* --- Offset cell, n side (the one that actually creates the +0.5 LSB shift
+* of TOP_P-TOP_N): one CDAC-unit-sized MiM cap from TOP_N to BOT_OFF_N,
+* whose bottom plate sits at VREFP while HALF_LSB_EN=0 (Moff_n_refp) and at
+* VCM while HALF_LSB_EN=1 (the Moff_n_cmn/Moff_n_cmp transmission pair --
+* VCM is mid-rail, so a single device would be a poor switch there).
+* Device flavours/sizes are copied from design/cdac/cdac_unit_cell.sch so
+* this cell's switch parasitics match a real array bit's.
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 1700 0 0 {name=Choff_n model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {devices/lab_pin.sym} 2600 1670 0 0 {name=l_offn_bot lab=BOT_OFF_N}
+C {devices/lab_pin.sym} 2600 1730 0 0 {name=l_offn_top lab=TOP_N}
+C {sky130_fd_pr/pfet_01v8.sym} 2800 1700 0 0 {name=Moff_n_refp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
+C {devices/lab_pin.sym} 2820 1730 0 0 {name=l_offn_p_d lab=BOT_OFF_N}
+C {devices/lab_pin.sym} 2780 1700 0 0 {name=l_offn_p_g lab=HALF_LSB_EN}
+C {devices/lab_pin.sym} 2820 1670 0 0 {name=l_offn_p_s lab=VREFP}
+C {devices/lab_pin.sym} 2820 1700 0 0 {name=l_offn_p_b lab=VDD}
+C {sky130_fd_pr/nfet_01v8.sym} 2800 1850 0 0 {name=Moff_n_cmn W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
+C {devices/lab_pin.sym} 2820 1820 0 0 {name=l_offn_n_d lab=BOT_OFF_N}
+C {devices/lab_pin.sym} 2780 1850 0 0 {name=l_offn_n_g lab=HALF_LSB_EN}
+C {devices/lab_pin.sym} 2820 1880 0 0 {name=l_offn_n_s lab=VCM}
+C {devices/gnd.sym} 2820 1850 0 0 {name=l_offn_n_b lab=GND}
+C {sky130_fd_pr/pfet_01v8.sym} 2800 2000 0 0 {name=Moff_n_cmp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
+C {devices/lab_pin.sym} 2820 2030 0 0 {name=l_offn_cp_d lab=BOT_OFF_N}
+C {devices/lab_pin.sym} 2780 2000 0 0 {name=l_offn_cp_g lab=HALF_LSB_ENN}
+C {devices/lab_pin.sym} 2820 1970 0 0 {name=l_offn_cp_s lab=VCM}
+C {devices/lab_pin.sym} 2820 2000 0 0 {name=l_offn_cp_b lab=VDD}
+
+* --- Offset cell, p side: the matching dummy. Identical cap and switch
+* devices to the n-side cell above, but with every gate tied off (VGND /
+* VPWR) so BOT_OFF_P is held at VREFP for the whole conversion and this
+* cell contributes NO offset. Its only job is to give TOP_P the same total
+* capacitance and the same switch junction parasitics as TOP_N, so the
+* DOUT9=1 and DOUT9=0 branches have the same gain.
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 2200 0 0 {name=Choff_p model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {devices/lab_pin.sym} 2600 2170 0 0 {name=l_offp_bot lab=BOT_OFF_P}
+C {devices/lab_pin.sym} 2600 2230 0 0 {name=l_offp_top lab=TOP_P}
+C {sky130_fd_pr/pfet_01v8.sym} 2800 2200 0 0 {name=Moff_p_refp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
+C {devices/lab_pin.sym} 2820 2230 0 0 {name=l_offp_p_d lab=BOT_OFF_P}
+C {devices/lab_pin.sym} 2780 2200 0 0 {name=l_offp_p_g lab=VGND}
+C {devices/lab_pin.sym} 2820 2170 0 0 {name=l_offp_p_s lab=VREFP}
+C {devices/lab_pin.sym} 2820 2200 0 0 {name=l_offp_p_b lab=VDD}
+C {sky130_fd_pr/nfet_01v8.sym} 2800 2350 0 0 {name=Moff_p_cmn W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
+C {devices/lab_pin.sym} 2820 2320 0 0 {name=l_offp_n_d lab=BOT_OFF_P}
+C {devices/lab_pin.sym} 2780 2350 0 0 {name=l_offp_n_g lab=VGND}
+C {devices/lab_pin.sym} 2820 2380 0 0 {name=l_offp_n_s lab=VCM}
+C {devices/gnd.sym} 2820 2350 0 0 {name=l_offp_n_b lab=GND}
+C {sky130_fd_pr/pfet_01v8.sym} 2800 2500 0 0 {name=Moff_p_cmp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
+C {devices/lab_pin.sym} 2820 2530 0 0 {name=l_offp_cp_d lab=BOT_OFF_P}
+C {devices/lab_pin.sym} 2780 2500 0 0 {name=l_offp_cp_g lab=VPWR}
+C {devices/lab_pin.sym} 2820 2470 0 0 {name=l_offp_cp_s lab=VCM}
+C {devices/lab_pin.sym} 2820 2500 0 0 {name=l_offp_cp_b lab=VDD}
 
 T {sar_adc_top: SAR ADC top-level integration (issue #56) -- see header for architecture, pin-convention normalization, and known integration gaps} -1300 -600 0 0 0.2 0.2 {}
