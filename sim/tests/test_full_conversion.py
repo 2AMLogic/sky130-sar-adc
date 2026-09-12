@@ -466,5 +466,151 @@ class TestWriteNodeTraceRecord(unittest.TestCase):
         self.assertIn("diagnostic/investigation only", text)
 
 
+class TestNodeTracePlanCommonModeProbes(unittest.TestCase):
+    """issue #265: node_trace_plan()/node_trace_measure_lines() must also
+    probe TOP_P/TOP_N (the comparator's own VINP/VINN), the node-level test
+    for DR-008's common-mode-headroom hypothesis."""
+
+    def test_plan_names_include_top_plate_probes(self):
+        plan = rc.node_trace_plan(1)
+        for entry in plan:
+            for key in ("top_p_mid", "top_n_mid", "top_p_pre", "top_n_pre"):
+                self.assertIn(key, entry["names"])
+
+    def test_measure_lines_probe_top_p_and_top_n_nodes(self):
+        plan = rc.node_trace_plan(5)
+        lines = rc.node_trace_measure_lines(plan)
+        top_p_lines = [ln for ln in lines if "find v(TOP_P)" in ln]
+        top_n_lines = [ln for ln in lines if "find v(TOP_N)" in ln]
+        # Two probes (mid, pre) per bit trial, ten bit trials.
+        self.assertEqual(len(top_p_lines), 2 * tb.N_BITS)
+        self.assertEqual(len(top_n_lines), 2 * tb.N_BITS)
+
+
+def _synthetic_cm_trace(corner_id, process, temp, supply, *, droop_from_phase):
+    """Build a run_node_trace_point()-shaped dict (with the TOP_P/TOP_N
+    fields write_cm_trace_record() reads) without invoking ngspice. Before
+    `droop_from_phase`, TOP_P/TOP_N straddle VCM symmetrically (a healthy
+    common mode) and the captured bit matches the ideal bit; from
+    `droop_from_phase` onward, the active side is parked near GND (mimicking
+    the measured mechanism) and every later bit is captured as 1 regardless
+    of its ideal value (mimicking the observed all-ones saturation)."""
+    vcm = 0.5 * supply
+    threshold = vcm
+
+    def hi(v: float) -> str:
+        return "1" if v > threshold else "0"
+
+    conversions = []
+    for conversion in rc.CM_TRACE_CONVERSIONS:
+        plan = rc.node_trace_plan(conversion)
+        frac = tb.input_fraction(conversion)
+        ideal_code = tb.ideal_code(frac)
+        sign_hi = frac > 0
+        phases = []
+        for entry in plan:
+            ideal_bit = (ideal_code >> entry["bit"]) & 1
+            if entry["phase"] < droop_from_phase:
+                top_p = vcm + (0.3 * supply if sign_hi else -0.3 * supply)
+                top_n = vcm - (0.3 * supply if sign_hi else -0.3 * supply)
+                captured_v = supply if ideal_bit else 0.0
+            else:
+                # active side parked near GND; common mode droops far below
+                # VCM regardless of which side is "active".
+                top_p = 0.05 * supply
+                top_n = 0.08 * supply
+                captured_v = supply  # saturates to 1 from here on
+            v = dict(
+                clk_mid=supply, clk_pre=0.0,
+                compout_mid=supply, compout_pre=captured_v,
+                compoutn_mid=supply, compoutn_pre=supply,
+                dout_post=captured_v,
+                top_p_mid=top_p, top_n_mid=top_n,
+                top_p_pre=top_p, top_n_pre=top_n,
+            )
+            phases.append(
+                dict(
+                    phase=entry["phase"], bit=entry["bit"], ideal_bit=ideal_bit, v=v,
+                    clk_mid_hi=hi(v["clk_mid"]), clk_pre_hi=hi(v["clk_pre"]),
+                    compout_mid_hi=hi(v["compout_mid"]), compout_pre_hi=hi(v["compout_pre"]),
+                    compoutn_mid_hi=hi(v["compoutn_mid"]), compoutn_pre_hi=hi(v["compoutn_pre"]),
+                    dout_post_hi=hi(v["dout_post"]),
+                )
+            )
+        conversions.append(
+            dict(conversion=conversion, fraction=frac, ideal_code=ideal_code, phases=phases)
+        )
+
+    return dict(
+        corner_id=corner_id, process_corner=process, temp_c=temp, supply_v=supply,
+        conversions=conversions, missing=[],
+        log_text=f"* synthetic log for {corner_id}\n", wall_s=1.0,
+    )
+
+
+class TestWriteCmTraceRecord(unittest.TestCase):
+    """write_cm_trace_record() (issue #265) must render the confirmed
+    common-mode-headroom mechanism from decoded per-phase TOP_P/TOP_N data,
+    identify the first mismatching bit trial, and never touch
+    records/LATEST (a targeted diagnostic, not the corner-campaign record)."""
+
+    def _write(self, traces: dict) -> tuple[Path, Path]:
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(netlist_text)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        try:
+            rc.EXPERIMENT_DIR = tmp_dir
+            evidence.resolve_provenance = fake_resolve
+            path = rc.write_cm_trace_record(traces, "* synthetic netlist\n")
+        finally:
+            rc.EXPERIMENT_DIR = real_dir
+            evidence.resolve_provenance = real_resolve
+        return path, tmp_dir
+
+    def test_confirmed_finding_and_first_mismatch_are_reported(self):
+        traces = {
+            "tt_27c_1.62v": _synthetic_cm_trace(
+                "tt_27c_1.62v", "tt", 27.0, 1.62, droop_from_phase=3
+            ),
+            "ff_27c_1.80v": _synthetic_cm_trace(
+                "ff_27c_1.80v", "ff", 27.0, 1.80, droop_from_phase=3
+            ),
+        }
+        path, tmp_dir = self._write(traces)
+        text = path.read_text()
+        self.assertIn("## Finding: CONFIRMED", text)
+        self.assertIn("First mismatch", text)
+        self.assertFalse((tmp_dir / "records" / "LATEST").exists())
+        for corner_id in traces:
+            self.assertTrue(
+                (tmp_dir / "diagnostics" / "REC" / f"cm-trace-{corner_id}.log").is_file()
+            )
+
+    def test_no_design_fix_is_proposed_in_this_record(self):
+        traces = {
+            "tt_27c_1.62v": _synthetic_cm_trace(
+                "tt_27c_1.62v", "tt", 27.0, 1.62, droop_from_phase=3
+            ),
+        }
+        path, _tmp_dir = self._write(traces)
+        text = path.read_text()
+        self.assertIn(
+            "This record confirms the mechanism; it does not fix it", text
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

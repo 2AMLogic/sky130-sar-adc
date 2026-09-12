@@ -47,6 +47,7 @@ toolchain (`sim/toolchain.json`). Other useful invocations:
 python3 sim/full-conversion-transient/run_conversion.py                 # baseline corner only
 python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
 python3 sim/full-conversion-transient/run_conversion.py --node-trace      # issue #259 node-level trace
+python3 sim/full-conversion-transient/run_conversion.py --cm-trace        # issue #265 common-mode trace
 python3 sim/full-conversion-transient/run_conversion.py --corners --record \
     --supersedes <record-id>   # name the prior record this one replaces (e.g. after a design/ fix)
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
@@ -93,7 +94,8 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | `corners/<record-id>/<corner-id>.log` | Raw ngspice output, one per ratified corner point. |
 | `diagnostics/<record-id>/*.log` | `--mechanism-probe` raw output (see below). Kept separate from `corners/` because one of the two runs is on a **modified** netlist and must never be read as a corner result. |
 | `diagnostics/<record-id>/node-trace-<corner-id>.log` | `--node-trace` raw output (issue #259, see below) — on the **unmodified** DUT, unlike the mechanism probe. |
-| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace` records are separate, targeted diagnostics and never update `LATEST`. |
+| `diagnostics/<record-id>/cm-trace-<corner-id>.log` | `--cm-trace` raw output (issue #265, see below) — on the **unmodified** DUT. |
+| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace` records are separate, targeted diagnostics and never update `LATEST`. |
 
 ## Deck assembly: the two load-bearing details
 
@@ -146,6 +148,48 @@ separates "the decision is made correctly and then destroyed before capture"
 comparator). Both would otherwise look identical — a stuck code. If that
 control ever stops discriminating, the record says so and explicitly refuses
 to conclude, rather than reporting the capture-edge finding as sufficient.
+
+## The common-mode trace (`--cm-trace`, issue #265)
+
+A third, targeted **diagnostic**, in the same "unmodified DUT, read-only
+`.meas` probes" family as `--node-trace`. Issue #263/#266 fixed the three
+structural defects `--node-trace` (issue #259) pinned down, and most of this
+experiment's own five-input schedule then converged — except the two
+near-full-scale inputs (`±0.78·V_REF`), which still fail badly and
+corner-invariantly (`+0.78·V_REF` saturates to code 1023 at every ratified
+corner). `--cm-trace` tests DR-008's own "Open items" leading hypothesis for
+that residual failure: that decision-directed single-side CDAC switching
+(the fix issue #263 landed) pushes the comparator's `TOP_P`/`TOP_N` input
+pair (its own `VINP`/`VINN`) out of its ~23 mV nominal common-mode headroom
+margin (DR-004) for large-magnitude codes. It traces `TOP_P`/`TOP_N` (added
+to `node_trace_plan()`'s probe set alongside the existing `COMP_OUT`/`CLK`
+probes) at conversions 1 and 5 — the `±0.78·V_REF` inputs themselves — at the
+same two corners `--node-trace` uses.
+
+**Finding: CONFIRMED**, and the mechanism is larger than DR-004's ~23 mV
+framing suggested. At the MSB trial (the "free" sign bit, decided directly
+off the sampled residual with no CDAC switching), `TOP_P`/`TOP_N` are simply
+the sampled `VINP`/`VINN` and their average is exactly `VCM` by construction.
+Once the magnitude bits begin, decision-directed switching gates one array
+side's `SEL*<i>` to 0 for the *whole* conversion, so that side's bottom
+plates — and its own top plate, with no other charge path once the sampling
+switch has opened — stay frozen at whatever the sampling phase left them at.
+The active side must then travel all the way to the frozen side's own
+sampled value to converge, and for a near-full-scale input the frozen side
+sits near a rail (measured: `TOP_N` pinned at ~0.20 V for the whole
+`+0.78·V_REF` conversion) — so the pair's common mode droops from `VCM`
+toward that near-rail value along with it. Measured worst-case droop:
+**600–755 mV** at both traced corners, roughly 30× DR-004's own ~23 mV
+margin figure — an input-magnitude-driven effect, not a PVT-margin one — and
+the captured code diverges from the ideal code at exactly the bit trial
+where the droop first flips the comparator's decision. See
+[issue #265](https://github.com/2AMLogic/sky130-sar-adc/issues/265) and its
+own `--cm-trace` evidence record for the full per-phase data and the
+recommendation (an architecture-level tradeoff among a common-mode-neutral
+CDAC switching scheme, a wider-common-mode comparator, or a documented
+reduced dynamic range — filed as
+[issue #267](https://github.com/2AMLogic/sky130-sar-adc/issues/267) rather
+than attempted here).
 
 ## Findings
 

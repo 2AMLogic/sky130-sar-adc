@@ -8,15 +8,23 @@
 - **Decided by**: Builder agent, issue #263
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
-- **Related**: #263 (this fix), #56 (the top-level integration that first
-  drew the `SELp<i>=DOUT<i>` / `SELn<i>=NOT(DOUT<i>)` wiring and explicitly
-  flagged it as a "STATED, DOCUMENTED WIRING DECISION, not a
-  verified-correct claim" pending a closed-loop conversion testbench),
+- **Related**: #263 (this fix), #265 (confirms this record's own "Open
+  items" leading hypothesis for the large-differential-input residual, with
+  a targeted `TOP_P`/`TOP_N` node-level trace — see "Open items" below),
+  #267 (the architecture-level follow-up #265's confirmed finding is filed
+  into), #56
+  (the top-level integration that first drew the `SELp<i>=DOUT<i>` /
+  `SELn<i>=NOT(DOUT<i>)` wiring and explicitly flagged it as a "STATED,
+  DOCUMENTED WIRING DECISION, not a verified-correct claim" pending a
+  closed-loop conversion testbench),
   `spec/decision-records/DR-003-numeric-spec-derivation.md` Item 3 (the
   `2^(N-1)`-per-side free-MSB array-size derivation this record's switching
   scheme must stay compatible with) and its "Open items" (which deferred
   "the exact switching sequence" to "a future DR when the CDAC design
-  starts"), `spec/decision-records/DR-005-cdac-array-design.md` (the CDAC
+  starts"), `spec/decision-records/DR-004-comparator-topology-and-noise-
+  budget.md` (the ~23 mV nominal common-mode headroom margin #265's trace
+  measures a much larger, input-magnitude-driven violation of),
+  `spec/decision-records/DR-005-cdac-array-design.md` (the CDAC
   *unit-cell* switch topology this record does NOT change — see "Decision"
   below), `design/sar_adc_top.sch`, `design/sar_sequencer.sch`,
   `sim/full-conversion-transient/` (the campaign this decision is verified
@@ -197,8 +205,8 @@ offset-binary output converter plays in many real SAR ADCs.
 
 ## Open items
 
-- **Large-differential-input (`±0.78·V_REF`) convergence.** Even with the
-  correction above, the two near-full-scale inputs in
+- **Large-differential-input (`±0.78·V_REF`) convergence — CONFIRMED (issue
+  #265).** Even with the correction above, the two near-full-scale inputs in
   `sim/full-conversion-transient/`'s own schedule fail badly and
   corner-invariantly (worst |error| 71–124 LSB for `-0.78·V_REF`, a
   corner-invariant 112 LSB — captured code pinned at 1023, the all-ones
@@ -208,20 +216,40 @@ offset-binary output converter plays in many real SAR ADCs.
   `sim/cdac-array-transfer/`'s own record shows the array itself is
   monotonic and correctly polarized at its own code 511 in isolation, so
   the defect is specific to the full mixed-signal loop, not the array's
-  own transfer function. Leading hypothesis, **not yet confirmed by a
-  targeted trace**: single-side switching gives large-magnitude codes a
-  much bigger top-plate common-mode excursion than the unconditional
-  complementary drive this record replaced (one side swings across most of
-  its own range while the other stays pinned at `VREFP`, instead of both
-  sides moving oppositely and partially canceling in common mode) — a
-  concern sharpened by `spec/decision-records/DR-004-comparator-topology-
-  and-noise-budget.md`'s own already-documented ~23 mV nominal
-  common-mode headroom margin for this comparator topology. Filed as a
-  separate follow-up issue rather than blocked on here, since confirming
-  and fixing it (if confirmed) is very plausibly an architecture-level
-  question (a common-mode-correction switching scheme, or a documented
-  reduced dynamic range) beyond this record's own switching-*polarity*
-  scope.
+  own transfer function.
+
+  Issue #265's `sim/full-conversion-transient/run_conversion.py --cm-trace`
+  (a targeted `TOP_P`/`TOP_N` node-level trace at conversions 1/5, the
+  `±0.78·V_REF` inputs themselves) **confirms** the leading hypothesis named
+  in this record's prior revision, and finds the mechanism larger than this
+  record's own ~23 mV-margin framing suggested: decision-directed
+  single-side switching gates one array side's `SEL*<i>` to 0 for the
+  *whole* conversion, so that side's top plate — with no other charge path
+  once the sampling switch has opened — stays frozen at whatever the
+  sampling phase left it at, while the active side must travel all the way
+  to the frozen side's own sampled value to converge. For a near-full-scale
+  input the frozen side sits near a rail (measured: `TOP_N` pinned at
+  ~0.20 V for the whole `+0.78·V_REF` conversion), so the pair's common
+  mode droops from `VCM` toward that near-rail value along with it —
+  measured worst-case droop **600–755 mV** at both traced corners
+  (`sim/full-conversion-transient/records/20260912-004251-bace13d.md`),
+  roughly 30× DR-004's own ~23 mV margin figure. This is an
+  input-magnitude-driven effect (present even at `tt`/27 °C/nominal supply),
+  not a PVT-margin one, and the captured code diverges from the ideal code
+  at exactly the bit trial where the droop first flips the comparator's
+  decision (confirmed directly in the trace's per-phase data).
+
+  **Not fixed by issue #265** — that record's own recommendation names the
+  fix as an architecture-level tradeoff among (1) a common-mode-neutral CDAC
+  switching scheme (would require a CDAC unit-cell redesign per DR-005,
+  which has no third/`VCM` rail to release onto), (2) a wider-common-mode
+  comparator (would require re-qualifying DR-004's noise/offset
+  characterization against a new topology), or (3) a documented, reduced
+  dynamic range via a new decision record superseding
+  `spec/target-spec.md`'s input-range row (CLAUDE.md: "a row that proves
+  unmeetable is superseded by a new decision record, never silently
+  loosened"). Choosing among these is filed as issue #267 rather than
+  attempted in issue #265's own diagnostic-only scope.
 - **A smaller, secondary residual**: the two moderate/mid-scale inputs that
   do NOT hit the large-signal defect (`+0.00·V_REF`, `+0.25·V_REF`) still
   read back consistently 2–3 LSB high (not within the ±1 LSB tolerance
