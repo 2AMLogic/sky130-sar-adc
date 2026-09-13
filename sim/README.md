@@ -92,6 +92,72 @@ exists. Once a real testbench lands, it adds an experiment directory alongside
 these and reuses the same two runners unchanged; these two stay as the
 regression that proves the plumbing still works.
 
+That exclusion is enforced, not merely stated: `sim/check_spec_coverage.py`
+fails if either experiment is listed as the bench for a spec row, or if either
+one's `tb.json` `claim` stops starting with `None` (see the next section).
+
+## Spec-row coverage index (T1 item 9)
+
+**Which spec row is addressed by which testbench, resting on which record, run
+with which command:** [`sim/spec-coverage.md`](spec-coverage.md), generated
+from [`sim/spec-coverage.json`](spec-coverage.json). Read that instead of
+opening every directory here.
+
+`klayout-tools/docs/design-evidence-tiers.md` item 9 grades three things no
+single campaign owns — **completeness** (a bench for every claimed row, no
+claim resting on prose), **cold start** (a documented invocation a third party
+can run from `docs/environment-setup.md`), and **pinning** (the PDK revision
+and tool versions each bench is claimed against). All three regress *silently*:
+adding one more claimed spec row without its bench fails the item while every
+individual campaign still looks green. So they are checked mechanically:
+
+```sh
+npm run check:spec-coverage      # part of npm run check:ci; no PDK needed
+npm run render:spec-coverage     # regenerate sim/spec-coverage.md after editing the JSON
+```
+
+What the check enforces (each failure mode has its own unit test in
+`sim/tests/test_spec_coverage.py` — a completeness check that cannot be made to
+fail proves nothing):
+
+- Every row of `spec/target-spec.md`'s **Target table** is indexed, with a
+  status matching what the spec itself says. A newly-added spec row fails until
+  it is indexed.
+- Every row carrying a claim has **≥ 1 committed bench and ≥ 1 committed
+  record**, and for numeric rows at least one of those records must cite
+  `spec/target-spec.md` in its own **Claim** field — the index cannot attach a
+  record to a row the record does not claim.
+- The one class allowed to have no bench (`unbenched`) is allowed **only on a
+  DRAFT row**, and only with a stated reason. Ratifying a row therefore
+  mechanically obliges a bench for it; `Sample rate` and `Power` are the two
+  rows deliberately in that state today, each with its reason recorded.
+- Each bench's **cold-start invocation** appears verbatim in the file the index
+  says documents it, passes only flags/subcommands its runner actually accepts,
+  and names the same script the record's own `Written by` footer names — so the
+  documented command cannot drift away from the private one an agent ran.
+- Every indexed record **pins** its PDK variant + `open_pdks` commit against
+  `sim/pdk.json`, its ngspice major against `sim/toolchain.json`'s floor, and
+  carries its DUT netlist SHA-256 (the per-record, xschem-side provenance —
+  stage 2's rule that an xschem version difference is a warning while the
+  netlist hash is the real pin).
+- The two harness proofs above are never counted, and any experiment directory
+  that has minted records but appears nowhere in the index is reported as an
+  **orphan** — a bench indexed by nothing is the same gap as a row benched by
+  nothing.
+
+What the check *cannot* tell you is whether a documented command reaches a
+result on **your** machine: `sim/harness/toolchain.py` enforces a hardcoded
+120 s ngspice timeout, and the `sar-sequencer-behavioral` transient exceeds it
+on a host slower than the one that minted its records (#133). That is a runner
+portability gap, not a gap in the evidence.
+
+No spec *value* lives in the checker. Row names and statuses come from
+`spec/target-spec.md`, the process-corner list from `sim/pdk.json`, and the
+ratified corner row is checked by *shape* (every PDK process corner; three
+points on each of the temperature and supply axes) rather than by a hardcoded
+−40/27/125 or 1.62/1.8/1.98 — `sim/harness/corners.py`'s own docstring rules
+out putting ratified spec numbers in harness code, and this check follows it.
+
 ## Directory / naming convention
 
 ```

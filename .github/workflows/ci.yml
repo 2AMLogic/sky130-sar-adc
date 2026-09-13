@@ -28,6 +28,17 @@ name: CI
 #     design/sar_adc_top.spice (the committed full-hierarchy netlist) does
 #     not match a fresh regeneration from the current design/*.sch sources —
 #     staleness is failure.
+#   - `sim/check_spec_coverage.py` (issue #31, T1 item 9) is also part of
+#     `check:ci` -> `checks` below, and is likewise headless (pure file
+#     reads, no PDK, no ngspice): it checks that every row of
+#     spec/target-spec.md's target table is indexed in sim/spec-coverage.json
+#     with a committed testbench and evidence record, that each bench's
+#     documented cold-start invocation is the one its record was actually
+#     minted with, and that every indexed record pins the PDK commit in
+#     sim/pdk.json and clears sim/toolchain.json's ngspice floor. This is the
+#     always-on gate against the silent regression that item 9 grades —
+#     adding one more claimed spec row without its bench, while every
+#     individual campaign still looks green.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict
