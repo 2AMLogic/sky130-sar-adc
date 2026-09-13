@@ -60,8 +60,8 @@ no verdict at all.
   skill needs none of that material to do its job (see "Why this is
   structural, not a promise" below).
 
-- `corporate/`, `money/`, or any other sibling repo holding entity, contract,
-  or financial material.
+- Any sibling repo holding entity, legal, contract, or financial material,
+  regardless of source.
 
 - Any git history, issue, or comment in the target canary repo, or in
   whatever repo this file is being run from, that itself quotes non-public
