@@ -55,6 +55,13 @@ row's 9.0/9.5/0.99 so an unqualified `--record` run is unchanged:
 
     python3 sim/enob-estimate/run_enob.py --cdac-mc-record <record-id> \
         --target-baseline-bit 7.5 --target-stretch-bit 8.0 --record
+
+Cold start (the exact invocation that minted the committed record, indexed
+by sim/spec-coverage.json for the ENOB row and checked against this
+docstring by sim/check_spec_coverage.py -- run it after the one-time
+bootstrap in docs/environment-setup.md and `source sim/env.sh`):
+
+    python3 sim/enob-estimate/run_enob.py --cdac-mc-record 20260828-005006-0c70212 --record
 """
 
 from __future__ import annotations

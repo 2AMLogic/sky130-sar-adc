@@ -156,6 +156,26 @@ this repo's ADC testbenches will run against once a design exists (issue
 #2's own self-test runs them against harness-proof circuits, not the ADC —
 see `sim/README.md` "Harness self-test experiments").
 
+### 6a. Reproducing a specific spec row's evidence
+
+Sections 1–3 above are the whole one-time bootstrap. From there, the
+**per-bench cold-start invocation** for every claimed `spec/target-spec.md`
+row — which testbench covers it, which record it rests on, and the exact
+command that mints that record — is `sim/spec-coverage.md`:
+
+```sh
+source sim/env.sh
+python3 sim/run_corners.py --check-env   # exit 3 = tools/PDK missing, 1 = pin drifted
+
+# then the row's own command from sim/spec-coverage.md, e.g.
+python3 sim/comparator-decision/run.py noise-corners --record
+```
+
+Those commands are the ones agents and the evidence records themselves
+actually use — `sim/check_spec_coverage.py` (run by `npm run check:ci`)
+fails if a documented invocation drifts from the one a record was minted
+with, or if a claimed spec row has no committed testbench at all.
+
 ## 7. Confirm the whole bootstrap in one command
 
 ```sh
@@ -163,7 +183,8 @@ sim/selftest.sh                # the harness acceptance test (a few minutes)
 sim/selftest.sh --quick        # unit tests + environment check only, no ngspice
 sim/selftest.sh --require-pdk  # fail rather than skip if ngspice/the PDK are missing
 
-npm run check:ci               # lint + unit tests + sim/selftest.sh
+npm run check:ci               # lint + unit tests + spec-row coverage + sim/selftest.sh
+npm run check:spec-coverage    # spec row -> testbench -> record index only (no PDK needed)
 npm run check:layout           # the klt DRC/LVS trivial-cell proof (layout/README.md)
 ```
 

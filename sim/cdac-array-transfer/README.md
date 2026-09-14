@@ -35,6 +35,20 @@ python3 sim/cdac-array-transfer/run_transfer.py --check-env
 python3 sim/cdac-array-transfer/run_transfer.py --record
 ```
 
+**Ratified-spec-row campaign (issue #28)** — the same DUT swept across the
+full ratified corner set and graded against the ratified `V_REF` / LSB /
+CDAC unit-cap-and-array-size rows, written as its own record (`--record`
+above still writes only the pre-ratification informational record; the two
+are independent flags, not a superseding pair):
+
+```sh
+python3 sim/cdac-array-transfer/run_transfer.py --ratified-record
+```
+
+That is the cold-start invocation `sim/spec-coverage.json` indexes for those
+three spec rows; `sim/check_spec_coverage.py` checks this file still
+documents it verbatim.
+
 It reuses `sim/harness/pdk.py`, `sim/harness/toolchain.py`,
 `sim/harness/measure.py`, and `sim/harness/evidence.py` unmodified (same PDK
 resolution, ngspice invocation/timeout/`.spiceinit` handling, `name = value`
