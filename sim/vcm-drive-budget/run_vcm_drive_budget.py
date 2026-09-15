@@ -118,6 +118,15 @@ DUT_FRAGMENT = (
     SIM_DIR / "sampling-frontend" / "testbench" / "sampling_frontend_dut.spice"
 )
 
+# The repo-relative path every record's `Written by` footer must name (issue
+# #274). Every other runner under sim/ already passes its own repo-relative
+# path to evidence.footer_lines(); this script passed the bare file name, so
+# its ten committed records name `run_vcm_drive_budget.py` with no directory.
+# sim/check_spec_coverage.py resolves that bare name against the record's own
+# experiment directory (same_runner()), so those records stay indexable; every
+# record minted from here on carries the unambiguous path instead.
+WRITTEN_BY = "sim/vcm-drive-budget/run_vcm_drive_budget.py"
+
 VDD_NOM = 1.8
 VCM_FRAC = 0.5  # VCM = VCM_FRAC * VDD (DR-003 Item 1, provisional)
 LSB_DIFF_MV_PROVISIONAL = 3.5156  # DR-003 Item 2, provisional pending #27
@@ -715,7 +724,7 @@ def write_corners_decouple_record(points: list[dict], point: str,
     )
     old_id = CORNERS_SUPERSEDES_RECORD[("decouple", window)]
     lines += evidence.footer_lines(
-        written_by="run_vcm_drive_budget.py",
+        written_by=WRITTEN_BY,
         supersedes=(
             f"[`records/{old_id}.md`]({old_id}.md) -- same full ratified "
             f"PVT-grid C_decouple sweep at the {window} window (each corner "
@@ -972,7 +981,7 @@ def write_corners_record(points: list[dict], point: str,
     )
     old_id = CORNERS_SUPERSEDES_RECORD[("rsource", window)]
     lines += evidence.footer_lines(
-        written_by="run_vcm_drive_budget.py",
+        written_by=WRITTEN_BY,
         supersedes=(
             f"[`records/{old_id}.md`]({old_id}.md) -- same full ratified "
             f"PVT-grid bare (undecoupled) R_source sweep at the {window} "
@@ -1114,7 +1123,7 @@ def write_record(all_results: dict) -> None:
         extra={"toolchain pin file": "sim/toolchain.json"},
     )
     lines += evidence.footer_lines(
-        written_by="run_vcm_drive_budget.py",
+        written_by=WRITTEN_BY,
         supersedes=(
             f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
             f"({SINGLE_CORNER_SEED_RECORD}.md) -- same single-corner "

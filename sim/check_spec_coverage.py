@@ -27,7 +27,11 @@ described in prose:
                 accepted by the runner, and the invocation names the same script
                 the record's own "Written by" footer names -- so the documented
                 command cannot drift away from the private one an agent actually
-                ran.
+                ran. "The same script" is a question about the FILE, not about
+                how a footer spells its path: see same_runner() for the one
+                spelling difference that is accepted (a bare file name, cited
+                from inside that runner's own experiment directory) and why it
+                is still unambiguous.
 
   PINNING       every indexed record states, in its own Environment section, a
                 PDK variant + open_pdks commit matching sim/pdk.json and an
@@ -59,7 +63,7 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Iterable, NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -84,7 +88,17 @@ CLAIM_CLASSES = {
 CLASSES_CITING_SPEC = {"ratified-measured", "draft-informational"}
 
 RE_PDK_LINE = re.compile(r"^- PDK:\s*(\S+)\s*@\s*([0-9a-fA-F]{7,40})\s*$", re.M)
-RE_NGSPICE_LINE = re.compile(r"^- ngspice:\s*ngspice-(\d+)", re.M)
+# `ngspice --version` reports "ngspice-<major>", which sim/harness/toolchain.py
+# extracts verbatim -- so the canonical line is "- ngspice: ngspice-46". Three
+# runners (issue #274) passed that already-prefixed string through one more
+# "ngspice " of their own, minting seven committed records that read
+# "- ngspice: ngspice ngspice-46". The runners now pass it through unchanged,
+# and the redundant prefix is tolerated here so those append-only records stay
+# readable: the property checked is the stated MAJOR, and the doubled word
+# changes nothing about it. Anything else between the colon and the version
+# still fails -- the major must be the version this line reports, not one
+# mentioned in passing.
+RE_NGSPICE_LINE = re.compile(r"^- ngspice:\s*(?:ngspice\s+)?ngspice-(\d+)", re.M)
 RE_NETLIST_SHA = re.compile(r"^- DUT netlist sha256:\s*`?([0-9a-f]{64})`?", re.M)
 RE_WRITTEN_BY = re.compile(r"Written by `([^`]+)`")
 RE_CLAIM = re.compile(r"^- \*\*Claim\*\*:\s*(.*)$", re.M)
@@ -165,6 +179,35 @@ def normalize_status(status_cell: str) -> str:
 
 def split_invocation(command: str) -> list[str]:
     return [tok for tok in command.split() if tok]
+
+
+def same_runner(runner_rel: str, written: str, rec_rel: str) -> bool:
+    """Does a record's `Written by` footer name the bench's own runner script?
+
+    The footer text is emitted by the runner itself (sim/harness/evidence.py's
+    footer_lines(), parameterized by whatever path the caller passes). Almost
+    every runner passes its repo-relative path, `sim/<experiment>/<run>.py`,
+    and that is the spelling to prefer -- but the property this check is here
+    to enforce is "the indexed record was minted by the indexed script", which
+    is a fact about the FILE, not about how one caller spelled its path.
+
+    So exactly one spelling difference is accepted: a BARE file name (no
+    directory at all), cited from a record that lives underneath that runner's
+    own experiment directory. Inside `sim/<experiment>/records/`, a bare
+    `run_x.py` can only denote `sim/<experiment>/run_x.py` -- there is no other
+    file it could resolve to -- so accepting it loses no provenance. Everything
+    else still fails `record-runner-mismatch`: a different file name (the
+    `sim/widget/other.py` case), and the same bare name cited by a record from
+    some OTHER experiment's directory, where it would genuinely be ambiguous.
+    """
+    if not runner_rel:
+        return False
+    if written == runner_rel:
+        return True
+    runner = PurePosixPath(runner_rel)
+    if written != runner.name:
+        return False
+    return str(PurePosixPath(rec_rel)).startswith(f"{runner.parent}/")
 
 
 class CoverageCheck:
@@ -535,7 +578,7 @@ class CoverageCheck:
             return
         written_tokens = split_invocation(match.group(1))
         runner_rel = bench.get("runner", "")
-        if written_tokens and written_tokens[0] != runner_rel:
+        if written_tokens and not same_runner(runner_rel, written_tokens[0], rec_rel):
             self.fail(
                 "record-runner-mismatch",
                 where,
