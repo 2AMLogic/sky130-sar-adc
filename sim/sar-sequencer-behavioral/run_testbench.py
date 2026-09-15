@@ -221,13 +221,14 @@ def run(record: bool) -> int:
         print("OVERALL: PASS" if all_pass else "OVERALL: FAIL")
 
         if record:
-            record_id = evidence.new_record_id()
-            record_path = evidence.write_netlist_snapshot(EXPERIMENT_DIR, record_id, dut_path)
+            prov = evidence.resolve_provenance(EXPERIMENT_DIR, dut_text)
+            record_id = prov.record_id
+            record_path = prov.record_path
             runs_dir = EXPERIMENT_DIR / "runs"
             runs_dir.mkdir(parents=True, exist_ok=True)
             (runs_dir / f"{record_id}.log").write_text(output)
 
-            net_sha = evidence.sha256_file(dut_path)
+            net_sha = prov.netlist_sha
             lines = [
                 f"# Record {record_id}",
                 "",
@@ -256,8 +257,8 @@ def run(record: bool) -> int:
             lines.append("")
             lines.extend(
                 evidence.environment_block(
-                    pdk_line=f"{pdk_info.variant} @ {pdk.resolved_commit(pdk_info)}",
-                    ngspice_line=toolchain._ngspice_version() or "unknown",
+                    pdk_line=prov.pdk_line,
+                    ngspice_line=prov.ng_version,
                     netlist_sha256=net_sha,
                 )
             )
@@ -356,19 +357,21 @@ def run_corner_campaign(record: bool, quiet: bool = False) -> int:
     binding = min(points, key=lambda p: p["worst_margin_v"])
 
     if record:
-        record_id = evidence.new_record_id()
         # dut_text (not dut_path) below: `dut_path` lived under the
         # TemporaryDirectory `with` block above, which has already been
         # cleaned up by this point -- use the in-memory netlist text
-        # (already captured into `dut_text`) via the text-accepting sibling
-        # helper instead of re-reading a now-deleted path.
-        record_path = evidence.write_netlist_snapshot_text(EXPERIMENT_DIR, record_id, dut_text)
+        # (already captured into `dut_text`) via resolve_provenance()'s
+        # text-accepting snapshot helper instead of re-reading a now-deleted
+        # path.
+        prov = evidence.resolve_provenance(EXPERIMENT_DIR, dut_text)
+        record_id = prov.record_id
+        record_path = prov.record_path
         corners_out_dir = EXPERIMENT_DIR / "corners" / record_id
         corners_out_dir.mkdir(parents=True, exist_ok=True)
         for p in points:
             (corners_out_dir / f"{p['corner_id']}.log").write_text(p["log_text"])
 
-        net_sha = evidence.sha256_text(dut_text)
+        net_sha = prov.netlist_sha
         process_corners_run = sorted({p["process_corner"] for p in points})
         temps_run = sorted({p["temp_c"] for p in points})
         supplies_run = sorted({p["supply_v"] for p in points})
@@ -434,8 +437,8 @@ def run_corner_campaign(record: bool, quiet: bool = False) -> int:
             lines.append("")
         lines.extend(
             evidence.environment_block(
-                pdk_line=f"{pdk_info.variant} @ {pdk.resolved_commit(pdk_info)}",
-                ngspice_line=toolchain._ngspice_version() or "unknown",
+                pdk_line=prov.pdk_line,
+                ngspice_line=prov.ng_version,
                 netlist_sha256=net_sha,
             )
         )
