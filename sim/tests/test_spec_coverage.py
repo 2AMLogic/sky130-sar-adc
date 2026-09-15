@@ -332,6 +332,32 @@ class TestFailureModes(unittest.TestCase):
         )
         self.assertIn("record-runner-mismatch", self.repo.codes())
 
+    def test_record_written_by_the_runners_bare_file_name_passes(self):
+        """A footer may name the runner by bare file name. From inside that
+        runner's own experiment directory there is exactly one file it can
+        denote, so the provenance is intact (issue #274: ten committed
+        sim/vcm-drive-budget/ records are written this way)."""
+        self.repo.write_record(
+            "sim/widget/records/20260101-000000-abc1234.md", written_by="run.py"
+        )
+        self.assertNotIn("record-runner-mismatch", self.repo.codes())
+
+    def test_bare_file_name_from_another_experiment_still_fails(self):
+        """The same bare name from OUTSIDE the runner's own directory is
+        genuinely ambiguous -- `sim/other/.../run.py` is a different file --
+        so it is not accepted."""
+        self.repo.write_record("sim/other/records/20260101-000000-abc1234.md", written_by="run.py")
+        self.repo.index["rows"][0]["benches"][0]["records"] = [
+            "sim/other/records/20260101-000000-abc1234.md"
+        ]
+        self.assertIn("record-runner-mismatch", self.repo.codes())
+
+    def test_bare_file_name_with_a_different_stem_still_fails(self):
+        self.repo.write_record(
+            "sim/widget/records/20260101-000000-abc1234.md", written_by="other.py"
+        )
+        self.assertIn("record-runner-mismatch", self.repo.codes())
+
     # -- pinning ------------------------------------------------------------
 
     def test_pdk_commit_drift_fails(self):
@@ -349,6 +375,37 @@ class TestFailureModes(unittest.TestCase):
     def test_ngspice_below_floor_fails(self):
         self.repo.write_record("sim/widget/records/20260101-000000-abc1234.md", ngspice=42)
         self.assertIn("ngspice-pin-drift", self.repo.codes())
+
+    def test_redundant_ngspice_word_is_tolerated(self):
+        """`- ngspice: ngspice ngspice-46` states the same major as the
+        canonical `- ngspice: ngspice-46` (issue #274: three runners passed
+        the already-prefixed version string through one more "ngspice " of
+        their own, minting seven append-only records that read this way)."""
+        rec = "sim/widget/records/20260101-000000-abc1234.md"
+        self.repo.write_record(rec)
+        text = (self.repo.root / rec).read_text(encoding="utf-8")
+        self.repo.write(rec, text.replace("- ngspice: ngspice-46", "- ngspice: ngspice ngspice-46"))
+        codes = self.repo.codes()
+        self.assertNotIn("ngspice-pin-missing", codes)
+        self.assertNotIn("ngspice-pin-drift", codes)
+
+    def test_redundant_ngspice_word_below_floor_still_fails(self):
+        """Tolerating the extra word must not stop the floor being read off
+        the major that follows it."""
+        rec = "sim/widget/records/20260101-000000-abc1234.md"
+        self.repo.write_record(rec, ngspice=42)
+        text = (self.repo.root / rec).read_text(encoding="utf-8")
+        self.repo.write(rec, text.replace("- ngspice: ngspice-42", "- ngspice: ngspice ngspice-42"))
+        self.assertIn("ngspice-pin-drift", self.repo.codes())
+
+    def test_ngspice_version_only_mentioned_in_prose_fails(self):
+        rec = "sim/widget/records/20260101-000000-abc1234.md"
+        self.repo.write_record(rec)
+        text = (self.repo.root / rec).read_text(encoding="utf-8")
+        self.repo.write(
+            rec, text.replace("- ngspice: ngspice-46", "- ngspice: unknown (probably ngspice-46)")
+        )
+        self.assertIn("ngspice-pin-missing", self.repo.codes())
 
     def test_missing_pdk_line_fails(self):
         self.repo.write("sim/widget/records/20260101-000000-abc1234.md", "no environment here\n")

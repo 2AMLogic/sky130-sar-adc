@@ -148,10 +148,63 @@
     {
       "parameter": "Sample rate",
       "status": "DRAFT",
-      "claim_class": "unbenched",
-      "reason": "Deliberately unbenched, not overlooked: spec/target-spec.md's own 'Not ratified by this record' list names the provisional 100 kS/s-1 MS/s row as not re-derived, and no record under sim/ claims it. Benching it needs a switch-R_on/settling campaign against the integrated signal path, which would produce a number no ratified line exists to grade -- and CLAUDE.md forbids inventing one. A future decision record ratifies the row first; this index then requires its bench, because a RATIFIED row may never carry claim_class 'unbenched'.",
-      "tracking": "#24 (CDAC/switch netlist) and the future sample-rate decision record",
-      "benches": []
+      "claim_class": "draft-informational",
+      "note": "DRAFT row (provisional 100 kS/s-1 MS/s), NOT re-derived and NOT closed by anything indexed here. This row was claim_class 'unbenched' until issue #274, on the reason that benching it 'needs a switch-R_on/settling campaign against the integrated signal path'. That campaign has since been run, in pieces: the benches below are the settling/delay mechanism campaigns docs/chipalooza/challenge-4-proposal.md Section 7 Item 2 names, plus the end-to-end whole-ADC transient that Section 7's own summary says a future decision record needs BEFORE the row can be re-derived. So the reason no longer describes the tree, and the evidence is indexed rather than left orphaned -- but the class is 'draft-informational' for the same standard the ENOB and INL/DNL rows are held to: every record below is reported INFORMATIONALLY, each one states in its own Claim field that it is not graded against a ratified row, and not one of them proposes a sample rate. The DR-006 phase budgets they measure against are themselves downstream of this DRAFT row, so they bound mechanisms, they do not close the row. Section 7 Item 2 stays open; a future decision record still ratifies the number first.",
+      "tracking": "#24 (CDAC/switch netlist), docs/chipalooza/challenge-4-proposal.md Section 7 Item 2 (end-to-end rate still unmeasured) and Item 6 (no on-chip VCM buffer exists for the budget below to size), and the future sample-rate decision record",
+      "benches": [
+        {
+          "experiment": "cdac-bit-trial-settling",
+          "runner": "sim/cdac-bit-trial-settling/run_bit_trial_settling.py",
+          "testbench": [],
+          "testbench_note": "No committed deck of its own: the runner states a single-side, single-free-bit reduction of design/cdac/cdac_array.sch in-line (see its module docstring's METHOD section for why no existing regenerated fragment isolates that topology), at the schematic's own W/L/MF values. Each corner's assembled deck is committed as raw evidence under sim/cdac-bit-trial-settling/corners/.",
+          "cold_start": "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --corners --record",
+          "documented_in": "sim/cdac-bit-trial-settling/run_bit_trial_settling.py",
+          "covers": "Mechanism (a) of Section 7 Item 2: how long the CDAC array's own bottom-plate switch network takes to settle the shared top-plate node after one bit's SEL toggles, over the full ratified corner set. Informational against this DRAFT row -- it is compared to the DR-006-derived phase period, which is itself downstream of this row, and proposes no sample rate.",
+          "records": ["sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md"]
+        },
+        {
+          "experiment": "sequencer-logic-delay",
+          "runner": "sim/sequencer-logic-delay/run_sequencer_logic_delay.py",
+          "testbench": [],
+          "testbench_note": "No committed deck of its own: the runner xschem-netlists design/sar_sequencer.sch fresh on each invocation (the DUT netlist sha256 in every record is that netlist's hash) and wraps it in the stimulus stated in-line, reusing sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice's own probe-time convention. Each corner's assembled deck is committed under sim/sequencer-logic-delay/corners/.",
+          "cold_start": "python3 sim/sequencer-logic-delay/run_sequencer_logic_delay.py --corners --record",
+          "documented_in": "sim/sequencer-logic-delay/run_sequencer_logic_delay.py",
+          "covers": "Mechanism (c) of Section 7 Item 2: the SAR sequencer's own CLK-to-phase-output logic delay across all 11 ring-sequencer phase transitions, over the full ratified corner set. Informational against this DRAFT row, on the same DR-006-downstream yardstick; proposes no sample rate.",
+          "records": ["sim/sequencer-logic-delay/records/20260906-230516-0904419.md"]
+        },
+        {
+          "experiment": "sampling-acquisition-settling",
+          "runner": "sim/sampling-acquisition-settling/run_acquisition_settling.py",
+          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
+          "testbench_note": "Reuses the sampling front end's own committed DUT fragment unmodified, read in place rather than duplicated (the same convention sim/sampling-frontend/run_hold_kick.py set); only the stimulus and the .meas set are stated by the runner.",
+          "cold_start": "python3 sim/sampling-acquisition-settling/run_acquisition_settling.py --corners --record",
+          "documented_in": "sim/sampling-acquisition-settling/run_acquisition_settling.py",
+          "covers": "Mechanism (d) of Section 7 Item 2: how close the bootstrapped sampling switch gets to a new worst-case (rail-to-rail differential) input by the end of the DR-006 worst-case acquisition window, over the full ratified corner set. This is the mechanism that did NOT clear that budget before issue #236 and does after; the record reports that informationally against a provisional-LSB reference scale, not as pass/fail against this DRAFT row.",
+          "records": ["sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md"]
+        },
+        {
+          "experiment": "vcm-drive-budget",
+          "runner": "sim/vcm-drive-budget/run_vcm_drive_budget.py",
+          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
+          "testbench_note": "Same unmodified sampling front-end DUT fragment as the bench above, read in place; the runner replaces only that deck's ideal Vvcm source with an ideal source in series with the swept R_source (plus optional C_decouple).",
+          "cold_start": "python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record",
+          "documented_in": "sim/vcm-drive-budget/run_vcm_drive_budget.py",
+          "covers": "The interface precondition on mechanism (d): how much external VCM drive resistance (and how much on-die decoupling) the front end tolerates while still acquiring within the DR-006 windows this DRAFT row derives, over the full ratified corner set. Indexed here -- rather than under a row of its own -- because it measures the SAME quantity as the bench above (differential sampled-value error at the end of the acquisition window) with the VCM drive made non-ideal, and its yardstick windows come from this row; Section 7 Item 6 is explicit that it quantifies rather than closes its gap, and it proposes no sample rate and edits no spec row. The cited record is the post-issue-#236 bare-R_source full-grid leg; the other three legs (legacy window, and C_decouple at both windows) are separate records in the same directory, cited in Section 7 Item 6.",
+          "records": ["sim/vcm-drive-budget/records/20260908-100413-f3e2914.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record's own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB, though the 12-period phase structure is correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate.",
+          "records": ["sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md"]
+        }
+      ]
     },
     {
       "parameter": "ENOB",
@@ -260,10 +313,23 @@
     {
       "parameter": "Power",
       "status": "DRAFT",
-      "claim_class": "unbenched",
-      "reason": "Deliberately unbenched, not overlooked: the row's own target text is 'provisional, minimise at rate' with the note 'report, don't pre-commit'. There is no threshold to grade against, so a power bench would produce a number with no ratified line to pass or fail -- and inventing one is exactly what CLAUDE.md's spec-is-a-gate rule forbids. If a future decision record ratifies a power row, this index's ratified-row rule then forces a bench for it.",
-      "tracking": "future power decision record (none open)",
-      "benches": []
+      "claim_class": "draft-informational",
+      "note": "DRAFT row, target text 'provisional, minimise at rate' with the note 'report, don't pre-commit'. There is still no threshold to grade against, so nothing here is a pass/fail claim -- but 'report' is exactly what the bench below now does: issue #254's end-to-end campaign carries the first supply- and reference-current measurement of any kind on this block (per-rail `.meas tran avg i(...)` over a whole steady-state conversion, at every point of the ratified corner set). It is indexed here, informationally, rather than left orphaned. This row was claim_class 'unbenched' until issue #274; the stated reason (no bench exists, and a number with no ratified line to grade it against would be one CLAUDE.md forbids inventing) is why the class is 'draft-informational' rather than 'ratified-measured', and why no power target is proposed anywhere in this index or in the record. If a future decision record ratifies a power row, this index's ratified-row rule then requires a bench graded against it.",
+      "tracking": "future power decision record (none open); docs/chipalooza/challenge-4-proposal.md Section 4's Power row carries the current reported figures",
+      "benches": [
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target.",
+          "records": ["sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md"]
+        }
+      ]
     },
     {
       "parameter": "Corners",

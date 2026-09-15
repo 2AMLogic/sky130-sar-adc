@@ -718,7 +718,7 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
     a("")
 
     lines.extend(evidence.environment_block(
-        pdk_line, f"ngspice {ng_version}", netlist_sha,
+        pdk_line, ng_version, netlist_sha,
         extra={
             "Corner/temp/VDD": "tt / 27C / 1.8V (single point, first-pass)",
             "tran step": f"{TRAN_STEP_PS} ps",
@@ -983,7 +983,7 @@ def write_corners_record(points: list[dict]) -> Path:
     a("")
 
     lines.extend(evidence.environment_block(
-        pdk_line, f"ngspice {ng_version}", netlist_sha,
+        pdk_line, ng_version, netlist_sha,
         extra={
             "tran step": f"{TRAN_STEP_PS} ps",
             "tran window": f"{CORNERS_TRAN_STOP_NS:.0f} ns (widened from the "

@@ -129,12 +129,20 @@ fail proves nothing):
   record to a row the record does not claim.
 - The one class allowed to have no bench (`unbenched`) is allowed **only on a
   DRAFT row**, and only with a stated reason. Ratifying a row therefore
-  mechanically obliges a bench for it; `Sample rate` and `Power` are the two
-  rows deliberately in that state today, each with its reason recorded.
+  mechanically obliges a bench for it. `Sample rate` and `Power` were the two
+  rows in that state; as of issue #274 **no row is**, because the campaigns
+  their stated reasons said were missing have since been run and are now
+  indexed — `draft-informational`, the same class `ENOB` and `INL / DNL` carry,
+  so the evidence is recorded without being graded against an unratified
+  number. Neither row is thereby closed: see each row's `note` in
+  `sim/spec-coverage.json`.
 - Each bench's **cold-start invocation** appears verbatim in the file the index
   says documents it, passes only flags/subcommands its runner actually accepts,
   and names the same script the record's own `Written by` footer names — so the
-  documented command cannot drift away from the private one an agent ran.
+  documented command cannot drift away from the private one an agent ran. That
+  last one is a question about the *file*, not about how a footer spells its
+  path: a bare file name, cited from inside that runner's own experiment
+  directory, resolves to exactly one script and is accepted (`same_runner()`).
 - Every indexed record **pins** its PDK variant + `open_pdks` commit against
   `sim/pdk.json`, its ngspice major against `sim/toolchain.json`'s floor, and
   carries its DUT netlist SHA-256 (the per-record, xschem-side provenance —
