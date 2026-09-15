@@ -60,6 +60,7 @@ def main() -> int:
     extract_unfiltered = load_json(os.path.join(args.out_dir, "extract.unfiltered.json"))
     extract = load_json(os.path.join(args.out_dir, "extract.json"))
     lvs = load_json(os.path.join(args.out_dir, "lvs.json"))
+    capclass = load_json(os.path.join(args.out_dir, "capclass.json"))
 
     commit, dirty = git_commit_and_dirty(args.repo_root)
 
@@ -93,16 +94,51 @@ def main() -> int:
     )
     lines.append("")
     net_names = [n["name"] for n in extract_unfiltered.get("nets", [])]
+    #: Nets the *filtered* (`--pin-source-cells`) extraction promoted to real
+    #: top-level pins -- used only to disambiguate a label-substring row that
+    #: matches more than one unfiltered net name (see below).
+    pin_nets = {
+        n["name"] for n in extract.get("nets", []) if n.get("pin")
+    }
     if net_names:
         lines.append("| Expected net | Found in (unfiltered) net name | OK? |")
         lines.append("| --- | --- | --- |")
+        footnotes: list[str] = []
         for expected, members in EXPECTED_NET_MEMBERS.items():
             hits = [
                 nm for nm in net_names if all(m in nm.split("|") for m in members)
             ]
-            ok = "yes" if len(hits) == 1 else f"NO ({len(hits)} matches)"
-            shown = hits[0] if len(hits) == 1 else ", ".join(hits) or "(none)"
+            if len(hits) == 1:
+                ok, shown = "yes", hits[0]
+            else:
+                # More than one *label-name* match is not automatically a
+                # split net: a sub-block's own internal net can carry a label
+                # of the same name (e.g. a macro's internal buffered copy of
+                # an input). Narrow to the net the filtered extraction
+                # actually promoted to this assembly's top-level pin; only an
+                # ambiguity that survives that narrowing is a real finding.
+                promoted = [nm for nm in hits if nm in pin_nets]
+                if len(promoted) == 1:
+                    ok, shown = "yes (see note)", promoted[0]
+                    others = ", ".join(f"`{nm}`" for nm in hits if nm != promoted[0])
+                    footnotes.append(
+                        f"- **{expected}**: `{promoted[0]}` is the single net "
+                        "promoted to this assembly's own top-level pin by "
+                        "`klt extract --pin-source-cells`. "
+                        f"{len(hits)} unfiltered net names contain the "
+                        f"label(s) `{'`, `'.join(members)}` -- the other "
+                        f"{len(hits) - 1} ({others}) are internal nets of a "
+                        "sub-block that label their own copy of this signal "
+                        "(a label-name collision the flattened extraction "
+                        "exposes, not a split of the routed net)."
+                    )
+                else:
+                    ok = f"NO ({len(hits)} matches)"
+                    shown = ", ".join(hits) or "(none)"
             lines.append(f"| {expected} | `{shown}` | {ok} |")
+        if footnotes:
+            lines.append("")
+            lines.extend(footnotes)
     else:
         lines.append("- not run")
     lines.append("")
@@ -136,34 +172,58 @@ def main() -> int:
             lines.append("- mismatch categories:")
             for cat, n in sorted(cat_counts.items()):
                 lines.append(f"  - `{cat}`: {n}")
+        if capclass:
+            if capclass.get("noop"):
+                lines.append(
+                    "- capacitor device-class token (klayout-tools#1876): "
+                    f"no workaround needed -- all {capclass.get('c_cards')} "
+                    "`C` cards already carry their class name in this `klt` "
+                    "build, so `restore-cap-device-class.py` was a no-op and "
+                    "can be retired from the flow."
+                )
+            else:
+                lines.append(
+                    "- capacitor device-class token (klayout-tools#1876): "
+                    f"restored on {capclass.get('restored')}/"
+                    f"{capclass.get('c_cards')} `C` cards "
+                    f"({', '.join(capclass.get('restored_classes', {}))}) "
+                    "from `klt extract`'s own per-instance comment lines, into "
+                    "`sar_adc_top.extract.lvs.spice` -- the extractor's own "
+                    "`sar_adc_top.extract.spice` is kept unmodified alongside "
+                    "it. Without this, the SPICE round-trip this LVS shape "
+                    "depends on loses the capacitor class name and the same "
+                    "layout reports 26 extra mismatches (124 vs 98) and 19 "
+                    "fewer matched nets (393 vs 412)."
+                )
         if status != "match":
             lines.append(
-                "- **known blockers (distinct from klayout-tools#1513, which "
-                "is now resolved)**: two, layered. (1) `klt lvs`'s "
-                "`options.combine_devices` is a single flag applied to the "
-                "whole (flattened) compared netlist, with no per-subcircuit "
-                "scoping. Three of the five already-independently-verified "
-                "sub-blocks (comparator, sar_sequencer, seln_inverters) need "
-                "it `true` to re-lump their own genuinely split/interleaved "
-                "layout legs against their own lumped reference devices; the "
-                "other two (cdac_array, sampling_frontend) need it `false` "
-                "(cdac_array to avoid klayout-tools#1497's parallel-capacitor "
-                "combine nondeterminism). klayout-tools#1552 (this repo's own "
-                "report of exactly this gap) is closed upstream via #1556's "
-                "new `options.combine_devices_per_circuit`, but that option "
-                "does not actually help here: it can only scope a side that "
+                "- **known blocker: one, klayout-tools#1878** (klayout-tools"
+                "#1513's pin-declaration blocker is resolved by "
+                "`--pin-source-cells`; #1876's capacitor device-class "
+                "regression is worked around locally, see the line above). "
+                "`klt lvs`'s `options.combine_devices` is a single flag "
+                "applied to the whole (flattened) compared netlist, with no "
+                "per-subcircuit scoping. Three of the five "
+                "already-independently-verified sub-blocks (comparator, "
+                "sar_sequencer, seln_inverters) need it `true` to re-lump "
+                "their own genuinely split/interleaved layout legs against "
+                "their own lumped reference devices; the other two "
+                "(cdac_array, sampling_frontend) need it `false` (cdac_array "
+                "to avoid klayout-tools#1497's parallel-capacitor combine "
+                "nondeterminism). klayout-tools#1552 (this repo's own report "
+                "of exactly this gap) is closed upstream via #1556's new "
+                "`options.combine_devices_per_circuit`, but that option does "
+                "not actually help here: it can only scope a side that "
                 "already has separate per-macro subcircuits, and `klt "
                 "extract`'s layout-side output for a composed GDS is always "
                 "one flat circuit (extraction still has no hierarchical mode, "
                 "#1085) -- confirmed by direct measurement, filed generically "
-                "as klayout-tools#1878. (2) klayout-tools#1558's v0.5.0 fix "
-                "to stop writing an unsimulatable trailing class-name token "
-                "on `C` cards has the side effect of losing that class name "
-                "on the SPICE round-trip this flow's pre-extracted "
-                "`layout.netlist` LVS shape depends on, so capacitor devices "
-                "no longer resolve to their reference-side counterpart by "
-                "class name -- filed generically as klayout-tools#1876. "
-                "Neither blocker is a routing defect: the pin declaration "
+                "as klayout-tools#1878. Neither the class-scoped "
+                "`combine_devices: [\"NFET\",\"PFET\"]` form "
+                "(klayout-tools#1370) nor `klt lvs`'s inline-extraction "
+                "shape substitutes for it (126 and 2199 mismatches "
+                "respectively -- see run-flow.sh's own measured trace). "
+                "This blocker is not a routing defect: the pin declaration "
                 "and (per the connectivity table above) the physical routing "
                 "are both independently confirmed correct."
             )

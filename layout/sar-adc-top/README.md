@@ -16,10 +16,13 @@ The LVS *pin-declaration* blocker (klayout-tools#1513) is resolved.
 `layout/requirements.txt` now pins the officially-released
 `klayout-tools==0.5.0` (published 2026-09-15) instead of the unofficial
 `SAR_ADC_TOP_KLT` env-var override this flow used to need — that override is
-retired. LVS itself still does not reach a clean match: what was one open
-tool gap (klayout-tools#1552) is now two, after re-running against the
-officially pinned 0.5.0 build — see "LVS device/topology blocker" below for
-the full, current trace.**
+retired. LVS itself still does not reach a clean match, but is now blocked on
+exactly **one** open tool gap (klayout-tools#1878): the second gap the 0.5.0
+bump exposed (klayout-tools#1876, capacitor device-class identity lost on the
+SPICE round-trip) is **worked around locally** by this flow's own
+`bin/restore-cap-device-class.py`, which recovers the pre-regression
+verdict — 98 mismatches / 412 matched nets, against 124 / 393 without it. See
+"LVS device/topology blocker" below for the full, current trace.**
 
 **Re-run for issue #245** (`layout/sampling-frontend/`'s own re-verification
 after issue #236's `Sa`/`Cmsw` sizing change), record
@@ -751,6 +754,82 @@ device-level correctness at the composed scale (already independently
 verified at each sub-block's own scope, #99–#102's own closed, clean LVS
 records), now blocked on two upstream tool gaps instead of one.
 
+### Update: klayout-tools#1876 worked around locally; one blocker left
+
+Gap 2 above (the capacitor device-class token) turned out to be **locally
+recoverable without touching `klt`**, so this flow no longer carries it.
+`klt extract` still *states* every extracted instance's device class — in
+that instance's own provenance comment, written immediately above the card
+it describes:
+
+```
+* device instance $866 r0 *1 0,0.35 sky130_fd_pr__model__cap_mim
+C$866 \$423 TOP_P|VINP 8.647288e-15
+```
+
+`bin/restore-cap-device-class.py` (added this increment, run by `run-flow.sh`
+between step 7's `klt extract` and its `klt lvs`) copies that class name —
+the extractor's own statement of the class, not an assumption made here —
+back onto the `C` card, reproducing byte-for-byte the shape `klt extract`
+itself wrote before #1558. Three properties make this a workaround rather
+than a fudge:
+
+- **It only ever appends a class token to a `C` card** whose last field is a
+  bare numeric value, taken from the `* device instance` comment for *that
+  same instance name*; a mismatch or a missing comment is a hard error
+  (exit 1), never a guess. Every other line is copied verbatim.
+- **It writes a separate artifact.** The record keeps `klt extract`'s own
+  unmodified `sar_adc_top.extract.spice` *and* the annotated
+  `sar_adc_top.extract.lvs.spice` the LVS request consumes, so the whole
+  transformation is a one-token-per-`C`-card diff a reviewer can audit.
+- **It retires itself.** A card that already carries its class is left
+  alone, so the step becomes a no-op the moment klayout-tools#1876 is fixed
+  upstream — `capclass.json`'s `"restored": 0` / `"noop": true` is the
+  signal that the flow can drop it, with no behavioural change in between.
+
+With it in place, against the same officially pinned 0.5.0 build
+(`reports/20260915-222624-10afb15/`):
+
+| | layout | reference | matched |
+| --- | --- | --- | --- |
+| pins | 19 | 19 | 19 |
+| devices | 869 | 869 | 794 |
+| nets | 444 | 446 | **412** |
+
+— `status: mismatch`, `device.unmatched: 75`, `net.merged: 12`,
+`net.split: 10`, `topology.flattened: 1`; **98 total mismatches**, and the
+`topology: 2` ("device class could not be mapped to a counterpart") category
+is gone entirely. That is *exactly* the pre-0.5.0 breakdown — i.e. the #1876
+regression is fully accounted for and neutralised locally, and what remains
+is the single, long-standing `combine_devices`-scoping gap
+(klayout-tools#1878). The remaining 75 unmatched devices are **all
+reference-side**, and break down exactly along that gap's own
+opposing-settings fault line: 43 NFETs (9 in `seln_inverters`, 18
+`cdac_array` bit-cell devices, 11 in `sampling_frontend`, 5 in
+`comparator`), 24 MiM capacitors (20 of `cdac_array`'s weighted/terminating
+caps plus `sampling_frontend`'s 4 boot/sample caps), and 8
+`sampling_frontend` PFETs — i.e. the blocks that need folding and the blocks
+that must *not* be folded, both mis-served by one whole-request flag.
+
+Two further shapes were measured this increment and are recorded here so a
+later pass does not re-try them blind:
+
+- **Class-scoped `combine_devices: ["NFET","PFET"]`** (klayout-tools#1370's
+  device-class restriction — the closest thing `klt lvs` has to scoping that
+  is *not* per-circuit): **126 mismatches**, with device matching identical
+  (794/869). Device class cannot separate the FET legs that need folding
+  from the ones that must not be folded, because both families are FETs.
+- **`klt lvs`'s inline-extraction shape** (`layout.file` + `deck` +
+  `pin_source_cells`, which would sidestep #1876's SPICE round-trip
+  altogether, and which `layout/sampling-frontend/` uses at its own scope):
+  **2199 mismatches**, `status: inconclusive`, with a
+  `device.combine_incomplete` warning. It compares the *raw* extracted
+  netlist (1893 devices) on which KLayout's own `Netlist.combine_devices()`
+  exhausts its retry budget, where the pre-extracted shape starts from `klt
+  extract`'s own already-folded 869 devices. So the inline shape is not a
+  substitute here even though it avoids #1876 — which is why the workaround
+  above, not a shape change, is the right fix for that gap in this flow.
+
 ## Remaining work (tracked against #103)
 
 - [x] Place all five blocks via `klt gen-compose` `placement.strategy:
@@ -809,19 +888,22 @@ remain tool-blocked, as of this record:
   `SAR_ADC_TOP_KLT` override, and since this issue's own `klayout-tools==0.5.0`
   pin bump, via the officially pinned `klt`) — `klt lvs` runs with an exact
   19/19/19 pin correspondence instead of refusing to seed a comparison at
-  all. It still reports `mismatch`: the original `combine_devices` scoping
-  gap (klayout-tools#1552) is closed upstream but its fix
-  (`combine_devices_per_circuit`) does not actually apply to this
-  composition's flat layout-side extraction (klayout-tools#1878), and 0.5.0
-  additionally introduced a capacitor device-class round-trip regression
-  (klayout-tools#1876) that was not present before this bump.
+  all. It still reports `mismatch`, now blocked on exactly one gap: the
+  original `combine_devices` scoping gap (klayout-tools#1552) is closed
+  upstream but its fix (`combine_devices_per_circuit`) does not actually
+  apply to this composition's flat layout-side extraction
+  (klayout-tools#1878). The capacitor device-class round-trip regression
+  0.5.0 additionally introduced (klayout-tools#1876) no longer contributes:
+  `bin/restore-cap-device-class.py` neutralises it locally and
+  self-retires once it is fixed upstream (98 mismatches / 412 matched nets,
+  back to the pre-regression breakdown).
 - **Item 7 (post-layout verification via `klt pex`)**: **not attempted,
   blocked on item 4.** `klt pex` is implemented upstream (unlike the tooling
   gap #103's own body anticipated when filed), but extracting parasitics
   presumes the device/net correspondence a clean LVS match would establish;
   running it against a netlist `klt lvs` itself cannot yet confirm
   corresponds to the schematic would not produce meaningful top-level
-  evidence. Left for the follow-up that resolves klayout-tools#1878/#1876.
+  evidence. Left for the follow-up that resolves klayout-tools#1878.
 
 ## Provenance
 
@@ -846,7 +928,7 @@ at the time, and PyPI had not yet published a release newer than that.
 as ancestors. `layout/requirements.txt` now pins `klayout-tools==0.5.0`, and
 `layout/sar-adc-top/bin/run-flow.sh`'s `SAR_ADC_TOP_KLT` override is
 retired — `reports/20260915-120341-1e90b14/` onward (current:
-`reports/20260915-213439-bf2256f/`) is generated entirely
+`reports/20260915-222624-10afb15/`) is generated entirely
 from the officially pinned `layout/.venv/bin/klt`, reproducible by any third
 party via the ordinary `layout/bin/setup-venv.sh` + `layout/sar-adc-top/bin/
 run-flow.sh` invocation, with no extra build step. See "Update: re-run
@@ -858,4 +940,8 @@ flow's specific pre-extracted-netlist LVS shape (klayout-tools#1876), and
 `combine_devices_per_circuit` itself does not close the original
 `combine_devices` scoping gap for this composition's flat layout-side
 extraction (klayout-tools#1878). Both are real, currently-open upstream
-gaps, not resolved by this pin bump alone.
+gaps, not resolved by this pin bump alone — but only #1878 still costs this
+flow anything: #1876 is neutralised locally by
+`bin/restore-cap-device-class.py` (see "Update: klayout-tools#1876 worked
+around locally" above), which needs no `klt` build change and retires itself
+when the upstream fix lands.
