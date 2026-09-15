@@ -309,10 +309,43 @@ per this repo's friction protocol. That issue has since closed too, fixed
 by klayout-tools#1556 (commit `5598e540`) — but like klayout-tools#1515
 before it, the fix has not reached a published release: `klayout-tools` is
 still at `v0.4.0` on both PyPI and the upstream repo's own tags, predating
-both fixes. See
+both fixes — **no longer true as of 2026-09-15, see the second update
+below**. See
 [`layout/sar-adc-top/reports/20260907-110058-a546200/record.md`](../../layout/sar-adc-top/reports/20260907-110058-a546200/record.md)
-(`reports/LATEST`), which supersedes the `20260906-101939-1250ff4` record
-above. §4's rows below now cite this newer record.
+(`reports/LATEST` when this paragraph was written — **itself superseded
+since 2026-09-08, see the first update below**), which supersedes the
+`20260906-101939-1250ff4` record above.
+
+**Update (2026-09-15), citation freshness — this paragraph and §4's Area
+row were one record stale.** `layout/sar-adc-top/reports/LATEST` has read
+`20260908-072857-80df05e` since 2026-09-08: the post-#236 re-run made by
+issue #245 (PR #249), already cited in §4's sample-rate row and §7 Item 1's
+own 2026-09-08 update but never propagated here or to the Area row. The
+substantive readouts are unchanged, verified by comparing the two records'
+artefacts directly rather than assumed from the re-run's intent:
+
+- `compose.json` is **byte-identical** between the two records (`cmp`) — so
+  the Area row's bounding box did not move;
+- `drc.json` reports `violations: []` in both (the only differences are the
+  absolute GDS path and its `content_hash`);
+- `lvs.json`'s aggregate verdict fields are identical — `status:
+  "mismatch"`, `mismatch_count: 98`, `error_count: 97`, `category_counts:
+  {device.unmatched: 75, net.merged: 12, net.split: 10,
+  topology.flattened: 1}`. The two files differ only in artefact SHA-256s
+  and in anonymous / ordering-dependent net labels (`\$412` → `\$413`,
+  `CDAC.P0` ↔ `CDAC.N_TERM`, …), not in any count or category.
+
+This paragraph and §4's Area row now cite `20260908-072857-80df05e`; §4's
+two sign-off-bar rows are re-pointed by a separate increment (see §7 Item 1
+for why they are not touched here).
+
+**Update (2026-09-15), the awaited release has published.**
+`2AMLogic/klayout-tools` `v0.5.0` published at 2026-09-15T02:19:49Z (GitHub
+Release and PyPI), carrying all three of the commits this paragraph's
+blocker chain named as outstanding. The evidence, the ancestry check, and
+#103's own resulting label change are recorded once in §7 Item 1 rather
+than re-derived here; this note exists so that the "still at `v0.4.0`"
+sentence above is not read as current.
 
 ---
 
@@ -360,7 +393,7 @@ audience with an explicit Challenge-brief verdict column.
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only — no ratified line exists to grade against.** Against `spec/target-spec.md`'s *current* DRAFT row (DR-007's candidate pair): 8.506 bit (mean-case CDAC mismatch) **meets** both the > 7.5 baseline and the > 8.0 stretch; 7.755 bit (worst-case CDAC mismatch) **meets the > 7.5 baseline but NOT the > 8.0 stretch**. Against the *original*, pre-DR-007 DRAFT row (> 9.0 / > 9.5) neither figure meets either bound. Re-composed this pass against DR-004 Amendment A's amended comparator-noise figure (0.8643 mV rms, down from 0.9591 — the same figure the comparator-noise row above already cites), moving the estimate from 8.491/7.749 to 8.506/7.755; the met/unmet outcome is unchanged in kind. **Correction**: this row previously headlined "DOES NOT MEET even the un-ratified DR-007 candidate", which overstated the shortfall — the source record's own scoring table marks the worst case as *meeting* the > 7.5 baseline, failing only the > 8.0 stretch (see §7 Item 4) | [`sim/enob-estimate/records/20260906-173830-6f04f59.md`](../../sim/enob-estimate/records/20260906-173830-6f04f59.md) (DR-007-candidate scoring, composed from the post-amendment comparator noise); [`sim/enob-estimate/records/20260906-082749-7724af3.md`](../../sim/enob-estimate/records/20260906-082749-7724af3.md) (identical figures scored against the original > 9.0 / > 9.5 row — the record `docs/characterization-report.md` pins) |
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim. A re-scoring against DR-007's wider ±2.0 LSB candidate **does** exist in-repo (a pure re-parse of the same 40 committed mismatch draws, no new ngspice run): its worst single draw is max\|DNL\| = 1.9716 LSB and max\|INL\| = 1.3147 LSB, i.e. every sampled draw falls inside the ±2.0 LSB candidate bound — but `klt yield` produced no report in that record's environment (a known, already-filed packaging gap, klayout-tools#1061), so there is **no machine-checked yield-fraction verdict against the candidate bound**, and N=40 is not sized for a tight yield-fraction claim in any case. Not graded met/unmet here: the candidate bound is not ratified | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) (original ≤ ±1 LSB scoring — the record `docs/characterization-report.md` pins); [`sim/cdac-array-transfer/records/20260828-022618-f36913e.md`](../../sim/cdac-array-transfer/records/20260828-022618-f36913e.md) (DR-007-candidate re-scoring of the same draws) |
 | Power | provisional, minimise at rate | DRAFT | **BLOCKED / UNMEASURED** — no full-block power campaign exists. One non-gating data point: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0154 mW) is for the digital sequencer sub-block only, not the full ADC, and is not a `sim/` evidence record | `layout/sar-sequencer/reports/20260905-191258-4c6c655/record.md` (current `reports/LATEST`, #102's own LVS-clean record via PR #141; non-gating, cited for completeness only — supersedes `reports/20260825-124031-1a2f7c1/`, which predates #102's LVS fix and still reports an LVS **mismatch**, see §7 Item 1) |
-| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². Unchanged by issue #180's comparator re-draw, and unchanged again by PR #227's routing-cell rename: this row now cites the current `reports/LATEST` record, and its `compose.json` bounding box is byte-identical to the superseded `20260906-101939-1250ff4` record's (the only two differences between those two files are a new `dbu_um: 0.001` field and the routing block's `cell_name`, `ROUTE` → `SAR_ADC_TOP_ROUTE` — no `bbox_um` or `offset_um` value moved). Verified by diffing the two artefacts, not assumed from the rename's intent. This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a device-level mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260907-110058-a546200/compose.json`](../../layout/sar-adc-top/reports/20260907-110058-a546200/compose.json) (`reports/LATEST`; supersedes [`20260906-101939-1250ff4/compose.json`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json), same bounding box) |
+| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7): the full `gen_compose_0` bounding box is `(x0, y0) = (-20.2, -161.6)` µm to `(x1, y1) = (260.2, 223.9)` µm, i.e. 280.4 µm × 385.5 µm ≈ 0.108 mm². Unchanged by issue #180's comparator re-draw, and unchanged again by PR #227's routing-cell rename: this row now cites the current `reports/LATEST` record, and its `compose.json` bounding box is byte-identical to the superseded `20260906-101939-1250ff4` record's (the only two differences between those two files are a new `dbu_um: 0.001` field and the routing block's `cell_name`, `ROUTE` → `SAR_ADC_TOP_ROUTE` — no `bbox_um` or `offset_um` value moved). Verified by diffing the two artefacts, not assumed from the rename's intent. **Re-cited 2026-09-15** onto the current `reports/LATEST`, `20260908-072857-80df05e` (issue #245's post-#236 re-run, PR #249): its `compose.json` is **byte-identical** (`cmp`) to the `20260907-110058-a546200` file previously cited here, so this row's bounding box and area figure are unchanged — again verified by comparing the artefacts, not assumed from the re-run's intent (see §3). This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a device-level mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against | [`layout/sar-adc-top/reports/20260908-072857-80df05e/compose.json`](../../layout/sar-adc-top/reports/20260908-072857-80df05e/compose.json) (current `reports/LATEST`; byte-identical to [`20260907-110058-a546200/compose.json`](../../layout/sar-adc-top/reports/20260907-110058-a546200/compose.json), which in turn supersedes [`20260906-101939-1250ff4/compose.json`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json), same bounding box) |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102) | `layout/sar-sequencer/README.md` |
 | **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET / BLOCKED** — a top-level layout now exists (PR #174, re-verified against the amended comparator geometry by PR #188, then again against PR #227's pin-declaration fix) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; blocked on #103 (`loom:blocked`, now for the LVS device-match reason below, not a missing assembly or pin-declaration gap), under epic #25 | [`layout/sar-adc-top/reports/20260907-110058-a546200/record.md`](../../layout/sar-adc-top/reports/20260907-110058-a546200/record.md) |
 | **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS, re-confirmed after PR #227. `klt lvs` pin promotion: **exact** — layout=19/reference=19/matched=19 — via PR #227's `--pin-source-cells` fix (klayout-tools#1513/#1515), resolving the prior pin-declaration mismatch. `klt lvs` device match: still a mismatch (869/869 devices, matched 794 — unchanged, since the same flattened netlist is compared, only pin promotion changed) — root-caused to a second, distinct upstream gap: `options.combine_devices` has no per-subcircuit scoping, and the five sub-blocks do not all need the same setting. Filed at [klayout-tools#1552](https://github.com/2AMLogic/klayout-tools/issues/1552), which **closed**, fixed by klayout-tools#1556 (commit `5598e540`), but like klayout-tools#1515 before it, not yet in a published release — PyPI still tops out at 0.4.0. klayout-tools#1556's own `combine_devices_per_circuit` helper turned out to skip the existing whole-netlist path's `#559`/`#1497` resistor-offset and capacitor-C corrections, flagged as an unverified caveat and filed at [klayout-tools#1557](https://github.com/2AMLogic/klayout-tools/issues/1557); that issue has since **closed** too, fixed by klayout-tools#1560 (commit `2d603ba5`), again not yet in a published release. #103 remains `loom:blocked`, still pending a `klayout-tools` release (now needing all three of #1515, #1556, and #1560) rather than an open upstream question | [`layout/sar-adc-top/reports/20260907-110058-a546200/record.md`](../../layout/sar-adc-top/reports/20260907-110058-a546200/record.md), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
@@ -698,6 +731,27 @@ tracker already owns.
    duplicated here. #103 itself, and the acceptance-criterion-3 blocker
    this item exists to track, are unchanged: still `loom:blocked`, still
    waiting on the same `klayout-tools` release described above.
+
+   **Citation freshness, corrected 2026-09-15.** §3 and §4's **Area** row
+   were still citing `20260907-110058-a546200` as `reports/LATEST`, one
+   record behind: `layout/sar-adc-top/reports/LATEST` has read
+   `20260908-072857-80df05e` since 2026-09-08 (the re-run this item's own
+   2026-09-08 update above already cites in prose). Both are re-pointed,
+   with the equivalence verified artefact-by-artefact — `compose.json`
+   byte-identical (`cmp`), `drc.json` `violations: []` in both, `lvs.json`
+   aggregate verdict fields identical (`status: "mismatch"`,
+   `mismatch_count: 98`, `error_count: 97`, same four `category_counts`);
+   full comparison in §3. **No verdict in §4 moves as a result.**
+   **Residual, deliberately deferred**: §4's two sign-off-bar rows
+   (post-layout PVT, DRC/LVS-clean GDS) still carry the same one-record-old
+   citation. They are not re-pointed in this increment because an
+   independent, concurrently-open increment on this issue (PR #273) is
+   editing those two exact rows for a different reason (the
+   `klayout-tools` v0.5.0 release), and re-pointing them here would collide
+   with it rather than compose. A later pass re-points them once PR #273
+   lands — its own edits leave the record ID untouched; this note is the
+   breadcrumb so the residual is tracked in the document rather than
+   silently left behind.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
