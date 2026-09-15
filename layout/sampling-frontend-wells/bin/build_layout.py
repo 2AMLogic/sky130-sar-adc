@@ -118,14 +118,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
+from _geometry_common import BuildError  # noqa: E402
 from _geometry_common import Rect as _Rect  # noqa: E402
+from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
+from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
 from gen_blocks import DEVICES, DOMAIN_TAP_NET, PIN_NETS  # noqa: E402
 
 # --- layer table (sky130A GDS numbers, as klt's own curated deck names them) --
+# L_TAP/L_LICON/L_LI1 (the tap/well-tie structure's own layers) now live in
+# `_geometry_common` only, closed over by `_tap_shapes_core` (imported above).
 L_NWELL = (64, 20)
-L_TAP = (65, 44)
-L_LICON = (66, 44)
-L_LI1 = (67, 20)
 L_MCON = (67, 44)
 L_MET1 = (68, 20)
 L_VIA = (68, 44)
@@ -140,7 +143,6 @@ MET_SPACE_UM = 0.14  # m1.2 / m2.2
 MCON_UM = 0.17
 VIA_UM = 0.15
 LICON_UM = 0.17
-LICON_PITCH_UM = 0.60
 
 #: Drawn n-well island separation. sky130's own ``nwell.2a`` ("min. nwell
 #: spacing (merged if less)") is 1.27 um -- transcribed from
@@ -225,10 +227,6 @@ class Rect(_Rect):
     __slots__ = ()
 
 
-class BuildError(RuntimeError):
-    """The floorplan violated one of this module's own build-time invariants."""
-
-
 def load_block(report_path: Path) -> dict:
     """Read a `klt gen` report -> ``{"ports": {name: (x, y, extent)}, "bbox"}``."""
     report = json.loads(report_path.read_text())
@@ -291,41 +289,6 @@ def floorplan(blocks: dict[str, dict]) -> tuple[dict, list[dict]]:
     return origins, domains
 
 
-def _assert_well_isolation(domains: list[dict]) -> None:
-    """Every pair of adjacent islands must clear ``nwell.2a`` with margin.
-
-    Checked here as well as by `klt drc --deck sky130` (nwell.space.1, as of
-    klt 0.4.0) on the finished GDS: a build-time failure names the offending
-    pair, a DRC failure only names a coordinate.
-    """
-    for a, b in zip(domains, domains[1:]):
-        gap = b["well"]["x0"] - a["well"]["x1"]
-        if gap < WELL_GAP_UM - 1e-9:
-            raise BuildError(
-                f"n-well islands {a['id']!r} and {b['id']!r} are {gap:.3f} um "
-                f"apart, below the drawn separation {WELL_GAP_UM} um"
-            )
-
-
-def _assert_column_pitch(columns: dict[float, str]) -> None:
-    """No two met1 columns may come closer than a wire width + met1 spacing.
-
-    The floorplan constants above make this true, but a device-size change
-    (a wider W, a longer L) moves the landing pads and could silently break
-    it -- so it is re-derived from the *actual* generated port geometry on
-    every build rather than asserted once in a comment.
-    """
-    minimum = WIRE_UM + MET_SPACE_UM
-    xs = sorted(columns)
-    for xa, xb in zip(xs, xs[1:]):
-        if xb - xa < minimum - 1e-9:
-            raise BuildError(
-                f"met1 columns for nets {columns[xa]!r} (x={xa:.3f}) and "
-                f"{columns[xb]!r} (x={xb:.3f}) are {xb - xa:.3f} um apart, "
-                f"below the {minimum:.2f} um wire+space pitch"
-            )
-
-
 def _assert_track_clearance(track_y0: float, blocks: dict[str, dict]) -> None:
     """The lowest met2 track must sit above every block's own bbox top.
 
@@ -351,16 +314,9 @@ def _assert_track_clearance(track_y0: float, blocks: dict[str, dict]) -> None:
 
 def tap_shapes(spec: dict) -> tuple[list[tuple[tuple[int, int], Rect]], float, float]:
     """Draw one well-tap structure; returns its shapes and its mcon landing point."""
+    shapes = _tap_shapes_core(spec, LICON_UM)
     x0, x1, y0, y1 = spec["x0"], spec["x1"], spec["y0"], spec["y1"]
-    shapes: list[tuple[tuple[int, int], Rect]] = [
-        (L_TAP, Rect.um(x0, y0, x1, y1)),
-        (L_LI1, Rect.um(x0, y0, x1, y1)),
-    ]
     cx = (x0 + x1) / 2
-    y = y0 + LICON_PITCH_UM / 2
-    while y + LICON_PITCH_UM / 2 <= y1 + 1e-9:
-        shapes.append((L_LICON, Rect.centred(cx, y, LICON_UM, LICON_UM)))
-        y += LICON_PITCH_UM
     return shapes, cx, (y0 + y1) / 2
 
 
@@ -368,7 +324,7 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
     """Return the (draw params, gen-compose request, well summary) triple."""
     blocks = {row[0]: load_block(reports_dir / f"{row[0]}.json") for row in DEVICES}
     origins, domains = floorplan(blocks)
-    _assert_well_isolation(domains)
+    _assert_well_isolation_shared(domains, WELL_GAP_UM)
 
     shapes: list[tuple[tuple[int, int], Rect]] = []
     labels: list[tuple[tuple[int, int], str, float, float]] = []
@@ -422,7 +378,7 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         shapes.append((L_MET1, Rect.centred(ox + gx, gy, WIRE_UM, WIRE_UM)))
         add_column(g_net, ox + gx, gy)
 
-    _assert_column_pitch(columns)
+    _assert_column_pitch_shared(columns, WIRE_UM + MET_SPACE_UM)
 
     missing = set(net_columns) - set(TRACK_ORDER)
     if missing:

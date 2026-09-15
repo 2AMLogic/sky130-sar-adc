@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "comparator.gds",
+  "reference": "reference.broken-topology.spice",
+  "top": "gen_compose_0",
+  "reference_top": "COMPARATOR",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": true,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null
+  },
+  "status": "mismatch",
+  "mismatch_count": 3,
+  "error_count": 2,
+  "category_counts": {
+    "device.unmatched": 1,
+    "topology": 2
+  },
+  "category_error_counts": {
+    "device.unmatched": 1,
+    "topology": 1
+  },
+  "counts": {
+    "nets": {
+      "layout": 10,
+      "reference": 10,
+      "matched": 6
+    },
+    "devices": {
+      "layout": 11,
+      "reference": 11,
+      "matched": 10
+    },
+    "pins": {
+      "layout": 7,
+      "reference": 7,
+      "matched": 7
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "b9d07e80c33c7349e1f0eb1fd44a9da81afb8a9e3a3ed9b44bf4749f281a4491",
+    "reference_sha256": "fb9fb36194516663a4a3f0724646a96aabe1832a531a2fac1d81ca6d03c62b43",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": null
+  },
+  "mismatches": [
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$5",
+        "reference": "_LATN_N",
+        "class": "nfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "nets were paired despite a name/identity conflict",
+      "side": "both",
+      "net": {
+        "layout": "\\$3",
+        "reference": "DIN"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "CLK",
+      "reference": "CLK",
+      "pin": true
+    },
+    {
+      "layout": "\\$2",
+      "reference": "DIP",
+      "pin": false
+    },
+    {
+      "layout": "\\$7",
+      "reference": "TAIL",
+      "pin": false
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VINN",
+      "reference": "VINN",
+      "pin": true
+    },
+    {
+      "layout": "VINP",
+      "reference": "VINP",
+      "pin": true
+    }
+  ]
+}

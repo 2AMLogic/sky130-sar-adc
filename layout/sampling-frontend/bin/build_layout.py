@@ -107,7 +107,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
+from _geometry_common import BuildError, L_LI1  # noqa: E402
 from _geometry_common import Rect as _Rect  # noqa: E402
+from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
+from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
 from gen_blocks import (  # noqa: E402
     CAP_DEVICES,
     DOMAIN_TAP_NET,
@@ -116,10 +120,11 @@ from gen_blocks import (  # noqa: E402
 )
 
 # --- layer table (sky130A GDS numbers, as klt's own curated deck names them) --
+# L_TAP/L_LICON (the tap/well-tie structure's own layers, plus its
+# LICON_PITCH_UM pitch) now live in `_geometry_common` only, closed over by
+# `_tap_shapes_core` (imported above); L_LI1 is also defined there (this
+# module still needs it by name below, for `_step_down_to_met1`).
 L_NWELL = (64, 20)
-L_TAP = (65, 44)
-L_LICON = (66, 44)
-L_LI1 = (67, 20)
 L_MCON = (67, 44)
 L_MET1 = (68, 20)
 L_VIA1 = (68, 44)
@@ -151,7 +156,6 @@ MET3_VIA_INSET_UM = 0.20  # a `cap_array` *_BOT port's reported x sits right at
 # (>= met3.enclosing.via2's ~0.065um threshold, with margin); the pin's
 # effective (x, y) for jogging purposes moves with it.
 LICON_UM = 0.17
-LICON_PITCH_UM = 0.60
 
 #: Drawn n-well island separation -- unchanged from issue #122's own recipe.
 #: sky130's own `nwell.2a` ("min. nwell spacing (merged if less)") is 1.27um.
@@ -274,10 +278,6 @@ class Rect(_Rect):
     __slots__ = ()
 
 
-class BuildError(RuntimeError):
-    """The floorplan violated one of this module's own build-time invariants."""
-
-
 def load_block(report_path: Path) -> dict:
     """Read a `klt gen` report -> ``{"ports": {name: (x, y, width, dir, layer)},
     "bbox"}``."""
@@ -342,28 +342,11 @@ def floorplan_row1(blocks: dict[str, dict]) -> tuple[dict, list[dict]]:
     return origins, domains
 
 
-def _assert_well_isolation(domains: list[dict]) -> None:
-    for a, b in zip(domains, domains[1:]):
-        gap = b["well"]["x0"] - a["well"]["x1"]
-        if gap < WELL_GAP_UM - 1e-9:
-            raise BuildError(
-                f"n-well islands {a['id']!r} and {b['id']!r} are {gap:.3f} um "
-                f"apart, below the drawn separation {WELL_GAP_UM} um"
-            )
-
-
 def tap_shapes(spec: dict) -> tuple[list[tuple[tuple[int, int], Rect]], float, float]:
     """One well/substrate tap structure: tap+li1 strip, licon1 column."""
+    shapes = _tap_shapes_core(spec, LICON_UM)
     x0, x1, y0, y1 = spec["x0"], spec["x1"], spec["y0"], spec["y1"]
-    shapes: list[tuple[tuple[int, int], Rect]] = [
-        (L_TAP, Rect.um(x0, y0, x1, y1)),
-        (L_LI1, Rect.um(x0, y0, x1, y1)),
-    ]
     cx = (x0 + x1) / 2
-    y = y0 + LICON_PITCH_UM / 2
-    while y + LICON_PITCH_UM / 2 <= y1 + 1e-9:
-        shapes.append((L_LICON, Rect.centred(cx, y, LICON_UM, LICON_UM)))
-        y += LICON_PITCH_UM
     return shapes, cx, (y0 + y1) / 2
 
 
@@ -483,18 +466,6 @@ def _step_down_to_met1(
     raise BuildError(f"no met1 step-down rule for layer {layer!r}")
 
 
-def _assert_column_pitch(columns: dict[float, str]) -> None:
-    minimum = WIRE_UM + MET_SPACE_UM
-    xs = sorted(columns)
-    for xa, xb in zip(xs, xs[1:]):
-        if xb - xa < minimum - 1e-9:
-            raise BuildError(
-                f"met1 columns for nets {columns[xa]!r} (x={xa:.3f}) and "
-                f"{columns[xb]!r} (x={xb:.3f}) are {xb - xa:.3f} um apart, "
-                f"below the {minimum:.2f} um wire+space pitch"
-            )
-
-
 def build(reports_dir: Path) -> tuple[dict, dict, dict]:
     """Return the (draw params, gen-compose request, layout summary) triple."""
     all_block_ids = (
@@ -505,7 +476,7 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
     blocks = {bid: load_block(reports_dir / f"{bid}.json") for bid in all_block_ids}
 
     origins1, domains = floorplan_row1(blocks)
-    _assert_well_isolation(domains)
+    _assert_well_isolation_shared(domains, WELL_GAP_UM)
     row1_x1 = domains[-1]["well"]["x1"]
 
     row2_x0 = row1_x1 + ROW_GAP_UM
@@ -557,7 +528,7 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         for unit_index, _name, top_net, bot_net in legs:
             _route_cap_pins(shapes, add_column, blocks[block_id], origins[block_id], unit_index, top_net, bot_net)
 
-    _assert_column_pitch(columns)
+    _assert_column_pitch_shared(columns, WIRE_UM + MET_SPACE_UM)
 
     missing = set(net_columns) - set(TRACK_ORDER)
     if missing:

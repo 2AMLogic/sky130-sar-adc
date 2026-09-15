@@ -1,0 +1,17 @@
+* Negative control 2/2 for the trivial_mos_array LVS proof (issue #2):
+* a topology-only corruption (M2's drain shorted onto M1's drain net,
+* device parameters untouched) -- the "net.merged" corruption class per
+* klt's own LVS field notes (docs/cli/lvs.md, "Negative controls: two
+* independent corruptions" in the klayout-tools repo). Must report
+* status "mismatch". See layout/README.md for the run and its recorded
+* result.
+*
+* 4 M-cards, matching reference.spice's own device-count note (the pinned
+* klt release suppresses the generator's physical-only dummy devices --
+* see that file's header).
+.SUBCKT trivial_mos_array vsubs
+M1 d1 g1 s1 vsubs nfet L=0.28U W=0.42U
+M2 d1 g2 s2 vsubs nfet L=0.28U W=0.42U
+M3 d3 g3 s3 vsubs nfet L=0.28U W=0.42U
+M4 d4 g4 s4 vsubs nfet L=0.28U W=0.42U
+.ENDS trivial_mos_array
