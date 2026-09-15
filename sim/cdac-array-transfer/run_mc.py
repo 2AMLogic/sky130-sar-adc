@@ -275,17 +275,18 @@ def write_evidence(
     target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
     target_yield: float = 0.99,
 ) -> tuple[Path, bool]:
-    record_id = evidence.new_record_id()
+    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
+    record_id = prov.record_id
+    record_path = prov.record_path
+    netlist_sha = prov.netlist_sha
+
     draws_dir = EXPERIMENT_DIR / "mc-draws" / record_id
     draws_dir.mkdir(parents=True, exist_ok=True)
     for i, d in enumerate(result.draws):
         (draws_dir / f"draw_{i}_seed{d.seed}.log").write_text(d.log_text)
     for i, d in enumerate(result.negctrl):
         (draws_dir / f"negctrl_{i}_seed{d.seed}.log").write_text(d.log_text)
-
-    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
-    record_path = evidence.write_netlist_snapshot_text(EXPERIMENT_DIR, record_id, sample_netlist)
-    netlist_sha = evidence.sha256_text(sample_netlist)
 
     dnl_draws = [d.dnl_max_lsb for d in result.draws]
     inl_draws = [d.inl_max_lsb for d in result.draws]
@@ -330,7 +331,6 @@ def write_evidence(
         yield_json_path,
     )
 
-    info = pdk.resolve()
     lines: list[str] = []
     a = lines.append
     a(f"# Monte Carlo record {record_id}")
@@ -503,8 +503,8 @@ def write_evidence(
     if result.source_record_id:
         extra_env["Reanalysis of"] = f"`sim/cdac-array-transfer/records/{result.source_record_id}.md` (no new ngspice run)"
     lines.extend(evidence.environment_block(
-        pdk_line=f"{info.variant} @ {pdk.resolved_commit(info)}",
-        ngspice_line=toolchain._ngspice_version() or "unknown",
+        pdk_line=prov.pdk_line,
+        ngspice_line=prov.ng_version,
         netlist_sha256=netlist_sha,
         extra=extra_env,
     ))
