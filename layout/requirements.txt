@@ -175,6 +175,19 @@
 #     bump's own note above enumerates (cdac-array/sampling-frontend-wells's
 #     known nondeterminism and hung `klayout` binary are unrelated to this
 #     bump and out of scope for issue #103).
+#     UPDATE (same issue, later increment): gap 2 above (klayout-tools#1876)
+#     is now worked around locally and no longer costs this pin anything.
+#     `klt extract` still writes each instance's device class in its own
+#     `* device instance ...` provenance comment, so `layout/sar-adc-top/bin/
+#     restore-cap-device-class.py` copies that class name back onto the `C`
+#     card into a SEPARATE netlist the LVS request consumes, leaving the
+#     extractor's own output untouched in the record. That restores this
+#     pin's `klt lvs` result to the pre-bump 98-mismatch / 412-matched-net
+#     breakdown exactly, leaving klayout-tools#1878 as the only remaining
+#     blocker. The workaround is a no-op on any future `klt` build that
+#     writes the token again, so a later bump that fixes #1876 needs no
+#     flow change -- just drop the step once `capclass.json` reports
+#     `"noop": true`.
 klayout-tools==0.5.0
 #
 # `klayout` itself was left unpinned here until issue #148: `klayout-tools`

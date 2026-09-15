@@ -57,9 +57,14 @@
 #      this step's own SAR_ADC_TOP_ROUTE cell, by position, not by name) to
 #      real top-level pins and demotes everything else -- reaching exactly
 #      19/19/19 promoted/reference/matched pins, closing klayout-tools#1513.
-#      `klt lvs` itself still reports a mismatch, but for an unrelated,
-#      newly-discovered reason: see record.md and README.md's "LVS device/
-#      topology blocker" section.
+#      Between the two, restore-cap-device-class.py re-attaches each `C`
+#      card's own extractor-reported device class (klayout-tools#1876's local,
+#      self-retiring workaround -- see that script's docstring), writing a
+#      separate `sar_adc_top.extract.lvs.spice` and leaving the extractor's
+#      own `sar_adc_top.extract.spice` in the record untouched.
+#      `klt lvs` itself still reports a mismatch, but now for exactly one
+#      remaining reason (klayout-tools#1878): see record.md and README.md's
+#      "LVS device/topology blocker" section.
 #
 # Exit codes: 0 if DRC is clean (this flow's own current hard gate -- LVS is
 # recorded whatever it reports, per the still-open LVS device/topology
@@ -150,6 +155,21 @@ GDS="$OUT_DIR/sar_adc_top.gds"
     -o "$OUT_DIR/sar_adc_top.extract.spice" --format json \
     > "$OUT_DIR/extract.json" || true
 
+# klayout-tools#1876 workaround: `klt extract`'s SPICE writer no longer emits
+# a `C` card's device-class token (klayout-tools#1558/#1564's own correct
+# simulatability fix), and this flow's pre-extracted `layout.netlist` LVS
+# shape needs that class name to survive the SPICE round-trip. Re-attach each
+# card's own extractor-reported class from `klt extract`'s own per-instance
+# comment line, into a SEPARATE netlist -- `sar_adc_top.extract.spice` stays
+# byte-for-byte what `klt extract` wrote, and the transformation is a
+# one-token-per-`C`-card diff anyone can audit. Self-retiring: the script is a
+# no-op (`restored: 0` in capclass.json) on any `klt` build that writes the
+# token again. See restore-cap-device-class.py's docstring for the full trace.
+python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
+  "$OUT_DIR/sar_adc_top.extract.spice" \
+  -o "$OUT_DIR/sar_adc_top.extract.lvs.spice" \
+  --format json > "$OUT_DIR/capclass.json"
+
 python3 "$TOP_DIR/bin/generate-lvs-reference.py" \
   --sar-sequencer-report "$LAYOUT_DIR/sar-sequencer/reports/$(cat "$LAYOUT_DIR/sar-sequencer/reports/LATEST")" \
   --seln-inverters-report "$LAYOUT_DIR/seln-inverters/reports/$(cat "$LAYOUT_DIR/seln-inverters/reports/LATEST")" \
@@ -166,14 +186,30 @@ python3 "$TOP_DIR/bin/generate-lvs-reference.py" \
 # compared netlist -- no per-subcircuit scoping exists -- so no single
 # top-level setting can satisfy every already-independently-verified
 # sub-block's own requirement simultaneously; `true` was measured to
-# produce fewer, more analyzable mismatches (98) than `false` (2197). See
-# README.md's "LVS device/topology blocker" section for the full trace;
-# filed generically at 2AMLogic/klayout-tools#1552.
+# produce fewer, more analyzable mismatches (98) than `false` (2197).
+#
+# Three further shapes were measured against this same composed GDS and are
+# all worse, so the single whole-request `true` stands (see README.md's "LVS
+# device/topology blocker" section for the full trace):
+#   - `combine_devices_per_circuit` (klayout-tools#1556): 1154 mismatches --
+#     no per-macro subcircuit exists on the necessarily-flat layout side
+#     (klayout-tools#1878, extraction has no hierarchical mode, #1085).
+#   - class-scoped `combine_devices: ["NFET","PFET"]` (klayout-tools#1370):
+#     126 mismatches, identical device matching (794) -- device class cannot
+#     separate the FET legs that need folding (seln_inverters) from the ones
+#     that must not be folded (sampling_frontend), since both are FETs.
+#   - `klt lvs`'s inline-extraction shape (`layout.file`, which would sidestep
+#     klayout-tools#1876's SPICE round-trip entirely): 2199 mismatches and
+#     `device.combine_incomplete` -- it compares the *raw* extracted netlist
+#     (1893 devices), on which `Netlist.combine_devices()` exhausts its retry
+#     budget, where the pre-extracted shape starts from `klt extract`'s own
+#     already-folded 869 devices.
+# Filed generically at 2AMLogic/klayout-tools#1552 (closed) -> #1878.
 cat > "$OUT_DIR/lvs.request.json" <<EOF
 {
   "schema": "klt.lvs.request/1",
   "engine": "klayout",
-  "layout": { "netlist": "sar_adc_top.extract.spice", "top": "$TOP" },
+  "layout": { "netlist": "sar_adc_top.extract.lvs.spice", "top": "$TOP" },
   "reference": { "netlist": "sar_adc_top.lvs-reference.spice", "top": "sar_adc_top" },
   "options": { "combine_devices": true, "flatten_reference": true }
 }
