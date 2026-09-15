@@ -12,9 +12,14 @@ touched.**
 ## Status (as of this record)
 
 **Placement + interconnect routing complete and DRC-clean at the top level.
-The LVS *pin-declaration* blocker (klayout-tools#1513) is now resolved; LVS
-itself still does not reach a clean match, blocked on a second, distinct
-tool gap (klayout-tools#1552) — see "LVS device/topology blocker" below.**
+The LVS *pin-declaration* blocker (klayout-tools#1513) is resolved.
+`layout/requirements.txt` now pins the officially-released
+`klayout-tools==0.5.0` (published 2026-09-15) instead of the unofficial
+`SAR_ADC_TOP_KLT` env-var override this flow used to need — that override is
+retired. LVS itself still does not reach a clean match: what was one open
+tool gap (klayout-tools#1552) is now two, after re-running against the
+officially pinned 0.5.0 build — see "LVS device/topology blocker" below for
+the full, current trace.**
 
 **Re-run for issue #245** (`layout/sampling-frontend/`'s own re-verification
 after issue #236's `Sa`/`Cmsw` sizing change), record
@@ -41,6 +46,40 @@ unrelated `combine_devices`-scoping gap** tracked in
 `docs/chipalooza/challenge-4-proposal.md` §3/§7 Item 1 and klayout-tools#1552
 — issue #245 re-ran this composition as an additional confirming data point
 against that already-open finding, not a new or different blocker.
+
+**Re-run for issue #103's own `klayout-tools==0.5.0` pin bump** (retiring the
+`SAR_ADC_TOP_KLT` override), record `20260915-213439-bf2256f`: DRC is still
+clean (0 violations, unaffected by the bump), the unfiltered connectivity
+check still passes net-by-net, and pins still promote 19/19/19. The LVS
+mismatch verdict, however, is **not** identical to the pre-bump baseline —
+devices 869/869/794 unchanged, but nets 444/446/**393** (down from 412) and
+mismatch categories `device.unmatched`=**99** (up from 75)/`net.merged`=12/
+`net.split`=10/**`topology`=2** (new)/`topology.flattened`=1 — 124 total
+mismatches, up from 98. This is a **genuine, newly-introduced regression**,
+not noise: isolated by diffing the extracted netlist's own `C` (capacitor)
+device cards byte-for-byte between the pre-bump build and 0.5.0 against the
+*same* composed GDS — the pre-bump build wrote `C$866 \$423 TOP_P|VINP
+8.647288e-15 sky130_fd_pr__model__cap_mim`; 0.5.0 writes the bare
+`C$866 \$423 TOP_P|VINP 8.647288e-15`, with no trailing class-name token at
+all. That is klayout-tools#1558/#1564's own (correct, and separately
+motivated) fix to stop emitting a `C` card ngspice cannot actually simulate
+— but its side effect is that `NetlistSpiceReader` reading that bare card
+back in (exactly what this flow's pre-extracted `layout.netlist` LVS shape
+does) can no longer recover the capacitor's real device-class name, so it no
+longer resolves as the same class as the reference netlist's own explicitly-named
+capacitor devices. Filed generically as klayout-tools#1876. Separately,
+klayout-tools#1552 (this repo's own prior report of the `combine_devices`
+scoping gap) is closed upstream via #1556's new
+`options.combine_devices_per_circuit` — tried directly against this
+composition and found not to help: `klt extract`'s layout-side output for a
+`klt gen-compose`d GDS is always one flat circuit (no hierarchical
+extraction mode exists, #1085), so the option has no per-macro subcircuit
+boundary to scope against on that side, and a direct trial reached a
+*worse* result (1154 mismatches) than the existing whole-request
+`combine_devices: true` compromise this flow keeps using. Filed generically
+as klayout-tools#1878. See "LVS device/topology blocker" below for the full,
+current writeup of both gaps.
+
 `layout/sar-adc-top/bin/build_layout.py` places all five sub-blocks (`klt
 gen-compose`, explicit placement, each named as a `blocks[].cell` entry per
 #1189) and hand-routes every net `design/sar_adc_top.sch` calls for (`klt
@@ -155,36 +194,57 @@ which is what `--def-pins` already treats as authoritative — see
 committed), in micrometers, and must be translated by whatever placement
 offset the composition finally chooses.
 
-### `sampling_frontend` (top cell in `layout/sampling-frontend/reports/20260908-070934-80df05e/sampling_frontend.gds`, re-verified post-issue-#236/#245)
+### `sampling_frontend` (top cell in `layout/sampling-frontend/reports/20260915-120718-1e90b14/sampling_frontend.gds`, re-verified post-issue-#236/#245 and post-`klayout-tools==0.5.0`)
 
-bbox: `(0.0, -2.4)` to `(195.56, 58.05)`. All pins on layer `69/5` (met2.pin)
+bbox: `(0.0, -2.4)` to `(195.56, 58.97)`. All pins on layer `69/5` (met2.pin)
 except `GND`, which has **no drawn pin** — see "GND/substrate" below.
 
-**SAMPLE's own `x_um` moved from `2.67` to `17.285` as of issue #245**: this
-sub-block's own `build_layout.py` always labels a net's met2.pin at that
-net's *leftmost* contributing column (`xs[0]`), and issue #236 moved
-`Sa_p`/`Sa_n`'s gate from `SAMPLE` to `G_P`/`G_N` — the two devices that used
-to supply `SAMPLE`'s own leftmost column (2.67, in `Sa_p`'s own PFET-row
-position). Track `y_um` (50.40) is unchanged: the wider `Cmswn`/`Cmswp` pair
-this same issue widened only grew in `y` within their own block (this
-generator draws `W` vertically), not tall enough to overtake `Csamp` (still
-this sub-block's tallest block), so the shared met2 track band itself did
-not move. Every other pin below is unchanged (verified directly against the
-new record's own `layout.summary.json`).
+**Every `y_um` below is +0.92 µm vs. the klt-0.4.0 era, as of issue #103's
+`klayout-tools` 0.4.0 → 0.5.0 bump.** klt 0.5.0 builds this sub-block's own
+`cboot`/`csamp` MIM cap arrays 0.92 µm taller than 0.4.0 did. `csamp` is
+this sub-block's own tallest block, and its own `build_layout.py` stacks the
+shared met2 routing channel directly on top of the tallest block, so
+`track_y0_um` rides up with it — `49.9 → 50.82` in the record's own
+`layout.summary.json` — and so does the block's own top edge
+(`58.05 → 58.97`). `x_um` is unchanged for every pin (the cap arrays grew
+only in `y`; this generator draws `W` vertically).
+
+This is exactly the kind of sub-block-internal move this composition's own
+hand-transcribed pin table does not track automatically — the same failure
+mode issue #245 hit (see the `SAMPLE` note below). Leaving the pre-bump `y`
+values in `bin/build_layout.py` put this assembly's top-level landing pads
+0.92 µm below the pins they were meant to contact, which showed up as
+4 × `met2.space.1` against the neighbouring track (0.07–0.09 µm gaps) and
+LVS 128; re-reading the table off the current GDS restores DRC-clean and the
+124-mismatch verdict documented above.
+
+**SAMPLE's own `x_um` moved from `2.67` to `17.285` as of issue #245** (a
+separate, earlier move, unrelated to the klt bump): this sub-block's own
+`build_layout.py` always labels a net's met2.pin at that net's *leftmost*
+contributing column (`xs[0]`), and issue #236 moved `Sa_p`/`Sa_n`'s gate
+from `SAMPLE` to `G_P`/`G_N` — the two devices that used to supply
+`SAMPLE`'s own leftmost column (2.67, in `Sa_p`'s own PFET-row position).
+That issue's own `Cmswn`/`Cmswp` widening did *not* move the track band
+(those two grew in `y` but never overtook `Csamp`); klt 0.5.0's taller
+`csamp` is what finally did.
+
+Read directly off layer `69/5` text in the record's own
+`sampling_frontend.gds`, cross-checked against its `layout.summary.json`
+`nets.<net>.track_y_um` / `columns_um[0]`:
 
 | Pin | x_um | y_um |
 | --- | --- | --- |
-| VDD | 1.76 | 50.90 |
-| SAMPLE | 17.285 | 50.40 |
-| BOOST_P | 0.70 | 52.40 |
-| VINP | 10.10 | 53.40 |
-| VCM | 13.30 | 51.90 |
-| BPREF_P | 14.87 | 56.40 |
-| VINN | 22.90 | 53.90 |
-| BPREF_N | 21.27 | 56.90 |
-| BOOST_N | 26.98 | 52.90 |
-| TOP_P | 42.23 | 57.40 |
-| TOP_N | 44.52 | 57.90 |
+| VDD | 1.76 | 51.82 |
+| SAMPLE | 17.285 | 51.32 |
+| BOOST_P | 0.70 | 53.32 |
+| VINP | 10.10 | 54.32 |
+| VCM | 13.30 | 52.82 |
+| BPREF_P | 14.87 | 57.32 |
+| VINN | 22.90 | 54.82 |
+| BPREF_N | 21.27 | 57.82 |
+| BOOST_N | 26.98 | 53.82 |
+| TOP_P | 42.23 | 58.32 |
+| TOP_N | 44.52 | 58.82 |
 
 Used by this assembly: `VDD`, `SAMPLE` (<- sequencer's `PH_SAMPLE`, net
 `SAMPLE_INT`), `VINP`/`VINN` (<- top-level external pins), `VCM` (<-
@@ -474,8 +534,12 @@ were needed together, both in `layout/sar-adc-top/bin/run-flow.sh`:
    the ambiguous `ROUTE` name promotes 0 pins; the disambiguated
    `route__SAR_ADC_TOP_ROUTE` promotes exactly 19.
 
-Requires a `klt` build with klayout-tools#1515 — see "Provenance" below;
-`layout/requirements.txt`'s pinned `klayout-tools==0.4.0` predates it.
+Requires a `klt` build with klayout-tools#1515. Originally reached only via
+the (now-retired) `SAR_ADC_TOP_KLT` env-var override, since the fix postdated
+`layout/requirements.txt`'s then-pinned `klayout-tools==0.4.0`; the officially
+released `klayout-tools==0.5.0` (published 2026-09-15, now the pinned
+version) carries it, so this flow runs entirely on the pinned
+`layout/.venv/bin/klt` — see "Provenance" below.
 
 <details>
 <summary>Historical trace: why <code>--top-cell-pins</code>/<code>--pins</code>/<code>--def-pins</code> each failed (kept for the record)</summary>
@@ -534,10 +598,15 @@ merged 2026-09-06 — see above.
 
 </details>
 
-## LVS device/topology blocker (klayout-tools#1552)
+## LVS device/topology blocker (klayout-tools#1552, now #1878 + #1876)
 
-**New blocker, discovered only once the pin-declaration blocker above
-cleared** — reaching 19/19/19 pins was necessary but not sufficient for a
+**Historical measurement below is against `klayout-tools==0.4.0`
+(via the since-retired `SAR_ADC_TOP_KLT` override) — see "Update: re-run
+against the officially pinned `klayout-tools==0.5.0`" further down for the
+current numbers and the two upstream issues that replaced this section's
+original #1552.**
+
+Reaching 19/19/19 pins was necessary but not sufficient for a
 `klt lvs` **match**. With `--pin-source-cells` wired in and
 `options.combine_devices: true` (the same top-level LVS request
 `run-flow.sh` already used), `klt lvs` reports:
@@ -609,6 +678,79 @@ compared as opaque, pinned black boxes at the top level — reducing the
 top-level compare to pure interconnect/topology, where `combine_devices` has
 nothing left to disagree about.
 
+### Update: re-run against the officially pinned `klayout-tools==0.5.0`
+
+`klayout-tools` v0.5.0 (published 2026-09-15) is the first PyPI release
+carrying `#1556`'s new `options.combine_devices_per_circuit` — i.e. the
+"per-subcircuit `combine_devices` scoping" fix this section's original
+klayout-tools#1552 report proposed as its first, lowest-effort suggested
+fix. `layout/requirements.txt` bumped to it and `run-flow.sh`'s
+`SAR_ADC_TOP_KLT` override was retired, so this flow now runs entirely on
+the officially pinned `klt` — but re-running the full flow against it did
+**not** reach a clean match, for two separate reasons, both filed
+generically upstream:
+
+1. **`options.combine_devices_per_circuit` does not actually help this
+   composition.** It is only useful when both sides of the compare already
+   have separate per-macro subcircuit boundaries to scope patterns against.
+   The reference side does (`generate-lvs-reference.py` emits one `.subckt`
+   per sub-block); the layout side never does, because `klt extract`'s
+   output for a `klt gen-compose`d GDS is always exactly one flat circuit —
+   hierarchical extraction still doesn't exist (klayout-tools#1085 remains
+   open, unchanged since the original #1552 report named it as a blocker).
+   Tried directly with a real per-macro mapping (`false` for `cdac_array`/
+   `sampling_frontend`, `true` for `comparator`/`sar_sequencer`/
+   `seln_inverters`, on the reference side; the layout side necessarily
+   collapsed to one blanket setting since only one circuit exists there):
+   **1154 mismatches** (reference device count nearly doubled, to 1873) —
+   substantially worse than the existing whole-request `combine_devices:
+   true` compromise below, not better. Filed generically as
+   [klayout-tools#1878](https://github.com/2AMLogic/klayout-tools/issues/1878).
+2. **A separate, newly-introduced regression in the same release.**
+   klayout-tools#1558/#1564 ("write bare `C` cards for unbound
+   capacitors") — an unrelated, independently-motivated fix to stop `klt
+   extract` writing a `C` card ngspice cannot actually simulate — has the
+   side effect of dropping the capacitor device class's own name from the
+   written SPICE text entirely. `NetlistSpiceReader` reading that bare card
+   back in (exactly what this flow's pre-extracted `layout.netlist` LVS
+   shape does) can no longer recover that class name, so it registers under
+   KLayout's own anonymous capacitor class instead of the reference
+   netlist's own explicitly-named one — breaking device-class
+   correspondence for capacitors specifically. Confirmed directly: the same
+   composed GDS, extracted once with a pre-#1558 `klt` build and once with
+   0.5.0, produces byte-identical `C` cards except for that one trailing
+   token (`... 8.647288e-15 sky130_fd_pr__model__cap_mim` vs. `...
+   8.647288e-15`). Filed generically as
+   [klayout-tools#1876](https://github.com/2AMLogic/klayout-tools/issues/1876).
+
+Re-running with the existing whole-request `options.combine_devices: true`
+(unchanged from before the bump — the `combine_devices_per_circuit` trial
+above was strictly worse, so `run-flow.sh` keeps the old setting) against
+0.5.0:
+
+| | layout | reference | matched |
+| --- | --- | --- | --- |
+| pins | 19 | 19 | 19 |
+| devices | 869 | 869 | 794 |
+| nets | 444 | 446 | 393 |
+
+— `status: mismatch`, `device.unmatched: 99` (up from 75), `net.merged: 12`,
+`net.split: 10`, `topology: 2` (new — "device class could not be mapped to a
+counterpart", the #1876 capacitor regression above), `topology.flattened: 1`
+— 124 total mismatches, up from 98 pre-bump. The extra 24 `device.unmatched`
+entries and the 2 new `topology` entries are exactly the #1876 capacitor
+regression; the original 75/12/10/1 breakdown (the #1878-tracked
+`combine_devices` scoping gap) is otherwise unchanged. See the latest
+`reports/<record-id>/lvs.json` for the full per-mismatch detail.
+
+None of this indicates a routing defect: the pin declaration and the
+unfiltered, net-by-net connectivity check both still independently confirm
+the composition's own new interconnect is correct — what remains unverified
+by a `klt lvs` **match** is still each sub-block's *own* internal
+device-level correctness at the composed scale (already independently
+verified at each sub-block's own scope, #99–#102's own closed, clean LVS
+records), now blocked on two upstream tool gaps instead of one.
+
 ## Remaining work (tracked against #103)
 
 - [x] Place all five blocks via `klt gen-compose` `placement.strategy:
@@ -633,13 +775,22 @@ nothing left to disagree about.
       `options.flatten_reference: true` (issue #1085).
 - [x] `klt extract --pin-source-cells` reaches 19/19/19 promoted/reference/
       matched top-level pins (klayout-tools#1513/#1515, resolved).
-- [ ] **Blocked on klayout-tools#1552** (see above) for an actual `klt
-      lvs` **match** verdict — the connectivity itself is verified correct
-      by the unfiltered-extraction, net-by-net check in each record's own
-      `record.md`, and the pin declaration is now exact; what remains is a
-      `combine_devices` scoping gap this repo cannot fix on its own.
-- [ ] Once klayout-tools#1552 (or an equivalent workaround) resolves: confirm
-      an actual `match` verdict, and revisit whether `klt pex` (now
+- [x] `layout/requirements.txt` bumped to the officially released
+      `klayout-tools==0.5.0`; the `SAR_ADC_TOP_KLT` override is retired —
+      this flow runs entirely on the pinned `klt` now.
+- [ ] **Blocked on klayout-tools#1878 and klayout-tools#1876** (see "Update:
+      re-run against the officially pinned `klayout-tools==0.5.0`" above) for
+      an actual `klt lvs` **match** verdict — the connectivity itself is
+      verified correct by the unfiltered-extraction, net-by-net check in each
+      record's own `record.md`, and the pin declaration is exact; what
+      remains is (1) a `combine_devices` scoping gap the 0.5.0-era
+      `combine_devices_per_circuit` feature does not actually close for this
+      composition's flat layout-side extraction (klayout-tools#1878,
+      superseding the now-closed klayout-tools#1552), and (2) a newly
+      surfaced capacitor device-class round-trip regression
+      (klayout-tools#1876) — neither is fixable by this repo alone.
+- [ ] Once klayout-tools#1878/#1876 (or an equivalent workaround) resolve:
+      confirm an actual `match` verdict, and revisit whether `klt pex` (now
       implemented, unlike the tooling gap #103's own body anticipated) is
       usable for T1 item 7's post-layout verification — not attempted this
       increment, since `klt pex` presumes a device/net correspondence to
@@ -654,17 +805,23 @@ remain tool-blocked, as of this record:
 - **Item 3 (DRC clean)**: **checkable and clean.** `klt drc` reports 0
   violations on the fully composed 5-block layout (unchanged since PR #174).
 - **Item 4 (LVS clean)**: **checkable, not yet clean.** The pin-declaration
-  half of the blocker (klayout-tools#1513) is resolved this increment — `klt
-  lvs` now runs with an exact 19/19/19 pin correspondence instead of
-  refusing to seed a comparison at all. It still reports `mismatch`, blocked
-  on the distinct `combine_devices` scoping gap above (klayout-tools#1552).
+  blocker (klayout-tools#1513) was resolved (via the now-retired
+  `SAR_ADC_TOP_KLT` override, and since this issue's own `klayout-tools==0.5.0`
+  pin bump, via the officially pinned `klt`) — `klt lvs` runs with an exact
+  19/19/19 pin correspondence instead of refusing to seed a comparison at
+  all. It still reports `mismatch`: the original `combine_devices` scoping
+  gap (klayout-tools#1552) is closed upstream but its fix
+  (`combine_devices_per_circuit`) does not actually apply to this
+  composition's flat layout-side extraction (klayout-tools#1878), and 0.5.0
+  additionally introduced a capacitor device-class round-trip regression
+  (klayout-tools#1876) that was not present before this bump.
 - **Item 7 (post-layout verification via `klt pex`)**: **not attempted,
   blocked on item 4.** `klt pex` is implemented upstream (unlike the tooling
   gap #103's own body anticipated when filed), but extracting parasitics
   presumes the device/net correspondence a clean LVS match would establish;
   running it against a netlist `klt lvs` itself cannot yet confirm
   corresponds to the schematic would not produce meaningful top-level
-  evidence. Left for the follow-up that resolves klayout-tools#1552.
+  evidence. Left for the follow-up that resolves klayout-tools#1878/#1876.
 
 ## Provenance
 
@@ -673,35 +830,32 @@ repo's own sub-block flows (#99–#102) and this issue's own new
 `layout/seln-inverters/` macro — no third-party layout, floorplan, or netlist
 was consulted.
 
-### `klt` build required: post-0.4.0, not yet on PyPI
+### `klt` build required: resolved — `klayout-tools==0.5.0`, no override needed
 
-`reports/20260907-110058-a546200/` (and every later record using
-`--pin-source-cells`) was generated with a `klt` build from
-klayout-tools commit
+`reports/20260907-110058-a546200/` through `reports/20260908-072857-80df05e/`
+were generated with a `klt` build from klayout-tools commit
 [`2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5`](https://github.com/2AMLogic/klayout-tools/commit/2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5)
 (#1515, "feat(extract): add `--pin-source-cells` for gen-compose'd
-multi-macro pin declaration", merged 2026-09-06) — or any later commit.
-**This is a real, honest gap against #103's own reproducibility acceptance
-criterion**, not glossed over: `layout/requirements.txt` still pins
-`klayout-tools==0.4.0` (PyPI's latest published release as of 2026-09-07 —
-re-checked live via `pip index versions klayout-tools` this session, still
-capped at 0.4.0), and that release predates #1515 — the pinned
-`layout/.venv/bin/klt` `layout/bin/setup-venv.sh` installs does **not** have
-`--pin-source-cells`.
+multi-macro pin declaration", merged 2026-09-06), via the `SAR_ADC_TOP_KLT`
+env-var override — `layout/requirements.txt` pinned `klayout-tools==0.4.0`
+at the time, and PyPI had not yet published a release newer than that.
 
-Until a `klayout-tools` release newer than 0.4.0 ships and
-`layout/requirements.txt` can bump its pin to it, reproducing this record's
-own `extract.json`/`lvs.json` requires building `klt` directly from that
-commit (or later) — e.g. `pip install
-'git+https://github.com/2AMLogic/klayout-tools@2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5'`
-— and pointing `layout/sar-adc-top/bin/run-flow.sh` at it via the
-`SAR_ADC_TOP_KLT` environment variable (see that script's own header
-comment), rather than the pinned `layout/.venv/bin/klt`. Every other step
-this flow runs (draw/gen-compose/drc/unfiltered-extract) is unaffected and
-reproduces identically on the pinned 0.4.0 build; only step 7's
-`--pin-source-cells` extraction and the `klt lvs` run downstream of it need
-the newer commit. This override is deliberately scoped to this one flow via
-an env var, not a blanket `layout/requirements.txt` bump to an unreleased
-commit SHA, which would break `pip install -r requirements.txt` (no such
-version exists on PyPI) for every other `layout/` flow that does not need
-this fix.
+`klayout-tools` v0.5.0 published to PyPI 2026-09-15T02:19:49Z, confirmed
+(via `gh api .../compare`) to contain both `2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5`
+(#1515) and commit `5598e540` (#1556, `options.combine_devices_per_circuit`)
+as ancestors. `layout/requirements.txt` now pins `klayout-tools==0.5.0`, and
+`layout/sar-adc-top/bin/run-flow.sh`'s `SAR_ADC_TOP_KLT` override is
+retired — `reports/20260915-120341-1e90b14/` onward (current:
+`reports/20260915-213439-bf2256f/`) is generated entirely
+from the officially pinned `layout/.venv/bin/klt`, reproducible by any third
+party via the ordinary `layout/bin/setup-venv.sh` + `layout/sar-adc-top/bin/
+run-flow.sh` invocation, with no extra build step. See "Update: re-run
+against the officially pinned `klayout-tools==0.5.0`" above for what that
+re-run found: DRC and the unfiltered connectivity check are unaffected, but
+the `klt lvs` verdict is not — bumping past 0.4.0 also picked up
+klayout-tools#1558's capacitor SPICE-writer change, which regresses this
+flow's specific pre-extracted-netlist LVS shape (klayout-tools#1876), and
+`combine_devices_per_circuit` itself does not close the original
+`combine_devices` scoping gap for this composition's flat layout-side
+extraction (klayout-tools#1878). Both are real, currently-open upstream
+gaps, not resolved by this pin bump alone.
