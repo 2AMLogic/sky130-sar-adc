@@ -1,0 +1,16 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "netlist": "abstract-cells-experiment.extract.lvs.spice",
+    "top": "gen_compose_0"
+  },
+  "reference": {
+    "netlist": "abstract-cells-experiment.reference-hollow.spice",
+    "top": "sar_adc_top"
+  },
+  "options": {
+    "combine_devices": true,
+    "flatten_reference": false
+  }
+}

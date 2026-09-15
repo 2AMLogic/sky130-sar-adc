@@ -21,8 +21,12 @@ exactly **one** open tool gap (klayout-tools#1878): the second gap the 0.5.0
 bump exposed (klayout-tools#1876, capacitor device-class identity lost on the
 SPICE round-trip) is **worked around locally** by this flow's own
 `bin/restore-cap-device-class.py`, which recovers the pre-regression
-verdict — 98 mismatches / 412 matched nets, against 124 / 393 without it. See
-"LVS device/topology blocker" below for the full, current trace.**
+verdict — 98 mismatches / 412 matched nets, against 124 / 393 without it. A
+newly-tried `--abstract-cells` black-boxing shape narrows this further to
+**6** mismatches, but rests on a not-yet-understood tool behaviour
+(klayout-tools#1911) and is recorded as a measurement, not adopted for
+signoff — see "LVS device/topology blocker" below for the full, current
+trace of both.**
 
 **Re-run for issue #245** (`layout/sampling-frontend/`'s own re-verification
 after issue #236's `Sa`/`Cmsw` sizing change), record
@@ -829,6 +833,99 @@ later pass does not re-try them blind:
   extract`'s own already-folded 869 devices. So the inline shape is not a
   substitute here even though it avoids #1876 — which is why the workaround
   above, not a shape change, is the right fix for that gap in this flow.
+
+### A fourth shape measured: `--abstract-cells` black-boxing (klayout-tools#620) — promising, but blocked on a newly-found gap
+
+klayout-tools#1878's own "what would actually close it" section names a
+third option beyond the two already tried above: `--abstract-cells` +
+a matching hand-authored reference, letting this design's own
+already-independently-verified sub-blocks be compared as opaque, pinned
+black boxes at the top level instead of flattened devices — "reducing the
+top-level compare to pure interconnect/topology, where `combine_devices`
+has nothing left to disagree about." `--abstract-cells` (issue #620) was
+never tried against this composition before this pass; it already ships in
+the pinned `klayout-tools==0.5.0` (no version bump needed).
+
+**Mechanism.** `klt extract --abstract-cells '<qualified-cell-name>'`
+(repeatable) treats every instance of a matched cell **type** as an opaque
+subcircuit boundary instead of flattening its devices into the top circuit,
+resolving that boundary's pins from the cell's own drawn labels. The
+composed GDS's direct children carry `klt gen-compose`'s own deterministic
+`<block-id>__<cell-name>` qualified names (`klt cells sar_adc_top.gds`):
+`cdac_array__cdac_array`, `sar_sequencer__sar_sequencer`,
+`seln_inverters__seln_inverters` each draw their own pin labels directly on
+their own top cell and abstract cleanly; `comparator__gen_compose_0` and
+`sampling_frontend__gen_compose_0` do not (their pin labels live one level
+deeper, in their own internal `ROUTE` sub-cell — `--abstract-cells`
+resolves pins only from labels drawn *directly* in the matched cell's own
+definition) and were left flat.
+
+To compare a partially-abstracted layout netlist against a reference with
+the matching shape, the reference's own already-verified, already-committed
+sub-block subckts for exactly those three macros are **renamed** to the same
+`<block-id>__<cell-name>` qualifiers (so `NetlistComparer`'s own circuit
+correspondence pairs them by name — verified necessary: leaving the
+reference-side names as-is, or feeding the full (non-abstracted) sub-block
+device lists under the renamed headers, both fail outright, see below) and
+**hollowed** (header + `.ENDS` only, no devices — matching the layout side's
+own now-opaque boundary; comparing a real device-level reference subckt
+against a genuinely-empty black box is not "pure interconnect", it is
+comparing zero devices against hundreds, and fails completely). Comparator
+and sampling_frontend's own reference subckts are inlined (their device
+cards copied in with each port substituted for its top-level net,
+`M`/`C` device designators kept as the first character so
+`NetlistSpiceReader` still classifies them correctly, everything else
+prefixed with the instance name for uniqueness) directly into the top
+`.SUBCKT sar_adc_top`, matching the layout side's own flat top-circuit
+device set. `options.flatten_reference: false` (not the flow's existing
+`true`) is required so the reference keeps these three circuit boundaries
+instead of erasing them before comparing.
+
+**Result.** Against the same composed GDS as the 98-mismatch baseline
+above: **6 mismatches** (`device.unmatched: 3`, `net.merged: 2`,
+`topology: 1`; nets 59/61/128 pins 19/19/92, devices 35/35/32 — the small
+absolute counts are `gen_compose_0`'s own flat portion only, once
+cdac_array/sar_sequencer/seln_inverters are opaque). A **75 -> 3** and
+**98 -> 6** mismatch reduction, by removing exactly the sub-blocks whose own
+`combine_devices` need conflicted with the rest (cdac_array,
+sar_sequencer, seln_inverters no longer contribute any devices to fold at
+all).
+
+**Why this is not adopted for signoff, and is not the flow's default.** All
+6 remaining mismatches trace to one thing: `cdac_array__cdac_array`'s own
+schematic 4th port (a body/bulk tie resolved, in the *unabstracted* layout,
+through the sky130 deck's global-net fallback rather than a drawn label —
+the same mechanism the "GND / VPWR / VGND" section above already documents
+for other blocks) has **no drawn label anywhere in cdac_array's own
+definition**, so `--abstract-cells` silently drops it (23 resolved pins,
+not the reference's 24) — and, surprisingly, that drop does not just cost
+the black box its own 4th terminal: it also **corrupts the synthesized net
+name for several unrelated top-level nets** (`VINN`/`VINP`/`TOP_N`/`TOP_P`/
+`VREFN` collapse into one bogus composite label, cascading into the 6
+mismatches above), even though those nets never touch `cdac_array`'s own
+footprint. Isolated directly: abstracting `sar_sequencer`/`seln_inverters`
+alone (neither has a label-less port) leaves every net name clean;
+abstracting `cdac_array` alone, on its own, reproduces the corruption every
+time, independent of which other flags are combined with it. This is a new
+finding, distinct from klayout-tools#1876/#1878/#1085 (a different root
+cause — a black-boxed cell's *dropped, label-less* port perturbing
+*unrelated* net-name synthesis, not a combine_devices scoping question or a
+missing hierarchical-extraction mode), so it is not covered by an existing
+report — filed generically as
+[klayout-tools#1911](https://github.com/2AMLogic/klayout-tools/issues/1911).
+
+Until #1911 is understood/fixed, this repo has no way to independently
+confirm the 6 remaining mismatches are the cosmetic label artefact they
+appear to be, rather than a real connectivity defect the corrupted names
+happen to mask — so, per CLAUDE.md's "Verification is the product" (no
+claim without a testbench this repo can actually audit), this shape is
+**recorded here as a measurement, not adopted**: `run-flow.sh` keeps using
+the already-audited 98-mismatch `combine_devices: true` /
+`flatten_reference: true` whole-request compare above as its signoff
+attempt. Once #1911 is resolved upstream, re-measure this shape first —
+if the 6 mismatches resolve to genuinely benign net-naming artefacts (or
+disappear once the underlying pin-drop is fixed), this is the shortest
+path to a full LVS match this issue has found so far.
 
 ## Remaining work (tracked against #103)
 
