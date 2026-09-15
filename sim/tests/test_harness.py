@@ -243,6 +243,86 @@ class TestRunKltYield(unittest.TestCase):
             self.assertTrue(called_args[2].endswith(".json"))
 
 
+class TestResolveCornersProvenance(unittest.TestCase):
+    """evidence.resolve_corners_provenance() -- the corners-campaign layer
+    above resolve_provenance() that sim/sampling-acquisition-settling/,
+    sim/sequencer-logic-delay/, and sim/cdac-bit-trial-settling/ each
+    repeated verbatim in write_corners_record() before issue #283. Pure
+    file/dict plumbing: resolve_provenance() itself is faked so no PDK or
+    ngspice is needed."""
+
+    def _point(self, corner: str, temp_c: float, supply_v: float, complete: bool = True):
+        corner_id = corners.corner_id(corner, temp_c, supply_v)
+        return {
+            "corner": corner,
+            "temp_c": temp_c,
+            "supply_v": supply_v,
+            "corner_id": corner_id,
+            "netlist": f"* deck for {corner_id}\n",
+            "complete": complete,
+        }
+
+    def _fake_resolve(self, seen: list):
+        def fake(experiment_dir: Path, netlist_text: str):
+            seen.append(netlist_text)
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        return fake
+
+    def test_baseline_snapshot_decks_and_run_summary(self):
+        points = [
+            self._point("ss", 27.0, 1.8),
+            self._point("tt", 27.0, 1.8),
+            self._point("tt", 125.0, 1.62, complete=False),
+        ]
+        seen: list = []
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            with mock.patch.object(evidence, "resolve_provenance", self._fake_resolve(seen)):
+                info = evidence.resolve_corners_provenance(tmp_dir, points, 1.8)
+
+            # the tt/27C/nominal point is the one snapshotted, not points[0]
+            self.assertEqual(seen, ["* deck for tt_27c_1.80v\n"])
+            # the five ProvenanceInfo fields pass through unchanged
+            self.assertEqual(info.record_id, "REC")
+            self.assertEqual(info.record_path, tmp_dir / "records" / "REC.md")
+            self.assertEqual(info.netlist_sha, "0" * 64)
+            self.assertEqual(info.pdk_line, "sky130A @ testing")
+            self.assertEqual(info.ng_version, "ngspice-46")
+            # every point's own deck lands in corners/<record-id>/
+            self.assertEqual(info.corners_dir, tmp_dir / "corners" / "REC")
+            for p in points:
+                deck = info.corners_dir / f"{p['corner_id']}.spice"
+                self.assertTrue(deck.is_file(), f"missing deck for {p['corner_id']}")
+                self.assertEqual(deck.read_text(), p["netlist"])
+
+        self.assertEqual(info.process_corners_run, ["ss", "tt"])
+        self.assertEqual(info.temps_run, [27.0, 125.0])
+        self.assertEqual(info.supplies_run, [1.62, 1.8])
+        self.assertEqual([p["corner_id"] for p in info.incomplete], ["tt_125c_1.62v"])
+        self.assertEqual(
+            [p["corner_id"] for p in info.complete_points], ["ss_27c_1.80v", "tt_27c_1.80v"]
+        )
+
+    def test_baseline_falls_back_to_first_point(self):
+        # a campaign whose grid has no tt/27C/nominal point at all (e.g. a
+        # supply-axis-only re-run) still snapshots a deck rather than raising
+        points = [self._point("ss", -40.0, 1.62), self._point("ff", 125.0, 1.98)]
+        seen: list = []
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(evidence, "resolve_provenance", self._fake_resolve(seen)):
+                evidence.resolve_corners_provenance(Path(tmp), points, 1.8)
+        self.assertEqual(seen, [points[0]["netlist"]])
+
+
 class TestRunnerHelpers(unittest.TestCase):
     def test_spread_pct(self):
         self.assertAlmostEqual(runner._spread_pct([0.9, 0.9, 0.9]), 0.0)

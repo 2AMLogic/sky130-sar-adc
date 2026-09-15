@@ -744,28 +744,17 @@ def write_corners_record(points: list[dict]) -> Path:
     # the same single-point convention write_record() above uses, so a
     # reader can diff it directly against the single-corner record's own
     # snapshot.
-    baseline = next(
-        (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0 and p["supply_v"] == VDD),
-        points[0],
-    )
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, baseline["netlist"])
-    record_id = prov.record_id
-    record_path = prov.record_path
-    netlist_sha = prov.netlist_sha
-    pdk_line = prov.pdk_line
-    ng_version = prov.ng_version
-
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
-    for p in points:
-        (corners_dir / f"{p['corner_id']}.spice").write_text(p["netlist"])
-
-    process_corners_run = sorted({p["corner"] for p in points})
-    temps_run = sorted({p["temp_c"] for p in points})
-    supplies_run = sorted({p["supply_v"] for p in points})
-
-    incomplete = [p for p in points if not p["complete"]]
-    complete_points = [p for p in points if p["complete"]]
+    run = evidence.resolve_corners_provenance(EXPERIMENT_DIR, points, VDD)
+    record_id = run.record_id
+    record_path = run.record_path
+    netlist_sha = run.netlist_sha
+    pdk_line = run.pdk_line
+    ng_version = run.ng_version
+    process_corners_run = run.process_corners_run
+    temps_run = run.temps_run
+    supplies_run = run.supplies_run
+    incomplete = run.incomplete
+    complete_points = run.complete_points
 
     lines: list[str] = []
     a = lines.append
