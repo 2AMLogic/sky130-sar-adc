@@ -14,18 +14,15 @@
 # reports/LATEST to point at a real, already-committed record (#99-#102,
 # #166) -- this flow *reads* those GDS files, it does not regenerate them.
 #
-# `SAR_ADC_TOP_KLT` env override: step 7's `klt extract --pin-source-cells`
-# flag (klayout-tools#1515) postdates `layout/requirements.txt`'s pinned
-# `klayout-tools==0.4.0` -- PyPI has not published a release newer than
-# 0.4.0 yet (checked 2026-09-07), so the pinned `layout/.venv/bin/klt` this
-# script uses by default does NOT have the flag. Set `SAR_ADC_TOP_KLT` to a
-# `klt` build from klayout-tools commit 2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5
-# (#1515) or later to run this flow for real until a qualifying PyPI release
-# lands and `layout/requirements.txt` can bump to it -- see
-# layout/sar-adc-top/README.md's "Provenance" section and
-# layout/requirements.txt's own header for the full trace. Every other step
-# (draw/gen-compose/drc/unfiltered-extract) is unaffected by this override
-# and works identically on the pinned 0.4.0 build.
+# Runs entirely on the pinned `layout/.venv/bin/klt` (klayout-tools==0.5.0,
+# `layout/requirements.txt`) -- no env override needed. Step 7's `klt
+# extract --pin-source-cells` (klayout-tools#1515) previously required a
+# `klt` build newer than the then-pinned 0.4.0, reached only via a
+# `SAR_ADC_TOP_KLT` env-var override; that override is retired now that
+# klayout-tools v0.5.0 (published 2026-09-15) carries the fix in the
+# officially pinned build -- see layout/sar-adc-top/README.md's
+# "Provenance" section and layout/requirements.txt's own header for the
+# full trace.
 #
 # Flow (see layout/sar-adc-top/README.md for the full floorplan/routing
 # writeup this implements):
@@ -75,7 +72,7 @@ set -euo pipefail
 TOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$TOP_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="${SAR_ADC_TOP_KLT:-$LAYOUT_DIR/.venv/bin/klt}"
+KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
 TOP=gen_compose_0
 ROUTE_CELL_NAME=SAR_ADC_TOP_ROUTE
@@ -146,8 +143,8 @@ GDS="$OUT_DIR/sar_adc_top.gds"
 # README.md "LVS pin declaration: resolved"): it reaches exactly this
 # design's own intended 19/19/19 promoted/reference/matched pin counts,
 # where none of `--top-cell-pins`/`--pins`/`--def-pins` could. Requires a
-# `klt` build with klayout-tools#1515 -- see the `SAR_ADC_TOP_KLT` note atop
-# this file if `$KLT` predates it.
+# `klt` build with klayout-tools#1515 -- carried by the pinned
+# `klayout-tools==0.5.0` (layout/requirements.txt).
 "$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
     --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
     -o "$OUT_DIR/sar_adc_top.extract.spice" --format json \

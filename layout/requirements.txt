@@ -116,21 +116,66 @@
 #     hand-written drc/nwell_isolation.drc deck and inverted verdict 5 --
 #     exactly the outcome anticipated here, measured against klt 0.4.0.)
 #
-# layout/sar-adc-top/ (issue #103) needs a klt build NEWER than this 0.4.0
-# pin for one specific step: `klt extract --pin-source-cells`
-# (klayout-tools#1515, merged 2026-09-06, commit
-# 2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5) postdates 0.4.0, and PyPI has
-# not published a release newer than 0.4.0 yet (re-checked 2026-09-07 via
-# `pip index versions klayout-tools`). This pin is deliberately NOT bumped
-# to that commit SHA here -- `pip install -r requirements.txt` cannot
-# resolve a git commit that isn't a PyPI version, and every other `layout/`
-# flow works fine on 0.4.0 -- so bumping this file would break every other
-# flow's reproducibility to fix one. layout/sar-adc-top/bin/run-flow.sh's
-# own `SAR_ADC_TOP_KLT` env override lets that one flow point at a newer
-# build instead; see layout/sar-adc-top/README.md's "Provenance" section
-# for the exact commit and the full trace. Bump this pin (and drop that
-# override) once a qualifying klayout-tools release ships.
-klayout-tools==0.4.0
+# layout/sar-adc-top/ (issue #103) needed a klt build NEWER than 0.4.0 for
+# one specific step: `klt extract --pin-source-cells` (klayout-tools#1515,
+# merged 2026-09-06, commit 2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5)
+# postdates 0.4.0, and PyPI had not published a release newer than 0.4.0 as
+# of 2026-09-07 (`pip index versions klayout-tools`). That pin was
+# deliberately NOT bumped to that commit SHA here -- `pip install -r
+# requirements.txt` cannot resolve a git commit that isn't a PyPI version,
+# and every other `layout/` flow worked fine on 0.4.0 -- so bumping this
+# file would have broken every other flow's reproducibility to fix one.
+# layout/sar-adc-top/bin/run-flow.sh's own `SAR_ADC_TOP_KLT` env override
+# let that one flow point at a newer build instead in the interim.
+#
+# Bumped 0.4.0 -> 0.5.0 for issue #103 (top-level SAR ADC layout assembly),
+# 2026-09-15: klayout-tools v0.5.0 published to PyPI 2026-09-15T02:19:49Z
+# (`pip index versions klayout-tools` / PyPI JSON API, both re-checked live
+# this session) and confirmed via `gh api .../compare` to contain BOTH
+# commits the sar-adc-top flow's own override was standing in for --
+# 2313dd0301b2dd90e4cad9a2cf1c62ff36d3a9b5 (#1515, `--pin-source-cells`) and
+# 5598e540 (#1556, `klt lvs`'s `options.combine_devices_per_circuit`) -- as
+# well as a related follow-up neither override commit needed but this pin
+# now carries anyway, #1560/#1557 ("carry #559/#1497 resistor-offset and
+# capacitor-C corrections into combine_devices_per_circuit"). This retires
+# the `SAR_ADC_TOP_KLT` override entirely: `layout/sar-adc-top/bin/
+# run-flow.sh` now runs on the pinned `.venv/bin/klt` like every other
+# `layout/` flow. Re-run with the bump, per the discipline above:
+#   - layout/bin/run-trivial-cell-flow.sh -- all six verdicts PASS.
+#   - layout/sar-adc-top/bin/run-flow.sh  -- DRC still clean (0 violations,
+#     unaffected by this bump); unfiltered `klt extract` connectivity
+#     verification still passes net-by-net. `klt lvs` does NOT reach a clean
+#     match, and two upstream tool gaps were found and filed generically,
+#     not one -- see layout/sar-adc-top/README.md's "LVS device/topology
+#     blocker" section for the full trace:
+#       1. `options.combine_devices_per_circuit` (the fix #1552 got) turns
+#          out not to help this composition at all: it can only scope a side
+#          that already has separate per-macro subcircuits, and `klt
+#          extract`'s layout-side output is always one flat circuit --
+#          hierarchical extraction still doesn't exist (#1085 remains open).
+#          Tried directly (per-macro settings on the reference side, one
+#          blanket setting on the necessarily-flat layout side): 1154
+#          mismatches, worse than the existing whole-request `combine_devices:
+#          true` compromise -- so `run-flow.sh` keeps using that. Filed
+#          generically as klayout-tools#1878.
+#       2. A separate, newly-introduced regression: klayout-tools#1558/#1564
+#          ("write bare C cards for unbound capacitors") strips the
+#          capacitor device class's own name from the extracted SPICE text,
+#          so this flow's pre-extracted-netlist `klt lvs` shape can no
+#          longer resolve capacitor devices to their reference-side
+#          counterpart by class name. Confirmed by diffing the same GDS's
+#          extracted `C` cards, pre-#1558 build vs. 0.5.0, byte-for-byte.
+#          Filed generically as klayout-tools#1876.
+#     Net effect: the `klt lvs` mismatch count went from 98 (pre-bump
+#     baseline) to 124 -- a real regression, not noise, isolated to
+#     klayout-tools#1876 above (24 extra `device.unmatched` + 2 new
+#     `topology` entries, all capacitor-class-identity related; the
+#     original 75/12/10/1 breakdown behind #1878 is otherwise unchanged).
+#     Not re-verified against the full sibling-flow list the 0.3.0 -> 0.4.0
+#     bump's own note above enumerates (cdac-array/sampling-frontend-wells's
+#     known nondeterminism and hung `klayout` binary are unrelated to this
+#     bump and out of scope for issue #103).
+klayout-tools==0.5.0
 #
 # `klayout` itself was left unpinned here until issue #148: `klayout-tools`
 # declares it as a dependency but does not pin an exact version, so `pip
