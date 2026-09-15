@@ -77,7 +77,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners, evidence, measure, pdk, toolchain  # noqa: E402
+from harness import corners, evidence, measure, toolchain  # noqa: E402
 
 DUT_FRAGMENT = EXPERIMENT_DIR / "testbench" / "sampling_frontend_dut.spice"
 # The real CDAC array's regenerated netlist fragment (issue #53), read
@@ -154,16 +154,6 @@ AC_FREQ_HZ = 1000.0
 # Netlist assembly
 # ---------------------------------------------------------------------------
 
-def _preamble(corner: str, temp_c: float, title: str) -> list[str]:
-    info = pdk.resolve()
-    return [
-        f"* {title}",
-        f".lib {info.ngspice_lib} {corner}",
-        f".temp {temp_c}",
-        "",
-    ]
-
-
 def build_transient(
     *,
     vinp: float,
@@ -194,7 +184,7 @@ def build_transient(
                           before the transition it is sweeping has finished).
     """
     vcm = round(vdd * VCM_FRAC, 6)
-    lines = _preamble(
+    lines = toolchain.deck_preamble(
         corner, temp_c,
         f"issue #61 hold-kick diagnostic -- corner={corner} temp={temp_c}C "
         f"vdd={vdd} vinp={vinp} vinn={vinn}",

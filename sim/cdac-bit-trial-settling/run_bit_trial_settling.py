@@ -218,17 +218,6 @@ FRACTIONS = [0.5, 0.9, 0.99]  # fraction of the way from V_cm to V_top_final
 MEASURE_PREFIX_CONFIRM = "vtop_confirm"
 
 
-def _preamble(corner: str, temp_c: float, title: str) -> list[str]:
-    info = pdk.resolve()
-    return [
-        f"* {title}",
-        f".lib {info.ngspice_lib} {corner}",
-        f".temp {temp_c}",
-        ".model SWMOD SW(Ron=1 Roff=1e12 Vt={0} Vh=0.05)".format(VDD / 2),
-        "",
-    ]
-
-
 def build_transient(
     *,
     test_bit: int,
@@ -277,10 +266,13 @@ def build_transient(
     delta_ideal = ratio * (v_bot_final - v_bot_initial)
     v_top_final = vcm + delta_ideal
 
-    lines = _preamble(
+    lines = toolchain.deck_preamble(
         corner, temp_c,
         f"issue #121 CDAC bit-trial settling -- corner={corner} temp={temp_c}C "
         f"vdd={vdd} test_bit={test_bit} direction={direction}",
+        extra_lines=[
+            ".model SWMOD SW(Ron=1 Roff=1e12 Vt={0} Vh=0.05)".format(VDD / 2)
+        ],
     )
     lines += [
         f"Vdd VDD 0 dc {vdd}",

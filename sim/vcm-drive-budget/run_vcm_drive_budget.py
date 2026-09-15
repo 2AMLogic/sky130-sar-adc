@@ -112,7 +112,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
+from harness import corners as corners_mod, evidence, measure, toolchain  # noqa: E402
 
 DUT_FRAGMENT = (
     SIM_DIR / "sampling-frontend" / "testbench" / "sampling_frontend_dut.spice"
@@ -220,16 +220,6 @@ SINGLE_CORNER_SEED_BUDGET_1LSB_OHM = {
 }
 
 
-def _preamble(corner: str, temp_c: float, title: str) -> list[str]:
-    info = pdk.resolve()
-    return [
-        f"* {title}",
-        f".lib {info.ngspice_lib} {corner}",
-        f".temp {temp_c}",
-        "",
-    ]
-
-
 def build_transient(
     *,
     vinp: float,
@@ -255,7 +245,7 @@ def build_transient(
     probe_ns = sample_end_ns - (tran_step_ps / 1000.0) * 2
     tran_stop_ns = sample_end_ns + 50.0
 
-    lines = _preamble(
+    lines = toolchain.deck_preamble(
         corner, temp_c,
         f"issue #121 VCM drive-budget -- corner={corner} temp={temp_c}C "
         f"vdd={vdd} vinp={vinp} vinn={vinn} r_source={r_source_ohm:g} "

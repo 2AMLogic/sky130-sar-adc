@@ -156,6 +156,75 @@ def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
     return output
 
 
+def netlist_with_xschem(
+    design_sch: Path, scratch_dir: Path, xschemrc: Path, out_name: str
+) -> Path:
+    """Netlist `design_sch` with xschem (headless), returning the path to the
+    generated `out_name` file under `scratch_dir`. Raises RuntimeError on any
+    xschem error/nonzero exit, or if the expected output file is missing.
+
+    Shares its timeout budget with run_ngspice()'s own ngspice invocations
+    (issue #133) via toolchain_timeout_s()/TIMEOUT_ENV_VAR, so
+    SIM_NGSPICE_TIMEOUT_S raises both this step's and any subsequent .tran
+    run's budget together on a slower-but-still-progressing host.
+
+    Extracted from two byte-identical call sites (issue #205):
+    sim/sar-sequencer-behavioral/run_testbench.py's and
+    sim/sequencer-logic-delay/run_sequencer_logic_delay.py's own
+    `netlist_dut()` functions, both netlisting design/sar_sequencer.sch this
+    same way. Parameterized over the design schematic, xschemrc path, and
+    expected output filename so it is not tied to any one DUT.
+    """
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "xschem", "-x", "-n", "-s", "-q",
+        "--rcfile", str(xschemrc),
+        "-o", str(scratch_dir),
+        str(design_sch),
+    ]
+    timeout_s = toolchain_timeout_s()
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"xschem netlisting of {design_sch} timed out after {timeout_s:g}s. "
+            f"If xschem was still making progress (not hung), raise the budget "
+            f"with e.g. {TIMEOUT_ENV_VAR}=300 (seconds) in the environment "
+            f"before re-running."
+        ) from exc
+    out_path = scratch_dir / out_name
+    if proc.returncode != 0 or not out_path.is_file():
+        raise RuntimeError(
+            f"xschem netlisting of {design_sch} failed (exit {proc.returncode}):\n"
+            f"{proc.stdout}\n{proc.stderr}"
+        )
+    return out_path
+
+
+def deck_preamble(
+    corner: str, temp_c: float, title: str, *, extra_lines: list[str] | None = None
+) -> list[str]:
+    """Common leading lines of a hand-assembled (non sim/run_corners.py)
+    transient deck: a title comment, `.lib <corner>`, `.temp`, any
+    `extra_lines` (e.g. a `.model` card), then a blank separator line.
+
+    Extracted from three call sites' own `_preamble()` (issue #205):
+    sim/sampling-frontend/run_hold_kick.py and
+    sim/vcm-drive-budget/run_vcm_drive_budget.py were byte-identical;
+    sim/cdac-bit-trial-settling/run_bit_trial_settling.py added one extra
+    `.model SWMOD ...` card, now expressed via `extra_lines` instead of a
+    third near-duplicate copy.
+    """
+    info = pdk.resolve()
+    return [
+        f"* {title}",
+        f".lib {info.ngspice_lib} {corner}",
+        f".temp {temp_c}",
+        *(extra_lines or []),
+        "",
+    ]
+
+
 def read_wrdata_csv(path: Path, n_vectors: int) -> list[list[float]]:
     """Parse an ngspice `wrdata` output file: one row per timestep, with
     each requested vector contributing its OWN (time, value) column pair --
