@@ -247,7 +247,14 @@ OFFSETS = {
 # not transcribed from any README prose.
 BBOX = {
     "cdac_array": (-4.5, -35.0, 218.7, 55.85),
-    "sampling_frontend": (0.0, -2.4, 195.56, 58.05),
+    # y1 re-measured post-klt-0.5.0 (issue #103): 58.05 -> 58.97. klt 0.5.0
+    # grows this sub-block's own `cboot`/`csamp` cap arrays by 0.92 um in
+    # height, which lifts its shared met2 routing-channel band (and hence the
+    # block's own top edge) by that same 0.92 um -- see the `PIN` table's
+    # sampling_frontend note below. Read directly off
+    # `layout/sampling-frontend/reports/LATEST/sampling_frontend.gds`'s own
+    # top-cell `dbbox()`, not transcribed from prose.
+    "sampling_frontend": (0.0, -2.4, 195.56, 58.97),
     "comparator": (0.0, 2.5, 26.6, 38.65),
     "sar_sequencer": (0.0, 0.0, 42.57, 42.57),
     "seln_inverters": (0.0, 0.0, 86.195, 86.195),
@@ -283,26 +290,41 @@ PIN = {
     ("cdac_array", "VDD"): (1.00, -26.37, MET1),
     ("cdac_array", "VREFP"): (-2.0, -34.8, MET1),
     ("cdac_array", "VREFN"): (-2.0, -33.4, MET2),
-    ("sampling_frontend", "VDD"): (1.76, 50.90, MET2),
-    # Re-verified post-issue-#236/#245: Sa_p/Sa_n's gate moved from SAMPLE to
-    # G_P/G_N, so they no longer contribute a SAMPLE column -- the SAMPLE
-    # net's own leftmost (`xs[0]`) column/pin-label position, which
-    # `layout/sampling-frontend/bin/build_layout.py` always places its
-    # met2.pin label at, moved from 2.67 (formerly Sa_p's own gate column,
-    # the leftmost of the net's old 8 contributing columns) to 17.285 (now
-    # the net's leftmost of 6 remaining columns -- verified directly against
-    # `layout/sampling-frontend/reports/LATEST/layout.summary.json`'s own
-    # `nets.SAMPLE.columns_um[0]`). track_y (50.40) is unchanged: the
-    # widened Cmswn/Cmswp pair grew only in Y within their own block (W runs
-    # vertically for this generator), not tall enough to overtake Csamp
-    # (still this sub-block's tallest block), so `track_y0` itself did not
-    # move.
-    ("sampling_frontend", "SAMPLE"): (17.285, 50.40, MET2),
-    ("sampling_frontend", "VINP"): (10.10, 53.40, MET2),
-    ("sampling_frontend", "VINN"): (22.90, 53.90, MET2),
-    ("sampling_frontend", "VCM"): (13.30, 51.90, MET2),
-    ("sampling_frontend", "TOP_P"): (42.23, 57.40, MET2),
-    ("sampling_frontend", "TOP_N"): (44.52, 57.90, MET2),
+    # --- sampling_frontend: every y below is +0.92 um vs. the klt-0.4.0 era
+    # (issue #103's klayout-tools 0.4.0 -> 0.5.0 bump).
+    #
+    # klt 0.5.0 builds this sub-block's own `cboot`/`csamp` MIM cap arrays
+    # 0.92 um taller than 0.4.0 did. `csamp` is this sub-block's own tallest
+    # block, and its own `build_layout.py` stacks the shared met2 routing
+    # channel directly on top of the tallest block -- so `track_y0_um` moves
+    # with it (49.9 -> 50.82, read off
+    # `layout/sampling-frontend/reports/LATEST/layout.summary.json`), and
+    # every one of the seven external met2 pins this assembly touches rides
+    # that same +0.92 um. x is unchanged for all seven (the cap arrays grew
+    # only in y; W runs vertically for this generator).
+    #
+    # Each (x, y) below was re-read directly off layer 69/5 (met2.pin) text
+    # in `layout/sampling-frontend/reports/LATEST/sampling_frontend.gds` --
+    # the same committed artefact `run-flow.sh` feeds this assembly -- and
+    # cross-checked against that record's own `layout.summary.json`
+    # `nets.<net>.track_y_um` / `columns_um[0]`. Leaving the pre-bump values
+    # here is what put the top-level landing pads 0.92 um below the pins they
+    # were supposed to contact, producing 4 x `met2.space.1` against the
+    # neighbouring track (the regression this fixes).
+    #
+    # SAMPLE's own x (17.285) is separately a post-issue-#236/#245 value and
+    # is NOT affected by the klt bump: this sub-block's own `build_layout.py`
+    # always labels a net's met2.pin at that net's *leftmost* contributing
+    # column (`xs[0]`), and issue #236 moved Sa_p/Sa_n's gate from SAMPLE to
+    # G_P/G_N, dropping the two devices that used to supply SAMPLE's old
+    # leftmost column (2.67, Sa_p's own PFET-row position).
+    ("sampling_frontend", "VDD"): (1.76, 51.82, MET2),
+    ("sampling_frontend", "SAMPLE"): (17.285, 51.32, MET2),
+    ("sampling_frontend", "VINP"): (10.10, 54.32, MET2),
+    ("sampling_frontend", "VINN"): (22.90, 54.82, MET2),
+    ("sampling_frontend", "VCM"): (13.30, 52.82, MET2),
+    ("sampling_frontend", "TOP_P"): (42.23, 58.32, MET2),
+    ("sampling_frontend", "TOP_N"): (44.52, 58.82, MET2),
     ("comparator", "GND"): (1.3, 20.0, MET1),
     ("comparator", "VINN"): (4.9, 20.0, MET1),
     ("comparator", "VINP"): (9.1, 20.0, MET1),

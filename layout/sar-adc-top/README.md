@@ -48,7 +48,7 @@ unrelated `combine_devices`-scoping gap** tracked in
 against that already-open finding, not a new or different blocker.
 
 **Re-run for issue #103's own `klayout-tools==0.5.0` pin bump** (retiring the
-`SAR_ADC_TOP_KLT` override), record `20260915-120341-1e90b14`: DRC is still
+`SAR_ADC_TOP_KLT` override), record `20260915-213439-bf2256f`: DRC is still
 clean (0 violations, unaffected by the bump), the unfiltered connectivity
 check still passes net-by-net, and pins still promote 19/19/19. The LVS
 mismatch verdict, however, is **not** identical to the pre-bump baseline —
@@ -194,36 +194,57 @@ which is what `--def-pins` already treats as authoritative — see
 committed), in micrometers, and must be translated by whatever placement
 offset the composition finally chooses.
 
-### `sampling_frontend` (top cell in `layout/sampling-frontend/reports/20260908-070934-80df05e/sampling_frontend.gds`, re-verified post-issue-#236/#245)
+### `sampling_frontend` (top cell in `layout/sampling-frontend/reports/20260915-120718-1e90b14/sampling_frontend.gds`, re-verified post-issue-#236/#245 and post-`klayout-tools==0.5.0`)
 
-bbox: `(0.0, -2.4)` to `(195.56, 58.05)`. All pins on layer `69/5` (met2.pin)
+bbox: `(0.0, -2.4)` to `(195.56, 58.97)`. All pins on layer `69/5` (met2.pin)
 except `GND`, which has **no drawn pin** — see "GND/substrate" below.
 
-**SAMPLE's own `x_um` moved from `2.67` to `17.285` as of issue #245**: this
-sub-block's own `build_layout.py` always labels a net's met2.pin at that
-net's *leftmost* contributing column (`xs[0]`), and issue #236 moved
-`Sa_p`/`Sa_n`'s gate from `SAMPLE` to `G_P`/`G_N` — the two devices that used
-to supply `SAMPLE`'s own leftmost column (2.67, in `Sa_p`'s own PFET-row
-position). Track `y_um` (50.40) is unchanged: the wider `Cmswn`/`Cmswp` pair
-this same issue widened only grew in `y` within their own block (this
-generator draws `W` vertically), not tall enough to overtake `Csamp` (still
-this sub-block's tallest block), so the shared met2 track band itself did
-not move. Every other pin below is unchanged (verified directly against the
-new record's own `layout.summary.json`).
+**Every `y_um` below is +0.92 µm vs. the klt-0.4.0 era, as of issue #103's
+`klayout-tools` 0.4.0 → 0.5.0 bump.** klt 0.5.0 builds this sub-block's own
+`cboot`/`csamp` MIM cap arrays 0.92 µm taller than 0.4.0 did. `csamp` is
+this sub-block's own tallest block, and its own `build_layout.py` stacks the
+shared met2 routing channel directly on top of the tallest block, so
+`track_y0_um` rides up with it — `49.9 → 50.82` in the record's own
+`layout.summary.json` — and so does the block's own top edge
+(`58.05 → 58.97`). `x_um` is unchanged for every pin (the cap arrays grew
+only in `y`; this generator draws `W` vertically).
+
+This is exactly the kind of sub-block-internal move this composition's own
+hand-transcribed pin table does not track automatically — the same failure
+mode issue #245 hit (see the `SAMPLE` note below). Leaving the pre-bump `y`
+values in `bin/build_layout.py` put this assembly's top-level landing pads
+0.92 µm below the pins they were meant to contact, which showed up as
+4 × `met2.space.1` against the neighbouring track (0.07–0.09 µm gaps) and
+LVS 128; re-reading the table off the current GDS restores DRC-clean and the
+124-mismatch verdict documented above.
+
+**SAMPLE's own `x_um` moved from `2.67` to `17.285` as of issue #245** (a
+separate, earlier move, unrelated to the klt bump): this sub-block's own
+`build_layout.py` always labels a net's met2.pin at that net's *leftmost*
+contributing column (`xs[0]`), and issue #236 moved `Sa_p`/`Sa_n`'s gate
+from `SAMPLE` to `G_P`/`G_N` — the two devices that used to supply
+`SAMPLE`'s own leftmost column (2.67, in `Sa_p`'s own PFET-row position).
+That issue's own `Cmswn`/`Cmswp` widening did *not* move the track band
+(those two grew in `y` but never overtook `Csamp`); klt 0.5.0's taller
+`csamp` is what finally did.
+
+Read directly off layer `69/5` text in the record's own
+`sampling_frontend.gds`, cross-checked against its `layout.summary.json`
+`nets.<net>.track_y_um` / `columns_um[0]`:
 
 | Pin | x_um | y_um |
 | --- | --- | --- |
-| VDD | 1.76 | 50.90 |
-| SAMPLE | 17.285 | 50.40 |
-| BOOST_P | 0.70 | 52.40 |
-| VINP | 10.10 | 53.40 |
-| VCM | 13.30 | 51.90 |
-| BPREF_P | 14.87 | 56.40 |
-| VINN | 22.90 | 53.90 |
-| BPREF_N | 21.27 | 56.90 |
-| BOOST_N | 26.98 | 52.90 |
-| TOP_P | 42.23 | 57.40 |
-| TOP_N | 44.52 | 57.90 |
+| VDD | 1.76 | 51.82 |
+| SAMPLE | 17.285 | 51.32 |
+| BOOST_P | 0.70 | 53.32 |
+| VINP | 10.10 | 54.32 |
+| VCM | 13.30 | 52.82 |
+| BPREF_P | 14.87 | 57.32 |
+| VINN | 22.90 | 54.82 |
+| BPREF_N | 21.27 | 57.82 |
+| BOOST_N | 26.98 | 53.82 |
+| TOP_P | 42.23 | 58.32 |
+| TOP_N | 44.52 | 58.82 |
 
 Used by this assembly: `VDD`, `SAMPLE` (<- sequencer's `PH_SAMPLE`, net
 `SAMPLE_INT`), `VINP`/`VINN` (<- top-level external pins), `VCM` (<-
@@ -824,7 +845,8 @@ at the time, and PyPI had not yet published a release newer than that.
 (#1515) and commit `5598e540` (#1556, `options.combine_devices_per_circuit`)
 as ancestors. `layout/requirements.txt` now pins `klayout-tools==0.5.0`, and
 `layout/sar-adc-top/bin/run-flow.sh`'s `SAR_ADC_TOP_KLT` override is
-retired — `reports/20260915-120341-1e90b14/` onward is generated entirely
+retired — `reports/20260915-120341-1e90b14/` onward (current:
+`reports/20260915-213439-bf2256f/`) is generated entirely
 from the officially pinned `layout/.venv/bin/klt`, reproducible by any third
 party via the ordinary `layout/bin/setup-venv.sh` + `layout/sar-adc-top/bin/
 run-flow.sh` invocation, with no extra build step. See "Update: re-run
