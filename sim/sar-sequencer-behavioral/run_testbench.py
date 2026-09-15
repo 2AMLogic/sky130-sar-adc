@@ -38,7 +38,6 @@ scaffolding).
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -97,35 +96,14 @@ def netlist_dut(scratch_dir: Path) -> Path:
     path to the generated .spice file. Raises RuntimeError on any xschem
     error/nonzero exit -- this is also issue #55's own "opens/builds cleanly"
     acceptance check, run fresh on every invocation rather than trusting a
-    stale snapshot."""
-    scratch_dir.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "xschem", "-x", "-n", "-s", "-q",
-        "--rcfile", str(XSCHEMRC),
-        "-o", str(scratch_dir),
-        str(DESIGN_SCH),
-    ]
-    # Shares its timeout budget with toolchain.run_ngspice()'s own ngspice
-    # invocations (issue #133) rather than a second hardcoded literal here,
-    # so SIM_NGSPICE_TIMEOUT_S raises both this step's and the .tran run's
-    # budget together on a slower-but-still-progressing host.
-    timeout_s = toolchain.toolchain_timeout_s()
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(
-            f"xschem netlisting of {DESIGN_SCH} timed out after {timeout_s:g}s. "
-            f"If xschem was still making progress (not hung), raise the budget "
-            f"with e.g. {toolchain.TIMEOUT_ENV_VAR}=300 (seconds) in the "
-            f"environment before re-running."
-        ) from exc
-    out_path = scratch_dir / "sar_sequencer.spice"
-    if proc.returncode != 0 or not out_path.is_file():
-        raise RuntimeError(
-            f"xschem netlisting of {DESIGN_SCH} failed (exit {proc.returncode}):\n"
-            f"{proc.stdout}\n{proc.stderr}"
-        )
-    return out_path
+    stale snapshot. Thin wrapper around toolchain.netlist_with_xschem()
+    (issue #205): shares its timeout budget with toolchain.run_ngspice()'s
+    own ngspice invocations (issue #133) rather than a second hardcoded
+    literal here, so SIM_NGSPICE_TIMEOUT_S raises both this step's and the
+    .tran run's budget together on a slower-but-still-progressing host."""
+    return toolchain.netlist_with_xschem(
+        DESIGN_SCH, scratch_dir, XSCHEMRC, "sar_sequencer.spice"
+    )
 
 
 def assemble_deck(

@@ -106,7 +106,6 @@ against this cell library pays -- see
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -183,36 +182,13 @@ MEASURE_NAMES = [f"delay_{node[3:]}" for node in PHASE_NODES]  # "delay_b9".."de
 def netlist_dut(scratch_dir: Path) -> Path:
     """Netlist design/sar_sequencer.sch with xschem (headless), returning the
     path to the generated .spice file. Raises RuntimeError on any xschem
-    error/nonzero exit. Duplicated from (not imported from)
-    sim/sar-sequencer-behavioral/run_testbench.py's own function of the same
-    name and purpose: this repo's convention for a standalone, single-DUT
-    digital timing experiment is to state its own netlisting step directly
-    rather than cross-import another experiment's module (no sim/ experiment
-    in this repo currently imports another experiment's own run_*.py)."""
-    scratch_dir.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "xschem", "-x", "-n", "-s", "-q",
-        "--rcfile", str(XSCHEMRC),
-        "-o", str(scratch_dir),
-        str(DESIGN_SCH),
-    ]
-    timeout_s = toolchain.toolchain_timeout_s()
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(
-            f"xschem netlisting of {DESIGN_SCH} timed out after {timeout_s:g}s. "
-            f"If xschem was still making progress (not hung), raise the budget "
-            f"with e.g. {toolchain.TIMEOUT_ENV_VAR}=300 (seconds) in the "
-            f"environment before re-running."
-        ) from exc
-    out_path = scratch_dir / "sar_sequencer.spice"
-    if proc.returncode != 0 or not out_path.is_file():
-        raise RuntimeError(
-            f"xschem netlisting of {DESIGN_SCH} failed (exit {proc.returncode}):\n"
-            f"{proc.stdout}\n{proc.stderr}"
-        )
-    return out_path
+    error/nonzero exit. Thin wrapper around toolchain.netlist_with_xschem()
+    (issue #205), the same helper
+    sim/sar-sequencer-behavioral/run_testbench.py's own `netlist_dut()` now
+    uses for the identical DUT/output-filename pair."""
+    return toolchain.netlist_with_xschem(
+        DESIGN_SCH, scratch_dir, XSCHEMRC, "sar_sequencer.spice"
+    )
 
 
 def build_transient(
