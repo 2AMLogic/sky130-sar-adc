@@ -92,13 +92,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _geometry_common import DBU, nm  # noqa: E402
 from _geometry_common import Rect as _Rect  # noqa: E402
+from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
 
 # --- layer table (sky130A GDS numbers, as klt's own curated deck names them) --
+# L_TAP/L_LICON/L_LI1 (the tap/well-tie structure's own layers) and
+# LICON_PITCH_UM now live in `_geometry_common` only, closed over by
+# `_tap_shapes_core` (imported above) -- this module no longer needs them by
+# name, since `tap_shapes()` below is a thin wrapper around that shared core.
 L_NWELL = (64, 20)
 L_DIFF = (65, 20)
-L_TAP = (65, 44)
-L_LICON = (66, 44)
-L_LI1 = (67, 20)
 L_MCON = (67, 44)
 L_MET1 = (68, 20)
 L_MET1_PIN = (68, 5)
@@ -117,7 +119,6 @@ MCON_SPACE_UM = 0.19  # ct.2
 TRACK_PITCH_UM = 0.50  # y pitch for met1 branches: 0.30 wire + 0.20 gap
 PAD_MARGIN_UM = 0.12  # keep an mcon this far inside its li1 pad's own edges
 LICON_UM = 0.17
-LICON_PITCH_UM = 0.60
 
 # --- schematic connectivity --------------------------------------------------
 # Net -> [(block id, port name)], transcribed device-by-device from
@@ -624,17 +625,16 @@ def build_pins(reports_dir: Path) -> tuple[dict[tuple[str, str], Pin], dict[str,
 
 
 def tap_shapes(net: str, spec: dict) -> tuple[list[tuple[tuple[int, int], Rect]], Pin]:
-    """Draw one body-tie structure; returns its shapes and its li1 landing pin."""
+    """Draw one body-tie structure; returns its shapes and its li1 landing pin.
+
+    The tap/li1 rects + licon1 column loop are `_geometry_common.tap_shapes()`'s
+    shared core (identical to the other two sub-blocks' own tie structure);
+    this wrapper adds what only comparator needs -- a `Pin`, not a raw
+    `(cx, cy)` centre, since comparator's own greedy router consumes `Pin`s.
+    """
+    shapes = _tap_shapes_core(spec, LICON_UM)
     x0, x1, y0, y1 = spec["x0"], spec["x1"], spec["y0"], spec["y1"]
-    shapes: list[tuple[tuple[int, int], Rect]] = [
-        (L_TAP, Rect.um(x0, y0, x1, y1)),
-        (L_LI1, Rect.um(x0, y0, x1, y1)),
-    ]
     cx = (x0 + x1) / 2
-    y = y0 + LICON_PITCH_UM / 2
-    while y + LICON_PITCH_UM / 2 <= y1 + 1e-9:
-        shapes.append((L_LICON, Rect.centred(cx, y, LICON_UM, LICON_UM)))
-        y += LICON_PITCH_UM
     pin = Pin(f"tap_{net}", "TIE", cx, y0 + PAD_MARGIN_UM, y1 - PAD_MARGIN_UM)
     return shapes, pin
 

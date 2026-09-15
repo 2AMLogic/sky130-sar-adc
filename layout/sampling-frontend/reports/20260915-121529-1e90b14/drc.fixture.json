@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "file": "nwell_rules_fixture.gds",
+  "deck": "sky130",
+  "dbu_um": 0.001,
+  "status": "violations",
+  "violation_count": 2,
+  "rule_counts": {
+    "nwell.space.1": 1,
+    "nwell.width.1": 1
+  },
+  "violations": [
+    {
+      "rule": "nwell.space.1",
+      "description": "minimum nwell spacing / isolation between distinct wells",
+      "check": "space",
+      "layer": "nwell.drawing",
+      "cell": "NWELL_RULES_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 2000,
+        "bottom": 0,
+        "right": 2500,
+        "top": 2000
+      },
+      "polygon": [
+        [
+          2000,
+          0
+        ],
+        [
+          2000,
+          2000
+        ],
+        [
+          2500,
+          2000
+        ],
+        [
+          2500,
+          0
+        ]
+      ]
+    },
+    {
+      "rule": "nwell.width.1",
+      "description": "minimum nwell width",
+      "check": "width",
+      "layer": "nwell.drawing",
+      "cell": "NWELL_RULES_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 10000,
+        "bottom": 0,
+        "right": 10600,
+        "top": 2000
+      },
+      "polygon": [
+        [
+          10000,
+          0
+        ],
+        [
+          10000,
+          2000
+        ],
+        [
+          10600,
+          2000
+        ],
+        [
+          10600,
+          0
+        ]
+      ]
+    }
+  ],
+  "coverage": {
+    "deck_layers": [
+      "64/20",
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "71/44",
+      "72/20",
+      "89/44",
+      "97/44"
+    ],
+    "layers_checked": [
+      "64/20",
+      "65/20"
+    ],
+    "layers_in_stream_without_rules": [
+      "65/44"
+    ],
+    "rules_skipped": [
+      "capm.enclosing.via3.1",
+      "capm.separation.via3.1",
+      "capm.space.1",
+      "capm.width.1",
+      "capm2.enclosing.via4.1",
+      "capm2.separation.via4.1",
+      "capm2.space.1",
+      "capm2.width.1",
+      "diff.enclosing.licon.1",
+      "li1.enclosing.licon1.1",
+      "li1.space.1",
+      "li1.width.1",
+      "mcon.space.1",
+      "met1.enclosing.mcon.1",
+      "met1.enclosing.via.1",
+      "met1.space.1",
+      "met1.width.1",
+      "met2.enclosing.via.1",
+      "met2.enclosing.via2.1",
+      "met2.space.1",
+      "met2.width.1",
+      "met3.enclosing.capm.1",
+      "met3.enclosing.via2.1",
+      "met3.enclosing.via3.1",
+      "met3.space.1",
+      "met3.width.1",
+      "met4.enclosing.capm2.1",
+      "met4.enclosing.via3.1",
+      "met4.enclosing.via4.1",
+      "met4.space.1",
+      "met4.width.1",
+      "met5.enclosing.via4.1",
+      "met5.space.1",
+      "met5.width.1",
+      "poly.enclosing.licon.1",
+      "poly.width.1",
+      "via.space.1",
+      "via.width.1",
+      "via2.space.1",
+      "via2.width.1",
+      "via3.space.1",
+      "via3.width.1",
+      "via4.space.1",
+      "via4.width.1"
+    ],
+    "voltage_domain_warnings": [],
+    "deck_scope": [
+      "cap2m",
+      "capm",
+      "ct",
+      "difftap",
+      "li",
+      "licon",
+      "m1",
+      "m2",
+      "m3",
+      "m4",
+      "m5",
+      "nwell",
+      "poly",
+      "via",
+      "via2",
+      "via3",
+      "via4"
+    ]
+  },
+  "provenance": {
+    "klt_version": "0.4.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:5afac7ab8561545859f5e2e74f4621c6ffc052756dc8fe344ea263398e96b240",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:c9a922a036fbf425142a526f6a9cc30ab02a0d24e15660244135a36cf94bfd62"
+    }
+  }
+}
