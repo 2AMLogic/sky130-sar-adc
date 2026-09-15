@@ -153,6 +153,69 @@ def resolve_provenance(experiment_dir: Path, netlist_text: str) -> ProvenanceInf
     )
 
 
+@dataclass
+class CornersProvenanceInfo(ProvenanceInfo):
+    """ProvenanceInfo plus the per-campaign values every `--corners` record
+    writer derives alongside it -- see resolve_corners_provenance()."""
+
+    corners_dir: Path
+    process_corners_run: list[str]
+    temps_run: list[float]
+    supplies_run: list[float]
+    incomplete: list[dict]
+    complete_points: list[dict]
+
+
+def resolve_corners_provenance(
+    experiment_dir: Path, points: list[dict], nominal_supply_v: float
+) -> CornersProvenanceInfo:
+    """resolve_provenance() for a full `--corners` campaign: pick the
+    ratified tt/27C/nominal baseline point (falling back to the first point),
+    snapshot ITS netlist as the record's single-point snapshot, bootstrap
+    `<experiment_dir>/corners/<record-id>/` with every point's own deck, and
+    derive the run-summary axis sets plus the complete/incomplete split.
+
+    The ~23-line block this replaces was byte-identical in the
+    write_corners_record() of sim/sampling-acquisition-settling/,
+    sim/sequencer-logic-delay/, and sim/cdac-bit-trial-settling/ (issue #283)
+    -- the corners-shaped layer above the write_record() preamble
+    resolve_provenance() already deduped for #235, and the same copy-paste
+    drift #211/#214/#217 closed for corners.ratified_oat_grid(). Each
+    `points` entry is a per-point dict keyed "corner"/"temp_c"/"supply_v"/
+    "corner_id"/"netlist"/"complete"; the two `--corners` writers that do not
+    share that exact shape (sim/vcm-drive-budget/, which snapshots its DUT
+    fragment directly, and sim/cdac-array-transfer/, whose point dicts are
+    keyed "process_corner") keep their own inline versions."""
+    baseline = next(
+        (
+            p
+            for p in points
+            if p["corner"] == "tt" and p["temp_c"] == 27.0 and p["supply_v"] == nominal_supply_v
+        ),
+        points[0],
+    )
+    prov = resolve_provenance(experiment_dir, baseline["netlist"])
+
+    corners_dir = experiment_dir / "corners" / prov.record_id
+    corners_dir.mkdir(parents=True, exist_ok=True)
+    for p in points:
+        (corners_dir / f"{p['corner_id']}.spice").write_text(p["netlist"])
+
+    return CornersProvenanceInfo(
+        record_id=prov.record_id,
+        record_path=prov.record_path,
+        netlist_sha=prov.netlist_sha,
+        pdk_line=prov.pdk_line,
+        ng_version=prov.ng_version,
+        corners_dir=corners_dir,
+        process_corners_run=sorted({p["corner"] for p in points}),
+        temps_run=sorted({p["temp_c"] for p in points}),
+        supplies_run=sorted({p["supply_v"] for p in points}),
+        incomplete=[p for p in points if not p["complete"]],
+        complete_points=[p for p in points if p["complete"]],
+    )
+
+
 def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
     """Invoke `klt yield` against an already-built `measurements` list (each
     caller constructs its own `"name"`/`"unit"`/`"samples"`/`"limits"`
