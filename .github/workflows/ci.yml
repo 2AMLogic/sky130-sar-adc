@@ -39,6 +39,18 @@ name: CI
 #     always-on gate against the silent regression that item 9 grades —
 #     adding one more claimed spec row without its bench, while every
 #     individual campaign still looks green.
+#   - `docs/chipalooza/check_proposal_citations.py` (issue #121) is also part
+#     of `check:ci` -> `checks` below, and is likewise headless (pure file
+#     reads, no PDK, no ngspice, no network): it checks that every path
+#     docs/chipalooza/challenge-4-proposal.md cites resolves, that every
+#     Section 4 spec row cites the CURRENT record of each sim/layout flow it
+#     draws on (per that flow's own records/LATEST or reports/LATEST pointer,
+#     not only a superseded one), and that every "current LATEST" claim in the
+#     prose is true and names the right pointer file for its tree. This is the
+#     always-on gate against the drift that document's own history is full of
+#     -- a flow re-runs, its LATEST moves, and a spec-row verdict is left
+#     citing the superseded record (PRs #239/#242/#276/#282/#295/#300 each had
+#     to correct an instance after the fact).
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict
