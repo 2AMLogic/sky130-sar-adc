@@ -489,19 +489,46 @@ supply `{1.62, 1.80, 1.98} V`, one-at-a-time (9 points) — per
 `sim/README.md`'s "Corner-grid shape." No row below has ever been measured
 at, or claimed to hold at, any rail above 1.8 V core (§2.1).
 
-The verdict column below distinguishes three cases per this issue's own
+The verdict column below states one of six kinds, per this issue's own
 acceptance criterion ("every spec row states met/unmet... no row is
-relaxed"):
+relaxed"). Every row opens its verdict cell with one of these, and the list
+is **machine-checked in both directions** (check 8 of the
+[citation gate](check_proposal_citations.py)): a row opening with a kind not
+defined here fails CI, and a kind defined here that no row uses fails too —
+so the vocabulary cannot drift away from the table, as it had before
+2026-09-16 (this list said "three cases", named four kinds, and the table
+used six, one of the four being a *Status* value rather than a verdict):
 - **MET** — spec row is ratified and evidence shows it passes at every
-  bound corner.
+  bound corner. For the one *descriptive* (non-numeric) spec row —
+  Architecture — there is no corner to bound it at, and MET instead means the
+  design implements exactly the topology the row describes, evidenced by the
+  schematics its Source column names.
 - **UNMET** — spec row is ratified and evidence shows a specific,
   named shortfall at a specific corner (not relaxed to hide it).
-- **DRAFT / not ratified** — the target-spec row itself is not yet an
-  operator-ratified number; evidence may exist and is reported
-  informationally, but there is no ratified line to grade a verdict
-  against.
+- **PARTIAL** — the row grades several distinct claims and they do not all
+  land the same way; the cell then names each claim's own verdict.
+- **UNMEASURED** — the spec row exists but no evidence campaign has produced
+  the figure it asks for, as distinct from evidence that fell short.
+- **Informational only** — the target-spec row states a number that is not
+  yet operator-ratified (its Status is `DRAFT`); evidence may exist and is
+  reported, but there is no ratified line to grade a verdict against. This is
+  the verdict-column form of a `DRAFT` *numeric* Status, which is why it is
+  stated here rather than in the Status column's vocabulary.
 - **BLOCKED** — no evidence exists yet; names the specific issue that would
   produce it.
+
+**The Target and Status columns are machine-checked against
+[`spec/target-spec.md`](../../spec/target-spec.md) too** (check 7, added
+2026-09-16): every row of that file's own Target table must appear below, with
+every numeric bound it states (comparator and sign included) still present in
+this table's Target cell, and the same leading Status word. That is the
+mechanical form of this repository's standing rule that "agents do not relax a
+spec line to make a result pass" — a bound softened, re-numbered, or dropped on
+one side only is now a CI failure naming the bound, rather than something a
+reader has to catch by diffing two tables by hand. It also means DR-007's
+eventual ratification cannot pass unnoticed: the moment `spec/target-spec.md`
+grades the ENOB and INL/DNL rows `RATIFIED`, the two "Informational only" rows
+below fail the gate until they are re-graded to a real verdict.
 
 This table mirrors, and is derived from,
 [`docs/characterization-report.md`](../../docs/characterization-report.md) —
@@ -513,7 +540,7 @@ audience with an explicit Challenge-brief verdict column.
 
 | Parameter | Target (min/typ/max) | Status | Verdict at Sky130 1.8 V rail | Source (dated) |
 |---|---|---|---|---|
-| Architecture | charge-redistribution SAR, differential, top-plate sampling | DRAFT (descriptive) | Implemented as described | `design/sar_adc_top.sch`, `design/cdac/cdac_array.sch`, `design/sampling_frontend.sch`, `design/comparator.sch`, `design/sar_sequencer.sch` |
+| Architecture | charge-redistribution SAR, differential, top-plate sampling | DRAFT (descriptive) | **MET** — implemented as described: charge-redistribution SAR (`design/cdac/cdac_array.sch`), differential throughout (no single-ended mode exists, §6, [DR-005](../../spec/decision-records/DR-005-cdac-array-design.md)), top-plate sampling (`design/sampling_frontend.sch`). Graded against the descriptive-row form of MET defined above — a topology claim against the schematics, not a bounded number at a corner | `design/sar_adc_top.sch`, `design/cdac/cdac_array.sch`, `design/sampling_frontend.sch`, `design/comparator.sch`, `design/sar_sequencer.sch` |
 | Resolution `N` | 10 bit | **RATIFIED** (DR-003 via #27) | **MET** — 9/9 corners, correct MSB-first bit-by-bit capture | [`sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md`](../../sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md) |
 | `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | **MET** — structural + functional/monotonicity check, 9/9 corners | [`sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`](../../sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md) |
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | **MET** — same record as `V_REF` | same record |
@@ -555,6 +582,14 @@ under `records/`; the `layout/` flows under `reports/`). Rows may still cite
 superseded records alongside the current one, which is how this document keeps
 a supersession trail visible; what they may no longer do is cite *only* a
 superseded one.
+
+The same gate also compares this table against
+[`spec/target-spec.md`](../../spec/target-spec.md) row by row and grades the
+verdict column against the vocabulary the section preamble defines (checks 7
+and 8, added 2026-09-16). Those two are described once, in the preamble above
+the table, and deliberately not restated here — the census paragraph below is
+the standing reminder of what a second, hand-maintained copy of the same fact
+does to this document.
 
 **What "attached" excludes, stated rather than glossed over** (this paragraph
 first claimed the pointer check covered *every* such phrase, which overstated

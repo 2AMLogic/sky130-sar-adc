@@ -58,7 +58,17 @@ name: CI
 #     always-on gate against the drift that document's own history is full of
 #     -- a flow re-runs, its LATEST moves, and a spec-row verdict is left
 #     citing the superseded record (PRs #239/#242/#276/#282/#295/#300 each had
-#     to correct an instance after the fact).
+#     to correct an instance after the fact). It additionally compares that
+#     document's Section 4 table against spec/target-spec.md's own target
+#     table (check 7): every ratified spec row must be restated there, with
+#     every numeric bound it states -- comparator and sign included -- still
+#     present, and the same leading Status word. That is the mechanical form
+#     of this repo's standing "agents do not relax a spec line to make a
+#     result pass" rule, and it is also what turns DR-007's eventual
+#     ratification into a CI failure rather than a silent staleness. Check 8
+#     then requires every row to open its verdict with one of the kinds
+#     Section 4's own preamble defines, and every defined kind to be used by
+#     some row, so neither list can drift from the other.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict
