@@ -173,13 +173,20 @@ reproduces on repeat runs. The sampling front end (#99) closed via PR #152
 (merged 2026-09-05T23:22:50Z): 24/24 devices, 17/17 nets, 12/12 pins,
 DRC-clean and LVS-clean, with three negative-control mismatches confirming
 the checker's sensitivity — see
-[`layout/sampling-frontend/reports/20260906-230125-0904419/record.md`](../../layout/sampling-frontend/reports/20260906-230125-0904419/record.md)
-(current `reports/LATEST`; supersedes `reports/20260905-204934-f012255/`,
-a refactor-only re-run via issue #208/PR #210 with an identical DRC/LVS
-verdict — see §7 Item 1's citation-freshness correction).
-**No top-level assembled ADC layout (GDS) exists yet** — the routed
+[`layout/sampling-frontend/reports/20260915-120718-1e90b14/record.md`](../../layout/sampling-frontend/reports/20260915-120718-1e90b14/record.md)
+(current `reports/LATEST`, PR #275's `klayout-tools` `v0.5.0` rebuild;
+supersedes `reports/20260906-230125-0904419/` and, before it,
+`reports/20260905-204934-f012255/`, all three at the identical DRC/LVS
+verdict — see §7 Item 1's citation-freshness corrections).
+**A top-level assembled ADC layout (GDS) now exists, but is not DRC/LVS-clean
+end-to-end** — when this section was first written none existed at all; one
+has since landed (PR #174 and successors, see "Top-level assembly has since
+landed" below), is `klt drc`-clean and connectivity-verified net-by-net, and
+its two remaining gaps are `klt lvs`'s device-level match and the absence of
+any post-layout PVT re-simulation. The routed
 integration of the four sub-block layouts into one top-level GDS matching
-`design/sar_adc_top.sch`'s hierarchy is tracked as issue #103. All four of
+`design/sar_adc_top.sch`'s hierarchy is tracked as issue #103, still open
+and `loom:blocked`. All four of
 #103's original sub-block dependencies are closed, and #103 has since
 shipped a fifth composition-level block it needs directly,
 `layout/seln-inverters/` (the nine `SELn<i> = NOT(DOUT<i>)` glue inverters
@@ -570,8 +577,22 @@ Stated in order of size, and each pointing at the issue that already tracks
 it — this document does not invent new tracking for work this repo's issue
 tracker already owns.
 
-1. **Top-level layout does not exist (the largest gap).** No assembled,
-   DRC/LVS-clean GDS for `sar_adc_top` exists in this repo. Tracked as
+1. **Top-level layout exists but is neither LVS-clean nor post-layout
+   simulated (still the largest gap).** An assembled, routed `sar_adc_top`
+   GDS *does* exist in this repo and is `klt drc`-clean (0 violations) and
+   connectivity-verified net-by-net — it has since PR #174 (2026-09-06), and
+   the full update trail below records every re-verification of it. This
+   item's heading previously read "top-level layout does not exist", and its
+   lede "no assembled, DRC/LVS-clean GDS for `sar_adc_top` exists in this
+   repo"; both have been stale since that PR landed, and are corrected here
+   rather than left to mislead a reader skimming §7's headings (§4's Area row
+   and §3 both already stated that a composed top-level layout exists,
+   contradicting them). **Nothing about the design's graded status changes
+   with this correction** — what is still missing is exactly what the brief's
+   sign-off bar grades, and both remain UNMET in §4: a `klt lvs`
+   **device-level match** on the composed GDS (currently 98 mismatches), and
+   **any post-layout PVT re-simulation** of the assembled top level (none has
+   been run at any corner). Tracked as
    #103 (top-level routing/assembly), which lists #99, #100, #101, and #102
    as its four sub-block dependencies — **all four are now closed.** #99
    (sampling front-end layout) closed via PR #152 (merged
@@ -579,10 +600,10 @@ tracker already owns.
    nets, 12/12 pins matched, with three negative controls confirming the
    checker catches a body-tie, device-parameter, and capacitor-top-plate-net
    corruption respectively (record:
-   [`layout/sampling-frontend/reports/20260906-230125-0904419/record.md`](../../layout/sampling-frontend/reports/20260906-230125-0904419/record.md),
-   current `reports/LATEST` — see this item's citation-freshness correction
-   below for why this supersedes the originally-cited
-   `reports/20260905-204934-f012255/`).
+   [`layout/sampling-frontend/reports/20260915-120718-1e90b14/record.md`](../../layout/sampling-frontend/reports/20260915-120718-1e90b14/record.md),
+   current `reports/LATEST` — see this item's citation-freshness corrections
+   below for why this supersedes `reports/20260906-230125-0904419/` and, in
+   turn, the originally-cited `reports/20260905-204934-f012255/`).
    #101 (comparator layout — **done**, DRC/LVS-clean) and #102 (SAR
    sequencer layout — **done**, DRC-clean and LVS-clean as of #141) are
    closed and settled. #100 (CDAC array layout) is closed and its layout is
@@ -804,14 +825,18 @@ tracker already owns.
      "every switch transistor's `L`/`W`/`AS`/`AD`/`PS`/`PD` is byte-identical"
      claim from the layout-evidence side too. Both citations now point to
      `reports/20260906-020815-38cdbd3/`.
-   - `layout/sampling-frontend/`: `reports/LATEST` is
-     `20260906-230125-0904419`, minted by issue #208's refactor (PR #210,
+   - `layout/sampling-frontend/`: `reports/LATEST` was, at the time of this
+     2026-09-08 audit, `20260906-230125-0904419`, minted by issue #208's
+     refactor (PR #210,
      deduping the hand-transcribed PFET device table across the sub-block's
      own generator scripts). This section and §3 above still cited the
      pre-refactor record, `reports/20260905-204934-f012255/`. Diffing the two
      `record.md` files: identical except the header provenance stamp — the
      refactor changed no device count, DRC/LVS verdict, or pin count. Both
-     citations now point to `reports/20260906-230125-0904419/`.
+     citations were re-pointed to `reports/20260906-230125-0904419/` then,
+     and have since been re-pointed again onto the current `reports/LATEST`
+     — see the 2026-09-16 citation-freshness correction at the end of this
+     item.
    - `layout/sar-sequencer/`: §4's Power row cited
      `reports/20260825-124031-1a2f7c1/`, which predates issue #102's own LVS
      fix (PR #141, "reach clean LVS for the SAR sequencer layout") and still
@@ -943,7 +968,8 @@ tracker already owns.
    audit list (and §3) still names the pre-bump record ID for
    `layout/sampling-frontend/`; since its verdict and every count are
    identical, re-pointing it is left to the next pass that touches those
-   citations rather than folded into this one.
+   citations rather than folded into this one. **(Discharged 2026-09-16 —
+   see the citation-freshness correction at the end of this item.)**
 
    **Update this pass (2026-09-16): the 124-mismatch regression named above
    is now neutralised, and a fourth LVS shape has been measured but not
@@ -1031,6 +1057,52 @@ tracker already owns.
    this update corrects only the "both still open" tracking-issue-status
    claim that paragraph made about klayout-tools#1876/#1878, which is now
    stale.
+
+   **Citation-freshness correction (2026-09-16, third pass — the deferred
+   `layout/sampling-frontend/` re-point, plus this item's own stale
+   heading).** Two residuals, both internal to this document; **no §4 verdict
+   moves and no new layout or simulation work is claimed**:
+
+   - **The deferred re-point is discharged.** The 2026-09-15 update above
+     explicitly left `layout/sampling-frontend/`'s citation on the pre-bump
+     `20260906-230125-0904419` "to the next pass that touches those
+     citations." That pass is this one: §3 and this item's own #99 paragraph
+     now cite
+     [`layout/sampling-frontend/reports/20260915-120718-1e90b14/record.md`](../../layout/sampling-frontend/reports/20260915-120718-1e90b14/record.md),
+     which is what `layout/sampling-frontend/reports/LATEST` actually
+     resolves to (read from the pointer file this pass, not assumed).
+     Verified by diffing the two records directly rather than trusting the
+     earlier "identical counts" summary: the graded verdicts are indeed
+     unchanged — DRC clean (`violation_count=0`), `klt lvs` **match** at
+     24/24 devices, 17/17 nets, 12/12 pins, and all three negative controls
+     (body-tie, device-parameter, capacitor top-plate) still correctly report
+     `mismatch`. Three things *do* differ and are recorded here rather than
+     glossed: the `klt` stamp (0.4.0 → 0.5.0) and DRC-deck hash, the MiM-cap
+     geometry growth already described earlier in this item (the block's own
+     compose bbox `y1` 58.05 → 58.97 µm, the same +0.92 µm), and the
+     capacitor top-plate negative control's mismatch *count* (9 → 4, category
+     mix changed). The last of these is a negative control, so only its
+     `mismatch` outcome is load-bearing — it still holds — but the count is
+     not identical, which the earlier summary's "at the same counts" wording
+     did not distinguish. A superseded record ID remains valid for the
+     v0.4.0-era claims it was minted for; `20260915-121529-1e90b14` is *not*
+     used here, being a concurrent v0.4.0 run (PR #277) that `reports/LATEST`
+     correctly does not point at despite its later wall-clock name.
+   - **This item's own heading and lede were stale by ten days.** They read
+     "Top-level layout does not exist" / "No assembled, DRC/LVS-clean GDS for
+     `sar_adc_top` exists in this repo" — true when first written, false
+     since PR #174 (2026-09-06) committed a composed, `klt drc`-clean,
+     connectivity-verified `sar_adc_top.gds`, as this item's own update trail
+     and §4's Area row have said since. §3 carried the same stale bolded lede
+     ("No top-level assembled ADC layout (GDS) exists yet") immediately above
+     its own "Top-level assembly has since landed" update. Both are corrected
+     to state the *current* gap. This is a presentation fix, not a status
+     change: the brief's two sign-off-bar rows in §4 are **UNMET** before and
+     after, because what is missing was never the GDS itself but the `klt
+     lvs` device-level match (98 mismatches, klayout-tools#1878's capability
+     gap) and any post-layout PVT re-simulation (never run, at any corner).
+     Correcting a stale heading *upward* is not relaxing a spec row — no
+     target was loosened and no unmet row was re-graded.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
