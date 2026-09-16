@@ -1113,6 +1113,62 @@ tracker already owns.
    `klayout-tools#1911 remains open` claim two paragraphs above stale as of
    this pass, by about six hours.
 
+   **Update (2026-09-16, later still): #103 has now caught up, and its
+   blocker is a bare release gate with no open upstream issue behind it.**
+   The paragraph immediately above flagged — correctly at the time — that
+   #103 "has not yet caught up to this closure," its most recent dependency
+   re-check (2026-09-16T03:53:30Z) predating klayout-tools#1911's
+   09:50:34Z closure by about six hours. That claim is now itself stale:
+   #103 has since posted two further dependency re-checks,
+   **2026-09-16T11:42:31Z** (marker
+   `103-blocked-pending-klt-release-gt-v0.5.0-incorporating-ad3f8363`) and
+   **2026-09-16T12:26:38Z** (marker
+   `103-blocked-pending-klt-release-gt-0.5.0-and-gt-ad3f836`), both of which
+   record #1911's closure via klayout-tools#1934 (`ad3f8363`) and restate
+   the block as, in the first one's words, "a single release gate now — no
+   individual open upstream issue remains." The stale claim is superseded
+   here rather than edited away, so the dated trail stays readable.
+
+   Every load-bearing fact in that catch-up was re-verified live this pass
+   against the forge and PyPI directly, not taken from #103's comment text:
+
+   - All three tracked upstream gaps are **CLOSED**: klayout-tools#1876
+     (`closedAt: 2026-09-16T03:44:54Z`), #1878 (`03:43:13Z`), #1911
+     (`09:50:34Z`).
+   - The release gate holds on all three surfaces, each checked separately
+     so that "still `v0.5.0`" does not rest on one endpoint's quirk:
+     `gh api repos/2AMLogic/klayout-tools/tags` tops out at **`v0.5.0`**
+     (`6bf56109`); `gh api .../releases` tops out at the same **`v0.5.0`**,
+     published 2026-09-15T02:19:49Z with `draft: false` and
+     `prerelease: false` (read explicitly — so this is a real published
+     release, not a draft or pre-release being miscounted in either
+     direction); and PyPI's `klayout-tools` latest is **`0.5.0`**, exactly
+     what `layout/requirements.txt` already pins. `gh api
+     .../compare/v0.5.0...ad3f8363` reports `status: ahead`,
+     `ahead_by: 61`, `behind_by: 0`.
+   - **The gate is currently untracked upstream**: no *open*
+     `2AMLogic/klayout-tools` issue asks for a release past `v0.5.0`
+     (searched this pass). The tool's tracker does have closed precedent for
+     exactly this friction shape — klayout-tools#342, #953, #1020 and #1249
+     were each filed when a release-pinned consumer needed behavior that was
+     merged but untagged — so the absence is a tracking gap, not evidence
+     that the gate is not real. Filing (or not) is #103's call under the
+     friction protocol, not this compilation's.
+   - #103 itself is still **OPEN** and still carries `loom:blocked`, and no
+     open PR in this repo references it (`closedByPullRequestsReferences`
+     returns only the merged #227 and #275, per #103's own re-check).
+
+   **No §4 verdict moves and no new layout or simulation work is claimed
+   this pass**: the "DRC/LVS-clean GDS, full ADC" row stays **PARTIAL —
+   DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** at 98
+   mismatches on the current `reports/LATEST`
+   (`20260915-234004-76f48b9`), and "Post-layout PVT simulation, full ADC"
+   stays **UNMET** — still no extraction-based re-simulation of the
+   assembled top level at any corner, under any of the four LVS shapes
+   measured so far. The brief's sign-off bar (acceptance criterion 3) is
+   therefore still not met; what changed is only the blocker's tracking
+   status.
+
    **Citation-freshness correction (2026-09-16, third pass — the deferred
    `layout/sampling-frontend/` re-point, plus this item's own stale
    heading).** Two residuals, both internal to this document; **no §4 verdict
