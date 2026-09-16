@@ -15,11 +15,19 @@ pin-list/M-card extractor, the nfet/pfet device-class generalizer, and the
 `parse_verilog_netlist`'s instance-matching regex is parameterized on a
 ``cell_types`` tuple (the caller's own module-level `CELL_TYPES`) rather than
 hard-coded here, since it is genuinely per-block.
+
+Also houses `emit_std_cell_lvs_reference()`, the `main()` body the two
+scripts shared verbatim (issue #304): netlist/CDL existence checks,
+`cell_defs` construction, the pin-map-defaulting + device-emission loop, and
+the output write + summary print. Each caller's own `main()` stays
+responsible only for its own per-block configuration (paths, `CELL_TYPES`,
+`top_ports`, comment header text) and calling this function.
 """
 from __future__ import annotations
 
 import os
 import re
+import sys
 from decimal import Decimal
 
 _MODULE_RE = re.compile(r"^module\s+(\w+)\s*\(", re.M)
@@ -126,3 +134,105 @@ def _resolve_pdk_root() -> str:
     root = os.environ.get("PDK_ROOT") or os.path.expanduser("~/.volare")
     variant = os.environ.get("PDK", "sky130A")
     return os.path.join(root, variant)
+
+
+def emit_std_cell_lvs_reference(
+    netlist_path: str,
+    out_path: str,
+    cell_types: tuple[str, ...],
+    top_ports: list[str],
+    header_lines: list[str],
+    run_flow_hint: str,
+) -> int:
+    """Flatten a post-route structural Verilog netlist (``netlist_path``)
+    against the sky130 PDK's own official per-cell CDL models into a flat,
+    transistor-level LVS reference, and write it to ``out_path``.
+
+    This is the `main()` body shared verbatim (issue #304) by
+    `layout/sar-sequencer/bin/generate-lvs-reference.py` and
+    `layout/seln-inverters/bin/generate-lvs-reference.py` -- see either
+    script's own module docstring for the full "why" of this mechanism (flat
+    extraction, generic nfet/pfet device classes, post-route-not-pre-route
+    topology, `m=` finger-count scaling). Each caller stays responsible only
+    for its own per-block configuration:
+
+    - ``cell_types``: the standard-cell types this block's netlist may
+      contain (the caller's own module-level `CELL_TYPES`).
+    - ``top_ports``: this block's own fixed top-level port order.
+    - ``header_lines``: the block-specific SPICE comment header to emit
+      verbatim above the generated `.SUBCKT` line (including that caller's
+      own "Topology source: ..." line, since only the caller knows its own
+      `LAYOUT_DIR` anchor for the relative path).
+    - ``run_flow_hint``: the block's own `run-flow.sh` path, quoted in the
+      netlist-not-found error's hint.
+
+    Returns a process exit code (0 on success, 1 on a recoverable input
+    error), matching each caller's own `main()` contract -- callers should
+    `return emit_std_cell_lvs_reference(...)` directly.
+    """
+    if not os.path.isfile(netlist_path):
+        print(
+            f"generate-lvs-reference.py: netlist not found: {netlist_path}\n"
+            f"  (run {run_flow_hint} first, or pass an explicit path)",
+            file=sys.stderr,
+        )
+        return 1
+
+    pdk_dir = _resolve_pdk_root()
+    cdl_path = os.path.join(
+        pdk_dir, "libs.ref", "sky130_fd_sc_hd", "cdl", "sky130_fd_sc_hd.cdl"
+    )
+    if not os.path.isfile(cdl_path):
+        print(f"generate-lvs-reference.py: CDL not found: {cdl_path}", file=sys.stderr)
+        return 1
+    with open(cdl_path, encoding="utf-8") as handle:
+        cdl_text = handle.read()
+
+    cell_defs: dict[str, tuple[list[str], list[tuple]]] = {}
+    for cell_type in cell_types:
+        cell_defs[cell_type] = _extract_cdl_subckt(cdl_text, cell_type)
+
+    top_name, instances = parse_verilog_netlist(netlist_path, cell_types)
+    if not instances:
+        print(
+            f"generate-lvs-reference.py: no standard-cell instances found in "
+            f"{netlist_path}",
+            file=sys.stderr,
+        )
+        return 1
+
+    out_lines = list(header_lines) + [f".SUBCKT {top_name} {' '.join(top_ports)}"]
+
+    for inst_name, cell_type, pin_map in instances:
+        signal_pins, devices = cell_defs[cell_type]
+        full_pin_map = dict(pin_map)
+        full_pin_map.setdefault("VGND", "VGND")
+        full_pin_map.setdefault("VNB", "VGND")
+        full_pin_map.setdefault("VPB", "VPWR")
+        full_pin_map.setdefault("VPWR", "VPWR")
+
+        for dev_inst, drain, gate, source, body, model, w, l in devices:
+            def resolve(node: str, _map=full_pin_map, _inst=inst_name) -> str:
+                if node in _map:
+                    return _map[node]
+                return f"{_inst}_{node}"
+
+            out_lines.append(
+                f"M{inst_name}_{dev_inst} {resolve(drain)} {resolve(gate)} "
+                f"{resolve(source)} {resolve(body)} {_generalize_model(model)} "
+                f"L={l}U W={w}U"
+            )
+
+    out_lines.append(f".ENDS {top_name}")
+    out_lines.append("")
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(out_lines))
+
+    device_total = sum(len(cell_defs[cell_type][1]) for _, cell_type, _ in instances)
+    print(
+        f"generate-lvs-reference.py: wrote {out_path} "
+        f"({len(instances)} instances, {device_total} devices)"
+    )
+    return 0
