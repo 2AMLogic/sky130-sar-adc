@@ -294,6 +294,86 @@ class TestPointerClaims(unittest.TestCase):
         self.assertEqual(self.tree.check(body), [])
 
 
+class TestPointerClaimCensus(unittest.TestCase):
+    """Check 6: the document's stated coverage census must be the real one.
+
+    The defect shape here is one level up from a stale citation: the document
+    (and, before this check, `.github/workflows/ci.yml` and the checker's own
+    docstring) stated in prose how many of its pointer claims checks 4/5 cover.
+    PR #312 added two claims of the skipped kind and all three statements
+    silently became wrong -- a volatile fact nothing re-derived.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record("cdac-array", "20260906-020815-38cdbd3", latest=True)
+
+    def _body(self, census: str) -> str:
+        # One attached claim (checked), one trailing-stamp claim, one
+        # narration claim -- i.e. total=3, attached=1, skipped=2,
+        # trailing_stamp=1, narration=1.
+        return (
+            "cited as "
+            "[`layout/cdac-array/reports/20260906-020815-38cdbd3/record.md`]"
+            "(../../layout/cdac-array/reports/20260906-020815-38cdbd3/record.md)"
+            " (current `reports/LATEST`)\n\n"
+            "re-pointed onto the current `reports/LATEST`, "
+            "`20260906-020815-38cdbd3`\n\n"
+            "that citation is now corrected to the current `reports/LATEST`\n\n"
+            + census
+            + "\n"
+        )
+
+    def test_census_of_a_known_document_is_computed_as_documented(self):
+        census = checker.pointer_claim_census(self._body(""))
+        self.assertEqual(
+            {k: v for k, v in census.items() if k != "window"},
+            {
+                "total": 3,
+                "attached": 1,
+                "skipped": 2,
+                "trailing_stamp": 1,
+                "narration": 1,
+            },
+            census,
+        )
+
+    def _census_sentence(self, total, attached, skipped, trailing, narration):
+        return (
+            f'of the **{total}** "current `…/LATEST`" phrases in this '
+            f"document, **{attached}** are attached and therefore checked; of "
+            f"the **{skipped}** skipped, **{trailing}** name a record stamp "
+            f"within {checker.TRAILING_STAMP_WINDOW} characters after the "
+            f"phrase, and **{narration}** name none at all."
+        )
+
+    def test_a_truthful_census_passes(self):
+        body = self._body(self._census_sentence(3, 1, 2, 1, 1))
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_a_drifted_census_is_reported_field_by_field(self):
+        # The PR #312 shape: the document grew, the stated census did not.
+        body = self._body(self._census_sentence(2, 1, 1, 0, 1))
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 3, misses)
+        self.assertTrue(any("total=2" in miss and "total=3" in miss for miss in misses))
+        self.assertTrue(any("skipped=1" in miss and "skipped=2" in miss for miss in misses))
+
+    def test_a_census_stating_a_window_the_checker_does_not_apply_is_reported(self):
+        body = self._body(
+            self._census_sentence(3, 1, 2, 1, 1).replace(
+                f"within {checker.TRAILING_STAMP_WINDOW} characters", "within 40 characters"
+            )
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("window=40", misses[0])
+
+    def test_a_document_stating_no_census_is_not_failed_for_it(self):
+        # Fixtures (and any future chipalooza doc) need not carry a census.
+        self.assertEqual(self.tree.check(self._body("")), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -321,6 +401,21 @@ class TestAgainstTheRealProposal(unittest.TestCase):
             connector for _claim, _cited, connector in claims if "the" in connector
         ]
         self.assertTrue(the_forms, "the `the` connector branch matches nothing")
+
+    def test_the_real_proposal_states_a_parseable_census(self):
+        """Check 6 is opt-in per document, so assert the real one opts in.
+
+        Without this, deleting the proposal's census sentence would disable
+        check 6 silently and still exit 0 -- the same vacuity trap check 4's
+        dead connector branch fell into.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        import re
+
+        stated = checker.CENSUS_RE.search(re.sub(r"\s+", " ", doc.read_text()))
+        self.assertIsNotNone(
+            stated, "the proposal no longer states a census check 6 can verify"
+        )
 
     def test_section_4_spec_table_is_actually_found(self):
         """Guard against the scoping silently matching zero rows."""
