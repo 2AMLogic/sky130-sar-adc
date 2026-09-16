@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 import json
+import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -151,6 +152,45 @@ def resolve_provenance(experiment_dir: Path, netlist_text: str) -> ProvenanceInf
         pdk_line=pdk_line,
         ng_version=ng_version,
     )
+
+
+def open_record(
+    experiment_dir: Path,
+    netlist_text: str,
+    subdir: str,
+    raw_logs: dict[str, str],
+) -> tuple[ProvenanceInfo, list[str]]:
+    """resolve_provenance() plus the raw-log-dump + Markdown-header preamble
+    every `sim/full-conversion-transient/run_conversion.py` writer repeated
+    identically before rendering its own body (issue #314): mint `prov`,
+    create `<experiment_dir>/<subdir>/<record_id>/`, write each
+    `raw_logs` entry there keyed by filename, and start the `lines` list
+    with the `# Record <record_id>` / `- **Record ID**: <record_id>` header.
+    Callers with more than one raw-log subdirectory to populate for the same
+    record (`write_record()`'s corners+diagnostics dual dump) call this once
+    for the primary one and write the rest inline as an explicit extra step."""
+    prov = resolve_provenance(experiment_dir, netlist_text)
+    log_dir = experiment_dir / subdir / prov.record_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+    for filename, log_text in raw_logs.items():
+        (log_dir / filename).write_text(log_text)
+
+    lines: list[str] = []
+    lines.append(f"# Record {prov.record_id}")
+    lines.append("")
+    lines.append(f"- **Record ID**: {prov.record_id}")
+    return prov, lines
+
+
+def close_record(prov: ProvenanceInfo, lines: list[str], label: str) -> Path:
+    """Write `lines` to `prov.record_path` and print the `"<label> written:
+    ..."` confirmation every `sim/full-conversion-transient/run_conversion.py`
+    writer emits (`label` is the full prefix, e.g. `"Record"` or
+    `"Node-trace record"`), returning the path (issue #314's close half of
+    open_record())."""
+    prov.record_path.write_text("\n".join(lines) + "\n")
+    print(f"\n{label} written: {os.path.relpath(prov.record_path, REPO_ROOT)}")
+    return prov.record_path
 
 
 @dataclass
