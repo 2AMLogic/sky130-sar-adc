@@ -295,7 +295,7 @@ def build_ac_capacitance(
     subtracted between two nearly-equal pF-scale numbers to leave an fF-scale
     remainder.
     """
-    lines = _preamble(
+    lines = toolchain.deck_preamble(
         corner, temp_c,
         f"issue #61 capacitance extraction -- driven={'+'.join(driven)} "
         f"corner={corner}",
@@ -774,7 +774,7 @@ def build_full_load_transient(
     standalone testbench?
     """
     vcm = round(vdd * VCM_FRAC, 6)
-    lines = _preamble(
+    lines = toolchain.deck_preamble(
         corner, temp_c,
         f"issue #61 full-load (real CDAC array) diagnostic -- corner={corner} "
         f"temp={temp_c}C vdd={vdd} vinp={vinp} vinn={vinn}",
