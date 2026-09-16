@@ -354,30 +354,11 @@ def build_transient(corner: str = CORNER, temp_c: float = TEMP_C, vdd: float = V
 
 
 def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
-    """A few bounded retries with backoff absorb transient contention from
-    other concurrent agents' own ngspice runs on a shared machine -- the
-    same policy sim/cdac-bit-trial-settling/run_bit_trial_settling.py's own
-    `_run()` and sim/sequencer-logic-delay/run_sequencer_logic_delay.py's
-    own `_run()` already document."""
-    import time
-
-    attempts = 4
-    for attempt in range(1, attempts + 1):
-        try:
-            log_text = toolchain.run_ngspice(netlist, scratch, tag)
-            m = measure.parse(log_text, MEASURE_NAMES)
-            m.update(measure.parse(log_text, TRIG_TARG_NAMES, anchored=False))
-            return m
-        except RuntimeError as exc:
-            if "timed out" not in str(exc) or attempt == attempts:
-                raise
-            print(
-                f"  (warning: {tag} timed out (attempt {attempt}/{attempts}), "
-                f"retrying after a short backoff -- machine likely contended)",
-                file=sys.stderr,
-            )
-            time.sleep(15 * attempt)
-    raise AssertionError("unreachable")  # loop always returns or raises above
+    """Retry policy documented once in toolchain.run_ngspice_with_retry()."""
+    log_text = toolchain.run_ngspice_with_retry(netlist, scratch, tag)
+    m = measure.parse(log_text, MEASURE_NAMES)
+    m.update(measure.parse(log_text, TRIG_TARG_NAMES, anchored=False))
+    return m
 
 
 def run_all(

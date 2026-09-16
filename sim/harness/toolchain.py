@@ -24,6 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -154,6 +155,47 @@ def run_ngspice(netlist_text: str, scratch_dir: Path, log_name: str) -> str:
             f"(output:\n{output[-2000:]})"
         )
     return output
+
+
+def run_ngspice_with_retry(
+    netlist_text: str, scratch_dir: Path, log_name: str, attempts: int = 4
+) -> str:
+    """run_ngspice() with a few bounded retries and backoff on timeout,
+    returning the same raw log text run_ngspice() itself returns.
+
+    run_ngspice() enforces a hard toolchain_timeout_s() budget (default
+    DEFAULT_TOOLCHAIN_TIMEOUT_S = 120s) per invocation. On a shared/
+    contended machine (e.g. another concurrent agent's own PVT corner
+    sweep pegging every CPU core) that budget has been observed to push
+    individual runs well past it despite nothing about the netlist itself
+    changing (confirmed by re-running the identical netlist in isolation
+    once the machine was quieter and seeing it finish quickly again). A
+    few bounded retries with a short backoff absorb that transient
+    contention without masking a genuine, reproducible slowdown --
+    exhausting every retry on the same netlist still raises.
+
+    Consolidated from six byte-for-byte-identical copies across
+    sim/*/run_*.py's own `_run()`/`_run_ngspice()` helpers (issue #299),
+    each of which re-implemented this same attempt-count/backoff/warning
+    loop. `attempts` defaults to 4 (five of the six original call sites);
+    pass a lower value (e.g. 3, as
+    sim/full-conversion-transient/run_conversion.py's own call does) when a
+    single attempt is expensive enough that a full 4 retries would blow
+    past that campaign's own wall-clock budget.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return run_ngspice(netlist_text, scratch_dir, log_name)
+        except RuntimeError as exc:
+            if "timed out" not in str(exc) or attempt == attempts:
+                raise
+            print(
+                f"  (warning: {log_name} timed out (attempt {attempt}/{attempts}), "
+                f"retrying after a short backoff -- machine likely contended)",
+                file=sys.stderr,
+            )
+            time.sleep(15 * attempt)
+    raise AssertionError("unreachable")  # loop always returns or raises above
 
 
 def netlist_with_xschem(

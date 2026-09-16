@@ -104,7 +104,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parent.parent
@@ -156,8 +155,9 @@ DEFAULT_POINT = "worst_case_pp"
 R_SOURCE_SWEEP_OHM = [0.0, 100.0, 300.0, 1e3, 3e3, 10e3, 30e3, 100e3]
 # The legacy (400 ns) window's tran runs cover ~5x more simulated time than
 # the worst-case (83.3 ns) window's; a reduced subset keeps this script's
-# total runtime bounded on a shared/contended machine (see _run()'s retry
-# docstring) while still bracketing the same order-of-magnitude transition
+# total runtime bounded on a shared/contended machine (see
+# toolchain.run_ngspice_with_retry()'s docstring) while still bracketing
+# the same order-of-magnitude transition
 # the full sweep above resolves for the worst-case window.
 R_SOURCE_SWEEP_LEGACY_OHM = [0.0, 10e3, 100e3]
 
@@ -292,28 +292,10 @@ MEASURE_NAMES = ["top_p_end", "top_n_end", "bp_p_end", "bp_n_end", "vcm_end"]
 
 
 def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
-    """A few bounded retries with backoff absorb transient contention from
-    other concurrent agents' own ngspice runs on a shared machine, exactly
-    the same policy (and the same observed cause) as
-    sim/sampling-frontend/run_hold_kick.py's own `_run()` -- see that
-    module's docstring for the full rationale. Exhausting every retry on
-    the same netlist still raises."""
-    attempts = 4
-    for attempt in range(1, attempts + 1):
-        try:
-            return measure.parse(
-                toolchain.run_ngspice(netlist, scratch, tag), MEASURE_NAMES
-            )
-        except RuntimeError as exc:
-            if "timed out" not in str(exc) or attempt == attempts:
-                raise
-            print(
-                f"  (warning: {tag} timed out (attempt {attempt}/{attempts}), "
-                f"retrying after a short backoff -- machine likely contended)",
-                file=sys.stderr,
-            )
-            time.sleep(15 * attempt)
-    raise AssertionError("unreachable")  # loop always returns or raises above
+    """Retry policy documented once in toolchain.run_ngspice_with_retry()."""
+    return measure.parse(
+        toolchain.run_ngspice_with_retry(netlist, scratch, tag), MEASURE_NAMES
+    )
 
 
 def run_sweep(point: str, sample_width_ns: float, window_label: str,
