@@ -549,12 +549,35 @@ verifies that every path this document cites resolves, that **every row of the
 table above cites the *current* record of each `sim/`/`layout/` flow it draws
 on** — as resolved from that flow's own `records/LATEST` / `reports/LATEST`
 pointer, not merely a record that was current when the row was written — and
-that every "current `…/LATEST`" claim in the prose is both true and named
-against the right pointer file for its tree (`sim/` campaigns record under
-`records/`; the `layout/` flows under `reports/`). Rows may still cite
+that every *attached* "current `…/LATEST`" claim in the prose is both true and
+named against the right pointer file for its tree (`sim/` campaigns record
+under `records/`; the `layout/` flows under `reports/`). Rows may still cite
 superseded records alongside the current one, which is how this document keeps
 a supersession trail visible; what they may no longer do is cite *only* a
 superseded one.
+
+**What "attached" excludes, stated rather than glossed over** (this paragraph
+first claimed the pointer check covered *every* such phrase, which overstated
+it): a pointer claim is checked only when the phrase directly follows the
+record path it is about, with nothing between them but link/quote punctuation
+and an optional "the"/"record:" connector. Measured against this document as
+it stands on 2026-09-16 — this paragraph included in the count — that is
+**9 of the 19 "current `…/LATEST`" phrases** it contains. Of the 10 skipped,
+5 are narration of a correction already made ("…that citation is now
+corrected to the current `reports/LATEST`" — the quotation in this sentence is
+itself one of the 5) and name no record the claim could be checked against
+(one of them names only the *superseded* record it is contrasting with); those
+*must* be skipped, or the gate would be unusable on a document whose style is
+to narrate its own supersession trails. The other 5 do name a record, but never in the attached
+form: in four the stamp arrives *after* the phrase (§4's Area row, §4's
+"Post-layout PVT simulation" sign-off row, and two places in §7 Item 1), and
+in the fifth — also the "Post-layout PVT simulation" row — it precedes the
+phrase as a bare stamp rather than a full path. Those 5 are genuine, unchecked
+forward citations. The 3 of them that sit in §4 rows are still covered *as
+rows* by the spec-table freshness check above (that check reads every record
+stamp in the row, wherever in the cell it falls); the 2 in §7 are not, and in
+neither case is the "current `…/LATEST`" phrasing itself machine-verified.
+Extending the check to that form is a follow-up, not a claim made here.
 
 This closes a loop rather than adding a new claim: every one of PRs #239,
 #242, #276, #282, #295 and #300 was a pass that had to *correct* a citation of

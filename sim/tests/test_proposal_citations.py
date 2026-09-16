@@ -236,6 +236,52 @@ class TestPointerClaims(unittest.TestCase):
         )
         self.assertEqual(self.tree.check(body), [])
 
+    def test_the_connector_claim_naming_a_superseded_record_is_reported(self):
+        """The "(the current `reports/LATEST`)" phrasing -- §4's own wording.
+
+        `_unwrap_backticked` strips the connector before it is matched, so a
+        connector pattern anchored on trailing whitespace after "the" (e.g.
+        `(?:the\\s+)?$`) silently never matches and the whole check goes
+        vacuous for this phrasing, which the real document uses. Asserted
+        separately from the bare "(current ...)" form above so the branch
+        cannot go dead again.
+        """
+        body = (
+            "folded into one record, "
+            "[`layout/cdac-array/reports/20260905-220338-9fb9b04/record.md`]"
+            "(../../layout/cdac-array/reports/20260905-220338-9fb9b04/record.md)"
+            "\n(the current `reports/LATEST`; its `compose.json` is unchanged)\n"
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("resolves to `20260906-020815-38cdbd3`", misses[0])
+
+    def test_the_connector_claim_naming_the_current_record_passes(self):
+        body = (
+            "folded into one record, "
+            "[`layout/cdac-array/reports/20260906-020815-38cdbd3/record.md`]"
+            "(../../layout/cdac-array/reports/20260906-020815-38cdbd3/record.md)"
+            "\n(the current `reports/LATEST`; its `compose.json` is unchanged)\n"
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_record_and_the_connectors_combined_are_reported(self):
+        """Both connectors at once -- the same dead-branch shape as above.
+
+        `record:` on its own was always reachable; `record:` *followed by*
+        "the" was not, for the identical reason. This document does not use
+        the combination today, but the connector pattern advertises it, so it
+        is asserted rather than left as an untested claim.
+        """
+        body = (
+            "see record: "
+            "`layout/cdac-array/reports/20260905-220338-9fb9b04/record.md`"
+            " record: the current `reports/LATEST`\n"
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("resolves to `20260906-020815-38cdbd3`", misses[0])
+
     def test_prose_discussion_of_a_pointer_is_not_an_attached_claim(self):
         # The document's own style: narrating a correction it already made.
         body = (
@@ -253,6 +299,28 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
         self.assertTrue(doc.is_file(), doc)
         self.assertEqual(checker.check_document(doc), [])
+
+    def test_pointer_claims_are_actually_evaluated_on_the_real_document(self):
+        """Guard against check 4 going vacuous against the live document.
+
+        The defect this test exists for did not produce a wrong verdict -- it
+        produced no verdict: `CONNECTOR_RE`'s "the" branch could not match
+        post-strip text, so the `(the current \\`reports/LATEST\\`)` phrasing
+        §4 uses was silently skipped and a stale stamp there passed the gate.
+        A count assertion is the only thing that catches that class of bug on
+        the real document, since a vacuous check still exits 0.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        claims = checker.attached_pointer_claims(doc.read_text())
+        self.assertGreaterEqual(
+            len(claims), 5, "check 4 evaluates almost nothing in this document"
+        )
+        # At least one of them must be matched via the "the" connector, i.e.
+        # the branch that was dead.
+        the_forms = [
+            connector for _claim, _cited, connector in claims if "the" in connector
+        ]
+        self.assertTrue(the_forms, "the `the` connector branch matches nothing")
 
     def test_section_4_spec_table_is_actually_found(self):
         """Guard against the scoping silently matching zero rows."""

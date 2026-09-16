@@ -72,6 +72,17 @@ the current `reports/LATEST`") is not a citation of the preceding path and is
 skipped, by design: over-eager matching there would make the gate unusable on
 a document whose whole style is to narrate its own corrections.
 
+The connector test is directional, so a *stamp-after-claim* citation -- one
+that names its record only after the phrase ("re-pointed onto the current
+`reports/LATEST`, `20260915-213439-bf2256f`"), or as a bare stamp rather than
+a full path -- is unattached too, and is likewise skipped. As of 2026-09-16
+that is 5 of the proposal's 19 "current `.../LATEST`" phrases (9 are attached
+and checked; the remaining 5 are narration naming no record the claim could
+be checked against). Those 5 are
+genuine forward citations that this check does NOT cover -- do not describe
+check 4 as verifying every pointer claim in the document. Extending it to the
+stamp-after-claim form is a possible follow-up.
+
 Check 3 is scoped to the spec table rather than the whole document for the
 same reason: Section 7's prose deliberately narrates superseded records
 paragraph by paragraph, whereas a Section 4 row is a verdict that must stand
@@ -141,7 +152,12 @@ EVIDENCE_PATH_RE = re.compile(
 
 # What may sit between a cited path and an attached pointer claim: link and
 # quote punctuation, whitespace, and an optional "the" / "record:" connector.
-CONNECTOR_RE = re.compile(r"^[\s`)\](,;]*(?:record:\s*)?(?:the\s+)?$")
+# Every quantifier here must tolerate the connector ENDING at that token:
+# `_unwrap_backticked` strips the text before this match, so a `the\s+` (one or
+# more trailing spaces) branch can never fire -- `") (the "` arrives as
+# `") (the"`. That made check 4 silently vacuous for `(the current
+# \`reports/LATEST\`)`, which is the phrasing Section 4 actually uses.
+CONNECTOR_RE = re.compile(r"^[\s`)\](,;]*(?:record:\s*)?(?:the\s*)?$")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -265,11 +281,20 @@ def check_spec_table_freshness(doc: Path, text: str) -> list[str]:
     return misses
 
 
-def check_pointer_claims(doc: Path, text: str) -> list[str]:
-    """Checks 4 and 5: an attached "current LATEST" claim must be true."""
-    misses = []
+def attached_pointer_claims(text: str) -> list[tuple[re.Match, re.Match, str]]:
+    """The `(claim, cited_path, connector)` triples checks 4 and 5 evaluate.
+
+    Exposed separately from `check_pointer_claims` so both the *count* of
+    evaluated claims and the connector each one matched on are testable: the
+    failure mode this checker had was not a wrong verdict but no verdict at
+    all -- a connector branch that could never match, leaving check 4
+    silently vacuous for a phrasing the document really uses. `cited` is a
+    match against the 400-character window before the claim, not against
+    `text`, so the connector is returned rather than left to be recomputed
+    from mismatched offsets.
+    """
+    triples = []
     for claim in POINTER_CLAIM_RE.finditer(text):
-        claimed_dir = claim.group(1)
         preceding = text[max(0, claim.start() - 400) : claim.start()]
         cited = None
         for cite in EVIDENCE_PATH_RE.finditer(preceding):
@@ -282,7 +307,15 @@ def check_pointer_claims(doc: Path, text: str) -> list[str]:
         connector = _unwrap_backticked(preceding[cited.end() :])
         if not CONNECTOR_RE.match(connector):
             continue
+        triples.append((claim, cited, connector))
+    return triples
 
+
+def check_pointer_claims(doc: Path, text: str) -> list[str]:
+    """Checks 4 and 5: an attached "current LATEST" claim must be true."""
+    misses = []
+    for claim, cited, _connector in attached_pointer_claims(text):
+        claimed_dir = claim.group(1)
         line = _line_of(text, claim.start())
         top, block = cited.group("top"), cited.group("block")
         expected_dir = POINTER_DIR_BY_TOP_LEVEL[top]
