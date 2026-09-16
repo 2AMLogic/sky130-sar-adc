@@ -399,11 +399,10 @@ def write_record(
     probe: dict | None = None,
     supersedes: str = "",
 ) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    corners_dir = EXPERIMENT_DIR / "corners" / prov.record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
-    for p in points:
-        (corners_dir / f"{p['corner_id']}.log").write_text(p["log_text"])
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "corners",
+        {f"{p['corner_id']}.log": p["log_text"] for p in points},
+    )
     if probe is not None:
         diag_dir = EXPERIMENT_DIR / "diagnostics" / prov.record_id
         diag_dir.mkdir(parents=True, exist_ok=True)
@@ -417,11 +416,7 @@ def write_record(
     temps = sorted({p["temp_c"] for p in points})
     supplies = sorted({p["supply_v"] for p in points})
 
-    lines: list[str] = []
     a = lines.append
-    a(f"# Record {prov.record_id}")
-    a("")
-    a(f"- **Record ID**: {prov.record_id}")
     a(
         "- **Claim**: `spec/target-spec.md#target-table` -- **Sample rate** and "
         "**Power**, both DRAFT rows, INFORMATIONAL only. This is the first "
@@ -604,10 +599,9 @@ def write_record(
         )
     )
 
-    prov.record_path.write_text("\n".join(lines) + "\n")
+    path = evidence.close_record(prov, lines, "Record")
     (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{prov.record_id}.md\n")
-    print(f"\nRecord written: {os.path.relpath(prov.record_path, REPO_ROOT)}")
-    return prov.record_path
+    return path
 
 
 def _probe_summary(probe: dict) -> str:
@@ -898,24 +892,16 @@ def run_node_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
 
 
 def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    diag_dir = EXPERIMENT_DIR / "diagnostics" / prov.record_id
-    diag_dir.mkdir(parents=True, exist_ok=True)
-    for cid, point in traces.items():
-        (diag_dir / f"node-trace-{cid}.log").write_text(point["log_text"])
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "diagnostics",
+        {f"node-trace-{cid}.log": point["log_text"] for cid, point in traces.items()},
+    )
 
     first_point = next(iter(traces.values()))
     traced_conversions = first_point["conversions"]
     n_traces_per_corner = sum(len(c["phases"]) for c in traced_conversions)
 
-    lines: list[str] = []
     a = lines.append
-    a(f"# Record {prov.record_id}")
-    a("")
-    a(
-        "- **Record ID**: "
-        f"{prov.record_id}"
-    )
     a(
         "- **Claim**: issue #259 (diagnostic/investigation only -- no spec row "
         "and no design fix). This record extends the "
@@ -1366,9 +1352,7 @@ def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
         )
     )
 
-    prov.record_path.write_text("\n".join(lines) + "\n")
-    print(f"\nNode-trace record written: {os.path.relpath(prov.record_path, REPO_ROOT)}")
-    return prov.record_path
+    return evidence.close_record(prov, lines, "Node-trace record")
 
 
 # --------------------------------------------------------------------------
@@ -1440,20 +1424,15 @@ def _cm_deviation_v(ph: dict, supply_v: float) -> float | None:
 
 
 def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    diag_dir = EXPERIMENT_DIR / "diagnostics" / prov.record_id
-    diag_dir.mkdir(parents=True, exist_ok=True)
-    for cid, point in traces.items():
-        (diag_dir / f"cm-trace-{cid}.log").write_text(point["log_text"])
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "diagnostics",
+        {f"cm-trace-{cid}.log": point["log_text"] for cid, point in traces.items()},
+    )
 
     first_point = next(iter(traces.values()))
     traced_conversions = first_point["conversions"]
 
-    lines: list[str] = []
     a = lines.append
-    a(f"# Record {prov.record_id}")
-    a("")
-    a(f"- **Record ID**: {prov.record_id}")
     a(
         "- **Claim**: issue #265 (diagnostic/investigation only -- no spec row "
         "and no design fix in this record's own scope). This record tests "
@@ -1699,9 +1678,7 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
         )
     )
 
-    prov.record_path.write_text("\n".join(lines) + "\n")
-    print(f"\nCM-trace record written: {os.path.relpath(prov.record_path, REPO_ROOT)}")
-    return prov.record_path
+    return evidence.close_record(prov, lines, "CM-trace record")
 
 
 # --------------------------------------------------------------------------
@@ -1995,19 +1972,15 @@ def run_decision_margin_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dic
 
 
 def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    diag_dir = EXPERIMENT_DIR / "diagnostics" / prov.record_id
-    diag_dir.mkdir(parents=True, exist_ok=True)
-    for key, point in points.items():
-        (diag_dir / f"decision-margin-{key.replace('@', '-')}.log").write_text(
-            point["log_text"]
-        )
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "diagnostics",
+        {
+            f"decision-margin-{key.replace('@', '-')}.log": point["log_text"]
+            for key, point in points.items()
+        },
+    )
 
-    lines: list[str] = []
     a = lines.append
-    a(f"# Record {prov.record_id}")
-    a("")
-    a(f"- **Record ID**: {prov.record_id}")
     a(
         "- **Claim**: issue #263 (second pass) / "
         "`spec/decision-records/DR-009-comparator-output-load-balance-and-half-"
@@ -2175,9 +2148,7 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
             "",
         )
     )
-    prov.record_path.write_text("\n".join(lines) + "\n")
-    print(f"\nRecord written: {os.path.relpath(prov.record_path, REPO_ROOT)}")
-    return prov.record_path
+    return evidence.close_record(prov, lines, "Record")
 
 
 def main() -> int:
