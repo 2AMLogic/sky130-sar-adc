@@ -1,0 +1,103 @@
+* --- from cdac_array (renamed) ---
+* cdac_array.lvs-reference.spice -- GENERATED, do not edit by hand.
+*
+* Regenerate with: layout/cdac-array/bin/generate-lvs-reference.py
+* Source of truth: design/cdac/cdac_array.sch (issue #53), netlisted headlessly
+* by xschem and rewritten into `klt extract --deck sky130`'s own device
+* vocabulary. See that script's docstring for the three rewrites and why
+* each is a change of vocabulary rather than of topology.
+*
+* Unit capacitor: the schematic sizes the MiM plate W=L=1.8988 um; the
+* drawn plate is the nearest 1 nm-grid square, 1.898 um, whose
+* capacitance under the extraction deck's own published coefficients
+* (area 2.0 fF/um^2, perimeter 0.19 fF/um) is
+* C_unit = 8.647288000e-15 F. A bit of weight w carries `MF=w` in the
+* schematic and w drawn unit capacitors in the layout, so its reference is
+* w separate C cards of C_unit each -- one per physically drawn unit,
+* compared 1:1 against the layout's own w extracted unit devices with no
+* `klt lvs` `combine_devices` folding needed on either side (issue #148:
+* `Netlist.combine_devices()` does not reliably re-sum w identical-valued
+* parallel capacitors into one device for w in the hundreds).
+*
+* Substrate: the schematic's VSS (every nfet bulk) appears here as
+* `vsubs`, the name the sky130 extraction deck gives its
+* synthesized global substrate net.
+.SUBCKT cdac_array__cdac_array VREFP VREFN VDD vsubs SELn0 SELp0 SELn1 SELp1 SELn2 SELp2 SELn3 SELp3 SELn4 SELp4 TOP_N TOP_P SELp5 SELn5 SELp6 SELn6 SELn7 SELp7 SELn8 SELp8
+.ENDS cdac_array__cdac_array
+* --- from sar_sequencer (renamed) ---
+* LVS reference for the SAR logic/sequencer sub-block (issue #102).
+*
+* Mechanically generated -- DO NOT HAND-EDIT. Regenerate with:
+*   layout/sar-sequencer/bin/generate-lvs-reference.py [netlist.v]
+*
+* Topology source: sar-sequencer/reports/20260905-191258-4c6c655/sar_sequencer_post_route.v
+* (klt place-and-route's own post-route `write_verilog` dump -- see
+* layout/sar-sequencer/README.md, 'LVS reference provenance', for
+* why the LVS reference has to be the *post-route* netlist, not the
+* pre-P&R structural netlist).
+*
+* Flat, transistor-level (klt extract --deck sky130 is a flat
+* extractor), device classes generalized to nfet/pfet (matching that
+* deck's own generalization of every drawn NMOS/PMOS regardless of
+* flavor). Device models: the sky130 PDK's own official CDL
+* (libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl), Apache-2.0
+* licensed, SkyWater's own release -- not reverse-engineered.
+.SUBCKT sar_sequencer__sar_sequencer CLK RST_B COMP_OUT PH_B9 PH_B8 PH_B7 PH_B6 PH_B5 PH_B4 PH_B3 PH_B2 PH_B1 PH_B0 PH_EOC PH_SAMPLE BUSY DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 VPWR VGND
+.ENDS sar_sequencer__sar_sequencer
+* --- from seln_inverters (renamed) ---
+* LVS reference for the SELn<i> inverter bank (issue #103).
+*
+* Mechanically generated -- DO NOT HAND-EDIT. Regenerate with:
+*   layout/seln-inverters/bin/generate-lvs-reference.py [netlist.v]
+*
+* Topology source: seln-inverters/reports/20260906-002022-a36e06f/seln_inverters_post_route.v
+* (klt place-and-route's own post-route `write_verilog` dump).
+*
+* Flat, transistor-level (klt extract --deck sky130 is a flat
+* extractor), device classes generalized to nfet/pfet. Device
+* models: the sky130 PDK's own official CDL
+* (libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl), Apache-2.0
+* licensed, SkyWater's own release -- not reverse-engineered.
+.SUBCKT seln_inverters__seln_inverters DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 SELn8 SELn7 SELn6 SELn5 SELn4 SELn3 SELn2 SELn1 SELn0 VPWR VGND
+.ENDS seln_inverters__seln_inverters
+* --- top composition, comparator+sampling_frontend inlined ---
+.SUBCKT sar_adc_top VINP VINN VDD VREFP VREFN VCM CLK RST_B DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 BUSY
+MFE_MSW_P VINP FE_G_P TOP_P GND nfet L=0.15U W=2U
+MFE_MSW_N VINN FE_G_N TOP_N GND nfet L=0.15U W=2U
+MFE_SB_P FE_BSBOT_P FE_SAMPLEB GND GND nfet L=0.15U W=1U
+MFE_SCN_P FE_BSBOT_P SAMPLE_INT VINP GND nfet L=0.15U W=1U
+MFE_SD_P FE_G_P FE_SAMPLEB GND GND nfet L=0.5U W=1U
+MFE_CMSWN_P BPREF_P_NC SAMPLE_INT VCM GND nfet L=0.15U W=16U
+MFE_CMSWN_N BPREF_N_NC SAMPLE_INT VCM GND nfet L=0.15U W=16U
+MFE_SD_N FE_G_N FE_SAMPLEB GND GND nfet L=0.5U W=1U
+MFE_SCN_N FE_BSBOT_N SAMPLE_INT VINN GND nfet L=0.15U W=1U
+MFE_SB_N FE_BSBOT_N FE_SAMPLEB GND GND nfet L=0.15U W=1U
+MFE_INVN FE_SAMPLEB SAMPLE_INT GND GND nfet L=0.15U W=1U
+MFE_SA_P BOOST_P_NC FE_G_P VDD BOOST_P_NC pfet L=0.5U W=1U
+MFE_SE_P FE_G_P FE_SAMPLEB BOOST_P_NC BOOST_P_NC pfet L=0.15U W=1U
+MFE_SCP_P FE_BSBOT_P FE_SAMPLEB VINP VDD pfet L=0.15U W=1U
+MFE_CMSWP_P BPREF_P_NC FE_SAMPLEB VCM VDD pfet L=0.15U W=16U
+MFE_INVP FE_SAMPLEB SAMPLE_INT VDD VDD pfet L=0.15U W=2U
+MFE_CMSWP_N BPREF_N_NC FE_SAMPLEB VCM VDD pfet L=0.15U W=16U
+MFE_SCP_N FE_BSBOT_N FE_SAMPLEB VINN VDD pfet L=0.15U W=1U
+MFE_SE_N FE_G_N FE_SAMPLEB BOOST_N_NC BOOST_N_NC pfet L=0.15U W=1U
+MFE_SA_N BOOST_N_NC FE_G_N VDD BOOST_N_NC pfet L=0.5U W=1U
+CFE_CBOOT_P FE_BSBOT_P BOOST_P_NC 1.99528e-13 sky130_fd_pr__model__cap_mim
+CFE_CBOOT_N FE_BSBOT_N BOOST_N_NC 1.99528e-13 sky130_fd_pr__model__cap_mim
+CFE_CSAMP_P BPREF_P_NC TOP_P 4.434864e-12 sky130_fd_pr__model__cap_mim
+CFE_CSAMP_N BPREF_N_NC TOP_N 4.434864e-12 sky130_fd_pr__model__cap_mim
+MCMP_TAIL CMP_TAIL CLK GND GND nfet L=0.5U W=8U
+MCMP_INN CMP_DIP TOP_N CMP_TAIL GND nfet L=0.5U W=4U
+MCMP_INP CMP_DIN TOP_P CMP_TAIL GND nfet L=0.5U W=4U
+MCMP_LATN_P COMP_OUT OUTN_NC CMP_DIP GND nfet L=0.5U W=4U
+MCMP_LATN_N OUTN_NC COMP_OUT CMP_DIN GND nfet L=0.5U W=4U
+MCMP_LATP_P COMP_OUT OUTN_NC VDD VDD pfet L=0.5U W=8U
+MCMP_LATP_N OUTN_NC COMP_OUT VDD VDD pfet L=0.5U W=8U
+MCMP_RST_P COMP_OUT CLK VDD VDD pfet L=0.5U W=16U
+MCMP_RST_N OUTN_NC CLK VDD VDD pfet L=0.5U W=16U
+MCMP_RST_DIP CMP_DIP CLK VDD VDD pfet L=0.5U W=4U
+MCMP_RST_DIN CMP_DIN CLK VDD VDD pfet L=0.5U W=4U
+Xcdac VREFP VREFN VDD GND SELn0 DOUT0 SELn1 DOUT1 SELn2 DOUT2 SELn3 DOUT3 SELn4 DOUT4 TOP_N TOP_P DOUT5 SELn5 DOUT6 SELn6 SELn7 DOUT7 SELn8 DOUT8 cdac_array__cdac_array
+Xseq CLK RST_B COMP_OUT PH_B9_NC PH_B8_NC PH_B7_NC PH_B6_NC PH_B5_NC PH_B4_NC PH_B3_NC PH_B2_NC PH_B1_NC PH_B0_NC PH_EOC_NC SAMPLE_INT BUSY DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 VPWR_SEQ VGND_SEQ sar_sequencer__sar_sequencer
+Xinv DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 SELn8 SELn7 SELn6 SELn5 SELn4 SELn3 SELn2 SELn1 SELn0 VPWR_SELN VGND_SELN seln_inverters__seln_inverters
+.ENDS sar_adc_top
