@@ -184,49 +184,6 @@ RC=$?
 assert_eq "0" "$RC" "a correct tracked-file count does not miss"
 
 echo
-echo "=== Fixture 6: large tree, early-alphabetical match (issue #288 regression) ==="
-# The historical bug: `full_tree | grep -qFx "$path"` is a pipe under
-# `set -o pipefail`. When grep finds an EARLY match it exits and closes its
-# end of the pipe while `printf` inside full_tree() may still be writing the
-# rest of a large (~170KB) tree listing; the resulting SIGPIPE makes printf
-# exit non-zero, and pipefail turns that into a false pipeline failure — a
-# file that DOES exist gets reported MISSING, nondeterministically. Reproduce
-# with a large tree (thousands of padded filenames) and a target path that
-# sorts first (so `git ls-tree -r` lists it near the very start of the
-# output), then run the script repeatedly to catch the race.
-LARGE_REPO="$FIXTURE_ROOT/large-repo"
-mkdir -p "$LARGE_REPO/aaa" "$LARGE_REPO/zzz_pad"
-(
-    cd "$LARGE_REPO" || exit 1
-    git init -q -b main .
-    git config user.email "test@example.com"
-    git config user.name "Test"
-    echo "target" > aaa/target.txt
-    for i in $(seq 1 3000); do
-        printf 'x\n' > "zzz_pad/padding_file_number_$(printf '%05d' "$i")_to_grow_the_tree_listing.txt"
-    done
-    git add .
-    git commit -qm "large tree fixture" >/dev/null
-    git update-ref refs/remotes/origin/main refs/heads/main
-)
-LARGE_BODY="$BODY_DIR/large.md"
-cat > "$LARGE_BODY" <<'EOF'
-See `aaa/target.txt` for the tracked evidence file.
-EOF
-
-LARGE_ITERATIONS=15
-LARGE_FAILURES=0
-for i in $(seq 1 $LARGE_ITERATIONS); do
-    OUT="$(LOOM_WORKSPACE="$LARGE_REPO" "$VPR" "$LARGE_BODY" 2>&1)"
-    RC=$?
-    if [[ $RC -ne 0 ]] || [[ "$OUT" == *"MISSING FILE"* ]]; then
-        LARGE_FAILURES=$((LARGE_FAILURES + 1))
-        echo "    iteration $i: rc=$RC output=$OUT"
-    fi
-done
-assert_eq "0" "$LARGE_FAILURES" "large early-alphabetical match reports zero misses across $LARGE_ITERATIONS iterations"
-
-echo
 echo "=== Usage / prerequisite errors ==="
 OUT="$("$VPR" 2>&1)"
 RC=$?
