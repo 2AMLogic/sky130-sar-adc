@@ -108,7 +108,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _geometry_common import BuildError, L_LI1  # noqa: E402
-from _geometry_common import Rect as _Rect  # noqa: E402
+from _geometry_common import Rect  # noqa: E402
 from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
 from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
@@ -265,17 +265,6 @@ PIN_NETS = (
 #: them here (this module only, not the schematic's own port list) is what
 #: makes the verdict measure the same thing it measured there.
 INTERNAL_BODY_TIE_LABELS = ("BOOST_P", "BOOST_N")
-
-
-class Rect(_Rect):
-    """An axis-aligned rectangle in integer nanometres.
-
-    ``__slots__``, ``__init__``, ``um()``, ``centred()``, ``as_um()``,
-    ``hwire()`` and ``vwire()`` are all the shared shell inherited from
-    `layout/bin/_geometry_common.py`.
-    """
-
-    __slots__ = ()
 
 
 def load_block(report_path: Path) -> dict:
