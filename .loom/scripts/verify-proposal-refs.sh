@@ -130,11 +130,11 @@ is_recognized_top() {
 # top-level dir" means.
 PATH_RE='[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+(:[0-9]+(-[0-9]+)?)?'
 
-FULL_TREE_CACHE=""
+# Computed once, here in the main shell -- NOT lazily inside full_tree() via a
+# subshell ($(...)/pipe), which would silently drop the assignment back into a
+# child process and never actually cache anything across candidates (#301).
+FULL_TREE_CACHE="$(git -C "$WORKSPACE" ls-tree -r origin/main --name-only)"
 full_tree() {
-    if [[ -z "$FULL_TREE_CACHE" ]]; then
-        FULL_TREE_CACHE="$(git -C "$WORKSPACE" ls-tree -r origin/main --name-only)"
-    fi
     printf '%s' "$FULL_TREE_CACHE"
 }
 
@@ -163,7 +163,12 @@ for raw_candidate in ${CANDIDATES[@]+"${CANDIDATES[@]}"}; do
     is_recognized_top "$path" || continue
     CHECKED_PATHS=$((CHECKED_PATHS + 1))
 
-    if ! full_tree | grep -qFx "$path"; then
+    # A here-string fed from a fully-buffered command substitution, NOT a live
+    # pipe (`full_tree | grep ...`): `grep -qFx` exits the instant it finds a
+    # match, and a still-writing pipe writer gets SIGPIPE, which under
+    # `set -o pipefail` makes the whole pipeline report failure even though
+    # grep itself succeeded -- a nondeterministic false "MISSING FILE" (#301).
+    if ! grep -qFx "$path" <<< "$(full_tree)"; then
         MISSES+=("MISSING FILE: \`$path\` does not exist on origin/main")
         continue
     fi
