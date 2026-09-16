@@ -1261,6 +1261,80 @@ tracker already owns.
      gap) and any post-layout PVT re-simulation (never run, at any corner).
      Correcting a stale heading *upward* is not relaxing a spec row — no
      target was loosened and no unmet row was re-graded.
+
+   **Update (2026-09-16, later still — the release gate is unchanged in kind
+   but has grown in content; three further LVS/extract fixes now sit behind
+   it, one of them in this item's own module).** The update above recorded
+   the gate at `ahead_by: 61` (`v0.5.0`…`ad3f8363`). Re-checked live this
+   pass, on all three surfaces separately, as before: `gh api
+   repos/2AMLogic/klayout-tools/tags` still tops out at **`v0.5.0`**; `gh api
+   .../releases/latest` still returns **`v0.5.0`**, published
+   2026-09-15T02:19:49Z; and PyPI's `klayout-tools` latest is still
+   **`0.5.0`** (its full release list is `0.1.0`–`0.5.0`, newest uploaded
+   2026-09-15T02:19:59Z), exactly what `layout/requirements.txt` pins. **No
+   release has happened** — but `gh api .../compare/v0.5.0...main` now
+   reports `status: ahead`, **`ahead_by: 79`**, `behind_by: 0`, head
+   `208203d6` (2026-09-16T19:28:24Z), so eighteen further commits have landed
+   upstream since `ad3f8363`. Three of them touch the LVS/extract surface
+   this item's blocker lives on, and each is recorded here with what it does
+   **and does not** mean for this design, checked against this repo's own
+   artefacts rather than inferred from the commit messages:
+
+   - **[klayout-tools#1944](https://github.com/2AMLogic/klayout-tools/pull/1944)**
+     (commit `08dc79e3`, merged 2026-09-16T17:50:33Z, closes
+     klayout-tools#1942) — "recognise round-tripped custom device classes as
+     devices, not abstract circuits". This is the one that lands in *this
+     item's own module*: its file list includes
+     `src/klayout_tools/netlist_capacitor_recovery.py`, the module
+     klayout-tools#1876's fix (`c5438290`) introduced — i.e. the upstream
+     behaviour whose release would retire this repo's local
+     `layout/sar-adc-top/bin/restore-cap-device-class.py` workaround. **It
+     does not subsume that workaround, and is not claimed to**: its shape is
+     a device class with *no native SPICE element letter* round-tripping
+     through an `X … PARAMS:` subcircuit-call card (sg13g2's MoM caps,
+     klayout-tools#1466). This design's capacitors are not that shape —
+     counted directly in the current `reports/LATEST` artefacts this pass,
+     `sar_adc_top.extract.spice` carries **1028 bare `C` cards and zero
+     `X … PARAMS:` cards**, which is precisely the #1876 bare-`C` shape the
+     local script annotates (it appends the extractor's own
+     `sky130_fd_pr__model__cap_mim` class token, verified present on the
+     restored `…extract.lvs.spice` cards and matching the reference side's).
+   - **[klayout-tools#1943](https://github.com/2AMLogic/klayout-tools/pull/1943)**
+     (commit `e6fbd17a`, merged 2026-09-16T18:25:21Z, closes
+     klayout-tools#1928) — adds `options.compare_parameters` to scope
+     device-class parameter compares. Recorded as *present in the gate*, not
+     as a fix for anything here: this assembly's 98 mismatches are
+     `device.unmatched: 75`, `net.merged: 12`, `net.split: 10`,
+     `topology.flattened: 1` (read from the current record's `lvs.json` this
+     pass), none of which is a parameter finding. Whether the new option
+     bears on the `combine_devices`-scoping gap is #103's to measure, not
+     this compilation's to assert.
+   - **[klayout-tools#1947](https://github.com/2AMLogic/klayout-tools/pull/1947)**
+     (commit `208203d6`, merged 2026-09-16T19:28:24Z, closes
+     klayout-tools#1927) — carries a drawn resistor's L/W onto its written
+     `R` card, so that reading a pre-extracted `layout.netlist` back through
+     `klt lvs` stops producing false `device.property` findings. That is
+     exactly this flow's LVS shape, so it is worth stating explicitly that it
+     **does not apply to this design**: grepped this pass, all eight netlist
+     artefacts in `reports/20260915-234004-76f48b9/` — the four from the
+     recorded compare (layout-side extracted, unfiltered, class-restored, and
+     the hierarchical reference) plus the four from the abstract-cells
+     experiment — contain **zero `R` cards**, and the record carries no
+     `device.property` category.
+
+   **No §4 verdict moves, and no new layout or simulation work is claimed
+   this pass**: "DRC/LVS-clean GDS, full ADC" stays **PARTIAL — DRC MET, PIN
+   DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** at 98 mismatches on the
+   unchanged current `reports/LATEST` (`20260915-234004-76f48b9`), and
+   "Post-layout PVT simulation, full ADC" stays **UNMET**. #103 is still
+   **OPEN** and still `loom:blocked` (re-read this pass). The blocker remains
+   what the update above established — a bare release gate, with no open
+   upstream issue behind it (re-searched this pass: zero open
+   `2AMLogic/klayout-tools` issues request a release past `v0.5.0`) — and
+   this repo's practice of grading against what is *released*, not what is
+   merged, is unchanged. What this update adds is only that the gate's
+   contents have grown, including in the module the local capacitor-class
+   workaround stands in for.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
