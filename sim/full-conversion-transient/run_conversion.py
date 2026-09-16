@@ -190,27 +190,14 @@ def assemble_deck(
 # Running and decoding
 # --------------------------------------------------------------------------
 def _run_ngspice(deck: str, scratch: Path, tag: str) -> str:
-    """ngspice with a few bounded retries on timeout -- the same
-    contention policy `sim/sampling-acquisition-settling/` and
-    `sim/sequencer-logic-delay/` already document (a shared machine may be
-    running several agents' ngspice jobs at once). One full-ADC transient
-    here is ~6.3 us of simulated time over ~2000 devices and takes minutes,
-    so raise SIM_NGSPICE_TIMEOUT_S well above the 120 s harness default
-    before running (the README names the value used for the record)."""
-    attempts = 3
-    for attempt in range(1, attempts + 1):
-        try:
-            return toolchain.run_ngspice(deck, scratch, tag)
-        except RuntimeError as exc:
-            if "timed out" not in str(exc) or attempt == attempts:
-                raise
-            print(
-                f"  (warning: {tag} timed out (attempt {attempt}/{attempts}), retrying "
-                "after a short backoff -- machine likely contended)",
-                file=sys.stderr,
-            )
-            time.sleep(15 * attempt)
-    raise AssertionError("unreachable")
+    """Retry policy documented once in toolchain.run_ngspice_with_retry().
+    One full-ADC transient here is ~6.3 us of simulated time over ~2000
+    devices and takes minutes, so raise SIM_NGSPICE_TIMEOUT_S well above
+    the 120 s harness default before running (the README names the value
+    used for the record); attempts=3 (not the shared helper's default 4)
+    keeps a fully-exhausted retry budget from blowing past that already-
+    long per-attempt wall-clock cost."""
+    return toolchain.run_ngspice_with_retry(deck, scratch, tag, attempts=3)
 
 
 def decode(parsed: dict[str, float], supply_v: float) -> dict:

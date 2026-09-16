@@ -466,6 +466,84 @@ class TestRunnerHelpers(unittest.TestCase):
         self.assertIn("timed out after 7s", str(ctx.exception))
         self.assertIn(toolchain.TIMEOUT_ENV_VAR, str(ctx.exception))
 
+    def test_run_ngspice_with_retry_retries_on_timeout_then_succeeds(self):
+        """Issue #299: the retry/backoff policy previously hand-rolled at
+        six sim/*/run_*.py call sites now lives once in
+        run_ngspice_with_retry(). A timeout on the first attempt is
+        absorbed with a backoff sleep, then the second attempt succeeds."""
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(
+                toolchain,
+                "run_ngspice",
+                side_effect=[RuntimeError("ngspice timed out after 120s"), "ok log"],
+            ) as mock_run_ngspice:
+                with mock.patch.object(toolchain.time, "sleep") as mock_sleep:
+                    result = toolchain.run_ngspice_with_retry(
+                        "* netlist\n.end\n", scratch, "corner_0"
+                    )
+        self.assertEqual(result, "ok log")
+        self.assertEqual(mock_run_ngspice.call_count, 2)
+        mock_sleep.assert_called_once_with(15 * 1)
+
+    def test_run_ngspice_with_retry_reraises_non_timeout_immediately(self):
+        """A non-timeout RuntimeError (e.g. a real ngspice crash) must not
+        be retried -- only "timed out" failures are transient-contention
+        candidates."""
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(
+                toolchain, "run_ngspice", side_effect=RuntimeError("ngspice exited 1")
+            ) as mock_run_ngspice:
+                with mock.patch.object(toolchain.time, "sleep") as mock_sleep:
+                    with self.assertRaises(RuntimeError) as ctx:
+                        toolchain.run_ngspice_with_retry(
+                            "* netlist\n.end\n", scratch, "corner_0"
+                        )
+        self.assertIn("exited 1", str(ctx.exception))
+        self.assertEqual(mock_run_ngspice.call_count, 1)
+        mock_sleep.assert_not_called()
+
+    def test_run_ngspice_with_retry_raises_after_exhausting_attempts(self):
+        """Exhausting every retry on the same netlist still raises -- a
+        genuine, reproducible timeout is not masked forever."""
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(
+                toolchain,
+                "run_ngspice",
+                side_effect=RuntimeError("ngspice timed out after 120s"),
+            ) as mock_run_ngspice:
+                with mock.patch.object(toolchain.time, "sleep"):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        toolchain.run_ngspice_with_retry(
+                            "* netlist\n.end\n", scratch, "corner_0", attempts=3
+                        )
+        self.assertIn("timed out", str(ctx.exception))
+        self.assertEqual(mock_run_ngspice.call_count, 3)
+
+    def test_run_ngspice_with_retry_honors_custom_attempts_param(self):
+        """sim/full-conversion-transient/run_conversion.py passes attempts=3
+        (not the default 4) -- the shared helper must honor a caller-
+        supplied attempts value rather than hardcoding it (issue #299)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            with mock.patch.object(
+                toolchain,
+                "run_ngspice",
+                side_effect=[
+                    RuntimeError("ngspice timed out after 120s"),
+                    RuntimeError("ngspice timed out after 120s"),
+                    "ok log",
+                ],
+            ) as mock_run_ngspice:
+                with mock.patch.object(toolchain.time, "sleep"):
+                    result = toolchain.run_ngspice_with_retry(
+                        "* netlist\n.end\n", scratch, "corner_0", attempts=3
+                    )
+        self.assertEqual(result, "ok log")
+        self.assertEqual(mock_run_ngspice.call_count, 3)
+
 
 class TestTestbenchManifest(unittest.TestCase):
     def test_load_manifest_and_build_netlist(self):

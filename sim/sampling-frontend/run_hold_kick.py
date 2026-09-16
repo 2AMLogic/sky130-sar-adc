@@ -69,7 +69,6 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import time
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parent.parent
@@ -392,33 +391,10 @@ def metrics(m: dict[str, float]) -> dict[str, float]:
 
 
 def _run(netlist: str, scratch: Path, tag: str) -> dict[str, float]:
-    """toolchain.run_ngspice() enforces a hard 120s timeout per invocation
-    (shared harness policy, not something this file overrides). Individual
-    runs here normally finish in ~15-25s; on a shared/contended machine
-    (e.g. another concurrent agent's own PVT corner sweep pegging every
-    CPU core) that has been observed to push individual runs well past
-    120s despite nothing about the netlist itself changing (confirmed by
-    re-running the identical netlist in isolation once the machine was
-    quieter and seeing it finish in ~15-25s again). A few bounded retries
-    with a short backoff absorb that transient contention without masking
-    a genuine, reproducible slowdown -- exhausting every retry on the same
-    netlist still raises."""
-    attempts = 4
-    for attempt in range(1, attempts + 1):
-        try:
-            return measure.parse(
-                toolchain.run_ngspice(netlist, scratch, tag), TRAN_MEASURE_NAMES
-            )
-        except RuntimeError as exc:
-            if "timed out" not in str(exc) or attempt == attempts:
-                raise
-            print(
-                f"  (warning: {tag} timed out (attempt {attempt}/{attempts}), "
-                f"retrying after a short backoff -- machine likely contended)",
-                file=sys.stderr,
-            )
-            time.sleep(15 * attempt)
-    raise AssertionError("unreachable")  # loop always returns or raises above
+    """Retry policy documented once in toolchain.run_ngspice_with_retry()."""
+    return measure.parse(
+        toolchain.run_ngspice_with_retry(netlist, scratch, tag), TRAN_MEASURE_NAMES
+    )
 
 
 def linfit(xs: list[float], ys: list[float]) -> tuple[float, float, float]:
