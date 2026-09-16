@@ -49,10 +49,12 @@ name: CI
 #     claim in the prose -- one directly following the record path it is
 #     about -- is true and names the right pointer file for its tree. That
 #     last check is deliberately not universal: a claim that only narrates a
-#     correction, or that names its stamp *after* the phrase, is skipped, so
-#     it covers 9 of the document's 19 such phrases as of 2026-09-16 (the
-#     checker's module docstring and the proposal's own "Reproducing this
-#     table" note both state the breakdown). This check is the
+#     correction, or that names its stamp *after* the phrase, is skipped. How
+#     many that leaves is NOT restated here on purpose -- this comment used to
+#     carry its own copy of the number and went stale the first time the
+#     document grew (PR #312). The proposal's own "Reproducing this table"
+#     note is the single place that states it, and the checker's check 6 now
+#     recomputes and gates it (`--stats` prints the live census). This is the
 #     always-on gate against the drift that document's own history is full of
 #     -- a flow re-runs, its LATEST moves, and a spec-row verdict is left
 #     citing the superseded record (PRs #239/#242/#276/#282/#295/#300 each had

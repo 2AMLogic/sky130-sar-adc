@@ -63,6 +63,21 @@ WHAT IT CHECKS
    `records/LATEST` and a `layout/` flow's as `reports/LATEST`. This is the
    check for PR #295/#300's defect class.
 
+6. Census freshness -- checks 4 and 5 do not cover every pointer claim in the
+   document (see below), so the document states, in prose, how many of its
+   claims they *do* cover. That census is itself a volatile fact about a
+   document several passes a day append to, and it went stale the first time
+   it was hand-written: PR #312 added two pointer claims of the skipped kind
+   and the "9 of 19" census three files carried (this docstring, the
+   proposal's own "Reproducing this table" note, and `.github/workflows/ci.yml`'s
+   inventory comment) silently became "9 of 21" without any of the three
+   moving. Check 6 recomputes the census and fails if the document's stated
+   one disagrees, so the coverage claim cannot drift away from the coverage.
+   It fires only on a document that states a census -- absence is not a
+   failure here, because `check_document` also runs against test fixtures;
+   that the real proposal states one is asserted by
+   `sim/tests/test_proposal_citations.py` instead.
+
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
 cited path with nothing between them but link/quote punctuation and an
 optional "the"/"record:" connector. A claim that merely *discusses* a pointer
@@ -75,13 +90,23 @@ a document whose whole style is to narrate its own corrections.
 The connector test is directional, so a *stamp-after-claim* citation -- one
 that names its record only after the phrase ("re-pointed onto the current
 `reports/LATEST`, `20260915-213439-bf2256f`"), or as a bare stamp rather than
-a full path -- is unattached too, and is likewise skipped. As of 2026-09-16
-that is 5 of the proposal's 19 "current `.../LATEST`" phrases (9 are attached
-and checked; the remaining 5 are narration naming no record the claim could
-be checked against). Those 5 are
-genuine forward citations that this check does NOT cover -- do not describe
-check 4 as verifying every pointer claim in the document. Extending it to the
-stamp-after-claim form is a possible follow-up.
+a full path -- is unattached too, and is likewise skipped. Those are genuine
+forward citations that this check does NOT cover -- do not describe check 4
+as verifying every pointer claim in the document; run `--stats` for the live
+breakdown rather than quoting a number from here.
+
+Extending checks 4/5 *to* the stamp-after-claim form is not the obvious win
+it looks like, and is recorded here so it is not re-proposed blind: in this
+document the trailing stamp is often a **dated historical** statement ("Re-cited
+again 2026-09-15 (later) onto the current `reports/LATEST`,
+`20260915-213439-bf2256f`") that was true when written and is superseded by a
+later paragraph in the same item, or a *contrast* with the superseded record
+rather than a citation of the current one. Evaluating either as a present-tense
+claim would fail the gate on prose that is correct, and the fix would be to
+rewrite the document's supersession trail -- the opposite of what this gate is
+for. The verdicts those paragraphs support are already held to current evidence
+as Section 4 *rows*, by check 3. What check 6 adds instead is that the *size* of
+the uncovered set cannot drift silently.
 
 Check 3 is scoped to the spec table rather than the whole document for the
 same reason: Section 7's prose deliberately narrates superseded records
@@ -92,9 +117,12 @@ and Test Plan frame it ("every spec-row verdict ... traces to ... a dated
 
 USAGE
 -----
-    python3 docs/chipalooza/check_proposal_citations.py [DOC ...]
+    python3 docs/chipalooza/check_proposal_citations.py [--stats] [DOC ...]
 
-With no arguments it checks every `docs/chipalooza/*.md`. Exit status:
+With no arguments it checks every `docs/chipalooza/*.md`. `--stats` prints each
+document's live pointer-claim census (the numbers check 6 compares against)
+instead of checking, which is what to run when check 6 reports a drift.
+Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -148,6 +176,31 @@ EVIDENCE_PATH_RE = re.compile(
     r"(?P<top>sim|layout)/(?P<block>[A-Za-z0-9._-]+)/"
     r"(?P<pointer_dir>records|reports)/(?P<stamp>" + STAMP + r")"
     r"(?:\.md)?(?:/[A-Za-z0-9._-]+)?"
+)
+
+# A record stamp on its own, for the census's trailing-stamp classification: a
+# skipped claim that names *some* record after the phrase is a different (and
+# potentially checkable) shape from one that names none at all.
+STAMP_RE = re.compile(STAMP)
+
+# How far after a skipped pointer claim the census looks for a record stamp.
+# Same order as the 400-character window check 4 scans *before* a claim, and
+# deliberately on a plateau: the classification of this document is identical
+# at 200 and at 300 characters, and only shifts by one claim at 120, so the
+# census does not balance on the exact constant.
+TRAILING_STAMP_WINDOW = 200
+
+# The census sentence the document states about itself, matched against
+# whitespace-collapsed text so a prose line wrap cannot break it. Every number
+# check 6 compares is a named group here; the window is included so a document
+# cannot state a coverage rule this script does not actually apply.
+CENSUS_RE = re.compile(
+    r"of the \*\*(?P<total>\d+)\*\* [\"“]current `…/LATEST`[\"”] "
+    r"phrases in this document, \*\*(?P<attached>\d+)\*\* are attached and "
+    r"therefore checked; of the \*\*(?P<skipped>\d+)\*\* skipped, "
+    r"\*\*(?P<trailing_stamp>\d+)\*\* name a record stamp within "
+    r"(?P<window>\d+) characters after the phrase, and "
+    r"\*\*(?P<narration>\d+)\*\* name none at all"
 )
 
 # What may sit between a cited path and an attached pointer claim: link and
@@ -346,6 +399,56 @@ def check_pointer_claims(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def pointer_claim_census(text: str) -> dict[str, int]:
+    """How many "current `…/LATEST`" claims checks 4 and 5 actually evaluate.
+
+    Four counts plus the window constant, keyed by the names `CENSUS_RE`
+    captures. `attached` is the checked set; the rest are skipped, split by
+    whether a record stamp appears within `TRAILING_STAMP_WINDOW` characters
+    *after* the phrase (`trailing_stamp` -- the forward-citation form) or not
+    (`narration` -- prose about a correction, naming no record the claim could
+    be checked against).
+    """
+    claims = list(POINTER_CLAIM_RE.finditer(text))
+    attached = {claim.start() for claim, _cited, _connector in attached_pointer_claims(text)}
+    trailing = 0
+    for claim in claims:
+        if claim.start() in attached:
+            continue
+        window = text[claim.end() : claim.end() + TRAILING_STAMP_WINDOW]
+        if STAMP_RE.search(_unwrap_backticked(window)):
+            trailing += 1
+    skipped = len(claims) - len(attached)
+    return {
+        "total": len(claims),
+        "attached": len(attached),
+        "skipped": skipped,
+        "trailing_stamp": trailing,
+        "narration": skipped - trailing,
+        "window": TRAILING_STAMP_WINDOW,
+    }
+
+
+def check_census(doc: Path, text: str) -> list[str]:
+    """Check 6: the document's stated coverage census must be the real one."""
+    stated = CENSUS_RE.search(re.sub(r"\s+", " ", text))
+    if stated is None:
+        return []
+    anchor = re.search(r"phrases in this\s+document", text)
+    line = _line_of(text, anchor.start()) if anchor else 1
+    actual = pointer_claim_census(text)
+    misses = []
+    for field, value in sorted(actual.items()):
+        if int(stated.group(field)) != value:
+            misses.append(
+                f"{doc.name}:{line}: the stated pointer-claim census says "
+                f"{field}={stated.group(field)}, but this document's live census "
+                f"is {field}={value} -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -353,10 +456,13 @@ def check_document(doc: Path) -> list[str]:
         + check_bare_paths(doc, text)
         + check_spec_table_freshness(doc, text)
         + check_pointer_claims(doc, text)
+        + check_census(doc, text)
     )
 
 
 def main(argv: list[str]) -> int:
+    stats_only = "--stats" in argv
+    argv = [arg for arg in argv if arg != "--stats"]
     if argv:
         docs = [Path(arg) if Path(arg).is_absolute() else REPO_ROOT / arg for arg in argv]
         for doc in docs:
@@ -368,6 +474,19 @@ def main(argv: list[str]) -> int:
         if not docs:
             print(f"ERROR: no documents found under {CHIPALOOZA_DIR}", file=sys.stderr)
             return 2
+
+    if stats_only:
+        for doc in docs:
+            census = pointer_claim_census(doc.read_text())
+            print(
+                f"{doc.name}: of the {census['total']} \"current `…/LATEST`\" "
+                f"phrases in this document, {census['attached']} are attached and "
+                f"therefore checked; of the {census['skipped']} skipped, "
+                f"{census['trailing_stamp']} name a record stamp within "
+                f"{census['window']} characters after the phrase, and "
+                f"{census['narration']} name none at all"
+            )
+        return 0
 
     misses: list[str] = []
     for doc in docs:

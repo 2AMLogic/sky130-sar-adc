@@ -560,24 +560,51 @@ superseded one.
 first claimed the pointer check covered *every* such phrase, which overstated
 it): a pointer claim is checked only when the phrase directly follows the
 record path it is about, with nothing between them but link/quote punctuation
-and an optional "the"/"record:" connector. Measured against this document as
-it stands on 2026-09-16 — this paragraph included in the count — that is
-**9 of the 19 "current `…/LATEST`" phrases** it contains. Of the 10 skipped,
-5 are narration of a correction already made ("…that citation is now
-corrected to the current `reports/LATEST`" — the quotation in this sentence is
-itself one of the 5) and name no record the claim could be checked against
-(one of them names only the *superseded* record it is contrasting with); those
-*must* be skipped, or the gate would be unusable on a document whose style is
-to narrate its own supersession trails. The other 5 do name a record, but never in the attached
-form: in four the stamp arrives *after* the phrase (§4's Area row, §4's
-"Post-layout PVT simulation" sign-off row, and two places in §7 Item 1), and
-in the fifth — also the "Post-layout PVT simulation" row — it precedes the
-phrase as a bare stamp rather than a full path. Those 5 are genuine, unchecked
-forward citations. The 3 of them that sit in §4 rows are still covered *as
-rows* by the spec-table freshness check above (that check reads every record
-stamp in the row, wherever in the cell it falls); the 2 in §7 are not, and in
-neither case is the "current `…/LATEST`" phrasing itself machine-verified.
-Extending the check to that form is a follow-up, not a claim made here.
+and an optional "the"/"record:" connector.
+
+**Census, machine-checked** (this paragraph counts itself, its own two quoted
+examples below included): of the **22** "current `…/LATEST`" phrases in this
+document, **9** are attached and therefore checked; of the **13** skipped,
+**9** name a record stamp within 200 characters after the phrase, and **4**
+name none at all.
+
+Those two skipped shapes are skipped for different reasons, and neither is a
+gap this document intends to close by rewriting itself:
+
+- The ones naming **no** record are narration of a correction already made
+  ("…that citation is now corrected to the current `reports/LATEST`" — the
+  quotation in this sentence is itself one of them). There is nothing for a
+  checker to resolve them against; matching them anyway would make the gate
+  unusable on a document whose style is to narrate its own supersession
+  trails.
+- The ones naming a record **after** the phrase are genuine forward
+  citations, but in this document they are overwhelmingly *dated historical*
+  statements — "Re-cited again 2026-09-15 (later) onto the current
+  `reports/LATEST`, `20260915-213439-bf2256f`" was true on the date it
+  carries and is superseded by a later paragraph in the same item — or a
+  contrast *with* the superseded record rather than a citation of the current
+  one. Graded as present-tense claims they would fail the gate on prose that
+  is correct, and the only way to "fix" that would be to delete the
+  supersession trail, which is the opposite of what this gate is for. Where
+  such a phrase sits inside a §4 row, that row's verdict is still held to
+  current evidence by the spec-table freshness check above, which reads every
+  record stamp in the cell wherever it falls.
+
+**The census is gated, because it drifted the first time it was hand-written.**
+This paragraph previously read "9 of the 19", and `.github/workflows/ci.yml`
+and the checker's own module docstring each repeated that number. PR #312
+(2026-09-16) then added two more pointer claims of the skipped kind, and all
+three statements silently became wrong — the same "a fact was true when
+written, and nothing re-derives it" failure mode the citation gate itself
+exists for, one level up. The numbers above are now recomputed and compared by
+check 6 of
+[`check_proposal_citations.py`](check_proposal_citations.py), so a pass that
+adds a pointer claim gets a CI failure naming the field that moved instead of
+leaving a stale coverage claim behind; `python3
+docs/chipalooza/check_proposal_citations.py --stats` prints the live census in
+the same sentence form as above (minus the bold markers), to be pasted back in.
+The other two copies of the number have been deleted rather than re-synced, so
+this paragraph is the single place the coverage is stated.
 
 This closes a loop rather than adding a new claim: every one of PRs #239,
 #242, #276, #282, #295 and #300 was a pass that had to *correct* a citation of
