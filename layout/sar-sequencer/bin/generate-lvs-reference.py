@@ -70,12 +70,7 @@ SAR_SEQ_DIR = os.path.join(LAYOUT_DIR, "sar-sequencer")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
-from _lvs_reference_common import (  # noqa: E402
-    _extract_cdl_subckt,
-    _generalize_model,
-    _resolve_pdk_root,
-    parse_verilog_netlist,
-)
+from _lvs_reference_common import emit_std_cell_lvs_reference  # noqa: E402
 
 DEFAULT_NETLIST = os.path.join(
     SAR_SEQ_DIR,
@@ -105,37 +100,6 @@ CELL_TYPES = (
 
 def main() -> int:
     netlist_path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_NETLIST
-    if not os.path.isfile(netlist_path):
-        print(
-            f"generate-lvs-reference.py: netlist not found: {netlist_path}\n"
-            "  (run layout/sar-sequencer/bin/run-flow.sh first, or pass an "
-            "explicit path)",
-            file=sys.stderr,
-        )
-        return 1
-
-    pdk_dir = _resolve_pdk_root()
-    cdl_path = os.path.join(
-        pdk_dir, "libs.ref", "sky130_fd_sc_hd", "cdl", "sky130_fd_sc_hd.cdl"
-    )
-    if not os.path.isfile(cdl_path):
-        print(f"generate-lvs-reference.py: CDL not found: {cdl_path}", file=sys.stderr)
-        return 1
-    with open(cdl_path, encoding="utf-8") as handle:
-        cdl_text = handle.read()
-
-    cell_defs: dict[str, tuple[list[str], list[tuple]]] = {}
-    for cell_type in CELL_TYPES:
-        cell_defs[cell_type] = _extract_cdl_subckt(cdl_text, cell_type)
-
-    top_name, instances = parse_verilog_netlist(netlist_path, CELL_TYPES)
-    if not instances:
-        print(
-            f"generate-lvs-reference.py: no standard-cell instances found in "
-            f"{netlist_path}",
-            file=sys.stderr,
-        )
-        return 1
 
     # Top-level port order: this design's own fixed port list (not read back
     # from the Verilog `module (...)` header, whose declaration order is
@@ -157,7 +121,7 @@ def main() -> int:
         + ["VPWR", "VGND"]
     )
 
-    out_lines = [
+    header_lines = [
         "* LVS reference for the SAR logic/sequencer sub-block (issue #102).",
         "*",
         "* Mechanically generated -- DO NOT HAND-EDIT. Regenerate with:",
@@ -175,42 +139,16 @@ def main() -> int:
         "* flavor). Device models: the sky130 PDK's own official CDL",
         "* (libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl), Apache-2.0",
         "* licensed, SkyWater's own release -- not reverse-engineered.",
-        f".SUBCKT {top_name} {' '.join(top_ports)}",
     ]
 
-    for inst_name, cell_type, pin_map in instances:
-        signal_pins, devices = cell_defs[cell_type]
-        full_pin_map = dict(pin_map)
-        full_pin_map.setdefault("VGND", "VGND")
-        full_pin_map.setdefault("VNB", "VGND")
-        full_pin_map.setdefault("VPB", "VPWR")
-        full_pin_map.setdefault("VPWR", "VPWR")
-
-        for dev_inst, drain, gate, source, body, model, w, l in devices:
-            def resolve(node: str) -> str:
-                if node in full_pin_map:
-                    return full_pin_map[node]
-                return f"{inst_name}_{node}"
-
-            out_lines.append(
-                f"M{inst_name}_{dev_inst} {resolve(drain)} {resolve(gate)} "
-                f"{resolve(source)} {resolve(body)} {_generalize_model(model)} "
-                f"L={l}U W={w}U"
-            )
-
-    out_lines.append(f".ENDS {top_name}")
-    out_lines.append("")
-
-    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
-    with open(OUT_PATH, "w", encoding="utf-8") as handle:
-        handle.write("\n".join(out_lines))
-
-    device_total = sum(len(cell_defs[cell_type][1]) for _, cell_type, _ in instances)
-    print(
-        f"generate-lvs-reference.py: wrote {OUT_PATH} "
-        f"({len(instances)} instances, {device_total} devices)"
+    return emit_std_cell_lvs_reference(
+        netlist_path,
+        OUT_PATH,
+        CELL_TYPES,
+        top_ports,
+        header_lines,
+        run_flow_hint="layout/sar-sequencer/bin/run-flow.sh",
     )
-    return 0
 
 
 if __name__ == "__main__":
