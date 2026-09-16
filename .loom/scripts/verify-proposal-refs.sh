@@ -150,7 +150,15 @@ for raw_candidate in "${CANDIDATES[@]}"; do
     is_recognized_top "$path" || continue
     CHECKED_PATHS=$((CHECKED_PATHS + 1))
 
-    if ! full_tree | grep -qFx "$path"; then
+    # A pipe (`full_tree | grep -qFx ...`) is SIGPIPE-prone under `pipefail`:
+    # if grep matches early and closes its end of the pipe while `printf`
+    # inside full_tree() is still writing the (potentially large) tree
+    # listing, printf dies of SIGPIPE and `pipefail` reports the whole
+    # pipeline as failed even though grep found the match — a nondeterministic
+    # false MISSING FILE (issue #288). A here-string has grep read from a
+    # fully-buffered command substitution instead of a live pipe, so there is
+    # no writer left to SIGPIPE.
+    if ! grep -qFx "$path" <<< "$(full_tree)"; then
         MISSES+=("MISSING FILE: \`$path\` does not exist on origin/main")
         continue
     fi
