@@ -67,6 +67,30 @@ class FixtureTree:
         if latest:
             (records / "LATEST").write_text(f"{stamp}.md\n")
 
+    def add_spec_table(self, *rows: str):
+        """A `spec/target-spec.md` with the Target table check 7 reads."""
+        spec = self.root / "spec"
+        spec.mkdir(parents=True, exist_ok=True)
+        body = "\n".join(
+            [
+                "# fixture spec",
+                "",
+                "## Target table",
+                "",
+                "| Parameter | Target | Status | Carried from / note |",
+                "|---|---|---|---|",
+                *rows,
+                "",
+                "## Non-goals",
+                "",
+                "| Parameter | Target | Status | note |",
+                "|---|---|---|---|",
+                "| Decoy | `≤ 99 kV` | **RATIFIED** | not the Target table |",
+                "",
+            ]
+        )
+        (spec / "target-spec.md").write_text(body)
+
     def document(self, body: str) -> Path:
         doc = self.root / "docs" / "chipalooza" / "fixture.md"
         doc.write_text(body)
@@ -374,6 +398,160 @@ class TestPointerClaimCensus(unittest.TestCase):
         self.assertEqual(self.tree.check(self._body("")), [])
 
 
+class TestSpecRowParity(unittest.TestCase):
+    """Check 7: Section 4 restates every ratified spec row, unrelaxed.
+
+    The defect shape is the one the repo's standing rule names -- "agents do
+    not relax a spec line to make a result pass" (CLAUDE.md) -- plus its
+    cheaper cousin, dropping the row from the proposal entirely. Neither had
+    any mechanical guard: both tables were compared by hand every pass.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def test_spec_row_absent_from_section_4_is_reported(self):
+        self.tree.add_spec_table(
+            "| ENOB | > 7.5 bit | DRAFT | note |",
+            "| Power | provisional | DRAFT | note |",
+        )
+        misses = self.tree.check(
+            spec_table("| ENOB | > 7.5 bit | DRAFT | **MET** — x | schematic |")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn('spec row "Power"', misses[0])
+        self.assertIn("no Section 4 row", misses[0])
+
+    def test_relaxed_bound_is_reported_and_names_the_bound(self):
+        self.tree.add_spec_table("| INL / DNL | `≤ ±2.0 LSB` | DRAFT | note |")
+        misses = self.tree.check(
+            spec_table("| INL / DNL | `≤ ±3.0 LSB` | DRAFT | **MET** — x | schematic |")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`≤±2.0`", misses[0])
+        self.assertIn("may not be relaxed", misses[0])
+
+    def test_softened_comparator_alone_is_reported(self):
+        """`≥ 7.5` is not `> 7.5` -- the subtlest relaxation shape."""
+        self.tree.add_spec_table("| ENOB | > 7.5 bit | DRAFT | note |")
+        misses = self.tree.check(
+            spec_table("| ENOB | ≥ 7.5 bit | DRAFT | **MET** — x | schematic |")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`>7.5`", misses[0])
+
+    def test_section_4_may_also_state_the_superseded_bound(self):
+        """The document's style is to keep the revision trail visible."""
+        self.tree.add_spec_table("| ENOB | > 7.5 bit, stretch > 8.0 | DRAFT | note |")
+        body = spec_table(
+            "| ENOB | > 7.5 bit, stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) "
+            "| DRAFT | **MET** — x | schematic |"
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_status_drift_is_reported(self):
+        """DR-007 ratifying upstream must fail this document, not pass it."""
+        self.tree.add_spec_table("| ENOB | > 7.5 bit | **RATIFIED** (DR-007) | note |")
+        misses = self.tree.check(
+            spec_table(
+                "| ENOB | > 7.5 bit | DRAFT (target value, not ratified) "
+                "| **MET** — x | schematic |"
+            )
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`RATIFIED`", misses[0])
+        self.assertIn("`DRAFT`", misses[0])
+
+    def test_parameter_names_compare_past_backticks_and_bold(self):
+        self.tree.add_spec_table("| Resolution `N` | 10 bit | **RATIFIED** | note |")
+        body = spec_table(
+            "| **Resolution `N`** | 10 bit | **RATIFIED** | **MET** — x | schematic |"
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_issue_and_record_references_are_not_read_as_bounds(self):
+        self.tree.add_spec_table("| Power | provisional (#28) | DRAFT | note |")
+        body = spec_table(
+            "| Power | provisional | DRAFT | **BLOCKED** — see §7 | schematic |"
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_check_is_inert_without_a_spec_target_table(self):
+        # No spec/target-spec.md in the fixture tree at all.
+        body = spec_table("| Whatever | 1 | DRAFT | **MET** — x | schematic |")
+        self.assertEqual(self.tree.check(body), [])
+
+
+def verdict_preamble(*kinds: str) -> str:
+    """A Section 4 preamble defining the given verdict kinds."""
+    bullets = "\n".join(f"- **{kind}** — definition of {kind}." for kind in kinds)
+    return "## 4. Target specification\n\nThe verdict column states:\n" + bullets + "\n\n"
+
+
+def graded_table(preamble: str, *rows: str) -> str:
+    """`verdict_preamble` output followed by a Section 4 table."""
+    return preamble + spec_table(*rows).split("\n", 2)[2]
+
+
+class TestVerdictVocabulary(unittest.TestCase):
+    """Check 8: every row opens with a verdict kind the preamble defines."""
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def test_row_opening_with_an_undefined_kind_is_reported(self):
+        """The live defect: Architecture's verdict read "Implemented as described"."""
+        body = graded_table(
+            verdict_preamble("MET"),
+            "| A | 1 mV | RATIFIED | **MET** — passes | schematic |",
+            "| Architecture | topology | DRAFT | Implemented as described | schematic |",
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn('row "Architecture"', misses[0])
+        self.assertIn("not one of the kinds", misses[0])
+
+    def test_defined_kind_no_row_uses_is_reported(self):
+        body = graded_table(
+            verdict_preamble("MET", "DRAFT / not ratified"),
+            "| Architecture | topology | DRAFT | **MET** — implemented | schematic |",
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn('"DRAFT / not ratified" that no row uses', misses[0])
+
+    def test_every_kind_defined_and_used_passes(self):
+        body = graded_table(
+            verdict_preamble("MET", "UNMET", "Informational only"),
+            "| A | topology | DRAFT | **MET** — implemented | schematic |",
+            "| B | 1 mV | RATIFIED | **UNMET** — falls short at `ss` | schematic |",
+            "| C | 2 mV | DRAFT | **Informational only**: no ratified line | schematic |",
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_longest_kind_wins_over_its_own_prefix(self):
+        """`UNMET` must not be graded as `MET`, nor the reverse."""
+        body = graded_table(
+            verdict_preamble("MET", "UNMET"),
+            "| A | 1 mV | RATIFIED | **MET** — passes | schematic |",
+            "| B | 2 mV | RATIFIED | **UNMET** — falls short | schematic |",
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_kind_opening_a_longer_bold_span_still_counts(self):
+        """§4's Sample rate row bolds a whole sentence, not just the kind."""
+        body = graded_table(
+            verdict_preamble("UNMEASURED"),
+            "| A | 1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure** — see §7 "
+            "| schematic |",
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_check_is_inert_without_a_definition_list(self):
+        body = spec_table("| A | 1 mV | DRAFT | anything at all | schematic |")
+        self.assertEqual(self.tree.check(body), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -425,6 +603,45 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         parameters = [row.strip("|").split("|")[0].strip() for _, row in rows]
         self.assertIn("Resolution `N`", parameters)
         self.assertIn("Sample rate", parameters)
+
+    def test_the_real_ratified_spec_table_is_actually_found(self):
+        """Check 7 is inert on an unparsed spec table, and still exits 0.
+
+        `spec/target-spec.md` is the input side of the comparison; if its
+        `## Target table` heading is renamed or the parse otherwise goes
+        vacuous, every relaxation check silently stops firing.
+        """
+        rows = checker.spec_target_rows()
+        self.assertGreaterEqual(len(rows), 11, "the ratified spec table went unparsed")
+        parameters = [checker._normalise_parameter(row[0]) for row in rows]
+        self.assertIn("ENOB", parameters)
+        self.assertIn("Comparator input-referred noise", parameters)
+
+    def test_every_ratified_spec_row_is_graded_in_section_4(self):
+        """The positive form of check 7 on the live document.
+
+        Check 7 reports what is missing; this asserts the set is complete, so
+        a pass that is green because nothing was compared is still a failure.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        _header, rows = checker.section_4_table(doc.read_text())
+        graded = {checker._normalise_parameter(cells[0]) for _line, cells in rows}
+        spec = {checker._normalise_parameter(row[0]) for row in checker.spec_target_rows()}
+        self.assertTrue(spec, "no ratified spec rows to compare against")
+        self.assertEqual(spec - graded, set())
+
+    def test_the_real_proposal_defines_its_verdict_vocabulary(self):
+        """Check 8 is opt-in per document, so assert the real one opts in.
+
+        Deleting the preamble's definition list would disable check 8 and
+        still exit 0 -- the same vacuity trap checks 4 and 6 each needed a
+        guard for.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        vocabulary = checker.verdict_vocabulary(doc.read_text())
+        self.assertGreaterEqual(len(vocabulary), 4, vocabulary)
+        for kind in ("MET", "UNMET", "BLOCKED"):
+            self.assertIn(kind, vocabulary)
 
 
 if __name__ == "__main__":

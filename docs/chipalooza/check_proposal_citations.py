@@ -78,6 +78,48 @@ WHAT IT CHECKS
    that the real proposal states one is asserted by
    `sim/tests/test_proposal_citations.py` instead.
 
+7. Spec-row parity -- checks 3 to 6 all verify how a Section 4 row cites its
+   evidence; nothing verified that the row is *about the same spec line* the
+   ratified spec states. Issue #121's acceptance criterion 2 is "every spec
+   row states met/unmet against the brief; no row is relaxed to make it
+   pass", and the repo's own standing rule is blunter: "agents do not relax a
+   spec line to make a result pass" (CLAUDE.md). Both were hand-verified
+   every pass. Check 7 makes them mechanical -- for each row of
+   `spec/target-spec.md`'s own Target table:
+
+     a. Coverage -- a Section 4 row with that parameter name exists. A spec
+        row silently dropped from the proposal is the cheapest possible way
+        to make the table look clean.
+     b. No relaxation -- every numeric bound the spec row states (comparator
+        and sign included, so `>= 7.5` is not accepted for `> 7.5`, nor
+        `<= +-3.0` for `<= +-2.0`) also
+        appears in the Section 4 row's Target cell. Section 4 may state
+        *more* bounds than the spec row -- it routinely carries the
+        superseded bound a decision record revised, e.g. "was `> 9.0`/`9.5`"
+        -- but it may never drop or re-number one. This is the load-bearing
+        direction: a relaxation is precisely a bound that changed on one side
+        only.
+     c. Status parity -- the leading status word (`RATIFIED` / `DRAFT`)
+        agrees. This is what makes DR-007's eventual ratification a CI
+        failure rather than a silent staleness: the moment `spec/` grades
+        ENOB/INL-DNL as RATIFIED, Section 4's "DRAFT (target value, not
+        ratified)" rows fail until they are re-graded from informational to a
+        verdict -- exactly the edge case issue #121's own Test Plan names.
+
+   Skipped when `spec/target-spec.md` has no Target table (test fixtures);
+   that the real one is found and non-empty is asserted by the tests.
+
+8. Verdict vocabulary -- acceptance criterion 2's other half, "every spec row
+   *states* met/unmet". Section 4's preamble defines the verdict kinds the
+   table uses, and each row's verdict cell must open with one of them. Both
+   directions are enforced, so neither list can drift from the other: a row
+   opening with an undefined kind fails, and a defined kind no row uses fails
+   too. The preamble had already drifted when this check landed -- it
+   announced "three cases", listed four bullets, and the table used six
+   distinct kinds, of which one bullet (`DRAFT / not ratified`) was really a
+   *Status* value rather than a verdict. Skipped on a document whose Section
+   4 defines no kinds (test fixtures), like check 6.
+
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
 cited path with nothing between them but link/quote punctuation and an
 optional "the"/"record:" connector. A claim that merely *discusses* a pointer
@@ -211,6 +253,29 @@ CENSUS_RE = re.compile(
 # `") (the"`. That made check 4 silently vacuous for `(the current
 # \`reports/LATEST\`)`, which is the phrasing Section 4 actually uses.
 CONNECTOR_RE = re.compile(r"^[\s`)\](,;]*(?:record:\s*)?(?:the\s*)?$")
+
+# The ratified spec this document's Section 4 restates, and the heading of the
+# one Markdown table in it that carries the spec rows.
+SPEC_DOC = Path("spec") / "target-spec.md"
+SPEC_TABLE_HEADING = "## Target table"
+
+# A Markdown table cell boundary. Section 4's INL/DNL row writes `max\|DNL\|`,
+# so an unescaped-pipe split is the only one that keeps its cells aligned.
+CELL_SPLIT_RE = re.compile(r"(?<!\\)\|")
+
+# A numeric bound as these tables state them: an optional comparator, an
+# optional sign, and the number. Compared with whitespace removed, so `≤ ±2.0`
+# and `≤±2.0` are the same bound -- but `> 7.5` and `≥ 7.5` are not, which is
+# the point.
+BOUND_RE = re.compile(r"(?:[<>≤≥]\s*)?(?:±\s*)?\d+(?:\.\d+)?")
+
+# Digits that are references rather than bounds: decision records, issue
+# numbers, section numbers, and PDK names.
+NON_BOUND_RE = re.compile(r"DR-\d+|#\d+|§\d+|\b(?:sky|gf)\d+\b")
+
+# `- **MET** — spec row is ratified and ...`: one verdict kind, as Section 4's
+# own preamble defines it.
+VERDICT_DEFINITION_RE = re.compile(r"^- \*\*([^*]+?)\*\*\s+[—-]", re.M)
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -449,6 +514,178 @@ def check_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _row_cells(line: str) -> list[str]:
+    """The cells of one Markdown table row, honouring escaped pipes."""
+    return [cell.strip() for cell in CELL_SPLIT_RE.split(line.strip().strip("|"))]
+
+
+def _normalise_parameter(cell: str) -> str:
+    """A parameter name as the two tables can be compared on it."""
+    return re.sub(r"\s+", " ", cell.replace("**", "").replace("`", "")).strip()
+
+
+def _bounds(cell: str) -> set[str]:
+    """Every numeric bound stated in a Target cell, comparator included."""
+    cleaned = NON_BOUND_RE.sub(" ", cell)
+    return {re.sub(r"\s+", "", m.group(0)) for m in BOUND_RE.finditer(cleaned)}
+
+
+def _status_kind(cell: str) -> str | None:
+    """The leading word of a Status cell -- `RATIFIED` or `DRAFT` here."""
+    match = re.match(r"[A-Za-z]+", cell.replace("**", "").strip())
+    return match.group(0).upper() if match else None
+
+
+def section_4_table(text: str) -> tuple[list[str], list[tuple[int, list[str]]]]:
+    """Section 4's spec table as `(header_cells, [(line_number, cells)])`."""
+    header: list[str] = []
+    rows = [(line_number, _row_cells(line)) for line_number, line in spec_table_rows(text)]
+    in_section = False
+    for line in text.split("\n"):
+        if line.startswith("## "):
+            if header:
+                break
+            in_section = line.startswith("## 4.")
+            continue
+        if in_section and line.startswith("|") and _row_cells(line)[:1] == ["Parameter"]:
+            header = _row_cells(line)
+    return header, rows
+
+
+def spec_target_rows() -> list[list[str]]:
+    """The rows of `spec/target-spec.md`'s own Target table.
+
+    Empty when that table is absent, which is how check 7 stays inert against
+    the test fixtures (their REPO_ROOT has no `spec/` tree at all).
+    """
+    path = REPO_ROOT / SPEC_DOC
+    if not path.is_file():
+        return []
+    rows: list[list[str]] = []
+    in_table = False
+    for line in path.read_text().split("\n"):
+        if line.startswith("## "):
+            in_table = line.strip() == SPEC_TABLE_HEADING
+            continue
+        if not in_table or not line.startswith("|"):
+            continue
+        cells = _row_cells(line)
+        if cells[:1] == ["Parameter"]:
+            continue
+        if all(re.fullmatch(r":?-{2,}:?", cell) for cell in cells):
+            continue
+        rows.append(cells)
+    return rows
+
+
+def check_spec_row_parity(doc: Path, text: str) -> list[str]:
+    """Check 7: Section 4 restates every ratified spec row, unrelaxed."""
+    spec_rows = spec_target_rows()
+    if not spec_rows:
+        return []
+    header, rows = section_4_table(text)
+    if not rows:
+        return []
+    proposal = {
+        _normalise_parameter(cells[0]): (line_number, cells)
+        for line_number, cells in rows
+        if len(cells) >= 3
+    }
+    misses = []
+    for spec_cells in spec_rows:
+        parameter = _normalise_parameter(spec_cells[0])
+        found = proposal.get(parameter)
+        if found is None:
+            misses.append(
+                f"{doc.name}: spec row \"{parameter}\" of `{SPEC_DOC}` has no "
+                f"Section 4 row -- every ratified spec row must state a verdict "
+                f"here (issue #121 acceptance criterion 2)"
+            )
+            continue
+        line_number, cells = found
+        dropped = _bounds(spec_cells[1]) - _bounds(cells[1])
+        if dropped:
+            misses.append(
+                f"{doc.name}:{line_number}: spec row \"{parameter}\" states "
+                f"bound(s) {', '.join('`' + b + '`' for b in sorted(dropped))} in "
+                f"`{SPEC_DOC}` that this row's Target cell does not -- a spec "
+                f"line may not be relaxed or re-numbered to make a verdict pass"
+            )
+        spec_status = _status_kind(spec_cells[2])
+        row_status = _status_kind(cells[2])
+        if spec_status != row_status:
+            misses.append(
+                f"{doc.name}:{line_number}: spec row \"{parameter}\" is "
+                f"`{spec_status}` in `{SPEC_DOC}` but `{row_status}` here -- "
+                f"re-grade this row against the spec's current status"
+            )
+    if header and not any(cell.startswith("Verdict") for cell in header):
+        misses.append(
+            f"{doc.name}: Section 4's table has no Verdict column "
+            f"(header: {header}) -- checks 7 and 8 grade that column"
+        )
+    return misses
+
+
+def verdict_vocabulary(text: str) -> list[str]:
+    """The verdict kinds Section 4's preamble defines, longest name first.
+
+    Scoped to the prose between the Section 4 heading and its table, which is
+    where the definition list lives; the bullets later in the section (under
+    "Reproducing this table") do not open with a bolded term, so they are not
+    mistaken for definitions.
+    """
+    start = re.search(r"^## 4\..*$", text, re.M)
+    if start is None:
+        return []
+    table = re.search(r"^\|", text[start.end() :], re.M)
+    preamble = text[start.end() : start.end() + table.start()] if table else ""
+    kinds = [match.group(1).strip() for match in VERDICT_DEFINITION_RE.finditer(preamble)]
+    return sorted(set(kinds), key=len, reverse=True)
+
+
+def _leading_verdict(cell: str, vocabulary: list[str]) -> str | None:
+    opening = cell.lstrip("*").lstrip()
+    for kind in vocabulary:
+        if opening.upper().startswith(kind.upper()):
+            return kind
+    return None
+
+
+def check_verdict_vocabulary(doc: Path, text: str) -> list[str]:
+    """Check 8: every Section 4 row opens with a defined verdict kind."""
+    vocabulary = verdict_vocabulary(text)
+    if not vocabulary:
+        return []
+    header, rows = section_4_table(text)
+    try:
+        column = next(i for i, cell in enumerate(header) if cell.startswith("Verdict"))
+    except StopIteration:
+        return []
+    misses = []
+    used = set()
+    for line_number, cells in rows:
+        if len(cells) <= column:
+            continue
+        parameter = _normalise_parameter(cells[0])
+        kind = _leading_verdict(cells[column], vocabulary)
+        if kind is None:
+            misses.append(
+                f"{doc.name}:{line_number}: row \"{parameter}\" opens its verdict "
+                f"with \"{cells[column][:40]}...\", which is not one of the kinds "
+                f"Section 4 defines ({', '.join(sorted(vocabulary))}) -- every row "
+                f"must state met/unmet in the document's own vocabulary"
+            )
+            continue
+        used.add(kind)
+    for kind in sorted(set(vocabulary) - used):
+        misses.append(
+            f"{doc.name}: Section 4 defines the verdict kind \"{kind}\" that no "
+            f"row uses -- delete the definition or grade a row with it"
+        )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -457,6 +694,8 @@ def check_document(doc: Path) -> list[str]:
         + check_spec_table_freshness(doc, text)
         + check_pointer_claims(doc, text)
         + check_census(doc, text)
+        + check_spec_row_parity(doc, text)
+        + check_verdict_vocabulary(doc, text)
     )
 
 
