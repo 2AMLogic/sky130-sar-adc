@@ -120,6 +120,38 @@ WHAT IT CHECKS
    *Status* value rather than a verdict. Skipped on a document whose Section
    4 defines no kinds (test fixtures), like check 6.
 
+9. Sign-off-bar readout parity -- checks 3 to 5 gate which record a row
+   *cites*; nothing gated the numbers the document quotes *out of* that
+   record. That is a real gap on exactly the two rows the brief's sign-off
+   bar grades ("Post-layout PVT simulation, full ADC" and "DRC/LVS-clean
+   GDS, full ADC, in-repo"), whose verdicts rest on figures hand-copied out
+   of `layout/sar-adc-top/`'s `drc.json` / `lvs.json`: the mismatch count,
+   the device/net/pin correspondence, the category breakdown. Those figures
+   really do move -- this document has already carried 98, then 128, then
+   124, then 98 again as the flow was re-run -- and when they move, check 3
+   forces the *citation* forward while leaving every quoted number behind it
+   untouched.
+
+   So the document states the current readout once, in a fixed sentence
+   form, and check 9 recomputes it from the record that flow's
+   `reports/LATEST` actually resolves to and compares field by field: DRC
+   status and violation count, LVS status, mismatch and error counts, the
+   three-way device/net/pin counts, and the full `category_counts` mapping
+   (both directions -- a category the document omits and one it invents are
+   both reported). `--stats` prints the live sentence for every `layout/`
+   flow, so the fix for a check-9 failure is a paste, not a hand
+   transcription. Like checks 6 to 8 it is opt-in per document and inert
+   when no readout is stated; that the real proposal states one is asserted
+   by `sim/tests/test_proposal_citations.py`.
+
+   What it does NOT do, stated rather than glossed: it does not parse the
+   numbers out of Section 4's or Section 7's prose. Those sections are full
+   of *dated historical* figures ("moved from the pre-bump 98 mismatches to
+   128 ... then to 124") that were true when written and are correct as
+   written -- the same reason checks 4 and 5 skip the stamp-after-claim form
+   (see below). The readout is the document's single present-tense
+   statement of those numbers, and it is the one that is gated.
+
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
 cited path with nothing between them but link/quote punctuation and an
 optional "the"/"record:" connector. A claim that merely *discusses* a pointer
@@ -162,9 +194,10 @@ USAGE
     python3 docs/chipalooza/check_proposal_citations.py [--stats] [DOC ...]
 
 With no arguments it checks every `docs/chipalooza/*.md`. `--stats` prints each
-document's live pointer-claim census (the numbers check 6 compares against)
-instead of checking, which is what to run when check 6 reports a drift.
-Exit status:
+document's live pointer-claim census (the numbers check 6 compares against) and
+the live sign-off-bar readout of every `layout/` flow (the sentence check 9
+compares against) instead of checking, which is what to run when check 6 or
+check 9 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -173,6 +206,7 @@ Exit status:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -276,6 +310,47 @@ NON_BOUND_RE = re.compile(r"DR-\d+|#\d+|§\d+|\b(?:sky|gf)\d+\b")
 # `- **MET** — spec row is ratified and ...`: one verdict kind, as Section 4's
 # own preamble defines it.
 VERDICT_DEFINITION_RE = re.compile(r"^- \*\*([^*]+?)\*\*\s+[—-]", re.M)
+
+# The sign-off-bar readout sentence check 9 gates, matched against
+# whitespace-collapsed text so a prose line wrap cannot break it. Every field
+# compared against the record's own JSON is a named group. Deliberately free of
+# em dashes and other prose punctuation: the sentence is a data statement, and
+# every separator in it is one a `--stats` paste reproduces exactly.
+READOUT_RE = re.compile(
+    r"on the record `(?P<flow>layout/[A-Za-z0-9._-]+)/reports/LATEST` resolves to, "
+    r"`klt drc` reports status \*\*(?P<drc_status>[a-z]+)\*\* with "
+    r"\*\*(?P<violation_count>\d+)\*\* violations, and `klt lvs` reports status "
+    r"\*\*(?P<lvs_status>[a-z]+)\*\* with \*\*(?P<mismatch_count>\d+)\*\* mismatches "
+    r"and \*\*(?P<error_count>\d+)\*\* errors; devices "
+    r"\*\*(?P<devices_layout>\d+)\*\* layout / \*\*(?P<devices_reference>\d+)\*\* "
+    r"reference / \*\*(?P<devices_matched>\d+)\*\* matched; nets "
+    r"\*\*(?P<nets_layout>\d+)\*\* / \*\*(?P<nets_reference>\d+)\*\* / "
+    r"\*\*(?P<nets_matched>\d+)\*\* matched; pins \*\*(?P<pins_layout>\d+)\*\* / "
+    r"\*\*(?P<pins_reference>\d+)\*\* / \*\*(?P<pins_matched>\d+)\*\* matched; "
+    r"(?:by category (?P<categories>(?:`[A-Za-z][A-Za-z0-9._]*: \d+`(?:, )?)+)"
+    r"|(?P<no_categories>no mismatch categories))\."
+)
+
+# One `name: count` pair inside the readout's category clause. Category names
+# carry dots (`device.unmatched`), so the clause cannot be delimited on the
+# sentence's own full stop -- each pair is backticked instead, which makes the
+# clause self-delimiting however many categories a record reports.
+READOUT_CATEGORY_RE = re.compile(r"`(?P<name>[A-Za-z][A-Za-z0-9._]*): (?P<count>\d+)`")
+
+# The scalar readout fields, paired with how each is read out of the record's
+# own JSON. `drc.json` and `lvs.json` are `klt`'s own machine-readable output,
+# so these are field paths into them, never re-derived numbers.
+READOUT_SCALARS = (
+    ("drc_status", ("drc", "status")),
+    ("violation_count", ("drc", "violation_count")),
+    ("lvs_status", ("lvs", "status")),
+    ("mismatch_count", ("lvs", "mismatch_count")),
+    ("error_count", ("lvs", "error_count")),
+)
+
+# The three-way correspondence counts, as `lvs.json` nests them under `counts`.
+READOUT_COUNT_KINDS = ("devices", "nets", "pins")
+READOUT_COUNT_SIDES = ("layout", "reference", "matched")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -686,6 +761,170 @@ def check_verdict_vocabulary(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _load_json(path: Path) -> dict | None:
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def signoff_readout(block: str) -> dict | None:
+    """The live DRC/LVS readout of `layout/<block>/`'s current report.
+
+    `None` when the flow has no `reports/LATEST`, or that record carries no
+    readable `drc.json`/`lvs.json` -- there is nothing for check 9 to compare
+    against, which is a different (and separately reported) condition from a
+    readout that disagrees.
+    """
+    stamp = _pointer_stamp("layout", block)
+    if stamp is None:
+        return None
+    report = REPO_ROOT / "layout" / block / "reports" / stamp
+    sources = {"drc": _load_json(report / "drc.json"), "lvs": _load_json(report / "lvs.json")}
+    if any(source is None for source in sources.values()):
+        return None
+    readout: dict = {
+        field: sources[source].get(key) for field, (source, key) in READOUT_SCALARS
+    }
+    counts = sources["lvs"].get("counts") or {}
+    for kind in READOUT_COUNT_KINDS:
+        side_counts = counts.get(kind) or {}
+        for side in READOUT_COUNT_SIDES:
+            readout[f"{kind}_{side}"] = side_counts.get(side)
+    readout["categories"] = dict(sources["lvs"].get("category_counts") or {})
+    return readout
+
+
+def readout_sentence(block: str, readout: dict) -> str:
+    """The readout in exactly the sentence form `READOUT_RE` matches.
+
+    Used by `--stats` so the fix for a check-9 failure is a paste. The bold
+    markers the document wraps each number in are added here, so what
+    `--stats` prints is what the document carries verbatim.
+    """
+    categories = readout["categories"]
+    tail = (
+        "by category "
+        + ", ".join(f"`{name}: {count}`" for name, count in sorted(categories.items()))
+        if categories
+        else "no mismatch categories"
+    )
+    return (
+        f"on the record `layout/{block}/reports/LATEST` resolves to, `klt drc` "
+        f"reports status **{readout['drc_status']}** with "
+        f"**{readout['violation_count']}** violations, and `klt lvs` reports status "
+        f"**{readout['lvs_status']}** with **{readout['mismatch_count']}** mismatches "
+        f"and **{readout['error_count']}** errors; devices "
+        f"**{readout['devices_layout']}** layout / **{readout['devices_reference']}** "
+        f"reference / **{readout['devices_matched']}** matched; nets "
+        f"**{readout['nets_layout']}** / **{readout['nets_reference']}** / "
+        f"**{readout['nets_matched']}** matched; pins **{readout['pins_layout']}** / "
+        f"**{readout['pins_reference']}** / **{readout['pins_matched']}** matched; "
+        f"{tail}."
+    )
+
+
+def _stated_categories(stated: re.Match) -> dict[str, int]:
+    clause = stated.group("categories")
+    if clause is None:
+        return {}
+    return {
+        pair.group("name"): int(pair.group("count"))
+        for pair in READOUT_CATEGORY_RE.finditer(clause)
+    }
+
+
+def _collapse_quoted_prose(text: str) -> tuple[str, list[int]]:
+    """Whitespace-collapse `text`, dropping Markdown blockquote markers first.
+
+    The readout is set as a blockquote, which is what a data statement should
+    look like in this document -- but a plain whitespace collapse leaves each
+    line's `> ` marker embedded mid-sentence, and `READOUT_RE` then matches
+    nothing. A check that silently matches nothing is the vacuity trap checks
+    4 and 6 each already needed a guard for, so the marker is stripped here
+    rather than the blockquote given up.
+
+    Returns the collapsed text and, per collapsed character, the offset it
+    came from in `text`, so a finding can be reported at the line the reader
+    has to edit rather than at the first unrelated occurrence of some token
+    in it.
+    """
+    collapsed: list[str] = []
+    offsets: list[int] = []
+    at_line_start = True
+    index = 0
+    while index < len(text):
+        if at_line_start:
+            at_line_start = False
+            marker = re.compile(r"[ \t]*>[ \t]?").match(text, index)
+            if marker is not None:
+                index = marker.end()
+                continue
+        if text[index].isspace():
+            run = index
+            while index < len(text) and text[index].isspace():
+                at_line_start = at_line_start or text[index] == "\n"
+                index += 1
+            collapsed.append(" ")
+            offsets.append(run)
+            continue
+        collapsed.append(text[index])
+        offsets.append(index)
+        index += 1
+    return "".join(collapsed), offsets
+
+
+def check_signoff_readout(doc: Path, text: str) -> list[str]:
+    """Check 9: a stated DRC/LVS readout must be the record's own numbers."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    for stated in READOUT_RE.finditer(collapsed):
+        block = stated.group("flow").split("/", 1)[1]
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        actual = signoff_readout(block)
+        if actual is None:
+            misses.append(
+                f"{where}: the sign-off-bar readout names `layout/{block}/`, but "
+                f"that flow has no `reports/LATEST` record carrying both a "
+                f"`drc.json` and an `lvs.json` to read it out of"
+            )
+            continue
+
+        fields = [field for field, _source in READOUT_SCALARS]
+        fields += [
+            f"{kind}_{side}" for kind in READOUT_COUNT_KINDS for side in READOUT_COUNT_SIDES
+        ]
+        for field in fields:
+            expected = actual[field]
+            claimed: object = stated.group(field)
+            if isinstance(expected, int):
+                claimed = int(claimed)
+            if claimed != expected:
+                misses.append(
+                    f"{where}: the sign-off-bar readout for `layout/{block}/` says "
+                    f"{field}={claimed}, but that flow's current record reports "
+                    f"{field}={expected} -- restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+
+        claimed_categories = _stated_categories(stated)
+        for name in sorted(set(claimed_categories) | set(actual["categories"])):
+            claimed_count = claimed_categories.get(name)
+            actual_count = actual["categories"].get(name)
+            if claimed_count == actual_count:
+                continue
+            misses.append(
+                f"{where}: the sign-off-bar readout for `layout/{block}/` states "
+                f"category `{name}` as {claimed_count}, but that flow's current "
+                f"record reports {actual_count} -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -696,6 +935,7 @@ def check_document(doc: Path) -> list[str]:
         + check_census(doc, text)
         + check_spec_row_parity(doc, text)
         + check_verdict_vocabulary(doc, text)
+        + check_signoff_readout(doc, text)
     )
 
 
@@ -725,6 +965,16 @@ def main(argv: list[str]) -> int:
                 f"{census['window']} characters after the phrase, and "
                 f"{census['narration']} name none at all"
             )
+        # Every `layout/` flow, not only the one the document happens to state
+        # today: this is also what to paste when ADDING a readout for a flow
+        # that has none yet, and a flow with no readout prints nothing useful
+        # if it has to be named first.
+        for pointer in sorted(REPO_ROOT.glob("layout/*/reports/LATEST")):
+            block = pointer.parent.parent.name
+            readout = signoff_readout(block)
+            if readout is None:
+                continue
+            print(f"layout/{block}/: {readout_sentence(block, readout)}")
         return 0
 
     misses: list[str] = []

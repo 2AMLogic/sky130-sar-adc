@@ -650,6 +650,38 @@ then-current document it found one more instance still live: §4's sample-rate
 row, stale since 2026-09-08, now re-pointed (see that row's own
 "Both citations re-pointed 2026-09-16" note, and the verification behind it).
 
+**The sign-off-bar numbers are gated too, not just the citation they hang
+off** (check 9, added 2026-09-17). Checks 3 to 5 above gate *which* record a
+row cites; until this check they said nothing about the figures the row quotes
+*out of* that record — and those are exactly what the brief's two sign-off-bar
+rows are graded on. They move: this document has already carried 98, then 128,
+then 124, then 98 again as `layout/sar-adc-top/` was re-run against successive
+`klt` builds, and on each of those moves it was a human re-read, not a check,
+that carried the numbers forward with the citation. The readout below is now
+the document's single present-tense statement of them, recomputed from that
+record's own `drc.json`/`lvs.json` and compared field by field (including the
+whole mismatch-category mapping, in both directions):
+
+> **Sign-off-bar readout, machine-checked:**
+> on the record `layout/sar-adc-top/reports/LATEST` resolves to, `klt drc`
+> reports status **clean** with **0** violations, and `klt lvs` reports status
+> **mismatch** with **98** mismatches and **97** errors; devices **869**
+> layout / **869** reference / **794** matched; nets **444** / **446** /
+> **412** matched; pins **19** / **19** / **19** matched; by category
+> `device.unmatched: 75`, `net.merged: 12`, `net.split: 10`,
+> `topology.flattened: 1`.
+
+`python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
+sentence for every `layout/` flow, so a pass whose re-run moves the numbers
+pastes the new one in rather than hand-transcribing it. What this check
+deliberately does **not** do is parse figures out of §4's or §7's prose: those
+sections are full of *dated historical* numbers that were true when written
+(the 128 and 124 above among them), and grading them as present-tense claims
+would fail the gate on correct prose — the same reason checks 4 and 5 skip the
+stamp-after-claim form. **No verdict moves because of this check**: the
+readout states the same DRC-clean / LVS-mismatch result §4's two sign-off-bar
+rows already carry, which is why it could be added without re-grading either.
+
 ---
 
 ## 5. Test-plan outline (packaged part, if fabricated)

@@ -68,7 +68,15 @@ name: CI
 #     ratification into a CI failure rather than a silent staleness. Check 8
 #     then requires every row to open its verdict with one of the kinds
 #     Section 4's own preamble defines, and every defined kind to be used by
-#     some row, so neither list can drift from the other.
+#     some row, so neither list can drift from the other. Check 9 closes the
+#     last hand-carried gap in that table: checks 3-5 gate WHICH record a row
+#     cites, but the figures quoted out of it (mismatch count, device/net/pin
+#     correspondence, category breakdown) were re-typed by hand every time
+#     layout/sar-adc-top/ was re-run -- 98 -> 128 -> 124 -> 98 across
+#     successive klt builds. The document now states that readout once, and
+#     check 9 recomputes it from the record's own drc.json/lvs.json. As with
+#     the census, the numbers are NOT restated in this comment; `--stats`
+#     prints the live sentence for every layout/ flow.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict

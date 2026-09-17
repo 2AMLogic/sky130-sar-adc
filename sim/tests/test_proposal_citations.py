@@ -22,6 +22,8 @@ are asserted directly rather than only through the real document.
 
 from __future__ import annotations
 
+import json
+import re
 import sys
 import tempfile
 import unittest
@@ -53,10 +55,25 @@ class FixtureTree:
         checker.REPO_ROOT = self.root
         stack.addCleanup(lambda: setattr(checker, "REPO_ROOT", original_root))
 
-    def add_layout_record(self, block: str, stamp: str, *, latest: bool = False):
+    def add_layout_record(
+        self,
+        block: str,
+        stamp: str,
+        *,
+        latest: bool = False,
+        drc: dict | None = None,
+        lvs: dict | None = None,
+    ):
         report = self.root / "layout" / block / "reports" / stamp
         report.mkdir(parents=True, exist_ok=True)
         (report / "record.md").write_text("fixture record\n")
+        # `klt`'s own machine-readable verdicts, which check 9 reads out.
+        # Written only when asked for: a record without them is the "nothing
+        # to compare against" condition check 9 reports separately.
+        if drc is not None:
+            (report / "drc.json").write_text(json.dumps(drc))
+        if lvs is not None:
+            (report / "lvs.json").write_text(json.dumps(lvs))
         if latest:
             (report.parent / "LATEST").write_text(stamp + "\n")
 
@@ -552,6 +569,196 @@ class TestVerdictVocabulary(unittest.TestCase):
         self.assertEqual(self.tree.check(body), [])
 
 
+def lvs_json(
+    status: str = "mismatch",
+    mismatch_count: int = 98,
+    error_count: int = 97,
+    categories: dict | None = None,
+    **counts: tuple[int, int, int],
+) -> dict:
+    """A `klt lvs` verdict file in the shape check 9 reads."""
+    shaped = {
+        kind: dict(zip(("layout", "reference", "matched"), values))
+        for kind, values in counts.items()
+    }
+    return {
+        "status": status,
+        "mismatch_count": mismatch_count,
+        "error_count": error_count,
+        "category_counts": {"device.unmatched": 75} if categories is None else categories,
+        "counts": shaped,
+    }
+
+
+class TestSignoffReadout(unittest.TestCase):
+    """Check 9: a stated DRC/LVS readout must be the record's own numbers.
+
+    The defect shape is one check 3 cannot see: a flow re-runs, the row's
+    *citation* is dutifully re-pointed at the new record (check 3 forces
+    that), and every figure quoted out of the old one is left behind. That
+    really happened to this document's sign-off-bar numbers, repeatedly --
+    98 -> 128 -> 124 -> 98 across successive `klt` builds -- with only a
+    human re-read carrying them forward each time.
+    """
+
+    STAMP = "20260915-234004-76f48b9"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            self.STAMP,
+            latest=True,
+            drc={"status": "clean", "violation_count": 0},
+            lvs=lvs_json(
+                devices=(869, 869, 794), nets=(444, 446, 412), pins=(19, 19, 19)
+            ),
+        )
+
+    def _sentence(self, **overrides) -> str:
+        fields = {
+            "drc_status": "clean",
+            "violation_count": 0,
+            "lvs_status": "mismatch",
+            "mismatch_count": 98,
+            "error_count": 97,
+            "devices": (869, 869, 794),
+            "nets": (444, 446, 412),
+            "pins": (19, 19, 19),
+            "tail": "by category `device.unmatched: 75`",
+        }
+        fields.update(overrides)
+        return (
+            "on the record `layout/sar-adc-top/reports/LATEST` resolves to, "
+            f"`klt drc` reports status **{fields['drc_status']}** with "
+            f"**{fields['violation_count']}** violations, and `klt lvs` reports "
+            f"status **{fields['lvs_status']}** with **{fields['mismatch_count']}** "
+            f"mismatches and **{fields['error_count']}** errors; devices "
+            f"**{fields['devices'][0]}** layout / **{fields['devices'][1]}** "
+            f"reference / **{fields['devices'][2]}** matched; nets "
+            f"**{fields['nets'][0]}** / **{fields['nets'][1]}** / "
+            f"**{fields['nets'][2]}** matched; pins **{fields['pins'][0]}** / "
+            f"**{fields['pins'][1]}** / **{fields['pins'][2]}** matched; "
+            f"{fields['tail']}.\n"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        self.assertEqual(self.tree.check(self._sentence()), [])
+
+    def test_a_stale_mismatch_count_is_reported(self):
+        """The 124 -> 98 move, with the citation already re-pointed."""
+        misses = self.tree.check(self._sentence(mismatch_count=124))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("mismatch_count=124", misses[0])
+        self.assertIn("mismatch_count=98", misses[0])
+        self.assertIn("--stats", misses[0])
+
+    def test_each_drifted_field_is_reported_separately(self):
+        misses = self.tree.check(
+            self._sentence(violation_count=3, devices=(869, 869, 795))
+        )
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("violation_count=3" in miss for miss in misses))
+        self.assertTrue(any("devices_matched=795" in miss for miss in misses))
+
+    def test_a_status_word_that_drifted_is_reported(self):
+        """The most consequential drift: `mismatch` silently read as `match`."""
+        misses = self.tree.check(self._sentence(lvs_status="match"))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("lvs_status=match", misses[0])
+        self.assertIn("lvs_status=mismatch", misses[0])
+
+    def test_a_category_the_readout_omits_is_reported(self):
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            self.STAMP,
+            latest=True,
+            drc={"status": "clean", "violation_count": 0},
+            lvs=lvs_json(
+                categories={"device.unmatched": 75, "net.merged": 12},
+                devices=(869, 869, 794),
+                nets=(444, 446, 412),
+                pins=(19, 19, 19),
+            ),
+        )
+        misses = self.tree.check(self._sentence())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`net.merged` as None", misses[0])
+        self.assertIn("reports 12", misses[0])
+
+    def test_a_category_the_readout_invents_is_reported(self):
+        misses = self.tree.check(
+            self._sentence(
+                tail="by category `device.unmatched: 75`, `topology.flattened: 1`"
+            )
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`topology.flattened` as 1", misses[0])
+        self.assertIn("reports None", misses[0])
+
+    def test_a_clean_flow_states_no_categories(self):
+        self.tree.add_layout_record(
+            "seln-inverters",
+            "20260906-002022-a36e06f",
+            latest=True,
+            drc={"status": "clean", "violation_count": 0},
+            lvs=lvs_json(
+                status="match",
+                mismatch_count=0,
+                error_count=0,
+                categories={},
+                devices=(18, 18, 18),
+                nets=(20, 20, 20),
+                pins=(20, 20, 20),
+            ),
+        )
+        body = (
+            "on the record `layout/seln-inverters/reports/LATEST` resolves to, "
+            "`klt drc` reports status **clean** with **0** violations, and "
+            "`klt lvs` reports status **match** with **0** mismatches and **0** "
+            "errors; devices **18** layout / **18** reference / **18** matched; "
+            "nets **20** / **20** / **20** matched; pins **20** / **20** / **20** "
+            "matched; no mismatch categories.\n"
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_a_blockquoted_readout_is_still_matched(self):
+        """The document sets the readout as a blockquote.
+
+        A plain whitespace collapse leaves each line's `> ` marker embedded
+        mid-sentence and the pattern then matches nothing -- a vacuous check
+        that still exits 0, which is the failure this project has already hit
+        twice (check 4's dead connector branch, check 6's hand census).
+        """
+        quoted = "\n".join(
+            "> " + line for line in self._sentence(mismatch_count=124).splitlines()
+        )
+        misses = self.tree.check("> **Readout:**\n" + quoted + "\n")
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("mismatch_count=124", misses[0])
+
+    def test_a_readout_naming_a_flow_with_no_verdict_files_is_reported(self):
+        self.tree.add_layout_record("cdac-array", "20260906-020815-38cdbd3", latest=True)
+        body = self._sentence().replace("sar-adc-top", "cdac-array")
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("no `reports/LATEST` record carrying both", misses[0])
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self.assertEqual(self.tree.check("Nothing to read out here.\n"), [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """`--stats` output must be pasteable: what it prints must pass.
+
+        If the generator and the pattern ever disagree, the documented fix for
+        a check-9 failure silently stops working.
+        """
+        readout = checker.signoff_readout("sar-adc-top")
+        self.assertIsNotNone(readout)
+        sentence = checker.readout_sentence("sar-adc-top", readout)
+        self.assertEqual(self.tree.check(sentence + "\n"), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -588,8 +795,6 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         dead connector branch fell into.
         """
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
-        import re
-
         stated = checker.CENSUS_RE.search(re.sub(r"\s+", " ", doc.read_text()))
         self.assertIsNotNone(
             stated, "the proposal no longer states a census check 6 can verify"
@@ -642,6 +847,35 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         self.assertGreaterEqual(len(vocabulary), 4, vocabulary)
         for kind in ("MET", "UNMET", "BLOCKED"):
             self.assertIn(kind, vocabulary)
+
+    def test_the_real_proposal_states_a_parseable_signoff_readout(self):
+        """Check 9 is opt-in per document, so assert the real one opts in.
+
+        Deleting or re-wording the readout sentence would disable check 9 and
+        still exit 0 -- the same vacuity trap checks 4, 6 and 8 each needed a
+        guard for. The flow asserted is the one the brief's two sign-off-bar
+        rows are graded on.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        stated = list(checker.READOUT_RE.finditer(collapsed))
+        self.assertEqual(
+            [match.group("flow") for match in stated], ["layout/sar-adc-top"], stated
+        )
+
+    def test_the_real_signoff_readout_is_checked_against_real_verdict_files(self):
+        """The record side of check 9 must be readable, not silently absent.
+
+        `signoff_readout` returns None when the flow's current record carries
+        no `drc.json`/`lvs.json`; on the real tree that would turn every
+        field comparison into one generic finding instead of a per-field one.
+        """
+        readout = checker.signoff_readout("sar-adc-top")
+        self.assertIsNotNone(readout, "sar-adc-top's current record has no klt verdicts")
+        self.assertIn(readout["drc_status"], ("clean", "violations"))
+        self.assertIn(readout["lvs_status"], ("match", "mismatch"))
+        for field in ("devices_layout", "nets_reference", "pins_matched"):
+            self.assertIsInstance(readout[field], int, field)
 
 
 if __name__ == "__main__":
