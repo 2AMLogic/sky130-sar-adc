@@ -76,7 +76,19 @@ name: CI
 #     successive klt builds. The document now states that readout once, and
 #     check 9 recomputes it from the record's own drc.json/lvs.json. As with
 #     the census, the numbers are NOT restated in this comment; `--stats`
-#     prints the live sentence for every layout/ flow.
+#     prints the live sentence for every layout/ flow. Checks 10-12 then reach
+#     past that table: check 10 grades Section 2's I/O table and the
+#     `.subckt` line it quotes against design/sar_adc_top.spice's own port
+#     list (both directions, plus the slot totals recomputed from that table's
+#     own columns); check 11 grades what a Section 4 row does NOT cite,
+#     against sim/spec-coverage.json -- every campaign that index files under
+#     a spec row whose claim rests on committed evidence must be cited by that
+#     row -- which is the one defect class checks 3-9 structurally cannot see,
+#     since an absent citation has nothing that can go stale (it had already
+#     left the Power row reading "no full-block power campaign exists" for
+#     five days after that campaign landed); and check 12 recomputes a
+#     reporting row's min/typ/max power readout from the cited campaign's own
+#     record, exactly as check 9 does for the sign-off-bar numbers.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict

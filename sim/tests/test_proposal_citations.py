@@ -77,12 +77,59 @@ class FixtureTree:
         if latest:
             (report.parent / "LATEST").write_text(stamp + "\n")
 
-    def add_sim_record(self, campaign: str, stamp: str, *, latest: bool = False):
+    def add_sim_record(
+        self,
+        campaign: str,
+        stamp: str,
+        *,
+        latest: bool = False,
+        power: dict[str, float] | None = None,
+    ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
-        (records / f"{stamp}.md").write_text("fixture record\n")
+        body = "fixture record\n"
+        if power is not None:
+            # The per-corner Power table check 12 reads, in the shape
+            # sim/full-conversion-transient/run_conversion.py writes it: the
+            # corner id backticked in the first column, the total power in the
+            # last. A fixture that wrote only the total would pass while the
+            # real multi-column table went unparsed.
+            body += "\n## Power (informational)\n\n"
+            body += "| corner-id | I(VDD) (uA) | total power (uW) |\n|---|---|---|\n"
+            for corner, total in power.items():
+                body += f"| `{corner}` | 2.097 | {total:.3f} |\n"
+            body += "\n## Findings\n\n- fixture\n"
+        (records / f"{stamp}.md").write_text(body)
         if latest:
             (records / "LATEST").write_text(f"{stamp}.md\n")
+
+    def add_coverage_index(self, *rows: dict):
+        """A `sim/spec-coverage.json` in the shape check 11 reads.
+
+        Each row is `{"parameter", "claim_class", "experiments"}`; the nested
+        bench shape the real index uses is built here so a test states only
+        what it is about.
+        """
+        sim = self.root / "sim"
+        sim.mkdir(parents=True, exist_ok=True)
+        (sim / "spec-coverage.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "rows": [
+                        {
+                            "parameter": row["parameter"],
+                            "claim_class": row["claim_class"],
+                            "benches": [
+                                {"experiment": experiment}
+                                for experiment in row.get("experiments", ())
+                            ],
+                        }
+                        for row in rows
+                    ],
+                }
+            )
+        )
 
     def add_top_netlist(self, *ports: str):
         """A `design/sar_adc_top.spice` with the given top-level port list.
@@ -918,6 +965,284 @@ class TestIoTableParity(unittest.TestCase):
         self.assertEqual(self.tree.check(body), [])
 
 
+class TestCoverageIndexParity(unittest.TestCase):
+    """Check 11: no Section 4 row ignores a campaign indexed under it.
+
+    The defect shape is the one no other check here can see, because it is an
+    *absence*: the real document's Power row was graded "BLOCKED / UNMEASURED
+    -- no full-block power campaign exists" for five days after
+    `sim/full-conversion-transient/` started carrying a 9-corner whole-ADC
+    power table, indexed under that very row. Its one citation was current,
+    its bounds matched, its status word agreed -- checks 3 to 9 all passed,
+    because a row that cites nothing has nothing stale to find.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_sim_record(
+            "full-conversion-transient", "20260912-002315-9aaf1ca", latest=True
+        )
+
+    CITATION = (
+        "[`sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`]"
+        "(../../sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md)"
+    )
+
+    def test_an_indexed_campaign_the_row_never_cites_is_reported(self):
+        self.tree.add_coverage_index(
+            {
+                "parameter": "Power",
+                "claim_class": "draft-informational",
+                "experiments": ["full-conversion-transient"],
+            }
+        )
+        misses = self.tree.check(
+            spec_table(
+                "| Power | provisional | DRAFT | **UNMEASURED** — no campaign exists "
+                "| `layout/sar-sequencer/reports/x/record.md` |"
+            )
+        )
+        reported = [miss for miss in misses if "spec-coverage.json" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("full-conversion-transient", reported[0])
+        self.assertIn("draft-informational", reported[0])
+
+    def test_a_row_citing_the_indexed_campaign_passes(self):
+        self.tree.add_coverage_index(
+            {
+                "parameter": "Power",
+                "claim_class": "draft-informational",
+                "experiments": ["full-conversion-transient"],
+            }
+        )
+        misses = self.tree.check(
+            spec_table(f"| Power | provisional | DRAFT | **UNMEASURED** | {self.CITATION} |")
+        )
+        self.assertEqual(misses, [])
+
+    def test_a_superseded_citation_of_the_indexed_campaign_still_satisfies_this_check(self):
+        """Check 11 grades *which campaign*, check 3 grades *which record*.
+
+        Overlapping them would report the same drift twice with two different
+        fixes; the record-level staleness is check 3's finding.
+        """
+        self.tree.add_sim_record("full-conversion-transient", "20260911-204111-a6df3bb")
+        self.tree.add_coverage_index(
+            {
+                "parameter": "Power",
+                "claim_class": "draft-informational",
+                "experiments": ["full-conversion-transient"],
+            }
+        )
+        stale = (
+            "[`sim/full-conversion-transient/records/20260911-204111-a6df3bb.md`]"
+            "(../../sim/full-conversion-transient/records/20260911-204111-a6df3bb.md)"
+        )
+        misses = self.tree.check(
+            spec_table(f"| Power | provisional | DRAFT | **UNMEASURED** | {stale} |")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("only at superseded record(s)", misses[0])
+
+    def test_structural_and_methodology_rows_are_excluded_by_class(self):
+        """Their Section 4 rows cite schematics and harness dirs, not records."""
+        self.tree.add_coverage_index(
+            {
+                "parameter": "Architecture",
+                "claim_class": "structural",
+                "experiments": ["full-conversion-transient"],
+            },
+            {
+                "parameter": "Corners",
+                "claim_class": "methodology",
+                "experiments": ["full-conversion-transient"],
+            },
+        )
+        misses = self.tree.check(
+            spec_table(
+                "| Architecture | SAR | DRAFT | **MET** | the schematics |",
+                "| Corners | −40/27/125 °C | **RATIFIED** | **MET** | harness self-test |",
+            )
+        )
+        self.assertEqual(misses, [])
+
+    def test_an_unbenched_row_is_excluded(self):
+        self.tree.add_coverage_index(
+            {"parameter": "Power", "claim_class": "unbenched", "experiments": []}
+        )
+        misses = self.tree.check(
+            spec_table("| Power | provisional | DRAFT | **UNMEASURED** | none yet |")
+        )
+        self.assertEqual(misses, [])
+
+    def test_a_same_record_deferral_inherits_the_row_above(self):
+        """The LSB/Sampling-cap shape: deferring is not the same as ignoring."""
+        self.tree.add_coverage_index(
+            {
+                "parameter": "`V_REF`",
+                "claim_class": "ratified-measured",
+                "experiments": ["full-conversion-transient"],
+            },
+            {
+                "parameter": "LSB (differential)",
+                "claim_class": "ratified-measured",
+                "experiments": ["full-conversion-transient"],
+            },
+        )
+        misses = self.tree.check(
+            spec_table(
+                f"| `V_REF` | `1.8 V` | **RATIFIED** | **MET** | {self.CITATION} |",
+                "| LSB (differential) | `3.5156 mV` | **RATIFIED** | **MET** — same "
+                "record as `V_REF` | same record |",
+            )
+        )
+        self.assertEqual(misses, [])
+
+    def test_a_row_that_defers_to_a_row_citing_nothing_is_still_reported(self):
+        self.tree.add_coverage_index(
+            {
+                "parameter": "LSB (differential)",
+                "claim_class": "ratified-measured",
+                "experiments": ["full-conversion-transient"],
+            }
+        )
+        misses = self.tree.check(
+            spec_table(
+                "| `V_REF` | `1.8 V` | **RATIFIED** | **MET** | prose only |",
+                "| LSB (differential) | `3.5156 mV` | **RATIFIED** | **MET** | same record |",
+            )
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("LSB (differential)", misses[0])
+
+    def test_check_is_inert_without_the_coverage_index(self):
+        # No sim/spec-coverage.json in the fixture tree at all.
+        misses = self.tree.check(
+            spec_table("| Power | provisional | DRAFT | **UNMEASURED** | prose |")
+        )
+        self.assertEqual(misses, [])
+
+
+class TestPowerReadout(unittest.TestCase):
+    """Check 12: a stated power readout must be the record's own figures.
+
+    Same defect shape as check 9, one table over: check 3 forces the citation
+    forward when the campaign re-runs, and every figure quoted out of the old
+    record stays behind. This campaign has already carried four different
+    power sets (issue #257, DR-008, DR-009).
+    """
+
+    STAMP = "20260912-002315-9aaf1ca"
+    POWER = {
+        "tt_27c_1.80v": 27.971,
+        "ss_27c_1.80v": 26.971,
+        "tt_125c_1.80v": 31.199,
+        "tt_27c_1.62v": 21.600,
+        "tt_27c_1.98v": 34.237,
+    }
+    CITATION = (
+        "[`sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`]"
+        "(../../sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md)"
+    )
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_sim_record(
+            "full-conversion-transient", self.STAMP, latest=True, power=self.POWER
+        )
+
+    def _row(self, readout: str, *, citation: str | None = None) -> str:
+        cite = self.CITATION if citation is None else citation
+        return spec_table(
+            f"| Power | provisional | DRAFT | **UNMEASURED** — {readout} | {cite} |"
+        )
+
+    def _readout(self, **overrides) -> str:
+        fields = {
+            "min": "21.600",
+            "min_corner": "tt_27c_1.62v",
+            "typ": "27.971",
+            "typ_corner": "tt_27c_1.80v",
+            "max": "34.237",
+            "max_corner": "tt_27c_1.98v",
+            "corners": "5",
+        }
+        fields.update(overrides)
+        return (
+            f"min **{fields['min']} µW** at `{fields['min_corner']}`, "
+            f"typ **{fields['typ']} µW** at `{fields['typ_corner']}`, "
+            f"max **{fields['max']} µW** at `{fields['max_corner']}`, "
+            f"over **{fields['corners']}** corners"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        self.assertEqual(self.tree.check(self._row(self._readout())), [])
+
+    def test_a_drifted_figure_is_reported_with_its_field_name(self):
+        misses = self.tree.check(self._row(self._readout(typ="21.874")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("typ=21.874", misses[0])
+        self.assertIn("typ=27.971", misses[0])
+        self.assertIn("--stats", misses[0])
+
+    def test_a_figure_attributed_to_the_wrong_corner_is_reported(self):
+        misses = self.tree.check(self._row(self._readout(max_corner="tt_125c_1.80v")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("max_corner=`tt_125c_1.80v`", misses[0])
+        self.assertIn("max_corner=`tt_27c_1.98v`", misses[0])
+
+    def test_each_drifted_field_is_reported_separately(self):
+        misses = self.tree.check(self._row(self._readout(min="16.750", corners="9")))
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("min=16.750" in miss for miss in misses))
+        self.assertTrue(any("over 9 corners" in miss for miss in misses))
+
+    def test_the_grid_shape_is_part_of_the_claim(self):
+        """Three right figures off a four-corner run is not this claim."""
+        misses = self.tree.check(self._row(self._readout(corners="3")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("has 5", misses[0])
+
+    def test_a_readout_whose_row_cites_no_power_campaign_is_reported(self):
+        misses = self.tree.check(
+            self._row(self._readout(), citation="`layout/sar-sequencer/reports/x/record.md`")
+        )
+        reported = [miss for miss in misses if "power readout" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("Power table", reported[0])
+
+    def test_a_record_with_no_power_table_yields_no_readout(self):
+        self.tree.add_sim_record("enob-estimate", "20260828-005033-0c70212", latest=True)
+        self.assertIsNone(checker.power_readout("enob-estimate"))
+
+    def test_a_power_table_without_the_nominal_corner_yields_no_readout(self):
+        """"typ" is the grid's own centre point, not the median measurement."""
+        self.tree.add_sim_record(
+            "cdac-bit-trial-settling",
+            "20260907-013225-5f176a6",
+            latest=True,
+            power={"ss_27c_1.80v": 26.971, "tt_27c_1.98v": 34.237},
+        )
+        self.assertIsNone(checker.power_readout("cdac-bit-trial-settling"))
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        misses = self.tree.check(
+            self._row("no figures stated here").replace("µW", "microwatts")
+        )
+        self.assertEqual(misses, [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """`--stats` output must be pasteable: what it prints must pass.
+
+        The same guard check 9 needed -- if the generator and the pattern
+        disagree, the documented fix for a check-12 failure silently stops
+        working.
+        """
+        readout = checker.power_readout("full-conversion-transient")
+        self.assertIsNotNone(readout)
+        self.assertEqual(self.tree.check(self._row(checker.power_sentence(readout))), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -1004,7 +1329,11 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
         vocabulary = checker.verdict_vocabulary(doc.read_text())
         self.assertGreaterEqual(len(vocabulary), 4, vocabulary)
-        for kind in ("MET", "UNMET", "BLOCKED"):
+        # `BLOCKED` was defined here until 2026-09-17 and is deliberately
+        # gone: the Power row was its last user and that row turned out to
+        # have had whole-ADC evidence all along (check 11). These three are
+        # the kinds the table cannot express itself without.
+        for kind in ("MET", "UNMET", "UNMEASURED"):
             self.assertIn(kind, vocabulary)
 
     def test_the_real_proposal_states_a_parseable_signoff_readout(self):
@@ -1061,6 +1390,75 @@ class TestAgainstTheRealProposal(unittest.TestCase):
             checker.IO_CONDITIONAL_RE.search(collapsed),
             "the conditional dedicated-pad total is no longer in the gated form",
         )
+
+    def test_the_real_coverage_index_is_actually_found_and_graded(self):
+        """Check 11 is inert on an unparsed index, and still exits 0.
+
+        `sim/spec-coverage.json` is the input side of the comparison; if its
+        `rows`/`benches`/`claim_class` shape changes and this parse goes
+        vacuous, every "row ignores its own campaign" check silently stops
+        firing -- the same trap checks 4, 6, 8, 9 and 10 each needed a guard
+        for. Also asserts the *graded* subset is non-empty: an index whose
+        rows all fell outside the measured classes would parse fine and check
+        nothing.
+        """
+        rows = checker.coverage_index_rows()
+        self.assertGreaterEqual(len(rows), 11, "the coverage index went unparsed")
+        graded = [
+            (parameter, experiments)
+            for parameter, claim_class, experiments in rows
+            if claim_class in checker.MEASURED_CLAIM_CLASSES and experiments
+        ]
+        self.assertGreaterEqual(len(graded), 5, graded)
+        self.assertIn("Power", [parameter for parameter, _experiments in graded])
+
+    def test_every_indexed_campaign_is_cited_by_its_own_section_4_row(self):
+        """The positive form of check 11 on the live document.
+
+        Check 11 reports what is missing; this asserts the compared set is
+        non-empty, so a pass that is green because nothing was compared is
+        still a failure.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        flows = checker.section_4_flows(doc.read_text())
+        self.assertGreaterEqual(len(flows), 11, "Section 4's rows went unparsed")
+        compared = 0
+        for parameter, claim_class, experiments in checker.coverage_index_rows():
+            if claim_class not in checker.MEASURED_CLAIM_CLASSES:
+                continue
+            row = flows.get(parameter)
+            self.assertIsNotNone(row, f"{parameter} has no Section 4 row")
+            for experiment in experiments:
+                self.assertIn(("sim", experiment), row[1], parameter)
+                compared += 1
+        self.assertGreaterEqual(compared, 8, "check 11 compared almost nothing")
+
+    def test_the_real_proposal_states_a_parseable_power_readout(self):
+        """Check 12 is opt-in per row, so assert the real Power row opts in.
+
+        Deleting or re-wording the readout would disable check 12 and still
+        exit 0.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        stated = [
+            checker._normalise_parameter(checker._row_cells(row)[0])
+            for _line, row in checker.spec_table_rows(doc.read_text())
+            if checker.POWER_READOUT_RE.search(row)
+        ]
+        self.assertEqual(stated, ["Power"], stated)
+
+    def test_the_real_power_readout_is_checked_against_a_real_record(self):
+        """The record side of check 12 must be readable, not silently absent.
+
+        `power_readout` returns None when the campaign's current record
+        carries no Power table; on the real tree that would turn every field
+        comparison into one generic finding instead of a per-field one.
+        """
+        readout = checker.power_readout("full-conversion-transient")
+        self.assertIsNotNone(readout, "the campaign's current record has no Power table")
+        self.assertEqual(readout["typ_corner"], checker.NOMINAL_CORNER)
+        self.assertEqual(readout["corners"], 9, "the ratified OAT grid is 9 points")
+        self.assertLess(readout["min"], readout["max"])
 
     def test_the_real_signoff_readout_is_checked_against_real_verdict_files(self):
         """The record side of check 9 must be readable, not silently absent.
