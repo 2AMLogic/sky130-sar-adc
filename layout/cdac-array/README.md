@@ -338,3 +338,32 @@ this directory: `layout/trivial-cell/reference.spice` carried 8 M-cards
 because 0.2.0 could not tell a dummy MOS from a real one, and 0.3.0 can, so
 that reference is now 4 M-cards. Its header records the change; the
 six-verdict trivial-cell flow passes on the new pin.
+
+## `klt 0.4.0` → `0.5.0` re-run (issue #323): no change
+
+This flow's sign-off record rested on `klt 0.4.0` (`reports/20260906-020815-38cdbd3/`)
+while `layout/requirements.txt` had already moved to `klt 0.5.0` for the other
+sub-blocks and the top-level composition — a version-parity gap, not a known
+defect (see the parent issue for why that gap mattered). Re-run under the
+pinned `klt 0.5.0` (`reports/20260917-180543-527ec73/`, now `reports/LATEST`):
+`drc.json` and `lvs.json` (for both `cdac_unit_cell` and `cdac_array`) are
+field-identical to the superseded record —
+
+| Field (source, `cdac_array`) | `klt 0.4.0` | `klt 0.5.0` | Delta |
+| --- | --- | --- | --- |
+| `drc.json` `status` / `violation_count` | clean / 0 | clean / 0 | none |
+| `lvs.json` `status` | match | match | none |
+| `lvs.json` `mismatch_count` / `error_count` | 2 / 0 | 2 / 0 | none |
+| `lvs.json` `counts.devices` (layout/reference/matched) | 1060/1060/1060 | 1060/1060/1060 | none |
+| `lvs.json` `counts.nets` (layout/reference/matched) | 42/42/42 | 42/42/42 | none |
+| `lvs.json` `counts.pins` (layout/reference/matched) | 24/24/24 | 24/24/24 | none |
+| `lvs.json` `category_counts` | `device.body_unverified: 1, topology: 1` | `device.body_unverified: 1, topology: 1` | none |
+
+`cdac_unit_cell`'s own DRC/LVS (clean / match, 3/3/3 devices, 7/7/7 nets) and
+the drawn common-centroid geometry (unit capacitance, per-net unit counts,
+per-net centroids) are likewise unchanged between the two records. No
+regression — including no change in the sub-block's capacitor-heavy device
+mix, which is the class of change klayout-tools#1876 (§3 of
+`docs/chipalooza/challenge-4-proposal.md`) affected elsewhere in this
+repo's `klt 0.5.0` re-runs — so no upstream `klayout-tools` issue was filed
+for this re-run.
