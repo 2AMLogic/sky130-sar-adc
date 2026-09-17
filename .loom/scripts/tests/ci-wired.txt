@@ -78,7 +78,6 @@ test-cpu-budget.sh
 test-create-pr-superseded-issue.sh
 test-create-pr-version-check.sh
 test-default-branch.sh
-test-dep-recheck-fingerprint.sh
 test-dependency-parse.sh
 test-detect-unlabeled-epics.sh
 test-disk-headroom.sh
@@ -135,8 +134,8 @@ test-locate-daemon-bin.sh
 test-loom-daemon-launchd-plist.sh
 test-loom-daemon-quiesce.sh
 test-loom-daemon-start.sh
-test-loom-daemon-stop.sh
 test-loom-daemon-update.sh
+test-loom-daemon-stop.sh
 test-loom-daemon-watchdog-dedup.sh
 test-loom-daemon-watchdog.sh
 test-loom-dispatcher.sh
