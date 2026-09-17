@@ -203,6 +203,66 @@ was actually correct. `bin/run-flow.sh` always records whichever verdict
 `klt lvs` actually reports, so a regression would show up as `mismatch` in
 `record.md` with no script change required to detect it.
 
+### Why the pin counts read 30/28/30, not 28/28/28 (issue #322)
+
+`reports/LATEST`'s `lvs.json` reports `pins: {"layout": 30, "reference": 28,
+"matched": 30}` — asymmetric, with the layout/matched side *exceeding* the
+reference's own port count. This is **not** a sign of a bad match: `status`
+is `"match"` with 0 mismatches/errors and 760/760 devices, 395/395 nets, all
+exactly matched. The pin-count field is a separate accounting that only
+counts *which* nets got flagged as pins on each side, and it is understood
+to be wrong-by-two on the layout side. The figure is kept as recorded here
+(not hand-edited) because it is what `klt lvs` actually reported for this
+run, and this repo's records are append-only evidence, not smoothed
+numbers.
+
+**Root cause, verified directly against this record's own committed
+artefacts** (`sar_sequencer.def`, `extract.json`, `lvs.json`,
+`sar_sequencer.lvs-reference.spice`):
+
+- `sar_sequencer.def`'s `PINS` block declares exactly the reference's 28
+  names (`PINS 28 ;`, confirmed by reading the block — no `CLKNET_*` entry
+  is present). `--def-pins` was passed to `klt extract` as documented above,
+  so the DEF's declared pin set — not GDS label nesting — is what step 5 of
+  `bin/run-flow.sh` asks the extractor to treat as authoritative.
+- `extract.json`'s `merged_net_labels[]` records two merged nets whose
+  constituent GDS labels include the real `CLK` port label alongside
+  internal clock-buffer instance labels (`A`/`X`, the `sky130_fd_sc_hd__buf_4`
+  cells' own pin names): `{"net": "A|CLK|X", "labels": ["A", "CLK", "X"]}`
+  and `{"net": "CLK|X", "labels": ["CLK", "X"]}`. `extract.json`'s `nets[]`
+  entries for both merged nets carry `"pin": true` — that flag comes from
+  `klt extract`'s own net-label-merging pin-flagging heuristic, and it
+  survives even though `--def-pins` was supplied; those two merged names
+  are not in the DEF's declared 28-pin set. This inflates `pin_count` to 30
+  and is baked directly into the extracted netlist's own `.SUBCKT` port
+  list (`sar_sequencer.extract.spice`), not just a JSON metadata field —
+  confirmed by reading that file's `.SUBCKT` line, which lists 30 ports
+  including `A|CLK|X`.
+- The LVS engine's own reference-side pairing for those two layout pins
+  (`lvs.json`'s `net_correspondence`) resolves to `CLKNET_1_0__LEAF_CLK` and
+  `CLKNET_1_1__LEAF_CLK` — genuine *internal* nets of the reference
+  netlist (OpenROAD's own CTS-inserted clock-buffer leaf nets), confirmed
+  absent from `sar_sequencer.lvs-reference.spice`'s 28-port `.SUBCKT` line.
+  The reference side is behaving correctly; the false "pin" flag
+  originates entirely on the layout-extraction side.
+
+This is a `klt extract` behavior gap, not a request-file choice in this
+flow: filed generically (no design-specific detail) at
+`2AMLogic/klayout-tools#2000` — a merged net's pin flag isn't gated by an
+explicit declared-pin-set input (`--def-pins`/`--pins`), so a merged net
+that happens to include a real pin's GDS label among its constituent labels
+still gets promoted to a pin regardless of whether the merged net *itself*
+is in the declared set. No repo-local fix is applied here: correcting the
+`.SUBCKT` port list by hand would mean hand-editing a generated deliverable
+of `klt extract` (`sar_sequencer.extract.spice`) after the fact, which
+would misrepresent what the tool actually produced for this run — exactly
+the "smoothed record" this flow's append-only-evidence convention exists to
+avoid. A future run against a `klt` release that fixes
+`2AMLogic/klayout-tools#2000` will mint a new dated record with the
+corrected count; no script change is needed to pick that up, per
+`bin/run-flow.sh`'s "always records whichever verdict `klt lvs` actually
+reports" convention above.
+
 ## Files
 
 ```
