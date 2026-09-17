@@ -88,7 +88,16 @@ name: CI
 #     left the Power row reading "no full-block power campaign exists" for
 #     five days after that campaign landed); and check 12 recomputes a
 #     reporting row's min/typ/max power readout from the cited campaign's own
-#     record, exactly as check 9 does for the sign-off-bar numbers.
+#     record, exactly as check 9 does for the sign-off-bar numbers. Check 13
+#     closes the last hand-transcribed figure in that table, the Area row's
+#     bounding box: the composed cell name, the four bbox_um coordinates and
+#     the width/height/mm^2 derived from them are recomputed from whichever
+#     layout/sar-adc-top/ record reports/LATEST resolves to. That flow has
+#     been re-run five times, and each re-run had a human establish by `cmp`
+#     that the box had not moved -- a check that gets skipped exactly on the
+#     re-run where it would have found something. `--stats` prints that
+#     sentence too; as everywhere else here, the numbers are NOT restated in
+#     this comment.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict

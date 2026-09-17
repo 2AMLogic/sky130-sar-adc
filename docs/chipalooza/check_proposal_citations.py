@@ -36,10 +36,11 @@ USAGE
 With no arguments it checks every `docs/chipalooza/*.md`. `--stats` prints each
 document's live pointer-claim census (the numbers check 6 compares against),
 the live sign-off-bar readout of every `layout/` flow (the sentence check 9
-compares against) and the live power readout of every `sim/` campaign whose
-current record carries a Power table (the sentence check 12 compares against)
-instead of checking, which is what to run when check 6, 9 or 12 reports a
-drift. Exit status:
+compares against), the live area readout of every `layout/` flow whose current
+record carries a composition (the sentence check 13 compares against) and the
+live power readout of every `sim/` campaign whose current record carries a
+Power table (the sentence check 12 compares against) instead of checking,
+which is what to run when check 6, 9, 12 or 13 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -292,6 +293,44 @@ POWER_READOUT_RE = re.compile(
 # three-decimal resolution) and which are names (compared literally).
 POWER_READOUT_FIGURES = ("min", "typ", "max")
 POWER_READOUT_NAMES = ("min_corner", "typ_corner", "max_corner")
+
+# The composition artefact check 13 reads the Area row's bounding box out of,
+# and the `bbox_um` keys it carries. `klt gen-compose` writes both, so these
+# are field paths into its own output rather than numbers re-derived here.
+COMPOSE_ARTEFACT = "compose.json"
+AREA_BBOX_KEYS = ("x0", "y0", "x1", "y1")
+
+# How many decimals the area readout is stated and compared at. This is the
+# `dbu_um` these compositions are written on (0.001 um), so a figure that
+# differs at this resolution is a real geometry move, not a formatting one.
+AREA_DECIMALS = 3
+
+# A figure in the area readout. Accepts either minus sign: this document sets
+# temperatures with U+2212 and coordinates with ASCII `-`, and a readout that
+# silently failed to match because of which one an author typed would be the
+# vacuity trap checks 4, 6 and 8 each already needed a guard for.
+AREA_FIGURE = r"[-−]?\d+(?:\.\d+)?"
+
+# The area readout sentence check 13 gates, stated inside the Section 4 Area
+# row (one physical line, like the power readout, so no whitespace collapsing
+# is involved). Every field compared against `compose.json` is a named group,
+# the composed cell included: the extent means nothing without the cell it is
+# the extent *of*, and that name has already changed once in this flow's
+# routing block (`ROUTE` -> `SAR_ADC_TOP_ROUTE`).
+AREA_READOUT_RE = re.compile(
+    r"the composed cell `(?P<cell>[A-Za-z_][A-Za-z0-9_]*)` on the record "
+    r"`(?P<flow>layout/[A-Za-z0-9._-]+)/reports/LATEST` resolves to spans "
+    r"\*\*(?P<x0>" + AREA_FIGURE + r")\*\* µm to \*\*(?P<x1>" + AREA_FIGURE + r")\*\* "
+    r"µm in x and \*\*(?P<y0>" + AREA_FIGURE + r")\*\* µm to "
+    r"\*\*(?P<y1>" + AREA_FIGURE + r")\*\* µm in y, i\.e\. "
+    r"\*\*(?P<width>" + AREA_FIGURE + r")\*\* µm × \*\*(?P<height>" + AREA_FIGURE + r")\*\* "
+    r"µm ≈ \*\*(?P<area_mm2>" + AREA_FIGURE + r")\*\* mm²"
+)
+
+# Every figure the area readout states, in the order a finding reports them:
+# the record's own four coordinates first, then the three the document derives
+# from them.
+AREA_READOUT_FIGURES = AREA_BBOX_KEYS + ("width", "height", "area_mm2")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -1237,6 +1276,118 @@ def check_power_readout(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def area_readout(block: str) -> dict | None:
+    """The live bounding-box readout of `layout/<block>/`'s current report.
+
+    `None` when the flow has no `reports/LATEST`, or that record carries no
+    readable `compose.json` with a top-level `bbox_um` -- there is nothing for
+    check 13 to compare against, which is a different (and separately
+    reported) condition from a readout that disagrees. A degenerate box (zero
+    or negative extent) is treated the same way: it is not a composition this
+    document could be quoting.
+    """
+    stamp = _pointer_stamp("layout", block)
+    if stamp is None:
+        return None
+    report = REPO_ROOT / "layout" / block / "reports" / stamp
+    compose = _load_json(report / COMPOSE_ARTEFACT)
+    if compose is None:
+        return None
+    cell = compose.get("cell_name")
+    bbox = compose.get("bbox_um")
+    if not isinstance(cell, str) or not cell or not isinstance(bbox, dict):
+        return None
+    try:
+        coords = {key: float(bbox[key]) for key in AREA_BBOX_KEYS}
+    except (KeyError, TypeError, ValueError):
+        return None
+    width = coords["x1"] - coords["x0"]
+    height = coords["y1"] - coords["y0"]
+    if width <= 0 or height <= 0:
+        return None
+    return {
+        **coords,
+        "cell": cell,
+        "width": width,
+        "height": height,
+        # µm × µm -> mm², which is the unit the document quotes the area in.
+        "area_mm2": width * height / 1e6,
+    }
+
+
+def _area_figure(value: float | str) -> str:
+    """One area figure as it is stated and compared -- a formatted string.
+
+    Comparing formatted text rather than floats with a tolerance is what makes
+    a `--stats` paste unconditionally safe: a figure that lands exactly on a
+    rounding boundary formats one way and only one way, so the sentence the
+    generator prints can never be the sentence the checker rejects.
+    """
+    if isinstance(value, str):
+        value = float(value.replace("−", "-"))
+    return f"{value:.{AREA_DECIMALS}f}"
+
+
+def area_sentence(block: str, readout: dict) -> str:
+    """The area readout in the form check 13 matches -- `--stats` prints this."""
+    return (
+        f"the composed cell `{readout['cell']}` on the record "
+        f"`layout/{block}/reports/LATEST` resolves to spans "
+        f"**{_area_figure(readout['x0'])}** µm to **{_area_figure(readout['x1'])}** "
+        f"µm in x and **{_area_figure(readout['y0'])}** µm to "
+        f"**{_area_figure(readout['y1'])}** µm in y, i.e. "
+        f"**{_area_figure(readout['width'])}** µm × "
+        f"**{_area_figure(readout['height'])}** µm ≈ "
+        f"**{_area_figure(readout['area_mm2'])}** mm²"
+    )
+
+
+def check_area_readout(doc: Path, text: str) -> list[str]:
+    """Check 13: a stated area readout must be the composition's own extent."""
+    misses = []
+    for line_number, row in spec_table_rows(text):
+        stated = AREA_READOUT_RE.search(row)
+        if stated is None:
+            continue
+        cells = _row_cells(row)
+        parameter = _normalise_parameter(cells[0])
+        block = stated.group("flow").split("/", 1)[1]
+        where = f"{doc.name}:{line_number}"
+        actual = area_readout(block)
+        if actual is None:
+            misses.append(
+                f'{where}: row "{parameter}" states an area readout for '
+                f"`layout/{block}/`, but that flow has no `reports/LATEST` record "
+                f"carrying a `{COMPOSE_ARTEFACT}` with a top-level `bbox_um` to "
+                f"read it out of"
+            )
+            continue
+        if ("layout", block) not in _cited_flows(cells):
+            misses.append(
+                f'{where}: row "{parameter}" states an area readout for '
+                f"`layout/{block}/`, but cites no record of that flow -- cite the "
+                f"composition the figures were read out of"
+            )
+        if stated.group("cell") != actual["cell"]:
+            misses.append(
+                f'{where}: row "{parameter}" states the composed cell is '
+                f"`{stated.group('cell')}`, but `layout/{block}/`'s current "
+                f"`{COMPOSE_ARTEFACT}` names `{actual['cell']}`"
+            )
+        for field in AREA_READOUT_FIGURES:
+            claimed = _area_figure(stated.group(field))
+            expected = _area_figure(actual[field])
+            if claimed == expected:
+                continue
+            misses.append(
+                f'{where}: row "{parameter}" states {field}={claimed} for '
+                f"`layout/{block}/`, but that flow's current `{COMPOSE_ARTEFACT}` "
+                f"gives {field}={expected} -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -1251,6 +1402,7 @@ def check_document(doc: Path) -> list[str]:
         + check_io_table_parity(doc, text)
         + check_coverage_index_parity(doc, text)
         + check_power_readout(doc, text)
+        + check_area_readout(doc, text)
     )
 
 
@@ -1290,6 +1442,15 @@ def main(argv: list[str]) -> int:
             if readout is None:
                 continue
             print(f"layout/{block}/: {readout_sentence(block, readout)}")
+        # Likewise the composed extent of every `layout/` flow whose current
+        # record carries a composition -- a flow that is a single drawn cell
+        # rather than a composition has no `compose.json` and prints nothing.
+        for pointer in sorted(REPO_ROOT.glob("layout/*/reports/LATEST")):
+            block = pointer.parent.parent.name
+            readout = area_readout(block)
+            if readout is None:
+                continue
+            print(f"layout/{block}/: {area_sentence(block, readout)}")
         # Likewise every `sim/` campaign whose current record carries a Power
         # table, not only the one the Power row happens to cite today.
         for pointer in sorted(REPO_ROOT.glob("sim/*/records/LATEST")):
