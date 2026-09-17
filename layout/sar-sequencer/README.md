@@ -78,6 +78,31 @@ points at the newest record id.
   for the three-part fix that got here from the `mismatch` verdict PR #105
   originally recorded.
 
+## `klt 0.4.0` → `0.5.0` re-run (issue #323): no change
+
+This flow's sign-off record rested on `klt 0.4.0` (`reports/20260905-191258-4c6c655/`)
+while `layout/requirements.txt` had already moved to `klt 0.5.0` for the other
+sub-blocks and the top-level composition — a version-parity gap, not a known
+defect (see the parent issue for why that gap mattered). Re-run under the
+pinned `klt 0.5.0` (`reports/20260917-180601-527ec73/`, now `reports/LATEST`):
+`drc.json` and `lvs.json` are field-identical to the superseded record —
+
+| Field (source) | `klt 0.4.0` | `klt 0.5.0` | Delta |
+| --- | --- | --- | --- |
+| `drc.json` `status` / `violation_count` | clean / 0 | clean / 0 | none |
+| `lvs.json` `status` | match | match | none |
+| `lvs.json` `mismatch_count` / `error_count` | 0 / 0 | 0 / 0 | none |
+| `lvs.json` `counts.devices` (layout/reference/matched) | 760/760/760 | 760/760/760 | none |
+| `lvs.json` `counts.nets` (layout/reference/matched) | 395/395/395 | 395/395/395 | none |
+| `lvs.json` `counts.pins` (layout/reference/matched) | 30/28/30 | 30/28/30 | none |
+| `lvs.json` `category_counts` | `{}` | `{}` | none |
+
+The 30/28/30 pin-count asymmetry (two post-CTS clock-tree leaf nets promoted
+as pins beyond the reference `.SUBCKT`'s 28 declared ports — issue #322) is
+unchanged under `klt 0.5.0`, so it is not `klt`-version-sensitive: whatever
+is producing it is present in both builds. No regression, so no upstream
+`klayout-tools` issue was filed for this re-run.
+
 ## LVS reference provenance
 
 `klt extract --deck sky130` is a **flat, transistor-level** extractor (its

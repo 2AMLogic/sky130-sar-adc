@@ -105,6 +105,31 @@ layout/seln-inverters/
                                     # generated LVS reference, every klt JSON envelope, record.md
 ```
 
+## `klt 0.4.0` → `0.5.0` re-run (issue #323): no change
+
+This flow's sign-off record rested on `klt 0.4.0` (`reports/20260906-002022-a36e06f/`)
+while `layout/requirements.txt` had already moved to `klt 0.5.0` for the other
+sub-blocks and the top-level composition — a version-parity gap, not a known
+defect (see the parent issue for why that gap mattered). Re-run under the
+pinned `klt 0.5.0` (`reports/20260917-180644-527ec73/`, now `reports/LATEST`):
+`drc.json` and `lvs.json` are field-identical to the superseded record —
+
+| Field (source) | `klt 0.4.0` | `klt 0.5.0` | Delta |
+| --- | --- | --- | --- |
+| `drc.json` `status` / `violation_count` | clean / 0 | clean / 0 | none |
+| `lvs.json` `status` | match | match | none |
+| `lvs.json` `mismatch_count` / `error_count` | 9 / 0 | 9 / 0 | none |
+| `lvs.json` `counts.devices` (layout/reference/matched) | 18/18/18 | 18/18/18 | none |
+| `lvs.json` `counts.nets` (layout/reference/matched) | 20/20/20 | 20/20/20 | none |
+| `lvs.json` `counts.pins` (layout/reference/matched) | 20/20/20 | 20/20/20 | none |
+| `lvs.json` `category_counts` | `topology: 9` | `topology: 9` | none |
+
+The nine `topology` entries are the same expected "ambiguous pairing resolved
+structurally" warnings the Status section above describes (one per
+symmetric, electrically-identical `SELn<i>` inverter), unchanged in count or
+kind under `klt 0.5.0`. No regression, so no upstream `klayout-tools` issue
+was filed for this re-run.
+
 ## Where this fits into #103's top-level assembly
 
 This macro is one of the five blocks the top-level assembly places and
