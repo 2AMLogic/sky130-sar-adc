@@ -84,6 +84,20 @@ class FixtureTree:
         if latest:
             (records / "LATEST").write_text(f"{stamp}.md\n")
 
+    def add_top_netlist(self, *ports: str):
+        """A `design/sar_adc_top.spice` with the given top-level port list.
+
+        Written in the shape xschem really emits for the *top* cell -- the
+        `.subckt` line commented out, since the top level is netlisted flat.
+        A fixture that wrote a bare `.subckt` would pass while the real file
+        shape went unparsed.
+        """
+        design = self.root / "design"
+        design.mkdir(parents=True, exist_ok=True)
+        (design / "sar_adc_top.spice").write_text(
+            "* fixture netlist\n**.subckt sar_adc_top " + " ".join(ports) + "\n"
+        )
+
     def add_spec_table(self, *rows: str):
         """A `spec/target-spec.md` with the Target table check 7 reads."""
         spec = self.root / "spec"
@@ -759,6 +773,151 @@ class TestSignoffReadout(unittest.TestCase):
         self.assertEqual(self.tree.check(sentence + "\n"), [])
 
 
+def io_section(*rows: str, totals: str = "", quoted: str | None = None) -> str:
+    """A minimal Section 2 I/O table, optional Totals sentence and quote."""
+    parts = [
+        "## 2. I/O list",
+        "",
+        "| Signal | Dir | Assumed Challenge slot | Count used | Notes |",
+        "|---|---|---|---|---|",
+        *rows,
+        "",
+    ]
+    if totals:
+        parts += [totals, ""]
+    if quoted is not None:
+        parts += ["```", f".subckt sar_adc_top {quoted}", "```", ""]
+    return "\n".join(parts + ["## 3. Next section", ""])
+
+
+class TestIoTableParity(unittest.TestCase):
+    """Check 10: Section 2's I/O list is the netlist's own, fully categorised.
+
+    The defect shape here is not one this document has *already* suffered --
+    it is the one it is exposed to: `design/sar_adc_top.spice` is regenerated
+    from a schematic this repo really does edit, and every claim in Section 2
+    (the quoted port list, the per-signal rows, the slot totals) is a hand
+    restatement of it. Issue #121's acceptance criterion 1 is exactly this
+    mapping, so it is graded mechanically rather than re-read.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def test_port_with_no_table_row_is_reported(self):
+        self.tree.add_top_netlist("VINP", "CLK", "BUSY")
+        misses = self.tree.check(
+            io_section(
+                "| `VINP` | in | dedicated pad (budget: 0–4) | 1 | analog in |",
+                "| `CLK` | in | digital control input (budget: ≤24) | 1 | clock |",
+            )
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("port `BUSY`", misses[0])
+        self.assertIn("no row in Section 2's I/O table", misses[0])
+
+    def test_table_signal_that_is_not_a_port_is_reported(self):
+        self.tree.add_top_netlist("CLK")
+        misses = self.tree.check(
+            io_section(
+                "| `CLK` | in | digital control input (budget: ≤24) | 1 | clock |",
+                "| `MODE` | in | digital control input | 1 | not in the netlist |",
+            )
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("names `MODE`", misses[0])
+        self.assertIn("not a port", misses[0])
+
+    def test_quoted_port_list_must_match_port_for_port_and_in_order(self):
+        self.tree.add_top_netlist("VINP", "VINN")
+        body = io_section(
+            "| `VINP`, `VINN` | in | dedicated pad (budget: 0–4) | 2 | in |",
+            quoted="VINN VINP",
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("quoted `.subckt sar_adc_top` port list", misses[0])
+
+    def test_quoted_port_list_may_wrap_with_a_continuation(self):
+        self.tree.add_top_netlist("VINP", "VINN")
+        body = io_section(
+            "| `VINP`, `VINN` | in | dedicated pad (budget: 0–4) | 2 | in |",
+            quoted="VINP \\\n  VINN",
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_row_count_that_disagrees_with_the_ports_it_names_is_reported(self):
+        self.tree.add_top_netlist("VINP", "VINN")
+        misses = self.tree.check(
+            io_section("| `VINP`, `VINN` | in | dedicated pad (budget: 0–4) | 1 | in |")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states a count of 1, but names 2 port(s)", misses[0])
+
+    def test_a_range_signal_cell_is_expanded_to_the_ports_it_names(self):
+        """`DOUT9..DOUT0` is ten ports, and the row's count must say so."""
+        self.tree.add_top_netlist(*[f"DOUT{i}" for i in range(9, -1, -1)])
+        body = io_section(
+            "| `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | out |"
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_rail_row_claiming_no_count_is_exempt(self):
+        self.tree.add_top_netlist("VDD", "CLK")
+        body = io_section(
+            "| `VDD` | supply | 1.8 V rail (shared) | — (rail, not a slot) | rail |",
+            "| `CLK` | in | digital control input (budget: ≤24) | 1 | clock |",
+            totals="**Totals**: **1** of ≤24 digital control inputs (`CLK`).",
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_counted_row_matching_no_slot_category_is_reported(self):
+        self.tree.add_top_netlist("CLK")
+        misses = self.tree.check(
+            io_section("| `CLK` | in | clock slot (budget: ≤24) | 1 | clock |")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("matches 0 of the categories", misses[0])
+
+    def test_totals_sentence_is_recomputed_per_category(self):
+        self.tree.add_top_netlist("CLK", "RST_B", "BUSY")
+        misses = self.tree.check(
+            io_section(
+                "| `CLK` | in | digital control input (budget: ≤24) | 1 | clock |",
+                "| `RST_B` | in | digital control input | 1 | reset |",
+                "| `BUSY` | out | digital test output (budget: ≤12) | 1 | strobe |",
+                totals=(
+                    "**Totals**: **3** of ≤24 digital control inputs, "
+                    "**1** of ≤12 digital test outputs."
+                ),
+            )
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("claims 3 digital control inputs", misses[0])
+        self.assertIn("counts 2", misses[0])
+
+    def test_conditional_total_is_the_dedicated_pads_plus_the_reference_lines(self):
+        self.tree.add_top_netlist("VINP", "VREFP", "VREFN")
+        body = io_section(
+            "| `VINP` | in | dedicated pad (budget: 0–4) | 1 | analog in |",
+            "| `VREFP`, `VREFN` | in | harness-supplied bandgap reference | 2 | ref |",
+            totals=(
+                "**Totals**: **1** of 0–4 dedicated pads and **2** "
+                "harness-supplied reference lines — **4 dedicated pads against "
+                "a 0–4 ceiling** if the harness cannot supply the pair."
+            ),
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("conditional dedicated-pad total claims 4", misses[0])
+        self.assertIn("come to 3", misses[0])
+
+    def test_check_is_inert_without_the_top_netlist(self):
+        # No design/sar_adc_top.spice in the fixture tree at all.
+        body = io_section("| `NOPE` | in | digital control input | 9 | invented |")
+        self.assertEqual(self.tree.check(body), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -861,6 +1020,46 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         stated = list(checker.READOUT_RE.finditer(collapsed))
         self.assertEqual(
             [match.group("flow") for match in stated], ["layout/sar-adc-top"], stated
+        )
+
+    def test_the_real_top_netlist_port_list_is_actually_found(self):
+        """Check 10 is inert on an unparsed netlist, and still exits 0.
+
+        `design/sar_adc_top.spice` is the input side of the comparison; if
+        xschem's commented-`.subckt` shape or the cell name changes and the
+        parse goes vacuous, every Section 2 parity check silently stops
+        firing -- the same trap checks 4, 6, 8 and 9 each needed a guard for.
+        """
+        ports = checker.netlist_ports()
+        self.assertGreaterEqual(len(ports), 19, ports)
+        for port in ("VINP", "VINN", "VREFP", "VREFN", "VCM", "CLK", "RST_B", "BUSY"):
+            self.assertIn(port, ports)
+        self.assertEqual(len(ports), len(set(ports)), "duplicate top-level port")
+
+    def test_the_real_io_table_and_its_totals_are_actually_evaluated(self):
+        """The positive form of check 10 on the live document.
+
+        Asserts that the table parses, that its rows cover the netlist's whole
+        port list, and that the Totals sentence really is in the gated form --
+        a document whose totals lost their bold markers would be graded
+        against nothing while still exiting 0.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        text = doc.read_text()
+        rows = checker.io_table(text)
+        self.assertGreaterEqual(len(rows), 8, "Section 2's I/O table went unparsed")
+        mapped = {port for _line, cells in rows for port in checker._cell_ports(cells[0])}
+        self.assertEqual(set(checker.netlist_ports()), mapped)
+
+        quoted = checker.quoted_port_lists(text)
+        self.assertEqual([ports for _line, ports in quoted], [checker.netlist_ports()])
+
+        collapsed, _offsets = checker._collapse_quoted_prose(text)
+        claimed = {match.group("category") for match in checker.IO_TOTAL_RE.finditer(collapsed)}
+        self.assertEqual(claimed, set(checker.IO_SLOT_CATEGORIES))
+        self.assertTrue(
+            checker.IO_CONDITIONAL_RE.search(collapsed),
+            "the conditional dedicated-pad total is no longer in the gated form",
         )
 
     def test_the_real_signoff_readout_is_checked_against_real_verdict_files(self):

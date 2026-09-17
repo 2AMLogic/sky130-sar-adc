@@ -152,6 +152,41 @@ WHAT IT CHECKS
    (see below). The readout is the document's single present-tense
    statement of those numbers, and it is the one that is gated.
 
+10. I/O table parity -- checks 3 to 9 all grade Section 4. Section 2 carries
+    the document's other mechanically checkable claim, and issue #121's
+    acceptance criterion 1 states it directly: "I/O mapped to the slot
+    budget". That mapping is a hand-maintained restatement of
+    `design/sar_adc_top.spice`'s own `.subckt sar_adc_top` port list -- and
+    that netlist is regenerated from `design/sar_adc_top.sch`, whose contents
+    this repo really does change (DR-004 Amendment A moved the comparator's
+    device count; DR-008 and DR-009 changed the CDAC and comparator
+    interfaces). A port added, renamed, or dropped at the schematic level
+    would leave Section 2 silently describing a block this repo no longer
+    builds, with nothing but a re-read to catch it -- the same drift class as
+    every other check here, one section up. Check 10 compares:
+
+      a. The quoted port list -- Section 2.3 quotes the `.subckt` line and
+         asserts "Nothing is added or dropped ... it is exactly this
+         netlist's own external port list". That is now compared port for
+         port, in order, rather than taken on the word "exactly".
+      b. Coverage, both directions -- every netlist port has a row in the I/O
+         table, and every signal the table names is a netlist port. A port
+         with no row is the cheapest way to make a slot budget fit.
+      c. Per-row counts -- each row's "Count used" cell must equal the number
+         of ports its Signal cell names, ranges (`DOUT9..DOUT0`) expanded. A
+         row claiming no count (the shared rail) is exempt, since it is not
+         charged against any slot.
+      d. The Totals sentence -- each bolded per-category total must be the
+         sum of the rows the table itself assigns to that category (read off
+         the "Assumed Challenge slot" column, never a list in this file), and
+         the conditional dedicated-pad total must be the dedicated pads plus
+         the harness-supplied reference lines. A row that is charged against
+         the budget but matches no category is reported too, so a new row
+         cannot slip past the totals by being uncategorised.
+
+    Inert when the netlist or the table is absent (test fixtures); that the
+    real ones are found is asserted by `sim/tests/test_proposal_citations.py`.
+
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
 cited path with nothing between them but link/quote punctuation and an
 optional "the"/"record:" connector. A claim that merely *discusses* a pointer
@@ -336,6 +371,58 @@ READOUT_RE = re.compile(
 # sentence's own full stop -- each pair is backticked instead, which makes the
 # clause self-delimiting however many categories a record reports.
 READOUT_CATEGORY_RE = re.compile(r"`(?P<name>[A-Za-z][A-Za-z0-9._]*): (?P<count>\d+)`")
+
+# The regenerated top-level netlist Section 2's I/O table is a categorisation
+# of. xschem emits the *top* cell's own `.subckt` line commented out (the top
+# level is netlisted flat), so the leading asterisks are part of the line as
+# committed -- tolerating them is not leniency, it is the file's real shape.
+TOP_NETLIST = Path("design") / "sar_adc_top.spice"
+SUBCKT_RE = re.compile(r"^\*{0,2}\.subckt\s+sar_adc_top\s+(?P<ports>.+)$", re.M)
+
+# The Markdown table Section 2 maps that port list onto the slot budget with,
+# identified by its own first header cell.
+IO_TABLE_HEADER = "Signal"
+
+# A fenced code block, which is how Section 2.3 quotes the netlist's port list.
+FENCED_BLOCK_RE = re.compile(r"^```[^\n]*\n(?P<body>.*?)^```", re.M | re.S)
+
+# `DOUT9..DOUT0` (the I/O table's Signal cell) or `DOUT9..0` (the prose form) --
+# a contiguous port range, written descending or ascending.
+PORT_RANGE_RE = re.compile(
+    r"^(?P<prefix>[A-Za-z_]+)(?P<high>\d+)\.\.(?P=prefix)?(?P<low>\d+)$"
+)
+
+# A bare port name, as both the netlist and the table's backticks spell it.
+PORT_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+# Each slot category the Totals sentence claims a count for, mapped to the
+# substring that identifies a table row as belonging to it. Matched against the
+# row's "Assumed Challenge slot" cell, which is the column the budget is stated
+# in -- so a row's category comes from the table, never from this file.
+IO_SLOT_CATEGORIES = {
+    "digital control inputs": "digital control input",
+    "digital test outputs": "digital test output",
+    "dedicated pads": "dedicated pad",
+    "harness-supplied reference lines": "harness-supplied bandgap reference",
+}
+
+# One claim in the Totals sentence: a bolded count, an optional "of <budget>"
+# clause (the harness reference has no stated budget), and the category. The
+# bold is required so a count that is gated cannot be confused with one of the
+# many unbolded numbers the surrounding prose carries.
+IO_TOTAL_RE = re.compile(
+    r"\*\*(?P<count>\d+)\*\* (?:of (?:≤\s*)?\d+(?:\s*[–-]\s*\d+)?\s+)?"
+    r"(?P<category>" + "|".join(sorted(IO_SLOT_CATEGORIES, key=len, reverse=True)) + r")"
+)
+
+# The conditional total: the same dedicated-pad count with the harness
+# reference's own lines folded in, which is the slot-budget risk Section 2
+# flags. Phrased distinctly from the claims above on purpose -- stated as
+# another "N of 0-4 dedicated pads" it would be indistinguishable from the
+# unconditional one, and each would be graded against the other's number.
+IO_CONDITIONAL_RE = re.compile(
+    r"\*\*(?P<conditional>\d+) dedicated pads against a 0\s*[–-]\s*4 ceiling\*\*"
+)
 
 # The scalar readout fields, paired with how each is read out of the record's
 # own JSON. `drc.json` and `lvs.json` are `klt`'s own machine-readable output,
@@ -925,6 +1012,182 @@ def check_signoff_readout(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def netlist_ports() -> list[str]:
+    """`design/sar_adc_top.spice`'s own top-level port list, in order.
+
+    Empty when the netlist is absent, which is how check 10 stays inert
+    against the test fixtures (their REPO_ROOT has no `design/` tree); that
+    the real one is found and non-empty is asserted by the tests.
+    """
+    path = REPO_ROOT / TOP_NETLIST
+    if not path.is_file():
+        return []
+    match = SUBCKT_RE.search(path.read_text())
+    return match.group("ports").split() if match else []
+
+
+def _expand_range(token: str) -> list[str] | None:
+    """`DOUT9..DOUT0` -> the ten ports it names, MSB first; else None."""
+    ranged = PORT_RANGE_RE.match(token)
+    if ranged is None:
+        return None
+    prefix = ranged.group("prefix")
+    high, low = int(ranged.group("high")), int(ranged.group("low"))
+    indices = range(high, low - 1, -1) if high >= low else range(high, low + 1)
+    return [f"{prefix}{index}" for index in indices]
+
+
+def _cell_ports(cell: str) -> list[str]:
+    """Every port a table cell names, with `A9..A0` ranges expanded.
+
+    Only backticked tokens count: the Signal column spells every port in
+    backticks, and prose words in the same cell are not ports.
+    """
+    ports: list[str] = []
+    for span in BACKTICK_SPAN_RE.finditer(cell):
+        token = _unwrap_backticked(span.group(1))
+        expanded = _expand_range(token)
+        if expanded is not None:
+            ports.extend(expanded)
+        elif PORT_NAME_RE.match(token):
+            ports.append(token)
+    return ports
+
+
+def io_table(text: str) -> list[tuple[int, list[str]]]:
+    """Section 2's I/O table as `[(line_number, cells)]`, header excluded."""
+    rows: list[tuple[int, list[str]]] = []
+    in_table = False
+    for index, line in enumerate(text.split("\n"), start=1):
+        if not line.startswith("|"):
+            in_table = False
+            continue
+        cells = _row_cells(line)
+        if cells[:1] == [IO_TABLE_HEADER]:
+            in_table = True
+            continue
+        if not in_table or all(re.fullmatch(r":?-{2,}:?", cell) for cell in cells):
+            continue
+        rows.append((index, cells))
+    return rows
+
+
+def quoted_port_lists(text: str) -> list[tuple[int, list[str]]]:
+    """Every `.subckt sar_adc_top` port list quoted in a fenced code block."""
+    quoted: list[tuple[int, list[str]]] = []
+    for block in FENCED_BLOCK_RE.finditer(text):
+        body = block.group("body")
+        match = re.search(r"\.subckt\s+sar_adc_top\s+(?P<ports>.*)", body, re.S)
+        if match is None:
+            continue
+        # A quoted list wraps with a trailing backslash; the ports are the
+        # tokens, not the continuation markers.
+        ports = match.group("ports").replace("\\", " ").split()
+        quoted.append((_line_of(text, block.start()), ports))
+    return quoted
+
+
+def check_io_table_parity(doc: Path, text: str) -> list[str]:
+    """Check 10: Section 2's I/O list is the netlist's own, fully categorised."""
+    ports = netlist_ports()
+    if not ports:
+        return []
+    misses = []
+
+    # (a) The quoted port list is the netlist's, port for port and in order.
+    for line, quoted in quoted_port_lists(text):
+        if quoted != ports:
+            misses.append(
+                f"{doc.name}:{line}: the quoted `.subckt sar_adc_top` port list "
+                f"is not `{TOP_NETLIST}`'s own -- quoted {quoted}, netlist "
+                f"{ports}; regenerate the quote rather than editing it by hand"
+            )
+
+    rows = io_table(text)
+    if not rows:
+        return misses
+
+    # (b) Every port is mapped, and nothing is mapped that is not a port.
+    mapped: dict[str, int] = {}
+    for line, cells in rows:
+        for port in _cell_ports(cells[0]):
+            mapped.setdefault(port, line)
+    for port in ports:
+        if port not in mapped:
+            misses.append(
+                f"{doc.name}: port `{port}` of `{TOP_NETLIST}` has no row in "
+                f"Section 2's I/O table -- every port must be mapped to a slot "
+                f"(issue #121 acceptance criterion 1)"
+            )
+    for port, line in sorted(mapped.items(), key=lambda item: item[1]):
+        if port not in ports:
+            misses.append(
+                f"{doc.name}:{line}: Section 2's I/O table names `{port}`, which "
+                f"is not a port of `{TOP_NETLIST}` -- the table is a "
+                f"categorisation of that port list, not a superset of it"
+            )
+
+    # (c) Each row's stated count is the number of ports it actually names.
+    for line, cells in rows:
+        if len(cells) < 4:
+            continue
+        named = len(_cell_ports(cells[0]))
+        stated = re.match(r"\d+", cells[3])
+        if stated is None:
+            continue
+        if int(stated.group(0)) != named:
+            misses.append(
+                f"{doc.name}:{line}: I/O row `{cells[0]}` states a count of "
+                f"{stated.group(0)}, but names {named} port(s)"
+            )
+
+    # (d) The Totals sentence is the sum of those counts, per slot category.
+    totals: dict[str, int] = {category: 0 for category in IO_SLOT_CATEGORIES}
+    for line, cells in rows:
+        if len(cells) < 4:
+            continue
+        stated = re.match(r"\d+", cells[3])
+        if stated is None:
+            # A row claiming no slot (the shared rail) is not counted against
+            # any budget -- but it may not claim a category either.
+            continue
+        matched = [
+            category
+            for category, keyword in IO_SLOT_CATEGORIES.items()
+            if keyword in cells[2]
+        ]
+        if len(matched) != 1:
+            misses.append(
+                f"{doc.name}:{line}: I/O row `{cells[0]}` counts "
+                f"{stated.group(0)} against the slot budget, but its slot cell "
+                f"matches {len(matched)} of the categories the Totals sentence "
+                f"states ({', '.join(sorted(IO_SLOT_CATEGORIES))})"
+            )
+            continue
+        totals[matched[0]] += int(stated.group(0))
+
+    collapsed, offsets = _collapse_quoted_prose(text)
+    for claim in IO_TOTAL_RE.finditer(collapsed):
+        category = claim.group("category")
+        where = f"{doc.name}:{_line_of(text, offsets[claim.start()])}"
+        if int(claim.group("count")) != totals[category]:
+            misses.append(
+                f"{where}: the Totals sentence claims {claim.group('count')} "
+                f"{category}, but Section 2's I/O table counts "
+                f"{totals[category]}"
+            )
+    for claim in IO_CONDITIONAL_RE.finditer(collapsed):
+        where = f"{doc.name}:{_line_of(text, offsets[claim.start()])}"
+        expected = totals["dedicated pads"] + totals["harness-supplied reference lines"]
+        if int(claim.group("conditional")) != expected:
+            misses.append(
+                f"{where}: the conditional dedicated-pad total claims "
+                f"{claim.group('conditional')}, but the table's dedicated pads "
+                f"plus its harness-supplied reference lines come to {expected}"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -936,6 +1199,7 @@ def check_document(doc: Path) -> list[str]:
         + check_spec_row_parity(doc, text)
         + check_verdict_vocabulary(doc, text)
         + check_signoff_readout(doc, text)
+        + check_io_table_parity(doc, text)
     )
 
 

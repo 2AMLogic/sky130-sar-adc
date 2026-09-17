@@ -97,14 +97,22 @@ supplied by the harness (not per-block).
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
 | `BUSY` | out | digital test output | 1 | Conversion-in-progress strobe |
 
-**Totals against the assumed budget**: 2 of ≤24 digital control inputs
-(`CLK`, `RST_B`), 11 of ≤12 digital test outputs (`DOUT9..0` + `BUSY`), 3 of
-0–4 dedicated pads if `VINP`/`VINN`/`VCM` alone are counted as dedicated, **or
-5 of 0–4 if `VREFP`/`VREFN` must also be dedicated pads rather than a shared
-harness reference** — the latter would exceed a 4-pad dedicated ceiling.
-This is stated as an open slot-budget risk, not resolved by assumption (see
-§7); it cannot be resolved definitively until `rules-4.html` publishes and
-states the real per-signal budget categories.
+**Totals against the assumed budget, machine-checked** (check 10 of the
+[citation gate](check_proposal_citations.py), added 2026-09-17): **2** of ≤24
+digital control inputs (`CLK`, `RST_B`), **11** of ≤12 digital test outputs
+(`DOUT9..DOUT0` + `BUSY`), **3** of 0–4 dedicated pads (`VINP`, `VINN`,
+`VCM`), and **2** harness-supplied reference lines (`VREFP`, `VREFN`). Each of
+those four counts is recomputed from this table's own Count and slot columns
+rather than re-added by hand, so a row added, re-counted, or re-categorised
+fails CI here instead of leaving a stale total behind — and a row that is
+charged against the budget while matching none of the four categories fails
+too, so a new signal cannot slip past the totals by being uncategorised. If
+the harness cannot supply a differential reference, its two lines must become
+dedicated pads as well — **5 dedicated pads against a 0–4 ceiling**, which
+exceeds it (that number is gated too, as the dedicated pads plus the
+harness-supplied reference lines). This is stated as an open slot-budget risk,
+not resolved by assumption (see §7); it cannot be resolved definitively until
+`rules-4.html` publishes and states the real per-signal budget categories.
 
 There is **no on-chip SPI interface** in this design — `design/sar_adc_top.sch`
 exposes only the parallel `CLK`/`RST_B`/`DOUT*`/`BUSY` port set (see §2.3).
@@ -129,7 +137,18 @@ from `design/sar_adc_top.sch`, staleness-checked in CI by
 
 Nothing is added or dropped in §2.2's mapping above — it is exactly this
 netlist's own external port list, categorized against the assumed slot
-budget.
+budget. **That sentence is now machine-checked rather than asserted** (check
+10, added 2026-09-17): the quoted `.subckt` line above is compared port for
+port and in order against `design/sar_adc_top.spice`'s own, and §2.2's Signal
+column is compared against the same list in both directions — a port with no
+row, and a row naming something that is not a port, are each a CI failure
+naming the signal. This matters because the netlist is *regenerated* from
+`design/sar_adc_top.sch` (staleness-checked in CI by `design/regen_netlist.sh
+--check`), and this repo does change that schematic: DR-004 Amendment A moved
+the comparator's device count, and DR-008/DR-009 changed sub-block interfaces.
+A future port change would previously have left §2 describing an interface
+this repo no longer builds, with only a hand re-read to catch it — the same
+drift class §4's citation checks already gate one section down.
 
 ---
 
@@ -590,6 +609,12 @@ and 8, added 2026-09-16). Those two are described once, in the preamble above
 the table, and deliberately not restated here — the census paragraph below is
 the standing reminder of what a second, hand-maintained copy of the same fact
 does to this document.
+
+As of 2026-09-17 the gate also reaches outside §4: check 10 compares §2's I/O
+table, and the `.subckt` line §2.3 quotes, against
+`design/sar_adc_top.spice`'s own top-level port list in both directions, and
+recomputes §2.2's slot totals from that table's own Count and slot columns.
+That one is described once too, in §2.2 and §2.3.
 
 **What "attached" excludes, stated rather than glossed over** (this paragraph
 first claimed the pointer check covered *every* such phrase, which overstated
