@@ -132,8 +132,8 @@ WHAT IT CHECKS
    forces the *citation* forward while leaving every quoted number behind it
    untouched.
 
-   So the document states the current readout once, in a fixed sentence
-   form, and check 9 recomputes it from the record that flow's
+   So the document states each flow's current readout once, in a fixed
+   sentence form, and check 9 recomputes it from the record that flow's
    `reports/LATEST` actually resolves to and compares field by field: DRC
    status and violation count, LVS status, mismatch and error counts, the
    three-way device/net/pin counts, and the full `category_counts` mapping
@@ -143,6 +143,20 @@ WHAT IT CHECKS
    transcription. Like checks 6 to 8 it is opt-in per document and inert
    when no readout is stated; that the real proposal states one is asserted
    by `sim/tests/test_proposal_citations.py`.
+
+   The check is per *stated readout*, not per document, so it covers as many
+   flows as the document states -- since 2026-09-17 that is six rather than
+   one: the composed `layout/sar-adc-top/` whose numbers the brief's two
+   sign-off-bar rows quote (Section 4), plus the five sub-block flows that
+   composition is built from (Section 3), whose DRC/LVS verdicts had been
+   prose ("all DRC-clean and LVS-clean") with the one Section 4 row grading
+   on them citing a README rather than a dated record. That is not a
+   theoretical drift class here: `layout/cdac-array/`'s first LVS "match"
+   verdict did not reproduce against its own committed artefacts (#148), and
+   a hand re-read is what caught it. Which flows the real document must state
+   a readout for is asserted, by name, in
+   `sim/tests/test_proposal_citations.py`, so dropping one is a test failure
+   rather than a silently narrower gate.
 
    What it does NOT do, stated rather than glossed: it does not parse the
    numbers out of Section 4's or Section 7's prose. Those sections are full

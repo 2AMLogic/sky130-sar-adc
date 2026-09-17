@@ -1339,17 +1339,59 @@ class TestAgainstTheRealProposal(unittest.TestCase):
     def test_the_real_proposal_states_a_parseable_signoff_readout(self):
         """Check 9 is opt-in per document, so assert the real one opts in.
 
-        Deleting or re-wording the readout sentence would disable check 9 and
-        still exit 0 -- the same vacuity trap checks 4, 6 and 8 each needed a
-        guard for. The flow asserted is the one the brief's two sign-off-bar
-        rows are graded on.
+        Deleting or re-wording a readout sentence would disable check 9 for
+        that flow and still exit 0 -- the same vacuity trap checks 4, 6 and 8
+        each needed a guard for. The flows asserted are every one this
+        design's sign-off rests on: the composed top level the brief's two
+        sign-off-bar rows are graded on (Section 4), and the five sub-blocks
+        that composition is built from (Section 3), whose own "DRC-clean and
+        LVS-clean" verdicts were prose until 2026-09-17.
+
+        Asserted as a set with an explicit expected membership, not merely a
+        non-empty list: a sub-block flow whose readout is dropped is exactly
+        the regression this guards, and a *new* sub-block flow gaining a
+        readout should be a deliberate edit here rather than a silent pass.
         """
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
         collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
-        stated = list(checker.READOUT_RE.finditer(collapsed))
+        stated = [
+            match.group("flow")
+            for match in checker.READOUT_RE.finditer(collapsed)
+        ]
         self.assertEqual(
-            [match.group("flow") for match in stated], ["layout/sar-adc-top"], stated
+            sorted(stated),
+            [
+                "layout/cdac-array",
+                "layout/comparator",
+                "layout/sampling-frontend",
+                "layout/sar-adc-top",
+                "layout/sar-sequencer",
+                "layout/seln-inverters",
+            ],
+            stated,
         )
+        self.assertEqual(len(stated), len(set(stated)), f"a flow is stated twice: {stated}")
+
+    def test_every_stated_signoff_readout_is_backed_by_real_verdict_files(self):
+        """The record side of check 9 must be readable for every stated flow.
+
+        `signoff_readout` returns None when a flow's current record carries no
+        `drc.json`/`lvs.json`; check 9 then reports one generic finding
+        instead of comparing field by field, which would make a whole flow's
+        readout unenforced while CI stayed green on the real tree.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        flows = [
+            match.group("flow").split("/", 1)[1]
+            for match in checker.READOUT_RE.finditer(collapsed)
+        ]
+        self.assertTrue(flows, "the document states no readout at all")
+        for flow in flows:
+            readout = checker.signoff_readout(flow)
+            self.assertIsNotNone(readout, f"{flow} has no current klt verdict files")
+            self.assertIn(readout["drc_status"], ("clean", "violations"), flow)
+            self.assertIn(readout["lvs_status"], ("match", "mismatch"), flow)
 
     def test_the_real_top_netlist_port_list_is_actually_found(self):
         """Check 10 is inert on an unparsed netlist, and still exits 0.
