@@ -22,6 +22,7 @@ are asserted directly rather than only through the real document.
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 import sys
@@ -1515,6 +1516,55 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         self.assertIn(readout["lvs_status"], ("match", "mismatch"))
         for field in ("devices_layout", "nets_reference", "pins_matched"):
             self.assertIsInstance(readout[field], int, field)
+
+
+class TestRationaleDocumentCoverage(unittest.TestCase):
+    """Every check in the chain must carry its rationale in docs/citation-gate.md.
+
+    The checker's rationale used to live in its own ~300-line module
+    docstring; issue #321 moved it to `docs/citation-gate.md` so the script
+    reads as code. Nothing then stopped a later pass from adding check N+1
+    to the chain and leaving its rationale unwritten -- which is exactly the
+    prose-drifts-away-from-behaviour shape check 6 exists for, one level up.
+    So the coverage is re-derived here rather than trusted.
+    """
+
+    RATIONALE_DOC = REPO_ROOT / "docs" / "citation-gate.md"
+
+    def chained_checks(self) -> list[str]:
+        """The `check_*` functions `check_document` actually calls."""
+        source = inspect.getsource(checker.check_document)
+        names = re.findall(r"\b(check_[a-z_]+)\(doc, text\)", source)
+        self.assertTrue(names, "no checks found in the check_document chain")
+        return names
+
+    def test_the_rationale_document_exists_and_is_linked_from_the_module(self):
+        self.assertTrue(self.RATIONALE_DOC.is_file(), self.RATIONALE_DOC)
+        self.assertIn("docs/citation-gate.md", checker.__doc__)
+
+    def test_every_chained_check_is_documented_in_the_rationale_document(self):
+        headings = [
+            line
+            for line in self.RATIONALE_DOC.read_text().splitlines()
+            if line.startswith("### ")
+        ]
+        for name in self.chained_checks():
+            with self.subTest(check=name):
+                self.assertTrue(
+                    any(f"`{name}`" in heading for heading in headings),
+                    f"docs/citation-gate.md has no `### ` heading naming `{name}` -- "
+                    "a check landed without its rationale",
+                )
+
+    def test_the_rationale_document_is_not_itself_a_checked_document(self):
+        """It lives one directory up on purpose, not by accident.
+
+        `main()` checks every `docs/chipalooza/*.md`, so a rationale document
+        placed beside the proposal would become a checked document and change
+        this script's own `--stats` and `OK:` output.
+        """
+        self.assertEqual(self.RATIONALE_DOC.parent, checker.CHIPALOOZA_DIR.parent)
+        self.assertNotIn(self.RATIONALE_DOC, set(checker.CHIPALOOZA_DIR.glob("*.md")))
 
 
 if __name__ == "__main__":
