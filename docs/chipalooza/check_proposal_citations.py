@@ -37,10 +37,12 @@ With no arguments it checks every `docs/chipalooza/*.md`. `--stats` prints each
 document's live pointer-claim census (the numbers check 6 compares against),
 the live sign-off-bar readout of every `layout/` flow (the sentence check 9
 compares against), the live area readout of every `layout/` flow whose current
-record carries a composition (the sentence check 13 compares against) and the
+record carries a composition (the sentence check 13 compares against), the provenance of every
+input that composition embeds (the sentence check 14 compares against) and the
 live power readout of every `sim/` campaign whose current record carries a
 Power table (the sentence check 12 compares against) instead of checking,
-which is what to run when check 6, 9, 12 or 13 reports a drift. Exit status:
+which is what to run when check 6, 9, 12, 13 or 14 reports a drift. Exit
+status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -49,8 +51,10 @@ which is what to run when check 6, 9, 12 or 13 reports a drift. Exit status:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import struct
 import sys
 from pathlib import Path
 
@@ -331,6 +335,46 @@ AREA_READOUT_RE = re.compile(
 # the record's own four coordinates first, then the three the document derives
 # from them.
 AREA_READOUT_FIGURES = AREA_BBOX_KEYS + ("width", "height", "area_mm2")
+
+# `compose.json`'s own word for a block that is an already-drawn cell composed
+# in, as opposed to one generated during the run (the routing block's
+# `generator_report`). Only the former is copied in as a `<id>.gds` file, so
+# only the former has an upstream record to trace back to.
+COMPOSITION_CELL_SOURCE = "cell"
+
+# A GDS record header: a big-endian byte count (header included), a record
+# type, and a data type.
+GDS_HEADER = struct.Struct(">HBB")
+GDS_HEADER_SIZE = GDS_HEADER.size
+
+# BGNLIB and BGNSTR, the two record types whose payload is a wall-clock
+# modification/access timestamp. `klt` stamps those at write time, so two runs
+# that produce identical geometry still produce byte-different files; check 14
+# would report every input as unmatched if they were hashed in. Nothing else
+# in the stream is dropped -- the comparison stays exact on everything that
+# describes geometry, layers, cell names or properties.
+GDS_TIMESTAMP_RECORDS = frozenset((0x01, 0x05))
+
+# The composition-input readout check 14 gates, stated in Section 3 as a
+# blockquote (so it is read off the same whitespace-collapsed text check 9
+# uses). Every field compared is a named group: which cell, how many records
+# of the named flow reproduce it, the newest of those, what that flow's
+# pointer names today, and the verdict word those two imply.
+COMPOSITION_INPUT_RE = re.compile(
+    r"the composition on `(?P<composition>layout/[A-Za-z0-9._-]+)/reports/LATEST` "
+    r"embeds a `(?P<cell>[A-Za-z_][A-Za-z0-9_]*)\.gds` that reproduces "
+    r"\*\*(?P<matched>\d+)\*\* records? of `(?P<flow>layout/[A-Za-z0-9._-]+)/`, "
+    r"newest `(?P<newest>" + STAMP + r")`, while `reports/LATEST` there names "
+    r"`(?P<latest>" + STAMP + r")`: \*\*(?P<status>current|superseded)\*\*"
+)
+
+# The two verdict words the composition-input readout may end in, keyed on
+# whether the flow's own pointer is among the records the embedded copy
+# reproduces. There is deliberately no third word for "reproduces nothing":
+# that is reported as a finding, because it is also what a broken fingerprint
+# would look like, and a document must not be able to state its way past it.
+COMPOSITION_INPUT_CURRENT = "current"
+COMPOSITION_INPUT_SUPERSEDED = "superseded"
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -1388,6 +1432,240 @@ def check_area_readout(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _gds_fingerprint(path: Path) -> str | None:
+    """A timestamp-independent digest of a GDS stream, or `None` if unreadable.
+
+    GDS is a flat sequence of length-prefixed records. Every one of them is
+    hashed verbatim except the two whose payload is a wall-clock timestamp
+    (`GDS_TIMESTAMP_RECORDS`), whose payload is dropped -- those move on every
+    write and describe nothing about the layout.
+
+    The digest is deliberately *exact* on everything else, element ordering
+    included: two records of the same flow that hold geometrically equivalent
+    but differently-ordered GDS are reported as different here, which is the
+    conservative direction (a false "superseded" is re-checked by hand; a
+    false "current" would hide a real input drift). Confirming that two such
+    records really are geometrically equivalent needs a layer-by-layer XOR,
+    which needs `klayout` -- not available in the headless CI job this script
+    runs in, and not what this check claims to do.
+
+    `None` on any malformed or truncated stream, so a file this parser cannot
+    read is never silently equal to another one it also cannot read.
+    """
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None
+    if not raw:
+        return None
+    digest = hashlib.sha256()
+    offset = 0
+    while offset < len(raw):
+        if offset + GDS_HEADER_SIZE > len(raw):
+            return None
+        length, record, datatype = GDS_HEADER.unpack_from(raw, offset)
+        if length < GDS_HEADER_SIZE or offset + length > len(raw):
+            return None
+        payload = (
+            b""
+            if record in GDS_TIMESTAMP_RECORDS
+            else raw[offset + GDS_HEADER_SIZE : offset + length]
+        )
+        digest.update(GDS_HEADER.pack(len(payload) + GDS_HEADER_SIZE, record, datatype))
+        digest.update(payload)
+        offset += length
+    return digest.hexdigest()
+
+
+def composition_inputs(block: str) -> list[str] | None:
+    """The cells `layout/<block>/`'s current composition composes in, in order.
+
+    Read off `compose.json`'s own `blocks` list rather than a list here, so a
+    sub-block added to (or dropped from) the composition is discovered instead
+    of remembered. Generated blocks (the routing cell) are excluded by their
+    own `source` field: they are produced during the run and have no upstream
+    record to trace back to.
+
+    `None` when the flow has no `reports/LATEST` or no readable composition --
+    the same "nothing to compare against" condition check 13 reports.
+    """
+    stamp = _pointer_stamp("layout", block)
+    if stamp is None:
+        return None
+    compose = _load_json(REPO_ROOT / "layout" / block / "reports" / stamp / COMPOSE_ARTEFACT)
+    if compose is None:
+        return None
+    blocks = compose.get("blocks")
+    if not isinstance(blocks, list):
+        return None
+    cells = []
+    for entry in blocks:
+        if not isinstance(entry, dict) or entry.get("source") != COMPOSITION_CELL_SOURCE:
+            continue
+        cell = entry.get("id")
+        if isinstance(cell, str) and cell:
+            cells.append(cell)
+    return cells
+
+
+def composition_input_provenance(block: str, cell: str, flow: str) -> dict | None:
+    """Which records of `layout/<flow>/` the composed `<cell>.gds` reproduces.
+
+    `block` is the *composing* flow; `flow` is the sub-block flow the document
+    says that input came from. Returns the record stamps whose own `<cell>.gds`
+    fingerprints identically, the newest of them, and what `layout/<flow>/`'s
+    pointer names today. `None` when the composed copy itself cannot be read --
+    distinct from reading it and matching nothing, which is a finding.
+    """
+    stamp = _pointer_stamp("layout", block)
+    if stamp is None:
+        return None
+    fingerprint = _gds_fingerprint(
+        REPO_ROOT / "layout" / block / "reports" / stamp / f"{cell}.gds"
+    )
+    if fingerprint is None:
+        return None
+    reports = REPO_ROOT / "layout" / flow / "reports"
+    matches = []
+    if reports.is_dir():
+        for record in sorted(entry for entry in reports.iterdir() if entry.is_dir()):
+            candidate = record / f"{cell}.gds"
+            if candidate.is_file() and _gds_fingerprint(candidate) == fingerprint:
+                matches.append(record.name)
+    latest = _pointer_stamp("layout", flow)
+    return {
+        "matched": len(matches),
+        "matches": matches,
+        # Record stamps are `YYYYMMDD-HHMMSS-<sha>`, so lexical order is
+        # chronological order; the newest match is the one a reader would
+        # otherwise have to find by hand.
+        "newest": matches[-1] if matches else None,
+        "latest": latest,
+        "status": (
+            COMPOSITION_INPUT_CURRENT
+            if latest is not None and latest in matches
+            else COMPOSITION_INPUT_SUPERSEDED
+        ),
+    }
+
+
+def composition_input_sentence(block: str, cell: str, flow: str, provenance: dict) -> str:
+    """The provenance in exactly the sentence form `COMPOSITION_INPUT_RE` matches.
+
+    Used by `--stats`, so the fix for a check-14 finding is a paste rather than
+    a hand transcription -- the same guard checks 9, 12 and 13 each carry.
+    """
+    return (
+        f"the composition on `layout/{block}/reports/LATEST` embeds a `{cell}.gds` "
+        f"that reproduces **{provenance['matched']}** "
+        f"record{'' if provenance['matched'] == 1 else 's'} of `layout/{flow}/`, "
+        f"newest `{provenance['newest']}`, while `reports/LATEST` there names "
+        f"`{provenance['latest']}`: **{provenance['status']}**."
+    )
+
+
+def _source_flow_of(block: str, cell: str) -> str | None:
+    """Which `layout/` flow's own records a composed `<cell>.gds` comes from.
+
+    Used only by `--stats`, which has no document to read the flow name off.
+    Every flow but the composing one is searched -- its own older records hold
+    copies of the same input files, and would match ambiguously. A flow whose
+    pointer is among the matches wins over one that only matches an older
+    record, so the sentence `--stats` prints names the flow the input is
+    actually current against when there is one.
+    """
+    best: str | None = None
+    for pointer in sorted(REPO_ROOT.glob("layout/*/reports/LATEST")):
+        flow = pointer.parent.parent.name
+        if flow == block:
+            continue
+        provenance = composition_input_provenance(block, cell, flow)
+        if provenance is None or not provenance["matches"]:
+            continue
+        if provenance["status"] == COMPOSITION_INPUT_CURRENT:
+            return flow
+        if best is None:
+            best = flow
+    return best
+
+
+def check_composition_inputs(doc: Path, text: str) -> list[str]:
+    """Check 14: a composed input must be traced to a record of its own flow."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    stated: dict[str, set[str]] = {}
+    for claim in COMPOSITION_INPUT_RE.finditer(collapsed):
+        block = claim.group("composition").split("/", 1)[1]
+        flow = claim.group("flow").split("/", 1)[1]
+        cell = claim.group("cell")
+        where = f"{doc.name}:{_line_of(text, offsets[claim.start()])}"
+        stated.setdefault(block, set()).add(cell)
+
+        cells = composition_inputs(block)
+        if cells is None:
+            misses.append(
+                f"{where}: the composition-input readout names `layout/{block}/`, but "
+                f"that flow has no `reports/LATEST` record carrying a "
+                f"`{COMPOSE_ARTEFACT}` whose composed blocks could be listed"
+            )
+            continue
+        if cell not in cells:
+            misses.append(
+                f"{where}: the composition-input readout states `{cell}.gds` for "
+                f"`layout/{block}/`, but that flow's current `{COMPOSE_ARTEFACT}` "
+                f"composes no such block ({', '.join(cells) or 'none'})"
+            )
+            continue
+
+        provenance = composition_input_provenance(block, cell, flow)
+        if provenance is None:
+            misses.append(
+                f"{where}: the composition-input readout states `{cell}.gds` for "
+                f"`layout/{block}/`, but that flow's current record carries no "
+                f"readable `{cell}.gds` to fingerprint"
+            )
+            continue
+        if not provenance["matches"]:
+            misses.append(
+                f"{where}: the `{cell}.gds` embedded in `layout/{block}/`'s current "
+                f"composition reproduces NO record of `layout/{flow}/` -- it was "
+                f"composed from something this repository does not keep, or from "
+                f"another flow entirely; do not restate the readout without "
+                f"establishing where it came from"
+            )
+            continue
+
+        for field in ("matched", "newest", "latest", "status"):
+            claimed: object = claim.group(field)
+            expected = provenance[field]
+            if field == "matched":
+                claimed = int(claimed)
+            if claimed != expected:
+                misses.append(
+                    f"{where}: the composition-input readout for `{cell}.gds` says "
+                    f"{field}={claimed}, but `layout/{block}/`'s current composition "
+                    f"against `layout/{flow}/` gives {field}={expected} -- restate it "
+                    f"from `python3 docs/chipalooza/check_proposal_citations.py "
+                    f"--stats`"
+                )
+
+    # Both directions, as checks 8 and 10 do: a document that states some of a
+    # composition's inputs must state all of them. Dropping the line for the
+    # one input that went superseded is otherwise the cheapest way to make this
+    # readout look clean.
+    for block, named in stated.items():
+        cells = composition_inputs(block)
+        for cell in cells or []:
+            if cell in named:
+                continue
+            misses.append(
+                f"{doc.name}: `layout/{block}/`'s current composition embeds "
+                f"`{cell}.gds`, but this document states no composition-input "
+                f"readout for it -- state every composed input or none"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -1403,6 +1681,7 @@ def check_document(doc: Path) -> list[str]:
         + check_coverage_index_parity(doc, text)
         + check_power_readout(doc, text)
         + check_area_readout(doc, text)
+        + check_composition_inputs(doc, text)
     )
 
 
@@ -1451,6 +1730,27 @@ def main(argv: list[str]) -> int:
             if readout is None:
                 continue
             print(f"layout/{block}/: {area_sentence(block, readout)}")
+        # Likewise every composed input of every `layout/` flow whose current
+        # record carries a composition. The source flow of each input is
+        # resolved by fingerprint rather than named here, so this prints the
+        # right sentence for a sub-block the document has never mentioned.
+        for pointer in sorted(REPO_ROOT.glob("layout/*/reports/LATEST")):
+            block = pointer.parent.parent.name
+            for cell in composition_inputs(block) or []:
+                flow = _source_flow_of(block, cell)
+                if flow is None:
+                    print(
+                        f"layout/{block}/: the composed `{cell}.gds` reproduces no "
+                        f"record of any other `layout/` flow -- nothing to state"
+                    )
+                    continue
+                provenance = composition_input_provenance(block, cell, flow)
+                if provenance is None:
+                    continue
+                print(
+                    f"layout/{block}/: "
+                    f"{composition_input_sentence(block, cell, flow, provenance)}"
+                )
         # Likewise every `sim/` campaign whose current record carries a Power
         # table, not only the one the Power row happens to cite today.
         for pointer in sorted(REPO_ROOT.glob("sim/*/records/LATEST")):

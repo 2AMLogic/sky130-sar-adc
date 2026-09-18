@@ -332,6 +332,120 @@ of the records themselves rather than inferred from the verdict word:
   README for the record-pair comparison). No regression, so no upstream
   `klt` issue was filed for this pass.
 
+**What the composed top level is actually built from, machine-checked** (added
+2026-09-18). The five readouts above are recomputed from each sub-block flow's
+*current* record. §4's two sign-off-bar rows and its Area row are graded on a
+different artefact — the *composed* record `layout/sar-adc-top/reports/LATEST`
+resolves to — and nothing tied the two together.
+[`layout/sar-adc-top/bin/run-flow.sh`](../../layout/sar-adc-top/bin/run-flow.sh)
+resolves each sub-block's `reports/LATEST` at run time and copies that flow's
+top-cell GDS in as `<block>.gds`; which record it took is not recorded anywhere
+afterwards, because `klt gen-compose`'s `compose.json` names each block's offset
+and bounding box but carries no provenance for the geometry it composed (filed
+generically upstream as
+[`2AMLogic/klayout-tools#2065`](https://github.com/2AMLogic/klayout-tools/issues/2065)).
+So a sub-block could be re-run, its readout above advance, and §4 keep grading a
+composition of the superseded geometry — with every other check in the
+[citation gate](check_proposal_citations.py) green, because each of those
+grades a claim against the record it cites and none of them looks at that
+record's inputs.
+
+That is this tree's state today, not a hypothetical: the re-run described in
+the bullet above happened on 2026-09-17, and the composition `reports/LATEST`
+resolves to was built on 2026-09-15. Check 14 now states each composed input's
+provenance, recomputed per CI run by fingerprinting the embedded copy against
+every record of the named flow (`--stats` prints these, so a re-composition is
+pasted back rather than hand-transcribed):
+
+> - the composition on `layout/sar-adc-top/reports/LATEST` embeds a
+> `cdac_array.gds` that reproduces **2** records of `layout/cdac-array/`,
+> newest `20260917-180543-527ec73`, while `reports/LATEST` there names
+> `20260917-180543-527ec73`: **current**.
+> - the composition on `layout/sar-adc-top/reports/LATEST` embeds a
+> `sampling_frontend.gds` that reproduces **1** record of
+> `layout/sampling-frontend/`, newest `20260915-120718-1e90b14`, while
+> `reports/LATEST` there names `20260915-120718-1e90b14`: **current**.
+> - the composition on `layout/sar-adc-top/reports/LATEST` embeds a
+> `comparator.gds` that reproduces **4** records of `layout/comparator/`,
+> newest `20260915-121226-1e90b14`, while `reports/LATEST` there names
+> `20260915-120705-1e90b14`: **current**.
+> - the composition on `layout/sar-adc-top/reports/LATEST` embeds a
+> `sar_sequencer.gds` that reproduces **1** record of `layout/sar-sequencer/`,
+> newest `20260905-191258-4c6c655`, while `reports/LATEST` there names
+> `20260917-180601-527ec73`: **superseded**.
+> - the composition on `layout/sar-adc-top/reports/LATEST` embeds a
+> `seln_inverters.gds` that reproduces **1** record of
+> `layout/seln-inverters/`, newest `20260906-002022-a36e06f`, while
+> `reports/LATEST` there names `20260917-180644-527ec73`: **superseded**.
+
+Five things those lines state, each read out of the artefacts rather than
+inferred:
+
+- **"Current" means the flow's own pointer is among the records the embedded
+  copy reproduces — not that it is the newest of them.** Those are different
+  claims, and `layout/comparator/` is where they come apart: its
+  `20260915-121226-1e90b14` record was minted *after* the
+  `20260915-120705-1e90b14` its `reports/LATEST` names (a `klt 0.4.0` run from
+  a different branch, where the pointer names the `klt 0.5.0` one), and both
+  reproduce the composed copy. The input is current because the pointer
+  matches; the newest match is reported alongside it rather than instead of
+  it, so that discrepancy is visible rather than smoothed away.
+- **Two of the five inputs are superseded**, both of them flows PR #327
+  re-ran: the composition embeds `sar_sequencer` geometry from
+  `20260905-191258-4c6c655` and `seln_inverters` geometry from
+  `20260906-002022-a36e06f`, the `klt 0.4.0`-era records their own flows no
+  longer point at. `cdac_array`'s re-run, by contrast, reproduced its
+  predecessor exactly (which is why that input matches **2** records and is
+  still current).
+- **No §4 verdict moves because of this, and that is verified rather than
+  assumed.** A layer-by-layer XOR of the embedded copy against each flow's
+  current record — over every layer present in either file, using `klayout`'s
+  own `Region` boolean, run once by hand this pass — is **empty for all
+  five**. It needs the `klayout` Python module (`layout/bin/setup-venv.sh`),
+  which is why it is a hand check rather than part of the gate:
+
+  ```python
+  # A = the composed copy, layout/sar-adc-top/reports/<stamp>/<cell>.gds
+  # B = layout/<flow>/reports/<that flow's LATEST>/<cell>.gds
+  import klayout.db as db
+  la, lb = db.Layout(), db.Layout()
+  la.read(A), lb.read(B)
+  # By top cell, not by name: two of the five files name their top
+  # `gen_compose_0` rather than after the block (`compose.json` records that).
+  ca, cb = la.top_cell(), lb.top_cell()
+  layers = {(i.layer, i.datatype) for i in
+            [la.get_info(x) for x in la.layer_indexes()]
+            + [lb.get_info(x) for x in lb.layer_indexes()]}
+  for ln, dt in sorted(layers):
+      xor = (db.Region(ca.begin_shapes_rec(la.layer(ln, dt)))
+             ^ db.Region(cb.begin_shapes_rec(lb.layer(ln, dt))))
+      assert xor.is_empty(), (ln, dt, xor.count(), xor.area())
+  ```
+
+  Run this pass over all five inputs: XOR empty over 20 / 16 / 11 / 34 / 34
+  layers for `cdac_array` / `sampling_frontend` / `comparator` /
+  `sar_sequencer` / `seln_inverters` respectively.
+
+  The two superseded inputs are byte-different from their successors but
+  *geometrically identical* to them; what moved is GDS element ordering, which
+  a re-run of OpenROAD place-and-route (`layout/sar-sequencer/`,
+  `layout/seln-inverters/`) does not reproduce bit-for-bit. So the composed
+  GDS §4 grades is the same geometry the current sub-block records hold, and
+  the two sign-off-bar rows and the Area row stand exactly as written.
+- **The gate cannot make that XOR claim for itself**, which is why the stated
+  readout is record identity rather than geometric equivalence: the always-on
+  headless CI job installs no PDK and no `klayout` module. The fingerprint is
+  exact on everything but the two GDS timestamp records, so it is
+  conservative in the safe direction — it reports a re-ordered rebuild as
+  **superseded** and asks for the XOR, rather than reporting a real input
+  drift as current.
+- **What clears the two superseded lines is a re-composition, not an edit
+  here.** The next `layout/sar-adc-top/bin/run-flow.sh` run picks up the
+  current pointers by construction; #103 (top-level assembly) and #326 (the
+  sub-minimum-area metal shapes) each re-run that flow. This document compiles
+  evidence and does not mint layout records, so the lines are stated as they
+  are rather than re-run into being current.
+
 **Top-level assembly has since landed (PR #174, merged
 2026-09-06T04:46:23Z), partially closing that gap.** A composed, routed
 `sar_adc_top.gds` now exists at
@@ -915,6 +1029,23 @@ why it could be added without re-grading anything. That row remains
 *informational only* — this is a raw `klt gen-compose` extent, not an
 LVS-clean sign-off-grade area figure, and `spec/target-spec.md` states no area
 line to grade it against.
+
+**Check 14 then grades the composed record's own inputs** (added 2026-09-18),
+which is the one thing checks 3–13 structurally cannot see: each of those
+grades a claim against the record it cites, and none looks at what that record
+was built *from*. Three rows of this table — the two sign-off-bar rows and the
+Area row — are graded on `layout/sar-adc-top/`'s composition, while §3's five
+sub-block readouts are recomputed from each sub-block flow's own current
+record. Re-run a sub-block and check 9 moves §3 forward while the composition
+keeps grading the superseded geometry, every other check green. §3's "What the
+composed top level is actually built from" block now states each composed
+input's provenance — how many records of its own flow the embedded copy
+reproduces, the newest of them, and whether that flow's pointer is among them
+— and check 14 recomputes all of it by fingerprint on every CI run. **No row
+below is re-graded by it**: two of the five inputs do trace to superseded
+records today, but a layer-by-layer XOR (run by hand this pass, recorded in
+§3) shows the composed geometry is identical to what those flows publish now,
+so the three rows stand as written.
 
 ---
 
