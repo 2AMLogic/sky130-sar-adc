@@ -41,63 +41,25 @@ name: CI
 #     individual campaign still looks green.
 #   - `docs/chipalooza/check_proposal_citations.py` (issue #121) is also part
 #     of `check:ci` -> `checks` below, and is likewise headless (pure file
-#     reads, no PDK, no ngspice, no network): it checks that every path
-#     docs/chipalooza/challenge-4-proposal.md cites resolves, that every
-#     Section 4 spec row cites the CURRENT record of each sim/layout flow it
-#     draws on (per that flow's own records/LATEST or reports/LATEST pointer,
-#     not only a superseded one), and that every *attached* "current LATEST"
-#     claim in the prose -- one directly following the record path it is
-#     about -- is true and names the right pointer file for its tree. That
-#     last check is deliberately not universal: a claim that only narrates a
-#     correction, or that names its stamp *after* the phrase, is skipped. How
-#     many that leaves is NOT restated here on purpose -- this comment used to
-#     carry its own copy of the number and went stale the first time the
-#     document grew (PR #312). The proposal's own "Reproducing this table"
-#     note is the single place that states it, and the checker's check 6 now
-#     recomputes and gates it (`--stats` prints the live census). This is the
-#     always-on gate against the drift that document's own history is full of
-#     -- a flow re-runs, its LATEST moves, and a spec-row verdict is left
-#     citing the superseded record (PRs #239/#242/#276/#282/#295/#300 each had
-#     to correct an instance after the fact). It additionally compares that
-#     document's Section 4 table against spec/target-spec.md's own target
-#     table (check 7): every ratified spec row must be restated there, with
-#     every numeric bound it states -- comparator and sign included -- still
-#     present, and the same leading Status word. That is the mechanical form
-#     of this repo's standing "agents do not relax a spec line to make a
-#     result pass" rule, and it is also what turns DR-007's eventual
-#     ratification into a CI failure rather than a silent staleness. Check 8
-#     then requires every row to open its verdict with one of the kinds
-#     Section 4's own preamble defines, and every defined kind to be used by
-#     some row, so neither list can drift from the other. Check 9 closes the
-#     last hand-carried gap in that table: checks 3-5 gate WHICH record a row
-#     cites, but the figures quoted out of it (mismatch count, device/net/pin
-#     correspondence, category breakdown) were re-typed by hand every time
-#     layout/sar-adc-top/ was re-run -- 98 -> 128 -> 124 -> 98 across
-#     successive klt builds. The document now states that readout once, and
-#     check 9 recomputes it from the record's own drc.json/lvs.json. As with
-#     the census, the numbers are NOT restated in this comment; `--stats`
-#     prints the live sentence for every layout/ flow. Checks 10-12 then reach
-#     past that table: check 10 grades Section 2's I/O table and the
-#     `.subckt` line it quotes against design/sar_adc_top.spice's own port
-#     list (both directions, plus the slot totals recomputed from that table's
-#     own columns); check 11 grades what a Section 4 row does NOT cite,
-#     against sim/spec-coverage.json -- every campaign that index files under
-#     a spec row whose claim rests on committed evidence must be cited by that
-#     row -- which is the one defect class checks 3-9 structurally cannot see,
-#     since an absent citation has nothing that can go stale (it had already
-#     left the Power row reading "no full-block power campaign exists" for
-#     five days after that campaign landed); and check 12 recomputes a
-#     reporting row's min/typ/max power readout from the cited campaign's own
-#     record, exactly as check 9 does for the sign-off-bar numbers. Check 13
-#     closes the last hand-transcribed figure in that table, the Area row's
-#     bounding box: the composed cell name, the four bbox_um coordinates and
-#     the width/height/mm^2 derived from them are recomputed from whichever
-#     layout/sar-adc-top/ record reports/LATEST resolves to. That flow has
-#     been re-run five times, and each re-run had a human establish by `cmp`
-#     that the box had not moved -- a check that gets skipped exactly on the
-#     re-run where it would have found something. `--stats` prints that
-#     sentence too; as everywhere else here, the numbers are NOT restated in
-#     this comment.
+#     reads, no PDK, no ngspice, no network): it gates the evidence citations
+#     in docs/chipalooza/challenge-4-proposal.md -- that every path that
+#     document cites resolves, that every Section 4 spec-row verdict cites the
+#     CURRENT record of each sim/layout flow it rests on, and that the figures
+#     quoted *out of* those records are recomputed from them rather than
+#     trusted as typed. This is the always-on gate against the drift that
+#     document's own history is full of -- a flow re-runs, its LATEST moves,
+#     and a spec-row verdict is left citing the superseded record (PRs
+#     #239/#242/#276/#282/#295/#300 each had to correct an instance after the
+#     fact).
+#
+#     The per-check rationale -- what each numbered check exists for, and what
+#     it deliberately does NOT cover -- lives in docs/citation-gate.md, which
+#     sim/tests/test_proposal_citations.py keeps in step with the checker's
+#     own `check_document` chain. It is NOT restated here on purpose: a second
+#     narrative copy goes stale exactly the way this comment's hand-carried
+#     census number did (PR #312). Neither are any of the gated figures
+#     (census, DRC/LVS, power and area readouts) -- run the checker with
+#     `--stats` for the live ones.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict
