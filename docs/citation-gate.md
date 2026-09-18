@@ -336,6 +336,66 @@ with no readable `compose.json`, and when it states one for a flow it cites
 no record of -- a readout attributed to a composition this row does not
 cite is not this row's evidence.
 
+### Check 14 -- composition-input parity (`check_composition_inputs`)
+
+Checks 3 to 13 all grade a claim against the record it cites. This one grades
+the record's own *inputs*, which nothing else in this repository ties to
+anything.
+
+`layout/sar-adc-top/bin/run-flow.sh` builds the composed top level by copying
+each sub-block's `reports/LATEST` top-cell GDS in as `<block>.gds` and handing
+the set to `klt gen-compose`. That resolution happens at run time and is not
+recorded anywhere: `compose.json` names each block, its offset and its bounding
+box, but nothing about *which record* the geometry came from -- no source path,
+no digest, no stamp. (Filed generically upstream, since it is a `klt` output
+gap rather than a fact about this design.) The record is therefore a snapshot
+of five sub-block records taken on one day, with no trace back to them.
+
+That is exactly where Section 3 and Section 4 can silently disagree. Section
+3's five sub-block sign-off readouts are recomputed from each flow's *current*
+record by check 9, while Section 4's two sign-off-bar rows and its Area row are
+graded on the *composed* record. Re-run a sub-block and check 9 moves Section
+3's numbers forward; the composition is untouched and keeps grading geometry
+from the superseded record, with every other check green. It is not a
+hypothetical: it is the tree's state as of 2026-09-18. Issue #323's
+version-parity pass (PR #327) re-ran three sub-block flows under the pinned
+`klt 0.5.0` on 2026-09-17, and the composition `reports/LATEST` resolves to was
+built on 2026-09-15 -- so two of its five embedded inputs reproduce records
+their own flow no longer points at.
+
+So the document states, per composed input, how many records of the named flow
+the embedded copy reproduces, the newest of them, what that flow's pointer
+names today, and the verdict word those two imply. The verdict is **current**
+when the flow's own pointer is among the reproduced records and **superseded**
+otherwise -- *not* "the newest match is the pointer", which is a different
+claim: `layout/comparator/` today carries a record minted after the one its
+pointer names, so its newest match is not its pointer and the input is current
+all the same.
+
+Coverage is graded in both directions, like checks 8 and 10: a document that
+states one composed input of a composition must state all of them, because
+dropping the line for the one input that went superseded is otherwise the
+cheapest way to make the readout look clean.
+
+**Records are compared by fingerprint, not by geometry.** The digest hashes
+the GDS record stream verbatim except the two record types whose payload is a
+wall-clock timestamp (BGNLIB/BGNSTR), which move on every write and describe
+nothing. Everything else is exact, element *ordering* included -- so two
+records holding geometrically equivalent but differently-ordered GDS (a
+re-run of a non-deterministic place-and-route flow produces exactly that) are
+reported as different. That is the conservative direction, and deliberate: a
+false **superseded** costs one hand check, while a false **current** would
+hide a real input drift. Establishing that two such records really are
+equivalent needs a layer-by-layer XOR, which needs `klayout`; the always-on
+`checks` CI job installs no PDK and no `klayout`, so that comparison cannot be
+this gate's job. What the gate can do -- and does -- is make the question
+appear at all.
+
+**A composed input that reproduces no record at all is a finding, not a third
+verdict word.** There is deliberately no vocabulary for it, because it is also
+what a broken fingerprint parser would produce, and a document must not be
+able to state its way past its own gate going vacuous.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

@@ -25,6 +25,7 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import struct
 import sys
 import tempfile
 import unittest
@@ -65,10 +66,17 @@ class FixtureTree:
         drc: dict | None = None,
         lvs: dict | None = None,
         compose: dict | None = None,
+        gds: dict[str, bytes] | None = None,
     ):
         report = self.root / "layout" / block / "reports" / stamp
         report.mkdir(parents=True, exist_ok=True)
         (report / "record.md").write_text("fixture record\n")
+        # The GDS artefacts check 14 fingerprints: for a composing flow, the
+        # `<block>.gds` copies `run-flow.sh` pulled in; for a sub-block flow,
+        # its own top-cell GDS. Keyed by file stem so one call can write both
+        # shapes.
+        for stem, payload in (gds or {}).items():
+            (report / f"{stem}.gds").write_bytes(payload)
         # `klt`'s own machine-readable verdicts, which check 9 reads out.
         # Written only when asked for: a record without them is the "nothing
         # to compare against" condition check 9 reports separately.
@@ -1257,11 +1265,14 @@ def compose_json(
     y0: float = -161.6,
     x1: float = 260.2,
     y1: float = 223.9,
+    blocks: list[dict] | None = None,
 ) -> dict:
-    """A `klt gen-compose` report in the shape check 13 reads.
+    """A `klt gen-compose` report in the shape checks 13 and 14 read.
 
     Defaults are `layout/sar-adc-top/`'s own real extent, so a fixture states
-    only the field it is about.
+    only the field it is about. `blocks` is what check 14 enumerates the
+    composed inputs from; `composed_block()` builds an entry in the real
+    report's shape.
     """
     return {
         "schema_version": 1,
@@ -1269,8 +1280,72 @@ def compose_json(
         "cell_name": cell,
         "dbu_um": 0.001,
         "bbox_um": {"x0": x0, "y0": y0, "x1": x1, "y1": y1},
-        "blocks": [],
+        "blocks": [] if blocks is None else blocks,
     }
+
+
+def composed_block(block_id: str, *, source: str = "cell") -> dict:
+    """One `blocks[]` entry of a `compose.json`.
+
+    `source` is the field check 14 filters on: `"cell"` for an already-drawn
+    sub-block composed in (and therefore copied in as `<id>.gds`, with an
+    upstream record to trace to), `"generator_report"` for the routing cell
+    the run generates and which has no upstream record at all.
+    """
+    return {
+        "id": block_id,
+        "source": source,
+        "cell_name": block_id,
+        "offset_um": {"x": 0.0, "y": 0.0},
+        "bbox_um": {"x0": 0.0, "y0": 0.0, "x1": 1.0, "y1": 1.0},
+        "orientation": "none",
+    }
+
+
+def gds_bytes(
+    *,
+    cell: str = "fixture_cell",
+    layer: int = 68,
+    datatype: int = 20,
+    corner: int = 1000,
+    timestamp: int = 0,
+) -> bytes:
+    """A minimal but structurally real GDS stream, in record form.
+
+    Check 14 fingerprints GDS by hashing its record stream with the two
+    timestamp-bearing record types (BGNLIB/BGNSTR) dropped, so a fixture has
+    to be able to vary the timestamp *independently* of the geometry -- a
+    synthetic blob would make the one guarantee that matters (a re-write of
+    identical geometry still fingerprints equal) untestable.
+    """
+
+    def record(rtype: int, dtype: int, payload: bytes) -> bytes:
+        return struct.pack(">HBB", 4 + len(payload), rtype, dtype) + payload
+
+    stamp = struct.pack(">12h", *([timestamp] * 12))
+
+    def name(text: str) -> bytes:
+        encoded = text.encode("ascii")
+        return encoded + (b"\0" if len(encoded) % 2 else b"")
+
+    box = (0, 0, corner, 0, corner, corner, 0, corner, 0, 0)
+    return b"".join(
+        (
+            record(0x00, 0x02, struct.pack(">h", 600)),  # HEADER
+            record(0x01, 0x02, stamp),  # BGNLIB
+            record(0x02, 0x06, name("FIXTURE.DB")),  # LIBNAME
+            record(0x03, 0x05, b"\x00" * 16),  # UNITS
+            record(0x05, 0x02, stamp),  # BGNSTR
+            record(0x06, 0x06, name(cell)),  # STRNAME
+            record(0x08, 0x00, b""),  # BOUNDARY
+            record(0x0D, 0x02, struct.pack(">h", layer)),  # LAYER
+            record(0x0E, 0x02, struct.pack(">h", datatype)),  # DATATYPE
+            record(0x10, 0x03, struct.pack(">10i", *box)),  # XY
+            record(0x11, 0x00, b""),  # ENDEL
+            record(0x07, 0x00, b""),  # ENDSTR
+            record(0x04, 0x00, b""),  # ENDLIB
+        )
+    )
 
 
 class TestAreaReadout(unittest.TestCase):
@@ -1415,6 +1490,218 @@ class TestAreaReadout(unittest.TestCase):
         self.assertIsNotNone(readout)
         self.assertEqual(
             self.tree.check(self._row(checker.area_sentence("sar-adc-top", readout))), []
+        )
+
+
+class TestCompositionInputs(unittest.TestCase):
+    """Check 14: a composed input must trace to a record of its own flow.
+
+    The defect shape checks 3-13 structurally cannot see. Each of those grades
+    a claim against the record it cites; none looks at what that record was
+    built *from*. `layout/sar-adc-top/bin/run-flow.sh` resolves each
+    sub-block's `reports/LATEST` at run time and `compose.json` keeps no
+    provenance for what it took, so a sub-block re-run advances Section 3's
+    readouts while the composition silently keeps grading the superseded
+    geometry -- which is the tree's real state as of 2026-09-18 for two of the
+    five inputs (issue #323's re-run, PR #327).
+    """
+
+    TOP = "20260915-234004-76f48b9"
+    SUB = "20260917-180601-527ec73"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.embedded = gds_bytes(cell="sar_sequencer")
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            self.TOP,
+            latest=True,
+            compose=compose_json(
+                blocks=[
+                    composed_block("sar_sequencer"),
+                    composed_block("route", source="generator_report"),
+                ]
+            ),
+            gds={"sar_sequencer": self.embedded},
+        )
+        self.tree.add_layout_record(
+            "sar-sequencer", self.SUB, latest=True, gds={"sar_sequencer": self.embedded}
+        )
+
+    def _readout(self, **overrides) -> str:
+        fields = {
+            "composition": "layout/sar-adc-top",
+            "cell": "sar_sequencer",
+            "matched": "1",
+            "flow": "layout/sar-sequencer",
+            "newest": self.SUB,
+            "latest": self.SUB,
+            "status": "current",
+        }
+        fields.update(overrides)
+        plural = "" if fields["matched"] == "1" else "s"
+        return (
+            f"> the composition on `{fields['composition']}/reports/LATEST` embeds a\n"
+            f"> `{fields['cell']}.gds` that reproduces **{fields['matched']}** "
+            f"record{plural} of `{fields['flow']}/`,\n"
+            f"> newest `{fields['newest']}`, while `reports/LATEST` there names\n"
+            f"> `{fields['latest']}`: **{fields['status']}**.\n"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        self.assertEqual(self.tree.check(self._readout()), [])
+
+    def test_a_timestamp_only_rewrite_still_counts_as_the_same_record(self):
+        """The one guarantee the fingerprint exists for.
+
+        `klt` stamps BGNLIB/BGNSTR at write time, so an input re-written with
+        identical geometry is byte-different. Hashing those in would report
+        every input as unmatched and make the check useless.
+        """
+        self.tree.add_layout_record(
+            "sar-sequencer",
+            self.SUB,
+            latest=True,
+            gds={"sar_sequencer": gds_bytes(cell="sar_sequencer", timestamp=1234)},
+        )
+        self.assertEqual(self.tree.check(self._readout()), [])
+
+    def test_a_geometry_change_is_not_a_reproduction(self):
+        """The conservative direction: different geometry is never "current"."""
+        self.tree.add_layout_record(
+            "sar-sequencer",
+            "20260918-090000-abcdef0",
+            latest=True,
+            gds={"sar_sequencer": gds_bytes(cell="sar_sequencer", corner=2000)},
+        )
+        misses = self.tree.check(
+            self._readout(latest="20260918-090000-abcdef0", status="superseded")
+        )
+        self.assertEqual(misses, [])
+
+    def test_a_superseded_input_stated_as_current_is_reported(self):
+        """The live defect this check was written for."""
+        self.tree.add_layout_record(
+            "sar-sequencer",
+            "20260918-090000-abcdef0",
+            latest=True,
+            gds={"sar_sequencer": gds_bytes(cell="sar_sequencer", corner=2000)},
+        )
+        misses = self.tree.check(self._readout(latest="20260918-090000-abcdef0"))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("status=current", misses[0])
+        self.assertIn("status=superseded", misses[0])
+        self.assertIn("--stats", misses[0])
+
+    def test_a_drifted_match_count_is_reported_with_its_field_name(self):
+        misses = self.tree.check(self._readout(matched="2"))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("matched=2", misses[0])
+        self.assertIn("matched=1", misses[0])
+
+    def test_a_stale_pointer_stamp_is_reported(self):
+        misses = self.tree.check(self._readout(latest="20260101-000000-0000000"))
+        self.assertTrue(any("latest=20260101-000000-0000000" in miss for miss in misses))
+
+    def test_a_stale_newest_stamp_is_reported(self):
+        misses = self.tree.check(self._readout(newest="20260101-000000-0000000"))
+        self.assertTrue(any("newest=20260101-000000-0000000" in miss for miss in misses))
+
+    def test_an_input_the_composition_does_not_embed_is_reported(self):
+        misses = self.tree.check(self._readout(cell="comparator"))
+        reported = [miss for miss in misses if "composes no such block" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_flow_the_copy_reproduces_nothing_in_is_reported(self):
+        """Attributing an input to the wrong flow must not pass silently."""
+        self.tree.add_layout_record(
+            "comparator",
+            "20260915-120705-1e90b14",
+            latest=True,
+            gds={"sar_sequencer": gds_bytes(cell="sar_sequencer", corner=2000)},
+        )
+        misses = self.tree.check(
+            self._readout(flow="layout/comparator", latest="20260915-120705-1e90b14")
+        )
+        reported = [miss for miss in misses if "reproduces NO record" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_composed_input_with_no_stated_readout_is_reported(self):
+        """Both directions: dropping the line for the stale input is the cheat."""
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            self.TOP,
+            latest=True,
+            compose=compose_json(
+                blocks=[composed_block("sar_sequencer"), composed_block("seln_inverters")]
+            ),
+            gds={"sar_sequencer": self.embedded},
+        )
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "states no composition-input readout" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("seln_inverters.gds", reported[0])
+
+    def test_a_generated_block_needs_no_readout(self):
+        """The routing cell is produced by the run; it has no upstream record."""
+        self.assertEqual(self.tree.check(self._readout()), [])
+        self.assertEqual(checker.composition_inputs("sar-adc-top"), ["sar_sequencer"])
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self.assertEqual(self.tree.check("no composition inputs stated here\n"), [])
+
+    def test_an_unreadable_embedded_copy_is_reported_not_matched(self):
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            self.TOP,
+            latest=True,
+            compose=compose_json(blocks=[composed_block("sar_sequencer")]),
+            gds={"sar_sequencer": b"not a gds stream"},
+        )
+        self.tree.add_layout_record(
+            "sar-sequencer", self.SUB, latest=True, gds={"sar_sequencer": b"nor is this"}
+        )
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("no readable `sar_sequencer.gds` to fingerprint", misses[0])
+
+    def test_a_truncated_stream_yields_no_fingerprint(self):
+        """A parse failure must never read as equality against another failure."""
+        truncated = self.tree.root / "truncated.gds"
+        truncated.write_bytes(gds_bytes()[:-3])
+        self.assertIsNone(checker._gds_fingerprint(truncated))
+        empty = self.tree.root / "empty.gds"
+        empty.write_bytes(b"")
+        self.assertIsNone(checker._gds_fingerprint(empty))
+
+    def test_a_flow_with_no_composition_yields_no_inputs(self):
+        self.tree.add_layout_record("comparator", "20260915-120705-1e90b14", latest=True)
+        self.assertIsNone(checker.composition_inputs("comparator"))
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """`--stats` output must be pasteable: what it prints must pass."""
+        provenance = checker.composition_input_provenance(
+            "sar-adc-top", "sar_sequencer", "sar-sequencer"
+        )
+        self.assertIsNotNone(provenance)
+        sentence = checker.composition_input_sentence(
+            "sar-adc-top", "sar_sequencer", "sar-sequencer", provenance
+        )
+        self.assertEqual(self.tree.check(f"> {sentence}\n"), [])
+
+    def test_stats_resolves_the_source_flow_without_being_told_it(self):
+        """`--stats` has no document to read the flow name off.
+
+        It must also not resolve to the composing flow itself, whose own older
+        records hold copies of exactly these input files.
+        """
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            "20260908-072857-80df05e",
+            gds={"sar_sequencer": self.embedded},
+        )
+        self.assertEqual(
+            checker._source_flow_of("sar-adc-top", "sar_sequencer"), "sar-sequencer"
         )
 
 
@@ -1728,6 +2015,52 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         self.assertIn(readout["lvs_status"], ("match", "mismatch"))
         for field in ("devices_layout", "nets_reference", "pins_matched"):
             self.assertIsInstance(readout[field], int, field)
+
+    def test_the_real_proposal_states_every_composed_input(self):
+        """Check 14 is opt-in per input, so assert the real document opts in.
+
+        A document that states none is not failed by check 14 (that is what
+        keeps it inert against a document with no composition), so a pass that
+        deleted the readouts would disable the check and still exit 0 -- and
+        deleting exactly the *superseded* line is the cheat the both-directions
+        arm exists for. Both sides are asserted here: every composed input has
+        a line, and every line names an input the composition really embeds.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        stated = {
+            claim.group("cell"): claim.group("flow")
+            for claim in checker.COMPOSITION_INPUT_RE.finditer(collapsed)
+        }
+        composed = checker.composition_inputs("sar-adc-top")
+        self.assertIsNotNone(composed, "sar-adc-top's current record has no composition")
+        self.assertEqual(sorted(stated), sorted(composed), stated)
+        # Each input is attributed to its own flow, not to the composition it
+        # sits in -- `layout/sar-adc-top/`'s own older records hold copies of
+        # exactly these files, so a self-attribution would always "match".
+        for cell, flow in stated.items():
+            self.assertNotEqual(flow, "layout/sar-adc-top", cell)
+
+    def test_the_real_composed_inputs_are_distinguishable_by_fingerprint(self):
+        """The record side of check 14 must be readable and discriminating.
+
+        Two failure modes would both leave the check green: a fingerprint that
+        cannot read these files (every input then reports as unreadable), and
+        one that collapses different files onto one digest (every input then
+        "reproduces" every record). Neither is caught by the document side.
+        """
+        stamp = checker._pointer_stamp("layout", "sar-adc-top")
+        self.assertIsNotNone(stamp)
+        report = REPO_ROOT / "layout" / "sar-adc-top" / "reports" / stamp
+        fingerprints = {}
+        for cell in checker.composition_inputs("sar-adc-top") or []:
+            fingerprint = checker._gds_fingerprint(report / f"{cell}.gds")
+            self.assertIsNotNone(fingerprint, cell)
+            fingerprints[cell] = fingerprint
+        self.assertGreater(len(fingerprints), 1)
+        self.assertEqual(
+            len(set(fingerprints.values())), len(fingerprints), "digests collapsed"
+        )
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
