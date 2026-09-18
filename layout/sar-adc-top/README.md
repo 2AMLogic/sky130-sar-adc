@@ -293,7 +293,7 @@ routing this net requires a new landing pad that does not yet exist. See
 summarized in "Status" above and in "Recommended composition mechanism"
 below.
 
-### `comparator` (top cell `gen_compose_0` in `layout/comparator/reports/20260906-113406-2d66a6a/comparator.gds`)
+### `comparator` (top cell `gen_compose_0` in `layout/comparator/reports/20260915-120705-1e90b14/comparator.gds`)
 
 bbox: `(0.0, 2.5)` to `(26.6, 38.65)` -- widened from `(24.0, 38.65)` by
 issue #180's re-draw (the sixth `klt gen` block, `rstd`, and the `DIP`/`DIN`
