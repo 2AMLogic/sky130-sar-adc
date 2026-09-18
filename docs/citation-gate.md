@@ -297,6 +297,45 @@ Inert on a row that states no readout, and reported (not silently
 skipped) when a row states one but cites no campaign whose current record
 carries a Power table.
 
+### Check 13 -- area-readout parity (`check_area_readout`)
+
+The last hand-transcribed figure left in Section 4, and the third instance
+of the same defect shape as checks 9 and 12. The Area row quotes a bounding
+box out of `layout/sar-adc-top/`'s own `compose.json` -- four corner
+coordinates, the width and height they imply, and the mm^2 that follows --
+and nothing recomputed any of it. What check 3 gates there is only *which*
+record the row cites; every time that flow re-ran (five times so far:
+`20260906-101939-1250ff4` -> `20260907-110058-a546200` ->
+`20260908-072857-80df05e` -> `20260915-213439-bf2256f` ->
+`20260915-234004-76f48b9`) an agent moved the citation forward and then
+established *by hand* -- `cmp`, or a field-by-field diff of the two
+artefacts -- that the numbers had not moved. That hand check is exactly
+what the gate exists to replace, and it is one that gets skipped precisely
+when it matters: the one re-run where the box really did change is the one
+where "byte-identical, verified directly" is the wrong sentence to carry
+forward. It is not hypothetical either -- the `v0.5.0` rebuild moved a
+*sub-block* bbox (`sampling_frontend` `y1` 146.3 -> 147.22 um) while
+leaving the top-level box alone, so a re-run that moves geometry without
+moving the composed extent has already happened here once.
+
+So the Area row states its readout once, in a fixed form, and this check
+recomputes every field of it from the `compose.json` of the record that
+flow's `reports/LATEST` actually resolves to: the composed `cell_name`, the
+four `bbox_um` coordinates, and the width/height/area derived from them.
+Figures are compared as formatted at the document's own stated resolution
+(three decimals, which is also the record's own `dbu_um` of 0.001 um)
+rather than with a tolerance, so what `--stats` prints is exactly what
+passes -- no rounding edge case can make a pasted sentence fail. The
+derived width/height/mm^2 are not independent of the coordinates; they are
+gated anyway because they are what the document actually quotes, and an
+arithmetic slip in a hand-written "i.e." clause is as wrong as a stale
+coordinate.
+
+Reported (not silently skipped) when the row states a readout for a flow
+with no readable `compose.json`, and when it states one for a flow it cites
+no record of -- a readout attributed to a composition this row does not
+cite is not this row's evidence.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

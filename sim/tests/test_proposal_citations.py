@@ -64,6 +64,7 @@ class FixtureTree:
         latest: bool = False,
         drc: dict | None = None,
         lvs: dict | None = None,
+        compose: dict | None = None,
     ):
         report = self.root / "layout" / block / "reports" / stamp
         report.mkdir(parents=True, exist_ok=True)
@@ -75,6 +76,11 @@ class FixtureTree:
             (report / "drc.json").write_text(json.dumps(drc))
         if lvs is not None:
             (report / "lvs.json").write_text(json.dumps(lvs))
+        # `klt gen-compose`'s own report, which check 13 reads the bounding
+        # box out of. Same convention: absent unless asked for, so the "no
+        # composition to compare against" condition stays reachable.
+        if compose is not None:
+            (report / "compose.json").write_text(json.dumps(compose))
         if latest:
             (report.parent / "LATEST").write_text(stamp + "\n")
 
@@ -1244,6 +1250,174 @@ class TestPowerReadout(unittest.TestCase):
         self.assertEqual(self.tree.check(self._row(checker.power_sentence(readout))), [])
 
 
+def compose_json(
+    *,
+    cell: str = "gen_compose_0",
+    x0: float = -20.2,
+    y0: float = -161.6,
+    x1: float = 260.2,
+    y1: float = 223.9,
+) -> dict:
+    """A `klt gen-compose` report in the shape check 13 reads.
+
+    Defaults are `layout/sar-adc-top/`'s own real extent, so a fixture states
+    only the field it is about.
+    """
+    return {
+        "schema_version": 1,
+        "generator": "gen-compose",
+        "cell_name": cell,
+        "dbu_um": 0.001,
+        "bbox_um": {"x0": x0, "y0": y0, "x1": x1, "y1": y1},
+        "blocks": [],
+    }
+
+
+class TestAreaReadout(unittest.TestCase):
+    """Check 13: a stated area readout must be the composition's own extent.
+
+    The same defect shape as checks 9 and 12, on the one figure in Section 4
+    still carried by hand: `layout/sar-adc-top/` has been re-run five times,
+    and on each re-run check 3 moved the citation while a human established by
+    `cmp` that the box had not moved. A re-run that moves geometry without
+    moving the composed extent has already happened here (`sampling_frontend`'s
+    own `bbox_um.y1`, 146.3 -> 147.22 um, under klayout-tools v0.5.0).
+    """
+
+    STAMP = "20260915-234004-76f48b9"
+    CITATION = (
+        "[`layout/sar-adc-top/reports/20260915-234004-76f48b9/compose.json`]"
+        "(../../layout/sar-adc-top/reports/20260915-234004-76f48b9/compose.json)"
+    )
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record(
+            "sar-adc-top", self.STAMP, latest=True, compose=compose_json()
+        )
+
+    def _row(self, readout: str, *, citation: str | None = None) -> str:
+        cite = self.CITATION if citation is None else citation
+        return spec_table(
+            f"| Area | not yet specified | Not a spec row yet | "
+            f"**Informational only** — {readout} | {cite} |"
+        )
+
+    def _readout(self, **overrides) -> str:
+        fields = {
+            "cell": "gen_compose_0",
+            "flow": "layout/sar-adc-top",
+            "x0": "-20.200",
+            "x1": "260.200",
+            "y0": "-161.600",
+            "y1": "223.900",
+            "width": "280.400",
+            "height": "385.500",
+            "area_mm2": "0.108",
+        }
+        fields.update(overrides)
+        return (
+            f"the composed cell `{fields['cell']}` on the record "
+            f"`{fields['flow']}/reports/LATEST` resolves to spans "
+            f"**{fields['x0']}** µm to **{fields['x1']}** µm in x and "
+            f"**{fields['y0']}** µm to **{fields['y1']}** µm in y, i.e. "
+            f"**{fields['width']}** µm × **{fields['height']}** µm ≈ "
+            f"**{fields['area_mm2']}** mm²"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        self.assertEqual(self.tree.check(self._row(self._readout())), [])
+
+    def test_a_drifted_coordinate_is_reported_with_its_field_name(self):
+        misses = self.tree.check(self._row(self._readout(y1="224.820")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("y1=224.820", misses[0])
+        self.assertIn("y1=223.900", misses[0])
+        self.assertIn("--stats", misses[0])
+
+    def test_a_derived_figure_the_coordinates_do_not_support_is_reported(self):
+        """An arithmetic slip in the "i.e." clause is as wrong as a stale box."""
+        misses = self.tree.check(self._row(self._readout(area_mm2="0.180")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("area_mm2=0.180", misses[0])
+        self.assertIn("area_mm2=0.108", misses[0])
+
+    def test_each_drifted_field_is_reported_separately(self):
+        misses = self.tree.check(self._row(self._readout(x0="-19.200", width="279.400")))
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("x0=-19.200" in miss for miss in misses))
+        self.assertTrue(any("width=279.400" in miss for miss in misses))
+
+    def test_a_renamed_composed_cell_is_reported(self):
+        misses = self.tree.check(self._row(self._readout(cell="SAR_ADC_TOP")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`SAR_ADC_TOP`", misses[0])
+        self.assertIn("`gen_compose_0`", misses[0])
+
+    def test_a_unicode_minus_sign_is_read_as_the_same_figure(self):
+        """This document sets temperatures with U+2212 and coordinates with `-`."""
+        self.assertEqual(
+            self.tree.check(self._row(self._readout(x0="−20.200", y0="−161.600"))), []
+        )
+
+    def test_a_readout_for_a_flow_the_row_does_not_cite_is_reported(self):
+        self.tree.add_layout_record(
+            "comparator", "20260910-120000-abcdef0", latest=True, compose=compose_json()
+        )
+        misses = self.tree.check(
+            self._row(
+                self._readout(flow="layout/comparator"),
+                citation=self.CITATION,
+            )
+        )
+        reported = [miss for miss in misses if "cites no record of that flow" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_readout_naming_a_flow_with_no_composition_is_reported(self):
+        self.tree.add_layout_record("sar-sequencer", "20260910-120000-abcdef0", latest=True)
+        misses = self.tree.check(
+            self._row(
+                self._readout(flow="layout/sar-sequencer"),
+                citation="`layout/sar-sequencer/reports/20260910-120000-abcdef0/record.md`",
+            )
+        )
+        reported = [miss for miss in misses if "bbox_um" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_degenerate_box_yields_no_readout(self):
+        self.tree.add_layout_record(
+            "trivial-cell",
+            "20260910-120000-abcdef0",
+            latest=True,
+            compose=compose_json(x0=10.0, x1=10.0),
+        )
+        self.assertIsNone(checker.area_readout("trivial-cell"))
+
+    def test_a_compose_report_without_a_bbox_yields_no_readout(self):
+        broken = compose_json()
+        del broken["bbox_um"]
+        self.tree.add_layout_record(
+            "seln-inverters", "20260910-120000-abcdef0", latest=True, compose=broken
+        )
+        self.assertIsNone(checker.area_readout("seln-inverters"))
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self.assertEqual(self.tree.check(self._row("no extent stated here")), [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """`--stats` output must be pasteable: what it prints must pass.
+
+        The same guard checks 9 and 12 needed. Figures are compared as
+        formatted strings precisely so this can never fail on a rounding
+        boundary.
+        """
+        readout = checker.area_readout("sar-adc-top")
+        self.assertIsNotNone(readout)
+        self.assertEqual(
+            self.tree.check(self._row(checker.area_sentence("sar-adc-top", readout))), []
+        )
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -1502,6 +1676,44 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         self.assertEqual(readout["typ_corner"], checker.NOMINAL_CORNER)
         self.assertEqual(readout["corners"], 9, "the ratified OAT grid is 9 points")
         self.assertLess(readout["min"], readout["max"])
+
+    def test_the_real_proposal_states_a_parseable_area_readout(self):
+        """Check 13 is opt-in per row, so assert the real Area row opts in.
+
+        Deleting or re-wording the readout would disable check 13 and still
+        exit 0 -- the same vacuity trap every opt-in check here needs a guard
+        for. The flow is asserted by name too: a readout silently re-pointed
+        at some other composition would gate the wrong extent.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        stated = [
+            (
+                checker._normalise_parameter(checker._row_cells(row)[0]),
+                checker.AREA_READOUT_RE.search(row).group("flow"),
+            )
+            for _line, row in checker.spec_table_rows(doc.read_text())
+            if checker.AREA_READOUT_RE.search(row)
+        ]
+        self.assertEqual(stated, [("Area", "layout/sar-adc-top")], stated)
+
+    def test_the_real_area_readout_is_checked_against_a_real_composition(self):
+        """The record side of check 13 must be readable, not silently absent.
+
+        `area_readout` returns None when the flow's current record carries no
+        `compose.json` with a top-level `bbox_um`; on the real tree that would
+        turn every field comparison into one generic finding instead of a
+        per-field one.
+        """
+        readout = checker.area_readout("sar-adc-top")
+        self.assertIsNotNone(readout, "sar-adc-top's current record has no composition")
+        self.assertEqual(readout["cell"], "gen_compose_0")
+        self.assertGreater(readout["width"], 0.0)
+        self.assertGreater(readout["height"], 0.0)
+        # The composed top level is a real ADC, not a test cell: a box that
+        # has collapsed to a few microns, or grown past a reticle, is a
+        # misparse rather than a design change.
+        self.assertGreater(readout["area_mm2"], 0.001)
+        self.assertLess(readout["area_mm2"], 10.0)
 
     def test_the_real_signoff_readout_is_checked_against_real_verdict_files(self):
         """The record side of check 9 must be readable, not silently absent.
