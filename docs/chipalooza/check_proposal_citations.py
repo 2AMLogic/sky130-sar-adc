@@ -40,9 +40,10 @@ compares against), the live area readout of every `layout/` flow whose current
 record carries a composition (the sentence check 13 compares against), the provenance of every
 input that composition embeds (the sentence check 14 compares against) and the
 live power readout of every `sim/` campaign whose current record carries a
-Power table (the sentence check 12 compares against) instead of checking,
-which is what to run when check 6, 9, 12, 13 or 14 reports a drift. Exit
-status:
+Power table (the sentence check 12 compares against) and the live status of
+every `spec/decision-records/` record (the sentence check 15 compares
+against) instead of checking, which is what to run when check 6, 9, 12, 13,
+14 or 15 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -375,6 +376,41 @@ COMPOSITION_INPUT_RE = re.compile(
 # would look like, and a document must not be able to state its way past it.
 COMPOSITION_INPUT_CURRENT = "current"
 COMPOSITION_INPUT_SUPERSEDED = "superseded"
+
+# This repo's ratification trail, relative to REPO_ROOT. A decision record
+# moves `proposed` -> `accepted` by the operator's approval of the PR that
+# carries it, and `spec/target-spec.md` follows -- so the record's own Status
+# field moves first and is the earlier signal. Kept as path *segments* rather
+# than a joined Path, because REPO_ROOT is rebound per fixture tree.
+DECISION_RECORDS_DIR = ("spec", "decision-records")
+
+# A decision record's own file name, which carries its number. `TEMPLATE.md`
+# is excluded by this shape rather than by a name list here: it is not a
+# record, and its own Status field is a vocabulary enumeration rather than a
+# status.
+DECISION_RECORD_FILE_RE = re.compile(r"^DR-(?P<number>\d+)-[A-Za-z0-9._-]+\.md$")
+
+# The `- **Status**: <word>` field every decision record opens with. The word
+# is bolded in some records and bare in others, and is followed by an em-dash
+# rationale this check deliberately does not read -- the status is the word.
+DECISION_RECORD_STATUS_RE = re.compile(
+    r"^-\s+\*\*Status\*\*:\s*\**\s*(?P<status>[A-Za-z]+)", re.MULTILINE
+)
+
+# The decision-record status readout check 15 gates, stated in Section 7 as a
+# blockquote (so it is read off the same whitespace-collapsed text checks 9
+# and 14 use). The number is a group of its own and is compared against the
+# named file's own number: this tree carries two DR-004s and two DR-007s, so a
+# line that pairs one number with the other's file is a real defect shape.
+DECISION_RECORD_READOUT_RE = re.compile(
+    r"\*\*DR-(?P<number>\d+)\*\* \(`spec/decision-records/"
+    r"(?P<file>DR-\d+-[A-Za-z0-9._-]+\.md)`\) is \*\*(?P<status>[a-z]+)\*\*"
+)
+
+# A bare `DR-<number>` reference, which is how this document names a decision
+# record in running prose. Ambiguous whenever two records share that number
+# AND disagree about their status -- see check 15.
+BARE_DECISION_RECORD_RE = re.compile(r"\bDR-(\d+)\b")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -1666,6 +1702,139 @@ def check_composition_inputs(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def decision_record_status(name: str) -> str | None:
+    """The status word `spec/decision-records/<name>` states about itself.
+
+    Read off the record's own `- **Status**:` field, lower-cased, with the
+    bold markers and the em-dash rationale after it dropped. `None` when the
+    file is absent or states no status field at all -- distinct from stating
+    one this document disagrees with, which is a finding.
+    """
+    path = REPO_ROOT.joinpath(*DECISION_RECORDS_DIR, name)
+    if not path.is_file():
+        return None
+    stated = DECISION_RECORD_STATUS_RE.search(path.read_text())
+    return stated.group("status").lower() if stated else None
+
+
+def decision_records() -> dict[str, str | None]:
+    """Every decision record in the tree, mapped to its own status word.
+
+    Enumerated from the directory rather than from a list here, so a record
+    added (or renamed) is discovered instead of remembered. `TEMPLATE.md` is
+    excluded by its own file-name shape -- it carries no DR number.
+    """
+    directory = REPO_ROOT.joinpath(*DECISION_RECORDS_DIR)
+    if not directory.is_dir():
+        return {}
+    return {
+        entry.name: decision_record_status(entry.name)
+        for entry in sorted(directory.iterdir())
+        if entry.is_file() and DECISION_RECORD_FILE_RE.fullmatch(entry.name)
+    }
+
+
+def decision_record_sentence(name: str, status: str | None) -> str:
+    """A record's status in exactly the form `DECISION_RECORD_READOUT_RE` matches.
+
+    Used by `--stats`, so the fix for a check-15 finding is a paste rather
+    than a hand transcription -- the same guard checks 9, 12, 13 and 14 carry.
+    """
+    number = DECISION_RECORD_FILE_RE.fullmatch(name).group("number")
+    return (
+        f"**DR-{number}** (`spec/decision-records/{name}`) is "
+        f"**{status if status else 'unstated'}**."
+    )
+
+
+def check_decision_record_status(doc: Path, text: str) -> list[str]:
+    """Check 15: a stated decision-record status must be the record's own."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    records = decision_records()
+    misses = []
+    stated: set[str] = set()
+
+    for claim in DECISION_RECORD_READOUT_RE.finditer(collapsed):
+        name = claim.group("file")
+        where = f"{doc.name}:{_line_of(text, offsets[claim.start()])}"
+        stated.add(name)
+
+        if name not in records:
+            misses.append(
+                f"{where}: the decision-record readout names "
+                f"`spec/decision-records/{name}`, which this repository does "
+                f"not carry -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+            continue
+
+        # The number and the file are stated separately on purpose: this tree
+        # carries two DR-004s and two DR-007s, so a line that pairs one
+        # number with the other's file reads as true and is not.
+        number = DECISION_RECORD_FILE_RE.fullmatch(name).group("number")
+        if claim.group("number") != number:
+            misses.append(
+                f"{where}: the decision-record readout calls "
+                f"`{name}` **DR-{claim.group('number')}**, but that file's own "
+                f"number is {number}"
+            )
+
+        actual = records[name]
+        if actual is None:
+            misses.append(
+                f"{where}: the decision-record readout states a status for "
+                f"`{name}`, but that record states no `- **Status**:` field of "
+                f"its own to compare against"
+            )
+            continue
+        if claim.group("status") != actual:
+            misses.append(
+                f"{where}: the decision-record readout says `{name}` is "
+                f"**{claim.group('status')}**, but that record's own Status "
+                f"field says **{actual}** -- a decision record's status moves "
+                f"before `spec/target-spec.md` follows it, so re-grade the rows "
+                f"that rest on it rather than restating the old word"
+            )
+
+    # Both directions, as checks 8, 10 and 14 do: a document that states one
+    # record's status must state them all. Dropping the line for the record
+    # that just moved is otherwise the cheapest way to keep the readout clean.
+    if stated:
+        for name in records:
+            if name in stated:
+                continue
+            misses.append(
+                f"{doc.name}: `spec/decision-records/{name}` exists, but this "
+                f"document states no decision-record status readout for it -- "
+                f"state every record or none"
+            )
+
+    # A bare `DR-<n>` in prose names a number, not a file. That is unambiguous
+    # only while every record sharing the number agrees about its status; the
+    # moment they disagree, every bare reference in this document is a claim
+    # the reader cannot resolve.
+    by_number: dict[str, set[str | None]] = {}
+    for name, status in records.items():
+        number = DECISION_RECORD_FILE_RE.fullmatch(name).group("number")
+        by_number.setdefault(number, set()).add(status)
+    for number in sorted(set(BARE_DECISION_RECORD_RE.findall(text))):
+        statuses = by_number.get(number)
+        if statuses is None or len(statuses) < 2:
+            continue
+        files = sorted(
+            name
+            for name in records
+            if DECISION_RECORD_FILE_RE.fullmatch(name).group("number") == number
+        )
+        misses.append(
+            f"{doc.name}: this document refers to `DR-{number}` by bare number, "
+            f"but {len(files)} records share it and they no longer agree about "
+            f"their status ({', '.join(files)}) -- name the file each reference "
+            f"means"
+        )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -1682,6 +1851,7 @@ def check_document(doc: Path) -> list[str]:
         + check_power_readout(doc, text)
         + check_area_readout(doc, text)
         + check_composition_inputs(doc, text)
+        + check_decision_record_status(doc, text)
     )
 
 
@@ -1759,6 +1929,12 @@ def main(argv: list[str]) -> int:
             if readout is None:
                 continue
             print(f"sim/{experiment}/: {power_sentence(readout)}")
+        # Likewise every decision record in the tree, not only the ones the
+        # document happens to discuss: check 15 grades the readout in both
+        # directions, so a record with no line is as much a finding as a line
+        # with the wrong word.
+        for name, status in decision_records().items():
+            print(f"spec/decision-records/: {decision_record_sentence(name, status)}")
         return 0
 
     misses: list[str] = []

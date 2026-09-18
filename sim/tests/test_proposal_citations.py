@@ -146,6 +146,25 @@ class FixtureTree:
             )
         )
 
+    def add_decision_record(self, name: str, status: str | None = "proposed"):
+        """A `spec/decision-records/<name>` in the shape check 15 reads.
+
+        Written in the real records' own shape -- a `- **Status**:` bullet
+        whose word may be bolded or bare, followed by an em-dash rationale the
+        check must not read. `status=None` writes a record with no Status
+        field at all, which is the "nothing to compare against" condition
+        check 15 reports separately from a disagreement.
+        """
+        records = self.root / "spec" / "decision-records"
+        records.mkdir(parents=True, exist_ok=True)
+        body = [f"# {name.removesuffix('.md')}", ""]
+        if status is not None:
+            body.append(
+                f"- **Status**: {status} — this fixture record ratifies nothing."
+            )
+        body += ["- **Date**: 2026-09-18", ""]
+        (records / name).write_text("\n".join(body))
+
     def add_top_netlist(self, *ports: str):
         """A `design/sar_adc_top.spice` with the given top-level port list.
 
@@ -1705,6 +1724,195 @@ class TestCompositionInputs(unittest.TestCase):
         )
 
 
+class TestDecisionRecordStatus(unittest.TestCase):
+    """Check 15: a stated decision-record status must be the record's own.
+
+    The tree checks 3-14 never reach. Check 7 compares Section 4's Status
+    column to `spec/target-spec.md`, but this repo ratifies a numeric row by
+    the operator approving the PR that carries its *decision record*, so the
+    record's own Status field moves first and the spec table follows. In that
+    window every other check is green and the document is wrong -- which is
+    exactly the state Section 7 Item 4 had been hand-re-reading DR-007 to
+    detect ("DR-007's status was re-checked live -- still `proposed`").
+    """
+
+    ENOB = "DR-007-revised-enob-inl-dnl-targets.md"
+    NWELL = "DR-007-sampling-frontend-nwell-domains.md"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_decision_record("DR-003-numeric-spec-derivation.md", "**accepted**")
+        self.tree.add_decision_record(self.ENOB, "proposed")
+
+    def _readout(self, *lines: str) -> str:
+        return "".join(f"> {line}\n" for line in lines)
+
+    def _line(self, name: str, status: str, *, number: str | None = None) -> str:
+        if number is None:
+            number = name.split("-")[1]
+        return f"**DR-{number}** (`spec/decision-records/{name}`) is **{status}**."
+
+    def _truthful(self) -> str:
+        return self._readout(
+            self._line("DR-003-numeric-spec-derivation.md", "accepted"),
+            self._line(self.ENOB, "proposed"),
+        )
+
+    def test_a_truthful_readout_passes(self):
+        self.assertEqual(self.tree.check(self._truthful()), [])
+
+    def test_the_readout_survives_a_prose_line_wrap(self):
+        """Real lines are long enough that the document must wrap them.
+
+        A check that only matched an unwrapped line would be vacuous against
+        the real document, where every path is ~60 characters on its own.
+        """
+        wrapped = (
+            "> **DR-003**\n"
+            "> (`spec/decision-records/DR-003-numeric-spec-derivation.md`)\n"
+            "> is **accepted**.\n"
+            f"> **DR-007** (`spec/decision-records/{self.ENOB}`)\n"
+            "> is **proposed**.\n"
+        )
+        self.assertEqual(self.tree.check(wrapped), [])
+
+    def test_a_status_that_moved_is_reported(self):
+        """The defect this check exists for: the record ratifies, prose doesn't.
+
+        `spec/target-spec.md` is deliberately left untouched here, so check 7
+        stays green -- the whole point is that no other check can see this.
+        """
+        self.tree.add_decision_record(self.ENOB, "accepted")
+        misses = self.tree.check(self._truthful())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("**proposed**", misses[0])
+        self.assertIn("**accepted**", misses[0])
+        self.assertIn(self.ENOB, misses[0])
+
+    def test_a_record_with_no_stated_line_is_reported(self):
+        """Both directions: dropping the line for the record that moved."""
+        self.tree.add_decision_record(self.NWELL, "accepted")
+        misses = self.tree.check(self._truthful())
+        reported = [miss for miss in misses if "states no decision-record status" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn(self.NWELL, reported[0])
+
+    def test_a_line_naming_a_record_this_repo_does_not_carry_is_reported(self):
+        misses = self.tree.check(
+            self._truthful() + self._readout(self._line("DR-042-invented.md", "accepted"))
+        )
+        reported = [miss for miss in misses if "does not carry" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("--stats", reported[0])
+
+    def test_a_number_paired_with_the_wrong_file_is_reported(self):
+        """Two DR-004s and two DR-007s make this a live defect shape here."""
+        misses = self.tree.check(
+            self._readout(
+                self._line("DR-003-numeric-spec-derivation.md", "accepted"),
+                self._line(self.ENOB, "proposed", number="003"),
+            )
+        )
+        reported = [miss for miss in misses if "that file's own number is" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("**DR-003**", reported[0])
+
+    def test_a_record_stating_no_status_field_is_reported_not_matched(self):
+        self.tree.add_decision_record(self.ENOB, None)
+        misses = self.tree.check(self._truthful())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no `- **Status**:` field", misses[0])
+
+    def test_colliding_numbers_that_disagree_are_reported_for_bare_references(self):
+        """A bare `DR-007` is unresolvable once the two DR-007s disagree."""
+        self.tree.add_decision_record(self.NWELL, "accepted")
+        misses = self.tree.check(
+            self._truthful()
+            + self._readout(self._line(self.NWELL, "accepted"))
+            + "\nUntil DR-007 ratifies, those rows stay informational.\n"
+        )
+        reported = [miss for miss in misses if "by bare number" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn(self.ENOB, reported[0])
+        self.assertIn(self.NWELL, reported[0])
+
+    def test_colliding_numbers_that_agree_are_not_reported(self):
+        """The collision is only a defect once the statuses diverge.
+
+        Both DR-007s are `proposed` in the real tree today, so firing here
+        would force a document-wide rewrite for a harmless collision.
+        """
+        self.tree.add_decision_record(self.NWELL, "proposed")
+        misses = self.tree.check(
+            self._truthful()
+            + self._readout(self._line(self.NWELL, "proposed"))
+            + "\nUntil DR-007 ratifies, those rows stay informational.\n"
+        )
+        self.assertEqual(misses, [])
+
+    def test_a_bare_number_with_no_local_record_is_not_reported(self):
+        """`DR-002` is a tripwire clause; `DR-0005` is the sibling repo's."""
+        misses = self.tree.check(
+            self._truthful()
+            + "\nA higher rail would trip the ratified DR-002 tripwire, and no\n"
+            "interface-scope record like `gf180-sar-adc`'s DR-0005 exists here.\n"
+        )
+        self.assertEqual(misses, [])
+
+    def test_the_template_is_not_a_record(self):
+        """Excluded by its file-name shape, not by a name list.
+
+        Its own Status field is a vocabulary enumeration rather than a status,
+        so counting it would demand a readout line for a value that is not one.
+        """
+        (self.tree.root / "spec" / "decision-records" / "TEMPLATE.md").write_text(
+            "- **Status**: proposed | ratified | superseded by DR-NNN\n"
+        )
+        self.assertEqual(self.tree.check(self._truthful()), [])
+        self.assertNotIn("TEMPLATE.md", checker.decision_records())
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self.assertEqual(self.tree.check("no decision-record statuses stated\n"), [])
+
+    def test_a_tree_with_no_decision_records_is_inert_for_a_silent_document(self):
+        """Absent source data plus no stated readout is not a finding.
+
+        This is what keeps check 15 inert against every other fixture in this
+        file, none of which builds a `spec/decision-records/` tree.
+        """
+        empty = FixtureTree(self)
+        self.assertEqual(checker.decision_records(), {})
+        doc = empty.document("Section 7 mentions no decision records.\n")
+        self.assertEqual(checker.check_decision_record_status(doc, doc.read_text()), [])
+
+    def test_a_readout_stated_against_an_absent_tree_is_reported(self):
+        """Reported, not silently skipped -- the same rule as checks 13 and 14.
+
+        A document that states a status for a record this repository does not
+        carry has made a claim nothing can support; skipping it would let the
+        readout survive the directory being renamed or emptied.
+        """
+        empty = FixtureTree(self)
+        doc = empty.document(self._truthful())
+        misses = checker.check_decision_record_status(doc, doc.read_text())
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(all("does not carry" in miss for miss in misses), misses)
+
+    def test_only_the_status_word_is_read_not_the_rationale_after_it(self):
+        self.tree.add_decision_record(
+            self.ENOB, "proposed — accepted by nobody, ratified by nothing"
+        )
+        self.assertEqual(self.tree.check(self._truthful()), [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """`--stats` output must be pasteable: what it prints must pass."""
+        stated = "".join(
+            f"> {checker.decision_record_sentence(name, status)}\n"
+            for name, status in checker.decision_records().items()
+        )
+        self.assertEqual(self.tree.check(stated), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -2061,6 +2269,61 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         self.assertEqual(
             len(set(fingerprints.values())), len(fingerprints), "digests collapsed"
         )
+
+
+    def test_the_real_proposal_states_every_decision_record_status(self):
+        """Check 15 is opt-in per document, so assert the real document opts in.
+
+        A document that states no readout is not failed by check 15 (that is
+        what keeps it inert against a fixture with no `spec/decision-records/`),
+        so a pass that deleted the block would disable the check and still exit
+        0. Both sides are asserted: every record in the tree has a line, and
+        every line names a record the tree really carries.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        stated = {
+            claim.group("file"): claim.group("status")
+            for claim in checker.DECISION_RECORD_READOUT_RE.finditer(collapsed)
+        }
+        records = checker.decision_records()
+        self.assertTrue(records, "spec/decision-records/ carries no records")
+        self.assertEqual(sorted(stated), sorted(records), stated)
+
+    def test_the_real_decision_records_all_state_a_readable_status(self):
+        """The record side of check 15 must be readable, not silently absent.
+
+        `decision_record_status` returns None when a record states no Status
+        field; on the real tree that would turn a status comparison into one
+        generic finding. The vocabulary is asserted too -- an unexpected word
+        means the field was misparsed, since this repo only moves a record
+        between these three states.
+        """
+        records = checker.decision_records()
+        for name, status in records.items():
+            with self.subTest(record=name):
+                self.assertIsNotNone(status, name)
+                self.assertIn(status, ("proposed", "accepted", "superseded"), name)
+        # The trail this document's verdicts rest on: DR-003 is what ratified
+        # the numeric rows Section 4 grades against, and DR-007 is what Section
+        # 7 Item 4 is waiting on. A parser that read every record as the same
+        # word would pass every test above.
+        self.assertEqual(records["DR-003-numeric-spec-derivation.md"], "accepted")
+        self.assertEqual(records["DR-007-revised-enob-inl-dnl-targets.md"], "proposed")
+
+    def test_the_real_tree_really_carries_colliding_decision_record_numbers(self):
+        """The collision arm is not defensive programming -- it is this tree.
+
+        Two DR-004s and two DR-007s, which is why check 15 compares the stated
+        number against the file's own and reports a bare reference once a
+        colliding pair's statuses diverge.
+        """
+        numbers = {}
+        for name in checker.decision_records():
+            number = checker.DECISION_RECORD_FILE_RE.fullmatch(name).group("number")
+            numbers.setdefault(number, []).append(name)
+        collisions = {n: names for n, names in numbers.items() if len(names) > 1}
+        self.assertEqual(sorted(collisions), ["004", "007"], collisions)
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
