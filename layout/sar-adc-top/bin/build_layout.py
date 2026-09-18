@@ -143,6 +143,40 @@ PAD_UM = 0.36  # generic via/wire landing pad side. Bigger than
 #                every pad here has to satisfy the tightest enclosure on its
 #                own -- 0.36 gives via2/via3 (0.20 um, below) a 0.08 um
 #                margin, comfortably over the 0.065 threshold.
+
+#: sky130A's own MINIMUM-AREA rules for every layer this module lands a pad
+#: on, read out of the pinned PDK's own deck
+#: (`libs.tech/klayout/drc/sky130A_mr.drc`, open_pdks
+#: c6d73a35f524070e85faff4a6a9eef49553ebc2b -- the `sim/pdk.json` pin):
+#: `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a` 0.240 um^2, plus li1's
+#: own (`0.0561 um^2`, the deck's `linotace.with_area`). These are NOT checked
+#: by `klt drc`: at the pinned klayout-tools==0.5.0 the curated sky130 deck
+#: authors no `area`-kind rule at all, so a sub-minimum-area shape reads back
+#: `status: "clean"` (issue #326; fixed upstream by klayout-tools#1989, not yet
+#: released). `docs/chipalooza/measure_metal_min_area.py` is this repo's own
+#: stand-in measurement until that release lands -- run it against this flow's
+#: composed GDS after any change to the geometry below.
+MIN_METAL_AREA_UM2 = {
+    LI1: 0.0561,
+    MET1: 0.083,
+    MET2: 0.0676,
+    MET3: 0.240,
+    MET4: 0.240,
+}
+
+ISLAND_PAD_UM = 0.50  # pad side for a pad that has to satisfy its own metal's
+#                       minimum-area rule UNAIDED -- see `_pad_side()`. 0.50^2
+#                       = 0.25 um^2, clearing met3/met4's own 0.24 um^2
+#                       threshold (the tightest this module has to meet) with
+#                       margin, while staying narrow enough that the closest
+#                       pad pair this module draws (the three
+#                       `sar_cross_to_analog` met2->met4 risers, 0.9 um apart
+#                       at `BELOW_CHANNEL_Y`) still clears met3.space/met4.space
+#                       (0.30 um) at 0.40 um. A pad is only ever grown to this
+#                       size where it would otherwise stand alone on its own
+#                       layer; every pad that merges into one of this module's
+#                       own wires keeps PAD_UM, so none of the empirically-tuned
+#                       clearances documented below move.
 VIA1_UM = 0.15  # via1 (met1<->met2) square side -- matches this repo's own
 #                 layout/comparator/bin/build_layout.py VIA1_S convention.
 VIA_UM = 0.20  # via2/via3 (met2<->met3, met3<->met4) square side --
@@ -164,6 +198,33 @@ ESCAPE_W = 0.14  # sar_sequencer/seln_inverters own routed-DEF pin box height
 
 def _layer_index(layer: tuple[int, int]) -> int:
     return _METAL_CHAIN.index(layer)
+
+
+def _pad_side(layer: tuple[int, int]) -> float:
+    """Pad side for a pad that has to stand on its own on `layer`.
+
+    A `PAD_UM` (0.36 um) square is 0.1296 um^2 -- above li1's/met1's/met2's own
+    minimum-area thresholds, but only HALF of met3's and met4's (0.240 um^2).
+    That is harmless for a pad that merges into one of this module's own wires
+    (the merged polygon is what the rule measures), and a real m3.6/m4.4a
+    violation for a pad that does not -- which is exactly what a via riser's
+    *pass-through* layers are, by construction: `riser()` walks met2/met3 to
+    get from met1/met2 up to met4 and leaves nothing else behind there. Those
+    pads are drawn at `ISLAND_PAD_UM` instead. Issue #326 found 13 such
+    islands (12 met3 + 1 met4) in this flow's own composed GDS, invisible to
+    `klt drc` because the pinned deck has no `area`-kind rule.
+    """
+    return PAD_UM if PAD_UM * PAD_UM >= MIN_METAL_AREA_UM2[layer] else ISLAND_PAD_UM
+
+
+# A standing assertion, not a comment: ISLAND_PAD_UM must actually clear every
+# threshold it is reached for, so a future PDK bump (or a smaller pad) fails
+# here rather than silently minting sub-minimum-area islands again.
+assert all(
+    ISLAND_PAD_UM * ISLAND_PAD_UM >= area
+    for layer, area in MIN_METAL_AREA_UM2.items()
+    if _pad_side(layer) == ISLAND_PAD_UM
+), "ISLAND_PAD_UM no longer clears sky130A's own metal minimum-area rules"
 
 
 class Canvas:
@@ -195,25 +256,59 @@ class Canvas:
         else:
             raise ValueError(f"wire must be axis-aligned: ({x0},{y0})-({x1},{y1})")
 
-    def via(self, at_layer_lo: tuple[int, int], at_layer_hi: tuple[int, int], x: float, y: float) -> None:
-        """One via/mcon cut, with a landing pad on both adjoining metals."""
+    def via(
+        self,
+        at_layer_lo: tuple[int, int],
+        at_layer_hi: tuple[int, int],
+        x: float,
+        y: float,
+        pad_lo: float = PAD_UM,
+        pad_hi: float = PAD_UM,
+    ) -> None:
+        """One via/mcon cut, with a landing pad on both adjoining metals.
+
+        `pad_lo`/`pad_hi` default to `PAD_UM` -- the enclosure-driven size
+        every pad that merges into one of this module's own wires uses. A
+        caller whose pad stands alone on its own layer passes `_pad_side(...)`
+        instead, so the pad clears that metal's own minimum-area rule unaided
+        (see `_pad_side`).
+        """
         cut = _VIA_BETWEEN[(at_layer_lo, at_layer_hi)]
         cut_side = {MCON: MCON_UM, VIA1: VIA1_UM}.get(cut, VIA_UM)
-        self.square(at_layer_lo, x, y, PAD_UM)
-        self.square(at_layer_hi, x, y, PAD_UM)
+        self.square(at_layer_lo, x, y, pad_lo)
+        self.square(at_layer_hi, x, y, pad_hi)
         self.square(cut, x, y, cut_side)
 
-    def riser(self, x: float, y: float, from_layer: tuple[int, int], to_layer: tuple[int, int]) -> None:
+    def riser(
+        self,
+        x: float,
+        y: float,
+        from_layer: tuple[int, int],
+        to_layer: tuple[int, int],
+        isolated_ends: bool = False,
+    ) -> None:
         """Stack via cuts directly above/below (x, y) to walk from
         `from_layer` to `to_layer` (either direction) through every
         intermediate metal in `_METAL_CHAIN`. Never moves laterally -- every
         cut lands at the exact same (x, y) the caller's own pin already
         reported, so this only ever adds new *vertical* (in the process
         sense) conductor, never anything that could spill onto a
-        neighbour's shape."""
+        neighbour's shape.
+
+        Pads on the layers this riser merely PASSES THROUGH are sized by
+        `_pad_side()`: nothing else is drawn there by construction, so such a
+        pad has to satisfy its own metal's minimum-area rule alone (issue
+        #326). The two END layers keep the smaller `PAD_UM`, because the
+        caller attaches its own wire there and the merged polygon is what the
+        rule measures -- unless the caller says otherwise with
+        `isolated_ends=True` (a landing that only carries a pin label).
+        """
         lo, hi = sorted((_layer_index(from_layer), _layer_index(to_layer)))
         for i in range(lo, hi):
-            self.via(_METAL_CHAIN[i], _METAL_CHAIN[i + 1], x, y)
+            below, above = _METAL_CHAIN[i], _METAL_CHAIN[i + 1]
+            pad_lo = PAD_UM if i == lo and not isolated_ends else _pad_side(below)
+            pad_hi = PAD_UM if i + 1 == hi and not isolated_ends else _pad_side(above)
+            self.via(below, above, x, y, pad_lo=pad_lo, pad_hi=pad_hi)
 
     def label(self, layer: tuple[int, int], x: float, y: float, text: str) -> None:
         self.labels.append((layer, text, x, y))
@@ -617,9 +712,15 @@ def build() -> tuple[dict, dict]:
     # -14) -- an earlier version landed here at -14.0, exactly on top of
     # SAMPLE_INT's own dedicated crossing column, and merged the two nets
     # (found empirically via `klt extract`; see the PR description).
+    # `isolated_ends=True`: this riser's met4 landing carries ONLY the pin
+    # label -- no met4 wire continues from it -- so that pad is a standalone
+    # met4 polygon and has to clear m4.4a (0.240 um^2) by itself. At PAD_UM it
+    # was 0.1296 um^2: the single met4 minimum-area violation issue #326 found
+    # in this flow's own composed GDS. Nothing else this module draws is within
+    # 6 um of (-20.0, 221.4) on met3 or met4, so the larger pad has room.
     ext_x = -20.0
     c.wire(MET3, wx, JOG_Y["VDD"], ext_x, JOG_Y["VDD"], w=WIRE_W)
-    c.riser(ext_x, JOG_Y["VDD"], MET3, MET4)
+    c.riser(ext_x, JOG_Y["VDD"], MET3, MET4, isolated_ends=True)
     c.label(MET4_PIN, ext_x, JOG_Y["VDD"], "VDD")
 
     # ------------------------------------------------------------------ #

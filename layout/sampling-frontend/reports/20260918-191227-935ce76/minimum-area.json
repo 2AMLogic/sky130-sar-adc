@@ -1,0 +1,106 @@
+{
+  "pdk": {
+    "root": "/home/ubuntu/.volare",
+    "variant": "sky130A",
+    "deck": "/home/ubuntu/.volare/sky130A/libs.tech/klayout/drc/sky130A_mr.drc"
+  },
+  "rules": [
+    {
+      "symbol": "m1",
+      "rule": "m1.6",
+      "layer": 68,
+      "datatype": 20,
+      "min_area_um2": 0.083
+    },
+    {
+      "symbol": "m2",
+      "rule": "m2.6",
+      "layer": 69,
+      "datatype": 20,
+      "min_area_um2": 0.0676
+    },
+    {
+      "symbol": "m3",
+      "rule": "m3.6",
+      "layer": 70,
+      "datatype": 20,
+      "min_area_um2": 0.24
+    },
+    {
+      "symbol": "m4",
+      "rule": "m4.4a",
+      "layer": 71,
+      "datatype": 20,
+      "min_area_um2": 0.24
+    },
+    {
+      "symbol": "m5",
+      "rule": "m5.4",
+      "layer": 72,
+      "datatype": 20,
+      "min_area_um2": 4.0
+    }
+  ],
+  "results": [
+    {
+      "gds": "layout/sampling-frontend/reports/20260918-191227-935ce76/sampling_frontend.gds",
+      "top_cell": "gen_compose_0",
+      "dbu_um": 0.001,
+      "layers": [
+        {
+          "rule": "m1.6",
+          "symbol": "m1",
+          "layer": 68,
+          "datatype": 20,
+          "min_area_um2": 0.083,
+          "merged_polygons": 72,
+          "below_min_area": 0,
+          "shapes": []
+        },
+        {
+          "rule": "m2.6",
+          "symbol": "m2",
+          "layer": 69,
+          "datatype": 20,
+          "min_area_um2": 0.0676,
+          "merged_polygons": 25,
+          "below_min_area": 0,
+          "shapes": []
+        },
+        {
+          "rule": "m3.6",
+          "symbol": "m3",
+          "layer": 70,
+          "datatype": 20,
+          "min_area_um2": 0.24,
+          "merged_polygons": 8,
+          "below_min_area": 0,
+          "shapes": []
+        },
+        {
+          "rule": "m4.4a",
+          "symbol": "m4",
+          "layer": 71,
+          "datatype": 20,
+          "min_area_um2": 0.24,
+          "merged_polygons": 4,
+          "below_min_area": 0,
+          "shapes": []
+        },
+        {
+          "rule": "m5.4",
+          "symbol": "m5",
+          "layer": 72,
+          "datatype": 20,
+          "min_area_um2": 4.0,
+          "merged_polygons": 0,
+          "below_min_area": 0,
+          "shapes": []
+        }
+      ],
+      "total_below_min_area": 0,
+      "label": "layout/sampling-frontend/reports/20260918-191227-935ce76/sampling_frontend.gds"
+    }
+  ],
+  "total_below_min_area": 0
+}

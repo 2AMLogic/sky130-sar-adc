@@ -37,6 +37,27 @@ column and track position from each block's own reported bbox, so no
 floorplan constant needed hand-adjustment). All eleven verdicts below still
 hold.
 
+**Re-run for issue #326's minimum-area fix (record
+`20260918-191227-935ce76`)**: the four met3 landing pads this flow drops
+between via3 and via2 when a `cap_array` `*_TOP` port escapes on met4
+(`_step_down_to_met1`'s `L_MET4` case) were drawn at `STACK_PAD_UM` — a
+0.42 um square, 0.1764 um^2 — while nothing else on met3 ever touches them.
+sky130A's own `m3.6` rule requires 0.240 um^2, so all four were real
+minimum-area violations, invisible to `klt drc`: the curated `sky130` deck at
+the pinned `klayout-tools==0.5.0` carries **no `area`-kind rule** (fixed
+upstream by klayout-tools#1989, not yet released). Those pads are now drawn at
+`MET3_ISLAND_PAD_UM` (0.50 um, 0.25 um^2); `CAP_MET4_ESCAPE_MARGIN_UM` still
+leaves the wider pad 0.55 um clear of the bottom plate's own met3 sheet, well
+over met3.space. Everything else is unchanged: the record's `drc.json` and
+`lvs.json` are field-identical to the superseded `20260915-120718-1e90b14`
+(all eleven verdicts, 24/24 devices, 17/17 nets, 12/12 pins), and the composed
+cell's own bbox is unchanged at `(0, -2.4; 195.56, 58.97)`. Verified with
+`docs/chipalooza/measure_metal_min_area.py`, which now reports **0** shapes
+below any metal minimum-area threshold for this flow — `klt drc` cannot
+replace that measurement until a `klayout-tools` release carries #1989. That
+script's own `--json` output against this record is committed beside it, as
+`reports/20260918-191227-935ce76/minimum-area.json`.
+
 | # | Verdict | Why it is here |
 | --- | --- | --- |
 | 1 | every `klt gen` block is DRC-clean *in isolation* | a composed-DRC failure is attributable to the wells/routing, not to a device |
