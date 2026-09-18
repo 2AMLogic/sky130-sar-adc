@@ -396,6 +396,76 @@ verdict word.** There is deliberately no vocabulary for it, because it is also
 what a broken fingerprint parser would produce, and a document must not be
 able to state its way past its own gate going vacuous.
 
+### Check 15 -- decision-record status parity (`check_decision_record_status`)
+
+Checks 3 to 14 all grade the proposal against `sim/` and `layout/` evidence.
+This one grades it against `spec/decision-records/`, the third tree its
+verdicts rest on and the only one nothing here reached.
+
+Check 7 already compares Section 4's Status column to `spec/target-spec.md`'s
+own words. That is the right comparison, but it is not the *earliest* one.
+This repo ratifies a numeric spec row by the operator approving the PR that
+carries its decision record (the standing policy `spec/target-spec.md`'s
+"Numeric rows -- RATIFIED 2026-08-19" section records), so the sequence is:
+the record's own `- **Status**:` field moves `proposed` -> `accepted`, and
+`spec/target-spec.md` follows in a later edit. **In the window between those
+two, every existing check is green and the document is wrong** -- Section 4
+reads `DRAFT` against a spec file that also reads `DRAFT`, while the record
+both of them rest on has already been ratified.
+
+That window is not hypothetical for this document. Section 7 Item 4's whole
+subject is DR-007's status, and its own text records the hand check it took:
+"DR-007's status was re-checked live -- still `proposed`". Every pass that
+touched the item repeated that re-read. It is the same manual step checks 9,
+12, 13 and 14 each replaced for a different tree.
+
+So the document states every record's status once, in a fixed sentence form,
+and this check recomputes it from each record's own Status field. Records are
+enumerated from the directory rather than from a list in the script, so one
+added by a future pass is discovered instead of remembered; `TEMPLATE.md` is
+excluded by its own **file-name shape** (it carries no DR number) rather than
+by name, and that matters here beyond tidiness -- its Status field is a
+vocabulary enumeration (`proposed | ratified | superseded by DR-NNN`), not a
+status, so a name-list exclusion would quietly start comparing against it if
+the file were ever renamed. Coverage is graded both directions, like checks 8,
+10 and 14: dropping the line for the record that just moved is otherwise the
+cheapest way to keep the readout clean.
+
+**The DR number and the file are stated, and compared, separately.** This tree
+carries two DR-004s (comparator topology, sampling-front-end sizing) and two
+DR-007s (revised ENOB/INL-DNL targets, sampling-front-end n-well domains), and
+the proposal names decision records by bare number throughout. A readout line
+that pairs one number with the other file's path reads as true and is not, so
+the number is checked against the file name's own.
+
+The collision also gets its own finding: when two records share a number and
+their statuses **disagree**, every bare `DR-<n>` reference in the document
+becomes unresolvable, and the check reports it naming both files. While they
+agree -- as all four do today -- a bare reference is unambiguous about status
+and nothing is reported, so this does not force a document-wide rewrite for a
+collision that is currently harmless.
+
+**A bare `DR-<n>` naming no file is deliberately NOT a finding**, and is
+recorded here so a stricter rule is not proposed blind. Two such references in
+the proposal are correct as written: `DR-002` is a tripwire *clause* inside
+`spec/target-spec.md` rather than a record of its own, and `DR-0005` is the
+port-parity sibling `gf180-sar-adc`'s record, named there precisely to say
+this repo has no equivalent. Requiring every `DR-<n>` token to resolve to a
+local file would fail the gate on both.
+
+Like every opt-in check here it is inert on a document that states no readout
+at all -- that the real proposal states one is asserted by
+`sim/tests/test_proposal_citations.py`. What it does **not** do is go inert on
+a *stated* readout whose records are missing: naming a record this repository
+does not carry, or one that states no Status field of its own, is reported,
+the same rule checks 13 and 14 apply. Skipping it would let the readout
+outlive the directory being renamed or emptied.
+
+What it does not read is the rationale after the status word. A record's
+Status field is `proposed -- this record ratifies nothing ...`; only the first
+word is the status, and the prose after it is the record's own argument, not a
+fact this document restates.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

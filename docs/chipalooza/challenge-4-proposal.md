@@ -1067,6 +1067,23 @@ records today, but a layer-by-layer XOR (run by hand this pass, recorded in
 §3) shows the composed geometry is identical to what those flows publish now,
 so the three rows stand as written.
 
+**Check 15 gates the Status column's upstream** (added 2026-09-18). Check 7
+holds this table's Status cells to `spec/target-spec.md`'s own words, which is
+the right comparison but not the *earliest* one: this repo ratifies a numeric
+row by the operator approving the PR that carries its decision record, so the
+record's own `- **Status**:` field moves from `proposed` to `accepted` first
+and the spec table follows. In that window a §4 row can read `DRAFT` against a
+spec file that also reads `DRAFT`, with both checks green, while the record
+they rest on has already been ratified. Check 15 recomputes every
+`spec/decision-records/` record's status from the record itself and compares it
+against the readout §7 Item 4 now states, both directions. **No row in this
+table is re-graded by it**: all ten records report the same statuses this
+document already assumed — DR-001 and DR-003 `accepted`, the other eight
+`proposed` — so the two DR-007-gated rows (ENOB, INL/DNL) stay *Informational
+only*, exactly as before. What changes is that DR-007's eventual ratification
+now fails CI at the moment the record moves, rather than at the later moment
+someone edits `spec/target-spec.md`.
+
 ---
 
 ## 5. Test-plan outline (packaged part, if fabricated)
@@ -2286,6 +2303,81 @@ tracker already owns.
 
    Neither correction changes any met/unmet outcome in kind, and neither
    ratifies anything: DR-007's candidates remain candidates.
+
+   **Update this pass (2026-09-18): this item's status claim is now
+   machine-checked — for every decision record, not only DR-007.** "DR-007 is
+   still `proposed`" is a volatile, present-tense fact about a file in this
+   repository, and every pass that touched this item re-verified it by hand
+   (the update above says so in as many words: "re-checked live"). That is the
+   same hand re-read checks 9, 12, 13 and 14 each replaced elsewhere in this
+   document. It is also the *earliest* signal of a ratification, which is why
+   leaving it ungated mattered: this repo ratifies a decision record by the
+   operator's approval of the PR that carries it (the standing policy
+   `spec/target-spec.md`'s own "Numeric rows — RATIFIED 2026-08-19" section
+   records), so the record's Status field moves **first** and
+   `spec/target-spec.md` follows only when the spec table is updated too.
+   Check 7 gates §4's Status column against `spec/target-spec.md`; between the
+   record moving and the spec table following it, nothing gated anything.
+   Check 15 of the [citation gate](check_proposal_citations.py) now recomputes
+   each record's status from that record's own `- **Status**:` field, and
+   grades the readout in both directions — a record with no line below fails
+   as loudly as a line carrying the wrong word, so dropping the line for the
+   record that just moved is not an escape (**decision-record status readout,
+   machine-checked**):
+
+   > **DR-001** (`spec/decision-records/DR-001-supply-flavor-scope.md`) is
+   > **accepted**.
+   > **DR-003** (`spec/decision-records/DR-003-numeric-spec-derivation.md`) is
+   > **accepted**.
+   > **DR-004**
+   > (`spec/decision-records/DR-004-comparator-topology-and-noise-budget.md`)
+   > is **proposed**.
+   > **DR-004** (`spec/decision-records/DR-004-sampling-frontend-sizing.md`)
+   > is **proposed**.
+   > **DR-005** (`spec/decision-records/DR-005-cdac-array-design.md`) is
+   > **proposed**.
+   > **DR-006**
+   > (`spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md`)
+   > is **proposed**.
+   > **DR-007**
+   > (`spec/decision-records/DR-007-revised-enob-inl-dnl-targets.md`) is
+   > **proposed**.
+   > **DR-007**
+   > (`spec/decision-records/DR-007-sampling-frontend-nwell-domains.md`) is
+   > **proposed**.
+   > **DR-008**
+   > (`spec/decision-records/DR-008-cdac-top-level-switching-polarity.md`) is
+   > **proposed**.
+   > **DR-009**
+   > (`spec/decision-records/DR-009-comparator-output-load-balance-and-half-lsb-offset.md`)
+   > is **proposed**.
+
+   **Two facts that readout surfaces, which this item had not stated.** First,
+   `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
+   comparator-topology record and a sampling-front-end sizing record share
+   `DR-004`, and the revised-ENOB/INL-DNL record shares `DR-007` with an
+   n-well-domains record. This document names decision records by bare number
+   throughout ("DR-004 Amendment A", "DR-007's candidate pair", "per DR-006"),
+   and a bare number is only unambiguous about *status* while every record
+   sharing it agrees. Today they do — all four are `proposed` — so every bare
+   reference in this document is correct as written, and nothing is re-worded
+   on that account. The moment one of a colliding pair moves and the other does
+   not, check 15 fails naming both files, rather than leaving this document
+   asserting a status of "DR-007" that is true of only one of the two records
+   that answer to the name. Second, the readout is the whole directory, so a
+   decision record added by a future pass is discovered by the gate rather than
+   remembered: `DR-008` and `DR-009` both post-date this item's original text
+   and neither was mentioned here until now.
+
+   **What check 15 deliberately does not cover**, stated rather than glossed:
+   a bare `DR-<n>` naming no file in `spec/decision-records/` is not reported.
+   Two such references are correct as written and would be broken by a
+   stricter rule — §2.1's `DR-002` is a *tripwire clause* inside
+   `spec/target-spec.md` rather than a record of its own, and §2.2's `DR-0005`
+   is the port-parity sibling `gf180-sar-adc`'s record, explicitly named there
+   as one this repo does **not** have. **No §4 row is re-graded by this
+   check**: DR-007 is still `proposed`, the ENOB and INL/DNL rows are still
+   *Informational only*, and this item does not close.
 5. **Differential-reference vs. single "bandgap reference" slot mismatch**
    (§2.2). This design's `VREFP`/`VREFN` pair does not map cleanly onto a
    single bias/bandgap-reference budget line the way the port-parity
