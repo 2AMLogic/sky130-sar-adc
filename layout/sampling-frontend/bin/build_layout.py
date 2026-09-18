@@ -149,6 +149,18 @@ STACK_PAD_UM = 0.42  # landing pad for a stacked via cut (matches the
 # gate_contact pad size `klt gen` itself uses elsewhere in this repo, so a
 # 0.20um via2/via3 lands with >= 0.11um enclosure on every side -- comfortably
 # above met2/met3/met4's 0.04-0.065um enclosure-of-via thresholds).
+MET3_ISLAND_PAD_UM = 0.50  # a met3 landing pad that is the ONLY met3 shape at
+# its own (x, y) -- the pass-through pad between via3 and via2 in the L_MET4
+# step-down below. Enclosure is not the binding constraint there; sky130A's own
+# met3 MINIMUM-AREA rule is (`m3.6`, 0.240um^2, from the pinned PDK's own
+# libs.tech/klayout/drc/sky130A_mr.drc). A STACK_PAD_UM square is 0.1764um^2 --
+# below it, and invisible to `klt drc`, whose curated sky130 deck carries no
+# `area`-kind rule at the pinned klayout-tools==0.5.0 (issue #326; fixed
+# upstream by klayout-tools#1989, not yet released). 0.50^2 = 0.25um^2 clears
+# the rule; CAP_MET4_ESCAPE_MARGIN_UM (0.80) still leaves this wider pad
+# 0.80 - 0.25 = 0.55um clear of the bottom plate's own met3 sheet below it,
+# comfortably over met3.space (0.30um). Verified by
+# `docs/chipalooza/measure_metal_min_area.py`, which `klt drc` cannot replace.
 MET3_VIA_INSET_UM = 0.20  # a `cap_array` *_BOT port's reported x sits right at
 # the bottom plate's own edge (direction 180, x = the plate's left edge) --
 # landing a via2 exactly there would poke past met3's own boundary and fail
@@ -445,7 +457,11 @@ def _step_down_to_met1(
         # violation found directly building this layout).
         shapes.append((L_MET4, Rect.centred(x, met4_escape_y, STACK_PAD_UM, STACK_PAD_UM)))
         y = met4_escape_y
-        shapes.append((L_MET3, Rect.centred(x, y, STACK_PAD_UM, STACK_PAD_UM)))
+        # This met3 pad is the whole met3 shape at this point -- via3 lands on
+        # it from above, via2 leaves it from below, and no met3 wire ever
+        # touches it -- so it has to satisfy m3.6 (min. met3 area) on its own:
+        # MET3_ISLAND_PAD_UM, not STACK_PAD_UM (issue #326).
+        shapes.append((L_MET3, Rect.centred(x, y, MET3_ISLAND_PAD_UM, MET3_ISLAND_PAD_UM)))
         shapes.append((L_VIA3, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
         shapes.append((L_MET2, Rect.centred(x, y, STACK_PAD_UM, STACK_PAD_UM)))
         shapes.append((L_VIA2, Rect.centred(x, y, VIA23_UM, VIA23_UM)))

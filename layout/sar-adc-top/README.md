@@ -87,6 +87,71 @@ boundary to scope against on that side, and a direct trial reached a
 as klayout-tools#1878. See "LVS device/topology blocker" below for the full,
 current writeup of both gaps.
 
+**Re-run for issue #326's minimum-area fix**, record
+`20260918-191315-935ce76`: DRC stays clean and the LVS verdict is
+field-identical to `20260915-234004-76f48b9` (98 mismatches, 869/869/794
+devices, 444/446/412 nets, 19/19/19 pins, same four categories). What changed
+is geometry `klt drc` structurally could not see — see "Minimum-area rules:
+measured out-of-band, because the deck has none" below. The composition's own
+top-level `bbox_um` moves for the first time since PR #174, by 0.05 um in `x0`
+only (-20.200 -> -20.250), because the external `VDD` pin's label-only met4
+landing pad widened from 0.36 to 0.50 um; that pad is the composition's
+leftmost shape. This re-run also picked up `layout/cdac-array/`'s,
+`layout/sar-sequencer/`'s and `layout/seln-inverters/`'s own PR #327 records
+and `layout/sampling-frontend/`'s new `20260918-191227-935ce76`, so all five
+composition inputs are again each flow's current `reports/LATEST`.
+
+### Minimum-area rules: measured out-of-band, because the deck has none
+
+`klt drc --deck sky130` at the pinned `klayout-tools==0.5.0` authors **47
+rules across five kinds** (`width`, `space`, `enclosing`, `separation`,
+`isolated`) and **no `area`-kind rule at all**. sky130A's own metal
+minimum-area rules — `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a`
+0.240, `m5.4` 4.0 um^2, all five in the pinned PDK's own
+`libs.tech/klayout/drc/sky130A_mr.drc` — had therefore never looked at this
+layout, and a `status: "clean"` verdict said nothing about them. The deck gap
+is fixed upstream (klayout-tools#1989, commit `50cc29c3`) but **not
+released**; this repo grades against what is released.
+
+Until that release lands, minimum area is measured out-of-band by
+`docs/chipalooza/measure_metal_min_area.py`, which reads the thresholds and
+layer numbers out of the pinned PDK's own deck (never transcribed) and applies
+KLayout's own `Region#with_area` — the same primitive the deck's rule text
+calls — to each flow's current record:
+
+```
+layout/bin/setup-venv.sh                                    # once
+layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
+```
+
+Issue #326 found **17 shapes below `m3.6`/`m4.4a`** in the composed GDS that
+this repo's own generators drew: 12 met3 + 1 met4 from this flow's via risers,
+4 met3 from `layout/sampling-frontend/`'s stacked-via pads. All were **pads on
+a layer a via riser merely passes through** (or, for the one met4 island, a
+landing that carries only a pin label) — exactly the pads nothing else merges
+with, which is why a `PAD_UM`-sized 0.1296 um^2 square was fine everywhere
+else and a violation there. `bin/build_layout.py` now sizes such a pad from
+`MIN_METAL_AREA_UM2` (`_pad_side()`/`Canvas.riser()`'s `isolated_ends`), so it
+clears its own layer's rule unaided; every pad that merges into one of this
+module's own wires keeps `PAD_UM` and none of the empirically-tuned clearances
+documented below moves. The composed GDS now measures **0** shapes below
+`m3.6`/`m4.4a`.
+
+What remains below threshold in the composed GDS is **145 shapes on
+met1/met2/met3/met5 that `klt`'s own place-and-route emitted** inside
+`sar_sequencer`/`seln_inverters` — generated via cells (`VIA_L1M1_PR_MR` met1
+0.290x0.230 um, `VIA_M2M3_PR` met3 0.330x0.330 um, `VIA_via5_6_*` met5
+1.420x1.600 um) and router-drawn stubs. No `sky130_fd_sc_hd__*` library cell
+violates anything. That is not geometry this repo authors: tracked here as
+issue #333 and filed generically upstream as klayout-tools#2072.
+
+The measurement itself is committed alongside the record it grades:
+`reports/20260918-191315-935ce76/minimum-area.json` is that script's own
+`--json` output against this record's `sar_adc_top.gds` — 0 shapes below
+`m3.6`/`m4.4a`, and every one of the 145 residual met1/met2/met3/met5 shapes
+listed with its own bounding box, so #333 starts from measured geometry rather
+than a re-derivation.
+
 `layout/sar-adc-top/bin/build_layout.py` places all five sub-blocks (`klt
 gen-compose`, explicit placement, each named as a `blocks[].cell` entry per
 #1189) and hand-routes every net `design/sar_adc_top.sch` calls for (`klt
