@@ -263,10 +263,11 @@ honestly-PARTIAL record from this issue's first increment (PR #108);
 describe the pre-#180 (9-device) topology; all stay exactly as they were
 minted. `reports/20260915-120705-1e90b14/` (`reports/LATEST`) is the current
 record, against the amended 11-device topology (built under `klt 0.5.0`). Note:
-`reports/20260915-121226-1e90b14/` is an earlier run from the same date, also on
-the same topology, but was built under `klt 0.4.0` on branch `feature/issue-163`
-and is intentionally superseded by the `klt 0.5.0` pin bump (PR #275, issue #103);
-it is not a stale pointer but a deliberate historical record. `record.md` stamps
+`reports/20260915-121226-1e90b14/` is a later run from the same date -- minted
+about five minutes after the current record -- also on the same topology, but it
+was built under `klt 0.4.0` on branch `feature/issue-163` and is intentionally
+superseded by the `klt 0.5.0` pin bump (PR #275, issue #103); it is not a stale
+pointer but a deliberate historical record. `record.md` stamps
 the `klt` version, the KLayout engine version, the resolved PDK variant + open_pdks
 commit, the DRC deck's content hash, and the repo commit with its dirty flag.
 
