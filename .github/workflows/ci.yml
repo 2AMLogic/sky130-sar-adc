@@ -15,6 +15,17 @@ name: CI
 #     negative controls) runs in the `pdk-smoke` job below, gated on a
 #     nightly schedule / manual dispatch / an opt-in `run-pdk-smoke` label on
 #     a PR, because it needs a full volare PDK fetch.
+#   - The metal minimum-area gate (issue #338) also runs in `pdk-smoke`:
+#     `docs/chipalooza/measure_metal_min_area.py` measures sky130A's own
+#     m1.6/m2.6/m3.6/m4.4a/m5.4 rules -- which `klt drc` structurally cannot
+#     see at the pinned klayout-tools==0.5.0 -- against each flow's current
+#     `reports/LATEST` GDS. It is PDK- and KLayout-gated, and it is run with a
+#     negative control (`--self-test`) and a baseline that waives only #333's
+#     tool-emitted shapes. Its *baseline bookkeeping* is pure Python and is
+#     unit-tested headlessly in the always-on path
+#     (`sim/tests/test_metal_min_area_baseline.py` -> `check:ci` -> `checks`),
+#     so a waiver that silently covers this repo's own geometry fails on every
+#     push, not just nightly.
 #   - Everything claimed under `sim/<experiment>/records/` and
 #     `layout/trivial-cell/reports/` is evidence captured by a human/agent
 #     run of the PDK-gated runners, not a repeatable CI check — re-running it
@@ -260,3 +271,45 @@ jobs:
         run: |
           ./layout/bin/setup-venv.sh
           ./layout/bin/run-trivial-cell-flow.sh
+
+      - name: Metal minimum-area gate (issue #338)
+        # `klt drc`'s clean verdict is real but narrow: at the pinned
+        # klayout-tools==0.5.0 the curated sky130 deck authors NO `area`-kind
+        # rule, so sky130A's own m1.6/m2.6/m3.6/m4.4a/m5.4 minimum-area rules
+        # look at nothing in this repo (fixed upstream by klayout-tools#1989,
+        # not yet released). docs/chipalooza/measure_metal_min_area.py is the
+        # stand-in measurement -- it reads the thresholds and layer numbers
+        # out of the pinned PDK's own deck and applies KLayout's own
+        # `Region#with_area`, the primitive that deck's rule text calls -- and
+        # issue #326 used it to find and fix 17 real violations this repo's
+        # own generators drew. THIS step is what stops the next one landing
+        # silently.
+        #
+        # It belongs in this job, not in `checks`, for the same reason
+        # everything else here does: it needs the pinned PDK deck (above) and
+        # the `klayout` module from layout/.venv (installed by the previous
+        # step's setup-venv.sh). It re-runs no layout flow -- it measures the
+        # already-committed GDS in each flow's current reports/LATEST record,
+        # so it costs seconds, not minutes.
+        #
+        # --self-test FIRST, deliberately: a clean verdict means nothing until
+        # "fails" is shown reachable on the same rules in the same run, the
+        # same falsifiability discipline layout/*/README.md's negative-control
+        # verdicts apply to every other layout claim here. It measures a
+        # deliberately-illegal fixture (one isolated sub-m3.6 square,
+        # attributed to `cdac-array`) and exits non-zero unless the gate
+        # catches it.
+        #
+        # --baseline waives exactly the 145 shapes `klt`'s own place-and-route
+        # emits inside the two PnR'd digital macros -- a known, filed,
+        # not-ours finding (#333 here, klayout-tools#2072 upstream) -- and
+        # nothing else. The allowances are per (flow, rule) CEILINGS, so one
+        # more shape than recorded fails, while fewer passes with a loud
+        # STALE ALLOWANCE warning. When #333 closes: delete
+        # docs/chipalooza/metal_min_area_baseline.json and the --baseline
+        # argument below. That is the whole removal.
+        run: |
+          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
+            --self-test --baseline docs/chipalooza/metal_min_area_baseline.json
+          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
+            --baseline docs/chipalooza/metal_min_area_baseline.json

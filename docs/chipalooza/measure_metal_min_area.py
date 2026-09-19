@@ -58,6 +58,9 @@ composition plus each of its five sub-block flows (each flow's own
 currently standing behind).
 
     --json          machine-readable output (per-target, per-layer, per-shape)
+    --baseline F    grade the measurement against a baseline of per-target,
+                    per-rule allowances (see BASELINE MODE below); without it
+                    ANY shape below threshold is a failure
     --pdk-root DIR  PDK search root (default: $PDK_ROOT, else ~/.volare)
     --variant NAME  PDK variant (default: $PDK, else sky130A)
     --repo-root DIR repo root used to resolve the default targets
@@ -65,15 +68,56 @@ currently standing behind).
 Exit status:
 
     0 - every measured layer is clear of its own minimum-area threshold
-    1 - at least one shape is below threshold (each one listed)
-    2 - usage/environment error (no PDK deck, no klayout module, bad path)
+        (or, in baseline mode, clear of its recorded allowance)
+    1 - at least one shape is below threshold / over allowance (each listed)
+    2 - usage/environment error (no PDK deck, no klayout module, bad path,
+        malformed or stale-keyed baseline file)
+
+BASELINE MODE (issue #338)
+--------------------------
+This measurement is the CI gate for the invariant issue #326 established --
+this repo's own generators draw no isolated sub-minimum-area metal -- and runs
+in `.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job.
+
+A bare run cannot be that gate today, because the composed top level and the
+two place-and-routed digital macros carry shapes `klt`'s own place-and-route
+emitted, not shapes this repo drew: a known, filed, not-ours finding (#333
+here, 2AMLogic/klayout-tools#2072 upstream). `--baseline` separates the two:
+
+  * each allowance is a CEILING on one (target, rule) pair -- MORE shapes
+    than the recorded count fails, so a new isolated pad from any of this
+    repo's own generators (including the `sar-adc-top` and
+    `sampling-frontend` ones #326 actually had to fix) turns CI red;
+  * FEWER shapes than the ceiling passes, loudly flagged as a stale
+    allowance, so the day #333's shapes stop being emitted the gate does not
+    red-line -- it tells you to delete the entry;
+  * a (target, rule) with no allowance is gated at zero, so the three flows
+    whose geometry this repo hand-authors end to end (`cdac-array`,
+    `comparator`, `sampling-frontend`) fail on the first shape;
+  * every allowance MUST name the issue that tracks it, and an allowance
+    naming a target or rule that was not measured is an error, not a
+    silently-ignored line -- a waiver cannot rot unnoticed.
+
+The repo's own baseline is `docs/chipalooza/metal_min_area_baseline.json`,
+which today waives exactly #333's shapes and nothing else. When #333 closes,
+delete that file and drop `--baseline` from the CI step: one removal, two
+lines, no code change.
+
+`--baseline` grades the DEFAULT target set (it is keyed by the flow labels in
+`DEFAULT_TARGETS`); pass it without explicit GDS arguments.
 
 Requires the `klayout` Python module -- available in this repo's own
 `layout/.venv` (`layout/bin/setup-venv.sh`), which is why this script is NOT
 part of the always-on headless `checks` CI job: like `klt` itself it is
 PDK- and KLayout-gated. Run it from that venv:
 
-    layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
+    layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \\
+        --baseline docs/chipalooza/metal_min_area_baseline.json
+
+(The baseline *bookkeeping* -- schema validation, ceiling/stale/unknown-key
+arithmetic -- is pure Python and is unit-tested headlessly in
+`sim/tests/test_metal_min_area_baseline.py`, which `npm run test` runs on
+every push. Only the KLayout measurement itself is PDK-gated.)
 """
 
 from __future__ import annotations
@@ -105,6 +149,16 @@ DEFAULT_TARGETS: list[tuple[str, str, str]] = [
 #: exactly one `mN.with_area(0..T).output("<rule>", ...)` minimum-area rule and
 #: one `mN_wildcard = "L/D"` layer assignment in `sky130A_mr.drc`.
 METAL_SYMBOLS = ["m1", "m2", "m3", "m4", "m5"]
+
+#: Schema tag every baseline file must carry, so a future incompatible format
+#: is a loud error rather than a silently-misread set of allowances.
+BASELINE_SCHEMA = "metal-min-area-baseline/1"
+
+#: Fields each allowance entry must carry. `tracking_issue` and `reason` are
+#: mandatory ON PURPOSE (issue #338): an allowance that cannot say which open
+#: finding it exists for, and why, is exactly the kind of carve-out that
+#: outlives the defect it was written for.
+BASELINE_REQUIRED_FIELDS = ("target", "rule", "max_below_min_area", "tracking_issue", "reason")
 
 
 class MeasurementError(RuntimeError):
@@ -246,9 +300,15 @@ def measure_gds(gds_path: Path, rules: list[dict]) -> dict:
 # --------------------------------------------------------------------------- #
 # Target resolution
 # --------------------------------------------------------------------------- #
-def resolve_default_targets(repo_root: Path) -> list[tuple[str, Path]]:
-    """Resolve each `DEFAULT_TARGETS` entry through its flow's `reports/LATEST`."""
-    targets: list[tuple[str, Path]] = []
+def resolve_default_targets(repo_root: Path) -> list[tuple[str, str, Path]]:
+    """Resolve each `DEFAULT_TARGETS` entry through its flow's `reports/LATEST`.
+
+    Returns `(target_key, display_label, gds_path)`. `target_key` is the
+    record-independent flow label -- it is what a baseline file keys on, so a
+    baseline survives a flow minting a new record (which is the normal case);
+    `display_label` carries the record id for the human-readable report.
+    """
+    targets: list[tuple[str, str, Path]] = []
     for label, flow_dir, gds_name in DEFAULT_TARGETS:
         pointer = repo_root / flow_dir / "reports" / "LATEST"
         if not pointer.is_file():
@@ -257,8 +317,239 @@ def resolve_default_targets(repo_root: Path) -> list[tuple[str, Path]]:
         gds = repo_root / flow_dir / "reports" / record / gds_name
         if not gds.is_file():
             raise MeasurementError(f"{pointer} -> {record}, but no {gds_name} in that record")
-        targets.append((f"{label} [{record}]", gds))
+        targets.append((label, f"{label} [{record}]", gds))
     return targets
+
+
+# --------------------------------------------------------------------------- #
+# Baseline grading (issue #338) -- pure bookkeeping, no KLayout, unit-tested
+# headlessly in sim/tests/test_metal_min_area_baseline.py.
+# --------------------------------------------------------------------------- #
+def load_baseline(path: Path) -> dict:
+    """Read and validate a baseline file, or raise `MeasurementError` (exit 2)."""
+    try:
+        raw = json.loads(path.read_text())
+    except FileNotFoundError as exc:
+        raise MeasurementError(f"no baseline file at {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise MeasurementError(f"{path}: not valid JSON: {exc}") from exc
+
+    if not isinstance(raw, dict):
+        raise MeasurementError(f"{path}: baseline must be a JSON object")
+    if raw.get("schema") != BASELINE_SCHEMA:
+        raise MeasurementError(
+            f"{path}: expected \"schema\": \"{BASELINE_SCHEMA}\", got {raw.get('schema')!r}"
+        )
+    allowances = raw.get("allowances")
+    if not isinstance(allowances, list):
+        raise MeasurementError(f"{path}: \"allowances\" must be a list")
+
+    seen: set[tuple[str, str]] = set()
+    for i, entry in enumerate(allowances):
+        where = f"{path}: allowances[{i}]"
+        if not isinstance(entry, dict):
+            raise MeasurementError(f"{where}: must be an object")
+        for field in BASELINE_REQUIRED_FIELDS:
+            if field not in entry:
+                raise MeasurementError(f"{where}: missing required field {field!r}")
+        for field in ("target", "rule", "tracking_issue", "reason"):
+            if not isinstance(entry[field], str) or not entry[field].strip():
+                raise MeasurementError(f"{where}: {field!r} must be a non-empty string")
+        count = entry["max_below_min_area"]
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise MeasurementError(
+                f"{where}: 'max_below_min_area' must be a non-negative integer, got {count!r}"
+            )
+        key = (entry["target"], entry["rule"])
+        if key in seen:
+            raise MeasurementError(f"{where}: duplicate allowance for {key[0]!r} rule {key[1]!r}")
+        seen.add(key)
+
+    return raw
+
+
+def apply_baseline(results: list[dict], baseline: dict | None) -> dict:
+    """Grade measured results against the baseline's per-(target, rule) ceilings.
+
+    With `baseline=None` every allowance is 0, i.e. any shape below threshold
+    is an exceedance -- the plain measurement's own semantics.
+
+    Returns a verdict dict with three disjoint findings:
+
+      `exceeded`  more shapes than allowed  -> failure (exit 1)
+      `stale`     fewer shapes than allowed -> pass, but the allowance should
+                  be tightened or deleted (it has outlived its finding)
+      `unknown`   an allowance whose (target, rule) was not measured at all
+                  -> usage error (exit 2): a typo'd or rotted waiver key must
+                  never read as "nothing to waive, all good"
+    """
+    allowances = {
+        (entry["target"], entry["rule"]): entry for entry in (baseline or {}).get("allowances", [])
+    }
+
+    measured: dict[tuple[str, str], int] = {}
+    for result in results:
+        for layer in result["layers"]:
+            measured[(result["target"], layer["rule"])] = layer["below_min_area"]
+
+    exceeded, stale, waived = [], [], []
+    for key in sorted(measured):
+        target, rule = key
+        count = measured[key]
+        entry = allowances.get(key)
+        allowed = entry["max_below_min_area"] if entry else 0
+        finding = {
+            "target": target,
+            "rule": rule,
+            "below_min_area": count,
+            "allowed": allowed,
+            "tracking_issue": entry["tracking_issue"] if entry else None,
+        }
+        if count > allowed:
+            exceeded.append(finding)
+        elif entry is not None and count < allowed:
+            stale.append(finding)
+        elif entry is not None and count == allowed and allowed > 0:
+            waived.append(finding)
+
+    unknown = [
+        {"target": target, "rule": rule}
+        for (target, rule) in sorted(allowances)
+        if (target, rule) not in measured
+    ]
+
+    return {
+        "exceeded": exceeded,
+        "stale": stale,
+        "waived": waived,
+        "unknown_allowances": unknown,
+        "measured_total": sum(measured.values()),
+        "allowed_total": sum(
+            entry["max_below_min_area"]
+            for key, entry in allowances.items()
+            if key in measured
+        ),
+        "over_allowance_total": sum(f["below_min_area"] - f["allowed"] for f in exceeded),
+    }
+
+
+#: The flow the `--self-test` negative control pretends its illegal fixture
+#: came from. It is deliberately one of the three whose geometry this repo
+#: hand-authors end to end and which measure 0 today -- so the self-test also
+#: fails if somebody ever adds an allowance for it to the baseline file.
+SELF_TEST_TARGET = "cdac-array"
+
+
+def self_test(rules: list[dict], baseline: dict | None) -> bool:
+    """Prove the gate is reachable: does one isolated sub-minimum pad fail it?
+
+    A clean verdict means nothing until "fails" is shown reachable on the same
+    rules in the same run -- the falsifiability discipline this repo applies to
+    every other layout verdict (see layout/*/README.md's negative-control
+    verdicts 3/6/10/11). So this builds a deliberately-illegal fixture -- ONE
+    isolated square on the met3 layer, sized from the deck's own `m3.6`
+    threshold rather than any transcribed number, so its area is below it --
+    measures it with the same `measure_gds` the real targets go through, and
+    grades it through the same `apply_baseline` against the REAL baseline
+    while claiming to be `cdac-array`. That is, literally: a newly-introduced
+    isolated sub-minimum-area shape in one of this repo's own hand-authored
+    flows must turn the gate red.
+
+    Returns True if the gate caught it.
+    """
+    import math
+    import tempfile
+
+    try:
+        import klayout.db as kdb
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise MeasurementError(
+            "the `klayout` python module is not importable -- run this from "
+            "this repo's own layout venv (layout/bin/setup-venv.sh)"
+        ) from exc
+
+    rule = next((r for r in rules if r["symbol"] == "m3"), None)
+    if rule is None:
+        raise MeasurementError("deck carries no m3 minimum-area rule to build a fixture against")
+
+    layout = kdb.Layout()
+    layout.dbu = 0.001
+    top = layout.create_cell("min_area_negative_control")
+    li = layout.layer(rule["layer"], rule["datatype"])
+    # Half the side of a square that would exactly meet the threshold, so the
+    # fixture's area is a quarter of it -- unambiguously below, on any deck.
+    side_um = math.sqrt(rule["min_area_um2"]) / 2.0
+    side_dbu = int(round(side_um / layout.dbu))
+    top.shapes(li).insert(kdb.Box(0, 0, side_dbu, side_dbu))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = Path(tmp) / "min_area_negative_control.gds"
+        layout.write(str(fixture))
+        result = measure_gds(fixture, rules)
+
+    result["target"] = SELF_TEST_TARGET
+    verdict = apply_baseline([result], baseline)
+    caught = [
+        f
+        for f in verdict["exceeded"]
+        if f["target"] == SELF_TEST_TARGET
+        and f["rule"] == rule["rule"]
+        and f["below_min_area"] == 1
+        and f["allowed"] == 0
+    ]
+
+    area_um2 = side_um * side_um
+    print("Negative control (issue #338): one isolated met3 square of")
+    print(
+        f"  {side_um:.3f} x {side_um:.3f} um = {area_um2:.4f} um2, below "
+        f"{rule['rule']}'s {rule['min_area_um2']} um2, attributed to {SELF_TEST_TARGET!r}"
+    )
+    if caught:
+        print(f"  GATE FAILS AS IT MUST: {caught[0]['rule']} 1 shape > allowance 0")
+        return True
+    print(
+        "  GATE DID NOT FAIL -- the minimum-area measurement is vacuous as configured "
+        f"(is there an allowance for {SELF_TEST_TARGET!r} in the baseline?)",
+        file=sys.stderr,
+    )
+    return False
+
+
+def _warn(message: str) -> None:
+    """Print a warning, as a GitHub Actions annotation when running in CI."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::warning title=metal minimum area::{message}")
+    print(f"WARNING: {message}", file=sys.stderr)
+
+
+def report_baseline(verdict: dict, baseline_path: Path) -> None:
+    """Print the human-readable baseline section of the report."""
+    print(f"\nBaseline: {baseline_path}")
+    for finding in verdict["waived"]:
+        print(
+            f"  waived   {finding['target']} {finding['rule']}: "
+            f"{finding['below_min_area']} shape(s), allowance "
+            f"{finding['allowed']} ({finding['tracking_issue']})"
+        )
+    for finding in verdict["stale"]:
+        _warn(
+            f"STALE ALLOWANCE: {finding['target']} {finding['rule']} now measures "
+            f"{finding['below_min_area']} shape(s), below its allowance of "
+            f"{finding['allowed']} ({finding['tracking_issue']}). The finding this "
+            f"allowance was written for has shrunk or closed -- tighten the entry, or "
+            f"delete it if it is now zero."
+        )
+    for finding in verdict["exceeded"]:
+        print(
+            f"  FAIL     {finding['target']} {finding['rule']}: "
+            f"{finding['below_min_area']} shape(s) below minimum area, "
+            f"allowance {finding['allowed']}"
+        )
+    if not verdict["exceeded"]:
+        print(
+            f"  OK: {verdict['measured_total']} shape(s) below threshold, all within "
+            f"the recorded allowances ({verdict['allowed_total']})"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -267,6 +558,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("gds", nargs="*", type=Path, help="GDS files to measure")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=None,
+        help="grade against per-(target, rule) allowances from this baseline file",
+    )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help=(
+            "negative control: measure a deliberately-illegal fixture and exit non-zero "
+            "unless the gate flags it (proves a clean verdict is not vacuous)"
+        ),
+    )
     parser.add_argument("--pdk-root", type=Path, default=None)
     parser.add_argument("--variant", default=None)
     parser.add_argument(
@@ -283,20 +588,41 @@ def main(argv: list[str] | None = None) -> int:
         deck = find_deck(Path(pdk_root).expanduser(), variant)
         rules = parse_min_area_rules(deck.read_text())
 
+        baseline = load_baseline(args.baseline) if args.baseline else None
+
+        if args.self_test:
+            print(f"PDK deck: {deck}")
+            return 0 if self_test(rules, baseline) else 1
+
         if args.gds:
-            targets = [(str(p), p) for p in args.gds]
-            for _, path in targets:
+            targets = [(str(p), str(p), p) for p in args.gds]
+            for _, _, path in targets:
                 if not path.is_file():
                     raise MeasurementError(f"no such GDS: {path}")
         else:
             targets = resolve_default_targets(args.repo_root.resolve())
 
-        results = [dict(measure_gds(path, rules), label=label) for label, path in targets]
+        results = [
+            dict(measure_gds(path, rules), target=key, label=label) for key, label, path in targets
+        ]
+
+        verdict = apply_baseline(results, baseline)
+        if verdict["unknown_allowances"]:
+            unknown = ", ".join(
+                f"{u['target']!r}/{u['rule']}" for u in verdict["unknown_allowances"]
+            )
+            raise MeasurementError(
+                f"{args.baseline}: allowance(s) for a target/rule that was not measured: "
+                f"{unknown} -- a baseline key that matches nothing would silently waive "
+                f"nothing; fix the key or delete the entry (--baseline grades the default "
+                f"target set, so do not combine it with explicit GDS arguments)"
+            )
     except MeasurementError as exc:
         print(f"measure_metal_min_area.py: {exc}", file=sys.stderr)
         return 2
 
     total = sum(r["total_below_min_area"] for r in results)
+    failed = bool(verdict["exceeded"])
 
     if args.json:
         print(
@@ -306,11 +632,22 @@ def main(argv: list[str] | None = None) -> int:
                     "rules": rules,
                     "results": results,
                     "total_below_min_area": total,
+                    "baseline": (
+                        None
+                        if baseline is None
+                        else {"path": str(args.baseline), "verdict": verdict}
+                    ),
                 },
                 indent=2,
             )
         )
-        return 0 if total == 0 else 1
+        for finding in verdict["stale"]:
+            _warn(
+                f"STALE ALLOWANCE: {finding['target']} {finding['rule']} measures "
+                f"{finding['below_min_area']} of an allowed {finding['allowed']} "
+                f"({finding['tracking_issue']})"
+            )
+        return 1 if failed else 0
 
     print(f"PDK deck: {deck}")
     for result in results:
@@ -333,7 +670,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  subtotal: {result['total_below_min_area']} shape(s) below minimum area")
 
     print(f"\nTOTAL: {total} shape(s) below their metal's minimum area")
-    return 0 if total == 0 else 1
+
+    if baseline is not None:
+        report_baseline(verdict, args.baseline)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
