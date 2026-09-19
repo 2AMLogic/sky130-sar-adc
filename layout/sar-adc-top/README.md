@@ -23,8 +23,11 @@ SPICE round-trip) is **worked around locally** by this flow's own
 `bin/restore-cap-device-class.py`, which recovers the pre-regression
 verdict — 98 mismatches / 412 matched nets, against 124 / 393 without it. A
 newly-tried `--abstract-cells` black-boxing shape narrows this further to
-**6** mismatches, but rests on a not-yet-understood tool behaviour
-(klayout-tools#1911) and is recorded as a measurement, not adopted for
+**6** mismatches, but rests on a not-yet-understood tool behaviour — a
+same-instance pin-to-net binding fault, **not** the klayout-tools#1911/#1934
+gap originally suspected (that fix is merged upstream but, per a 2026-09-19
+ablation matrix, does not touch this collapse; corrected diagnosis filed as
+klayout-tools#2142) — and is recorded as a measurement, not adopted for
 signoff — see "LVS device/topology blocker" below for the full, current
 trace of both.**
 
@@ -964,29 +967,61 @@ sar_sequencer, seln_inverters no longer contribute any devices to fold at
 all).
 
 **Why this is not adopted for signoff, and is not the flow's default.** All
-6 remaining mismatches trace to one thing: `cdac_array__cdac_array`'s own
-schematic 4th port (a body/bulk tie resolved, in the *unabstracted* layout,
-through the sky130 deck's global-net fallback rather than a drawn label —
-the same mechanism the "GND / VPWR / VGND" section above already documents
-for other blocks) has **no drawn label anywhere in cdac_array's own
-definition**, so `--abstract-cells` silently drops it (23 resolved pins,
-not the reference's 24) — and, surprisingly, that drop does not just cost
-the black box its own 4th terminal: it also **corrupts the synthesized net
-name for several unrelated top-level nets** (`VINN`/`VINP`/`TOP_N`/`TOP_P`/
-`VREFN` collapse into one bogus composite label, cascading into the 6
-mismatches above), even though those nets never touch `cdac_array`'s own
-footprint. Isolated directly: abstracting `sar_sequencer`/`seln_inverters`
-alone (neither has a label-less port) leaves every net name clean;
-abstracting `cdac_array` alone, on its own, reproduces the corruption every
-time, independent of which other flags are combined with it. This is a new
-finding, distinct from klayout-tools#1876/#1878/#1085 (a different root
-cause — a black-boxed cell's *dropped, label-less* port perturbing
-*unrelated* net-name synthesis, not a combine_devices scoping question or a
-missing hierarchical-extraction mode), so it is not covered by an existing
-report — filed generically as
-[klayout-tools#1911](https://github.com/2AMLogic/klayout-tools/issues/1911).
+6 remaining mismatches trace to one thing: three of `cdac_array__cdac_array`'s
+own separately-declared pins (`TOP_N`, `TOP_P`, `VREFN`) get resolved onto
+**one** synthesized net, which additionally absorbs the (already
+legitimately dual-labelled, see the connectivity table's `TOP_N`/`TOP_P`
+rows) `VINN`/`VINP` net — `TOP_N|TOP_P|VINN|VINP|VREFN`, one composite label
+where five should exist. `klt extract`'s own `warnings[]` output names this
+directly: *"1 --abstract-cells instance(s) resolved two or more of their
+separately declared pins onto the same net: ... pins TOP_N, TOP_P, VREFN ->
+net '...' ... this ... is also the signature of a pin-to-net binding
+fault"*.
 
-Until #1911 is understood/fixed, this repo has no way to independently
+**Update (2026-09-19): the original diagnosis above was wrong.** The
+original recording of this section attributed the collapse to
+`cdac_array__cdac_array`'s 4th schematic port (a body/bulk tie with no
+drawn label, resolved only through the sky130 deck's global-net fallback)
+being silently dropped (23 resolved pins, not the reference's 24), and
+filed that as klayout-tools#1911. #1911 got an upstream fix (merged as
+commit `ad3f836`/PR #1934, not yet released as of this update) that indeed
+closes a real bug — but a **different** one: #1934's own PR description
+traces it to a black-boxed cell's *erased nwell/tap geometry* silently
+reclassifying a substrate tie *elsewhere in the design*, through the deck's
+whole-layout body-identity classification pass. That is a cross-instance,
+classification-side effect, and it is not what this section's 6 mismatches
+trace to.
+
+An ablation matrix (`layout/sar-adc-top/bin/probe-abstract-cells.py`,
+committed alongside this update; results in each record's own
+`abstract-probe.<klt-version>.summary.json`) re-measured the collapse
+directly against the fix's own targets and found neither one changes it:
+
+- Supplying `cdac_array`'s missing 4th port with a drawn tie (so the macro
+  now resolves all 24 of its schematic pins, not 23 — the exact condition
+  #1911's original diagnosis says should matter) leaves the composite net
+  **byte-for-byte unchanged**.
+- Stripping `cdac_array`'s own nwell/tap geometry (the exact geometry
+  #1934's classification-pass fix reasons about) also leaves the composite
+  net **unchanged**.
+- Turning `--pin-source-cells` off changes nothing either (this mechanism
+  was never about declared-pin sourcing).
+- Abstracting a *different* macro (`sar_sequencer`/`seln_inverters`
+  together, `cdac_array` left flat) reproduces only the design's own
+  legitimate `TOP_N|VINN`/`TOP_P|VINP` dual-label pair — the same pair a
+  fully flat (no `--abstract-cells` at all) extraction already reports —
+  and nothing more.
+
+So the currently-cited blocker rationale ("wait for a klayout-tools release
+containing #1934") does not actually apply here: once released, #1934 will
+not change this section's 6 mismatches, because the mechanism it fixes is
+not the one producing them. Filed the corrected diagnosis generically as
+[klayout-tools#2142](https://github.com/2AMLogic/klayout-tools/issues/2142)
+(closes-relationship to #1911/#1934 noted there as "related, different
+mechanism" rather than superseding — #1911/#1934 is a real, separate fix
+that this repo has no reason to distrust on its own terms).
+
+Until #2142 is understood/fixed, this repo has no way to independently
 confirm the 6 remaining mismatches are the cosmetic label artefact they
 appear to be, rather than a real connectivity defect the corrupted names
 happen to mask — so, per CLAUDE.md's "Verification is the product" (no
@@ -994,9 +1029,9 @@ claim without a testbench this repo can actually audit), this shape is
 **recorded here as a measurement, not adopted**: `run-flow.sh` keeps using
 the already-audited 98-mismatch `combine_devices: true` /
 `flatten_reference: true` whole-request compare above as its signoff
-attempt. Once #1911 is resolved upstream, re-measure this shape first —
-if the 6 mismatches resolve to genuinely benign net-naming artefacts (or
-disappear once the underlying pin-drop is fixed), this is the shortest
+attempt. Once #2142 is resolved upstream, re-run
+`bin/probe-abstract-cells.py` first — if the composite net resolves to
+exactly the 3 pins it should split back into, this is still the shortest
 path to a full LVS match this issue has found so far.
 
 ## Remaining work (tracked against #103)
