@@ -92,7 +92,7 @@ current writeup of both gaps.
 field-identical to `20260915-234004-76f48b9` (98 mismatches, 869/869/794
 devices, 444/446/412 nets, 19/19/19 pins, same four categories). What changed
 is geometry `klt drc` structurally could not see — see "Minimum-area rules:
-measured out-of-band, because the deck has none" below. The composition's own
+measured separately, because the deck has none" below. The composition's own
 top-level `bbox_um` moves for the first time since PR #174, by 0.05 um in `x0`
 only (-20.200 -> -20.250), because the external `VDD` pin's label-only met4
 landing pad widened from 0.36 to 0.50 um; that pad is the composition's
@@ -101,7 +101,7 @@ leftmost shape. This re-run also picked up `layout/cdac-array/`'s,
 and `layout/sampling-frontend/`'s new `20260918-191227-935ce76`, so all five
 composition inputs are again each flow's current `reports/LATEST`.
 
-### Minimum-area rules: measured out-of-band, because the deck has none
+### Minimum-area rules: measured separately, because the deck has none
 
 `klt drc --deck sky130` at the pinned `klayout-tools==0.5.0` authors **47
 rules across five kinds** (`width`, `space`, `enclosing`, `separation`,
@@ -113,7 +113,7 @@ layout, and a `status: "clean"` verdict said nothing about them. The deck gap
 is fixed upstream (klayout-tools#1989, commit `50cc29c3`) but **not
 released**; this repo grades against what is released.
 
-Until that release lands, minimum area is measured out-of-band by
+Until that release lands, minimum area is measured by
 `docs/chipalooza/measure_metal_min_area.py`, which reads the thresholds and
 layer numbers out of the pinned PDK's own deck (never transcribed) and applies
 KLayout's own `Region#with_area` — the same primitive the deck's rule text
@@ -123,6 +123,46 @@ calls — to each flow's current record:
 layout/bin/setup-venv.sh                                    # once
 layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
 ```
+
+**That measurement is a CI gate, not a manual habit** (issue #338). It runs in
+`.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job — nightly, on
+`workflow_dispatch`, and on any PR labelled `run-pdk-smoke` — against the
+already-committed GDS in each flow's current `reports/LATEST` record, so it
+re-runs no layout flow and costs seconds. Two invocations, in this order:
+
+```
+layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
+    --self-test --baseline docs/chipalooza/metal_min_area_baseline.json
+layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
+    --baseline docs/chipalooza/metal_min_area_baseline.json
+```
+
+`--self-test` is the negative control this repo applies to every other layout
+verdict (see verdict 3 in the trivial-cell proof): it measures a
+deliberately-illegal fixture — one isolated square sized from the deck's own
+`m3.6` threshold, attributed to `cdac-array` — and exits non-zero unless the
+gate catches it, so a clean verdict from the second invocation cannot be
+vacuous.
+
+`--baseline docs/chipalooza/metal_min_area_baseline.json` is what keeps the
+145 tool-emitted shapes below from red-lining CI permanently. Each entry is a
+per-(flow, rule) **ceiling** carrying the issue that tracks it — all ten name
+#333 and nothing else — so:
+
+- one shape more than recorded, anywhere, **fails**: a new isolated pad from
+  this flow's own via risers is caught even though this flow is waived for
+  #333's shapes (a waiver is a ceiling, never a blanket exemption);
+- a flow with no entry — `cdac-array`, `comparator`, `sampling-frontend`, the
+  three whose metal this repo hand-authors end to end — is gated at **zero**;
+- fewer shapes than recorded **passes**, with a loud `STALE ALLOWANCE`
+  warning, so the day #333 is fixed the gate does not turn red on a closed
+  defect — it asks to be tightened.
+
+When #333 closes: delete `docs/chipalooza/metal_min_area_baseline.json` and
+drop the `--baseline` argument from that CI step. Nothing else references it.
+The baseline's own bookkeeping (what it waives, what it must never waive) is
+unit-tested headlessly on every push in
+`sim/tests/test_metal_min_area_baseline.py`.
 
 Issue #326 found **17 shapes below `m3.6`/`m4.4a`** in the composed GDS that
 this repo's own generators drew: 12 met3 + 1 met4 from this flow's via risers,

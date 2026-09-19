@@ -154,8 +154,16 @@ PAD_UM = 0.36  # generic via/wire landing pad side. Bigger than
 #: authors no `area`-kind rule at all, so a sub-minimum-area shape reads back
 #: `status: "clean"` (issue #326; fixed upstream by klayout-tools#1989, not yet
 #: released). `docs/chipalooza/measure_metal_min_area.py` is this repo's own
-#: stand-in measurement until that release lands -- run it against this flow's
-#: composed GDS after any change to the geometry below.
+#: stand-in measurement until that release lands, and since issue #338 it is a
+#: CI gate rather than a manual habit: `.github/workflows/ci.yml`'s PDK-gated
+#: `pdk-smoke` job measures this flow's current `reports/LATEST` GDS against a
+#: baseline that waives ONLY the shapes `klt`'s own place-and-route emits
+#: (#333). So a new via riser or stacked-via pad added below at `PAD_UM` /
+#: `STACK_PAD_UM`, on a layer nothing else here merges with, fails CI -- but
+#: only on the nightly/`run-pdk-smoke` path, so run it yourself after changing
+#: the geometry below rather than waiting for the nightly:
+#:     layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
+#:         --baseline docs/chipalooza/metal_min_area_baseline.json
 MIN_METAL_AREA_UM2 = {
     LI1: 0.0561,
     MET1: 0.083,

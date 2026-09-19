@@ -58,6 +58,21 @@ replace that measurement until a `klayout-tools` release carries #1989. That
 script's own `--json` output against this record is committed beside it, as
 `reports/20260918-191227-935ce76/minimum-area.json`.
 
+**That zero is now enforced, not just recorded** (issue #338). The same
+measurement runs in `.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job —
+nightly, on `workflow_dispatch`, and on any PR labelled `run-pdk-smoke` —
+against each flow's current `reports/LATEST` GDS, with a negative control
+(`--self-test`) proving on every run that the gate can still fail, and with
+`--baseline docs/chipalooza/metal_min_area_baseline.json` waiving exactly the
+shapes `klt`'s own place-and-route emits inside the two PnR'd digital macros
+(#333, upstream klayout-tools#2072) and nothing else. **This flow appears
+nowhere in that baseline, on purpose**: it draws its own metal, so it is gated
+at zero and the first sub-minimum `STACK_PAD_UM`-class pad reintroduced here —
+the defect #326 found above — turns CI red instead of waiting for someone to
+run the script by hand. See `layout/sar-adc-top/README.md` → "Minimum-area
+rules: measured separately, because the deck has none" for the gate's full
+mechanics and for how the baseline retires when #333 closes.
+
 | # | Verdict | Why it is here |
 | --- | --- | --- |
 | 1 | every `klt gen` block is DRC-clean *in isolation* | a composed-DRC failure is attributable to the wells/routing, not to a device |
