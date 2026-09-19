@@ -1,0 +1,245 @@
+{
+  "schema": "sar-adc-top.abstract-cells-probe/1",
+  "klt_version": "klt 0.5.0",
+  "record": "20260919-050355-fb11617",
+  "substrate_tie_variant": {
+    "at_um": [
+      200.5,
+      -30.0
+    ],
+    "cell": "cdac_array__cdac_array"
+  },
+  "no_well_tap_variant": {
+    "cleared": {
+      "64/20": 19,
+      "65/44": 1
+    },
+    "cell": "cdac_array__cdac_array"
+  },
+  "variants": [
+    {
+      "variant": "abstract-probe.klt-0.5.0.three",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array",
+        "sar_sequencer__sar_sequencer",
+        "seln_inverters__seln_inverters"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 59,
+      "device_count": 37,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        },
+        {
+          "cell": "sar_sequencer__sar_sequencer",
+          "pin_count": 28,
+          "resolution_source": "in_cell_labels"
+        },
+        {
+          "cell": "seln_inverters__seln_inverters",
+          "pin_count": 20,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|TOP_P|VINN|VINP|VREFN",
+          "labels": [
+            "TOP_N",
+            "TOP_P",
+            "VINN",
+            "VINP",
+            "VREFN"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "1 --abstract-cells instance(s) resolved two or more of their separately declared pins onto the same net: cdac_array__cdac_array_0 (cell 'cdac_array__cdac_array'): pins TOP_N, TOP_P, VREFN -> net 'TOP_N,TOP_P,VINN,VINP,VREFN'. This is legal for a deliberately tied-off pin, but an abstracted cell is a black box whose interior cannot be inspected to confirm that, and it is also the signature of a pin-to-net binding fault (a ground-role pin resolved onto the power net, or an output resolved onto one of its own instance's inputs) -- confirm these against the design's intent before trusting a downstream `klt lvs` verdict built on this netlist"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.5.0.cdac-only",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 424,
+      "device_count": 833,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|TOP_P|VINN|VINP|VREFN",
+          "labels": [
+            "TOP_N",
+            "TOP_P",
+            "VINN",
+            "VINP",
+            "VREFN"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "1 --abstract-cells instance(s) resolved two or more of their separately declared pins onto the same net: cdac_array__cdac_array_0 (cell 'cdac_array__cdac_array'): pins TOP_N, TOP_P, VREFN -> net 'TOP_N,TOP_P,VINN,VINP,VREFN'. This is legal for a deliberately tied-off pin, but an abstracted cell is a black box whose interior cannot be inspected to confirm that, and it is also the signature of a pin-to-net binding fault (a ground-role pin resolved onto the power net, or an output resolved onto one of its own instance's inputs) -- confirm these against the design's intent before trusting a downstream `klt lvs` verdict built on this netlist"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.5.0.cdac-no-pinsrc",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": null,
+      "status": "extracted",
+      "net_count": 424,
+      "device_count": 833,
+      "top_pin_count": 66,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|TOP_P|VINN|VINP|VREFN",
+          "labels": [
+            "TOP_N",
+            "TOP_P",
+            "VINN",
+            "VINP",
+            "VREFN"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "1 --abstract-cells instance(s) resolved two or more of their separately declared pins onto the same net: cdac_array__cdac_array_0 (cell 'cdac_array__cdac_array'): pins TOP_N, TOP_P, VREFN -> net 'TOP_N,TOP_P,VINN,VINP,VREFN'. This is legal for a deliberately tied-off pin, but an abstracted cell is a black box whose interior cannot be inspected to confirm that, and it is also the signature of a pin-to-net binding fault (a ground-role pin resolved onto the power net, or an output resolved onto one of its own instance's inputs) -- confirm these against the design's intent before trusting a downstream `klt lvs` verdict built on this netlist"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.5.0.cdac-tied",
+      "gds": "variant-substrate-tie.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 425,
+      "device_count": 833,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 24,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|TOP_P|VINN|VINP|VREFN",
+          "labels": [
+            "TOP_N",
+            "TOP_P",
+            "VINN",
+            "VINP",
+            "VREFN"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "1 --abstract-cells instance(s) resolved two or more of their separately declared pins onto the same net: cdac_array__cdac_array_0 (cell 'cdac_array__cdac_array'): pins TOP_N, TOP_P, VREFN -> net 'TOP_N,TOP_P,VINN,VINP,VREFN'. This is legal for a deliberately tied-off pin, but an abstracted cell is a black box whose interior cannot be inspected to confirm that, and it is also the signature of a pin-to-net binding fault (a ground-role pin resolved onto the power net, or an output resolved onto one of its own instance's inputs) -- confirm these against the design's intent before trusting a downstream `klt lvs` verdict built on this netlist"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.5.0.cdac-no-well",
+      "gds": "variant-no-well-tap.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 424,
+      "device_count": 833,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|TOP_P|VINN|VINP|VREFN",
+          "labels": [
+            "TOP_N",
+            "TOP_P",
+            "VINN",
+            "VINP",
+            "VREFN"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "1 --abstract-cells instance(s) resolved two or more of their separately declared pins onto the same net: cdac_array__cdac_array_0 (cell 'cdac_array__cdac_array'): pins TOP_N, TOP_P, VREFN -> net 'TOP_N,TOP_P,VINN,VINP,VREFN'. This is legal for a deliberately tied-off pin, but an abstracted cell is a black box whose interior cannot be inspected to confirm that, and it is also the signature of a pin-to-net binding fault (a ground-role pin resolved onto the power net, or an output resolved onto one of its own instance's inputs) -- confirm these against the design's intent before trusting a downstream `klt lvs` verdict built on this netlist"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.5.0.seq-seln",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "sar_sequencer__sar_sequencer",
+        "seln_inverters__seln_inverters"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 79,
+      "device_count": 1097,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "sar_sequencer__sar_sequencer",
+          "pin_count": 28,
+          "resolution_source": "in_cell_labels"
+        },
+        {
+          "cell": "seln_inverters__seln_inverters",
+          "pin_count": 20,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": []
+    }
+  ]
+}
