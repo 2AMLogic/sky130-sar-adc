@@ -78,6 +78,83 @@ points at the newest record id.
   for the three-part fix that got here from the `mismatch` verdict PR #105
   originally recorded.
 
+## Known limitation: 112 metal minimum-area violations, waived 2026-09-19 (issue #333)
+
+**The "DRC: clean" line above is real but narrow, and this section states
+exactly how narrow.** `klt drc --deck sky130` at the pinned
+`klayout-tools==0.5.0` authors 47 rules across five kinds (`width`, `space`,
+`enclosing`, `separation`, `isolated`) and **no `area`-kind rule at all**, so
+sky130A's own metal minimum-area rules have never looked at this record.
+Measured independently — `docs/chipalooza/measure_metal_min_area.py`, which
+reads the layer numbers and thresholds out of the pinned PDK's own
+`sky130A_mr.drc` and applies the deck's own `Region#with_area` primitive to the
+merged top-cell flatten — this flow's `reports/LATEST` record carries:
+
+| Rule | Threshold | Shapes below | Shape | Area | Drawn by |
+| --- | --- | --- | --- | --- | --- |
+| `m1.6` | 0.083 um² | 96 | 0.290 × 0.230 um (94), plus 2 router stubs | 0.0667 um² | `VIA_L1M1_PR_MR` |
+| `m2.6` | 0.0676 um² | 6 | 0.140 × 0.310 um | 0.0434 um² | top-cell router stubs |
+| `m3.6` | 0.240 um² | 8 | 0.330 × 0.330 um | 0.1089 um² | `VIA_M2M3_PR` |
+| `m5.4` | 4.0 um² | 2 | 1.420 × 1.600 um | 2.2720 um² | `VIA_via5_6_1600_1600_1_1_1600_1600` |
+
+112 shapes in total, re-measured 2026-09-19 against
+`reports/20260917-180601-527ec73/sar_sequencer.gds` on the pinned toolchain
+(`klt 0.5.0`, `klayout 0.30.12`, open_pdks
+`c6d73a35f524070e85faff4a6a9eef49553ebc2b`). **No `sky130_fd_sc_hd__*` library
+cell contributes a single one** — every violating shape is in a generated via
+cell or a router-drawn stub.
+
+**Why this is not fixable from this repository.** Nothing in `layout/` draws
+any of this geometry. The flow's only in-repo inputs are
+`netlist/sar_sequencer.v` and `requests/place-and-route.json`; everything above
+comes out of `klt place-and-route`'s OpenROAD run and the DEF→GDS merge:
+
+- The `m1.6`/`m3.6` shapes are **the PDK's own tech-LEF via enclosures**,
+  instantiated verbatim. `sky130_fd_sc_hd__nom.tlef` defines
+  `VIA L1M1_PR_MR`'s met1 rect as `-0.145 -0.115 0.145 0.115` (0.29 × 0.23 =
+  0.0667 um²) and `VIA M2M3_PR`'s met3 rect as `-0.165 -0.165 0.165 0.165`
+  (0.1089 um²) — both below the *same* PDK's own minimum-area thresholds
+  standing alone. That is legal in the LEF, which expects the enclosure to
+  merge with the wire it terminates; it becomes a violation only where the
+  router leaves too little attached metal. Fixing it means a post-route
+  minimum-area repair pass inside the router, not a constant this repo owns.
+- The `m5.4` shapes are OpenROAD's PDN via5 patches. This one class is
+  *influenced* by a repo-owned parameter (`power.straps`' met5 width), since
+  sky130's 4.0 um² met5 floor needs ≥ 2.5 um of length on a 1.6 um strap — but
+  re-tuning the power grid to dodge a DRC rule is a power-delivery design
+  change, not a DRC fix, and it would still leave the 110 `m1.6`/`m2.6`/`m3.6`
+  shapes untouched.
+
+A post-route GDS patch step owned by this repo was considered and rejected:
+growing metal around a via inside already-routed, spacing-tight standard-cell
+metal risks shorts and spacing violations, and would desynchronise the
+committed GDS from the routed DEF that `klt extract --def-pins` and the LVS
+reference are both derived from. Trading a silent minimum-area gap for a
+possible connectivity defect is not an improvement.
+
+**Upstream filings (generic, per CLAUDE.md's friction protocol).**
+
+- `2AMLogic/klayout-tools#2139` — the live filing for this gap, with a
+  reproducing input (a generic 48-stage inverter chain, 99 shapes below
+  `m1.6`/`m5.4`, with `klt drc --deck sky130` reporting `status: "clean"` on
+  it), the per-class root cause, and the tech-LEF evidence above.
+- `2AMLogic/klayout-tools#2072` / `#2075` — the earlier filing. `#2075` fixed
+  the same class of defect in `klt gen-compose`'s landing pads but explicitly
+  did **not** reproduce the place-and-route half on its own corpus fixtures;
+  `#2139` supplies the reproducer that half was missing.
+- `2AMLogic/klayout-tools#1989` (merged, unreleased; `klt 0.5.0` is still the
+  newest PyPI release as of 2026-09-19) adds the `met*.area.1` rules that would
+  let `klt drc` see this itself — the same unreleased-fix gate issue #103 is
+  already tracking for its own upstream blockers.
+
+**What retires this waiver.** A `klayout-tools` release carrying a routed
+output free of sub-minimum-area metal (`#2139`), re-run through
+`bin/run-flow.sh` to mint a new record, with
+`docs/chipalooza/measure_metal_min_area.py` reporting zero shapes for this flow
+and `klt drc --deck sky130` — by then carrying `#1989`'s `met*.area.1` rules —
+still reporting clean. Until then this is a **stated** limitation, not an
+unmeasured one.
+
 ## `klt 0.4.0` → `0.5.0` re-run (issue #323): no change
 
 This flow's sign-off record rested on `klt 0.4.0` (`reports/20260905-191258-4c6c655/`)

@@ -142,8 +142,15 @@ met1/met2/met3/met5 that `klt`'s own place-and-route emitted** inside
 `sar_sequencer`/`seln_inverters` — generated via cells (`VIA_L1M1_PR_MR` met1
 0.290x0.230 um, `VIA_M2M3_PR` met3 0.330x0.330 um, `VIA_via5_6_*` met5
 1.420x1.600 um) and router-drawn stubs. No `sky130_fd_sc_hd__*` library cell
-violates anything. That is not geometry this repo authors: tracked here as
-issue #333 and filed generically upstream as klayout-tools#2072.
+violates anything. That is not geometry this repo authors: investigated under
+issue #333, which found no fix reachable from this repo and closed with an
+explicit dated waiver in each producing flow's README
+(`layout/sar-sequencer/README.md`'s 112 shapes and
+`layout/seln-inverters/README.md`'s 33 — 112 + 33 = the 145 above exactly, the
+composition itself adding none). Filed generically upstream as
+klayout-tools#2072 (closed; its fix landed for `klt gen-compose` only, the
+place-and-route half explicitly not reproduced) and re-filed with a reproducing
+input as klayout-tools#2139.
 
 The measurement itself is committed alongside the record it grades:
 `reports/20260918-191315-935ce76/minimum-area.json` is that script's own
