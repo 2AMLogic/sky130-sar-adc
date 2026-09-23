@@ -1,6 +1,10 @@
 # Gap to T1 (bronze) — what stands between this block and a bronze candidate
 
-**Snapshot: 2026-08-16, from the checklist re-read of `main`@`d3fda4c`.**
+**Snapshot: 2026-08-16, from the checklist re-read of `main`@`d3fda4c`**, amended
+**2026-09-23** to carry the eleventh checklist item (Power delivery, structural —
+klayout-tools#2025, added upstream 2026-09-17). Rows 1–10 are still the 2026-08-15
+verdicts and have not been re-read since; row 11 is dated separately and carries its own
+evidence.
 The live status lives on GitHub — issue **#23** is the tracker and is authoritative.
 This file is a dated map of the gap so a reader with only the repo in front of them can
 see the shape of it; it is not an evidence record and it does not grade anything.
@@ -18,6 +22,17 @@ Block kind for this repo is **analog** (whole-custom, transistor-level; xschem s
 capture, no RTL/synthesis flow in-repo), so only the *Analog* column of checklist items
 1, 2, 5, 6 and 7 applies.
 
+**The checklist grew an eleventh item on 2026-09-17** — *Power delivery (structural)*,
+approved as klayout-tools#2025 and now written into that same
+`design-evidence-tiers.md`. Every verdict quoted above was taken against the **ten**-item
+checklist that preceded it, so "1/10" is a count against a list that no longer exists;
+read it as 1/11 with item 11 added below. Item 11 is graded from a `klt erc`
+**supply-spec** run, and is the *structural* question ("is the supply connected to what
+it powers"), not the *analysis* question — IR-drop and EM (`klt power`) stay deliberately
+outside it. Item 11 is also kind-dependent: for this **analog** block it additionally
+wants item 4's own LVS report to have carried the supply nets in its
+`net_correspondence`.
+
 ## Item → issue map
 
 | # | T1 item | Verdict (2026-08-15) | Tracked by |
@@ -32,6 +47,27 @@ capture, no RTL/synthesis flow in-repo), so only the *Analog* column of checklis
 | 8 | Characterization report | FAIL | #30 |
 | 9 | Testbenches shipped | FAIL | #31 |
 | 10 | Repo hygiene | PASS | — |
+| 11 | Power delivery (structural) | FAIL (2026-09-23) — partial: analog `VDD`/`GND` pass, digital `VPWR`/`VGND` each split into 2 islands; `erc.missing_tie` **not computed** | #355 |
+
+Row 11 is the only row in this table whose verdict is **not** from the 2026-08-15
+re-read — the item did not exist then. Its verdict is dated 2026-09-23 and rests on a
+committed `klt erc` run rather than a reading:
+`layout/sar-adc-top/erc-reports/20260923-143401-1ee4ba8/` (`erc.json` + `record.md`),
+driven by `layout/sar-adc-top/erc-supply-spec.json` and graded against
+`layout/sar-adc-top/reports/20260919-050355-fb11617/sar_adc_top.gds`
+(`sha256:62038198…`, hash-matched in the report's own `provenance.input`). Read that
+record for the per-supply table; the short version:
+
+- `VDD` and `GND` each resolve to exactly **one** electrical island, with no
+  `erc.supply_short` anywhere — but `GND`'s pass must be read narrowly, since a purely
+  geometric model cannot see the p-substrate return path.
+- `VPWR` and `VGND` each resolve to **two** islands — the two std-cell macros'
+  self-contained rails, neither reaching a top-level supply. Real finding, tracked as
+  **#355**; the spec was deliberately not tuned to make it pass.
+- `erc.missing_tie` is **not computed** (no `ties[]` declared — an absence of evidence,
+  not evidence of absence), disclosed in-report as `ties_disclosed_tool_limitation`
+  because klayout-tools#2169 turns a correct `ties[]` into a false `erc.supply_short` on
+  a routed standard-cell design. Standing-in well-tie evidence is named in the record.
 
 Rows 5 and 6 share one root cause on their spec-gated half — the numeric rows of
 `spec/target-spec.md` are DRAFT/unratified — so that cause is tracked once, as #26
