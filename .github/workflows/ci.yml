@@ -60,6 +60,19 @@ name: CI
 #     census number did (PR #312). Neither are any of the gated figures
 #     (census, DRC/LVS, power and area readouts) -- run the checker with
 #     `--stats` for the live ones.
+#   - `signoff/check_evidence_hashes.py` (issue #345) is also part of
+#     `check:ci` -> `checks` below, and is likewise headless (pure file
+#     reads + sha256, no PDK, no ngspice, no `klt`, no network): it re-derives
+#     every artifact hash that signoff/block-manifest.json's citations rest on
+#     directly from the committed files. This is the half of the freshness
+#     contract `klt signoff` structurally CANNOT check -- the grader compares
+#     a manifest's pinned content_hash against the cited envelope's own
+#     SELF-REPORTED hash, so a manifest and an envelope can go on agreeing
+#     with each other indefinitely while the GDS or Markdown they describe is
+#     rewritten underneath them (klayout-tools#2196 surfaces that as
+#     `input_verified`, which is null for every citation in this manifest).
+#     Negative controls for each drift shape live in
+#     sim/tests/test_signoff_evidence_hashes.py -> `npm run test:unit`.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict
@@ -68,6 +81,18 @@ name: CI
 #     PR moving the pin without fresh matching evidence -- the class of
 #     regression PR #108 caused and #104 fixed, when the six-verdict proof
 #     itself only runs in the PDK-gated `pdk-smoke` job below.
+#   - `signoff/run-signoff.sh --check` (issue #345) runs in its OWN
+#     `signoff-check` job below rather than in `check:ci`, for one reason: it
+#     is the only PR-blocking check that needs `klt` installed. Everything it
+#     does is still a pure JSON+Markdown transform -- no PDK, no KLayout
+#     engine, no GDS read -- so it belongs on the PR-blocking path next to the
+#     other citation gates, not in the nightly. It re-grades
+#     signoff/block-manifest.json with the pinned grader and fails if the
+#     committed signoff/t1-report.json no longer reproduces, so a manifest
+#     citing an artifact that has since changed (or a checklist/grader move,
+#     or a manifest edit with no re-render) turns THIS run red the same day
+#     instead of rotting until a human re-reads a prose tracker by hand --
+#     the exact staleness mode issue #345 was filed against.
 
 on:
   push:
@@ -103,6 +128,50 @@ jobs:
 
       - name: npm run check:ci
         run: npm run check:ci
+
+  signoff-check:
+    name: T1 tier-report staleness gate (klt signoff --manifest)
+    # Same runner expression as `checks` above, and for the same reason: this
+    # org's Actions billing is blocked for GitHub-hosted minutes on private
+    # repos (see that job's comment and #51), so a PR-blocking job MUST route
+    # to the self-hosted fleet runner for same-repo events. Fork PRs fall back
+    # to ubuntu-latest — untrusted fork code never runs on a self-hosted
+    # runner — where this job needs nothing but Python and pip.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","heavy"]') || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Deliberately NOT layout/requirements.txt's pin (0.5.0 there, 0.6.0
+      # here). The two gate different things: that one MINTS the DRC/LVS
+      # evidence and only moves with a full re-run of every layout/ flow,
+      # while this one GRADES it and reads no PDK, no KLayout engine and no
+      # GDS. 0.6.0 is the first PyPI release whose bundled checklist carries
+      # the eleventh T1 item (klayout-tools#2025, added 2026-09-17) and the
+      # first with `klt signoff --check`. Full rationale, including why moving
+      # this pin is a claim change rather than a chore:
+      # signoff/requirements.txt.
+      #
+      # Installed into a venv rather than `pip install --user`: the
+      # self-hosted runner's interpreter may be externally managed (PEP 668),
+      # where a --user install fails outright.
+      - name: Install the pinned signoff grader
+        run: |
+          python3 -m venv /tmp/venv-signoff
+          /tmp/venv-signoff/bin/pip install --quiet -r signoff/requirements.txt
+          /tmp/venv-signoff/bin/klt --version
+
+      # `klt signoff --check` rather than a byte-diff of a fresh render: the
+      # report's `build` block names how an install was provisioned, so two
+      # legitimate installs of the same pinned version disagree on it
+      # byte-for-byte while grading identically (klayout-tools#2249).
+      # --check excludes exactly that block and compares everything else,
+      # printing a per-field drift list when a row's verdict moved.
+      - name: Re-grade the manifest and verify the committed tier report
+        run: KLT=/tmp/venv-signoff/bin/klt bash signoff/run-signoff.sh --check
 
   pdk-smoke:
     name: PDK-gated harness smoke test (nightly / workflow_dispatch / 'run-pdk-smoke' label)
