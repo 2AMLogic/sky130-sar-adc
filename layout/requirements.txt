@@ -188,7 +188,7 @@
 #     writes the token again, so a later bump that fixes #1876 needs no
 #     flow change -- just drop the step once `capclass.json` reports
 #     `"noop": true`.
-klayout-tools==0.5.0
+klayout-tools==0.6.0
 #
 # `klayout` itself was left unpinned here until issue #148: `klayout-tools`
 # declares it as a dependency but does not pin an exact version, so `pip
