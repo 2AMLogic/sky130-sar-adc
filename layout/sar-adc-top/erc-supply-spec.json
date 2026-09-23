@@ -1,0 +1,235 @@
+{
+  "_comment": [
+    "layout/sar-adc-top/erc-supply-spec.json -- the `klt erc` SUPPLY SPEC this",
+    "block's T1 checklist item 11 (Power delivery, structural) is graded from.",
+    "Issue #344. JSON has no comment syntax, so every justification below lives",
+    "in a `_comment` key; `klt erc` ignores unknown keys (verified against the",
+    "pinned build in layout/erc-requirements.txt -- a run with and without these",
+    "keys produces an identical erc_findings list).",
+    "",
+    "WHAT ITEM 11 GRADES (klayout-tools/docs/design-evidence-tiers.md):",
+    "  - every supply declared as a nets[] entry with \"kind\": \"supply\";",
+    "  - a stackup covering the layers those supplies are routed on, with",
+    "    stackup[0] carrying \"role\": \"gate\";",
+    "  - vias[] bridging the stackup roles;",
+    "  - pass condition: every declared supply resolves to exactly ONE",
+    "    electrical island -- no erc.unconnected_net and no erc.supply_short",
+    "    naming it -- plus zero erc.missing_tie.",
+    "It is the STRUCTURAL question (is the supply connected to what it powers),",
+    "not the analysis question: IR-drop/EM (`klt power`) are deliberately",
+    "outside it.",
+    "",
+    "LAYER PROVENANCE. Every layer/datatype pair below was resolved from TWO",
+    "independent sources and cross-checked, per issue #344's own instruction",
+    "not to copy them from another PDK's spec:",
+    "  1. This repo's own pinned sky130A install (sim/pdk.json's pin, fetched",
+    "     via volare): libs.tech/klayout/tech/sky130A.lyp, whose <properties>",
+    "     entries name each pair directly (e.g. `met1.drawing - 68/20`,",
+    "     `met1.label - 68/5`, `met1.pin - 68/16`).",
+    "  2. klayout-tools' curated sky130 deck layer table",
+    "     (klayout_tools/decks/sky130.py, EXTRACTION_DECK): active=(65,20),",
+    "     poly=(66,20), contact=(66,44), metals=(67,20),(68,20),(69,20),",
+    "     (70,20),(71,20),(72,20), metal_labels=(67,5)..(72,5),",
+    "     vias=(67,44),(68,44),(69,44),(70,44),(71,44).",
+    "The two agree on every pair used here. NOTE the label-datatype trap this",
+    "cross-check exists to catch: sky130A.lyp calls datatype 16 `*.pin` and",
+    "datatype 5 `*.label`. The TEXT this layout actually carries is on the",
+    "datatype-5 `.label` layers (confirmed by a direct text dump of the graded",
+    "GDS: 68/5, 67/5, 69/5, 71/5, 72/5, 66/5 carry text; the datatype-16 layers",
+    "carry pin POLYGONS, no text), and `klt erc`'s `label_layer` matches net",
+    "names from text -- so every `label_layer` below is the `.label` (datatype",
+    "5) layer, never the `.pin` (datatype 16) one.",
+    "",
+    "SCOPE. Graded layout:",
+    "  layout/sar-adc-top/reports/20260919-050355-fb11617/sar_adc_top.gds",
+    "(that record's own LATEST-pointed top-level assembly). The stackup covers",
+    "exactly the conductor levels that layout draws -- verified with",
+    "`klt layers`: poly/li1/met1-met5 all carry geometry, as do licon1, mcon,",
+    "via, via2, via3 and via4."
+  ],
+
+  "stackup": [
+    {
+      "name": "poly",
+      "layer": "66/20",
+      "role": "gate",
+      "active_layer": "65/20",
+      "label_layer": "66/5",
+      "_comment": [
+        "poly.drawing 66/20 (sky130A.lyp; EXTRACTION_DECK.poly). stackup[0] and",
+        "the required \"role\": \"gate\" -- the gate-poly layer the antenna",
+        "accumulation starts from.",
+        "active_layer = diff.drawing 65/20 (sky130A.lyp; EXTRACTION_DECK.active).",
+        "Required by issue #344 for sky130 so the antenna denominator is",
+        "`poly INTERSECT diff` (real gate-oxide area) rather than raw poly area:",
+        "without it, every bare-poly shape with no gate oxide at all -- this",
+        "block draws plenty (the CDAC's SELp/SELn gate straps, std-cell tie/decap",
+        "poly) -- is counted as a gate and produces non-physical antenna ratios",
+        "(klayout-tools#1979).",
+        "label_layer = poly.label 66/5, where this layout's SELp<i>/SELn<i> gate",
+        "straps carry their text; it only populates gates[].net and moves no",
+        "finding."
+      ]
+    },
+    {
+      "name": "li1",
+      "layer": "67/20",
+      "label_layer": "67/5",
+      "_comment": [
+        "li1.drawing 67/20, li1.label 67/5 (sky130A.lyp; EXTRACTION_DECK.metals[0]",
+        "/ metal_labels[0]). sky130's local-interconnect level: the plane every",
+        "sky130_fd_sc_hd standard cell routes its own internal VPWR/VGND rail on,",
+        "so it is load-bearing for the digital half of this assembly's supply",
+        "connectivity (a text dump of the graded GDS finds 'VPWR'/'VGND' text on",
+        "67/5)."
+      ]
+    },
+    {
+      "name": "met1",
+      "layer": "68/20",
+      "label_layer": "68/5",
+      "_comment": [
+        "met1.drawing 68/20, met1.label 68/5 (sky130A.lyp; EXTRACTION_DECK.",
+        "metals[1] / metal_labels[1]). Carries this assembly's own 'VDD' and",
+        "'GND' text, and the std-cell macros' promoted 'VPWR'/'VGND' pin text --",
+        "i.e. every declared supply below is named on this layer."
+      ]
+    },
+    {
+      "name": "met2",
+      "layer": "69/20",
+      "label_layer": "69/5",
+      "_comment": [
+        "met2.drawing 69/20, met2.label 69/5 (sky130A.lyp; EXTRACTION_DECK.",
+        "metals[2] / metal_labels[2]). The analog sub-blocks' own pin plane",
+        "(sampling_frontend/cdac_array publish their pins here, 'VDD' included --",
+        "see layout/sar-adc-top/README.md's per-block pin geometry table)."
+      ]
+    },
+    {
+      "name": "met3",
+      "layer": "70/20",
+      "label_layer": "70/5",
+      "_comment": [
+        "met3.drawing 70/20, met3.label 70/5 (sky130A.lyp; EXTRACTION_DECK.",
+        "metals[3] / metal_labels[3]). Drawn geometry: yes (1416 shapes) -- it is",
+        "both a routing plane for the analog crossings and the MiM capacitors'",
+        "bottom plate. No text is drawn on 70/5 in this layout; the label_layer is",
+        "declared anyway because a spec entry naming an absent layer is",
+        "explicitly not an error (`klt erc` shares `klt power`'s convention), and",
+        "declaring it keeps the stackup a faithful description of the process",
+        "rather than of one snapshot of this block's routing."
+      ]
+    },
+    {
+      "name": "met4",
+      "layer": "71/20",
+      "label_layer": "71/5",
+      "_comment": [
+        "met4.drawing 71/20, met4.label 71/5 (sky130A.lyp; EXTRACTION_DECK.",
+        "metals[4] / metal_labels[4]). Load-bearing for the VDD verdict, not",
+        "decorative: 'VDD' text is drawn on 71/5, and the top-level assembly",
+        "routes its analog supply across the CDAC on met4 (build_layout.py's own",
+        "met3/met4 analog-crossing convention). Dropping met4/via3 from this",
+        "stackup splits VDD into 3 islands -- measured, see the record's",
+        "record.md."
+      ]
+    },
+    {
+      "name": "met5",
+      "layer": "72/20",
+      "label_layer": "72/5",
+      "_comment": [
+        "met5.drawing 72/20, met5.label 72/5 (sky130A.lyp; EXTRACTION_DECK.",
+        "metals[5] / metal_labels[5]). The top of the sky130 stack this block",
+        "uses, and specifically where `klt place-and-route`'s PDN straps for the",
+        "two std-cell macros live -- 'VPWR'/'VGND' text is drawn on 72/5. Omitting",
+        "it would hide the digital rails from the grade entirely."
+      ]
+    }
+  ],
+
+  "_vias_comment": [
+    "Each via's layer/datatype is taken from the same two sources, and follows",
+    "sky130's own 'a via lands on the layer NUMBER of the metal below it,",
+    "datatype 44' convention (sky130A.lyp names them licon1 66/44, mcon 67/44,",
+    "via 68/44, via2 69/44, via3 70/44, via4 71/44; EXTRACTION_DECK.contact /",
+    ".vias agree). All six are drawn in the graded layout.",
+    "licon1 is declared between poly and li1 only: diff/tap are not conductor",
+    "roles in this spec (`klt erc` is a wire/via connectivity model with no",
+    "device recognition), so a source/drain or tap licon1 simply terminates at",
+    "the li1 pad above it, which is the intended behaviour."
+  ],
+  "vias": [
+    { "name": "licon1", "layer": "66/44", "between": ["poly", "li1"] },
+    { "name": "mcon",   "layer": "67/44", "between": ["li1", "met1"] },
+    { "name": "via",    "layer": "68/44", "between": ["met1", "met2"] },
+    { "name": "via2",   "layer": "69/44", "between": ["met2", "met3"] },
+    { "name": "via3",   "layer": "70/44", "between": ["met3", "met4"] },
+    { "name": "via4",   "layer": "71/44", "between": ["met4", "met5"] }
+  ],
+
+  "_nets_comment": [
+    "The four supplies this block actually draws. Names are the literal label",
+    "text `klt erc` matches against the `label_layer`s above -- taken from a",
+    "direct text dump of the graded GDS, not from the schematic.",
+    "",
+    "Not declared, deliberately: 'VPB' / 'VNB' (nwell.label 64/5 and pwell.label",
+    "64/59) are BODY/tub labels, not routed supplies -- their layers are wells,",
+    "not conductor roles in this stackup, so declaring them would assert a",
+    "connectivity claim this model cannot make. 'VREFP'/'VREFN'/'VCM' are",
+    "reference INPUTS driven by an external source, not supplies; they are",
+    "graded as signals by item 4's LVS, not here."
+  ],
+  "nets": [
+    {
+      "name": "VDD",
+      "kind": "supply",
+      "_comment": [
+        "The analog 1.8 V supply: the only supply that is also a declared",
+        "top-level port of design/sar_adc_top.sch. Routed (not substrate-",
+        "synthesised) between sampling_frontend, cdac_array and comparator -- see",
+        "layout/sar-adc-top/README.md 'GND / VPWR / VGND'."
+      ]
+    },
+    {
+      "name": "GND",
+      "kind": "supply",
+      "_comment": [
+        "The analog ground. `.GLOBAL GND` in design/sar_adc_top.spice, so it has",
+        "no top-level port, but it is drawn: 'GND' text on met1.label 68/5.",
+        "READ THIS VERDICT NARROWLY. `klt erc` grades DRAWN conductor only. This",
+        "block's analog ground return is partly the p-substrate, which `klt",
+        "extract`'s sky130 deck synthesises as one shared `vsubs` net regardless",
+        "of drawn geometry and which no purely geometric model can see. A clean",
+        "one-island verdict on 'GND' here therefore means 'the drawn GND",
+        "conductor is one island', NOT 'every NMOS body reaches it'. The",
+        "substrate half is exactly what erc.missing_tie would have graded -- and",
+        "that check is not computed, see ties_disclosure below."
+      ]
+    },
+    {
+      "name": "VPWR",
+      "kind": "supply",
+      "_comment": [
+        "The std-cell digital supply rail. Declared even though it is KNOWN to",
+        "come back as more than one island, because item 11 grades the supply",
+        "this block draws, not the supply that would pass: hiding a rail by not",
+        "declaring it is precisely the spec-tuning issue #344 forbids. See the",
+        "record's record.md for the finding and the issue tracking it."
+      ]
+    },
+    {
+      "name": "VGND",
+      "kind": "supply",
+      "_comment": [
+        "The std-cell digital ground rail; same reasoning as 'VPWR' above."
+      ]
+    }
+  ],
+
+  "ties_disclosure": {
+    "kind": "tool_limitation",
+    "reason": "No ties[] is declared, so erc.missing_tie is NOT COMPUTED for this layout -- an absence of evidence, not evidence of absence. sky130 taps ARE nameable here (tap.drawing 65/44 inside nwell.drawing 64/20, wired to li1 through licon1 66/44), so this is not an unexpressible stream; the obstacle is klayout-tools#2169, whose unisolated tie extraction collapses a real routed standard-cell design into one electrical island and reports a FALSE erc.supply_short from a correct ties[] declaration. Declaring ties[] here would therefore replace a stated gap with a misleading finding. Standing in for the ungraded check, and named so a reader can go look rather than take this on faith: (a) the two std-cell macros are tapped by klt place-and-route's own tap cells -- sky130_fd_sc_hd__tapvpwrvgnd_1 instances are present in the graded GDS by name (text.drawing 83/44 carries 'tapvpwrvgnd_1'), and 11 tap.drawing 65/44 shapes are drawn; (b) the body/tub labels VPB (nwell.label 64/5) and VNB (pwell.label 64/59) are drawn on the wells themselves; (c) the same record's LVS report (lvs.json) carries the supply nets in its net_correspondence -- VDD<->VDD (pin), and the two digital rails as VPWR<->VPWR_SEQ and VPWR$1<->VPWR_SELN. NOTE that (c) is a partial standin only: that LVS run's own status is 'mismatch', not 'match', and neither GND nor VGND appears in its net_correspondence at all."
+  }
+}

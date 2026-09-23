@@ -523,6 +523,42 @@ declarations and its item-2 "known integration gap" note:
   schematic's own header already documents, extended to cover two separate
   digital instances rather than just analog-vs-digital.)
 
+**Graded, as of 2026-09-23 (issue #344).** The paragraph above describes a
+*schematic-level scoping* decision; T1 checklist item 11 (Power delivery —
+structural, klayout-tools#2025) grades the *physical* consequence, and it
+comes back FAIL on exactly this point: `klt erc` reports `VPWR` and `VGND`
+each resolving to **two** disconnected electrical islands (the two macros'
+self-contained rails), neither reaching a top-level supply. `VDD` and `GND`
+each resolve to exactly one island with no short. See "Structural supply
+check (`klt erc`, T1 item 11)" below; the digital-rail finding is tracked as
+**#355**.
+
+## Structural supply check (`klt erc`, T1 item 11)
+
+| | |
+|---|---|
+| Spec | `layout/sar-adc-top/erc-supply-spec.json` |
+| Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
+| Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
+| Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
+
+This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
+content hash; it regenerates no geometry, which is why it lives in its own
+`erc-reports/` tree rather than inside a `reports/` record (those are
+append-only). It runs on a **second, narrower `klt` pin** (0.6.0) than the
+DRC/LVS flow's `layout/requirements.txt` (0.5.0), because 0.5.0's `klt erc`
+emits no `provenance` block and so cannot pin a report to its input at all —
+the full justification, and the cross-check showing the supply verdict is
+identical on both builds, are in `layout/erc-requirements.txt`'s header and
+each record's own `record.md`.
+
+`erc.missing_tie` is deliberately **not computed** (no `ties[]` declared),
+disclosed in-report as `ties_disclosed_tool_limitation`: klayout-tools#2169
+turns a correct `ties[]` declaration on a routed standard-cell design into a
+false `erc.supply_short`. The well-tie evidence standing in for it — tap-cell
+instances, body/tub labels, and the LVS `net_correspondence` — is named in the
+record, along with where that stand-in is weaker than it looks.
+
 ## Composition mechanism actually used: `klt gen-compose` as a pure placer
 
 The section below is kept as the *investigation record* that led to this

@@ -1,0 +1,67 @@
+# layout/erc-requirements.txt -- a SECOND, deliberately narrower `klt` pin,
+# used by exactly one flow: layout/sar-adc-top/bin/run-erc.sh, the T1 item 11
+# (Power delivery, structural) `klt erc` supply-spec run (issue #344).
+#
+# WHY THIS IS NOT layout/requirements.txt.
+#
+# layout/requirements.txt pins klayout-tools==0.5.0, and that pin governs
+# every DRC/extract/LVS verdict in layout/. Its own header states the
+# discipline that goes with it: a pin bump must be re-run against the sibling
+# flows, because a bump can silently invalidate the flow's own gating
+# evidence. Bumping it to 0.6.0 to obtain one ERC report would put every
+# committed DRC/LVS record in layout/ back on the bench -- a much larger
+# change than the one issue #344 asks for, and one that belongs to its own
+# issue.
+#
+# The ERC run does not need that. `klt erc` is a standalone verb: it reads a
+# GDS and a JSON spec, applies no rule deck to reach its verdict, needs no PDK
+# install, and writes into its own report tree
+# (layout/sar-adc-top/erc-reports/). It cannot change, and does not read, any
+# `klt drc`/`klt extract`/`klt lvs` record produced on the 0.5.0 pin.
+#
+# WHY 0.6.0 SPECIFICALLY -- two capabilities item 11 grades on that the
+# pinned 0.5.0's `klt erc` does not have at all:
+#
+#   1. `provenance` (klayout-tools#1968/#2036). 0.5.0's `klt erc` JSON has no
+#      `provenance` block: its keys are exactly schema_version, file, spec,
+#      pdk, gate_role, gate_count, gates, erc_findings, erc_finding_count.
+#      Item 11's acceptance criterion is a committed report whose input
+#      content-hash matches the committed GDS -- unsatisfiable on 0.5.0,
+#      because the report carries no hash of anything. (Note that 0.5.0's
+#      `klt drc`/`klt extract` DO carry `provenance`; it is `klt erc`
+#      specifically that predates it.)
+#   2. `ties_disclosure` (klayout-tools#2234/#2247). Item 11 requires
+#      erc.missing_tie to be documented as not-computed, with a reason. 0.6.0
+#      turns that from prose into a machine-readable field: a spec-level
+#      `ties_disclosure` with `"kind": "tool_limitation"` is echoed in the
+#      report and changes `erc_coverage.inapplicable[].reason` from the
+#      default `no_ties_declared` to `ties_disclosed_tool_limitation`, so a
+#      reader can tell a disclosed, reasoned omission from an oversight.
+#      0.6.0's `--deck sky130` device-body carve-out (klayout-tools#2183/
+#      #2204) additionally matters here: without it, this block's MiM
+#      capacitors read as plate-to-plate shorts, because a MiM top-plate via
+#      necessarily overlaps its own bottom-plate met3 (measured on the graded
+#      GDS: 1028 of 1477 via3 shapes land on a capm plate).
+#
+# THE VERDICT DOES NOT DEPEND ON THE BUMP, and that is checked rather than
+# assumed. layout/sar-adc-top/erc-supply-spec.json run against the same GDS
+# on the repo-pinned 0.5.0 `klt` reports the same two erc_findings, with the
+# same net names and island counts, as the 0.6.0 run of record -- see the
+# "Cross-checks" section of the report record's own record.md. What 0.5.0
+# cannot do is PIN that verdict to its input, which is the whole point of the
+# item-11 artifact.
+#
+# Retire this file by folding klayout-tools==0.6.0 (or newer) into
+# layout/requirements.txt in an issue that also re-runs the sibling flows,
+# per that file's own stated discipline. Until then, keep the two pins
+# separate and explicit rather than letting one flow float.
+klayout-tools==0.6.0
+#
+# Same KLayout engine pin as layout/requirements.txt, for the same reason
+# stated there: `klayout` is what actually implements the LayoutToNetlist
+# connectivity extraction `klt erc` wraps, so leaving it floating would mean
+# a verdict recorded on one day is not reproducible-by-construction on
+# another. Holding it identical to the DRC/LVS flow's pin also keeps the
+# engine constant across the 0.5.0-vs-0.6.0 cross-check above, so that
+# comparison isolates the `klt` version and nothing else.
+klayout==0.30.12

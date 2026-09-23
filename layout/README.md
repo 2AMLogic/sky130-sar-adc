@@ -96,9 +96,13 @@ which is what verdict 6 has to prove.
 
 ```
 layout/
-  requirements.txt                 # pinned klt
+  requirements.txt                 # pinned klt (DRC/extract/LVS flows)
+  erc-requirements.txt             # SECOND, narrower klt pin -- the `klt erc`
+                                   # T1 item 11 supply run only (issue #344);
+                                   # see its header for why it is separate
   bin/
     setup-venv.sh                  # create/refresh layout/.venv
+    setup-erc-venv.sh              # create/refresh layout/.venv-erc
     run-trivial-cell-flow.sh       # the six-verdict flow
     render-record.py               # renders record.md, asserts the verdicts
     drc_violation_fixture.json     # `klt draw` params for the illegal fixture
@@ -117,6 +121,11 @@ layout/
   sar-sequencer/                   # SAR logic/sequencer (issue #102)
   seln-inverters/                  # SELn<i>=NOT(DOUT<i>) inverter bank, new top-level glue logic (issue #103)
   sar-adc-top/                     # top-level assembly of all five blocks above (issue #103, in progress)
+    erc-supply-spec.json           # `klt erc` supply spec -- T1 item 11 (issue #344)
+    bin/run-erc.sh                 # grades reports/LATEST's GDS against that spec
+    erc-reports/                   # append-only ERC records (erc.json + record.md),
+                                   # separate from reports/ because an ERC record is a
+                                   # verdict ABOUT one reports/ GDS, not a new layout
 ```
 
 ## Records are append-only
