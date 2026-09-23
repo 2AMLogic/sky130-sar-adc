@@ -45,6 +45,13 @@ Ablations (each written as its own `<prefix>.<variant>.extract.json`):
                   reclassification path klayout-tools#1934 fixed.
   seq-seln        sar_sequencer + seln_inverters abstracted, capacitor array
                   left flat -- the known-clean control.
+  cdac-no-capm-via  same as cdac-only, against a variant GDS with only the
+                  macro's own via3-on-capm shapes removed (MiM top-plate vias,
+                  interior to the black box). Added 2026-09-23 on klt 0.6.0:
+                  the collapse disappears on this variant alone, which
+                  locates the mechanism -- `--abstract-cells` erases capm and
+                  with it the deck's top-plate-via exclusion, so every unit
+                  cap shorts top plate to bottom plate (klayout-tools#2396).
 
 Only the summary JSON (`abstract-probe.<klt-version>.summary.json`) lands in
 the record directory: it already carries every verdict this measurement makes
@@ -149,6 +156,34 @@ def strip_well(src: pathlib.Path, dst: pathlib.Path, cell_name: str) -> dict:
     return {"cleared": cleared, "cell": cell_name}
 
 
+def strip_capm_vias(src: pathlib.Path, dst: pathlib.Path, cell_name: str) -> dict:
+    """Write `src` to `dst` with every via3 shape overlapping capm removed
+    from `cell_name` (flattened first, so via3 and capm are compared in one
+    frame).
+
+    Those vias only join each MiM unit's own top plate to its own met4 rail --
+    wholly interior to the black box -- so removing them cannot change any
+    connection the parent makes to the macro. What it does remove is the
+    geometry `--abstract-cells` turns into a top-to-bottom-plate short once
+    it has erased capm (the capacitor's top-plate layer) and with it the
+    deck's top-plate-via exclusion (klayout-tools#2396). If the collapse
+    disappears on this variant, that is the mechanism.
+    """
+    layout = db.Layout()
+    layout.read(str(src))
+    cell = layout.cell(cell_name)
+    cell.flatten(True)
+    via3 = layout.layer(70, 44)
+    capm = db.Region(cell.shapes(layout.layer(89, 44)))
+    vias = db.Region(cell.shapes(via3))
+    removed = vias.interacting(capm).count()
+    cell.shapes(via3).clear()
+    cell.shapes(via3).insert(vias.not_interacting(capm))
+    layout.write(str(dst))
+    return {"cell": cell_name, "capm_shapes": capm.count(),
+            "via3_shapes": vias.count(), "via3_on_capm_removed": removed}
+
+
 def run_extract(klt: str, gds: pathlib.Path, out_dir: pathlib.Path, name: str,
                 abstract: list[str], pin_source: bool) -> dict:
     """Run one `klt extract` ablation, returning its own summary row."""
@@ -224,6 +259,8 @@ def main() -> int:
     no_well_gds = work_dir / "variant-no-well-tap.gds"
     tie_info = add_substrate_tie(gds, tied_gds, CDAC)
     strip_info = strip_well(gds, no_well_gds, CDAC)
+    no_capm_via_gds = work_dir / "variant-no-capm-via3.gds"
+    capm_via_info = strip_capm_vias(gds, no_capm_via_gds, CDAC)
 
     rows = [
         run_extract(klt, gds, work_dir, f"{prefix}.three", [CDAC, SEQ, SELN], True),
@@ -232,6 +269,8 @@ def main() -> int:
         run_extract(klt, tied_gds, work_dir, f"{prefix}.cdac-tied", [CDAC], True),
         run_extract(klt, no_well_gds, work_dir, f"{prefix}.cdac-no-well", [CDAC], True),
         run_extract(klt, gds, work_dir, f"{prefix}.seq-seln", [SEQ, SELN], True),
+        run_extract(klt, no_capm_via_gds, work_dir, f"{prefix}.cdac-no-capm-via",
+                    [CDAC], True),
     ]
 
     summary = {
@@ -240,6 +279,7 @@ def main() -> int:
         "record": record_dir.name,
         "substrate_tie_variant": tie_info,
         "no_well_tap_variant": strip_info,
+        "no_capm_via_variant": capm_via_info,
         "variants": rows,
     }
     summary_path = record_dir / f"{prefix}.summary.json"
