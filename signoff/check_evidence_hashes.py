@@ -102,6 +102,38 @@ def classify(envelope: dict) -> str:
     return "unknown"
 
 
+def is_probeable_candidate(candidate: Path) -> bool:
+    """True when `candidate` names a location inside THIS checkout.
+
+    A candidate path is a guess about where a committed artifact might live, so
+    it is only ever worth probing inside the repo. Anything that lands outside
+    REPO_ROOT -- via an absolute recorded path, or a `..` that climbs out -- is
+    by construction not a committed artifact, and probing it reaches into
+    whatever unrelated thing happens to occupy that path on the current
+    machine.
+    """
+    try:
+        return candidate.resolve().is_relative_to(REPO_ROOT)
+    except OSError:
+        return False
+
+
+def is_existing_file(candidate: Path) -> bool:
+    """`Path.is_file()` that answers "no" instead of raising.
+
+    `is_file()` swallows only the not-found family (ENOENT/ENOTDIR); every
+    other OSError propagates. EACCES is the one that bites: when a parent
+    directory of the candidate is not traversable by the current user, `stat()`
+    raises PermissionError and a candidate that is merely un-probeable crashes
+    the whole check. A candidate is a guess, so an unanswerable guess is "not
+    found" -- never a traceback.
+    """
+    try:
+        return candidate.is_file()
+    except OSError:
+        return False
+
+
 def resolve_artifact(named: str, envelope_path: Path) -> Path | None:
     """Find the artifact an envelope names, trying each plausible reading.
 
@@ -110,14 +142,27 @@ def resolve_artifact(named: str, envelope_path: Path) -> Path | None:
     path inside a since-deleted agent worktree. So the basename-beside-the-
     envelope reading is tried too: evidence committed next to its own inputs,
     which is exactly how every layout/*/reports/<id>/ directory is arranged.
+
+    An ABSOLUTE recorded path is never a literal filesystem probe here. Both
+    `REPO_ROOT / named` and `envelope_path.parent / named` collapse to the bare
+    absolute path under pathlib's join semantics, so probing them asks about
+    the producing machine's filesystem rather than this checkout's -- which
+    answers wrong whether the path is absent (fine), present-but-unrelated (a
+    stale sibling worktree, silently hashed instead of the committed file), or
+    present-but-unreadable (PermissionError, crashing the check: exactly what
+    CI hit on this repo's `klt drc` envelope, whose `file` is an absolute path
+    into a foreign `.loom/worktrees/issue-326/` tree). Only the basename
+    reading is meaningful for an absolute name, and it is tried unconditionally
+    below.
     """
-    candidates = [
-        REPO_ROOT / named,
-        envelope_path.parent / named,
-        envelope_path.parent / Path(named).name,
-    ]
+    named_path = Path(named)
+    candidates = []
+    if not named_path.is_absolute():
+        candidates.append(REPO_ROOT / named_path)
+        candidates.append(envelope_path.parent / named_path)
+    candidates.append(envelope_path.parent / named_path.name)
     for candidate in candidates:
-        if candidate.is_file():
+        if is_probeable_candidate(candidate) and is_existing_file(candidate):
             return candidate
     return None
 

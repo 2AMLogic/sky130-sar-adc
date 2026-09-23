@@ -25,12 +25,20 @@ is therefore asserted directly on a fixture:
   - the artifact an envelope names is not in the repo at all;
   - an unpinned `lvs` envelope (klt 0.5.0 writes `provenance.input: null`)
     whose `environment.*_sha256` no longer matches the committed netlists.
+
+Plus one control of a different kind (`ForeignRecordedPathTests`): the checker
+must reach a VERDICT on every machine it runs on. An envelope's recorded path
+describes the producing machine's filesystem, so treating it as a literal probe
+makes the answer depend on whatever occupies that path on the current host --
+including a stat that raises PermissionError and takes the whole gate down with
+a traceback, which is how this check first failed in CI.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -148,6 +156,125 @@ class DrcCitationTests(unittest.TestCase):
         failures = self.tree.check(self.manifest)
         self.assertEqual(len(failures), 1, failures)
         self.assertIn("does not exist", failures[0])
+
+
+class ForeignRecordedPathTests(unittest.TestCase):
+    """A recorded path is a statement about the PRODUCING machine, not a probe.
+
+    `klt drc` records `file` as the absolute path it was invoked with, which for
+    this repo is a path inside a since-deleted agent worktree
+    (`.../.loom/worktrees/issue-326/...`). `REPO_ROOT / <absolute>` collapses to
+    that bare absolute path under pathlib join semantics, so the naive reading
+    asks the current machine about someone else's filesystem. All three answers
+    it can get back are wrong:
+
+      - absent: harmless, but only by luck;
+      - present-but-unrelated: a stale sibling worktree gets hashed in place of
+        the committed artifact, so the gate silently grades the wrong file;
+      - present-but-unreadable: `Path.is_file()` propagates PermissionError
+        (it only swallows the not-found family), crashing the whole check.
+
+    The third is not hypothetical -- it is the CI failure this class exists to
+    lock out: the runner could reach `/home/ubuntu/GitHub/...` as a path but not
+    stat it, and `check:ci` died with a traceback instead of a verdict.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.gds = b"GDS-fixture-bytes"
+        self.tree.write("evidence/top.gds", self.gds)
+        self.foreign = tempfile.TemporaryDirectory()
+        self.addCleanup(self.foreign.cleanup)
+        self.foreign_root = Path(self.foreign.name)
+        self.assertFalse(
+            str(self.foreign_root).startswith(str(self.tree.root)),
+            "fixture bug: the 'foreign' tree must live outside REPO_ROOT",
+        )
+
+    def _manifest_citing(self, recorded_file: str) -> dict:
+        self.tree.write_json(
+            "evidence/drc.json",
+            {
+                "status": "clean",
+                "violations": [],
+                "deck": {"name": "sky130"},
+                "file": recorded_file,
+                "provenance": {"input": {"content_hash": sha256_bytes(self.gds)}},
+            },
+        )
+        return {
+            "block": "fixture",
+            "kind": "analog",
+            "evidence": {
+                "3": {
+                    "file": "evidence/drc.json",
+                    "content_hash": sha256_bytes(self.gds),
+                }
+            },
+        }
+
+    def test_unreadable_absolute_path_does_not_crash_the_check(self):
+        """The exact CI failure: an absolute recorded path whose parent cannot
+        be traversed. `is_file()` raises PermissionError there; a candidate path
+        is a guess, so an unanswerable guess must read as "not found"."""
+        if os.geteuid() == 0:
+            self.skipTest("root bypasses directory permissions")
+        locked = self.foreign_root / "issue-326" / "layout"
+        locked.mkdir(parents=True)
+        artifact = locked / "top.gds"
+        artifact.write_bytes(b"whatever-the-other-machine-had")
+        locked.chmod(0o000)
+        self.addCleanup(locked.chmod, 0o755)
+        with self.assertRaises(PermissionError):
+            artifact.stat()  # the precondition this test is about
+
+        # Must not raise, and must still find the committed artifact beside the
+        # envelope -- the basename reading is the only meaningful one here.
+        self.assertEqual(self.tree.check(self._manifest_citing(str(artifact))), [])
+
+    def test_unrelated_file_at_an_absolute_path_is_not_hashed_in_its_place(self):
+        """A readable file DOES sit at the recorded absolute path -- a stale
+        sibling worktree on a developer's machine. Hashing it instead of the
+        committed artifact would make the gate machine-dependent."""
+        stale = self.foreign_root / "issue-326" / "layout"
+        stale.mkdir(parents=True)
+        (stale / "top.gds").write_bytes(b"STALE-worktree-bytes-from-another-revision")
+        self.assertEqual(self.tree.check(self._manifest_citing(str(stale / "top.gds"))), [])
+
+    def test_relative_path_climbing_out_of_the_repo_is_not_probed(self):
+        # A distinct basename, so the beside-the-envelope fallback cannot
+        # rescue the citation and the escape is what the assertion sees.
+        (self.foreign_root / "outside.gds").write_bytes(b"outside-the-repo")
+        escape = os.path.relpath(self.foreign_root / "outside.gds", self.tree.root)
+        self.assertTrue(escape.startswith(".."), escape)
+        failures = self.tree.check(self._manifest_citing(escape))
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("does not resolve to a committed file", failures[0])
+
+    def test_unreadable_in_repo_path_reports_not_found_instead_of_raising(self):
+        """The OSError guard itself, exercised on an in-repo candidate -- so it
+        stays load-bearing independently of the absolute-path skip above."""
+        if os.geteuid() == 0:
+            self.skipTest("root bypasses directory permissions")
+        locked = self.tree.root / "evidence" / "locked"
+        locked.mkdir(parents=True)
+        # Distinct basename again: the fallback must not mask the probe.
+        (locked / "locked.gds").write_bytes(self.gds)
+        locked.chmod(0o000)
+        self.addCleanup(locked.chmod, 0o755)
+
+        failures = self.tree.check(self._manifest_citing("evidence/locked/locked.gds"))
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("does not resolve to a committed file", failures[0])
+
+    def test_resolve_artifact_returns_none_rather_than_raising(self):
+        """Unit-level: every candidate unprobeable -> None, never a traceback."""
+        envelope_path = self.tree.root / "evidence" / "drc.json"
+        self.assertIsNone(
+            checker.resolve_artifact(
+                "/home/someone-else/worktrees/issue-326/absent.gds", envelope_path
+            )
+        )
 
 
 class GenericCitationTests(unittest.TestCase):
