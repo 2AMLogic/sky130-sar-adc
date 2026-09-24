@@ -135,7 +135,19 @@ premise, and should be read as withdrawn on this repo's side:
 - `2AMLogic/klayout-tools#2139` — filed as the live tool gap for this
   "defect", with a generic 48-stage inverter chain reproducer whose 99 sub-
   `m1.6`/`m5.4` shapes were counted with the same under-merging measurement.
-  Its premise does not survive #363.
+  Its premise does not survive #363. **Corrected upstream 2026-09-24**
+  (issue #373): the reproducer was re-run from its own quoted inputs and
+  measured both ways on the identical output GDS — 76 shapes below threshold
+  under the pre-#363 construction (58 `m1.6` + 18 `m5.4`, the same two
+  geometry classes the filing named), **0 under the corrected one**, with
+  `klt drc --deck sky130` at the 0.6.0 pin agreeing at 0. `#2139` had already
+  been closed upstream (`COMPLETED`, 2026-09-19) by merged PR
+  `2AMLogic/klayout-tools#2144`, which ships a post-route minimum-area repair
+  pass that the 0.6.0 pin therefore carries; on this reproducer that pass is a
+  no-op (`min_area_repair: patches 0, repaired 0, remaining 0`, byte-identical
+  merged GDS). No revert was requested: `#2144` defends against tech-LEF via
+  enclosures and PDN via landings that are genuinely sub-threshold in
+  isolation, which is independent of the inflated count that motivated it.
 - `2AMLogic/klayout-tools#2072` / `#2075` — the earlier pair. `#2075`'s
   `klt gen-compose` landing-pad fix was a real, separate defect (issue #326's
   17 shapes were genuinely isolated pads) and stands; the place-and-route half

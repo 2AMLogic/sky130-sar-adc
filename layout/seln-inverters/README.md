@@ -81,7 +81,15 @@ in CI's headless `checks` job, so this count cannot silently drift again.
 "defect", with a generic 48-stage inverter-chain reproducer whose 99 sub-
 `m1.6`/`m5.4` shapes were counted with the same under-merging measurement; its
 premise does not survive #363, and it should be read as withdrawn on this
-repo's side. The earlier `#2072`/`#2075` pair is split: `#2075`'s `klt
+repo's side. That withdrawal is now on the public record: under issue #373 the
+reproducer was re-run from its own quoted inputs and measured both ways on the
+identical output GDS — 76 shapes below threshold under the pre-#363
+construction, **0** under the corrected one — and a correction comment was
+posted on `#2139`, which had already been closed upstream (`COMPLETED`,
+2026-09-19) by merged PR `2AMLogic/klayout-tools#2144`. See
+`layout/sar-sequencer/README.md`'s copy of this block for the per-rule numbers
+and for why no revert of `#2144` was asked for. The earlier `#2072`/`#2075`
+pair is split: `#2075`'s `klt
 gen-compose` landing-pad fix addressed a real, separate defect (issue #326's 17
 shapes were genuinely isolated pads) and stands, while the place-and-route half
 does not. `#1989` — merged and, as of the 0.6.0 pin, **released** — is what
