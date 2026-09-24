@@ -2016,8 +2016,17 @@ tracker already owns.
    reports `ahead_by: 54, behind_by: 0` — each fix is downstream of the
    tag, not an ancestor of it, so `v0.6.0` (the pin
    `layout/requirements.txt` already carries) does not contain either.
-   `gh api repos/2AMLogic/klayout-tools/releases` still lists `v0.6.0` as
-   the newest published release; no newer tag or release has appeared.
+   No newer distribution has appeared since: PyPI still gives `0.6.0` as
+   the latest `klayout-tools` (`curl -s
+   https://pypi.org/pypi/klayout-tools/json` → `info.version: 0.6.0`,
+   with `releases` topping out at the same), and `gh api
+   repos/2AMLogic/klayout-tools/tags` still tops out at the `v0.6.0` tag.
+   (GitHub's Releases feature is *not* the check to use here: `gh api
+   repos/2AMLogic/klayout-tools/releases` / `gh release list --repo
+   2AMLogic/klayout-tools` show `v0.5.0` still marked `Latest`, because
+   no Release object was ever cut for `v0.6.0` — the tag and the PyPI
+   package are what "published" means for the pin this row grades
+   against.)
    Per this item's own established practice (set by #103's PR #275,
    restated at every prior upstream-closure update above), the row stays
    graded against what is *released*, not what is merged — so **no §4
