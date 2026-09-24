@@ -1,103 +1,78 @@
-# Gap to T1 (bronze) — what stands between this block and a bronze candidate
+# Gap to T1 (bronze) — where the verdict lives
 
-**Snapshot: 2026-08-16, from the checklist re-read of `main`@`d3fda4c`**, amended
-**2026-09-23** to carry the eleventh checklist item (Power delivery, structural —
-klayout-tools#2025, added upstream 2026-09-17). Rows 1–10 are still the 2026-08-15
-verdicts and have not been re-read since; row 11 is dated separately and carries its own
-evidence.
-The live status lives on GitHub — issue **#23** is the tracker and is authoritative.
-This file is a dated map of the gap so a reader with only the repo in front of them can
-see the shape of it; it is not an evidence record and it does not grade anything.
+**The verdict of record is `signoff/t1-report.json`**, rendered mechanically by
+`klt signoff --manifest signoff/block-manifest.json` and re-graded by CI on
+every push and pull request. Read it, or read `signoff/README.md`, which is the
+claim written around it.
 
-## Where the verdict comes from
+This file no longer carries an item table. It used to (a dated hand-read of the
+checklist, 2026-08-16, against `main`@`d3fda4c`), and that is precisely why it
+was replaced: a hand-maintained checkbox list goes stale the moment either the
+evidence or the checklist moves, silently, with nothing to catch it. **Both
+moved.** The evidence moved repeatedly — schematic, layout, corner and
+Monte-Carlo campaigns all landed after that read — and the T1 checklist itself
+grew an **eleventh item on 2026-09-17** (`klayout-tools#2025`, "Power delivery
+(structural)"), which invalidated every prior hand-read in the fleet at a
+stroke. A table that says "1/10 pass" cannot even be wrong about a checklist
+that now has eleven items.
 
-Issue #16 re-read the full ten-item T1 checklist
-(`klayout-tools/docs/design-evidence-tiers.md` → "T1 checklist") against this block's
-evidence at `main`@`d3fda4c` and posted an item-by-item table with a citation per verdict:
+The superseded 2026-08-16 read is not archived into a second file — that would
+just be a duplicate checklist to rot beside the first — but it is not lost
+either: it is in this file's own git history (`git log --follow -p
+docs/t1-gap.md`), which is where a citation of its wording (e.g. DR-003's
+"no RTL/synthesis flow in-repo") resolves.
 
-> **1/10 pass (item 10)** — 3 items N/A pending upstream artifacts (3, 4, 7), 6 fail
-> (1, 2, 5, 6, 8, 9). Blocking items: 1–9.
+Two things also changed in the *shape* of the claim, and both are recorded in
+the manifest rather than here:
 
-Block kind for this repo is **analog** (whole-custom, transistor-level; xschem schematic
-capture, no RTL/synthesis flow in-repo), so only the *Analog* column of checklist items
-1, 2, 5, 6 and 7 applies.
+- **This block's kind is `mixed-signal`, not `analog`.** The 2026-08-16 read
+  called it analog, correctly for the tree it was written against — before
+  `layout/sar-sequencer/` and `layout/seln-inverters/` existed. The block now
+  has a real OpenROAD place-and-route flow for its standard-cell partition, so
+  both columns of the per-kind items apply, one per partition, and the item
+  table has 22 rows rather than 11.
+- **The partition boundary is declared explicitly**, as the checklist requires
+  of a mixed-signal claim — which nets and cells belong to which side, and where
+  the boundary is crossed. It lives in the manifest's `partition_boundary` and
+  is echoed verbatim into the report.
 
-**The checklist grew an eleventh item on 2026-09-17** — *Power delivery (structural)*,
-approved as klayout-tools#2025 and now written into that same
-`design-evidence-tiers.md`. Every verdict quoted above was taken against the **ten**-item
-checklist that preceded it, so "1/10" is a count against a list that no longer exists;
-read it as 1/11 with item 11 added below. Item 11 is graded from a `klt erc`
-**supply-spec** run, and is the *structural* question ("is the supply connected to what
-it powers"), not the *analysis* question — IR-drop and EM (`klt power`) stay deliberately
-outside it. Item 11 is also kind-dependent: for this **analog** block it additionally
-wants item 4's own LVS report to have carried the supply nets in its
-`net_correspondence`.
+## Where to look
 
-## Item → issue map
+| Question | Answer |
+|---|---|
+| What is this block's T1 state right now? | `signoff/t1-report.json` (`tier`, `t1_met_count` / `t1_item_count`, per-row `status` + `reason`) |
+| Why is each row the way it is, and what is *not* cited on purpose? | `signoff/README.md` |
+| Which artifacts back the claim? | `signoff/block-manifest.json` — one evidence entry per cited item |
+| What does the checklist actually say? | `klayout-tools/docs/design-evidence-tiers.md`, at the content hash the report pins (`source_doc_content_hash`); the pinned grader's wheel bundles a copy |
+| Who is tracking the remaining gap? | Issue **#23**, the standing tracker, which points here and at the report |
+| Item 11 specifically (`klt erc` supply evidence) | Issue **#344**; the committed run is `layout/sar-adc-top/erc-reports/20260923-143401-1ee4ba8/` (`erc.json` + `record.md`), and its one real finding — `VPWR`/`VGND` each splitting into two std-cell islands that never reach a top-level supply — is tracked as **#355** |
 
-| # | T1 item | Verdict (2026-08-15) | Tracked by |
-|---|---------|----------------------|------------|
-| 1 | Design sources | FAIL | #24 |
-| 2 | Layout | FAIL | #25 |
-| 3 | DRC clean | N/A — no ADC layout to check | becomes live when #25 lands |
-| 4 | LVS clean | N/A — no ADC netlist/layout to compare | becomes live when #24 + #25 land |
-| 5 | Full corner verification vs a ratified spec | FAIL | #28, gated by #26 → #27 |
-| 6 | Statistical claims carry Monte Carlo evidence | FAIL | #29, gated by #26 → #27 |
-| 7 | Post-layout verification | N/A — no extracted netlist; `klt pex` not implemented upstream (klayout-tools Epic #709) | becomes live when #25 lands *and* `klt pex` exists |
-| 8 | Characterization report | FAIL | #30 |
-| 9 | Testbenches shipped | FAIL | #31 |
-| 10 | Repo hygiene | PASS | — |
-| 11 | Power delivery (structural) | FAIL (2026-09-23) — partial: analog `VDD`/`GND` pass, digital `VPWR`/`VGND` each split into 2 islands; `erc.missing_tie` **not computed** | #355 |
+```bash
+# The verdict, human-readable, from a checkout:
+python3 -m venv .venv-signoff
+.venv-signoff/bin/pip install -r signoff/requirements.txt
+.venv-signoff/bin/klt signoff --manifest signoff/block-manifest.json \
+  --format text --no-color
+```
 
-Row 11 is the only row in this table whose verdict is **not** from the 2026-08-15
-re-read — the item did not exist then. Its verdict is dated 2026-09-23 and rests on a
-committed `klt erc` run rather than a reading:
-`layout/sar-adc-top/erc-reports/20260923-143401-1ee4ba8/` (`erc.json` + `record.md`),
-driven by `layout/sar-adc-top/erc-supply-spec.json` and graded against
-`layout/sar-adc-top/reports/20260919-050355-fb11617/sar_adc_top.gds`
-(`sha256:62038198…`, hash-matched in the report's own `provenance.input`). Read that
-record for the per-supply table; the short version:
+## What has *not* changed
 
-- `VDD` and `GND` each resolve to exactly **one** electrical island, with no
-  `erc.supply_short` anywhere — but `GND`'s pass must be read narrowly, since a purely
-  geometric model cannot see the p-substrate return path.
-- `VPWR` and `VGND` each resolve to **two** islands — the two std-cell macros'
-  self-contained rails, neither reaching a top-level supply. Real finding, tracked as
-  **#355**; the spec was deliberately not tuned to make it pass.
-- `erc.missing_tie` is **not computed** (no `ties[]` declared — an absence of evidence,
-  not evidence of absence), disclosed in-report as `ties_disclosed_tool_limitation`
-  because klayout-tools#2169 turns a correct `ties[]` into a false `erc.supply_short` on
-  a routed standard-cell design. Standing-in well-tie evidence is named in the record.
+These are properties of the claim, not of the checklist, and they still hold
+exactly as they did when this file was a hand-read:
 
-Rows 5 and 6 share one root cause on their spec-gated half — the numeric rows of
-`spec/target-spec.md` are DRAFT/unratified — so that cause is tracked once, as #26
-(agent-side derivation of the sky130 numbers) feeding #27 (the operator ratification).
-Row 9 is tracked separately from rows 5/6 because the cross-cutting contract it grades —
-a bench for *every* claimed row, a documented cold-start invocation, a pinned PDK
-revision — can regress silently while each individual campaign still looks green.
-
-## What is *not* the gap
-
-The harness is not the gap. The sim harness and the `klt` layout flow are both
-demonstrated working, negative controls included: the trivial-cell record under
-`layout/trivial-cell/reports/` shows an injected DRC violation and two corrupted LVS
-references all coming back flagged, and the two `sim/` self-test experiments show a
-9-corner PVT sweep and a Monte-Carlo run with a recorded seed, sample count and a
-deterministic negative control. Those records are **harness proofs, not design claims**
-(`sim/README.md`), and none of them may be cited toward a T1 item.
-
-The gap is that no SAR ADC schematic, netlist or layout exists yet, and the target
-spec's numeric rows are still DRAFT — so items 1, 2 and everything downstream of them
-cannot pass regardless of harness quality.
-
-## Rules that hold over every item above
-
-- **No grant is recorded in this repo.** `2AMLogic/product/everyblock/grants.md` is the
-  authoritative ledger and grants are recorded by the operator.
-- **No spec row is relaxed to make a result pass.** A row that proves unmeetable is
-  superseded by a new decision record and an operator ruling, never silently loosened.
-- **Ratification is an operator act, never fleet work** — hence #27 rather than a build
-  issue.
-- **Staleness is failure.** A report generated against an older netlist or layout
-  revision than current `main` is stale, not passing; evidence going stale drops the
-  block below the tier until it is re-established.
+- **No grant is recorded in this repo.** `2AMLogic/product/everyblock/grants.md`
+  is the authoritative ledger, and grants are recorded by the operator. A
+  `tier: "T1"` line in `signoff/t1-report.json` would be a graded verdict, not a
+  grant.
+- **No spec row is relaxed to make a result pass.** A row that proves unmeetable
+  is superseded by a new decision record and an operator ruling, never silently
+  loosened.
+- **Staleness is failure.** A report generated against an older netlist or
+  layout revision than current `main` is stale, not passing. That rule is now
+  enforced by two CI gates rather than asserted here — see `signoff/README.md`'s
+  "Freshness: two gates, and what each one catches".
+- **The harness is not the gap.** The sim harness and the `klt` layout flow are
+  both demonstrated working with negative controls (`layout/trivial-cell/` and
+  the two `sim/` self-test experiments). Those records are **harness proofs, not
+  design claims** (`sim/README.md`), and none of them may be cited toward a T1
+  item — which is also why none of them appears in the manifest.
