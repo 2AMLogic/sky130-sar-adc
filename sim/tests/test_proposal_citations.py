@@ -238,6 +238,65 @@ class FixtureTree:
         body += ["- **Date**: 2026-09-18", ""]
         (records / name).write_text("\n".join(body))
 
+    def add_signoff(
+        self,
+        *,
+        items: list[dict] | None = None,
+        evidence: dict | None = None,
+        met: int = 3,
+        total: int = 22,
+        tier: str | None = None,
+        version: str = "0.6.0",
+        report: bool = True,
+        manifest: bool = True,
+    ):
+        """A `signoff/` pair in the shape check 17 reads (issue #345).
+
+        Written the way `klt signoff` really writes it, which is what makes
+        the fixture load-bearing: an `unmet` item renders `citation: null`
+        even when the manifest cited real evidence for it, so the records the
+        verdict rests on can only be recovered from the MANIFEST. A fixture
+        that carried citations on the report side would pass while the real
+        two-file read went untested.
+        """
+        signoff = self.root / "signoff"
+        signoff.mkdir(parents=True, exist_ok=True)
+        if report:
+            (signoff / "t1-report.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "block": "fixture",
+                        "tier": tier,
+                        "t1_item_count": total,
+                        "t1_met_count": met,
+                        "build": {"package_version": version, "is_release": True},
+                        "items": [
+                            {
+                                "tier": "T1",
+                                "id": item["id"],
+                                "title": item.get("title", "fixture item"),
+                                "partition": item["partition"],
+                                "status": item.get("status", "unmet"),
+                                "reason": item.get("reason"),
+                                "citation": None,
+                            }
+                            for item in (items or [])
+                        ],
+                    }
+                )
+            )
+        if manifest:
+            (signoff / "block-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "block": "fixture",
+                        "kind": "mixed-signal",
+                        "evidence": evidence or {},
+                    }
+                )
+            )
+
     def add_top_netlist(self, *ports: str):
         """A `design/sar_adc_top.spice` with the given top-level port list.
 
@@ -2598,6 +2657,209 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         """
         cited = "layout/sar-adc-top/erc-reports/20260924-190825-f3622fc/record.md"
         self.assertIsNone(checker.EVIDENCE_PATH_RE.search(cited), cited)
+
+
+class TestT1Readout(unittest.TestCase):
+    """Check 17: a stated T1 sign-off readout must be the committed report's own.
+
+    The third evidence tree, and the first that is not a `layout/` flow's at
+    all. `signoff/t1-report.json` is this repo's T1 verdict of record (issue
+    #345), and no earlier check can see it: it is neither a `records/`/
+    `reports/` path (checks 3, 4) nor an `erc-reports/` one (check 16).
+    Section 7 item 9 quoted two of its twenty-two rows by hand -- the drift
+    shape this check turns into a CI failure, one tree over from where the
+    gate was already guarding.
+    """
+
+    BLOCK = "sar-adc-top"
+    LAYOUT = "20260924-190817-f3622fc"
+    OLDER = "20260923-131726-fa1e0af"
+    ERC = "20260924-190825-f3622fc"
+    REPORTS = f"layout/{BLOCK}/reports/LATEST"
+    ERC_REPORTS = f"layout/{BLOCK}/erc-reports/LATEST"
+    FAILED = [(4, "analog"), (4, "digital"), (11, "analog"), (11, "digital")]
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record(self.BLOCK, self.OLDER)
+        self.tree.add_layout_record(self.BLOCK, self.LAYOUT, latest=True)
+        self.tree.add_erc_record(self.BLOCK, self.ERC, latest=True, graded=self.LAYOUT)
+
+    def _items(self, failed=None) -> list[dict]:
+        """The report's own item list: three met, four graded-and-failed."""
+        rows = [
+            {"id": 3, "partition": "analog", "status": "met"},
+            {"id": 3, "partition": "digital", "status": "met"},
+            {"id": 8, "partition": "analog", "status": "met"},
+            {"id": 8, "partition": "digital", "reason": "no_evidence"},
+        ]
+        for item, partition in self.FAILED if failed is None else failed:
+            rows.append(
+                {"id": item, "partition": partition, "reason": "check_failed"}
+            )
+        # The tier rows `klt signoff` renders with no partition at all: they
+        # carry a reason of their own and must not be read as T1 items.
+        rows.append({"id": None, "partition": None, "reason": "tier_not_supported"})
+        return rows
+
+    def _evidence(self, layout: str | None = None, erc: str | None = None) -> dict:
+        """The manifest's evidence tree, in both shapes the real one uses."""
+        layout = layout or self.LAYOUT
+        erc = erc or self.ERC
+        return {
+            "3": {"file": f"layout/{self.BLOCK}/reports/{layout}/drc.json"},
+            "4": {"file": f"layout/{self.BLOCK}/reports/{layout}/lvs.json"},
+            "11": [
+                {"file": f"layout/{self.BLOCK}/erc-reports/{erc}/erc.json"},
+                {"file": f"layout/{self.BLOCK}/reports/{layout}/lvs.json"},
+            ],
+            "8.analog": {"file": "signoff/evidence/characterization.generic.json"},
+        }
+
+    def _signoff(self, **kwargs):
+        options = {"items": self._items(), "evidence": self._evidence()}
+        options.update(kwargs)
+        self.tree.add_signoff(**options)
+
+    def _readout(self, **overrides) -> str:
+        stated = {
+            "version": "0.6.0",
+            "met": 3,
+            "total": 22,
+            "tier": "none",
+            "failed": list(self.FAILED),
+            "cited": [
+                (self.ERC_REPORTS, self.ERC, self.ERC),
+                (self.REPORTS, self.LAYOUT, self.LAYOUT),
+            ],
+            "status": "current",
+        }
+        stated.update(overrides)
+        failed = (
+            ", ".join(f"`{item} {part}`" for item, part in stated["failed"])
+            or "**none**"
+        )
+        cited = (
+            ", ".join(
+                f"`{pointer}` at **{stamp}** against a pointer naming **{latest}**"
+                for pointer, stamp, latest in stated["cited"]
+            )
+            or "**none**"
+        )
+        return (
+            "> on the report `signoff/t1-report.json`, `klt signoff`\n"
+            f"> **{stated['version']}** grades **{stated['met']}** of\n"
+            f"> **{stated['total']}** T1 items met, block tier\n"
+            f"> **{stated['tier']}**; the items whose cited evidence was read\n"
+            f"> and still failed are {failed}; and its manifest cites\n"
+            f"> {cited}: **{stated['status']}**.\n"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        """Also the wrap test: the fixture readout is set across six lines."""
+        self._signoff()
+        self.assertEqual(self.tree.check(self._readout()), [])
+
+    def test_a_met_count_that_moved_is_reported(self):
+        self._signoff(met=4)
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "met=" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_grader_version_bump_is_reported(self):
+        """The version is part of the verdict: a re-render can move numbers."""
+        self._signoff(version="0.7.0")
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("version=", misses[0])
+
+    def test_a_tier_award_is_reported(self):
+        """`null` renders as `none`, so a real tier appearing is visible."""
+        self._signoff(tier="T1")
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("tier=", misses[0])
+
+    def test_a_newly_failing_row_left_out_of_the_readout_is_reported(self):
+        """Both directions: shrinking the list is not a way to keep it clean."""
+        self._signoff(items=self._items(failed=self.FAILED + [(7, "analog")]))
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("omits item 7 (analog)", misses[0])
+
+    def test_a_row_that_has_since_stopped_failing_is_reported(self):
+        """The other direction: a listed row the report no longer fails."""
+        self._signoff(items=self._items(failed=self.FAILED[:-1]))
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("lists item 11 (digital)", misses[0])
+
+    def test_no_evidence_is_not_read_as_graded_and_failed(self):
+        """`check_failed` and `no_evidence` are different statements.
+
+        Item 8's digital row is `no_evidence` in every fixture here; a check
+        that read "unmet" instead of the reason would enrol it and fail the
+        truthful readout.
+        """
+        self._signoff()
+        self.assertEqual(self.tree.check(self._readout()), [])
+        self.assertNotIn((8, "digital"), checker.t1_readout()["failed"])
+
+    def test_a_manifest_pinned_to_a_superseded_record_goes_stale(self):
+        """The half `signoff/check_evidence_hashes.py` cannot cover.
+
+        Every cited artefact still hashes perfectly -- the record is
+        committed, its bytes unchanged. It is simply not the one
+        `reports/LATEST` names any more.
+        """
+        self._signoff(evidence=self._evidence(layout=self.OLDER))
+        stale = self._readout(
+            cited=[
+                (self.ERC_REPORTS, self.ERC, self.ERC),
+                (self.REPORTS, self.OLDER, self.LAYOUT),
+            ],
+            status="stale",
+        )
+        self.assertEqual(self.tree.check(stale), [])
+        misses = self.tree.check(self._readout())
+        self.assertTrue(any("status=stale" in miss for miss in misses), misses)
+
+    def test_a_manifest_citing_no_layout_record_is_not_current(self):
+        """A sign-off resting on nothing cannot be current with anything."""
+        self._signoff(evidence={"8.analog": {"file": "signoff/evidence/x.json"}})
+        self.assertEqual(
+            self.tree.check(self._readout(cited=[], status="stale")), []
+        )
+
+    def test_a_readout_with_no_committed_signoff_pair_is_reported(self):
+        """Not silently skipped: a readout must outlive its own evidence."""
+        self.tree.add_signoff(report=False, items=self._items())
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "T1 sign-off readout names" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self._signoff()
+        self.assertEqual(self.tree.check("No T1 readout here.\n"), [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """What `--stats` prints must be what the document can paste."""
+        self._signoff()
+        sentence = checker.t1_sentence(checker.t1_readout())
+        self.assertEqual(self.tree.check(f"> {sentence}\n"), [])
+
+    def test_the_erc_tree_is_reachable_from_the_manifest(self):
+        """A tripwire on the assumption check 17 is built on.
+
+        `EVIDENCE_PATH_RE` matches `records|reports` only, so an
+        `erc-reports/` citation is invisible to checks 3 and 4 -- which is
+        exactly why this check walks the manifest with its own pattern. If
+        `T1_CITED_PATH_RE` were ever narrowed to match the older one, item
+        11's ERC evidence would silently drop out of the freshness verdict.
+        """
+        cited = f"layout/{self.BLOCK}/erc-reports/{self.ERC}/erc.json"
+        self.assertIsNone(checker.EVIDENCE_PATH_RE.match(cited), cited)
+        self.assertIsNotNone(checker.T1_CITED_PATH_RE.match(cited), cited)
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

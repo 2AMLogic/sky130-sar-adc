@@ -3110,7 +3110,9 @@ tracker already owns.
    moved from `no_evidence` to `check_failed`, with the run cited as a
    compound entry — "the ERC ran and the supplies are continuous, and the item
    still is not met" is a materially more useful statement than silence. See
-   [`docs/t1-gap.md`](../t1-gap.md) and `signoff/README.md`'s "Item 11".
+   [`docs/t1-gap.md`](../t1-gap.md) and `signoff/README.md`'s "Item 11" — and
+   item 10 below, which states the same report's whole scorecard (and is
+   machine-checked against it) rather than only the two rows this item quotes.
 
    Four honest qualifications this document owes a reader, each taken from
    the record rather than inferred:
@@ -3167,6 +3169,79 @@ tracker already owns.
    is about a *fabricable* assembly, and a composed top level whose digital
    section has no structural path from any top-level supply to its own cells
    was a gap this section should have been carrying and was not.
+
+10. **The repository's own T1 evidence-tier scorecard is machine-graded, and
+    it reads 3 of 22 — stated here because this document had been quoting one
+    row of it and not the total.** Items 1–9 above each name a specific gap.
+    This item names the *scorecard that counts them*, which until this pass
+    appeared in this document only obliquely: item 9 quotes
+    [`signoff/t1-report.json`](../../signoff/t1-report.json)'s two item-11
+    rows and nothing else, so a reader could come away with the grade of the
+    one item this document happened to be discussing and no idea what the
+    same report makes of the other ten.
+
+    Since 2026-09-24 (issue #345, PR #357) this block carries a committed
+    `klt signoff` block manifest (`signoff/block-manifest.json`) and the
+    machine-graded report it renders to (`signoff/t1-report.json`). That
+    report — not prose in this document, and no longer
+    [`docs/t1-gap.md`](../t1-gap.md)'s former hand-maintained item table — is
+    this repository's T1 verdict of record. It is a *different* scorecard from
+    §4's: §4 grades this design against the brief's own sign-off bar and
+    against `spec/target-spec.md`'s rows, while this one grades it against
+    `klt signoff`'s generic evidence-tier checklist. Both are reported; neither
+    is used to soften the other.
+
+    **The readout is machine-checked** (check 17 of the [citation
+    gate](check_proposal_citations.py), added this pass — the third evidence
+    tree, after `reports/` at check 9 and `erc-reports/` at check 16):
+
+    > on the report `signoff/t1-report.json`, `klt signoff` **0.6.0** grades
+    > **3** of **22** T1 items met, block tier **none**; the items whose cited
+    > evidence was read and still failed are `4 analog`, `4 digital`,
+    > `11 analog`, `11 digital`; and its manifest cites
+    > `layout/sar-adc-top/erc-reports/LATEST` at **20260924-190825-f3622fc**
+    > against a pointer naming **20260924-190825-f3622fc**,
+    > `layout/sar-adc-top/reports/LATEST` at **20260924-190817-f3622fc**
+    > against a pointer naming **20260924-190817-f3622fc**: **current**.
+
+    Four things that readout states, each read out of the committed report
+    rather than asserted here:
+
+    - **Three of twenty-two.** The checklist is eleven T1 items graded once
+      per partition (analog, digital), so 22 rows. The three met are item 3
+      (*DRC clean*) on both partitions and item 8 (*Characterization report*)
+      on the analog partition. Every other row is `unmet`, and the manifest
+      leaves them that way deliberately rather than borrowing an unrelated
+      passing envelope to turn one green.
+    - **`check_failed` is not `no_evidence`, and the readout keeps them
+      apart.** Four rows — item 4 (*LVS clean*) and item 11 (*Power delivery,
+      structural*), on both partitions — cite real evidence that was read and
+      graded and did not pass. The other fifteen unmet rows cite nothing at
+      all. "The ERC ran, the supplies are continuous, and the item still is
+      not met" (item 9 above) is a materially different statement from
+      silence, and it is the one the gate now holds this document to: a row
+      that starts failing and is left out of the list is a CI failure, and so
+      is a listed row that has since started passing.
+    - **Block tier `none`.** `klt signoff` awards no tier, which follows from
+      T1 not being complete — the T2/T3/T4 rows render `tier_not_supported`.
+      Stating the word is what makes a tier appearing later a visible change
+      rather than a silent one.
+    - **The closing verdict word is a freshness rule nothing else in this
+      repository evaluates.** `signoff/check_evidence_hashes.py` already
+      re-hashes every artefact the manifest cites against the file on disk, so
+      no cited evidence can be rewritten underneath the sign-off. What it
+      structurally cannot ask is whether the cited record is still the one that
+      tree's own `LATEST` names: a manifest pinned to a **superseded but still
+      committed** record passes the hash check with every hash intact, while
+      the sign-off grades a layout this repo has moved on from. Check 17 asks
+      exactly that, for both trees the manifest cites, and turns the word to
+      `stale` if either has moved.
+
+    **No §4 verdict moves because of this item**, and none is claimed to. A
+    3-of-22 T1 grade is not a brief verdict; it is this repository's own
+    checklist reporting the same gaps §7 items 1–9 already name, counted. The
+    two sign-off-bar rows stay UNMET and PARTIAL exactly as written, for the
+    same reasons stated there.
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
