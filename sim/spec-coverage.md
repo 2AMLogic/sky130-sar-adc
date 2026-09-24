@@ -36,6 +36,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 | LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
 | Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
+| Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260924-041815-afcb1b5.md` |
 | Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient` | `20260912-002315-9aaf1ca.md` |
 | Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20260827-213107-e13bc1e.md`<br>`20260827-212404-e13bc1e.md` |
 
@@ -226,6 +227,21 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/comparator-decision/run.py noise-corners --record`
 - Documented in: `sim/comparator-decision/run.py`
 - Evidence: `sim/comparator-decision/records/20260827-212404-e13bc1e.md`
+
+### Kickback
+
+- **Status**: DRAFT
+- **Claim class**: `draft-informational`
+- **Note**: DRAFT row (<= 5 mV peak pin disturbance into a 1 kOhm series source impedance, single decision edge; stretch <= 2 mV), added by DR-011 via issue #361. The bound is adopted verbatim from the sibling 2AMLogic/sky130-comparator canary's own DR-002-ratified row as a stated interim choice -- NOT derived from this block's system-level budget -- so nothing here is graded pass/fail against it. Issue #346's single-corner (tt/27 C) probe is the only evidence that exists: the record below reports 73.3673 mV worst-case peak pin disturbance INFORMATIONALLY and says so in its own Claim field, which cites spec/target-spec.md explicitly. That is ~14.7x the proposed target; the gap is recorded, not relaxed (CLAUDE.md). Ratifying this row would oblige a full-corner campaign -- the bound is stated at the ratified corner set and the evidence covers one point of it (DR-011 Consequences §5).
+- **Tracking**: #349 (mitigation-topology evaluation, unblocked by this row); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)
+
+**`sim/comparator-decision`** — Peak pin disturbance on VINP/VINN across a single CLK reset->evaluate edge, into a 1 kOhm series source impedance, at tt/27 C (issue #346). The Vindiff=0 control row isolates clock/reset/tail-switch-coupled kickback from decision-coupled kickback -- here 70.3419 of the 73.3673 mV is the former.
+
+- Testbench: `sim/comparator-decision/testbench/comparator_core.spice`
+- Runner: `sim/comparator-decision/run.py`
+- Cold start: `python3 sim/comparator-decision/run.py kickback --record`
+- Documented in: `sim/comparator-decision/run.py`
+- Evidence: `sim/comparator-decision/records/20260924-041815-afcb1b5.md`
 
 ### Power
 

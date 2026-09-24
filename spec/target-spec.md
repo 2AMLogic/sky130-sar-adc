@@ -7,7 +7,11 @@ rate and the statistical rows (ENOB, INL/DNL — target values only) remain
 DRAFT; the ENOB/INL-DNL target *values* now cite
 [DR-007](decision-records/DR-007-revised-enob-inl-dnl-targets.md)'s
 evidence-derived candidates (2026-08-28, proposed via #129) in place of the
-original, un-evidenced draft numbers, still pending operator ratification.**
+original, un-evidenced draft numbers, still pending operator ratification. A
+Kickback row is added DRAFT (2026-09-24, proposed via #361) citing
+[DR-011](decision-records/DR-011-comparator-kickback-target-row.md), whose
+bound is adopted from a sibling canary as an explicit interim choice rather
+than derived from this block's own budget — also pending ratification.**
 
 - **Binding:** the supply flavour — 1.8 V core (`nfet_01v8`/`pfet_01v8`), digital
   on `sky130_fd_sc_hd`. Design, sim and layout may lock to it. See
@@ -23,7 +27,15 @@ original, un-evidenced draft numbers, still pending operator ratification.**
   Monte-Carlo evidence campaign, superseding (as a target-spec.md *row*, not
   as evidence — #29's own records stand unedited) the original un-evidenced
   draft numbers. Each remains a starting point, to be confirmed, amended, or
-  replaced by a further decision record under `spec/decision-records/`.
+  replaced by a further decision record under `spec/decision-records/`. Also
+  not binding: the **Kickback** row, added DRAFT by
+  [DR-011](decision-records/DR-011-comparator-kickback-target-row.md) (issue
+  #361) — the first bound this block has had for its comparator's input-pin
+  disturbance, adopted verbatim from the sibling `2AMLogic/sky130-comparator`
+  canary's own ratified row as a stated interim choice, pending a bound
+  derived from this block's own system-level budget. The measured baseline
+  (`sim/comparator-decision/records/20260924-041815-afcb1b5.md`, 73.3673 mV
+  at `tt`/27 °C) misses it by `≈ 14.7×`; that gap is recorded, not relaxed.
 
 An agent must not treat the sample-rate row as settled, must not close a
 `TBD` by porting gf180-sar-adc's 3.3 V figure, and must not relax a ratified
@@ -162,6 +174,7 @@ and the device-level evidence each number is read from:
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | derived |
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | matching-limited; kT/C floor is `≈ 415×` looser |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | `28.86 %` / `16.67 %` of LSB; one-third of the total non-quant budget |
+| Kickback | `≤ 5 mV` peak pin disturbance into a `1 kΩ` series source impedance, single decision edge (target); stretch `≤ 2 mV` | DRAFT (new row, DR-011 candidate) | new row proposed (DR-011 via #361) against #346's baseline (`sim/comparator-decision/records/20260924-041815-afcb1b5.md`: `73.3673 mV`, `tt`/27 °C only — `≈ 14.7×` the target, `≈ 36.7×` the stretch); bound **adopted verbatim** from sibling `2AMLogic/sky130-comparator`'s DR-002-ratified row as a stated interim choice, not derived from this block's own budget; stated at the ratified corner set, evidenced at one point; ratification still open |
 | Power | provisional, minimise at rate | DRAFT | report, don't pre-commit |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | held as drafted; see the Liberty/STA scope note above |
 
@@ -174,9 +187,11 @@ seed + sample count + negative control; post-layout (extracted) re-sim; a
 characterization report; testbenches shipped; repo hygiene. `V_REF`, LSB,
 `N`, the CDAC unit-cap/array size, the comparator noise budget, and the
 corner set are ratified (DR-003 via #27) and evidence may be recorded
-against them now; sample rate and the ENOB/INL-DNL *target values* remain
-DRAFT and nothing against those specific rows is claimable until a future
-record ratifies them.
+against them now; sample rate, the ENOB/INL-DNL *target values*, and the
+Kickback row (DR-011 via #361) remain DRAFT and nothing against those
+specific rows is claimable until a future record ratifies them. Ratifying
+Kickback additionally obliges a full-corner kickback campaign — today's
+evidence is a single `tt`/27 °C point (see DR-011's Consequences §5).
 
 ## Non-goals (draft)
 
