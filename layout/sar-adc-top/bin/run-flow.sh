@@ -130,13 +130,25 @@ if [[ ! -f "$OUT_DIR/${TOP}.gds" ]]; then
 fi
 mv "$OUT_DIR/${TOP}.gds" "$OUT_DIR/sar_adc_top.gds"
 GDS="$OUT_DIR/sar_adc_top.gds"
+# Every `klt` verb records the input path it was INVOKED with, verbatim, as its
+# envelope's own `file` field. Invoking with an absolute path therefore bakes
+# this machine's `.loom/worktrees/issue-N/...` into committed evidence, and a
+# grader on any other checkout (CI, a reviewer, this repo's own `main` after the
+# worktree is reaped) cannot resolve it -- `klt signoff` reports
+# `input_verified: null` for such a citation, and, worse, reports `true` on the
+# ONE machine where the path still happens to exist, so a report rendered there
+# drifts against CI's re-render of the same manifest (measured on issue #355).
+# Passing a REPO-RELATIVE path from the repo root fixes both: the recorded path
+# resolves from any checkout, and `input_verified` is `true` everywhere.
+REL_GDS="${GDS#"$REPO_ROOT"/}"
 
 # --- 5. DRC on the composed layout: must be CLEAN --------------------------
-"$KLT" drc "$GDS" --deck sky130 --format json > "$OUT_DIR/drc.json" || true
+( cd "$REPO_ROOT" && "$KLT" drc "$REL_GDS" --deck sky130 --format json ) \
+    > "$OUT_DIR/drc.json" || true
 
 # --- 6. Unfiltered extraction: connectivity verification, not an LVS input -
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
-    -o "$OUT_DIR/sar_adc_top.extract.unfiltered.spice" --format json \
+( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
+    -o "$OUT_DIR/sar_adc_top.extract.unfiltered.spice" --format json ) \
     > "$OUT_DIR/extract.unfiltered.json" || true
 
 # --- 7. Signoff attempt: `--pin-source-cells` declared pins + LVS ----------
@@ -150,9 +162,9 @@ GDS="$OUT_DIR/sar_adc_top.gds"
 # where none of `--top-cell-pins`/`--pins`/`--def-pins` could. Requires a
 # `klt` build with klayout-tools#1515 -- carried by every pinned release
 # since `klayout-tools==0.5.0` (layout/requirements.txt).
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
+( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
     --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
-    -o "$OUT_DIR/sar_adc_top.extract.spice" --format json \
+    -o "$OUT_DIR/sar_adc_top.extract.spice" --format json ) \
     > "$OUT_DIR/extract.json" || true
 
 # klayout-tools#1876 workaround: `klt extract`'s SPICE writer no longer emits
