@@ -2658,6 +2658,33 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         cited = "layout/sar-adc-top/erc-reports/20260924-190825-f3622fc/record.md"
         self.assertIsNone(checker.EVIDENCE_PATH_RE.search(cited), cited)
 
+    def test_the_real_proposal_states_a_parseable_t1_readout(self):
+        """Check 17 is opt-in per document, so assert the real document opts in.
+
+        A document that states no T1 readout is not failed by check 17 (that
+        is what keeps it inert against a fixture with no `signoff/` pair), so
+        a pass that deleted the sentence would disable the check and still
+        exit 0.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        stated = list(checker.T1_READOUT_RE.finditer(collapsed))
+        self.assertEqual(len(stated), 1, "the proposal states no T1 sign-off readout")
+
+    def test_the_real_t1_readout_is_checked_against_a_real_record(self):
+        """The record side must be readable, and it must cite real evidence.
+
+        A `stale`/`None` produced by an unreadable `signoff/` pair is
+        otherwise indistinguishable from one produced by real drift -- so
+        both halves are asserted here, not just the document's prose side.
+        """
+        readout = checker.t1_readout()
+        self.assertIsNotNone(
+            readout, "signoff/t1-report.json and signoff/block-manifest.json "
+            "have no readable T1 verdict"
+        )
+        self.assertTrue(readout["cited"], readout)
+
 
 class TestT1Readout(unittest.TestCase):
     """Check 17: a stated T1 sign-off readout must be the committed report's own.
@@ -2804,6 +2831,34 @@ class TestT1Readout(unittest.TestCase):
         self._signoff()
         self.assertEqual(self.tree.check(self._readout()), [])
         self.assertNotIn((8, "digital"), checker.t1_readout()["failed"])
+
+    def test_a_readout_that_states_an_extra_citation_the_manifest_never_made_is_reported(self):
+        """The other direction: a stated citation with nothing behind it.
+
+        `test_a_manifest_pinned_to_a_superseded_record_goes_stale` below
+        exercises a *mismatched* pair (both a "states" and an "omits" miss
+        fire together), which does not catch a mutation that drops the
+        "states" arm of the symmetric difference entirely -- narrowing
+        `claimed_cited ^ set(actual["cited"])` to `set(actual["cited"]) -
+        claimed_cited` still passes it. This fixture adds a citation that has
+        no counterpart in `actual["cited"]` at all, so only the "states" arm
+        can report it.
+        """
+        self._signoff()
+        extra = (self.REPORTS, "bogus-stamp", "bogus-stamp")
+        misses = self.tree.check(
+            self._readout(
+                cited=[
+                    (self.ERC_REPORTS, self.ERC, self.ERC),
+                    (self.REPORTS, self.LAYOUT, self.LAYOUT),
+                    extra,
+                ]
+            )
+        )
+        reported = [
+            miss for miss in misses if "states" in miss and "bogus-stamp" in miss
+        ]
+        self.assertEqual(len(reported), 1, misses)
 
     def test_a_manifest_pinned_to_a_superseded_record_goes_stale(self):
         """The half `signoff/check_evidence_hashes.py` cannot cover.
