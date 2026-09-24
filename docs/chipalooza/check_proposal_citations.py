@@ -43,10 +43,11 @@ live power readout of every `sim/` campaign whose current record carries a
 Power table (the sentence check 12 compares against), the live status of
 every `spec/decision-records/` record (the sentence check 15 compares
 against), the live `klt erc` supply readout of every `layout/` flow that
-has one (the sentence check 16 compares against) and the live T1 sign-off
+has one (the sentence check 16 compares against), the live T1 sign-off
 verdict `signoff/` records for the block as a whole (the sentence check 17
-compares against) instead of checking, which is what to run when check 6, 9,
-12, 13, 14, 15, 16 or 17 reports a drift. Exit status:
+compares against) and each document's live Section 4 freshness-coverage census
+(the sentence check 18 compares against) instead of checking, which is what to
+run when check 6, 9, 12, 13, 14, 15, 16, 17 or 18 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -560,6 +561,41 @@ T1_FAILED_ITEM_RE = re.compile(r"`(?P<item>\d+) (?P<partition>[a-z]+)`")
 T1_CITED_RE = re.compile(
     r"`(?P<pointer>layout/[A-Za-z0-9._/-]+/LATEST)` at \*\*(?P<cited>[0-9a-z-]+)\*\* "
     r"against a pointer naming \*\*(?P<latest>[0-9a-z-]+)\*\*"
+)
+
+# How an empty uncovered-flow clause renders in check 18's sentence. Never
+# path-shaped, so it cannot be mistaken for a flow -- same convention as
+# `T1_NO_RECORD`.
+FRESHNESS_NONE = "**none**"
+
+# Check 18's coverage census of check 3, matched against the same
+# blockquote-aware collapsed text checks 9, 14, 15, 16 and 17 read. Check 3
+# can only ask "is this the current record?" of a flow that publishes a
+# `LATEST` pointer; `_pointer_stamp()` returns None for one that does not and
+# the pair is skipped in silence. This sentence states how large that skipped
+# set is and which flows are in it, so neither can drift unnoticed -- exactly
+# what check 6 does for checks 4/5, one table over.
+#
+# Deliberately free of the phrase "current `records/LATEST`", for check 17's
+# reason: spelling it that way would enrol this sentence in check 4/6's
+# pointer-claim census, where it is not a citation of anything.
+FRESHNESS_COVERAGE_RE = re.compile(
+    r"of the \*\*(?P<pairs>\d+)\*\* \(spec row, evidence flow\) citation pairs "
+    r"in Section 4's table, \*\*(?P<graded>\d+)\*\* name a flow that publishes a "
+    r"`LATEST` pointer and are therefore freshness-checked by check 3; the "
+    r"remaining \*\*(?P<ungraded>\d+)\*\* name a flow that publishes none, whose "
+    r"current record nothing grades: (?P<flows>" + re.escape(FRESHNESS_NONE)
+    + r"|(?:`(?:sim|layout)/[A-Za-z0-9._-]+` \(\*\*\d+\*\* records?\)(?:, )?)+)\."
+)
+
+# One flow inside that sentence's uncovered-flow clause: the flow path and how
+# many records it holds. The count is load-bearing rather than decorative -- a
+# pointerless flow holding one record is a far smaller hole than one holding
+# twelve, and it is the twelve-record case where the document is picking a
+# citation out of a set nothing re-derives.
+FRESHNESS_FLOW_RE = re.compile(
+    r"`(?P<flow>(?:sim|layout)/[A-Za-z0-9._-]+)` "
+    r"\(\*\*(?P<records>\d+)\*\* records?\)"
 )
 
 
@@ -2332,6 +2368,118 @@ def check_t1_readout(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _flow_record_count(top: str, block: str) -> int:
+    """How many records `<top>/<block>/` holds, in that tree's own shape.
+
+    A `sim/` campaign's records are `records/<stamp>.md` files; a `layout/`
+    flow's are `reports/<stamp>/` directories. Counted rather than taken on
+    trust because it is the number that says how big an ungraded citation
+    really is: one record is a flow with nothing to be stale against, twelve
+    is a flow whose cited record nothing re-derives.
+    """
+    pointer_dir = REPO_ROOT / top / block / POINTER_DIR_BY_TOP_LEVEL[top]
+    if not pointer_dir.is_dir():
+        return 0
+    if top == "sim":
+        return sum(1 for path in pointer_dir.glob("*.md") if path.is_file())
+    return sum(1 for path in pointer_dir.iterdir() if path.is_dir())
+
+
+def freshness_coverage(text: str) -> dict:
+    """How much of Section 4's table check 3 actually grades.
+
+    Check 3 resolves "the current record" of a cited flow from that flow's own
+    `LATEST` pointer, and skips -- silently, and correctly, since there is
+    nothing to be stale against -- any flow that publishes none. That makes
+    the *scope* of the document's headline freshness claim a volatile fact
+    about this repository's trees rather than about the document, and nothing
+    re-derived it: a row citing a pointerless campaign reads exactly like a
+    graded one.
+
+    Counted per (row, flow) pair rather than per citation, because that is the
+    unit check 3 evaluates: a row citing three stamps of one flow is one
+    verdict about one flow, not three.
+    """
+    pairs = {
+        (line_number, cite.group("top"), cite.group("block"))
+        for line_number, row in spec_table_rows(text)
+        for cite in EVIDENCE_PATH_RE.finditer(row)
+    }
+    ungraded = [
+        (top, block) for _, top, block in pairs if _pointer_stamp(top, block) is None
+    ]
+    return {
+        "pairs": len(pairs),
+        "graded": len(pairs) - len(ungraded),
+        "ungraded": len(ungraded),
+        "flows": [
+            (f"{top}/{block}", _flow_record_count(top, block))
+            for top, block in sorted(set(ungraded))
+        ],
+    }
+
+
+def freshness_coverage_sentence(coverage: dict) -> str:
+    """That census in exactly the sentence form `FRESHNESS_COVERAGE_RE` matches.
+
+    Used by `--stats` so the fix for a check-18 failure is a paste, as it is
+    for checks 6, 9, 12, 13, 14, 15, 16 and 17.
+    """
+    flows = (
+        ", ".join(
+            f"`{flow}` (**{count}** record{'' if count == 1 else 's'})"
+            for flow, count in coverage["flows"]
+        )
+        or FRESHNESS_NONE
+    )
+    return (
+        f"of the **{coverage['pairs']}** (spec row, evidence flow) citation "
+        f"pairs in Section 4's table, **{coverage['graded']}** name a flow "
+        "that publishes a `LATEST` pointer and are therefore freshness-checked "
+        f"by check 3; the remaining **{coverage['ungraded']}** name a flow that "
+        f"publishes none, whose current record nothing grades: {flows}."
+    )
+
+
+def check_freshness_coverage(doc: Path, text: str) -> list[str]:
+    """Check 18: the stated coverage of check 3 over Section 4 must be the real one."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    for stated in FRESHNESS_COVERAGE_RE.finditer(collapsed):
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        actual = freshness_coverage(text)
+        for field in ("pairs", "graded", "ungraded"):
+            claimed = int(stated.group(field))
+            if claimed != actual[field]:
+                misses.append(
+                    f"{where}: the Section 4 freshness-coverage census says "
+                    f"{field}={claimed}, but this document's live census is "
+                    f"{field}={actual[field]} -- restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+
+        # Both directions, as checks 8, 10, 14, 15, 16 and 17 do. A flow that
+        # starts publishing a pointer and is left in the list overstates the
+        # hole; a flow that loses its pointer -- or that a newly added row
+        # starts citing -- and is left out understates it, which is the
+        # direction that matters. Shrinking this list is the cheapest way to
+        # make the gate's coverage read better than it is.
+        claimed_flows = {
+            (flow.group("flow"), int(flow.group("records")))
+            for flow in FRESHNESS_FLOW_RE.finditer(stated.group("flows"))
+        }
+        for flow, count in sorted(claimed_flows ^ set(actual["flows"])):
+            stated_here = (flow, count) in claimed_flows
+            misses.append(
+                f"{where}: the Section 4 freshness-coverage census "
+                f"{'lists' if stated_here else 'omits'} `{flow}` at **{count}** "
+                f"record(s) as cited-but-ungraded, which is not what this "
+                f"repository's own trees report -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -2351,6 +2499,7 @@ def check_document(doc: Path) -> list[str]:
         + check_decision_record_status(doc, text)
         + check_erc_readout(doc, text)
         + check_t1_readout(doc, text)
+        + check_freshness_coverage(doc, text)
     )
 
 
@@ -2379,6 +2528,13 @@ def main(argv: list[str]) -> int:
                 f"{census['trailing_stamp']} name a record stamp within "
                 f"{census['window']} characters after the phrase, and "
                 f"{census['narration']} name none at all"
+            )
+            # And the other coverage census, about check 3 rather than checks
+            # 4/5: how much of Section 4's table names a flow whose current
+            # record is resolvable at all.
+            print(
+                f"{doc.name}: "
+                f"{freshness_coverage_sentence(freshness_coverage(doc.read_text()))}"
             )
         # Every `layout/` flow, not only the one the document happens to state
         # today: this is also what to paste when ADDING a readout for a flow

@@ -881,15 +881,50 @@ run as part of authoring this document and passed
 and therefore into the always-on headless CI job):
 [`docs/chipalooza/check_proposal_citations.py`](check_proposal_citations.py)
 verifies that every path this document cites resolves, that **every row of the
-table above cites the *current* record of each `sim/`/`layout/` flow it draws
-on** — as resolved from that flow's own `records/LATEST` / `reports/LATEST`
-pointer, not merely a record that was current when the row was written — and
-that every *attached* "current `…/LATEST`" claim in the prose is both true and
-named against the right pointer file for its tree (`sim/` campaigns record
-under `records/`; the `layout/` flows under `reports/`). Rows may still cite
-superseded records alongside the current one, which is how this document keeps
-a supersession trail visible; what they may no longer do is cite *only* a
-superseded one.
+table above cites the *current* record of each `sim/`/`layout/` flow that
+publishes one** — as resolved from that flow's own `records/LATEST` /
+`reports/LATEST` pointer, not merely a record that was current when the row
+was written — and that every *attached* "current `…/LATEST`" claim in the
+prose is both true and named against the right pointer file for its tree
+(`sim/` campaigns record under `records/`; the `layout/` flows under
+`reports/`). Rows may still cite superseded records alongside the current one,
+which is how this document keeps a supersession trail visible; what they may
+no longer do is cite *only* a superseded one.
+
+**What that row-freshness claim excludes, stated rather than glossed over**
+(the sentence above read "of each `sim/`/`layout/` flow it draws on" until
+2026-09-25, which overstated it in the same way the pointer-claim sentence
+further down once did): the check resolves "the current record" of a flow from
+that flow's own `LATEST` pointer file, so a flow that publishes **no** pointer
+has nothing to be stale against and the citation is skipped — silently, and
+in a cell that reads exactly like a graded one. Four of the `sim/` campaigns
+this table cites publish no pointer, and for at least one of them that is
+**correct rather than an oversight**: `sim/comparator-decision`'s dozen
+records are not a supersession chain but three distinct claims —
+input-referred noise, decision delay, and kickback — which three different
+rows above cite separately, so no single record of that campaign is "the
+current" one and minting a pointer would force a false answer. What can drift
+unnoticed is not that the set exists but its *size and membership*, so that is
+gated (check 18), in the same shape check 6 gates the pointer-claim census
+below:
+
+> of the **21** (spec row, evidence flow) citation pairs in Section 4's
+> table, **14** name a flow that publishes a `LATEST` pointer and are
+> therefore freshness-checked by check 3; the remaining **7** name a flow that
+> publishes none, whose current record nothing grades:
+> `sim/cdac-array-transfer` (**4** records), `sim/comparator-decision`
+> (**12** records), `sim/enob-estimate` (**4** records),
+> `sim/sar-sequencer-behavioral` (**4** records).
+
+`python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
+sentence live, to be pasted back in when it moves. It is graded in both
+directions: a campaign that starts publishing a pointer must leave the list,
+and a row that starts citing a pointerless campaign must join it — shrinking
+the list is the cheapest way to make this gate's coverage read better than it
+is. The record count is stated per flow because it is what says how large each
+hole is: a one-record campaign has no other record its row could have meant,
+whereas the twelve-record one above is a citation chosen out of a set nothing
+re-derives.
 
 The same gate also compares this table against
 [`spec/target-spec.md`](../../spec/target-spec.md) row by row and grades the

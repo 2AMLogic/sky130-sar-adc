@@ -592,6 +592,56 @@ CI's own `signoff-check` job with the pinned grader installed. A green check
 17 says "the scorecard this document states is the committed report's own, and
 that report rests on current layout records", not "the sign-off is correct".
 
+### Check 18 -- Section 4 freshness coverage (`check_freshness_coverage`)
+
+Check 6 gates how much of the *prose* checks 4/5 cover. Nothing gated how
+much of the **table** check 3 covers, and check 3 is the load-bearing one.
+
+Check 3's own entry above ends "Flows with no `LATEST` pointer are skipped:
+there is nothing to be stale against." That is true, and it is also the
+entire uncovered set -- stated only here, in the rationale document, and
+nowhere a reader of the proposal would meet it. The proposal's own summary of
+the gate said the opposite: "every row of the table above cites the *current*
+record of each `sim/`/`layout/` flow it draws on", without qualification. Of
+the 21 (row, flow) citation pairs in Section 4 when this check landed, **7 --
+spanning six rows and four `sim/` campaigns -- were not graded at all**, and
+their cells read exactly like the graded ones. That is the same
+prose-overstates-the-gate shape the "What 'attached' excludes" paragraph
+already had to correct once for checks 4/5, one table over.
+
+**The pair, not the citation, is the unit**, because it is what check 3
+evaluates: a row naming three stamps of one flow is one verdict about one
+flow. And each uncovered flow is stated **with its record count**, which is
+what says how large its hole is. A pointerless campaign holding one record has
+no other record its row could have meant; the twelve-record one is a citation
+chosen out of a set nothing re-derives.
+
+**Graded in both directions**, like checks 8, 10, 14, 15, 16 and 17. A
+campaign that starts publishing a pointer must leave the list; a flow that
+loses its pointer, or that a newly added row starts citing, must join it.
+Shrinking the list is the cheapest way to make the gate's coverage read better
+than it is.
+
+**Why "just require every cited flow to publish a `LATEST`" is rejected** --
+recorded here so it is not re-proposed blind. It reads like the obvious fix
+and it is wrong for at least one of the flows it would apply to.
+`sim/comparator-decision` holds twelve records that are **not a supersession
+chain**: they carry three distinct claims -- input-referred noise, decision
+delay, and kickback -- and three different Section 4 rows cite three different
+records of it on purpose. There is no single "current" record of that campaign
+for a pointer to name, so minting one would not make those three rows graded;
+it would make two of them *wrongly* graded, and the fix for the resulting CI
+failure would be to re-point a correct citation at an unrelated record. The
+same shape can arise in any campaign whose records answer more than one
+question. Making the uncovered set visible is the honest gate; making it
+empty by fiat is not.
+
+**What this check deliberately does NOT cover.** It says nothing about
+whether an ungraded citation is *stale* -- it cannot, which is the point:
+that judgement is exactly what no pointer file exists to make. A green check
+18 says "the table's ungraded set is the size and membership this document
+states", not "every citation in the table is current".
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
