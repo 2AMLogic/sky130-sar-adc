@@ -3199,10 +3199,10 @@ tracker already owns.
     > **3** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `4 analog`, `4 digital`,
     > `11 analog`, `11 digital`; and its manifest cites
-    > `layout/sar-adc-top/erc-reports/LATEST` at **20260924-190825-f3622fc**
-    > against a pointer naming **20260924-190825-f3622fc**,
-    > `layout/sar-adc-top/reports/LATEST` at **20260924-190817-f3622fc**
-    > against a pointer naming **20260924-190817-f3622fc**: **current**.
+    > `layout/sar-adc-top/erc-reports/LATEST` at **20260924-214731-b323061**
+    > against a pointer naming **20260924-214731-b323061**,
+    > `layout/sar-adc-top/reports/LATEST` at **20260924-214710-b323061**
+    > against a pointer naming **20260924-214710-b323061**: **current**.
 
     Four things that readout states, each read out of the committed report
     rather than asserted here:
