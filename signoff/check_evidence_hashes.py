@@ -73,6 +73,14 @@ ARTIFACT_FIELD = {
     "sim": "netlist",
     "pex": "layout",
     "generic": "source",
+    # `klt erc` (item 11, issue #355). Like `drc`, it records the graded GDS as
+    # `file` and its hash as `provenance.input.content_hash`. Unlike `drc`, the
+    # envelope does NOT live beside the artifact it grades -- an ERC record is a
+    # verdict about some OTHER record's GDS (layout/sar-adc-top/erc-reports/<a>/
+    # grading layout/sar-adc-top/reports/<b>/sar_adc_top.gds), which is why
+    # `resolve_artifact` below has to re-root the recorded absolute path rather
+    # than rely on the basename-beside-the-envelope reading alone.
+    "erc": "file",
 }
 
 
@@ -93,6 +101,15 @@ def classify(envelope: dict) -> str:
     """
     if envelope.get("kind") == "generic":
         return "generic"
+    # `erc` is tested BEFORE `drc`: a `klt erc` envelope carries a `deck` block
+    # too, and would otherwise be misread as a DRC report (whose `violations`
+    # key it does not have, so today it would fall through to `unknown` -- but
+    # relying on that absence is exactly the kind of accident that breaks on the
+    # next envelope-schema change). The positive test is the same pair
+    # `klt signoff` itself detects the kind by: a top-level `gates` list plus a
+    # `gate_role` string.
+    if isinstance(envelope.get("gates"), list) and "gate_role" in envelope:
+        return "erc"
     if "violations" in envelope and "deck" in envelope:
         return "drc"
     if "mismatches" in envelope and "reference" in envelope:
@@ -161,6 +178,22 @@ def resolve_artifact(named: str, envelope_path: Path) -> Path | None:
         candidates.append(REPO_ROOT / named_path)
         candidates.append(envelope_path.parent / named_path)
     candidates.append(envelope_path.parent / named_path.name)
+    # RE-ROOTING an absolute recorded path (issue #355). The basename reading
+    # above only finds artifacts committed BESIDE their envelope; a `klt erc`
+    # record is a verdict about a *different* record's GDS, so its artifact is
+    # never beside it. Each suffix of the recorded path is tried under
+    # REPO_ROOT, longest first, so
+    # `/some/foreign/worktree/layout/x/reports/<id>/top.gds` resolves to this
+    # checkout's own `layout/x/reports/<id>/top.gds` -- and nothing else: this
+    # is still not a literal probe of the producing machine's filesystem (the
+    # objection in this function's docstring), because every candidate is
+    # rebuilt under REPO_ROOT and filtered by `is_probeable_candidate`. Longest
+    # suffix first so the most specific reading wins; a one-component suffix is
+    # just the basename reading, already covered above.
+    if named_path.is_absolute():
+        parts = named_path.parts[1:]  # drop the filesystem root
+        for start in range(len(parts) - 1):
+            candidates.append(REPO_ROOT.joinpath(*parts[start:]))
     for candidate in candidates:
         if is_probeable_candidate(candidate) and is_existing_file(candidate):
             return candidate

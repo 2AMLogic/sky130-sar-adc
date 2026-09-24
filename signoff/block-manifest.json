@@ -87,10 +87,43 @@
     "      verdicts in full instead.",
     "  7   no `klt pex` report exists. Item 7 accepts nothing else -- a clean DRC",
     "      or a pre-layout sim renders wrong_kind by design.",
-    "  11  no `klt erc` supply spec and no ERC report exist in this repo. Tracked",
-    "      as the companion item-11 issue #344; the row renders here (unmet,",
-    "      no_evidence) for both partitions because the grader is pinned to a klt",
-    "      build whose checklist has all eleven items.",
+    "  11  (bare -- both partitions) a COMPOUND citation, the only item whose",
+    "      entry may be an array: the `klt erc` supply run plus the LVS report",
+    "      item 4 grades, which is what this item's own grading path",
+    "      (`_grade_power_delivery`) requires. Both name the same composed GDS",
+    "      by hash, so one verdict is not smuggled in against another revision.",
+    "      Cited even though the item does NOT render met, for exactly item 4's",
+    "      reason: `unmet`/`check_failed` -- 'the ERC ran, the LVS ran, and the",
+    "      pair does not yet clear this item' -- is a materially more useful",
+    "      machine-readable statement than `no_evidence`.",
+    "      WHY IT DOES NOT RENDER MET, and neither half of this is hidden:",
+    "        (a) the supply-continuity half PASSES. The cited run reports",
+    "            erc_status `clean`, zero findings: all four declared supplies",
+    "            (VDD, GND, VPWR, VGND) resolve to exactly one electrical island",
+    "            each, no erc.unconnected_net and no erc.supply_short. That is",
+    "            new as of issue #355 (DR-010), which tied both standard-cell",
+    "            macros' met5 PDN straps together and out to two new top-level",
+    "            supply pins; #344's first run had VPWR and VGND each splitting",
+    "            into two islands that reached no top-level supply.",
+    "        (b) the REASON OF RECORD is item 4's LVS, not the continuity half.",
+    "            `_grade_power_delivery` resolves the cited LVS part and tests",
+    "            it BEFORE it looks at the supply spec, so that report's",
+    "            `mismatch` status (klayout-tools#1878) short-circuits grading",
+    "            at `check_failed` -- which is why the rendered reason is not",
+    "            about (a) at all.",
+    "        (c) a SECOND, LATENT reason sits behind it, reached once (b)",
+    "            clears: the item ALSO requires zero `erc.missing_tie` from a",
+    "            tie the run actually checked, and this spec declares no",
+    "            `ties[]` at all -- disclosed in-report as ties_disclosure.kind",
+    "            'tool_limitation' (klayout-tools#2169 turns a correct ties[]",
+    "            declaration on a routed standard-cell design into a FALSE",
+    "            erc.supply_short). The grader has a distinct reason for exactly",
+    "            that state (supply_spec_disclosed_tool_limitation), and it is",
+    "            not a pass either. So clearing the LVS alone would move the",
+    "            reason, not the verdict.",
+    "      So: better evidence than before, and NOT a met row. docs/t1-gap.md's",
+    "      item-11 line says the same thing in prose, and signoff/README.md's",
+    "      table carries the per-supply detail.",
     "",
     "REGENERATING / CHECKING",
     "  bash signoff/run-signoff.sh            # rewrite signoff/t1-report.json",
@@ -111,12 +144,21 @@
   },
   "evidence": {
     "3": {
-      "file": "layout/sar-adc-top/reports/20260918-191315-935ce76/drc.json",
-      "content_hash": "sha256:5eb3c864bf881bdec9ce7a3ace3f9dfef95d48185d3fb6c5725b3036d11aa24e"
+      "file": "layout/sar-adc-top/reports/20260924-190817-f3622fc/drc.json",
+      "content_hash": "sha256:543efabf14d987eba951934941ce949114bfe2e06593bed7059079bebecf2df8"
     },
     "4": {
-      "file": "layout/sar-adc-top/reports/20260918-191315-935ce76/lvs.json"
+      "file": "layout/sar-adc-top/reports/20260924-190817-f3622fc/lvs.json"
     },
+    "11": [
+      {
+        "file": "layout/sar-adc-top/erc-reports/20260924-190825-f3622fc/erc.json",
+        "content_hash": "sha256:543efabf14d987eba951934941ce949114bfe2e06593bed7059079bebecf2df8"
+      },
+      {
+        "file": "layout/sar-adc-top/reports/20260924-190817-f3622fc/lvs.json"
+      }
+    ],
     "8.analog": {
       "file": "signoff/evidence/characterization-report.generic.json",
       "content_hash": "sha256:9437bbcda8f6b3e2532459d13427df2fcb377d6b2d7a70194dd916cf5b5b20b6"

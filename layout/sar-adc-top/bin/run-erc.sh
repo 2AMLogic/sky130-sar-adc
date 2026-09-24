@@ -61,12 +61,24 @@ echo "$PROG: klt $("$KLT" --version | awk '{print $2}')"
 echo "$PROG: layout $GDS"
 echo "$PROG: spec   $SPEC"
 
+# `klt erc` records the input/spec paths it was INVOKED with, verbatim, in its
+# envelope's own `file`/`spec` fields and (via `provenance`) is what a grader
+# re-hashes them from. Invoking with absolute paths bakes this machine's
+# `.loom/worktrees/issue-N/...` into committed evidence, which resolves from no
+# other checkout -- and resolves on exactly one, so a `klt signoff` report
+# rendered there drifts against CI's re-render of the same manifest (measured on
+# issue #355). Pass REPO-RELATIVE paths from the repo root whenever the input is
+# inside this repo; fall back to the absolute path for an out-of-tree argument.
+REL_GDS="$GDS"
+case "$GDS" in "$REPO_ROOT"/*) REL_GDS="${GDS#"$REPO_ROOT"/}" ;; esac
+REL_SPEC="${SPEC#"$REPO_ROOT"/}"
+
 # `klt erc` exits 3 when it completed successfully AND found ERC findings --
 # a real verdict, not a failure to run, so it must not trip `set -e`. Exit 1
 # (could not run: bad spec, unreadable layout) still must.
 set +e
-"$KLT" erc "$GDS" "$SPEC" --pdk sky130 --deck sky130 --format json \
-  >"$OUT_DIR/erc.json" 2>"$OUT_DIR/erc.stderr"
+( cd "$REPO_ROOT" && "$KLT" erc "$REL_GDS" "$REL_SPEC" --pdk sky130 --deck sky130 \
+  --format json ) >"$OUT_DIR/erc.json" 2>"$OUT_DIR/erc.stderr"
 RC=$?
 set -e
 if [[ "$RC" != 0 && "$RC" != 3 ]]; then
@@ -116,12 +128,27 @@ blocking = [
     if f["rule"] in ("erc.unconnected_net", "erc.supply_short", "erc.missing_tie")
     and (f.get("net") in supplies or f.get("other_net") in supplies)
 ]
+ties = report.get("ties_disclosure") or {}
 print(f"run-erc.sh: content-hashes verified (layout + spec)")
 print(f"run-erc.sh: erc_status={report.get('erc_status')} findings={len(findings)}")
+# This line grades ONE half of T1 item 11 -- the supply-continuity rules. The
+# item also requires zero `erc.missing_tie` FROM A TIE THE RUN ACTUALLY
+# CHECKED, so a spec that declares no `ties[]` cannot satisfy it however clean
+# the continuity half is: `klt signoff` renders exactly that state as
+# unmet/supply_spec_disclosed_{unexpressible,tool_limitation}. Printing a bare
+# "MET" here would contradict the grader (issue #355).
 print(
-    "run-erc.sh: T1 item 11 verdict: "
-    + ("MET" if not blocking else f"UNMET ({len(blocking)} blocking finding(s))")
+    "run-erc.sh: supply continuity (declared supplies, one island each, no short): "
+    + ("PASS" if not blocking else f"FAIL ({len(blocking)} blocking finding(s))")
 )
+if ties:
+    print(
+        "run-erc.sh: erc.missing_tie NOT computed (ties_disclosure.kind="
+        f"{ties.get('kind')}) -- T1 item 11 as graded by `klt signoff` is NOT met "
+        "on the continuity half alone"
+    )
+else:
+    print("run-erc.sh: T1 item 11 verdict: " + ("MET" if not blocking else "UNMET"))
 for f in blocking:
     print(f"run-erc.sh:   {f['rule']}: {f['description']}")
 PY
