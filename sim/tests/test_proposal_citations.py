@@ -2237,6 +2237,46 @@ class TestAgainstTheRealProposal(unittest.TestCase):
             stated, "the proposal no longer states a census check 6 can verify"
         )
 
+    def test_the_real_proposal_states_a_parseable_freshness_coverage_census(self):
+        """Check 18 is opt-in per document too, so assert the real one opts in.
+
+        Deleting the sentence would disable the check silently and still exit
+        0 -- the same vacuity trap check 4's dead connector branch fell into,
+        and the reason check 6 carries the assertion above.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _ = checker._collapse_quoted_prose(doc.read_text())
+        self.assertIsNotNone(
+            checker.FRESHNESS_COVERAGE_RE.search(collapsed),
+            "the proposal no longer states a freshness-coverage census check 18 "
+            "can verify",
+        )
+
+    def test_check_18_grades_a_nonempty_set_of_the_real_documents_pairs(self):
+        """A census over zero pairs would be a green that means nothing.
+
+        Check 18's whole subject is Section 4's citation pairs; if the table
+        scoping or `EVIDENCE_PATH_RE` ever stopped matching, the stated census
+        would collapse to 0/0/0 and the document could be restated to match it
+        while saying nothing at all.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        coverage = checker.freshness_coverage(doc.read_text())
+        self.assertGreaterEqual(
+            coverage["pairs"], 10, "Section 4's citation pairs went unparsed"
+        )
+        self.assertEqual(
+            coverage["pairs"], coverage["graded"] + coverage["ungraded"], coverage
+        )
+        # Every flow the census names must really publish no pointer, and hold
+        # at least one record -- otherwise the list is naming a flow that does
+        # not exist rather than one this gate cannot grade.
+        for flow, records in coverage["flows"]:
+            with self.subTest(flow=flow):
+                top, block = flow.split("/", 1)
+                self.assertIsNone(checker._pointer_stamp(top, block))
+                self.assertGreaterEqual(records, 1)
+
     def test_section_4_spec_table_is_actually_found(self):
         """Guard against the scoping silently matching zero rows."""
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -2915,6 +2955,138 @@ class TestT1Readout(unittest.TestCase):
         cited = f"layout/{self.BLOCK}/erc-reports/{self.ERC}/erc.json"
         self.assertIsNone(checker.EVIDENCE_PATH_RE.match(cited), cited)
         self.assertIsNotNone(checker.T1_CITED_PATH_RE.match(cited), cited)
+
+
+class TestFreshnessCoverage(unittest.TestCase):
+    """Check 18: the stated coverage of check 3 over Section 4 must be real.
+
+    Check 3 grades a row's citation only when the flow it names publishes a
+    `LATEST` pointer; a flow that publishes none is skipped, and the cell
+    reads exactly like a graded one. The proposal's own summary of the gate
+    said "every row of the table above cites the *current* record of each
+    `sim/`/`layout/` flow it draws on" while 7 of its 21 (row, flow) pairs
+    were not graded at all -- the same prose-overstates-the-gate shape check 6
+    exists for, one table over.
+
+    The load-bearing fixtures here are the two directions: a pointerless flow
+    left OUT of the stated list (the gate reading better than it is) and a
+    flow left IN after it starts publishing a pointer.
+    """
+
+    GRADED = "20260917-180543-527ec73"
+    UNGRADED_A = "20260827-213107-e13bc1e"
+    UNGRADED_B = "20260828-022618-f36913e"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        # One graded flow: a `layout/` flow that publishes a pointer.
+        self.tree.add_layout_record("cdac-array", self.GRADED, latest=True)
+        # One ungraded flow holding two records and no pointer -- the shape
+        # that matters, since the row is choosing between them unchecked.
+        self.tree.add_sim_record("cdac-array-transfer", self.UNGRADED_A)
+        self.tree.add_sim_record("cdac-array-transfer", self.UNGRADED_B)
+
+    def _table(self) -> str:
+        return spec_table(
+            f"| `V_REF` | 1.8 V | RATIFIED | **MET** | "
+            f"`sim/cdac-array-transfer/records/{self.UNGRADED_A}.md` |",
+            f"| INL / DNL | ≤ ±2.0 LSB | DRAFT | **Informational only** | "
+            f"`sim/cdac-array-transfer/records/{self.UNGRADED_A}.md`; "
+            f"`sim/cdac-array-transfer/records/{self.UNGRADED_B}.md` |",
+            f"| Sampling cap | 8.65 fF | RATIFIED | **MET** | "
+            f"`layout/cdac-array/reports/{self.GRADED}/record.md` |",
+        )
+
+    def _sentence(self, pairs, graded, ungraded, flows) -> str:
+        rendered = (
+            ", ".join(
+                f"`{flow}` (**{count}** record{'' if count == 1 else 's'})"
+                for flow, count in flows
+            )
+            or checker.FRESHNESS_NONE
+        )
+        return (
+            f"of the **{pairs}** (spec row, evidence flow) citation pairs in "
+            f"Section 4's table, **{graded}** name a flow that publishes a "
+            "`LATEST` pointer and are therefore freshness-checked by check 3; "
+            f"the remaining **{ungraded}** name a flow that publishes none, "
+            f"whose current record nothing grades: {rendered}.\n"
+        )
+
+    def _body(self, sentence: str = "") -> str:
+        return self._table() + "\n" + sentence
+
+    def test_coverage_of_a_known_table_is_computed_per_row_flow_pair(self):
+        """Two rows citing one flow are two pairs; three stamps are not three."""
+        coverage = checker.freshness_coverage(self._body())
+        self.assertEqual(coverage["pairs"], 3, coverage)
+        self.assertEqual(coverage["graded"], 1, coverage)
+        self.assertEqual(coverage["ungraded"], 2, coverage)
+        self.assertEqual(coverage["flows"], [("sim/cdac-array-transfer", 2)], coverage)
+
+    def test_a_truthful_census_passes(self):
+        body = self._body(
+            self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 2)])
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_an_omitted_ungraded_flow_is_reported(self):
+        """The direction that matters: the gate reading better than it is."""
+        body = self._body(self._sentence(3, 1, 2, []))
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("omits `sim/cdac-array-transfer`", misses[0])
+
+    def test_a_flow_that_starts_publishing_a_pointer_must_leave_the_list(self):
+        # Pointed at the record both rows cite, so the only findings are
+        # check 18's -- a check-3 staleness here would mask what this asserts.
+        (self.tree.root / "sim" / "cdac-array-transfer" / "records" / "LATEST").write_text(
+            f"{self.UNGRADED_A}.md\n"
+        )
+        body = self._body(
+            self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 2)])
+        )
+        misses = self.tree.check(body)
+        self.assertTrue(any("lists `sim/cdac-array-transfer`" in m for m in misses), misses)
+        self.assertTrue(any("graded=1" in m and "graded=3" in m for m in misses), misses)
+
+    def test_a_drifted_record_count_is_reported_in_both_directions(self):
+        """A stated count that is not the tree's own is two findings, not none."""
+        body = self._body(
+            self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 1)])
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("lists" in m and "**1** record(s)" in m for m in misses), misses)
+        self.assertTrue(any("omits" in m and "**2** record(s)" in m for m in misses), misses)
+
+    def test_a_fully_graded_table_renders_and_accepts_none(self):
+        # Pointed at the record both rows cite, so check 3 stays quiet and the
+        # only thing this test is about is check 18's empty-list rendering.
+        (self.tree.root / "sim" / "cdac-array-transfer" / "records" / "LATEST").write_text(
+            f"{self.UNGRADED_A}.md\n"
+        )
+        coverage = checker.freshness_coverage(self._body())
+        self.assertEqual(coverage["flows"], [], coverage)
+        self.assertIn(
+            checker.FRESHNESS_NONE, checker.freshness_coverage_sentence(coverage)
+        )
+        self.assertEqual(self.tree.check(self._body(self._sentence(3, 3, 0, []))), [])
+
+    def test_the_stats_sentence_is_what_the_check_accepts(self):
+        """A `--stats` paste must pass, or the documented fix does not work."""
+        body = self._body()
+        sentence = checker.freshness_coverage_sentence(checker.freshness_coverage(body))
+        self.assertEqual(self.tree.check(body + sentence + "\n"), [])
+
+    def test_a_document_stating_no_census_is_not_failed_for_it(self):
+        # Opt-in per document, like check 6: fixtures need not carry one.
+        self.assertEqual(self.tree.check(self._body()), [])
+
+    def test_the_sentence_is_not_counted_as_a_pointer_claim(self):
+        """It must not enrol itself in check 4/6's census, as check 17's does not."""
+        sentence = self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 2)])
+        self.assertEqual(checker.pointer_claim_census(sentence)["total"], 0)
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
