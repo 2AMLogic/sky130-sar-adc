@@ -2993,6 +2993,48 @@ tracker already owns.
    ablating `via4` alone splits each into three against the pre-#355 stream's
    four — the record's own "Cross-checks" table.
 
+   **The "Islands, now" column above is hand-transcribed, and as of this pass
+   the gate recomputes it** (check 16 of the
+   [citation gate](check_proposal_citations.py) — **ERC supply readout,
+   machine-checked**):
+
+   > on the record `layout/sar-adc-top/erc-reports/LATEST` resolves to, `klt
+   > erc` reports `erc_status` **clean** with **0** findings; the declared
+   > supplies resolve to `GND` **1**, `VDD` **1**, `VGND` **1**, `VPWR` **1**
+   > electrical islands; and it grades `20260924-190817-f3622fc`, while
+   > `reports/LATEST` there names `20260924-190817-f3622fc`: **current**.
+
+   Three things that readout closes, none of which any earlier check could
+   see. First, **an ERC record was invisible to the gate entirely**: this
+   flow keeps its supply verdicts in a separate `erc-reports/` tree with a
+   pointer file of its own, and checks 3 and 4 match `records/`/`reports/`
+   only — so the one sentence in §3 and the table above could both have gone
+   on describing a superseded run indefinitely, which is precisely the drift
+   class the gate exists for (PR #239/#242/#276/#282, one directory over).
+   Second, **the island counts themselves are now recomputed**, per supply
+   and in both directions: a supply dropped from the spec's `nets[]` — the
+   cheapest way to make a failing continuity table read clean — fails CI here
+   rather than quietly shrinking the table. `klt erc` states an island count
+   only on the *failing* side (inside the `erc.unconnected_net` finding that
+   carries the islands), so the passing "1" against each supply is
+   reconstructed from that record's own `erc_coverage.checked` list: a net
+   that was graded and drew no finding resolved to exactly one island.
+   Third, the closing verdict word is **this record's own "Staleness rule"
+   made mechanical** — `current` requires both that the ERC run graded the
+   record `reports/LATEST` names *and* that the stream's sha256 still matches
+   the `provenance.input.content_hash` `run-erc.sh` pinned at run time.
+   A future `run-flow.sh` re-run that is not followed by `run-erc.sh` turns
+   that word to `stale` and fails CI, instead of leaving this item asserting
+   a supply verdict about bytes this repo no longer carries — exactly the
+   qualification the 2026-09-23 pass had to carry by hand and the 2026-09-24
+   pass had to discharge by hand (the "no longer a revision behind" bullet
+   below).
+
+   **No verdict moves because of check 16**: the readout states the same four
+   one-island supplies and the same `erc_status: clean` / 0 findings this item
+   already carried, item 11 stays UNMET for the two reasons below, and both
+   §4 sign-off-bar rows are untouched.
+
    **Item 11 is nevertheless still UNMET**, and this document does not round
    that up. `klt signoff` renders both item-11 rows `unmet` / **`check_failed`**
    — because its grading path checks the cited LVS part before the supply spec,
@@ -3008,7 +3050,7 @@ tracker already owns.
    still is not met" is a materially more useful statement than silence. See
    [`docs/t1-gap.md`](../t1-gap.md) and `signoff/README.md`'s "Item 11".
 
-   Three honest qualifications this document owes a reader, each taken from
+   Four honest qualifications this document owes a reader, each taken from
    the record rather than inferred:
    - **`GND`'s pass is geometric only.** `klt erc` models drawn wire/via
      connectivity with no device recognition, and this block's analog ground

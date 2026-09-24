@@ -22,6 +22,7 @@ are asserted directly rather than only through the real document.
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import re
@@ -117,6 +118,78 @@ class FixtureTree:
         (records / f"{stamp}.md").write_text(body)
         if latest:
             (records / "LATEST").write_text(f"{stamp}.md\n")
+
+    def add_erc_record(
+        self,
+        block: str,
+        stamp: str,
+        *,
+        latest: bool = False,
+        graded: str | None = None,
+        artefact: str = "sar_adc_top.gds",
+        supplies: dict[str, int] | None = None,
+        erc_status: str = "clean",
+        content_hash: str | None = None,
+    ):
+        """A `layout/<block>/erc-reports/<stamp>/erc.json` in check 16's shape.
+
+        Written the way `klt erc` really writes it, which is what makes the
+        fixture load-bearing: a passing supply carries NO island count of its
+        own -- it appears only in `erc_coverage.checked` -- and a failing one
+        carries its islands inside an `erc.unconnected_net` finding. A fixture
+        that stored a per-net count directly would pass while the real
+        report's shape went unparsed.
+
+        `graded` is the `reports/` stamp the run graded, recorded as the
+        repo-relative path `klt erc` was invoked with. `content_hash` defaults
+        to the real sha256 of that record's own artefact when it exists, which
+        is the `current` case; pass an explicit one to reproduce a layout
+        record rebuilt underneath a stale ERC verdict.
+        """
+        report = self.root / "layout" / block / "erc-reports" / stamp
+        report.mkdir(parents=True, exist_ok=True)
+        (report / "record.md").write_text("fixture erc record\n")
+        supplies = {"VDD": 1} if supplies is None else supplies
+        findings = [
+            {
+                "rule": "erc.unconnected_net",
+                "net": net,
+                "islands": [{"layer": "met1", "shape_count": 1}] * islands,
+            }
+            for net, islands in supplies.items()
+            if islands != 1
+        ]
+        if content_hash is None and graded is not None:
+            stream = self.root / "layout" / block / "reports" / graded / artefact
+            content_hash = (
+                "sha256:" + hashlib.sha256(stream.read_bytes()).hexdigest()
+                if stream.is_file()
+                else "sha256:" + "0" * 64
+            )
+        (report / "erc.json").write_text(
+            json.dumps(
+                {
+                    "file": (
+                        f"layout/{block}/reports/{graded}/{artefact}"
+                        if graded is not None
+                        else None
+                    ),
+                    "erc_status": erc_status,
+                    "erc_finding_count": len(findings),
+                    "erc_findings": findings,
+                    "erc_coverage": {
+                        "checked": [
+                            f'erc.net_connectivity:["{net}"]' for net in supplies
+                        ]
+                        + ['erc.floating_gate:["gate0"]'],
+                        "inapplicable": [{"id": "erc.missing_tie:[]"}],
+                    },
+                    "provenance": {"input": {"content_hash": content_hash}},
+                }
+            )
+        )
+        if latest:
+            (report.parent / "LATEST").write_text(stamp + "\n")
 
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
@@ -1913,6 +1986,157 @@ class TestDecisionRecordStatus(unittest.TestCase):
         self.assertEqual(self.tree.check(stated), [])
 
 
+class TestErcReadout(unittest.TestCase):
+    """Check 16: a stated ERC supply readout must be the current record's own.
+
+    The second evidence tree a `layout/` flow keeps, and the one no earlier
+    check can reach: `EVIDENCE_PATH_RE` matches `records|reports` only, so
+    `layout/<block>/erc-reports/<stamp>/` is invisible to checks 3 and 4
+    however the document cites it. Section 7 item 9's per-supply island table
+    was hand-transcribed once against a failing run (2026-09-23) and
+    re-transcribed by hand when issue #355 moved every number in it
+    (2026-09-24) -- the drift shape this check turns into a CI failure.
+    """
+
+    BLOCK = "sar-adc-top"
+    LAYOUT = "20260924-190817-f3622fc"
+    OLDER = "20260923-131726-fa1e0af"
+    ERC = "20260924-190825-f3622fc"
+    SUPPLIES = {"VDD": 1, "GND": 1, "VPWR": 1, "VGND": 1}
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record(
+            self.BLOCK, self.OLDER, gds={"sar_adc_top": b"older stream"}
+        )
+        self.tree.add_layout_record(
+            self.BLOCK, self.LAYOUT, latest=True, gds={"sar_adc_top": b"graded stream"}
+        )
+
+    def _erc(self, **kwargs):
+        options = {
+            "latest": True,
+            "graded": self.LAYOUT,
+            "supplies": dict(self.SUPPLIES),
+        }
+        options.update(kwargs)
+        self.tree.add_erc_record(self.BLOCK, self.ERC, **options)
+
+    def _readout(self, **overrides) -> str:
+        stated = {
+            "erc_status": "clean",
+            "finding_count": 0,
+            "supplies": dict(self.SUPPLIES),
+            "graded": self.LAYOUT,
+            "latest": self.LAYOUT,
+            "status": "current",
+        }
+        stated.update(overrides)
+        islands = ", ".join(
+            f"`{net}` **{count}**" for net, count in sorted(stated["supplies"].items())
+        )
+        return (
+            f"> on the record `layout/{self.BLOCK}/erc-reports/LATEST` resolves to,\n"
+            f"> `klt erc` reports `erc_status` **{stated['erc_status']}** with\n"
+            f"> **{stated['finding_count']}** findings; the declared supplies resolve\n"
+            f"> to {islands} electrical islands; and it grades\n"
+            f"> `{stated['graded']}`, while `reports/LATEST` there names\n"
+            f"> `{stated['latest']}`: **{stated['status']}**.\n"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        """Also the wrap test: the fixture readout is set across six lines.
+
+        A check that only matched an unwrapped sentence would be vacuous
+        against the real document, where this sentence cannot fit on one line.
+        """
+        self._erc()
+        self.assertEqual(self.tree.check(self._readout()), [])
+
+    def test_an_island_count_that_moved_is_reported(self):
+        """The 2026-09-24 defect shape: the layout moved, the table did not."""
+        self._erc(supplies={"VDD": 1, "GND": 1, "VPWR": 2, "VGND": 2}, erc_status="violations")
+        misses = self.tree.check(self._readout())
+        stated = [miss for miss in misses if "island(s)" in miss]
+        self.assertEqual(len(stated), 2, misses)
+        self.assertTrue(any("`VPWR`" in miss for miss in stated), stated)
+        self.assertTrue(any("`VGND`" in miss for miss in stated), stated)
+
+    def test_a_supply_dropped_from_the_readout_is_reported(self):
+        """Both directions: shrinking the table is not a way to keep it clean."""
+        self._erc()
+        thinned = dict(self.SUPPLIES)
+        del thinned["VGND"]
+        misses = self.tree.check(self._readout(supplies=thinned))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`VGND`", misses[0])
+        self.assertIn("at None island(s)", misses[0])
+
+    def test_a_supply_the_run_never_graded_is_reported(self):
+        """The other direction: a net stated but absent from the coverage list."""
+        self._erc(supplies={"VDD": 1, "GND": 1, "VPWR": 1})
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`VGND`", misses[0])
+
+    def test_a_moved_status_word_is_reported(self):
+        self._erc(erc_status="violations")
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "erc_status" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_layout_rerun_without_a_fresh_erc_run_goes_stale(self):
+        """The record's own staleness rule, which nothing else evaluates.
+
+        `run-flow.sh` mints a new `reports/<id>/`; until `run-erc.sh` runs
+        again the committed ERC verdict grades bytes that are no longer this
+        flow's current layout, and the document's supply table is about a
+        superseded stream.
+        """
+        self._erc(graded=self.OLDER)
+        self.assertEqual(
+            self.tree.check(self._readout(graded=self.OLDER, status="stale")), []
+        )
+        misses = self.tree.check(self._readout(graded=self.OLDER))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("status=current", misses[0])
+        self.assertIn("status=stale", misses[0])
+
+    def test_a_layout_rebuilt_under_the_erc_record_goes_stale(self):
+        """The half a stamp comparison alone would miss.
+
+        Same stamp, different bytes: the ERC verdict is about a stream this
+        repository no longer carries, and only the content hash shows it.
+        """
+        self._erc(content_hash="sha256:" + "b" * 64)
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("status=stale", misses[0])
+
+    def test_a_readout_for_a_flow_with_no_erc_record_is_reported(self):
+        """Not silently skipped: a readout must outlive its own evidence.
+
+        Check 2 reports the unresolvable pointer path as well, which is
+        correct and not what this test is about -- check 16's own finding is
+        asserted, rather than the total count, so the two do not fight.
+        """
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "the ERC supply readout names" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("erc-reports/LATEST", reported[0])
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self._erc()
+        self.assertEqual(self.tree.check("No ERC readout here.\n"), [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """What `--stats` prints must be what the document can paste."""
+        self._erc()
+        readout = checker.erc_readout(self.BLOCK)
+        sentence = checker.erc_sentence(self.BLOCK, readout)
+        self.assertEqual(self.tree.check(f"> {sentence}\n"), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -2324,6 +2548,56 @@ class TestAgainstTheRealProposal(unittest.TestCase):
             numbers.setdefault(number, []).append(name)
         collisions = {n: names for n, names in numbers.items() if len(names) > 1}
         self.assertEqual(sorted(collisions), ["004", "007"], collisions)
+
+    def test_the_real_proposal_states_a_parseable_erc_readout(self):
+        """Check 16 is opt-in per document, so assert the real document opts in.
+
+        A document that states no ERC readout is not failed by check 16 (that
+        is what keeps it inert against a fixture with no `erc-reports/` tree),
+        so a pass that deleted the sentence would disable the check and still
+        exit 0.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        stated = list(checker.ERC_READOUT_RE.finditer(collapsed))
+        self.assertEqual(len(stated), 1, "the proposal states no ERC supply readout")
+
+    def test_the_real_erc_readout_is_checked_against_a_real_record(self):
+        """The record side must be readable, and it must grade real bytes.
+
+        Three assertions, because each half of check 16 can go vacuous on its
+        own: the flow has an `erc-reports/LATEST`, that record names the
+        supplies this block declares, and the verdict word is computed from a
+        layout stream that really exists (a `stale` produced by an unreadable
+        file would be indistinguishable from one produced by a real re-run).
+        """
+        readout = checker.erc_readout("sar-adc-top")
+        self.assertIsNotNone(readout, "layout/sar-adc-top/ has no ERC record")
+        self.assertEqual(
+            sorted(readout["islands"]), ["GND", "VDD", "VGND", "VPWR"], readout
+        )
+        self.assertIsNotNone(readout["graded"], readout)
+        stream = (
+            REPO_ROOT
+            / "layout"
+            / "sar-adc-top"
+            / "reports"
+            / readout["graded"]
+            / "sar_adc_top.gds"
+        )
+        self.assertTrue(stream.is_file(), stream)
+
+    def test_the_real_erc_tree_is_invisible_to_the_earlier_freshness_checks(self):
+        """Why check 16 exists at all, re-derived rather than asserted in prose.
+
+        `EVIDENCE_PATH_RE` matches `records|reports` only. If a future change
+        widened it to cover `erc-reports/` too, check 3's spec-row freshness
+        would start grading ERC citations under a `layout/<block>/` flow key
+        that has no `reports/LATEST` relationship to them -- so this is a
+        tripwire on the assumption check 16 is built on, not decoration.
+        """
+        cited = "layout/sar-adc-top/erc-reports/20260924-190825-f3622fc/record.md"
+        self.assertIsNone(checker.EVIDENCE_PATH_RE.search(cited), cited)
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
