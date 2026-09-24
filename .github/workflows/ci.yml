@@ -79,6 +79,27 @@ name: CI
 #     PR moving the pin without fresh matching evidence -- the class of
 #     regression PR #108 caused and #104 fixed, when the six-verdict proof
 #     itself only runs in the PDK-gated `pdk-smoke` job below.
+#   - `layout/bin/check_drc_evidence.py` (issue #121) is also part of
+#     `check:ci` -> `checks` below, and is likewise headless (pure file reads,
+#     no PDK, no `klt` install): it holds every DRC payload a layout flow's
+#     own reports/LATEST resolves to -- the evidence every "DRC-clean" claim
+#     in this repo, and every verdict docs/chipalooza/challenge-4-proposal.md
+#     grades on them, actually stands on -- to curated-deck provenance. A
+#     payload stamped with an `engine` / a deck *file* came from `klt drc
+#     --engine klayout --deck-file`, the path klayout-tools#1941 showed can
+#     report `status: "clean"` from a deck that aborted part-way through (a
+#     report file covering only the rules that ran before the abort). That
+#     fix, klayout-tools#1951, is merged but in no published release (`klt`
+#     0.5.0 remains latest), so the affected behaviour is what a `klt drc`
+#     run here does today. The gate also rejects a payload carrying
+#     `engine_deck_errors` (#1951's own `--allow-deck-errors` marker, i.e. a
+#     knowingly partial run) and a `clean` verdict whose coverage block names
+#     no checked layer. Superseded records are deliberately out of scope --
+#     layout/ evidence is append-only, and this repo does hold one payload of
+#     exactly that shape from a klt 0.3.0 n-well recipe the curated deck
+#     later made unnecessary; what the gate requires is that nothing of that
+#     shape is what a verdict stands on TODAY. Finding no payload at all
+#     fails too, so a renamed directory cannot turn it into a silent pass.
 
 on:
   push:

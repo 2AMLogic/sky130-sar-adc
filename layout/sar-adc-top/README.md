@@ -23,10 +23,29 @@ SPICE round-trip) is **worked around locally** by this flow's own
 `bin/restore-cap-device-class.py`, which recovers the pre-regression
 verdict — 98 mismatches / 412 matched nets, against 124 / 393 without it. A
 newly-tried `--abstract-cells` black-boxing shape narrows this further to
-**6** mismatches, but rests on a not-yet-understood tool behaviour
-(klayout-tools#1911) and is recorded as a measurement, not adopted for
+**6** mismatches, but rests on a not-yet-understood tool behaviour — a
+same-instance pin-to-net binding fault, **not** the klayout-tools#1911/#1934
+gap originally suspected (that fix is merged upstream but, per a 2026-09-19
+ablation matrix, does not touch this collapse; corrected diagnosis filed as
+klayout-tools#2142) — and is recorded as a measurement, not adopted for
 signoff — see "LVS device/topology blocker" below for the full, current
 trace of both.**
+
+**Update (2026-09-23): `layout/requirements.txt` now pins
+`klayout-tools==0.6.0`, and #103 is still not LVS-clean.** v0.6.0 is the
+first release carrying klayout-tools#2147 (commit `3cc085c`, the fix for
+#2142), which was this issue's tracked blocker. Record
+`20260923-131726-fa1e0af` shows DRC still clean, connectivity still verified,
+and the whole-request `klt lvs` verdict field-identical to 0.5.0 (98
+mismatches). The `--abstract-cells` collapse is **also unchanged** under
+0.6.0. #2147 fixed a real but different bug. The actual mechanism is now
+located and filed as klayout-tools#2396: abstraction erases the MiM top
+plate but keeps its via, so every capacitor in the black box shorts top to
+bottom plate. Two further gaps sit behind it: klayout-tools#2398 (the well
+tap is erased, so cdac_array's `VDD` pin is cut off) and
+klayout-tools#2397 (0.6.0's reader-side #1876 fix never fires on this
+netlist, so `bin/restore-cap-device-class.py` stays load-bearing). See "Update
+(2026-09-23): re-measured on `klayout-tools==0.6.0`" below.
 
 **Re-run for issue #245** (`layout/sampling-frontend/`'s own re-verification
 after issue #236's `Sa`/`Cmsw` sizing change), record
@@ -182,8 +201,15 @@ met1/met2/met3/met5 that `klt`'s own place-and-route emitted** inside
 `sar_sequencer`/`seln_inverters` — generated via cells (`VIA_L1M1_PR_MR` met1
 0.290x0.230 um, `VIA_M2M3_PR` met3 0.330x0.330 um, `VIA_via5_6_*` met5
 1.420x1.600 um) and router-drawn stubs. No `sky130_fd_sc_hd__*` library cell
-violates anything. That is not geometry this repo authors: tracked here as
-issue #333 and filed generically upstream as klayout-tools#2072.
+violates anything. That is not geometry this repo authors: investigated under
+issue #333, which found no fix reachable from this repo and closed with an
+explicit dated waiver in each producing flow's README
+(`layout/sar-sequencer/README.md`'s 112 shapes and
+`layout/seln-inverters/README.md`'s 33 — 112 + 33 = the 145 above exactly, the
+composition itself adding none). Filed generically upstream as
+klayout-tools#2072 (closed; its fix landed for `klt gen-compose` only, the
+place-and-route half explicitly not reproduced) and re-filed with a reproducing
+input as klayout-tools#2139.
 
 The measurement itself is committed alongside the record it grades:
 `reports/20260918-191315-935ce76/minimum-area.json` is that script's own
@@ -536,6 +562,42 @@ declarations and its item-2 "known integration gap" note:
   (This is the existing, accepted VDD/GND-vs-VPWR/VGND divergence the
   schematic's own header already documents, extended to cover two separate
   digital instances rather than just analog-vs-digital.)
+
+**Graded, as of 2026-09-23 (issue #344).** The paragraph above describes a
+*schematic-level scoping* decision; T1 checklist item 11 (Power delivery —
+structural, klayout-tools#2025) grades the *physical* consequence, and it
+comes back FAIL on exactly this point: `klt erc` reports `VPWR` and `VGND`
+each resolving to **two** disconnected electrical islands (the two macros'
+self-contained rails), neither reaching a top-level supply. `VDD` and `GND`
+each resolve to exactly one island with no short. See "Structural supply
+check (`klt erc`, T1 item 11)" below; the digital-rail finding is tracked as
+**#355**.
+
+## Structural supply check (`klt erc`, T1 item 11)
+
+| | |
+|---|---|
+| Spec | `layout/sar-adc-top/erc-supply-spec.json` |
+| Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
+| Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
+| Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
+
+This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
+content hash; it regenerates no geometry, which is why it lives in its own
+`erc-reports/` tree rather than inside a `reports/` record (those are
+append-only). It runs on a **second, narrower `klt` pin** (0.6.0) than the
+DRC/LVS flow's `layout/requirements.txt` (0.5.0), because 0.5.0's `klt erc`
+emits no `provenance` block and so cannot pin a report to its input at all —
+the full justification, and the cross-check showing the supply verdict is
+identical on both builds, are in `layout/erc-requirements.txt`'s header and
+each record's own `record.md`.
+
+`erc.missing_tie` is deliberately **not computed** (no `ties[]` declared),
+disclosed in-report as `ties_disclosed_tool_limitation`: klayout-tools#2169
+turns a correct `ties[]` declaration on a routed standard-cell design into a
+false `erc.supply_short`. The well-tie evidence standing in for it — tap-cell
+instances, body/tub labels, and the LVS `net_correspondence` — is named in the
+record, along with where that stand-in is weaker than it looks.
 
 ## Composition mechanism actually used: `klt gen-compose` as a pure placer
 
@@ -997,29 +1059,61 @@ sar_sequencer, seln_inverters no longer contribute any devices to fold at
 all).
 
 **Why this is not adopted for signoff, and is not the flow's default.** All
-6 remaining mismatches trace to one thing: `cdac_array__cdac_array`'s own
-schematic 4th port (a body/bulk tie resolved, in the *unabstracted* layout,
-through the sky130 deck's global-net fallback rather than a drawn label —
-the same mechanism the "GND / VPWR / VGND" section above already documents
-for other blocks) has **no drawn label anywhere in cdac_array's own
-definition**, so `--abstract-cells` silently drops it (23 resolved pins,
-not the reference's 24) — and, surprisingly, that drop does not just cost
-the black box its own 4th terminal: it also **corrupts the synthesized net
-name for several unrelated top-level nets** (`VINN`/`VINP`/`TOP_N`/`TOP_P`/
-`VREFN` collapse into one bogus composite label, cascading into the 6
-mismatches above), even though those nets never touch `cdac_array`'s own
-footprint. Isolated directly: abstracting `sar_sequencer`/`seln_inverters`
-alone (neither has a label-less port) leaves every net name clean;
-abstracting `cdac_array` alone, on its own, reproduces the corruption every
-time, independent of which other flags are combined with it. This is a new
-finding, distinct from klayout-tools#1876/#1878/#1085 (a different root
-cause — a black-boxed cell's *dropped, label-less* port perturbing
-*unrelated* net-name synthesis, not a combine_devices scoping question or a
-missing hierarchical-extraction mode), so it is not covered by an existing
-report — filed generically as
-[klayout-tools#1911](https://github.com/2AMLogic/klayout-tools/issues/1911).
+6 remaining mismatches trace to one thing: three of `cdac_array__cdac_array`'s
+own separately-declared pins (`TOP_N`, `TOP_P`, `VREFN`) get resolved onto
+**one** synthesized net, which additionally absorbs the (already
+legitimately dual-labelled, see the connectivity table's `TOP_N`/`TOP_P`
+rows) `VINN`/`VINP` net — `TOP_N|TOP_P|VINN|VINP|VREFN`, one composite label
+where five should exist. `klt extract`'s own `warnings[]` output names this
+directly: *"1 --abstract-cells instance(s) resolved two or more of their
+separately declared pins onto the same net: ... pins TOP_N, TOP_P, VREFN ->
+net '...' ... this ... is also the signature of a pin-to-net binding
+fault"*.
 
-Until #1911 is understood/fixed, this repo has no way to independently
+**Update (2026-09-19): the original diagnosis above was wrong.** The
+original recording of this section attributed the collapse to
+`cdac_array__cdac_array`'s 4th schematic port (a body/bulk tie with no
+drawn label, resolved only through the sky130 deck's global-net fallback)
+being silently dropped (23 resolved pins, not the reference's 24), and
+filed that as klayout-tools#1911. #1911 got an upstream fix (merged as
+commit `ad3f836`/PR #1934, not yet released as of this update) that indeed
+closes a real bug — but a **different** one: #1934's own PR description
+traces it to a black-boxed cell's *erased nwell/tap geometry* silently
+reclassifying a substrate tie *elsewhere in the design*, through the deck's
+whole-layout body-identity classification pass. That is a cross-instance,
+classification-side effect, and it is not what this section's 6 mismatches
+trace to.
+
+An ablation matrix (`layout/sar-adc-top/bin/probe-abstract-cells.py`,
+committed alongside this update; results in each record's own
+`abstract-probe.<klt-version>.summary.json`) re-measured the collapse
+directly against the fix's own targets and found neither one changes it:
+
+- Supplying `cdac_array`'s missing 4th port with a drawn tie (so the macro
+  now resolves all 24 of its schematic pins, not 23 — the exact condition
+  #1911's original diagnosis says should matter) leaves the composite net
+  **byte-for-byte unchanged**.
+- Stripping `cdac_array`'s own nwell/tap geometry (the exact geometry
+  #1934's classification-pass fix reasons about) also leaves the composite
+  net **unchanged**.
+- Turning `--pin-source-cells` off changes nothing either (this mechanism
+  was never about declared-pin sourcing).
+- Abstracting a *different* macro (`sar_sequencer`/`seln_inverters`
+  together, `cdac_array` left flat) reproduces only the design's own
+  legitimate `TOP_N|VINN`/`TOP_P|VINP` dual-label pair — the same pair a
+  fully flat (no `--abstract-cells` at all) extraction already reports —
+  and nothing more.
+
+So the currently-cited blocker rationale ("wait for a klayout-tools release
+containing #1934") does not actually apply here: once released, #1934 will
+not change this section's 6 mismatches, because the mechanism it fixes is
+not the one producing them. Filed the corrected diagnosis generically as
+[klayout-tools#2142](https://github.com/2AMLogic/klayout-tools/issues/2142)
+(closes-relationship to #1911/#1934 noted there as "related, different
+mechanism" rather than superseding — #1911/#1934 is a real, separate fix
+that this repo has no reason to distrust on its own terms).
+
+Until #2142 is understood/fixed, this repo has no way to independently
 confirm the 6 remaining mismatches are the cosmetic label artefact they
 appear to be, rather than a real connectivity defect the corrupted names
 happen to mask — so, per CLAUDE.md's "Verification is the product" (no
@@ -1027,10 +1121,69 @@ claim without a testbench this repo can actually audit), this shape is
 **recorded here as a measurement, not adopted**: `run-flow.sh` keeps using
 the already-audited 98-mismatch `combine_devices: true` /
 `flatten_reference: true` whole-request compare above as its signoff
-attempt. Once #1911 is resolved upstream, re-measure this shape first —
-if the 6 mismatches resolve to genuinely benign net-naming artefacts (or
-disappear once the underlying pin-drop is fixed), this is the shortest
+attempt. Once #2142 is resolved upstream, re-run
+`bin/probe-abstract-cells.py` first — if the composite net resolves to
+exactly the 3 pins it should split back into, this is still the shortest
 path to a full LVS match this issue has found so far.
+
+**Update (2026-09-23): re-measured on `klayout-tools==0.6.0`. #2147 does
+not resolve the collapse, and the actual mechanism is now located.**
+klayout-tools v0.6.0 (PyPI, 2026-09-22) is the first release containing
+#2147 (commit `3cc085c`; `gh api .../compare/v0.6.0...3cc085c` reports
+ahead_by 0). #2147 fixed two real probe-layer defects: a pin's probe layer
+was tracked per pin rather than per access point, and nwell/tap could act
+as a fallback answer. Its reproduced signature, though, is a macro's pins
+collapsing onto a **parent power strap**. The probe re-run on
+record `20260923-131726-fa1e0af`
+(`abstract-probe.klt-0.6.0.summary.json`) reproduces this repo's collapse
+**byte for byte** on 0.6.0, in all four `cdac_array`-abstracted variants.
+Only the warning text changed.
+
+The collapse is a merge of the parent's own nets, not a pin-binding
+fault. In the extracted top circuit, `TOP_N|VINN`, `TOP_P|VINP` and `VREFN`,
+three separate nets in the flat extraction, become one net, and the black
+box's pins then correctly bind to it. The flat netlist shows how that can
+happen: exactly one unit cap connects `VREFN` to `TOP_N|VINN`, and exactly
+one connects `VREFN` to `TOP_P|VINP`. Shorting every cap's top plate to its
+bottom plate merges precisely those three nets and leaves `VREFP` alone,
+which is exactly the observed shape. Reading klt 0.6.0's
+`extract_abstract.py`/`extract.py` explains it:
+`_abstract_cell_mask_layers()` erases every connectivity layer that is not
+contact/metal/via/label, which includes the MiM top plate (`capm`). But the
+deck's top-plate-via exclusion (#364/#1388) is scoped to
+`bottom_plate.interacting(top_plate)`, so it becomes empty once `capm` is
+gone. Every one of the 1024 via3 top-plate vias then reads as an ordinary
+met3→met4 via. The probe's new `cdac-no-capm-via` ablation confirms it: on
+a variant GDS with **only** those 1024 interior via3-on-capm shapes deleted,
+the composite net splits back into exactly the legitimate `TOP_N|VINN` /
+`TOP_P|VINP` pair, net count goes 425 → 427, and the tied-pin warning
+disappears. Filed generically as
+[klayout-tools#2396](https://github.com/2AMLogic/klayout-tools/issues/2396).
+
+**What would remain once #2396 is fixed (diagnostic, not signoff).** Re-running
+the 2026-09-15 hollow-reference compare
+(`reports/20260915-234004-76f48b9/abstract-cells-experiment.reference-hollow.spice`,
+`options.flatten_reference: false`) against a three-cell abstraction of
+that via3-stripped variant, after `restore-cap-device-class.py`, gives **2
+mismatches** (down from 6). Devices are 35/35/35 and pins 19/19. Both
+remaining entries are the `cdac_array` instance: a `topology` entry plus
+one unmatched layout net. The instance line shows why. The black box's
+`VDD` pin binds to a single-terminal net `$283` that appears nowhere else,
+and not to the routed `VDD`. `cdac_array.VDD` is a well-labelled pin
+whose only drawn route to the parent is #165's tap→licon→li1→mcon→met1
+landing (one `tap` shape in the well). Abstraction erases `tap`
+(klayout-tools#2082 restores the well itself, not the tap), so that route
+is severed. Filed generically as
+[klayout-tools#2398](https://github.com/2AMLogic/klayout-tools/issues/2398).
+Stacking the probe's `cdac-tied` substrate-tie variant on top as well gives
+3 mismatches (the tie's own `vsubs` pin becomes a second isolated net for
+the same reason), so that is not a route to a match either. `vsubs`
+still needs `--abstract-cell-lef` or a reference-side decision. None of these
+modified-GDS numbers is signoff evidence: this repo does not edit
+already-verified sub-block geometry to pass a compare.
+The unmodified-GDS `--abstract-cells` shape stays **not adopted**, for the
+same reason as before. `run-flow.sh`'s signoff attempt stays the whole-request
+compare.
 
 ## Remaining work (tracked against #103)
 
@@ -1070,8 +1223,21 @@ path to a full LVS match this issue has found so far.
       superseding the now-closed klayout-tools#1552), and (2) a newly
       surfaced capacitor device-class round-trip regression
       (klayout-tools#1876) — neither is fixable by this repo alone.
-- [ ] Once klayout-tools#1878/#1876 (or an equivalent workaround) resolve:
-      confirm an actual `match` verdict, and revisit whether `klt pex` (now
+- [x] `layout/requirements.txt` bumped to `klayout-tools==0.6.0` (2026-09-23,
+      the first release carrying #2147/`3cc085c`). Re-measured: whole-request
+      compare unchanged (98), `--abstract-cells` collapse unchanged, mechanism
+      located (see "Update (2026-09-23)" above).
+- [ ] **Blocked on klayout-tools#2396** (MiM top-plate short inside an
+      `--abstract-cells` black box) **and klayout-tools#2398** (well-tap
+      erasure cutting off `cdac_array.VDD`) for the `--abstract-cells` path.
+      Once both ship in a release, re-run `bin/probe-abstract-cells.py`
+      and the hollow-reference compare on the unmodified GDS. If that
+      reaches `match`, promote it into `run-flow.sh` as the signoff shape.
+      Separately, klayout-tools#2397 decides when
+      `bin/restore-cap-device-class.py` can retire. `capclass.json`'s
+      `noop: true` can no longer be the trigger, because #1876 was fixed on
+      the reader side.
+- [ ] Once an actual `match` verdict is reached, revisit whether `klt pex` (now
       implemented, unlike the tooling gap #103's own body anticipated) is
       usable for T1 item 7's post-layout verification — not attempted this
       increment, since `klt pex` presumes a device/net correspondence to
@@ -1098,7 +1264,12 @@ remain tool-blocked, as of this record:
   0.5.0 additionally introduced (klayout-tools#1876) no longer contributes:
   `bin/restore-cap-device-class.py` neutralises it locally and
   self-retires once it is fixed upstream (98 mismatches / 412 matched nets,
-  back to the pre-regression breakdown).
+  back to the pre-regression breakdown). **Re-checked 2026-09-23 on
+  `klayout-tools==0.6.0`: still checkable, still not clean.** The
+  whole-request compare is unchanged at 98. The `--abstract-cells` path,
+  the only shape that has come close, is now blocked on klayout-tools#2396
+  and #2398, not #2142. #2142 is fixed in 0.6.0 but was not this collapse's
+  cause.
 - **Item 7 (post-layout verification via `klt pex`)**: **not attempted,
   blocked on item 4.** `klt pex` is implemented upstream (unlike the tooling
   gap #103's own body anticipated when filed), but extracting parasitics
@@ -1114,7 +1285,7 @@ repo's own sub-block flows (#99–#102) and this issue's own new
 `layout/seln-inverters/` macro — no third-party layout, floorplan, or netlist
 was consulted.
 
-### `klt` build required: resolved — `klayout-tools==0.5.0`, no override needed
+### `klt` build required: resolved — pinned `klayout-tools` (0.5.0, now 0.6.0), no override needed
 
 `reports/20260907-110058-a546200/` through `reports/20260908-072857-80df05e/`
 were generated with a `klt` build from klayout-tools commit
@@ -1147,3 +1318,17 @@ flow anything: #1876 is neutralised locally by
 `bin/restore-cap-device-class.py` (see "Update: klayout-tools#1876 worked
 around locally" above), which needs no `klt` build change and retires itself
 when the upstream fix lands.
+
+`klayout-tools` v0.6.0 published to PyPI 2026-09-22T18:52:45Z and contains
+`3cc085c` (#2147) and #1921 (#1876's reader-side fix).
+`layout/requirements.txt` has pinned `klayout-tools==0.6.0` since
+2026-09-23; `reports/20260923-131726-fa1e0af/` onward is generated from that
+pin. That record, and the trivial-cell regression record
+`layout/trivial-cell/reports/20260923-131710-fa1e0af/`, were produced inside
+a Linux container (`python:3.14-bookworm`, the same pinned `klt`/`klayout`
+wheels, the same pinned sky130A PDK mounted read-only, and the worktree
+bind-mounted so `run-flow.sh` ran unmodified). The macOS host this
+session ran on was failing library validation for every native Python
+extension (`library load mig callout failed`), a host fault rather than a
+flow change. The DRC/extract/LVS verdicts match the macOS-generated 0.5.0
+records field for field wherever the tool behavior did not change.
