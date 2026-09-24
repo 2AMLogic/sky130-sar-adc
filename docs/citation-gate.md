@@ -534,6 +534,64 @@ item, and it reads `unmet`. Nor does it read the antenna half of the same
 report: `status: clean_partial` is a different claim about a different subject
 (klayout-tools#1994), and item 9 quotes neither.
 
+### Check 17 -- T1 sign-off readout parity (`check_t1_readout`)
+
+The first check to reach a tree that is not a `layout/` flow's at all.
+`signoff/` holds this block's `klt signoff` manifest
+(`signoff/block-manifest.json`) and the machine-graded report it renders to
+(`signoff/t1-report.json`) -- this repository's T1 verdict of record since
+issue #345 -- and no earlier check can see either: they are neither a
+`records/`/`reports/` path (checks 3 and 4) nor an `erc-reports/` one (check
+16), and until this check landed `signoff` was not even in `OWN_TOP_LEVEL`,
+so check 2 did not verify a backticked `signoff/...` path existed.
+
+**The drift shape is the one this document was already in.** Section 7 item 9
+quoted that report's *two item-11 rows* -- "moved from `no_evidence` to
+`check_failed`" -- and nothing else, by hand. A reader got the grade of the
+one item that section happened to be discussing and no indication of what the
+same report makes of the other ten; and every number in the quote would have
+gone stale silently the next time `signoff/run-signoff.sh` re-rendered the
+report. Item 10 now states the scorecard once, in a fixed sentence form, and
+this check recomputes all of it: the grader version, the met count, the item
+total, the block tier, the exact set of rows graded `check_failed`, and every
+`layout/` record the manifest cites. `--stats` prints the live sentence, so a
+fix is a paste.
+
+**Both files are read, for different reasons.** The report states the verdict;
+the manifest names the records that verdict rests on. The rendered report
+cannot serve for the second: `klt signoff` drops the citation from every item
+it grades `unmet` (an unmet row renders `citation: null`), so items 4 and 11 --
+precisely the two whose evidence *was* read -- cite nothing in the report
+itself. Walking the manifest's `evidence` tree is what lets this check see the
+`reports/` **and** `erc-reports/` records the sign-off actually rests on.
+
+**Rows are graded in both directions**, like checks 8, 10, 14, 15 and 16. A
+row that starts failing and is left out of the list is a finding; so is a
+listed row that has since started passing. Dropping a row is the cheapest way
+to make a scorecard read better than it is, and shrinking the list is not a way
+to keep it truthful.
+
+**The verdict word is the half `signoff/check_evidence_hashes.py`
+structurally cannot cover.** That script re-hashes every artefact the manifest
+cites against the file on disk -- a real freshness gate, and the one the
+grader itself cannot do (klayout-tools#2196). But a manifest pinned to a
+**superseded yet still committed** record passes it with every hash intact:
+the bytes it names are exactly the bytes on disk, and the record is simply no
+longer the one that tree's `LATEST` names. Check 17 asks that second question,
+for each cited tree, and reads `stale` if either has moved -- including when
+the manifest cites no `layout/` record at all, which is the conservative
+direction: a sign-off resting on nothing from this repository's layout trees
+cannot be *current* with them, and a green there would be vacuous.
+
+**What this check deliberately does NOT cover.** It does not re-grade the
+checklist: whether an item *should* be met is `klt signoff`'s judgement
+against its own ruleset, and re-deriving it here would be a second, divergent
+grader. It does not verify the report is what the manifest currently renders
+to either -- `signoff/run-signoff.sh --check` is that gate, and it runs in
+CI's own `signoff-check` job with the pinned grader installed. A green check
+17 says "the scorecard this document states is the committed report's own, and
+that report rests on current layout records", not "the sign-off is correct".
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

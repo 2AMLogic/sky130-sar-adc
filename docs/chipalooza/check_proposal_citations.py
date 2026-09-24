@@ -42,10 +42,11 @@ input that composition embeds (the sentence check 14 compares against) and the
 live power readout of every `sim/` campaign whose current record carries a
 Power table (the sentence check 12 compares against), the live status of
 every `spec/decision-records/` record (the sentence check 15 compares
-against) and the live `klt erc` supply readout of every `layout/` flow that
-has one (the sentence check 16 compares against) instead of checking, which
-is what to run when check 6, 9, 12, 13, 14, 15 or 16 reports a drift. Exit
-status:
+against), the live `klt erc` supply readout of every `layout/` flow that
+has one (the sentence check 16 compares against) and the live T1 sign-off
+verdict `signoff/` records for the block as a whole (the sentence check 17
+compares against) instead of checking, which is what to run when check 6, 9,
+12, 13, 14, 15, 16 or 17 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -67,8 +68,23 @@ CHIPALOOZA_DIR = REPO_ROOT / "docs" / "chipalooza"
 # Top-level directories whose paths this repo owns, and can therefore resolve.
 # A reference whose first segment is not one of these belongs to some other
 # project (e.g. klayout-tools' own `src/`) and is not checked.
+#
+# `signoff/` joined the set with check 17 (issue #121): the block manifest and
+# the `klt signoff` report it renders to are this repository's own tree, and
+# this document now cites both by path. Before that entry, a backticked
+# `signoff/...` path was silently unchecked by check 2 -- the same
+# not-my-directory hole `erc-reports/` had at checks 3/4 before check 16.
 OWN_TOP_LEVEL = frozenset(
-    ("sim", "layout", "spec", "design", "docs", "measurements", "ratification")
+    (
+        "sim",
+        "layout",
+        "spec",
+        "design",
+        "docs",
+        "measurements",
+        "ratification",
+        "signoff",
+    )
 )
 
 # `sim/` campaigns keep their append-only evidence under `records/`; the
@@ -471,6 +487,80 @@ ERC_READOUT_RE = re.compile(
 # backticked and each count bolded, which makes the clause self-delimiting
 # however many supplies a spec declares.
 ERC_ISLAND_RE = re.compile(r"`(?P<net>[A-Za-z][A-Za-z0-9_]*)` \*\*(?P<islands>\d+)\*\*")
+
+# This repository's THIRD evidence tree, and the first that is not a `layout/`
+# flow's at all: `signoff/` holds the block manifest and the machine-graded
+# `klt signoff` report it renders to -- the T1 verdict of record (issue #345).
+# Both files are read by check 17, for different reasons. The report states the
+# verdict; the manifest names the records that verdict rests on, which the
+# rendered report DROPS for every item it grades `unmet` (an unmet item renders
+# `citation: null`), so the report alone cannot say what evidence it read.
+T1_REPORT = Path("signoff") / "t1-report.json"
+T1_MANIFEST = Path("signoff") / "block-manifest.json"
+
+# The reason `klt signoff` gives when an item's cited evidence WAS read and
+# graded, and failed -- as distinct from `no_evidence`, where nothing was cited
+# at all. The distinction is the whole reason this readout is worth stating:
+# "the ERC ran, the supplies are continuous, and the item still is not met" is
+# a materially more useful sentence than silence, and it is exactly the
+# transition Section 7 item 9 currently narrates by hand.
+T1_CHECK_FAILED = "check_failed"
+
+# An evidence path inside the manifest that names a `layout/` flow's own
+# append-only tree -- EITHER of them. `reports/` and `erc-reports/` both appear
+# in this manifest, which is why this is not `EVIDENCE_PATH_RE`: that one
+# matches `records|reports` only, and would miss the ERC citation item 11
+# rests on.
+T1_CITED_PATH_RE = re.compile(
+    r"^(?P<pointer>layout/(?P<block>[A-Za-z0-9._-]+)/(?:reports|erc-reports))/"
+    r"(?P<stamp>" + STAMP + r")/"
+)
+
+# How a null `tier` renders in prose. `klt signoff` writes JSON `null` for a
+# block that has reached no tier at all; stating it as a word is what makes a
+# tier appearing later a visible change rather than a silent one.
+T1_NO_TIER = "none"
+
+# How a pointer that names no record at all renders, on either side of a cited
+# pair. Never stamp-shaped, so it cannot be mistaken for one.
+T1_NO_RECORD = "none"
+
+# The two verdict words the T1 readout may end in, keyed on whether every
+# `layout/` record the manifest cites is the one that tree's own `LATEST`
+# names today. A signoff resting on a superseded-but-still-committed record
+# hashes perfectly -- `signoff/check_evidence_hashes.py` passes on it -- and is
+# still a verdict about a layout this repository has moved on from.
+T1_CURRENT = "current"
+T1_STALE = "stale"
+
+# The T1 sign-off readout check 17 gates, stated in Section 7 as a blockquote
+# (so it is read off the same whitespace-collapsed text checks 9, 14, 15 and 16
+# use). Deliberately free of the phrase "current `reports/LATEST`", for check
+# 16's own reason: spelling it that way would enrol the sentence in check 4/6's
+# pointer-claim census, where it is not a citation of anything.
+T1_READOUT_RE = re.compile(
+    r"on the report `signoff/t1-report\.json`, `klt signoff` "
+    r"\*\*(?P<version>[0-9][0-9A-Za-z.+-]*)\*\* grades \*\*(?P<met>\d+)\*\* of "
+    r"\*\*(?P<total>\d+)\*\* T1 items met, block tier \*\*(?P<tier>[A-Za-z0-9]+)\*\*; "
+    r"the items whose cited evidence was read and still failed are "
+    r"(?P<failed>\*\*none\*\*|(?:`\d+ [a-z]+`(?:, )?)+); and its manifest cites "
+    r"(?P<cited>\*\*none\*\*|(?:`layout/[A-Za-z0-9._/-]+/LATEST` at \*\*[0-9a-z-]+\*\* "
+    r"against a pointer naming \*\*[0-9a-z-]+\*\*(?:, )?)+): "
+    r"\*\*(?P<status>" + T1_CURRENT + r"|" + T1_STALE + r")\*\*\."
+)
+
+# One `<item> <partition>` pair inside that sentence's failed-item clause.
+# Backticked, so the clause is self-delimiting however many items fail.
+T1_FAILED_ITEM_RE = re.compile(r"`(?P<item>\d+) (?P<partition>[a-z]+)`")
+
+# One cited-record triple inside that sentence's manifest clause: the pointer,
+# the stamp the manifest cites, and the stamp that pointer names today. Both
+# stamps are stated so a reader sees the comparison the verdict word rests on,
+# rather than having to take it on trust.
+T1_CITED_RE = re.compile(
+    r"`(?P<pointer>layout/[A-Za-z0-9._/-]+/LATEST)` at \*\*(?P<cited>[0-9a-z-]+)\*\* "
+    r"against a pointer naming \*\*(?P<latest>[0-9a-z-]+)\*\*"
+)
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -2052,6 +2142,196 @@ def check_erc_readout(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _t1_pointer_stamp(pointer: str) -> str | None:
+    """The record stamp a `layout/<block>/<tree>/LATEST` pointer names.
+
+    Not `_pointer_stamp`: that one resolves a tree from a top-level directory
+    name (`sim` -> `records`, `layout` -> `reports`) and so cannot address
+    `erc-reports/` at all. Here the pointer path is already known -- it came
+    out of the manifest's own citation -- so it is read directly.
+    """
+    path = REPO_ROOT / pointer
+    if not path.is_file():
+        return None
+    value = path.read_text().strip()
+    return value.split("/")[0].removesuffix(".md") or None
+
+
+def _t1_manifest_citations(manifest: dict) -> list[tuple[str, str]]:
+    """Every `(pointer, stamp)` pair the manifest's evidence entries cite.
+
+    Walked rather than indexed by item id: `evidence` is keyed by item in one
+    of two shapes here (a single citation object, or a list of them), and a
+    future item may add either. Unique and sorted, so the sentence's order is
+    stable -- and a pointer cited twice at two different stamps states both
+    pairs, each then compared against that pointer on its own, where at most
+    one of them can be current.
+    """
+    found: set[tuple[str, str]] = set()
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            named = node.get("file")
+            if isinstance(named, str):
+                cited = T1_CITED_PATH_RE.match(named)
+                if cited is not None:
+                    found.add(
+                        (cited.group("pointer") + "/LATEST", cited.group("stamp"))
+                    )
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(manifest.get("evidence"))
+    return sorted(found)
+
+
+def t1_readout() -> dict | None:
+    """The live T1 sign-off verdict `signoff/` currently records.
+
+    `None` when either half is missing or unparseable -- there is nothing for
+    check 17 to compare against, and that condition is reported by the check
+    rather than silently skipped, exactly as check 16 handles a flow with no
+    ERC record.
+
+    The verdict word is deliberately `stale` when the manifest cites no
+    `layout/` record at all: a sign-off that rests on nothing from this
+    repository's layout trees cannot be *current* with them, and calling it so
+    would be a vacuous green.
+    """
+    report = _load_json(REPO_ROOT / T1_REPORT)
+    manifest = _load_json(REPO_ROOT / T1_MANIFEST)
+    if report is None or manifest is None:
+        return None
+
+    failed = sorted(
+        (item["id"], item["partition"])
+        for item in report.get("items") or []
+        if isinstance(item, dict)
+        and item.get("reason") == T1_CHECK_FAILED
+        and isinstance(item.get("id"), int)
+        and isinstance(item.get("partition"), str)
+    )
+    cited = [
+        (pointer, stamp, _t1_pointer_stamp(pointer) or T1_NO_RECORD)
+        for pointer, stamp in _t1_manifest_citations(manifest)
+    ]
+    tier = report.get("tier")
+    return {
+        "version": str((report.get("build") or {}).get("package_version")),
+        "met": report.get("t1_met_count"),
+        "total": report.get("t1_item_count"),
+        "tier": T1_NO_TIER if tier is None else str(tier),
+        "failed": failed,
+        "cited": cited,
+        "status": (
+            T1_CURRENT
+            if cited and all(stamp == latest for _, stamp, latest in cited)
+            else T1_STALE
+        ),
+    }
+
+
+def t1_sentence(readout: dict) -> str:
+    """The T1 readout in exactly the sentence form `T1_READOUT_RE` matches.
+
+    Used by `--stats` so the fix for a check-17 failure is a paste, as it is
+    for checks 9, 12, 13, 14, 15 and 16.
+    """
+    failed = (
+        ", ".join(f"`{item} {partition}`" for item, partition in readout["failed"])
+        or "**none**"
+    )
+    cited = (
+        ", ".join(
+            f"`{pointer}` at **{stamp}** against a pointer naming **{latest}**"
+            for pointer, stamp, latest in readout["cited"]
+        )
+        or "**none**"
+    )
+    return (
+        f"on the report `signoff/t1-report.json`, `klt signoff` "
+        f"**{readout['version']}** grades **{readout['met']}** of "
+        f"**{readout['total']}** T1 items met, block tier **{readout['tier']}**; "
+        f"the items whose cited evidence was read and still failed are {failed}; "
+        f"and its manifest cites {cited}: **{readout['status']}**."
+    )
+
+
+def check_t1_readout(doc: Path, text: str) -> list[str]:
+    """Check 17: a stated T1 sign-off readout must be the committed report's own."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    for stated in T1_READOUT_RE.finditer(collapsed):
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        actual = t1_readout()
+        if actual is None:
+            misses.append(
+                f"{where}: the T1 sign-off readout names "
+                f"`{T1_REPORT.as_posix()}`, but this repository has no readable "
+                f"`{T1_REPORT.as_posix()}` and `{T1_MANIFEST.as_posix()}` pair "
+                f"to read it out of"
+            )
+            continue
+
+        for field in ("version", "met", "total", "tier", "status"):
+            expected = actual[field]
+            claimed: object = stated.group(field)
+            if isinstance(expected, int):
+                claimed = int(claimed)
+            if claimed != expected:
+                misses.append(
+                    f"{where}: the T1 sign-off readout says {field}={claimed}, "
+                    f"but `{T1_REPORT.as_posix()}` reports {field}={expected} -- "
+                    f"restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+
+        # Both directions, as checks 8, 10, 14, 15 and 16 do. An item that
+        # starts failing and is left out of the list is as much a finding as a
+        # listed item that has since started passing: dropping a row is the
+        # cheapest way to make a scorecard read better than it is.
+        claimed_failed = {
+            (int(pair.group("item")), pair.group("partition"))
+            for pair in T1_FAILED_ITEM_RE.finditer(stated.group("failed"))
+        }
+        for item, partition in sorted(claimed_failed ^ set(actual["failed"])):
+            stated_here = (item, partition) in claimed_failed
+            misses.append(
+                f"{where}: the T1 sign-off readout "
+                f"{'lists' if stated_here else 'omits'} item {item} "
+                f"({partition}) as graded-and-failed, but "
+                f"`{T1_REPORT.as_posix()}` reports its reason as "
+                f"{'not ' if stated_here else ''}`{T1_CHECK_FAILED}` -- restate "
+                f"it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+
+        # Likewise both directions on the records the verdict rests on. This
+        # is the half `signoff/check_evidence_hashes.py` structurally cannot
+        # cover: it re-hashes each cited artefact against the file on disk, so
+        # a manifest pinned to a superseded-but-still-committed record passes
+        # it, every hash intact, while the sign-off grades a layout this
+        # repository no longer builds.
+        claimed_cited = {
+            (pair.group("pointer"), pair.group("cited"), pair.group("latest"))
+            for pair in T1_CITED_RE.finditer(stated.group("cited"))
+        }
+        for pointer, cited, latest in sorted(claimed_cited ^ set(actual["cited"])):
+            stated_here = (pointer, cited, latest) in claimed_cited
+            misses.append(
+                f"{where}: the T1 sign-off readout "
+                f"{'states' if stated_here else 'omits'} `{pointer}` cited at "
+                f"{cited} against a pointer naming {latest}, which is not what "
+                f"`{T1_MANIFEST.as_posix()}` and that pointer report -- restate "
+                f"it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -2070,6 +2350,7 @@ def check_document(doc: Path) -> list[str]:
         + check_composition_inputs(doc, text)
         + check_decision_record_status(doc, text)
         + check_erc_readout(doc, text)
+        + check_t1_readout(doc, text)
     )
 
 
@@ -2163,6 +2444,14 @@ def main(argv: list[str]) -> int:
             if readout is None:
                 continue
             print(f"layout/{block}/: {erc_sentence(block, readout)}")
+        # And the block-level T1 sign-off verdict, which is a single tree
+        # rather than one per flow: `klt signoff` grades the whole block once.
+        # Printed unconditionally when it is readable, including when it has
+        # nothing failing and nothing cited -- those are the two shapes whose
+        # sentence a document would otherwise have to guess at.
+        t1 = t1_readout()
+        if t1 is not None:
+            print(f"signoff/: {t1_sentence(t1)}")
         return 0
 
     misses: list[str] = []
