@@ -712,11 +712,12 @@ klayout-tools#2025) grades the *physical* question — is the supply connected t
 what it powers. Its first run (issue #344,
 `erc-reports/20260923-143401-1ee4ba8/`) came back FAIL: `VPWR` and `VGND` each
 resolved to **two** disconnected electrical islands, neither reaching a
-top-level supply. Issue #355 fixed the layout (not the spec, whose content hash
-is unchanged across every run), and `erc-reports/20260924-190825-f3622fc/`
-reported `erc_status: clean`, 0 findings — all four declared supplies at exactly
-one island each, no `erc.supply_short`. The current record,
-`erc-reports/20260924-214731-b323061/` (issue #362), reports the same on the
+top-level supply. Issue #355 fixed the layout, not the gate (the spec's graded
+fields hash identically on every run — see the table below), and
+`erc-reports/20260924-190825-f3622fc/` reported `erc_status: clean`, 0
+findings — all four declared supplies at exactly one island each, no
+`erc.supply_short`. The current record,
+`erc-reports/20260924-230820-3e79547/` (issue #364), reports the same on the
 layout that now also carries a drawn analog `GND` pad. **The item still does not
 render `met`**:
 `klt signoff` renders it `unmet` / `check_failed`, because its grading path
@@ -728,21 +729,6 @@ actually checked, and this spec declares no `ties[]` (klayout-tools#2169 would
 turn a correct one into a false `erc.supply_short`), the state
 `supply_spec_disclosed_tool_limitation` names. See "Structural supply check
 (`klt erc`, T1 item 11)" below.
-
-**One stale-prose caveat, disclosed rather than edited away.**
-`erc-supply-spec.json` is deliberately byte-identical to the spec #344 wrote —
-that is what makes "the layout moved, not the gate" checkable, since both ERC
-records pin the same spec content hash. The cost is that three of its *prose*
-`_comment`/`ties_disclosure` passages still describe the #344-era run: the
-`SCOPE` block names the older graded GDS, the `VPWR` net comment says the rail
-is "KNOWN to come back as more than one island", and the tie disclosure's
-stand-in (c) quotes the old split `VPWR_SEQ`/`VPWR_SELN` LVS correspondence
-(now a single `VPB|VPWR` ↔ `VPWR`). None of it is graded content — `stackup`,
-`vias`, `nets[].name`/`kind` and the pass condition are untouched — but
-`ties_disclosure.reason` is echoed verbatim into every `erc.json`, so the third
-one ships inside committed evidence. Refreshing it re-mints the ERC record and
-cascades through the manifest, the tier report and four documents, so it is
-tracked as **#364** rather than folded in here.
 
 ### The digital-rail route itself (issue #355)
 
@@ -789,7 +775,8 @@ promote a macro-internal label anyway). Top-level pins go 19 → **21**.
 `reports/20260924-190817-f3622fc/drc.json`'s `coverage.rules_checked`) and the
 record is clean, 0 violations. The `klt erc` cross-checks that show the met5
 rectangle is what actually joins the two islands — including an ablation
-against the pre-#355 GDS — are in the ERC record's own "Cross-checks".
+against the pre-#355 GDS — are in `erc-reports/20260924-190825-f3622fc/`'s own
+"Cross-checks".
 
 ### The analog ground pad (issue #362) and mesh (issue #377)
 
@@ -949,25 +936,47 @@ from `comparator`'s ground — is in the previous ERC record's own
 | Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
 | Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
 | Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
-| Current record | `erc-reports/20260924-214731-b323061/` — `erc_status: clean`, 0 findings, grading `reports/20260924-214710-b323061/sar_adc_top.gds` |
+| Current record | `erc-reports/20260925-011943-f981dc9/` — `erc_status: clean`, 0 findings, grading `reports/20260924-234053-66dca3c/sar_adc_top.gds` |
 
 | Record | Graded GDS | Supply continuity | Item 11 as graded |
 |---|---|---|---|
 | `20260923-143401-1ee4ba8` (issue #344, first run) | `reports/20260919-050355-fb11617/` | **FAIL** — `VPWR`/`VGND` 2 islands each | `unmet` |
 | `20260924-190825-f3622fc` (issue #355) | `reports/20260924-190817-f3622fc/` | **PASS** — all four supplies 1 island each, 0 findings | `unmet` — `erc.missing_tie` is not computed (below) |
 | `20260924-214731-b323061` (issue #362) | `reports/20260924-214710-b323061/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings | `unmet` — same two reasons |
+| `20260924-234116-66dca3c` (issue #377, ground mesh) | `reports/20260924-234053-66dca3c/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings (evidence for the mesh is the ablation above, not this row) | `unmet` — same two reasons |
+| `20260925-011943-f981dc9` (issue #364, prose re-mint) | `reports/20260924-234053-66dca3c/` | **PASS** — same bytes, same report | `unmet` — same two reasons |
 
-The spec is **byte-identical** across all three runs (`sha256:fd4f5a93…` in
-every record's own `provenance.spec.content_hash`). The verdict moved because
-the layout moved, which is the only way it is allowed to move here.
+**The gate has not moved across any of those five runs, and that is checkable.**
+`klt erc` grades `stackup`, `vias`, `nets[]` and `ties_disclosure.kind`; it
+ignores `_comment` keys and treats `ties_disclosure.reason` as a string to echo.
+Canonicalising exactly that graded subset and hashing it gives
+`7f48fd89387b64b24c379baff04e6ef38361610240eac2c2d0adb8470584d982` on **every**
+revision of the spec from #344 to today — `run-erc.sh` prints it
+(`graded-spec subset sha256=…`) on each run, so it is re-derived rather than
+transcribed. The whole-file `provenance.spec.content_hash` carried that argument
+for the first four rows (`sha256:fd4f5a93…`, byte-identical); issue **#364**
+refreshed the spec's stale prose comments — once before the mesh landed, again
+after, since the mesh changed the graded *layout* and not the spec — which
+moved the whole-file hash to `sha256:9224444c…` both times while leaving the
+graded digest fixed. The verdict moved exactly twice: once because the layout
+moved (row 4, issue #377), and never because the gate did.
 
-The third row is the case worth reading carefully: the number did **not** move,
-and issue #362 nevertheless changed something real. `GND` resolved to one island
-before it had any top-level pin and resolves to one island now that it has one,
-because "one island" and "reaches a pad" are different claims and a geometric
-connectivity model makes only the first. That is why the gap could only be
-closed by moving the layout, and why a passing supply row here must be read with
-the ERC record's own "Why `GND`'s pass must be read narrowly" section beside it.
+The third, fourth and fifth rows are the ones worth reading carefully, for
+different reasons. In the third, the number did **not** move and issue #362
+nevertheless changed something real: `GND` resolved to one island before it had
+any top-level pin and resolves to one island now that it has one, because "one
+island" and "reaches a pad" are different claims and a geometric connectivity
+model makes only the first. In the fourth, the number *again* did not move, and
+issue #377 nevertheless changed something real in the same way: `GND` read one
+island before three sub-blocks' grounds were meshed in drawn metal and reads
+one island after — the evidence for the mesh is the ablation in that record's
+own "Cross-checks", not this row. Both cases are why a passing supply row here
+must be read with the cited ERC record's own "Why `GND`'s pass must be read
+narrowly" section beside it. In the fifth, *nothing* about the layout or the
+graded spec moved: a recursive field diff of the fourth and fifth records'
+`erc.json` files differs in exactly two leaves,
+`provenance.spec.content_hash` and `ties_disclosure.reason` — the record's own
+"The non-tuning argument" section carries the command.
 
 This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
 content hash; it regenerates no geometry, which is why it lives in its own

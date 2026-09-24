@@ -581,12 +581,16 @@ placing all five sub-block layouts
   reaching a top-level supply, corroborated independently by that layout
   record's `lvs.json` `net_correspondence` (`VPB|VPWR` ↔ `VPWR_SEQ`,
   `VPB|VPWR$1` ↔ `VPWR_SELN`). It was not tuned away; issue #355 fixed the
-  **layout** (the supply spec's content hash, `sha256:fd4f5a93…`, is
-  byte-identical across every run of this flow), and the current run
-  ([`erc-reports/20260924-234116-66dca3c/record.md`](../../layout/sar-adc-top/erc-reports/20260924-234116-66dca3c/record.md),
-  issue #377's analog ground mesh — it supersedes `20260924-214731-b323061`
-  (issue #362's analog ground pad) and `20260924-190825-f3622fc` (issue #355),
-  neither of which moved a number in this bullet)
+  **layout** (the supply spec's *graded* fields — `stackup`, `vias`, `nets[]`,
+  `ties_disclosure.kind` — hash identically across every run, `7f48fd89…`;
+  issue #364 refreshed the spec's prose comments twice — once before and once
+  after issue #377 drew an analog ground mesh — which moves the whole-file
+  hash and nothing the tool reads), and the current run
+  ([`erc-reports/20260925-011943-f981dc9/record.md`](../../layout/sar-adc-top/erc-reports/20260925-011943-f981dc9/record.md),
+  which supersedes `20260924-234116-66dca3c` (issue #377's analog ground
+  mesh), `20260924-214731-b323061` (issue #362's analog ground pad), and
+  `20260924-190825-f3622fc` (issue #355), none of which moved a number in
+  this bullet)
   reports `erc_status: clean`, 0 findings — all four supplies at one island
   each, no `erc.supply_short`. **That is the continuity half only**: the
   checklist item also requires zero `erc.missing_tie` from a tie the run
@@ -3264,8 +3268,12 @@ tracker already owns.
    supply.
 
    **Issue #355 (2026-09-24) fixed it, in the layout and not in the gate.**
-   The supply spec's content hash (`sha256:fd4f5a93…`) is byte-identical
-   across every run of this flow, the failing 2026-09-23 one included; what
+   The supply spec's graded fields — `stackup`, `vias`, `nets[]` and
+   `ties_disclosure.kind`, the only content `klt erc` reads — canonicalise to
+   the same digest `7f48fd89…` on every run from #344 to today, printed by
+   `run-erc.sh` itself (issue #364, which refreshed the spec's prose comments
+   twice — once before and once after issue #377's ground mesh — and so moved
+   its whole-file hash while leaving that digest fixed). What
    changed is `layout/sar-adc-top/bin/build_layout.py`, which now ties both
    standard-cell macros' own met5 PDN straps together and out to two new
    top-level supply pins, per
@@ -3274,7 +3282,7 @@ tracker already owns.
    the sequencer switches coincidentally with the comparator decision by
    construction, so a shared metal rail would land the standard-cell bank's
    switching current on the comparator's own supply). The current run,
-   [`layout/sar-adc-top/erc-reports/20260924-234116-66dca3c/record.md`](../../layout/sar-adc-top/erc-reports/20260924-234116-66dca3c/record.md),
+   [`layout/sar-adc-top/erc-reports/20260925-011943-f981dc9/record.md`](../../layout/sar-adc-top/erc-reports/20260925-011943-f981dc9/record.md),
    reports `erc_status: clean`, **0** findings:
 
    | Supply | Islands, 2026-09-23 | Islands, now | Continuity verdict |
@@ -3495,8 +3503,8 @@ tracker already owns.
     > **3** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `4 analog`, `4 digital`,
     > `11 analog`, `11 digital`; and its manifest cites
-    > `layout/sar-adc-top/erc-reports/LATEST` at **20260924-234116-66dca3c**
-    > against a pointer naming **20260924-234116-66dca3c**,
+    > `layout/sar-adc-top/erc-reports/LATEST` at **20260925-011943-f981dc9**
+    > against a pointer naming **20260925-011943-f981dc9**,
     > `layout/sar-adc-top/reports/LATEST` at **20260924-234053-66dca3c**
     > against a pointer naming **20260924-234053-66dca3c**: **current**.
 
