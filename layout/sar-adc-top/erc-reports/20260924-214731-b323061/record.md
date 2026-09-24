@@ -124,12 +124,16 @@ no conductor under it would not have appeared here at all.
 **3. `klt drc` on the same bytes is clean.**
 `reports/20260924-214710-b323061/drc.json` reports `status: "clean"`, 0
 violations, so the new riser and stub are graded against sky130A's own met1–met4
-width/space/enclosure rules rather than argued to be legal. The minimum-area
-rules the pinned deck still does not author (issue #326) were measured
-separately with `docs/chipalooza/measure_metal_min_area.py`: **143 shapes below
-threshold on this GDS, the same 143 as on the pre-#362 GDS** — the new met3 pad
-(the riser's pass-through, drawn at `ISLAND_PAD_UM`) and the new met4 polygon
-are both above their own thresholds, so this change adds none.
+width/space/enclosure rules rather than argued to be legal. Minimum area is part
+of that verdict, not an exception to it: the pinned 0.6.0 deck authors
+`met1.area.1` … `met5.area.1` among the 52 rules this record's own
+`coverage.rules_checked` lists. The independent cross-check agrees —
+`docs/chipalooza/measure_metal_min_area.py`, re-run after issue #363 corrected
+its property-aware-merge bug, reports **0 shapes below every one of
+`m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4` on this GDS, the same 0 as on the pre-#362
+GDS**. The new met3 pad (the riser's pass-through, drawn at `ISLAND_PAD_UM`) and
+the new met4 polygon appear in that readout only as counts — met3 1341 → 1342,
+met4 28 → 29 — both above their own thresholds.
 
 **4. The LVS compare on the same record does not regress.**
 `reports/20260924-214710-b323061/lvs.json`: **88 mismatches, the same 88** as the

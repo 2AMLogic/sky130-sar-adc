@@ -193,9 +193,16 @@ enumerate:
   **88 mismatches, the same 88** as the pre-#362 record, in the same four
   categories (`device.unmatched` 66, `net.merged` 11, `net.split` 10,
   `topology.flattened` 1), with the same 803/869 devices and 411/443 nets
-  matched. The minimum-area rules the pinned deck still does not author (#326)
-  were measured separately: 143 shapes below threshold, **the same 143** as
-  before this change.
+  matched. Minimum area is inside that clean verdict rather than beside it: the
+  pinned 0.6.0 deck authors `met1.area.1` … `met5.area.1` (52 rules in this
+  record's own `coverage.rules_checked`), and the independent cross-check
+  (`docs/chipalooza/measure_metal_min_area.py`, re-run after issue #363
+  corrected its property-aware-merge bug) agrees at **0** shapes below every one
+  of `m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4` — the same **0** the pre-#362 GDS
+  measures under the same corrected script. The pad this record adds appears
+  there only as polygon counts (met3 1341 → 1342, met4 28 → 29), both above
+  threshold, because the riser's isolated pads are sized from
+  `MIN_METAL_AREA_UM2` for exactly that reason.
 - **The LVS pin counts become asymmetric, on purpose: 21/22/22** (was 21/21/21).
   The reference side gains `GND` as a 22nd port; the layout side still promotes
   21 pins, because `GND` and `VGND` are one extracted net and one promoted pin

@@ -174,8 +174,9 @@ That gap closed when `layout/requirements.txt` moved to
 klayout-tools#1989 (commit `50cc29c3`). **The pinned deck now authors 52 rules
 including `met1.area.1` … `met5.area.1` and `met1.holes_area.1` …
 `met5.holes_area.1`** — read them out of this record's own
-`reports/20260924-190817-f3622fc/drc.json` `coverage.rules_checked`, which
-reports **0 violations**. Minimum area is a first-class part of this flow's
+`reports/20260924-214710-b323061/drc.json` `coverage.rules_checked` (52 rules,
+the ten `met*.area.1`/`met*.holes_area.1` among them, field-identical to the
+superseded `20260924-190817-f3622fc`'s), which reports **0 violations**. Minimum area is a first-class part of this flow's
 `klt drc` verdict again, not an out-of-band footnote.
 
 `docs/chipalooza/measure_metal_min_area.py` is kept as an **independent
@@ -230,8 +231,8 @@ was caught in the first place:
 
 | Measurement | `m1.6` | `m2.6` | `m3.6` | `m4.4a` | `m5.4` |
 | --- | --- | --- | --- | --- | --- |
-| `drc.json`'s own `met*.area.1` (record `20260924-190817-f3622fc`) | 0 | 0 | 0 | 0 | 0 |
-| `measure_metal_min_area.py`, corrected | 0 | 0 | 0 | 0 | 0 |
+| `drc.json`'s own `met*.area.1` (record `20260924-214710-b323061`) | 0 | 0 | 0 | 0 | 0 |
+| `measure_metal_min_area.py`, corrected (same record, re-run under #362) | 0 | 0 | 0 | 0 | 0 |
 | `measure_metal_min_area.py`, pre-#363 (**wrong**) | 114 | 6 | 8 | 0 | 15 |
 
 The same correction applies to the two producing flows measured on their own
@@ -775,12 +776,16 @@ Three things about that shape are load-bearing:
   no consumer yet. DR-012 records the trade and marks the position provisional.
 
 `klt drc` grades this geometry rather than the README arguing it:
-`reports/20260924-214710-b323061/drc.json` is clean, 0 violations. The
-minimum-area rules the pinned deck still does not author (issue #326) were
-measured separately with `docs/chipalooza/measure_metal_min_area.py` — 143
-shapes below threshold on this GDS, **the same 143** as on the pre-#362 one, so
-the new met3 riser pad (`ISLAND_PAD_UM`-sized for exactly this reason) and the
-new met4 polygon add none. The `klt erc` ablation that shows the stub really is
+`reports/20260924-214710-b323061/drc.json` is clean, 0 violations — and since
+the pinned 0.6.0 deck authors `met1.area.1` … `met5.area.1` (see "Minimum-area
+rules" above), that verdict now covers minimum area too. The independent
+cross-check agrees, re-run on this record's own GDS after issue #363 corrected
+the script's property-aware-merge bug: **0** shapes below every one of
+`m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4`, the same **0** the pre-#362 GDS
+(`reports/20260924-190817-f3622fc/`) measures under the same corrected script.
+The pad this change adds shows up in that readout only as polygon counts — met3
+1341 → 1342, met4 28 → 29 — both above threshold, because the riser's isolated
+pads are `ISLAND_PAD_UM`-sized for exactly this reason. The `klt erc` ablation that shows the stub really is
 joined to `comparator`'s ground through this riser — cut `via3` and `GND` splits
 into two islands, where the pre-#362 GDS splits into none — is in the ERC
 record's own "Cross-checks".
