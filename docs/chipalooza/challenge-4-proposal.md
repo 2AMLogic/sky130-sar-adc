@@ -486,6 +486,22 @@ placing all five sub-block layouts
   standard-cell macros reusing generic internal labels (`A`/`X`), not a real
   electrical short or open; the true `CLK` net's device count is verified
   separately and correctly in that same investigation.
+- **`klt erc` (power delivery, structural)**: **partial — the two analog
+  supplies pass, the two digital supplies fail.** Added this pass: the
+  connectivity bullet above is a *signal*-net check. Its net list is this
+  design's 19 top-level ports plus `VDD`/`VREFP`/`VREFN`; it never included
+  the standard-cell macros' own `VPWR`/`VGND` rails, so it neither confirmed
+  nor contradicted them. A `klt erc` supply run now grades exactly that
+  question, and it finds a real gap:
+  [`layout/sar-adc-top/erc-reports/20260923-143401-1ee4ba8/record.md`](../../layout/sar-adc-top/erc-reports/20260923-143401-1ee4ba8/record.md)
+  reports `VDD` and `GND` each resolving to exactly one electrical island with
+  no `erc.supply_short` anywhere, but `VPWR` and `VGND` each resolving to
+  **two** disconnected islands — `sar_sequencer`'s and `seln_inverters`' own
+  self-contained rails, neither reaching a top-level supply. The finding is
+  corroborated independently by the same layout record's `lvs.json`
+  `net_correspondence` (`VPB|VPWR` ↔ `VPWR_SEQ`, `VPB|VPWR$1` ↔
+  `VPWR_SELN`). It was not tuned away; see §7 item 9 for the full status,
+  the `erc.missing_tie` coverage gap, and the issue that tracks it.
 - **`klt lvs`**: **still reports a mismatch** — not from a routing defect,
   but because no available `klt extract` declared-pin mechanism
   (`--top-cell-pins`/`--pins`/`--def-pins`) reproducibly promotes exactly
@@ -2721,6 +2737,19 @@ tracker already owns.
    correction; this issue's acceptance criterion 4 remains
    not-yet-triggerable.
 
+   **Re-checked 2026-09-24**: `https://opencircuitdesign.com/chipalooza/rules-4.html`
+   still returns HTTP 404 (`curl -sI`, this pass); the parent `chipalooza/`
+   index still returns HTTP 200 with `Last-Modified: Sun, 06 Sep 2026
+   15:06:32 GMT` — byte-for-byte the same `Last-Modified`, `ETag`
+   (`"1c94-65ad1d8cdb1fa"`) and `Content-Length` (7316) as the 2026-09-16
+   re-check, so the index page itself has not been republished either.
+   2AMLogic/2am#542's own tracking table still lists row 4 (Sky130,
+   ChipFoundry) as "launches 2026-11-09" (submission 2026-11-23) — unchanged
+   across all five re-checks (2026-09-06, -08, -15, -16, -24). §2's
+   slot-budget assumptions therefore still carry no rules-4.html-derived
+   correction; this issue's acceptance criterion 4 remains
+   not-yet-triggerable.
+
 8. **Whole-ADC (end-to-end) code correctness is not yet demonstrated — a
    campaign exists, found real defects, several are already fixed, and two
    remaining fixes are operator-decision items.** Added this pass: this
@@ -2802,6 +2831,80 @@ tracker already owns.
    substance. The **Sample rate** row in §4 is updated this pass
    to reflect this campaign's existence and status rather than asserting
    none exists.
+
+9. **Power delivery is now structurally graded for the first time — and the
+   composed top level's two digital rails FAIL it.** Added this pass; nothing
+   in this document previously mentioned ERC at all. The T1 evidence
+   checklist this repo grades itself against grew an eleventh item on
+   2026-09-17 (*Power delivery, structural*, upstream klayout-tools#2025),
+   and issue **#344** — now **closed**, PR #356 merged 2026-09-23T22:21:03Z —
+   answered it with a committed, hash-pinned `klt erc` supply run rather than
+   a reading:
+   [`layout/sar-adc-top/erc-reports/20260923-143401-1ee4ba8/record.md`](../../layout/sar-adc-top/erc-reports/20260923-143401-1ee4ba8/record.md)
+   (`erc.json` beside it; driven by
+   [`layout/sar-adc-top/erc-supply-spec.json`](../../layout/sar-adc-top/erc-supply-spec.json),
+   run by [`layout/sar-adc-top/bin/run-erc.sh`](../../layout/sar-adc-top/bin/run-erc.sh),
+   `klt` 0.6.0 / KLayout 0.30.12). **Item 11's verdict is UNMET**, recorded
+   that way in [`docs/t1-gap.md`](../t1-gap.md)'s item→issue table.
+
+   The per-supply split matters, so this document states it rather than
+   rounding it to "ERC fails":
+
+   | Supply | Islands | Item-11 verdict |
+   |---|---:|---|
+   | `VDD` | 1 | pass |
+   | `GND` | 1 | pass, **read narrowly** — see below |
+   | `VPWR` | 2 | **fail** (`erc.unconnected_net`) |
+   | `VGND` | 2 | **fail** (`erc.unconnected_net`) |
+
+   No `erc.supply_short` and no `erc.floating_gate` is reported anywhere: the
+   four declared supplies are four mutually distinct islands, so nothing is
+   accidentally rail-to-rail shorted. The `VPWR`/`VGND` two-island finding is
+   the two standard-cell macros' (`sar_sequencer`, `seln_inverters`)
+   self-contained rails, neither reaching a top-level supply — the same
+   integration gap `design/sar_adc_top.sch` and
+   `layout/sar-adc-top/README.md` already documented in prose, now *graded*.
+   It is tracked as its own open issue, **#355** (`loom:issue`, open and
+   unclaimed as of this pass), and per #344's own instruction the supply spec
+   was deliberately **not** tuned to make it pass.
+
+   Three honest qualifications this document owes a reader, each taken from
+   the record rather than inferred:
+   - **`GND`'s pass is geometric only.** `klt erc` models drawn wire/via
+     connectivity with no device recognition, and this block's analog ground
+     return is partly the p-substrate. `GND: 1 island` therefore means *the
+     drawn `GND` conductor is one island*, not *every NMOS body reaches it*.
+   - **`erc.missing_tie` was not computed at all** — an absence of evidence,
+     not evidence of absence, and disclosed as such in machine-readable form
+     (`ties_disclosure.kind = "tool_limitation"`). No `ties[]` is declared
+     because klayout-tools#2169 turns a correct `ties[]` on a routed
+     standard-cell design into a *false* `erc.supply_short`; declaring one
+     would replace a stated gap with a misleading finding. Tap-cell
+     instances, `VPB`/`VNB` body labels and the LVS `net_correspondence`
+     stand in and are named in the record, but they are weaker than a clean
+     LVS would make them — item 4 does not itself pass, and neither `GND` nor
+     `VGND` appears in that LVS run's `net_correspondence`.
+   - **The ERC record is one layout revision behind, by its own staleness
+     rule.** It grades
+     `layout/sar-adc-top/reports/20260919-050355-fb11617/sar_adc_top.gds`
+     (`sha256:62038198…`, hash-asserted at run time), whereas
+     `layout/sar-adc-top/reports/LATEST` now resolves to
+     [`20260923-131726-fa1e0af`](../../layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md)
+     (`sha256:5eb3c864…`), issue #103's `klayout-tools==0.6.0` pin-bump
+     re-run. The record's own "Staleness rule" says a newer `reports/<id>/`
+     makes it **stale, not wrong**, and re-running `run-erc.sh` is what mints
+     a fresh verdict. **No verdict above is restated as current on the
+     2026-09-23 GDS** — this document reports item 11 as UNMET on the GDS the
+     record actually graded, and flags the owed re-run rather than assuming
+     the two-island finding carries forward unchanged.
+
+   **Does this move any §4 row? No.** Item 11 is not a `spec/target-spec.md`
+   row and no row is added for it here; the two sign-off-bar rows (post-layout
+   PVT, DRC/LVS-clean GDS) were already UNMET/PARTIAL and stay exactly as
+   written. What changes is this section's completeness: the brief's sign-off
+   bar is about a *fabricable* assembly, and a composed top level whose
+   digital section has no structural path from any top-level supply to its own
+   cells is a gap §7 should have been carrying and was not.
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
