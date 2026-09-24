@@ -128,9 +128,19 @@ def is_probeable_candidate(candidate: Path) -> bool:
     by construction not a committed artifact, and probing it reaches into
     whatever unrelated thing happens to occupy that path on the current
     machine.
+
+    Both sides of the comparison are resolved. `candidate.resolve()` was
+    already following symlinks, but comparing it against an unresolved
+    REPO_ROOT breaks whenever REPO_ROOT itself sits under a symlinked
+    component (e.g. macOS `/var/folders/...` -> `/private/var/folders/...`,
+    or a repo checked out through a symlinked path) -- a real candidate then
+    resolves to a location "outside" REPO_ROOT purely because REPO_ROOT never
+    got the same treatment, and every candidate is wrongly rejected (issue
+    #368). Resolving REPO_ROOT here too closes that gap regardless of how it
+    was constructed.
     """
     try:
-        return candidate.resolve().is_relative_to(REPO_ROOT)
+        return candidate.resolve().is_relative_to(REPO_ROOT.resolve())
     except OSError:
         return False
 
