@@ -47,9 +47,30 @@ klayout-tools#2397 (0.6.0's reader-side #1876 fix never fires on this
 netlist, so `bin/restore-cap-device-class.py` stays load-bearing). See "Update
 (2026-09-23): re-measured on `klayout-tools==0.6.0`" below.
 
+**Update (2026-09-24, issue #362): the analog ground has a drawn pad.** Record
+`20260924-214710-b323061` is the current `reports/LATEST`, and
+`erc-reports/20260924-214731-b323061/` the current ERC record.
+`bin/build_layout.py`'s new `analog_ground_pad()` carries `comparator`'s own
+drawn `GND` pin — the only analog-ground conductor any sub-block here exposes —
+up to met4 and south, out of that macro's footprint, to a top-level `GND` pin
+label; `design/sar_adc_top.sch`/`.sym` gain the matching port (21 → **22**).
+The decision this implements, including what the pad is *not* (a second node
+beside the p-substrate), is
+[`DR-012`](../../spec/decision-records/DR-012-analog-ground-pad.md). DRC stays
+clean and the LVS mismatch count is **unchanged at 88**, in the same four
+categories, with the same 803/869 devices matched; the pin counts go 21/21/21 →
+**21/22/22** — reference 22 because `GND` is now a port, layout still 21 because
+`GND` and `VGND` are one extracted net (`GND|VGND`, the shared p-substrate),
+`matched` 22 because that one layout pin answers both reference ports. `klt erc`
+stays `clean`, 0 findings, on a byte-identical spec: `GND` read "1 island"
+before this change too, which is precisely why the "one island ≠ reaches a pad"
+caveat had to be retired by moving the layout rather than by re-reading the
+report.
+
 **Update (2026-09-24, issue #355): the digital supply rails are routed, and
-T1 item 11 now passes.** Record `20260924-190817-f3622fc` is the current
-`reports/LATEST`. `bin/build_layout.py` now ties `sar_sequencer`'s and
+T1 item 11's continuity half now passes.** Record `20260924-190817-f3622fc` was
+the `reports/LATEST` of that increment (superseded by #362's above).
+`bin/build_layout.py` ties `sar_sequencer`'s and
 `seln_inverters`' own met5 PDN straps together and out to two new top-level
 supply pins (`VPWR`/`VGND`, per
 [`DR-010`](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)),
@@ -153,8 +174,9 @@ That gap closed when `layout/requirements.txt` moved to
 klayout-tools#1989 (commit `50cc29c3`). **The pinned deck now authors 52 rules
 including `met1.area.1` … `met5.area.1` and `met1.holes_area.1` …
 `met5.holes_area.1`** — read them out of this record's own
-`reports/20260924-190817-f3622fc/drc.json` `coverage.rules_checked`, which
-reports **0 violations**. Minimum area is a first-class part of this flow's
+`reports/20260924-214710-b323061/drc.json` `coverage.rules_checked` (52 rules,
+the ten `met*.area.1`/`met*.holes_area.1` among them, field-identical to the
+superseded `20260924-190817-f3622fc`'s), which reports **0 violations**. Minimum area is a first-class part of this flow's
 `klt drc` verdict again, not an out-of-band footnote.
 
 `docs/chipalooza/measure_metal_min_area.py` is kept as an **independent
@@ -209,8 +231,8 @@ was caught in the first place:
 
 | Measurement | `m1.6` | `m2.6` | `m3.6` | `m4.4a` | `m5.4` |
 | --- | --- | --- | --- | --- | --- |
-| `drc.json`'s own `met*.area.1` (record `20260924-190817-f3622fc`) | 0 | 0 | 0 | 0 | 0 |
-| `measure_metal_min_area.py`, corrected | 0 | 0 | 0 | 0 | 0 |
+| `drc.json`'s own `met*.area.1` (record `20260924-214710-b323061`) | 0 | 0 | 0 | 0 | 0 |
+| `measure_metal_min_area.py`, corrected (same record, re-run under #362) | 0 | 0 | 0 | 0 | 0 |
 | `measure_metal_min_area.py`, pre-#363 (**wrong**) | 114 | 6 | 8 | 0 | 15 |
 
 The same correction applies to the two producing flows measured on their own
@@ -465,7 +487,16 @@ nodes, like `TAIL`), so they do not appear in this table.
 Unlike the other three full-custom blocks, `comparator` has a **real drawn
 `GND` pin** (7-port reference, `.SUBCKT comparator VDD GND CLK VINP VINN OUTP
 OUTN`) rather than relying only on the deck's substrate auto-merge — see
-below.
+below. Since issue **#362** that pin is also what the block's own top-level
+analog ground pad is built on: it is the only analog-ground conductor any
+sub-block in this composition draws, so `bin/build_layout.py`'s
+`analog_ground_pad()` risers off it (see "The analog ground pad" below).
+Direct inspection of this macro's own GDS around that pin, for the record:
+met1 `(0.15, 19.85)–(2.36, 20.15)` carrying the label, a via1 up to a
+`(1.15, 19.85)–(1.45, 20.15)` met2 landing, and a `tap.drawing` (65/44)
+rectangle `(0.0, 17.0)–(0.6, 23.0)` underneath — and **no met3 or met4
+anywhere in this macro at all**, which is what makes a met4 stub over its own
+footprint safe.
 
 ### `sar_sequencer` (top cell `sar_sequencer` in `layout/sar-sequencer/reports/20260905-191258-4c6c655/sar_sequencer.gds`)
 
@@ -535,14 +566,20 @@ Beyond each block's own already-closed internal wiring, per
 | `BUSY` | `sar_sequencer.BUSY` -> external output pin |
 | `comparator.OUTN` | left dead-ended (`OUTN_NC`) — not needed by the sequencer |
 | `VPWR` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `VDD`; see DR-010) |
-| `VGND` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `GND`; see DR-010) |
+| `VGND` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `GND` *in metal*; see DR-010 and, for what the substrate does regardless, DR-012) |
+| `GND` (analog) | external pin, `comparator.GND` (issue #362 — the only drawn analog-ground conductor in this composition; `sampling_frontend` and `cdac_array` reach the same node through the substrate, not through this route; see DR-012) |
 
-**21** top-level external chip pins in total: `VINP, VINN, VDD, VREFP, VREFN,
-VCM, CLK, RST_B, DOUT9..DOUT0, BUSY, VPWR, VGND` (matching
+**22** top-level external chip pins in total: `VINP, VINN, VDD, VREFP, VREFN,
+VCM, CLK, RST_B, DOUT9..DOUT0, BUSY, VPWR, VGND, GND` (matching
 `design/sar_adc_top.sym`'s own pin list exactly, in order). `VPWR`/`VGND` were
-added by issue #355; before it this list read "Twenty … pins in total" and then
-named nineteen, which the LVS pin counts (19/19/19) had always reported
-correctly.
+added by issue #355 and `GND` by issue #362; before #355 this list read
+"Twenty … pins in total" and then named nineteen, which the LVS pin counts
+(19/19/19) had always reported correctly.
+
+The layout side still promotes **21** of those 22, and that is not a missing
+pin: `GND` and `VGND` are one extracted net (`GND|VGND` — the shared
+p-substrate), so one promoted layout pin answers both reference ports, which
+the LVS `matched=22` count records. See DR-012.
 
 ## GND / VPWR / VGND: not a routing job (mostly)
 
@@ -551,16 +588,32 @@ synthesis (`layout/sampling-frontend-wells/README.md`, `layout/sampling-frontend
 header) plus `design/sar_adc_top.spice`'s own `.GLOBAL GND`/`.GLOBAL VDD`
 declarations and its item-2 "known integration gap" note:
 
-- **Analog `GND` is free.** `klt extract`'s sky130 deck synthesizes every
-  NMOS/PMOS-body's p-substrate connection as one globally-shared `vsubs` net
-  *regardless of drawn geometry* — so `sampling_frontend`'s GND (no drawn
-  pin at all) and `cdac_array`'s VSS (also no drawn pin) already report as
-  the same net the deck would assign `comparator`'s real, drawn `GND` pin to
-  as well, with **no wire required between the three blocks for this
-  assembly to reach a matching verdict** on that specific net. This still
-  needs confirming empirically against the *composed* (not per-block) flat
-  extraction before relying on it — the per-block READMEs establish the
-  mechanism, not this specific 3-block composition.
+- **Analog `GND` needs no wire between the three blocks — but it did need a
+  pad, and now has one (issue #362,
+  [`DR-012`](../../spec/decision-records/DR-012-analog-ground-pad.md)).**
+  `klt extract`'s sky130 deck synthesizes every NMOS/PMOS-body's p-substrate
+  connection as one globally-shared `vsubs` net *regardless of drawn geometry* —
+  so `sampling_frontend`'s GND (no drawn pin at all) and `cdac_array`'s VSS
+  (also no drawn pin) report as the same net the deck assigns `comparator`'s
+  real, drawn `GND` pin to, with **no wire required between the three blocks
+  for this assembly to reach a matching verdict** on that specific net.
+
+  **Confirmed on the composed extraction, not just inferred from the per-block
+  READMEs** (the caveat this paragraph used to carry):
+  `reports/20260924-214710-b323061/extract.json` reports one net named
+  `GND|VGND` carrying **692 devices** — the analog ground, the standard cells'
+  substrate ties and the p-substrate, all one node, with
+  `merged_net_labels` naming both labels on it. That is the mechanism working
+  as documented, one level up, and it is also the reason DR-010's domain
+  partition can only ever be about *metal return paths and pads*, never about
+  galvanic isolation.
+
+  What the auto-merge never supplied is a **terminal**. Until #362 this block
+  had `.GLOBAL GND` and no top-level `GND` pin anywhere, so the one net every
+  analog device returns through had nothing a package could bond to, while
+  `VDD` did. `klt erc` cannot see that distinction (one island is one island,
+  pin or no pin), which is why it passed throughout. See "The analog ground
+  pad" below for the geometry and DR-012 for the decision.
 - **`VDD` (analog) is a real net and must be routed** between
   `sampling_frontend`, `cdac_array`, and `comparator` (and the external
   `VDD` pin) — it is not part of the substrate auto-merge.
@@ -605,9 +658,12 @@ what it powers. Its first run (issue #344,
 `erc-reports/20260923-143401-1ee4ba8/`) came back FAIL: `VPWR` and `VGND` each
 resolved to **two** disconnected electrical islands, neither reaching a
 top-level supply. Issue #355 fixed the layout (not the spec, whose content hash
-is unchanged between the two runs), and `erc-reports/20260924-190825-f3622fc/`
-reports `erc_status: clean`, 0 findings — all four declared supplies at exactly
-one island each, no `erc.supply_short`. **The item still does not render `met`**:
+is unchanged across every run), and `erc-reports/20260924-190825-f3622fc/`
+reported `erc_status: clean`, 0 findings — all four declared supplies at exactly
+one island each, no `erc.supply_short`. The current record,
+`erc-reports/20260924-214731-b323061/` (issue #362), reports the same on the
+layout that now also carries a drawn analog `GND` pad. **The item still does not
+render `met`**:
 `klt signoff` renders it `unmet` / `check_failed`, because its grading path
 (`_grade_power_delivery`) checks the cited LVS part *first* and item 4's LVS is
 still `mismatch` (klayout-tools#1878) — so the continuity half being clean is
@@ -680,6 +736,60 @@ record is clean, 0 violations. The `klt erc` cross-checks that show the met5
 rectangle is what actually joins the two islands — including an ablation
 against the pre-#355 GDS — are in the ERC record's own "Cross-checks".
 
+### The analog ground pad (issue #362)
+
+`bin/build_layout.py`'s `analog_ground_pad()` — **one via riser and one met4
+stub, no horizontal leg.** The riser walks `comparator`'s own drawn `GND` met1
+pin (global `(101.5, 193.8)`) up to met4 without moving laterally, and a
+`WIRE_W` (0.4 µm) met4 stub runs **south** from there to `y = 170.0`, where the
+top-level `GND` pin label sits.
+
+| | |
+|---|---|
+| Anchor | `comparator.GND`, met1, local `(1.3, 20.0)` → global `(101.5, 193.8)` |
+| Stub | met4, `x` 101.3 … 101.7, `y` 169.8 … 194.0 |
+| Pin label | `72/5`-equivalent met4.pin (`71/5`) at `(101.5, 170.0)` |
+
+Three things about that shape are load-bearing:
+
+- **South, not north.** Every other analog net leaves its pin northward into a
+  per-net `analog_leg` jog row. `GND` cannot: `comparator`'s own `CLK` column
+  rises to met4 at `x = 102.1` and runs north from `y = 198.3`, **0.6 µm** from
+  this pin's own x — two 0.4 µm met4 wires sharing that gap leave 0.2 µm, and
+  `m4.2` needs 0.30 µm. Running south instead puts the two columns' `y` spans
+  4.1 µm apart, so they never face each other at all.
+  `_check_analog_ground_pad()` asserts exactly that condition (any comparator
+  pin within `WIRE_W + m4.2` in x must sit at or above `GND`'s own y), so a
+  future re-route fails in `build_layout.py` rather than in `klt drc`.
+- **It crosses nothing on the way out.** `comparator` draws **no met3 and no
+  met4 at all** (direct merged-`Region` dump of its committed GDS: layers
+  65/20, 66/20, 66/44, 67/20, 67/44, 68/20, 68/44, 69/20, 64/20, 65/44 only),
+  so the stub passes over that macro's own footprint on an empty level, and the
+  stretch below it — `y` 147.22 … 176.3, the channel between `sampling_frontend`
+  and `comparator` — holds no block bbox. The same assertion checks the label
+  lands in that channel rather than inside either macro.
+- **No horizontal leg, deliberately.** Grouping this pin with the other analog
+  supply pins in the west corridor would cost ~130 µm of met3 on a new exclusive
+  jog row, crossing four met4 corridor columns, in series with the one net where
+  series metal buys nothing. There is no pad ring in this composition — every
+  pin label sits where its own net's conductor already is — so the grouping has
+  no consumer yet. DR-012 records the trade and marks the position provisional.
+
+`klt drc` grades this geometry rather than the README arguing it:
+`reports/20260924-214710-b323061/drc.json` is clean, 0 violations — and since
+the pinned 0.6.0 deck authors `met1.area.1` … `met5.area.1` (see "Minimum-area
+rules" above), that verdict now covers minimum area too. The independent
+cross-check agrees, re-run on this record's own GDS after issue #363 corrected
+the script's property-aware-merge bug: **0** shapes below every one of
+`m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4`, the same **0** the pre-#362 GDS
+(`reports/20260924-190817-f3622fc/`) measures under the same corrected script.
+The pad this change adds shows up in that readout only as polygon counts — met3
+1341 → 1342, met4 28 → 29 — both above threshold, because the riser's isolated
+pads are `ISLAND_PAD_UM`-sized for exactly this reason. The `klt erc` ablation that shows the stub really is
+joined to `comparator`'s ground through this riser — cut `via3` and `GND` splits
+into two islands, where the pre-#362 GDS splits into none — is in the ERC
+record's own "Cross-checks".
+
 ## Structural supply check (`klt erc`, T1 item 11)
 
 | | |
@@ -688,16 +798,25 @@ against the pre-#355 GDS — are in the ERC record's own "Cross-checks".
 | Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
 | Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
 | Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
-| Current record | `erc-reports/20260924-190825-f3622fc/` — `erc_status: clean`, 0 findings, grading `reports/20260924-190817-f3622fc/sar_adc_top.gds` |
+| Current record | `erc-reports/20260924-214731-b323061/` — `erc_status: clean`, 0 findings, grading `reports/20260924-214710-b323061/sar_adc_top.gds` |
 
 | Record | Graded GDS | Supply continuity | Item 11 as graded |
 |---|---|---|---|
 | `20260923-143401-1ee4ba8` (issue #344, first run) | `reports/20260919-050355-fb11617/` | **FAIL** — `VPWR`/`VGND` 2 islands each | `unmet` |
 | `20260924-190825-f3622fc` (issue #355) | `reports/20260924-190817-f3622fc/` | **PASS** — all four supplies 1 island each, 0 findings | `unmet` — `erc.missing_tie` is not computed (below) |
+| `20260924-214731-b323061` (issue #362) | `reports/20260924-214710-b323061/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings | `unmet` — same two reasons |
 
-The spec is **byte-identical** across those two runs (`sha256:fd4f5a93…` in
-both records' own `provenance.spec.content_hash`). The verdict moved because
+The spec is **byte-identical** across all three runs (`sha256:fd4f5a93…` in
+every record's own `provenance.spec.content_hash`). The verdict moved because
 the layout moved, which is the only way it is allowed to move here.
+
+The third row is the case worth reading carefully: the number did **not** move,
+and issue #362 nevertheless changed something real. `GND` resolved to one island
+before it had any top-level pin and resolves to one island now that it has one,
+because "one island" and "reaches a pad" are different claims and a geometric
+connectivity model makes only the first. That is why the gap could only be
+closed by moving the layout, and why a passing supply row here must be read with
+the ERC record's own "Why `GND`'s pass must be read narrowly" section beside it.
 
 This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
 content hash; it regenerates no geometry, which is why it lives in its own

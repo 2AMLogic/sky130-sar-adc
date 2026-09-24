@@ -478,6 +478,25 @@ C {devices/opin.sym} -1200 280 0 0 {name=p19 lab=BUSY}
 * spec/decision-records/DR-010-digital-supply-domain-partition.md.
 C {devices/ipin.sym} -1200 320 0 0 {name=p20 lab=VPWR}
 C {devices/ipin.sym} -1200 360 0 0 {name=p21 lab=VGND}
+* The ANALOG ground pin (issue #362, DR-012). VDD has been a port since this
+* file was written; its return never was, so the block declared `.GLOBAL GND`
+* (via lgnd1 below) and drew ground inside comparator without ever exposing a
+* terminal a package could bond to -- the same structural gap #355 closed for
+* VPWR/VGND, one domain over. `klt erc` does not catch it: T1 item 11 grades
+* "does this declared supply resolve to exactly one electrical island", which
+* GND always did, pin or no pin.
+*
+* Declaring it here does NOT make GND and VGND one schematic net -- they stay
+* the two distinct `.GLOBAL` cards DR-010 partitioned, and nothing on this
+* sheet wires them together. It does NOT claim they are two distinct
+* ELECTRICAL nodes either: in bulk sky130 the analog ground, the digital
+* substrate ties and the p-substrate are one node, which
+* layout/sar-adc-top/'s own extraction reports directly (one `GND|VGND` net).
+* Two ports on one physical node is the intended shape -- two bond points, so
+* the digital return travels off-die rather than through the die's substrate
+* on its way back to the source. See
+* spec/decision-records/DR-012-analog-ground-pad.md.
+C {devices/ipin.sym} -1200 400 0 0 {name=p22 lab=GND}
 
 * --- Sub-block instances ---
 C {design/sampling_frontend.sym} 0 0 0 0 {name=xfe}
