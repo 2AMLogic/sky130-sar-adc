@@ -246,14 +246,14 @@ enumerate:
   top-level analog ground mesh between them — a change inside two already-closed
   sub-block layouts, with its own DRC/LVS re-verification. It is the largest
   remaining gap in this block's ground plan and is **not** closed by this
-  record.
+  record. Tracked as **#377**.
 - **The impedance argument is unmeasured.** No `sim/` campaign in this repo
   models the ground return at all — no package parasitics, no substrate
   resistance, no bond-wire inductance. A testbench that would settle it: drive
   the assembled `sar_adc_top` through package-like R+L on each of the four
   supply terminals, run `sim/full-conversion-transient/`'s own stimulus, and
   compare code errors against the ideal-ground case. Until that exists, no
-  number from this record may be quoted as measured.
+  number from this record may be quoted as measured. Tracked as **#378**.
 - **The pad's position is provisional.** There is no pad ring; when one exists,
   the analog ground terminal's placement relative to the other supply pads (and
   whether it wants more than one bond point of its own) is a real question this
