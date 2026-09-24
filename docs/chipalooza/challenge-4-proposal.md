@@ -873,8 +873,8 @@ and an optional "the"/"record:" connector.
 
 **Census, machine-checked** (this paragraph counts itself, its own two quoted
 examples below included): of the **24** "current `…/LATEST`" phrases in this
-document, **11** are attached and therefore checked; of the **13** skipped,
-**8** name a record stamp within 200 characters after the phrase, and **5**
+document, **12** are attached and therefore checked; of the **12** skipped,
+**7** name a record stamp within 200 characters after the phrase, and **5**
 name none at all.
 
 Those two skipped shapes are skipped for different reasons, and neither is a
@@ -1849,17 +1849,88 @@ tracker already owns.
 
    **No §4 verdict moves, and no new layout or simulation work is claimed
    this pass**: "DRC/LVS-clean GDS, full ADC" stays **PARTIAL — DRC MET, PIN
-   DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** at 98 mismatches on the
-   unchanged current `reports/LATEST` (`20260915-234004-76f48b9`), and
-   "Post-layout PVT simulation, full ADC" stays **UNMET**. #103 is still
-   **OPEN** and still `loom:blocked` (re-read this pass). The blocker remains
-   what the update above established — a bare release gate, with no open
-   upstream issue behind it (re-searched this pass: zero open
-   `2AMLogic/klayout-tools` issues request a release past `v0.5.0`) — and
-   this repo's practice of grading against what is *released*, not what is
-   merged, is unchanged. What this update adds is only that the gate's
-   contents have grown, including in the module the local capacitor-class
-   workaround stands in for.
+   DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** at 98 mismatches on
+   `20260915-234004-76f48b9`, `reports/LATEST` at the time of this
+   2026-09-16 update (since superseded three more times — see the
+   2026-09-24 update below for the current pointer), and "Post-layout PVT
+   simulation, full ADC" stays **UNMET**. #103 is still **OPEN** and still
+   `loom:blocked` (re-read this pass). The blocker remains what the update
+   above established — a bare release gate, with no open upstream issue
+   behind it (re-searched this pass: zero open `2AMLogic/klayout-tools`
+   issues request a release past `v0.5.0`) — and this repo's practice of
+   grading against what is *released*, not what is merged, is unchanged.
+   What this update adds is only that the gate's contents have grown,
+   including in the module the local capacitor-class workaround stands in
+   for.
+
+   **Update (2026-09-24): the release gate cleared, the LVS mismatch did
+   not, two newly-diagnosed upstream gaps now sit behind the
+   `--abstract-cells` path, and #103 itself has been escalated to a human
+   operator rather than re-blocked automatically.** `klayout-tools` `v0.6.0`
+   published on PyPI 2026-09-22T18:52:45Z, and `gh api
+   repos/2AMLogic/klayout-tools/compare/v0.6.0...3cc085c` confirms `3cc085c`
+   (the fix this item's prior updates were waiting on, klayout-tools#2142)
+   is an ancestor of the tag (`ahead_by: 0, behind_by: 107`) — the bare
+   release gate the 2026-09-16 update above named has cleared. #103's own
+   PR #352 (`Part of #103`, merged) bumped `layout/requirements.txt`'s pin
+   from `0.5.0` to `0.6.0` and re-ran the whole flow on it:
+
+   - The trivial-cell proof still passes all six verdicts on `klt` 0.6.0
+     (`layout/trivial-cell/reports/20260923-131710-fa1e0af/`).
+   - `sar-adc-top`'s whole-request `klt lvs` is **field-identical to the
+     0.5.0 result**: 98 mismatches, 869/869/794 devices, 444/446/412 nets,
+     19/19/19 pins, the same four categories
+     (`device.unmatched: 75`, `net.merged: 12`, `net.split: 10`,
+     `topology.flattened: 1` — read directly from this pass's own
+     `lvs.json`). `klt drc` stays clean, 0 violations. So the release did
+     not move this row's verdict either way.
+   - The `--abstract-cells` collapse this item's earlier updates measured
+     but never adopted for signoff **persists on 0.6.0**, and this pass
+     locates why klayout-tools#2142's fix (a real bug — macro pins
+     collapsing onto a parent power strap) does not touch it: abstraction
+     erases a MiM capacitor's top plate but keeps the via that lands on it,
+     shorting every unit cap in a black-boxed sub-block's top plate to its
+     bottom plate — filed generically as
+     [klayout-tools#2396](https://github.com/2AMLogic/klayout-tools/issues/2396).
+     Behind that (on the modified GDS this diagnosis produced, not a
+     signoff artefact), abstraction also erases a macro's well tap,
+     isolating `cdac_array`'s `VDD` body pin from the parent net — filed
+     generically as
+     [klayout-tools#2398](https://github.com/2AMLogic/klayout-tools/issues/2398).
+     Both are open as of this pass. A third finding,
+     [klayout-tools#2397](https://github.com/2AMLogic/klayout-tools/issues/2397),
+     is not itself a blocker but confirms
+     `layout/sar-adc-top/bin/restore-cap-device-class.py` (the
+     klayout-tools#1876 local workaround, §7 Item 1 above) stays load-bearing
+     on 0.6.0: the upstream #1921 fix keys off a case-sensitive `.SUBCKT`
+     name while `klt` upper-cases it, so it recovers 0 of this design's 1028
+     capacitors. None of the three is adopted for signoff — `run-flow.sh`'s
+     audited whole-request 98-mismatch compare stays the recorded attempt,
+     now minted at
+     [`layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md`](../../layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md),
+     the current `reports/LATEST` (superseding `20260919-050355-fb11617`,
+     this item's prior citation, at an unchanged DRC/LVS verdict).
+
+   **No §4 verdict moves**: "DRC/LVS-clean GDS, full ADC" stays **PARTIAL —
+   DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** and
+   "Post-layout PVT simulation, full ADC" stays **UNMET**. **#103's own
+   label state no longer reduces to a simple OPEN/`loom:blocked` read,
+   though**: a same-day Curator dependency re-check (2026-09-23T20:02:54Z)
+   removed `loom:blocked`, but it addressed only the already-resolved
+   `3cc085c`/`v0.6.0`-release blocker — a different blocker from
+   klayout-tools#2396/#2398, which the same-day Builder re-measurement above
+   had already found open. A Champion evaluation (2026-09-23T22:21:05Z)
+   caught the contradiction and returned NEEDS REVISION; a second,
+   unrevised cycle (2026-09-24T06:38:35Z) escalated to a human operator,
+   citing both the unresolved klayout-tools#2396/#2398 gap and this issue's
+   own repeated label churn — independently tracked as issue #342
+   ("`blocked<->issue` re-check flip-flops on #103"). As of this pass, #103
+   carries `loom:operator-only` and `loom:operator-decision` rather than
+   `loom:blocked` or `loom:issue`: a human decision, not an automatable
+   dependency check. This document (issue #121) is itself gated on #103 for
+   acceptance criterion 3 and, per #121's own established convention, does
+   not attempt #103's layout-assembly work — this update records the state
+   change and the now-current citation rather than acting on it.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
