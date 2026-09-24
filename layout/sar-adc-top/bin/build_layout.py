@@ -105,6 +105,14 @@ Every net is one of:
   decided in
   `spec/decision-records/DR-010-digital-supply-domain-partition.md`, not here;
   see `digital_supply_rail()`.
+* **Analog ground pad** (`GND` -- issue #362): a via riser on `comparator`'s
+  own drawn `GND` pin -- the only analog-ground conductor any sub-block in
+  this composition exposes -- plus one met4 stub running SOUTH out of that
+  macro's own footprint, carrying the top-level pin label in the open channel
+  above `sampling_frontend`. What that pad is electrically (the p-substrate
+  node's own drawn terminal, not a second node beside it) is decided in
+  `spec/decision-records/DR-012-analog-ground-pad.md`, not here; see
+  `analog_ground_pad()`.
 
 Clean room: every number in this module was measured directly from this
 repo's own already-committed sub-block GDS/DEF artefacts (`klt cells`, a
@@ -832,6 +840,115 @@ def digital_supply_rail(c: Canvas, net: str) -> tuple[float, float, float, float
     return rect
 
 
+# --------------------------------------------------------------------------- #
+# Analog ground pad: GND (issue #362, DR-012).
+#
+# `comparator`'s own drawn `GND` pin is the ONLY analog-ground conductor any
+# sub-block in this composition exposes: `sampling_frontend` and `cdac_array`
+# draw no ground pin at all and reach the same node through the p-substrate
+# `klt extract`'s sky130 deck synthesises (`layout/sar-adc-top/README.md`,
+# "GND / VPWR / VGND"). So the analog ground pad is built off that one pin --
+# not because one pin is the ideal ground plan, but because it is the only
+# drawn terminal this composition has, and drawing a second one means opening
+# an already-closed sub-block layout (out of scope here; see DR-012's own
+# "Open items").
+# --------------------------------------------------------------------------- #
+MET4_SPACE_UM = 0.30  # sky130A `m4.2`, the pinned deck's `met4.space.1`.
+
+#: y the analog ground pad's own label sits at -- on the met4 stub's stretch
+#: BELOW `comparator`'s own bbox (y0 = 176.3 once placed) and above
+#: `sampling_frontend`'s own top edge (147.22), i.e. in the open channel
+#: between the two analog blocks. Asserted, not assumed, by
+#: `_check_analog_ground_pad()`: a pad label sitting inside a macro's own
+#: footprint would be a label on someone else's conductor as far as a reader
+#: is concerned, even though `--pin-source-cells` resolves it by position.
+GND_PAD_Y = 170.0
+
+
+def analog_ground_pad(c: Canvas) -> tuple[float, float, float, float]:
+    """Carry `comparator`'s own drawn `GND` pin out to a top-level analog
+    ground pad, and return the met4 stub `(x0, y0, x1, y1)` that does it.
+
+    This is the fix for issue #362: before it, `GND` was `.GLOBAL` in
+    `design/sar_adc_top.spice` and drawn inside `comparator`, but no top-level
+    pin of that name existed anywhere -- so the analog return had no terminal a
+    package could bond to, while `VDD` (its own supply) did. `klt erc` does not
+    catch that shape: T1 item 11 grades "does this declared supply resolve to
+    exactly one electrical island", which `GND` always did, pin or no pin.
+
+    WHAT this pad is electrically -- and what it is not -- is decided in
+    `spec/decision-records/DR-012-analog-ground-pad.md`, not here. The one
+    fact this function's geometry depends on: in bulk sky130 there is no
+    isolation between the analog ground and the p-substrate, so this pad is
+    the substrate node's own drawn front-side terminal, not a second node
+    beside it.
+
+    Shape: **a via riser at the pin plus one met4 stub running SOUTH**, out of
+    `comparator`'s own footprint into the open channel above
+    `sampling_frontend`. South, not north with the rest of the analog nets,
+    for a measured reason: `comparator`'s own `CLK` pin rises to met4 at
+    x = 102.1 and runs north from y = 198.3, and this pin's own x is 101.5 --
+    0.6 um away, which two 0.4 um-wide met4 wires cannot share without
+    violating `m4.2` (0.30 um). Running south instead puts the two columns'
+    y spans 4.1 um apart, so they never face each other at all.
+    `_check_analog_ground_pad()` asserts exactly that, rather than leaving it
+    to a future reader to re-derive.
+
+    No horizontal leg is drawn, and that is deliberate: every other external
+    pin in this module that travels sideways does so on met3 at its own
+    exclusive jog row (`analog_leg`), and a ground return is the one net where
+    added series metal buys nothing -- the pad's job is to exist and to be
+    low-impedance, not to be co-located with the other analog pins. Its
+    position is provisional in exactly the sense every pin position in this
+    composition is: there is no pad ring yet (see README.md).
+    """
+    gx, gy, native = global_pin("comparator", "GND")
+    assert native == MET1
+    c.riser(gx, gy, MET1, MET4)
+    c.wire(MET4, gx, gy, gx, GND_PAD_Y, w=WIRE_W)
+    c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
+    half = WIRE_W / 2.0
+    return (gx - half, GND_PAD_Y - half, gx + half, gy + half)
+
+
+def _check_analog_ground_pad(stub: tuple[float, float, float, float]) -> None:
+    """Standing assertions for `analog_ground_pad()`'s own geometry.
+
+    1. The pad label sits in the open channel between `comparator`'s own bbox
+       and `sampling_frontend`'s -- not inside either.
+    2. The stub runs AWAY from every other `comparator` met4 column that is
+       too close in x to run beside it. Every other `comparator` pin this
+       module touches risers to met4 and travels NORTH (`analog_leg`), so a
+       neighbour within `WIRE_W + MET4_SPACE_UM` in x is only safe while its
+       own pin sits at or above `GND`'s -- which is what makes the southward
+       stub legal. A future re-route that walks one of those columns south,
+       or moves `GND`'s own pin, fails here instead of in `klt drc`.
+    """
+    sx0, sy0, sx1, sy1 = stub
+    _cx0, cy0, _cx1, _cy1 = global_bbox("comparator")
+    _fx0, _fy0, _fx1, fy1 = global_bbox("sampling_frontend")
+    if not (fy1 < GND_PAD_Y < cy0):
+        raise SystemExit(
+            f"build_layout.py: GND pad label y {GND_PAD_Y} is not in the open "
+            f"channel between sampling_frontend's own top edge ({fy1}) and "
+            f"comparator's own bottom edge ({cy0})"
+        )
+    gx, gy, _ = global_pin("comparator", "GND")
+    for (block, name), (_x, _y, _layer) in PIN.items():
+        if block != "comparator" or name == "GND":
+            continue
+        nx, ny, _nlayer = global_pin(block, name)
+        if abs(nx - gx) >= WIRE_W + MET4_SPACE_UM:
+            continue
+        if ny < gy:
+            raise SystemExit(
+                f"build_layout.py: GND's southward met4 stub (x {sx0}..{sx1}, "
+                f"y {sy0}..{sy1}) runs beside comparator.{name}'s own met4 "
+                f"column at x {nx}, only {abs(nx - gx)} um away -- m4.2 needs "
+                f"{MET4_SPACE_UM} um between two {WIRE_W} um wires"
+            )
+
+
 def _check_digital_rail_clearance(rails: dict[str, tuple[float, float, float, float]]) -> None:
     """Standing assertions for `digital_supply_rail()`'s own geometry -- so a
     future placement/strap change fails here rather than silently drawing a
@@ -1079,6 +1196,16 @@ def build() -> tuple[dict, dict]:
     # ------------------------------------------------------------------ #
     rails = {net: digital_supply_rail(c, net) for net in DIG_RAILS}
     _check_digital_rail_clearance(rails)
+
+    # ------------------------------------------------------------------ #
+    # 8. Analog ground pad GND (issue #362, DR-012): a via riser on
+    #    `comparator`'s own drawn GND pin -- the only analog-ground
+    #    conductor any sub-block here exposes -- plus one met4 stub south,
+    #    out of that macro's own footprint, carrying the top-level pin
+    #    label. See `analog_ground_pad()` for the whole argument, and
+    #    DR-012 for what this pad is and is not electrically.
+    # ------------------------------------------------------------------ #
+    _check_analog_ground_pad(analog_ground_pad(c))
 
     draw_params = {
         "shapes": [
