@@ -102,6 +102,20 @@ name: CI
 #     later made unnecessary; what the gate requires is that nothing of that
 #     shape is what a verdict stands on TODAY. Finding no payload at all
 #     fails too, so a renamed directory cannot turn it into a silent pass.
+#   - `sim/tests/test_measure_metal_min_area.py` (issue #363) runs as its own
+#     step of `checks` below rather than inside `check:ci`, because it is this
+#     repo's only unit test that needs the KLayout *engine* -- `npm run
+#     test:unit`'s interpreter has no `klayout` module and skips it. It needs
+#     no PDK (inline rule table, synthesised GDS), so the step just installs
+#     layout/requirements.txt's own `klayout==` pin into a throwaway venv. It
+#     pins the region construction `docs/chipalooza/measure_metal_min_area.py`
+#     uses: the pre-#363 `Region().insert(iter)` form under-merged, because
+#     KLayout's merge is property-aware and this repo's routed GDS carries
+#     net-name properties on PDN straps but not on the via cells inside them,
+#     so covered via pads were reported as minimum-area violations. That wrong
+#     count stood for four days -- in two flow READMEs and in issue #333's
+#     waiver -- while the pinned deck's own `met*.area.1` rules reported 0 on
+#     the same GDS. Nothing cross-checked the two; this step is that check.
 #   - `signoff/run-signoff.sh --check` (issue #345) runs in its OWN
 #     `signoff-check` job below rather than in `check:ci`, for one reason: it
 #     is the only PR-blocking check that needs `klt` installed. Everything it
@@ -149,6 +163,29 @@ jobs:
 
       - name: npm run check:ci
         run: npm run check:ci
+
+      # sim/tests/test_measure_metal_min_area.py is the ONE unit test in this
+      # repo that needs the KLayout engine, so `npm run test:unit`'s
+      # interpreter skips it and it would otherwise never run anywhere
+      # (issue #363: the measurement it pins was wrong for four days precisely
+      # because nothing cross-checked it). It needs NO PDK -- the rule table is
+      # supplied inline and the GDS is synthesised in a temp dir -- so it
+      # belongs in this headless job rather than the PDK-gated `pdk-smoke` one.
+      #
+      # The engine pin is READ from layout/requirements.txt rather than
+      # restated here, so this step cannot drift from the version that mints
+      # the evidence. Installed into a venv rather than `pip install --user`,
+      # for the same reason `signoff-check` below does: the self-hosted
+      # runner's interpreter may be externally managed (PEP 668).
+      - name: Region-construction regression test (pinned KLayout engine, no PDK)
+        run: |
+          KLAYOUT_PIN="$(grep -E '^klayout==' layout/requirements.txt)"
+          echo "Installing $KLAYOUT_PIN"
+          python3 -m venv /tmp/venv-klayout
+          /tmp/venv-klayout/bin/pip install --quiet "$KLAYOUT_PIN"
+          /tmp/venv-klayout/bin/python -m unittest discover \
+            --start-directory sim/tests --top-level-directory sim/tests \
+            --pattern 'test_measure_metal_min_area.py' --verbose
 
   signoff-check:
     name: T1 tier-report staleness gate (klt signoff --manifest)

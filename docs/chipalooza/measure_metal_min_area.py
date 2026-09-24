@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Measure sky130A's met1-met5 MINIMUM-AREA rules against this repo's own GDS.
 
-Why this script exists (issue #326)
------------------------------------
-`klt drc --deck sky130` is this repo's layout sign-off gate, and every
-`layout/**/reports/` record it has minted reports `status: "clean"`. That
-verdict is real but *narrow*: at the pinned `klayout-tools==0.5.0`
-(`layout/requirements.txt`) the curated sky130 deck authors 47 rules across
-five kinds (`width`, `space`, `enclosing`, `separation`, `isolated`) and **no
-`area`-kind rule at all**, so sky130A's own minimum-area rules --
+Why this script exists (issue #326), and what it is now (issue #363)
+--------------------------------------------------------------------
+`klt drc --deck sky130` is this repo's layout sign-off gate. It was written
+against a real gap: at the then-pinned `klayout-tools==0.5.0` the curated
+sky130 deck authored 47 rules across five kinds (`width`, `space`,
+`enclosing`, `separation`, `isolated`) and **no `area`-kind rule at all**, so
+sky130A's own minimum-area rules --
 
     m1.6    min. m1 area  0.083  um^2
     m2.6    min. m2 area  0.0676 um^2
@@ -16,15 +15,30 @@ five kinds (`width`, `space`, `enclosing`, `separation`, `isolated`) and **no
     m4.4a   min. m4 area  0.240  um^2
     m5.4    min. m5 area  4.0    um^2
 
--- have never looked at any layout in this repository. A shape below one of
-those thresholds is a real foundry-rule violation that `klt drc` structurally
-cannot see today; the gap is fixed upstream (2AMLogic/klayout-tools#1989,
-commit `50cc29c3`) but not yet released, and this repo does not relax a gate to
-match the tool it happens to have. This script is the stand-in measurement:
-it applies the *same* KLayout primitive the PDK's own deck rule text calls
+-- had never looked at any layout in this repository, and a `status: "clean"`
+verdict said nothing about them. This script was the stand-in: it applies the
+*same* KLayout primitive the PDK's own deck rule text calls
 (`Region#with_area`), against the *same* thresholds and layer numbers, read out
-of the pinned PDK install rather than transcribed here -- so it cannot drift
-from the PDK, and it retires cleanly once the released deck carries the rules.
+of the pinned PDK install rather than transcribed here, so it cannot drift from
+the PDK.
+
+**That gap is closed.** `layout/requirements.txt` has since been bumped to
+`klayout-tools==0.6.0` (issue #103, 2026-09-23), which contains commit
+`50cc29c3` (2AMLogic/klayout-tools#1989). The pinned deck now authors 52 rules
+including `met1.area.1` ... `met5.area.1` and `met1.holes_area.1` ...
+`met5.holes_area.1` -- see any current record's own `drc.json`
+`coverage.rules_checked`. `klt drc` is therefore the primary minimum-area
+measurement again, and this script is no longer a stand-in for a missing rule.
+
+It is kept as an **independent cross-check** rather than retired, because that
+is what caught its own defect: for four days the two measurements disagreed
+(this script claiming 145 residual sub-threshold shapes in the composed GDS,
+`klt drc`'s own `met*.area.1` rules reporting 0), and the disagreement is what
+exposed issue #363's under-merge bug *here*, not in the deck. Two independent
+measurements of the same rule that must agree is a stronger gate than either
+one alone; see `measure_gds()` for the property-aware-merge trap that made them
+disagree, and `sim/tests/test_measure_metal_min_area.py` for the regression
+fixture that now pins it.
 
 Clean room: every number this script uses comes from this repo's own pinned
 sky130A install (`sim/pdk.json`: open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b)
@@ -39,14 +53,20 @@ For each of the five metal layers, on each target GDS:
      PDK's own `libs.tech/klayout/drc/sky130A_mr.drc` (the `mN_wildcard =
      "L/D"` assignments and the `mN.with_area(0..T).output("<rule>", ...)`
      calls). Nothing about the rule set is hardcoded below.
-  2. Flatten the GDS's top cell onto that layer, MERGE it (the DRC deck's
-     `polygons(...)` input is merged-semantics, so two abutting drawn
-     rectangles are one polygon to the rule -- measuring unmerged shapes
-     would report violations the foundry rule does not see), and select the
+  2. Flatten the GDS's top cell onto that layer, drop the shapes' GDS user
+     properties, and MERGE it (the DRC deck's `polygons(...)` input is
+     merged-semantics *plain geometry*, so two abutting drawn rectangles are
+     one polygon to the rule no matter what net each carries -- measuring
+     under-merged shapes reports violations the foundry rule does not see,
+     which is precisely the defect issue #363 found here), then select the
      polygons whose area is below the threshold with `Region#with_area`.
   3. Report every selected polygon's bounding box and area.
 
-A non-empty selection is a real m1.6/m2.6/m3.6/m4.4a/m5.4 violation.
+A non-empty selection is a real m1.6/m2.6/m3.6/m4.4a/m5.4 violation, and --
+since the pinned deck now carries the same rules -- one `klt drc` should have
+reported too. A disagreement between the two is a bug in one of them; do not
+publish a count from this script without checking it against the same record's
+own `drc.json` `met*.area.1` result.
 
 USAGE
 -----
@@ -192,9 +212,42 @@ def measure_gds(gds_path: Path, rules: list[dict]) -> dict:
     layers = []
     for rule in rules:
         li = layout.find_layer(rule["layer"], rule["datatype"])
-        region = kdb.Region()
-        if li is not None:
-            region.insert(top.begin_shapes_rec(li))
+        if li is None:
+            # Layer absent from this GDS entirely: nothing drawn, nothing to
+            # measure. (Kept as an explicit branch because `begin_shapes_rec`
+            # cannot be called with a null layer index.)
+            region = kdb.Region()
+        else:
+            # Build the region from the recursive iterator via the CONSTRUCTOR,
+            # then strip user properties, and only then merge (issue #363).
+            #
+            # The obvious-looking `kdb.Region(); region.insert(iter)` form is
+            # WRONG here and silently overstates every count this script
+            # reports. `Region#insert(RecursiveShapeIterator)` carries each
+            # shape's GDS user properties into the region, and KLayout's merge
+            # is property-AWARE: two polygons whose property sets differ are
+            # never merged with each other, and `Region#area` then counts the
+            # overlap twice. That is exactly the shape of this repo's routed
+            # GDS, where the DEF->GDS merge attaches a net-name property
+            # (`[[1, "VPWR"]]`, `[[1, "VGND"]]`) to each PDN strap while the
+            # generated via cells sitting *inside* those straps carry none --
+            # so a 1.42 x 1.60 um met5 via pad fully covered by a >130 um^2
+            # strap on the same layer was reported as a standalone `m5.4`
+            # violation. Measured on
+            # `layout/sar-adc-top/reports/20260924-190817-f3622fc/sar_adc_top.gds`,
+            # layer 72/20: the `insert()` form yields 24 polygons / 1058.75
+            # um^2, the constructor form 5 polygons / 896.09 um^2 -- and a
+            # correctly merged region's area IS its union area, so the larger
+            # number is the double count, not the smaller one the loss.
+            #
+            # A DRC deck's own `polygons(...)` input is plain drawn geometry
+            # with no property semantics, so dropping properties is what makes
+            # this measurement agree with the rule it stands in for. The
+            # `Region(iter)` constructor already drops them today; the explicit
+            # `remove_properties()` states the requirement rather than relying
+            # on that, and is a no-op when it already holds.
+            region = kdb.Region(top.begin_shapes_rec(li))
+            region.remove_properties()
         region.merge()
         # `Region#with_area` is the exact primitive the deck's own rule text
         # calls. Region coordinates are integer DBU, so the um^2 threshold is
