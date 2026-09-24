@@ -466,6 +466,74 @@ Status field is `proposed -- this record ratifies nothing ...`; only the first
 word is the status, and the prose after it is the record's own argument, not a
 fact this document restates.
 
+### Check 16 -- ERC supply readout parity (`check_erc_readout`)
+
+The first check to reach a `layout/` flow's **second** evidence tree. A flow's
+DRC/LVS verdicts live under `reports/<stamp>/`; its `klt erc` supply verdicts
+are minted by a separate run (`layout/<block>/bin/run-erc.sh`) into
+`erc-reports/<stamp>/`, with a `LATEST` pointer of its own. `EVIDENCE_PATH_RE`
+matches `records|reports` only, so **every ERC citation in this document is
+invisible to checks 3 and 4** -- `layout/sar-adc-top/erc-reports/<stamp>/` is
+not a `reports/` path, and no amount of citing it made it one. The proposal
+carries an ERC readout in two places (Section 3's `klt erc` bullet and Section
+7 item 9's per-supply island table), and until this check landed both were
+hand-transcribed prose that nothing would have caught going stale -- the exact
+drift class this gate exists for, one directory over from where it was already
+guarding.
+
+That the drift is real here rather than theoretical is on the record: item 9
+was written on 2026-09-23 against a failing run (`VPWR`/`VGND` at two islands
+each), and had to be re-transcribed by hand on 2026-09-24 when issue #355's
+supply-rail tie moved every number in it. The same item's own text carries the
+hand check twice -- "the ERC record is no longer a revision behind" was a
+qualification a pass added, then a later pass discharged, both by re-reading.
+
+So item 9 states the readout once, in a fixed sentence form, and this check
+recomputes all of it from the record `erc-reports/LATEST` actually resolves
+to: `erc_status`, the finding count, the per-supply island counts, the layout
+record the run graded, and what that flow's `reports/LATEST` names today.
+`--stats` prints the live sentence for every `layout/` flow that has an ERC
+record, so a fix is a paste.
+
+**Island counts are reconstructed, not read.** `klt erc` reports an island
+count only on the *failing* side, inside the `erc.unconnected_net` finding
+that carries the islands themselves; a passing supply produces no per-net
+number at all. So the "1" this readout states against each supply comes from
+the record's own `erc_coverage.checked` list -- a net that was graded and drew
+no finding resolved to exactly one island. Doing it this way is what lets the
+readout gate a **passing** table, which is the state this document is actually
+in and the one that goes stale silently. Coverage is graded in both directions
+like checks 8, 10, 14 and 15: a supply that disappears from the spec's
+`nets[]` (the cheapest way to make a failing continuity table read clean) is a
+finding, not a shorter table.
+
+**The verdict word is the ERC record's own "Staleness rule" made mechanical.**
+Each ERC record states that a newer `reports/<id>/` makes it stale, not wrong.
+This check evaluates that: `current` requires both that the ERC run graded the
+record `reports/LATEST` names **and** that the stream's sha256 still equals
+the `provenance.input.content_hash` `run-erc.sh` pinned at run time. The hash
+half is the load-bearing one -- a stamp comparison alone would call an ERC
+verdict current while the layout record it names had been rebuilt underneath
+it. Nothing is re-derived: the number compared against is the one the tool
+itself recorded.
+
+Anything unreadable resolves to `stale` rather than to an error: a missing
+`file` field, an absent hash, a stream this checker cannot open. That is the
+conservative direction, and it is chosen on the same reasoning as check 14's
+fingerprint -- a false `stale` is re-checked by hand, a false `current` would
+let an ungraded layout pass as power-delivery-checked.
+
+**What this check deliberately does NOT cover**, stated so it is not read as
+more than it is. It does not grade whether item 11 is *met*: continuity is one
+half of that item, `erc.missing_tie` is the other, and that check is not
+computed at all for this block (disclosed in the record as
+`ties_disclosure.kind = "tool_limitation"`, klayout-tools#2169). A green check
+16 therefore says "the stated supply readout is the current record's own", not
+"power delivery is signed off" -- `signoff/t1-report.json` is what grades the
+item, and it reads `unmet`. Nor does it read the antenna half of the same
+report: `status: clean_partial` is a different claim about a different subject
+(klayout-tools#1994), and item 9 quotes neither.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

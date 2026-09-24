@@ -467,6 +467,17 @@ C {devices/opin.sym} -1200 160 0 0 {name=p16 lab=DOUT2}
 C {devices/opin.sym} -1200 200 0 0 {name=p17 lab=DOUT1}
 C {devices/opin.sym} -1200 240 0 0 {name=p18 lab=DOUT0}
 C {devices/opin.sym} -1200 280 0 0 {name=p19 lab=BUSY}
+* The two DIGITAL supply pins (issue #355, DR-010). They are ports for the
+* same reason VDD is: a rail that is only `.GLOBAL` is powerable by an
+* enclosing testbench but has no place on the block's own interface for a
+* pad to land on -- and `layout/sar-adc-top/`'s own `klt erc` run graded
+* exactly that as a structural power-delivery failure (T1 item 11): both
+* standard-cell macros' rails reached no top-level supply at all. Declaring
+* them here does NOT merge them into VDD/GND (see the item-2 note in the
+* header): VPWR/VGND stay their own domain, with their own pins, per
+* spec/decision-records/DR-010-digital-supply-domain-partition.md.
+C {devices/ipin.sym} -1200 320 0 0 {name=p20 lab=VPWR}
+C {devices/ipin.sym} -1200 360 0 0 {name=p21 lab=VGND}
 
 * --- Sub-block instances ---
 C {design/sampling_frontend.sym} 0 0 0 0 {name=xfe}

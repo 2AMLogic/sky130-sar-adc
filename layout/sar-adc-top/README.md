@@ -47,6 +47,23 @@ klayout-tools#2397 (0.6.0's reader-side #1876 fix never fires on this
 netlist, so `bin/restore-cap-device-class.py` stays load-bearing). See "Update
 (2026-09-23): re-measured on `klayout-tools==0.6.0`" below.
 
+**Update (2026-09-24, issue #355): the digital supply rails are routed, and
+T1 item 11 now passes.** Record `20260924-190817-f3622fc` is the current
+`reports/LATEST`. `bin/build_layout.py` now ties `sar_sequencer`'s and
+`seln_inverters`' own met5 PDN straps together and out to two new top-level
+supply pins (`VPWR`/`VGND`, per
+[`DR-010`](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)),
+which is what `klt erc` had graded FAIL as two disconnected islands per rail.
+DRC stays clean; the LVS verdict **improves** for the first time in this
+flow's history — **21/21/21** pins (was 19/19/19), **88** mismatches (was 98),
+**803/869** devices matched (was 794), nets 443/444/411 — because each digital
+rail is now one net on both sides instead of a `VPWR_SEQ`/`VPWR_SELN` pair.
+The remaining 88 are the *same* klayout-tools#1878 `combine_devices`-scoping
+blocker as before; nothing below about that blocker changed. Numbers quoted
+further down this document that predate this record (98 mismatches, 19/19/19
+pins, 444/446/412 nets) are the state of the record they name and are left
+as written.
+
 **Re-run for issue #245** (`layout/sampling-frontend/`'s own re-verification
 after issue #236's `Sa`/`Cmsw` sizing change), record
 `20260908-072857-80df05e`: DRC is still clean, and the LVS mismatch verdict
@@ -520,10 +537,15 @@ Beyond each block's own already-closed internal wiring, per
 | `DOUT9` | `sar_sequencer.DOUT9` -> external output pin only (no CDAC/SELn use) |
 | `BUSY` | `sar_sequencer.BUSY` -> external output pin |
 | `comparator.OUTN` | left dead-ended (`OUTN_NC`) — not needed by the sequencer |
+| `VPWR` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `VDD`; see DR-010) |
+| `VGND` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `GND`; see DR-010) |
 
-Twenty top-level external chip pins in total: `VINP, VINN, VDD, VREFP, VREFN,
-VCM, CLK, RST_B, DOUT9..DOUT0, BUSY` (matching `design/sar_adc_top.sym`'s own
-pin list exactly).
+**21** top-level external chip pins in total: `VINP, VINN, VDD, VREFP, VREFN,
+VCM, CLK, RST_B, DOUT9..DOUT0, BUSY, VPWR, VGND` (matching
+`design/sar_adc_top.sym`'s own pin list exactly, in order). `VPWR`/`VGND` were
+added by issue #355; before it this list read "Twenty … pins in total" and then
+named nineteen, which the LVS pin counts (19/19/19) had always reported
+correctly.
 
 ## GND / VPWR / VGND: not a routing job (mostly)
 
@@ -545,33 +567,121 @@ declarations and its item-2 "known integration gap" note:
 - **`VDD` (analog) is a real net and must be routed** between
   `sampling_frontend`, `cdac_array`, and `comparator` (and the external
   `VDD` pin) — it is not part of the substrate auto-merge.
-- **Digital `VPWR`/`VGND` are two separate, self-contained domains, and
-  `design/sar_adc_top.sch`'s own netlist keeps them that way.** Neither
-  `VPWR` nor `VGND` is declared `.GLOBAL` in `design/sar_adc_top.spice`, and
-  neither is a formal port of the `sar_sequencer` subckt call at the top
-  level — so by ordinary SPICE hierarchy scoping, `sar_sequencer`'s own
-  internal `VPWR`/`VGND` (already a closed, self-contained rail per #102) is
-  a *different* net from `seln_inverters`' own internal `VPWR`/`VGND`
-  (this issue's own closed macro), even though both literally use the
-  string `"VPWR"`. **Do not tie them together** when building the top-level
-  LVS reference or the physical routing — per the schematic's own
-  documented item-2 gap note, both digital rails are meant to stay
-  unconnected to anything else at this structural level; a future
-  full-ADC testbench (#28/#29/#31) supplies their bias independently, the
-  same way `sim/sar-sequencer-behavioral/`'s own testbench already does.
-  (This is the existing, accepted VDD/GND-vs-VPWR/VGND divergence the
-  schematic's own header already documents, extended to cover two separate
-  digital instances rather than just analog-vs-digital.)
+- **Digital `VPWR`/`VGND` are ONE independent supply domain with their own
+  top-level pins — resolved 2026-09-24 by issue #355 and
+  [`DR-010`](../../spec/decision-records/DR-010-digital-supply-domain-partition.md).**
+  They are **not** tied to the analog `VDD`/`GND` anywhere on-die; they are
+  two distinct `.GLOBAL` nets (`design/sar_adc_top.spice` lines 323–324, since
+  issue #258), each now also a formal top-level port of `sar_adc_top`, and the
+  layout ties `sar_sequencer`'s and `seln_inverters`' own met5 PDN straps
+  together and out to a pin of that name. Both domains sit at the same 1.8 V
+  supply point (DR-001); the partition is of *domains and pins*, not voltages,
+  and the star point between them is off-die. Read DR-010 for the
+  substrate/supply-noise reasoning and for what that reasoning does **not**
+  claim (nothing in `sim/` measures the coupling).
 
-**Graded, as of 2026-09-23 (issue #344).** The paragraph above describes a
-*schematic-level scoping* decision; T1 checklist item 11 (Power delivery —
-structural, klayout-tools#2025) grades the *physical* consequence, and it
-comes back FAIL on exactly this point: `klt erc` reports `VPWR` and `VGND`
-each resolving to **two** disconnected electrical islands (the two macros'
-self-contained rails), neither reaching a top-level supply. `VDD` and `GND`
-each resolve to exactly one island with no short. See "Structural supply
-check (`klt erc`, T1 item 11)" below; the digital-rail finding is tracked as
-**#355**.
+  <details>
+  <summary>Superseded reading (pre-#355), kept because several documents still
+  cite it</summary>
+
+  This section used to say: "*Neither `VPWR` nor `VGND` is declared `.GLOBAL`
+  in `design/sar_adc_top.spice`, and neither is a formal port of the
+  `sar_sequencer` subckt call at the top level — so by ordinary SPICE hierarchy
+  scoping, `sar_sequencer`'s own internal `VPWR`/`VGND` is a different net from
+  `seln_inverters`'. **Do not tie them together.**"
+
+  Two things were wrong with it by the time #355 read it. The `.GLOBAL` half
+  had been **false since issue #258** (which added the `lvpwr1`/`lvgnd1`
+  `global=true` label instances precisely so each rail would be one net across
+  the hierarchy) — the prose was never updated, and
+  `bin/generate-lvs-reference.py` had encoded the stale reading as
+  `VPWR_SEQ`/`VPWR_SELN`. The "do not tie them" half was a *scoping* claim
+  doing duty as a *physical* one: schematic scoping says nothing about whether
+  a laid-out block is powerable, and item 11 graded the physical question FAIL.
+
+  </details>
+
+**Graded: the supply-continuity half now passes; item 11 as a whole is still
+unmet (2026-09-24).** T1 checklist item 11 (Power delivery — structural,
+klayout-tools#2025) grades the *physical* question — is the supply connected to
+what it powers. Its first run (issue #344,
+`erc-reports/20260923-143401-1ee4ba8/`) came back FAIL: `VPWR` and `VGND` each
+resolved to **two** disconnected electrical islands, neither reaching a
+top-level supply. Issue #355 fixed the layout (not the spec, whose content hash
+is unchanged between the two runs), and `erc-reports/20260924-190825-f3622fc/`
+reports `erc_status: clean`, 0 findings — all four declared supplies at exactly
+one island each, no `erc.supply_short`. **The item still does not render `met`**:
+`klt signoff` renders it `unmet` / `check_failed`, because its grading path
+(`_grade_power_delivery`) checks the cited LVS part *first* and item 4's LVS is
+still `mismatch` (klayout-tools#1878) — so the continuity half being clean is
+not what the reason is about. Behind that sits a second, latent reason the run
+never gets to: the item also requires zero `erc.missing_tie` from a tie the run
+actually checked, and this spec declares no `ties[]` (klayout-tools#2169 would
+turn a correct one into a false `erc.supply_short`), the state
+`supply_spec_disclosed_tool_limitation` names. See "Structural supply check
+(`klt erc`, T1 item 11)" below.
+
+**One stale-prose caveat, disclosed rather than edited away.**
+`erc-supply-spec.json` is deliberately byte-identical to the spec #344 wrote —
+that is what makes "the layout moved, not the gate" checkable, since both ERC
+records pin the same spec content hash. The cost is that three of its *prose*
+`_comment`/`ties_disclosure` passages still describe the #344-era run: the
+`SCOPE` block names the older graded GDS, the `VPWR` net comment says the rail
+is "KNOWN to come back as more than one island", and the tie disclosure's
+stand-in (c) quotes the old split `VPWR_SEQ`/`VPWR_SELN` LVS correspondence
+(now a single `VPB|VPWR` ↔ `VPWR`). None of it is graded content — `stackup`,
+`vias`, `nets[].name`/`kind` and the pass condition are untouched — but
+`ties_disclosure.reason` is echoed verbatim into every `erc.json`, so the third
+one ships inside committed evidence. Refreshing it re-mints the ERC record and
+cascades through the manifest, the tier report and four documents, so it is
+tracked as **#364** rather than folded in here.
+
+### The digital-rail route itself (issue #355)
+
+`bin/build_layout.py`'s `digital_supply_rail()` — **one met5 rectangle per
+rail, no via anywhere.** This is what open question 2 below had left untried.
+The two macros are placed at the same `dy` (`OFFSETS`), so `sar_sequencer`'s
+met5 strap for a rail and exactly one of `seln_inverters`' straps for the same
+rail occupy the *same* global y band:
+
+| Rail | Global y band (µm) | `sar_sequencer` strap x | `seln_inverters` strap x | Rail rectangle x |
+|---|---|---|---|---|
+| `VPWR` | −120.88 … −119.28 | 23.4175 … 61.5975 | 89.9875 … 172.2075 | 15.0 … 91.9875 |
+| `VGND` | −134.48 … −132.88 | 23.4175 … 61.5975 | 89.9875 … 171.8675 | 15.0 … 91.9875 |
+
+A rectangle spanning that band is therefore *colinear* with both straps — same
+layer, same 1.6 µm width (`m5.1`'s own minimum, which is what both macros'
+`klt place-and-route` drew) — so it merges into one polygon rather than
+landing on anything. Three consequences, none cosmetic:
+
+- **No via4 riser is needed**, so nothing has to satisfy `m5.3` (0.31 µm met5
+  enclosure of via4) or `m5.4` (4.0 µm² minimum area — sixteen times the area
+  of this module's own `ISLAND_PAD_UM` pad) on a freestanding pad. This module
+  draws no met5 pad at all, and `MET5` is deliberately left out of
+  `build_layout.py`'s `_METAL_CHAIN` so a future `riser(..., MET5)` fails loudly
+  instead of minting an illegal pad.
+- **No new spacing relation appears inside either macro.** Over each macro's
+  own footprint the rectangle is geometrically identical to the strap it merges
+  with, so the merged polygon's edges are the strap's own — already legal
+  against that macro's own neighbouring straps, which sit 12.0 µm away in y
+  (7.5× `m5.2`).
+- **It crosses no other net.** The rectangle is horizontal and every strap is
+  horizontal; `_check_digital_rail_clearance()` asserts every *other* strap's y
+  band clears this one by at least `m5.2`, and that neither rail's west stub
+  enters any other placed block's bbox. It passes *over* both macros' met4 PDN
+  columns, which is not a connection without a via4.
+
+The top-level `VPWR`/`VGND` pin labels land at `x = 18.0`, on the stretch of
+each rectangle that lies west of both macros' footprints — so the promoted pin
+is unambiguously on conductor this module drew (`--pin-source-cells` would not
+promote a macro-internal label anyway). Top-level pins go 19 → **21**.
+
+`klt drc` grades this geometry rather than the README arguing it: the pinned
+0.6.0 deck authors `met5.width.1` / `met5.space.1` / `met5.area.1` (see
+`reports/20260924-190817-f3622fc/drc.json`'s `coverage.rules_checked`) and the
+record is clean, 0 violations. The `klt erc` cross-checks that show the met5
+rectangle is what actually joins the two islands — including an ablation
+against the pre-#355 GDS — are in the ERC record's own "Cross-checks".
 
 ## Structural supply check (`klt erc`, T1 item 11)
 
@@ -581,16 +691,26 @@ check (`klt erc`, T1 item 11)" below; the digital-rail finding is tracked as
 | Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
 | Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
 | Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
+| Current record | `erc-reports/20260924-190825-f3622fc/` — `erc_status: clean`, 0 findings, grading `reports/20260924-190817-f3622fc/sar_adc_top.gds` |
+
+| Record | Graded GDS | Supply continuity | Item 11 as graded |
+|---|---|---|---|
+| `20260923-143401-1ee4ba8` (issue #344, first run) | `reports/20260919-050355-fb11617/` | **FAIL** — `VPWR`/`VGND` 2 islands each | `unmet` |
+| `20260924-190825-f3622fc` (issue #355) | `reports/20260924-190817-f3622fc/` | **PASS** — all four supplies 1 island each, 0 findings | `unmet` — `erc.missing_tie` is not computed (below) |
+
+The spec is **byte-identical** across those two runs (`sha256:fd4f5a93…` in
+both records' own `provenance.spec.content_hash`). The verdict moved because
+the layout moved, which is the only way it is allowed to move here.
 
 This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
 content hash; it regenerates no geometry, which is why it lives in its own
 `erc-reports/` tree rather than inside a `reports/` record (those are
-append-only). It runs on a **second, narrower `klt` pin** (0.6.0) than the
-DRC/LVS flow's `layout/requirements.txt` (0.5.0), because 0.5.0's `klt erc`
-emits no `provenance` block and so cannot pin a report to its input at all —
-the full justification, and the cross-check showing the supply verdict is
-identical on both builds, are in `layout/erc-requirements.txt`'s header and
-each record's own `record.md`.
+append-only). It runs from its own venv (`layout/.venv-erc`,
+`layout/erc-requirements.txt`) rather than the DRC/LVS flow's `layout/.venv`
+— the two pins are free to move independently, and the reason that separation
+was introduced was that `klayout-tools==0.5.0`'s `klt erc` emitted no
+`provenance` block and so could not pin a report to its input at all. Both
+files now pin 0.6.0; see `layout/erc-requirements.txt`'s own header.
 
 `erc.missing_tie` is deliberately **not computed** (no `ties[]` declared),
 disclosed in-report as `ties_disclosed_tool_limitation`: klayout-tools#2169
@@ -635,14 +755,19 @@ Open questions this investigation worked through before that implementation
    pins — reaching them means a routed wire's own met5 geometry has to
    extend into (and overlap) that macro's own bounding box at the exact
    strap coordinates above, which is legal (same-layer overlap merges,
-   rather than violating spacing) but has not been tried here. **Update:**
-   per `design/sar_adc_top.spice`'s own hierarchy scoping (re-confirmed
-   directly against the generated netlist during this investigation),
-   neither `VPWR` nor `VGND` is a formal port of either macro's subckt call
-   at the top level — so this issue does not need to reach these straps at
-   all; they stay self-contained per-macro rails, exactly as the "GND / VPWR
-   / VGND" section below already concluded. Listed here only so a future
-   reader does not re-open the question.
+   rather than violating spacing) but has not been tried here. **Update
+   (2026-09-19, superseded):** it read "neither `VPWR` nor `VGND` is a formal
+   port of either macro's subckt call at the top level — so this issue does not
+   need to reach these straps at all; they stay self-contained per-macro
+   rails." **Resolved the other way, 2026-09-24 (issue #355, DR-010): the
+   straps ARE reached, and the original prediction above was the right one.**
+   Same-layer overlap does merge; it needs no via and no pad, and DRC is clean.
+   What the superseded update got wrong was treating a schematic-scoping
+   argument as settling a physical question — `klt erc` then graded the
+   physical question FAIL (two disconnected islands per rail, neither reaching
+   a top-level supply). See "The digital-rail route itself (issue #355)" above
+   for the geometry, and DR-010 for why the rails are one independent domain
+   rather than being tied to analog `VDD`/`GND`.
 3. `cdac_array` (223 µm wide) is far wider than `sampling_frontend` (196 µm)
    or `comparator` (24 µm), and its `TOP_P`/`TOP_N` sit on opposite edges
    ~221 µm apart while `sampling_frontend`/`comparator`'s own `TOP_P`/`TOP_N`

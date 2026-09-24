@@ -520,6 +520,49 @@ ROWS: tuple[Row, ...] = (
         sim_citations=("sim/comparator-decision/records/20260906-065109-eedd532.md",),
     ),
     Row(
+        id="kickback",
+        spec_row="Kickback",
+        status="DRAFT",
+        spec_anchor="spec/target-spec.md#target-table",
+        conditions=(
+            "SINGLE CORNER ONLY: process {tt} x temperature {27} C x supply "
+            "{1.8} V, 1 PVT point -- a first-pass, nominal-corner-only probe, "
+            "not the ratified corner set the DRAFT row's bound is stated at. "
+            "1 kOhm series source impedance on each of VINP/VINN (ideal DC "
+            "source -> resistor -> DUT pin), Vcm = 0.9 V, one reset(5.0 ns, "
+            "CLK=0) -> evaluate(CLK=1.8 V) edge per run over a 40 ns evaluate "
+            "window; the measured quantity is the peak pin disturbance across "
+            "that transition."
+        ),
+        verdict=(
+            "INFORMATIONAL (DRAFT row, no ratified line to grade against). "
+            "Worst-case peak pin disturbance 73.3673 mV on VINP at "
+            "Vindiff = +50 mV -- approx. 14.7x the DRAFT <=5 mV target and "
+            "approx. 36.7x the <=2 mV stretch, at the one corner measured."
+        ),
+        notes=(
+            "The Kickback row itself is new as of 2026-09-24 "
+            "(spec/decision-records/DR-011-comparator-kickback-target-row.md, "
+            "issue #361): before it, this measurement had no spec row of any "
+            "status to be reported against. DR-011 adopts the sibling "
+            "2AMLogic/sky130-comparator canary's own DR-002-ratified bound "
+            "(<=5 mV / <=2 mV, 1 kOhm source, single decision edge) verbatim, "
+            "as a stated interim choice rather than a bound derived from this "
+            "block's system-level budget -- so the multipliers above are "
+            "informational against an adopted candidate, not a verdict against "
+            "a ratified line, and CLAUDE.md's 'do not relax a spec line to make "
+            "a result pass' rule is why the gap is recorded rather than the "
+            "bound widened. Decomposition, from the cited record's own "
+            "Vindiff = 0 mV control row (-70.3419 mV): approx. 95.9 % of the "
+            "disturbance is CLK-gated reset/precharge/tail switching and only "
+            "approx. 4.1 % (3.0254 mV) is the decision transient itself. A "
+            "full-corner campaign is owed before this row could be ratified "
+            "(DR-011 Consequences section 5); mitigation selection is issue "
+            "#349's, which this row unblocks."
+        ),
+        sim_citations=("sim/comparator-decision/records/20260924-041815-afcb1b5.md",),
+    ),
+    Row(
         id="power",
         spec_row="Power",
         status="DRAFT",

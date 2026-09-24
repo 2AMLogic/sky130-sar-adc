@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "worktree:return": "./.loom/scripts/worktree-return.sh",
-    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:report",
+    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:signoff-hashes && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:report",
     "check:all": "npm run check:ci && npm run check:layout",
     "check:harness": "./sim/selftest.sh",
     "check:harness:quick": "./sim/selftest.sh --quick",
@@ -14,12 +14,14 @@
     "check:klt-pin-evidence": "./layout/bin/check-klt-pin-evidence.sh",
     "check:proposal-citations": "python3 docs/chipalooza/check_proposal_citations.py",
     "check:report": "python3 sim/report/generate.py --check",
+    "check:signoff-hashes": "python3 signoff/check_evidence_hashes.py",
+    "check:signoff": "bash signoff/run-signoff.sh --check",
     "check:spec-coverage": "python3 sim/check_spec_coverage.py",
     "render:spec-coverage": "python3 sim/check_spec_coverage.py --render",
     "test": "npm run test:compile && npm run test:unit",
-    "test:compile": "find docs sim layout -name '*.py' -not -path 'layout/.venv/*' -not -path 'layout/.venv-erc/*' -print0 | xargs -0 -r -n1 python3 -m py_compile",
+    "test:compile": "find docs sim layout signoff -name '*.py' -not -path 'layout/.venv/*' -not -path 'layout/.venv-erc/*' -print0 | xargs -0 -r -n1 python3 -m py_compile",
     "test:unit": "python3 -m unittest discover --start-directory sim/tests --top-level-directory sim/tests",
-    "lint": "find sim layout -name '*.json' -not -path 'layout/.venv/*' -not -path 'layout/.venv-erc/*' -not -path 'layout/trivial-cell/reports/*' -print0 | xargs -0 -r -n1 python3 -m json.tool > /dev/null && bash -n sim/selftest.sh && bash -n sim/env.sh && bash -n layout/bin/setup-venv.sh && bash -n layout/bin/setup-erc-venv.sh && bash -n layout/bin/run-trivial-cell-flow.sh && bash -n layout/bin/check-klt-pin-evidence.sh && bash -n layout/comparator/bin/run-flow.sh && bash -n layout/sampling-frontend-wells/bin/run-flow.sh && bash -n layout/sampling-frontend/bin/run-flow.sh && bash -n layout/seln-inverters/bin/run-flow.sh && bash -n layout/sar-adc-top/bin/run-erc.sh && bash -n loom.sh"
+    "lint": "find sim layout signoff -name '*.json' -not -path 'layout/.venv/*' -not -path 'layout/.venv-erc/*' -not -path 'layout/trivial-cell/reports/*' -print0 | xargs -0 -r -n1 python3 -m json.tool > /dev/null && bash -n sim/selftest.sh && bash -n sim/env.sh && bash -n signoff/run-signoff.sh && bash -n layout/bin/setup-venv.sh && bash -n layout/bin/setup-erc-venv.sh && bash -n layout/bin/run-trivial-cell-flow.sh && bash -n layout/bin/check-klt-pin-evidence.sh && bash -n layout/comparator/bin/run-flow.sh && bash -n layout/sampling-frontend-wells/bin/run-flow.sh && bash -n layout/sampling-frontend/bin/run-flow.sh && bash -n layout/seln-inverters/bin/run-flow.sh && bash -n layout/sar-adc-top/bin/run-erc.sh && bash -n loom.sh"
   },
   "version": "0.0.0"
 }
