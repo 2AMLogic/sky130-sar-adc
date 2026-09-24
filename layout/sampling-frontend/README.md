@@ -53,10 +53,20 @@ over met3.space. Everything else is unchanged: the record's `drc.json` and
 (all eleven verdicts, 24/24 devices, 17/17 nets, 12/12 pins), and the composed
 cell's own bbox is unchanged at `(0, -2.4; 195.56, 58.97)`. Verified with
 `docs/chipalooza/measure_metal_min_area.py`, which now reports **0** shapes
-below any metal minimum-area threshold for this flow — `klt drc` cannot
-replace that measurement until a `klayout-tools` release carries #1989. That
-script's own `--json` output against this record is committed beside it, as
+below any metal minimum-area threshold for this flow. That script's own
+`--json` output against this record is committed beside it, as
 `reports/20260918-191227-935ce76/minimum-area.json`.
+
+**Two later updates to that paragraph, neither of which moves this flow's
+0-shape result.** (1) The sentence it used to end on — "`klt drc` cannot
+replace that measurement until a `klayout-tools` release carries #1989" — is
+stale: `layout/requirements.txt` moved to `klayout-tools==0.6.0` (issue #103,
+2026-09-23), which carries #1989's `met1.area.1` … `met5.area.1` rules, so a
+re-run of this flow on the current pin would grade minimum area in-deck. (2)
+Issue #363 found the script **under-merged** its region and overstated
+sub-threshold counts elsewhere in `layout/`; this flow measured 0 before and
+after that fix, so the committed `minimum-area.json` above is unaffected.
+See `layout/sar-adc-top/README.md`'s "Minimum-area rules" section for both.
 
 | # | Verdict | Why it is here |
 | --- | --- | --- |

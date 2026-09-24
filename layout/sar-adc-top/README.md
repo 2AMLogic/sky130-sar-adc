@@ -127,8 +127,9 @@ current writeup of both gaps.
 `20260918-191315-935ce76`: DRC stays clean and the LVS verdict is
 field-identical to `20260915-234004-76f48b9` (98 mismatches, 869/869/794
 devices, 444/446/412 nets, 19/19/19 pins, same four categories). What changed
-is geometry `klt drc` structurally could not see — see "Minimum-area rules:
-measured out-of-band, because the deck has none" below. The composition's own
+is geometry `klt drc` structurally could not see at the `klt 0.5.0` pin of the
+day — see "Minimum-area rules: in the deck since `klt 0.6.0`, and clean"
+below, which also corrects that section's counts. The composition's own
 top-level `bbox_um` moves for the first time since PR #174, by 0.05 um in `x0`
 only (-20.200 -> -20.250), because the external `VDD` pin's label-only met4
 landing pad widened from 0.36 to 0.50 um; that pad is the composition's
@@ -137,23 +138,30 @@ leftmost shape. This re-run also picked up `layout/cdac-array/`'s,
 and `layout/sampling-frontend/`'s new `20260918-191227-935ce76`, so all five
 composition inputs are again each flow's current `reports/LATEST`.
 
-### Minimum-area rules: measured out-of-band, because the deck has none
+### Minimum-area rules: in the deck since `klt 0.6.0`, and clean
 
-`klt drc --deck sky130` at the pinned `klayout-tools==0.5.0` authors **47
-rules across five kinds** (`width`, `space`, `enclosing`, `separation`,
-`isolated`) and **no `area`-kind rule at all**. sky130A's own metal
-minimum-area rules — `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a`
-0.240, `m5.4` 4.0 um^2, all five in the pinned PDK's own
-`libs.tech/klayout/drc/sky130A_mr.drc` — had therefore never looked at this
-layout, and a `status: "clean"` verdict said nothing about them. The deck gap
-is fixed upstream (klayout-tools#1989, commit `50cc29c3`) but **not
-released**; this repo grades against what is released.
+**Premise update (issue #363).** This section used to open "the deck has
+none", and that was true of `klayout-tools==0.5.0`: 47 rules across five kinds
+(`width`, `space`, `enclosing`, `separation`, `isolated`) and **no `area`-kind
+rule at all**, so sky130A's own metal minimum-area rules — `m1.6` 0.083,
+`m2.6` 0.0676, `m3.6` 0.240, `m4.4a` 0.240, `m5.4` 4.0 um^2, all five in the
+pinned PDK's own `libs.tech/klayout/drc/sky130A_mr.drc` — had never looked at
+this layout, and a `status: "clean"` verdict said nothing about them.
 
-Until that release lands, minimum area is measured out-of-band by
-`docs/chipalooza/measure_metal_min_area.py`, which reads the thresholds and
-layer numbers out of the pinned PDK's own deck (never transcribed) and applies
-KLayout's own `Region#with_area` — the same primitive the deck's rule text
-calls — to each flow's current record:
+That gap closed when `layout/requirements.txt` moved to
+`klayout-tools==0.6.0` (issue #103, 2026-09-23), which contains
+klayout-tools#1989 (commit `50cc29c3`). **The pinned deck now authors 52 rules
+including `met1.area.1` … `met5.area.1` and `met1.holes_area.1` …
+`met5.holes_area.1`** — read them out of this record's own
+`reports/20260924-190817-f3622fc/drc.json` `coverage.rules_checked`, which
+reports **0 violations**. Minimum area is a first-class part of this flow's
+`klt drc` verdict again, not an out-of-band footnote.
+
+`docs/chipalooza/measure_metal_min_area.py` is kept as an **independent
+cross-check** rather than retired. It reads the thresholds and layer numbers
+out of the pinned PDK's own deck (never transcribed) and applies KLayout's own
+`Region#with_area` — the same primitive the deck's rule text calls — to each
+flow's current record:
 
 ```
 layout/bin/setup-venv.sh                                    # once
@@ -173,27 +181,56 @@ module's own wires keeps `PAD_UM` and none of the empirically-tuned clearances
 documented below moves. The composed GDS now measures **0** shapes below
 `m3.6`/`m4.4a`.
 
-What remains below threshold in the composed GDS is **145 shapes on
-met1/met2/met3/met5 that `klt`'s own place-and-route emitted** inside
-`sar_sequencer`/`seln_inverters` — generated via cells (`VIA_L1M1_PR_MR` met1
-0.290x0.230 um, `VIA_M2M3_PR` met3 0.330x0.330 um, `VIA_via5_6_*` met5
-1.420x1.600 um) and router-drawn stubs. No `sky130_fd_sc_hd__*` library cell
-violates anything. That is not geometry this repo authors: investigated under
-issue #333, which found no fix reachable from this repo and closed with an
-explicit dated waiver in each producing flow's README
-(`layout/sar-sequencer/README.md`'s 112 shapes and
-`layout/seln-inverters/README.md`'s 33 — 112 + 33 = the 145 above exactly, the
-composition itself adding none). Filed generically upstream as
-klayout-tools#2072 (closed; its fix landed for `klt gen-compose` only, the
-place-and-route half explicitly not reproduced) and re-filed with a reproducing
-input as klayout-tools#2139.
+**Nothing remains below threshold. The "145 residual shapes" this section
+used to report never existed** — they were an artifact of the measuring
+script, corrected under issue #363.
 
-The measurement itself is committed alongside the record it grades:
-`reports/20260918-191315-935ce76/minimum-area.json` is that script's own
-`--json` output against this record's `sar_adc_top.gds` — 0 shapes below
-`m3.6`/`m4.4a`, and every one of the 145 residual met1/met2/met3/met5 shapes
-listed with its own bounding box, so #333 starts from measured geometry rather
-than a re-derivation.
+That figure claimed 145 shapes on met1/met2/met3/met5 emitted by `klt`'s own
+place-and-route inside `sar_sequencer`/`seln_inverters` (generated via cells
+`VIA_L1M1_PR_MR` met1 0.290×0.230 um, `VIA_M2M3_PR` met3 0.330×0.330 um,
+`VIA_via5_6_*` met5 1.420×1.600 um, plus router-drawn stubs), split 112 +
+33 across the two producing flows. Every one of them is **fully merged into a
+wire or a PDN strap on its own layer** in the drawn GDS, which is exactly what
+the PDK's tech-LEF expects of a via enclosure — so none of them is below
+anything. The script under-merged: it built its region with
+`kdb.Region(); region.insert(iter); region.merge()`, and
+`Region#insert(RecursiveShapeIterator)` carries each shape's GDS user
+properties across, where KLayout's merge is property-aware and refuses to
+merge polygons whose properties differ. This repo's routed GDS attaches a
+net-name property (`[[1, "VPWR"]]`, `[[1, "VGND"]]`) to each PDN strap and
+none to the via cells inside it, so covered pads stayed separate polygons and
+were counted as standalone violations. On this record's met5 the two
+constructions read 24 polygons / 1058.75 um^2 (buggy) against 5 polygons /
+896.09 um^2 (correct) — and a merged region's area *is* its union area, so the
+larger number is a double count.
+
+**Two independent measurements now agree at zero**, which is how the defect
+was caught in the first place:
+
+| Measurement | `m1.6` | `m2.6` | `m3.6` | `m4.4a` | `m5.4` |
+| --- | --- | --- | --- | --- | --- |
+| `drc.json`'s own `met*.area.1` (record `20260924-190817-f3622fc`) | 0 | 0 | 0 | 0 | 0 |
+| `measure_metal_min_area.py`, corrected | 0 | 0 | 0 | 0 | 0 |
+| `measure_metal_min_area.py`, pre-#363 (**wrong**) | 114 | 6 | 8 | 0 | 15 |
+
+The same correction applies to the two producing flows measured on their own
+GDS: `layout/sar-sequencer/` 112 → **0**, `layout/seln-inverters/` 33 → **0**.
+Issue #333's waiver over those residuals is therefore **withdrawn, not
+reaffirmed** — there was nothing to waive. The upstream filings that rested on
+the same count (klayout-tools#2072/#2075, klayout-tools#2139) are noted as
+superseded in each flow's README.
+
+The regression is pinned by `sim/tests/test_measure_metal_min_area.py`, which
+reproduces the two constructions on a synthetic fixture where they disagree
+(a property-bearing strap covering a sub-threshold via pad) and asserts the
+corrected one; CI's headless `checks` job runs it against the pinned KLayout
+engine.
+
+`reports/20260918-191315-935ce76/minimum-area.json` — that script's `--json`
+output against the superseded 2026-09-18 record — is **pre-#363 output and its
+`below_min_area` counts are wrong**. It is kept, not rewritten:
+`layout/` evidence is append-only, and a record says what was measured at the
+time. Read it only through this section.
 
 `layout/sar-adc-top/bin/build_layout.py` places all five sub-blocks (`klt
 gen-compose`, explicit placement, each named as a `blocks[].cell` entry per
