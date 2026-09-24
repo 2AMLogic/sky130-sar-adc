@@ -40,10 +40,12 @@ compares against), the live area readout of every `layout/` flow whose current
 record carries a composition (the sentence check 13 compares against), the provenance of every
 input that composition embeds (the sentence check 14 compares against) and the
 live power readout of every `sim/` campaign whose current record carries a
-Power table (the sentence check 12 compares against) and the live status of
+Power table (the sentence check 12 compares against), the live status of
 every `spec/decision-records/` record (the sentence check 15 compares
-against) instead of checking, which is what to run when check 6, 9, 12, 13,
-14 or 15 reports a drift. Exit status:
+against) and the live `klt erc` supply readout of every `layout/` flow that
+has one (the sentence check 16 compares against) instead of checking, which
+is what to run when check 6, 9, 12, 13, 14, 15 or 16 reports a drift. Exit
+status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -411,6 +413,64 @@ DECISION_RECORD_READOUT_RE = re.compile(
 # record in running prose. Ambiguous whenever two records share that number
 # AND disagree about their status -- see check 15.
 BARE_DECISION_RECORD_RE = re.compile(r"\bDR-(\d+)\b")
+
+# Where a `layout/` flow keeps its `klt erc` supply verdicts. They are a
+# SEPARATE append-only tree from `reports/`, with a pointer file of their own,
+# which is exactly why no earlier check can see them: `EVIDENCE_PATH_RE`
+# matches `records|reports` only, so `layout/<block>/erc-reports/<stamp>/` is
+# invisible to checks 3 and 4 however the document cites it.
+ERC_POINTER_DIR = "erc-reports"
+
+# One declared supply `klt erc` actually graded for connectivity, as its own
+# coverage list states it. Read from the record rather than from the spec file
+# the run was driven by: the spec is a live, editable input, the record is
+# evidence -- and "which nets were graded" is a property of the run.
+ERC_NET_COVERAGE_RE = re.compile(r'^erc\.net_connectivity:\["(?P<net>[^"]+)"\]$')
+
+# The finding `klt erc` writes when a declared supply resolves to more than one
+# electrical island, carrying the island list its count comes from. A supply
+# with no such finding resolved to exactly one island: the report states no
+# per-net island count on the passing side, so one is the only reading.
+ERC_UNCONNECTED_RULE = "erc.unconnected_net"
+
+# The graded layout record inside `erc.json`'s own `file` field. That field is
+# the path `klt erc` was invoked with, verbatim -- repo-relative since #355,
+# absolute inside an ephemeral worktree before it -- so the stamp is matched
+# out of it rather than the whole path being resolved.
+ERC_GRADED_RE = re.compile(
+    r"reports/(?P<stamp>" + STAMP + r")/(?P<artefact>[A-Za-z0-9._-]+)$"
+)
+
+# `klt`'s own content-hash prefix, as `provenance.input.content_hash` writes it.
+ERC_HASH_PREFIX = "sha256:"
+
+# The two verdict words the ERC readout may end in, keyed on whether the ERC
+# record grades the bytes the flow's `reports/LATEST` carries today. This is
+# the record's own "Staleness rule" ("a new `reports/<id>/` makes this one
+# stale, not wrong"), which nothing else in this repository evaluates.
+ERC_CURRENT = "current"
+ERC_STALE = "stale"
+
+# The ERC supply readout check 16 gates, stated in Section 7 as a blockquote
+# (so it is read off the same whitespace-collapsed text checks 9, 14 and 15
+# use). Deliberately free of the phrase "current `reports/LATEST`": this
+# sentence names a pointer *and* a verdict word, and spelling it that way
+# would enrol the sentence in check 4/6's census as well, where it is not a
+# citation of anything.
+ERC_READOUT_RE = re.compile(
+    r"on the record `(?P<flow>layout/[A-Za-z0-9._-]+)/erc-reports/LATEST` resolves "
+    r"to, `klt erc` reports `erc_status` \*\*(?P<erc_status>[a-z_]+)\*\* with "
+    r"\*\*(?P<finding_count>\d+)\*\* findings; the declared supplies resolve to "
+    r"(?P<islands>(?:`[A-Za-z][A-Za-z0-9_]*` \*\*\d+\*\*(?:, )?)+) electrical "
+    r"islands; and it grades `(?P<graded>" + STAMP + r")`, while `reports/LATEST` "
+    r"there names `(?P<latest>" + STAMP + r")`: "
+    r"\*\*(?P<status>" + ERC_CURRENT + r"|" + ERC_STALE + r")\*\*\."
+)
+
+# One `<net> <islands>` pair inside that sentence's island clause. Each net is
+# backticked and each count bolded, which makes the clause self-delimiting
+# however many supplies a spec declares.
+ERC_ISLAND_RE = re.compile(r"`(?P<net>[A-Za-z][A-Za-z0-9_]*)` \*\*(?P<islands>\d+)\*\*")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -1835,6 +1895,163 @@ def check_decision_record_status(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def erc_readout(block: str) -> dict | None:
+    """The live `klt erc` supply readout of `layout/<block>/`'s current record.
+
+    `None` when the flow has no `erc-reports/LATEST`, or that record carries no
+    readable `erc.json` -- there is nothing for check 16 to compare against,
+    and that condition is reported by the check rather than silently skipped.
+
+    Per-supply island counts are reconstructed rather than read: `klt erc`
+    states an island count only on the failing side, inside the
+    `erc.unconnected_net` finding that carries the islands themselves. A
+    declared net that was graded (it appears in `erc_coverage.checked`) and has
+    no such finding resolved to exactly one island. Reconstructing it here is
+    what lets the readout state a PASSING supply table at all -- which is the
+    table this document actually carries, and the one that goes stale silently.
+    """
+    stamp = _read_pointer("layout", block, ERC_POINTER_DIR)
+    if stamp is None:
+        return None
+    stamp = stamp.split("/")[0]
+    report = _load_json(
+        REPO_ROOT / "layout" / block / ERC_POINTER_DIR / stamp / "erc.json"
+    )
+    if report is None:
+        return None
+
+    coverage = report.get("erc_coverage") or {}
+    islands = {}
+    for entry in coverage.get("checked") or []:
+        graded_net = ERC_NET_COVERAGE_RE.fullmatch(str(entry))
+        if graded_net is not None:
+            islands[graded_net.group("net")] = 1
+    for finding in report.get("erc_findings") or []:
+        if not isinstance(finding, dict):
+            continue
+        net = finding.get("net")
+        if finding.get("rule") != ERC_UNCONNECTED_RULE or net not in islands:
+            continue
+        islands[net] = len(finding.get("islands") or [])
+
+    graded = ERC_GRADED_RE.search(str(report.get("file") or ""))
+    latest = _pointer_stamp("layout", block)
+    return {
+        "erc_status": report.get("erc_status"),
+        "finding_count": report.get("erc_finding_count"),
+        "islands": islands,
+        "graded": graded.group("stamp") if graded else None,
+        "latest": latest,
+        "status": _erc_status_word(block, report, graded, latest),
+    }
+
+
+def _erc_status_word(
+    block: str, report: dict, graded: re.Match | None, latest: str | None
+) -> str:
+    """`current` only if the ERC verdict grades the bytes `reports/LATEST` holds.
+
+    Both halves are required, and the second is the one that matters: a stamp
+    comparison alone would call an ERC record current while the layout record
+    it names had been rebuilt under it. `klt erc` records the graded stream's
+    own sha256, and `run-erc.sh` asserts it at run time, so the comparison here
+    is against the same number the tool itself pinned -- not a re-derivation.
+
+    Anything unreadable (a missing `file` field, a stream this checker cannot
+    open, an absent hash) reads as `stale`: the conservative direction, since a
+    false `current` would let an ungraded layout pass as power-delivery-checked
+    while a false `stale` is re-checked by hand.
+    """
+    if graded is None or latest is None or graded.group("stamp") != latest:
+        return ERC_STALE
+    stated_hash = ((report.get("provenance") or {}).get("input") or {}).get(
+        "content_hash"
+    )
+    if not isinstance(stated_hash, str) or not stated_hash.startswith(ERC_HASH_PREFIX):
+        return ERC_STALE
+    stream = (
+        REPO_ROOT / "layout" / block / "reports" / latest / graded.group("artefact")
+    )
+    try:
+        digest = hashlib.sha256(stream.read_bytes()).hexdigest()
+    except OSError:
+        return ERC_STALE
+    return (
+        ERC_CURRENT
+        if digest == stated_hash[len(ERC_HASH_PREFIX) :]
+        else ERC_STALE
+    )
+
+
+def erc_sentence(block: str, readout: dict) -> str:
+    """The ERC readout in exactly the sentence form `ERC_READOUT_RE` matches.
+
+    Used by `--stats` so the fix for a check-16 failure is a paste, as it is
+    for checks 9, 12, 13, 14 and 15.
+    """
+    islands = ", ".join(
+        f"`{net}` **{count}**" for net, count in sorted(readout["islands"].items())
+    )
+    return (
+        f"on the record `layout/{block}/erc-reports/LATEST` resolves to, `klt erc` "
+        f"reports `erc_status` **{readout['erc_status']}** with "
+        f"**{readout['finding_count']}** findings; the declared supplies resolve "
+        f"to {islands} electrical islands; and it grades "
+        f"`{readout['graded']}`, while `reports/LATEST` there names "
+        f"`{readout['latest']}`: **{readout['status']}**."
+    )
+
+
+def check_erc_readout(doc: Path, text: str) -> list[str]:
+    """Check 16: a stated ERC supply readout must be the current record's own."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    for stated in ERC_READOUT_RE.finditer(collapsed):
+        block = stated.group("flow").split("/", 1)[1]
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        actual = erc_readout(block)
+        if actual is None:
+            misses.append(
+                f"{where}: the ERC supply readout names `layout/{block}/`, but "
+                f"that flow has no `{ERC_POINTER_DIR}/LATEST` record carrying a "
+                f"readable `erc.json` to read it out of"
+            )
+            continue
+
+        for field in ("erc_status", "finding_count", "graded", "latest", "status"):
+            expected = actual[field]
+            claimed: object = stated.group(field)
+            if isinstance(expected, int):
+                claimed = int(claimed)
+            if claimed != expected:
+                misses.append(
+                    f"{where}: the ERC supply readout for `layout/{block}/` says "
+                    f"{field}={claimed}, but that flow's current ERC record "
+                    f"reports {field}={expected} -- restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+
+        # Both directions, as checks 8, 10, 14 and 15 do. A supply that drops
+        # out of the spec's `nets[]` -- the cheapest way to make a failing
+        # continuity table read clean -- is a finding here, not a silence.
+        claimed_islands = {
+            pair.group("net"): int(pair.group("islands"))
+            for pair in ERC_ISLAND_RE.finditer(stated.group("islands"))
+        }
+        for net in sorted(set(claimed_islands) | set(actual["islands"])):
+            claimed_count = claimed_islands.get(net)
+            actual_count = actual["islands"].get(net)
+            if claimed_count == actual_count:
+                continue
+            misses.append(
+                f"{where}: the ERC supply readout for `layout/{block}/` states "
+                f"supply `{net}` at {claimed_count} island(s), but that flow's "
+                f"current ERC record reports {actual_count} -- restate it from "
+                f"`python3 docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -1852,6 +2069,7 @@ def check_document(doc: Path) -> list[str]:
         + check_area_readout(doc, text)
         + check_composition_inputs(doc, text)
         + check_decision_record_status(doc, text)
+        + check_erc_readout(doc, text)
     )
 
 
@@ -1935,6 +2153,16 @@ def main(argv: list[str]) -> int:
         # with the wrong word.
         for name, status in decision_records().items():
             print(f"spec/decision-records/: {decision_record_sentence(name, status)}")
+        # Likewise the supply verdict of every `layout/` flow that has one.
+        # Keyed on the `erc-reports/` pointer rather than the `reports/` one:
+        # an ERC record is minted by a separate run (`run-erc.sh`), so a flow
+        # can have a current layout record and no supply verdict at all.
+        for pointer in sorted(REPO_ROOT.glob(f"layout/*/{ERC_POINTER_DIR}/LATEST")):
+            block = pointer.parent.parent.name
+            readout = erc_readout(block)
+            if readout is None:
+                continue
+            print(f"layout/{block}/: {erc_sentence(block, readout)}")
         return 0
 
     misses: list[str] = []
