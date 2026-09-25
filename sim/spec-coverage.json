@@ -80,6 +80,25 @@
     }
   ],
 
+  "decision_evidence": [
+    {
+      "experiment": "ground-return-impedance",
+      "decision_record": "spec/decision-records/DR-012-analog-ground-pad.md",
+      "why": "Measures DR-012's own open item (issue #378): the assembled sar_adc_top driven through first-principles bond-wire R+L on all four supply terminals (DR-015's stated stimulus model) and a lumped substrate-resistance stand-in at two bracketing values, with and without the analog GND pad, against the ideal-source case at the same point over the ratified 9-point grid. No spec row names a supply-impedance tolerance, so the record claims none; it is indexed here so it is neither an orphan nor counted toward a row.",
+      "runner": "sim/ground-return-impedance/run_ground_return.py",
+      "testbench": [
+        "design/sar_adc_top.spice",
+        "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+      ],
+      "testbench_note": "Both committed decks are reused read-only; the runner rewrites the assembled deck text at run time (GND renamed GND_DIE, supply sources re-pointed through each arm's network) and keeps each arm's baseline-corner deck under the record's corners/<record-id>/decks/.",
+      "cold_start": "python3 sim/ground-return-impedance/run_ground_return.py --corners --record",
+      "documented_in": "sim/ground-return-impedance/README.md",
+      "records": [
+        "sim/ground-return-impedance/records/20260925-134451-5b3f175.md"
+      ]
+    }
+  ],
+
   "rows": [
     {
       "parameter": "Architecture",

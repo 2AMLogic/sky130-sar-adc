@@ -178,3 +178,41 @@ supersedes DR-015, and this campaign should be re-run with its numbers.
 ## Findings
 
 Read `records/LATEST` for the numbers. The first record's reading is below.
+
+**`records/20260925-134451-5b3f175.md`** (8 arms × 9 ratified PVT points, plus
+the rename control; all four controls pass):
+
+| arm | codes moved vs `ideal` | worst GND_DIE p-p (mV) | worst min VDDA (/ V_DD) |
+|---|---|---|---|
+| `pkg` | 4/45 | 259.0 | 0.965 |
+| `pkg-sub10` (pad, as decided) | 4/45 | 129.0 | 0.948 |
+| `pkg-sub1k` (pad, as decided) | 3/45 | 229.6 | 0.959 |
+| `sub-nopad-10` | 0/45 | 7.2 | 0.997 |
+| `sub-nopad-1k` | 3/45 | 429.3 | 0.831 |
+| `pkg-nopad-10` (null option) | 4/45 | 183.1 | 0.953 |
+| `pkg-nopad-1k` (null option) | 7/45 | 402.9 | 0.851 |
+
+1. **No code moves by more than 1 LSB, in any arm, at any point.** Every move
+   lands on one of two inputs. The first is `+0.00·V_REF`, where the ideal arm
+   itself sits on the 511/512 boundary (it reads 512 at `sf`, `-40c` and
+   `125c`, and 511 elsewhere). The second is `-0.78·V_REF`, which the ideal
+   arm already misses by 71–124 LSB at every point (the #265/#267 baseline
+   failure). The `-0.25`, `+0.25` and `+0.78` inputs never move, in any arm,
+   at any point.
+2. **The pad lowers analog-ground bounce at both ends of the `R_sub`
+   bracket.** With the package on, bonding `GND` cuts the worst `GND_DIE`
+   p-p from 183.1 to 129.0 mV at 10 Ω, and from 402.9 to 229.6 mV at 1 kΩ.
+   The droop in the analog supply the devices actually see (`VDDA`) depends
+   on where in the bracket `R_sub` falls: about equal at 10 Ω (0.948 vs 0.953
+   of `V_DD`), and much better with the pad at 1 kΩ (0.959 vs 0.851).
+3. **At the code level the pad's benefit is visible at only one end of the
+   bracket.** At 1 kΩ the null option moves 7/45 codes and the pad moves
+   3/45. At 10 Ω both move 4/45. By DR-015's own rule (a conclusion counts only
+   if it holds at both ends), this record does **not** show a code-level
+   benefit from the pad.
+4. **Bond inductance, not the substrate return, dominates at the low end.**
+   Substrate resistance alone at 10 Ω with ideal bonds (`sub-nopad-10`) moves
+   nothing and bounces 7.2 mV. Adding the package with the pad bonded brings
+   3–4/45 moves and 129–259 mV of worst-case bounce (`pkg`, `pkg-sub10`,
+   `pkg-sub1k`). With no on-die decoupling
+   in the design, a bonded pad does not remove that (see DR-010's open item).

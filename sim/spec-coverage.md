@@ -295,6 +295,20 @@ followed by the per-bench command in the table below. Each of those commands is 
 - **`sim/harness-corner-smoke`** — Harness self-test, never a spec claim (sim/README.md 'Harness self-test experiments'): an ideal divider plus a diode-connected nfet_01v8, proving the corner runner actually switches the .lib process section, .temp and vdd_val independently. Counted toward T1 item 9 by nothing.
 - **`sim/mc-smoke`** — Harness self-test, never a spec claim: one diode-connected nfet_01v8 drawn N times at tt_mm with a deterministic plain-tt negative control, proving the Monte Carlo plumbing reaches the simulator. Counted toward T1 item 9 by nothing.
 
+## Decision-record evidence (never counted toward a spec row)
+
+Experiments that measure a decision record's argument rather than a spec row. The check holds them to a bench's cold-start, pinning and runner rules, requires every record's Claim to start with `None`, and fails if one is also listed as a bench for any row.
+
+### `sim/ground-return-impedance` — `spec/decision-records/DR-012-analog-ground-pad.md`
+
+Measures DR-012's own open item (issue #378): the assembled sar_adc_top driven through first-principles bond-wire R+L on all four supply terminals (DR-015's stated stimulus model) and a lumped substrate-resistance stand-in at two bracketing values, with and without the analog GND pad, against the ideal-source case at the same point over the ratified 9-point grid. No spec row names a supply-impedance tolerance, so the record claims none; it is indexed here so it is neither an orphan nor counted toward a row.
+
+- Deck note: Both committed decks are reused read-only; the runner rewrites the assembled deck text at run time (GND renamed GND_DIE, supply sources re-pointed through each arm's network) and keeps each arm's baseline-corner deck under the record's corners/<record-id>/decks/.
+- Runner: `sim/ground-return-impedance/run_ground_return.py`
+- Cold start: `python3 sim/ground-return-impedance/run_ground_return.py --corners --record`
+- Documented in: `sim/ground-return-impedance/README.md`
+- Evidence: `sim/ground-return-impedance/records/20260925-134451-5b3f175.md`
+
 ## Pinning
 
 Every record indexed here states, in its own Environment section, the PDK variant + resolved open_pdks commit and the ngspice version it was produced with; sim/check_spec_coverage.py verifies those against sim/pdk.json / sim/toolchain.json rather than trusting the prose. xschem is pinned by sim/toolchain.json's xschem_tag and is a WARNING rather than a fatal drift (sim/selftest.sh stage 2's rule: xschem only netlists, and every record pins the exact netlist it ran by SHA-256) -- so the per-record xschem-side provenance this check enforces is the presence of that DUT netlist sha256 line, not a version string.

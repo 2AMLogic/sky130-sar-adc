@@ -11,6 +11,9 @@
 - **Superseded by**: (none while this record stands)
 - **Related**: #377 / [DR-013](DR-013-analog-ground-mesh.md) (the analog
   ground mesh this record's largest open item asked for, since closed),
+  #378 / [DR-015](DR-015-testbench-package-model.md) (the measurement that
+  retired this record's "impedance argument is unmeasured" item, and the
+  stimulus model it was measured under), #431 (on-die decoupling),
   #362 (this decision and its implementation), #355 / DR-010 (the
   same structural gap one domain over, and the record whose "Open items" named
   this one), #344 (the `klt erc` supply-spec tooling), DR-001 (the ratified
@@ -266,16 +269,51 @@ enumerate:
   (`layout/sar-adc-top/bin/probe-ground-mesh.py`, summary in
   `erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`) in which
   removing the mesh and nothing else splits `GND` into two islands.
-- **The impedance argument is unmeasured.** No `sim/` campaign in this repo
+- ~~**The impedance argument is unmeasured.** No `sim/` campaign in this repo
   models the ground return at all — no package parasitics, no substrate
   resistance, no bond-wire inductance. A testbench that would settle it: drive
   the assembled `sar_adc_top` through package-like R+L on each of the four
   supply terminals, run `sim/full-conversion-transient/`'s own stimulus, and
   compare code errors against the ideal-ground case. Until that exists, no
-  number from this record may be quoted as measured. Tracked as **#378**.
+  number from this record may be quoted as measured. Tracked as **#378**.~~
+  **RETIRED by measurement** (issue #378):
+  `sim/ground-return-impedance/records/20260925-134451-5b3f175.md`. The
+  campaign runs 8 arms × the 9 ratified PVT points, and all four of its
+  controls pass. It is measured **under
+  [DR-015](DR-015-testbench-package-model.md)'s stated stimulus model**: one
+  first-principles bond wire per terminal (2.01 nH, 0.099 Ω), and a *lumped*
+  substrate resistance at two bracketing values (10 Ω and 1 kΩ), not an
+  extraction. It is not measured on a package. What it shows, and what
+  follows for this decision:
+  - **The bounce half of the argument holds at both ends of the bracket.**
+    With the package on, bonding `GND` cuts the worst `GND_DIE` bounce from
+    183.1 to 129.0 mV p-p at 10 Ω, and from 402.9 to 229.6 mV at 1 kΩ.
+  - **The code-level half is not shown.** No code in any arm moves by more
+    than 1 LSB, and every move lands on an input that was already marginal:
+    the mid-scale input, which sits on the 511/512 boundary in the ideal
+    arm, or the −0.78·V_REF input, which is the #265/#267 baseline failure.
+    The null option moves 7/45 codes against the pad's 3/45 at 1 kΩ, but
+    both move 4/45 at 10 Ω. By DR-015's rule, a conclusion must hold at both
+    ends, so this record makes no claim that the pad improves codes.
+  - **The decision stands, and is not revisited.** Nothing measured
+    contradicts it. At each end of the bracket, the pad arm moves no more
+    codes than the null option, and it bounces less. Two readings go the
+    other way, and they are stated here, not averaged away. At 10 Ω the worst
+    `VDDA` droop is marginally deeper with the pad (0.948 vs 0.953 of
+    `V_DD`). At `sf_27c_1.80v` and 1 kΩ, the mid-scale code moves by 1 LSB
+    with the pad and does not move without it. Both readings are small, and
+    that input sits on a code boundary. The measurement does narrow what
+    the pad is *for*. At the low
+    end of the bracket, the dominant contributor is bond inductance with no
+    on-die decoupling, not the substrate return. Substrate alone at 10 Ω
+    moves nothing and bounces 7.2 mV. A bonded pad does not address bond
+    inductance. That is now tracked as **#431** (on-die decoupling), the open
+    item below.
+- **On-die decoupling** for any domain is still not designed, budgeted, or
+  measured (carried over from DR-010). #378's record is the first number on
+  it (129–259 mV of die-ground bounce with this pad bonded). Tracked as
+  **#431**.
 - **The pad's position is provisional.** There is no pad ring; when one exists,
   the analog ground terminal's placement relative to the other supply pads (and
   whether it wants more than one bond point of its own) is a real question this
   record does not answer.
-- **On-die decoupling** for any domain is still not designed, budgeted, or
-  measured (carried over from DR-010).

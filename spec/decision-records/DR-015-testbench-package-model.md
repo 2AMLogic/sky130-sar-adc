@@ -99,6 +99,8 @@ derive these values rather than hard-coding them).
 - DR-012's "the impedance argument is unmeasured" item can be retired by
   citation to a committed record, **scoped to this model**. The retirement
   reads "measured under DR-015's stated model", not "measured on a package".
+  It has been retired that way, citing
+  `sim/ground-return-impedance/records/20260925-134451-5b3f175.md`.
 - The model is optimistic in one direction and pessimistic in another. Using
   one isolated wire with no lead frame or board *understates* inductance.
   Using the DC resistance and no decoupling anywhere *under-damps* the LC, so
