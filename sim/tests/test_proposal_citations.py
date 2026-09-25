@@ -110,6 +110,8 @@ class FixtureTree:
         kickback_split: bool = False,
         provenance: str = "",
         corners: str = "",
+        arms: tuple[str, ...] | None = None,
+        arm_count: int | None = None,
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
@@ -123,6 +125,21 @@ class FixtureTree:
         # its own" case -- a real one, and the one a fixture must be able to
         # reach without saying anything.
         body = "fixture record\n" + corners + ("\n" if corners else "") + provenance
+        if arms is not None:
+            # The `- **Arms**:` header line check 31 reads the run arm set out
+            # of, in the shape `sim/supply-impedance-sensitivity/
+            # run_supply_impedance.py` writes it. `arm_count` defaults to the
+            # length of `arms` -- the only shape the real renderer can emit --
+            # and is overridable so a fixture can make the printed count and
+            # the printed list disagree, which is the case the check is
+            # deliberately graded on the list for.
+            printed = len(arms) if arm_count is None else arm_count
+            body += (
+                f"\n- **Arms**: {printed} supply-return networks "
+                + ", ".join(f"`{arm}`" for arm in arms)
+                + " x 1 corner point(s) = "
+                + f"{printed} transient runs.\n"
+            )
         if kickback is not None:
             # The `Measured value(s)` table check 21 re-derives the Kickback
             # row's figures from, in the shape
@@ -258,6 +275,32 @@ class FixtureTree:
         entry = self.root / path
         entry.parent.mkdir(parents=True, exist_ok=True)
         entry.write_text(body)
+
+    def add_arm_runner(self, *arms: str, table: str | None = None):
+        """The supply-impedance runner's own `ARMS` table, for check 31.
+
+        Written as real Python in the runner's own shape -- an `ARMS: tuple`
+        annotation, one `Arm(...)` per arm with its `name=` on its own line
+        and a nested `bonds=` mapping -- because the parse under test is a
+        source-text read, and a fixture that flattened the arms to a bare list
+        of strings would pass while the real table went unrecognised. `table`
+        overrides the whole body, for the "shape this parse does not
+        recognise" case.
+        """
+        runner = self.root / checker.ARM_RUNNER
+        runner.parent.mkdir(parents=True, exist_ok=True)
+        if table is None:
+            table = "ARMS: tuple[Arm, ...] = (\n"
+            for arm in arms:
+                table += (
+                    "    Arm(\n"
+                    f'        name="{arm}",\n'
+                    '        summary="fixture arm",\n'
+                    '        bonds={"VDD": IDEAL, "GND": IDEAL},\n'
+                    "    ),\n"
+                )
+            table += ")\n"
+        runner.write_text('"""fixture runner."""\n\n' + table)
 
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
@@ -5344,6 +5387,170 @@ class TestRendererCensus(unittest.TestCase):
         # Every entry point the census resolved is a file that exists -- the
         # "no entry point at all" arm must be reachable but not silently live.
         self.assertEqual(census["unpinned"], [])
+
+
+class TestArmCensus(unittest.TestCase):
+    """Check 31: the stated supply-return arm census is this tree's own.
+
+    Check 28 censuses the PVT grid a cited record covers. This campaign's
+    records are a subset of a second axis its *runner* defines -- the
+    supply-return arms -- and Section 7's DR-012 retirement is bounded by the
+    arm it left unrun ("no priced-rejected-option claim may be read from this
+    record"). Nothing graded that sentence, so a record pricing the null
+    option would leave it reading "not run" with every number beside it still
+    true: check 30's defect shape, one axis over.
+    """
+
+    ARMS = ("ideal", "package-r-only", "package", "substrate", "no-gnd-pad")
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_arm_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.ARM_POINTER}).\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, offered, ran, unrun, unrun_arms=()) -> str:
+        return checker.arm_sentence(
+            {
+                "offered": offered,
+                "ran": ran,
+                "unrun": unrun,
+                "unrun_arms": list(unrun_arms),
+            }
+        )
+
+    def campaign(self, *, ran=ARMS[:4], offered=ARMS, **kwargs):
+        self.tree.add_arm_runner(*offered)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=ran, **kwargs
+        )
+
+    def test_a_truthful_census_with_one_unrun_arm_passes(self):
+        """Today's real shape: four arms run, `no-gnd-pad` priced by nothing."""
+        self.campaign()
+        self.assertEqual(self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",)))), [])
+
+    def test_a_truthful_all_run_census_passes(self):
+        """The case #409 item 2 creates: the null option finally priced."""
+        self.campaign(ran=self.ARMS)
+        self.assertEqual(self.check(self.body(self.sentence(5, 5, 0))), [])
+
+    def test_a_record_that_prices_the_unrun_arm_falsifies_the_old_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.campaign(ran=self.ARMS)
+        misses = self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",))))
+        self.assertTrue(misses)
+        self.assertTrue(any("ran=4" in miss and "ran=5" in miss for miss in misses))
+        self.assertTrue(any("no-gnd-pad" in miss and "none" in miss for miss in misses))
+
+    def test_a_new_arm_in_the_runner_widens_the_census(self):
+        """The other direction: an arm added to the runner and never run."""
+        self.campaign(offered=self.ARMS + ("bondwire-sweep",))
+        misses = self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",))))
+        self.assertTrue(misses)
+        self.assertTrue(any("offered=5" in miss and "offered=6" in miss for miss in misses))
+
+    def test_a_drifted_arm_list_is_reported_even_when_the_counts_agree(self):
+        """Right total, wrong arm -- the failure a count-only census absorbs."""
+        self.campaign()
+        misses = self.check(self.body(self.sentence(5, 4, 1, ("substrate",))))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`substrate`", misses[0])
+        self.assertIn("`no-gnd-pad`", misses[0])
+
+    def test_the_unrun_list_keeps_the_runner_s_own_order(self):
+        """Not alphabetical: the record's omission section reads in this order."""
+        self.campaign(ran=("ideal",))
+        census = checker.arm_census()
+        self.assertEqual(
+            census["unrun_arms"], ["package-r-only", "package", "substrate", "no-gnd-pad"]
+        )
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        """Deleting the sentence must not widen what the citation may claim."""
+        self.campaign()
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no arm census", misses[0])
+        self.assertIn("`no-gnd-pad`", misses[0])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_the_arms_are_read_from_the_list_not_from_the_printed_count(self):
+        """A count and a list that disagree are graded on the names."""
+        self.campaign(arm_count=99)
+        self.assertEqual(self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",)))), [])
+
+    def test_a_runner_whose_table_is_unrecognised_grades_nothing(self):
+        """No tree-side number to compare against is a silence, not a zero."""
+        self.tree.add_arm_runner(table="ARMS = build_arms()\n")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=self.ARMS[:4]
+        )
+        self.assertIsNone(checker.arm_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_record_without_an_arms_line_grades_nothing(self):
+        self.tree.add_arm_runner(*self.ARMS)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True
+        )
+        self.assertIsNone(checker.arm_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_campaign_without_a_latest_pointer_grades_nothing(self):
+        self.tree.add_arm_runner(*self.ARMS)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", arms=self.ARMS[:4]
+        )
+        self.assertIsNone(checker.arm_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_check_is_inert_without_the_campaign_at_all(self):
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.campaign()
+        self.assertEqual(self.check(self.body(checker.arm_sentence(checker.arm_census()))), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_arm_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_parses_the_real_runner_and_record(self):
+        """Not vacuous: both halves must resolve against the live tree.
+
+        A parse that silently resolved nothing would make the check pass by
+        comparing two empty sets -- the vacuity trap checks 4, 6 and 30 each
+        needed a guard for.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        offered = checker.runner_arms()
+        ran = checker.record_arms()
+        self.assertIn("no-gnd-pad", offered)
+        self.assertIn("ideal", offered)
+        self.assertTrue(ran)
+        self.assertTrue(set(ran) <= set(offered), (ran, offered))
+        census = checker.arm_census()
+        self.assertEqual(census["ran"] + census["unrun"], census["offered"])
+        self.assertEqual(census["offered"], len(offered))
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

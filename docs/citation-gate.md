@@ -1432,6 +1432,67 @@ one `sim/pdk.json` pins, for the reason recorded under check 26: cross-
 checking the pin belongs to the flow that mints a record, not to a reader of
 one.
 
+### Check 31 -- supply-return arm census (`check_arm_census`)
+
+Check 28 grades how much of the ratified **PVT grid** a cited record covers.
+One campaign in `sim/` publishes records that are a subset of a second,
+independent axis -- one its *runner* defines rather than `sim/pdk.json`:
+`sim/supply-impedance-sensitivity/`'s **arms**, the supply-return networks it
+drives the same DUT through (`ideal`, `package-r-only`, `package`,
+`substrate`, `no-gnd-pad`). A record that ran four of the five is bounded by
+the fifth in exactly the way a subset-corner record is bounded by the corners
+it skipped, and `sim/README.md`'s rule that a corner subset must be justified
+is what that campaign's renderer already applies to arms: every record it
+mints carries an "Arms this record does not contain" section, and since issue
+#409's first increment a standing omission note per arm.
+
+**What the document was leaning on.** Section 7 Item 11 retires DR-012's "the
+impedance argument is unmeasured" open item **by citation**, and the sentence
+that bounds the retirement is an arm claim: DR-012's *rejected* `no-gnd-pad`
+null option "is implemented but not run, on cost", therefore "no
+priced-rejected-option claim may be read from this record". Nothing graded
+it. The day issue #409's item 2 mints the several-hour record that prices the
+null option, the document would still say the claim cannot be read -- with
+every number beside it still true, because none of them is about arms. That
+is precisely check 30's defect shape (a prose explanation going false while
+its neighbouring census stays correct) on a different axis, and it is graded
+the same way rather than left to a re-read.
+
+**What it grades.** Three numbers and an exception list in one sentence, in
+both directions like checks 8, 10, 14--18, 25, 26, 28 and 30: how many arms
+`sim/supply-impedance-sensitivity/run_supply_impedance.py` implements, how
+many the campaign's current record ran, how many it left unrun, and which
+ones. Both halves are re-derived rather than asserted -- the offered arms
+from the runner's own `ARMS` table (read as source text, never imported, for
+the reason `report_row_count` records: this gate is a pure file reader), the
+run arms from the record's own `- **Arms**:` header line. The unrun list is
+ordered by the runner's table, not alphabetically, so it reads in the same
+order as the record's own omission section. An absent census is a finding,
+anchored on the document citing `sim/supply-impedance-sensitivity/` at all:
+deleting the inconvenient sentence must not be a way to widen what the
+citation may be read for.
+
+Reading the arms from the **list** rather than from the count printed in
+front of it is deliberate. The two come from the same renderer today, so they
+cannot disagree; if a future renderer ever let them, the names are what say
+what ran, and a census graded on the count would pass while naming the wrong
+arm as unrun.
+
+**What this check deliberately does NOT cover.** It does not grade *why* an
+arm was left unrun -- the omission is legitimate and cost-justified, and the
+record states its own reason, as `sim/README.md` requires. Nor does it read
+the prose around the census: a document stating the three numbers correctly
+while describing them backwards passes here, as it does under checks 15, 16,
+22, 25, 26 and 28. It says nothing about the *findings* an arm produced
+(those are check 12's and Section 4's business), and it is scoped to this one
+campaign on purpose: arms are not a general `sim/` concept, and generalising
+the parse to "any runner with a table" would invent an axis for campaigns
+that have none. Finally, when the runner is absent, the pointer is
+unresolvable, or the record's header is in a shape this parse does not
+recognise, the check reports **nothing** rather than a census of zero --
+there is no tree-side number to compare against, and inventing one would make
+the gate the author of a claim instead of its reader.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
