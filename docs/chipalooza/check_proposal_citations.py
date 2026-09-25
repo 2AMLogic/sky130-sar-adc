@@ -45,9 +45,12 @@ every `spec/decision-records/` record (the sentence check 15 compares
 against), the live `klt erc` supply readout of every `layout/` flow that
 has one (the sentence check 16 compares against), the live T1 sign-off
 verdict `signoff/` records for the block as a whole (the sentence check 17
-compares against) and each document's live Section 4 freshness-coverage census
-(the sentence check 18 compares against) instead of checking, which is what to
-run when check 6, 9, 12, 13, 14, 15, 16, 17 or 18 reports a drift. Exit status:
+compares against), each document's live Section 4 freshness-coverage census
+(the sentence check 18 compares against) and the live per-source current
+columns of every `sim/` campaign's Power table (the term list check 19
+compares Section 5's power step against) instead of checking, which is what to
+run when check 6, 9, 12, 13, 14, 15, 16, 17, 18 or 19 reports a drift. Exit
+status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -597,6 +600,37 @@ FRESHNESS_FLOW_RE = re.compile(
     r"`(?P<flow>(?:sim|layout)/[A-Za-z0-9._-]+)` "
     r"\(\*\*(?P<records>\d+)\*\* records?\)"
 )
+
+# Section 5 is the bench test plan, identified by its own numbered heading. Its
+# lede claims to be "written against this design's *current* port list (§2)" --
+# check 19 is what makes that claim mechanical instead of asserted.
+TEST_PLAN_HEADING_RE = re.compile(r"^##\s+5\.\s", re.M)
+
+# Section 5's supply-terminal sentence: how many supply terminals the bench has
+# to feed, and which. Bolded count for IO_TOTAL_RE's reason -- Section 5 carries
+# plenty of unbolded numbers (rail voltages, clock rates, LSB counts) and a
+# gated count must not be confused with one of them.
+TEST_PLAN_SUPPLIES_RE = re.compile(
+    r"\*\*(?P<count>\d+)\*\* supply terminals? — "
+    r"(?P<terminals>(?:`[A-Za-z_][A-Za-z0-9_]*`(?:, )?)+)"
+)
+
+# Section 5's power-step sentence: the campaign whose Power table the simulated
+# figure is summed over, how many current columns that table carries, and which.
+# Naming the campaign in the sentence rather than in this file is what keeps the
+# check pointed at the record Section 4 actually quotes.
+TEST_PLAN_POWER_RE = re.compile(
+    r"\*\*(?P<count>\d+)\*\* current columns of "
+    r"`sim/(?P<campaign>[A-Za-z0-9._-]+)/records/LATEST`'s own Power table — "
+    r"(?P<terms>(?:`I\([A-Za-z0-9_]+\)`(?:, )?)+)"
+)
+
+# One backticked `I(<net>)` column name inside that sentence's term list.
+POWER_TERM_RE = re.compile(r"`I\((?P<net>[A-Za-z0-9_]+)\)`")
+
+# The Power table's own header cell for a per-source current column, as
+# `sim/full-conversion-transient/run_conversion.py` writes it: `I(VDD) (uA)`.
+POWER_COLUMN_RE = re.compile(r"^I\((?P<net>[A-Za-z0-9_]+)\)")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -1430,6 +1464,52 @@ def check_coverage_index_parity(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _power_table_section(experiment: str) -> str | None:
+    """The `## Power` section of `sim/<experiment>/`'s current record, or None.
+
+    `None` covers all three "nothing to compare against" conditions -- no
+    `records/LATEST`, a pointer naming a record that is gone, and a record with
+    no Power table -- which checks 12 and 19 report rather than pass silently.
+    """
+    stamp = _read_pointer("sim", experiment, "records")
+    if stamp is None:
+        return None
+    record = REPO_ROOT / "sim" / experiment / "records" / stamp
+    if not record.is_file():
+        return None
+    text = record.read_text()
+    heading = POWER_TABLE_HEADING_RE.search(text)
+    if heading is None:
+        return None
+    section = text[heading.end() :]
+    end = re.search(r"^##+\s", section, re.M)
+    return section[: end.start()] if end is not None else section
+
+
+def record_power_terms(experiment: str) -> list[str]:
+    """The per-source current columns of a campaign's current Power table.
+
+    `["VDD", "VPWR", ...]` in the record's own column order, read out of the
+    table's header row rather than named here -- the terminals a bench has to
+    meter are whatever the testbench really sources, and that set moves when
+    the block's interface does (DR-010 added `VPWR`, DR-012 added `GND`).
+    Empty under the same conditions `_power_table_section` returns None for,
+    plus a table whose header carries no `I(<net>)` column at all.
+    """
+    section = _power_table_section(experiment)
+    if section is None:
+        return []
+    header = re.search(r"^\|(?P<cells>.+)\|\s*$", section.strip(), re.M)
+    if header is None:
+        return []
+    terms = []
+    for cell in header.group("cells").split("|"):
+        column = POWER_COLUMN_RE.match(cell.strip())
+        if column is not None:
+            terms.append(column.group("net"))
+    return terms
+
+
 def record_power_table(experiment: str) -> dict[str, float]:
     """`{corner_id: total_power_uW}` from a campaign's current record.
 
@@ -1439,20 +1519,9 @@ def record_power_table(experiment: str) -> dict[str, float]:
     this parse does not recognise -- all three are "nothing to compare", which
     check 12 reports rather than passing silently.
     """
-    stamp = _read_pointer("sim", experiment, "records")
-    if stamp is None:
+    section = _power_table_section(experiment)
+    if section is None:
         return {}
-    record = REPO_ROOT / "sim" / experiment / "records" / stamp
-    if not record.is_file():
-        return {}
-    text = record.read_text()
-    heading = POWER_TABLE_HEADING_RE.search(text)
-    if heading is None:
-        return {}
-    section = text[heading.end() :]
-    end = re.search(r"^##+\s", section, re.M)
-    if end is not None:
-        section = section[: end.start()]
     table: dict[str, float] = {}
     for row in POWER_TABLE_ROW_RE.finditer(section):
         figures = [cell.strip() for cell in row.group("rest").strip().strip("|").split("|")]
@@ -1481,6 +1550,15 @@ def power_readout(experiment: str) -> dict | None:
         "max_corner": highest,
         "corners": len(table),
     }
+
+
+def power_terms_sentence(experiment: str, terms: list[str]) -> str:
+    """That term list in exactly the form check 19 part (c) matches."""
+    return (
+        f"a sum over the **{len(terms)}** current columns of "
+        f"`sim/{experiment}/records/LATEST`'s own Power table — "
+        + ", ".join(f"`I({net})`" for net in terms)
+    )
 
 
 def power_sentence(readout: dict) -> str:
@@ -2480,6 +2558,132 @@ def check_freshness_coverage(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def test_plan_section(text: str) -> tuple[int, str] | None:
+    """`(heading_line, body)` of Section 5, the bench test plan, or None."""
+    heading = TEST_PLAN_HEADING_RE.search(text)
+    if heading is None:
+        return None
+    body = text[heading.end() :]
+    following = re.search(r"^##\s", body, re.M)
+    if following is not None:
+        body = body[: following.start()]
+    return _line_of(text, heading.start()), body
+
+
+def _named_ports(body: str) -> set[str]:
+    """Every port a prose body names in backticks, `DOUT9..0` ranges expanded.
+
+    The same rule `_cell_ports` applies to a table cell: only backticked tokens
+    count, so a prose word that happens to spell a port name does not stand in
+    for naming the port. A glob (`DOUT*`) matches neither form and is ignored
+    rather than expanded -- it says the section discusses the bus, not that it
+    named each line of it.
+    """
+    named: set[str] = set()
+    for span in BACKTICK_SPAN_RE.finditer(body):
+        token = _unwrap_backticked(span.group(1))
+        expanded = _expand_range(token)
+        if expanded is not None:
+            named.update(expanded)
+        elif PORT_NAME_RE.match(token):
+            named.add(token)
+    return named
+
+
+def rail_ports(text: str) -> set[str]:
+    """The ports Section 2's I/O table charges to no slot -- the supply rails.
+
+    Read off the same Count column check 10 part (d) treats as the rail
+    exemption (a cell that does not begin with a digit), so the two checks
+    cannot disagree about which rows are rails.
+    """
+    rails: set[str] = set()
+    for _line, cells in io_table(text):
+        if len(cells) < 4 or re.match(r"\d", cells[3]):
+            continue
+        rails.update(_cell_ports(cells[0]))
+    return rails
+
+
+def check_test_plan_ports(doc: Path, text: str) -> list[str]:
+    """Check 19: Section 5's bench plan is written against the current interface."""
+    section = test_plan_section(text)
+    if section is None:
+        return []
+    line_number, body = section
+    where = f"{doc.name}:{line_number}"
+    flat = re.sub(r"\s+", " ", body)
+    named = _named_ports(body)
+    misses = []
+
+    # (a) Every port of the netlist is named somewhere in the bench plan. This
+    # is the direction that goes stale: three supply ports joined this
+    # interface on 2026-09-24 (DR-010's `VPWR`/`VGND`, DR-012's `GND`) and
+    # Section 5 went on describing the 19-port block for a day afterwards.
+    for port in netlist_ports():
+        if port not in named:
+            misses.append(
+                f"{where}: port `{port}` of `{TOP_NETLIST}` is named nowhere in "
+                f"Section 5's bench test plan, which states that it is written "
+                f"against this design's current port list -- a bench plan that "
+                f"omits a terminal is not executable on the part this repo builds"
+            )
+
+    # (b) The supply terminals the plan feeds are exactly Section 2's rail rows,
+    # graded in both directions like checks 8, 10, 14, 15, 16, 17 and 18: a rail
+    # dropped from this sentence leaves the bench under-powered, and one added
+    # that Section 2 does not carry invents a terminal the part does not have.
+    rails = rail_ports(text)
+    for stated in TEST_PLAN_SUPPLIES_RE.finditer(flat):
+        claimed = set(BACKTICK_SPAN_RE.findall(stated.group("terminals")))
+        if int(stated.group("count")) != len(rails):
+            misses.append(
+                f"{where}: Section 5 says the bench feeds "
+                f"{stated.group('count')} supply terminal(s), but Section 2's "
+                f"I/O table charges {len(rails)} port(s) to no slot"
+            )
+        for port in sorted(claimed ^ rails):
+            stated_here = port in claimed
+            misses.append(
+                f"{where}: Section 5's supply-terminal list "
+                f"{'names' if stated_here else 'omits'} `{port}`, which "
+                f"{'is not' if stated_here else 'is'} a rail row of Section 2's "
+                f"I/O table -- the two must be the same set"
+            )
+
+    # (c) The power step's metered terminals are the cited record's own Power
+    # table columns. The defect here is not a wrong number, it is a wrong
+    # protocol: instructing a bench to meter `VDD` alone against a figure that
+    # is a sum over five sources produces a reading that is not comparable,
+    # and nothing about it looks stale on the page.
+    for stated in TEST_PLAN_POWER_RE.finditer(flat):
+        campaign = stated.group("campaign")
+        terms = record_power_terms(campaign)
+        if not terms:
+            misses.append(
+                f"{where}: Section 5's power step cites "
+                f"`sim/{campaign}/records/LATEST`, whose current record carries "
+                f"no readable Power table to check its metered terminals "
+                f"against -- cite the campaign the figures came from"
+            )
+            continue
+        claimed = [term.group("net") for term in POWER_TERM_RE.finditer(stated.group("terms"))]
+        if int(stated.group("count")) != len(terms):
+            misses.append(
+                f"{where}: Section 5's power step says that table carries "
+                f"{stated.group('count')} current column(s), but "
+                f"`sim/{campaign}/`'s current record carries {len(terms)}"
+            )
+        if claimed != terms:
+            misses.append(
+                f"{where}: Section 5's power step meters {claimed}, but "
+                f"`sim/{campaign}/`'s current Power table carries {terms} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -2500,6 +2704,7 @@ def check_document(doc: Path) -> list[str]:
         + check_erc_readout(doc, text)
         + check_t1_readout(doc, text)
         + check_freshness_coverage(doc, text)
+        + check_test_plan_ports(doc, text)
     )
 
 
@@ -2584,6 +2789,15 @@ def main(argv: list[str]) -> int:
             if readout is None:
                 continue
             print(f"sim/{experiment}/: {power_sentence(readout)}")
+        # And the *terminals* behind that figure, which check 19 grades in
+        # Section 5's power step: the figure above is a sum, and a bench that
+        # meters one of its terms is not measuring the same quantity.
+        for pointer in sorted(REPO_ROOT.glob("sim/*/records/LATEST")):
+            experiment = pointer.parent.parent.name
+            terms = record_power_terms(experiment)
+            if not terms:
+                continue
+            print(f"sim/{experiment}/: {power_terms_sentence(experiment, terms)}")
         # Likewise every decision record in the tree, not only the ones the
         # document happens to discuss: check 15 grades the readout in both
         # directions, so a record with no line is as much a finding as a line

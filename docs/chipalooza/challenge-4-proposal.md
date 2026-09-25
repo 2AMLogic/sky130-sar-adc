@@ -1184,11 +1184,47 @@ someone edits `spec/target-spec.md`.
 
 This section is written against this design's *current* port list (§2) and
 would need revision once §7's open items (differential-reference budget,
-top-level layout) close.
+top-level layout) close. **That first claim is machine-checked rather than
+asserted** (check 19 of the [citation gate](check_proposal_citations.py), added
+2026-09-25): every port of `design/sar_adc_top.spice` must be named somewhere
+in this section, so a port added to the block's interface fails CI here instead
+of leaving a bench plan that quietly describes an older part. It had gone stale
+in exactly that way for a day before this check landed — **three** of the four
+supply terminals below joined the interface on 2026-09-24, after this section
+was first written (`VPWR`/`VGND` by
+[DR-010](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)
+via issue #355, `GND` by
+[DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) via issue
+#362), and step 1 went on powering the 19-port block meanwhile.
 
-1. **Bring-up / DC sanity.** Apply `VDD` = 1.8 V, `VREFP`/`VREFN` (0/1.8 V or
-   the harness-supplied equivalent), `VCM` = 0.9 V. Confirm quiescent supply
-   current with no input applied, `CLK` free-running, `RST_B` deasserted.
+**Supply terminals, machine-checked too**: this part presents **4** supply
+terminals — `VDD`, `VPWR`, `VGND`, `GND` — and that set is recomputed from
+§2.2's own rail rows (the rows charged against no slot) in both directions, so
+neither a rail dropped from this list nor one invented in it survives CI.
+
+1. **Bring-up / DC sanity.** Feed the **analog** rail `VDD` = 1.8 V and the
+   **digital** rail `VPWR` = 1.8 V from the same 1.8 V supply point but on
+   separate feeds, and bring the analog return `GND` and the digital return
+   `VGND` back separately to a single **off-die** star point. Both
+   [DR-010](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)
+   (Decision item 5) and
+   [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) (Decision
+   item 5) put that star point off-die deliberately and neither specifies it
+   further; `sim/full-conversion-transient/`'s own testbench already drives
+   `VDD`, `VPWR` and `VGND` as independent sources returning to one node, so
+   the bench arrangement mirrors the simulated one rather than inventing a
+   second convention. **Do not bond `GND` and `VGND` together at the socket.**
+   On-die they are already one node — bulk sky130 offers no isolation, and this
+   composition's own extraction reports them as the single net `GND|VGND`
+   (692 devices, per DR-012's "Verified, not assumed") — so a package-level
+   short between them changes nothing electrically *and* destroys the one thing
+   the split buys: a digital return that travels off-die instead of through the
+   substrate past the comparator. A board that ties them makes DR-010's
+   partition unmeasurable on silicon, which is the same reason DR-010 and
+   DR-012 both rejected tying them in metal. Then apply `VREFP`/`VREFN`
+   (0/1.8 V or the harness-supplied equivalent) and `VCM` = 0.9 V, and confirm
+   quiescent supply current on **each** of `VDD` and `VPWR` separately (see
+   step 6) with no input applied, `CLK` free-running, `RST_B` deasserted.
 2. **Functional / decode check.** Drive `VINP`/`VINN` to a small set of known
    DC levels spanning 0–`V_REF`. Capture `DOUT9..0` on each `BUSY`
    deassertion and confirm monotonically increasing codes with increasing
@@ -1205,12 +1241,28 @@ top-level layout) close.
    first degrades — this is the silicon measurement that would finally
    produce the settling-time evidence `spec/target-spec.md`'s sample-rate row
    is still waiting on.
-6. **Power.** Measure `VDD` supply current at a representative sample rate.
-   §4's Power row now carries a simulated ADC-core figure over the ratified
-   9-corner grid to compare a bench measurement against — but only of the
-   core, driven from ideal references, and on a conversion that is not yet
-   code-correct across its full input range, so it is a sanity scale rather
-   than an expected result.
+6. **Power.** Measure supply current **per terminal**, not on `VDD` alone.
+   §4's Power row carries a simulated ADC-core figure over the ratified
+   9-corner grid to compare a bench measurement against, but that figure is
+   a sum over the **5** current columns of
+   `sim/full-conversion-transient/records/LATEST`'s own Power table —
+   `I(VDD)`, `I(VPWR)`, `I(VREFP)`, `I(VCM)`, `I(VREFN)` — of which `VDD` is
+   one term, and not the dominant one. A single `VDD` ammeter reading is
+   therefore **not** comparable to the µW figure that row quotes; each of
+   those five feeds needs its own series measurement, which is also why step 1
+   asks for quiescent current on `VDD` and `VPWR` separately. (Four of the five
+   carry a *power* term: the cited record states that `VREFN` sits at 0 V and so
+   contributes none, which is why its current is recorded but does not enter the
+   sum. Meter it anyway — a nonzero `VREFN` potential on a bench is itself the
+   finding.) That term list is
+   recomputed from the cited record's own Power-table header by check 19, so a
+   re-measurement that adds or drops a source cannot leave this step metering a
+   different set of terminals than §4 sums over. The comparison's own caveats
+   are §4's and are unchanged: the simulated figure is the ADC core only (every
+   rail and reference in that testbench is an ideal source — this design has no
+   reference buffer, clock generator or output driver yet), and it is the
+   current of a conversion that is not yet code-correct across its full input
+   range (§7 Item 8), so it is a sanity scale rather than an expected result.
 
 No test-equipment list or bench schedule is proposed here — that is
 downstream of a packaged part existing, which is itself downstream of §3/§7's
