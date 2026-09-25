@@ -16,6 +16,7 @@
 - [2. What gets sent: the wire schema](#2-what-gets-sent-the-wire-schema)
 - [3. Exporters: HTTPS (default) or OTLP (opt-in)](#3-exporters-https-default-or-otlp-opt-in)
 - [3b. Confirming telemetry is actually flowing](#3b-confirming-telemetry-is-actually-flowing)
+- [3c. Operational signals from daemon loops (Issue #8860)](#3c-operational-signals-from-daemon-loops-issue-8860)
 - [4. The backend: deploy your own Cloudflare Worker](#4-the-backend-deploy-your-own-cloudflare-worker)
 - [5. Authenticated vs. public: two views, one redaction policy](#5-authenticated-vs-public-two-views-one-redaction-policy)
 - [5b. Doc-maintenance throughput (Guide, local-only, issue #6136)](#5b-doc-maintenance-throughput-guide-local-only-issue-6136)
@@ -314,6 +315,45 @@ being acked", not "is every record kind being enqueued". A host can report
 `healthy` while a specific record kind is silently never queued (e.g. issue
 #5084); the two checks are complementary.
 
+## 3c. Operational signals from daemon loops (Issue #8860)
+
+`observability::ops` is the shared path every daemon loop uses to put a
+number or a span into SigNoz. `ops::emit_metrics` enqueues a `metric.points`
+record, named from a closed vocabulary with allowlisted labels, and
+`ops::emit_span` enqueues a completed span. There is no per-signal record
+kind, collector or mapping to write. The sink is registered only when at least
+one `otlp` exporter starts, and it feeds only the OTLP queues. With no OTLP
+exporter, both calls are no-ops.
+
+Current emitters are one `loom.dispatch.tick` span per work-finder tick, the
+`loom.dispatch.decisions{reason=…}` delta counter, and memory, swap and
+worktree-volume byte gauges on the `host.health` cadence. Names, kinds and
+labels are listed in
+[`telemetry-schema.md` → `metric.points`](telemetry-schema.md#metricpoints).
+To add a signal, add a `MetricName` or `SpanName` variant. If it needs a new
+label or attribute key, extend `OPS_METRIC_LABEL_KEYS` or
+`OPS_SPAN_ATTRIBUTE_KEYS` and the gateway collector's `keep_keys` in
+`defaults/observability/collector/config.yaml` in the same change; a contract
+test enforces this. The gateway also needs its `config.yaml` refreshed, as
+[execution traces](tracing.md) describes, before new label keys survive it.
+
+**The ready queue (Issue #8852, phase 2)** is exported to both sinks, split by
+cardinality:
+
+- **SigNoz (OTLP):** every work-finder tick emits `loom.queue.issues{state,reason}`
+  gauges, one per queue disposition with zeros included, plus
+  `loom.queue.listing_failed_repos`. These use the labels already on the
+  allowlist, so no gateway change is needed. They never carry an issue number
+  or a repo.
+- **Fleet dashboard (native HTTPS):** the per-issue rows travel as the
+  `queue.snapshot` record, sampled on the `host.health` interval whenever the
+  work finder has ticked since the last snapshot. Each row carries its forge
+  `owner/repo` and its own `visibility` tag. The OTLP exporter never receives
+  this record.
+
+Both are derived from the same rows as `loom-daemon queue`. See
+[`telemetry-schema.md` → `queue.snapshot`](telemetry-schema.md#queuesnapshot).
+
 ## 4. The backend: deploy your own Cloudflare Worker
 
 The Phase-2 backend is a Cloudflare Worker (D1 for durable history, a
@@ -539,14 +579,16 @@ capture, and why) so you can produce the equivalent for your own instance.
 |---|---|
 | [`.loom/docs/telemetry-schema.md`](telemetry-schema.md) | Wire envelope, record kinds, visibility contract, local journal |
 | [`.loom/docs/telemetry-fixtures.md`](telemetry-fixtures.md) | Offline synthetic graphs, expected query manifest, and live-comparison limits |
-| [`.loom/docs/ci-observability.md`](ci-observability.md) | Standing policy: every `2amlogic` GitHub Actions run/job/duration/outcome/log captured in SigNoz — poller (#8824; phase-1 reference: config, exactly-once ledger contract, local journal schema, `loom.ci.*` allowlist), log capture + gateway redaction (#8825), retro surfaces + retention (#8826) |
+| [`.loom/docs/ci-observability.md`](ci-observability.md) | Standing policy: every `2amlogic` GitHub Actions run/job/duration/outcome/log captured in SigNoz — poller (#8824; phase-1 reference: config, exactly-once ledger contract, local journal schema, `loom.ci.*` allowlist), completed-job log capture (#8825; phase-2 reference: `ci.job.log` chunking contract, per-job cap + truncation marker, independent `logs_done` idempotency, and why the **gateway** is the redaction boundary), retro surfaces + retention (#8826) |
 | [`.loom/docs/telemetry-overhead.md`](telemetry-overhead.md) | What lifecycle instrumentation costs on a representative run, realised attribute/event bounds, and what the measurement excludes |
 | `dashboard/docs/deploy-runbook.md` | Deploy your own Cloudflare backend end to end |
 | `dashboard/docs/cloudflare-access.md` | Gating the authenticated view behind SSO; single-URL fallback |
 | `dashboard/docs/query-api.md` | `/api/*` vs `/public/*` routes, redaction policy, live tail |
+| `defaults/observability/cycle-time-questions.md` | Cycle-time analytics on the OTLP sinks: the canonical question set (CT1–CT8), the rollup-vs-raw-TTL retention decision, and what it deliberately cannot answer |
 | `dashboard/docs/token-analytics.md` | Burn curves, forecasting, per-repo attribution |
 | `defaults/scripts/guide-docs-telemetry.sh` | Local doc-maintenance throughput telemetry (§5b) — record + report, no daemon/Cloudflare involvement |
 | `defaults/scripts/merge-admission-telemetry.sh` | Local merge-admission-recheck outcome telemetry (§5c) — record + report, no daemon/Cloudflare involvement |
 | `dashboard/migrations/0003_ephemeral_compute.sql` | `ephemeral_compute` schema decision + hostless-ingest provisioning rationale (§5d) |
 | `dashboard/docs/reference-deployment.md` | Generic guidance/template for recording your own instance's deployment identity in your own infrastructure repo — carries no operator identity here |
 | `loom-daemon/src/observability/mod.rs` | Config resolution, collector/queue/exporter/sender source of truth |
+| `loom-daemon/src/observability/ops.rs` | Shared `metric.points` / ops-span emission path for daemon loops (§3c) |
