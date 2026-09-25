@@ -1401,16 +1401,26 @@ whose `record.md` is hand-written from what that script prints. Counted over
 entry points rather than over record trees, because that is the unit a fix is
 made in: one renderer minting two trees is one place to change.
 
-"Resolves the commit" is a `klt pdk find` invocation (argv-list or shell
-spelling) or a call to `layout/bin/_record_common.py`'s `resolve_pdk_commit`,
-in the entry point or -- for a renderer that is nothing but a title and a call
-to `render_pnr_drc_lvs_record` -- in the shared record builder it delegates
-to. The delegation is matched on that function name specifically, not on
-"mentions the shared module": a renderer importing only `build_argparser`
-delegates no provenance at all and must not inherit the shared module's pin.
-The test is deliberately **not** a search for the word "pdk" -- every one of
-these files names a PDK variant, and printing only the variant name is the
-defect.
+"Resolves the commit" is a `klt pdk find` argv-list invocation (`["pdk",
+"find", ...]`) or a call to `layout/bin/_record_common.py`'s
+`resolve_pdk_commit`, in the entry point or -- for a renderer that is nothing
+but a title and a call to `render_pnr_drc_lvs_record` -- in the shared record
+builder it delegates to. The delegation is matched on that function name
+specifically, not on "mentions the shared module": a renderer importing only
+`build_argparser` delegates no provenance at all and must not inherit the
+shared module's pin. The test is deliberately **not** a search for the word
+"pdk" -- every one of these files names a PDK variant, and printing only the
+variant name is the defect -- and, since issue #424, deliberately not a
+search for the bare shell words `pdk find` either: an unanchored word-sequence
+match is satisfied by a comment that only *talks about* invoking `klt pdk
+find`, which is the same failure shape one word over. No entry point under
+`layout/` invokes `klt pdk find` from shell today, so nothing is lost by
+requiring the argv-list or `resolve_pdk_commit` spelling. Whole-line `#`
+comments are stripped from the entry point (and, when delegated to, the
+shared builder) before either alternative is matched, so a comment merely
+*naming* `resolve_pdk_commit` -- a real Python identifier, and so matchable
+in prose too -- cannot satisfy the predicate either; only a call in real code
+counts.
 
 An absent census is a finding, anchored on the document stating check 26's
 record census: the two are a pair, and stating the lagging number while

@@ -5313,6 +5313,80 @@ class TestRendererCensus(unittest.TestCase):
         )
         self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
 
+    def test_a_comment_only_pdk_find_mention_is_not_counted_as_resolving(self):
+        """Issue #424: a comment *spelling out* `klt pdk find` is not a call.
+
+        `RENDERER_PIN_RE` used to have a third, unanchored alternative,
+        `\\bpdk find\\b`, that matched the phrase anywhere in the file --
+        including inside a `#` comment explaining an approach the script does
+        *not* take. A renderer whose only mention of the phrase is such a
+        comment, with no real invocation anywhere, must be counted unpinned.
+        """
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/render-record.py",
+            "# rather than re-parsing 'klt pdk find --format json' here\n"
+            + self.VARIANT_ONLY,
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_a_comment_only_resolve_pdk_commit_mention_is_not_counted_as_resolving(
+        self,
+    ):
+        """The same failure shape one alternative over: naming, not calling.
+
+        `resolve_pdk_commit` is a real Python identifier, so even the
+        narrower, argv-anchored form of `RENDERER_PIN_RE` is satisfied by a
+        comment that merely *names* it -- e.g. explaining that the pin is
+        obtained elsewhere -- unless comments are stripped before matching.
+        """
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/render-record.py",
+            "# Reuses layout/bin/_record_common.py's own `resolve_pdk_commit`\n"
+            + self.VARIANT_ONLY,
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_the_run_erc_comment_only_repro_is_counted_as_unpinned(self):
+        """The literal regression this issue reproduced.
+
+        `run-erc.sh`'s real comment (issue #407) explains, in prose, why it
+        reuses `resolve_pdk_commit` instead of re-parsing `klt pdk find`
+        itself -- naming both pin spellings without calling either. Stripped
+        of the real call, this entry point must flip from pinned to unpinned.
+        """
+        self.tree.add_erc_record("sar-adc-top", "e1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/run-erc.sh",
+            "# Reuses layout/bin/_record_common.py's own `resolve_pdk_commit`\n"
+            "# (issue #407) rather than re-parsing `klt pdk find --format json`\n"
+            "# here, so this script's PDK pin can never drift.\n"
+            + self.VARIANT_ONLY,
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/run-erc.sh",))
+                )
+            ),
+            [],
+        )
+
     def test_one_renderer_minting_two_record_trees_is_counted_once(self):
         """Entry points, not record trees: a fix is made in one place."""
         self.tree.add_layout_record("trivial-cell", "l1")
