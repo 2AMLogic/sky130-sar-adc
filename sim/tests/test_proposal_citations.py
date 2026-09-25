@@ -109,12 +109,20 @@ class FixtureTree:
         kickback: tuple[tuple[float, float, str, str, float, str, str], ...] | None = None,
         kickback_split: bool = False,
         provenance: str = "",
+        corners: str = "",
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
         # See `add_layout_record` for what `provenance` is and why it is empty
         # by default.
-        body = "fixture record\n" + provenance
+        #
+        # `corners` is the record header line check 28 reads the declared PVT
+        # point set out of, passed verbatim (the three real shapes are built
+        # by `corner_matrix_line` / `point_matrix_line` / `stat_point_line`
+        # below). Empty by default, which is the "declares no PVT point set of
+        # its own" case -- a real one, and the one a fixture must be able to
+        # reach without saying anything.
+        body = "fixture record\n" + corners + ("\n" if corners else "") + provenance
         if kickback is not None:
             # The `Measured value(s)` table check 21 re-derives the Kickback
             # row's figures from, in the shape
@@ -4709,6 +4717,267 @@ class TestLabelClaimSection(unittest.TestCase):
         self.assertTrue(claims)
         self.assertTrue(all(section == 7 for _line, _label, section in claims))
         self.assertIn("operator-only", {label for _line, label, _section in claims})
+
+
+def corner_matrix_line(
+    process: tuple[str, ...],
+    temps: tuple[float, ...],
+    supplies: tuple[float, ...],
+    points: int | None = None,
+    *,
+    pvt: bool = False,
+) -> str:
+    """Shape (a): the corner-campaign driver's own header line.
+
+    Written the way `sim/harness/corners.py:corner_matrix_summary_line()`
+    writes it, `repr()`-formatted lists and all -- a fixture that wrote a
+    tidied-up version would pass while the real line went unparsed. `pvt`
+    switches to the "1 PVT point -- **subset-corner justification**: ..."
+    wording the single-corner comparator runs use, which is the same field
+    with a different noun and must parse identically.
+    """
+    count = len(process) + len(temps) + len(supplies) - 2 if points is None else points
+    tail = (
+        f"({count} PVT point -- **subset-corner justification**: first-pass, "
+        "nominal-corner-only)"
+        if pvt
+        else f"({count} points, one-at-a-time per sim/README.md)"
+    )
+    return (
+        f"- **Corner matrix run**: process={list(process)}, "
+        f"temperature_c={list(temps)}, supply_v={list(supplies)} {tail}"
+    )
+
+
+def point_matrix_line(*points: str) -> str:
+    """Shape (b): the mechanism-budget drivers' `Point/corner matrix` line."""
+    return (
+        f"- **Point/corner matrix**: {', '.join(points)} only -- a "
+        "mechanism-isolating, single-corner first-pass budget"
+    )
+
+
+def stat_point_line(process: str = "tt", temp: float = 27.0, supply: float = 1.8) -> str:
+    """Shape (c): the Monte Carlo drivers' `Statistical convention` line."""
+    return (
+        f"- **Statistical convention**: mismatch corner `{process}_mm`, N=40, "
+        f"seed=1, PVT point process={process} temp={temp}C supply={supply}V. "
+        "**Subset-corner justification**: nominal PVT point only"
+    )
+
+
+class TestCornerGridCensus(unittest.TestCase):
+    """Check 28: Section 4's PVT-grid claim must be counted, not asserted.
+
+    The defect this reproduces is the live one: Section 4 opened "Every row
+    below is reported at this repository's own ratified PVT grid ... (9
+    points)", and 10 of its 22 (spec row, `sim/` record) citation pairs named
+    a record that declares fewer points than that, or none at all. No other
+    check here could see it -- checks 3/4/5/23 grade WHICH record a row
+    cites, never what corner coverage that record claims for itself.
+
+    The load-bearing fixtures are the three directions a census can lie in:
+    a subset record left OUT of the list (the table reading better than it
+    is), a record left IN after it grows to the full grid, and the grid
+    sentence itself weakened until every citation "meets" it.
+    """
+
+    FULL = "20260827-213107-e13bc1e"
+    SUBSET = "20260925-050027-0259924"
+    MONTE = "20260828-005006-0c70212"
+    SILENT = "20260906-173830-6f04f59"
+
+    PROCESS = ("ff", "fs", "sf", "ss", "tt")
+    TEMPS = (-40, 27.0, 125)
+    SUPPLIES = (1.62, 1.8, 1.98)
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        (self.tree.root / "sim").mkdir(exist_ok=True)
+        (self.tree.root / "sim" / "pdk.json").write_text(
+            json.dumps({"process_corners": list(self.PROCESS)})
+        )
+        self.tree.add_sim_record(
+            "cdac-array-transfer",
+            self.FULL,
+            latest=True,
+            corners=corner_matrix_line(self.PROCESS, self.TEMPS, self.SUPPLIES),
+        )
+        self.tree.add_sim_record(
+            "comparator-decision",
+            self.SUBSET,
+            latest=True,
+            corners=corner_matrix_line(("tt",), (27.0,), (1.8,), points=1, pvt=True),
+        )
+        self.tree.add_sim_record(
+            "cdac-bit-trial-settling",
+            self.MONTE,
+            latest=True,
+            corners=stat_point_line(),
+        )
+        # No `corners=` at all: the derived re-analysis that runs no ngspice.
+        self.tree.add_sim_record("enob-estimate", self.SILENT, latest=True)
+
+    GRID = (
+        "process corners `{ff, fs, sf, ss, tt}`, temperature "
+        "`{−40, 27, 125} °C`, supply `{1.62, 1.80, 1.98} V`, "
+        "one-at-a-time (9 points)"
+    )
+
+    def _table(self) -> str:
+        return spec_table(
+            f"| `V_REF` | 1.8 V | RATIFIED | **MET** | "
+            f"`sim/cdac-array-transfer/records/{self.FULL}.md` |",
+            # Deliberately NOT named "Kickback": that row has a check of its
+            # own (21), and a fixture that tripped it would report two
+            # findings where this class asserts one.
+            f"| Comparator input-referred noise | ≤ 1.0148 mV rms | RATIFIED "
+            f"| **MET** | `sim/comparator-decision/records/{self.SUBSET}.md` |",
+            f"| INL / DNL | ≤ ±2.0 LSB | DRAFT | **Informational only** | "
+            f"`sim/cdac-bit-trial-settling/records/{self.MONTE}.md` |",
+            f"| ENOB | > 7.5 bit | DRAFT | **Informational only** | "
+            f"`sim/enob-estimate/records/{self.SILENT}.md` |",
+        )
+
+    def _sentence(self, pairs, full, subset, unstated, records, points=9) -> str:
+        rendered = (
+            ", ".join(
+                f"`{record}` (no PVT point set)"
+                if count is None
+                else f"`{record}` (**{count}** point{'' if count == 1 else 's'})"
+                for record, count in records
+            )
+            or checker.CORNER_GRID_NONE
+        )
+        return (
+            f"of the **{pairs}** (spec row, `sim/` record) citation pairs in "
+            f"Section 4's table, **{full}** name a record that declares the "
+            f"full **{points}**-point grid, **{subset}** name one that "
+            f"declares a smaller PVT point set, and **{unstated}** name one "
+            f"that declares no PVT point set of its own: {rendered}.\n"
+        )
+
+    def _exceptions(self):
+        return [
+            (f"sim/cdac-bit-trial-settling/records/{self.MONTE}.md", 1),
+            (f"sim/comparator-decision/records/{self.SUBSET}.md", 1),
+            (f"sim/enob-estimate/records/{self.SILENT}.md", None),
+        ]
+
+    def _body(self, sentence: str = "", grid: str = "") -> str:
+        return f"{self._table()}\n{grid or self.GRID}\n\n{sentence}"
+
+    def test_all_three_record_shapes_are_parsed(self):
+        """Keying on the campaign line alone would misreport two of the three."""
+        full = checker.declared_pvt_points(
+            corner_matrix_line(self.PROCESS, self.TEMPS, self.SUPPLIES)
+        )
+        self.assertEqual(full["points"], 9, full)
+        self.assertEqual(full["process"], self.PROCESS, full)
+        self.assertEqual(full["temps"], (-40.0, 27.0, 125.0), full)
+
+        budget = checker.declared_pvt_points(point_matrix_line("`tt`/27C/1.8V"))
+        self.assertEqual(budget["points"], 1, budget)
+        self.assertEqual(budget["process"], ("tt",), budget)
+
+        monte = checker.declared_pvt_points(stat_point_line())
+        self.assertEqual(monte["points"], 1, monte)
+
+        self.assertIsNone(checker.declared_pvt_points("fixture record\n"))
+
+    def test_census_of_a_known_table_is_computed_per_row_record_pair(self):
+        census = checker.corner_grid_census(self._body())
+        self.assertEqual(census["pairs"], 4, census)
+        self.assertEqual(census["full"], 1, census)
+        self.assertEqual(census["subset"], 2, census)
+        self.assertEqual(census["unstated"], 1, census)
+        self.assertEqual(census["records"], self._exceptions(), census)
+
+    def test_a_truthful_census_passes(self):
+        body = self._body(self._sentence(4, 1, 2, 1, self._exceptions()))
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_an_absent_census_is_a_finding_not_a_silence(self):
+        """The blanket sentence must not be able to stand alone again."""
+        misses = self.tree.check(self._body())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no census", misses[0])
+
+    def test_an_omitted_subset_record_is_reported(self):
+        """The direction that matters: the table reading better than it is."""
+        kept = [item for item in self._exceptions() if "comparator" not in item[0]]
+        misses = self.tree.check(self._body(self._sentence(4, 1, 2, 1, kept)))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn(
+            f"omits `sim/comparator-decision/records/{self.SUBSET}.md`", misses[0]
+        )
+
+    def test_a_record_that_grows_to_the_full_grid_must_leave_the_list(self):
+        (
+            self.tree.root
+            / "sim"
+            / "comparator-decision"
+            / "records"
+            / f"{self.SUBSET}.md"
+        ).write_text(
+            "fixture record\n"
+            + corner_matrix_line(self.PROCESS, self.TEMPS, self.SUPPLIES)
+            + "\n"
+        )
+        misses = self.tree.check(self._body(self._sentence(4, 1, 2, 1, self._exceptions())))
+        self.assertTrue(
+            any(f"lists `sim/comparator-decision/records/{self.SUBSET}.md`" in m for m in misses),
+            misses,
+        )
+        self.assertTrue(any("full=1" in m and "full=2" in m for m in misses), misses)
+
+    def test_a_weakened_process_axis_is_reported_against_the_pdk_pin(self):
+        """Redefining "the full grid" must not be a way to pass the census."""
+        weakened = self.GRID.replace("{ff, fs, sf, ss, tt}", "{ss, tt}")
+        misses = self.tree.check(
+            self._body(self._sentence(4, 0, 3, 1, self._exceptions()), grid=weakened)
+        )
+        self.assertTrue(any("`sim/pdk.json` pins" in m for m in misses), misses)
+        self.assertTrue(any("|P| + |T| + |S| - 2" in m for m in misses), misses)
+
+    def test_the_point_count_must_match_the_axes_the_sentence_names(self):
+        mismatched = self.GRID.replace("(9 points)", "(45 points)")
+        misses = self.tree.check(
+            self._body(self._sentence(4, 0, 3, 1, self._exceptions(), points=45), grid=mismatched)
+        )
+        self.assertTrue(any("which is 9 points" in m for m in misses), misses)
+
+    def test_a_document_stating_no_grid_is_not_graded(self):
+        """Opt-in per document, like checks 6 and 18: a fixture invents none."""
+        self.assertIsNone(checker.corner_grid_census(self._table()))
+        self.assertEqual(self.tree.check(self._table()), [])
+
+    def test_a_fully_covered_table_renders_and_accepts_none(self):
+        for campaign, stamp in (
+            ("comparator-decision", self.SUBSET),
+            ("cdac-bit-trial-settling", self.MONTE),
+            ("enob-estimate", self.SILENT),
+        ):
+            (self.tree.root / "sim" / campaign / "records" / f"{stamp}.md").write_text(
+                "fixture record\n"
+                + corner_matrix_line(self.PROCESS, self.TEMPS, self.SUPPLIES)
+                + "\n"
+            )
+        census = checker.corner_grid_census(self._body())
+        self.assertEqual(census["records"], [], census)
+        self.assertIn(checker.CORNER_GRID_NONE, checker.corner_grid_sentence(census))
+        self.assertEqual(self.tree.check(self._body(self._sentence(4, 4, 0, 0, []))), [])
+
+    def test_the_stats_sentence_is_what_the_check_accepts(self):
+        """A `--stats` paste must pass, or the documented fix does not work."""
+        body = self._body()
+        sentence = checker.corner_grid_sentence(checker.corner_grid_census(body))
+        self.assertEqual(self.tree.check(body + sentence + "\n"), [])
+
+    def test_the_sentence_is_not_counted_as_a_pointer_claim(self):
+        """It must not enrol itself in check 4/6's census, as check 18's does not."""
+        sentence = self._sentence(4, 1, 2, 1, self._exceptions())
+        self.assertEqual(checker.pointer_claim_census(sentence)["total"], 0)
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
