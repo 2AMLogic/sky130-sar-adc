@@ -48,7 +48,15 @@ THE FIVE ARMS (see `ARMS` below for the exact networks):
                     bond of its own and reaches the board only through the
                     lumped substrate resistance to `VGND`'s die node and out
                     through *its* bond. The other three terminals keep their
-                    R+L.
+                    R+L. Paired with `package` this is the campaign's SECOND
+                    strict one-element ablation -- same three bonded
+                    terminals, same substrate link, the only difference is
+                    whether `GND` is bonded -- so that pair prices the option
+                    DR-012 rejected against the option it chose. It is also
+                    the most expensive arm to simulate, by a wide margin (a
+                    high-impedance, lightly-damped ground node drives the
+                    transient solver's timestep down); see this experiment's
+                    README on `--log-cache` and on runtime.
 
 WHAT THE SUBSTRATE RESISTOR IS NOT. There is no extracted substrate network
 in this repo. `R_SUB`/`R_SUBX` below are a **lumped stand-in** whose
@@ -318,6 +326,48 @@ ARMS: tuple[Arm, ...] = (
 
 ARMS_BY_NAME = {arm.name: arm for arm in ARMS}
 CONTROL_ARM = "ideal"
+
+#: Why a record that does NOT contain an arm is still a valid record.
+#:
+#: `sim/README.md` requires a corner subset to be justified; an arm subset is
+#: the same kind of omission and gets the same treatment, so every arm the
+#: runner offers has a standing reason a record may state when it leaves that
+#: arm out. These are properties of the ARM (what it is for, and what a record
+#: without it therefore cannot say), not of any one run -- a record-specific
+#: reason belongs in that record's own prose, not in a constant here.
+ARM_OMISSION_NOTES: dict[str, str] = {
+    "package-r-only": (
+        "the `L = 0` twin of `package`. A record without it has no "
+        "**bond-inductance ablation** -- that number is the difference between "
+        "these two arms and cannot be reconstructed from either one alone -- so "
+        "such a record may compare whole grounding schemes but may not attribute "
+        "a difference to the series `L`."
+    ),
+    "package": (
+        "the as-built shape DR-012 chose (four drawn pads, star point off-die). "
+        "A record without it has no as-built row, so nothing in it is a statement "
+        "about what this block's own ground plan costs."
+    ),
+    "substrate": (
+        "an **on-die-only** resistive return of DR-012's stated order. It answers "
+        "a different question from the bonded arms rather than ablating them (its "
+        "resistance is ~300x the package R), so a record without it is not missing "
+        "a term in any comparison the other arms make -- it simply does not ask "
+        "that question."
+    ),
+    "no-gnd-pad": (
+        "DR-012's rejected null option. Omitting it is a **cost** decision, not a "
+        "merit one: its ground is a high-impedance, lightly-damped node, which "
+        "drives the transient solver's timestep down hard, and a bounded "
+        "calibration slice of the same deck measured it at roughly an order of "
+        "magnitude more wall clock per simulated nanosecond than the control arm "
+        "-- which projects to several hours for one run of this stimulus. It is "
+        "implemented and reachable with `--arms`, and paired with `package` it is "
+        "the one pair that prices DR-012's rejected alternative against the option "
+        "DR-012 chose -- so a record without it says nothing about what the null "
+        "option would have cost."
+    ),
+}
 
 
 # --------------------------------------------------------------------------
@@ -935,6 +985,26 @@ def invocation_line(arm_names: list[str], corners_mode: bool, supersedes: str) -
     non-rewritable half of the evidence trail -- so the footer states the real
     arm list and the real flags. A reader who runs exactly this line gets
     exactly this record's arm set back.
+
+    WHAT BELONGS HERE, AND WHAT DELIBERATELY DOES NOT. Flags that change what
+    was simulated (`--arms`, `--corners`) or which record this one replaces
+    (`--supersedes`) are part of this record's identity and are stated. A flag
+    that only changes how the run was *scheduled* is not: `--log-cache` is a
+    restart mechanism whose reuse is identity-gated on deck sha256, open_pdks
+    commit and ngspice version, so it cannot change a number, and its argument
+    is one machine's scratch directory rather than anything about the
+    experiment. Naming it here would break the footer twice over -- a
+    placeholder such as `<DIR>` is not runnable as written, and
+    `check_spec_coverage.py` requires every token after the runner path to
+    appear in the indexed bench's documented `cold_start`
+    (`cold-start-record-mismatch`), which a machine-local path can never
+    satisfy. Which runs did reuse a stored log IS provenance this record
+    carries: the wall-clock table marks those rows individually.
+
+    That gate binds the other direction too. A record minted with an `--arms`
+    list the indexed `cold_start` does not document needs its own bench entry in
+    `sim/spec-coverage.json` -- the shape `sar-sequencer-behavioral` already
+    uses for its `--corners` variant -- rather than a footer softened to fit.
     """
     parts = ["sim/supply-impedance-sensitivity/run_supply_impedance.py"]
     if arm_names != [arm.name for arm in ARMS]:
@@ -1043,7 +1113,11 @@ def write_record(
         f"{R_SUB_OHM / PACKAGE_R_OHM:.0f}x larger. `no-gnd-pad` is DR-012's "
         "rejected null option, and per DR-015's own open item it is a function of "
         "`R_SUB` above all else, so it must always be read as \"at this assumed "
-        "magnitude\"."
+        "magnitude\"; against `package` it is itself a strict one-element "
+        "ablation -- same three bonded terminals, same substrate link, the only "
+        "difference is whether `GND` has a bond of its own -- so that pair, and "
+        "only that pair, prices the option DR-012 rejected against the option it "
+        "chose."
     )
     a("")
 
@@ -1202,21 +1276,11 @@ def write_record(
             "code offers was skipped."
         )
         a("")
-        if "no-gnd-pad" in omitted_arms:
-            a(
-                "- **`no-gnd-pad`** (DR-012's rejected null option) is omitted on "
-                "**cost**, not on merit. Its ground is a high-impedance, "
-                "lightly-damped node, which drives the transient solver's timestep "
-                "down hard: a bounded calibration slice of the same deck measured "
-                "it at roughly an order of magnitude more wall clock per simulated "
-                "nanosecond than the control arm, which projects to several hours "
-                "for one run of this stimulus. It is implemented, it is reachable "
-                "with `--arms`, and it remains the arm that would price DR-012's "
-                "rejected alternative directly -- so this record's findings are "
-                "about the *cost of the bonded return*, and say nothing about what "
-                "the null option would have cost."
-            )
-            a("")
+        for name in omitted_arms:
+            note = ARM_OMISSION_NOTES.get(name)
+            if note:
+                a(f"- **`{name}`** is {note}")
+        a("")
 
     if not corners_mode:
         a("## Subset-corner justification (`sim/README.md`)")
@@ -1330,6 +1394,7 @@ def findings_lines(
             + "."
         )
     out.extend(ablation_lines(points, arms_run, corner_ids))
+    out.extend(gnd_pad_ablation_lines(points, arms_run, corner_ids))
     missing_points = [p["point_id"] for p in points if p["missing"]]
     if missing_points:
         out.append(
@@ -1346,12 +1411,18 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
 
     `package` and `package-r-only` carry the same per-terminal resistance on the
     same four terminals; the only difference is the series `L`. So the change
-    between them is bond inductance's own contribution, and it is the one number
-    in this record that isolates a single mechanism rather than comparing two
-    whole grounding schemes. Deliberately NOT computed against `substrate`: that
-    arm's resistance is ~300x the package resistance, so it differs from
-    `package` in two elements at once and a difference against it would confound
-    them.
+    between them is bond inductance's own contribution -- a number that isolates
+    a single mechanism rather than comparing two whole grounding schemes.
+    Deliberately NOT computed against `substrate`: that arm's resistance is ~300x
+    the package resistance, so it differs from `package` in two elements at once
+    and a difference against it would confound them.
+
+    Whether it is the record's *only* such number depends on which arms ran, so
+    the emitted sentence is conditional rather than an unconditional uniqueness
+    claim: a record that also carries `no-gnd-pad` alongside `package` gets a
+    second one-element ablation from `gnd_pad_ablation_lines()` below, and
+    records are append-only evidence -- a false "the only" written into one can
+    be corrected only by minting a superseding record.
     """
     if not {"package", "package-r-only"} <= set(arms_run):
         return [
@@ -1359,6 +1430,16 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
             "both the `package` and `package-r-only` arms, and this run did not "
             "include both."
         ]
+    # `package` is guaranteed present by the guard above, so the ground-pad
+    # ablation is reported for this record exactly when `no-gnd-pad` also ran
+    # (the same condition `gnd_pad_ablation_lines()` keys its own output on).
+    standing = (
+        "This and the ground-pad ablation below (`no-gnd-pad` vs `package`, "
+        "which isolates the other single element in this family of decks) are "
+        "the two single-mechanism numbers in this record."
+        if "no-gnd-pad" in arms_run
+        else "This is the only single-mechanism number in this record."
+    )
     out: list[str] = []
     for cid in corner_ids:
         full = next((q for q in points if q["corner_id"] == cid and q["arm"] == "package"), None)
@@ -1380,8 +1461,73 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
             "`package-r-only`, identical except for the series `L`): worst "
             "mid-scale code change = "
             + ("n/a" if delta is None else f"**{delta} LSB**")
-            + f"; analog-ground excursion {pp_txt}. This is the only "
-            "single-mechanism number in this record."
+            + f"; analog-ground excursion {pp_txt}. {standing}"
+        )
+    return out
+
+
+def gnd_pad_ablation_lines(
+    points: list[dict], arms_run: list[str], corner_ids: list[str]
+) -> list[str]:
+    """The ground-PAD ablation: `no-gnd-pad` against `package`.
+
+    This is the pair DR-012 actually decided between. The two arms carry the
+    same package R+L on `VDD`, `VPWR` and `VGND`, the same lumped `R_SUBX`
+    between the two ground die nodes, and the same stimulus; the ONLY
+    difference is whether `GND` has a bond of its own. So the difference
+    between them is the drawn analog ground pad's own contribution and nothing
+    else -- the price of the option DR-012 rejected, at this corner and at
+    DR-015's assumed magnitudes.
+
+    Deliberately NOT computed against `ideal` or `substrate`: `ideal` differs
+    from `no-gnd-pad` in four elements at once, and `substrate` differs in the
+    bond inductance as well as the ground path, so neither difference would
+    isolate the pad. Read together with the bond-inductance ablation above,
+    which isolates the other single element in the same family of decks.
+
+    `no-gnd-pad` is a function of `R_SUB`/`R_SUBX` above all else (DR-015's own
+    open item), so every line this produces is stated as "at this assumed
+    magnitude" rather than as a prediction for this die.
+    """
+    if "no-gnd-pad" not in arms_run:
+        return []
+    if "package" not in arms_run:
+        return [
+            "- **Ground-pad ablation not available in this record**: it needs both "
+            "the `package` and `no-gnd-pad` arms (they differ in exactly one "
+            "element -- whether `GND` is bonded), and this run did not include "
+            "both. The `no-gnd-pad` rows above are therefore a grounding scheme's "
+            "own numbers, not a priced difference against the as-built shape."
+        ]
+    out: list[str] = []
+    for cid in corner_ids:
+        null_opt = next(
+            (q for q in points if q["corner_id"] == cid and q["arm"] == "no-gnd-pad"), None
+        )
+        as_built = next(
+            (q for q in points if q["corner_id"] == cid and q["arm"] == "package"), None
+        )
+        if null_opt is None or as_built is None:
+            continue
+        delta = worst_mid_scale_delta(null_opt, as_built)
+        pp_null = null_opt["extras"].get("gnd_die_pp")
+        pp_built = as_built["extras"].get("gnd_die_pp")
+        if pp_null is None or pp_built is None:
+            pp_txt = "n/a"
+        else:
+            pp_txt = f"{pp_null * 1e3:.3f} mV vs {pp_built * 1e3:.3f} mV"
+            if pp_built > 0.0:
+                pp_txt += f" ({pp_null / pp_built:.1f}x)"
+        out.append(
+            f"- **Ground-pad ablation at `{cid}`** (`no-gnd-pad` vs `package`, "
+            "identical except that `GND` has no bond of its own): worst mid-scale "
+            "code change = "
+            + ("n/a" if delta is None else f"**{delta} LSB**")
+            + f"; die-side analog-ground excursion {pp_txt}. This is the price of "
+            "the option DR-012 rejected, measured against the option it chose, at "
+            f"`R_SUB` = {R_SUB_OHM:g} Ohm / `R_SUBX` = {R_SUBX_OHM:g} Ohm -- a "
+            "LUMPED stand-in (DR-015), so it is a number about a resistive return "
+            "of that order and not about this die's substrate."
         )
     return out
 

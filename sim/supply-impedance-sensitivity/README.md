@@ -34,17 +34,31 @@ and the die's four supply terminals.
 
 - `package` vs `package-r-only` is a **strict one-element ablation**: same
   resistance, same terminals, the only difference is the series `L`. Their
-  difference is bond inductance's own contribution and nothing else, and it is
-  the one single-mechanism number the campaign produces.
+  difference is bond inductance's own contribution and nothing else. It is one
+  of the **two** single-mechanism numbers this campaign can produce — the
+  `no-gnd-pad` vs `package` bullet below is the other — and it is the only one
+  in a record whose arm set omits `no-gnd-pad` (`ablation_lines()` says which
+  case a given record is in rather than asserting uniqueness unconditionally).
 - `package-r-only` vs `ideal` is the bond resistance's own contribution.
 - `substrate` is **not** an ablation of `package`. Its resistance is ~300×
   larger (tens of ohms, vs ~100 mΩ), so a difference against `package` would
   confound two changes at once. It answers a different question — what an
   on-die-only resistive return of the magnitude DR-012 argues from would cost.
-- `no-gnd-pad` is the option DR-012 rejected. Per
+- `no-gnd-pad` vs `package` is the **second** strict one-element ablation: same
+  three bonded terminals at the same R+L, same lumped substrate link, and the
+  only difference is whether `GND` has a bond of its own. That difference is the
+  drawn analog ground pad's own contribution — the price of the option
+  [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) rejected,
+  measured against the option it chose. A record that contains both arms
+  reports it automatically (`gnd_pad_ablation_lines()`); one that contains
+  `no-gnd-pad` without `package` says so instead of presenting an unpaired row
+  as a price. **No committed record contains that pair yet** — `no-gnd-pad` has
+  not been run (cost; see Runtime below), so the pricing is computable but not
+  yet measured.
+- Per
   [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)'s
-  own open item, this arm is above all a function of `R_SUB`, so it must always
-  be read as "at this assumed magnitude" and never as a prediction.
+  own open item, the `no-gnd-pad` arm is above all a function of `R_SUB`, so it
+  must always be read as "at this assumed magnitude" and never as a prediction.
 
 Every arm also carries one lumped resistor between `GND_DIE` and `VGND`,
 because DR-012's own extraction evidence says those two are one net through the
@@ -227,6 +241,23 @@ per-arm wall clock. Consequences:
   therefore still owed, and the record says so in its own words rather than
   leaving a reader to notice the missing row.
 
+**Before spending those hours, index the invocation you are about to run.**
+Every record states the command that minted it in its `Written by` footer, and
+`sim/check_spec_coverage.py` requires every token of that footer after the
+runner path to appear in the bench's documented `cold_start`
+(`cold-start-record-mismatch`). The indexed `cold_start` today is the four-arm
+one that minted the committed record, so a run with any other `--arms` list —
+including the `ideal,package,no-gnd-pad` shape that would price the rejected
+option — needs its own bench entry in `sim/spec-coverage.json` and its own
+verbatim documented command here, the same way `sar-sequencer-behavioral`
+indexes its `--corners` variant separately.
+`sim/tests/test_supply_impedance.py` asserts the rule for every bench entry
+indexed against this runner, so once the new invocation is indexed the check is
+a unit test rather than a post-run surprise. (`--log-cache` never appears in a
+footer: it cannot change a number, and its argument is one machine's scratch
+path. Which runs reused a stored log is stated per row in the record's
+wall-clock table instead.)
+
 Also verified once, by hand, at `sim/pdk.json`'s pinned open_pdks commit and
 then wired into the runner as a pre-flight guard: **neither the
 `sky130_fd_sc_hd` cell deck nor the ngspice model library names a node `GND`**
@@ -286,8 +317,9 @@ retires [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s
   return, DR-012's own stated order) **10.779 mV**. `package` vs
   `package-r-only` is a strict one-element ablation — same R, same terminals,
   only the series `L` differs — so bond inductance alone accounts for a
-  **~630×** jump in excursion, the one single-mechanism number this campaign
-  produces.
+  **~630×** jump in excursion, the only single-mechanism number **in this
+  record** (its four arms do not include `no-gnd-pad`, so the ground-pad
+  ablation is not among its numbers).
 - **Read this as "not fatal at this magnitude", not as "impedance does not
   matter".** A 37 mV undecoupled excursion (≈10.6 LSB at the nominal supply)
   on the comparator's own reference not flipping a captured code at `tt/27
