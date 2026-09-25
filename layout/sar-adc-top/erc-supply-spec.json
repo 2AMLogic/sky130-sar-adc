@@ -47,11 +47,14 @@
     "provenance.input.content_hash. That hash, not this sentence, is what says",
     "WHICH layout a given verdict is about; this line only names the run of",
     "record at the time it was last written:",
-    "  layout/sar-adc-top/reports/20260924-214710-b323061/sar_adc_top.gds",
-    "-- the assembly issue #362 added the drawn analog GND pad to. The stackup",
-    "covers exactly the conductor levels that layout draws -- verified with",
-    "`klt layers` on that GDS: poly/li1/met1-met5 all carry geometry, as do",
-    "licon1, mcon, via, via2, via3 and via4."
+    "  layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds",
+    "-- the run whose GDS first carries DR-012's drawn analog GND pad (issue",
+    "#362): `klt layers --flattened --include-text` finds a `GND` text",
+    "occurrence on met3 (69/5) here that the immediately preceding run",
+    "(`...-b323061`, unrelated PR #369) lacks. The stackup covers exactly the",
+    "conductor levels that layout draws -- verified with `klt layers` on that",
+    "GDS: poly/li1/met1-met5 all carry geometry, as do licon1, mcon, via,",
+    "via2, via3 and via4."
   ],
 
   "stackup": [
