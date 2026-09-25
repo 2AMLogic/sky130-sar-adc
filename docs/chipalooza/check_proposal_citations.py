@@ -59,10 +59,13 @@ against), the live inductor-card census of every SPICE deck under `sim/`
 (the sentence check 25 compares against) and the live toolchain/PDK
 provenance census of every `sim/` and `layout/` record (the sentence check 26
 compares against), each document's live Section 4 corner-grid census (the
-sentence check 28 compares against) and the live record-renderer census of
-every `layout/` record tree (the sentence check 30 compares against) instead
-of checking, which is what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18,
-19, 20, 21, 24, 25, 26, 28 or 30 reports a drift. Exit status:
+sentence check 28 compares against), the live record-renderer census of
+every `layout/` record tree (the sentence check 30 compares against) and the
+live supply-return arm and `--sweep`-box censuses of
+`sim/supply-impedance-sensitivity/` (the sentences checks 31 and 32 compare
+against) instead of checking, which is what to run when check 6, 9, 12, 13,
+14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31 or 32 reports a drift.
+Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -1232,6 +1235,70 @@ ARM_CENSUS_RE = re.compile(
 # and the subset is what bounds what the record may be read for. Deleting the
 # inconvenient sentence is not a way to widen the citation.
 ARM_CENSUS_ANCHOR = f"sim/{ARM_CAMPAIGN}/"
+
+# ---------------------------------------------------------------------------
+# Check 32: the same campaign's SWEEP-MODE axis.
+#
+# Check 31 grades the arms a record ran; this one grades a *mode* of the same
+# runner that has no record at all. `--sweep` (PR #432, issue #409's third
+# item) walks a bounded 2-D box -- bond-inductance multiplier x the lumped
+# substrate link `R_SUBX` -- around DR-015's single assumption point, and
+# deliberately does NOT move `records/LATEST`: it supersedes nothing, so the
+# arm-comparison record stays the one DR-012 and Section 4's Power row cite.
+# That disposition is exactly what makes the claim ungradeable by every check
+# already here: checks 3/4/6/23 grade pointers and stamps, check 28 grades the
+# PVT grid, check 31 grades the arm list of the record the pointer names --
+# and a sweep record would be none of those things. Section 7's DR-012 item
+# bounds its retirement on the box being unrun ("DR-015's assumption is tested
+# at one magnitude rather than swept"), so on the day the box is run that
+# sentence goes false with every number beside it still true. Check 30's
+# defect shape, a second axis over from check 31.
+SWEEP_RUNNER = ARM_RUNNER
+SWEEP_RECORDS = f"sim/{ARM_CAMPAIGN}/records"
+
+# The runner's two axis tuples, read as source text (never imported -- the
+# same pure-file-reader rule `report_row_count` and `runner_arms` record). A
+# tuple literal only: a computed box is a shape this parse does not recognise,
+# which check 32 reports as a silence rather than as a census of zero.
+SWEEP_L_AXIS_RE = re.compile(r"^SWEEP_L_MULTIPLIERS\b[^=\n]*=\s*\((?P<values>[^)]*)\)", re.M)
+SWEEP_R_AXIS_RE = re.compile(r"^SWEEP_RSUBX_OHM\b[^=\n]*=\s*\((?P<values>[^)]*)\)", re.M)
+SWEEP_VALUE_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+
+# The header line the sweep's own record writer emits -- and the only thing
+# that distinguishes a sweep record from an arm-comparison record in the same
+# `records/` tree (that one carries `- **Arms**:` instead). The swept-point
+# count is read from the `=` total rather than multiplied out of the two
+# factors in front of it, for `ARM_RECORD_RE`'s reason: the record states what
+# it ran, and a record whose factors disagreed with its total must be graded
+# on what it says it covered.
+SWEEP_RECORD_GRID_RE = re.compile(
+    r"- \*\*Grid\*\*: \d+ bond-inductance multipliers x \d+ substrate-link "
+    r"resistances = (?P<points>\d+) swept points"
+)
+
+# What the census renders while the box has never been run -- spelled out,
+# `ARM_CENSUS_NONE`'s reason. The em dash is the document's own punctuation.
+SWEEP_CENSUS_NONE = "**none** — the mode is committed and the box is unrun"
+
+# The census sentence check 32 grades. Like `ARM_CENSUS_RE`, deliberately free
+# of the phrase "current `records/LATEST`" (check 17's reason) -- and doubly
+# so here, because a sweep record by design never becomes that pointer.
+SWEEP_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<points>\d+)\*\* grid points the default `--sweep` box in `"
+    + re.escape(SWEEP_RUNNER)
+    + r"` defines \(\*\*(?P<l_mults>\d+)\*\* bond-inductance multipliers × "
+    r"\*\*(?P<rsubx>\d+)\*\* substrate-link resistances\), the records under `"
+    + re.escape(SWEEP_RECORDS)
+    + r"/` carry \*\*(?P<covered>\d+)\*\*, in \*\*(?P<records>\d+)\*\* sweep "
+    r"records?: (?P<names>"
+    + re.escape(SWEEP_CENSUS_NONE)
+    + r"|(?:`[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# Same anchor as check 31, for the same reason: a document that cites this
+# campaign is citing a single-magnitude record, and what bounds it is the box
+# nothing has walked. Deleting the sentence must not widen the citation.
+SWEEP_CENSUS_ANCHOR = ARM_CENSUS_ANCHOR
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -4838,6 +4905,143 @@ def check_arm_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def sweep_box() -> tuple[int, int] | None:
+    """The default `--sweep` box the runner defines: (L multipliers, R_SUBX).
+
+    Source-text read, `runner_arms`' reason. `None` covers "no runner" and
+    "the axes are not two tuple literals this parse recognises" -- both are
+    nothing to compare against, which check 32 reports as an ungraded silence
+    rather than as a box of zero points.
+    """
+    runner = REPO_ROOT / SWEEP_RUNNER
+    if not runner.is_file():
+        return None
+    source = runner.read_text()
+    axes = []
+    for pattern in (SWEEP_L_AXIS_RE, SWEEP_R_AXIS_RE):
+        match = pattern.search(source)
+        if match is None:
+            return None
+        values = SWEEP_VALUE_RE.findall(match.group("values"))
+        if not values:
+            return None
+        axes.append(len(values))
+    return axes[0], axes[1]
+
+
+def sweep_records() -> list[tuple[str, int]]:
+    """Every committed sweep record of this campaign: (stamp, swept points).
+
+    A record is a *sweep* record when it carries the `- **Grid**:` header line
+    only the sweep's own writer emits; the arm-comparison record in the same
+    tree carries `- **Arms**:` instead and is not counted here. Sorted by
+    stamp, which is the chronological order these ids already impose.
+    """
+    records = REPO_ROOT / SWEEP_RECORDS
+    if not records.is_dir():
+        return []
+    found = []
+    for record in sorted(records.glob("*.md")):
+        grid = SWEEP_RECORD_GRID_RE.search(record.read_text())
+        if grid is not None:
+            found.append((record.stem, int(grid.group("points"))))
+    return found
+
+
+def sweep_census() -> dict | None:
+    """How much of the runner's own default sweep box this tree has walked.
+
+    `covered` is the LARGEST box any single committed sweep record carries,
+    not a sum: two records of the same box are two runs of one experiment, and
+    adding them would report a coverage no record supports. Today, with no
+    sweep record at all, it is 0 -- which is the whole point of stating it.
+    """
+    box = sweep_box()
+    if box is None:
+        return None
+    found = sweep_records()
+    return {
+        "l_mults": box[0],
+        "rsubx": box[1],
+        "points": box[0] * box[1],
+        "covered": max((points for _, points in found), default=0),
+        "records": len(found),
+        "record_ids": [stamp for stamp, _ in found],
+    }
+
+
+def sweep_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `SWEEP_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-32 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26, 28, 30 and 31.
+    """
+    names = (
+        SWEEP_CENSUS_NONE
+        if not census["record_ids"]
+        else ", ".join(f"`{stamp}`" for stamp in census["record_ids"])
+    )
+    plural = "" if census["records"] == 1 else "s"
+    return (
+        f"of the **{census['points']}** grid points the default `--sweep` box "
+        f"in `{SWEEP_RUNNER}` defines (**{census['l_mults']}** bond-inductance "
+        f"multipliers × **{census['rsubx']}** substrate-link resistances), the "
+        f"records under `{SWEEP_RECORDS}/` carry **{census['covered']}**, in "
+        f"**{census['records']}** sweep record{plural}: {names}"
+    )
+
+
+def check_sweep_census(doc: Path, text: str) -> list[str]:
+    """Check 32: the stated `--sweep` box census is this tree's own."""
+    if SWEEP_CENSUS_ANCHOR not in text:
+        # A document that does not cite this campaign qualifies nothing about
+        # the magnitudes its records did not walk, and is not made to.
+        return []
+    actual = sweep_census()
+    if actual is None:
+        # No runner, or a sweep box this parse does not recognise: there is
+        # nothing to compare a census against, and inventing one would be a
+        # claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(SWEEP_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose records test "
+            f"DR-015's assumption at ONE magnitude while `{SWEEP_RUNNER}` "
+            f"defines a bounded sweep around it, but states no sweep census "
+            f"-- state it (`{sweep_sentence(actual)}` today), so the "
+            f"magnitudes the cited record cannot speak for are graded rather "
+            f"than asserted and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("points", "l_mults", "rsubx", "covered", "records"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the sweep census says {field}={claimed}, but "
+                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"the box has now been walked, say what its record measures "
+                f"rather than only moving the number"
+            )
+        listed = ARM_TOKEN_RE.findall(match.group("names"))
+        if listed != actual["record_ids"]:
+            misses.append(
+                f"{where}: the sweep census names "
+                f"{', '.join(f'`{stamp}`' for stamp in listed) or 'no record'} "
+                f"as carrying the box, but `sim/{ARM_CAMPAIGN}/records/` holds "
+                f"{', '.join(f'`{stamp}`' for stamp in actual['record_ids']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"record misstates which magnitudes have been walked"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -4871,6 +5075,7 @@ def check_document(doc: Path) -> list[str]:
         + check_absent_paths(doc, text)
         + check_renderer_census(doc, text)
         + check_arm_census(doc, text)
+        + check_sweep_census(doc, text)
     )
 
 
@@ -5079,6 +5284,14 @@ def main(argv: list[str]) -> int:
         arms = arm_census()
         if arms is not None:
             print(f"sim/{ARM_CAMPAIGN}/: {arm_sentence(arms)}")
+        # And the second axis of that same campaign, which check 32 grades:
+        # not which NETWORKS a record ran, but how much of the bounded box
+        # around DR-015's single assumption point any record has walked. A
+        # sweep record deliberately never becomes `records/LATEST`, so no
+        # pointer- or stamp-based check can see one arrive.
+        sweep = sweep_census()
+        if sweep is not None:
+            print(f"sim/{ARM_CAMPAIGN}/: {sweep_sentence(sweep)}")
         return 0
 
     misses: list[str] = []

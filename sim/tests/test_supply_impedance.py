@@ -1132,6 +1132,34 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         expected = len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM) + 1
         self.assertEqual(len(dumped), 2 * expected, dumped)
 
+    def test_the_citation_gate_can_recognise_this_record_as_a_sweep_record(self) -> None:
+        """The pointer this record must NOT move is why check 32 exists.
+
+        `docs/chipalooza/challenge-4-proposal.md` §7 bounds DR-012's
+        retirement on this box being unwalked, and check 32 of the citation
+        gate is what re-derives that from the tree. Because this writer
+        deliberately leaves `records/LATEST` alone, the ONLY thing that tells
+        the gate a sweep record has arrived is this record's own `- **Grid**:`
+        header line -- so the gate's parse of it is asserted here, against
+        what this writer actually emits, rather than against a fixture in the
+        gate's own test file. A writer that reworded that line would otherwise
+        make check 32 silently unable to see the very event it grades.
+        """
+        sys.path.insert(0, str(REPO_ROOT / "docs" / "chipalooza"))
+        import check_proposal_citations as gate  # noqa: PLC0415
+
+        path, _tmp = self._write()
+        grid = gate.SWEEP_RECORD_GRID_RE.search(path.read_text())
+        self.assertIsNotNone(
+            grid,
+            "the citation gate cannot identify this record as a sweep record -- "
+            "check 32 would not fire on the day the box is walked",
+        )
+        self.assertEqual(
+            int(grid.group("points")),
+            len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM),
+        )
+
 
 class TestCostProbe(unittest.TestCase):
     """`--cost-probe` (the price of the sweep box, before it is paid).
