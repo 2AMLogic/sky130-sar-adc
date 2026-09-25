@@ -998,6 +998,65 @@ the command string, so a document that stops naming
 `sim/report/generate.py --check` entirely is not made to quote it -- Section 4's
 verdicts are held to evidence by checks 3 and 7 regardless.
 
+### Check 25 -- ground-return census (`check_ground_return`)
+
+Every other check grades a claim about *something this repository has*: a
+record, a pointer, a report's field, a command's output. This one grades a
+claim about something it **does not** have -- and that asymmetry is the whole
+reason it exists.
+
+Section 7 Item 9 reports a `klt erc`-clean power-delivery structure and four
+qualifications of it. A fifth is owed and was missing until 2026-09-25: the
+ground plan those verdicts grade
+([DR-012](../spec/decision-records/DR-012-analog-ground-pad.md)'s drawn analog
+ground pad, [DR-013](../spec/decision-records/DR-013-analog-ground-mesh.md)'s
+mesh into it) rests on an impedance argument that **no `sim/` campaign
+measures** -- no package parasitics, no substrate resistance, no bond-wire
+inductance. Both records say so themselves and DR-012 carries it as a standing
+open item ("The impedance argument is unmeasured", tracked as issue #378).
+
+A hand-written disclaimer of that shape rots in the one direction nobody
+notices: it stays on the page after it stops being true. Nothing else in the
+gate could see it happen, because the event that falsifies it -- a campaign
+that *does* model the return -- moves no pointer this document cites, changes
+no island count in Item 9's table, and budges no Section 4 number. It is the
+only one of Item 9's five qualifications whose truth is a property of the
+whole evidence tree rather than of one report.
+
+**What it grades.** The document's census sentence -- `across the **N** SPICE
+decks under `sim/`, **M** carry an inductor card` -- against a live read of
+every `*.spice` file under `sim/`. `M` is the graded half: an inductor card is
+the mechanical stand-in for "models the return", since neither bond-wire
+inductance nor any package model can be written in SPICE without one. `N` is
+there so the sentence states what was scanned rather than asserting a bare
+zero, and it moves whenever a campaign mints new corner decks -- the same
+already-existing cost as checks 3 and 18, which a new evidence record moves
+too. Graded in both directions, like checks 8, 10, 14--18 and 24: a document
+that cites `DR-012-analog-ground-pad.md` and states **no** census fails, so
+deleting the qualification is not a way to pass while still leaning on the
+record whose open item it discloses.
+
+**Read from the file tree, not from `git ls-files`.** The gate is
+subprocess-free and network-free by design, so an untracked scratch deck left
+under `sim/` counts exactly as a committed one does. That is the conservative
+direction: it can only make the census look less clean than the tree is, never
+cleaner.
+
+**What this check deliberately does NOT cover.** It is a floor on the gap, not
+a proof of it. A package stand-in written with resistors only -- a substrate
+return modelled as an R, with no inductance -- passes this census while
+partially closing the very gap the sentence disclaims, and the document says
+so where it states the census. Closing that hole properly would mean deciding,
+mechanically, which `R` cards are "supply parasitics" and which are the
+ordinary bleeders, dividers and source impedances the existing decks are full
+of (`sim/comparator-decision`'s own `1 kΩ` kickback source impedance is one,
+and grading it as a package model would be simply wrong) -- a classifier this
+gate has no basis for. DR-012's open item is retired by #378's testbench and
+by a rewritten qualification, never by this count reading zero. Nor does the
+check read the *prose* around the census: a document that states the numbers
+correctly while describing their meaning backwards passes here, as it does
+under checks 15, 16 and 22.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
