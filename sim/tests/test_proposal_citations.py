@@ -233,9 +233,10 @@ class FixtureTree:
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
 
-        Each row is `{"parameter", "claim_class", "experiments"}`; the nested
-        bench shape the real index uses is built here so a test states only
-        what it is about.
+        Each row is `{"parameter", "claim_class", "experiments"}`, plus an
+        optional `"tracking"` -- the free-prose field check 22 reads the
+        governing decision records out of. The nested bench shape the real
+        index uses is built here so a test states only what it is about.
         """
         sim = self.root / "sim"
         sim.mkdir(parents=True, exist_ok=True)
@@ -251,6 +252,11 @@ class FixtureTree:
                                 {"experiment": experiment}
                                 for experiment in row.get("experiments", ())
                             ],
+                            **(
+                                {"tracking": row["tracking"]}
+                                if "tracking" in row
+                                else {}
+                            ),
                         }
                         for row in rows
                     ],
@@ -2616,6 +2622,37 @@ class TestAgainstTheRealProposal(unittest.TestCase):
                 compared += 1
         self.assertGreaterEqual(compared, 8, "check 11 compared almost nothing")
 
+    def test_the_real_coverage_index_really_tracks_decision_records(self):
+        """Check 22 is opt-in per row, so assert at least one row opts in.
+
+        The `tracking` field is free prose and optional; if every row dropped
+        its `DR-<n>` tokens -- or the field were renamed -- check 22 would go
+        inert and its green would mean nothing was compared. It is the Kickback
+        row that carries them today, because DR-014 repointed that field onto
+        itself and #390 when it closed #349.
+        """
+        tracked = checker.coverage_index_tracking()
+        self.assertTrue(tracked, "no indexed row tracks a decision record")
+        by_parameter = dict(tracked)
+        self.assertIn("Kickback", by_parameter)
+        self.assertIn("DR-014", by_parameter["Kickback"])
+
+    def test_every_tracked_record_is_named_by_its_own_section_4_row(self):
+        """The positive form of check 22 on the live document."""
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        rows = {
+            checker._normalise_parameter(cells[0]): " | ".join(cells)
+            for _line, cells in checker.section_4_table(doc.read_text())[1]
+        }
+        compared = 0
+        for parameter, records in checker.coverage_index_tracking():
+            row = rows.get(parameter)
+            self.assertIsNotNone(row, f"{parameter} has no Section 4 row")
+            for record in records:
+                self.assertRegex(row, rf"{record}(?!\d)", parameter)
+                compared += 1
+        self.assertGreaterEqual(compared, 3, "check 22 compared almost nothing")
+
     def test_the_real_proposal_states_a_parseable_power_readout(self):
         """Check 12 is opt-in per row, so assert the real Power row opts in.
 
@@ -3852,6 +3889,116 @@ class TestKickbackDecomposition(unittest.TestCase):
             readout["has_split"],
             "the cited record now carries a common-mode/differential column -- "
             "restate the Kickback row's split from it (issue #390)",
+        )
+
+
+class TestTrackedRecords(unittest.TestCase):
+    """Check 22: a Section 4 row names the records its index tracks for it.
+
+    The defect shape is check 11's, moved from the campaign tree to the
+    decision-record tree, and it is an *absence* for the same reason: a row
+    that never mentions a record has nothing stale for the earlier checks to
+    find. DR-014 (issue #349, 2026-09-25) answered DR-011's "Mitigation
+    selection" open item for the Kickback row and repointed that row's
+    `tracking` field off #349 onto itself and #390; `spec/target-spec.md`'s
+    Kickback note moved in the same PR. Section 4's Kickback row did not -- it
+    went on restating the open item verbatim and pointing at a closed issue,
+    while check 7 (Status column), check 15 (DR-014's own status) and check 21
+    (the row's arithmetic) all passed.
+    """
+
+    TRACKING = (
+        "DR-014 (#349: static preamp not adopted, DR-004 Decision 1 stands); "
+        "#390 (the common-mode/differential split); DR-011's Open items"
+    )
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, row: str) -> list[str]:
+        body = spec_table(row)
+        return checker.check_tracked_records(self.tree.document(body), body)
+
+    def _index(self, tracking: str | None = None, parameter: str = "Kickback"):
+        row = {
+            "parameter": parameter,
+            "claim_class": "draft-informational",
+            "experiments": ["comparator-decision"],
+        }
+        if tracking is not None:
+            row["tracking"] = tracking
+        self.tree.add_coverage_index(row)
+
+    def test_a_row_that_names_every_tracked_record_passes(self):
+        self._index(self.TRACKING)
+        self.assertEqual(
+            self.check(
+                "| Kickback | `≤ 5 mV` | DRAFT | **Informational only** — DR-011's "
+                "row, whose mitigation question DR-014 answers by keeping DR-004 "
+                "Decision §1 | a record |"
+            ),
+            [],
+        )
+
+    def test_the_record_the_row_fell_behind_is_reported(self):
+        """The exact drift: the row still cites the answered open item's owner."""
+        self._index(self.TRACKING)
+        misses = self.check(
+            "| Kickback | `≤ 5 mV` | DRAFT | **Informational only** — DR-011's row. "
+            "Mitigation selection is #349's, unblocked by this row's existence "
+            "| a record |"
+        )
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("`DR-004`" in miss for miss in misses), misses)
+        self.assertTrue(any("`DR-014`" in miss for miss in misses), misses)
+        self.assertIn("spec-coverage.json", misses[0])
+
+    def test_a_row_may_name_records_the_index_does_not_track(self):
+        """Forward direction only -- provenance is not outstanding work."""
+        self._index("DR-011's Open items")
+        self.assertEqual(
+            self.check(
+                "| Kickback | `≤ 5 mV` | **RATIFIED** (DR-003 via #27) | **MET** — "
+                "DR-011, DR-014, DR-004 and DR-007 all named here | a record |"
+            ),
+            [],
+        )
+
+    def test_a_row_tracking_no_decision_record_is_not_graded(self):
+        """`Sample rate` and `Power` track issues and a future record today."""
+        self._index("#24 (CDAC/switch netlist); the future sample-rate record")
+        self.assertEqual(
+            self.check("| Kickback | `≤ 5 mV` | DRAFT | no record named at all | — |"),
+            [],
+        )
+
+    def test_a_row_with_no_tracking_field_is_not_graded(self):
+        self._index(None)
+        self.assertEqual(
+            self.check("| Kickback | `≤ 5 mV` | DRAFT | no record named at all | — |"),
+            [],
+        )
+
+    def test_a_tracked_row_absent_from_section_4_is_left_to_check_7(self):
+        self._index(self.TRACKING)
+        self.assertEqual(
+            self.check("| ENOB | `> 7.5 bit` | DRAFT | **Informational only** | — |"),
+            [],
+        )
+
+    def test_a_longer_record_number_does_not_satisfy_a_shorter_one(self):
+        """`DR-01` must not be answered by a row that happens to name `DR-011`."""
+        self._index("DR-01 governs this row")
+        misses = self.check(
+            "| Kickback | `≤ 5 mV` | DRAFT | DR-011 and DR-014 are named | — |"
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`DR-01`", misses[0])
+
+    def test_check_is_inert_without_the_coverage_index(self):
+        # No sim/spec-coverage.json in the fixture tree at all.
+        self.assertEqual(
+            self.check("| Kickback | `≤ 5 mV` | DRAFT | DR-011 only | — |"), []
         )
 
 
