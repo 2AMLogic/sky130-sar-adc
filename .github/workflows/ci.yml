@@ -102,6 +102,21 @@ name: CI
 #     later made unnecessary; what the gate requires is that nothing of that
 #     shape is what a verdict stands on TODAY. Finding no payload at all
 #     fails too, so a renamed directory cannot turn it into a silent pass.
+#   - `sim/tests/test_layout_entrypoint_imports.py` (issue #399) reaches
+#     `checks` below through `check:ci` -> `npm run test` -> `test:unit`, and is
+#     likewise headless (stdlib only, no PDK, no ngspice, no `klt`/KLayout): it
+#     executes the import of every `layout/*/bin/{build_layout,gen_blocks,
+#     render-record}.py` in a fresh interpreter apiece and fails on any
+#     exception. It exists because NOTHING else here executes those modules on
+#     the PR-blocking path -- `test:compile`'s `py_compile` byte-compiles
+#     without importing, and the flows that do run them (`run-flow.sh`) are
+#     PDK-gated. That blind spot let `DOMAIN_TAP_NET`'s deletion from two
+#     `gen_blocks.py` re-export points land on main fully green (PR #388),
+#     broken at import time for four scripts, for the third time (#251, #383,
+#     #394). Per-script subprocesses are load-bearing, not incidental: the
+#     three sibling `gen_blocks.py` modules all claim the same top-level module
+#     name, so one shared interpreter would let the first one cached in
+#     `sys.modules` answer the next one's `from gen_blocks import ...`.
 #   - `sim/tests/test_measure_metal_min_area.py` (issue #363) runs as its own
 #     step of `checks` below rather than inside `check:ci`, because it is this
 #     repo's only unit test that needs the KLayout *engine* -- `npm run
