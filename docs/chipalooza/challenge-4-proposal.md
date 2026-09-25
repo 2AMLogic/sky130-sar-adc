@@ -2616,6 +2616,60 @@ tracker already owns.
    in this tree": it fails CI if that path ever *does* exist. This paragraph
    therefore cannot outlive the state it describes — the same structural
    shape check 27 applied to the label copies above, applied to the absences.
+
+   **Update this pass (2026-09-25, later still): a fourth requirement now
+   lands on the composed top level, and it is the first tracked one whose
+   arrival moves this document's *numbers* rather than only the reasons
+   behind its verdicts.** #440 was filed at 2026-09-25T18:06:01Z (open,
+   `loom:blocked` + `loom:triage`, read live this pass) to place two
+   per-domain decoupling capacitors in `layout/sar-adc-top/`'s composition —
+   one across the analog `VDD`/`GND` pair, one across the digital
+   `VPWR`/`VGND` pair — and to re-run `klt drc`, `klt lvs` and `klt erc`
+   against the result. It is not a defect report against the assembly: the
+   capacitors are a schematic-level sizing decision (#431, open and
+   `loom:building`) that deliberately left placement to a separate pass, and
+   #440 is that pass. **Nothing in this document moves yet, and the reason is
+   checkable offline rather than taken from either issue's text** — the design
+   those capacitors belong to has not landed. At this document's own HEAD,
+   `git grep -i cdecap origin/main -- design/ spec/` returns nothing,
+   `git ls-tree -r origin/main --name-only -- spec/decision-records/` carries
+   no on-die-decoupling record, and #431 has no open PR. So
+   `design/sar_adc_top.spice` still declares exactly the devices the composed
+   GDS draws, `layout/sar-adc-top/reports/LATEST` is still
+   `20260924-234053-66dca3c`, §4's machine-checked sign-off-bar readout is
+   still that record's own numbers, both §4 sign-off-bar rows keep the
+   verdicts they already carry, and criterion 3 waits on exactly what it
+   waited on before.
+
+   What *is* new is that this item now has a tracked event that will
+   invalidate those numbers, where every earlier one changed only their
+   explanation: #440 quotes #431's proposed netlist growth — 869 → 871 device
+   instances, two MiM capacitors — as the thing every existing record under
+   `layout/sar-adc-top/reports/` would then describe a die without. That
+   figure is #431's *proposed* content as filed, not committed fact, and is
+   quoted here as such; either way the staleness is caught rather than
+   remembered. **Check 9** of the [citation
+   gate](check_proposal_citations.py) grades every device, net and pin count
+   and every mismatch category in §4's readout against `reports/LATEST`'s own
+   `lvs.json`, so the first re-run that mints a record with different counts
+   fails CI here until this document is restated from it — the same
+   structural shape as checks 27 and 29 above, applied to the counts.
+
+   **One thing not to read out of #440's text**: the decision record it names
+   throughout,
+   `spec/decision-records/DR-016-on-die-decoupling-budget.md`
+   (not in this tree), is *not* the DR-016 that Item 4's status readout below
+   reports. That
+   number is already taken by
+   [DR-016](../../spec/decision-records/DR-016-kickback-headroom-neutral-mitigation-measurement.md),
+   the unrelated kickback-mitigation record #434 closed on (§4's Kickback
+   row), so Item 4's "**DR-016** … is **proposed**" line says nothing about an
+   on-die decoupling budget and no such record exists to carry a status of its
+   own. #440's own verified-corrections note records the same collision and
+   points a future builder at re-deriving the number from whatever #431 lands
+   with. This document records that collision rather than resolving it:
+   choosing #431's record number is #431's to do, exactly as laying out a
+   decoupling capacitor is #440's.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
