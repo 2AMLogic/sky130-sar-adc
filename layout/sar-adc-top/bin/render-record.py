@@ -24,6 +24,7 @@ from _record_common import (  # noqa: E402
     build_argparser,
     git_commit_and_dirty,
     load_json,
+    resolve_pdk_commit,
     tool_version,
 )
 
@@ -69,7 +70,9 @@ def main() -> int:
     lines.append("")
     lines.append("## Provenance")
     lines.append(f"- `klt` version: {tool_version(args.klt, '--version')}")
-    lines.append(f"- PDK variant: {args.pdk_variant}")
+    lines.append(
+        f"- PDK: {args.pdk_variant} ({resolve_pdk_commit(args.klt, args.pdk_variant)})"
+    )
     lines.append(f"- repo commit: `{commit}`{' (dirty)' if dirty else ''}")
     lines.append("")
 
