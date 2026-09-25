@@ -1261,6 +1261,31 @@ which is a real answer rather than a parse failure: `sim/enob-estimate/`
 runs no ngspice at all and inherits its binding corner from the records it
 composes.
 
+**First live firing, and what it establishes about the census's unit
+(2026-09-25, issue #417).** The check failed on `main` inside two minutes of
+landing, and not on anything it was written to catch: the PR that added it
+merged 2026-09-25T09:40:17Z against a census derived before the PR that
+merged at 09:38:13Z, which had re-pointed Section 4's ENOB row onto a newly
+minted `sim/enob-estimate/` record. Both PRs were green on their own branch;
+neither could see the other. The check reported it as **two** findings —
+`20260906-173830-6f04f59.md` still listed, `20260925-090023-c3a6872.md` not
+listed — which is the both-directions rule above paying for itself: a
+one-directional census (list only what is stale) would have stayed silent on
+the omission and left the document one record behind with nothing to say so.
+Both findings were cleared by #419 at 2026-09-25T10:34:50Z, which restated
+the two names in a one-line diff; `main` has been green on check 28 since.
+
+The general lesson is about the census's **unit**, not about merge order. The
+exception list names *records*, so it goes stale on any event that changes
+which record a Section 4 row cites — a re-point, a re-run, a newly minted
+`records/LATEST` — including one made by a change that never touches Section
+4's census, or this document, at all. That is deliberate: corner coverage is
+a property of the record, which is exactly why check 28 grades per (row,
+record) pair rather than per flow. The operational consequence is that any
+change re-pointing a Section 4 citation must restate the census from
+`--stats` in the same commit, and a change that merges onto a moved base must
+re-run the gate rather than trust its own branch's green.
+
 **What this check deliberately does NOT cover.** It does not grade whether a
 subset-corner citation is *justified* -- only that the document counts it.
 Single-corner evidence is legitimate and this repository uses it on purpose

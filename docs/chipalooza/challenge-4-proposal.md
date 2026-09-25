@@ -910,6 +910,31 @@ blanket claim:
 > `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`
 > (**1** point).
 
+**One name in that list was stale the moment the census landed, and was
+re-pointed by #419 later the same day (2026-09-25).** As first written, the
+exception list named `sim/enob-estimate/records/20260906-173830-6f04f59.md`
+as the second of the two records declaring no PVT point set of their own.
+That was right against the tree the census was derived from and wrong against
+the tree it merged into, two minutes later: issue #405 had just minted this
+flow's first `records/LATEST` pointer and moved the **ENOB** row's
+DR-007-candidate citation onto
+[`sim/enob-estimate/records/20260925-090023-c3a6872.md`](../../sim/enob-estimate/records/20260925-090023-c3a6872.md)
+— a same-inputs re-run whose committed `Composite-inputs manifest` line is
+byte-identical to `6f04f59`'s (sha256 of that line, `6022b531…`, is also what
+both records carry as their `DUT netlist sha256`) and which reports the same
+8.506 / 7.755 bit. Neither change could see the other before merging, and
+because check 28 grades the census in **both** directions it reported two
+findings rather than one: the superseded record still listed, and the current
+record not listed. **#419 made the one-line repair** at 2026-09-25T10:34:50Z,
+which is why the list above already names `c3a6872`; this paragraph is the
+write-up of the race, not the repair of it. **No count moved** — still **22**
+pairs, **12** / **8** / **2** — because the re-run declares no PVT point set
+of its own for exactly the reason its predecessor did (it runs no ngspice;
+see the paragraph below), and no Section 4 verdict, figure, Target or Status
+moved either. Tracked as #417; the both-directions rule is what made a
+two-minute merge race visible at all, rather than leaving the census quietly
+one record behind.
+
 **No cited record hides this — the sentence above them did.** Each of the
 eight single-point records states its own subset-corner justification in its
 own header (the phrase is the harness's, not this document's), and the two
