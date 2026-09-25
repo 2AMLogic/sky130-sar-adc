@@ -9,7 +9,9 @@
 - **Decided by**: Builder agent, issue #362
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
-- **Related**: #362 (this decision and its implementation), #355 / DR-010 (the
+- **Related**: #377 / [DR-013](DR-013-analog-ground-mesh.md) (the analog
+  ground mesh this record's largest open item asked for, since closed),
+  #362 (this decision and its implementation), #355 / DR-010 (the
   same structural gap one domain over, and the record whose "Open items" named
   this one), #344 (the `klt erc` supply-spec tooling), DR-001 (the ratified
   1.8 V core-flavour scope), `layout/sar-adc-top/README.md` ("GND / VPWR /
@@ -101,7 +103,11 @@ rule applies to it. See "Open items".
 4. **The pad is built on `comparator`'s own drawn `GND` pin**, because it is the
    only analog-ground terminal any sub-block in this composition draws. This is
    a consequence of the sub-blocks as they exist, not a claim that one pin is
-   the right ground plan; see "Open items".
+   the right ground plan; see "Open items". (That consequence has since been
+   removed rather than argued away: [DR-013](DR-013-analog-ground-mesh.md)
+   gave the other two analog sub-blocks their own drawn ground terminals and
+   meshed all three. The pad still anchors on `comparator`'s pin, at the same
+   coordinate.)
 5. **The star point stays off-die**, as DR-010 already required. The block now
    presents four supply terminals as real drawn pads (`VDD`, `GND`, `VPWR`,
    `VGND`) instead of three, and an enclosing testbench or harness ties them at
@@ -240,13 +246,26 @@ enumerate:
 
 ## Open items
 
-- **Two of the four analog blocks still draw no ground conductor.**
+- ~~**Two of the four analog blocks still draw no ground conductor.**
   `sampling_frontend` and `cdac_array` reach this pad only through the
   substrate. Closing that means drawing a real ground pin on each and a
   top-level analog ground mesh between them — a change inside two already-closed
   sub-block layouts, with its own DRC/LVS re-verification. It is the largest
   remaining gap in this block's ground plan and is **not** closed by this
-  record. Tracked as **#377**.
+  record. Tracked as **#377**.~~ **CLOSED** by
+  [DR-013](DR-013-analog-ground-mesh.md) (issue #377, 2026-09-24): both
+  sub-blocks now draw a real ground terminal of their own
+  (`sampling_frontend.GND` met2 pin, `cdac_array.VSS` met1 pin over a new
+  p-substrate tap, each re-verified DRC-clean and LVS-no-worse in its own new
+  record), and `layout/sar-adc-top/bin/build_layout.py`'s
+  `analog_ground_mesh()` joins all three to this pad in drawn met3/met4. The
+  pad's own coordinate is unchanged. Note what that record had to do to
+  *prove* it, because this record's own central caution applies one level
+  down: no ordinary verdict moves when the mesh is added, since the substrate
+  joined those nets already — the evidence is an ERC ablation
+  (`layout/sar-adc-top/bin/probe-ground-mesh.py`, summary in
+  `erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`) in which
+  removing the mesh and nothing else splits `GND` into two islands.
 - **The impedance argument is unmeasured.** No `sim/` campaign in this repo
   models the ground return at all — no package parasitics, no substrate
   resistance, no bond-wire inductance. A testbench that would settle it: drive
