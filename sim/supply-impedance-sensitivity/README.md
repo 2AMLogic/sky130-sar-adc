@@ -28,7 +28,7 @@ and the die's four supply terminals.
 | `package-r-only` | package R | package R | package R | package R | the bond's own **resistance**, with no inductance anywhere |
 | `package` | R+L | R+L | R+L | R+L | DR-012's as-built shape: four drawn pads, star point off-die |
 | `substrate` | ideal | lumped `R_SUB` | ideal | lumped `R_SUB` | an **on-die-only** resistive return of DR-012's stated order |
-| `no-gnd-pad` | R+L | *no bond at all* — reaches the board only through the lumped substrate resistance to `VGND`'s die node | R+L | R+L | DR-012's **rejected null option** — implemented, but *not* in the committed record (cost; see Runtime) |
+| `no-gnd-pad` | R+L | *no bond at all* — reaches the board only through the lumped substrate resistance to `VGND`'s die node | R+L | R+L | DR-012's **rejected null option** — priced in its own record (`20260925-204633-7339971`), not in the first one |
 
 **Read the ladder, not a single row.**
 
@@ -52,9 +52,11 @@ and the die's four supply terminals.
   measured against the option it chose. A record that contains both arms
   reports it automatically (`gnd_pad_ablation_lines()`); one that contains
   `no-gnd-pad` without `package` says so instead of presenting an unpaired row
-  as a price. **No committed record contains that pair yet** — `no-gnd-pad` has
-  not been run (cost; see Runtime below), so the pricing is computable but not
-  yet measured.
+  as a price. **That pair is committed as of
+  [`records/20260925-204633-7339971.md`](records/20260925-204633-7339971.md)**
+  (issue #409 item 2): deleting the pad costs **+27.6 mV** of die-side ground
+  excursion (65.237 mV vs 37.590 mV, 1.74×) and **0 LSB** of captured code, at
+  the baseline corner and DR-015's assumed magnitudes.
 - Per
   [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)'s
   own open item, the `no-gnd-pad` arm is above all a function of `R_SUB`, so it
@@ -178,6 +180,12 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --cost-
 # (records/20260925-073912-0e385e5.md; no-gnd-pad omitted on cost, see below):
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record
 
+# the exact invocation that priced DR-012's rejected null option
+# (records/20260925-204633-7339971.md): the ground-pad ablation pair plus the
+# control. `no-gnd-pad` is only readable as a price NEXT TO `package`, so the
+# two run together or not at all.
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package,no-gnd-pad --record
+
 # restartable: reuse the logs of arms that already finished
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
     --log-cache .cache/supply-impedance
@@ -217,11 +225,18 @@ This matters most for the deferred work in
 nine-point grid is 36–45 transients of this size, which is many hours of
 sequential simulation and effectively cannot be run without restartability.
 
-**The committed record is the four cheaper arms**, not all five: `no-gnd-pad`
-is omitted on cost (see Runtime below), and each record states its own arm
-subset and the reason, the same way it states its corner subset. Every record
-also states verbatim the invocation that produced it, so its arm set is
-reproducible from the record alone rather than from this README.
+**No single committed record carries all five arms**, and none needs to: the
+first record is the four cheaper arms (`no-gnd-pad` omitted on a cost
+projection, see Runtime below) and the third is the ground-pad ablation pair
+plus the control (`ideal`, `package`, `no-gnd-pad`), which is what prices the
+arm the first one left out. Each record states its own arm subset and the
+reason, the same way it states its corner subset, and every record states
+verbatim the invocation that produced it — so its arm set is reproducible from
+the record alone rather than from this README. What a *reader* must not do is
+add the two together: the bond-inductance ablation is a difference between two
+arms of the **first** record and the ground-pad ablation is a difference
+between two arms of the **third**, and neither record licenses a number that
+spans both.
 
 The `ideal` control arm is mandatory in every invocation — every number this
 campaign reports is a difference against it — and the runner refuses a
@@ -232,34 +247,57 @@ transient `sim/full-conversion-transient/` runs. The arms are *not* equally
 expensive: an undecoupled bond-wire inductance against the die's own
 capacitance rings far above the clock rate and forces the transient solver's
 timestep down, so a bonded arm costs multiples of the ideal one for the same
-simulated span, and the `no-gnd-pad` arm — a high-impedance, lightly-damped
-ground — is the most expensive of all. Each record states its own measured
-per-arm wall clock. Consequences:
+simulated span. Each record states its own measured per-arm wall clock.
+Consequences:
 
 - `SIM_NGSPICE_TIMEOUT_S` must be raised well above the 120 s `sim/harness`
   default, as in the cold-start command above.
 - The arms run one after another on purpose: this is a serial,
   single-simulation-at-a-time campaign, not a parallel grid.
-- **`no-gnd-pad` is the expensive one, by roughly an order of magnitude.** Its
-  ground is a high-impedance, lightly-damped node, and a bounded calibration
-  slice of the same deck measured it at ~17× the control arm's wall clock per
-  simulated nanosecond — which projects to several hours for one run of this
-  stimulus. That is why it is implemented and documented but not in the
-  committed record; the arm that would price DR-012's *rejected* option is
+- ~~**`no-gnd-pad` is the expensive one, by roughly an order of magnitude.**
+  Its ground is a high-impedance, lightly-damped node, and a bounded
+  calibration slice of the same deck measured it at ~17× the control arm's
+  wall clock per simulated nanosecond — which projects to several hours for one
+  run of this stimulus. That is why it is implemented and documented but not in
+  the committed record; the arm that would price DR-012's *rejected* option is
   therefore still owed, and the record says so in its own words rather than
-  leaving a reader to notice the missing row.
+  leaving a reader to notice the missing row.~~ **Measured, and the projection
+  was wrong by about an order of magnitude** (issue #409 item 2,
+  [`records/20260925-204633-7339971.md`](records/20260925-204633-7339971.md)):
+  the full-stimulus `no-gnd-pad` run took **487 s**, **1.67×** the `ideal`
+  control in the same record — *cheaper* than the `package` arm beside it
+  (678 s, 2.32×), not "the most expensive of all", and about 25 minutes for the
+  whole three-arm campaign rather than the several hours projected. Left
+  struck-through rather than deleted because the deletion would hide the
+  methodological finding underneath it, which is the durable part:
+  **a truncated-slice cost calibration did not predict this deck's
+  full-stimulus cost.** The ~17×/ns slice ratio, and a later pair of
+  re-calibrations on another host (~3.6× at a 200 ns slice, ~1.5× at 800 ns —
+  mutually inconsistent, minutes apart), all disagree with the 1.67× the real
+  run measured. The mechanism is physical, not a flaw in the probe's clock: a
+  high-impedance ground's cost is concentrated in the ringing that follows a
+  switching event, so a slice that starts at `t = 0` prices the start-up
+  transient and not the steady-state conversions the stimulus spends its span
+  on. Read `--cost-probe` (below) as a **convergence and runnability** check
+  with an order-of-magnitude cost hint attached, and prefer *this* table — a
+  measured full run of the same deck — when deciding whether an arm is
+  affordable. One arm sat unrun across several passes on a projection that an
+  eight-minute run falsified; the correction is to price an arm by running it
+  when the projection says "hours", not to trust the slice.
 
 **Before spending those hours, index the invocation you are about to run.**
 Every record states the command that minted it in its `Written by` footer, and
 `sim/check_spec_coverage.py` requires every token of that footer after the
 runner path to appear in the bench's documented `cold_start`
-(`cold-start-record-mismatch`). Exactly **one** invocation of this runner is
-indexed today — the four-arm one that minted the committed arm-comparison
-record — so a run with any other `--arms` list or any sweep box, including the
-`ideal,package,no-gnd-pad` shape that would price the rejected option and
-`--sweep --record` (below), needs its own bench entry in
+(`cold-start-record-mismatch`). **Three** invocations of this runner are
+indexed today, one per committed record — the four-arm arm comparison
+(`--arms ideal,package-r-only,package,substrate --record`), the default sweep
+box (`--sweep --record`) and the ground-pad ablation pair
+(`--arms ideal,package,no-gnd-pad --record`) — so a run with any *other*
+`--arms` list or any other sweep box needs its own bench entry in
 `sim/spec-coverage.json` and its own verbatim documented command here, the same
-way `sar-sequencer-behavioral` indexes its `--corners` variant separately.
+way `sar-sequencer-behavioral` indexes its `--corners` variant separately. The
+`--corners` grid is the next one that will need one.
 
 A bench entry cannot be added *ahead* of its record: `sim/check_spec_coverage.py`
 fails an entry that lists no evidence record (`bench-has-no-record`), because a
@@ -336,20 +374,36 @@ re-centre the sweep.
 in this deck. `R_SUB` is a substrate-only *return* path and appears in the
 `substrate` and `no-gnd-pad` arms, not in the as-built network, so sweeping it
 here would sweep an element the swept topology does not contain. The arm where
-`R_SUB` is load-bearing is `no-gnd-pad` — the expensive one (see Runtime) — so
-an `R_SUB` sweep is that arm's own campaign and stays open on #409. Each sweep
+`R_SUB` is load-bearing is `no-gnd-pad`, which now has a record of its own at
+the single assumed `R_SUB = 30 Ω` (see Findings) but no sweep of it — so an
+`R_SUB` sweep is that arm's own campaign and stays open on #409. Each sweep
 record says this in its own "What this sweep does not cover" section rather than
 letting "substrate resistance" be read as both.
 
 **The sweep record does not move `records/LATEST`, and supersedes nothing.** It
-is a *distinct* claim about the same DUT: the arm-comparison record compares
-five networks at DR-015's assumption point, the sweep walks a box around that
-point on one of them, and both stand. `records/LATEST` keeps naming the
-arm-comparison record — the one [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)
-and `docs/chipalooza/challenge-4-proposal.md`'s Power row cite by id — because
-moving it would make a citation of a record nothing had superseded read as
+is a *distinct* claim about the same DUT: an arm-comparison record compares
+networks at DR-015's assumption point, the sweep walks a box around that
+point on one of them, and both stand. Moving the pointer from an arm record to
+a sweep record would make a citation of a record nothing had superseded read as
 *stale* to this repo's citation gate. Same disposition, for the same reason, as
 `sim/full-conversion-transient/run_conversion.py`'s diagnostic record writers.
+
+**An arm record does move it, on purpose.** `records/LATEST` names this flow's
+most recent *arm-comparison* record, which since 2026-09-25 is
+[`20260925-204633-7339971`](records/20260925-204633-7339971.md) (the ground-pad
+ablation pair) rather than `20260925-073912-0e385e5` (the four-arm comparison).
+Nothing was superseded by that move and no earlier number was retracted: what
+the pointer feeds is `check_proposal_citations.py`'s **arm census** (check 31),
+which is deliberately a statement about *one* record's arm coverage — "the
+record `records/LATEST` names runs N and leaves M unrun" — and is the
+mechanism that stopped "implemented but not run" from being remembered only in
+prose. Freezing the pointer on the older record to keep a tidier census would
+have hidden exactly the arm this campaign had just run. The consequence a
+reader must carry instead: **the campaign's five arms are covered by two
+records, not one.** `package-r-only` and `substrate` are unrun *in the current
+record* and run in `20260925-073912-0e385e5`; both records stand, neither
+supersedes the other, and any document citing this flow cites the record
+carrying the number it wants rather than the pointer alone.
 
 **Cost, and `--sweep --corners`.** The default box is nine whole-ADC transients
 plus the control, run one at a time, which is hours — use `--log-cache`, and see
@@ -485,7 +539,12 @@ bind at once:
   comparable with anything already under `sim/`.
 - **Cost.** Five arms × nine corner points is 45 whole-ADC transients at the
   per-arm cost above — a campaign in its own right, not a longer version of
-  this one. (`no-gnd-pad` alone would account for most of it.)
+  this one. (It is, however, a *smaller* campaign than this section used to
+  claim: the parenthetical here said `no-gnd-pad` alone would account for most
+  of it, on the projection the measured 487 s run has since falsified. At the
+  measured per-arm costs the whole 45-run grid is on the order of
+  `45 × ~450 s ≈ 6 h` of sequential simulation, which is a scheduling problem
+  rather than an intractable one — the binding constraints are the two above.)
 
 So the grid is **deferred, not skipped**: the code exists, the command is
 written down, and what is missing is a host whose ngspice satisfies the pin and
@@ -524,7 +583,9 @@ retires [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s
   record is not the full nine-point grid" above), and DR-012's *rejected*
   `no-gnd-pad` null option (implemented, not run, on cost — see "Runtime"
   above). Neither a worst-corner claim nor a "the rejected option would have
-  cost N mV/LSB" claim may be made from this record alone.
+  cost N mV/LSB" claim may be made from this record alone. The second of those
+  is now priced by a record of its own (next section but one); the first is
+  still open.
 
 ### What the bounded `R`/`L` sweep adds
 
@@ -564,3 +625,42 @@ around that point on the as-built network. It is what retires
   `arm64` Darwin host — and report **37.333 mV** and **37.590 mV**. Every captured code is identical
   (214/383/511/641/1023). Read the mV figures at two significant figures when
   comparing across records; the LSB verdict is the part that transferred exactly.
+
+### What the `no-gnd-pad` record adds: the price of the rejected option
+
+The third record
+([`records/20260925-204633-7339971.md`](records/20260925-204633-7339971.md),
+`ideal`/`package`/`no-gnd-pad` at `tt_27c_1.80v`) supersedes neither of the
+others. It exists for one number the first record explicitly could not carry:
+what DR-012's **rejected** null option — no analog-ground pad at all, `GND`
+reaching the board only through the lumped substrate link — would have cost,
+measured against the option DR-012 **chose**. It is issue #409's item 2:
+
+- **The ground-pad ablation, at last a measurement.** `no-gnd-pad` vs
+  `package` is a strict one-element ablation (same three bonded terminals,
+  same `R_SUBX`, the only difference is whether `GND` has a bond of its own):
+  die-side `GND_DIE` excursion **65.237 mV** against **37.590 mV**, i.e.
+  **1.74×**, or **+27.6 mV** of extra excursion charged to deleting the pad.
+  In LSB at the nominal supply that is 18.556 against 10.692.
+- **And it is still a null on codes.** Worst mid-scale `|delta code|` vs the
+  `ideal` control = **0 LSB** for `no-gnd-pad`, the same verdict every other
+  arm and every sweep point returns. So at this corner and these assumed
+  magnitudes the rejected option is *worse on the rail and indistinguishable
+  on the output* — which is exactly why DR-012's decision could not have been
+  made on captured codes, and was not.
+- **Read it at DR-015's assumed substrate magnitude or not at all.** This arm
+  is a function of the lumped `R_SUB`/`R_SUBX` stand-ins above all else
+  (DR-015's own Consequences say so): with a small one it looks harmless, with
+  a large one it looks fatal, and 30 Ω is an assumption taken from DR-012's
+  prose, not an extraction. The `+27.6 mV` is a number about *a* substrate-only
+  return of that order, not about this die's substrate.
+- **The `package` arm reproduces a third time, exactly.** Its `GND_DIE`
+  excursion here is **37.590 mV**, the same figure to three decimals as the
+  sweep's `1× / 30 Ω` anchor on this host (and 37.333 mV on the Linux host that
+  minted the first record) — so the two records this section compares are
+  anchored to each other, not merely adjacent.
+- **What this record does not carry**: no bond-inductance ablation (it has no
+  `package-r-only` arm — that number stays in the first record), no
+  `substrate` arm, and no corner other than the baseline. The nine-point
+  ratified grid remains #409's item 1, and the extracted substrate network its
+  item 4.

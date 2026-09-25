@@ -306,9 +306,32 @@ enumerate:
   batch route that cannot mint this repo's record format, and cost), and a
   priced measurement of this record's own *rejected* `no-gnd-pad` null option
   (implemented but not run, on cost — its own record estimates roughly an
-  order of magnitude more wall clock than the control arm). Both remain open,
-  tracked as **#409** and restated in
-  [DR-015](DR-015-package-parasitic-assumption.md)'s "Open items".
+  order of magnitude more wall clock than the control arm). Both were tracked
+  as **#409** and restated in
+  [DR-015](DR-015-package-parasitic-assumption.md)'s "Open items"; **the
+  second is now measured** (next bullet), the first is still open.
+- **The rejected null option now has a price, at one corner and one assumed
+  substrate magnitude** (issue #409 item 2, 2026-09-25,
+  `sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md`).
+  Deleting this record's pad and letting `GND` reach the board only through
+  the lumped substrate link — the `no-gnd-pad` arm, a strict one-element
+  ablation against the `package` arm it is run beside — costs **+27.6 mV** of
+  die-side `GND_DIE` excursion (**65.237 mV** against **37.590 mV**, 1.74×)
+  and **0 LSB** of captured code at `tt_27c_1.80v`. Read that as the shape of
+  the argument in "Decision" above rather than as a vindication of it: the
+  option this record rejected is measurably worse *on the comparator's own
+  reference* and indistinguishable *on the output* at this point, which is
+  exactly why the choice could not have been made on captured codes and was
+  not. Three limits travel with the number and none may be dropped when it is
+  quoted: it is **one corner**; it is at DR-015's **lumped** `R_SUB`/`R_SUBX`
+  = 30 Ω, a stand-in taken from this record's own "10s of ohms" prose rather
+  than an extraction, and the arm is above all a function of that value; and
+  the excursion figures are **undecoupled** upper bounds, since no decoupling
+  is designed anywhere in this block (see the last open item). The earlier
+  estimate that this arm would cost roughly an order of magnitude more wall
+  clock than the control was also wrong — it ran in 487 s, 1.67× the control
+  and less than the `package` arm — so "too expensive to run" is retired as a
+  reason, not merely postponed.
 - **The pad's position is provisional.** There is no pad ring; when one exists,
   the analog ground terminal's placement relative to the other supply pads (and
   whether it wants more than one bond point of its own) is a real question this

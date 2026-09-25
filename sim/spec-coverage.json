@@ -366,6 +366,18 @@
             "design/sar_adc_top.spice",
             "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
           ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package,no-gnd-pad --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power again, on the one arm pair that prices DR-012's REJECTED null option (issue #409 item 2): `no-gnd-pad` -- `GND` with no bond of its own, reaching the board only through the lumped substrate link -- against the `package` arm it differs from in exactly one element, plus the `ideal` control, at the baseline corner. A separate bench entry from the two above because it is a separate invocation with its own documented cold start: the four-arm comparison omitted this arm on a cost projection, and this record is what replaces that projection with a measurement (487 s, 1.67x the control -- cheaper than the `package` arm, not the ~10x the projection assumed). Reported informationally, same as the rows above; no power target is proposed here either, and `I(GND)` is `n/a (no bond)` on the `no-gnd-pad` row by construction.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
           "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record",
           "documented_in": "sim/supply-impedance-sensitivity/README.md",
           "covers": "The same per-rail average current/power again, over the bounded 2-D box DR-015's own 'Open items' asks for (issue #409 item 3): the as-built package topology re-run at bond inductance 0x/1x/10x of DR-015's 1.914 nH crossed with the lumped substrate link R_SUBX at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the one above because it is a separate invocation with its own documented cold start, not a re-run of it: the arm comparison ranks five NETWORKS at DR-015's assumption point, this walks a box around that point on one of them. Reported informationally, same as the rows above; no power target is proposed here either, and the box's total power spread (27.20-27.97 uW) is stated in the record rather than graded.",
