@@ -2447,6 +2447,66 @@ tracker already owns.
    enforces is that there is exactly one copy to keep current, in the
    section whose whole job is to narrate tracking state paragraph by
    paragraph and date.
+
+   **Update this pass (2026-09-25, later): #387's three-way split has lost
+   one of its three named owners, and not because that third of the work was
+   done.** #400 — the carve-out for DR-009's `sky130_fd_pr` primitives, which
+   a `klt place-and-route` flow structurally cannot draw — was **closed
+   `not_planned`** at 2026-09-25T08:32:09Z (`gh api
+   repos/2AMLogic/sky130-sar-adc/issues/400` → `state: closed`,
+   `state_reason: not_planned`, read this pass). The closure grades that
+   proposal draft's own citations, not the gap it describes: the draft
+   presented the first increment as landed and pointed a Builder at
+   `layout/top-glue/bin/check-schematic-parity.py` (not in this tree) as an
+   existing precedent to copy, and the closing comment re-verified against
+   `origin/main` that it is not there. That comment says the rest in terms —
+   the underlying gap, the eight undrawn primitives in
+   [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice), is "still
+   real and still worth tracking", and a revised draft would be promotable.
+   So the carve-out is now **unowned**, falling back to #387, which keeps the
+   whole gap and stays open (`loom:blocked`). What a later pass must not read
+   into this closure is that a third of the gap closed with it.
+
+   The other two owners, both re-read live this pass. **#401** — the
+   composition, and the piece acceptance criterion 3 actually waits on — is
+   still open and still `loom:blocked`. Its checklist declares **two**
+   blockers, and the closure moved only one of them: the first — PR #402, the
+   first increment, must merge — is still an open blocker and still clears
+   the ordinary way, by that PR landing; the second, the half-LSB-offset
+   carve-out, was tracked by #400 alone, and #400 closing `not_planned` left
+   it with no open issue to clear at all. So the accurate statement is not
+   that #401 has no open blocker left — it has one, and it is clearable —
+   but that it has **no route by which it self-clears**: even after #402
+   merges, a fresh proposal for the carve-out has to be filed and land
+   first. **PR #402**, the first increment, is still open and still unmerged
+   (`merged_at: null`); its review-cycle labels were cleared at
+   2026-09-25T09:30:02Z and it is back at `loom:review-requested`, so the
+   mid-pass label state an earlier draft of this paragraph recorded had
+   already reversed. That churn is exactly why what the absence below rests
+   on is the merge, not the label. So `layout/top-glue/` (not in this tree)
+   and `layout/halflsb-offset/` (not in this tree) are both still absent from
+   `origin/main` — `git ls-tree -r origin/main --name-only` returns neither —
+   and §3 and §4 still cite no record from either flow, because there is none
+   to cite.
+
+   **Nothing a number in this document depends on moves**, for the same
+   reason the split itself moved none when it was recorded: the composed
+   extent §4's Area row quotes is still the extent of an assembly that omits
+   this glue (a floor on the real top-level area, not an estimate), the LVS
+   mismatch count is the same category mix over the same nets, and both §4
+   sign-off-bar rows keep the verdicts they already carry. What does change
+   is that the two absent paths above are **named rather than gestured at,
+   and their absence is machine-checked**. Until this pass they could not be
+   named: the citation gate's own path check (check 2) fails on any backticked
+   path into this repo's trees that does not resolve, so the only sayable form
+   was the vague "no such flow exists under [`layout/`](../../layout/)" the
+   paragraph above uses — and a vague absence claim is exactly the kind that
+   rots unnoticed, because on the day PR #402 merges and the path appears,
+   nothing here can tell. **Check 29** of the [citation
+   gate](check_proposal_citations.py) inverts check 2 for a path marked "not
+   in this tree": it fails CI if that path ever *does* exist. This paragraph
+   therefore cannot outlive the state it describes — the same structural
+   shape check 27 applied to the label copies above, applied to the absences.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
