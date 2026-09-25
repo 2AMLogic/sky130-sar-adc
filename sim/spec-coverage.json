@@ -358,6 +358,18 @@
           "documented_in": "sim/supply-impedance-sensitivity/README.md",
           "covers": "Same per-rail average current/power as the bench above, but with DR-015's package-style R+L (or a lumped substrate stand-in) driving the four supply terminals instead of ideal sources at the die -- DR-012's own open item, issue #378, 'the impedance argument is unmeasured'. Baseline corner only (see the record's own Subset-corner justification); reported informationally, same as the row above, and no power target is proposed here either.",
           "records": ["sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power again, over the bounded 2-D box DR-015's own 'Open items' asks for (issue #409 item 3): the as-built package topology re-run at bond inductance 0x/1x/10x of DR-015's 1.914 nH crossed with the lumped substrate link R_SUBX at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the one above because it is a separate invocation with its own documented cold start, not a re-run of it: the arm comparison ranks five NETWORKS at DR-015's assumption point, this walks a box around that point on one of them. Reported informationally, same as the rows above; no power target is proposed here either, and the box's total power spread (27.20-27.97 uW) is stated in the record rather than graded.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md"]
         }
       ]
     },

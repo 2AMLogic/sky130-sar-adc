@@ -357,13 +357,15 @@ the cost probe below for what those hours actually are. The combination
 `--sweep --corners` is **refused**: it is #409's two deferred costs multiplied
 together, and this host may not run a multi-corner grid at all (next section).
 
-**No record of this sweep exists yet.** The mode, its anchors and its record
-writer are committed and unit-tested; the box itself has not been run. That is a
-cost deferral, stated here rather than left for a reader to infer from an empty
-`records/` row — the same disposition as the `no-gnd-pad` arm above, and still
-[#409](https://github.com/2AMLogic/sky130-sar-adc/issues/409)'s third item. When
-it is run, the record and its `sim/spec-coverage.json` bench entry land together
-(see "Before spending those hours" above).
+**The box has been run**, and its record is
+[`records/20260925-164447-722fcb0.md`](records/20260925-164447-722fcb0.md) —
+ten whole-ADC transients (nine swept points plus the `ideal` control) at
+`tt_27c_1.80v`, 3049 s of sequential wall clock, every point converged. Its
+bench entry landed in `sim/spec-coverage.json` in the same commit, as the
+paragraph above requires. What it found is in "Findings" below; what it
+deliberately does not cover (`R_SUB`, an extracted substrate network, the other
+eight corners) is in the record's own "What this sweep does not cover", not
+left to a reader to infer.
 
 ### Pricing the box before paying for it (`--cost-probe`)
 
@@ -431,6 +433,32 @@ host is doing (the `10×` row's spread here is mostly contention, not physics),
 and the projection inherits that: it is the order of the box's cost, not a
 schedule.
 
+**How the projection held up, now that the box has been run.** The full run
+([`records/20260925-164447-722fcb0.md`](records/20260925-164447-722fcb0.md))
+prices the same ten points at full stimulus, so the probe can be graded instead
+of trusted. Measured full-run cost, as a multiple of the anchor's own full run
+(389 s) — the probe's prediction in parentheses:
+
+| bond `L` (× DR-015) | `R_SUBX` = 3 Ω | `R_SUBX` = 30 Ω | `R_SUBX` = 300 Ω |
+|---|---|---|---|
+| `0×` | 0.32× (0.49×) | 0.38× (0.53×) | 0.54× (0.52×) |
+| `1×` | 1.08× (0.96×) | **1.00×** (anchor) | 0.98× (0.96×) |
+| `10×` | 1.07× (0.96×) | 1.16× (0.63×) | 0.95× (0.47×) |
+
+- **The decision the probe was bought for was correct.** It was asked whether
+  the `10×` row is the row nobody can afford; it is not, and the full run agrees
+  — the dearest point in the box costs `1.16×` the anchor, not multiples of it.
+- **Its per-point numbers are not a forecast.** The `10×` row came in higher
+  than predicted (up to `1.16×` against a predicted `0.47–0.96×`), so three
+  points do exceed the anchor rather than none. A 400 ns slice starts inside the
+  solver's start-up transient and ends before the ring-down the full stimulus
+  pays for, which is exactly the part that scales with `L`.
+- **The box total was predicted within ~12 %**: `≈ 7.0` anchors predicted
+  against `7.8` measured (3049 s at this host's 389 s anchor). Scaled by the
+  *committed* arm-comparison record's own 1261 s anchor the same 7.8 is ≈ 2.7 h,
+  against the ≈ 2.5 h projected — the ratio is the transferable part, the
+  absolute hours are whichever host you scale by.
+
 ## Why the committed record is not the full nine-point grid
 
 `--corners` (every arm × the nine-point ratified OAT grid) is implemented and
@@ -497,3 +525,42 @@ retires [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s
   `no-gnd-pad` null option (implemented, not run, on cost — see "Runtime"
   above). Neither a worst-corner claim nor a "the rejected option would have
   cost N mV/LSB" claim may be made from this record alone.
+
+### What the bounded `R`/`L` sweep adds
+
+The second record
+([`records/20260925-164447-722fcb0.md`](records/20260925-164447-722fcb0.md),
+the default box at `tt_27c_1.80v`) does not supersede the first: that one
+compares five *networks* at DR-015's assumption point, this one walks a box
+around that point on the as-built network. It is what retires
+[DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)'s
+"No `R`/`L` sweep" open item, at this scope:
+
+- **A bounded null on codes.** No mid-scale captured code moves anywhere in the
+  box — worst `|delta code|` = **0 LSB** at every one of the nine points, out to
+  `L = 10×` DR-015's bond inductance and `R_SUBX` over two decades (3–300 Ω).
+  The threshold the sweep went looking for is **outside** the box, not located
+  inside it; a wider box or another corner could still find one, and this is not
+  a claim that none exists.
+- **Die-side excursion keeps climbing while the codes do not.** `GND_DIE`
+  peak-to-peak along the `R_SUBX = 30 Ω` column: **0.059 mV** (`0×`) →
+  **37.590 mV** (`1×`) → **99.749 mV** (`10×`). Only `L` moves along that row,
+  so it is the bond inductance's own contribution (DR-015 item 5). The box's
+  worst point is **111.622 mV** (≈31.8 LSB at the nominal supply) at
+  `10× / 300 Ω` — undecoupled by construction, so an upper bound, not a
+  prediction.
+- **The `R_SUBX` axis is the weak one here.** At `L = 0×` the column is flat
+  (0.056 → 0.059 → 0.059 mV); it only does anything once there is an inductance
+  for it to steer current around, and even then non-monotonically (40.688 →
+  37.590 → 22.556 mV at `1×`, but 101.539 → 99.749 → 111.622 mV at `10×`).
+  Nothing here licenses "looser substrate coupling is safer": the two mechanisms
+  interact, and the record reports the pair rather than a trend.
+- **The anchor reproduces the committed `package` arm across hosts, to 0.7 %.**
+  The sweep's `1× / 30 Ω` deck and the arm-comparison record's `package` deck
+  differ only in their comment lines and the PDK install prefix (`diff` the two
+  `.cir` files under `corners/`) — same open_pdks pin, same `ngspice-46` — but
+  they ran on different machines — the committed deck's PDK prefix is
+  `/home/ubuntu/...` (a Linux dispatch host), this one's is `/Users/...` on an
+  `arm64` Darwin host — and report **37.333 mV** and **37.590 mV**. Every captured code is identical
+  (214/383/511/641/1023). Read the mV figures at two significant figures when
+  comparing across records; the LSB verdict is the part that transferred exactly.

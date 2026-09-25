@@ -37,7 +37,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 | Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
-| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity` | `20260912-002315-9aaf1ca.md`<br>`20260925-073912-0e385e5.md` |
+| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20260912-002315-9aaf1ca.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-164447-722fcb0.md` |
 | Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20260827-213107-e13bc1e.md`<br>`20260827-212404-e13bc1e.md` |
 
 ## Per-row detail
@@ -265,6 +265,14 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record`
 - Documented in: `sim/supply-impedance-sensitivity/README.md`
 - Evidence: `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power again, over the bounded 2-D box DR-015's own 'Open items' asks for (issue #409 item 3): the as-built package topology re-run at bond inductance 0x/1x/10x of DR-015's 1.914 nH crossed with the lumped substrate link R_SUBX at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the one above because it is a separate invocation with its own documented cold start, not a re-run of it: the arm comparison ranks five NETWORKS at DR-015's assumption point, this walks a box around that point on one of them. Reported informationally, same as the rows above; no power target is proposed here either, and the box's total power spread (27.20-27.97 uW) is stated in the record rather than graded.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md`
 
 ### Corners
 

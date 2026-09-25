@@ -186,13 +186,33 @@ the same way DR-012 constrains an interface without setting a number.
 
 ## Open items
 
-The first three below are tracked together as **#409** rather than left as
-prose, so that "deferred" is a queue entry and not a memory.
+These are tracked together as **#409** rather than left as prose, so that
+"deferred" is a queue entry and not a memory. The first is now closed at a
+stated scope; the rest remain open.
 
-- **No `R`/`L` sweep.** One assumption point shows whether the mechanism
+- ~~**No `R`/`L` sweep.** One assumption point shows whether the mechanism
   matters at that magnitude; it does not find the magnitude at which it starts
   to matter. A bounded 2-D sweep (bond inductance × substrate resistance) at
-  one corner is the natural follow-up.
+  one corner is the natural follow-up.~~ **CLOSED, at the scope stated here**,
+  by `sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md`
+  (issue #409 item 3) — the as-built `package` topology re-run at bond
+  inductance `0×`/`1×`/`10×` of the `1.914 nH` above, crossed with the lumped
+  substrate link `R_SUBX` at `3`/`30`/`300 Ω`, plus the `ideal` control, at
+  `tt_27c_1.80v`. Its `1× / 30 Ω` point is card-for-card the `package` arm of
+  the record before it, so the box is a walk away from *this* record's
+  assumption point rather than an unrelated grid. **What it changes for this
+  record:** item 4's "a result resting on these values is evidence about *a*
+  supply return of this order of magnitude" now has a measured width — no
+  mid-scale captured code moves anywhere in that box (worst `|Δ code|` = 0 LSB
+  at all nine points), while the die-side analog-ground excursion climbs from
+  `0.059 mV` to `99.749 mV` along the `R_SUBX = 30 Ω` column. **What it does
+  not change:** the null is *bounded*, so nothing here licenses a claim outside
+  `L ≤ 10×`, `R_SUBX ∈ [3, 300] Ω`, or at any other corner; the excursion
+  figures are undecoupled upper bounds (item 6); and the two axes interact
+  non-monotonically, so neither may be quoted as a trend on its own. The
+  substrate-only *return* `R_SUB` is **not** swept — it is absent from the
+  as-built topology, and sweeping it is the `no-gnd-pad` arm's own campaign,
+  still open below.
 - **No extracted substrate network.** `R_SUB`/`R_SUBX` stay lumped stand-ins
   until something in `layout/` can produce a real substrate network for this
   composition. Until then no result here is a statement about this die's
