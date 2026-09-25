@@ -3846,14 +3846,26 @@ def check_report_row_count(doc: Path, text: str) -> list[str]:
 def _deck_device_cards(deck: Path) -> list[tuple[int, str]]:
     """`(line number, card)` for every device card in one SPICE deck.
 
-    Comments, blank lines, continuations and dot-commands are dropped, which
-    is the whole of the SPICE grammar this gate needs: everything left starts
-    with the device letter its card type is named for.
+    Comments, blank lines, continuations and dot-commands are dropped, and so
+    is everything between a `.control` and its `.endc` -- that body is
+    ngspice's interactive command language (`let`, `tran`, `meas`, ...), not
+    device cards, even though its lines start with neither `*`, `+` nor `.`.
+    What is left starts with the device letter its card type is named for.
     """
     cards = []
+    in_control = False
     for number, line in enumerate(deck.read_text().splitlines(), 1):
         card = line.strip()
-        if not card or card[0] in "*+.":
+        if not card:
+            continue
+        lowered = card.lower()
+        if lowered.startswith(".control"):
+            in_control = True
+            continue
+        if lowered.startswith(".endc"):
+            in_control = False
+            continue
+        if in_control or card[0] in "*+.":
             continue
         cards.append((number, card))
     return cards
