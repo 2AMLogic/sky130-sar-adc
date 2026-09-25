@@ -448,6 +448,93 @@ a record in place defeats it. Note that `.gitignore` carves `*.log` exceptions
 for `sim/*/corners/**` and `sim/*/mc-draws/**` precisely so this raw evidence
 is committed rather than swept up by the generic log-ignore rule.
 
+## The `records/LATEST` pointer (issue #405)
+
+Some experiment directories publish a `records/LATEST` file: one line naming
+`<record-id>.md`, the record that flow's own runner script most recently
+wrote. `docs/chipalooza/check_proposal_citations.py` (this repo's citation
+gate) resolves "the current record" of a `sim/` flow from this pointer: any
+Section 4 table row of `docs/chipalooza/challenge-4-proposal.md` that cites
+only a *stale* stamp of a pointer-publishing flow fails the gate (check 3),
+and a flow that publishes no pointer is silently excluded from that check
+instead — a smaller, honestly-stated gap rather than a false pass, gated in
+turn by that document's own check 18/25 coverage census.
+
+**Convention, identical for every publishing campaign** — do not invent a
+per-campaign variant:
+
+- The pointer is written by the runner's own record-writing code, in the same
+  function and at the same moment it writes `records/<record-id>.md`, e.g.
+  `sim/sequencer-logic-delay/run_sequencer_logic_delay.py`:
+  ```python
+  record_path.write_text("\n".join(lines) + "\n")
+  latest_path = EXPERIMENT_DIR / "records" / "LATEST"
+  latest_path.write_text(f"{record_id}.md\n")
+  ```
+- A flow whose runner mints records through more than one code path (e.g. a
+  single-corner mode and a `--corners` full-grid mode) writes `LATEST`
+  unconditionally at **every** successful record-write site, so the pointer
+  always names whichever record that flow's runner most recently produced —
+  it is never hand-maintained.
+- Like `records/*.md` itself, `LATEST` is a build artifact of a real run, not
+  authored by an agent; a freshly-added `LATEST` for a flow with pre-existing
+  records is backfilled by literally re-running that flow's own runner where
+  that is cheap (as `sim/enob-estimate/run_enob.py` is — no ngspice), or, when
+  a live re-run is genuinely infeasible on the host at hand (as a `--corners`
+  9-point PVT sweep can be — see `sim/selftest.sh`'s own note on issue #133's
+  slow-host timeout), by naming the flow's actual most-recently-written
+  *existing* record, i.e. exactly the value the runner's own selection rule
+  above already implies. Either way the value is never an arbitrary or
+  invented stamp.
+
+**Which campaigns publish a pointer, and why two `sim/` campaigns
+deliberately do not.** As of issue #405, every `layout/` flow and every
+`sim/` campaign publishes `records/LATEST` **except** `sim/comparator-decision`
+and `sim/cdac-array-transfer`. A pointer means "this tree has exactly one
+record that is *the* current one for whatever it's cited for" — true for a
+campaign whose records form a single supersession lineage (each later record
+either replaces an earlier one via **Supersedes**, or is a distinct-but-
+unambiguous re-run cited from exactly one place), and **false** for a
+campaign whose records are genuinely several *distinct, non-superseding*
+claims about the same DUT (`Supersedes: (none)` on each, per "Correction-
+supersession vs distinct-claim" above) that different document rows cite
+*separately*. Minting a single tree-wide pointer for the second kind forces a
+false "superseded" reading on whichever row's citation the pointer does not
+happen to land on — not a freshness bug the citation gate should report, but
+a modeling mismatch between "one pointer per tree" and "more than one current
+claim per tree". Two `sim/` campaigns are in that second class, for two
+different reasons, both discovered/confirmed empirically rather than assumed:
+
+- **`sim/comparator-decision`** mints records in several distinct modes
+  (`noise`, `kickback`, common-mode trace, node trace — see `run.py`'s own
+  mode dispatch) that measure different quantities. Section 4's comparator
+  input-referred-noise row and Kickback row correctly cite different current
+  records of this flow; a `kickback` record does not supersede a `noise`
+  record, so no single `LATEST` could serve both rows.
+- **`sim/cdac-array-transfer`** looks single-mode at first glance (one
+  `run_transfer.py` plus one Monte Carlo companion, `run_mc.py`, sharing one
+  `records/` tree) but is not: its four committed records are a ratified
+  V_REF/LSB structural-and-functional check (cited alone by the `V_REF` row)
+  and two INL/DNL Monte Carlo scorings against two different DRAFT target
+  candidates (cited together by the `INL / DNL` row) — three distinct claims,
+  none superseding another. Issue #405 set out to mint this flow's pointer
+  alongside `sim/enob-estimate`'s and `sim/sar-sequencer-behavioral`'s (all
+  three were filed as "single-mode, unambiguous"); implementing it showed
+  `sim/cdac-array-transfer` shares `sim/comparator-decision`'s ambiguity
+  along a different axis (per-claim rather than per-mode), so it stays
+  pointerless too rather than being forced into a shape it does not have.
+  `sim/enob-estimate` and `sim/sar-sequencer-behavioral` really are
+  single-current-record (each cited from exactly one Section 4 row) and now
+  publish `records/LATEST`.
+
+Resolving either exception the "clean" way — a per-mode/per-claim pointer
+convention (e.g. `records/LATEST-kickback`), or splitting the tree into one
+experiment directory per measured quantity — is a deliberate change to this
+convention and to the citation gate's own resolution rule, not a documentation
+fix; it is out of scope for issue #405 and any future issue doing it should
+say so explicitly rather than mint a pointer that silences one of these two
+flows' rows by accident.
+
 ## The aggregated characterization report (issue #30)
 
 `records/*.md` are the append-only evidence trail; `docs/characterization-
