@@ -14,6 +14,11 @@
   body below**: the body describes the 9-device variant, which no longer
   exists. Nothing in the body is deleted or rewritten — a decision record's
   history is the point of having one.
+- **Re-examined**: 2026-09-25, by
+  [DR-014](DR-014-comparator-kickback-mitigation-no-static-preamp.md) (issue
+  #349). It re-tested Decision §1 ("No static preamp") against the measured
+  kickback gap and DR-011's DRAFT Kickback row. **§1 stands.** DR-014
+  supersedes nothing here, and this line is the only edit.
 - **Decided by**: Builder agent, issue #54 (body); Builder agent, issue #175
   (Amendment A)
 - **Supersedes**: none

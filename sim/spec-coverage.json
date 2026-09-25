@@ -315,7 +315,7 @@
       "status": "DRAFT",
       "claim_class": "draft-informational",
       "note": "DRAFT row (<= 5 mV peak pin disturbance into a 1 kOhm series source impedance, single decision edge; stretch <= 2 mV), added by DR-011 via issue #361. The bound is adopted verbatim from the sibling 2AMLogic/sky130-comparator canary's own DR-002-ratified row as a stated interim choice -- NOT derived from this block's system-level budget -- so nothing here is graded pass/fail against it. Issue #346's single-corner (tt/27 C) probe is the only evidence that exists: the record below reports 73.3673 mV worst-case peak pin disturbance INFORMATIONALLY and says so in its own Claim field, which cites spec/target-spec.md explicitly. That is ~14.7x the proposed target; the gap is recorded, not relaxed (CLAUDE.md). Ratifying this row would oblige a full-corner campaign -- the bound is stated at the ratified corner set and the evidence covers one point of it (DR-011 Consequences §5).",
-      "tracking": "#349 (mitigation-topology evaluation, unblocked by this row); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)",
+      "tracking": "DR-014 (#349: static preamp not adopted, DR-004 Decision 1 stands, no mitigation adopted yet); #390 (common-mode/differential split of the kickback measurement, DR-014's first gate); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)",
       "benches": [
         {
           "experiment": "comparator-decision",
