@@ -307,7 +307,8 @@ enumerate:
   priced measurement of this record's own *rejected* `no-gnd-pad` null option
   (implemented but not run, on cost — its own record estimates roughly an
   order of magnitude more wall clock than the control arm). Both remain open,
-  tracked by [DR-015](DR-015-package-parasitic-assumption.md)'s "Open items".
+  tracked as **#409** and restated in
+  [DR-015](DR-015-package-parasitic-assumption.md)'s "Open items".
 - **The pad's position is provisional.** There is no pad ring; when one exists,
   the analog ground terminal's placement relative to the other supply pads (and
   whether it wants more than one bond point of its own) is a real question this

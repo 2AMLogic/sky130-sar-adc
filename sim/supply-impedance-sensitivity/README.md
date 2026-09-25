@@ -155,7 +155,34 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
 # the exact invocation that produced the committed baseline-corner record
 # (records/20260925-073912-0e385e5.md; no-gnd-pad omitted on cost, see below):
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record
+
+# restartable: reuse the logs of arms that already finished
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
+    --log-cache .cache/supply-impedance
 ```
+
+### `--log-cache`: because one arm outlives most process supervisors
+
+A single arm here is a tens-of-minutes whole-ADC transient, and four or five in
+sequence is hours — long enough that on a contended or preemptible host an
+interruption is the normal case, not the exception. Losing four finished arms
+because the fifth was killed is a real and repeated cost: it happened twice
+while this campaign was being brought up, costing about an hour each time.
+
+`--log-cache DIR` stores each completed run's ngspice log in `DIR` and reuses a
+stored log instead of re-simulating. The **integrity rule** is what makes that
+safe rather than a shortcut: a cached log is reused only when its **deck
+sha256**, its **open_pdks commit** and its **ngspice version** all match the run
+about to be made. Any mismatch re-simulates, loudly, naming the field that
+differed. So a reused log is provably the log of this same deck on this same
+toolchain — the cache is a restart mechanism, never a path by which a stale
+number reaches an append-only record — and each record marks which of its runs
+were reused rather than presenting them as fresh.
+
+This matters most for the deferred work in
+[#409](https://github.com/2AMLogic/sky130-sar-adc/issues/409): the ratified
+nine-point grid is 36–45 transients of this size, which is many hours of
+sequential simulation and effectively cannot be run without restartability.
 
 **The committed record is the four cheaper arms**, not all five: `no-gnd-pad`
 is omitted on cost (see Runtime below), and each record states its own arm

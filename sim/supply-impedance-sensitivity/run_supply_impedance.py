@@ -87,6 +87,7 @@ the outside world drives.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import re
@@ -567,6 +568,82 @@ def assemble_deck(
 
 
 # --------------------------------------------------------------------------
+# A restartable log cache
+# --------------------------------------------------------------------------
+# One arm of this campaign is a whole-ADC transient that takes tens of minutes,
+# and five of them in sequence outlive most process supervisors on a shared
+# host. Losing four finished arms because the fifth was interrupted is a real
+# and repeated cost, so a completed run's ngspice log can be cached and reused.
+#
+# The integrity rule: a cached log may be reused ONLY if it provably belongs to
+# the same deck on the same toolchain. The sidecar therefore records the deck's
+# own sha256, the resolved open_pdks commit and the ngspice version, and any
+# mismatch re-simulates rather than reusing. That makes the cache a restart
+# mechanism, never a way for a stale number to reach a record: a record built
+# from reused logs is byte-identical to one built by running them back to back,
+# and it says which of its runs were reused.
+
+
+def _cache_key(point_id: str) -> str:
+    return point_id.replace("@", "__")
+
+
+def _cache_identity(deck: str, pdk_info: pdk.PdkInfo) -> dict:
+    return {
+        "deck_sha256": evidence.sha256_text(deck),
+        "open_pdks_commit": pdk.resolved_commit(pdk_info),
+        "pdk_variant": pdk_info.variant,
+        "ngspice": toolchain._ngspice_version() or "unknown",
+    }
+
+
+def load_cached_run(
+    log_cache: Path | None, point_id: str, deck: str, pdk_info: pdk.PdkInfo
+) -> tuple[str, float] | None:
+    """`(log_text, wall_s)` for a cached run of exactly this deck, else None."""
+    if log_cache is None:
+        return None
+    key = _cache_key(point_id)
+    log_path = log_cache / f"{key}.log"
+    meta_path = log_cache / f"{key}.json"
+    if not (log_path.is_file() and meta_path.is_file()):
+        return None
+    try:
+        meta = json.loads(meta_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    want = _cache_identity(deck, pdk_info)
+    for field, value in want.items():
+        if meta.get(field) != value:
+            print(
+                f"  cached log for {point_id} ignored: {field} differs "
+                f"({meta.get(field)!r} cached vs {value!r} now) -- re-simulating",
+                flush=True,
+            )
+            return None
+    return log_path.read_text(), float(meta.get("wall_s", 0.0))
+
+
+def store_cached_run(
+    log_cache: Path | None,
+    point_id: str,
+    deck: str,
+    pdk_info: pdk.PdkInfo,
+    log_text: str,
+    wall_s: float,
+) -> None:
+    if log_cache is None:
+        return
+    log_cache.mkdir(parents=True, exist_ok=True)
+    key = _cache_key(point_id)
+    (log_cache / f"{key}.log").write_text(log_text)
+    meta = _cache_identity(deck, pdk_info)
+    meta["wall_s"] = wall_s
+    meta["point_id"] = point_id
+    (log_cache / f"{key}.json").write_text(json.dumps(meta, indent=2) + "\n")
+
+
+# --------------------------------------------------------------------------
 # Running
 # --------------------------------------------------------------------------
 def run_point(
@@ -577,14 +654,24 @@ def run_point(
     process_corner: str,
     temp_c: float,
     supply_v: float,
+    log_cache: Path | None = None,
 ) -> dict:
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
     deck = assemble_deck(dut_netlist_text, pdk_info, arm, process_corner, temp_c, supply_v)
-    t0 = time.time()
-    log_text = toolchain.run_ngspice_with_retry(
-        deck, scratch, f"supply_impedance_{arm.name}_{cid}", attempts=3
-    )
-    wall_s = time.time() - t0
+    point_id = f"{arm.name}@{cid}"
+
+    cached = load_cached_run(log_cache, point_id, deck, pdk_info)
+    if cached is not None:
+        log_text, wall_s, reused = cached[0], cached[1], True
+        print(f"  reusing cached log for {point_id} ({wall_s:.0f}s when it ran)", flush=True)
+    else:
+        t0 = time.time()
+        log_text = toolchain.run_ngspice_with_retry(
+            deck, scratch, f"supply_impedance_{arm.name}_{cid}", attempts=3
+        )
+        wall_s = time.time() - t0
+        reused = False
+        store_cached_run(log_cache, point_id, deck, pdk_info, log_text, wall_s)
 
     names = tb.all_measure_names() + extra_measure_names(arm)
     parsed = measure.parse(log_text, names, anchored=False)
@@ -596,12 +683,13 @@ def run_point(
         temp_c=temp_c,
         supply_v=supply_v,
         corner_id=cid,
-        point_id=f"{arm.name}@{cid}",
+        point_id=point_id,
         extras={name: parsed.get(name) for name in extra_measure_names(arm)},
         missing=missing,
         log_text=log_text,
         deck_text=deck,
         wall_s=wall_s,
+        reused=reused,
     )
     if missing:
         result["all_ok"] = False
@@ -658,7 +746,11 @@ def format_point(point: dict) -> str:
 
 
 def run_campaign(
-    arm_names: list[str], corners_mode: bool, quiet: bool, scratch: Path
+    arm_names: list[str],
+    corners_mode: bool,
+    quiet: bool,
+    scratch: Path,
+    log_cache: Path | None = None,
 ) -> tuple[list[dict], str]:
     pdk_info = pdk.resolve()
     dut_netlist_text = fc.dut_text()
@@ -675,7 +767,14 @@ def run_campaign(
         arm = ARMS_BY_NAME[arm_name]
         for process_corner, temp_c, supply_v in grid:
             point = run_point(
-                dut_netlist_text, pdk_info, scratch, arm, process_corner, temp_c, supply_v
+                dut_netlist_text,
+                pdk_info,
+                scratch,
+                arm,
+                process_corner,
+                temp_c,
+                supply_v,
+                log_cache=log_cache,
             )
             points.append(point)
             if not quiet:
@@ -999,8 +1098,22 @@ def write_record(
             if p is None:
                 continue
             ratio = "--" if not base else f"{p['wall_s'] / base:.2f}x"
-            a(f"| `{cid}` | `{name}` | {p['wall_s']:.0f} | {ratio} |")
+            note = " (log reused from cache)" if p.get("reused") else ""
+            a(f"| `{cid}` | `{name}` | {p['wall_s']:.0f}{note} | {ratio} |")
     a("")
+    if any(p.get("reused") for p in points):
+        a(
+            "Rows marked **log reused from cache** were not re-simulated for this "
+            "record: `--log-cache` found a stored ngspice log whose deck sha256, "
+            "open_pdks commit and ngspice version all matched the run about to be "
+            "made, and reused it rather than repeating a tens-of-minutes transient "
+            "after an interruption. The reported wall clock is the one measured when "
+            "that run actually executed. A mismatch on any identity field "
+            "re-simulates, so a reused log is provably the log of this same deck on "
+            "this same toolchain -- the cache is a restart mechanism, not a route by "
+            "which a stale number reaches a record."
+        )
+        a("")
     a(
         "Reported because it is the load-bearing input to the corner-subset "
         "justification below, and because it is itself a finding: an undecoupled "
@@ -1233,6 +1346,18 @@ def main() -> int:
     )
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
     ap.add_argument(
+        "--log-cache",
+        default="",
+        metavar="DIR",
+        help="cache each completed run's ngspice log in DIR and reuse a cached log "
+        "when its deck sha256, open_pdks commit and ngspice version all match the "
+        "run about to be made. One arm here is a tens-of-minutes whole-ADC "
+        "transient and five in sequence outlive most process supervisors, so this "
+        "makes an interrupted campaign restartable without re-simulating the arms "
+        "that already finished. A mismatch on any identity field re-simulates; the "
+        "record names which of its runs were reused.",
+    )
+    ap.add_argument(
         "--supersedes",
         default="",
         metavar="RECORD_ID",
@@ -1319,7 +1444,10 @@ def main() -> int:
             f"Running {len(arm_names)} arm(s) x {n_corners} corner point(s) = "
             f"{len(arm_names) * n_corners} full-conversion transients:"
         )
-        points, dut_netlist_text = run_campaign(arm_names, args.corners, args.quiet, scratch)
+        log_cache = Path(args.log_cache).expanduser().resolve() if args.log_cache else None
+        points, dut_netlist_text = run_campaign(
+            arm_names, args.corners, args.quiet, scratch, log_cache=log_cache
+        )
 
         controls = {p["corner_id"]: p for p in points if p["arm"] == CONTROL_ARM}
         print("")

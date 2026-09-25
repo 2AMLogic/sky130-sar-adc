@@ -44,6 +44,7 @@ test here pins one of them:
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import sys
@@ -398,6 +399,83 @@ class TestCodeComparison(unittest.TestCase):
         control = self._point([500] * len(si.tb.INPUT_FRACTIONS))
         point = self._point([None] * len(si.tb.INPUT_FRACTIONS))
         self.assertIsNone(si.worst_mid_scale_delta(point, control))
+
+
+class TestLogCache(unittest.TestCase):
+    """`--log-cache` makes an interrupted campaign restartable. Its whole value
+    rests on the identity gate: a cached log is reusable ONLY if it provably
+    belongs to the same deck on the same toolchain, or the cache becomes a route
+    by which a stale number reaches an append-only record."""
+
+    class _FakePdk:
+        variant = "sky130A"
+
+        def __init__(self, tmp: Path) -> None:
+            self.variant_dir = tmp
+
+    def setUp(self) -> None:
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.cache = Path(self._tmp.name)
+        self.deck = "* deck\n.end\n"
+        self.pdk = self._FakePdk(self.cache)
+        self._orig_commit = si.pdk.resolved_commit
+        self._orig_ngspice = si.toolchain._ngspice_version
+        si.pdk.resolved_commit = lambda _info: "commit-a"  # type: ignore[assignment]
+        si.toolchain._ngspice_version = lambda: "ngspice-46"  # type: ignore[assignment]
+
+    def tearDown(self) -> None:
+        si.pdk.resolved_commit = self._orig_commit  # type: ignore[assignment]
+        si.toolchain._ngspice_version = self._orig_ngspice  # type: ignore[assignment]
+        self._tmp.cleanup()
+
+    def test_no_cache_directory_means_never_reuse(self) -> None:
+        self.assertIsNone(si.load_cached_run(None, "ideal@c", self.deck, self.pdk))
+
+    def test_a_stored_log_round_trips_with_its_wall_clock(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 12.5)
+        self.assertEqual(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk), ("LOG", 12.5))
+
+    def test_a_changed_deck_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        self.assertIsNone(
+            si.load_cached_run(self.cache, "ideal@c", self.deck + "* edited\n", self.pdk)
+        )
+
+    def test_a_different_open_pdks_commit_is_not_reused(self) -> None:
+        """Records from different model libraries are not comparable
+        (`sim/README.md`), so neither are their logs."""
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si.pdk.resolved_commit = lambda _info: "commit-b"  # type: ignore[assignment]
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_a_different_ngspice_version_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si.toolchain._ngspice_version = lambda: "ngspice-47"  # type: ignore[assignment]
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_a_corrupt_sidecar_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        (self.cache / "ideal__c.json").write_text("{not json")
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_a_log_without_its_sidecar_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        (self.cache / "ideal__c.json").unlink()
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_the_sidecar_records_every_identity_field_it_gates_on(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        meta = json.loads((self.cache / "ideal__c.json").read_text())
+        for field in ("deck_sha256", "open_pdks_commit", "pdk_variant", "ngspice"):
+            self.assertIn(field, meta)
+
+    def test_arms_do_not_collide_in_the_cache(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "A", 1.0)
+        si.store_cached_run(self.cache, "package@c", self.deck, self.pdk, "B", 2.0)
+        self.assertEqual(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk)[0], "A")
+        self.assertEqual(si.load_cached_run(self.cache, "package@c", self.deck, self.pdk)[0], "B")
 
 
 class TestInvocationFooter(unittest.TestCase):
