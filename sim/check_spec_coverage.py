@@ -46,6 +46,12 @@ for any row, and any experiment directory that has minted records but appears
 nowhere in the index is reported as an orphan -- a bench that exists but is
 indexed by nothing is exactly the gap this file is here to prevent.
 
+A third index category, `decision_evidence`, holds experiments that measure a
+decision record's argument rather than a spec row (issue #378's ground-return
+campaign, DR-012). They are held to a bench's cold-start/pinning/runner rules,
+every record's Claim must start with "None", and they may never also be listed
+as a bench for a row -- so they are indexed, not orphans, and not counted.
+
 No spec VALUE is encoded here. The check compares row names and statuses
 against spec/target-spec.md itself and the corner-set expectation against the
 process-corner list in sim/pdk.json plus the SHAPE of an axis sweep (three
@@ -273,6 +279,7 @@ class CoverageCheck:
 
         self._check_rows_against_spec(spec_rows)
         self._check_harness_proofs()
+        self._check_decision_evidence()
         self._check_orphan_experiments()
         if check_doc:
             self._check_rendered_doc()
@@ -678,8 +685,54 @@ class CoverageCheck:
                         "counted toward T1 item 9",
                     )
 
+    def _check_decision_evidence(self) -> None:
+        """Experiments that measure a decision record's argument rather than a
+        spec row (issue #378: DR-012's ground-return impedance). They get the
+        same cold-start / pinning / runner checks as a bench, but may never be
+        counted toward a row, and every record's Claim must start with 'None'
+        -- the same boundary a harness proof keeps, for a different reason."""
+        entries = self.index.get("decision_evidence", [])
+        names = {e.get("experiment", "") for e in entries}
+        for entry in entries:
+            name = entry.get("experiment", "<unnamed>")
+            dr_rel = entry.get("decision_record", "")
+            where = f"decision evidence -> {name}"
+            if not dr_rel:
+                self.fail(
+                    "decision-evidence-no-record",
+                    where,
+                    "no decision_record named -- decision evidence must say which "
+                    "record's argument it measures",
+                )
+            else:
+                self.exists(dr_rel, "missing-path", where, "decision record")
+            self._check_bench(where, "decision-evidence", entry)
+            for rec_rel in entry.get("records", []):
+                text = self.read(rec_rel)
+                if text is None:
+                    continue  # _check_bench already reported it
+                claim = RE_CLAIM.search(text)
+                if not claim or not claim.group(1).strip().startswith("None"):
+                    self.fail(
+                        "decision-evidence-claims-spec-row",
+                        where,
+                        f"{rec_rel}'s Claim must start with 'None' -- decision "
+                        "evidence substantiates no spec row; index it under the "
+                        "row instead if it does",
+                    )
+        for row in self.index.get("rows", []):
+            for bench in row.get("benches", []):
+                if bench.get("experiment") in names:
+                    self.fail(
+                        "decision-evidence-counted",
+                        row.get("parameter", "<row>"),
+                        f"decision evidence {bench.get('experiment')!r} is also "
+                        "listed as a bench for a spec row -- it is one or the other",
+                    )
+
     def _check_orphan_experiments(self) -> None:
         proof_names = {p.get("experiment", "") for p in self.index.get("harness_proofs", [])}
+        proof_names |= {e.get("experiment", "") for e in self.index.get("decision_evidence", [])}
         indexed = {
             bench.get("experiment")
             for row in self.index.get("rows", [])
@@ -848,6 +901,32 @@ def render_markdown(index: dict) -> str:
     for proof in index.get("harness_proofs", []):
         out.append(f"- **`sim/{proof.get('experiment')}`** — {proof.get('why', '')}")
     out.append("")
+    evidence_entries = index.get("decision_evidence", [])
+    if evidence_entries:
+        out.append("## Decision-record evidence (never counted toward a spec row)")
+        out.append("")
+        out.append(
+            "Experiments that measure a decision record's argument rather than a "
+            "spec row. The check holds them to a bench's cold-start, pinning and "
+            "runner rules, requires every record's Claim to start with `None`, and "
+            "fails if one is also listed as a bench for any row."
+        )
+        out.append("")
+        for entry in evidence_entries:
+            out.append(
+                f"### `sim/{entry.get('experiment')}` — `{entry.get('decision_record')}`"
+            )
+            out.append("")
+            out.append(entry.get("why", ""))
+            out.append("")
+            if entry.get("testbench_note"):
+                out.append(f"- Deck note: {entry['testbench_note']}")
+            out.append(f"- Runner: `{entry.get('runner')}`")
+            out.append(f"- Cold start: `{entry.get('cold_start')}`")
+            out.append(f"- Documented in: `{entry.get('documented_in')}`")
+            for rec in entry.get("records", []):
+                out.append(f"- Evidence: `{rec}`")
+            out.append("")
     out.append("## Pinning")
     out.append("")
     note = index.get("pins", {}).get("note", [])
@@ -907,7 +986,9 @@ def main(argv: list[str] | None = None) -> int:
         f"OK: {len(rows)} spec rows indexed, {len(benched)} benched "
         f"({n_benches} bench entries, {n_records} evidence records), "
         f"{len(rows) - len(benched)} deliberately unbenched (all DRAFT); "
-        f"{len(checker.index.get('harness_proofs', []))} harness proofs excluded."
+        f"{len(checker.index.get('harness_proofs', []))} harness proofs excluded, "
+        f"{len(checker.index.get('decision_evidence', []))} decision-evidence "
+        "experiments indexed apart from the rows."
     )
     return 0
 

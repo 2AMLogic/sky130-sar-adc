@@ -440,6 +440,64 @@ class TestFailureModes(unittest.TestCase):
         self.repo.write("sim/stray/records/20260101-000000-abc1234.md", "stray evidence\n")
         self.assertIn("orphan-experiment", self.repo.codes())
 
+    # -- decision-record evidence (issue #378) ------------------------------
+
+    def _add_decision_evidence(self, claim: str = "None against a spec row -- measures DR-fake.") -> None:
+        rec = "sim/gadget/records/20260101-000000-abc1234.md"
+        self.repo.write("sim/gadget/run.py", RUNNER_SRC.replace("widget", "gadget"))
+        self.repo.write("spec/decision-records/DR-fake.md", "# DR-fake\n")
+        self.repo.write_record(rec, written_by="sim/gadget/run.py")
+        path = self.repo.root / rec
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "`spec/target-spec.md#target-table` -- fake claim for tests.", claim
+            ),
+            encoding="utf-8",
+        )
+        self.repo.index["decision_evidence"] = [
+            {
+                "experiment": "gadget",
+                "decision_record": "spec/decision-records/DR-fake.md",
+                "why": "measures DR-fake's argument",
+                "runner": "sim/gadget/run.py",
+                "testbench_note": "assembled at run time",
+                "cold_start": "python3 sim/gadget/run.py --record",
+                "documented_in": "sim/gadget/run.py",
+                "records": [rec],
+            }
+        ]
+
+    def test_decision_evidence_passes_and_is_not_an_orphan(self):
+        self._add_decision_evidence()
+        self.assertEqual(self.repo.codes(), [])
+
+    def test_decision_evidence_unindexed_is_an_orphan(self):
+        self._add_decision_evidence()
+        del self.repo.index["decision_evidence"]
+        self.assertIn("orphan-experiment", self.repo.codes())
+
+    def test_decision_evidence_claiming_a_spec_row_fails(self):
+        self._add_decision_evidence(claim="`spec/target-spec.md#target-table` -- widget size")
+        self.assertIn("decision-evidence-claims-spec-row", self.repo.codes())
+
+    def test_decision_evidence_counted_as_a_bench_fails(self):
+        self._add_decision_evidence()
+        entry = dict(self.repo.index["decision_evidence"][0])
+        entry.pop("decision_record")
+        entry.pop("why")
+        self.repo.index["rows"][0]["benches"].append(entry)
+        self.assertIn("decision-evidence-counted", self.repo.codes())
+
+    def test_decision_evidence_missing_decision_record_fails(self):
+        self._add_decision_evidence()
+        self.repo.index["decision_evidence"][0]["decision_record"] = "spec/decision-records/DR-nope.md"
+        self.assertIn("missing-path", self.repo.codes())
+
+    def test_decision_evidence_gets_bench_checks(self):
+        self._add_decision_evidence()
+        self.repo.index["decision_evidence"][0]["cold_start"] = "python3 sim/gadget/run.py --nope"
+        self.assertIn("cold-start-undocumented", self.repo.codes())
+
     # -- methodology rows ---------------------------------------------------
 
     def test_methodology_row_missing_a_process_corner_fails(self):
