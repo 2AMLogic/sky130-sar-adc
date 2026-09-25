@@ -2393,8 +2393,29 @@ tracker already owns.
    `sar_adc_top.gds` contains **none** of the 33 `sky130_fd_sc_hd` and 8
    `sky130_fd_pr` instances §3's census reads out of the current schematic —
    DR-008's eighteen `and2_1`, the nine `xor2_1` readout recode, the
-   `xinv_dout9n` complement, and DR-009's whole half-LSB offset network have
-   no drawn geometry anywhere under `layout/`.
+   `xinv_dout9n` complement, and DR-009's whole half-LSB offset network are
+   absent from it.
+
+   **Partly addressed 2026-09-25 (#387's first increment).** The
+   standard-cell half of the missing glue now has drawn geometry:
+   [`layout/top-glue/`](../../layout/top-glue/README.md) lays out all 33
+   `sky130_fd_sc_hd` instances across the 6 cell types §3's census names, and
+   its own record
+   ([`layout/top-glue/reports/LATEST`](../../layout/top-glue/reports/)) is
+   `klt drc`-CLEAN with a `klt lvs` **match** at 234/234 devices, 134/134 nets
+   and 48/48 pins. More importantly for this document's purpose, that flow
+   carries the check whose absence let the drift persist:
+   `layout/top-glue/bin/check-schematic-parity.py` re-derives the expected
+   instance list from `design/sar_adc_top.spice` itself and fails the flow (and
+   CI, via `npm run check:glue-parity`) on any instance, pin or net that
+   differs — including the polarity swap that is invisible to a
+   generated-reference `klt lvs` compare. **Two pieces of the gap remain and
+   nothing in this paragraph closes them:** DR-009's 8 `sky130_fd_pr`
+   primitives still have no drawn geometry anywhere under `layout/`, and
+   `layout/sar-adc-top/` has **not** been re-composed — it still places
+   `seln_inverters` and still generates its LVS reference from the same
+   superseded wiring. So the "what that does and does not mean" paragraph below
+   stands unchanged, as does every §4 verdict.
 
    **What that does and does not mean.** It is *not* a new cause of the 88
    `klt lvs` mismatches above: the reference and the layout were generated
@@ -2419,7 +2440,7 @@ tracker already owns.
    layout), since fixing it means re-laying out the top-level glue bank and
    re-deriving the LVS reference, neither of which a documentation pass can
    do. `layout/seln-inverters/README.md` and `layout/sar-adc-top/README.md`
-   carry the same stale description and are left for that issue to correct in
+   carried the same stale description and were left for that issue to correct in
    the same pass that corrects the geometry, rather than edited here into
    agreement with a layout that does not yet exist.
 
@@ -2433,7 +2454,15 @@ tracker already owns.
    open for review as **PR #402** and is **not merged**: no such flow exists
    under [`layout/`](../../layout/) at this document's own HEAD, so there is
    no in-repo record of it to cite — the citation gate's own path check
-   refuses one — and nothing in §3 or §4 cites one. **#400** (open)
+   refuses one — and nothing in §3 or §4 cites one. That increment's own diff,
+   unmerged as it is, already carries two of #387's promised corrections ahead
+   of #401 landing: `layout/seln-inverters/README.md` now carries a
+   SUPERSEDED banner and `layout/sar-adc-top/README.md` a banner stating its
+   composed GDS and LVS reference both implement pre-DR-008 glue, and the same
+   fix lands in `signoff/block-manifest.json`'s item-4 partition-boundary
+   prose, which had named `seln_inverters` as the layout cell for glue it does
+   not contain — none of that is true of this tree until #402 merges.
+   **#400** (open)
    carves out the other, non-standard-cell half — DR-009's `sky130_fd_pr`
    primitives, which a `klt place-and-route` flow structurally cannot draw
    (no MiM capacitor, no hand-sized analog switch, and the wrong floorplan
@@ -3917,8 +3946,8 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **61** of the **61** records under `sim/*/records/` name both an
-  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **67**
-  > records under `layout/*/reports/` and `layout/*/erc-reports/` **66** name
+  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **69**
+  > records under `layout/*/reports/` and `layout/*/erc-reports/` **68** name
   > a `klt` version and **34** name the `open_pdks` commit.
 
   The `sim/` half is uniform because `sim/run_corners.py --check-env`
