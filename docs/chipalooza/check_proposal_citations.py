@@ -924,6 +924,32 @@ PROVENANCE_CENSUS_RE = re.compile(
 # own flow as reproducible must state how far that pin actually reaches.
 PROVENANCE_ANCHOR = "sim/toolchain.json"
 
+# Check 27. A `loom:` label is LIVE FORGE STATE -- the one class of claim this
+# gate structurally cannot verify, because it is network-free by design (see
+# this module's header). So the check does not grade what a label claim says;
+# it grades how many copies of it the document keeps. Section 7 narrates
+# tracking state paragraph by paragraph and date, and is maintained every
+# pass; a label restated in Section 3's functional description or a Section 4
+# verdict row is a second copy that nothing updates, and it rots. It had:
+# on 2026-09-25 Section 3 read "#103 ... still open and `loom:blocked`" and
+# Section 4's newest word on the same issue was "back in the ready queue
+# (`loom:issue`)", while Section 7 Item 1 already carried the 2026-09-24
+# escalation to `loom:operator-only`/`loom:operator-decision` -- three
+# mutually contradictory readings of one issue, in one document, none of them
+# detectable by any other check here.
+LABEL_STATE_SECTION = 7
+
+# Backticks optional on purpose: dropping them must not be a way to keep a
+# second copy. `\b` before `loom` is what keeps a path segment (`.loom/`,
+# which has no colon) and a prose word ending in "loom" out of the match.
+LABEL_CLAIM_RE = re.compile(r"`?\bloom:(?P<label>[a-z][a-z0-9-]*)`?")
+
+# `## 4. Target specification ...` -- the numbered top-level headings this
+# document is built from. An unnumbered `##` (the front matter has none, but
+# a future one is cheap) leaves the section unchanged rather than resetting
+# it, so a claim is never silently attributed to no section at all.
+SECTION_HEADING_RE = re.compile(r"^##\s+(?P<number>\d+)\.\s*(?P<title>.*)$")
+
 
 def _unwrap_backticked(span: str) -> str:
     """Rejoin a backticked span that prose wrapped across lines.
@@ -3858,6 +3884,68 @@ def check_provenance_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def numbered_sections(text: str) -> dict[int, str]:
+    """`{number: title}` for every `## N. Title` heading, in document order."""
+    sections: dict[int, str] = {}
+    for line in text.splitlines():
+        heading = SECTION_HEADING_RE.match(line)
+        if heading is not None:
+            sections.setdefault(int(heading.group("number")), heading.group("title").strip())
+    return sections
+
+
+def label_claims(text: str) -> list[tuple[int, str, int | None]]:
+    """Every `(line, label, section)` triple check 27 grades.
+
+    Fenced code blocks are skipped: a quoted `gh issue edit ... --add-label`
+    command line is an instruction to a reader, not this document's own claim
+    about what an issue currently carries. Returned rather than checked
+    inline so the test suite can exercise the scan directly, as it does for
+    `attached_pointer_claims` and `attached_currency_citations`.
+    """
+    claims: list[tuple[int, str, int | None]] = []
+    section: int | None = None
+    fenced = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        heading = SECTION_HEADING_RE.match(line)
+        if heading is not None:
+            section = int(heading.group("number"))
+            continue
+        for match in LABEL_CLAIM_RE.finditer(line):
+            claims.append((number, match.group("label"), section))
+    return claims
+
+
+def check_label_claim_section(doc: Path, text: str) -> list[str]:
+    """Check 27: a live forge label is stated in one section, not copied."""
+    sections = numbered_sections(text)
+    home = sections.get(LABEL_STATE_SECTION)
+    if home is None:
+        # A document with no tracking-state section states no tracking state
+        # in one, and is not made to invent one.
+        return []
+    misses: list[str] = []
+    for line, label, section in label_claims(text):
+        if section == LABEL_STATE_SECTION:
+            continue
+        where = "The front matter" if section is None else f"Section {section}"
+        misses.append(
+            f"{doc.name}:{line}: {where} states `loom:{label}` -- a forge label "
+            f"is live state this network-free gate cannot read, so the document "
+            f"may keep exactly one copy of it, in Section {LABEL_STATE_SECTION} "
+            f"(\"{home}\"), which is dated and maintained pass by pass. State "
+            f"the engineering fact here and defer to that trail (\"see "
+            f"§{LABEL_STATE_SECTION} Item N\"), so a second copy cannot rot "
+            f"while the maintained one moves on (issue #121)"
+        )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -3886,6 +3974,7 @@ def check_document(doc: Path) -> list[str]:
         + check_report_row_count(doc, text)
         + check_ground_return(doc, text)
         + check_provenance_census(doc, text)
+        + check_label_claim_section(doc, text)
     )
 
 

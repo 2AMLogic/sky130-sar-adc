@@ -1121,6 +1121,63 @@ asks a human to do. Nor does it read the prose around the census: a document
 that states the five numbers correctly while describing their meaning
 backwards passes here, as it does under checks 15, 16, 22 and 25.
 
+### Check 27 -- single-copy issue-state claims (`check_label_claim_section`)
+
+Every other check here grades a claim against something this repository
+*contains* -- a record, a netlist, a manifest, a decision record. This one
+grades the single class of claim that has no such backing: a `loom:` label,
+which is **live forge state**. The gate is network-free by design (the same
+property that lets it run in the always-on `checks` job), so it cannot read
+the forge, and no amount of extension will make it able to.
+
+What it can do is bound the damage. A label claim is only as good as the
+pass that last read it, so the document may keep **exactly one copy** of it,
+in Section 7 -- the section whose whole job is to narrate tracking state
+paragraph by paragraph and date, and which is therefore re-read every pass.
+A label restated in Section 3's functional description or in a Section 4
+verdict row is a second copy that nothing updates.
+
+**This is not hypothetical; it is why the check exists.** On 2026-09-25 the
+document held three mutually contradictory readings of one issue, #103, the
+tracking issue for both of the brief's sign-off-bar rows:
+
+- Section 3 read "tracked as issue #103, still open and `loom:blocked`";
+- Section 4's two sign-off-bar rows' newest word on it, dated 2026-09-15, was
+  "#103 is back in the ready queue as of this pass (`loom:issue`, no
+  `loom:blocked`)";
+- Section 7 Item 1 carried the truth -- the 2026-09-24 escalation to
+  `loom:operator-only`/`loom:operator-decision`, i.e. a human ruling rather
+  than an automatable dependency check.
+
+No other check here could see it. Checks 3/4/5/23 grade *record* citations,
+check 15 grades *decision-record* statuses; an issue label is neither. The
+reader worst served was the one Section 4 is written for: a sign-off-bar row
+that reads "blocked, back in the queue" describes a materially different
+project state from one that reads "blocked on a human ruling", at an
+identical verdict.
+
+**What it grades.** Every `loom:<label>` token outside Section 7, with the
+section that states it and the line it is on. Backticks are optional in the
+match on purpose -- dropping them must not be a way to keep a second copy --
+and `\b` before `loom` is what keeps a `.loom/` path segment (no colon) and a
+prose word ending in "loom" out of it. Fenced code blocks are skipped: a
+quoted `gh issue edit --add-label` command is an instruction to a reader, not
+the document's own claim about what an issue carries today. A document with
+no numbered Section 7 is not graded rather than being made to invent one.
+
+**What this check deliberately does NOT cover.** It does not grade what a
+label claim *says*, in either direction -- it cannot, and a future pass must
+not try to teach it to by shelling out to `gh`: that would make the `checks`
+job network-dependent and would fail CI on a forge outage, for a document
+whose verdicts do not depend on the forge at all. Nor does it require a label
+claim to exist: a document that simply stops discussing issue state passes,
+because silence is not a false claim. And it is deliberately blind to Section
+7's *internal* contradictions -- that section narrates its own supersession
+trail in the present tense, paragraph by dated paragraph ("#103 itself was
+re-blocked at that pass"), exactly as check 3 is scoped away from Section 7's
+prose for the same reason. The claim that governs is the last one in the
+item, which is a reading rule for humans, not a rule this gate enforces.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
