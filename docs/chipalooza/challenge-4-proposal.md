@@ -931,9 +931,12 @@ write-up of the race, not the repair of it. **No count moved** — still **22**
 pairs, **12** / **8** / **2** — because the re-run declares no PVT point set
 of its own for exactly the reason its predecessor did (it runs no ngspice;
 see the paragraph below), and no Section 4 verdict, figure, Target or Status
-moved either. Tracked as #417; the both-directions rule is what made a
-two-minute merge race visible at all, rather than leaving the census quietly
-one record behind.
+moved either. The race was reported as #417, which is **closed**
+(`completed`, 2026-09-25T11:13:01Z) — closed by PR #421, the write-up this
+paragraph began as, not by #419's repair, so its closure marks this record of
+the race landing and adds no fix of its own. Nothing about it stays open; the
+both-directions rule is what made a two-minute merge race visible at all,
+rather than leaving the census quietly one record behind.
 
 **No cited record hides this — the sentence above them did.** Each of the
 eight single-point records states its own subset-corner justification in its
