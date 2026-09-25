@@ -12,7 +12,10 @@
   else.
 - **Superseded by**: (none while this record stands)
 - **Related**: #349 (this record), #390 (follow-on: common-mode / differential
-  split of the kickback measurement, the first gate named below),
+  split of the kickback measurement, the first gate named below), #434
+  (follow-on: measuring the headroom-neutral mitigation classes named in
+  Consequences §4 / Open items below, filed once #390 confirmed a
+  differential component above the bound),
   [DR-011](DR-011-comparator-kickback-target-row.md) (the DRAFT Kickback row
   and its "Mitigation selection" open item, which this record closes),
   [DR-004](DR-004-comparator-topology-and-noise-budget.md) Decision §1,
@@ -174,8 +177,10 @@ and `sim/spec-coverage.md` is regenerated from it.
 - **#390**: common-mode / differential split, including a sub-LSB `Vindiff`
   point. This is the first gate.
 - **Headroom-neutral candidates**: a double-tail latch, neutralization, and
-  complementary-clock compensation are each unmeasured. The owner is a
-  follow-on scoped from #390's result.
+  complementary-clock compensation are each unmeasured. Tracked as **#434**,
+  filed once #390's result confirmed a differential component above the
+  bound at the large-overdrive point (the condition Consequences §4 above
+  names).
 - **A preamp headroom probe**, if the question reopens. It would cover
   `1.62 V` and `ss`/−40 °C, and include `nfet_01v8_lvt`, which is listed in
   DR-001's core device table but has never been probed in this repo. A
