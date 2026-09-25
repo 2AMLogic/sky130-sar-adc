@@ -639,6 +639,47 @@ POWER_TERM_RE = re.compile(r"`I\((?P<net>[A-Za-z0-9_]+)\)`")
 # `sim/full-conversion-transient/run_conversion.py` writes it: `I(VDD) (uA)`.
 POWER_COLUMN_RE = re.compile(r"^I\((?P<net>[A-Za-z0-9_]+)\)")
 
+# One instantiated PDK cell of either family, as it appears on a netlist
+# instance line. A net name never has this shape, so counting these tokens IS
+# the instance census -- no SPICE card grammar needs parsing (a subcircuit call
+# names its cell last, a device card names its model before the first
+# `key=value`, and this covers both).
+PDK_CELL_RE = re.compile(
+    r"\bsky130_fd_(?P<family>pr|sc_hd)__(?P<cell>[A-Za-z0-9_]+)\b"
+)
+
+# `design/sar_adc_top.spice`'s top-level region ends at the `**.ends` xschem
+# writes for the flat top cell; everything after it is a sub-block `.subckt`.
+# The region between is exactly the glue `design/sar_adc_top.sch` adds at the
+# integration level, which is what check 20 part (b) grades.
+TOP_REGION_END_RE = re.compile(r"^\*{0,2}\.ends\b", re.M)
+
+# Section 1's primitive-flavour inventory: WHICH `sky130_fd_pr` flavours this
+# design instantiates anywhere in its hierarchy. Bolded count for IO_TOTAL_RE's
+# reason. This is the sentence that makes Section 2.1's rail position
+# mechanical -- a `g5v0d10v5` device entering the netlist has to move it.
+PRIMITIVE_INVENTORY_RE = re.compile(
+    r"instantiates \*\*(?P<count>\d+)\*\* `sky130_fd_pr` primitive flavours? — "
+    r"(?P<cells>(?:`[A-Za-z0-9_]+`(?:, )?)+)"
+)
+
+# Section 3's top-level glue census, one sentence per family. Each states its
+# own instance total, its own type count, and the per-type counts -- so a cell
+# type swapped for another of the same total cannot pass.
+GLUE_CELL_CENSUS_RE = re.compile(
+    r"adds \*\*(?P<instances>\d+)\*\* `sky130_fd_sc_hd` instances of "
+    r"\*\*(?P<types>\d+)\*\* cell types? — "
+    r"(?P<cells>(?:`[A-Za-z0-9_]+` \*\*×\d+\*\*(?:, )?)+)"
+)
+GLUE_PRIMITIVE_CENSUS_RE = re.compile(
+    r"and \*\*(?P<instances>\d+)\*\* `sky130_fd_pr` instances of "
+    r"\*\*(?P<types>\d+)\*\* device types? — "
+    r"(?P<cells>(?:`[A-Za-z0-9_]+` \*\*×\d+\*\*(?:, )?)+)"
+)
+
+# One `<cell> ×<count>` entry inside either census list.
+GLUE_CELL_RE = re.compile(r"`(?P<cell>[A-Za-z0-9_]+)` \*\*×(?P<count>\d+)\*\*")
+
 
 def _unwrap_backticked(span: str) -> str:
     """Rejoin a backticked span that prose wrapped across lines.
@@ -2691,6 +2732,167 @@ def check_test_plan_ports(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _netlist_instance_lines(region: str) -> str:
+    """`region` with its comment lines dropped.
+
+    xschem writes the top cell's own `.subckt`/`.ends`/`.ipin`/`.opin` lines
+    as comments, and this file's header names the very flavour set check 20
+    part (a) grades -- so a census taken over raw text would count prose about
+    the netlist as instances of it.
+    """
+    return "\n".join(
+        line for line in region.split("\n") if not line.lstrip().startswith("*")
+    )
+
+
+def top_netlist_text() -> str:
+    """`design/sar_adc_top.spice`, or `""` when it is absent.
+
+    Empty keeps check 20 inert against the fixtures the same way an empty
+    `netlist_ports()` keeps check 10 inert; that the real one is found and
+    non-empty is asserted by the tests.
+    """
+    path = REPO_ROOT / TOP_NETLIST
+    return path.read_text() if path.is_file() else ""
+
+
+def top_level_glue(text: str) -> str:
+    """The instance lines that live outside every sub-block `.subckt`.
+
+    This is the integration-level glue `design/sar_adc_top.sch` owns -- the
+    SEL drive, the readout recode, the comparator dummy loads and the half-LSB
+    offset network -- as distinct from anything a sub-block's own schematic
+    (and therefore a sub-block's own layout flow) is responsible for.
+    """
+    header = SUBCKT_RE.search(text)
+    if header is None:
+        return ""
+    body = text[header.end() :]
+    end = TOP_REGION_END_RE.search(body)
+    return _netlist_instance_lines(body[: end.start()] if end else body)
+
+
+def cell_census(spice: str, family: str) -> dict[str, int]:
+    """`{cell: instances}` for one PDK family over the given netlist text."""
+    census: dict[str, int] = {}
+    for match in PDK_CELL_RE.finditer(spice):
+        if match.group("family") != family:
+            continue
+        cell = match.group("cell")
+        census[cell] = census.get(cell, 0) + 1
+    return census
+
+
+def primitive_inventory_sentence(flavours: list[str]) -> str:
+    """The Section 1 clause in exactly the form `PRIMITIVE_INVENTORY_RE` matches."""
+    listed = ", ".join(f"`{flavour}`" for flavour in flavours)
+    return (
+        f"instantiates **{len(flavours)}** `sky130_fd_pr` primitive flavours — "
+        f"{listed}"
+    )
+
+
+def glue_census_sentence(census: dict[str, int], family: str) -> str:
+    """The Section 3 clause in exactly the form that family's regex matches."""
+    listed = ", ".join(
+        f"`{cell}` **×{count}**" for cell, count in sorted(census.items())
+    )
+    total = sum(census.values())
+    if family == "sc_hd":
+        return (
+            f"adds **{total}** `sky130_fd_sc_hd` instances of "
+            f"**{len(census)}** cell types — {listed}"
+        )
+    return (
+        f"and **{total}** `sky130_fd_pr` instances of "
+        f"**{len(census)}** device types — {listed}"
+    )
+
+
+def _stated_census(stated: re.Match) -> dict[str, int]:
+    """The per-cell counts one census sentence lists."""
+    return {
+        entry.group("cell"): int(entry.group("count"))
+        for entry in GLUE_CELL_RE.finditer(stated.group("cells"))
+    }
+
+
+def check_top_cell_inventory(doc: Path, text: str) -> list[str]:
+    """Check 20: the stated device/cell inventory is the netlist's own."""
+    netlist = top_netlist_text()
+    if not netlist:
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+
+    # (a) Section 1's primitive-flavour set, over the whole hierarchy. Graded
+    # in both directions: a flavour dropped from the sentence hides what the
+    # design is built from, and one added that no instance line carries claims
+    # a device this repo has never drawn. This is the sentence that holds
+    # Section 2.1's "no rail above 1.8 V core" position up -- a thick-oxide
+    # `g5v0d10v5` pass device entering the netlist (the DR-002 tripwire) is a
+    # CI failure here rather than a reader's job to notice.
+    flavours = set(cell_census(_netlist_instance_lines(netlist), "pr"))
+    for stated in PRIMITIVE_INVENTORY_RE.finditer(collapsed):
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        listed = set(BACKTICK_SPAN_RE.findall(stated.group("cells")))
+        if int(stated.group("count")) != len(flavours):
+            misses.append(
+                f"{where}: Section 1 says this design instantiates "
+                f"{stated.group('count')} `sky130_fd_pr` primitive flavour(s), "
+                f"but `{TOP_NETLIST}` instantiates {len(flavours)}"
+            )
+        for flavour in sorted(listed ^ flavours):
+            stated_here = flavour in listed
+            misses.append(
+                f"{where}: Section 1's primitive inventory "
+                f"{'names' if stated_here else 'omits'} `{flavour}`, which "
+                f"{'no' if stated_here else 'at least one'} instance line of "
+                f"`{TOP_NETLIST}` instantiates -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+
+    # (b) Section 3's top-level glue census, per family. This is the direction
+    # that has already gone stale: issue #263/DR-008 replaced the nine
+    # `SELn<i> = NOT(DOUT<i>)` inverters issue #56 drew with decision-directed
+    # `and2_1` pairs, and Sections 3 and 7 went on describing the inverter
+    # bank as the glue this schematic adds. Nothing in the chain could see it:
+    # check 10 grades the *ports*, which that change did not move.
+    glue = top_level_glue(netlist)
+    for pattern, family, label in (
+        (GLUE_CELL_CENSUS_RE, "sc_hd", "standard-cell"),
+        (GLUE_PRIMITIVE_CENSUS_RE, "pr", "primitive"),
+    ):
+        actual = cell_census(glue, family)
+        for stated in pattern.finditer(collapsed):
+            where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+            listed = _stated_census(stated)
+            if int(stated.group("instances")) != sum(actual.values()):
+                misses.append(
+                    f"{where}: Section 3's top-level {label} census says "
+                    f"{stated.group('instances')} instance(s), but "
+                    f"`{TOP_NETLIST}`'s top-level region carries "
+                    f"{sum(actual.values())}"
+                )
+            if int(stated.group("types")) != len(actual):
+                misses.append(
+                    f"{where}: Section 3's top-level {label} census says "
+                    f"{stated.group('types')} type(s), but "
+                    f"`{TOP_NETLIST}`'s top-level region carries {len(actual)}"
+                )
+            for cell in sorted(set(listed) | set(actual)):
+                if listed.get(cell) == actual.get(cell):
+                    continue
+                misses.append(
+                    f"{where}: Section 3's top-level {label} census puts "
+                    f"`{cell}` at {listed.get(cell, 0)} instance(s), but "
+                    f"`{TOP_NETLIST}`'s top-level region carries "
+                    f"{actual.get(cell, 0)} -- restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -2712,6 +2914,7 @@ def check_document(doc: Path) -> list[str]:
         + check_t1_readout(doc, text)
         + check_freshness_coverage(doc, text)
         + check_test_plan_ports(doc, text)
+        + check_top_cell_inventory(doc, text)
     )
 
 
@@ -2829,6 +3032,22 @@ def main(argv: list[str]) -> int:
         t1 = t1_readout()
         if t1 is not None:
             print(f"signoff/: {t1_sentence(t1)}")
+        # And the design's own device/cell inventory, which check 20 grades in
+        # Sections 1 and 3: the flavour set over the whole hierarchy, then the
+        # per-family census of the glue that lives outside every sub-block.
+        netlist = top_netlist_text()
+        if netlist:
+            print(
+                f"{TOP_NETLIST}: this design "
+                f"{primitive_inventory_sentence(sorted(cell_census(_netlist_instance_lines(netlist), 'pr')))}"
+            )
+            glue = top_level_glue(netlist)
+            print(
+                f"{TOP_NETLIST}: outside every sub-block, "
+                f"`design/sar_adc_top.sch` "
+                f"{glue_census_sentence(cell_census(glue, 'sc_hd'), 'sc_hd')} "
+                f"{glue_census_sentence(cell_census(glue, 'pr'), 'pr')}"
+            )
         return 0
 
     misses: list[str] = []
