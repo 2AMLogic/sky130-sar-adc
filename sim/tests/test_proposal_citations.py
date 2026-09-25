@@ -101,10 +101,40 @@ class FixtureTree:
         latest: bool = False,
         power: dict[str, float] | None = None,
         power_terms: tuple[str, ...] = ("VDD",),
+        kickback: tuple[tuple[float, float, str, str, float, str, str], ...] | None = None,
+        kickback_split: bool = False,
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
         body = "fixture record\n"
+        if kickback is not None:
+            # The `Measured value(s)` table check 21 re-derives the Kickback
+            # row's figures from, in the shape
+            # `sim/comparator-decision/run.py kickback` writes it: one row per
+            # `Vindiff` point, each carrying a signed positive and a signed
+            # negative peak with the pin and instant it occurred at. Both are
+            # extrema over EITHER pin, which is the whole point -- a fixture
+            # carrying one per-pin column pair would not reproduce the
+            # conflation the check exists for.
+            #
+            # `kickback_split` grows the table the two columns issue #390's
+            # successor record adds, which is the direction check 21 part (c)
+            # must flip on.
+            extra = (" CM peak (mV) |", " differential peak (mV) |") if kickback_split else ()
+            body += "\n## Measured value(s)\n\n"
+            body += (
+                "| Vindiff (mV) | peak+ (mV) | pin / time (ns) "
+                "| peak- (mV) | pin / time (ns) |" + "".join(extra) + "\n"
+            )
+            body += "|---|" * (5 + len(extra)) + "\n"
+            for vindiff, pos, pos_pin, pos_time, neg, neg_pin, neg_time in kickback:
+                body += (
+                    f"| {vindiff:+.2f} | {pos:+.4f} | {pos_pin} @ {pos_time} "
+                    f"| {neg:+.4f} | {neg_pin} @ {neg_time} |"
+                    + (" -1.0000 | -1.0000 |" if kickback_split else "")
+                    + "\n"
+                )
+            body += "\n## Findings\n\n- fixture\n"
         if power is not None:
             # The per-corner Power table check 12 reads, in the shape
             # sim/full-conversion-transient/run_conversion.py writes it: the
@@ -3580,6 +3610,249 @@ class TestTopCellInventory(unittest.TestCase):
             + ".\n"
         )
         self.assertEqual(self.tree.check(body), [])
+
+
+class TestKickbackDecomposition(unittest.TestCase):
+    """Check 21: the Kickback row's derived figures are its record's own.
+
+    The defect shape is a real one, and it was in the direction that makes the
+    row read better than the evidence supports: the row subtracted the cited
+    record's `Vindiff = 0` control peak from its worst-case peak and called the
+    `3.0254 mV` residual "the decision transient itself". Both figures are
+    extrema over *either* pin (`run_kickback_sweep` tracks one maximum and one
+    minimum across `VINP` and `VINN` together), so the difference bounds neither
+    the common-mode part of the disturbance nor the differential part -- which
+    is what issue #390 (filed from #349, 2026-09-25) exists to measure. DR-011's
+    own Context and Consequences §3 carried the same reading, so a reader had no
+    reason to doubt it.
+    """
+
+    # The real record's two points, which every fixture below is a mutation of.
+    POINTS = (
+        (0.0, 16.5447, "VINP", "5.037", -70.3419, "VINP", "5.108"),
+        (50.0, 16.6241, "VINP", "5.037", -73.3673, "VINP", "5.108"),
+    )
+    CAMPAIGN = "comparator-decision"
+    STAMP = "20260924-041815-afcb1b5"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def _record(self, *, points=None, split: bool = False):
+        self.tree.add_sim_record(
+            self.CAMPAIGN,
+            self.STAMP,
+            kickback=self.POINTS if points is None else points,
+            kickback_split=split,
+        )
+
+    def _row(
+        self,
+        *,
+        target: str = "`≤ 5 mV` peak pin disturbance; stretch `≤ 2 mV`",
+        peak: str = "73.3673",
+        target_mult: str = "14.7",
+        stretch_mult: str = "36.7",
+        control: str = "70.3419",
+        baseline_pct: str = "95.9",
+        residual: str = "3.0254",
+        residual_pct: str = "4.1",
+        columns: str = (
+            "`Vindiff (mV)`, `peak+ (mV)`, `pin / time (ns)`, `peak- (mV)`, "
+            "`pin / time (ns)`"
+        ),
+        column_count: str = "5",
+        verdict: str = checker.KICKBACK_NO_SPLIT_CLAUSE,
+        verdict_cell: str | None = None,
+    ) -> str:
+        if verdict_cell is None:
+            verdict_cell = (
+                f"INFORMATIONAL — the cited record measures **{peak} mV** "
+                f"worst-case peak pin disturbance (`Vindiff = +50 mV`, `VINP` at "
+                f"5.108 ns), i.e. `≈ {target_mult}×` the `≤ 5 mV` target and "
+                f"`≈ {stretch_mult}×` the `≤ 2 mV` stretch. Against the record's "
+                f"own `Vindiff = 0 mV` control row (**−{control} mV**, `VINP` at "
+                f"5.108 ns): `≈ {baseline_pct} %` of that peak is already present "
+                f"with no decision to make, and `{residual} mV` "
+                f"(`≈ {residual_pct} %`) is what the `+50 mV` point adds on top "
+                f"of it. The record's own `Measured value(s)` table carries "
+                f"**{column_count}** columns — {columns} — {verdict}: so much for "
+                f"that"
+            )
+        return (
+            f"| Kickback | {target} | DRAFT | {verdict_cell} | "
+            f"[`sim/{self.CAMPAIGN}/records/{self.STAMP}.md`]"
+            f"(../../sim/{self.CAMPAIGN}/records/{self.STAMP}.md) |"
+        )
+
+    def check(self, row: str) -> list[str]:
+        return checker.check_kickback_decomposition(
+            self.tree.document(spec_table(row)), spec_table(row)
+        )
+
+    def test_a_truthful_row_passes(self):
+        self._record()
+        self.assertEqual(self.check(self._row()), [])
+
+    def test_a_document_with_no_kickback_row_is_not_failed_for_it(self):
+        self._record()
+        self.assertEqual(self.check("| ENOB | `≥ 9.0 bits` | DRAFT | UNMET | — |"), [])
+
+    def test_a_relaxed_target_does_not_shrink_the_multiple_silently(self):
+        """Acceptance criterion 2's teeth: the multiple is derived, not quoted."""
+        self._record()
+        misses = self.check(
+            self._row(target="`≤ 50 mV` peak pin disturbance; stretch `≤ 2 mV`")
+        )
+        self.assertTrue(
+            any("the target bound" in miss for miss in misses), misses
+        )
+        self.assertTrue(
+            any("the multiple over target" in miss for miss in misses), misses
+        )
+
+    def test_an_understated_multiple_is_reported(self):
+        self._record()
+        misses = self.check(self._row(target_mult="1.5"))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("the multiple over target at `1.5`", misses[0])
+        self.assertIn("it is `14.7`", misses[0])
+
+    def test_a_peak_that_is_not_the_records_own_is_reported(self):
+        self._record()
+        misses = self.check(self._row(peak="7.3673"))
+        self.assertTrue(any("worst-case peak at `7.3673`" in m for m in misses), misses)
+
+    def test_an_understated_residual_is_reported(self):
+        """The direction the row actually drifted: the decision term reads smaller."""
+        self._record()
+        misses = self.check(self._row(residual="0.5000", residual_pct="0.7"))
+        self.assertTrue(any("the residual at `0.5000`" in m for m in misses), misses)
+        self.assertTrue(any("the residual's share at `0.7`" in m for m in misses), misses)
+
+    def test_the_worst_case_is_recomputed_when_the_record_grows_a_point(self):
+        """A new `Vindiff` point that is worse must move the row's figures."""
+        self._record(
+            points=self.POINTS
+            + ((1.7578, 16.6000, "VINP", "5.037", -90.0000, "VINN", "5.110"),)
+        )
+        misses = self.check(self._row())
+        self.assertTrue(any("worst-case peak at `73.3673`" in m for m in misses), misses)
+        self.assertTrue(any("`VINN`" in m for m in misses), misses)
+
+    def test_a_record_with_no_control_row_is_reported(self):
+        """The subtraction rests on the `Vindiff = 0` row; without it, say so."""
+        self._record(points=self.POINTS[1:] + ((25.0, 1.0, "VINP", "5.0", -2.0, "VINP", "5.1"),))
+        misses = self.check(self._row())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`Vindiff = 0` control row", misses[0])
+
+    def test_a_row_citing_no_record_is_reported(self):
+        self._record()
+        row = "| Kickback | `≤ 5 mV`; stretch `≤ 2 mV` | DRAFT | INFORMATIONAL | — |"
+        misses = self.check(row)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("cites no `sim/", misses[0])
+
+    def test_a_record_with_no_measured_table_is_reported(self):
+        self.tree.add_sim_record(self.CAMPAIGN, self.STAMP)
+        misses = self.check(self._row())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`Measured value(s)` table", misses[0])
+
+    def test_a_row_stating_only_a_target_bound_is_reported(self):
+        self._record()
+        misses = self.check(self._row(target="`≤ 5 mV` peak pin disturbance"))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("1 `≤ <n> mV` bound(s)", misses[0])
+
+    def test_a_row_dropping_the_derived_clauses_entirely_is_reported(self):
+        """The vacuity guard: silence must not read as agreement."""
+        self._record()
+        misses = self.check(
+            self._row(verdict_cell="INFORMATIONAL — kickback is large. Mitigation is #349's")
+        )
+        self.assertEqual(len(misses), 3, misses)
+        self.assertTrue(any("no re-derivable measurement clause" in m for m in misses))
+        self.assertTrue(any("no re-derivable control-row clause" in m for m in misses))
+        self.assertTrue(any("no column list" in m for m in misses))
+
+    def test_a_drifted_column_list_is_reported(self):
+        self._record()
+        misses = self.check(
+            self._row(
+                column_count="4",
+                columns="`Vindiff (mV)`, `peak+ (mV)`, `peak- (mV)`, `pin / time (ns)`",
+            )
+        )
+        self.assertTrue(any("carries 4 column(s)" in m for m in misses), misses)
+        self.assertTrue(any("lists that table's columns as" in m for m in misses), misses)
+
+    def test_dropping_the_no_split_clause_is_reported(self):
+        """Without it the subtraction reads as a split it is not."""
+        self._record()
+        misses = self.check(self._row(verdict="a table of two peaks"))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("does not state that", misses[0])
+
+    def test_a_record_that_grows_the_split_retires_the_clause(self):
+        """The #390 direction: the qualification must not outlive its own expiry."""
+        self._record(split=True)
+        misses = self.check(
+            self._row(
+                column_count="7",
+                columns=(
+                    "`Vindiff (mV)`, `peak+ (mV)`, `pin / time (ns)`, "
+                    "`peak- (mV)`, `pin / time (ns)`, `CM peak (mV)`, "
+                    "`differential peak (mV)`"
+                ),
+            )
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("now carries one", misses[0])
+
+    def test_stats_clauses_round_trip_through_the_checker(self):
+        """A `--stats` paste must pass, or the documented fix does not work."""
+        self._record()
+        record = (
+            self.tree.root / "sim" / self.CAMPAIGN / "records" / f"{self.STAMP}.md"
+        )
+        readout = checker.kickback_readout(record)
+        self.assertIsNotNone(readout)
+        # The `--stats` arm joins the three clauses with an ellipsis so each is
+        # readable on its own; a document carries them in prose with its own
+        # connectives in between. Dropping the ellipses is what a reader pasting
+        # them does, so that is what must pass.
+        clauses = checker.kickback_sentences(readout, [5.0, 2.0]).replace("… ", "")
+        self.assertEqual(self.check(self._row(verdict_cell="INFORMATIONAL — " + clauses)), [])
+
+    def test_the_real_row_is_checked_against_the_real_record(self):
+        """The real document's Kickback row must be reachable by this check.
+
+        Guards the vacuity trap directly: every fixture above could pass while
+        the real row's phrasing matched no pattern, leaving check 21 inert on
+        the only document it exists for.
+        """
+        text = (CHIPALOOZA_DIR / "challenge-4-proposal.md").read_text()
+        row = checker._kickback_row(text)
+        self.assertIsNotNone(row, "the real Section 4 table has no Kickback row")
+        _line, cells = row
+        self.assertEqual(len(checker._kickback_bounds(cells[1])), 2, cells[1])
+        self.assertRegex(cells[3], checker.KICKBACK_PEAK_RE)
+        self.assertRegex(cells[3], checker.KICKBACK_SPLIT_RE)
+        self.assertRegex(cells[3], checker.KICKBACK_COLUMNS_RE)
+
+    def test_the_real_record_still_reports_no_split(self):
+        """If #390's successor record has landed, this row is overdue a re-derive."""
+        readout = checker.kickback_readout(
+            REPO_ROOT / "sim" / self.CAMPAIGN / "records" / f"{self.STAMP}.md"
+        )
+        self.assertIsNotNone(readout)
+        self.assertFalse(
+            readout["has_split"],
+            "the cited record now carries a common-mode/differential column -- "
+            "restate the Kickback row's split from it (issue #390)",
+        )
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
