@@ -151,6 +151,10 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,pa
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
     --supersedes <record-id>   # name the prior record this one replaces
+
+# the exact invocation that produced the committed baseline-corner record
+# (records/20260925-073912-0e385e5.md; no-gnd-pad omitted on cost, see below):
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record
 ```
 
 **The committed record is the four cheaper arms**, not all five: `no-gnd-pad`
@@ -225,3 +229,36 @@ So the grid is **deferred, not skipped**: the code exists, the command is
 written down, and what is missing is a host whose ngspice satisfies the pin and
 whose policy allows a grid. Until then nothing here is a corner-worst-case
 claim; it is a mechanism comparison at the baseline corner.
+
+## Findings
+
+The first recorded campaign
+([`records/20260925-073912-0e385e5.md`](records/20260925-073912-0e385e5.md),
+`ideal`/`package-r-only`/`package`/`substrate` at `tt_27c_1.80v`) is what
+retires [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s
+"the impedance argument is unmeasured" open item, at this scope:
+
+- **No mid-scale code moved, at this corner and this assumed magnitude.**
+  Every bonded/lumped-substrate arm reproduces the `ideal` arm's five captured
+  codes exactly — worst `|delta code|` = **0 LSB** in every row, including the
+  as-built `package` arm.
+- **The die-side excursion is real, and inductance dominates it.** `GND_DIE`
+  peak-to-peak: `package-r-only` (R only) **0.059 mV**; `package` (R+L,
+  DR-012's as-built shape) **37.333 mV**; `substrate` (a lumped 30 Ω on-die
+  return, DR-012's own stated order) **10.779 mV**. `package` vs
+  `package-r-only` is a strict one-element ablation — same R, same terminals,
+  only the series `L` differs — so bond inductance alone accounts for a
+  **~630×** jump in excursion, the one single-mechanism number this campaign
+  produces.
+- **Read this as "not fatal at this magnitude", not as "impedance does not
+  matter".** A 37 mV undecoupled excursion (≈10.6 LSB at the nominal supply)
+  on the comparator's own reference not flipping a captured code at `tt/27
+  °C/1.80 V` is a property of this corner and this assumed R+L, not a
+  guarantee at every corner or every package. DR-015's stated-assumption
+  values, not a real package, are what was driven.
+- **Two things this record does not price**, named rather than left implicit:
+  the nine-point ratified corner grid (deferred — see "Why the committed
+  record is not the full nine-point grid" above), and DR-012's *rejected*
+  `no-gnd-pad` null option (implemented, not run, on cost — see "Runtime"
+  above). Neither a worst-corner claim nor a "the rejected option would have
+  cost N mV/LSB" claim may be made from this record alone.
