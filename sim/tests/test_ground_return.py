@@ -165,5 +165,47 @@ class TestAnalysis(unittest.TestCase):
         self.assertFalse(ok["ideal arm: GND_DIE is exactly 0 V throughout"])
 
 
+class TestRawLogCache(unittest.TestCase):
+    """`--cache-dir` may only ever hand back a log for a byte-identical deck on
+    the same toolchain key -- anything looser would let a stale log stand in
+    for a changed circuit."""
+
+    def setUp(self):
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.cache = Path(self._tmp.name)
+        self.calls: list[str] = []
+        self._orig = g.toolchain.run_ngspice_with_retry
+
+        def fake(deck, scratch, log_name, attempts=3):
+            self.calls.append(deck)
+            return f"log for {deck}"
+
+        g.toolchain.run_ngspice_with_retry = fake
+
+    def tearDown(self):
+        g.toolchain.run_ngspice_with_retry = self._orig
+        self._tmp.cleanup()
+
+    def test_second_run_of_identical_deck_is_reused(self):
+        first = g.run_deck("deck A", self.cache, "p", self.cache, "tool 1")
+        second = g.run_deck("deck A", self.cache, "p", self.cache, "tool 1")
+        self.assertEqual(first, ("log for deck A", False))
+        self.assertEqual(second, ("log for deck A", True))
+        self.assertEqual(len(self.calls), 1)
+
+    def test_changed_deck_or_toolchain_is_simulated_again(self):
+        g.run_deck("deck A", self.cache, "p", self.cache, "tool 1")
+        self.assertFalse(g.run_deck("deck B", self.cache, "p", self.cache, "tool 1")[1])
+        self.assertFalse(g.run_deck("deck A", self.cache, "p", self.cache, "tool 2")[1])
+        self.assertEqual(len(self.calls), 3)
+
+    def test_no_cache_dir_never_reuses(self):
+        g.run_deck("deck A", self.cache, "p", None, "tool 1")
+        self.assertFalse(g.run_deck("deck A", self.cache, "p", None, "tool 1")[1])
+        self.assertEqual(len(self.calls), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

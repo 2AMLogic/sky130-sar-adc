@@ -90,6 +90,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import dataclasses
+import hashlib
 import os
 import re
 import sys
@@ -388,14 +389,54 @@ def assemble_arm_deck(
 # --------------------------------------------------------------------------
 # Running
 # --------------------------------------------------------------------------
+def toolchain_key() -> str:
+    """The part of the toolchain a cached log depends on: the ngspice version
+    and the resolved PDK revision (not the Python version, which never
+    touches a simulation)."""
+    return "\n".join(
+        ln for ln in toolchain.summary().splitlines()
+        if ln.startswith("ngspice:") or ln.startswith("PDK:")
+    )
+
+
+def cache_path(cache_dir: Path, log_name: str, deck: str, tool_key: str) -> Path:
+    """A cached raw log is keyed on the EXACT deck text and the toolchain key,
+    so a log is only ever reused for a byte-identical deck on the same
+    simulator and PDK revision -- i.e. a re-run that would produce it anyway."""
+    digest = hashlib.sha256((tool_key + "\n" + deck).encode("utf-8")).hexdigest()[:16]
+    return cache_dir / f"{log_name}__{digest}.log"
+
+
+def run_deck(
+    deck: str, scratch: Path, log_name: str, cache_dir: Path | None, tool_key: str
+) -> tuple[str, bool]:
+    """Run one deck (or reuse its cached raw log). Returns (log_text, cached).
+
+    One point of this campaign is a whole-ADC transient that can take well
+    over an hour on a contended host, and a point that exhausts its retries
+    raises and ends the invocation. `--cache-dir` makes such an invocation
+    resumable: every finished point's raw log is kept, and a later
+    invocation reuses it instead of re-simulating the identical deck. The
+    record states how many points were reused."""
+    path = cache_path(cache_dir, log_name, deck, tool_key) if cache_dir else None
+    if path is not None and path.is_file():
+        return path.read_text(), True
+    log_text = toolchain.run_ngspice_with_retry(deck, scratch, log_name, attempts=3)
+    if path is not None:
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(log_text)
+        tmp.replace(path)
+    return log_text, False
+
+
 def run_point(
     dut_text: str, pdk_info: pdk.PdkInfo, scratch: Path, arm: Arm,
-    pc: str, tc: float, sv: float,
+    pc: str, tc: float, sv: float, cache_dir: Path | None = None, tool_key: str = "",
 ) -> dict:
     cid = corners_mod.corner_id(pc, tc, sv)
     deck = assemble_arm_deck(dut_text, pdk_info, arm, pc, tc, sv)
     t0 = time.time()
-    log_text = toolchain.run_ngspice_with_retry(deck, scratch, f"gri_{arm.name}_{cid}", attempts=3)
+    log_text, cached = run_deck(deck, scratch, f"gri_{arm.name}_{cid}", cache_dir, tool_key)
     wall_s = time.time() - t0
     names = tb.all_measure_names() + extra_measure_names(arm)
     parsed = measure.parse(log_text, names, anchored=False)
@@ -404,27 +445,30 @@ def run_point(
     result.update(
         arm=arm.name, process_corner=pc, temp_c=tc, supply_v=sv, corner_id=cid,
         extra={n: parsed.get(n) for n in extra_measure_names(arm)},
-        missing=missing, log_text=log_text, deck=deck, wall_s=wall_s,
+        missing=missing, log_text=log_text, deck=deck, wall_s=wall_s, cached=cached,
     )
     if missing:
         result["all_ok"] = False
     return result
 
 
-def run_rename_control(dut_text: str, pdk_info: pdk.PdkInfo, scratch: Path) -> dict:
+def run_rename_control(
+    dut_text: str, pdk_info: pdk.PdkInfo, scratch: Path,
+    cache_dir: Path | None = None, tool_key: str = "",
+) -> dict:
     """The as-committed, UNRENAMED deck exactly as sim/full-conversion-
     transient assembles it (GND is the ngspice reference node), at the
     baseline corner. Its codes must equal the `ideal` arm's at the same
     corner, or the rename changed the circuit."""
     pc, tc, sv = fct.BASELINE_CORNER
     deck = fct.assemble_deck(dut_text, pdk_info, pc, tc, sv)
-    log_text = toolchain.run_ngspice_with_retry(deck, scratch, "gri_rename_control", attempts=3)
+    log_text, cached = run_deck(deck, scratch, "gri_rename_control", cache_dir, tool_key)
     names = tb.all_measure_names()
     parsed = measure.parse(log_text, names, anchored=False)
     result = fct.decode(parsed, sv)
     result.update(
         arm="rename-control", corner_id=corners_mod.corner_id(pc, tc, sv),
-        missing=measure.missing(parsed, names), log_text=log_text,
+        missing=measure.missing(parsed, names), log_text=log_text, cached=cached,
     )
     return result
 
@@ -441,16 +485,20 @@ def format_point(point: dict) -> str:
     return (
         f"{point['arm']:>16} {point['corner_id']}: codes {cs} "
         f"phases_ok={point['n_phase_ok']}/{point['n_conversions']} "
-        f"GND_DIE p-p={gnd} ({point['wall_s']:.0f}s)"
+        f"GND_DIE p-p={gnd} ("
+        + ("cached" if point.get("cached") else f"{point['wall_s']:.0f}s") + ")"
         + (f" MISSING {len(point['missing'])}" if point["missing"] else "")
     )
 
 
 def run_campaign(
     arms: list[Arm], corners_mode: bool, jobs: int, quiet: bool, scratch: Path,
-    rename_control: bool,
+    rename_control: bool, cache_dir: Path | None = None,
 ) -> tuple[list[dict], dict | None, str]:
     pdk_info = pdk.resolve()
+    tool_key = toolchain_key() if cache_dir is not None else ""
+    if cache_dir is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
     dut_text = fct.dut_text()
     grid = (
         corners_mod.ratified_oat_grid(
@@ -464,11 +512,15 @@ def run_campaign(
     control: dict | None = None
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
         futs = {
-            pool.submit(run_point, dut_text, pdk_info, scratch, arm, pc, tc, sv): (arm.name, pc, tc, sv)
+            pool.submit(
+                run_point, dut_text, pdk_info, scratch, arm, pc, tc, sv, cache_dir, tool_key
+            ): (arm.name, pc, tc, sv)
             for arm, pc, tc, sv in jobs_list
         }
         ctrl_fut = (
-            pool.submit(run_rename_control, dut_text, pdk_info, scratch) if rename_control else None
+            pool.submit(run_rename_control, dut_text, pdk_info, scratch, cache_dir, tool_key)
+            if rename_control
+            else None
         )
         for fut in concurrent.futures.as_completed(futs):
             point = fut.result()
@@ -666,6 +718,15 @@ def write_record(
         "resistor. No backside/paddle path is modelled (DR-012: nothing in this "
         "repo specifies one)."
     )
+    runs = points + ([control] if control is not None else [])
+    n_cached = sum(1 for r in runs if r.get("cached"))
+    a(
+        f"- **Raw-log reuse**: {n_cached} of {len(runs)} runs reused a raw ngspice log "
+        "from `--cache-dir` (kept by an earlier invocation of the byte-identical deck "
+        "on the same ngspice version and PDK revision); "
+        f"{len(runs) - n_cached} were simulated by this invocation. Every raw log, "
+        "reused or not, is committed under `corners/` below."
+    )
     a(
         "- **Controls**: " + ("all pass" if ctrl_ok else "**FAIL -- read the Controls "
                               "table before any number below**")
@@ -845,6 +906,12 @@ def main() -> int:
         "--supersedes", default="", metavar="RECORD_ID",
         help="record-id of a prior record of THIS experiment the new one replaces",
     )
+    ap.add_argument(
+        "--cache-dir", default="", metavar="DIR",
+        help="keep each finished point's raw ngspice log here, and reuse one for a "
+        "byte-identical deck on the same ngspice/PDK -- makes a long invocation "
+        "resumable after a point exhausts its retries (runtime only)",
+    )
     ap.add_argument("--list-arms", action="store_true", help="print the arms and exit")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
@@ -895,7 +962,8 @@ def main() -> int:
     )
     with tempfile.TemporaryDirectory(prefix="ground-return-") as scratch_name:
         points, control, dut_text = run_campaign(
-            arms, args.corners, args.jobs, args.quiet, Path(scratch_name), args.rename_control
+            arms, args.corners, args.jobs, args.quiet, Path(scratch_name), args.rename_control,
+            Path(args.cache_dir).resolve() if args.cache_dir else None,
         )
 
     print("\nControls:")

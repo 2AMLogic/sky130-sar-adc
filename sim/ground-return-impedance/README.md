@@ -42,6 +42,21 @@ timestep has to follow them. Expect 5–15 minutes per point on a contended
 machine. The recorded campaign is 73 runs; `--jobs` changes wall-clock time
 only.
 
+On a heavily contended host a package point can take more than two hours of
+wall-clock time. A point that exhausts its retries raises and ends the whole
+invocation, and every finished point is then lost. To avoid that, pass
+`--cache-dir DIR` (any scratch directory outside the repo) together with a
+generous `SIM_NGSPICE_TIMEOUT_S`. Each finished point's raw ngspice log is
+kept there, keyed on the sha256 of the exact deck text plus the ngspice version
+and PDK revision. A re-run of the same command then reuses those logs and only
+simulates what is missing. A log is reused only for a byte-identical deck on
+the same toolchain. The record states how many of its runs were reused, and
+every raw log, reused or not, is committed under `corners/`:
+
+```sh
+SIM_NGSPICE_TIMEOUT_S=21600 python3 sim/ground-return-impedance/run_ground_return.py --corners --record --jobs 24 --cache-dir /tmp/gri-cache
+```
+
 ## What is reused, and the two deck rewrites
 
 The DUT, the stimulus/measurement fragment
