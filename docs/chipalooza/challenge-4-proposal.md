@@ -950,9 +950,25 @@ installed, per [`docs/environment-setup.md`](../../docs/environment-setup.md).
 cited; `python3 sim/monte_carlo.py --list` enumerates the Monte Carlo
 campaigns (ENOB/INL/DNL rows). `python3 sim/report/generate.py --check`
 verifies `docs/characterization-report.md` — the machine-checked source this
-table restates — is fresh against current `sim/`/`layout/` evidence; it was
-run as part of authoring this document and passed
-(`OK: ... is fresh and up to date (11 rows)`).
+table restates — is fresh against current `sim/`/`layout/` evidence; it is
+run in CI on every pull request, and passes
+(`OK: ... is fresh and up to date (12 rows)`).
+
+**That row count is re-derived, not transcribed** (check 24 of the [citation
+gate](check_proposal_citations.py), added 2026-09-25). It read `11 rows` from
+this document's first pass (PR #140, 2026-09-05) until this one, which was
+true when it was written and stopped
+being true on 2026-09-24, when commit `86e905e` (PR #366, issue #361) added
+the DRAFT Kickback row [DR-011](../../spec/decision-records/DR-011-comparator-kickback-target-row.md)
+proposes to `sim/report/manifest.py` — the twelfth row of the report this
+table mirrors. Three later passes then edited that same Kickback row in §4
+(PRs #393, #395, #396) without the sentence one paragraph above the table
+moving, because nothing re-derived it: the quoted line is a *machine output
+living in prose*, the same shape as the census two paragraphs below, which
+drifted for the same reason and was gated for it. The number now comes from
+`sim/report/manifest.py`'s own `ROWS` table, in both directions — a document
+that names the command and quotes none of its output fails too, so deleting
+the quotation is not a way to pass.
 
 **This document's own citations are now machine-checked too** (added
 2026-09-16; `npm run check:proposal-citations`, wired into `npm run check:ci`
