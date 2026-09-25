@@ -4600,6 +4600,117 @@ class TestProvenanceCensus(unittest.TestCase):
         self.assertTrue(census["unpinned"])
 
 
+class TestLabelClaimSection(unittest.TestCase):
+    """Check 27: a live forge label is stated in one section, not copied.
+
+    The defect shape, taken from the document's own history (2026-09-25):
+    Section 3 read "#103 ... still open and `loom:blocked`", Section 4's two
+    sign-off-bar rows read "back in the ready queue (`loom:issue`)", and
+    Section 7 Item 1 carried the 2026-09-24 escalation to
+    `loom:operator-only` -- three readings of one issue, none of which any
+    other check here can see, because a forge label is backed by nothing in
+    this repository.
+    """
+
+    HOME = "## 7. Open items before this design would be ready for the brief's sign-off bar\n"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_label_claim_section(self.tree.document(body), body)
+
+    def test_a_label_stated_only_in_section_7_passes(self):
+        body = self.HOME + "\n1. #103 carries `loom:operator-only` as of 2026-09-24.\n"
+        self.assertEqual(self.check(body), [])
+
+    def test_the_real_defect_shape_is_reported(self):
+        """Section 3 keeping its own copy of an issue's label -- the live bug."""
+        body = (
+            "## 3. Functional description\n\n"
+            "Tracked as issue #103, still open and `loom:blocked`.\n\n"
+            + self.HOME
+            + "\n1. #103 carries `loom:operator-only` as of 2026-09-24.\n"
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("Section 3 states `loom:blocked`", misses[0])
+        self.assertIn("Section 7", misses[0])
+
+    def test_a_section_4_verdict_row_is_reported_too(self):
+        """The copy that misleads hardest: a sign-off-bar row's own cell."""
+        body = (
+            "## 4. Target specification\n\n"
+            "| Post-layout PVT | bar | — | **UNMET** — #103 is back in the ready "
+            "queue (`loom:issue`, no `loom:blocked`) | `layout/x/reports/y` |\n\n"
+            + self.HOME
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(all("Section 4 states" in miss for miss in misses), misses)
+
+    def test_dropping_the_backticks_is_not_an_escape(self):
+        body = "## 3. Functional description\n\n#103 is still loom:blocked.\n\n" + self.HOME
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`loom:blocked`", misses[0])
+
+    def test_a_loom_directory_path_is_not_a_label(self):
+        """`.loom/` has no colon -- the word boundary is what keeps it out."""
+        body = "## 3. Functional description\n\nSee `.loom/config.json` and heirloom:\n\n" + self.HOME
+        self.assertEqual(self.check(body), [])
+
+    def test_a_fenced_command_example_is_not_a_claim(self):
+        """A quoted `gh issue edit` line instructs a reader; it claims nothing."""
+        body = (
+            "## 3. Functional description\n\n"
+            "```bash\ngh issue edit 103 --add-label loom:blocked\n```\n\n" + self.HOME
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_section_7s_own_supersession_trail_is_not_graded(self):
+        """Section 7 narrates dated history in the present tense, by design."""
+        body = (
+            self.HOME
+            + "\n1. #103 was `loom:blocked` on 2026-09-16 and is `loom:operator-only`"
+            " as of 2026-09-24.\n"
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_the_front_matter_is_named_rather_than_attributed_to_no_section(self):
+        body = "Preamble: #103 is `loom:blocked`.\n\n" + self.HOME
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("The front matter states", misses[0])
+
+    def test_a_document_with_no_section_7_is_not_graded(self):
+        body = "## 3. Functional description\n\n#103 is `loom:blocked`.\n"
+        self.assertEqual(self.check(body), [])
+
+    def test_stating_no_label_at_all_passes(self):
+        """Silence is not a false claim -- the check must not demand a claim."""
+        self.assertEqual(self.check("## 3. Functional description\n\nNo labels.\n" + self.HOME), [])
+
+    def test_the_real_document_agrees(self):
+        """The live document, not a fixture: this is what CI actually grades."""
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_label_claim_section(doc, doc.read_text()), [])
+
+    def test_the_real_document_still_states_the_label_somewhere(self):
+        """A check satisfied by deleting every claim would be vacuous.
+
+        The document is not required to state a label (see
+        `test_stating_no_label_at_all_passes`), but this one does, and the
+        point of check 27 is that the surviving copy is the maintained one --
+        so assert it is there, in Section 7, rather than that it is gone.
+        """
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        claims = checker.label_claims(doc.read_text())
+        self.assertTrue(claims)
+        self.assertTrue(all(section == 7 for _line, _label, section in claims))
+        self.assertIn("operator-only", {label for _line, label, _section in claims})
+
+
 class TestRationaleDocumentCoverage(unittest.TestCase):
     """Every check in the chain must carry its rationale in docs/citation-gate.md.
 
