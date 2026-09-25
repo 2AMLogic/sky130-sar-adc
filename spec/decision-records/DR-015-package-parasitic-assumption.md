@@ -16,7 +16,9 @@
   on-die-decoupling item), `sim/supply-impedance-sensitivity/` (the first and
   currently only consumer), #409 (the residual work this record defers: the
   ratified PVT grid, the `no-gnd-pad` arm, the `R`/`L` sweep and an extracted
-  substrate network), `CLAUDE.md`'s clean-room rule.
+  substrate network — of which the sweep and the `no-gnd-pad` arm have since
+  been closed at stated scopes, see "Open items"), `CLAUDE.md`'s clean-room
+  rule.
 
 ## Context
 
@@ -187,8 +189,9 @@ the same way DR-012 constrains an interface without setting a number.
 ## Open items
 
 These are tracked together as **#409** rather than left as prose, so that
-"deferred" is a queue entry and not a memory. The first is now closed at a
-stated scope; the rest remain open.
+"deferred" is a queue entry and not a memory. Two are now closed at stated
+scopes — the `R`/`L` sweep and the `no-gnd-pad` arm that prices DR-012's
+rejected option; the rest remain open.
 
 - ~~**No `R`/`L` sweep.** One assumption point shows whether the mechanism
   matters at that magnitude; it does not find the magnitude at which it starts
@@ -217,16 +220,40 @@ stated scope; the rest remain open.
   until something in `layout/` can produce a real substrate network for this
   composition. Until then no result here is a statement about this die's
   substrate.
-- **The one arm that would price DR-012's *rejected* option has not been run.**
-  `sim/supply-impedance-sensitivity/`'s `no-gnd-pad` arm is implemented but
-  absent from the first committed record, on cost: a high-impedance,
+- ~~**The one arm that would price DR-012's *rejected* option has not been
+  run.** `sim/supply-impedance-sensitivity/`'s `no-gnd-pad` arm is implemented
+  but absent from the first committed record, on cost: a high-impedance,
   lightly-damped ground drives the transient solver's timestep down by roughly
-  an order of magnitude. So the evidence so far prices the *bonded* return; what
-  the substrate-only return would have cost at this assumed `R_SUB` is still
-  owed, and no record under this assumption may imply otherwise. The same gap
-  applies on the corner axis: the first record is **one** corner
-  (`tt_27c_1.80v`), so its finding that a bonded return costs < 1 LSB is a
-  statement about that point and not about the ratified grid.
+  an order of magnitude. So the evidence so far prices the *bonded* return;
+  what the substrate-only return would have cost at this assumed `R_SUB` is
+  still owed, and no record under this assumption may imply
+  otherwise.~~ **CLOSED, at the scope stated here**, by
+  `sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md` (issue
+  #409 item 2) — `ideal` / `package` / `no-gnd-pad` at `tt_27c_1.80v`, the last
+  two being a strict one-element ablation (same three bonded terminals at this
+  record's R+L, same `R_SUBX`, the only difference is whether `GND` has a bond
+  of its own). **What it changes for this record:** the Consequences item above
+  ("the substrate stand-in is the weakest element here, and it is load-bearing
+  for one arm") now has a number attached at the assumed magnitude — deleting
+  the pad costs **+27.6 mV** of die-side ground excursion (65.237 mV against
+  37.590 mV, 1.74×) and **0 LSB** of captured code. So the rejected option is
+  measurably worse on the rail and indistinguishable on the output at this
+  point, which is why DR-012's choice could not have rested on captured codes.
+  **What it does not change:** the arm is still *entirely* a function of the
+  lumped `R_SUB`/`R_SUBX` stand-ins at `30 Ω` — the next item below is
+  unaffected, and the figure is evidence about *a* substrate-only return of
+  that order, not about this die's substrate — and there is still no sweep of
+  `R_SUB` itself (the 2-D box above swept `R_SUBX` on the as-built topology,
+  which `no-gnd-pad` is not). **The cost claim that deferred it was wrong**,
+  and is corrected rather than quietly dropped: the full-stimulus run took
+  **487 s, 1.67× the `ideal` control** — *cheaper* than the `package` arm in
+  the same record — against a truncated-slice calibration that had projected
+  ~17× and several hours. A slice starting at `t = 0` prices the start-up
+  transient, not the steady-state conversions the stimulus spends its span on.
+- **The corner axis of that gap is untouched by it.** Every record under this
+  assumption is **one** corner (`tt_27c_1.80v`), so the findings that a bonded
+  return, a swept box, and now the null option each cost < 1 LSB are statements
+  about that point and not about the ratified grid.
 - **No decoupling is designed, budgeted, or modelled** — carried over from
   DR-010 and DR-012 rather than settled here. When a decoupling plan exists,
   this assumption gains a second, decoupled variant and the pessimism above
