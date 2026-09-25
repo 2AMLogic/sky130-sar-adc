@@ -112,6 +112,7 @@ class FixtureTree:
         corners: str = "",
         arms: tuple[str, ...] | None = None,
         arm_count: int | None = None,
+        sweep_points: int | None = None,
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
@@ -139,6 +140,20 @@ class FixtureTree:
                 + ", ".join(f"`{arm}`" for arm in arms)
                 + " x 1 corner point(s) = "
                 + f"{printed} transient runs.\n"
+            )
+        if sweep_points is not None:
+            # The `- **Grid**:` header line check 32 identifies a SWEEP record
+            # by, in the shape `write_sweep_record()` emits it -- and the only
+            # thing that distinguishes one from the arm-comparison record in
+            # the same tree. The two factors in front of the `=` are fixed at
+            # 3 x 3 rather than derived from `sweep_points`, deliberately: the
+            # check reads the TOTAL and never the factors, so a fixture must
+            # be able to state a total the factors do not multiply out to.
+            body += (
+                f"\n- **Grid**: 3 bond-inductance multipliers x 3 "
+                f"substrate-link resistances = {sweep_points} swept points, "
+                f"plus the `ideal` control, at 1 corner point(s) = "
+                f"{sweep_points + 1} whole-ADC transients.\n"
             )
         if kickback is not None:
             # The `Measured value(s)` table check 21 re-derives the Kickback
@@ -301,6 +316,37 @@ class FixtureTree:
                 )
             table += ")\n"
         runner.write_text('"""fixture runner."""\n\n' + table)
+
+    def add_sweep_axes(
+        self,
+        l_mults: tuple[float, ...] = (0.0, 1.0, 10.0),
+        rsubx: tuple[float, ...] = (3.0, 30.0, 300.0),
+        *,
+        axes: str | None = None,
+    ):
+        """The runner's own `--sweep` box constants, for check 32.
+
+        Appended to the runner rather than written over it: the real file
+        carries both the `ARMS` table check 31 parses and these two tuples,
+        and a fixture that could only hold one of them would let the two
+        source-text parses pass tests they never share a file in. Written as
+        real annotated tuple literals for `add_arm_runner`'s reason. `axes`
+        overrides the whole block, for the "shape this parse does not
+        recognise" case (a computed box).
+        """
+        runner = self.root / checker.SWEEP_RUNNER
+        runner.parent.mkdir(parents=True, exist_ok=True)
+        if axes is None:
+            axes = (
+                "SWEEP_L_MULTIPLIERS: tuple[float, ...] = ("
+                + ", ".join(f"{m:g}" for m in l_mults)
+                + ")\n"
+                "SWEEP_RSUBX_OHM: tuple[float, ...] = ("
+                + ", ".join(f"{r:g}" for r in rsubx)
+                + ")\n"
+            )
+        existing = runner.read_text() if runner.is_file() else '"""fixture runner."""\n'
+        runner.write_text(existing + "\n" + axes)
 
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
@@ -5625,6 +5671,197 @@ class TestArmCensus(unittest.TestCase):
         census = checker.arm_census()
         self.assertEqual(census["ran"] + census["unrun"], census["offered"])
         self.assertEqual(census["offered"], len(offered))
+
+
+class TestSweepCensus(unittest.TestCase):
+    """Check 32: the stated `--sweep` box census is this tree's own.
+
+    Check 31 grades which ARMS a record ran. This grades a MODE of the same
+    runner that has no record at all and, by design, cannot acquire one any
+    other check here would see: a sweep record never becomes
+    `records/LATEST` (checks 3/4/6/23), runs at one corner (check 28) and
+    carries no `- **Arms**:` line (check 31). Section 7 Item 11 bounds its
+    DR-012 retirement on the box being unwalked, so walking it would leave
+    that sentence false with every number beside it still true.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_sweep_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.SWEEP_RECORDS}/LATEST).\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, points, l_mults, rsubx, covered, records, record_ids=()) -> str:
+        return checker.sweep_sentence(
+            {
+                "points": points,
+                "l_mults": l_mults,
+                "rsubx": rsubx,
+                "covered": covered,
+                "records": records,
+                "record_ids": list(record_ids),
+            }
+        )
+
+    def campaign(self, **kwargs):
+        """Today's real shape: a 3x3 box defined, an arm record, no sweep."""
+        self.tree.add_sweep_axes(**kwargs)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package-r-only", "package", "substrate"),
+        )
+
+    def test_a_truthful_unwalked_census_passes(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(self.sentence(9, 3, 3, 0, 0))), [])
+
+    def test_a_sweep_record_falsifies_the_unwalked_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        misses = self.check(self.body(self.sentence(9, 3, 3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("covered=0" in miss and "covered=9" in miss for miss in misses))
+        self.assertTrue(any("records=0" in miss and "records=1" in miss for miss in misses))
+        self.assertTrue(any("20260926-101010-abcdef0" in miss for miss in misses))
+
+    def test_a_truthful_walked_census_passes(self):
+        """The case #409 item 3 creates: the box finally paid for."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        self.assertEqual(
+            self.check(self.body(self.sentence(9, 3, 3, 9, 1, ("20260926-101010-abcdef0",)))),
+            [],
+        )
+
+    def test_a_wider_box_in_the_runner_widens_the_census(self):
+        """The other direction: an axis lengthened and nothing run."""
+        self.campaign(l_mults=(0.0, 1.0, 10.0, 100.0))
+        misses = self.check(self.body(self.sentence(9, 3, 3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("points=9" in miss and "points=12" in miss for miss in misses))
+        self.assertTrue(any("l_mults=3" in miss and "l_mults=4" in miss for miss in misses))
+
+    def test_a_drifted_record_list_is_reported_even_when_the_counts_agree(self):
+        """Right totals, wrong record -- what a count-only census absorbs."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        misses = self.check(self.body(self.sentence(9, 3, 3, 9, 1, ("20260101-000000-0000000",))))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("20260101-000000-0000000", misses[0])
+        self.assertIn("20260926-101010-abcdef0", misses[0])
+
+    def test_covered_is_the_largest_box_not_the_sum(self):
+        """Two records of the same box are two runs of one experiment."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260927-101010-abcdef1", sweep_points=4)
+        census = checker.sweep_census()
+        self.assertEqual(census["covered"], 9)
+        self.assertEqual(census["records"], 2)
+        self.assertEqual(
+            census["record_ids"], ["20260926-101010-abcdef0", "20260927-101010-abcdef1"]
+        )
+
+    def test_an_arm_comparison_record_is_not_a_sweep_record(self):
+        """The two writers share a tree; only one emits a `- **Grid**:` line."""
+        self.campaign()
+        census = checker.sweep_census()
+        self.assertEqual(census["records"], 0)
+        self.assertEqual(census["covered"], 0)
+
+    def test_the_points_are_read_from_the_total_not_from_the_factors(self):
+        """A total and its factors that disagree are graded on the total."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=4)
+        self.assertEqual(checker.sweep_census()["covered"], 4)
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        """Deleting the sentence must not widen what the citation may claim."""
+        self.campaign()
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no sweep census", misses[0])
+        self.assertIn("the box is unrun", misses[0])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_a_runner_whose_box_is_computed_grades_nothing(self):
+        """No tree-side number to compare against is a silence, not a zero."""
+        self.tree.add_sweep_axes(axes="SWEEP_L_MULTIPLIERS = build_ladder()\n")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=("ideal",)
+        )
+        self.assertIsNone(checker.sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_runner_with_only_one_of_the_two_axes_grades_nothing(self):
+        """Half a box is not a box: both axes must parse or neither counts."""
+        self.tree.add_sweep_axes(
+            axes="SWEEP_L_MULTIPLIERS: tuple[float, ...] = (0, 1, 10)\n"
+        )
+        self.assertIsNone(checker.sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_check_is_inert_without_the_runner_at_all(self):
+        self.assertIsNone(checker.sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.campaign()
+        self.assertEqual(
+            self.check(self.body(checker.sweep_sentence(checker.sweep_census()))), []
+        )
+
+    def test_the_stats_sentence_singularises_one_record(self):
+        """`1 sweep records` would be the paste a reader has to hand-fix."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        sentence = checker.sweep_sentence(checker.sweep_census())
+        self.assertIn("in **1** sweep record:", sentence)
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_sweep_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_parses_the_real_runner(self):
+        """Not vacuous: the box must resolve against the live runner.
+
+        A parse that silently resolved nothing would make the check pass by
+        censusing an empty box -- the vacuity trap checks 4, 6, 30 and 31 each
+        needed a guard for. The live record tree is asserted too: its arm
+        record must NOT be counted as a sweep record, which is the half of
+        this parse a record-less tree could not exercise.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        census = checker.sweep_census()
+        self.assertIsNotNone(census)
+        self.assertGreaterEqual(census["l_mults"], 2)
+        self.assertGreaterEqual(census["rsubx"], 2)
+        self.assertEqual(census["points"], census["l_mults"] * census["rsubx"])
+        self.assertTrue((REPO_ROOT / checker.SWEEP_RECORDS).is_dir())
+        self.assertTrue(list((REPO_ROOT / checker.SWEEP_RECORDS).glob("*.md")))
+        self.assertEqual(census["records"], len(census["record_ids"]))
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

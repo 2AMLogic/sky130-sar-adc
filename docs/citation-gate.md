@@ -1503,6 +1503,63 @@ recognise, the check reports **nothing** rather than a census of zero --
 there is no tree-side number to compare against, and inventing one would make
 the gate the author of a claim instead of its reader.
 
+### Check 32 -- `--sweep` box census (`check_sweep_census`)
+
+Check 31 grades which **arms** of `sim/supply-impedance-sensitivity/` a
+record ran. This one grades a *mode* of the same runner that has no record at
+all, and structurally cannot acquire one that any other check here would see.
+
+`--sweep` (landed 2026-09-25 in PR #432, issue #409's third item) walks a
+bounded 2-D box -- bond-inductance multiplier × the lumped substrate link
+`R_SUBX` -- around the single assumption point
+`spec/decision-records/DR-015-package-parasitic-assumption.md` fixes, anchored
+so that its `1× / 30 Ω` point is card-for-card the committed `package` arm and
+its `0× / 30 Ω` corner is `package-r-only`. By design it writes through its own
+record writer and **does not move `records/LATEST`**: it supersedes nothing, so
+the arm-comparison record stays the one DR-012 and Section 4's Power row cite.
+
+**Why nothing else can see it arrive.** That disposition defeats every check
+already in the chain. Checks 3, 4, 6 and 23 grade pointers and stamps -- and
+a sweep record is never the pointer. Check 28 grades the PVT grid; the sweep
+runs at one corner, so its grid census would not move. Check 31 grades the
+arm list of the record the pointer names; a sweep record is not that record
+and carries no `- **Arms**:` line at all. Section 7 Item 11 meanwhile bounds
+its DR-012 retirement on the box being unwalked -- "DR-015's assumption is
+tested at one magnitude rather than swept for the magnitude at which the
+mechanism starts to matter". Walk the box and that sentence goes false with
+every number beside it still true: check 30's defect shape, a second axis over
+from check 31, and the reason this one is graded rather than re-read.
+
+**What it grades.** Five numbers and a record list in one sentence, in both
+directions like checks 8, 10, 14--18, 25, 26, 28, 30 and 31: the two axis
+lengths of the runner's default box and their product, how many grid points
+the largest committed sweep record carries, how many sweep records exist, and
+which. The box is re-derived from the runner's own `SWEEP_L_MULTIPLIERS` /
+`SWEEP_RSUBX_OHM` tuples, read as source text and never imported (the
+pure-file-reader rule `report_row_count` records); a sweep record is
+identified by the `- **Grid**:` header line only the sweep's own writer emits,
+and its point count is read from that line's `=` total rather than multiplied
+out of the two factors in front of it, for `ARM_RECORD_RE`'s reason. An
+absent census is a finding, anchored -- like check 31 -- on the document
+citing `sim/supply-impedance-sensitivity/` at all.
+
+**Why `covered` is a maximum and not a sum.** Two records of the same box are
+two runs of one experiment; adding them would report a coverage no single
+record supports. The largest box any one record carries is the strongest claim
+the tree can actually back.
+
+**What this check deliberately does NOT cover.** It does not grade whether a
+sweep record's box is the runner's *current* default -- a record of a
+deliberately different box (`--sweep-l-mult` / `--sweep-rsubx`) is legitimate
+and says so in its own footer, and failing the gate on it would punish a wider
+experiment for being wider. It does not read the sweep's *findings* (Section
+4's and check 12's business), nor why the box has not been walked -- the cost
+is stated in the campaign's own README, as `sim/README.md` requires of any
+deferral. And when the runner is absent or its axes are not two tuple
+literals this parse recognises, it reports **nothing** rather than a box of
+zero points, check 31's reason: there is no tree-side number to compare
+against, and inventing one would make the gate the author of a claim.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

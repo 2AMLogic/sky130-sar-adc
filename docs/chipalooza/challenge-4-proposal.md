@@ -3781,9 +3781,12 @@ tracker already owns.
      sitting below `sim/toolchain.json`'s `ngspice_min_major = 46` pin);
      DR-012's *rejected* `no-gnd-pad` null option is implemented but not run,
      on cost (~17× the control arm's wall clock, projecting to several
-     hours); no `R`/`L` × substrate-resistance sweep exists, so DR-015's
-     assumption is tested at one magnitude rather than swept for the
-     magnitude at which the mechanism starts to matter; and `R_SUB`/`R_SUBX`
+     hours); the `R`/`L` × substrate-resistance sweep is, as of 2026-09-25,
+     implemented but not run **either** — it is no longer absent, which is
+     what this clause said until this pass, and DR-015's assumption is still
+     tested at one magnitude rather than swept for the magnitude at which the
+     mechanism starts to matter (the paragraph after next states what landed,
+     what it costs, and the census that now grades it); and `R_SUB`/`R_SUBX`
      remain lumped stand-ins with no extracted substrate network behind them.
      Neither a worst-corner claim nor a priced-rejected-option claim may be
      read from this record, and it says so in its own words. It is also, on
@@ -3820,6 +3823,73 @@ tracker already owns.
      is the several-hour one #409 describes. **No §4 row, verdict, Target or
      Status moves here**: this document's "not run" stands until a record in
      the census above says otherwise.
+
+     **The unwalked box is now counted too — and the clause that called it
+     absent was stale within hours (corrected 2026-09-25, later).** The
+     residue paragraph above said, until this pass, that *no* `R`/`L` ×
+     substrate-resistance sweep existed. That stopped being true at
+     2026-09-25T15:29Z, when PR #432 (issue #409, its third item) landed
+     [`--sweep`](../../sim/supply-impedance-sensitivity/README.md) — a
+     bounded 2-D box around DR-015's single assumption point, on the as-built
+     `package` topology: **3** bond-inductance multipliers (`0×`, `1×`, `10×`
+     of DR-015's per-terminal value) × **3** lumped substrate-link `R_SUBX`
+     values (`3`, `30`, `300` Ω, a decade either side of DR-015's assumed 30)
+     = **9** grid points, plus the same `ideal` control, and *anchored*: the
+     `1× / 30 Ω` point is card-for-card the committed `package` arm and the
+     `0× / 30 Ω` corner is `package-r-only`, asserted before the run starts,
+     again at record-write time, and pinned by
+     [`sim/tests/test_supply_impedance.py`](../../sim/tests/test_supply_impedance.py).
+     A row of the grid moves only `L` and a column only `R_SUBX`, so either
+     may be attributed to its own mechanism — DR-015 item 5's requirement,
+     satisfied by construction rather than argued after the fact.
+
+     **What is owed is the measurement, and it now carries a price instead of
+     a guess.** No record of that box exists: the mode, its anchors and its
+     record writer are committed and unit-tested, the box itself has not been
+     run, and the sweep's writer deliberately never moves
+     `sim/supply-impedance-sensitivity/records/LATEST` (it supersedes
+     nothing, so the arm-comparison record stays the one DR-012 and §4's
+     Power row cite). What PR #432 also bought is the *cost*: `--cost-probe`
+     re-runs each grid point's own deck over a truncated transient, and on
+     this repo's dispatch host every point of the default box converged and
+     **no point exceeds its own anchor** — the `10×` inductance row is
+     *cheaper* than DR-015's assumption point, not dearer, because more `L`
+     lowers the bond-wire resonance and so relaxes the solver's timestep,
+     which is the opposite of the intuition that had made that row look
+     unaffordable. The ratios sum to ≈ 7.0 anchors against the `package`
+     arm's own committed **1261 s** full run, projecting the whole box to
+     **≈ 2.5 h**, ≈ 3.4× the committed four-arm campaign's **2582 s**. Read
+     those as **wall clock, not evidence**: they live in the campaign's
+     README rather than in a `records/` entry because a probe measures
+     nothing about this block by construction (the committed fragment's
+     `.meas` cards sit outside the sliced span, which is why
+     `--cost-probe --record` is refused outright). **No §4 row, verdict,
+     Target or Status moves here either.**
+
+     **Why nothing already in the gate could have caught that clause.** A
+     sweep record is, by the design above, never
+     `sim/supply-impedance-sensitivity/records/LATEST` — so checks 3, 4, 6
+     and 23, which grade pointers and stamps, cannot see one arrive. It runs
+     at one corner, so check 28's PVT-grid census would not move. It carries
+     no `- **Arms**:` line at all, so check 31's census immediately above
+     would not move either. Check 32 of the [citation
+     gate](check_proposal_citations.py) grades the axis those three leave
+     uncovered, re-derived from the runner's own box definition and from any
+     sweep record's own `- **Grid**:` header, in both directions:
+
+     > of the **9** grid points the default `--sweep` box in
+     > `sim/supply-impedance-sensitivity/run_supply_impedance.py` defines
+     > (**3** bond-inductance multipliers × **3** substrate-link
+     > resistances), the records under
+     > `sim/supply-impedance-sensitivity/records/` carry **0**, in **0**
+     > sweep records: **none** — the mode is committed and the box is unrun
+
+     On the day #409's third item is paid for, that census moves and this
+     item must say what the box measured rather than that it was never
+     walked. DR-015's own "Open items" still reads "No `R`/`L` sweep", and
+     stays correct on its own terms: it is an item about a *measurement*, and
+     no measurement has been made. This paragraph is what keeps that sentence
+     from being read as "no such experiment is committed".
 
      This retirement is **not** what turns check 25's own ground-return
      census (below) non-zero, and that is itself worth stating rather than
