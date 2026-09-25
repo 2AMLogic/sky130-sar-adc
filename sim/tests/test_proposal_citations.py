@@ -282,7 +282,7 @@ class FixtureTree:
                         "build": {"package_version": version, "is_release": True},
                         "items": [
                             {
-                                "tier": "T1",
+                                "tier": item.get("tier", "T1"),
                                 "id": item["id"],
                                 "title": item.get("title", "fixture item"),
                                 "partition": item["partition"],
@@ -2964,6 +2964,16 @@ class TestT1Readout(unittest.TestCase):
         misses = self.tree.check(self._readout())
         self.assertEqual(len(misses), 1, misses)
         self.assertIn("tier=", misses[0])
+
+    def test_a_failing_row_outside_t1_is_not_read_as_a_t1_failure(self):
+        """The list is scoped to T1, like the `met`/`total` counts beside it."""
+        rows = self._items()
+        rows.append(
+            {"tier": "T2", "id": 19, "partition": "analog", "reason": "check_failed"}
+        )
+        self._signoff(items=rows)
+        self.assertNotIn((19, "analog"), checker.t1_readout()["failed"])
+        self.assertEqual(self.tree.check(self._readout()), [])
 
     def test_a_newly_failing_row_left_out_of_the_readout_is_reported(self):
         """Both directions: shrinking the list is not a way to keep it clean."""

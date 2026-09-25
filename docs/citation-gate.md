@@ -587,6 +587,19 @@ listed row that has since started passing. Dropping a row is the cheapest way
 to make a scorecard read better than it is, and shrinking the list is not a way
 to keep it truthful.
 
+**The failed-row list is scoped to tier T1** (the `T1_TIER` constant), because
+the counts beside it are: `met` and `total` are the report's `t1_met_count`
+and `t1_item_count`. `klt signoff` grades every T2/T3/T4 row
+`tier_not_supported` today, so the scope changes no current readout -- but the
+first time the grader fails a higher-tier row for a real reason, an unscoped
+list would enrol it as a T1 failure under a T1 headline (issue #379).
+
+**The cited-record clause is graded in both directions too.** A `layout/`
+record the manifest cites that the readout omits is a finding, and so is a
+stated citation the manifest no longer makes -- the same rule as the rows, for
+the same reason: dropping a stale citation from the sentence would otherwise be
+the cheapest way to make the verdict word read `current`.
+
 **The verdict word is the half `signoff/check_evidence_hashes.py`
 structurally cannot cover.** That script re-hashes every artefact the manifest
 cites against the file on disk -- a real freshness gate, and the one the
