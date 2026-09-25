@@ -44,6 +44,7 @@ test here pins one of them:
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import sys
@@ -398,6 +399,205 @@ class TestCodeComparison(unittest.TestCase):
         control = self._point([500] * len(si.tb.INPUT_FRACTIONS))
         point = self._point([None] * len(si.tb.INPUT_FRACTIONS))
         self.assertIsNone(si.worst_mid_scale_delta(point, control))
+
+
+class TestLogCache(unittest.TestCase):
+    """`--log-cache` makes an interrupted campaign restartable. Its whole value
+    rests on the identity gate: a cached log is reusable ONLY if it provably
+    belongs to the same deck on the same toolchain, or the cache becomes a route
+    by which a stale number reaches an append-only record."""
+
+    class _FakePdk:
+        variant = "sky130A"
+        open_pdks_commit_expected = "b" * 40
+
+        def __init__(self, tmp: Path) -> None:
+            self.variant_dir = tmp
+
+    def setUp(self) -> None:
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.cache = Path(self._tmp.name)
+        self.deck = "* deck\n.end\n"
+        self.pdk = self._FakePdk(self.cache)
+        self._orig_commit = si.pdk.resolved_commit_verified
+        self._orig_ngspice = si.toolchain._ngspice_version
+        si.pdk.resolved_commit_verified = lambda _info: "commit-a"  # type: ignore[assignment]
+        si.toolchain._ngspice_version = lambda: "ngspice-46"  # type: ignore[assignment]
+
+    def tearDown(self) -> None:
+        si.pdk.resolved_commit_verified = self._orig_commit  # type: ignore[assignment]
+        si.toolchain._ngspice_version = self._orig_ngspice  # type: ignore[assignment]
+        self._tmp.cleanup()
+
+    def test_no_cache_directory_means_never_reuse(self) -> None:
+        self.assertIsNone(si.load_cached_run(None, "ideal@c", self.deck, self.pdk))
+
+    def test_a_stored_log_round_trips_with_its_wall_clock(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 12.5)
+        self.assertEqual(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk), ("LOG", 12.5))
+
+    def test_a_changed_deck_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        self.assertIsNone(
+            si.load_cached_run(self.cache, "ideal@c", self.deck + "* edited\n", self.pdk)
+        )
+
+    def test_a_different_open_pdks_commit_is_not_reused(self) -> None:
+        """Records from different model libraries are not comparable
+        (`sim/README.md`), so neither are their logs."""
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si.pdk.resolved_commit_verified = lambda _info: "commit-b"  # type: ignore[assignment]
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_a_different_ngspice_version_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si.toolchain._ngspice_version = lambda: "ngspice-47"  # type: ignore[assignment]
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_a_corrupt_sidecar_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        (self.cache / "ideal__c.json").write_text("{not json")
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_a_log_without_its_sidecar_is_not_reused(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        (self.cache / "ideal__c.json").unlink()
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_the_sidecar_records_every_identity_field_it_gates_on(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        meta = json.loads((self.cache / "ideal__c.json").read_text())
+        for field in ("deck_sha256", "open_pdks_commit", "pdk_variant", "ngspice"):
+            self.assertIn(field, meta)
+
+    def test_arms_do_not_collide_in_the_cache(self) -> None:
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "A", 1.0)
+        si.store_cached_run(self.cache, "package@c", self.deck, self.pdk, "B", 2.0)
+        self.assertEqual(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk)[0], "A")
+        self.assertEqual(si.load_cached_run(self.cache, "package@c", self.deck, self.pdk)[0], "B")
+
+    def test_a_sidecar_without_a_usable_wall_clock_is_not_reused(self) -> None:
+        """A missing `wall_s` is a malformed sidecar, not a run that took 0 s:
+        defaulting it would land `0` and `0.00x` in the record's wall-clock
+        table as if measured."""
+        for bad in ({}, {"wall_s": None}, {"wall_s": "ages"}):
+            with self.subTest(bad=bad):
+                si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+                meta = json.loads((self.cache / "ideal__c.json").read_text())
+                meta.pop("wall_s")
+                meta.update(bad)
+                (self.cache / "ideal__c.json").write_text(json.dumps(meta))
+                self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+
+class TestLogCacheRefusesUnverifiableProvenance(unittest.TestCase):
+    """The identity gate must act on `pdk.resolved_commit_verified()`, never on
+    `pdk.resolved_commit()`.
+
+    `resolved_commit()` is a *display* string whose own docstring forbids
+    treating it as proof of the install: for any non-volare install -- which
+    `toolchain.check_env()` only *warns* about, so it reaches a real run -- it
+    returns the same constant fallback whatever library is actually installed.
+    A gate keyed on it would hand back library A's log for a run against
+    library B, which is exactly the stale number `sim/README.md`'s append-only
+    records must never absorb."""
+
+    def setUp(self) -> None:
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.cache = Path(self._tmp.name)
+        self.deck = "* deck\n.end\n"
+        self.pdk = TestLogCache._FakePdk(self.cache)
+        self._orig_verified = si.pdk.resolved_commit_verified
+        self._orig_display = si.pdk.resolved_commit
+        self._orig_ngspice = si.toolchain._ngspice_version
+        si.toolchain._ngspice_version = lambda: "ngspice-46"  # type: ignore[assignment]
+
+    def tearDown(self) -> None:
+        si.pdk.resolved_commit_verified = self._orig_verified  # type: ignore[assignment]
+        si.pdk.resolved_commit = self._orig_display  # type: ignore[assignment]
+        si.toolchain._ngspice_version = self._orig_ngspice  # type: ignore[assignment]
+        self._tmp.cleanup()
+
+    def test_the_display_fallback_really_is_the_same_string_for_two_installs(self) -> None:
+        """The premise, checked against the real `pdk` functions rather than a
+        stub: two different non-volare installs are indistinguishable through
+        `resolved_commit()` and both unverifiable through
+        `resolved_commit_verified()`."""
+        a = TestLogCache._FakePdk(self.cache / "install-a")
+        b = TestLogCache._FakePdk(self.cache / "install-b")
+        self.assertEqual(si.pdk.resolved_commit(a), si.pdk.resolved_commit(b))
+        self.assertIn("unverified", si.pdk.resolved_commit(a))
+        self.assertIsNone(si.pdk.resolved_commit_verified(a))
+        self.assertIsNone(si.pdk.resolved_commit_verified(b))
+
+    def test_an_unverifiable_pdk_provenance_has_no_cache_identity(self) -> None:
+        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        self.assertIsNone(si._cache_identity(self.deck, self.pdk))
+
+    def test_an_unverifiable_pdk_provenance_is_never_reused(self) -> None:
+        """Stored while provenance was verifiable, read back after the install
+        became one this harness cannot vouch for: a miss, not a match."""
+        si.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+
+    def test_two_different_unverifiable_installs_do_not_false_match(self) -> None:
+        """The concrete failure the gate exists to prevent, written as the
+        pre-fix cache would have written it: a sidecar carrying the display
+        fallback string, read on a *different* non-volare install that produces
+        that identical string. Gating on the display value would reuse library
+        A's log for a run against library B."""
+        display = si.pdk.resolved_commit(self.pdk)
+        meta = {
+            "deck_sha256": si.evidence.sha256_text(self.deck),
+            "open_pdks_commit": display,  # what the display-string gate stored
+            "pdk_variant": self.pdk.variant,
+            "ngspice": "ngspice-46",
+            "wall_s": 1.0,
+            "point_id": "ideal@c",
+        }
+        (self.cache / "ideal__c.log").write_text("LOG FROM LIBRARY A")
+        (self.cache / "ideal__c.json").write_text(json.dumps(meta))
+
+        other = TestLogCache._FakePdk(self.cache / "some-other-hand-install")
+        self.assertEqual(si.pdk.resolved_commit(other), display)  # indistinguishable
+        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, other))
+
+    def test_an_unverifiable_pdk_provenance_is_never_stored(self) -> None:
+        """A log with no provable identity is not worth keeping: storing it
+        could only ever be cashed in by weakening the gate later."""
+        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        self.assertEqual(sorted(p.name for p in self.cache.iterdir()), [])
+
+    def test_an_unreported_ngspice_version_is_neither_stored_nor_reused(self) -> None:
+        """"unknown" == "unknown" is not a match; it is two hosts that both
+        failed to answer."""
+        si.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si.toolchain._ngspice_version = lambda: None  # type: ignore[assignment]
+        self.assertIsNone(si._cache_identity(self.deck, self.pdk))
+        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+        si.store_cached_run(self.cache, "package@c", self.deck, self.pdk, "LOG", 1.0)
+        self.assertFalse((self.cache / "package__c.log").exists())
+
+    def test_a_verified_install_still_round_trips(self) -> None:
+        """The gate tightened, not broke: the ordinary volare-verified path is
+        untouched."""
+        si.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
+        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 7.5)
+        self.assertEqual(
+            si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk), ("LOG", 7.5)
+        )
+        meta = json.loads((self.cache / "ideal__c.json").read_text())
+        self.assertEqual(meta["open_pdks_commit"], "c" * 40)
+        self.assertNotIn("unverified", meta["open_pdks_commit"])
 
 
 class TestInvocationFooter(unittest.TestCase):

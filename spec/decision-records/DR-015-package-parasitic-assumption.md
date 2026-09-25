@@ -14,7 +14,9 @@
   the substrate stand-in's magnitude), [DR-010](DR-010-digital-supply-domain-partition.md)
   (the off-die star point these values sit between, and the still-open
   on-die-decoupling item), `sim/supply-impedance-sensitivity/` (the first and
-  currently only consumer), `CLAUDE.md`'s clean-room rule.
+  currently only consumer), #409 (the residual work this record defers: the
+  ratified PVT grid, the `no-gnd-pad` arm, the `R`/`L` sweep and an extracted
+  substrate network), `CLAUDE.md`'s clean-room rule.
 
 ## Context
 
@@ -184,6 +186,9 @@ the same way DR-012 constrains an interface without setting a number.
 
 ## Open items
 
+The first three below are tracked together as **#409** rather than left as
+prose, so that "deferred" is a queue entry and not a memory.
+
 - **No `R`/`L` sweep.** One assumption point shows whether the mechanism
   matters at that magnitude; it does not find the magnitude at which it starts
   to matter. A bounded 2-D sweep (bond inductance × substrate resistance) at
@@ -198,7 +203,10 @@ the same way DR-012 constrains an interface without setting a number.
   lightly-damped ground drives the transient solver's timestep down by roughly
   an order of magnitude. So the evidence so far prices the *bonded* return; what
   the substrate-only return would have cost at this assumed `R_SUB` is still
-  owed, and no record under this assumption may imply otherwise.
+  owed, and no record under this assumption may imply otherwise. The same gap
+  applies on the corner axis: the first record is **one** corner
+  (`tt_27c_1.80v`), so its finding that a bonded return costs < 1 LSB is a
+  statement about that point and not about the ratified grid.
 - **No decoupling is designed, budgeted, or modelled** — carried over from
   DR-010 and DR-012 rather than settled here. When a decoupling plan exists,
   this assumption gains a second, decoupled variant and the pessimism above
