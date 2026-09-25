@@ -11,11 +11,18 @@
   decision. DR-004 gains a header back-reference to this record and nothing
   else.
 - **Superseded by**: (none while this record stands)
+- **Re-examined**: 2026-09-25, by
+  [DR-016](DR-016-kickback-headroom-neutral-mitigation-measurement.md) (issue
+  #434). It answered this record's Consequences §4 condition for the
+  cross-coupled-neutralization class: measured, and it does not close the
+  gap. **This record's Decision stands.** DR-016 supersedes nothing here, and
+  this line is the only edit.
 - **Related**: #349 (this record), #390 (follow-on: common-mode / differential
   split of the kickback measurement, the first gate named below), #434
   (follow-on: measuring the headroom-neutral mitigation classes named in
   Consequences §4 / Open items below, filed once #390 confirmed a
-  differential component above the bound),
+  differential component above the bound; answered for cross-coupled
+  neutralization by [DR-016](DR-016-kickback-headroom-neutral-mitigation-measurement.md)),
   [DR-011](DR-011-comparator-kickback-target-row.md) (the DRAFT Kickback row
   and its "Mitigation selection" open item, which this record closes),
   [DR-004](DR-004-comparator-topology-and-noise-budget.md) Decision §1,
@@ -176,11 +183,14 @@ and `sim/spec-coverage.md` is regenerated from it.
 
 - **#390**: common-mode / differential split, including a sub-LSB `Vindiff`
   point. This is the first gate.
-- **Headroom-neutral candidates**: a double-tail latch, neutralization, and
-  complementary-clock compensation are each unmeasured. Tracked as **#434**,
+- **Headroom-neutral candidates**: a double-tail latch, cross-coupled
+  neutralization, and complementary-clock compensation, tracked as **#434**,
   filed once #390's result confirmed a differential component above the
   bound at the large-overdrive point (the condition Consequences §4 above
-  names).
+  names). Cross-coupled neutralization is now measured
+  ([DR-016](DR-016-kickback-headroom-neutral-mitigation-measurement.md)) and
+  does not close the gap; the double-tail latch and complementary-clock
+  compensation remain unmeasured.
 - **A preamp headroom probe**, if the question reopens. It would cover
   `1.62 V` and `ss`/−40 °C, and include `nfet_01v8_lvt`, which is listed in
   DR-001's core device table but has never been probed in this repo. A

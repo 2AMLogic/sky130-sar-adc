@@ -1,0 +1,88 @@
+* comparator_core_neutralized.spice -- EXPERIMENTAL cross-coupled
+* neutralization variant of design/comparator.sch's dynamic (StrongARM-
+* class) latched comparator core, for issue #434 (DR-014 Consequences Sec.4 /
+* Open items -- the headroom-neutral kickback-mitigation follow-on).
+*
+* NOT the adopted design. This is a mitigation-CLASS measurement, not a
+* topology change to design/comparator.sch: DR-014 kept DR-004 Decision
+* Sec.1 (no static preamp) and named cross-coupled neutralization as one of
+* the headroom-neutral classes worth measuring before any mitigation is
+* reconsidered. This file exists so that measurement has a netlist; it is
+* not netlisted from any design/*.sch schematic, per sim/README's
+* hand-authored-fragment convention (see comparator_core.spice's own header,
+* which cites sim/harness-corner-smoke/testbench/*.spice as the existing
+* precedent for a hand-authored, non-schematic-derived SPICE fragment under
+* sim/*/testbench/). If a future decision record adopts this class, THAT
+* work item is to draw it into design/comparator.sch and re-netlist via
+* xschem -- deliberately not done here.
+*
+* BASE TOPOLOGY: byte-identical to comparator_core.spice's 11 devices (the
+* DR-004 Amendment A / issue #175 StrongARM latch) -- same node names, same
+* device sizes. See that file's own header for the full topology writeup;
+* it is not repeated here.
+*
+* THE ADDED MITIGATION (2 devices): two "neutralization" capacitors, the
+* classic cross-coupled-differential-pair technique (e.g. Razavi's 'RF
+* Microelectronics', the neutralized-cascode/LNA chapter) applied here to
+* the comparator's own input pair. Each input transistor's own drain-gate
+* overlap capacitance (M_INN: Cgd between DIP and VINN; M_INP: Cgd between
+* DIN and VINP -- both already present in the BSIM4 compact model, and
+* already contributing to the differential kickback #390 measured) couples
+* switching charge from that node back onto its OWN gate. Neutralization
+* adds a matched capacitor from the OPPOSITE transistor's drain to THIS
+* gate -- CNEUT_A from DIN to VINN, CNEUT_B from DIP to VINP -- so that the
+* injected charge is nominally equal in magnitude to the direct Cgd path but
+* driven by the node that moves with the OPPOSITE polarity during a
+* differential decision (DIN falls when DIP does not, and vice versa),
+* cancelling the differential-mode component of the coupled charge to first
+* order. This is headroom-neutral: it adds no DC bias path and draws no
+* static current (Consequences of DR-014's own (c) requires this property).
+*
+* SIZING. CNEUT_A = CNEUT_B = 1.0fF, an IDEALIZED two-terminal capacitor
+* primitive (no PDK MiM/layout parasitic model -- this is a first-pass
+* mitigation-class scoping measurement, not a layout-ready sizing; a real
+* implementation would need a sky130_fd_pr/cap_mim_m3_1 instance or a
+* deliberately-drawn poly/diffusion overlap, sized against a full parasitic
+* extraction, not attempted here). The 1.0fF value is a first-order,
+* physics-derived estimate of the M_INN/M_INP input pair's own Cgd, not a
+* fitted or reverse-engineered number: sky130_fd_pr__nfet_01v8's own BSIM4
+* model card states CGDO = 2.449068e-10 F/m (verified by grep against the
+* installed model file at sim/pdk.json's pinned open_pdks commit); at
+* W=4um (this design's own input-pair width, unchanged from
+* design/comparator.sch) that overlap term alone is
+* CGDO*W = 2.449068e-10 * 4e-6 = 0.9796e-15 F =~ 0.98fF, rounded to 1.0fF
+* here. A small exploratory sweep (0/0.5/1/2/4/8 fF, informational only,
+* not committed as a record) confirmed this is inside the value range that
+* reduces rather than worsens the measured differential peak at both the
+* half-LSB and 50mV Vindiff points -- see the decision record this file
+* supports for the actual measured comparison.
+*
+* Every device is sky130_fd_pr__{n,p}fet_01v8 (ratified 1.8V core flavour,
+* DR-001) plus the two idealized SPICE capacitor primitives above -- zero
+* _g5v0d10v5 or other non-ratified flavour instances, and no reverse-
+* engineered or ported netlist content, per CLAUDE.md's clean-room policy.
+
+XM_TAIL TAIL CLK GND GND sky130_fd_pr__nfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_INN DIP VINN TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_INP DIN VINP TAIL GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_LATN_P OUTP OUTN DIP GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_LATN_N OUTN OUTP DIN GND sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_LATP_P OUTP OUTN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_LATP_N OUTN OUTP VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=8 nf=1 ad=2.32 as=2.32 pd=16.58 ps=16.58 nrd=0.03625 nrs=0.03625 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_RST_P OUTP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_RST_N OUTN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=16 nf=1 ad=4.64 as=4.64 pd=32.58 ps=32.58 nrd=0.018125 nrs=0.018125 sa=0
++ sb=0 sd=0 mult=1 m=1
+XM_RST_DIP DIP CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+XM_RST_DIN DIN CLK VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 ad=1.16 as=1.16 pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0
++ sd=0 mult=1 m=1
+CNEUT_A DIN VINN 1.0f
+CNEUT_B DIP VINP 1.0f
