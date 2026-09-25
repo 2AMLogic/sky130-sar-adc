@@ -100,6 +100,7 @@ class FixtureTree:
         *,
         latest: bool = False,
         power: dict[str, float] | None = None,
+        power_terms: tuple[str, ...] = ("VDD",),
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
@@ -110,10 +111,18 @@ class FixtureTree:
             # corner id backticked in the first column, the total power in the
             # last. A fixture that wrote only the total would pass while the
             # real multi-column table went unparsed.
+            #
+            # `power_terms` is the set of per-source current columns between
+            # those two, which check 19 part (c) reads out of the header row --
+            # the real table carries one per independent source the testbench
+            # drives, and that set moves when the block's interface does.
+            columns = "".join(f" I({net}) (uA) |" for net in power_terms)
             body += "\n## Power (informational)\n\n"
-            body += "| corner-id | I(VDD) (uA) | total power (uW) |\n|---|---|---|\n"
+            body += f"| corner-id |{columns} total power (uW) |\n"
+            body += "|---|" + "---|" * (len(power_terms) + 1) + "\n"
             for corner, total in power.items():
-                body += f"| `{corner}` | 2.097 | {total:.3f} |\n"
+                body += f"| `{corner}` |" + " 2.097 |" * len(power_terms)
+                body += f" {total:.3f} |\n"
             body += "\n## Findings\n\n- fixture\n"
         (records / f"{stamp}.md").write_text(body)
         if latest:
@@ -2277,6 +2286,44 @@ class TestAgainstTheRealProposal(unittest.TestCase):
                 self.assertIsNone(checker._pointer_stamp(top, block))
                 self.assertGreaterEqual(records, 1)
 
+    def test_the_real_proposal_states_parseable_check_19_sentences(self):
+        """Check 19's parts (b) and (c) are opt-in, so assert the real one opts in.
+
+        Deleting either sentence would disable that half of the check silently
+        and still exit 0 -- the same vacuity trap checks 6 and 18 carry an
+        assertion for.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        section = checker.test_plan_section(doc.read_text())
+        self.assertIsNotNone(section, "Section 5 went unparsed")
+        flat = re.sub(r"\s+", " ", section[1])
+        self.assertIsNotNone(
+            checker.TEST_PLAN_SUPPLIES_RE.search(flat),
+            "Section 5 no longer states a supply-terminal list check 19 can verify",
+        )
+        self.assertIsNotNone(
+            checker.TEST_PLAN_POWER_RE.search(flat),
+            "Section 5 no longer states a power-term list check 19 can verify",
+        )
+
+    def test_check_19_grades_the_real_documents_whole_interface(self):
+        """A check over zero ports, zero rails or zero power terms means nothing."""
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        text = doc.read_text()
+        ports = checker.netlist_ports()
+        self.assertGreaterEqual(len(ports), 20, "the top-level port list went unparsed")
+        rails = checker.rail_ports(text)
+        # Every rail must be a real port, and the rails must be a strict subset
+        # of them -- a rail set that swallowed the whole table would make part
+        # (b) tautological.
+        self.assertTrue(rails, "Section 2's rail rows went unparsed")
+        self.assertTrue(rails < set(ports), sorted(rails))
+        terms = checker.record_power_terms("full-conversion-transient")
+        self.assertGreaterEqual(len(terms), 2, "the Power table's columns went unparsed")
+        # The defect check 19 part (c) exists for: `VDD` alone is not the sum.
+        self.assertIn("VDD", terms)
+        self.assertIn("VPWR", terms)
+
     def test_section_4_spec_table_is_actually_found(self):
         """Guard against the scoping silently matching zero rows."""
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -3087,6 +3134,210 @@ class TestFreshnessCoverage(unittest.TestCase):
         """It must not enrol itself in check 4/6's census, as check 17's does not."""
         sentence = self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 2)])
         self.assertEqual(checker.pointer_claim_census(sentence)["total"], 0)
+
+
+def bench_plan(*steps: str, supplies: str = "", power: str = "") -> str:
+    """A minimal Section 5 bench plan, with optional gated sentences."""
+    parts = ["## 5. Test-plan outline", ""]
+    if supplies:
+        parts += [supplies, ""]
+    if power:
+        parts += [power, ""]
+    parts += list(steps)
+    return "\n".join(parts + ["", "## 6. Next section", ""])
+
+
+class TestTestPlanPorts(unittest.TestCase):
+    """Check 19: Section 5's bench plan is written against the current interface.
+
+    The defect shape is a real one this document suffered: `VPWR`/`VGND`
+    (DR-010, issue #355) and `GND` (DR-012, issue #362) joined the block's
+    interface on 2026-09-24, taking it from 19 ports to 22, and Section 5's
+    bring-up step went on powering the 19-port block -- under a lede claiming
+    the section was written against the *current* port list. Check 10 was
+    grading Section 2's table, which had been updated correctly, so nothing
+    fired.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def _supplies(self, count: int, *terminals: str) -> str:
+        return (
+            f"This part presents **{count}** supply terminals — "
+            + ", ".join(f"`{net}`" for net in terminals)
+            + " — and that set is recomputed from §2.2's own rail rows."
+        )
+
+    def _rails(self, *rows: str) -> str:
+        return io_section(*rows)
+
+    def test_port_named_nowhere_in_the_bench_plan_is_reported(self):
+        self.tree.add_top_netlist("VDD", "CLK", "VPWR")
+        misses = self.tree.check(
+            bench_plan("1. **Bring-up.** Apply `VDD` = 1.8 V, `CLK` free-running.")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("port `VPWR`", misses[0])
+        self.assertIn("named nowhere in Section 5", misses[0])
+
+    def test_a_range_form_covers_every_line_of_the_bus(self):
+        self.tree.add_top_netlist(*[f"DOUT{i}" for i in range(9, -1, -1)])
+        self.assertEqual(
+            self.tree.check(bench_plan("2. Capture `DOUT9..0` on each conversion.")), []
+        )
+
+    def test_a_glob_does_not_stand_in_for_naming_the_bus(self):
+        """`DOUT*` discusses the bus; it does not name DOUT9..DOUT0."""
+        self.tree.add_top_netlist("DOUT9", "DOUT8")
+        misses = self.tree.check(bench_plan("2. FFT-derive ENOB from a `DOUT*` record."))
+        self.assertEqual(len(misses), 2, misses)
+        self.assertIn("port `DOUT9`", misses[0])
+
+    def test_an_unbackticked_port_name_does_not_count_as_naming_it(self):
+        self.tree.add_top_netlist("VPWR")
+        misses = self.tree.check(bench_plan("1. Apply VPWR = 1.8 V to the macros."))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("port `VPWR`", misses[0])
+
+    def test_supply_terminal_count_that_disagrees_with_section_2_is_reported(self):
+        self.tree.add_top_netlist("VDD", "VPWR")
+        body = self._rails(
+            "| `VDD` | supply | 1.8 V analog rail | — (rail, not a slot) | rail |",
+            "| `VPWR` | supply | 1.8 V digital rail | — (rail, not a slot) | rail |",
+        ) + bench_plan(
+            "1. Feed `VDD` and `VPWR`.", supplies=self._supplies(3, "VDD", "VPWR")
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("feeds 3 supply terminal(s)", misses[0])
+        self.assertIn("charges 2 port(s) to no slot", misses[0])
+
+    def test_supply_terminal_omitted_from_the_list_is_reported(self):
+        self.tree.add_top_netlist("VDD", "VGND")
+        body = self._rails(
+            "| `VDD` | supply | 1.8 V analog rail | — (rail, not a slot) | rail |",
+            "| `VGND` | supply | digital return | — (rail, not a slot) | rail |",
+        ) + bench_plan("1. Feed `VDD`, return `VGND`.", supplies=self._supplies(1, "VDD"))
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 2, misses)
+        self.assertIn("feeds 1 supply terminal(s)", misses[0])
+        self.assertIn("omits `VGND`", misses[1])
+
+    def test_supply_terminal_that_is_not_a_rail_row_is_reported(self):
+        """The reverse direction: a terminal invented in Section 5."""
+        self.tree.add_top_netlist("VDD", "VCM")
+        body = self._rails(
+            "| `VDD` | supply | 1.8 V analog rail | — (rail, not a slot) | rail |",
+            "| `VCM` | in | dedicated pad (budget: 0–4) | 1 | bias |",
+        ) + bench_plan(
+            "1. Feed `VDD`; bias `VCM`.", supplies=self._supplies(2, "VDD", "VCM")
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 2, misses)
+        self.assertIn("feeds 2 supply terminal(s)", misses[0])
+        self.assertIn("names `VCM`", misses[1])
+        self.assertIn("is not a rail row", misses[1])
+
+    def _power(self, campaign: str, count: int, *terms: str) -> str:
+        return (
+            f"that figure is a sum over the **{count}** current columns of "
+            f"`sim/{campaign}/records/LATEST`'s own Power table — "
+            + ", ".join(f"`I({net})`" for net in terms)
+            + " — of which `VDD` is one term."
+        )
+
+    def test_power_step_metering_fewer_terminals_than_the_record_is_reported(self):
+        """The load-bearing case: a `VDD`-only reading against a five-source sum."""
+        self.tree.add_sim_record(
+            "full-conversion-transient",
+            "20260912-002315-9aaf1ca",
+            latest=True,
+            power={"tt_27c_1.80v": 27.971},
+            power_terms=("VDD", "VPWR", "VREFP", "VCM", "VREFN"),
+        )
+        self.tree.add_top_netlist("VDD")
+        body = bench_plan(
+            "6. **Power.** Measure `VDD` supply current.",
+            power=self._power("full-conversion-transient", 1, "VDD"),
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 2, misses)
+        self.assertIn("says that table carries 1 current column(s)", misses[0])
+        self.assertIn("carries 5", misses[0])
+        self.assertIn("meters ['VDD']", misses[1])
+
+    def test_power_step_term_order_must_be_the_records_own(self):
+        self.tree.add_sim_record(
+            "full-conversion-transient",
+            "20260912-002315-9aaf1ca",
+            latest=True,
+            power={"tt_27c_1.80v": 27.971},
+            power_terms=("VDD", "VPWR"),
+        )
+        self.tree.add_top_netlist("VDD")
+        body = bench_plan(
+            "6. Meter each feed.",
+            power=self._power("full-conversion-transient", 2, "VPWR", "VDD"),
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("meters ['VPWR', 'VDD']", misses[0])
+
+    def test_power_step_matching_the_record_passes(self):
+        self.tree.add_sim_record(
+            "full-conversion-transient",
+            "20260912-002315-9aaf1ca",
+            latest=True,
+            power={"tt_27c_1.80v": 27.971},
+            power_terms=("VDD", "VPWR", "VREFP", "VCM", "VREFN"),
+        )
+        self.tree.add_top_netlist("VDD")
+        body = bench_plan(
+            "6. Meter each feed: `VDD`.",
+            power=self._power(
+                "full-conversion-transient", 5, "VDD", "VPWR", "VREFP", "VCM", "VREFN"
+            ),
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_power_step_citing_a_campaign_with_no_power_table_is_reported(self):
+        self.tree.add_sim_record("vcm-drive-budget", "20260908-074408-80df05e", latest=True)
+        self.tree.add_top_netlist("VDD")
+        body = bench_plan(
+            "6. Meter `VDD`.", power=self._power("vcm-drive-budget", 1, "VDD")
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("no readable Power table", misses[0])
+
+    def test_the_stats_sentence_is_what_the_check_accepts(self):
+        """A `--stats` paste must pass, or the documented fix does not work."""
+        self.tree.add_sim_record(
+            "full-conversion-transient",
+            "20260912-002315-9aaf1ca",
+            latest=True,
+            power={"tt_27c_1.80v": 27.971},
+            power_terms=("VDD", "VPWR", "VREFP", "VCM", "VREFN"),
+        )
+        self.tree.add_top_netlist("VDD")
+        terms = checker.record_power_terms("full-conversion-transient")
+        sentence = checker.power_terms_sentence("full-conversion-transient", terms)
+        body = bench_plan("6. Meter each feed: `VDD`.", power=sentence)
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_check_is_inert_without_the_top_netlist(self):
+        # No design/sar_adc_top.spice in the fixture tree at all.
+        self.assertEqual(self.tree.check(bench_plan("1. Apply nothing.")), [])
+
+    def test_check_is_inert_on_a_document_with_no_section_5(self):
+        self.tree.add_top_netlist("VDD", "VPWR", "GND")
+        self.assertEqual(self.tree.check("# fixture\n\nNo numbered sections.\n"), [])
+
+    def test_a_document_stating_no_gated_sentences_is_not_failed_for_them(self):
+        # Parts (b) and (c) are opt-in per document, like checks 6 and 18.
+        self.tree.add_top_netlist("VDD")
+        self.assertEqual(self.tree.check(bench_plan("1. Apply `VDD`.")), [])
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
