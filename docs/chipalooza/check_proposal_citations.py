@@ -1112,14 +1112,34 @@ RENDERER_SHARED_MODULE = "layout/bin/_record_common.py"
 # provenance at all and must not inherit the shared module's pin.
 RENDERER_DELEGATE_RE = re.compile(r"\brender_pnr_drc_lvs_record\b")
 
-# What counts as resolving the commit: a `klt pdk find` invocation (in either
-# the argv-list or the shell spelling) or a call to the shared helper that
-# wraps one. Deliberately NOT a search for the word "pdk" -- every one of
-# these files names a PDK variant, and printing only the variant name is the
-# defect.
+# What counts as resolving the commit: a `klt pdk find` argv-list invocation
+# (`["pdk", "find", ...]`) or a call to the shared helper that wraps one.
+# Deliberately NOT a search for the word "pdk" -- every one of these files
+# names a PDK variant, and printing only the variant name is the defect. No
+# bare-shell-text alternative (e.g. `pdk find`) is matched either: unlike the
+# argv-list form, a plain word sequence matches a *comment describing* the
+# invocation just as readily as the invocation itself -- no entry point under
+# `layout/` invokes `klt pdk find` from shell today, so there is nothing this
+# predicate would miss by requiring the argv-list or `resolve_pdk_commit`
+# spelling. Re-add a shell-text alternative only once an entry point needs
+# one, anchored to command position, not as an unanchored substring search.
+#
+# `renderer_census()` also strips whole-line `#` comments before matching
+# (issue #424): `resolve_pdk_commit` is a real Python identifier, so even
+# this narrower regex is satisfied by a comment that merely *names* it (e.g.
+# "# Reuses ... resolve_pdk_commit ..." describing an approach taken
+# elsewhere) with no call anywhere in the file -- comment-stripping is what
+# actually keeps that from counting, not the choice of alternative above.
 RENDERER_PIN_RE = re.compile(
-    r"\bresolve_pdk_commit\b|[\"']pdk[\"']\s*,\s*[\"']find[\"']|\bpdk find\b"
+    r"\bresolve_pdk_commit\b|[\"']pdk[\"']\s*,\s*[\"']find[\"']"
 )
+
+# A whole-line `#` comment (leading whitespace then `#` to end of line), in
+# either Python or POSIX shell -- the only two languages `renderer_census()`'s
+# entry points are written in. Stripped before matching `RENDERER_PIN_RE` so
+# a comment merely *describing* an invocation (naming `resolve_pdk_commit` or
+# a `klt pdk find` spelling in prose) cannot itself satisfy the predicate.
+_HASH_COMMENT_LINE_RE = re.compile(r"^[ \t]*#.*$", re.MULTILINE)
 
 # What the census renders when every entry point resolves the commit -- i.e.
 # when the shortfall check 26 counts is purely historical. Spelled out rather
@@ -4574,6 +4594,17 @@ def _renderer_entry_point(tree: Path) -> str:
     return local if (REPO_ROOT / local).is_file() else RENDERER_SHARED
 
 
+def _without_hash_comments(text: str) -> str:
+    """`text` with every whole-line `#` comment blanked out (issue #424).
+
+    A comment describing an invocation (e.g. naming `resolve_pdk_commit` in
+    prose, or spelling out `klt pdk find`) must not itself satisfy
+    `RENDERER_PIN_RE` -- only real code should. Blanking rather than deleting
+    preserves line numbers, which nothing here depends on but costs nothing.
+    """
+    return _HASH_COMMENT_LINE_RE.sub("", text)
+
+
 def renderer_census() -> dict:
     """How many of this tree's record-minting entry points resolve the PDK pin.
 
@@ -4599,7 +4630,9 @@ def renderer_census() -> dict:
         path = REPO_ROOT / entry
         text = path.read_text() if path.is_file() else ""
         closure = text + (shared_text if RENDERER_DELEGATE_RE.search(text) else "")
-        entry_points[entry] = bool(RENDERER_PIN_RE.search(closure))
+        entry_points[entry] = bool(
+            RENDERER_PIN_RE.search(_without_hash_comments(closure))
+        )
 
     unpinned = sorted(entry for entry, pins in entry_points.items() if not pins)
     return {
