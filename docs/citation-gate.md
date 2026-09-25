@@ -55,11 +55,27 @@ exists in this repository.
 
 Every backticked, whitespace-free reference whose first segment is one of
 this repo's own top-level directories (`sim/`, `layout/`, `spec/`, `design/`,
-`docs/`, `measurements/`, `ratification/`) resolves too. Not every evidence
-citation is a Markdown link: Section 4's Power row, for instance, cites its
-record as a bare backticked path. References whose first segment is NOT one
-of ours (e.g. klayout-tools' `src/klayout_tools/lvs.py`) are upstream paths
-and are left alone.
+`docs/`, `measurements/`, `ratification/`, `signoff/`) resolves too. Not every
+evidence citation is a Markdown link: Section 4's Power row, for instance,
+cites its record as a bare backticked path. References whose first segment is
+NOT one of ours (e.g. klayout-tools' `src/klayout_tools/lvs.py`) are upstream
+paths and are left alone.
+
+**That parenthesised list is itself gated, because it is a claim about the
+gate's own coverage.** It states `OWN_TOP_LEVEL` in the checker, and a
+directory absent from that frozenset is a whole tree whose bare citations
+check 2 silently does not resolve -- so a typo'd or dangling `signoff/...`
+path would have passed, unread, the way one did until check 17 added
+`signoff` (see check 17, and check 16 for the same not-my-directory shape at
+checks 3/4 with `erc-reports/`). The sentence above and the frozenset had
+already drifted once: check 17 added the eighth entry and left this list
+naming seven. Per this document's own discipline, the list is therefore
+re-derived rather than trusted --
+`TestRationaleDocumentCoverage.test_the_check_2_directory_list_matches_own_top_level`
+parses this parenthetical and compares it to `OWN_TOP_LEVEL` **in both
+directions**, so adding a directory to the frozenset without naming it here
+(or naming one here that the frozenset does not carry) fails
+`npm run test:unit`.
 
 ### Check 3 -- spec-row freshness (`check_spec_table_freshness`)
 
@@ -641,6 +657,74 @@ whether an ungraded citation is *stale* -- it cannot, which is the point:
 that judgement is exactly what no pointer file exists to make. A green check
 18 says "the table's ungraded set is the size and membership this document
 states", not "every citation in the table is current".
+
+### Check 19 -- Section 5 bench-plan interface parity (`check_test_plan_ports`)
+
+Checks 1-18 all grade Section 4 (the spec table) or Section 2 (the I/O
+mapping). **Nothing graded Section 5**, the bench test plan -- which is the
+third deliverable issue #121's acceptance criterion 1 names, beside the I/O
+mapping and the spec table, and the only one of the three written as a
+*procedure* rather than as a verdict.
+
+Section 5's own lede claims it "is written against this design's *current*
+port list (§2)". It was not. Three supply ports joined the interface on
+2026-09-24 -- `VPWR` and `VGND` by DR-010 (issue #355), `GND` by DR-012 (issue
+#362), taking the block from 19 ports to 22 -- and Section 5's bring-up step
+went on applying `VDD`, `VREFP`/`VREFN` and `VCM` only. Nothing about the page
+looked stale: the step named real ports, the lede named the right section, and
+check 10 was busy grading Section 2's table, which had been updated correctly.
+A reader following step 1 verbatim would have left both standard-cell macros
+unpowered.
+
+**Three parts, because the section makes three separable claims.**
+
+- **(a) Every netlist port is named somewhere in Section 5.** Forward direction
+  only: a bench plan that omits a terminal is not executable, whereas a
+  backticked token in Section 5 that is not a port is usually a unit, a signal
+  name internal to a measurement, or a decision-record id -- graded in reverse
+  this would fail on correct prose. `DOUT9..0` expands to the ten ports it
+  names (the same `_expand_range` check 10 uses on the Signal column); the glob
+  `DOUT*` deliberately does *not* -- it says the section discusses the bus, not
+  that it named each line of it.
+- **(b) The supply terminals the plan feeds are exactly Section 2's rail rows**
+  -- both directions, like checks 8, 10, 14, 15, 16, 17 and 18. "Rail row" is
+  read off the same Count column check 10 part (d) already treats as the
+  slot-budget exemption (a cell not beginning with a digit), so the two checks
+  cannot disagree about which rows are rails. A rail dropped from this sentence
+  under-powers the bench; one added that Section 2 does not carry invents a
+  terminal the part does not have.
+- **(c) The power step meters the cited record's own Power-table columns.**
+  This is the part that catches a defect no re-read would: step 6 said "measure
+  `VDD` supply current" and compare against Section 4's Power row, but that
+  row's figure is a **sum over five** source columns
+  (`I(VDD)`, `I(VPWR)`, `I(VREFP)`, `I(VCM)`, `I(VREFN)`) in which `VDD` is not
+  the dominant term. The instruction was not a wrong *number* -- it was a wrong
+  *protocol*, producing a reading that is not comparable to the figure it is
+  told to compare against, and it became wrong the moment DR-010 moved the
+  digital current onto its own rail. The campaign is named in the sentence
+  rather than in the script, so the check stays pointed at whatever record
+  Section 4 actually quotes.
+
+**Why not gate Section 5 against `spec/target-spec.md`'s rows as well** --
+recorded here so it is not re-proposed blind. Section 5 has six steps and the
+spec table has more rows than that, deliberately: the steps are *bench
+procedures* (a code-density sweep covers INL and DNL at once; "bring-up" grades
+no row at all), not a row-per-step restatement. Requiring a step per row would
+either force the section into a shape that misrepresents how the measurements
+are actually taken, or force a row-to-step map that is itself hand-maintained
+prose -- one more thing to go stale, gating the wrong claim. What the section
+*does* claim mechanically is that it addresses the current **interface**, and
+that is what this check grades.
+
+**What this check deliberately does NOT cover.** It says nothing about whether
+a step's procedure is correct, sufficient, or the one a bench would really run
+-- only that the terminals it names are the ones this part has, and that the
+power step meters the terminals the figure it cites is summed over. It also
+does not check step *ordering* or that a port is named in a sensible step: a
+port named only in a parenthesis somewhere in Section 5 satisfies part (a).
+That is the honest limit of a text check against a procedure; the parts that
+can be re-derived from this repository's own trees are re-derived, and the
+judgement is left where judgement belongs.
 
 ## What the gate deliberately does not cover
 

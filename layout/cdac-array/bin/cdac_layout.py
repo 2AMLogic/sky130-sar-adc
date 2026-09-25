@@ -120,7 +120,49 @@ VDD_TAP_CX = 1.00  # x, in the wide gap between the VREFN riser (x=-2.00) and
 #                    the first switch's own diffusion (x=3.85) -- clear of both
 VDD_TAP_W = 1.00  # tap+li1 box width
 VDD_TAP_MARGIN = 0.30  # inset from the nwell's own pfet-row Y extent
-VDD_TAP_LICON_PITCH = 0.60  # matches comparator's own LICON_PITCH_UM
+TAP_LICON_PITCH = 0.60  # matches comparator's own LICON_PITCH_UM
+
+# --------------------------------------------------------------------------- #
+# Issue #377: `VSS` -- this block's fourth schematic port, every switch NFET's
+# body -- had no drawn conductor of its own either. Unlike `VDD` above, the
+# omission was not even visible as a bare, uncontactable layer: sky130's
+# extraction deck synthesises ONE global p-substrate net by construction, so
+# the port resolved to that global and both `klt extract` and `klt lvs` were
+# satisfied without this block drawing a single square micron of ground
+# conductor. That is exactly the gap DR-012's own "Open items" named: the
+# composed assembly's analog return reached this block through substrate
+# resistance rather than through metal any tool in this flow grades.
+#
+# The fix is the p-substrate counterpart of the VDD tie above: one `tap`
+# structure on bare substrate, contacted up through licon1/li1/mcon to a met1
+# landing pad carrying this block's own `VSS` pin label -- a terminal
+# `layout/sar-adc-top/bin/build_layout.py`'s ground mesh can physically land a
+# via riser on. It does NOT claim to change what the substrate is: the deck's
+# global tie is still what connects the eighteen NFET bodies to each other.
+# --------------------------------------------------------------------------- #
+#: p-substrate body tie for `VSS`. Directly BELOW the VDD n-well tap, sharing
+#: its x (`VDD_TAP_CX`) -- the same wide, device-free gap between the VREFN
+#: riser (x = -2.00) and the first switch's own diffusion (x = 3.85), one row
+#: further down. The y band is the empty stripe between the switch row's own
+#: NFET diffusion (bottom edge y = -30.00) and the VREFN met2 rail
+#: (`VREFN_RAIL_Y`, band -33.60..-33.20): direct inspection of the drawn GDS
+#: finds NO tap/li1/licon1/diff/poly shape anywhere in x -4.5..3.4,
+#: y -33.1..-30.1, and the only met1 nearer than 1.7 um is a different layer
+#: from everything this tap draws below met1.
+#:
+#: Clearances this leaves, none of them tight: 0.60 um from the NFET
+#: diffusion above (sky130's `difftap.3` tap-to-diff spacing is 0.27 um);
+#: 2.59 um from the n-well's own bottom edge (`nwell.5a`, 0.34 um); 2.84 um
+#: from the VREFP met1 rail and 1.79 um from the nearest met1 switch riser
+#: (`met1.space.1`, 0.14 um) for the met1 landing pad. NOTE that the first
+#: two of those are NOT graded by the pinned curated deck -- it authors no
+#: rule on `tap.drawing` (65/44) or on n-well-to-tap spacing at all -- so
+#: they are stated here as satisfied-by-construction margins, not as
+#: measurements the flow's own DRC verdict backs.
+VSS_TAP_CX = VDD_TAP_CX
+VSS_TAP_W = 1.00
+VSS_TAP_Y0 = -32.60
+VSS_TAP_Y1 = -30.60
 
 #: Per-switch SEL (gate-tie strap) landing pad. `SwitchTemplate.stamp()`'s own
 #: strap is deliberately held at exactly the channel poly width (`GATE_L_UM`)
@@ -295,19 +337,81 @@ def connect_bottom(c: Canvas, cx: float, cy: float, strap_x: float) -> None:
         c.via1(strap_x, y)
 
 
-def nwell_tap(c: Canvas, x0: float, y0: float, x1: float, y1: float) -> None:
-    """A real n-well body tie: `tap.drawing` + li1 over the same box, plus a
-    column of licon1 cuts on `VDD_TAP_LICON_PITCH` -- issue #165's fix for
-    `VDD`, mirroring `layout/comparator/bin/build_layout.py`'s own
-    `tap_shapes()` recipe (no `diff.drawing` needed under a tap; see that
-    file's own "Body ties" docstring section)."""
+def body_tap(c: Canvas, x0: float, y0: float, x1: float, y1: float) -> None:
+    """A real body tie: `tap.drawing` + li1 over the same box, plus a column
+    of licon1 cuts on `TAP_LICON_PITCH` -- issue #165's fix for `VDD`,
+    mirroring `layout/comparator/bin/build_layout.py`'s own `tap_shapes()`
+    recipe (no `diff.drawing` needed under a tap; see that file's own "Body
+    ties" docstring section).
+
+    The SAME geometry serves both tub polarities, because in sky130 a tap is
+    an n-tap or a p-tap purely by what it sits in: a `tap.drawing` box inside
+    a drawn `nwell` is the n-well's own tie (VDD, issue #165); the identical
+    box drawn on bare substrate, outside every n-well, is a p-substrate tie
+    (`VSS`, issue #377). Nothing about the drawn shapes distinguishes them --
+    the caller's placement does -- which is why this helper is polarity-free
+    and each call site states which tub it is tying."""
     c.rect(TAP, x0, y0, x1, y1)
     c.rect(LI1, x0, y0, x1, y1)
     cx = (x0 + x1) / 2.0
-    y = y0 + VDD_TAP_LICON_PITCH / 2.0
-    while y + VDD_TAP_LICON_PITCH / 2.0 <= y1 + 1e-9:
+    y = y0 + TAP_LICON_PITCH / 2.0
+    while y + TAP_LICON_PITCH / 2.0 <= y1 + 1e-9:
         c.square(LICON1, cx, y, LICON_S)
-        y += VDD_TAP_LICON_PITCH
+        y += TAP_LICON_PITCH
+
+
+#: Spacings the `VSS` tap's own placement argument rests on. The first two
+#: are sky130A rules the pinned curated deck does NOT author (it carries no
+#: rule on `tap.drawing` at all), transcribed from the PDK's own
+#: `libs.tech/klayout/drc/sky130A_mr.drc`; the third IS graded
+#: (`met1.space.1`, in every one of this flow's own DRC records).
+DIFF_TAP_SPACE_UM = 0.27  # difftap.3: tap to an unrelated diffusion
+NWELL_TAP_SPACE_UM = 0.34  # nwell.5a: n-well to a tap outside it
+MET1_SPACE_UM = 0.14  # met1.space.1
+
+
+def _assert_vss_tap_clearances(nwell_bottom: float, nfet_block_bottom: float) -> None:
+    """Standing assertions for the `VSS` p-substrate tap's own placement
+    (issue #377) -- so a future switch-row move, device-size change or n-well
+    resize fails HERE, loudly, rather than silently drawing this block's
+    ground tie inside the n-well (where it would be a VDD tie, not a
+    substrate one) or on top of a switch's own diffusion.
+
+    Two of the three clearances below are not graded by the pinned deck, and
+    that is exactly why they are asserted in the generator: an ungraded rule
+    that no DRC run can catch is one a standing assertion has to.
+    """
+    gap_to_well = nwell_bottom - VSS_TAP_Y1
+    if gap_to_well < NWELL_TAP_SPACE_UM - 1e-9:
+        raise SystemExit(
+            f"cdac_layout.py: the VSS p-substrate tap's top edge ({VSS_TAP_Y1}) "
+            f"is {gap_to_well} um from the drawn n-well's bottom edge "
+            f"({nwell_bottom}) -- nwell.5a needs {NWELL_TAP_SPACE_UM} um, and a "
+            "tap that reaches INSIDE the n-well is an n-tap tying VDD, not a "
+            "p-substrate tie"
+        )
+    # Measured against the stamped NFET BLOCK's own bbox bottom, not its
+    # diffusion edge: the block bbox is at or below every shape inside it, so
+    # clearing the bbox clears the diffusion by construction, and the check
+    # stays honest if a future `klt gen mos_array` grows the cell downward.
+    gap_to_diff = nfet_block_bottom - VSS_TAP_Y1
+    if gap_to_diff < DIFF_TAP_SPACE_UM - 1e-9:
+        raise SystemExit(
+            f"cdac_layout.py: the VSS p-substrate tap's top edge ({VSS_TAP_Y1}) "
+            f"is {gap_to_diff} um from the switch row's own NFET block bbox "
+            f"({nfet_block_bottom}) -- difftap.3 needs {DIFF_TAP_SPACE_UM} um"
+        )
+    # The met1 landing pad this tap carries (`Canvas.mcon`, a 2*PAD_HALF
+    # square) sits at the tap's own centre; the nearest met1 below it is the
+    # VREFP rail (`VREFP_RAIL_Y`, drawn 0.40 um wide).
+    pad_bottom = (VSS_TAP_Y0 + VSS_TAP_Y1) / 2.0 - PAD_HALF
+    gap_to_rail = pad_bottom - (VREFP_RAIL_Y + 0.20)
+    if gap_to_rail < MET1_SPACE_UM - 1e-9:
+        raise SystemExit(
+            f"cdac_layout.py: the VSS tap's met1 landing pad is {gap_to_rail} um "
+            f"from the VREFP met1 rail at y={VREFP_RAIL_Y} -- met1.space.1 needs "
+            f"{MET1_SPACE_UM} um"
+        )
 
 
 def sel_landing_pad(
@@ -761,8 +865,28 @@ def build_array(layout: kdb.Layout, cell: kdb.Cell, tmpdir: Path) -> dict:
     # geometry (SW_PITCH=11.0 apart).
     tap_x0, tap_x1 = VDD_TAP_CX - VDD_TAP_W / 2.0, VDD_TAP_CX + VDD_TAP_W / 2.0
     tap_y0, tap_y1 = well_y0 + VDD_TAP_MARGIN, well_y1 - VDD_TAP_MARGIN
-    nwell_tap(c, tap_x0, tap_y0, tap_x1, tap_y1)
+    body_tap(c, tap_x0, tap_y0, tap_x1, tap_y1)
     c.mcon(VDD_TAP_CX, (tap_y0 + tap_y1) / 2.0)
+    _assert_vss_tap_clearances(
+        well_y0 - NWELL_MARGIN, SW_Y0 + tmpl.nfet_resp["bbox_um"]["y0"]
+    )
+
+    # Issue #377: the p-substrate counterpart -- a real body tie for `VSS`,
+    # the schematic's fourth port and every switch NFET's body, on bare
+    # substrate below the n-well, with its own met1 landing pad and pin
+    # label. See `VSS_TAP_CX`'s own note for the placement argument and for
+    # which of its clearances the pinned deck does and does not grade.
+    #
+    # The pin label is `VSS` -- this block's OWN schematic port name
+    # (`design/cdac/cdac_array.sch`), the same convention every other pin
+    # here follows. `design/sar_adc_top.sch` is what ties that port to the
+    # assembly's `GND`; naming it `GND` here would state a top-level fact
+    # inside a sub-block that does not know it.
+    vss_x0, vss_x1 = VSS_TAP_CX - VSS_TAP_W / 2.0, VSS_TAP_CX + VSS_TAP_W / 2.0
+    body_tap(c, vss_x0, VSS_TAP_Y0, vss_x1, VSS_TAP_Y1)
+    vss_cy = (VSS_TAP_Y0 + VSS_TAP_Y1) / 2.0
+    c.mcon(VSS_TAP_CX, vss_cy)
+    c.label(MET1_PIN, VSS_TAP_CX, vss_cy, "VSS")
 
     return {
         "unit_counts": unit_counts,

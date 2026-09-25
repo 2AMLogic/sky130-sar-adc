@@ -47,9 +47,35 @@ klayout-tools#2397 (0.6.0's reader-side #1876 fix never fires on this
 netlist, so `bin/restore-cap-device-class.py` stays load-bearing). See "Update
 (2026-09-23): re-measured on `klayout-tools==0.6.0`" below.
 
+**Update (2026-09-24, issue #377): the analog ground pad now has a mesh under
+it, and all three analog blocks draw a ground terminal.** Record
+`20260924-234053-66dca3c` is the current `reports/LATEST`, and
+`erc-reports/20260924-234116-66dca3c/` the current ERC record.
+`layout/sampling-frontend/` promotes its existing `GND` track to a pin and
+`layout/cdac-array/` draws a new p-substrate tap labelled `VSS` (each with its
+own re-verified record); `bin/build_layout.py`'s `analog_ground_mesh()` — a
+met3 trunk at `y = 165.0` with three met4 droppers — ties all three to the
+DR-012 pad, whose own coordinate is unchanged. DRC stays clean (0 violations,
+52 rules) and **LVS is unchanged in every field**: 88 mismatches in the same
+four categories, 803/869 devices, 411/443 nets, pins 21/22/22. `klt erc` stays
+`clean`, 0 findings, against the same byte-identical spec.
+
+**None of those verdicts is evidence for the mesh**, and this is the second
+time in three days that sentence has had to be written here. The substrate
+already joined these nets, so the extraction reported one `GND` net before the
+mesh existed and reports one after. The evidence that the *drawn* conductor is
+what joins them is an ablation:
+`bin/probe-ground-mesh.py` rebuilds the assembly with the mesh omitted and
+nothing else changed, and `klt erc` then reports `GND` resolving to **2**
+disconnected islands. Summary committed at
+`erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`. The topology
+is [`DR-013`](../../spec/decision-records/DR-013-analog-ground-mesh.md), which
+closes DR-012's largest open item.
+
 **Update (2026-09-24, issue #362): the analog ground has a drawn pad.** Record
-`20260924-214710-b323061` is the current `reports/LATEST`, and
-`erc-reports/20260924-214731-b323061/` the current ERC record.
+`20260924-214710-b323061` was the `reports/LATEST` of that increment
+(superseded by #377's above), and `erc-reports/20260924-214731-b323061/` its
+ERC record.
 `bin/build_layout.py`'s new `analog_ground_pad()` carries `comparator`'s own
 drawn `GND` pin — the only analog-ground conductor any sub-block here exposes —
 up to met4 and south, out of that macro's footprint, to a top-level `GND` pin
@@ -403,8 +429,11 @@ offset the composition finally chooses.
 
 ### `sampling_frontend` (top cell in `layout/sampling-frontend/reports/20260915-120718-1e90b14/sampling_frontend.gds`, re-verified post-issue-#236/#245 and post-`klayout-tools==0.5.0`)
 
-bbox: `(0.0, -2.4)` to `(195.56, 58.97)`. All pins on layer `69/5` (met2.pin)
-except `GND`, which has **no drawn pin** — see "GND/substrate" below.
+bbox: `(0.0, -2.4)` to `(195.56, 58.97)`. All pins on layer `69/5` (met2.pin).
+`GND` had **no drawn pin** here until issue #377 added one (record
+`20260924-232823-66dca3c`); the table below carries it, and the sentence this
+line used to end on — "see GND/substrate below" — now points at a closed gap
+rather than an open one.
 
 **Every `y_um` below is +0.92 µm vs. the klt-0.4.0 era, as of issue #103's
 `klayout-tools` 0.4.0 → 0.5.0 bump.** klt 0.5.0 builds this sub-block's own
@@ -442,6 +471,7 @@ Read directly off layer `69/5` text in the record's own
 | Pin | x_um | y_um |
 | --- | --- | --- |
 | VDD | 1.76 | 51.82 |
+| GND | 39.97 | 52.32 |
 | SAMPLE | 17.285 | 51.32 |
 | BOOST_P | 0.70 | 53.32 |
 | VINP | 10.10 | 54.32 |
@@ -453,7 +483,12 @@ Read directly off layer `69/5` text in the record's own
 | TOP_P | 42.23 | 58.32 |
 | TOP_N | 44.52 | 58.82 |
 
-Used by this assembly: `VDD`, `SAMPLE` (<- sequencer's `PH_SAMPLE`, net
+`GND`'s own x is that net's leftmost contributing column — the p-substrate
+tap's own column, 39.97 — which is why it sits well to the right of the other
+supply pins; its y is track 3 of the shared band (50.82 + 3 × 0.50).
+
+Used by this assembly: `VDD`, `GND` (-> the analog ground mesh, #377),
+`SAMPLE` (<- sequencer's `PH_SAMPLE`, net
 `SAMPLE_INT`), `VINP`/`VINN` (<- top-level external pins), `VCM` (<-
 top-level external pin), `TOP_P`/`TOP_N` (<-> cdac_array/comparator).
 `BOOST_P`/`BOOST_N`/`BPREF_P`/`BPREF_N` are internal to this sub-block (per
@@ -474,10 +509,15 @@ bbox: `(-4.5, -35.0)` to `(218.7, 55.85)`.
 | TOP_N | 216.80 | 27.55 | 71/5 (met4.pin) |
 | SELp0..SELp8 | 4.545, 15.545, 26.545, 37.545, 48.545, 59.545, 70.545, 81.545, 92.545 | -27.08 | 66/5 (poly.pin) |
 | SELn0..SELn8 | 103.545, 114.545, 125.545, 136.545, 147.545, 158.545, 169.545, 180.545, 191.545 | -27.08 | 66/5 (poly.pin) |
+| VSS | 1.00 | -31.60 | 68/5 (met1.pin) — **added by issue #377** |
 
-No `GND`/`VSS` pin — see "GND/substrate" below (this block's port list is
-`VREFP VREFN VDD vsubs SELn0 SELp0 ... TOP_N TOP_P`, i.e. its 4th port is a
-literal `vsubs` connection, not a drawn label). `TOP_P`/`TOP_N` sit on
+The `VSS` row is new. This block used to have **no `GND`/`VSS` pin at all**:
+its 4th port was a literal `vsubs` connection with no drawn label, so the
+reference netlist renamed the schematic's `VSS` to the deck's synthesized
+global. Issue #377 drew a real p-substrate tap (below the `VDD` n-well tap,
+sharing its x) up to a met1 landing pad and labelled it `VSS`, and the
+reference now says `VSS` too — see `layout/cdac-array/README.md`'s "`VSS`
+landing geometry". `TOP_P`/`TOP_N` sit on
 **opposite edges** (left/right) at the same `y`, ~221 µm apart — the CDAC
 array is far wider than either of its two abutting neighbors (sampling
 front end, comparator), which is the central floorplan constraint this
@@ -600,7 +640,7 @@ Beyond each block's own already-closed internal wiring, per
 | `comparator.OUTN` | left dead-ended (`OUTN_NC`) — not needed by the sequencer |
 | `VPWR` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `VDD`; see DR-010) |
 | `VGND` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `GND` *in metal*; see DR-010 and, for what the substrate does regardless, DR-012) |
-| `GND` (analog) | external pin, `comparator.GND` (issue #362 — the only drawn analog-ground conductor in this composition; `sampling_frontend` and `cdac_array` reach the same node through the substrate, not through this route; see DR-012) |
+| `GND` (analog) | external pin, `comparator.GND`, `sampling_frontend.GND`, `cdac_array.VSS` (issue #362 drew the pad on the first of those, then the only drawn analog-ground conductor here; issue #377 added the other two inside their own sub-block layouts and the met3/met4 mesh that joins all three. The substrate joins them regardless — that is DR-012's point, not this route's; what the mesh adds is a drawn path `klt drc` grades. See DR-012 and DR-013) |
 
 **22** top-level external chip pins in total: `VINP, VINN, VDD, VREFP, VREFN,
 VCM, CLK, RST_B, DOUT9..DOUT0, BUSY, VPWR, VGND, GND` (matching
@@ -610,9 +650,10 @@ added by issue #355 and `GND` by issue #362; before #355 this list read
 (19/19/19) had always reported correctly.
 
 The layout side still promotes **21** of those 22, and that is not a missing
-pin: `GND` and `VGND` are one extracted net (`GND|VGND` — the shared
-p-substrate), so one promoted layout pin answers both reference ports, which
-the LVS `matched=22` count records. See DR-012.
+pin: `GND` and `VGND` are one extracted net (`GND|VGND|VSS` since issue #377
+joined `cdac_array`'s own `VSS` label to it — the shared p-substrate), so one
+promoted layout pin answers both reference ports, which the LVS `matched=22`
+count records. See DR-012 and DR-013.
 
 ## GND / VPWR / VGND: not a routing job (mostly)
 
@@ -621,22 +662,36 @@ synthesis (`layout/sampling-frontend-wells/README.md`, `layout/sampling-frontend
 header) plus `design/sar_adc_top.spice`'s own `.GLOBAL GND`/`.GLOBAL VDD`
 declarations and its item-2 "known integration gap" note:
 
-- **Analog `GND` needs no wire between the three blocks — but it did need a
-  pad, and now has one (issue #362,
-  [`DR-012`](../../spec/decision-records/DR-012-analog-ground-pad.md)).**
+- **Analog `GND` needs no wire between the three blocks to reach a matching
+  LVS verdict — and is wired between them anyway, on purpose (issues #362 and
+  #377, [`DR-012`](../../spec/decision-records/DR-012-analog-ground-pad.md) and
+  [`DR-013`](../../spec/decision-records/DR-013-analog-ground-mesh.md)).**
   `klt extract`'s sky130 deck synthesizes every NMOS/PMOS-body's p-substrate
-  connection as one globally-shared `vsubs` net *regardless of drawn geometry* —
-  so `sampling_frontend`'s GND (no drawn pin at all) and `cdac_array`'s VSS
-  (also no drawn pin) report as the same net the deck assigns `comparator`'s
-  real, drawn `GND` pin to, with **no wire required between the three blocks
-  for this assembly to reach a matching verdict** on that specific net.
+  connection as one globally-shared substrate net *regardless of drawn
+  geometry* — so before #377, `sampling_frontend`'s GND (no drawn pin at all)
+  and `cdac_array`'s VSS (also no drawn pin) reported as the same net the deck
+  assigns `comparator`'s real, drawn `GND` pin to, with **no wire required
+  between the three blocks for this assembly to reach a matching verdict** on
+  that specific net.
+
+  That is a statement about the *verdict*, and it was allowed to stand in for
+  a statement about the *design* for too long. The return path the deck was
+  papering over is p-substrate resistance under the one device whose decision
+  is referenced to it. Since #377 all three blocks draw a real ground terminal
+  (`sampling_frontend.GND`, `cdac_array.VSS` — both added in those sub-block
+  layouts) and this module ties them into one drawn conductor; the LVS verdict
+  is unchanged by that, which is exactly why the mesh carries its own
+  ablation evidence rather than pointing at a clean report. See "The analog
+  ground pad and mesh" below.
 
   **Confirmed on the composed extraction, not just inferred from the per-block
   READMEs** (the caveat this paragraph used to carry):
-  `reports/20260924-214710-b323061/extract.json` reports one net named
-  `GND|VGND` carrying **692 devices** — the analog ground, the standard cells'
-  substrate ties and the p-substrate, all one node, with
-  `merged_net_labels` naming both labels on it. That is the mechanism working
+  `reports/20260924-234053-66dca3c/extract.json` reports one net named
+  `GND|VGND|VSS` carrying **692 devices** — the analog ground, the standard
+  cells' substrate ties and the p-substrate, all one node, with
+  `merged_net_labels` naming all three labels on it (it read `GND|VGND` at 692
+  devices in the pre-#377 record; the third label is `cdac_array`'s own new
+  `VSS` pin joining the merge, not a new node). That is the mechanism working
   as documented, one level up, and it is also the reason DR-010's domain
   partition can only ever be about *metal return paths and pads*, never about
   galvanic isolation.
@@ -769,31 +824,60 @@ record is clean, 0 violations. The `klt erc` cross-checks that show the met5
 rectangle is what actually joins the two islands — including an ablation
 against the pre-#355 GDS — are in the ERC record's own "Cross-checks".
 
-### The analog ground pad (issue #362)
+### The analog ground pad (issue #362) and mesh (issue #377)
 
-`bin/build_layout.py`'s `analog_ground_pad()` — **one via riser and one met4
-stub, no horizontal leg.** The riser walks `comparator`'s own drawn `GND` met1
-pin (global `(101.5, 193.8)`) up to met4 without moving laterally, and a
-`WIRE_W` (0.4 µm) met4 stub runs **south** from there to `y = 170.0`, where the
-top-level `GND` pin label sits.
+`bin/build_layout.py`'s `analog_ground_mesh()` — **one met3 trunk, three met4
+droppers, one pad label.** Issue #362 drew the pad alone (a via riser on
+`comparator`'s own `GND` met1 pin, global `(101.5, 193.8)`, plus a met4 stub
+running **south** to `y = 170.0` where the top-level `GND` pin label sits);
+issue #377 added the mesh below it, joining the other two analog blocks' own
+drawn ground terminals to the same conductor. The pad's own coordinate did not
+move.
 
 | | |
 |---|---|
-| Anchor | `comparator.GND`, met1, local `(1.3, 20.0)` → global `(101.5, 193.8)` |
-| Stub | met4, `x` 101.3 … 101.7, `y` 169.8 … 194.0 |
-| Pin label | `72/5`-equivalent met4.pin (`71/5`) at `(101.5, 170.0)` |
+| Members | `comparator.GND` met1 local `(1.3, 20.0)` → global `(101.5, 193.8)`; `sampling_frontend.GND` met2 local `(39.97, 52.32)` → global `(103.795, 140.57)`; `cdac_array.VSS` met1 local `(1.00, −31.60)` → global, same (that block is the floorplan's origin) |
+| Trunk | met3 at `y = 165.0`, `x` −16.2 … 104.0 — in the open channel between `sampling_frontend`'s top edge (147.22) and `comparator`'s bottom edge (176.3) |
+| Droppers | met4 at `x` 101.5 (comparator, `y` 164.8 … 194.0), `x` 103.795 (sampling_frontend, `y` 140.37 … 165.2), `x` −16.0 (the cdac corridor, `y` −31.8 … 165.2) |
+| cdac escape | met3 at `y = −31.6`, `x` −16.2 … 1.2 — inside the array's confirmed-clear switch-row band |
+| Pin label | met4.pin (`71/5`) at `(101.5, 170.0)`, unchanged from #362 |
 
-Three things about that shape are load-bearing:
+Five things about that shape are load-bearing:
+
+- **The trunk is met3 and every dropper is met4.** Four of
+  `sampling_frontend`'s own pins (`TOP_P`, `TOP_N`, `VDD`, `SAMPLE`) cross this
+  channel northbound on met4 at `x` 65.585 … 108.345; a met4 trunk would short
+  every one of them. This is `analog_leg()`'s own layer-split rule, and the
+  mesh is literally built from two `analog_leg()` calls sharing `GND_MESH_Y`
+  as their jog row — the same primitive every other analog-region net here
+  uses, including the degenerate `(x, y) → (x, y)` form that tees the
+  comparator dropper in.
+- **The cdac leg goes the long way round, for the same reason `VDD`'s does.**
+  That block's `VSS` tap sits ~200 µm south, deep inside the array's own
+  footprint, so the leg risers to met3 *inside* the switch-row band (verified
+  free of that macro's own met3/met4 across its full width, re-confirmed
+  against the post-#377 GDS), exits west past the array's edge, and climbs an
+  exclusive met4 corridor track at `x = −16.0` — 2.0 µm west of
+  `SAMPLE_INT`'s own crossing column, 4.0 µm east of the external `VDD` pin's
+  met4 landing.
 
 - **South, not north.** Every other analog net leaves its pin northward into a
   per-net `analog_leg` jog row. `GND` cannot: `comparator`'s own `CLK` column
   rises to met4 at `x = 102.1` and runs north from `y = 198.3`, **0.6 µm** from
   this pin's own x — two 0.4 µm met4 wires sharing that gap leave 0.2 µm, and
   `m4.2` needs 0.30 µm. Running south instead puts the two columns' `y` spans
-  4.1 µm apart, so they never face each other at all.
-  `_check_analog_ground_pad()` asserts exactly that condition (any comparator
-  pin within `WIRE_W + m4.2` in x must sit at or above `GND`'s own y), so a
-  future re-route fails in `build_layout.py` rather than in `klt drc`.
+  4.1 µm apart, so they never face each other at all. Issue #362 asserted that
+  as a pin-y-ordering argument; since #377 `_check_analog_ground_mesh()`
+  asserts the thing itself, **geometrically**: every met3/met4 shape the mesh
+  draws is checked against every met3/met4 shape the rest of this module draws
+  and must clear it by `m3.2`/`m4.2` — with *touching* an explicit failure,
+  because a mesh shape that touches another net's shape has merged `GND` with
+  it. That covers the `CLK` case exactly (their real separation is 4.2 µm)
+  instead of re-deriving it, and it covers the other 700-odd shapes too. A
+  future re-route fails in `build_layout.py` rather than in `klt drc` — and
+  the check is live, not decorative: moving the mesh corridor onto
+  `SAMPLE_INT`'s column raises "they TOUCH, which merges GND with another
+  net", and moving it 0.02 µm inside the limit raises the spacing message.
 - **It crosses nothing on the way out.** `comparator` draws **no met3 and no
   met4 at all** (direct merged-`Region` dump of its committed GDS: layers
   65/20, 66/20, 66/44, 67/20, 67/44, 68/20, 68/44, 69/20, 64/20, 65/44 only),
@@ -801,27 +885,94 @@ Three things about that shape are load-bearing:
   stretch below it — `y` 147.22 … 176.3, the channel between `sampling_frontend`
   and `comparator` — holds no block bbox. The same assertion checks the label
   lands in that channel rather than inside either macro.
-- **No horizontal leg, deliberately.** Grouping this pin with the other analog
-  supply pins in the west corridor would cost ~130 µm of met3 on a new exclusive
-  jog row, crossing four met4 corridor columns, in series with the one net where
+- **The pad still has no horizontal leg of its own.** The mesh trunk is not
+  one: it runs 5 µm *below* the label, joining the three blocks, and is not in
+  series with the pad. Grouping this pin with the other analog supply pins in
+  the west corridor would still cost ~130 µm of met3 on a new exclusive jog
+  row, crossing four met4 corridor columns, in series with the one net where
   series metal buys nothing. There is no pad ring in this composition — every
   pin label sits where its own net's conductor already is — so the grouping has
   no consumer yet. DR-012 records the trade and marks the position provisional.
 
 `klt drc` grades this geometry rather than the README arguing it:
-`reports/20260924-214710-b323061/drc.json` is clean, 0 violations — and since
+`reports/20260924-234053-66dca3c/drc.json` is clean, 0 violations — and since
 the pinned 0.6.0 deck authors `met1.area.1` … `met5.area.1` (see "Minimum-area
 rules" above), that verdict now covers minimum area too. The independent
 cross-check agrees, re-run on this record's own GDS after issue #363 corrected
 the script's property-aware-merge bug: **0** shapes below every one of
-`m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4`, the same **0** the pre-#362 GDS
-(`reports/20260924-190817-f3622fc/`) measures under the same corrected script.
-The pad this change adds shows up in that readout only as polygon counts — met3
-1341 → 1342, met4 28 → 29 — both above threshold, because the riser's isolated
-pads are `ISLAND_PAD_UM`-sized for exactly this reason. The `klt erc` ablation that shows the stub really is
-joined to `comparator`'s ground through this riser — cut `via3` and `GND` splits
-into two islands, where the pre-#362 GDS splits into none — is in the ERC
-record's own "Cross-checks".
+`m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4`, the same **0** the pre-#377 GDS
+(`reports/20260924-214710-b323061/`) measures under the same corrected script.
+The mesh shows up in that readout only as polygon counts — met1 1503 → 1504,
+met2 1518 → 1519, met3 1342 → 1345, met4 29 → 31 — all above threshold, because
+every riser pad that stands alone on its own layer is `ISLAND_PAD_UM`-sized for
+exactly this reason.
+
+### Why the mesh needs an ablation, and what it showed
+
+A clean DRC/LVS/ERC pass is **not** evidence that this mesh exists, let alone
+that it works, and saying so is the whole point of recording it this way.
+`klt extract`'s sky130 deck ties every NMOS body to one synthesized global
+substrate net regardless of drawn geometry, so the composed layout reported a
+single 692-device `GND|VGND` net *before* the mesh was drawn
+(`reports/20260924-214710-b323061/extract.json`) and reports the same
+692-device net after it — now named `GND|VGND|VSS`, the only visible
+difference being that `cdac_array`'s newly drawn `VSS` label joined the
+merge. `klt erc`'s "one island" verdict
+on `GND` likewise read `1` before and reads `1` after. Reading either as proof
+that the three blocks' grounds are joined *in metal* is exactly the reading
+error DR-012 exists to retire, one level down.
+
+`bin/probe-ground-mesh.py` is the measurement that separates the two claims.
+It rebuilds this assembly twice from the record's own committed sub-block GDS
+— once as shipped, once with `build_layout.py --ablate-ground-mesh`, which
+draws DR-012's pad exactly as #362 shipped it and omits *only* #377's mesh —
+and grades both against the byte-identical ERC supply spec:
+
+| Variant | `erc_status` | `GND` |
+|---|---|---|
+| full (as shipped) | `clean`, 0 findings | one island |
+| mesh ablated | `violations`, 1 finding | `erc.unconnected_net`: *"declared net 'GND' resolves to 2 disconnected electrical islands (expected exactly one)"* |
+
+The two islands the ablated run names are `sampling_frontend`'s own ground
+(met1, bbox 103.495 … 130.115 × 86.45 … 140.72) and the comparator's plus its
+pad (met4, 100.2 … 102.62 × 169.8 … 197.8). `VDD`, `VPWR` and `VGND` are
+unmoved between the variants, as controls, and the full variant's recomposed
+GDS is **byte-identical** (sha256) to the record's own — so the two runs
+differ by the mesh and nothing else.
+
+**That island count covers two of the mesh's three legs, not three**, and the
+gap is a naming one rather than a wiring one: `comparator` and
+`sampling_frontend` both label their terminal `GND`, while `cdac_array`'s is
+labelled `VSS` (its own schematic port name), which the graded ERC spec does
+not declare — so that leg's orphaned island in the ablated run has no declared
+name for `klt erc` to report. Reading the 2-island finding as covering all
+three would be a smaller copy of exactly the over-read this whole section
+exists to retire, so the probe asks a second question. It re-grades the same
+two GDS against a **scratch** spec — the graded one plus a `VSS` supply entry,
+written to the work directory and never committed:
+
+| Variant | graded spec | scratch spec (`+VSS`, diagnostic) |
+|---|---|---|
+| full (as shipped) | `clean` | `erc.supply_short`: *"declared nets 'GND' and 'VSS' are electrically the same net (shorted together)"* |
+| mesh ablated | `GND` splits into 2 islands | no `GND`/`VSS` short — `GND` splits instead |
+
+A short between two declared supplies is normally a defect; here it is the
+measurement. `klt erc` sees drawn conductor and nothing else, so "these two
+labels are one electrical net" is a statement about *metal* — which is
+precisely what the `cdac_array` leg claims, and it is present only when the
+mesh is. The graded spec deliberately does **not** declare `VSS`: doing so
+would turn this block's own T1 item 11 record red over a short that is the
+design.
+
+The summary of both passes is committed at
+`erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`; the script
+exits 3 if **either** prediction fails, so a mesh that stopped mattering —
+in whole or in that one leg — would turn the check red rather than quietly
+passing.
+
+The earlier, narrower ablation from #362 — cut `via3` and the pad separates
+from `comparator`'s ground — is in the previous ERC record's own
+"Cross-checks".
 
 ## Structural supply check (`klt erc`, T1 item 11)
 

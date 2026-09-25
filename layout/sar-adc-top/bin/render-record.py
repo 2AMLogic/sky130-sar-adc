@@ -154,11 +154,25 @@ def main() -> int:
             "flow draws promotes correctly."
         )
         if pins.get("layout") != pins.get("reference"):
+            # Read the merged net's own name out of THIS record's extraction
+            # rather than hard-coding it. It is not a constant: issue #377's
+            # analog ground mesh joined `cdac_array`'s newly-drawn `VSS` pin
+            # to it, so the same net that read `GND|VGND` before the mesh
+            # reads `GND|VGND|VSS` after it. A record that quotes a stale
+            # name has stopped being evidence about its own artefacts.
+            merged = [
+                str(n.get("name"))
+                for n in extract.get("nets", [])
+                if n.get("pin") and "GND" in str(n.get("name", "")).split("|")
+            ]
+            merged_name = (
+                f"`{merged[0]}`" if len(merged) == 1 else "the merged `GND` net"
+            )
             pin_note += (
                 " The layout count is BELOW the reference count by design, not "
                 "by defect: since issue #362 the reference carries `GND` and "
                 "`VGND` as two ports of what the layout extracts as ONE net "
-                "(`GND|VGND` -- the shared p-substrate, which bulk sky130 "
+                f"({merged_name} -- the shared p-substrate, which bulk sky130 "
                 "offers no way to split), so a single promoted layout pin "
                 "answers both reference ports and `matched` counts both. See "
                 "`spec/decision-records/DR-012-analog-ground-pad.md`."

@@ -1,0 +1,436 @@
+{
+  "schema_version": 2,
+  "file": "nwell_rules_fixture.gds",
+  "deck": "sky130",
+  "dbu_um": 0.001,
+  "status": "violations",
+  "violation_count": 2,
+  "rule_counts": {
+    "nwell.space.1": 1,
+    "nwell.width.1": 1
+  },
+  "metrics": {
+    "drc__error__count": 2
+  },
+  "violations": [
+    {
+      "rule": "nwell.space.1",
+      "description": "minimum nwell spacing / isolation between distinct wells",
+      "check": "isolated",
+      "layer": "nwell.drawing",
+      "cell": "NWELL_RULES_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 2000,
+        "bottom": 0,
+        "right": 2500,
+        "top": 2000
+      },
+      "polygon": [
+        [
+          2000,
+          0
+        ],
+        [
+          2000,
+          2000
+        ],
+        [
+          2500,
+          2000
+        ],
+        [
+          2500,
+          0
+        ]
+      ]
+    },
+    {
+      "rule": "nwell.width.1",
+      "description": "minimum nwell width",
+      "check": "width",
+      "layer": "nwell.drawing",
+      "cell": "NWELL_RULES_FIXTURE",
+      "source_cell": null,
+      "source_path": null,
+      "bbox": {
+        "left": 10000,
+        "bottom": 0,
+        "right": 10600,
+        "top": 2000
+      },
+      "polygon": [
+        [
+          10000,
+          0
+        ],
+        [
+          10000,
+          2000
+        ],
+        [
+          10600,
+          2000
+        ],
+        [
+          10600,
+          0
+        ]
+      ]
+    }
+  ],
+  "coverage": {
+    "deck_layers": [
+      "64/20",
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "71/44",
+      "72/20",
+      "89/44",
+      "97/44"
+    ],
+    "layers_checked": [
+      "64/20",
+      "65/20"
+    ],
+    "layers_in_stream_without_rules": [
+      "65/44"
+    ],
+    "rules_checked": [
+      "diff.width.1",
+      "nwell.space.1",
+      "nwell.width.1"
+    ],
+    "rules_skipped": [
+      "capm.enclosing.via3.1",
+      "capm.separation.via3.1",
+      "capm.space.1",
+      "capm.width.1",
+      "capm2.enclosing.via4.1",
+      "capm2.separation.via4.1",
+      "capm2.space.1",
+      "capm2.width.1",
+      "diff.enclosing.licon.1",
+      "li1.enclosing.licon1.1",
+      "li1.space.1",
+      "li1.width.1",
+      "mcon.space.1",
+      "met1.area.1",
+      "met1.enclosing.mcon.1",
+      "met1.enclosing.via.1",
+      "met1.holes_area.1",
+      "met1.space.1",
+      "met1.width.1",
+      "met2.area.1",
+      "met2.enclosing.via.1",
+      "met2.enclosing.via2.1",
+      "met2.holes_area.1",
+      "met2.space.1",
+      "met2.width.1",
+      "met3.area.1",
+      "met3.enclosing.capm.1",
+      "met3.enclosing.via2.1",
+      "met3.enclosing.via3.1",
+      "met3.holes_area.1",
+      "met3.space.1",
+      "met3.width.1",
+      "met4.area.1",
+      "met4.enclosing.capm2.1",
+      "met4.enclosing.via3.1",
+      "met4.enclosing.via4.1",
+      "met4.holes_area.1",
+      "met4.space.1",
+      "met4.width.1",
+      "met5.area.1",
+      "met5.enclosing.via4.1",
+      "met5.holes_area.1",
+      "met5.space.1",
+      "met5.width.1",
+      "poly.enclosing.licon.1",
+      "poly.width.1",
+      "via.space.1",
+      "via.width.1",
+      "via2.space.1",
+      "via2.width.1",
+      "via3.space.1",
+      "via3.width.1",
+      "via4.space.1",
+      "via4.width.1"
+    ],
+    "voltage_domain_warnings": [],
+    "deck_scope": [
+      "cap2m",
+      "capm",
+      "ct",
+      "difftap",
+      "li",
+      "licon",
+      "m1",
+      "m2",
+      "m3",
+      "m4",
+      "m5",
+      "nwell",
+      "poly",
+      "via",
+      "via2",
+      "via3",
+      "via4"
+    ],
+    "schema_version": 1,
+    "known": true,
+    "checked": [
+      "diff.width.1",
+      "nwell.space.1",
+      "nwell.width.1"
+    ],
+    "skipped": [],
+    "inapplicable": [
+      {
+        "id": "capm.enclosing.via3.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm.separation.via3.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm2.enclosing.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm2.separation.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm2.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm2.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "diff.enclosing.licon.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "li1.enclosing.licon1.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "li1.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "li1.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "mcon.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met1.area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met1.enclosing.mcon.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met1.enclosing.via.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met1.holes_area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met1.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met1.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met2.area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met2.enclosing.via.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met2.enclosing.via2.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met2.holes_area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met2.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met2.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met3.area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met3.enclosing.capm.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met3.enclosing.via2.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met3.enclosing.via3.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met3.holes_area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met3.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met3.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.enclosing.capm2.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.enclosing.via3.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.enclosing.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.holes_area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.enclosing.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.holes_area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "poly.enclosing.licon.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "poly.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via2.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via2.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via3.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via3.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via4.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via4.width.1",
+        "reason": "no_applicable_geometry"
+      }
+    ],
+    "unknown": [],
+    "nothing_checked": false,
+    "nothing_checked_reasons": []
+  },
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:c9a922a036fbf425142a526f6a9cc30ab02a0d24e15660244135a36cf94bfd62",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
+  }
+}

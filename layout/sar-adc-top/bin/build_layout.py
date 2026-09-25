@@ -105,14 +105,19 @@ Every net is one of:
   decided in
   `spec/decision-records/DR-010-digital-supply-domain-partition.md`, not here;
   see `digital_supply_rail()`.
-* **Analog ground pad** (`GND` -- issue #362): a via riser on `comparator`'s
-  own drawn `GND` pin -- the only analog-ground conductor any sub-block in
-  this composition exposes -- plus one met4 stub running SOUTH out of that
-  macro's own footprint, carrying the top-level pin label in the open channel
-  above `sampling_frontend`. What that pad is electrically (the p-substrate
-  node's own drawn terminal, not a second node beside it) is decided in
-  `spec/decision-records/DR-012-analog-ground-pad.md`, not here; see
-  `analog_ground_pad()`.
+* **Analog ground mesh** (`GND` -- issues #362 and #377): one met3 trunk in
+  the open channel between `sampling_frontend` and `comparator`, with a met4
+  dropper onto each of the three analog sub-blocks' OWN drawn ground
+  terminals (`comparator.GND`, `sampling_frontend.GND`, `cdac_array.VSS` --
+  the latter two added by #377 inside those sub-blocks), and the top-level
+  `GND` pad label on the comparator dropper. The only net class here whose
+  members were ALREADY one node before any metal was drawn (the p-substrate
+  ties them), which is exactly why its correctness cannot be read off a clean
+  extraction and needs its own ablation check -- see `analog_ground_mesh()`.
+  What that pad is electrically (the p-substrate node's own drawn terminal,
+  not a second node beside it) is decided in
+  `spec/decision-records/DR-012-analog-ground-pad.md`; the mesh's own
+  topology in `spec/decision-records/DR-013-analog-ground-mesh.md`.
 
 Clean room: every number in this module was measured directly from this
 repo's own already-committed sub-block GDS/DEF artefacts (`klt cells`, a
@@ -426,6 +431,16 @@ PIN = {
     ("cdac_array", "TOP_P"): (-2.4, 27.55, MET4),
     ("cdac_array", "TOP_N"): (216.8, 27.55, MET4),
     ("cdac_array", "VDD"): (1.00, -26.37, MET1),
+    # cdac_array's own p-substrate tie, drawn for issue #377: the met1 landing
+    # pad on top of the `tap`/li1/licon1 column its own `cdac_layout.py` now
+    # places at `VSS_TAP_CX`, directly below the VDD n-well tap above. Read
+    # off layer 68/5 (met1.pin) text in
+    # `layout/cdac-array/reports/LATEST/cdac_array.gds` and cross-checked
+    # against the 67/44 (mcon) cut and the 68/20 (met1) pad at the same
+    # position -- the same direct-inspection discipline every other entry in
+    # this table follows. The label text is `VSS`, that sub-block's own
+    # schematic port name; `design/sar_adc_top.sch` is what ties it to `GND`.
+    ("cdac_array", "VSS"): (1.00, -31.60, MET1),
     ("cdac_array", "VREFP"): (-2.0, -34.8, MET1),
     ("cdac_array", "VREFN"): (-2.0, -33.4, MET2),
     # --- sampling_frontend: every y below is +0.92 um vs. the klt-0.4.0 era
@@ -457,6 +472,14 @@ PIN = {
     # G_P/G_N, dropping the two devices that used to supply SAMPLE's old
     # leftmost column (2.67, Sa_p's own PFET-row position).
     ("sampling_frontend", "VDD"): (1.76, 51.82, MET2),
+    # sampling_frontend's own ground track, promoted to a met2.pin for issue
+    # #377 (that sub-block's `PIN_NETS` gained `"GND"`; the track, its columns
+    # and the p-substrate tap feeding it are all unchanged). Position read off
+    # layer 69/5 text in `layout/sampling-frontend/reports/LATEST/
+    # sampling_frontend.gds` exactly like its six siblings above: x = that
+    # net's own leftmost contributing column (39.97, the substrate tap's own
+    # column), y = track 3 of the shared band (50.82 + 3 * 0.50).
+    ("sampling_frontend", "GND"): (39.97, 52.32, MET2),
     ("sampling_frontend", "SAMPLE"): (17.285, 51.32, MET2),
     ("sampling_frontend", "VINP"): (10.10, 54.32, MET2),
     ("sampling_frontend", "VINN"): (22.90, 54.82, MET2),
@@ -571,6 +594,14 @@ WEST_CORRIDOR_X = {  # one exclusive met4 x-track per net that has to cross
     "VDD": -8.0,
     "CLK": -10.0,
     "COMP_OUT": -12.0,
+    # SAMPLE_INT's own crossing column is -14.0 (written inline in `build()`,
+    # not via this table -- see section 5). GND's is the next track west of
+    # it, on the same 2.0 um pitch, and it carries the analog ground mesh's
+    # cdac_array leg (issue #377): from that macro's own `VSS` tap, west out
+    # of the array's confirmed-clear switch-row band, then north to the mesh
+    # trunk. It stops well short of the external `VDD` pin's met4 landing at
+    # x = -20.0 (4.0 um further west, and 56 um further north).
+    "GND": -16.0,
 }
 CDAC_CROSS_Y = -28.08  # met3 y this module crosses cdac_array's own bbox at
 #                        -- inside the confirmed-clear switch-row band
@@ -852,112 +883,318 @@ def digital_supply_rail(c: Canvas, net: str) -> tuple[float, float, float, float
 
 
 # --------------------------------------------------------------------------- #
-# Analog ground pad: GND (issue #362, DR-012).
+# Analog ground: the GND pad (issue #362, DR-012) and the mesh that now feeds
+# it (issue #377, DR-013).
 #
-# `comparator`'s own drawn `GND` pin is the ONLY analog-ground conductor any
-# sub-block in this composition exposes: `sampling_frontend` and `cdac_array`
-# draw no ground pin at all and reach the same node through the p-substrate
-# `klt extract`'s sky130 deck synthesises (`layout/sar-adc-top/README.md`,
-# "GND / VPWR / VGND"). So the analog ground pad is built off that one pin --
-# not because one pin is the ideal ground plan, but because it is the only
-# drawn terminal this composition has, and drawing a second one means opening
-# an already-closed sub-block layout (out of scope here; see DR-012's own
-# "Open items").
+# #362 built the pad on `comparator`'s own drawn `GND` pin because it was the
+# ONLY analog-ground conductor any sub-block in this composition exposed:
+# `sampling_frontend` and `cdac_array` drew no ground pin at all and reached
+# the same node through the p-substrate `klt extract`'s sky130 deck
+# synthesises. DR-012's own "Open items" named that residue rather than
+# absorbing it, and issue #377 is that residue: both sub-blocks now draw a
+# real ground terminal of their own (`layout/sampling-frontend/`'s `GND`
+# met2.pin, `layout/cdac-array/`'s `VSS` met1 pin over a new p-substrate tap),
+# and this module ties all three into one drawn conductor.
+#
+# Why this is worth metal rather than a shrug: the substrate ALREADY joins the
+# three blocks, so the mesh is not what makes them one node -- it is what makes
+# the path between them one this repo draws and `klt drc` grades, instead of
+# 10s of ohms of p-substrate under the comparator's own decision reference
+# (DR-012, "Substrate is a resistor, and the comparator is what pays for it").
+# That the substrate tie is real is exactly why the mesh needs its OWN
+# evidence: a clean extraction showing `GND` as one net proves nothing about
+# the mesh, because it read as one net before the mesh existed. The ablation
+# cross-check in `layout/sar-adc-top/README.md` ("Analog ground mesh") is what
+# separates the two claims -- cut the mesh, and the extraction splits.
 # --------------------------------------------------------------------------- #
 MET4_SPACE_UM = 0.30  # sky130A `m4.2`, the pinned deck's `met4.space.1`.
+MET3_SPACE_UM = 0.30  # sky130A `m3.2`, the pinned deck's `met3.space.1`.
 
 #: y the analog ground pad's own label sits at -- on the met4 stub's stretch
 #: BELOW `comparator`'s own bbox (y0 = 176.3 once placed) and above
 #: `sampling_frontend`'s own top edge (147.22), i.e. in the open channel
 #: between the two analog blocks. Asserted, not assumed, by
-#: `_check_analog_ground_pad()`: a pad label sitting inside a macro's own
+#: `_check_analog_ground_mesh()`: a pad label sitting inside a macro's own
 #: footprint would be a label on someone else's conductor as far as a reader
 #: is concerned, even though `--pin-source-cells` resolves it by position.
+#: Unchanged by issue #377 -- the mesh is added BELOW it, so the pad this
+#: block presents to a package is at the same coordinate DR-012 recorded.
 GND_PAD_Y = 170.0
 
+#: y of the mesh's own met3 trunk -- the horizontal every leg tees into. In
+#: the SAME open channel as `GND_PAD_Y`, 5 um below it, so the pad label still
+#: sits on a plain met4 stretch rather than on a corner where three shapes
+#: meet. met3 (not met4) for the trunk, for the reason `analog_leg`'s own
+#: docstring gives: this module's long-haul verticals are met4, and four of
+#: them (`sampling_frontend`'s TOP_P/TOP_N/VDD/SAMPLE risers) cross this
+#: channel on their way north. A met3 horizontal passes under all four
+#: without touching any of them; a met4 one would short every column it met.
+GND_MESH_Y = 165.0
 
-def analog_ground_pad(c: Canvas) -> tuple[float, float, float, float]:
-    """Carry `comparator`'s own drawn `GND` pin out to a top-level analog
-    ground pad, and return the met4 stub `(x0, y0, x1, y1)` that does it.
 
-    This is the fix for issue #362: before it, `GND` was `.GLOBAL` in
-    `design/sar_adc_top.spice` and drawn inside `comparator`, but no top-level
-    pin of that name existed anywhere -- so the analog return had no terminal a
-    package could bond to, while `VDD` (its own supply) did. `klt erc` does not
-    catch that shape: T1 item 11 grades "does this declared supply resolve to
-    exactly one electrical island", which `GND` always did, pin or no pin.
+#: The three sub-block terminals the mesh joins, as `(block, pin)` -- each one
+#: a conductor that block's OWN layout draws and labels, never a position this
+#: module invented. `comparator.GND` is the pin DR-012 built its pad on;
+#: the other two are what issue #377 added inside the two sub-blocks.
+GND_MESH_MEMBERS = (
+    ("comparator", "GND"),
+    ("sampling_frontend", "GND"),
+    ("cdac_array", "VSS"),
+)
 
-    WHAT this pad is electrically -- and what it is not -- is decided in
-    `spec/decision-records/DR-012-analog-ground-pad.md`, not here. The one
-    fact this function's geometry depends on: in bulk sky130 there is no
-    isolation between the analog ground and the p-substrate, so this pad is
-    the substrate node's own drawn front-side terminal, not a second node
-    beside it.
 
-    Shape: **a via riser at the pin plus one met4 stub running SOUTH**, out of
-    `comparator`'s own footprint into the open channel above
-    `sampling_frontend`. South, not north with the rest of the analog nets,
-    for a measured reason: `comparator`'s own `CLK` pin rises to met4 at
-    x = 102.1 and runs north from y = 198.3, and this pin's own x is 101.5 --
-    0.6 um away, which two 0.4 um-wide met4 wires cannot share without
-    violating `m4.2` (0.30 um). Running south instead puts the two columns'
-    y spans 4.1 um apart, so they never face each other at all.
-    `_check_analog_ground_pad()` asserts exactly that, rather than leaving it
-    to a future reader to re-derive.
+def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]]:
+    """Tie all three sub-blocks' own drawn ground terminals into ONE drawn
+    conductor and land it on the top-level `GND` pad.
 
-    No horizontal leg is drawn, and that is deliberate: every other external
-    pin in this module that travels sideways does so on met3 at its own
-    exclusive jog row (`analog_leg`), and a ground return is the one net where
-    added series metal buys nothing -- the pad's job is to exist and to be
-    low-impedance, not to be co-located with the other analog pins. Its
-    position is provisional in exactly the sense every pin position in this
-    composition is: there is no pad ring yet (see README.md).
+    Returns the mesh's named segments (each an `(x0, y0, x1, y1)` box), for
+    `_check_analog_ground_mesh()` and for the record.
+
+    What #362 left and what this adds
+    ---------------------------------
+    #362/DR-012 gave this block a top-level `GND` pad, built on `comparator`'s
+    own drawn `GND` pin -- the only analog-ground conductor any sub-block then
+    exposed. `sampling_frontend` and `cdac_array` reached that pad only
+    through the p-substrate, which is real (the sky130 extraction deck's own
+    `connect_global`) but is resistance, not conductor: nothing in `klt drc`,
+    `klt lvs` or `klt erc` grades it, and nothing in this repo measures it.
+    This function is the mesh DR-012's "Open items" said was missing.
+
+    Shape: a met3 trunk with three met4 droppers
+    -------------------------------------------
+    One horizontal met3 trunk at `GND_MESH_Y`, in the open channel between
+    `sampling_frontend`'s top edge and `comparator`'s bottom edge, plus one
+    met4 dropper per member:
+
+    * `comparator` (x 101.5): the DR-012 stub itself, extended 5 um further
+      south from `GND_PAD_Y` to the trunk. It still runs SOUTH rather than
+      north with the rest of the analog nets, for #362's own measured reason:
+      `comparator`'s `CLK` pin rises to met4 at x = 102.1 and runs north from
+      y = 198.3, 0.6 um away in x -- two 0.4 um met4 wires cannot share that
+      without violating `m4.2`. Southward, the two columns' y spans never
+      face each other at all.
+    * `sampling_frontend` (x 103.795): a via riser on that block's own `GND`
+      met2 track, exactly where it labels it, then met4 north to the trunk --
+      the same `_riser_and_highway` shape every other pin of that block uses,
+      and the same 6.65 um crossing of its own footprint they all make.
+    * `cdac_array` (x -16.0, the mesh's west-corridor track): that block's
+      `VSS` tap is 200 um south, deep inside the array's own footprint, so
+      its leg mirrors `VDD`'s exactly -- riser to met3 inside the array's
+      confirmed-clear switch-row band, west out of the footprint, then north
+      up an exclusive met4 corridor track to the trunk.
+
+    The trunk is met3 and every dropper is met4 for `analog_leg`'s own reason:
+    four of `sampling_frontend`'s pins (TOP_P/TOP_N/VDD/SAMPLE) cross this
+    channel northbound on met4, and a met4 trunk would short every one of
+    them. The two legs are literally `analog_leg()` calls, the same primitive
+    every other analog-region net here is built from, with the trunk as their
+    shared jog row -- including the `comparator` leg's degenerate
+    `(x, y) -> (x, y)` form, which tees into the trunk exactly the way
+    `TOP_P`'s `sampling_frontend` leg tees into its own.
+
+    What this does NOT claim
+    ------------------------
+    The mesh does not isolate anything. In bulk sky130 the analog ground, the
+    standard cells' substrate ties and the p-substrate are one node, and
+    DR-012 says so in its own "Decision". What the mesh changes is the *path*:
+    the return current between these three blocks now has a drawn metal one,
+    graded by `klt drc`, in parallel with the substrate it always had. No
+    simulation in this repo measures either path's impedance (DR-012's second
+    open item, #378), so no number here is claimed as measured.
+    """
+    segments: dict[str, tuple[float, float, float, float]] = {}
+    half = WIRE_W / 2.0
+
+    # --- comparator: DR-012's own riser + southward stub, unchanged except
+    #     that the stub now continues past the pad label to the trunk.
+    gx, gy, native = global_pin("comparator", "GND")
+    assert native == MET1
+    c.riser(gx, gy, MET1, MET4)
+    segments["comparator_stub"] = (gx - half, GND_MESH_Y - half, gx + half, gy + half)
+
+    # --- sampling_frontend: riser on its own drawn GND met2 track.
+    fx, fy = _riser_and_highway(c, "sampling_frontend", "GND", MET4)
+    segments["sampling_frontend_dropper"] = (fx - half, fy - half, fx + half, GND_MESH_Y + half)
+
+    # --- cdac_array: riser on its own drawn VSS tap, west out of the array's
+    #     confirmed-clear switch-row band, onto this mesh's corridor track.
+    vx, vy, vnative = global_pin("cdac_array", "VSS")
+    assert vnative == MET1
+    c.riser(vx, vy, MET1, MET3)
+    wx = WEST_CORRIDOR_X["GND"]
+    c.wire(MET3, vx, vy, wx, vy, w=WIRE_W)
+    c.riser(wx, vy, MET3, MET4)
+    segments["cdac_escape"] = (wx - half, vy - half, vx + half, vy + half)
+    segments["corridor"] = (wx - half, vy - half, wx + half, GND_MESH_Y + half)
+
+    # --- the two legs, sharing `GND_MESH_Y` as their jog row: cdac_array's
+    #     corridor to sampling_frontend's dropper, and comparator teeing in.
+    analog_leg(c, wx, vy, fx, fy, GND_MESH_Y)
+    analog_leg(c, gx, gy, gx, gy, GND_MESH_Y)
+    segments["trunk"] = (wx - half, GND_MESH_Y - half, fx + half, GND_MESH_Y + half)
+
+    # --- the top-level pad label, at DR-012's own coordinate.
+    c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
+    return segments
+
+
+def analog_ground_pad_without_mesh(c: Canvas) -> None:
+    """Draw DR-012's `GND` pad **and nothing else** -- the ABLATION variant of
+    `analog_ground_mesh()`, reached only via `--ablate-ground-mesh`.
+
+    This is not an alternative design; it is a measuring instrument. `GND`
+    extracts as ONE net whether or not the mesh exists, because the sky130
+    deck's `connect_global` ties every sub-block's substrate together
+    regardless of drawn geometry -- so a clean `klt extract`/`klt erc` verdict
+    on the full layout is *not* evidence that the mesh does anything. The only
+    way to show that it does is to build the same layout without it and watch
+    a geometric connectivity model (`klt erc`, which sees drawn conductor and
+    nothing else) split `GND` into more than one island.
+
+    The variant is deliberately MINIMAL: it reproduces exactly the geometry
+    issue #362 shipped -- the riser on `comparator`'s own `GND` pin, the met4
+    stub south to `GND_PAD_Y`, the pad label -- and omits only the three
+    droppers, the trunk and the two sub-block risers issue #377 added. So the
+    difference between the two ERC runs is the mesh and nothing else: same
+    pad, same label, same position, same sub-block GDS (which still draw their
+    own `GND`/`VSS` terminals; those are unchanged by this flag).
+
+    Driven by `bin/probe-ground-mesh.py`, which runs both variants through the
+    graded `klt erc` spec -- and then through a scratch copy of it that also
+    declares `cdac_array`'s own `VSS` label, so the third mesh leg (whose
+    terminal is not named `GND` and so cannot show up in `GND`'s island count)
+    is measured too -- and writes both comparisons into the ERC record.
     """
     gx, gy, native = global_pin("comparator", "GND")
     assert native == MET1
     c.riser(gx, gy, MET1, MET4)
     c.wire(MET4, gx, gy, gx, GND_PAD_Y, w=WIRE_W)
     c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
-    half = WIRE_W / 2.0
-    return (gx - half, GND_PAD_Y - half, gx + half, gy + half)
 
 
-def _check_analog_ground_pad(stub: tuple[float, float, float, float]) -> None:
-    """Standing assertions for `analog_ground_pad()`'s own geometry.
+#: Which placed block each mesh segment is ALLOWED to overlap. A dropper has
+#: to enter its own member's footprint -- that is what landing on a pin means
+#: -- and nothing else may enter anyone's.
+GND_MESH_ALLOWED_BBOX = {
+    "comparator_stub": {"comparator"},
+    "sampling_frontend_dropper": {"sampling_frontend"},
+    "cdac_escape": {"cdac_array"},
+    "corridor": set(),
+    "trunk": set(),
+}
 
-    1. The pad label sits in the open channel between `comparator`'s own bbox
-       and `sampling_frontend`'s -- not inside either.
-    2. The stub runs AWAY from every other `comparator` met4 column that is
-       too close in x to run beside it. Every other `comparator` pin this
-       module touches risers to met4 and travels NORTH (`analog_leg`), so a
-       neighbour within `WIRE_W + MET4_SPACE_UM` in x is only safe while its
-       own pin sits at or above `GND`'s -- which is what makes the southward
-       stub legal. A future re-route that walks one of those columns south,
-       or moves `GND`'s own pin, fails here instead of in `klt drc`.
+#: The y band inside `cdac_array`'s own footprint that this module is allowed
+#: to cross on met3/met4 -- verified free of that block's own met3/met4 across
+#: its full width by direct GDS inspection (`layout/sar-adc-top/README.md`,
+#: "Per-block internal-layer occupancy"; re-confirmed against the post-#377
+#: GDS, which adds only tap/li1/licon1/mcon/met1 shapes there).
+CDAC_CLEAR_BAND_Y = (-35.0, -25.0)
+
+
+def _boxes_separation(a: tuple[float, ...], b: tuple[float, ...]) -> float:
+    """Euclidean separation between two axis-aligned boxes (0.0 if they
+    touch or overlap) -- the quantity `met3.space`/`met4.space` grade."""
+    dx = max(0.0, b[0] - a[2], a[0] - b[2])
+    dy = max(0.0, b[1] - a[3], a[1] - b[3])
+    if dx > 0.0 and dy > 0.0:
+        return (dx * dx + dy * dy) ** 0.5
+    return max(dx, dy)
+
+
+def _check_analog_ground_mesh(
+    c: Canvas,
+    segments: dict[str, tuple[float, float, float, float]],
+    mesh_slice: tuple[int, int],
+) -> None:
+    """Standing assertions for `analog_ground_mesh()`'s own geometry.
+
+    The whole reason DR-012 exists is that a clean `klt erc` verdict on `GND`
+    was once read as proving more than it said. The mesh is exposed to the
+    same failure one layer down: `GND` extracts as one net whether or not the
+    mesh is drawn (the substrate joins it either way), so a clean DRC/LVS/ERC
+    pass is NOT evidence that the mesh is correct, or even present. These
+    assertions plus the ablation cross-check in README.md are what is.
+
+    1. Both the pad label and the trunk sit in the open channel between
+       `sampling_frontend`'s top edge and `comparator`'s bottom edge, with the
+       label above the trunk (so it lands on a plain met4 stretch).
+    2. Every mesh segment stays out of every placed block's bbox, except the
+       one footprint it must enter to reach its own member's pin -- and
+       `cdac_array`'s only inside the confirmed-clear switch-row band.
+    3. **No met3/met4 shape the mesh draws comes within `m3.2`/`m4.2` of any
+       met3/met4 shape the REST of this module draws.** Checked geometrically
+       against the drawn shapes themselves, not against a hand-listed set of
+       neighbours: it therefore also covers #362's original "the southward
+       stub never faces `comparator.CLK`'s northbound column" argument,
+       exactly, instead of re-deriving it from pin y-ordering. Zero separation
+       (touching) fails too -- two shapes that touch are one net, and no other
+       net in this module may join `GND`.
+
+       Scope, stated rather than implied: this checks the shapes THIS module
+       draws against each other. The mesh's clearance to each sub-block's own
+       internal geometry is graded by `klt drc` on the composed layout, which
+       is where a sub-block's own metal is visible at all.
     """
-    sx0, sy0, sx1, sy1 = stub
     _cx0, cy0, _cx1, _cy1 = global_bbox("comparator")
     _fx0, _fy0, _fx1, fy1 = global_bbox("sampling_frontend")
-    if not (fy1 < GND_PAD_Y < cy0):
-        raise SystemExit(
-            f"build_layout.py: GND pad label y {GND_PAD_Y} is not in the open "
-            f"channel between sampling_frontend's own top edge ({fy1}) and "
-            f"comparator's own bottom edge ({cy0})"
-        )
-    gx, gy, _ = global_pin("comparator", "GND")
-    for (block, name), (_x, _y, _layer) in PIN.items():
-        if block != "comparator" or name == "GND":
-            continue
-        nx, ny, _nlayer = global_pin(block, name)
-        if abs(nx - gx) >= WIRE_W + MET4_SPACE_UM:
-            continue
-        if ny < gy:
+    for label, y in (("pad label", GND_PAD_Y), ("mesh trunk", GND_MESH_Y)):
+        if not (fy1 < y < cy0):
             raise SystemExit(
-                f"build_layout.py: GND's southward met4 stub (x {sx0}..{sx1}, "
-                f"y {sy0}..{sy1}) runs beside comparator.{name}'s own met4 "
-                f"column at x {nx}, only {abs(nx - gx)} um away -- m4.2 needs "
-                f"{MET4_SPACE_UM} um between two {WIRE_W} um wires"
+                f"build_layout.py: GND {label} y {y} is not in the open channel "
+                f"between sampling_frontend's own top edge ({fy1}) and "
+                f"comparator's own bottom edge ({cy0})"
             )
+    if not GND_MESH_Y < GND_PAD_Y:
+        raise SystemExit(
+            f"build_layout.py: the GND mesh trunk ({GND_MESH_Y}) must stay "
+            f"BELOW the pad label ({GND_PAD_Y}), so the label sits on a plain "
+            "met4 stretch rather than on the trunk corner"
+        )
+
+    for name, seg in segments.items():
+        allowed = GND_MESH_ALLOWED_BBOX[name]
+        for block in BBOX:
+            bx0, by0, bx1, by1 = global_bbox(block)
+            if not (seg[0] < bx1 and bx0 < seg[2] and seg[1] < by1 and by0 < seg[3]):
+                continue
+            if block not in allowed:
+                raise SystemExit(
+                    f"build_layout.py: the GND mesh's {name} segment "
+                    f"{seg} enters {block}'s own bbox, which it may not"
+                )
+            if block == "cdac_array" and not (
+                CDAC_CLEAR_BAND_Y[0] <= seg[1] and seg[3] <= CDAC_CLEAR_BAND_Y[1]
+            ):
+                raise SystemExit(
+                    f"build_layout.py: the GND mesh's {name} segment {seg} "
+                    f"crosses cdac_array outside the confirmed-clear "
+                    f"switch-row band {CDAC_CLEAR_BAND_Y}"
+                )
+
+    lo, hi = mesh_slice
+    mesh = [(layer, rect) for layer, rect in c.shapes[lo:hi] if layer in (MET3, MET4)]
+    others = [
+        (i, layer, rect)
+        for i, (layer, rect) in enumerate(c.shapes)
+        if layer in (MET3, MET4) and not (lo <= i < hi)
+    ]
+    limit = {MET3: MET3_SPACE_UM, MET4: MET4_SPACE_UM}
+    for layer, rect in mesh:
+        for i, other_layer, other in others:
+            if other_layer != layer:
+                continue
+            gap = _boxes_separation(rect, other)
+            if gap < limit[layer] - 1e-9:
+                raise SystemExit(
+                    f"build_layout.py: a GND mesh shape on layer {layer} "
+                    f"({rect}) is {gap:.3f} um from this module's own shape "
+                    f"#{i} ({other}) -- "
+                    + (
+                        "they TOUCH, which merges GND with another net"
+                        if gap <= 0.0
+                        else f"space needs {limit[layer]} um"
+                    )
+                )
 
 
 def _check_digital_rail_clearance(rails: dict[str, tuple[float, float, float, float]]) -> None:
@@ -996,7 +1233,13 @@ def _check_digital_rail_clearance(rails: dict[str, tuple[float, float, float, fl
                 )
 
 
-def build() -> tuple[dict, dict]:
+def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
+    """Build the whole assembly's draw + compose requests.
+
+    `ablate_ground_mesh=True` builds the measuring-instrument variant instead
+    of the design: DR-012's `GND` pad alone, with issue #377's mesh omitted.
+    See `analog_ground_pad_without_mesh()` -- it is never the shipped layout.
+    """
     _check_no_overlap()
     c = Canvas()
 
@@ -1209,14 +1452,26 @@ def build() -> tuple[dict, dict]:
     _check_digital_rail_clearance(rails)
 
     # ------------------------------------------------------------------ #
-    # 8. Analog ground pad GND (issue #362, DR-012): a via riser on
-    #    `comparator`'s own drawn GND pin -- the only analog-ground
-    #    conductor any sub-block here exposes -- plus one met4 stub south,
-    #    out of that macro's own footprint, carrying the top-level pin
-    #    label. See `analog_ground_pad()` for the whole argument, and
-    #    DR-012 for what this pad is and is not electrically.
+    # 8. Analog ground: the GND pad (issue #362, DR-012) and the mesh that
+    #    feeds it (issue #377, DR-013). One met3 trunk in the open channel
+    #    between the two analog blocks, three met4 droppers -- one onto each
+    #    sub-block's OWN drawn ground terminal (`comparator.GND`,
+    #    `sampling_frontend.GND`, `cdac_array.VSS`) -- and the top-level pin
+    #    label at DR-012's own coordinate on the comparator stub. See
+    #    `analog_ground_mesh()` for the whole argument, DR-012 for what this
+    #    pad is and is not electrically, and DR-013 for the mesh topology.
+    #
+    #    The mesh's shapes are tracked as a slice of the canvas so
+    #    `_check_analog_ground_mesh()` can grade them against everything
+    #    else this module drew -- including the sections above, which is why
+    #    this stage is last.
     # ------------------------------------------------------------------ #
-    _check_analog_ground_pad(analog_ground_pad(c))
+    if ablate_ground_mesh:
+        analog_ground_pad_without_mesh(c)
+    else:
+        mesh_lo = len(c.shapes)
+        mesh_segments = analog_ground_mesh(c)
+        _check_analog_ground_mesh(c, mesh_segments, (mesh_lo, len(c.shapes)))
 
     draw_params = {
         "shapes": [
@@ -1265,9 +1520,20 @@ def build() -> tuple[dict, dict]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("out_dir", type=Path)
+    parser.add_argument(
+        "--ablate-ground-mesh",
+        action="store_true",
+        help=(
+            "MEASUREMENT VARIANT, never the shipped layout: draw DR-012's GND "
+            "pad alone and omit issue #377's analog ground mesh, so a "
+            "connectivity model can be asked whether the mesh is what joins "
+            "the three analog blocks' grounds (see "
+            "analog_ground_pad_without_mesh() and bin/probe-ground-mesh.py)"
+        ),
+    )
     args = parser.parse_args()
 
-    draw_params, compose_request = build()
+    draw_params, compose_request = build(ablate_ground_mesh=args.ablate_ground_mesh)
     (args.out_dir / "draw.request.json").write_text(json.dumps(draw_params, indent=2) + "\n")
     (args.out_dir / "compose.request.json").write_text(
         json.dumps(compose_request, indent=2) + "\n"
