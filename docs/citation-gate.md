@@ -1080,11 +1080,14 @@ sentence was false for **33 of the 67** records under `layout/*/reports/` and
 `layout/*/erc-reports/`, for two independent reasons:
 
 - **Renderer divergence.** Four of the eight `layout/` flows' record
-  renderers resolve the commit (`klt pdk find --pdk <variant> --format json`,
-  printing its `version`); the other four print `- PDK variant: <variant>` --
-  the variant *name*, which is not a pin. `layout/sar-adc-top/`, whose DRC
-  and LVS verdicts Section 4's sign-off-bar rows rest on, is one of the four
-  that do not.
+  renderers resolved the commit (`klt pdk find --pdk <variant> --format
+  json`, printing its `version`); the other four printed `- PDK variant:
+  <variant>` -- the variant *name*, which is not a pin. `layout/sar-adc-top/`,
+  whose DRC and LVS verdicts Section 4's sign-off-bar rows rest on, was one
+  of the four that did not. (Issue #407, closed by PR #420 on 2026-09-25;
+  every entry point resolves it now, which is what **check 30** below grades.
+  Stated in the past tense for that reason -- the 33-of-67 shortfall this
+  check was derived from is unchanged, because records are append-only.)
 - **`klt` stamps no PDK for these invocations.** `provenance.pdk` is `null`
   in a `--deck sky130`-invoked `drc.json` / `lvs.json` / `extract.json`, and
   `{"name": "sky130", "source": "built-in", "version": null}` in the ERC
@@ -1098,8 +1101,11 @@ this check landed and every record minted since -- because `sim/run_corners.py
 drift there is fatal by default. (Stated that way rather than as a bare live
 count on purpose: the count moves with every new record, and the number that
 *is* re-derived per run lives in the document's own census, not here.) That asymmetry is the finding, and stating
-it is the point: the gap itself is tracked as issue #407, which this check
-does not close and must not be read as closing.
+it is the point: the gap itself was tracked as issue #407, which this check
+did not close and must not be read as having closed. What PR #420 did close
+is the *renderer* half of it; this census is over records, and records are
+append-only, so it does not move until each flow re-runs. Check 30 exists to
+keep those two facts from being confused for one another.
 
 **What it grades.** Five numbers in one sentence -- the `sim/` records and
 how many name both an `ngspice` version and a 40-hex `open_pdks` commit, then
@@ -1107,7 +1113,7 @@ the `layout/` records and how many name a `klt` version and a commit -- each
 re-derived from the tree, in both directions like checks 8, 10, 14--18, 20,
 24 and 25. Both directions matter more here than usual: the failure mode this
 check exists for is a *widening* of the claim back to "every record", and the
-failure mode after #407 lands is a census that stays pessimistic while the
+failure mode after #407 landed is a census that stays pessimistic while the
 flows have started pinning. An absent census is a finding too, anchored on
 the document citing `sim/toolchain.json`, so deleting the inconvenient
 numbers is not a way to pass while still describing the flow as reproducible.
@@ -1347,6 +1353,73 @@ it say anything about *why* a path is absent (unmerged PR, closed proposal,
 never filed); that is forge state, which check 27 already establishes this
 gate cannot read. What it guarantees is narrower and enough: a passage cannot
 keep describing an absence after the absence ends.
+
+### Check 30 -- record-renderer census (`check_renderer_census`)
+
+Check 26 counts **records**. This one counts the **entry points that mint
+them**, and it exists because the first number alone is ambiguous in a way
+that matters.
+
+`layout/` records are append-only evidence (`CLAUDE.md`): a record is never
+re-minted, so a shortfall in check 26's census is retired only as each flow
+next re-runs, not on the day the bug behind it is fixed. "**34** of the
+**67** records name the `open_pdks` commit" therefore reads *identically* in
+two opposite worlds -- one where the flows still mint records without the
+pin, and one where every renderer was fixed this morning and the 33 that
+fall short are history nothing is allowed to rewrite. A reader of the brief
+cannot tell those apart from the census, and the difference is the whole
+question they care about: *can I reproduce the next record you publish?*
+
+Section 8 answered it in prose -- "four of the eight `layout/` flows' record
+renderers resolve the commit ... and four print only the variant name" --
+and prose is what rots. **PR #420 (issue #407) fixed the other four and the
+ERC driver on 2026-09-25, and nothing in this gate could see that the
+explanation had gone false while every number beside it stayed true.** That
+is the same defect shape check 26 itself was added for, one level up: a
+sentence that speaks for the whole tree, backed by nothing.
+
+**What it grades.** Three numbers and an exception list, in one sentence,
+re-derived from the tree in both directions: how many record-minting entry
+points exist under `layout/`, how many resolve the `open_pdks` commit before
+writing a record, how many do not, and which ones. An entry point is
+resolved by the convention this repository follows uniformly -- a flow-local
+`layout/<flow>/bin/render-record.py` where the flow has one, the shared
+`layout/bin/render-record.py` otherwise (`layout/trivial-cell/` has no `bin/`
+of its own), and `layout/<flow>/bin/run-erc.sh` for an `erc-reports/` tree,
+whose `record.md` is hand-written from what that script prints. Counted over
+entry points rather than over record trees, because that is the unit a fix is
+made in: one renderer minting two trees is one place to change.
+
+"Resolves the commit" is a `klt pdk find` invocation (argv-list or shell
+spelling) or a call to `layout/bin/_record_common.py`'s `resolve_pdk_commit`,
+in the entry point or -- for a renderer that is nothing but a title and a call
+to `render_pnr_drc_lvs_record` -- in the shared record builder it delegates
+to. The delegation is matched on that function name specifically, not on
+"mentions the shared module": a renderer importing only `build_argparser`
+delegates no provenance at all and must not inherit the shared module's pin.
+The test is deliberately **not** a search for the word "pdk" -- every one of
+these files names a PDK variant, and printing only the variant name is the
+defect.
+
+An absent census is a finding, anchored on the document stating check 26's
+record census: the two are a pair, and stating the lagging number while
+dropping the leading one is exactly the ambiguity this check removes. A
+record tree whose entry point does not exist is counted as not resolving and
+named in the census rather than skipped -- an unattributable record tree is
+a gap of the same kind, not an exemption.
+
+**What this check deliberately does NOT cover.** It is a source-level test:
+it establishes that each entry point *asks* for the commit, not that any
+particular record *carries* one -- that is check 26's job, and the two are
+kept separate on purpose so neither can be read as the other. It does not
+run a renderer (this gate is PDK-free and network-free by design); the
+behavioural half lives in `sim/tests/test_layout_record_pdk_pin.py`, which
+exercises `resolve_pdk_commit`'s success and degradation paths and asserts
+the rendered Provenance line satisfies check 26's own `_names_pdk_commit`
+predicate. Nor does it check that the commit an entry point resolves is the
+one `sim/pdk.json` pins, for the reason recorded under check 26: cross-
+checking the pin belongs to the flow that mints a record, not to a reader of
+one.
 
 ## What the gate deliberately does not cover
 
