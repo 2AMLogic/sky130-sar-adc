@@ -89,6 +89,25 @@ Both transformations are asserted rather than assumed: a shape change in
 `design/sar_adc_top.spice` or in the committed fragment fails the run loudly
 instead of quietly producing a deck that measures something else.
 
+### How to check this campaign did not fool itself
+
+Two cross-checks are readable straight off the committed artefacts, and both
+must hold or nothing else here means anything:
+
+1. **The control arm must reproduce the existing ideal-ground baseline, code
+   for code.** Renaming `GND` to `GND_DIE` and driving it from a 0 V source is
+   supposed to be electrically identical to letting ngspice alias it onto node
+   `0`. Compare the `ideal` row of this campaign's record against the same
+   corner's row in
+   [`sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`](../full-conversion-transient/records/20260912-002315-9aaf1ca.md):
+   at `tt_27c_1.80v` both read **214 / 383 / 511 / 641 / 1023**. A mismatch
+   would mean the deck assembly changed the circuit, not just its ground
+   network.
+2. **The control arm's die-side ground excursion must be exactly zero.** An
+   ideal source holds `GND_DIE` at 0 V, so `gnd_die_pp` is `0.000 mV` in the
+   `ideal` row. A nonzero value there would mean the arm network is not wired
+   the way the record says it is.
+
 ## What it measures
 
 | Quantity | How |

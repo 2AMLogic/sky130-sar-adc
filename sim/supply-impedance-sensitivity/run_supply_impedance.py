@@ -1039,7 +1039,7 @@ def write_record(
                 "nanosecond than the control arm, which projects to several hours "
                 "for one run of this stimulus. It is implemented, it is reachable "
                 "with `--arms`, and it remains the arm that would price DR-012's "
-                "rejected alternative directly -- so the conclusions below are "
+                "rejected alternative directly -- so this record's findings are "
                 "about the *cost of the bonded return*, and say nothing about what "
                 "the null option would have cost."
             )

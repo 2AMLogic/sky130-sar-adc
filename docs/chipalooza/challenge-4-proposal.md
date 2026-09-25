@@ -2829,6 +2829,9 @@ tracker already owns.
    > **DR-014**
    > (`spec/decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md`)
    > is **proposed**.
+   > **DR-015**
+   > (`spec/decision-records/DR-015-package-parasitic-assumption.md`) is
+   > **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
