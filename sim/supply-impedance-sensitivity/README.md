@@ -143,12 +143,30 @@ so a change there cannot be attributed to supply impedance. They are still
 printed in full in every record: excluded from the comparison, not from the
 evidence.
 
-**No decoupling exists anywhere in this design** — on-die decoupling is an
-explicit open item of both DR-010 and DR-012, and no board decoupling is
-modelled here either. The bonded arms are therefore an *undecoupled* package,
-and the rail excursions they report are an upper bound rather than a prediction
-for a decoupled system. That is stated in the record, not left for a reader to
-infer.
+**Which decoupling is in the deck changed on 2026-09-25, and a record's own
+`DUT netlist sha256` is how you tell which case it is.** This campaign always
+runs whatever `design/sar_adc_top.spice` commits; it adds no decoupling of its
+own and never has.
+
+- **Before [DR-016](../../spec/decision-records/DR-016-on-die-decoupling-budget.md)**
+  (issue #431) the design had none at all, which is what
+  [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)
+  item 6 records as a deliberate modelling choice. `records/20260925-073912-0e385e5.md`
+  is that undecoupled case, and stays the only committed measurement of it.
+- **Since DR-016** the design carries one `cap_mim_m3_1` per supply domain
+  (`Cdecap_a` across `VDD`/`GND`, `Cdecap_d` across `VPWR`/`VGND`, `MF = 2` →
+  8.870 pF each), so every record minted after it is the *decoupled* case.
+
+**No board decoupling is modelled in either case**, so the bonded arms' rail
+excursions remain an upper bound rather than a prediction for a real, decoupled
+system. That is stated in the record, not left for a reader to infer.
+
+DR-016 also corrects one expectation this campaign carried: DR-015 rejected
+adding decoupling partly because it would make the bonded arms "ring less and
+simulate faster". Measured, the opposite happens — more capacitance against the
+same 102.2 mΩ bond raises the tank's Q, and the `package` arm got *slower*. See
+DR-016's own wall-clock note before budgeting a `--corners` or `--sweep` run
+from the pre-DR-016 numbers below.
 
 ## Cold start
 

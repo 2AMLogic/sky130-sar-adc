@@ -13,7 +13,7 @@
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
 *   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
 *   design/sar_sequencer.sch: sha256:9d76813255ceb43a7f2dcde6cba04d6396cb9e7767c3e0f2cce178b5db849999
-*   design/sar_adc_top.sch: sha256:cc88452bd87e9186d60d195322b55fb07cd0eb6ffb81393e523a4a86a674eb2b
+*   design/sar_adc_top.sch: sha256:5d446b167e1d8e599b94b560cc073bdb34db16af995ac14458e6e17b03d6d800
 *
 * Every device instance below is a ratified flavour (nfet_01v8/pfet_01v8/
 * cap_mim_m3_1 sky130_fd_pr primitives, or sky130_fd_sc_hd standard
@@ -87,6 +87,8 @@ XChoff_p BOT_OFF_P TOP_P sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1
 XMoff_p_refp BOT_OFF_P VGND VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
 XMoff_p_cmn BOT_OFF_P VGND VCM GND sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29 pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1 m=1
 XMoff_p_cmp BOT_OFF_P VPWR VCM VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58 pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1 m=1
+XCdecap_a GND VDD sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=2 m=2
+XCdecap_d VGND VPWR sky130_fd_pr__cap_mim_m3_1 W=46.9 L=46.9 MF=2 m=2
 **.ends
 * expanding   symbol:  design/sampling_frontend.sym # of pins=9
 ** sym_path: design/sampling_frontend.sym

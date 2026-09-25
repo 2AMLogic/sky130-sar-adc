@@ -206,11 +206,16 @@ regenerated netlist `design/sar_adc_top.spice`.
 sub-blocks above are not the whole design: outside every sub-block,
 `design/sar_adc_top.sch` adds **33** `sky130_fd_sc_hd` instances of **6** cell
 types — `and2_1` **×18**, `and2b_1` **×1**, `inv_1` **×3**, `mux2_1` **×1**,
-`xnor2_1` **×1**, `xor2_1` **×9** — and **8** `sky130_fd_pr` instances of
-**3** device types — `cap_mim_m3_1` **×2**, `nfet_01v8` **×2**, `pfet_01v8`
+`xnor2_1` **×1**, `xor2_1` **×9** — and **10** `sky130_fd_pr` instances of
+**3** device types — `cap_mim_m3_1` **×4**, `nfet_01v8` **×2**, `pfet_01v8`
 **×4**. Both censuses are recomputed from `design/sar_adc_top.spice`'s own
 instance lines and graded in both directions, per cell type, so a glue cell
-added, removed, or swapped for another fails CI here. What each group is:
+added, removed, or swapped for another fails CI here. **Two of the four
+`cap_mim_m3_1` are new this pass** (2026-09-25, issue #431): `Cdecap_a`
+(`VDD`/`GND`) and `Cdecap_d` (`VPWR`/`VGND`), the per-domain on-die
+decoupling capacitors
+[DR-016](../../spec/decision-records/DR-016-on-die-decoupling-budget.md)
+sizes; the other two (`Choff_n`, `Choff_p`) predate it. What each group is:
 
 - The **eighteen `and2_1`** are
   [DR-008](../../spec/decision-records/DR-008-cdac-top-level-switching-polarity.md)'s
@@ -231,11 +236,19 @@ added, removed, or swapped for another fails CI here. What each group is:
 - The **third `inv_1`** (`xinv_clkcap`) inverts `CLK` to `CLKN` so the
   comparator is strobed at the end of the evaluate phase rather than its start
   (issue #264) — not a DR-008/DR-009 device.
-- All **eight `sky130_fd_pr` instances** are DR-009's half-LSB quantizer-offset
-  network (two `cap_mim_m3_1` injection caps and their six drive FETs) — the
-  only analog devices this design draws outside a sub-block, and the reason
-  §2.2's `VDD` row names "the DR-009 offset network" as a load on the analog
-  rail.
+- **Eight of the ten `sky130_fd_pr` instances** are DR-009's half-LSB
+  quantizer-offset network (two `cap_mim_m3_1` injection caps and their six
+  drive FETs) — the reason §2.2's `VDD` row names "the DR-009 offset network"
+  as a load on the analog rail.
+- The **remaining two `cap_mim_m3_1`** (`Cdecap_a`, `Cdecap_d`) are
+  [DR-016](../../spec/decision-records/DR-016-on-die-decoupling-budget.md)'s
+  per-domain on-die decoupling, one across `VDD`/`GND` and one across
+  `VPWR`/`VGND`. They are not switched by any conversion event and are not
+  part of DR-009's network. **They exist in `design/` only**: no
+  `layout/sar-adc-top/` composition places them yet, so every DRC/LVS record
+  under that directory predates them (DR-016's own "Open items", and §7 Item
+  1's LVS device-count discussion). Together with the eight above they are
+  the only analog devices this design draws outside a sub-block.
 
 **None of those 33 cells is a `SELn<i>` inverter.** Issue #56's original
 integration drew `SELn<i> = NOT(DOUT<i>)` as nine dedicated `inv_1`
