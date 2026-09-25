@@ -581,9 +581,12 @@ placing all five sub-block layouts
   reaching a top-level supply, corroborated independently by that layout
   record's `lvs.json` `net_correspondence` (`VPB|VPWR` ↔ `VPWR_SEQ`,
   `VPB|VPWR$1` ↔ `VPWR_SELN`). It was not tuned away; issue #355 fixed the
-  **layout** (the supply spec's content hash is byte-identical across the two
-  runs), and the current run
-  ([`erc-reports/20260924-214731-b323061/record.md`](../../layout/sar-adc-top/erc-reports/20260924-214731-b323061/record.md))
+  **layout** (the supply spec's content hash, `sha256:fd4f5a93…`, is
+  byte-identical across every run of this flow), and the current run
+  ([`erc-reports/20260924-234116-66dca3c/record.md`](../../layout/sar-adc-top/erc-reports/20260924-234116-66dca3c/record.md),
+  issue #377's analog ground mesh — it supersedes `20260924-214731-b323061`
+  (issue #362's analog ground pad) and `20260924-190825-f3622fc` (issue #355),
+  neither of which moved a number in this bullet)
   reports `erc_status: clean`, 0 findings — all four supplies at one island
   each, no `erc.supply_short`. **That is the continuity half only**: the
   checklist item also requires zero `erc.missing_tie` from a tie the run
@@ -3245,7 +3248,8 @@ tracker already owns.
    supply.
 
    **Issue #355 (2026-09-24) fixed it, in the layout and not in the gate.**
-   The supply spec's content hash is byte-identical across the two runs; what
+   The supply spec's content hash (`sha256:fd4f5a93…`) is byte-identical
+   across every run of this flow, the failing 2026-09-23 one included; what
    changed is `layout/sar-adc-top/bin/build_layout.py`, which now ties both
    standard-cell macros' own met5 PDN straps together and out to two new
    top-level supply pins, per
@@ -3254,26 +3258,57 @@ tracker already owns.
    the sequencer switches coincidentally with the comparator decision by
    construction, so a shared metal rail would land the standard-cell bank's
    switching current on the comparator's own supply). The current run,
-   [`layout/sar-adc-top/erc-reports/20260924-214731-b323061/record.md`](../../layout/sar-adc-top/erc-reports/20260924-214731-b323061/record.md),
+   [`layout/sar-adc-top/erc-reports/20260924-234116-66dca3c/record.md`](../../layout/sar-adc-top/erc-reports/20260924-234116-66dca3c/record.md),
    reports `erc_status: clean`, **0** findings:
 
    | Supply | Islands, 2026-09-23 | Islands, now | Continuity verdict |
    |---|---:|---:|---|
    | `VDD` | 1 | 1 | pass |
-   | `GND` | 1 | 1 | pass — and since #362 on conductor that reaches a drawn top-level pin; still **read narrowly**, see below |
+   | `GND` | 1 | 1 | pass — and since #362 on conductor that reaches a drawn top-level pin, since #377 on a mesh joining all three analog blocks' own ground terminals; still **read narrowly**, see below |
    | `VPWR` | 2 | **1** | pass |
    | `VGND` | 2 | **1** | pass |
+
+   The citation above is the *third* ERC record of this flow, not #355's own:
+   `erc-reports/` is append-only like every other evidence tree here, so #362
+   (`20260924-214731-b323061`) and then #377 (`20260924-234116-66dca3c`) each
+   minted a fresh verdict beside #355's `20260924-190825-f3622fc`. None of the
+   three moved a number in the table above — which is exactly why this
+   paragraph cited a superseded record for a day without any number looking
+   wrong, and why the citation itself is now gated (check 23, below).
 
    No `erc.supply_short` and no `erc.floating_gate` is reported anywhere. That
    the new met5 geometry is what joins the islands is not asserted: ablating
    met5 from the spec puts both digital rails back at two islands, and
    ablating `via4` alone splits each into three against the pre-#355 stream's
-   four — the #355 record's own "Cross-checks" table. The current record adds
-   the same style of check for #362's analog ground pad: ablating `via3` splits
-   `GND` into two islands (`comparator`'s own ground and the new met4 stub),
-   where the identical ablation against the pre-#362 stream splits it into
-   none, which is what shows the stub is joined through this flow's own riser
-   rather than floating under the label.
+   four — the #355 record's own "Cross-checks" table. Each successor record
+   adds the same style of check for its own change, and the current one's is
+   the strongest of the three, because it had the most to prove: `GND` read
+   "1 island" before #362 drew a pad on it, "1 island" after, and "1 island"
+   again after #377 meshed three sub-block ground terminals into it, so the
+   integer is evidence about none of them. What is evidence is the ablation.
+   `layout/sar-adc-top/bin/probe-ground-mesh.py` rebuilds this assembly twice
+   from the record's own committed sub-block GDS — once as shipped, once with
+   `build_layout.py --ablate-ground-mesh`, which draws DR-012's pad exactly as
+   #362 shipped it and omits *only* #377's mesh — and grades both against the
+   byte-identical spec: as shipped, `clean` / 0 findings / `GND` one island;
+   mesh ablated, `violations` / 1 finding / `erc.unconnected_net` naming two
+   islands (`sampling_frontend`'s own met1 ground and the comparator's plus
+   its pad, on met4), with `VDD`/`VPWR`/`VGND` unmoved as controls and the
+   full variant's recomposed GDS byte-identical (sha256) to the one the record
+   grades. The stackup ablations #362 introduced are re-run on both streams
+   and now say more than they did: removing `via3` splits `GND` into **3**
+   islands on this GDS against **2** on the pre-#377 one, removing `via2` the
+   same 3-against-2, and removing met4 from the stackup — which deletes the
+   droppers but leaves the met3 trunk — splits it into **2** where the
+   pre-#377 layout had nothing to disconnect. The third mesh leg is reached by
+   a separate probe rather than counted in with the other two: `cdac_array`'s
+   terminal is labelled `VSS` (its own schematic port name) and the graded
+   spec deliberately does not declare `VSS`, so the probe re-grades both
+   streams against a scratch `+VSS` spec written to its work directory and
+   never committed — as shipped, `erc.supply_short` between `GND` and `VSS`
+   (here the *measurement*: this model sees drawn conductor and nothing else,
+   so "one electrical net" is a statement about metal); mesh ablated, no short
+   at all. The probe exits 3 rather than 0 if either prediction ever fails.
 
    **The "Islands, now" column above is hand-transcribed, and as of this pass
    the gate recomputes it** (check 16 of the
@@ -3317,6 +3352,28 @@ tracker already owns.
    already carried, item 11 stays UNMET for the two reasons below, and both
    §4 sign-off-bar rows are untouched.
 
+   **What check 16 could not see, and check 23 now does (added this pass).**
+   That readout is generated from the pointer, so it was correct the day #377
+   minted a new ERC record — while the *prose* three paragraphs above it went
+   on introducing #355's fix with "the current run" and a citation of
+   `20260924-214731-b323061`, the run that graded the GDS before the current
+   one. The two passages contradicted each other for a day and no check could
+   say so: check 16 never reads what path the surrounding prose cites, and
+   checks 3/4 match the `records/`/`reports/` trees only, so an
+   `erc-reports/` citation is invisible to them however it is written. Nor
+   would a reader have caught it by arithmetic — #362 and #377 each minted a
+   successor record **without moving a single number in the island table
+   above**, which is precisely why a stale stamp could sit behind a page of
+   correct-looking figures. Check 23 of the
+   [citation gate](check_proposal_citations.py) closes that shape: a
+   present-tense currency claim (*"the current run"*, *"the current record"*)
+   stated immediately before a stamped citation must name the record that
+   tree's own `LATEST` resolves to, in whichever of the three evidence trees
+   the cited path itself names. Its scope and its deliberate limits — in
+   particular why no word may sit between the claim and the path, and why it
+   gates currency rather than content — are in
+   [`docs/citation-gate.md`](../citation-gate.md).
+
    **Item 11 is nevertheless still UNMET**, and this document does not round
    that up. `klt signoff` renders both item-11 rows `unmet` / **`check_failed`**
    — because its grading path checks the cited LVS part before the supply spec,
@@ -3353,12 +3410,15 @@ tracker already owns.
    - **The ERC record is no longer a revision behind** — that qualification,
      carried by the 2026-09-23 pass, is now discharged. The current ERC record
      grades
-     `layout/sar-adc-top/reports/20260924-214710-b323061/sar_adc_top.gds`
-     (`sha256:bc712e3c…`, hash-asserted at run time), which is exactly what
+     `layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds`
+     (`sha256:bbb9b537…`, hash-asserted at run time), which is exactly what
      `layout/sar-adc-top/reports/LATEST` resolves to. Its own "Staleness rule"
      still applies to the next layout re-run: a newer `reports/<id>/` makes
      this ERC record stale, not wrong, and `run-erc.sh` is what mints a fresh
-     verdict beside it.
+     verdict beside it. That discharge is not a standing one and is not
+     asserted from this bullet: it is the closing word of check 16's readout
+     above, recomputed from the pointer and the stream's own sha256 on every
+     CI run.
    - **"One island" is not "reaches a pad" — and that gap is now closed, by
      the layout rather than by the report.** `klt erc` grades continuity, not
      whether a continuous net terminates anywhere a package could bond to. On

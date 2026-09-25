@@ -2,9 +2,11 @@
 """Headless citation check for docs/chipalooza/challenge-4-proposal.md.
 
 The Chipalooza Challenge #4 proposal (issue #121) is a hand-maintained
-evidence ledger whose Section 4 verdicts cite dated `sim/<campaign>/records/`
-and `layout/<block>/reports/` records by path, and whose prose asserts that
-some of those records are the *current* ones. This script gates both claims
+evidence ledger whose Section 4 verdicts cite dated `sim/<campaign>/records/`,
+`layout/<block>/reports/` and `layout/<block>/erc-reports/` records by path,
+and whose prose asserts that some of those records are the *current* ones --
+both by pointer ("the current `reports/LATEST`", checks 4/5) and by stamp
+("the current run, `<record>`", check 23). This script gates both claims
 mechanically, so that drift is a CI failure rather than something a human or
 agent has to find by re-reading 2000 lines of prose. It is deliberately
 PDK-free and network-free (pure file reads), like `sim/check_spec_coverage.py`
@@ -746,6 +748,47 @@ KICKBACK_SPLIT_COLUMN_RE = re.compile(
     r"common[-\s]?mode|differential|\bCM\b|\bdiff\b", re.I
 )
 
+# Check 23. Checks 4 and 5 grade the claim-AFTER-path direction and only the
+# phrase "current `<tree>/LATEST`". This is the mirror: a present-tense
+# currency claim stated BEFORE the citation, naming a record by STAMP rather
+# than through a pointer. `record` and `run` both appear in this document;
+# `ERC`/`layout`/`sim` are optional qualifiers the prose puts in between.
+STAMPED_CURRENCY_CLAIM_RE = re.compile(
+    r"[Tt]he current (?:ERC |layout |sim(?:ulation)? )?(?:run|record|report)\b"
+)
+
+# What may sit between that claim and the citation it introduces: whitespace,
+# an opening paren/bracket/backtick, and the comma or colon the prose uses to
+# hang the citation off the claim. Deliberately NOT tolerant of any word --
+# "The current ERC record *grades* `layout/.../reports/<stamp>/...`" cites the
+# graded stream, not the record making the claim, and must stay unattached.
+STAMPED_CURRENCY_CONNECTOR_RE = re.compile(r"^[\s,:;`(\[]*$")
+
+# How far after the claim the citation may start. A claim whose citation is
+# further away than this is narration, not an attached citation (same
+# reasoning, and the same order, as check 4's 400-character look-behind).
+STAMPED_CURRENCY_WINDOW = 400
+
+# The citation construct itself: a Markdown link (this document's usual form,
+# whose display text and target each carry the stamp) or a bare backticked
+# path. Both alternatives are graded on every stamp they carry, so a link
+# whose display text and target name different records fails here rather than
+# half-passing.
+STAMPED_CITATION_RE = re.compile(
+    r"\[`?(?P<display>[^\]`]+)`?\]\((?P<target>[^)\s]+)\)" r"|`(?P<bare>[^`]+)`"
+)
+
+# A stamped evidence-record path in any of the three trees this repo keeps --
+# including `erc-reports/`, which `EVIDENCE_PATH_RE` deliberately does not
+# match (checks 3/4 are scoped to the `records/`/`reports/` trees). The
+# `layout/<block>/` prefix is optional because this document's link *display*
+# text routinely elides it ("`erc-reports/<stamp>/record.md`") while the link
+# target spells it out; the block is then taken from whichever form has it.
+STAMPED_RECORD_RE = re.compile(
+    r"(?:(?P<top>sim|layout)/(?P<block>[A-Za-z0-9._-]+)/)?"
+    r"(?P<tree>records|reports|erc-reports)/(?P<stamp>" + STAMP + r")"
+)
+
 
 def _unwrap_backticked(span: str) -> str:
     """Rejoin a backticked span that prose wrapped across lines.
@@ -768,6 +811,19 @@ def _resolve(doc: Path, reference: str) -> Path:
 
 def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
+
+
+def _add_once(misses: list[str], seen: set[str], miss: str) -> None:
+    """Append `miss` unless an identical one was already reported here.
+
+    Check 23 grades both halves of a Markdown link (display text and target),
+    which agree in the ordinary case -- so the same drift would otherwise be
+    reported twice for one citation. A link whose halves genuinely disagree
+    still reports both, because the two messages differ.
+    """
+    if miss not in seen:
+        seen.add(miss)
+        misses.append(miss)
 
 
 def check_links(doc: Path, text: str) -> list[str]:
@@ -3319,6 +3375,90 @@ def check_tracked_records(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def attached_currency_citations(text: str) -> list[tuple[re.Match, str, list]]:
+    """Every `(claim, citation_text, records)` triple check 23 evaluates.
+
+    A triple is produced only for an *attached* claim: the citation construct
+    must be the very next thing after the claim, separated by nothing but the
+    punctuation `STAMPED_CURRENCY_CONNECTOR_RE` allows. `records` is every
+    stamped-record match inside that construct -- display text and link target
+    both -- so a link whose two halves name different records is graded on
+    both rather than on whichever one is scanned first.
+
+    Returned rather than checked inline for the same reason
+    `attached_pointer_claims` is: the test suite exercises the attachment rule
+    directly, and `--stats` has a use for the count.
+    """
+    triples = []
+    for claim in STAMPED_CURRENCY_CLAIM_RE.finditer(text):
+        window = _unwrap_backticked(text[claim.end() : claim.end() + STAMPED_CURRENCY_WINDOW])
+        citation = STAMPED_CITATION_RE.search(window)
+        if citation is None:
+            continue
+        if not STAMPED_CURRENCY_CONNECTOR_RE.match(window[: citation.start()]):
+            continue
+        cited = citation.group("bare")
+        spans = [cited] if cited else [citation.group("display"), citation.group("target")]
+        records = [
+            record for span in spans for record in STAMPED_RECORD_RE.finditer(span)
+        ]
+        if not records:
+            continue
+        triples.append((claim, citation.group(0), records))
+    return triples
+
+
+def check_stamped_currency_claims(doc: Path, text: str) -> list[str]:
+    """Check 23: "the current run, <record>" must name the pointer's record."""
+    misses = []
+    for claim, citation, records in attached_currency_citations(text):
+        line = _line_of(text, claim.start())
+        # One construct, so one flow: whichever half of the link spells the
+        # `<top>/<block>/` prefix out supplies it for the half that elides it.
+        top = next((r.group("top") for r in records if r.group("top")), None)
+        block = next((r.group("block") for r in records if r.group("block")), None)
+        tree = records[0].group("tree")
+        if top is None or block is None:
+            misses.append(
+                f"{doc.name}:{line}: \"{claim.group(0)}\" cites `{citation}`, "
+                f"which names no `<sim|layout>/<block>/` flow -- cite the record "
+                f"by full path so the claim can be checked against that flow's "
+                f"`{tree}/LATEST`"
+            )
+            continue
+
+        pointer = _read_pointer(top, block, tree)
+        if pointer is None:
+            misses.append(
+                f"{doc.name}:{line}: \"{claim.group(0)}\" cites a record of "
+                f"`{top}/{block}/{tree}/`, but that tree has no `LATEST` pointer "
+                f"to be current against"
+            )
+            continue
+        current = pointer.split("/")[0].removesuffix(".md")
+
+        # Both halves of a link are graded, but a link whose halves agree (the
+        # normal case) must not report the same drift twice.
+        seen: set[str] = set()
+        for record in records:
+            if record.group("tree") != tree:
+                _add_once(misses, seen,
+                    f"{doc.name}:{line}: \"{claim.group(0)}\" cites `{citation}`, "
+                    f"whose two halves name different evidence trees "
+                    f"(`{tree}/` and `{record.group('tree')}/`)"
+                )
+                continue
+            if record.group("stamp") != current:
+                _add_once(misses, seen,
+                    f"{doc.name}:{line}: \"{claim.group(0)}\" names "
+                    f"`{record.group('stamp')}` as the current record of "
+                    f"`{top}/{block}/{tree}/`, but that tree's `LATEST` resolves "
+                    f"to `{current}` -- re-point the citation, and restate "
+                    f"whatever the superseded record was quoted for"
+                )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -3343,6 +3483,7 @@ def check_document(doc: Path) -> list[str]:
         + check_top_cell_inventory(doc, text)
         + check_kickback_decomposition(doc, text)
         + check_tracked_records(doc, text)
+        + check_stamped_currency_claims(doc, text)
     )
 
 

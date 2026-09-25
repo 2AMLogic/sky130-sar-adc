@@ -2291,6 +2291,32 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         ]
         self.assertTrue(the_forms, "the `the` connector branch matches nothing")
 
+    def test_stamped_currency_claims_are_evaluated_on_the_real_document(self):
+        """Guard against check 23 going vacuous against the live document.
+
+        The claim shape it grades is prose, not a table cell: a pass that
+        rewords Section 3's `klt erc` bullet or Section 7 item 9 away from
+        "the current run, <record>" would leave check 23 inert with nothing
+        failing, exactly as the `CONNECTOR_RE` defect left check 4 inert
+        above. Both of those passages carry an `erc-reports/` citation that
+        checks 3/4 structurally cannot see, so nothing else would notice.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        text = doc.read_text()
+        attached = checker.attached_currency_citations(text)
+        self.assertGreaterEqual(
+            len(attached),
+            2,
+            "check 23 evaluates almost nothing in this document",
+        )
+        trees = {records[0].group("tree") for _claim, _citation, records in attached}
+        self.assertIn(
+            "erc-reports",
+            trees,
+            "check 23 no longer reaches the `erc-reports/` tree -- the one "
+            "checks 3/4 cannot see, and the one its own defect came from",
+        )
+
     def test_the_real_proposal_states_a_parseable_census(self):
         """Check 6 is opt-in per document, so assert the real one opts in.
 
@@ -4000,6 +4026,159 @@ class TestTrackedRecords(unittest.TestCase):
         self.assertEqual(
             self.check("| Kickback | `≤ 5 mV` | DRAFT | DR-011 only | — |"), []
         )
+
+
+class TestStampedCurrencyClaims(unittest.TestCase):
+    """Check 23: "the current run, <record>" must name the pointer's record.
+
+    The mirror of checks 4/5: a currency claim stated BEFORE its citation,
+    naming a record by stamp rather than through a `LATEST` pointer. The real
+    defect it is taken from is the one shape that can rot invisibly -- Section
+    3's `klt erc` bullet and Section 7 item 9 both introduced #355's supply fix
+    as "the current run" with a stamped `erc-reports/` citation, and issues
+    #362 and #377 each minted a successor record WITHOUT MOVING A SINGLE
+    NUMBER in the table either passage carries (four supplies, one island each,
+    `clean`, 0 findings). Every figure around the citation still read correct
+    while the citation named a superseded run; item 9's prose ended up
+    contradicting check 16's machine-generated readout three paragraphs below
+    it. Check 16 reads the pointer and never looks at the prose's path; checks
+    3/4 cannot see `erc-reports/` at all.
+    """
+
+    BLOCK = "sar-adc-top"
+    CURRENT = "20260924-234116-66dca3c"
+    SUPERSEDED = "20260924-214731-b323061"
+    LAYOUT = "20260924-234053-66dca3c"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record(
+            self.BLOCK, self.LAYOUT, latest=True, gds={"sar_adc_top": b"stream"}
+        )
+        self.tree.add_erc_record(
+            self.BLOCK, self.SUPERSEDED, graded=self.LAYOUT, supplies={"VDD": 1}
+        )
+        self.tree.add_erc_record(
+            self.BLOCK,
+            self.CURRENT,
+            latest=True,
+            graded=self.LAYOUT,
+            supplies={"VDD": 1},
+        )
+
+    def _erc_link(self, stamp: str, *, display: str | None = None) -> str:
+        target = f"../../layout/{self.BLOCK}/erc-reports/{stamp}/record.md"
+        shown = display or f"layout/{self.BLOCK}/erc-reports/{stamp}/record.md"
+        return f"[`{shown}`]({target})"
+
+    def check(self, body: str) -> list[str]:
+        doc = self.tree.document(body)
+        return checker.check_stamped_currency_claims(doc, doc.read_text())
+
+    def test_a_claim_naming_the_current_record_passes(self):
+        body = f"The current run, {self._erc_link(self.CURRENT)}, reports clean.\n"
+        self.assertEqual(self.check(body), [])
+
+    def test_a_claim_naming_a_superseded_record_is_reported(self):
+        """The real defect: a stale stamp behind a table of unmoved numbers."""
+        body = f"The current run, {self._erc_link(self.SUPERSEDED)}, reports clean.\n"
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn(self.SUPERSEDED, misses[0])
+        self.assertIn(self.CURRENT, misses[0])
+
+    def test_one_stale_link_is_reported_once_not_once_per_half(self):
+        """Both halves of the link are graded; the message is not duplicated."""
+        body = f"The current run, {self._erc_link(self.SUPERSEDED)}, reports clean.\n"
+        self.assertEqual(len(self.check(body)), 1)
+
+    def test_a_link_whose_two_halves_disagree_is_reported(self):
+        body = (
+            "The current run, "
+            + self._erc_link(
+                self.CURRENT,
+                display=f"layout/{self.BLOCK}/erc-reports/{self.SUPERSEDED}/record.md",
+            )
+            + ", reports clean.\n"
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn(self.SUPERSEDED, misses[0])
+
+    def test_a_display_text_that_elides_the_block_is_still_graded(self):
+        """This document's own form: display `erc-reports/<stamp>/…`, full target."""
+        body = (
+            "the current run "
+            + f"({self._erc_link(self.SUPERSEDED, display=f'erc-reports/{self.SUPERSEDED}/record.md')})"
+            + " reports clean.\n"
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn(self.SUPERSEDED, misses[0])
+
+    def test_a_wrapped_claim_is_still_attached(self):
+        """The real document wraps between the claim and its citation."""
+        body = (
+            "and the current run\n"
+            f"  ({self._erc_link(self.SUPERSEDED)})\n"
+            "  reports clean.\n"
+        )
+        self.assertEqual(len(self.check(body)), 1)
+
+    def test_a_word_between_the_claim_and_the_path_makes_it_unattached(self):
+        """"The current ERC record *grades* <gds>" cites the graded stream."""
+        body = (
+            "The current ERC record grades "
+            f"`layout/{self.BLOCK}/reports/{self.LAYOUT}/sar_adc_top.gds`.\n"
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_distant_citation_is_narration_and_is_skipped(self):
+        body = (
+            "The current run reports clean. "
+            + "Filler. " * 80
+            + self._erc_link(self.SUPERSEDED)
+            + "\n"
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_claim_citing_no_record_at_all_is_skipped(self):
+        body = "The current run reports `erc_status: clean` and 0 findings.\n"
+        self.assertEqual(self.check(body), [])
+
+    def test_a_document_with_no_currency_claim_is_not_failed_for_it(self):
+        body = f"See {self._erc_link(self.SUPERSEDED)} for the 2026-09-24 run.\n"
+        self.assertEqual(self.check(body), [])
+
+    def test_the_layout_reports_tree_is_covered_too(self):
+        """Not scoped to `erc-reports/`: the pointer is read from the cited tree."""
+        self.tree.add_layout_record(self.BLOCK, "20260101-000000-0000000")
+        body = (
+            "The current record, "
+            f"[`layout/{self.BLOCK}/reports/20260101-000000-0000000/record.md`]"
+            f"(../../layout/{self.BLOCK}/reports/20260101-000000-0000000/record.md)"
+            ", is clean.\n"
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn(self.LAYOUT, misses[0])
+
+    def test_a_tree_with_no_pointer_is_reported(self):
+        body = (
+            "The current record, "
+            "[`sim/nowhere/records/20260101-000000-0000000.md`]"
+            "(../../sim/nowhere/records/20260101-000000-0000000.md)"
+            ", is it.\n"
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("no `LATEST` pointer", misses[0])
+
+    def test_a_citation_naming_no_flow_is_reported(self):
+        body = f"The current run, `erc-reports/{self.CURRENT}/record.md`, is it.\n"
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("names no", misses[0])
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
