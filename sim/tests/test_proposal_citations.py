@@ -468,9 +468,11 @@ class FixtureTree:
 
         Always carries the decoys a naive line scan would miss on: a comment
         line and a `.lib` dot-command that both begin with the letter the
-        inductor card is recognised by, and an `L`-initial *continuation*
-        line. Only `inductor=True` writes a real `L<name> <n+> <n-> <value>`
-        card, which is the one shape that may be counted.
+        inductor card is recognised by, an `L`-initial *continuation* line,
+        and a `.control` block body whose `let` line has the same
+        `L<word> <field> <field> <field>` shape as an inductor card. Only
+        `inductor=True` writes a real `L<name> <n+> <n-> <value>` card, which
+        is the one shape that may be counted.
         """
         deck = self.root / "sim" / path
         deck.parent.mkdir(parents=True, exist_ok=True)
@@ -483,7 +485,14 @@ class FixtureTree:
         ]
         if inductor:
             body.append("Lbond VDD VDD_DIE 2n")
-        body += [".tran 1p 1n", ".end", ""]
+        body += [
+            ".control",
+            "let verr = v(a) - v(b)",
+            ".endc",
+            ".tran 1p 1n",
+            ".end",
+            "",
+        ]
         deck.write_text("\n".join(body))
 
     def document(self, body: str) -> Path:
@@ -4396,6 +4405,29 @@ class TestGroundReturn(unittest.TestCase):
             ),
             [],
         )
+
+    def test_a_control_block_let_line_is_not_an_inductor_card(self):
+        """A `.control` body's `let` line has an inductor card's shape.
+
+        `let verr = v(a) - v(b)` matches `L<word> <field> <field> <field>`
+        on a naive line scan, but it is ngspice's interactive command
+        language, not a device card -- reproduced directly against the
+        module's own deck scanner rather than through the sentence check, so
+        a regression here fails as close to the cause as possible.
+        """
+        deck = self.tree.root / "sim" / "zz-control-probe.spice"
+        deck.parent.mkdir(parents=True, exist_ok=True)
+        deck.write_text(
+            "* probe\n"
+            "VVDD VDD 0 DC 1.8\n"
+            ".control\n"
+            "tran 1p 1n\n"
+            "let verr = v(a) - v(b)\n"
+            ".endc\n"
+            ".end\n"
+        )
+        cards = checker._deck_device_cards(deck)
+        self.assertEqual(cards, [(2, "VVDD VDD 0 DC 1.8")], cards)
 
     def test_a_deck_that_models_an_inductance_is_reported(self):
         """The direction that matters: the gap closes, the disclaimer must go."""
