@@ -3494,48 +3494,82 @@ tracker already owns.
      sky130 has no isolation between them and the composed extraction reports
      them as one net (`GND|VGND|VSS` on the current record, 692 devices); the two pads are two bond
      points on one node, which is what keeps the digital return off-die.
-   - **The ground plan's benefit is reasoned, not measured — and as of this
-     pass that gap is gated rather than remembered (added 2026-09-25).** Every
-     verdict this item reports is *connectivity*: drawn metal graded by a tool
-     with no notion of impedance. Why this block draws that metal at all is a
-     separate claim, and
+   - **The ground plan's benefit was reasoned, not measured — and as of this
+     pass it is measured, at a stated scope (added 2026-09-25, closed
+     2026-09-25).** Every verdict this item reports is *connectivity*: drawn
+     metal graded by a tool with no notion of impedance. Why this block draws
+     that metal at all is a separate claim, and
      [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) — the
      record that put the pad there, and which
      [DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)'s mesh
-     extends — declines to present it as evidence in its own words: "no
+     extends — declined to present it as evidence, in its own words: "no
      simulation in this repo measures ground-return impedance, substrate
      coupling, or bond-wire inductance… CLAUDE.md's *no claim without a
-     testbench* rule applies to it." It carries that as a standing open item
-     ("The impedance argument is unmeasured"), tracked as issue **#378** —
-     open, `loom:building`, re-checked live on 2026-09-25 — which names the
-     testbench that would settle it: drive the assembled `sar_adc_top` through
-     package-like R+L on each of the four supply terminals, run
-     `sim/full-conversion-transient/`'s own stimulus, and compare code errors
-     against the ideal-ground case over the ratified grid. Nothing in this
-     repository does that yet, and that absence is now recomputed on every CI
-     run rather than restated by hand (check 25 of the
-     [citation gate](check_proposal_citations.py) — **ground-return census,
-     machine-checked**):
+     testbench* rule applies to it." It carried that as a standing open item
+     ("The impedance argument is unmeasured"), tracked as issue **#378**,
+     naming the testbench that would settle it: drive the assembled
+     `sar_adc_top` through package-like R+L on each of the four supply
+     terminals, run `sim/full-conversion-transient/`'s own stimulus, and
+     compare code errors against the ideal-ground case.
+     [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/README.md)
+     is that testbench, landed this pass, and its first record
+     (`records/20260925-073912-0e385e5.md`) is what DR-012's own "Open items"
+     now cites to retire this one: at the ratified baseline corner
+     (`tt_27c_1.80v`), [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)'s
+     package-style R+L (a *stated assumption* derived from wire geometry, not
+     a package selection) moves no mid-scale captured code (**0 LSB** against
+     the ideal-ground control, in every bonded/lumped-substrate arm), while
+     the die-side `GND_DIE` excursion is **37.333 mV** peak-to-peak for the
+     as-built R+L shape — of which a strict one-element ablation
+     (`package` vs `package-r-only`, R unchanged, only `L` zeroed) attributes
+     **37.274 mV** of it to the bond inductance alone (`0.059 mV` remains with
+     `L = 0`), and **10.779 mV** to a lumped, on-die-only substrate return of
+     this same record's stated order. So DR-012's reasoning is now a
+     measurement at this one corner, not only prose — real impedance,
+     inductance-dominated, not (yet) fatal to a captured code at this
+     magnitude.
+     **This closes the item at a stated scope, not without residue**: the
+     nine-point ratified corner grid is deferred (the campaign's own
+     "Subset-corner justification" names three binding constraints — a
+     shared-host policy against a local multi-corner ngspice grid, `klt
+     sim`'s request/response contract not being able to mint a record in
+     this repo's own format, and the batch fleet's ngspice build sitting
+     below `sim/toolchain.json`'s `ngspice_min_major = 46` pin), and DR-012's
+     *rejected* `no-gnd-pad` null option is implemented but not run, on cost
+     (~17× the control arm's wall clock, projecting to several hours). Neither
+     a worst-corner claim nor a priced-rejected-option claim may be read from
+     this record, and it says so in its own words. It is also, on the same
+     honesty rule DR-015 states of itself, evidence about *a* supply return
+     and *a* lumped substrate stand-in of this record's own assumed
+     magnitude, not a measurement of any real package or of this die's actual
+     substrate.
 
-     > across the **100** SPICE decks under `sim/`, **0** carry an inductor
+     This retirement is **not** what turns check 25's own ground-return
+     census (below) non-zero, and that is itself worth stating rather than
+     leaving a reader to expect it: that check's `SIM_DECK_GLOB` scans
+     committed `**/*.spice` files under `sim/` — the fixed testbench
+     fragments and DUT netlist snapshots this repo authors once and reuses —
+     while the campaign's per-arm `R + L` networks are assembled at run time
+     into `.cir` decks (committed as evidence in
+     `sim/supply-impedance-sensitivity/corners/`, alongside the `.spice`
+     snapshot of the renamed DUT netlist that check 25 *does* see, which is
+     why the deck count below still moves by one):
+
+     > across the **101** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
-     That is the mechanical form of DR-012's own sentence: neither bond-wire
-     inductance nor any package model can be written in SPICE without an
-     inductor card, so a campaign that models the return cannot land without
-     turning this census red — at which point the qualification is rewritten,
-     rather than left disclaiming a measurement this repo by then has. It is
-     the only one of these five qualifications whose truth is a property of
-     the whole evidence tree rather than of one report, which is exactly why
-     it would otherwise have gone stale silently: no citation moves, no island
-     count changes, and no §4 row's number budges on the day it stops being
-     true. **What the census does not say**: that no deck models a substrate
-     *resistance*. An R-only package stand-in would pass it, so the sentence
-     is a floor on the gap rather than a proof of it, and #378's testbench —
-     not this count — is what retires DR-012's open item. **No §4 verdict
-     moves**: no `spec/target-spec.md` row grades ground-return impedance, and
-     adding one here to hold this gap would be a spec change, which this
-     document does not make.
+     Read this census the way it already reads itself: **a floor on the gap,
+     not a proof of it, and it never claimed to be the thing that retires
+     DR-012's item** — the record above does that, by citation, and this
+     paragraph is what keeps the two from being mistaken for each other. What
+     the census still correctly says is that no *committed, reusable* deck
+     hard-codes ground-return impedance into the block's own fixed testbench
+     material; the impedance this pass measured lives in a per-run,
+     per-corner assembly instead, which is exactly what a *sensitivity*
+     campaign (as opposed to a permanent testbench change) is supposed to
+     produce. **No §4 verdict moves**: no `spec/target-spec.md` row grades
+     ground-return impedance, and adding one here to hold this gap would be a
+     spec change, which this document does not make.
 
    **Does this move any §4 row? Not in verdict, but two rows' numbers move.**
    Item 11 is not a `spec/target-spec.md` row and no row is added for it here;
@@ -3663,7 +3697,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **59** of the **59** records under `sim/*/records/` name both an
+  > **60** of the **60** records under `sim/*/records/` name both an
   > `ngspice` version and a 40-hex `open_pdks` commit, while of the **67**
   > records under `layout/*/reports/` and `layout/*/erc-reports/` **66** name
   > a `klt` version and **34** name the `open_pdks` commit.
