@@ -517,6 +517,14 @@ T1_MANIFEST = Path("signoff") / "block-manifest.json"
 # transition Section 7 item 9 currently narrates by hand.
 T1_CHECK_FAILED = "check_failed"
 
+# The tier whose rows the failed-row list is drawn from. The readout's `met`
+# and `total` are `t1_met_count` and `t1_item_count` -- T1 counts -- so the
+# list beside them must be T1 rows too. Without this scope, a T2/T3/T4 row the
+# grader ever fails for a real reason (today it grades every one of them
+# `tier_not_supported`) would be enrolled as a T1 failure, and the sentence
+# would silently mix two tiers' rows under one T1 headline.
+T1_TIER = "T1"
+
 # An evidence path inside the manifest that names a `layout/` flow's own
 # append-only tree -- EITHER of them. `reports/` and `erc-reports/` both appear
 # in this manifest, which is why this is not `EVIDENCE_PATH_RE`: that one
@@ -2332,6 +2340,7 @@ def t1_readout() -> dict | None:
         for item in report.get("items") or []
         if isinstance(item, dict)
         and item.get("reason") == T1_CHECK_FAILED
+        and item.get("tier") == T1_TIER
         and isinstance(item.get("id"), int)
         and isinstance(item.get("partition"), str)
     )
