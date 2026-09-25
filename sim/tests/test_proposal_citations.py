@@ -306,19 +306,41 @@ class FixtureTree:
                 )
             )
 
-    def add_top_netlist(self, *ports: str):
+    def add_top_netlist(
+        self,
+        *ports: str,
+        glue: tuple[str, ...] = (),
+        subblocks: tuple[str, ...] = (),
+    ):
         """A `design/sar_adc_top.spice` with the given top-level port list.
 
         Written in the shape xschem really emits for the *top* cell -- the
         `.subckt` line commented out, since the top level is netlisted flat.
         A fixture that wrote a bare `.subckt` would pass while the real file
         shape went unparsed.
+
+        `glue` is the instance lines *inside* that flat top cell, which check
+        20 part (b) censuses; `subblocks` is instance lines placed after the
+        top cell's `**.ends`, inside a sub-block `.subckt`, which part (b)
+        must NOT count and part (a) must.
         """
         design = self.root / "design"
         design.mkdir(parents=True, exist_ok=True)
-        (design / "sar_adc_top.spice").write_text(
-            "* fixture netlist\n**.subckt sar_adc_top " + " ".join(ports) + "\n"
-        )
+        body = [
+            "* fixture netlist -- a header naming sky130_fd_pr__nfet_01v8 in",
+            "* prose, which a census over raw text would miscount as an instance",
+            "**.subckt sar_adc_top " + " ".join(ports),
+            "*.ipin " + (ports[0] if ports else "NONE"),
+            *glue,
+            "**.ends",
+        ]
+        if subblocks:
+            body += [".subckt fixture_block A B", *subblocks, ".ends"]
+        (design / "sar_adc_top.spice").write_text("\n".join(body) + "\n")
+        # The schematic the netlist is regenerated from. Present so a document
+        # that cites it by path (as the real one does, and as check 20's own
+        # census sentence must) is not failed by check 2 for the fixture's sake.
+        (design / "sar_adc_top.sch").write_text("* fixture schematic\n")
 
     def add_spec_table(self, *rows: str):
         """A `spec/target-spec.md` with the Target table check 7 reads."""
@@ -2324,6 +2346,55 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         self.assertIn("VDD", terms)
         self.assertIn("VPWR", terms)
 
+    def test_the_real_proposal_states_parseable_check_20_sentences(self):
+        """Check 20's three sentences are opt-in, so assert the real one opts in.
+
+        Deleting any of them would disable that part of the check silently and
+        still exit 0 -- the same vacuity trap checks 6, 18 and 19 each carry an
+        assertion for.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        flat, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        for name, pattern in (
+            ("Section 1's primitive-flavour inventory", checker.PRIMITIVE_INVENTORY_RE),
+            ("Section 3's standard-cell glue census", checker.GLUE_CELL_CENSUS_RE),
+            ("Section 3's top-level primitive census", checker.GLUE_PRIMITIVE_CENSUS_RE),
+        ):
+            with self.subTest(sentence=name):
+                self.assertIsNotNone(
+                    pattern.search(flat),
+                    f"the proposal no longer states {name}, which check 20 grades",
+                )
+
+    def test_check_20_grades_a_nonempty_inventory_of_the_real_netlist(self):
+        """A census over zero cells, or over the whole file, would mean nothing."""
+        netlist = checker.top_netlist_text()
+        self.assertTrue(netlist, "design/sar_adc_top.spice went unread")
+        flavours = checker.cell_census(
+            checker._netlist_instance_lines(netlist), "pr"
+        )
+        # The ratified set DR-001 gates and design/regen_netlist.sh enforces.
+        self.assertEqual(
+            sorted(flavours), ["cap_mim_m3_1", "nfet_01v8", "pfet_01v8"], flavours
+        )
+        glue = checker.top_level_glue(netlist)
+        self.assertTrue(glue.strip(), "the top-level region went unparsed")
+        top_cells = checker.cell_census(glue, "sc_hd")
+        whole = checker.cell_census(
+            checker._netlist_instance_lines(netlist), "sc_hd"
+        )
+        self.assertTrue(top_cells, "the top-level glue census is empty")
+        # A region that swallowed the sub-blocks would make part (b)'s scope
+        # claim ("outside every sub-block") false while still passing: the
+        # sequencer's own standard cells must NOT be in it.
+        self.assertIn("dfrtp_1", whole)
+        self.assertNotIn("dfrtp_1", top_cells)
+        self.assertLess(sum(top_cells.values()), sum(whole.values()))
+        # The DR-008 shape this check exists for: eighteen decision-directed
+        # AND gates at the top level, and no `SELn<i>` inverter bank behind them.
+        self.assertEqual(top_cells.get("and2_1"), 18, top_cells)
+        self.assertNotIn("xinv_seln0", glue)
+
     def test_section_4_spec_table_is_actually_found(self):
         """Guard against the scoping silently matching zero rows."""
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -3338,6 +3409,167 @@ class TestTestPlanPorts(unittest.TestCase):
         # Parts (b) and (c) are opt-in per document, like checks 6 and 18.
         self.tree.add_top_netlist("VDD")
         self.assertEqual(self.tree.check(bench_plan("1. Apply `VDD`.")), [])
+
+
+class TestTopCellInventory(unittest.TestCase):
+    """Check 20: the stated device/cell inventory is the netlist's own.
+
+    The defect shape is a real one this document suffered, and for two weeks:
+    DR-008 (issue #263, PR #266, 2026-09-11) replaced the nine
+    `SELn<i> = NOT(DOUT<i>)` inverters issue #56 drew at the integration level
+    with eighteen decision-directed `and2_1` gates, plus a `xor2_1` readout
+    recode and DR-009's eight-device half-LSB offset network. None of it moved
+    a port, so check 10 -- which grades the port list -- had nothing to say,
+    and Sections 1, 3 and 7 went on describing the inverter bank as the glue
+    this schematic adds.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    SC_HD = "sky130_fd_sc_hd__"
+    PR = "sky130_fd_pr__"
+
+    def _glue(self, *cells: str) -> tuple[str, ...]:
+        """One instance line per named cell, in the two card shapes both families use."""
+        lines = []
+        for index, cell in enumerate(cells):
+            if cell.startswith(self.SC_HD):
+                lines.append(f"xg{index} A B VGND VGND VPWR VPWR Y {cell}")
+            else:
+                lines.append(f"XM{index} D G S B {cell} L=0.15 W=1 m=1")
+        return tuple(lines)
+
+    def _flavours(self, *flavours: str) -> str:
+        return (
+            f"This design instantiates **{len(flavours)}** `sky130_fd_pr` "
+            "primitive flavours — "
+            + ", ".join(f"`{flavour}`" for flavour in flavours)
+            + " — re-derived from the netlist's own instance lines."
+        )
+
+    def _census(self, cells: dict[str, int], primitives: dict[str, int]) -> str:
+        def listed(entries: dict[str, int]) -> str:
+            return ", ".join(
+                f"`{cell}` **×{count}**" for cell, count in sorted(entries.items())
+            )
+
+        return (
+            f"Outside every sub-block, `design/sar_adc_top.sch` adds "
+            f"**{sum(cells.values())}** `sky130_fd_sc_hd` instances of "
+            f"**{len(cells)}** cell types — {listed(cells)} — "
+            f"and **{sum(primitives.values())}** `sky130_fd_pr` instances of "
+            f"**{len(primitives)}** device types — {listed(primitives)}."
+        )
+
+    def test_a_truthful_inventory_passes(self):
+        self.tree.add_top_netlist(
+            "CLK",
+            glue=self._glue(self.SC_HD + "and2_1", self.PR + "nfet_01v8"),
+            subblocks=self._glue(self.PR + "cap_mim_m3_1"),
+        )
+        body = "# fixture\n\n" + self._flavours("cap_mim_m3_1", "nfet_01v8")
+        body += "\n\n" + self._census({"and2_1": 1}, {"nfet_01v8": 1})
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_a_flavour_the_netlist_carries_but_section_1_omits_is_reported(self):
+        """The DR-002 tripwire direction: the design reads smaller than it is."""
+        self.tree.add_top_netlist(
+            "CLK", glue=self._glue(self.PR + "nfet_01v8", self.PR + "nfet_g5v0d10v5")
+        )
+        misses = self.tree.check("# fixture\n\n" + self._flavours("nfet_01v8"))
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("instantiates 1 `sky130_fd_pr`" in m for m in misses), misses)
+        self.assertTrue(
+            any("omits `nfet_g5v0d10v5`" in m for m in misses), misses
+        )
+
+    def test_a_flavour_section_1_names_that_no_instance_carries_is_reported(self):
+        self.tree.add_top_netlist("CLK", glue=self._glue(self.PR + "nfet_01v8"))
+        misses = self.tree.check(
+            "# fixture\n\n" + self._flavours("nfet_01v8", "pfet_g5v0d10v5")
+        )
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("names `pfet_g5v0d10v5`" in m for m in misses), misses)
+
+    def test_the_flavour_set_spans_the_whole_hierarchy_not_just_the_top_cell(self):
+        """A sub-block's own devices count: part (a) is a hierarchy-wide claim."""
+        self.tree.add_top_netlist(
+            "CLK", subblocks=self._glue(self.PR + "cap_mim_m3_1")
+        )
+        misses = self.tree.check("# fixture\n\n" + self._flavours("nfet_01v8"))
+        self.assertTrue(any("omits `cap_mim_m3_1`" in m for m in misses), misses)
+
+    def test_a_cell_type_swapped_in_equal_number_is_reported(self):
+        """The DR-008 shape: nine inverters become nine gates, total unmoved."""
+        self.tree.add_top_netlist(
+            "CLK", glue=self._glue(*([self.SC_HD + "and2_1"] * 9))
+        )
+        misses = self.tree.check(
+            "# fixture\n\n" + self._census({"inv_1": 9}, {})
+        )
+        self.assertTrue(any("`inv_1` at 9 instance(s)" in m for m in misses), misses)
+        self.assertTrue(any("`and2_1` at 0 instance(s)" in m for m in misses), misses)
+        # The instance total is unchanged, which is exactly why a total-only
+        # census would have passed straight through this.
+        self.assertFalse(any("instance(s), but" in m and "census says" in m for m in misses), misses)
+
+    def test_a_drifted_instance_count_is_reported(self):
+        self.tree.add_top_netlist(
+            "CLK", glue=self._glue(*([self.SC_HD + "and2_1"] * 18))
+        )
+        misses = self.tree.check("# fixture\n\n" + self._census({"and2_1": 17}, {}))
+        self.assertTrue(any("census says 17 instance(s)" in m for m in misses), misses)
+
+    def test_a_subblock_instance_is_not_counted_as_top_level_glue(self):
+        """Part (b)'s whole point: sub-block cells belong to a sub-block flow."""
+        self.tree.add_top_netlist(
+            "CLK",
+            glue=self._glue(self.SC_HD + "inv_1"),
+            subblocks=self._glue(*([self.SC_HD + "dfrtp_1"] * 21)),
+        )
+        self.assertEqual(
+            self.tree.check("# fixture\n\n" + self._census({"inv_1": 1}, {})), []
+        )
+
+    def test_the_netlists_own_prose_header_is_not_counted_as_an_instance(self):
+        """The fixture header names a flavour in prose; a census must not see it."""
+        self.tree.add_top_netlist("CLK", glue=self._glue(self.PR + "pfet_01v8"))
+        self.assertEqual(
+            self.tree.check("# fixture\n\n" + self._flavours("pfet_01v8")), []
+        )
+
+    def test_check_is_inert_without_the_top_netlist(self):
+        # No design/sar_adc_top.spice in the fixture tree at all.
+        self.assertEqual(
+            self.tree.check("# fixture\n\n" + self._flavours("nfet_01v8")), []
+        )
+
+    def test_a_document_stating_no_inventory_is_not_failed_for_it(self):
+        # Opt-in per document, like checks 6, 18 and 19's parts (b)/(c).
+        self.tree.add_top_netlist("CLK", glue=self._glue(self.PR + "nfet_01v8"))
+        self.assertEqual(self.tree.check("# fixture\n\nNo inventory here.\n"), [])
+
+    def test_stats_sentences_round_trip_through_the_checker(self):
+        """A `--stats` paste must pass, or the documented fix does not work."""
+        self.tree.add_top_netlist(
+            "CLK",
+            glue=self._glue(self.SC_HD + "and2_1", self.PR + "nfet_01v8"),
+            subblocks=self._glue(self.PR + "cap_mim_m3_1"),
+        )
+        netlist = checker.top_netlist_text()
+        glue = checker.top_level_glue(netlist)
+        body = "# fixture\n\nThis design " + checker.primitive_inventory_sentence(
+            sorted(checker.cell_census(checker._netlist_instance_lines(netlist), "pr"))
+        )
+        body += (
+            ".\n\nOutside every sub-block, `design/sar_adc_top.sch` "
+            + checker.glue_census_sentence(checker.cell_census(glue, "sc_hd"), "sc_hd")
+            + " "
+            + checker.glue_census_sentence(checker.cell_census(glue, "pr"), "pr")
+            + ".\n"
+        )
+        self.assertEqual(self.tree.check(body), [])
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

@@ -726,6 +726,63 @@ That is the honest limit of a text check against a procedure; the parts that
 can be re-derived from this repository's own trees are re-derived, and the
 judgement is left where judgement belongs.
 
+### Check 20 -- device/cell inventory parity (`check_top_cell_inventory`)
+
+Check 10 grades the top cell's **ports**. Nothing graded what is *inside* it.
+That gap is not hypothetical: DR-008 (issue #263, PR #266, 2026-09-11)
+replaced the nine `SELn<i> = NOT(DOUT<i>)` inverters issue #56 drew at the
+integration level with eighteen decision-directed `and2_1` gates, added a
+nine-gate `xor2_1` readout recode, and DR-009 added a half-LSB
+quantizer-offset network of eight `sky130_fd_pr` devices -- none of which
+moved a port, so check 10 had nothing to say, and Sections 1, 3 and 7 went on
+describing the top level's glue as "the nine `SELn<i> = NOT(DOUT<i>)` glue
+inverters" for two weeks. The same staleness is *still* carried by
+`layout/seln-inverters/`'s hand-written netlist and by
+`layout/sar-adc-top/bin/generate-lvs-reference.py`'s wrapper, both of which
+say in their own headers that they mirror instance lines that no longer
+exist -- which is Section 7 Item 1's business, not this check's, but it is
+what makes the census worth gating rather than narrating.
+
+**Two parts, over two different scopes.**
+
+- **(a) Section 1's `sky130_fd_pr` flavour set, over the whole hierarchy** --
+  both directions, like checks 8, 10, 14, 15, 16, 17 and 18. This is the
+  sentence Section 2.1's rail position rests on: a thick-oxide
+  `nfet_g5v0d10v5`/`pfet_g5v0d10v5` pass device entering the netlist is the
+  DR-002 tripwire, and it should fail CI rather than wait for a reader.
+  `design/regen_netlist.sh --check` carries its own DR-001 flavour gate over
+  the same netlist, but (i) it grades the netlist, not the document, and (ii)
+  it runs only in `ci.yml`'s PDK-gated `pdk-smoke` job -- nightly,
+  `workflow_dispatch`, or an opt-in label -- whereas this runs on every pull
+  request. Neither substitutes for the other.
+- **(b) Section 3's per-family census of the glue outside every sub-block** --
+  instance total, type count, and the per-type counts, each in both
+  directions. Per-type rather than a bare total on purpose: a cell type
+  swapped for another in equal number is exactly the DR-008 shape, and a
+  total-only census would pass straight through it.
+
+The scope in (b) is the region between `design/sar_adc_top.spice`'s
+commented-out `**.subckt sar_adc_top` header and its `**.ends` -- the
+integration-level logic `design/sar_adc_top.sch` owns, as distinct from
+anything a sub-block schematic (and therefore a sub-block layout flow) is
+responsible for. Counting is done by matching `sky130_fd_(pr|sc_hd)__<cell>`
+tokens on non-comment lines rather than by parsing SPICE card grammar: a net
+name never has that shape, a subcircuit call names its cell last, and a
+device card names its model before its first `key=value`, so one token match
+per instance line covers both card shapes. Comment lines are dropped first --
+this file's own provenance header names the ratified flavour set in prose,
+and a census taken over raw text would count that sentence as instances.
+
+**What this check deliberately does NOT cover.** It grades *what* is
+instantiated, never *how it is wired*: DR-008's `SELp<i> = DOUT9 AND DOUT<i>`
+would still pass if the two inputs were swapped, or if the gate drove the
+wrong array side. Connectivity is what `klt lvs` is for, one flow down --
+and Section 7 Item 1 records the standing limitation there, that the
+top-level LVS reference is generated from the same superseded wiring as the
+layout it is compared against, so it is self-consistent rather than checked
+against `design/sar_adc_top.spice`. This check is the cheap half: it makes
+the document's *inventory* re-derived, which is what caught that.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

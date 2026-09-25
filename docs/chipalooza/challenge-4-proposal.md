@@ -37,10 +37,29 @@ remains before it would be.
 
 A 10-bit, single-channel, differential, top-plate-sampled
 Successive-Approximation-Register (SAR) analog-to-digital converter,
-implemented entirely on Sky130's 1.8 V core device flavor
-(`nfet_01v8`/`pfet_01v8`) with `sky130_fd_sc_hd` standard cells for the
-digital SEL-inverter drivers. Provisional sample rate range: 100 kS/s – 1
+implemented entirely on Sky130's 1.8 V core transistor flavor
+(`nfet_01v8`/`pfet_01v8`) plus the MiM capacitor its CDAC array and sampling
+front end are built from (`cap_mim_m3_1`), with `sky130_fd_sc_hd` standard
+cells for all of its digital logic — the SAR sequencer and the top level's own
+SEL-drive/readout glue alike (§3). Provisional sample rate range: 100 kS/s – 1
 MS/s (DRAFT, not yet re-derived from settling data — see §4).
+
+**That device inventory is re-derived, not asserted** (check 20 of the
+[citation gate](check_proposal_citations.py), added 2026-09-25): this design
+instantiates **3** `sky130_fd_pr` primitive flavours — `cap_mim_m3_1`,
+`nfet_01v8`, `pfet_01v8` — and that set is compared, in both directions,
+against every instance line of
+[`design/sar_adc_top.spice`](../../design/sar_adc_top.spice) (the full
+hierarchy, not just the top cell). This is the sentence §2.1's rail position
+rests on: a thick-oxide `nfet_g5v0d10v5`/`pfet_g5v0d10v5` pass device entering
+the netlist — the DR-002 tripwire §2.1 names — fails CI here instead of
+leaving §2.1's "no device above the 1.8 V core rail" claim to a reader's
+attention. `design/regen_netlist.sh --check` carries its own DR-001
+device-flavour gate over the same netlist, against a hard-coded allow-list —
+but it runs only in `.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job
+(nightly / `workflow_dispatch` / an opt-in `run-pdk-smoke` label), whereas
+this check runs in `Repo checks` on every pull request, and it grades the
+*document* rather than the netlist. Neither substitutes for the other.
 
 ---
 
@@ -182,6 +201,55 @@ end-of-conversion phase
 The full hierarchy is captured in `design/sar_adc_top.sch` and its
 regenerated netlist `design/sar_adc_top.spice`.
 
+**The top level's own glue logic, machine-checked** (check 20 of the
+[citation gate](check_proposal_citations.py), added 2026-09-25). The four
+sub-blocks above are not the whole design: outside every sub-block,
+`design/sar_adc_top.sch` adds **33** `sky130_fd_sc_hd` instances of **6** cell
+types — `and2_1` **×18**, `and2b_1` **×1**, `inv_1` **×3**, `mux2_1` **×1**,
+`xnor2_1` **×1**, `xor2_1` **×9** — and **8** `sky130_fd_pr` instances of
+**3** device types — `cap_mim_m3_1` **×2**, `nfet_01v8` **×2**, `pfet_01v8`
+**×4**. Both censuses are recomputed from `design/sar_adc_top.spice`'s own
+instance lines and graded in both directions, per cell type, so a glue cell
+added, removed, or swapped for another fails CI here. What each group is:
+
+- The **eighteen `and2_1`** are
+  [DR-008](../../spec/decision-records/DR-008-cdac-top-level-switching-polarity.md)'s
+  decision-directed bottom-plate drive, `SELp<i> = DOUT9 AND DOUT<i>` and
+  `SELn<i> = DOUT9N AND DOUT<i>` (`i = 0..8`), with one of the three `inv_1`
+  (`xinv_dout9n`) producing `DOUT9N`. Exactly one array side moves per bit
+  decision, which is what makes the array's native step 1 LSB/bit rather
+  than 2.
+- The **nine `xor2_1`** are the read-only offset-binary readout recode
+  (`ADCOUT<i> = DOUT<i> XOR DOUT9N`); `ADCOUT<i>` is not a top-level port
+  (§2.3) and the conversion loop operates on `DOUT<i>`.
+- The **`mux2_1` + `xnor2_1`** pair is
+  [DR-009](../../spec/decision-records/DR-009-comparator-output-load-balance-and-half-lsb-offset.md)'s
+  matched dummy load on the comparator's otherwise-unloaded `OUTN`, and the
+  **`and2b_1` + one `inv_1`** (`xand_halflsb`, `xinv_halflsb`) are that same
+  record's half-LSB enable and its complement,
+  `HALF_LSB_EN = BUSY AND NOT(PH_B9)`.
+- The **third `inv_1`** (`xinv_clkcap`) inverts `CLK` to `CLKN` so the
+  comparator is strobed at the end of the evaluate phase rather than its start
+  (issue #264) — not a DR-008/DR-009 device.
+- All **eight `sky130_fd_pr` instances** are DR-009's half-LSB quantizer-offset
+  network (two `cap_mim_m3_1` injection caps and their six drive FETs) — the
+  only analog devices this design draws outside a sub-block, and the reason
+  §2.2's `VDD` row names "the DR-009 offset network" as a load on the analog
+  rail.
+
+**None of those 33 cells is a `SELn<i>` inverter.** Issue #56's original
+integration drew `SELn<i> = NOT(DOUT<i>)` as nine dedicated `inv_1`
+instances; DR-008 (issue #263, PR #266, 2026-09-11) replaced that
+unconditional complementary drive with the `and2_1` pairs above, because a
+2-LSB native array step cannot represent every ratified `N = 10`
+offset-binary code. This census is gated rather than narrated because the
+document did not notice: §3 and §7 below each described the top level's glue
+as "the nine `SELn<i> = NOT(DOUT<i>)` glue inverters" for two weeks after
+DR-008 landed, and nothing in the citation gate could see it — check 10
+grades the *port list*, which DR-008 did not move. See §7 Item 1 for what
+that same staleness still costs `layout/seln-inverters/` and the composed
+top-level GDS, which is a layout gap rather than a documentation one.
+
 **Physical readiness, stated plainly**: schematic capture is complete and
 regenerates cleanly for every sub-block and the assembled top level. Layout
 exists **per sub-block, for all four sub-blocks** — `layout/comparator/`,
@@ -223,9 +291,12 @@ integration of the four sub-block layouts into one top-level GDS matching
 and `loom:blocked`. All four of
 #103's original sub-block dependencies are closed, and #103 has since
 shipped a fifth composition-level block it needs directly,
-`layout/seln-inverters/` (the nine `SELn<i> = NOT(DOUT<i>)` glue inverters
-`design/sar_adc_top.sch` adds at the integration level; DRC-clean and
-LVS-clean on its own, PR #166). That same PR's floorplan/routing
+`layout/seln-inverters/` (nine `sky130_fd_sc_hd__inv_1` instances laying out
+`SELn<i> = NOT(DOUT<i>)`; DRC-clean and LVS-clean **against its own
+hand-written gate-level netlist**, PR #166 — but that netlist is issue #56's
+top-level glue, which DR-008 superseded on 2026-09-11 and which the census
+above shows the current schematic no longer contains; see §7 Item 1). That
+same PR's floorplan/routing
 investigation — direct KLayout-API inspection of every sub-block's own
 committed GDS geometry, not just each block's published pin-position table —
 found a real sub-block-layout completeness gap: `cdac_array`'s (#100) `VDD`
@@ -1349,9 +1420,12 @@ tracker already owns.
    #103 was promoted (`loom:issue`, 2026-09-05T23:47:57Z) and claimed by a
    Builder (`loom:building`, lease acquired 2026-09-05T23:52:56Z), which
    shipped a fifth composition-level block the assembly needs directly —
-   `layout/seln-inverters/` (nine `SELn<i> = NOT(DOUT<i>)` glue inverters
-   `design/sar_adc_top.sch` adds at the integration level; DRC-clean and
-   LVS-clean, PR #166) — plus a floorplan/routing investigation that probed
+   `layout/seln-inverters/` (nine `sky130_fd_sc_hd__inv_1` instances laying
+   out `SELn<i> = NOT(DOUT<i>)`; DRC-clean and LVS-clean against its own
+   hand-written gate-level netlist, PR #166 — see "The composed top level
+   still implements issue #56's superseded glue" below, added 2026-09-25,
+   for why that netlist is no longer this design's top-level glue) — plus a
+   floorplan/routing investigation that probed
    every sub-block's own committed GDS geometry directly (not just each
    block's published pin-position table). That investigation found a real
    sub-block-layout completeness gap, not a floorplan/routing question this
@@ -2138,6 +2212,53 @@ tracker already owns.
    the `--abstract-cells` probe. #103's own state is unchanged by this
    check: still `loom:operator-only`/`loom:operator-decision`, a human
    decision this document does not act on.
+
+   **The composed top level still implements issue #56's superseded glue
+   (found 2026-09-25, this pass; a layout gap, newly stated here rather than
+   newly created).** §3's machine-checked census is what surfaced it. Two
+   artefacts of this flow were built 1:1 from the pre-DR-008 top level and
+   say so in their own headers, and neither was revisited when DR-008 landed
+   (2026-09-11, issue #263 / PR #266):
+   `layout/seln-inverters/netlist/seln_inverters.v` ("hand-derived 1:1 from
+   `design/sar_adc_top.sch`'s own `xinv_seln0..xinv_seln8` instances"), and
+   `layout/sar-adc-top/bin/generate-lvs-reference.py`, whose wrapper states
+   it is "mirrored 1:1 from `design/sar_adc_top.spice`'s own
+   `xfe`/`xcdac`/`xcmp`/`xseq`/`xinv_seln<i>` instantiation lines" and wires
+   each of that instance's `SELp<i>` pins straight to `DOUT<i>`. Neither
+   `xinv_seln<i>` nor a `SELp<i> = DOUT<i>` connection exists in
+   `design/sar_adc_top.spice` any more. Concretely, the composed
+   `sar_adc_top.gds` contains **none** of the 33 `sky130_fd_sc_hd` and 8
+   `sky130_fd_pr` instances §3's census reads out of the current schematic —
+   DR-008's eighteen `and2_1`, the nine `xor2_1` readout recode, the
+   `xinv_dout9n` complement, and DR-009's whole half-LSB offset network have
+   no drawn geometry anywhere under `layout/`.
+
+   **What that does and does not mean.** It is *not* a new cause of the 88
+   `klt lvs` mismatches above: the reference and the layout were generated
+   from the same superseded wiring, so they agree with each other, and the
+   compare cannot see the divergence at all. That is precisely the problem —
+   **a clean device-level match on this flow, once klayout-tools#1878 is
+   fixed, would not establish that the composed GDS implements the schematic
+   this repo now builds.** So the gap is not visible in any number this
+   document quotes, and it widens rather than narrows criterion 3: the
+   assembly needs the current glue laid out and the reference re-derived from
+   `design/sar_adc_top.spice` before an LVS verdict on it means anything. **No
+   §4 verdict moves** — "DRC/LVS-clean GDS, full ADC" is already PARTIAL (DRC
+   MET, LVS device match UNMET/BLOCKED) and post-layout PVT re-simulation is
+   already UNMET, so this adds a reason to an existing shortfall rather than
+   changing a grade; nothing is relaxed. One consequence worth stating
+   plainly for a reader of §4's Area row: the **0.108 mm²** composed extent it
+   quotes is the extent of an assembly that omits this glue, so it is a floor
+   on the real top-level area, not an estimate of it.
+
+   Filed as **#387** against the top-level assembly (#103's scope, not this
+   document's — this document compiles evidence rather than drawing
+   layout), since fixing it means re-laying out the top-level glue bank and
+   re-deriving the LVS reference, neither of which a documentation pass can
+   do. `layout/seln-inverters/README.md` and `layout/sar-adc-top/README.md`
+   carry the same stale description and are left for that issue to correct in
+   the same pass that corrects the geometry, rather than edited here into
+   agreement with a layout that does not yet exist.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
