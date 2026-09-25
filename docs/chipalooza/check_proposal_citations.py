@@ -956,12 +956,12 @@ SECTION_HEADING_RE = re.compile(r"^##\s+(?P<number>\d+)\.\s*(?P<title>.*)$")
 # at once, before a reader reaches any of them. Until 2026-09-25 it read
 # "Every row below is reported at this repository's own ratified PVT grid",
 # and measured against the records the table actually cites that was false for
-# 10 of 22 (spec row, `sim/` record) pairs -- three naming a record that
+# 10 of 22 (spec row, `sim/` record) pairs -- eight naming a record that
 # declares a single nominal point (both of the Kickback row's comparator runs,
-# and the Power row's supply-impedance campaign) and seven naming one that
-# declares no PVT point set of its own (the two Monte Carlo linearity records,
-# the two derived ENOB re-analyses, and three superseded single-corner
-# mechanism budgets). None of those records hides it -- each states its own
+# the Power row's supply-impedance campaign, the two Monte Carlo linearity
+# records, and three superseded single-corner mechanism budgets) and two
+# naming one that declares no PVT point set of its own (the two derived ENOB
+# re-analyses). None of those records hides it -- each states its own
 # subset-corner justification -- but the document spoke over them, and no
 # other check here could see it: checks 3/4/5/23 grade WHICH record a row
 # cites, never what corner coverage that record claims for itself.
