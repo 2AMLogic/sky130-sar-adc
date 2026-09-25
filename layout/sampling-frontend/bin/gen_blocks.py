@@ -90,7 +90,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _gen_common import add_klt_pdk_args, run_gen, write_and_check  # noqa: E402
-from _pfet_devices import PFET_DEVICES  # noqa: E402
+
+# ``DOMAIN_TAP_NET`` is unused *in this module* but imported on purpose: this
+# file is the re-export point its siblings read it from
+# (``build_layout.py`` and ``render-record.py`` both do
+# ``from gen_blocks import ..., DOMAIN_TAP_NET, ...``).  Dropping it here is
+# not an unused-import cleanup -- it breaks both of them at import time.
+# Do not remove (issues #251, #383/PR #388, #394).
+from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES  # noqa: E402,F401
 
 #: One row per `sky130_fd_pr__nfet_01v8` instance, including `Msw_p`/`Msw_n`
 #: (see the matching-strategy note above for why they are plain singles here,
