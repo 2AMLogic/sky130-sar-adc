@@ -1148,6 +1148,71 @@ RENDERER_CENSUS_RE = re.compile(
 # One entry point inside that sentence's exception clause.
 RENDERER_ENTRY_RE = re.compile(r"`(?P<entry>layout/[A-Za-z0-9._/-]+)`")
 
+# Check 31. One `sim/` campaign publishes records that are a subset of an axis
+# its RUNNER defines rather than of the PVT grid check 28 grades: the
+# supply-impedance campaign's *arms*, the supply-return networks it drives one
+# DUT through. `sim/README.md` requires a corner subset to be justified, and
+# that campaign's renderer applies the same rule to arms -- it emits an "Arms
+# this record does not contain" section, and since issue #409's first
+# increment a standing omission note per arm. Section 7's DR-012 item leans on
+# exactly that subset: it retires DR-012's "the impedance argument is
+# unmeasured" open item by citation while stating that DR-012's *rejected*
+# `no-gnd-pad` null option is implemented but never run, so no
+# priced-rejected-option claim may be read from the record. Nothing graded
+# that sentence. On the day a record prices the null option (issue #409 item
+# 2, whose ablation machinery landed 2026-09-25 in PR #429 while the
+# several-hour measurement stayed owed) the document would still say the claim
+# cannot be read, with every number beside it still true -- check 30's defect
+# shape on a different axis, graded the same way and in both directions.
+ARM_CAMPAIGN = "supply-impedance-sensitivity"
+ARM_RUNNER = f"sim/{ARM_CAMPAIGN}/run_supply_impedance.py"
+ARM_POINTER = f"sim/{ARM_CAMPAIGN}/records/LATEST"
+
+# The runner's own arm table, read as source text rather than imported, for
+# `report_row_count`'s reason: this gate is a pure file reader. The `name=`
+# keyword is anchored to its own line so the nested `bonds=`/`substrate=`
+# mappings inside each arm contribute nothing.
+ARM_TABLE_RE = re.compile(r"^ARMS\b[^\n]*=\s*\(\s*$", re.M)
+ARM_NAME_RE = re.compile(r'^\s+name="(?P<arm>[A-Za-z0-9._-]+)",\s*$', re.M)
+
+# The header line every record of this campaign carries, written by its
+# renderer: `- **Arms**: 4 supply-return networks `ideal`, ... x 1 corner
+# point(s) = 4 transient runs.` The arms are read from the LIST, never from
+# the count in front of it -- the list is what names what ran, and a record
+# whose count disagreed with its list must be graded on the names.
+ARM_RECORD_RE = re.compile(
+    r"- \*\*Arms\*\*: \d+ supply-return networks (?P<arms>[^\n]*?) x \d+ corner"
+)
+ARM_TOKEN_RE = re.compile(r"`(?P<arm>[A-Za-z0-9._-]+)`")
+
+# What the census renders once every arm has been run -- spelled out rather
+# than left as an empty clause, `RENDERER_CENSUS_NONE`'s reason. The em dash
+# is the document's own punctuation: `--stats` prints exactly what the
+# document must contain for the paste to pass.
+ARM_CENSUS_NONE = "**none** — every arm the runner implements has been run"
+
+# The census sentence check 31 grades. Deliberately free of the phrase
+# "current `records/LATEST`", for check 17's reason: spelling it that way
+# would enrol this sentence in checks 4/6's pointer-claim census, where it is
+# not a pointer claim.
+ARM_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<offered>\d+)\*\* supply-return arms `"
+    + re.escape(ARM_RUNNER)
+    + r"` implements, the record `"
+    + re.escape(ARM_POINTER)
+    + r"` names runs \*\*(?P<ran>\d+)\*\* and leaves \*\*(?P<unrun>\d+)\*\* unrun: "
+    r"(?P<arms>"
+    + re.escape(ARM_CENSUS_NONE)
+    + r"|(?:`[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# The anchor that makes an *absent* arm census a finding rather than a
+# silence, the shape checks 25, 28 and 30 each use: a document that cites this
+# campaign at all is citing a record that ran a subset of the runner's arms,
+# and the subset is what bounds what the record may be read for. Deleting the
+# inconvenient sentence is not a way to widen the citation.
+ARM_CENSUS_ANCHOR = f"sim/{ARM_CAMPAIGN}/"
+
 
 def _unwrap_backticked(span: str) -> str:
     """Rejoin a backticked span that prose wrapped across lines.
@@ -4610,6 +4675,136 @@ def check_renderer_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def runner_arms() -> list[str]:
+    """The supply-return arms `ARM_RUNNER` implements, in its own order.
+
+    Read out of the source text rather than by importing the module, for
+    `report_row_count`'s reason: this gate is a pure file reader, and the
+    runner imports the testbench fragment helpers. Empty when the runner is
+    absent or its arm table is not in the shape this parse recognises -- both
+    are "nothing to compare", which check 31 reports as an ungraded silence
+    rather than as a census of zero arms.
+    """
+    runner = REPO_ROOT / ARM_RUNNER
+    if not runner.is_file():
+        return []
+    source = runner.read_text()
+    opening = ARM_TABLE_RE.search(source)
+    if opening is None:
+        return []
+    end = source.find("\n)\n", opening.end())
+    block = source[opening.end() : end if end != -1 else len(source)]
+    return [match.group("arm") for match in ARM_NAME_RE.finditer(block)]
+
+
+def record_arms() -> list[str] | None:
+    """The arms the campaign's current record ran, in that record's order.
+
+    `None` covers the three "nothing to compare against" conditions this
+    module already treats alike -- no `records/LATEST`, a pointer naming a
+    record that is gone, and a record whose header carries no `**Arms**` line.
+    """
+    stamp = _read_pointer("sim", ARM_CAMPAIGN, "records")
+    if stamp is None:
+        return None
+    record = REPO_ROOT / "sim" / ARM_CAMPAIGN / "records" / stamp
+    if not record.is_file():
+        return None
+    stated = ARM_RECORD_RE.search(record.read_text())
+    if stated is None:
+        return None
+    return [match.group("arm") for match in ARM_TOKEN_RE.finditer(stated.group("arms"))]
+
+
+def arm_census() -> dict | None:
+    """How much of the runner's arm axis the campaign's current record covers.
+
+    Three numbers and the unrun arms by name. `unrun` is ordered by the
+    RUNNER's table rather than alphabetically, so the census reads in the same
+    order as the record's own "Arms this record does not contain" section and
+    a diff between the two is about content, not sort order.
+    """
+    offered = runner_arms()
+    ran = record_arms()
+    if not offered or ran is None:
+        return None
+    unrun = [arm for arm in offered if arm not in ran]
+    return {
+        "offered": len(offered),
+        "ran": len(offered) - len(unrun),
+        "unrun": len(unrun),
+        "unrun_arms": unrun,
+    }
+
+
+def arm_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `ARM_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-31 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26, 28 and 30.
+    """
+    arms = (
+        ARM_CENSUS_NONE
+        if not census["unrun_arms"]
+        else ", ".join(f"`{arm}`" for arm in census["unrun_arms"])
+    )
+    return (
+        f"of the **{census['offered']}** supply-return arms `{ARM_RUNNER}` "
+        f"implements, the record `{ARM_POINTER}` names runs "
+        f"**{census['ran']}** and leaves **{census['unrun']}** unrun: {arms}"
+    )
+
+
+def check_arm_census(doc: Path, text: str) -> list[str]:
+    """Check 31: the stated supply-return arm census is this tree's own."""
+    if ARM_CENSUS_ANCHOR not in text:
+        # A document that does not cite this campaign qualifies nothing about
+        # the arms its records leave unrun, and is not made to.
+        return []
+    actual = arm_census()
+    if actual is None:
+        # No runner, no current record, or a record this parse does not
+        # recognise: there is nothing to compare a census against, and
+        # inventing one would be a claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(ARM_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose records run a "
+            f"SUBSET of the arms `{ARM_RUNNER}` implements, but states no arm "
+            f"census -- state it (`{arm_sentence(actual)}` today), so what the "
+            f"cited record may not be read for is graded rather than asserted "
+            f"and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("offered", "ran", "unrun"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the arm census says {field}={claimed}, but "
+                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"an arm has now been run, say what its record prices rather "
+                f"than only moving the number"
+            )
+        listed = ARM_TOKEN_RE.findall(match.group("arms"))
+        if listed != actual["unrun_arms"]:
+            misses.append(
+                f"{where}: the arm census names "
+                f"{', '.join(f'`{arm}`' for arm in listed) or 'no arm'} as "
+                f"unrun, but `sim/{ARM_CAMPAIGN}/` reports "
+                f"{', '.join(f'`{arm}`' for arm in actual['unrun_arms']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong arm "
+                f"misstates which claim the cited record cannot support"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -4642,6 +4837,7 @@ def check_document(doc: Path) -> list[str]:
         + check_corner_grid_census(doc, text)
         + check_absent_paths(doc, text)
         + check_renderer_census(doc, text)
+        + check_arm_census(doc, text)
     )
 
 
@@ -4842,6 +5038,14 @@ def main(argv: list[str]) -> int:
         # above only as each flow re-runs -- which is why both are stated.
         if (REPO_ROOT / "layout").is_dir():
             print(f"layout/: {renderer_sentence(renderer_census())}")
+        # And the one campaign whose current record covers a subset of an axis
+        # its runner defines rather than of the PVT grid check 28 censuses:
+        # the supply-return arms, which bound what that record may be cited
+        # for. Printed whenever both halves are readable, including when every
+        # arm has been run -- that is a statement too, not a silence.
+        arms = arm_census()
+        if arms is not None:
+            print(f"sim/{ARM_CAMPAIGN}/: {arm_sentence(arms)}")
         return 0
 
     misses: list[str] = []

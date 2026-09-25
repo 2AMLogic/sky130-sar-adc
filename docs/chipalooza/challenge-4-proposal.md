@@ -3750,21 +3750,59 @@ tracker already owns.
      measurement at this one corner, not only prose — real impedance,
      inductance-dominated, not (yet) fatal to a captured code at this
      magnitude.
-     **This closes the item at a stated scope, not without residue**: the
-     nine-point ratified corner grid is deferred (the campaign's own
-     "Subset-corner justification" names three binding constraints — a
-     shared-host policy against a local multi-corner ngspice grid, `klt
-     sim`'s request/response contract not being able to mint a record in
-     this repo's own format, and the batch fleet's ngspice build sitting
-     below `sim/toolchain.json`'s `ngspice_min_major = 46` pin), and DR-012's
-     *rejected* `no-gnd-pad` null option is implemented but not run, on cost
-     (~17× the control arm's wall clock, projecting to several hours). Neither
-     a worst-corner claim nor a priced-rejected-option claim may be read from
-     this record, and it says so in its own words. It is also, on the same
-     honesty rule DR-015 states of itself, evidence about *a* supply return
-     and *a* lumped substrate stand-in of this record's own assumed
+     **This closes the item at a stated scope, not without residue — and the
+     residue has a tracker of its own (pointer added 2026-09-25).** This
+     section's rule is that each item points at the issue that already owns
+     the work rather than inventing new tracking for it; this retirement's
+     leftovers were the one place that rule was not being kept. Issue **#409**
+     (open) is where they live, and it names four, of which this paragraph
+     previously stated two: the nine-point ratified corner grid is deferred
+     (the campaign's own "Subset-corner justification" names three binding
+     constraints — a shared-host policy against a local multi-corner ngspice
+     grid, `klt sim`'s request/response contract not being able to mint a
+     record in this repo's own format, and the batch fleet's ngspice build
+     sitting below `sim/toolchain.json`'s `ngspice_min_major = 46` pin);
+     DR-012's *rejected* `no-gnd-pad` null option is implemented but not run,
+     on cost (~17× the control arm's wall clock, projecting to several
+     hours); no `R`/`L` × substrate-resistance sweep exists, so DR-015's
+     assumption is tested at one magnitude rather than swept for the
+     magnitude at which the mechanism starts to matter; and `R_SUB`/`R_SUBX`
+     remain lumped stand-ins with no extracted substrate network behind them.
+     Neither a worst-corner claim nor a priced-rejected-option claim may be
+     read from this record, and it says so in its own words. It is also, on
+     the same honesty rule DR-015 states of itself, evidence about *a* supply
+     return and *a* lumped substrate stand-in of this record's own assumed
      magnitude, not a measurement of any real package or of this die's actual
      substrate.
+
+     **The unrun arm is now counted, not only described (added 2026-09-25).**
+     "Implemented but not run" is a claim about this campaign's *arm* axis —
+     the supply-return networks its runner drives one DUT through — and that
+     axis is not the PVT grid check 28 censuses. A record covering a subset
+     of it is bounded by the arms it left out, exactly as `sim/README.md`
+     requires a corner subset to be justified, and the campaign's own
+     renderer states that per record (its "Arms this record does not contain"
+     section, plus a standing omission note per arm). Nothing graded *this*
+     document's version of it, so on the day #409's item 2 mints a record
+     pricing the null option, the paragraph above would still read "not run"
+     with every number beside it still true — the shape check 30 was added
+     for, one axis over. Check 31 of the [citation
+     gate](check_proposal_citations.py) now re-derives it from the runner's
+     own arm table and the record's own header, in both directions:
+
+     > of the **5** supply-return arms
+     > `sim/supply-impedance-sensitivity/run_supply_impedance.py` implements,
+     > the record `sim/supply-impedance-sensitivity/records/LATEST` names runs
+     > **4** and leaves **1** unrun: `no-gnd-pad`
+
+     What moved on 2026-09-25 was the *cost* of making that measurement, not
+     the measurement: PR #429 (issue #409) landed the machinery that turns
+     the arm into a price — the runner now computes the `package` vs
+     `no-gnd-pad` one-element ablation, and refuses to present an unpaired
+     `no-gnd-pad` row as one — and minted no record, because the run itself
+     is the several-hour one #409 describes. **No §4 row, verdict, Target or
+     Status moves here**: this document's "not run" stands until a record in
+     the census above says otherwise.
 
      This retirement is **not** what turns check 25's own ground-return
      census (below) non-zero, and that is itself worth stating rather than
