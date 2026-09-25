@@ -22,6 +22,40 @@ every PFET body extracting on the n-well island DR-004 requires. The record
 referenced by `reports/LATEST` carries all eleven verdicts, seven positive and
 four negative:
 
+**`GND` is now a promoted pin (issue #377, record
+`20260924-232823-66dca3c`).** This cell always drew a p-substrate tap and a
+`GND` met2 track; what it did not do was *label* them, on the reasoning
+`PIN_NETS` carried in its own comment — "nothing at a higher level of
+hierarchy will ever connect to it by name." Issue #362 / DR-012 gave the
+top-level assembly a drawn analog `GND` pad and issue #377 routes a ground
+mesh to it, so that reasoning expired: `layout/sar-adc-top/` now lands a via
+riser on this label's own position (39.97, 52.32). **The change is one entry
+in `PIN_NETS` — no geometry moved**, the composed bbox is unchanged at
+`(0, -2.4; 195.56, 58.97)`, and DRC stays clean with 0 violations.
+
+One verdict got *better*, and it should be read narrowly. `klt lvs` went from
+2 findings to 1: `device.body_unverified` — raised while the eleven NFETs'
+body terminals were being compared against the deck's synthesized `vsubs`
+global rather than a schematic net — no longer fires, because the substrate
+net now carries this cell's own drawn `GND` label and extracts under that
+name. What changed is that the node every NFET body sits on is a **named,
+drawn conductor**; what did *not* change is the deck's `connect_global` tie
+itself, which still joins all eleven bodies by construction rather than by
+geometry this flow could break. A per-device NMOS body-tie check remains
+outside what this deck can grade. Every other count is identical to the
+superseded `20260918-191227-935ce76`: 24/24 devices, 17/17 nets, 12/12 pins.
+
+That record is also this flow's **first run on `klayout-tools==0.6.0`** (the
+pin moved for issue #103 on 2026-09-23 without re-running the sub-block
+flows). A same-source baseline was run first on the new pin to keep the two
+changes apart, and it reproduced the superseded record's verdicts exactly
+(DRC clean, LVS match at 2 findings, same device/net/pin counts) — so
+everything above is attributable to the pin promotion, not to the tool bump.
+The visible difference from the bump is coverage, not verdict: the 0.6.0 deck
+authors 44 rules here where the record format previously listed none, and
+`met1.area.1` … `met4.area.1` are now among them, which is what made issue
+#326's separate `minimum-area.json` measurement redundant for this flow.
+
 **Re-verified against `design/sampling_frontend.sch` post-issue-#236 (issue
 #245, record `20260908-070934-80df05e`)**: `Sa_p`/`Sa_n`'s gate moved from
 `SAMPLE` to the switch's own gate node `G_P`/`G_N` (net reconnection only,
@@ -225,10 +259,16 @@ What this sub-block adds beyond that PFET-only study: a fourth tap — a
 p-substrate tie in the NFET row's own margin, routed to GND. Read
 `bin/build_layout.py`'s docstring for what it does and does not do; the short
 version is that it merges the drawn `GND` conductor into the deck's
-globally-synthesized `vsubs` net (without which LVS cannot match at all), and
-that it does **not** make any NFET body a schematic-named net (no drawn
-geometry can, on this deck — `klt lvs` reports `device.body_unverified` for all
-eleven NFETs, expected).
+globally-synthesized substrate net (without which LVS cannot match at all),
+and that it does **not** make any NFET body tie something drawn geometry could
+break: the deck's `connect_global` joins all eleven bodies by construction
+whatever this layout draws.
+
+Since issue #377 that substrate net is also *named* here — `GND`, from the
+promoted met2 pin label, where it read as the deck's own `vsubs` before — and
+`klt lvs` consequently stops reporting `device.body_unverified` for the eleven
+NFETs. Read that as what it is: the body net is now a named drawn conductor,
+not a per-device tie this flow verified. See the status note at the top.
 
 ---
 

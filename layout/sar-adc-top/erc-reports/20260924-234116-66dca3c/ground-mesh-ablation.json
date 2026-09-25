@@ -1,0 +1,67 @@
+{
+  "schema": "sky130-sar-adc.ground-mesh-ablation/1",
+  "issue": 377,
+  "record": "layout/sar-adc-top/reports/20260924-234053-66dca3c",
+  "spec": "layout/sar-adc-top/erc-supply-spec.json",
+  "klt": "klt 0.6.0",
+  "supply_under_test": "GND",
+  "variants": {
+    "full": {
+      "gds": "sar_adc_top.full.gds",
+      "erc_status": "clean",
+      "erc_finding_count": 0,
+      "per_net": {},
+      "input_content_hash": "sha256:bbb9b5373d80e8bb6ca3a8f698700678686ca15f6df27fe8ef2b2a55a67ec223",
+      "spec_content_hash": "sha256:fd4f5a93160072689b6fbc52dcce01b7eab8b68c48e6dc2fb6632500aa929946",
+      "record_content_hash": "sha256:bbb9b5373d80e8bb6ca3a8f698700678686ca15f6df27fe8ef2b2a55a67ec223"
+    },
+    "ablated": {
+      "gds": "sar_adc_top.ablated.gds",
+      "erc_status": "violations",
+      "erc_finding_count": 1,
+      "per_net": {
+        "GND": {
+          "findings": [
+            {
+              "rule": "erc.unconnected_net",
+              "description": "declared net 'GND' resolves to 2 disconnected electrical islands (expected exactly one)",
+              "islands": [
+                {
+                  "bbox": {
+                    "left": 103495,
+                    "bottom": 86450,
+                    "right": 130115,
+                    "top": 140720
+                  },
+                  "layer": "met1",
+                  "shape_count": 13
+                },
+                {
+                  "bbox": {
+                    "left": 100200,
+                    "bottom": 169800,
+                    "right": 102620,
+                    "top": 197800
+                  },
+                  "layer": "met4",
+                  "shape_count": 6
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "input_content_hash": "sha256:cf154523c9525f7864dac97ec876cac902a89d22759c18d17721512e7892bac5",
+      "spec_content_hash": "sha256:fd4f5a93160072689b6fbc52dcce01b7eab8b68c48e6dc2fb6632500aa929946"
+    }
+  },
+  "verdict": {
+    "as_predicted": true,
+    "full_reproduces_record_gds": true,
+    "full_is_one_island": true,
+    "ablated_splits": true,
+    "controls_unmoved": true,
+    "controls_moved": [],
+    "reading": "The mesh, not the substrate, is what joins the three analog blocks' drawn grounds: removing it (and nothing else) splits GND into more than one island under a connectivity model that sees drawn conductor only."
+  }
+}

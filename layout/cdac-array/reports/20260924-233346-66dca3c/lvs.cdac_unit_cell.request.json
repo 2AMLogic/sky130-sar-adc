@@ -1,0 +1,17 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "file": "cdac_unit_cell.gds",
+    "deck": "sky130",
+    "top": "cdac_unit_cell",
+    "top_cell_pins": true
+  },
+  "reference": {
+    "netlist": "cdac_unit_cell.lvs-reference.spice",
+    "top": "cdac_unit_cell"
+  },
+  "options": {
+    "combine_devices": false
+  }
+}

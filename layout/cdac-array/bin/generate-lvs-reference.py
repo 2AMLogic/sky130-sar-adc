@@ -49,12 +49,20 @@ statement:
    drawn plate size and the extraction deck's own published area/perimeter
    coefficients.
 
-3. The schematic's `VSS` (every nfet's bulk) becomes `vsubs`, the name
-   `klt extract`'s sky130 deck gives the synthesized global substrate net
-   it ties every nfet body to. This is a rename of one net, disclosed in
-   the emitted file's header; sky130 has no drawn "VSS layer" for a block
-   with no substrate tap of its own, so the extractor's global is the only
-   thing the schematic's VSS *can* correspond to.
+3. The schematic's `VSS` (every nfet's bulk) becomes `vsubs` -- the name
+   `klt extract`'s sky130 deck gives the synthesized global substrate net it
+   ties every nfet body to -- **for a top that draws no substrate tap of its
+   own**, which is where that rename came from: with no drawn, labelled
+   ground conductor anywhere in the cell, the extractor's global is the only
+   thing the schematic's VSS *can* correspond to. It is a rename of one net,
+   disclosed in the emitted file's header.
+
+   Since issue #377 that condition no longer holds for `cdac_array`: it
+   draws a real p-substrate tap, contacted to a met1 landing pad carrying a
+   `VSS` pin label (`cdac_layout.py`'s `VSS_TAP_CX` block), so the extracted
+   net is literally named `VSS` and no rename is needed -- the reference now
+   says exactly what the schematic says. `cdac_unit_cell` still draws no tap
+   of its own, so the rename stands there. See `SUBSTRATE_NET_BY_TOP`.
 
 Usage:
 
@@ -98,7 +106,22 @@ MOS_MODELS = {
 }
 CAP_MODEL = "sky130_fd_pr__cap_mim_m3_1"
 CAP_CLASS = "sky130_fd_pr__model__cap_mim"
-SUBSTRATE_NET = "vsubs"
+#: What the schematic's `VSS` is called on the reference side, PER TOP -- see
+#: this module's docstring, rewrite 3. `vsubs` is the name `klt extract`'s
+#: sky130 deck gives the substrate net it synthesises for a cell that draws no
+#: substrate tap; a cell that DOES draw one, and labels it, gets that label's
+#: own name instead, so no rename is called for.
+#:
+#: Issue #377 drew `cdac_array`'s own p-substrate tap and labelled it `VSS`,
+#: which retired the rename for that top (measured: the extracted net for that
+#: cell is now literally `VSS`). `cdac_unit_cell` draws no tap of its own --
+#: it is the single-bit documentation/verification cell, not the thing the
+#: array instantiates -- so for it the deck's global is still the only thing
+#: the schematic's `VSS` can correspond to, and the rename stands.
+SUBSTRATE_NET_BY_TOP = {
+    "cdac_array": "VSS",
+    "cdac_unit_cell": "vsubs",
+}
 
 
 def netlist_schematic(top: str, outdir: Path) -> str:
@@ -164,6 +187,7 @@ def rewrite(top: str, netlist: str) -> str:
     lines = join_continuations(netlist)
     pins: list[str] = []
     cards: list[str] = []
+    substrate_net = SUBSTRATE_NET_BY_TOP[top]
 
     for line in lines:
         if line.startswith("**.subckt"):
@@ -172,7 +196,7 @@ def rewrite(top: str, netlist: str) -> str:
                 raise SystemExit(
                     f"generate-lvs-reference.py: expected .subckt {top}, got {parts[1]}"
                 )
-            pins = [SUBSTRATE_NET if p == "VSS" else p for p in parts[2:]]
+            pins = [substrate_net if p == "VSS" else p for p in parts[2:]]
             continue
         if not line.startswith("X"):
             continue
@@ -187,7 +211,7 @@ def rewrite(top: str, netlist: str) -> str:
             if len(nets) != 4:
                 raise SystemExit(f"generate-lvs-reference.py: bad MOS card: {line}")
             d, g, s, b = nets
-            b = SUBSTRATE_NET if b == "VSS" else b
+            b = substrate_net if b == "VSS" else b
             cards.append(
                 f"{device_name('M', name)} {d} {g} {s} {b} {MOS_MODELS[model]} "
                 f"L={params['l']}U W={params['w']}U"
@@ -219,6 +243,22 @@ def rewrite(top: str, netlist: str) -> str:
     if not cards:
         raise SystemExit(f"generate-lvs-reference.py: no devices found for {top}")
 
+    if substrate_net == "VSS":
+        substrate_disclosure = (
+            "the schematic's VSS (every nfet bulk) appears here\n"
+            "* under its own schematic name. No rename is needed: since issue #377\n"
+            "* this layout draws a real p-substrate tap of its own, contacted up to a\n"
+            "* met1 landing pad labelled `VSS`, so `klt extract` reports that net by\n"
+            "* that name rather than by the deck's synthesized `vsubs` global."
+        )
+    else:
+        substrate_disclosure = (
+            f"the schematic's VSS (every nfet bulk) appears here as\n"
+            f"* `{substrate_net}`, the name the sky130 extraction deck gives its\n"
+            f"* synthesized global substrate net -- this cell draws no substrate tap\n"
+            f"* of its own, so that global is the only thing VSS can correspond to."
+        )
+
     header = f"""* {top}.lvs-reference.spice -- GENERATED, do not edit by hand.
 *
 * Regenerate with: layout/cdac-array/bin/generate-lvs-reference.py
@@ -239,9 +279,7 @@ def rewrite(top: str, netlist: str) -> str:
 * `Netlist.combine_devices()` does not reliably re-sum w identical-valued
 * parallel capacitors into one device for w in the hundreds).
 *
-* Substrate: the schematic's VSS (every nfet bulk) appears here as
-* `{SUBSTRATE_NET}`, the name the sky130 extraction deck gives its
-* synthesized global substrate net.
+* Substrate: {substrate_disclosure}
 """
     body = ".SUBCKT {} {}\n{}\n.ENDS {}\n".format(
         top, " ".join(pins), "\n".join(cards), top

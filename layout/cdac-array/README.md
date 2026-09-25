@@ -164,6 +164,64 @@ Verified directly against `klt extract`'s per-device report: every one of
 the 18 switch transistors' `L=0.15U` is byte-identical before and after (see
 the PR for issue #165), and DRC/LVS both stay clean.
 
+## `VSS` landing geometry — issue #377
+
+Issue #165's parenthesis above — *"`GND` connects for free chip-wide"* — is
+true of the **extraction deck** and false of the **layout**, and that gap is
+what issue #377 closes here. `cdac_array`'s fourth schematic port (`VSS`,
+every switch NFET's bulk) had no drawn conductor of its own at all. Unlike
+`VDD` it was not even visible as an uncontactable bare layer: sky130's deck
+synthesises one global p-substrate net by construction, so the port resolved
+to that global and both `klt extract` and `klt lvs` were satisfied while this
+block drew *no ground conductor whatsoever*. The composed assembly's analog
+return therefore reached this block through substrate resistance — real, but
+not something `klt drc` grades or this repo draws. That is the residue
+[DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s own "Open
+items" named.
+
+Fixed with the p-substrate counterpart of the `VDD` tie above, by the same
+`body_tap()` helper (in sky130 a tap is an n-tap or a p-tap purely by which
+tub it sits in, so the drawn shapes are identical and only the placement
+differs):
+
+- **`VSS`**: `tap.drawing` + li1 + a licon1 column on **bare substrate**,
+  directly below the `VDD` n-well tap and sharing its x, in the empty stripe
+  between the switch row's own NFET diffusion (bottom edge y = −30.00) and
+  the VREFN met2 rail — contacted up through mcon to a met1 landing pad
+  carrying a `VSS` met1.pin label at (1.00, −31.60). That pad is what
+  `layout/sar-adc-top/`'s analog ground mesh
+  ([DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)) lands
+  a via riser on.
+
+Clearances, and which of them this flow's DRC verdict actually backs: 0.60 µm
+to the NFET block above (sky130's `difftap.3` tap-to-diffusion spacing is
+0.27 µm) and 2.59 µm to the n-well's own bottom edge (`nwell.5a`, 0.34 µm)
+are **not graded** — the pinned curated deck authors no rule on
+`tap.drawing` (65/44) and none on n-well-to-tap spacing at all — so
+`cdac_layout.py`'s `_assert_vss_tap_clearances()` asserts them in the
+generator instead, where a future switch-row move fails loudly rather than
+silently. The met1 landing pad's 2.84 µm to the VREFP rail and 1.79 µm to
+the nearest switch riser *are* graded (`met1.space.1`), by every DRC run.
+
+The reference side moved with the layout, not ahead of it:
+`generate-lvs-reference.py` used to rename the schematic's `VSS` to `vsubs`
+"for a block with no substrate tap of its own", which this block no longer
+is, so the rename is retired for `cdac_array` and the reference now says what
+the schematic says. `cdac_unit_cell` draws no tap of its own and keeps it.
+Record `20260924-233346-66dca3c`: DRC clean on both cells, LVS match on both,
+1060/1060 devices, 42/42 nets, 24/24 pins — all unchanged. One finding fewer
+than the superseded record, and narrowly: `device.body_unverified` stops
+firing on `cdac_array` because its substrate net is now a *named drawn
+conductor* (`VSS`) rather than the deck's anonymous global. The deck's
+`connect_global` still ties the eighteen NFET bodies together by
+construction; nothing here verifies a per-device body tie, and
+`cdac_unit_cell` still reports the warning, correctly.
+
+That record is also this flow's first run on `klayout-tools==0.6.0`. A
+same-source baseline on the new pin was run first and reproduced the
+superseded `20260917-180543-527ec73` exactly (clean/match, 2 findings,
+1060/42/24), so the delta above is this change's, not the bump's.
+
 ---
 
 # The matching strategy
