@@ -2285,6 +2285,34 @@ tracker already owns.
    carry the same stale description and are left for that issue to correct in
    the same pass that corrects the geometry, rather than edited here into
    agreement with a layout that does not yet exist.
+
+   **#387 is now decomposed into three pieces, none of which has landed in
+   this tree (re-checked live against the forge and against `layout/`,
+   2026-09-25).** The gap itself is unchanged; what changed is that it has
+   named owners instead of one open issue, which is worth recording here
+   because a later pass will otherwise re-derive the same split. #387 stays
+   open (`loom:blocked`) and keeps the whole gap. Its **first increment** — a
+   dedicated place-and-route flow for the standard-cell half of §3's census — is
+   open for review as **PR #402** and is **not merged**: no such flow exists
+   under [`layout/`](../../layout/) at this document's own HEAD, so there is
+   no in-repo record of it to cite — the citation gate's own path check
+   refuses one — and nothing in §3 or §4 cites one. **#400** (open)
+   carves out the other, non-standard-cell half — DR-009's `sky130_fd_pr`
+   primitives, which a `klt place-and-route` flow structurally cannot draw
+   (no MiM capacitor, no hand-sized analog switch, and the wrong floorplan
+   home: those devices hang off the comparator's own `TOP_P`/`TOP_N` nodes).
+   **#401** (open, and dependent on #400) is the composition itself:
+   re-placing `layout/sar-adc-top/` against the current schematic and
+   re-deriving its LVS reference from `design/sar_adc_top.spice` instead of
+   from the superseded instance list — the piece that actually makes this
+   flow's two compare sides independent, and therefore the piece criterion 3
+   waits on. **Nothing a number in this document depends on moves**: the
+   composed extent §4's Area row quotes is still the extent of an assembly
+   that omits this glue (a floor, not an estimate), the LVS mismatch count is
+   the same category mix over the same nets, and both §4 sign-off-bar rows
+   keep the verdicts they already carry. As with #103 itself, this document
+   records the state rather than acting on it — laying out a glue bank is not
+   something a documentation pass does.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
@@ -3420,8 +3448,9 @@ tracker already owns.
    item 10 below, which states the same report's whole scorecard (and is
    machine-checked against it) rather than only the two rows this item quotes.
 
-   Four honest qualifications this document owes a reader, each taken from
-   the record rather than inferred:
+   Five honest qualifications this document owes a reader — the first four
+   taken from the record rather than inferred, the fifth from the decision
+   record whose geometry this item grades:
    - **`GND`'s pass is geometric only.** `klt erc` models drawn wire/via
      connectivity with no device recognition, and this block's analog ground
      return is partly the p-substrate. `GND: 1 island` therefore means *the
@@ -3462,6 +3491,48 @@ tracker already owns.
      sky130 has no isolation between them and the composed extraction reports
      them as one net (`GND|VGND|VSS` on the current record, 692 devices); the two pads are two bond
      points on one node, which is what keeps the digital return off-die.
+   - **The ground plan's benefit is reasoned, not measured — and as of this
+     pass that gap is gated rather than remembered (added 2026-09-25).** Every
+     verdict this item reports is *connectivity*: drawn metal graded by a tool
+     with no notion of impedance. Why this block draws that metal at all is a
+     separate claim, and
+     [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) — the
+     record that put the pad there, and which
+     [DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)'s mesh
+     extends — declines to present it as evidence in its own words: "no
+     simulation in this repo measures ground-return impedance, substrate
+     coupling, or bond-wire inductance… CLAUDE.md's *no claim without a
+     testbench* rule applies to it." It carries that as a standing open item
+     ("The impedance argument is unmeasured"), tracked as issue **#378** —
+     open, `loom:building`, re-checked live on 2026-09-25 — which names the
+     testbench that would settle it: drive the assembled `sar_adc_top` through
+     package-like R+L on each of the four supply terminals, run
+     `sim/full-conversion-transient/`'s own stimulus, and compare code errors
+     against the ideal-ground case over the ratified grid. Nothing in this
+     repository does that yet, and that absence is now recomputed on every CI
+     run rather than restated by hand (check 25 of the
+     [citation gate](check_proposal_citations.py) — **ground-return census,
+     machine-checked**):
+
+     > across the **100** SPICE decks under `sim/`, **0** carry an inductor
+     > card
+
+     That is the mechanical form of DR-012's own sentence: neither bond-wire
+     inductance nor any package model can be written in SPICE without an
+     inductor card, so a campaign that models the return cannot land without
+     turning this census red — at which point the qualification is rewritten,
+     rather than left disclaiming a measurement this repo by then has. It is
+     the only one of these five qualifications whose truth is a property of
+     the whole evidence tree rather than of one report, which is exactly why
+     it would otherwise have gone stale silently: no citation moves, no island
+     count changes, and no §4 row's number budges on the day it stops being
+     true. **What the census does not say**: that no deck models a substrate
+     *resistance*. An R-only package stand-in would pass it, so the sentence
+     is a floor on the gap rather than a proof of it, and #378's testbench —
+     not this count — is what retires DR-012's open item. **No §4 verdict
+     moves**: no `spec/target-spec.md` row grades ground-return impedance, and
+     adding one here to hold this gap would be a spec change, which this
+     document does not make.
 
    **Does this move any §4 row? Not in verdict, but two rows' numbers move.**
    Item 11 is not a `spec/target-spec.md` row and no row is added for it here;

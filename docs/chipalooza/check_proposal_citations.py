@@ -53,10 +53,11 @@ columns of every `sim/` campaign's Power table (the term list check 19
 compares Section 5's power step against), the live device/cell inventory of
 `design/sar_adc_top.spice` (the sentences check 20 compares against), each
 document's live Kickback readout re-derived from the record its own Section 4
-row cites (the clauses check 21 compares against) and the live row count
+row cites (the clauses check 21 compares against), the live row count
 `sim/report/generate.py --check` closes with (the line check 24 compares
-against) instead of checking, which is
-what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 or 24
+against) and the live inductor-card census of every SPICE deck under `sim/`
+(the sentence check 25 compares against) instead of checking, which is
+what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24 or 25
 reports a drift. Exit status:
 
     0 - every citation checks out
@@ -817,6 +818,55 @@ REPORT_ROW_COUNT_RE = re.compile(r"is fresh and up to date \((?P<rows>\d+) rows?
 # would make a citation check execute repository code.
 REPORT_MANIFEST_ROWS_RE = re.compile(r"^ROWS\b[^\n]*=\s*\(\s*$", re.M)
 REPORT_MANIFEST_ROW_RE = re.compile(r"^    Row\(", re.M)
+
+# Check 25. DR-012 (the drawn analog ground pad) and DR-013 (the met3/met4
+# mesh that joins all three analog sub-blocks to it) both rest on an impedance
+# argument each record states, in its own words, is *unmeasured*: "no `sim/`
+# campaign in this repo models the ground return at all -- no package
+# parasitics, no substrate resistance, no bond-wire inductance" (DR-012, "Open
+# items", tracked as issue #378). Section 7 Item 9 owes a reader that
+# qualification beside its four others, and it is the only one of the five
+# whose truth is a property of this repository's evidence *tree* rather than
+# of one report -- so it is the only one that goes silently false the day a
+# campaign lands that does model the return, with no citation moving and no
+# number in the island table changing. An inductor card is what such a
+# campaign must add: neither bond-wire inductance nor any package model can be
+# written in SPICE without one. Counting them is therefore a mechanical
+# stand-in that fails in the direction that matters -- the gate goes red and
+# the qualification is rewritten, rather than the document going on
+# disclaiming a measurement it now has.
+#
+# The deck it scans (`.spice` under `sim/`) is a file-tree read, not a `git
+# ls-files` read: this gate is network-free and subprocess-free by design, so
+# an untracked scratch deck left under `sim/` counts here exactly as a
+# committed one does. That is the conservative direction -- it can only make
+# the census look less clean than the tree is.
+SIM_DECK_ROOT = "sim"
+SIM_DECK_GLOB = "**/*.spice"
+
+# An ngspice inductor card: `L<name> <n+> <n-> <value>`, at the start of a
+# (possibly indented) deck line. Comments (`*`), continuations (`+`) and
+# dot-commands (`.tran`, `.lib`, ...) are stripped by the reader before this
+# is applied, so the only way to match is an actual device card. Deliberately
+# matched case-insensitively: this tree writes both `Vdd` and `VVDD`.
+SPICE_INDUCTOR_CARD_RE = re.compile(r"^[Ll]\w*\s+\S+\s+\S+\s+\S")
+
+# The ground-return census sentence check 25 grades, stated in Section 7 as a
+# blockquote (so it is read off the same whitespace-collapsed text checks 9,
+# 16 and 17 use). Deliberately free of the phrase "current `…/LATEST`", for
+# check 17's reason: spelling it that way would enrol this sentence in checks
+# 4/6's pointer-claim census, where it is not a pointer claim.
+GROUND_RETURN_RE = re.compile(
+    r"across the \*\*(?P<decks>\d+)\*\* SPICE decks? under `sim/`, "
+    r"\*\*(?P<inductors>\d+)\*\* carry an inductor card"
+)
+
+# The anchor that makes an *absent* census a finding rather than a silence,
+# the shape check 24 uses for `sim/report/generate.py --check`: a document
+# that cites the decision record whose open item this qualifies must state
+# the census. Deleting an inconvenient qualification is the drift this half
+# guards -- the other checks' "grade it when stated" rule would let it go.
+GROUND_RETURN_ANCHOR = "DR-012-analog-ground-pad.md"
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -3553,6 +3603,97 @@ def check_report_row_count(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _deck_device_cards(deck: Path) -> list[tuple[int, str]]:
+    """`(line number, card)` for every device card in one SPICE deck.
+
+    Comments, blank lines, continuations and dot-commands are dropped, which
+    is the whole of the SPICE grammar this gate needs: everything left starts
+    with the device letter its card type is named for.
+    """
+    cards = []
+    for number, line in enumerate(deck.read_text().splitlines(), 1):
+        card = line.strip()
+        if not card or card[0] in "*+.":
+            continue
+        cards.append((number, card))
+    return cards
+
+
+def ground_return_census() -> dict:
+    """How many `sim/` decks there are, and how many model an inductance.
+
+    The second number is the graded one -- see this module's check-25
+    constants for why an inductor card is the stand-in for "a campaign that
+    models the ground return". `cards` names where each one was found, so a
+    future failure reads as "this deck now carries one" rather than as a bare
+    integer a reader has to go hunting for.
+    """
+    decks = sorted((REPO_ROOT / SIM_DECK_ROOT).glob(SIM_DECK_GLOB))
+    cards = [
+        f"{deck.relative_to(REPO_ROOT)}:{number}"
+        for deck in decks
+        for number, card in _deck_device_cards(deck)
+        if SPICE_INDUCTOR_CARD_RE.match(card)
+    ]
+    return {"decks": len(decks), "inductors": len(cards), "cards": cards}
+
+
+def ground_return_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `GROUND_RETURN_RE` matches.
+
+    Used by `--stats` so the fix for a check-25 failure is a paste, as it is
+    for checks 6, 9, 12, 13, 14, 15, 16, 17, 18 and 24.
+    """
+    decks = census["decks"]
+    inductors = census["inductors"]
+    return (
+        f"across the **{decks}** SPICE deck{'' if decks == 1 else 's'} under "
+        f"`sim/`, **{inductors}** carry an inductor card"
+    )
+
+
+def check_ground_return(doc: Path, text: str) -> list[str]:
+    """Check 25: the stated ground-return census is this tree's own."""
+    if not (REPO_ROOT / SIM_DECK_ROOT).is_dir():
+        return []
+    if GROUND_RETURN_ANCHOR not in text:
+        # A document that does not lean on DR-012 qualifies nothing about that
+        # record's open item, and is not made to.
+        return []
+    actual = ground_return_census()
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(GROUND_RETURN_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `{GROUND_RETURN_ANCHOR}`, whose own \"Open "
+            f"items\" record that nothing in `sim/` models the ground return, "
+            f"but states no census of its own -- state it "
+            f"(`{ground_return_sentence(actual)}` today), so the qualification "
+            f"is graded rather than asserted and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("decks", "inductors"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            found = (
+                f" ({', '.join(actual['cards'])})"
+                if field == "inductors" and actual["cards"]
+                else ""
+            )
+            misses.append(
+                f"{where}: the ground-return census says {field}={claimed}, "
+                f"but `{SIM_DECK_ROOT}/` reports {field}={actual[field]}"
+                f"{found} -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"a deck now models the return, rewrite the qualification "
+                f"rather than the number"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -3579,6 +3720,7 @@ def check_document(doc: Path) -> list[str]:
         + check_tracked_records(doc, text)
         + check_stamped_currency_claims(doc, text)
         + check_report_row_count(doc, text)
+        + check_ground_return(doc, text)
     )
 
 
@@ -3745,6 +3887,14 @@ def main(argv: list[str]) -> int:
                 f"{REPORT_MANIFEST}: `{REPORT_CHECK_COMMAND}` reports "
                 f"`is fresh and up to date ({rows} rows)`"
             )
+        # And the ground-return census check 25 grades: a property of the whole
+        # `sim/` tree rather than of any one record, which is why no pointer
+        # and no citation moves when it changes.
+        if (REPO_ROOT / SIM_DECK_ROOT).is_dir():
+            census = ground_return_census()
+            print(f"{SIM_DECK_ROOT}/: {ground_return_sentence(census)}")
+            for card in census["cards"]:
+                print(f"{SIM_DECK_ROOT}/:   inductor card at {card}")
         return 0
 
     misses: list[str] = []

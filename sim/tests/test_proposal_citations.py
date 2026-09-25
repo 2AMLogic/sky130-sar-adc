@@ -446,6 +446,29 @@ class FixtureTree:
         ]
         (report / "manifest.py").write_text("\n".join(body))
 
+    def add_sim_deck(self, path: str, *, inductor: bool = False):
+        """A `sim/<path>` SPICE deck in the shape check 25 scans.
+
+        Always carries the decoys a naive line scan would miss on: a comment
+        line and a `.lib` dot-command that both begin with the letter the
+        inductor card is recognised by, and an `L`-initial *continuation*
+        line. Only `inductor=True` writes a real `L<name> <n+> <n-> <value>`
+        card, which is the one shape that may be counted.
+        """
+        deck = self.root / "sim" / path
+        deck.parent.mkdir(parents=True, exist_ok=True)
+        body = [
+            "* Lbond -- a comment naming the card this deck does not carry",
+            ".lib /pdk/sky130.lib.spice tt",
+            "VVDD VDD 0 DC 1.8",
+            "Xdut VDD 0 fixture_dut",
+            "+ Lfoo not_a_card here",
+        ]
+        if inductor:
+            body.append("Lbond VDD VDD_DIE 2n")
+        body += [".tran 1p 1n", ".end", ""]
+        deck.write_text("\n".join(body))
+
     def document(self, body: str) -> Path:
         doc = self.root / "docs" / "chipalooza" / "fixture.md"
         doc.write_text(body)
@@ -4318,6 +4341,108 @@ class TestReportRowCount(unittest.TestCase):
         ]
         self.assertTrue(quoted, "the proposal quotes no row count at all")
         self.assertEqual(set(quoted), {derived})
+
+
+class TestGroundReturn(unittest.TestCase):
+    """Check 25: the stated ground-return census is the `sim/` tree's own.
+
+    Every other check grades a claim about something the repository *has*.
+    This one grades a disclaimer -- DR-012's own "no `sim/` campaign models
+    the ground return at all", which Section 7 Item 9 restates -- and the
+    event that falsifies it moves no pointer, no island count and no Section
+    4 number. Hence a census counted from the tree rather than a sentence
+    re-read by hand.
+    """
+
+    ANCHOR = "See [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md).\n"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_ground_return(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor:
+            text += self.ANCHOR
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def test_a_truthful_census_passes(self):
+        self.tree.add_sim_deck("full-conversion-transient/testbench/tb.spice")
+        self.tree.add_sim_deck("comparator-decision/records/rec.spice")
+        self.assertEqual(
+            self.check(
+                self.body("across the **2** SPICE decks under `sim/`, **0** carry an inductor card")
+            ),
+            [],
+        )
+
+    def test_a_deck_that_models_an_inductance_is_reported(self):
+        """The direction that matters: the gap closes, the disclaimer must go."""
+        self.tree.add_sim_deck("ground-return/testbench/tb.spice", inductor=True)
+        misses = self.check(
+            self.body("across the **1** SPICE deck under `sim/`, **0** carry an inductor card")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("inductors=0", misses[0])
+        self.assertIn("inductors=1", misses[0])
+        self.assertIn("sim/ground-return/testbench/tb.spice:6", misses[0])
+        self.assertIn("rewrite the qualification", misses[0])
+
+    def test_a_drifted_deck_count_is_reported(self):
+        self.tree.add_sim_deck("a/tb.spice")
+        self.tree.add_sim_deck("b/tb.spice")
+        misses = self.check(
+            self.body("across the **1** SPICE deck under `sim/`, **0** carry an inductor card")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("decks=1", misses[0])
+        self.assertIn("decks=2", misses[0])
+
+    def test_stating_no_census_at_all_is_reported(self):
+        """Deleting an inconvenient qualification must not be a way to pass."""
+        self.tree.add_sim_deck("a/tb.spice")
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no census of its own", misses[0])
+        self.assertIn("**1** SPICE deck under `sim/`, **0**", misses[0])
+
+    def test_a_document_that_does_not_cite_dr_012_is_not_graded(self):
+        self.tree.add_sim_deck("a/tb.spice", inductor=True)
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_check_is_inert_without_a_sim_tree(self):
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_comments_continuations_and_dot_commands_are_not_cards(self):
+        """Every fixture deck carries all three decoys; none may be counted."""
+        self.tree.add_sim_deck("a/tb.spice")
+        self.assertEqual(checker.ground_return_census()["inductors"], 0)
+
+    def test_the_census_reads_the_whole_tree_not_one_directory(self):
+        self.tree.add_sim_deck("a/testbench/tb.spice")
+        self.tree.add_sim_deck("b/corners/tt_27c_1.80v.spice")
+        self.tree.add_sim_deck("c/netlist-snapshots/snap.spice", inductor=True)
+        census = checker.ground_return_census()
+        self.assertEqual(census["decks"], 3)
+        self.assertEqual(census["inductors"], 1)
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.tree.add_sim_deck("a/tb.spice")
+        sentence = checker.ground_return_sentence(checker.ground_return_census())
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_ground_return(doc, doc.read_text()), [])
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
