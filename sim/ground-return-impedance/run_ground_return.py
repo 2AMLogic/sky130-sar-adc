@@ -654,8 +654,9 @@ def write_record(
         "Board side ideal: sources to node 0, no board impedance or decoupling. "
         "No on-die decoupling exists in this design (DR-010/DR-012 open item), so "
         "none is modelled. `VREFP`/`VREFN`/`VCM`, the inputs, `CLK` and `RST_B` "
-        "stay ideal and board-referenced. Derivation: "
-        "`sim/ground-return-impedance/README.md`."
+        "stay ideal and board-referenced. Recorded as a stimulus assumption (not "
+        "a package choice) in `spec/decision-records/DR-015-testbench-package-model.md`; "
+        "derivation: `sim/ground-return-impedance/README.md`."
     )
     a(
         "- **Substrate stand-in**: `R_sub` in "

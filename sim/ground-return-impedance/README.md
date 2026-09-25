@@ -93,7 +93,8 @@ that nothing in this repo specifies one.
 
 ## Where the R+L values come from
 
-These are **testbench stimulus parameters, not a design decision**, and they
+These are **testbench stimulus parameters**, recorded as a decision in
+[DR-015](../../spec/decision-records/DR-015-testbench-package-model.md). They
 set no spec row. They are derived here from geometry and bulk material
 constants, not taken from any package datasheet or any other party's design:
 
@@ -121,14 +122,13 @@ constants, not taken from any package datasheet or any other party's design:
   only thing holding a die rail up during a current step is the die's own
   device/wiring capacitance.
 
-**Why no decision record.** The closest precedent is
-`sim/vcm-drive-budget/`, which swept an assumed `VCM` source resistance with
-the assumption stated in the campaign itself and no DR. These values follow
-that precedent. The record quotes them and this README derives them. They are
-not a claim about which package the block ships in, and they are not a
-threshold anything is graded against. If a package is ever *chosen* (a real
-decision, with a real lead frame and a board), that is when a DR is owed, and
-this campaign should be re-run with its numbers.
+**Why a decision record.** Issue #378 says a package-style assumption is a
+decision. [DR-015](../../spec/decision-records/DR-015-testbench-package-model.md)
+records these values as **stimulus**. They are not a claim about which package
+the block ships in, and nothing is graded against them as a threshold. A later
+supply campaign cites DR-015 rather than copying this README's numbers. If a
+package is ever *chosen* (with a real lead frame and a board), that choice
+supersedes DR-015, and this campaign should be re-run with its numbers.
 
 ## What this can and cannot claim
 
