@@ -78,6 +78,84 @@ points at the newest record id.
   for the three-part fix that got here from the `mismatch` verdict PR #105
   originally recorded.
 
+## WITHDRAWN 2026-09-24 (issue #363): the "112 metal minimum-area violations" were a measurement artifact
+
+**This section used to be a dated waiver over 112 sub-minimum-area shapes,
+issued under issue #333 on 2026-09-19. It is withdrawn, not reaffirmed: there
+were never 112 violations, and there are none now.** The count came from
+`docs/chipalooza/measure_metal_min_area.py`, which issue #363 found
+**under-merges** the region it measures.
+
+The script built its region as `kdb.Region(); region.insert(iter);
+region.merge()`. `Region#insert(RecursiveShapeIterator)` carries each shape's
+GDS user properties across, and KLayout's merge is **property-aware**: two
+overlapping polygons whose property sets differ are never merged into one. The
+DEF→GDS merge attaches a net-name property (`[[1, "VPWR"]]`, `[[1, "VGND"]]`)
+to every PDN strap and none to the via cells sitting inside it, so a covered
+via pad stayed its own polygon and was counted as a standalone violation. Every
+one of the 112 was of exactly that kind — a tech-LEF via enclosure that *is*
+merged into the wire it terminates in the drawn GDS, which is precisely what
+the LEF expects of it.
+
+Re-measured 2026-09-24 against the same
+`reports/20260917-180601-527ec73/sar_sequencer.gds`, same pinned toolchain
+(`klayout 0.30.12`, open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b`),
+with the corrected construction:
+
+| Rule | Threshold | Merged polygons (pre-#363 → corrected) | Shapes below (pre-#363 → corrected) |
+| --- | --- | --- | --- |
+| `m1.6` | 0.083 um² | 499 → 224 | 96 → **0** |
+| `m2.6` | 0.0676 um² | 305 → 92 | 6 → **0** |
+| `m3.6` | 0.240 um² | 40 → 18 | 8 → **0** |
+| `m4.4a` | 0.240 um² | 18 → 2 | 0 → **0** |
+| `m5.4` | 4.0 um² | 4 → 2 | 2 → **0** |
+
+**112 → 0.** The "merged polygons" column is the tell: the corrected
+construction merges roughly half as many polygons out of the same drawn
+shapes, because the property-tagged ones can finally merge with the untagged
+ones they overlap.
+
+**Independent corroboration.** This flow's own record predates the
+`klayout-tools==0.6.0` bump, so its `drc.json` carries no `area`-kind rule. But
+this block's GDS is composed verbatim into `layout/sar-adc-top/`, whose current
+record `20260924-190817-f3622fc` was minted on the 0.6.0 pin and whose
+`drc.json` `coverage.rules_checked` **does** include `met1.area.1` …
+`met5.area.1` (52 rules, status `clean`, **0 violations**) over geometry that
+contains this block's. Two independent measurements of the same five foundry
+rules now agree at zero; before #363 they disagreed, and the hand-rolled one
+was wrong.
+
+The regression is pinned by `sim/tests/test_measure_metal_min_area.py` and run
+in CI's headless `checks` job, so this count cannot silently drift again.
+
+**Upstream filings, now superseded.** The following were filed (generically,
+per CLAUDE.md's friction protocol) against the artifact counts and their
+premise, and should be read as withdrawn on this repo's side:
+
+- `2AMLogic/klayout-tools#2139` — filed as the live tool gap for this
+  "defect", with a generic 48-stage inverter chain reproducer whose 99 sub-
+  `m1.6`/`m5.4` shapes were counted with the same under-merging measurement.
+  Its premise does not survive #363. **Corrected upstream 2026-09-24**
+  (issue #373): the reproducer was re-run from its own quoted inputs and
+  measured both ways on the identical output GDS — 76 shapes below threshold
+  under the pre-#363 construction (58 `m1.6` + 18 `m5.4`, the same two
+  geometry classes the filing named), **0 under the corrected one**, with
+  `klt drc --deck sky130` at the 0.6.0 pin agreeing at 0. `#2139` had already
+  been closed upstream (`COMPLETED`, 2026-09-19) by merged PR
+  `2AMLogic/klayout-tools#2144`, which ships a post-route minimum-area repair
+  pass that the 0.6.0 pin therefore carries; on this reproducer that pass is a
+  no-op (`min_area_repair: patches 0, repaired 0, remaining 0`, byte-identical
+  merged GDS). No revert was requested: `#2144` defends against tech-LEF via
+  enclosures and PDN via landings that are genuinely sub-threshold in
+  isolation, which is independent of the inflated count that motivated it.
+- `2AMLogic/klayout-tools#2072` / `#2075` — the earlier pair. `#2075`'s
+  `klt gen-compose` landing-pad fix was a real, separate defect (issue #326's
+  17 shapes were genuinely isolated pads) and stands; the place-and-route half
+  `#2139` was filed to supply a reproducer for does not.
+- `2AMLogic/klayout-tools#1989` — merged and, as of the 0.6.0 pin, **released**;
+  it is what gives `klt drc` its own `met*.area.1` rules and therefore the
+  corroboration above.
+
 ## `klt 0.4.0` → `0.5.0` re-run (issue #323): no change
 
 This flow's sign-off record rested on `klt 0.4.0` (`reports/20260905-191258-4c6c655/`)

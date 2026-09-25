@@ -17,6 +17,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 | LSB (differential) | RATIFIED | PASS (structural + functional/monotonicity check, 9/9 corners) | 1 record(s), see detail below |
 | Sampling cap (CDAC unit × array) | RATIFIED | PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, LVS match, unit-cap count 1024… | 2 record(s), see detail below |
 | Comparator input-referred noise | RATIFIED | PASS vs. baseline (<=1.0148 mV rms) at every corner, binding corner `tt_125c_1.80v` = 0.8643 mV rms… | 1 record(s), see detail below |
+| Kickback | DRAFT | INFORMATIONAL (DRAFT row, no ratified line to grade against). Worst-case peak pin disturbance 73.36… | 1 record(s), see detail below |
 | Power | DRAFT | UNMEASURED as a Power-row figure/target (informational first current/power evidence only, not a pas… | 2 record(s), see detail below |
 | Corners | RATIFIED | In use, verified: harness self-test PASS (proves the corner runner switches the .lib process-corner… | 4 record(s), see detail below |
 
@@ -173,6 +174,20 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Overall: PASS vs. the ratified baseline threshold (1.0148 mV rms); does NOT meet the stretch threshold (0.5859 mV rms) at the binding corner.
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- Comparator input-referred noise `<=1.0148 mV rms` (baseline, ENOB>9.0) / `<=0.5859 mV rms` (stretch, ENOB>9.5) (RATIFIED, DR-003 via #27). Measures design/compa…
+
+### Kickback
+
+- **Status**: DRAFT
+- **Conditions**: SINGLE CORNER ONLY: process {tt} x temperature {27} C x supply {1.8} V, 1 PVT point -- a first-pass, nominal-corner-only probe, not the ratified corner set the DRAFT row's bound is stated at. 1 kOhm series source impedance on each of VINP/VINN (ideal DC source -> resistor -> DUT pin), Vcm = 0.9 V, one reset(5.0 ns, CLK=0) -> evaluate(CLK=1.8 V) edge per run over a 40 ns evaluate window; the measured quantity is the peak pin disturbance across that transition.
+- **Verdict**: INFORMATIONAL (DRAFT row, no ratified line to grade against). Worst-case peak pin disturbance 73.3673 mV on VINP at Vindiff = +50 mV -- approx. 14.7x the DRAFT <=5 mV target and approx. 36.7x the <=2 mV stretch, at the one corner measured.
+- **Notes**: The Kickback row itself is new as of 2026-09-24 (spec/decision-records/DR-011-comparator-kickback-target-row.md, issue #361): before it, this measurement had no spec row of any status to be reported against. DR-011 adopts the sibling 2AMLogic/sky130-comparator canary's own DR-002-ratified bound (<=5 mV / <=2 mV, 1 kOhm source, single decision edge) verbatim, as a stated interim choice rather than a bound derived from this block's system-level budget -- so the multipliers above are informational against an adopted candidate, not a verdict against a ratified line, and CLAUDE.md's 'do not relax a spec line to make a result pass' rule is why the gap is recorded rather than the bound widened. Decomposition, from the cited record's own Vindiff = 0 mV control row (-70.3419 mV): approx. 95.9 % of the disturbance is CLK-gated reset/precharge/tail switching and only approx. 4.1 % (3.0254 mV) is the decision transient itself. A full-corner campaign is owed before this row could be ratified (DR-011 Consequences section 5); mitigation selection is issue #349's, which this row unblocks.
+
+**Evidence:**
+
+- `sim/comparator-decision/records/20260924-041815-afcb1b5.md` (Record ID `20260924-041815-afcb1b5`, Supersedes: (none))
+  - Overall: measured (informational, see Claim above) -- worst-case peak pin disturbance across the 2 Vindiff point(s) run: 73.3673 mV (at Vindiff=+50.0000mV)
+  - Corner matrix run: process=['tt'], temperature_c=[27.0], supply_v=[1.8] (1 PVT point -- **subset-corner justification**: first-pass, nominal-corner-only characterization, consistent with how DR-004's own `regen`/`offset`/`noise` records each landed single-corner first; a PVT sweep is deferred to future work, see the record's closing note)
+  - Claim: none -- INFORMATIONAL. spec/target-spec.md has no Kickback row (DRAFT or ratified); this record measures design/comparator.sch's own peak pin disturbance into a 1000Ohm series source impedance, for a future mitigation/r…
 
 ### Power
 

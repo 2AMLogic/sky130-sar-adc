@@ -14,8 +14,8 @@
 # reports/LATEST to point at a real, already-committed record (#99-#102,
 # #166) -- this flow *reads* those GDS files, it does not regenerate them.
 #
-# Runs entirely on the pinned `layout/.venv/bin/klt` (klayout-tools==0.5.0,
-# `layout/requirements.txt`) -- no env override needed. Step 7's `klt
+# Runs entirely on the pinned `layout/.venv/bin/klt` (klayout-tools==0.6.0
+# since 2026-09-23, `layout/requirements.txt`) -- no env override needed. Step 7's `klt
 # extract --pin-source-cells` (klayout-tools#1515) previously required a
 # `klt` build newer than the then-pinned 0.4.0, reached only via a
 # `SAR_ADC_TOP_KLT` env-var override; that override is retired now that
@@ -130,13 +130,25 @@ if [[ ! -f "$OUT_DIR/${TOP}.gds" ]]; then
 fi
 mv "$OUT_DIR/${TOP}.gds" "$OUT_DIR/sar_adc_top.gds"
 GDS="$OUT_DIR/sar_adc_top.gds"
+# Every `klt` verb records the input path it was INVOKED with, verbatim, as its
+# envelope's own `file` field. Invoking with an absolute path therefore bakes
+# this machine's `.loom/worktrees/issue-N/...` into committed evidence, and a
+# grader on any other checkout (CI, a reviewer, this repo's own `main` after the
+# worktree is reaped) cannot resolve it -- `klt signoff` reports
+# `input_verified: null` for such a citation, and, worse, reports `true` on the
+# ONE machine where the path still happens to exist, so a report rendered there
+# drifts against CI's re-render of the same manifest (measured on issue #355).
+# Passing a REPO-RELATIVE path from the repo root fixes both: the recorded path
+# resolves from any checkout, and `input_verified` is `true` everywhere.
+REL_GDS="${GDS#"$REPO_ROOT"/}"
 
 # --- 5. DRC on the composed layout: must be CLEAN --------------------------
-"$KLT" drc "$GDS" --deck sky130 --format json > "$OUT_DIR/drc.json" || true
+( cd "$REPO_ROOT" && "$KLT" drc "$REL_GDS" --deck sky130 --format json ) \
+    > "$OUT_DIR/drc.json" || true
 
 # --- 6. Unfiltered extraction: connectivity verification, not an LVS input -
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
-    -o "$OUT_DIR/sar_adc_top.extract.unfiltered.spice" --format json \
+( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
+    -o "$OUT_DIR/sar_adc_top.extract.unfiltered.spice" --format json ) \
     > "$OUT_DIR/extract.unfiltered.json" || true
 
 # --- 7. Signoff attempt: `--pin-source-cells` declared pins + LVS ----------
@@ -148,11 +160,11 @@ GDS="$OUT_DIR/sar_adc_top.gds"
 # README.md "LVS pin declaration: resolved"): it reaches exactly this
 # design's own intended 19/19/19 promoted/reference/matched pin counts,
 # where none of `--top-cell-pins`/`--pins`/`--def-pins` could. Requires a
-# `klt` build with klayout-tools#1515 -- carried by the pinned
-# `klayout-tools==0.5.0` (layout/requirements.txt).
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
+# `klt` build with klayout-tools#1515 -- carried by every pinned release
+# since `klayout-tools==0.5.0` (layout/requirements.txt).
+( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
     --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
-    -o "$OUT_DIR/sar_adc_top.extract.spice" --format json \
+    -o "$OUT_DIR/sar_adc_top.extract.spice" --format json ) \
     > "$OUT_DIR/extract.json" || true
 
 # klayout-tools#1876 workaround: `klt extract`'s SPICE writer no longer emits
@@ -165,6 +177,13 @@ GDS="$OUT_DIR/sar_adc_top.gds"
 # one-token-per-`C`-card diff anyone can audit. Self-retiring: the script is a
 # no-op (`restored: 0` in capclass.json) on any `klt` build that writes the
 # token again. See restore-cap-device-class.py's docstring for the full trace.
+# Still load-bearing on klayout-tools==0.6.0: upstream fixed #1876 on the
+# *reader* side (#1921, so the extractor still writes bare cards and
+# capclass.json will never report `noop: true`), but that reader keys its
+# recovery on the `.SUBCKT` name case-sensitively while KLayout upper-cases
+# it, so it recovers 0 of this netlist's 1028 caps (klayout-tools#2397).
+# Measured: dropping this step takes the verdict from 98 back to 124
+# mismatches. Retire it once #2397 is fixed and that measurement is re-run.
 python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
   "$OUT_DIR/sar_adc_top.extract.spice" \
   -o "$OUT_DIR/sar_adc_top.extract.lvs.spice" \

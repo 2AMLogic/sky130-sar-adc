@@ -93,6 +93,26 @@ Every net is one of:
   `DOUT9`, the switch-row `SELp<i>`/`SELn<i>` cdac-side risers): a riser
   (`Canvas.riser()`) at the pin's own position plus a short lead to an
   external pin label, or vice versa -- no long-haul highway needed.
+* **Digital supply rail** (`VPWR`, `VGND` -- issue #355): one met5 rectangle
+  per rail, *colinear* with (and therefore merging into) both standard-cell
+  macros' own met5 PDN straps, carrying a top-level supply-pin label on the
+  stretch that lies west of both macros. The only net class here that reaches a
+  sub-block conductor by same-layer merge rather than by a via riser onto a
+  declared pin -- because neither digital rail IS a declared pin on either
+  macro (`layout/sar-adc-top/README.md`, open question 2) -- and the only met5
+  geometry this module draws. Whether the digital rails tie to the analog
+  `VDD`/`GND` domain or stay independent with their own top-level pins is
+  decided in
+  `spec/decision-records/DR-010-digital-supply-domain-partition.md`, not here;
+  see `digital_supply_rail()`.
+* **Analog ground pad** (`GND` -- issue #362): a via riser on `comparator`'s
+  own drawn `GND` pin -- the only analog-ground conductor any sub-block in
+  this composition exposes -- plus one met4 stub running SOUTH out of that
+  macro's own footprint, carrying the top-level pin label in the open channel
+  above `sampling_frontend`. What that pad is electrically (the p-substrate
+  node's own drawn terminal, not a second node beside it) is decided in
+  `spec/decision-records/DR-012-analog-ground-pad.md`, not here; see
+  `analog_ground_pad()`.
 
 Clean room: every number in this module was measured directly from this
 repo's own already-committed sub-block GDS/DEF artefacts (`klt cells`, a
@@ -122,6 +142,18 @@ MET3 = (70, 20)
 VIA3 = (70, 44)
 MET4 = (71, 20)
 MET4_PIN = (71, 5)
+MET5 = (72, 20)
+MET5_PIN = (72, 5)
+# MET5 is deliberately NOT part of `_METAL_CHAIN`/`_VIA_BETWEEN`/
+# `MIN_METAL_AREA_UM2` below: nothing this module draws rises *to* met5 through
+# a via stack. The only met5 geometry here is the two digital supply rails
+# (`digital_supply_rail()`), which reach both standard-cell macros' own met5
+# PDN straps by SAME-LAYER, colinear merge -- no via4, no riser, no pad. A
+# `riser(..., MET5)` call would therefore raise from `_layer_index`, which is
+# the intended failure: met5's own minimum-area rule (`m5.4`, 4.0 um^2) is 16x
+# `ISLAND_PAD_UM`'s area, so a met5 via pad cannot be sized by `_pad_side()`'s
+# single-constant scheme and would need its own design pass (see
+# `MIN_METAL_AREA_UM2`'s own note and the module-level assert under it).
 
 # Adjacency chain used by `riser()` to walk from one layer to another --
 # MET1 <-> MET2 <-> MET3 <-> MET4 (a poly/li1 pad walks one extra step,
@@ -149,21 +181,24 @@ PAD_UM = 0.36  # generic via/wire landing pad side. Bigger than
 #: (`libs.tech/klayout/drc/sky130A_mr.drc`, open_pdks
 #: c6d73a35f524070e85faff4a6a9eef49553ebc2b -- the `sim/pdk.json` pin):
 #: `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a` 0.240 um^2, plus li1's
-#: own (`0.0561 um^2`, the deck's `linotace.with_area`). These are NOT checked
-#: by `klt drc`: at the pinned klayout-tools==0.5.0 the curated sky130 deck
-#: authors no `area`-kind rule at all, so a sub-minimum-area shape reads back
-#: `status: "clean"` (issue #326; fixed upstream by klayout-tools#1989, not yet
-#: released). `docs/chipalooza/measure_metal_min_area.py` is this repo's own
-#: stand-in measurement until that release lands, and since issue #338 it is a
-#: CI gate rather than a manual habit: `.github/workflows/ci.yml`'s PDK-gated
-#: `pdk-smoke` job measures this flow's current `reports/LATEST` GDS against a
-#: baseline that waives ONLY the shapes `klt`'s own place-and-route emits
-#: (#333). So a new via riser or stacked-via pad added below at `PAD_UM` /
+#: own (`0.0561 um^2`, the deck's `linotace.with_area`). At the klt pin this
+#: module was written against (klayout-tools==0.5.0), NONE of these were
+#: checked by `klt drc`: the curated sky130 deck authored no `area`-kind rule
+#: at all, so a sub-minimum-area shape read back `status: "clean"` (issue
+#: #326). That gap has since closed -- `layout/requirements.txt` now pins
+#: klayout-tools==0.6.0 (issue #103), whose deck carries `met1.area.1` ...
+#: `met5.area.1` natively -- but `docs/chipalooza/measure_metal_min_area.py`
+#: is kept as an independent cross-check rather than retired, and since issue
+#: #338 it is a CI gate rather than a manual habit: `.github/workflows/ci.yml`'s
+#: PDK-gated `pdk-smoke` job measures this flow's current `reports/LATEST` GDS
+#: and fails on ANY shape below threshold -- no baseline, no waiver (issue
+#: #333, the one tool-emitted residual this gate ever had to hold out, is
+#: closed; see `layout/sar-adc-top/README.md`'s "Minimum-area rules" section).
+#: So a new via riser or stacked-via pad added below at `PAD_UM` /
 #: `STACK_PAD_UM`, on a layer nothing else here merges with, fails CI -- but
 #: only on the nightly/`run-pdk-smoke` path, so run it yourself after changing
 #: the geometry below rather than waiting for the nightly:
-#:     layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
-#:         --baseline docs/chipalooza/metal_min_area_baseline.json
+#:     layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
 MIN_METAL_AREA_UM2 = {
     LI1: 0.0561,
     MET1: 0.083,
@@ -459,10 +494,51 @@ PIN = {
 }
 
 
+# Every met5 power-distribution strap the two standard-cell macros expose, in
+# that macro's OWN LOCAL frame, as `(x0, y0, x1, y1)` -- read directly off
+# layer 72/20 (met5.drawing) in each macro's own committed
+# `reports/LATEST/<block>.gds` with a `klayout.db` merged-Region dump, and
+# cross-checked against the 72/5 (met5.label) text each macro's own
+# `klt place-and-route` wrote (`VPWR` at the centre of the y band listed for
+# VPWR, `VGND` likewise). NOT transcribed from prose: `layout/sar-adc-top/
+# README.md`'s own per-block table quotes only each strap's centre-line y and
+# x range, and this module needs the exact y BAND, because it draws a colinear
+# same-layer extension of the strap rather than a via landing on it.
+#
+# These are the only conductors on either macro's supply rails that a
+# top-level route can reach: the std-cell rows' own met1 VPWR/VGND rails are
+# buried under the macro's own routing, and neither rail is an edge-abutting
+# DEF pin (see README.md open question 2). Both macros sit at the SAME
+# placement dy (see OFFSETS), so each macro's VPWR (resp. VGND) strap shares
+# its exact y band with one of the other's -- which is what makes
+# `digital_supply_rail()` a single rectangle per rail with no via at all.
+# `digital_supply_rail()` asserts that coincidence rather than assuming it.
+MET5_STRAP = {
+    ("sar_sequencer", "VPWR"): [(2.30, 29.12, 40.48, 30.72)],
+    ("sar_sequencer", "VGND"): [(2.30, 15.52, 40.48, 17.12)],
+    ("seln_inverters", "VPWR"): [
+        (2.30, 29.12, 84.52, 30.72),
+        (2.30, 56.32, 84.52, 57.92),
+    ],
+    ("seln_inverters", "VGND"): [
+        (2.30, 15.52, 84.18, 17.12),
+        (2.30, 42.72, 84.18, 44.32),
+        (2.30, 69.92, 84.18, 71.52),
+    ],
+}
+
+
 def global_pin(block: str, name: str) -> tuple[float, float, tuple[int, int]]:
     x, y, layer = PIN[(block, name)]
     dx, dy = OFFSETS[block]
     return x + dx, y + dy, layer
+
+
+def global_straps(block: str, net: str) -> list[tuple[float, float, float, float]]:
+    dx, dy = OFFSETS[block]
+    return [
+        (x0 + dx, y0 + dy, x1 + dx, y1 + dy) for x0, y0, x1, y1 in MET5_STRAP[(block, net)]
+    ]
 
 
 def global_bbox(block: str) -> tuple[float, float, float, float]:
@@ -666,6 +742,260 @@ def analog_leg(c: Canvas, x0: float, y0: float, x1: float, y1: float, jog_y: flo
     c.wire(MET4, x1, jog_y, x1, y1, w=WIRE_W)
 
 
+# --------------------------------------------------------------------------- #
+# Digital supply rails: VPWR / VGND (issue #355, DR-010).
+#
+# sky130A's own met5 rules, read out of the pinned PDK's own deck
+# (`libs.tech/klayout/drc/sky130A_mr.drc`, the `sim/pdk.json` pin): `m5.1` min
+# width 1.6, `m5.2` min space 1.6, `m5.4` min area 4.0 um^2. All three ARE
+# checked by the pinned `klt drc` deck (`met5.width.1`/`met5.space.1`/
+# `met5.area.1` appear in this flow's own `drc.json` `coverage.rules_checked`
+# since the klayout-tools==0.6.0 bump), so the geometry below is graded, not
+# merely argued.
+# --------------------------------------------------------------------------- #
+MET5_WIDTH_UM = 1.6
+MET5_SPACE_UM = 1.6
+
+#: West end of each digital rail's own met5 rectangle, and the only stretch of
+#: it that lies outside BOTH standard-cell macros' own footprints: 15.0 um is
+#: 6.1 um west of `sar_sequencer`'s own placed bbox (x0 = 21.1175) and 1.0 um
+#: east of the westernmost thing this module draws anywhere near this y band
+#: (nothing: the west-corridor met4 tracks at -8/-10/-12/-14 are the closest,
+#: and they are 23 um further west still). The top-level supply-pin label sits
+#: on this stretch, so the promoted pin is unambiguously on conductor THIS
+#: module drew -- not on a macro's own internal strap, which
+#: `--pin-source-cells` would not promote anyway.
+DIG_RAIL_PIN_X = 15.0
+DIG_RAIL_LABEL_X = 18.0
+
+#: How far east the rail reaches past `seln_inverters`' own strap's west end.
+#: Any positive overlap merges (same layer, exactly the same y band), so this
+#: only has to beat the half-nanometre placement rounding both macros' own
+#: x offsets carry (`OFFSETS`: 21.1175 / 87.6875 are on a 0.0025 um grid, the
+#: composed stream's DBU is 0.001) -- 2.0 um does, by three orders of
+#: magnitude, while still stopping well short of that macro's own first met4
+#: PDN column (local x 15.07).
+DIG_RAIL_REACH_UM = 2.0
+
+#: The two rails, in the order their pins are appended to this design's own
+#: top-level interface (`design/sar_adc_top.sym`, and hence
+#: `bin/generate-lvs-reference.py`'s own `.SUBCKT sar_adc_top` port list).
+DIG_RAILS = ("VPWR", "VGND")
+
+
+def digital_supply_rail(c: Canvas, net: str) -> tuple[float, float, float, float]:
+    """Tie `sar_sequencer`'s and `seln_inverters`' own met5 PDN rail for `net`
+    (`VPWR` or `VGND`) into ONE electrical island, and land that island on a
+    top-level supply pin of the same name.
+
+    This is the fix for issue #355: before it, each macro's rail was a
+    self-contained island reaching no top-level supply at all, which `klt erc`
+    graded as two `erc.unconnected_net` findings (one per rail) against T1 item
+    11. The domain question that governs *what* to tie it to -- independent
+    digital supply pins, rather than a metal tie to the analog `VDD`/`GND` --
+    is decided in `spec/decision-records/DR-010-digital-supply-domain-partition.md`;
+    this function only implements it.
+
+    Shape: **one met5 rectangle per rail, no via anywhere.** Both macros are
+    placed at the same `dy` (`OFFSETS`), so `sar_sequencer`'s strap for this
+    net and exactly one of `seln_inverters`' straps for it occupy the *same*
+    global y band. A rectangle spanning that band, from `DIG_RAIL_PIN_X` east
+    into the `seln_inverters` strap, is therefore colinear with both: same
+    layer, same width, merging into one polygon. That matters for three
+    separate reasons, none of them cosmetic:
+
+    * **No via4 riser is needed**, so nothing has to satisfy `m5.3` (0.31 um
+      met5 enclosure of via4) or `m5.4` (4.0 um^2, sixteen times
+      `ISLAND_PAD_UM`'s area) on a freestanding pad -- see MET5's own note in
+      the layer table for why this module has no met5 pad size at all.
+    * **No new spacing relation is created inside either macro.** Over each
+      macro's own footprint the rectangle is geometrically identical to the
+      strap it merges with (same y band, same 1.6 um width), so the merged
+      polygon's edges are the strap's own edges, already `m5.2`-legal against
+      that macro's own neighbouring straps (12.0 um away in y, 7.5x `m5.2`).
+    * **It crosses no other net.** The rectangle is horizontal, every strap in
+      `MET5_STRAP` is horizontal, and `_check_digital_rail_clearance()` asserts
+      every *other* strap's y band clears this one by at least `m5.2`. A
+      horizontal met5 wire cannot short a parallel horizontal met5 wire it
+      never comes within 1.6 um of. It passes OVER both macros' met4 PDN
+      columns and (further west) nothing at all; met5-over-met4 with no via4
+      between them is not a connection.
+
+    Returns the rectangle, for the caller's own record/assertions.
+    """
+    (seq,) = global_straps("sar_sequencer", net)
+    sx0, sy0, sx1, sy1 = seq
+    colinear = [
+        s
+        for s in global_straps("seln_inverters", net)
+        if abs(s[1] - sy0) < 1e-9 and abs(s[3] - sy1) < 1e-9
+    ]
+    if len(colinear) != 1:
+        raise SystemExit(
+            f"build_layout.py: {net}: expected exactly one seln_inverters met5 strap "
+            f"colinear with sar_sequencer's own (y {sy0}..{sy1}), found {len(colinear)}. "
+            "The two macros' placement dy must stay equal for the single-rectangle "
+            "rail below to reach both -- give this rail a real jog (a met5 vertical "
+            "in the channel between the two macros, which crosses NEITHER macro's "
+            "footprint) before changing OFFSETS."
+        )
+    ix0, _iy0, _ix1, _iy1 = colinear[0]
+    if abs((sy1 - sy0) - MET5_WIDTH_UM) > 1e-9:
+        raise SystemExit(
+            f"build_layout.py: {net}: strap width {sy1 - sy0} um is not m5.1's own "
+            f"{MET5_WIDTH_UM} um -- re-read MET5_STRAP off the macro's own GDS"
+        )
+    rect = (DIG_RAIL_PIN_X, sy0, ix0 + DIG_RAIL_REACH_UM, sy1)
+    c.rect(MET5, *rect)
+    c.label(MET5_PIN, DIG_RAIL_LABEL_X, (sy0 + sy1) / 2.0, net)
+    return rect
+
+
+# --------------------------------------------------------------------------- #
+# Analog ground pad: GND (issue #362, DR-012).
+#
+# `comparator`'s own drawn `GND` pin is the ONLY analog-ground conductor any
+# sub-block in this composition exposes: `sampling_frontend` and `cdac_array`
+# draw no ground pin at all and reach the same node through the p-substrate
+# `klt extract`'s sky130 deck synthesises (`layout/sar-adc-top/README.md`,
+# "GND / VPWR / VGND"). So the analog ground pad is built off that one pin --
+# not because one pin is the ideal ground plan, but because it is the only
+# drawn terminal this composition has, and drawing a second one means opening
+# an already-closed sub-block layout (out of scope here; see DR-012's own
+# "Open items").
+# --------------------------------------------------------------------------- #
+MET4_SPACE_UM = 0.30  # sky130A `m4.2`, the pinned deck's `met4.space.1`.
+
+#: y the analog ground pad's own label sits at -- on the met4 stub's stretch
+#: BELOW `comparator`'s own bbox (y0 = 176.3 once placed) and above
+#: `sampling_frontend`'s own top edge (147.22), i.e. in the open channel
+#: between the two analog blocks. Asserted, not assumed, by
+#: `_check_analog_ground_pad()`: a pad label sitting inside a macro's own
+#: footprint would be a label on someone else's conductor as far as a reader
+#: is concerned, even though `--pin-source-cells` resolves it by position.
+GND_PAD_Y = 170.0
+
+
+def analog_ground_pad(c: Canvas) -> tuple[float, float, float, float]:
+    """Carry `comparator`'s own drawn `GND` pin out to a top-level analog
+    ground pad, and return the met4 stub `(x0, y0, x1, y1)` that does it.
+
+    This is the fix for issue #362: before it, `GND` was `.GLOBAL` in
+    `design/sar_adc_top.spice` and drawn inside `comparator`, but no top-level
+    pin of that name existed anywhere -- so the analog return had no terminal a
+    package could bond to, while `VDD` (its own supply) did. `klt erc` does not
+    catch that shape: T1 item 11 grades "does this declared supply resolve to
+    exactly one electrical island", which `GND` always did, pin or no pin.
+
+    WHAT this pad is electrically -- and what it is not -- is decided in
+    `spec/decision-records/DR-012-analog-ground-pad.md`, not here. The one
+    fact this function's geometry depends on: in bulk sky130 there is no
+    isolation between the analog ground and the p-substrate, so this pad is
+    the substrate node's own drawn front-side terminal, not a second node
+    beside it.
+
+    Shape: **a via riser at the pin plus one met4 stub running SOUTH**, out of
+    `comparator`'s own footprint into the open channel above
+    `sampling_frontend`. South, not north with the rest of the analog nets,
+    for a measured reason: `comparator`'s own `CLK` pin rises to met4 at
+    x = 102.1 and runs north from y = 198.3, and this pin's own x is 101.5 --
+    0.6 um away, which two 0.4 um-wide met4 wires cannot share without
+    violating `m4.2` (0.30 um). Running south instead puts the two columns'
+    y spans 4.1 um apart, so they never face each other at all.
+    `_check_analog_ground_pad()` asserts exactly that, rather than leaving it
+    to a future reader to re-derive.
+
+    No horizontal leg is drawn, and that is deliberate: every other external
+    pin in this module that travels sideways does so on met3 at its own
+    exclusive jog row (`analog_leg`), and a ground return is the one net where
+    added series metal buys nothing -- the pad's job is to exist and to be
+    low-impedance, not to be co-located with the other analog pins. Its
+    position is provisional in exactly the sense every pin position in this
+    composition is: there is no pad ring yet (see README.md).
+    """
+    gx, gy, native = global_pin("comparator", "GND")
+    assert native == MET1
+    c.riser(gx, gy, MET1, MET4)
+    c.wire(MET4, gx, gy, gx, GND_PAD_Y, w=WIRE_W)
+    c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
+    half = WIRE_W / 2.0
+    return (gx - half, GND_PAD_Y - half, gx + half, gy + half)
+
+
+def _check_analog_ground_pad(stub: tuple[float, float, float, float]) -> None:
+    """Standing assertions for `analog_ground_pad()`'s own geometry.
+
+    1. The pad label sits in the open channel between `comparator`'s own bbox
+       and `sampling_frontend`'s -- not inside either.
+    2. The stub runs AWAY from every other `comparator` met4 column that is
+       too close in x to run beside it. Every other `comparator` pin this
+       module touches risers to met4 and travels NORTH (`analog_leg`), so a
+       neighbour within `WIRE_W + MET4_SPACE_UM` in x is only safe while its
+       own pin sits at or above `GND`'s -- which is what makes the southward
+       stub legal. A future re-route that walks one of those columns south,
+       or moves `GND`'s own pin, fails here instead of in `klt drc`.
+    """
+    sx0, sy0, sx1, sy1 = stub
+    _cx0, cy0, _cx1, _cy1 = global_bbox("comparator")
+    _fx0, _fy0, _fx1, fy1 = global_bbox("sampling_frontend")
+    if not (fy1 < GND_PAD_Y < cy0):
+        raise SystemExit(
+            f"build_layout.py: GND pad label y {GND_PAD_Y} is not in the open "
+            f"channel between sampling_frontend's own top edge ({fy1}) and "
+            f"comparator's own bottom edge ({cy0})"
+        )
+    gx, gy, _ = global_pin("comparator", "GND")
+    for (block, name), (_x, _y, _layer) in PIN.items():
+        if block != "comparator" or name == "GND":
+            continue
+        nx, ny, _nlayer = global_pin(block, name)
+        if abs(nx - gx) >= WIRE_W + MET4_SPACE_UM:
+            continue
+        if ny < gy:
+            raise SystemExit(
+                f"build_layout.py: GND's southward met4 stub (x {sx0}..{sx1}, "
+                f"y {sy0}..{sy1}) runs beside comparator.{name}'s own met4 "
+                f"column at x {nx}, only {abs(nx - gx)} um away -- m4.2 needs "
+                f"{MET4_SPACE_UM} um between two {WIRE_W} um wires"
+            )
+
+
+def _check_digital_rail_clearance(rails: dict[str, tuple[float, float, float, float]]) -> None:
+    """Standing assertions for `digital_supply_rail()`'s own geometry -- so a
+    future placement/strap change fails here rather than silently drawing a
+    floating rail, a rail shorted to the other one, or a rail through a block
+    this module must not enter.
+
+    1. Each rail clears every met5 strap it must NOT touch (the other rail's,
+       and both macros' further straps) by at least `m5.2` in y. Checked in y
+       alone on purpose: every rail rectangle overlaps every strap in x by
+       construction, so y is the only separation there is.
+    2. Neither rail's own west stub (the part outside both macros) enters any
+       other placed block's bbox -- the digital region is disjoint in y from
+       the analog one, and this assertion is what keeps it that way.
+    """
+    for net, (rx0, ry0, rx1, ry1) in rails.items():
+        for (block, strap_net), straps in MET5_STRAP.items():
+            if strap_net == net:
+                continue
+            for gx0, gy0, gx1, gy1 in global_straps(block, strap_net):
+                gap = max(gy0 - ry1, ry0 - gy1)
+                if gap < MET5_SPACE_UM - 1e-9:
+                    raise SystemExit(
+                        f"build_layout.py: {net} rail is {gap} um from "
+                        f"{block}.{strap_net}'s own met5 strap -- m5.2 needs "
+                        f"{MET5_SPACE_UM} um"
+                    )
+        for block in BBOX:
+            if block in ("sar_sequencer", "seln_inverters"):
+                continue
+            bx0, by0, bx1, by1 = global_bbox(block)
+            if rx0 < bx1 and bx0 < rx1 and ry0 < by1 and by0 < ry1:
+                raise SystemExit(
+                    f"build_layout.py: {net} rail overlaps {block}'s own bbox"
+                )
+
+
 def build() -> tuple[dict, dict]:
     _check_no_overlap()
     c = Canvas()
@@ -865,6 +1195,28 @@ def build() -> tuple[dict, dict]:
         ext_x = x - 10.0
         c.path(MET2, [(x, y), (ext_x, y)])
         c.label(MET2_PIN, ext_x, y, net)
+
+    # ------------------------------------------------------------------ #
+    # 7. Digital supply rails VPWR / VGND (issue #355, DR-010): one met5
+    #    rectangle each, tying both standard-cell macros' own met5 PDN
+    #    straps together and out to a top-level supply pin of the same
+    #    name. See `digital_supply_rail()` for the whole argument; this is
+    #    the only met5 geometry this module draws, and the only net here
+    #    that reaches a sub-block conductor by same-layer merge rather
+    #    than by a via riser onto a declared pin.
+    # ------------------------------------------------------------------ #
+    rails = {net: digital_supply_rail(c, net) for net in DIG_RAILS}
+    _check_digital_rail_clearance(rails)
+
+    # ------------------------------------------------------------------ #
+    # 8. Analog ground pad GND (issue #362, DR-012): a via riser on
+    #    `comparator`'s own drawn GND pin -- the only analog-ground
+    #    conductor any sub-block here exposes -- plus one met4 stub south,
+    #    out of that macro's own footprint, carrying the top-level pin
+    #    label. See `analog_ground_pad()` for the whole argument, and
+    #    DR-012 for what this pad is and is not electrically.
+    # ------------------------------------------------------------------ #
+    _check_analog_ground_pad(analog_ground_pad(c))
 
     draw_params = {
         "shapes": [

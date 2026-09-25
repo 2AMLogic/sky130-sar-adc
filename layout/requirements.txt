@@ -188,7 +188,58 @@
 #     writes the token again, so a later bump that fixes #1876 needs no
 #     flow change -- just drop the step once `capclass.json` reports
 #     `"noop": true`.
-klayout-tools==0.5.0
+#
+# Bumped 0.5.0 -> 0.6.0 for issue #103, 2026-09-23: klayout-tools v0.6.0
+# published to PyPI 2026-09-22T18:52:45Z (PyPI JSON API, re-checked live this
+# session), and `gh api repos/2AMLogic/klayout-tools/compare/v0.6.0...3cc085c`
+# reports ahead_by 0 / behind_by 107, so v0.6.0 contains commit 3cc085c
+# (#2147, the fix for the `--abstract-cells` own-declared-pin merge this repo
+# filed as #2142). That commit was #103's tracked blocker
+# (`103-blocked-pending-klt-release-gt-3cc085c`). v0.6.0 also carries #1921,
+# the upstream fix for #1876. Re-run with the bump, per the discipline above:
+#   - layout/bin/run-trivial-cell-flow.sh -- all six verdicts PASS
+#     (layout/trivial-cell/reports/20260923-131710-fa1e0af/), no reference
+#     change needed; layout/bin/check-klt-pin-evidence.sh OK.
+#   - layout/sar-adc-top/bin/run-flow.sh (reports/20260923-131726-fa1e0af/)
+#     -- DRC still clean (0 violations), unfiltered connectivity still
+#     verified net by net, pins 19/19/19. The whole-request `klt lvs`
+#     verdict is field-identical to the 0.5.0 baseline: 98 mismatches,
+#     devices 869/869/794, nets 444/446/412, same 75/12/10/1 categories.
+#     `klt lvs` still does NOT reach a clean match. Three findings, each
+#     filed generically:
+#       1. #2147 does not resolve this flow's `--abstract-cells` collapse.
+#          layout/sar-adc-top/bin/probe-abstract-cells.py reproduces it
+#          byte for byte on 0.6.0. The probe's new `cdac-no-capm-via`
+#          ablation locates the actual mechanism: abstraction erases the
+#          MiM top-plate layer (capm) but keeps via3, which empties the
+#          deck's top-plate-via exclusion, so every unit cap in the black
+#          box reads as a top-to-bottom-plate short. Deleting only those
+#          interior vias makes the collapse vanish. Filed as
+#          klayout-tools#2396.
+#       2. Diagnostic only (not signoff, since it uses that modified GDS):
+#          the `--abstract-cells` hollow-reference compare then drops from
+#          6 to 2 mismatches, with devices 35/35/35. What remains is the
+#          black box's n-well VDD pin binding to an isolated island,
+#          because abstraction also erases the well tap that is that pin's
+#          only drawn route to the parent. Filed as klayout-tools#2398.
+#       3. #1921 (#1876's fix) recovers the capacitor class on the LVS
+#          reader side, so the extractor still writes bare C cards and
+#          capclass.json will never report `"noop": true`. That reader
+#          also keys its lookup on the `.SUBCKT` name case-sensitively
+#          while KLayout upper-cases it, so it recovers 0 of this flow's
+#          1028 caps: without restore-cap-device-class.py the verdict is
+#          still 124 mismatches. The local workaround stays load-bearing.
+#          Filed as klayout-tools#2397.
+#     Both runs were executed in a Linux container (python:3.14-bookworm,
+#     pinned wheels, the same pinned sky130A PDK mounted read-only). This
+#     session's macOS host failed library validation for every native
+#     Python extension ("library load mig callout failed", even for
+#     Apple's own CLT Python), which is a host fault unrelated to this pin.
+#     klt 0.6.0 also warns that it was tested against klayout==0.30.10,
+#     while this file pins 0.30.12. klt states the verdict is unaffected,
+#     and the trivial-cell proof above agrees, so the klayout pin is left
+#     alone.
+klayout-tools==0.6.0
 #
 # `klayout` itself was left unpinned here until issue #148: `klayout-tools`
 # declares it as a dependency but does not pin an exact version, so `pip

@@ -22,6 +22,7 @@ are asserted directly rather than only through the real document.
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import re
@@ -118,6 +119,78 @@ class FixtureTree:
         if latest:
             (records / "LATEST").write_text(f"{stamp}.md\n")
 
+    def add_erc_record(
+        self,
+        block: str,
+        stamp: str,
+        *,
+        latest: bool = False,
+        graded: str | None = None,
+        artefact: str = "sar_adc_top.gds",
+        supplies: dict[str, int] | None = None,
+        erc_status: str = "clean",
+        content_hash: str | None = None,
+    ):
+        """A `layout/<block>/erc-reports/<stamp>/erc.json` in check 16's shape.
+
+        Written the way `klt erc` really writes it, which is what makes the
+        fixture load-bearing: a passing supply carries NO island count of its
+        own -- it appears only in `erc_coverage.checked` -- and a failing one
+        carries its islands inside an `erc.unconnected_net` finding. A fixture
+        that stored a per-net count directly would pass while the real
+        report's shape went unparsed.
+
+        `graded` is the `reports/` stamp the run graded, recorded as the
+        repo-relative path `klt erc` was invoked with. `content_hash` defaults
+        to the real sha256 of that record's own artefact when it exists, which
+        is the `current` case; pass an explicit one to reproduce a layout
+        record rebuilt underneath a stale ERC verdict.
+        """
+        report = self.root / "layout" / block / "erc-reports" / stamp
+        report.mkdir(parents=True, exist_ok=True)
+        (report / "record.md").write_text("fixture erc record\n")
+        supplies = {"VDD": 1} if supplies is None else supplies
+        findings = [
+            {
+                "rule": "erc.unconnected_net",
+                "net": net,
+                "islands": [{"layer": "met1", "shape_count": 1}] * islands,
+            }
+            for net, islands in supplies.items()
+            if islands != 1
+        ]
+        if content_hash is None and graded is not None:
+            stream = self.root / "layout" / block / "reports" / graded / artefact
+            content_hash = (
+                "sha256:" + hashlib.sha256(stream.read_bytes()).hexdigest()
+                if stream.is_file()
+                else "sha256:" + "0" * 64
+            )
+        (report / "erc.json").write_text(
+            json.dumps(
+                {
+                    "file": (
+                        f"layout/{block}/reports/{graded}/{artefact}"
+                        if graded is not None
+                        else None
+                    ),
+                    "erc_status": erc_status,
+                    "erc_finding_count": len(findings),
+                    "erc_findings": findings,
+                    "erc_coverage": {
+                        "checked": [
+                            f'erc.net_connectivity:["{net}"]' for net in supplies
+                        ]
+                        + ['erc.floating_gate:["gate0"]'],
+                        "inapplicable": [{"id": "erc.missing_tie:[]"}],
+                    },
+                    "provenance": {"input": {"content_hash": content_hash}},
+                }
+            )
+        )
+        if latest:
+            (report.parent / "LATEST").write_text(stamp + "\n")
+
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
 
@@ -164,6 +237,65 @@ class FixtureTree:
             )
         body += ["- **Date**: 2026-09-18", ""]
         (records / name).write_text("\n".join(body))
+
+    def add_signoff(
+        self,
+        *,
+        items: list[dict] | None = None,
+        evidence: dict | None = None,
+        met: int = 3,
+        total: int = 22,
+        tier: str | None = None,
+        version: str = "0.6.0",
+        report: bool = True,
+        manifest: bool = True,
+    ):
+        """A `signoff/` pair in the shape check 17 reads (issue #345).
+
+        Written the way `klt signoff` really writes it, which is what makes
+        the fixture load-bearing: an `unmet` item renders `citation: null`
+        even when the manifest cited real evidence for it, so the records the
+        verdict rests on can only be recovered from the MANIFEST. A fixture
+        that carried citations on the report side would pass while the real
+        two-file read went untested.
+        """
+        signoff = self.root / "signoff"
+        signoff.mkdir(parents=True, exist_ok=True)
+        if report:
+            (signoff / "t1-report.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "block": "fixture",
+                        "tier": tier,
+                        "t1_item_count": total,
+                        "t1_met_count": met,
+                        "build": {"package_version": version, "is_release": True},
+                        "items": [
+                            {
+                                "tier": "T1",
+                                "id": item["id"],
+                                "title": item.get("title", "fixture item"),
+                                "partition": item["partition"],
+                                "status": item.get("status", "unmet"),
+                                "reason": item.get("reason"),
+                                "citation": None,
+                            }
+                            for item in (items or [])
+                        ],
+                    }
+                )
+            )
+        if manifest:
+            (signoff / "block-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "block": "fixture",
+                        "kind": "mixed-signal",
+                        "evidence": evidence or {},
+                    }
+                )
+            )
 
     def add_top_netlist(self, *ports: str):
         """A `design/sar_adc_top.spice` with the given top-level port list.
@@ -1913,6 +2045,157 @@ class TestDecisionRecordStatus(unittest.TestCase):
         self.assertEqual(self.tree.check(stated), [])
 
 
+class TestErcReadout(unittest.TestCase):
+    """Check 16: a stated ERC supply readout must be the current record's own.
+
+    The second evidence tree a `layout/` flow keeps, and the one no earlier
+    check can reach: `EVIDENCE_PATH_RE` matches `records|reports` only, so
+    `layout/<block>/erc-reports/<stamp>/` is invisible to checks 3 and 4
+    however the document cites it. Section 7 item 9's per-supply island table
+    was hand-transcribed once against a failing run (2026-09-23) and
+    re-transcribed by hand when issue #355 moved every number in it
+    (2026-09-24) -- the drift shape this check turns into a CI failure.
+    """
+
+    BLOCK = "sar-adc-top"
+    LAYOUT = "20260924-190817-f3622fc"
+    OLDER = "20260923-131726-fa1e0af"
+    ERC = "20260924-190825-f3622fc"
+    SUPPLIES = {"VDD": 1, "GND": 1, "VPWR": 1, "VGND": 1}
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record(
+            self.BLOCK, self.OLDER, gds={"sar_adc_top": b"older stream"}
+        )
+        self.tree.add_layout_record(
+            self.BLOCK, self.LAYOUT, latest=True, gds={"sar_adc_top": b"graded stream"}
+        )
+
+    def _erc(self, **kwargs):
+        options = {
+            "latest": True,
+            "graded": self.LAYOUT,
+            "supplies": dict(self.SUPPLIES),
+        }
+        options.update(kwargs)
+        self.tree.add_erc_record(self.BLOCK, self.ERC, **options)
+
+    def _readout(self, **overrides) -> str:
+        stated = {
+            "erc_status": "clean",
+            "finding_count": 0,
+            "supplies": dict(self.SUPPLIES),
+            "graded": self.LAYOUT,
+            "latest": self.LAYOUT,
+            "status": "current",
+        }
+        stated.update(overrides)
+        islands = ", ".join(
+            f"`{net}` **{count}**" for net, count in sorted(stated["supplies"].items())
+        )
+        return (
+            f"> on the record `layout/{self.BLOCK}/erc-reports/LATEST` resolves to,\n"
+            f"> `klt erc` reports `erc_status` **{stated['erc_status']}** with\n"
+            f"> **{stated['finding_count']}** findings; the declared supplies resolve\n"
+            f"> to {islands} electrical islands; and it grades\n"
+            f"> `{stated['graded']}`, while `reports/LATEST` there names\n"
+            f"> `{stated['latest']}`: **{stated['status']}**.\n"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        """Also the wrap test: the fixture readout is set across six lines.
+
+        A check that only matched an unwrapped sentence would be vacuous
+        against the real document, where this sentence cannot fit on one line.
+        """
+        self._erc()
+        self.assertEqual(self.tree.check(self._readout()), [])
+
+    def test_an_island_count_that_moved_is_reported(self):
+        """The 2026-09-24 defect shape: the layout moved, the table did not."""
+        self._erc(supplies={"VDD": 1, "GND": 1, "VPWR": 2, "VGND": 2}, erc_status="violations")
+        misses = self.tree.check(self._readout())
+        stated = [miss for miss in misses if "island(s)" in miss]
+        self.assertEqual(len(stated), 2, misses)
+        self.assertTrue(any("`VPWR`" in miss for miss in stated), stated)
+        self.assertTrue(any("`VGND`" in miss for miss in stated), stated)
+
+    def test_a_supply_dropped_from_the_readout_is_reported(self):
+        """Both directions: shrinking the table is not a way to keep it clean."""
+        self._erc()
+        thinned = dict(self.SUPPLIES)
+        del thinned["VGND"]
+        misses = self.tree.check(self._readout(supplies=thinned))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`VGND`", misses[0])
+        self.assertIn("at None island(s)", misses[0])
+
+    def test_a_supply_the_run_never_graded_is_reported(self):
+        """The other direction: a net stated but absent from the coverage list."""
+        self._erc(supplies={"VDD": 1, "GND": 1, "VPWR": 1})
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`VGND`", misses[0])
+
+    def test_a_moved_status_word_is_reported(self):
+        self._erc(erc_status="violations")
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "erc_status" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_layout_rerun_without_a_fresh_erc_run_goes_stale(self):
+        """The record's own staleness rule, which nothing else evaluates.
+
+        `run-flow.sh` mints a new `reports/<id>/`; until `run-erc.sh` runs
+        again the committed ERC verdict grades bytes that are no longer this
+        flow's current layout, and the document's supply table is about a
+        superseded stream.
+        """
+        self._erc(graded=self.OLDER)
+        self.assertEqual(
+            self.tree.check(self._readout(graded=self.OLDER, status="stale")), []
+        )
+        misses = self.tree.check(self._readout(graded=self.OLDER))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("status=current", misses[0])
+        self.assertIn("status=stale", misses[0])
+
+    def test_a_layout_rebuilt_under_the_erc_record_goes_stale(self):
+        """The half a stamp comparison alone would miss.
+
+        Same stamp, different bytes: the ERC verdict is about a stream this
+        repository no longer carries, and only the content hash shows it.
+        """
+        self._erc(content_hash="sha256:" + "b" * 64)
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("status=stale", misses[0])
+
+    def test_a_readout_for_a_flow_with_no_erc_record_is_reported(self):
+        """Not silently skipped: a readout must outlive its own evidence.
+
+        Check 2 reports the unresolvable pointer path as well, which is
+        correct and not what this test is about -- check 16's own finding is
+        asserted, rather than the total count, so the two do not fight.
+        """
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "the ERC supply readout names" in miss]
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("erc-reports/LATEST", reported[0])
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self._erc()
+        self.assertEqual(self.tree.check("No ERC readout here.\n"), [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """What `--stats` prints must be what the document can paste."""
+        self._erc()
+        readout = checker.erc_readout(self.BLOCK)
+        sentence = checker.erc_sentence(self.BLOCK, readout)
+        self.assertEqual(self.tree.check(f"> {sentence}\n"), [])
+
+
 class TestAgainstTheRealProposal(unittest.TestCase):
     def test_committed_proposal_document_passes(self):
         doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
@@ -1953,6 +2236,46 @@ class TestAgainstTheRealProposal(unittest.TestCase):
         self.assertIsNotNone(
             stated, "the proposal no longer states a census check 6 can verify"
         )
+
+    def test_the_real_proposal_states_a_parseable_freshness_coverage_census(self):
+        """Check 18 is opt-in per document too, so assert the real one opts in.
+
+        Deleting the sentence would disable the check silently and still exit
+        0 -- the same vacuity trap check 4's dead connector branch fell into,
+        and the reason check 6 carries the assertion above.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _ = checker._collapse_quoted_prose(doc.read_text())
+        self.assertIsNotNone(
+            checker.FRESHNESS_COVERAGE_RE.search(collapsed),
+            "the proposal no longer states a freshness-coverage census check 18 "
+            "can verify",
+        )
+
+    def test_check_18_grades_a_nonempty_set_of_the_real_documents_pairs(self):
+        """A census over zero pairs would be a green that means nothing.
+
+        Check 18's whole subject is Section 4's citation pairs; if the table
+        scoping or `EVIDENCE_PATH_RE` ever stopped matching, the stated census
+        would collapse to 0/0/0 and the document could be restated to match it
+        while saying nothing at all.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        coverage = checker.freshness_coverage(doc.read_text())
+        self.assertGreaterEqual(
+            coverage["pairs"], 10, "Section 4's citation pairs went unparsed"
+        )
+        self.assertEqual(
+            coverage["pairs"], coverage["graded"] + coverage["ungraded"], coverage
+        )
+        # Every flow the census names must really publish no pointer, and hold
+        # at least one record -- otherwise the list is naming a flow that does
+        # not exist rather than one this gate cannot grade.
+        for flow, records in coverage["flows"]:
+            with self.subTest(flow=flow):
+                top, block = flow.split("/", 1)
+                self.assertIsNone(checker._pointer_stamp(top, block))
+                self.assertGreaterEqual(records, 1)
 
     def test_section_4_spec_table_is_actually_found(self):
         """Guard against the scoping silently matching zero rows."""
@@ -2324,6 +2647,446 @@ class TestAgainstTheRealProposal(unittest.TestCase):
             numbers.setdefault(number, []).append(name)
         collisions = {n: names for n, names in numbers.items() if len(names) > 1}
         self.assertEqual(sorted(collisions), ["004", "007"], collisions)
+
+    def test_the_real_proposal_states_a_parseable_erc_readout(self):
+        """Check 16 is opt-in per document, so assert the real document opts in.
+
+        A document that states no ERC readout is not failed by check 16 (that
+        is what keeps it inert against a fixture with no `erc-reports/` tree),
+        so a pass that deleted the sentence would disable the check and still
+        exit 0.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        stated = list(checker.ERC_READOUT_RE.finditer(collapsed))
+        self.assertEqual(len(stated), 1, "the proposal states no ERC supply readout")
+
+    def test_the_real_erc_readout_is_checked_against_a_real_record(self):
+        """The record side must be readable, and it must grade real bytes.
+
+        Three assertions, because each half of check 16 can go vacuous on its
+        own: the flow has an `erc-reports/LATEST`, that record names the
+        supplies this block declares, and the verdict word is computed from a
+        layout stream that really exists (a `stale` produced by an unreadable
+        file would be indistinguishable from one produced by a real re-run).
+        """
+        readout = checker.erc_readout("sar-adc-top")
+        self.assertIsNotNone(readout, "layout/sar-adc-top/ has no ERC record")
+        self.assertEqual(
+            sorted(readout["islands"]), ["GND", "VDD", "VGND", "VPWR"], readout
+        )
+        self.assertIsNotNone(readout["graded"], readout)
+        stream = (
+            REPO_ROOT
+            / "layout"
+            / "sar-adc-top"
+            / "reports"
+            / readout["graded"]
+            / "sar_adc_top.gds"
+        )
+        self.assertTrue(stream.is_file(), stream)
+
+    def test_the_real_erc_tree_is_invisible_to_the_earlier_freshness_checks(self):
+        """Why check 16 exists at all, re-derived rather than asserted in prose.
+
+        `EVIDENCE_PATH_RE` matches `records|reports` only. If a future change
+        widened it to cover `erc-reports/` too, check 3's spec-row freshness
+        would start grading ERC citations under a `layout/<block>/` flow key
+        that has no `reports/LATEST` relationship to them -- so this is a
+        tripwire on the assumption check 16 is built on, not decoration.
+        """
+        cited = "layout/sar-adc-top/erc-reports/20260924-190825-f3622fc/record.md"
+        self.assertIsNone(checker.EVIDENCE_PATH_RE.search(cited), cited)
+
+    def test_the_real_proposal_states_a_parseable_t1_readout(self):
+        """Check 17 is opt-in per document, so assert the real document opts in.
+
+        A document that states no T1 readout is not failed by check 17 (that
+        is what keeps it inert against a fixture with no `signoff/` pair), so
+        a pass that deleted the sentence would disable the check and still
+        exit 0.
+        """
+        doc = CHIPALOOZA_DIR / "challenge-4-proposal.md"
+        collapsed, _offsets = checker._collapse_quoted_prose(doc.read_text())
+        stated = list(checker.T1_READOUT_RE.finditer(collapsed))
+        self.assertEqual(len(stated), 1, "the proposal states no T1 sign-off readout")
+
+    def test_the_real_t1_readout_is_checked_against_a_real_record(self):
+        """The record side must be readable, and it must cite real evidence.
+
+        A `stale`/`None` produced by an unreadable `signoff/` pair is
+        otherwise indistinguishable from one produced by real drift -- so
+        both halves are asserted here, not just the document's prose side.
+        """
+        readout = checker.t1_readout()
+        self.assertIsNotNone(
+            readout, "signoff/t1-report.json and signoff/block-manifest.json "
+            "have no readable T1 verdict"
+        )
+        self.assertTrue(readout["cited"], readout)
+
+
+class TestT1Readout(unittest.TestCase):
+    """Check 17: a stated T1 sign-off readout must be the committed report's own.
+
+    The third evidence tree, and the first that is not a `layout/` flow's at
+    all. `signoff/t1-report.json` is this repo's T1 verdict of record (issue
+    #345), and no earlier check can see it: it is neither a `records/`/
+    `reports/` path (checks 3, 4) nor an `erc-reports/` one (check 16).
+    Section 7 item 9 quoted two of its twenty-two rows by hand -- the drift
+    shape this check turns into a CI failure, one tree over from where the
+    gate was already guarding.
+    """
+
+    BLOCK = "sar-adc-top"
+    LAYOUT = "20260924-190817-f3622fc"
+    OLDER = "20260923-131726-fa1e0af"
+    ERC = "20260924-190825-f3622fc"
+    REPORTS = f"layout/{BLOCK}/reports/LATEST"
+    ERC_REPORTS = f"layout/{BLOCK}/erc-reports/LATEST"
+    FAILED = [(4, "analog"), (4, "digital"), (11, "analog"), (11, "digital")]
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.add_layout_record(self.BLOCK, self.OLDER)
+        self.tree.add_layout_record(self.BLOCK, self.LAYOUT, latest=True)
+        self.tree.add_erc_record(self.BLOCK, self.ERC, latest=True, graded=self.LAYOUT)
+
+    def _items(self, failed=None) -> list[dict]:
+        """The report's own item list: three met, four graded-and-failed."""
+        rows = [
+            {"id": 3, "partition": "analog", "status": "met"},
+            {"id": 3, "partition": "digital", "status": "met"},
+            {"id": 8, "partition": "analog", "status": "met"},
+            {"id": 8, "partition": "digital", "reason": "no_evidence"},
+        ]
+        for item, partition in self.FAILED if failed is None else failed:
+            rows.append(
+                {"id": item, "partition": partition, "reason": "check_failed"}
+            )
+        # The tier rows `klt signoff` renders with no partition at all: they
+        # carry a reason of their own and must not be read as T1 items.
+        rows.append({"id": None, "partition": None, "reason": "tier_not_supported"})
+        return rows
+
+    def _evidence(self, layout: str | None = None, erc: str | None = None) -> dict:
+        """The manifest's evidence tree, in both shapes the real one uses."""
+        layout = layout or self.LAYOUT
+        erc = erc or self.ERC
+        return {
+            "3": {"file": f"layout/{self.BLOCK}/reports/{layout}/drc.json"},
+            "4": {"file": f"layout/{self.BLOCK}/reports/{layout}/lvs.json"},
+            "11": [
+                {"file": f"layout/{self.BLOCK}/erc-reports/{erc}/erc.json"},
+                {"file": f"layout/{self.BLOCK}/reports/{layout}/lvs.json"},
+            ],
+            "8.analog": {"file": "signoff/evidence/characterization.generic.json"},
+        }
+
+    def _signoff(self, **kwargs):
+        options = {"items": self._items(), "evidence": self._evidence()}
+        options.update(kwargs)
+        self.tree.add_signoff(**options)
+
+    def _readout(self, **overrides) -> str:
+        stated = {
+            "version": "0.6.0",
+            "met": 3,
+            "total": 22,
+            "tier": "none",
+            "failed": list(self.FAILED),
+            "cited": [
+                (self.ERC_REPORTS, self.ERC, self.ERC),
+                (self.REPORTS, self.LAYOUT, self.LAYOUT),
+            ],
+            "status": "current",
+        }
+        stated.update(overrides)
+        failed = (
+            ", ".join(f"`{item} {part}`" for item, part in stated["failed"])
+            or "**none**"
+        )
+        cited = (
+            ", ".join(
+                f"`{pointer}` at **{stamp}** against a pointer naming **{latest}**"
+                for pointer, stamp, latest in stated["cited"]
+            )
+            or "**none**"
+        )
+        return (
+            "> on the report `signoff/t1-report.json`, `klt signoff`\n"
+            f"> **{stated['version']}** grades **{stated['met']}** of\n"
+            f"> **{stated['total']}** T1 items met, block tier\n"
+            f"> **{stated['tier']}**; the items whose cited evidence was read\n"
+            f"> and still failed are {failed}; and its manifest cites\n"
+            f"> {cited}: **{stated['status']}**.\n"
+        )
+
+    def test_a_truthful_readout_passes(self):
+        """Also the wrap test: the fixture readout is set across six lines."""
+        self._signoff()
+        self.assertEqual(self.tree.check(self._readout()), [])
+
+    def test_a_met_count_that_moved_is_reported(self):
+        self._signoff(met=4)
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "met=" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_grader_version_bump_is_reported(self):
+        """The version is part of the verdict: a re-render can move numbers."""
+        self._signoff(version="0.7.0")
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("version=", misses[0])
+
+    def test_a_tier_award_is_reported(self):
+        """`null` renders as `none`, so a real tier appearing is visible."""
+        self._signoff(tier="T1")
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("tier=", misses[0])
+
+    def test_a_newly_failing_row_left_out_of_the_readout_is_reported(self):
+        """Both directions: shrinking the list is not a way to keep it clean."""
+        self._signoff(items=self._items(failed=self.FAILED + [(7, "analog")]))
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("omits item 7 (analog)", misses[0])
+
+    def test_a_row_that_has_since_stopped_failing_is_reported(self):
+        """The other direction: a listed row the report no longer fails."""
+        self._signoff(items=self._items(failed=self.FAILED[:-1]))
+        misses = self.tree.check(self._readout())
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("lists item 11 (digital)", misses[0])
+
+    def test_no_evidence_is_not_read_as_graded_and_failed(self):
+        """`check_failed` and `no_evidence` are different statements.
+
+        Item 8's digital row is `no_evidence` in every fixture here; a check
+        that read "unmet" instead of the reason would enrol it and fail the
+        truthful readout.
+        """
+        self._signoff()
+        self.assertEqual(self.tree.check(self._readout()), [])
+        self.assertNotIn((8, "digital"), checker.t1_readout()["failed"])
+
+    def test_a_readout_that_states_an_extra_citation_the_manifest_never_made_is_reported(self):
+        """The other direction: a stated citation with nothing behind it.
+
+        `test_a_manifest_pinned_to_a_superseded_record_goes_stale` below
+        exercises a *mismatched* pair (both a "states" and an "omits" miss
+        fire together), which does not catch a mutation that drops the
+        "states" arm of the symmetric difference entirely -- narrowing
+        `claimed_cited ^ set(actual["cited"])` to `set(actual["cited"]) -
+        claimed_cited` still passes it. This fixture adds a citation that has
+        no counterpart in `actual["cited"]` at all, so only the "states" arm
+        can report it.
+        """
+        self._signoff()
+        extra = (self.REPORTS, "bogus-stamp", "bogus-stamp")
+        misses = self.tree.check(
+            self._readout(
+                cited=[
+                    (self.ERC_REPORTS, self.ERC, self.ERC),
+                    (self.REPORTS, self.LAYOUT, self.LAYOUT),
+                    extra,
+                ]
+            )
+        )
+        reported = [
+            miss for miss in misses if "states" in miss and "bogus-stamp" in miss
+        ]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_manifest_pinned_to_a_superseded_record_goes_stale(self):
+        """The half `signoff/check_evidence_hashes.py` cannot cover.
+
+        Every cited artefact still hashes perfectly -- the record is
+        committed, its bytes unchanged. It is simply not the one
+        `reports/LATEST` names any more.
+        """
+        self._signoff(evidence=self._evidence(layout=self.OLDER))
+        stale = self._readout(
+            cited=[
+                (self.ERC_REPORTS, self.ERC, self.ERC),
+                (self.REPORTS, self.OLDER, self.LAYOUT),
+            ],
+            status="stale",
+        )
+        self.assertEqual(self.tree.check(stale), [])
+        misses = self.tree.check(self._readout())
+        self.assertTrue(any("status=stale" in miss for miss in misses), misses)
+
+    def test_a_manifest_citing_no_layout_record_is_not_current(self):
+        """A sign-off resting on nothing cannot be current with anything."""
+        self._signoff(evidence={"8.analog": {"file": "signoff/evidence/x.json"}})
+        self.assertEqual(
+            self.tree.check(self._readout(cited=[], status="stale")), []
+        )
+
+    def test_a_readout_with_no_committed_signoff_pair_is_reported(self):
+        """Not silently skipped: a readout must outlive its own evidence."""
+        self.tree.add_signoff(report=False, items=self._items())
+        misses = self.tree.check(self._readout())
+        reported = [miss for miss in misses if "T1 sign-off readout names" in miss]
+        self.assertEqual(len(reported), 1, misses)
+
+    def test_a_document_stating_no_readout_is_not_failed_for_it(self):
+        self._signoff()
+        self.assertEqual(self.tree.check("No T1 readout here.\n"), [])
+
+    def test_stats_sentence_round_trips_through_the_checker(self):
+        """What `--stats` prints must be what the document can paste."""
+        self._signoff()
+        sentence = checker.t1_sentence(checker.t1_readout())
+        self.assertEqual(self.tree.check(f"> {sentence}\n"), [])
+
+    def test_the_erc_tree_is_reachable_from_the_manifest(self):
+        """A tripwire on the assumption check 17 is built on.
+
+        `EVIDENCE_PATH_RE` matches `records|reports` only, so an
+        `erc-reports/` citation is invisible to checks 3 and 4 -- which is
+        exactly why this check walks the manifest with its own pattern. If
+        `T1_CITED_PATH_RE` were ever narrowed to match the older one, item
+        11's ERC evidence would silently drop out of the freshness verdict.
+        """
+        cited = f"layout/{self.BLOCK}/erc-reports/{self.ERC}/erc.json"
+        self.assertIsNone(checker.EVIDENCE_PATH_RE.match(cited), cited)
+        self.assertIsNotNone(checker.T1_CITED_PATH_RE.match(cited), cited)
+
+
+class TestFreshnessCoverage(unittest.TestCase):
+    """Check 18: the stated coverage of check 3 over Section 4 must be real.
+
+    Check 3 grades a row's citation only when the flow it names publishes a
+    `LATEST` pointer; a flow that publishes none is skipped, and the cell
+    reads exactly like a graded one. The proposal's own summary of the gate
+    said "every row of the table above cites the *current* record of each
+    `sim/`/`layout/` flow it draws on" while 7 of its 21 (row, flow) pairs
+    were not graded at all -- the same prose-overstates-the-gate shape check 6
+    exists for, one table over.
+
+    The load-bearing fixtures here are the two directions: a pointerless flow
+    left OUT of the stated list (the gate reading better than it is) and a
+    flow left IN after it starts publishing a pointer.
+    """
+
+    GRADED = "20260917-180543-527ec73"
+    UNGRADED_A = "20260827-213107-e13bc1e"
+    UNGRADED_B = "20260828-022618-f36913e"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        # One graded flow: a `layout/` flow that publishes a pointer.
+        self.tree.add_layout_record("cdac-array", self.GRADED, latest=True)
+        # One ungraded flow holding two records and no pointer -- the shape
+        # that matters, since the row is choosing between them unchecked.
+        self.tree.add_sim_record("cdac-array-transfer", self.UNGRADED_A)
+        self.tree.add_sim_record("cdac-array-transfer", self.UNGRADED_B)
+
+    def _table(self) -> str:
+        return spec_table(
+            f"| `V_REF` | 1.8 V | RATIFIED | **MET** | "
+            f"`sim/cdac-array-transfer/records/{self.UNGRADED_A}.md` |",
+            f"| INL / DNL | ≤ ±2.0 LSB | DRAFT | **Informational only** | "
+            f"`sim/cdac-array-transfer/records/{self.UNGRADED_A}.md`; "
+            f"`sim/cdac-array-transfer/records/{self.UNGRADED_B}.md` |",
+            f"| Sampling cap | 8.65 fF | RATIFIED | **MET** | "
+            f"`layout/cdac-array/reports/{self.GRADED}/record.md` |",
+        )
+
+    def _sentence(self, pairs, graded, ungraded, flows) -> str:
+        rendered = (
+            ", ".join(
+                f"`{flow}` (**{count}** record{'' if count == 1 else 's'})"
+                for flow, count in flows
+            )
+            or checker.FRESHNESS_NONE
+        )
+        return (
+            f"of the **{pairs}** (spec row, evidence flow) citation pairs in "
+            f"Section 4's table, **{graded}** name a flow that publishes a "
+            "`LATEST` pointer and are therefore freshness-checked by check 3; "
+            f"the remaining **{ungraded}** name a flow that publishes none, "
+            f"whose current record nothing grades: {rendered}.\n"
+        )
+
+    def _body(self, sentence: str = "") -> str:
+        return self._table() + "\n" + sentence
+
+    def test_coverage_of_a_known_table_is_computed_per_row_flow_pair(self):
+        """Two rows citing one flow are two pairs; three stamps are not three."""
+        coverage = checker.freshness_coverage(self._body())
+        self.assertEqual(coverage["pairs"], 3, coverage)
+        self.assertEqual(coverage["graded"], 1, coverage)
+        self.assertEqual(coverage["ungraded"], 2, coverage)
+        self.assertEqual(coverage["flows"], [("sim/cdac-array-transfer", 2)], coverage)
+
+    def test_a_truthful_census_passes(self):
+        body = self._body(
+            self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 2)])
+        )
+        self.assertEqual(self.tree.check(body), [])
+
+    def test_an_omitted_ungraded_flow_is_reported(self):
+        """The direction that matters: the gate reading better than it is."""
+        body = self._body(self._sentence(3, 1, 2, []))
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("omits `sim/cdac-array-transfer`", misses[0])
+
+    def test_a_flow_that_starts_publishing_a_pointer_must_leave_the_list(self):
+        # Pointed at the record both rows cite, so the only findings are
+        # check 18's -- a check-3 staleness here would mask what this asserts.
+        (self.tree.root / "sim" / "cdac-array-transfer" / "records" / "LATEST").write_text(
+            f"{self.UNGRADED_A}.md\n"
+        )
+        body = self._body(
+            self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 2)])
+        )
+        misses = self.tree.check(body)
+        self.assertTrue(any("lists `sim/cdac-array-transfer`" in m for m in misses), misses)
+        self.assertTrue(any("graded=1" in m and "graded=3" in m for m in misses), misses)
+
+    def test_a_drifted_record_count_is_reported_in_both_directions(self):
+        """A stated count that is not the tree's own is two findings, not none."""
+        body = self._body(
+            self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 1)])
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 2, misses)
+        self.assertTrue(any("lists" in m and "**1** record(s)" in m for m in misses), misses)
+        self.assertTrue(any("omits" in m and "**2** record(s)" in m for m in misses), misses)
+
+    def test_a_fully_graded_table_renders_and_accepts_none(self):
+        # Pointed at the record both rows cite, so check 3 stays quiet and the
+        # only thing this test is about is check 18's empty-list rendering.
+        (self.tree.root / "sim" / "cdac-array-transfer" / "records" / "LATEST").write_text(
+            f"{self.UNGRADED_A}.md\n"
+        )
+        coverage = checker.freshness_coverage(self._body())
+        self.assertEqual(coverage["flows"], [], coverage)
+        self.assertIn(
+            checker.FRESHNESS_NONE, checker.freshness_coverage_sentence(coverage)
+        )
+        self.assertEqual(self.tree.check(self._body(self._sentence(3, 3, 0, []))), [])
+
+    def test_the_stats_sentence_is_what_the_check_accepts(self):
+        """A `--stats` paste must pass, or the documented fix does not work."""
+        body = self._body()
+        sentence = checker.freshness_coverage_sentence(checker.freshness_coverage(body))
+        self.assertEqual(self.tree.check(body + sentence + "\n"), [])
+
+    def test_a_document_stating_no_census_is_not_failed_for_it(self):
+        # Opt-in per document, like check 6: fixtures need not carry one.
+        self.assertEqual(self.tree.check(self._body()), [])
+
+    def test_the_sentence_is_not_counted_as_a_pointer_claim(self):
+        """It must not enrol itself in check 4/6's census, as check 17's does not."""
+        sentence = self._sentence(3, 1, 2, [("sim/cdac-array-transfer", 2)])
+        self.assertEqual(checker.pointer_claim_census(sentence)["total"], 0)
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

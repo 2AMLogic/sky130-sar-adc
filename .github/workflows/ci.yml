@@ -16,16 +16,15 @@ name: CI
 #     nightly schedule / manual dispatch / an opt-in `run-pdk-smoke` label on
 #     a PR, because it needs a full volare PDK fetch.
 #   - The metal minimum-area gate (issue #338) also runs in `pdk-smoke`:
-#     `docs/chipalooza/measure_metal_min_area.py` measures sky130A's own
-#     m1.6/m2.6/m3.6/m4.4a/m5.4 rules -- which `klt drc` structurally cannot
-#     see at the pinned klayout-tools==0.5.0 -- against each flow's current
-#     `reports/LATEST` GDS. It is PDK- and KLayout-gated, and it is run with a
-#     negative control (`--self-test`) and a baseline that waives only #333's
-#     tool-emitted shapes. Its *baseline bookkeeping* is pure Python and is
-#     unit-tested headlessly in the always-on path
-#     (`sim/tests/test_metal_min_area_baseline.py` -> `check:ci` -> `checks`),
-#     so a waiver that silently covers this repo's own geometry fails on every
-#     push, not just nightly.
+#     `docs/chipalooza/measure_metal_min_area.py` cross-checks sky130A's own
+#     m1.6/m2.6/m3.6/m4.4a/m5.4 rules -- which the pinned klayout-tools==0.6.0
+#     deck now also checks natively (`met*.area.1`, issue #103) -- against
+#     each flow's current `reports/LATEST` GDS. It is PDK- and KLayout-gated,
+#     and it is run with a negative control (`--self-test`) first on every
+#     invocation. The gate is zero-tolerance (no baseline/waiver file): issue
+#     #333, the one tool-emitted residual this measurement ever had to hold
+#     out, is closed, and both this script (post-#363 fix) and the deck's own
+#     rules measure 0 shapes below threshold across every target today.
 #   - Everything claimed under `sim/<experiment>/records/` and
 #     `layout/trivial-cell/reports/` is evidence captured by a human/agent
 #     run of the PDK-gated runners, not a repeatable CI check — re-running it
@@ -71,6 +70,19 @@ name: CI
 #     census number did (PR #312). Neither are any of the gated figures
 #     (census, DRC/LVS, power and area readouts) -- run the checker with
 #     `--stats` for the live ones.
+#   - `signoff/check_evidence_hashes.py` (issue #345) is also part of
+#     `check:ci` -> `checks` below, and is likewise headless (pure file
+#     reads + sha256, no PDK, no ngspice, no `klt`, no network): it re-derives
+#     every artifact hash that signoff/block-manifest.json's citations rest on
+#     directly from the committed files. This is the half of the freshness
+#     contract `klt signoff` structurally CANNOT check -- the grader compares
+#     a manifest's pinned content_hash against the cited envelope's own
+#     SELF-REPORTED hash, so a manifest and an envelope can go on agreeing
+#     with each other indefinitely while the GDS or Markdown they describe is
+#     rewritten underneath them (klayout-tools#2196 surfaces that as
+#     `input_verified`, which is null for every citation in this manifest).
+#     Negative controls for each drift shape live in
+#     sim/tests/test_signoff_evidence_hashes.py -> `npm run test:unit`.
 #   - `layout/bin/check-klt-pin-evidence.sh` (issue #110) is also part of
 #     `check:ci` -> `checks` below: it cross-checks the `klt` pin in
 #     layout/requirements.txt against the `klt` version and overall verdict
@@ -79,6 +91,53 @@ name: CI
 #     PR moving the pin without fresh matching evidence -- the class of
 #     regression PR #108 caused and #104 fixed, when the six-verdict proof
 #     itself only runs in the PDK-gated `pdk-smoke` job below.
+#   - `layout/bin/check_drc_evidence.py` (issue #121) is also part of
+#     `check:ci` -> `checks` below, and is likewise headless (pure file reads,
+#     no PDK, no `klt` install): it holds every DRC payload a layout flow's
+#     own reports/LATEST resolves to -- the evidence every "DRC-clean" claim
+#     in this repo, and every verdict docs/chipalooza/challenge-4-proposal.md
+#     grades on them, actually stands on -- to curated-deck provenance. A
+#     payload stamped with an `engine` / a deck *file* came from `klt drc
+#     --engine klayout --deck-file`, the path klayout-tools#1941 showed can
+#     report `status: "clean"` from a deck that aborted part-way through (a
+#     report file covering only the rules that ran before the abort). That
+#     fix, klayout-tools#1951, is merged but in no published release (`klt`
+#     0.5.0 remains latest), so the affected behaviour is what a `klt drc`
+#     run here does today. The gate also rejects a payload carrying
+#     `engine_deck_errors` (#1951's own `--allow-deck-errors` marker, i.e. a
+#     knowingly partial run) and a `clean` verdict whose coverage block names
+#     no checked layer. Superseded records are deliberately out of scope --
+#     layout/ evidence is append-only, and this repo does hold one payload of
+#     exactly that shape from a klt 0.3.0 n-well recipe the curated deck
+#     later made unnecessary; what the gate requires is that nothing of that
+#     shape is what a verdict stands on TODAY. Finding no payload at all
+#     fails too, so a renamed directory cannot turn it into a silent pass.
+#   - `sim/tests/test_measure_metal_min_area.py` (issue #363) runs as its own
+#     step of `checks` below rather than inside `check:ci`, because it is this
+#     repo's only unit test that needs the KLayout *engine* -- `npm run
+#     test:unit`'s interpreter has no `klayout` module and skips it. It needs
+#     no PDK (inline rule table, synthesised GDS), so the step just installs
+#     layout/requirements.txt's own `klayout==` pin into a throwaway venv. It
+#     pins the region construction `docs/chipalooza/measure_metal_min_area.py`
+#     uses: the pre-#363 `Region().insert(iter)` form under-merged, because
+#     KLayout's merge is property-aware and this repo's routed GDS carries
+#     net-name properties on PDN straps but not on the via cells inside them,
+#     so covered via pads were reported as minimum-area violations. That wrong
+#     count stood for four days -- in two flow READMEs and in issue #333's
+#     waiver -- while the pinned deck's own `met*.area.1` rules reported 0 on
+#     the same GDS. Nothing cross-checked the two; this step is that check.
+#   - `signoff/run-signoff.sh --check` (issue #345) runs in its OWN
+#     `signoff-check` job below rather than in `check:ci`, for one reason: it
+#     is the only PR-blocking check that needs `klt` installed. Everything it
+#     does is still a pure JSON+Markdown transform -- no PDK, no KLayout
+#     engine, no GDS read -- so it belongs on the PR-blocking path next to the
+#     other citation gates, not in the nightly. It re-grades
+#     signoff/block-manifest.json with the pinned grader and fails if the
+#     committed signoff/t1-report.json no longer reproduces, so a manifest
+#     citing an artifact that has since changed (or a checklist/grader move,
+#     or a manifest edit with no re-render) turns THIS run red the same day
+#     instead of rotting until a human re-reads a prose tracker by hand --
+#     the exact staleness mode issue #345 was filed against.
 
 on:
   push:
@@ -114,6 +173,73 @@ jobs:
 
       - name: npm run check:ci
         run: npm run check:ci
+
+      # sim/tests/test_measure_metal_min_area.py is the ONE unit test in this
+      # repo that needs the KLayout engine, so `npm run test:unit`'s
+      # interpreter skips it and it would otherwise never run anywhere
+      # (issue #363: the measurement it pins was wrong for four days precisely
+      # because nothing cross-checked it). It needs NO PDK -- the rule table is
+      # supplied inline and the GDS is synthesised in a temp dir -- so it
+      # belongs in this headless job rather than the PDK-gated `pdk-smoke` one.
+      #
+      # The engine pin is READ from layout/requirements.txt rather than
+      # restated here, so this step cannot drift from the version that mints
+      # the evidence. Installed into a venv rather than `pip install --user`,
+      # for the same reason `signoff-check` below does: the self-hosted
+      # runner's interpreter may be externally managed (PEP 668).
+      - name: Region-construction regression test (pinned KLayout engine, no PDK)
+        run: |
+          KLAYOUT_PIN="$(grep -E '^klayout==' layout/requirements.txt)"
+          echo "Installing $KLAYOUT_PIN"
+          python3 -m venv /tmp/venv-klayout
+          /tmp/venv-klayout/bin/pip install --quiet "$KLAYOUT_PIN"
+          /tmp/venv-klayout/bin/python -m unittest discover \
+            --start-directory sim/tests --top-level-directory sim/tests \
+            --pattern 'test_measure_metal_min_area.py' --verbose
+
+  signoff-check:
+    name: T1 tier-report staleness gate (klt signoff --manifest)
+    # Same runner expression as `checks` above, and for the same reason: this
+    # org's Actions billing is blocked for GitHub-hosted minutes on private
+    # repos (see that job's comment and #51), so a PR-blocking job MUST route
+    # to the self-hosted fleet runner for same-repo events. Fork PRs fall back
+    # to ubuntu-latest — untrusted fork code never runs on a self-hosted
+    # runner — where this job needs nothing but Python and pip.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","heavy"]') || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Deliberately NOT layout/requirements.txt's pin (0.5.0 there, 0.6.0
+      # here). The two gate different things: that one MINTS the DRC/LVS
+      # evidence and only moves with a full re-run of every layout/ flow,
+      # while this one GRADES it and reads no PDK, no KLayout engine and no
+      # GDS. 0.6.0 is the first PyPI release whose bundled checklist carries
+      # the eleventh T1 item (klayout-tools#2025, added 2026-09-17) and the
+      # first with `klt signoff --check`. Full rationale, including why moving
+      # this pin is a claim change rather than a chore:
+      # signoff/requirements.txt.
+      #
+      # Installed into a venv rather than `pip install --user`: the
+      # self-hosted runner's interpreter may be externally managed (PEP 668),
+      # where a --user install fails outright.
+      - name: Install the pinned signoff grader
+        run: |
+          python3 -m venv /tmp/venv-signoff
+          /tmp/venv-signoff/bin/pip install --quiet -r signoff/requirements.txt
+          /tmp/venv-signoff/bin/klt --version
+
+      # `klt signoff --check` rather than a byte-diff of a fresh render: the
+      # report's `build` block names how an install was provisioned, so two
+      # legitimate installs of the same pinned version disagree on it
+      # byte-for-byte while grading identically (klayout-tools#2249).
+      # --check excludes exactly that block and compares everything else,
+      # printing a per-field drift list when a row's verdict moved.
+      - name: Re-grade the manifest and verify the committed tier report
+        run: KLT=/tmp/venv-signoff/bin/klt bash signoff/run-signoff.sh --check
 
   pdk-smoke:
     name: PDK-gated harness smoke test (nightly / workflow_dispatch / 'run-pdk-smoke' label)
@@ -273,24 +399,25 @@ jobs:
           ./layout/bin/run-trivial-cell-flow.sh
 
       - name: Metal minimum-area gate (issue #338)
-        # `klt drc`'s clean verdict is real but narrow: at the pinned
-        # klayout-tools==0.5.0 the curated sky130 deck authors NO `area`-kind
-        # rule, so sky130A's own m1.6/m2.6/m3.6/m4.4a/m5.4 minimum-area rules
-        # look at nothing in this repo (fixed upstream by klayout-tools#1989,
-        # not yet released). docs/chipalooza/measure_metal_min_area.py is the
-        # stand-in measurement -- it reads the thresholds and layer numbers
-        # out of the pinned PDK's own deck and applies KLayout's own
-        # `Region#with_area`, the primitive that deck's rule text calls -- and
-        # issue #326 used it to find and fix 17 real violations this repo's
-        # own generators drew. THIS step is what stops the next one landing
-        # silently.
+        # `klt drc --deck sky130` now checks m1.6/m2.6/m3.6/m4.4a/m5.4
+        # natively (klayout-tools#1989, in the pinned klayout-tools==0.6.0
+        # deck since issue #103) -- but it only ever re-checks a record when
+        # someone re-runs a layout flow by hand and commits the result.
+        # docs/chipalooza/measure_metal_min_area.py is kept as an independent
+        # cross-check of the SAME rules, applied directly to the
+        # already-committed GDS in each flow's current reports/LATEST record
+        # on every push down this path -- so it re-runs no layout flow (costs
+        # seconds, not minutes) and, being a second implementation of the same
+        # check, would itself disagree with `klt drc` if either one had a bug
+        # (which is exactly how issue #363's under-merge defect in THIS
+        # script, not the deck, was found). Issue #326 used it to find and fix
+        # 17 real violations this repo's own generators drew; THIS step is
+        # what stops the next one landing silently.
         #
         # It belongs in this job, not in `checks`, for the same reason
         # everything else here does: it needs the pinned PDK deck (above) and
         # the `klayout` module from layout/.venv (installed by the previous
-        # step's setup-venv.sh). It re-runs no layout flow -- it measures the
-        # already-committed GDS in each flow's current reports/LATEST record,
-        # so it costs seconds, not minutes.
+        # step's setup-venv.sh).
         #
         # --self-test FIRST, deliberately: a clean verdict means nothing until
         # "fails" is shown reachable on the same rules in the same run, the
@@ -300,16 +427,17 @@ jobs:
         # attributed to `cdac-array`) and exits non-zero unless the gate
         # catches it.
         #
-        # --baseline waives exactly the 145 shapes `klt`'s own place-and-route
-        # emits inside the two PnR'd digital macros -- a known, filed,
-        # not-ours finding (#333 here, klayout-tools#2072 upstream) -- and
-        # nothing else. The allowances are per (flow, rule) CEILINGS, so one
-        # more shape than recorded fails, while fewer passes with a loud
-        # STALE ALLOWANCE warning. When #333 closes: delete
-        # docs/chipalooza/metal_min_area_baseline.json and the --baseline
-        # argument below. That is the whole removal.
+        # No baseline/waiver argument: the gate is zero-tolerance. It had one
+        # real case to design against -- 145 shapes `klt`'s own
+        # place-and-route emitted inside the two PnR'd digital macros, tracked
+        # as issue #333 (klayout-tools#2072 upstream) -- but #363 found that
+        # figure was itself a measurement bug in this script (an under-merged
+        # region double-counting via pads a PDN strap already covers), not
+        # geometry `klt` drew; the corrected script and the deck's own
+        # `met*.area.1` rules both report 0 shapes below threshold on every
+        # target today, and #333 is closed. See
+        # layout/sar-adc-top/README.md's "Minimum-area rules" section for the
+        # full trace.
         run: |
-          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
-            --self-test --baseline docs/chipalooza/metal_min_area_baseline.json
-          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
-            --baseline docs/chipalooza/metal_min_area_baseline.json
+          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py --self-test
+          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py

@@ -39,7 +39,8 @@ LAYOUT_DIR = REPO_ROOT / "layout"
 
 TOP_SUBCKT = """\
 .SUBCKT sar_adc_top VINP VINN VDD VREFP VREFN VCM CLK RST_B \
-DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 BUSY
+DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 BUSY VPWR VGND \
+GND
 * sampling_frontend (layout/sampling-frontend/reference.spice ports:
 * VDD GND SAMPLE VCM VINP VINN TOP_P TOP_N BPREF_P BPREF_N BOOST_P BOOST_N)
 Xfe VDD GND SAMPLE_INT VCM VINP VINN TOP_P TOP_N \
@@ -57,20 +58,23 @@ Xcmp VDD GND CLK TOP_P TOP_N COMP_OUT OUTN_NC comparator
 * sar_sequencer.lvs-reference.spice ports: CLK RST_B COMP_OUT PH_B9..PH_B0
 * PH_EOC PH_SAMPLE BUSY DOUT9..DOUT0 VPWR VGND -- PH_B<i>/PH_EOC left
 * dead-ended per design/sar_adc_top.sch's own documented integration gap;
-* VPWR/VGND left as this instance's own self-contained rail, per that same
-* gap note extended to a second digital instance -- see
-* layout/sar-adc-top/README.md "GND / VPWR / VGND")
+* VPWR/VGND are the SHARED digital rails, the same two nets seln_inverters
+* below connects to and the same two this wrapper carries out to its own
+* VPWR/VGND ports -- per DR-010 and design/sar_adc_top.sch's own
+* `.GLOBAL VPWR`/`.GLOBAL VGND` declarations, NOT the per-instance
+* VPWR_SEQ/VPWR_SELN split this file used to emit before issue #355)
 Xseq CLK RST_B COMP_OUT PH_B9_NC PH_B8_NC PH_B7_NC PH_B6_NC PH_B5_NC \
 PH_B4_NC PH_B3_NC PH_B2_NC PH_B1_NC PH_B0_NC PH_EOC_NC SAMPLE_INT BUSY \
 DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 \
-VPWR_SEQ VGND_SEQ sar_sequencer
+VPWR VGND sar_sequencer
 * seln_inverters (this issue's own glue macro -- LATEST reports/<id>/
 * seln_inverters.lvs-reference.spice ports: DOUT8..DOUT0 SELn8..SELn0
-* VPWR VGND; VPWR/VGND left as ITS OWN separate self-contained rail, not
-* tied to sar_sequencer's -- see the same README note above)
+* VPWR VGND; the same two shared rails as Xseq above -- the layout ties both
+* macros' own met5 PDN straps together and out to a top-level supply pin
+* (layout/sar-adc-top/bin/build_layout.py's digital_supply_rail))
 Xinv DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 \
 SELn8 SELn7 SELn6 SELn5 SELn4 SELn3 SELn2 SELn1 SELn0 \
-VPWR_SELN VGND_SELN seln_inverters
+VPWR VGND seln_inverters
 .ENDS
 """
 

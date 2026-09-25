@@ -149,13 +149,25 @@ def main() -> int:
         counts = lvs.get("counts", {})
         pins = counts.get("pins", {})
         lines.append(f"- verdict: **{status}**")
+        pin_note = (
+            "klayout-tools#1513 is resolved: every top-level pin label this "
+            "flow draws promotes correctly."
+        )
+        if pins.get("layout") != pins.get("reference"):
+            pin_note += (
+                " The layout count is BELOW the reference count by design, not "
+                "by defect: since issue #362 the reference carries `GND` and "
+                "`VGND` as two ports of what the layout extracts as ONE net "
+                "(`GND|VGND` -- the shared p-substrate, which bulk sky130 "
+                "offers no way to split), so a single promoted layout pin "
+                "answers both reference ports and `matched` counts both. See "
+                "`spec/decision-records/DR-012-analog-ground-pad.md`."
+            )
         lines.append(
             f"- pins promoted from `--pin-source-cells`: "
             f"layout={pins.get('layout', extract.get('pin_count', '?'))} "
             f"reference={pins.get('reference', '?')} "
-            f"matched={pins.get('matched', '?')} (expected 19/19/19) -- "
-            "klayout-tools#1513 is resolved: this is the first record where "
-            "every top-level pin promotes correctly."
+            f"matched={pins.get('matched', '?')} -- " + pin_note
         )
         lines.append(
             f"- devices: layout={counts.get('devices', {}).get('layout')} "

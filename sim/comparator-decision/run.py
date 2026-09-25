@@ -18,6 +18,12 @@ required; every source here is an ideal differential DC/pulse stimulus.
     python3 sim/comparator-decision/run.py noise --record
     python3 sim/comparator-decision/run.py noise-corners --record
         # full ratified PVT corner sweep of the noise measurement (issue #28)
+    python3 sim/comparator-decision/run.py kickback --record
+        # single-corner (tt/27C) kickback probe: 1kOhm series source
+        # impedance into VINP/VINN, measuring the peak pin disturbance
+        # across the CLK reset->evaluate transition (issue #346 --
+        # informational, DR-004's comparator has no ratified/DRAFT
+        # spec/target-spec.md Kickback row to grade against)
 
 Why this is a bespoke driver, not sim/run_corners.py or sim/monte_carlo.py:
 those two runners are deliberately built around a single ngspice analysis
@@ -112,6 +118,32 @@ def _run(deck_text: str, scratch_dir: Path, log_name: str) -> str:
 
 DEFAULT_VINDIFF_SWEEP_MV = [0.5, 1, 2, 5, 10, 20, 50, -10]
 EVALUATE_NS = 40.0
+
+# kickback probe stimulus (issue #346). The 1 kOhm series source impedance
+# and the "worst-case overdrive edge" framing are the STIMULUS SHAPE named
+# by the 2AMLogic/sky130-comparator prior-art finding (issue #346's Finding
+# section, its own DR-003) -- a same-PDK, same-topology-class sibling canary
+# whose cross-pollination is sanctioned by CLAUDE.md. Only the methodology
+# (series-impedance probe + peak-pin-disturbance measurement across the CLK
+# reset->evaluate transition) is reused; the deck below is re-derived from
+# scratch against THIS repo's own design/comparator.sch (DR-004 Amendment A,
+# the 11-device topology) -- no netlist, sizing, or measured VALUE from that
+# other repo is introduced here, per CLAUDE.md's clean-room policy.
+KICKBACK_RSRC_OHM = 1000.0  # 1 kOhm, matching the prior-art stimulus shape
+KICKBACK_VINDIFF_SWEEP_MV = [0.0, 50.0]  # 0mV isolates tail/reset-switch-
+# coupled kickback from decision-coupled kickback (the same Vindiff=0
+# reset-integrity-control idea `regen-corners` already uses, CORNERS_
+# VINDIFF_SWEEP_MV below); 50mV is this experiment's OWN largest/worst-case
+# overdrive point (DEFAULT_VINDIFF_SWEEP_MV's top value above) -- a clean,
+# fast decision edge, the "worst-case overdrive edge" this issue calls for.
+# Neither value is taken from the other repo's own sweep.
+KICKBACK_EVALUATE_NS = EVALUATE_NS  # reuse the same 40ns evaluate window as
+# `regen` -- the disturbance must be tracked THROUGH the full evaluate/
+# regeneration transient, not just the ~100ps CLK ramp itself: the Finding
+# this issue was filed from reports that the dominant kickback charge on a
+# same-PDK sibling topology kept flowing PAST THE END of the clock ramp, so
+# truncating the measurement window at the ramp alone would risk clipping
+# the true peak on this design too.
 
 
 def _regen_deck(
@@ -386,6 +418,271 @@ def write_regen_evidence(
     return _finalize_record(
         lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
         "regen", supersedes=supersedes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# kickback: peak pin disturbance on VINP/VINN into a 1 kOhm series source
+# impedance, across the CLK reset->evaluate transition (issue #346)
+#
+# WHY THIS EXISTS. Issue #346 is a cross-pollinated prior-art Finding from
+# the sky130-comparator canary (2AMLogic/sky130-comparator): a same-PDK
+# (sky130A, 1.8V), same-topology-class (StrongARM/dynamic-latch) sibling
+# measured a real kickback decomposition + mitigation option table for ITS
+# OWN comparator, and flagged that THIS repo's embedded comparator
+# (design/comparator.sch, DR-004) had never been given a dedicated kickback
+# measurement of its own. This subcommand closes exactly that gap: an
+# ORIGINAL kickback probe against this repo's own 11-device (DR-004
+# Amendment A) netlist, using the sibling's STIMULUS SHAPE (1 kOhm series
+# source impedance, worst-case overdrive edge) as reusable methodology --
+# no netlist, sizing, or measured value crosses the repo boundary, per
+# CLAUDE.md's clean-room / no-reverse-engineering rule.
+#
+# INFORMATIONAL, NOT GRADED. spec/target-spec.md has no Kickback row (DRAFT
+# or ratified) -- this subcommand does not add one (CLAUDE.md: "the spec is
+# a gate"; spec rows are a ratification act, not a Builder decision). The
+# measurement below is reported exactly as-is, the same "exercised, not
+# budgeted" treatment DR-004 Decision Sec.3 already gives `regen`/`offset`.
+#
+# METHOD. Each input pin is driven by an ideal DC source in series with a
+# KICKBACK_RSRC_OHM resistor landing on the DUT's own VINP/VINN pin -- the
+# standard "bench source impedance" kickback-probe topology: any charge the
+# switching latch pushes back onto that pin through the input pair's own
+# Cgd/Cgs shows up as an I*R voltage drop across the resistor, i.e. exactly
+# the "pin disturbance" a real (non-ideal) driving source would see. The
+# transient covers the full reset->evaluate->regeneration window (not just
+# the CLK ramp) -- see KICKBACK_EVALUATE_NS's comment above for why.
+# ---------------------------------------------------------------------------
+
+
+def _kickback_deck(
+    info: pdk.PdkInfo,
+    corner: str,
+    temp_c: float,
+    vindiff_mv: float,
+    log_name: str,
+    supply_v: float = VDD,
+    evaluate_ns: float = KICKBACK_EVALUATE_NS,
+    rsrc_ohm: float = KICKBACK_RSRC_OHM,
+) -> str:
+    """Single reset->evaluate transient deck for one (corner, temp, supply,
+    Vindiff) kickback point: identical stimulus shape to `_regen_deck`
+    except VINP/VINN are driven through a `rsrc_ohm` series resistor from an
+    ideal DC source rather than directly, so the DUT pin's own voltage can
+    depart from the ideal source's target under switching-induced current."""
+    vindiff_v = vindiff_mv / 1000.0
+    vcm = supply_v / 2.0
+    period_ns = RESET_NS + RESET_TR_NS + evaluate_ns + 10.0
+    tstop_ns = RESET_NS + RESET_TR_NS + evaluate_ns
+    lines = [
+        f"* comparator-decision kickback probe -- vindiff={vindiff_mv}mV "
+        f"corner={corner} temp={temp_c}C rsrc={rsrc_ohm}ohm (issue #346)",
+        f".lib {info.ngspice_lib} {corner}",
+        f".temp {temp_c}",
+        f".param vdd_val = {supply_v}",
+        "",
+        "Vdd VDD 0 dc {vdd_val}",
+        f"Vclk CLK 0 PULSE(0 {{vdd_val}} {RESET_NS}n {RESET_TR_NS}n {RESET_TR_NS}n "
+        f"{evaluate_ns}n {period_ns}n)",
+        f"Vinp_ideal VINP_IDEAL 0 dc {vcm + vindiff_v / 2}",
+        f"Vinn_ideal VINN_IDEAL 0 dc {vcm - vindiff_v / 2}",
+        f"Rsrc_p VINP_IDEAL VINP {rsrc_ohm}",
+        f"Rsrc_n VINN_IDEAL VINN {rsrc_ohm}",
+        "",
+        _dut_lines(),
+        "",
+        ".control",
+        f"tran 0.005n {tstop_ns}n",
+        f"wrdata {log_name}.csv v(CLK) v(VINP) v(VINN) v(OUTP) v(OUTN)",
+        ".endc",
+        ".end",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+@dataclass
+class KickbackPoint:
+    vindiff_mv: float
+    target_p_v: float
+    target_n_v: float
+    # Peak signed deviation of EITHER pin's actual voltage from its own
+    # ideal-source target, over the full transient -- `peak_pos_*` is the
+    # largest positive excursion, `peak_neg_*` the largest negative one
+    # (most negative, i.e. minimum), each independently tracking which pin
+    # (VINP or VINN) and what time it occurred at.
+    peak_pos_dev_v: float
+    peak_pos_time_ns: float | None
+    peak_pos_pin: str
+    peak_neg_dev_v: float
+    peak_neg_time_ns: float | None
+    peak_neg_pin: str
+    log_text: str
+
+
+def run_kickback_sweep(
+    corner: str = "tt", temp_c: float = 27.0,
+    vindiff_sweep_mv: list[float] | None = None, quiet: bool = False,
+    supply_v: float = VDD, evaluate_ns: float = KICKBACK_EVALUATE_NS,
+    rsrc_ohm: float = KICKBACK_RSRC_OHM,
+) -> list[KickbackPoint]:
+    info = pdk.resolve_or_raise()
+    vindiff_sweep_mv = vindiff_sweep_mv or KICKBACK_VINDIFF_SWEEP_MV
+    vcm = supply_v / 2.0
+    points: list[KickbackPoint] = []
+    with tempfile.TemporaryDirectory(prefix="comparator-decision-kickback-") as scratch:
+        scratch_dir = Path(scratch)
+        for vindiff_mv in vindiff_sweep_mv:
+            log_name = f"kickback_{vindiff_mv}mV".replace("-", "neg").replace(".", "p")
+            deck = _kickback_deck(
+                info, corner, temp_c, vindiff_mv, log_name,
+                supply_v=supply_v, evaluate_ns=evaluate_ns, rsrc_ohm=rsrc_ohm,
+            )
+            log_text = _run(deck, scratch_dir, log_name)
+            csv_path = scratch_dir / f"{log_name}.csv"
+            t, clk, vinp, vinn, outp, outn = toolchain.read_wrdata_csv(csv_path, 5)
+            vindiff_v = vindiff_mv / 1000.0
+            target_p = vcm + vindiff_v / 2
+            target_n = vcm - vindiff_v / 2
+
+            best_pos_dev, best_pos_ns, best_pos_pin = float("-inf"), None, ""
+            best_neg_dev, best_neg_ns, best_neg_pin = float("inf"), None, ""
+            for i, tt in enumerate(t):
+                for dev, pin in (
+                    (vinp[i] - target_p, "VINP"),
+                    (vinn[i] - target_n, "VINN"),
+                ):
+                    if dev > best_pos_dev:
+                        best_pos_dev, best_pos_ns, best_pos_pin = dev, tt * 1e9, pin
+                    if dev < best_neg_dev:
+                        best_neg_dev, best_neg_ns, best_neg_pin = dev, tt * 1e9, pin
+
+            points.append(KickbackPoint(
+                vindiff_mv=vindiff_mv, target_p_v=target_p, target_n_v=target_n,
+                peak_pos_dev_v=best_pos_dev, peak_pos_time_ns=best_pos_ns,
+                peak_pos_pin=best_pos_pin,
+                peak_neg_dev_v=best_neg_dev, peak_neg_time_ns=best_neg_ns,
+                peak_neg_pin=best_neg_pin,
+                log_text=log_text,
+            ))
+            if not quiet:
+                print(
+                    f"  vindiff={vindiff_mv:+.4f}mV -> "
+                    f"peak+={best_pos_dev * 1000:+.4f}mV ({best_pos_pin}@{best_pos_ns:.3f}ns)  "
+                    f"peak-={best_neg_dev * 1000:+.4f}mV ({best_neg_pin}@{best_neg_ns:.3f}ns)"
+                )
+    return points
+
+
+def write_kickback_evidence(
+    points: list[KickbackPoint], corner: str, temp_c: float,
+    note: str = "", supersedes: str = "",
+) -> Path:
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
+    record_id = prov.record_id
+    record_path = prov.record_path
+    corners_dir = EXPERIMENT_DIR / "corners" / record_id
+    corners_dir.mkdir(parents=True, exist_ok=True)
+    for p in points:
+        safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
+        (corners_dir / f"kickback_{safe}.log").write_text(p.log_text)
+
+    worst = max(points, key=lambda p: max(abs(p.peak_pos_dev_v), abs(p.peak_neg_dev_v)))
+    worst_abs_v = max(abs(worst.peak_pos_dev_v), abs(worst.peak_neg_dev_v))
+
+    lines: list[str] = []
+    a = lines.append
+    a(f"# Record {record_id}")
+    a("")
+    a(f"- **Record ID**: {record_id}")
+    a(
+        "- **Claim**: none -- INFORMATIONAL. spec/target-spec.md has no "
+        "Kickback row (DRAFT or ratified); this record measures "
+        "design/comparator.sch's own peak pin disturbance into a "
+        f"{KICKBACK_RSRC_OHM:g}Ohm series source impedance, for a future "
+        "mitigation/ratification decision to weigh, per DR-004 Decision "
+        "Sec.3's 'exercised, not budgeted' treatment of regen/offset -- this "
+        "record gives kickback the same status. Filed from issue #346, a "
+        "cross-pollinated prior-art report from the sky130-comparator "
+        "canary (2AMLogic/sky130-comparator); see Methodology below for "
+        "what was and was not reused from it."
+    )
+    a(f"- **Netlist provenance**: schematic (`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}`)")
+    a(
+        f"- **Corner matrix run**: process=['{corner}'], temperature_c=[{temp_c}], "
+        f"supply_v=[{VDD}] (1 PVT point -- **subset-corner justification**: "
+        "first-pass, nominal-corner-only characterization, consistent with "
+        "how DR-004's own `regen`/`offset`/`noise` records each landed "
+        "single-corner first; a PVT sweep is deferred to future work, see "
+        "the record's closing note)"
+    )
+    a(
+        f"- **Stimulus**: {KICKBACK_RSRC_OHM:g}Ohm series source impedance on each of "
+        f"VINP/VINN (ideal DC source -> resistor -> DUT pin); single "
+        f"reset({RESET_NS}ns, CLK=0)->evaluate(CLK={VDD}V) edge per run "
+        f"over a {KICKBACK_EVALUATE_NS:g}ns evaluate window; Vcm={VCM}V. "
+        "Methodology (series-impedance probe + peak-pin-disturbance-over-"
+        "the-transition measurement) follows the stimulus shape named by "
+        "2AMLogic/sky130-comparator's DR-003 kickback probe -- a same-PDK, "
+        "same-topology-class sibling canary, cross-pollination sanctioned "
+        "by CLAUDE.md. This record's netlist, device sizing, Vindiff grid, "
+        "and every measured number below are re-derived from scratch "
+        "against THIS repo's own design/comparator.sch; no value from the "
+        "other repo is introduced, cited, or reconstructed here, per "
+        "CLAUDE.md's clean-room policy."
+    )
+    if note:
+        a(f"- **Note**: {note}")
+    a(
+        f"- **Overall**: measured (informational, see Claim above) -- worst-case "
+        f"peak pin disturbance across the {len(points)} Vindiff point(s) run: "
+        f"{worst_abs_v * 1000:.4f} mV (at Vindiff={worst.vindiff_mv:+.4f}mV)"
+    )
+    a("")
+    a("## Measured value(s)")
+    a("")
+    a(
+        "| Vindiff (mV) | peak+ (mV) | pin / time (ns) | peak- (mV) | pin / time (ns) |"
+    )
+    a("|---|---|---|---|---|")
+    for p in sorted(points, key=lambda p: p.vindiff_mv):
+        pos_ns = f"{p.peak_pos_time_ns:.3f}" if p.peak_pos_time_ns is not None else "n/a"
+        neg_ns = f"{p.peak_neg_time_ns:.3f}" if p.peak_neg_time_ns is not None else "n/a"
+        a(
+            f"| {p.vindiff_mv:+.2f} | {p.peak_pos_dev_v * 1000:+.4f} | "
+            f"{p.peak_pos_pin} @ {pos_ns} | {p.peak_neg_dev_v * 1000:+.4f} | "
+            f"{p.peak_neg_pin} @ {neg_ns} |"
+        )
+    a("")
+    a(
+        "The Vindiff=0mV row (if present) isolates tail/reset-switch-coupled "
+        "kickback from decision-coupled kickback -- at zero differential "
+        "input there is no decision to make, so any pin disturbance measured "
+        "there is attributable to the CLK-gated reset/precharge/tail "
+        "switching alone, not to the latch regenerating toward a particular "
+        "output. The non-zero Vindiff row(s) add whatever the decision "
+        "transient itself contributes on top of that baseline."
+    )
+    a("")
+    a(
+        "No spec/target-spec.md line is added, edited, or graded against by "
+        "this record -- see Claim above. A future decision record is the "
+        "right place to weigh this measurement (and any mitigation option, "
+        "e.g. the option classes 2AMLogic/sky130-comparator's own DR-003 "
+        "measured against its own netlist) against a ratification act, not "
+        "this testbench."
+    )
+    a("")
+    a(
+        "- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 "
+        "compact device models via ngspice transient analysis; no "
+        "literature/foundry-doc figure used, and no measured value from "
+        "`2AMLogic/sky130-comparator` transferred, per CLAUDE.md's "
+        "clean-room policy)"
+    )
+    a("")
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "kickback", supersedes=supersedes,
     )
 
 
@@ -1556,7 +1853,8 @@ def write_noise_evidence(
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="comparator-decision standalone testbench driver (issue #54)")
     ap.add_argument(
-        "mode", nargs="?", choices=["regen", "regen-corners", "offset", "noise", "noise-corners"],
+        "mode", nargs="?",
+        choices=["regen", "regen-corners", "offset", "noise", "noise-corners", "kickback"],
         help="which characterization to run",
     )
     ap.add_argument("--check-env", action="store_true", help="check toolchain + PDK, print summary, exit")
@@ -1652,6 +1950,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote {path}")
         binding = max(results, key=lambda r: r.differential_rms_v)
         return 0 if binding.differential_rms_v <= NOISE_BUDGET_BASELINE_V else 1
+
+    if args.mode == "kickback":
+        points = run_kickback_sweep(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
+        if args.record:
+            path = write_kickback_evidence(
+                points, args.corner, args.temp, note=args.note,
+                supersedes=args.supersedes,
+            )
+            print(f"wrote {path}")
+        # Informational only (no ratified/DRAFT spec/target-spec.md Kickback
+        # row to grade against -- see write_kickback_evidence()'s Claim
+        # field) -- always succeeds if the sweep itself completed.
+        return 0
 
     return 2
 

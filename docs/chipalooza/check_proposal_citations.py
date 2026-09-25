@@ -40,10 +40,14 @@ compares against), the live area readout of every `layout/` flow whose current
 record carries a composition (the sentence check 13 compares against), the provenance of every
 input that composition embeds (the sentence check 14 compares against) and the
 live power readout of every `sim/` campaign whose current record carries a
-Power table (the sentence check 12 compares against) and the live status of
+Power table (the sentence check 12 compares against), the live status of
 every `spec/decision-records/` record (the sentence check 15 compares
-against) instead of checking, which is what to run when check 6, 9, 12, 13,
-14 or 15 reports a drift. Exit status:
+against), the live `klt erc` supply readout of every `layout/` flow that
+has one (the sentence check 16 compares against), the live T1 sign-off
+verdict `signoff/` records for the block as a whole (the sentence check 17
+compares against) and each document's live Section 4 freshness-coverage census
+(the sentence check 18 compares against) instead of checking, which is what to
+run when check 6, 9, 12, 13, 14, 15, 16, 17 or 18 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -65,8 +69,23 @@ CHIPALOOZA_DIR = REPO_ROOT / "docs" / "chipalooza"
 # Top-level directories whose paths this repo owns, and can therefore resolve.
 # A reference whose first segment is not one of these belongs to some other
 # project (e.g. klayout-tools' own `src/`) and is not checked.
+#
+# `signoff/` joined the set with check 17 (issue #121): the block manifest and
+# the `klt signoff` report it renders to are this repository's own tree, and
+# this document now cites both by path. Before that entry, a backticked
+# `signoff/...` path was silently unchecked by check 2 -- the same
+# not-my-directory hole `erc-reports/` had at checks 3/4 before check 16.
 OWN_TOP_LEVEL = frozenset(
-    ("sim", "layout", "spec", "design", "docs", "measurements", "ratification")
+    (
+        "sim",
+        "layout",
+        "spec",
+        "design",
+        "docs",
+        "measurements",
+        "ratification",
+        "signoff",
+    )
 )
 
 # `sim/` campaigns keep their append-only evidence under `records/`; the
@@ -411,6 +430,173 @@ DECISION_RECORD_READOUT_RE = re.compile(
 # record in running prose. Ambiguous whenever two records share that number
 # AND disagree about their status -- see check 15.
 BARE_DECISION_RECORD_RE = re.compile(r"\bDR-(\d+)\b")
+
+# Where a `layout/` flow keeps its `klt erc` supply verdicts. They are a
+# SEPARATE append-only tree from `reports/`, with a pointer file of their own,
+# which is exactly why no earlier check can see them: `EVIDENCE_PATH_RE`
+# matches `records|reports` only, so `layout/<block>/erc-reports/<stamp>/` is
+# invisible to checks 3 and 4 however the document cites it.
+ERC_POINTER_DIR = "erc-reports"
+
+# One declared supply `klt erc` actually graded for connectivity, as its own
+# coverage list states it. Read from the record rather than from the spec file
+# the run was driven by: the spec is a live, editable input, the record is
+# evidence -- and "which nets were graded" is a property of the run.
+ERC_NET_COVERAGE_RE = re.compile(r'^erc\.net_connectivity:\["(?P<net>[^"]+)"\]$')
+
+# The finding `klt erc` writes when a declared supply resolves to more than one
+# electrical island, carrying the island list its count comes from. A supply
+# with no such finding resolved to exactly one island: the report states no
+# per-net island count on the passing side, so one is the only reading.
+ERC_UNCONNECTED_RULE = "erc.unconnected_net"
+
+# The graded layout record inside `erc.json`'s own `file` field. That field is
+# the path `klt erc` was invoked with, verbatim -- repo-relative since #355,
+# absolute inside an ephemeral worktree before it -- so the stamp is matched
+# out of it rather than the whole path being resolved.
+ERC_GRADED_RE = re.compile(
+    r"reports/(?P<stamp>" + STAMP + r")/(?P<artefact>[A-Za-z0-9._-]+)$"
+)
+
+# `klt`'s own content-hash prefix, as `provenance.input.content_hash` writes it.
+ERC_HASH_PREFIX = "sha256:"
+
+# The two verdict words the ERC readout may end in, keyed on whether the ERC
+# record grades the bytes the flow's `reports/LATEST` carries today. This is
+# the record's own "Staleness rule" ("a new `reports/<id>/` makes this one
+# stale, not wrong"), which nothing else in this repository evaluates.
+ERC_CURRENT = "current"
+ERC_STALE = "stale"
+
+# The ERC supply readout check 16 gates, stated in Section 7 as a blockquote
+# (so it is read off the same whitespace-collapsed text checks 9, 14 and 15
+# use). Deliberately free of the phrase "current `reports/LATEST`": this
+# sentence names a pointer *and* a verdict word, and spelling it that way
+# would enrol the sentence in check 4/6's census as well, where it is not a
+# citation of anything.
+ERC_READOUT_RE = re.compile(
+    r"on the record `(?P<flow>layout/[A-Za-z0-9._-]+)/erc-reports/LATEST` resolves "
+    r"to, `klt erc` reports `erc_status` \*\*(?P<erc_status>[a-z_]+)\*\* with "
+    r"\*\*(?P<finding_count>\d+)\*\* findings; the declared supplies resolve to "
+    r"(?P<islands>(?:`[A-Za-z][A-Za-z0-9_]*` \*\*\d+\*\*(?:, )?)+) electrical "
+    r"islands; and it grades `(?P<graded>" + STAMP + r")`, while `reports/LATEST` "
+    r"there names `(?P<latest>" + STAMP + r")`: "
+    r"\*\*(?P<status>" + ERC_CURRENT + r"|" + ERC_STALE + r")\*\*\."
+)
+
+# One `<net> <islands>` pair inside that sentence's island clause. Each net is
+# backticked and each count bolded, which makes the clause self-delimiting
+# however many supplies a spec declares.
+ERC_ISLAND_RE = re.compile(r"`(?P<net>[A-Za-z][A-Za-z0-9_]*)` \*\*(?P<islands>\d+)\*\*")
+
+# This repository's THIRD evidence tree, and the first that is not a `layout/`
+# flow's at all: `signoff/` holds the block manifest and the machine-graded
+# `klt signoff` report it renders to -- the T1 verdict of record (issue #345).
+# Both files are read by check 17, for different reasons. The report states the
+# verdict; the manifest names the records that verdict rests on, which the
+# rendered report DROPS for every item it grades `unmet` (an unmet item renders
+# `citation: null`), so the report alone cannot say what evidence it read.
+T1_REPORT = Path("signoff") / "t1-report.json"
+T1_MANIFEST = Path("signoff") / "block-manifest.json"
+
+# The reason `klt signoff` gives when an item's cited evidence WAS read and
+# graded, and failed -- as distinct from `no_evidence`, where nothing was cited
+# at all. The distinction is the whole reason this readout is worth stating:
+# "the ERC ran, the supplies are continuous, and the item still is not met" is
+# a materially more useful sentence than silence, and it is exactly the
+# transition Section 7 item 9 currently narrates by hand.
+T1_CHECK_FAILED = "check_failed"
+
+# An evidence path inside the manifest that names a `layout/` flow's own
+# append-only tree -- EITHER of them. `reports/` and `erc-reports/` both appear
+# in this manifest, which is why this is not `EVIDENCE_PATH_RE`: that one
+# matches `records|reports` only, and would miss the ERC citation item 11
+# rests on.
+T1_CITED_PATH_RE = re.compile(
+    r"^(?P<pointer>layout/(?P<block>[A-Za-z0-9._-]+)/(?:reports|erc-reports))/"
+    r"(?P<stamp>" + STAMP + r")/"
+)
+
+# How a null `tier` renders in prose. `klt signoff` writes JSON `null` for a
+# block that has reached no tier at all; stating it as a word is what makes a
+# tier appearing later a visible change rather than a silent one.
+T1_NO_TIER = "none"
+
+# How a pointer that names no record at all renders, on either side of a cited
+# pair. Never stamp-shaped, so it cannot be mistaken for one.
+T1_NO_RECORD = "none"
+
+# The two verdict words the T1 readout may end in, keyed on whether every
+# `layout/` record the manifest cites is the one that tree's own `LATEST`
+# names today. A signoff resting on a superseded-but-still-committed record
+# hashes perfectly -- `signoff/check_evidence_hashes.py` passes on it -- and is
+# still a verdict about a layout this repository has moved on from.
+T1_CURRENT = "current"
+T1_STALE = "stale"
+
+# The T1 sign-off readout check 17 gates, stated in Section 7 as a blockquote
+# (so it is read off the same whitespace-collapsed text checks 9, 14, 15 and 16
+# use). Deliberately free of the phrase "current `reports/LATEST`", for check
+# 16's own reason: spelling it that way would enrol the sentence in check 4/6's
+# pointer-claim census, where it is not a citation of anything.
+T1_READOUT_RE = re.compile(
+    r"on the report `signoff/t1-report\.json`, `klt signoff` "
+    r"\*\*(?P<version>[0-9][0-9A-Za-z.+-]*)\*\* grades \*\*(?P<met>\d+)\*\* of "
+    r"\*\*(?P<total>\d+)\*\* T1 items met, block tier \*\*(?P<tier>[A-Za-z0-9]+)\*\*; "
+    r"the items whose cited evidence was read and still failed are "
+    r"(?P<failed>\*\*none\*\*|(?:`\d+ [a-z]+`(?:, )?)+); and its manifest cites "
+    r"(?P<cited>\*\*none\*\*|(?:`layout/[A-Za-z0-9._/-]+/LATEST` at \*\*[0-9a-z-]+\*\* "
+    r"against a pointer naming \*\*[0-9a-z-]+\*\*(?:, )?)+): "
+    r"\*\*(?P<status>" + T1_CURRENT + r"|" + T1_STALE + r")\*\*\."
+)
+
+# One `<item> <partition>` pair inside that sentence's failed-item clause.
+# Backticked, so the clause is self-delimiting however many items fail.
+T1_FAILED_ITEM_RE = re.compile(r"`(?P<item>\d+) (?P<partition>[a-z]+)`")
+
+# One cited-record triple inside that sentence's manifest clause: the pointer,
+# the stamp the manifest cites, and the stamp that pointer names today. Both
+# stamps are stated so a reader sees the comparison the verdict word rests on,
+# rather than having to take it on trust.
+T1_CITED_RE = re.compile(
+    r"`(?P<pointer>layout/[A-Za-z0-9._/-]+/LATEST)` at \*\*(?P<cited>[0-9a-z-]+)\*\* "
+    r"against a pointer naming \*\*(?P<latest>[0-9a-z-]+)\*\*"
+)
+
+# How an empty uncovered-flow clause renders in check 18's sentence. Never
+# path-shaped, so it cannot be mistaken for a flow -- same convention as
+# `T1_NO_RECORD`.
+FRESHNESS_NONE = "**none**"
+
+# Check 18's coverage census of check 3, matched against the same
+# blockquote-aware collapsed text checks 9, 14, 15, 16 and 17 read. Check 3
+# can only ask "is this the current record?" of a flow that publishes a
+# `LATEST` pointer; `_pointer_stamp()` returns None for one that does not and
+# the pair is skipped in silence. This sentence states how large that skipped
+# set is and which flows are in it, so neither can drift unnoticed -- exactly
+# what check 6 does for checks 4/5, one table over.
+#
+# Deliberately free of the phrase "current `records/LATEST`", for check 17's
+# reason: spelling it that way would enrol this sentence in check 4/6's
+# pointer-claim census, where it is not a citation of anything.
+FRESHNESS_COVERAGE_RE = re.compile(
+    r"of the \*\*(?P<pairs>\d+)\*\* \(spec row, evidence flow\) citation pairs "
+    r"in Section 4's table, \*\*(?P<graded>\d+)\*\* name a flow that publishes a "
+    r"`LATEST` pointer and are therefore freshness-checked by check 3; the "
+    r"remaining \*\*(?P<ungraded>\d+)\*\* name a flow that publishes none, whose "
+    r"current record nothing grades: (?P<flows>" + re.escape(FRESHNESS_NONE)
+    + r"|(?:`(?:sim|layout)/[A-Za-z0-9._-]+` \(\*\*\d+\*\* records?\)(?:, )?)+)\."
+)
+
+# One flow inside that sentence's uncovered-flow clause: the flow path and how
+# many records it holds. The count is load-bearing rather than decorative -- a
+# pointerless flow holding one record is a far smaller hole than one holding
+# twelve, and it is the twelve-record case where the document is picking a
+# citation out of a set nothing re-derives.
+FRESHNESS_FLOW_RE = re.compile(
+    r"`(?P<flow>(?:sim|layout)/[A-Za-z0-9._-]+)` "
+    r"\(\*\*(?P<records>\d+)\*\* records?\)"
+)
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -1835,6 +2021,465 @@ def check_decision_record_status(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def erc_readout(block: str) -> dict | None:
+    """The live `klt erc` supply readout of `layout/<block>/`'s current record.
+
+    `None` when the flow has no `erc-reports/LATEST`, or that record carries no
+    readable `erc.json` -- there is nothing for check 16 to compare against,
+    and that condition is reported by the check rather than silently skipped.
+
+    Per-supply island counts are reconstructed rather than read: `klt erc`
+    states an island count only on the failing side, inside the
+    `erc.unconnected_net` finding that carries the islands themselves. A
+    declared net that was graded (it appears in `erc_coverage.checked`) and has
+    no such finding resolved to exactly one island. Reconstructing it here is
+    what lets the readout state a PASSING supply table at all -- which is the
+    table this document actually carries, and the one that goes stale silently.
+    """
+    stamp = _read_pointer("layout", block, ERC_POINTER_DIR)
+    if stamp is None:
+        return None
+    stamp = stamp.split("/")[0]
+    report = _load_json(
+        REPO_ROOT / "layout" / block / ERC_POINTER_DIR / stamp / "erc.json"
+    )
+    if report is None:
+        return None
+
+    coverage = report.get("erc_coverage") or {}
+    islands = {}
+    for entry in coverage.get("checked") or []:
+        graded_net = ERC_NET_COVERAGE_RE.fullmatch(str(entry))
+        if graded_net is not None:
+            islands[graded_net.group("net")] = 1
+    for finding in report.get("erc_findings") or []:
+        if not isinstance(finding, dict):
+            continue
+        net = finding.get("net")
+        if finding.get("rule") != ERC_UNCONNECTED_RULE or net not in islands:
+            continue
+        islands[net] = len(finding.get("islands") or [])
+
+    graded = ERC_GRADED_RE.search(str(report.get("file") or ""))
+    latest = _pointer_stamp("layout", block)
+    return {
+        "erc_status": report.get("erc_status"),
+        "finding_count": report.get("erc_finding_count"),
+        "islands": islands,
+        "graded": graded.group("stamp") if graded else None,
+        "latest": latest,
+        "status": _erc_status_word(block, report, graded, latest),
+    }
+
+
+def _erc_status_word(
+    block: str, report: dict, graded: re.Match | None, latest: str | None
+) -> str:
+    """`current` only if the ERC verdict grades the bytes `reports/LATEST` holds.
+
+    Both halves are required, and the second is the one that matters: a stamp
+    comparison alone would call an ERC record current while the layout record
+    it names had been rebuilt under it. `klt erc` records the graded stream's
+    own sha256, and `run-erc.sh` asserts it at run time, so the comparison here
+    is against the same number the tool itself pinned -- not a re-derivation.
+
+    Anything unreadable (a missing `file` field, a stream this checker cannot
+    open, an absent hash) reads as `stale`: the conservative direction, since a
+    false `current` would let an ungraded layout pass as power-delivery-checked
+    while a false `stale` is re-checked by hand.
+    """
+    if graded is None or latest is None or graded.group("stamp") != latest:
+        return ERC_STALE
+    stated_hash = ((report.get("provenance") or {}).get("input") or {}).get(
+        "content_hash"
+    )
+    if not isinstance(stated_hash, str) or not stated_hash.startswith(ERC_HASH_PREFIX):
+        return ERC_STALE
+    stream = (
+        REPO_ROOT / "layout" / block / "reports" / latest / graded.group("artefact")
+    )
+    try:
+        digest = hashlib.sha256(stream.read_bytes()).hexdigest()
+    except OSError:
+        return ERC_STALE
+    return (
+        ERC_CURRENT
+        if digest == stated_hash[len(ERC_HASH_PREFIX) :]
+        else ERC_STALE
+    )
+
+
+def erc_sentence(block: str, readout: dict) -> str:
+    """The ERC readout in exactly the sentence form `ERC_READOUT_RE` matches.
+
+    Used by `--stats` so the fix for a check-16 failure is a paste, as it is
+    for checks 9, 12, 13, 14 and 15.
+    """
+    islands = ", ".join(
+        f"`{net}` **{count}**" for net, count in sorted(readout["islands"].items())
+    )
+    return (
+        f"on the record `layout/{block}/erc-reports/LATEST` resolves to, `klt erc` "
+        f"reports `erc_status` **{readout['erc_status']}** with "
+        f"**{readout['finding_count']}** findings; the declared supplies resolve "
+        f"to {islands} electrical islands; and it grades "
+        f"`{readout['graded']}`, while `reports/LATEST` there names "
+        f"`{readout['latest']}`: **{readout['status']}**."
+    )
+
+
+def check_erc_readout(doc: Path, text: str) -> list[str]:
+    """Check 16: a stated ERC supply readout must be the current record's own."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    for stated in ERC_READOUT_RE.finditer(collapsed):
+        block = stated.group("flow").split("/", 1)[1]
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        actual = erc_readout(block)
+        if actual is None:
+            misses.append(
+                f"{where}: the ERC supply readout names `layout/{block}/`, but "
+                f"that flow has no `{ERC_POINTER_DIR}/LATEST` record carrying a "
+                f"readable `erc.json` to read it out of"
+            )
+            continue
+
+        for field in ("erc_status", "finding_count", "graded", "latest", "status"):
+            expected = actual[field]
+            claimed: object = stated.group(field)
+            if isinstance(expected, int):
+                claimed = int(claimed)
+            if claimed != expected:
+                misses.append(
+                    f"{where}: the ERC supply readout for `layout/{block}/` says "
+                    f"{field}={claimed}, but that flow's current ERC record "
+                    f"reports {field}={expected} -- restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+
+        # Both directions, as checks 8, 10, 14 and 15 do. A supply that drops
+        # out of the spec's `nets[]` -- the cheapest way to make a failing
+        # continuity table read clean -- is a finding here, not a silence.
+        claimed_islands = {
+            pair.group("net"): int(pair.group("islands"))
+            for pair in ERC_ISLAND_RE.finditer(stated.group("islands"))
+        }
+        for net in sorted(set(claimed_islands) | set(actual["islands"])):
+            claimed_count = claimed_islands.get(net)
+            actual_count = actual["islands"].get(net)
+            if claimed_count == actual_count:
+                continue
+            misses.append(
+                f"{where}: the ERC supply readout for `layout/{block}/` states "
+                f"supply `{net}` at {claimed_count} island(s), but that flow's "
+                f"current ERC record reports {actual_count} -- restate it from "
+                f"`python3 docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
+def _t1_pointer_stamp(pointer: str) -> str | None:
+    """The record stamp a `layout/<block>/<tree>/LATEST` pointer names.
+
+    Not `_pointer_stamp`: that one resolves a tree from a top-level directory
+    name (`sim` -> `records`, `layout` -> `reports`) and so cannot address
+    `erc-reports/` at all. Here the pointer path is already known -- it came
+    out of the manifest's own citation -- so it is read directly.
+    """
+    path = REPO_ROOT / pointer
+    if not path.is_file():
+        return None
+    value = path.read_text().strip()
+    return value.split("/")[0].removesuffix(".md") or None
+
+
+def _t1_manifest_citations(manifest: dict) -> list[tuple[str, str]]:
+    """Every `(pointer, stamp)` pair the manifest's evidence entries cite.
+
+    Walked rather than indexed by item id: `evidence` is keyed by item in one
+    of two shapes here (a single citation object, or a list of them), and a
+    future item may add either. Unique and sorted, so the sentence's order is
+    stable -- and a pointer cited twice at two different stamps states both
+    pairs, each then compared against that pointer on its own, where at most
+    one of them can be current.
+    """
+    found: set[tuple[str, str]] = set()
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            named = node.get("file")
+            if isinstance(named, str):
+                cited = T1_CITED_PATH_RE.match(named)
+                if cited is not None:
+                    found.add(
+                        (cited.group("pointer") + "/LATEST", cited.group("stamp"))
+                    )
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(manifest.get("evidence"))
+    return sorted(found)
+
+
+def t1_readout() -> dict | None:
+    """The live T1 sign-off verdict `signoff/` currently records.
+
+    `None` when either half is missing or unparseable -- there is nothing for
+    check 17 to compare against, and that condition is reported by the check
+    rather than silently skipped, exactly as check 16 handles a flow with no
+    ERC record.
+
+    The verdict word is deliberately `stale` when the manifest cites no
+    `layout/` record at all: a sign-off that rests on nothing from this
+    repository's layout trees cannot be *current* with them, and calling it so
+    would be a vacuous green.
+    """
+    report = _load_json(REPO_ROOT / T1_REPORT)
+    manifest = _load_json(REPO_ROOT / T1_MANIFEST)
+    if report is None or manifest is None:
+        return None
+
+    failed = sorted(
+        (item["id"], item["partition"])
+        for item in report.get("items") or []
+        if isinstance(item, dict)
+        and item.get("reason") == T1_CHECK_FAILED
+        and isinstance(item.get("id"), int)
+        and isinstance(item.get("partition"), str)
+    )
+    cited = [
+        (pointer, stamp, _t1_pointer_stamp(pointer) or T1_NO_RECORD)
+        for pointer, stamp in _t1_manifest_citations(manifest)
+    ]
+    tier = report.get("tier")
+    return {
+        "version": str((report.get("build") or {}).get("package_version")),
+        "met": report.get("t1_met_count"),
+        "total": report.get("t1_item_count"),
+        "tier": T1_NO_TIER if tier is None else str(tier),
+        "failed": failed,
+        "cited": cited,
+        "status": (
+            T1_CURRENT
+            if cited and all(stamp == latest for _, stamp, latest in cited)
+            else T1_STALE
+        ),
+    }
+
+
+def t1_sentence(readout: dict) -> str:
+    """The T1 readout in exactly the sentence form `T1_READOUT_RE` matches.
+
+    Used by `--stats` so the fix for a check-17 failure is a paste, as it is
+    for checks 9, 12, 13, 14, 15 and 16.
+    """
+    failed = (
+        ", ".join(f"`{item} {partition}`" for item, partition in readout["failed"])
+        or "**none**"
+    )
+    cited = (
+        ", ".join(
+            f"`{pointer}` at **{stamp}** against a pointer naming **{latest}**"
+            for pointer, stamp, latest in readout["cited"]
+        )
+        or "**none**"
+    )
+    return (
+        f"on the report `signoff/t1-report.json`, `klt signoff` "
+        f"**{readout['version']}** grades **{readout['met']}** of "
+        f"**{readout['total']}** T1 items met, block tier **{readout['tier']}**; "
+        f"the items whose cited evidence was read and still failed are {failed}; "
+        f"and its manifest cites {cited}: **{readout['status']}**."
+    )
+
+
+def check_t1_readout(doc: Path, text: str) -> list[str]:
+    """Check 17: a stated T1 sign-off readout must be the committed report's own."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    for stated in T1_READOUT_RE.finditer(collapsed):
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        actual = t1_readout()
+        if actual is None:
+            misses.append(
+                f"{where}: the T1 sign-off readout names "
+                f"`{T1_REPORT.as_posix()}`, but this repository has no readable "
+                f"`{T1_REPORT.as_posix()}` and `{T1_MANIFEST.as_posix()}` pair "
+                f"to read it out of"
+            )
+            continue
+
+        for field in ("version", "met", "total", "tier", "status"):
+            expected = actual[field]
+            claimed: object = stated.group(field)
+            if isinstance(expected, int):
+                claimed = int(claimed)
+            if claimed != expected:
+                misses.append(
+                    f"{where}: the T1 sign-off readout says {field}={claimed}, "
+                    f"but `{T1_REPORT.as_posix()}` reports {field}={expected} -- "
+                    f"restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+
+        # Both directions, as checks 8, 10, 14, 15 and 16 do. An item that
+        # starts failing and is left out of the list is as much a finding as a
+        # listed item that has since started passing: dropping a row is the
+        # cheapest way to make a scorecard read better than it is.
+        claimed_failed = {
+            (int(pair.group("item")), pair.group("partition"))
+            for pair in T1_FAILED_ITEM_RE.finditer(stated.group("failed"))
+        }
+        for item, partition in sorted(claimed_failed ^ set(actual["failed"])):
+            stated_here = (item, partition) in claimed_failed
+            misses.append(
+                f"{where}: the T1 sign-off readout "
+                f"{'lists' if stated_here else 'omits'} item {item} "
+                f"({partition}) as graded-and-failed, but "
+                f"`{T1_REPORT.as_posix()}` reports its reason as "
+                f"{'not ' if stated_here else ''}`{T1_CHECK_FAILED}` -- restate "
+                f"it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+
+        # Likewise both directions on the records the verdict rests on. This
+        # is the half `signoff/check_evidence_hashes.py` structurally cannot
+        # cover: it re-hashes each cited artefact against the file on disk, so
+        # a manifest pinned to a superseded-but-still-committed record passes
+        # it, every hash intact, while the sign-off grades a layout this
+        # repository no longer builds.
+        claimed_cited = {
+            (pair.group("pointer"), pair.group("cited"), pair.group("latest"))
+            for pair in T1_CITED_RE.finditer(stated.group("cited"))
+        }
+        for pointer, cited, latest in sorted(claimed_cited ^ set(actual["cited"])):
+            stated_here = (pointer, cited, latest) in claimed_cited
+            misses.append(
+                f"{where}: the T1 sign-off readout "
+                f"{'states' if stated_here else 'omits'} `{pointer}` cited at "
+                f"{cited} against a pointer naming {latest}, which is not what "
+                f"`{T1_MANIFEST.as_posix()}` and that pointer report -- restate "
+                f"it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
+def _flow_record_count(top: str, block: str) -> int:
+    """How many records `<top>/<block>/` holds, in that tree's own shape.
+
+    A `sim/` campaign's records are `records/<stamp>.md` files; a `layout/`
+    flow's are `reports/<stamp>/` directories. Counted rather than taken on
+    trust because it is the number that says how big an ungraded citation
+    really is: one record is a flow with nothing to be stale against, twelve
+    is a flow whose cited record nothing re-derives.
+    """
+    pointer_dir = REPO_ROOT / top / block / POINTER_DIR_BY_TOP_LEVEL[top]
+    if not pointer_dir.is_dir():
+        return 0
+    if top == "sim":
+        return sum(1 for path in pointer_dir.glob("*.md") if path.is_file())
+    return sum(1 for path in pointer_dir.iterdir() if path.is_dir())
+
+
+def freshness_coverage(text: str) -> dict:
+    """How much of Section 4's table check 3 actually grades.
+
+    Check 3 resolves "the current record" of a cited flow from that flow's own
+    `LATEST` pointer, and skips -- silently, and correctly, since there is
+    nothing to be stale against -- any flow that publishes none. That makes
+    the *scope* of the document's headline freshness claim a volatile fact
+    about this repository's trees rather than about the document, and nothing
+    re-derived it: a row citing a pointerless campaign reads exactly like a
+    graded one.
+
+    Counted per (row, flow) pair rather than per citation, because that is the
+    unit check 3 evaluates: a row citing three stamps of one flow is one
+    verdict about one flow, not three.
+    """
+    pairs = {
+        (line_number, cite.group("top"), cite.group("block"))
+        for line_number, row in spec_table_rows(text)
+        for cite in EVIDENCE_PATH_RE.finditer(row)
+    }
+    ungraded = [
+        (top, block) for _, top, block in pairs if _pointer_stamp(top, block) is None
+    ]
+    return {
+        "pairs": len(pairs),
+        "graded": len(pairs) - len(ungraded),
+        "ungraded": len(ungraded),
+        "flows": [
+            (f"{top}/{block}", _flow_record_count(top, block))
+            for top, block in sorted(set(ungraded))
+        ],
+    }
+
+
+def freshness_coverage_sentence(coverage: dict) -> str:
+    """That census in exactly the sentence form `FRESHNESS_COVERAGE_RE` matches.
+
+    Used by `--stats` so the fix for a check-18 failure is a paste, as it is
+    for checks 6, 9, 12, 13, 14, 15, 16 and 17.
+    """
+    flows = (
+        ", ".join(
+            f"`{flow}` (**{count}** record{'' if count == 1 else 's'})"
+            for flow, count in coverage["flows"]
+        )
+        or FRESHNESS_NONE
+    )
+    return (
+        f"of the **{coverage['pairs']}** (spec row, evidence flow) citation "
+        f"pairs in Section 4's table, **{coverage['graded']}** name a flow "
+        "that publishes a `LATEST` pointer and are therefore freshness-checked "
+        f"by check 3; the remaining **{coverage['ungraded']}** name a flow that "
+        f"publishes none, whose current record nothing grades: {flows}."
+    )
+
+
+def check_freshness_coverage(doc: Path, text: str) -> list[str]:
+    """Check 18: the stated coverage of check 3 over Section 4 must be the real one."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    misses = []
+    for stated in FRESHNESS_COVERAGE_RE.finditer(collapsed):
+        where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+        actual = freshness_coverage(text)
+        for field in ("pairs", "graded", "ungraded"):
+            claimed = int(stated.group(field))
+            if claimed != actual[field]:
+                misses.append(
+                    f"{where}: the Section 4 freshness-coverage census says "
+                    f"{field}={claimed}, but this document's live census is "
+                    f"{field}={actual[field]} -- restate it from `python3 "
+                    f"docs/chipalooza/check_proposal_citations.py --stats`"
+                )
+
+        # Both directions, as checks 8, 10, 14, 15, 16 and 17 do. A flow that
+        # starts publishing a pointer and is left in the list overstates the
+        # hole; a flow that loses its pointer -- or that a newly added row
+        # starts citing -- and is left out understates it, which is the
+        # direction that matters. Shrinking this list is the cheapest way to
+        # make the gate's coverage read better than it is.
+        claimed_flows = {
+            (flow.group("flow"), int(flow.group("records")))
+            for flow in FRESHNESS_FLOW_RE.finditer(stated.group("flows"))
+        }
+        for flow, count in sorted(claimed_flows ^ set(actual["flows"])):
+            stated_here = (flow, count) in claimed_flows
+            misses.append(
+                f"{where}: the Section 4 freshness-coverage census "
+                f"{'lists' if stated_here else 'omits'} `{flow}` at **{count}** "
+                f"record(s) as cited-but-ungraded, which is not what this "
+                f"repository's own trees report -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -1852,6 +2497,9 @@ def check_document(doc: Path) -> list[str]:
         + check_area_readout(doc, text)
         + check_composition_inputs(doc, text)
         + check_decision_record_status(doc, text)
+        + check_erc_readout(doc, text)
+        + check_t1_readout(doc, text)
+        + check_freshness_coverage(doc, text)
     )
 
 
@@ -1880,6 +2528,13 @@ def main(argv: list[str]) -> int:
                 f"{census['trailing_stamp']} name a record stamp within "
                 f"{census['window']} characters after the phrase, and "
                 f"{census['narration']} name none at all"
+            )
+            # And the other coverage census, about check 3 rather than checks
+            # 4/5: how much of Section 4's table names a flow whose current
+            # record is resolvable at all.
+            print(
+                f"{doc.name}: "
+                f"{freshness_coverage_sentence(freshness_coverage(doc.read_text()))}"
             )
         # Every `layout/` flow, not only the one the document happens to state
         # today: this is also what to paste when ADDING a readout for a flow
@@ -1935,6 +2590,24 @@ def main(argv: list[str]) -> int:
         # with the wrong word.
         for name, status in decision_records().items():
             print(f"spec/decision-records/: {decision_record_sentence(name, status)}")
+        # Likewise the supply verdict of every `layout/` flow that has one.
+        # Keyed on the `erc-reports/` pointer rather than the `reports/` one:
+        # an ERC record is minted by a separate run (`run-erc.sh`), so a flow
+        # can have a current layout record and no supply verdict at all.
+        for pointer in sorted(REPO_ROOT.glob(f"layout/*/{ERC_POINTER_DIR}/LATEST")):
+            block = pointer.parent.parent.name
+            readout = erc_readout(block)
+            if readout is None:
+                continue
+            print(f"layout/{block}/: {erc_sentence(block, readout)}")
+        # And the block-level T1 sign-off verdict, which is a single tree
+        # rather than one per flow: `klt signoff` grades the whole block once.
+        # Printed unconditionally when it is readable, including when it has
+        # nothing failing and nothing cited -- those are the two shapes whose
+        # sentence a document would otherwise have to guess at.
+        t1 = t1_readout()
+        if t1 is not None:
+            print(f"signoff/: {t1_sentence(t1)}")
         return 0
 
     misses: list[str] = []

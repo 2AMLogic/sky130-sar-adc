@@ -53,25 +53,32 @@ over met3.space. Everything else is unchanged: the record's `drc.json` and
 (all eleven verdicts, 24/24 devices, 17/17 nets, 12/12 pins), and the composed
 cell's own bbox is unchanged at `(0, -2.4; 195.56, 58.97)`. Verified with
 `docs/chipalooza/measure_metal_min_area.py`, which now reports **0** shapes
-below any metal minimum-area threshold for this flow — `klt drc` cannot
-replace that measurement until a `klayout-tools` release carries #1989. That
-script's own `--json` output against this record is committed beside it, as
+below any metal minimum-area threshold for this flow. That script's own
+`--json` output against this record is committed beside it, as
 `reports/20260918-191227-935ce76/minimum-area.json`.
+
+**Two later updates to that paragraph, neither of which moves this flow's
+0-shape result.** (1) The sentence it used to end on — "`klt drc` cannot
+replace that measurement until a `klayout-tools` release carries #1989" — is
+stale: `layout/requirements.txt` moved to `klayout-tools==0.6.0` (issue #103,
+2026-09-23), which carries #1989's `met1.area.1` … `met5.area.1` rules, so a
+re-run of this flow on the current pin would grade minimum area in-deck. (2)
+Issue #363 found the script **under-merged** its region and overstated
+sub-threshold counts elsewhere in `layout/`; this flow measured 0 before and
+after that fix, so the committed `minimum-area.json` above is unaffected.
 
 **That zero is now enforced, not just recorded** (issue #338). The same
 measurement runs in `.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job —
 nightly, on `workflow_dispatch`, and on any PR labelled `run-pdk-smoke` —
 against each flow's current `reports/LATEST` GDS, with a negative control
-(`--self-test`) proving on every run that the gate can still fail, and with
-`--baseline docs/chipalooza/metal_min_area_baseline.json` waiving exactly the
-shapes `klt`'s own place-and-route emits inside the two PnR'd digital macros
-(#333, upstream klayout-tools#2072) and nothing else. **This flow appears
-nowhere in that baseline, on purpose**: it draws its own metal, so it is gated
-at zero and the first sub-minimum `STACK_PAD_UM`-class pad reintroduced here —
+(`--self-test`) proving on every run that the gate can still fail. The gate
+is zero-tolerance, with no per-flow allowance: **this** flow draws its own
+metal, so the first sub-minimum `STACK_PAD_UM`-class pad reintroduced here —
 the defect #326 found above — turns CI red instead of waiting for someone to
 run the script by hand. See `layout/sar-adc-top/README.md` → "Minimum-area
-rules: measured separately, because the deck has none" for the gate's full
-mechanics and for how the baseline retires when #333 closes.
+rules" for the gate's full mechanics, including why no waiver exists (issue
+#333, the one tool-emitted residual this gate ever had to hold out, is
+closed).
 
 | # | Verdict | Why it is here |
 | --- | --- | --- |

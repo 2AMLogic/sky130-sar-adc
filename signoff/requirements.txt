@@ -1,0 +1,46 @@
+# Pinned klayout-tools (`klt`) build that GRADES signoff/block-manifest.json
+# (issue #345). Install into its own venv -- this pin is deliberately separate
+# from layout/requirements.txt's.
+#
+#   python3 -m venv .venv-signoff
+#   .venv-signoff/bin/pip install -r signoff/requirements.txt
+#   KLT=.venv-signoff/bin/klt bash signoff/run-signoff.sh --check
+#
+# WHY THIS DIVERGES FROM layout/requirements.txt (which pins 0.5.0)
+#
+# The two pins gate different things and must be free to move independently:
+#
+#   layout/requirements.txt  MINTS evidence. It drives the `klt gen` ->
+#       `gen-compose` -> `drc` -> `extract` -> `lvs` flows whose JSON envelopes
+#       are the committed record, so moving it invalidates those verdicts and
+#       requires re-running every layout/ flow -- the discipline that file's own
+#       header documents at length for each past bump.
+#
+#   signoff/requirements.txt GRADES that evidence. `klt signoff --manifest` is
+#       a pure JSON + Markdown transform: it reads envelopes, it does not
+#       produce them. No PDK, no KLayout engine, no GDS is read. So it follows
+#       the grader release on its own schedule, and pinning it here keeps that
+#       decision from being smuggled into a layout-flow bump (or vice versa).
+#
+# WHY 0.6.0 SPECIFICALLY
+#
+#   1. The T1 checklist grew an ELEVENTH item on 2026-09-17 ("Power delivery
+#      (structural)", klayout-tools#2025). `klt signoff` parses the checklist
+#      out of the `design-evidence-tiers.md` its own wheel bundles, so a 0.5.0
+#      grader renders a ten-item table and this block's item-11 row -- the row
+#      issue #344 exists to fill -- would simply not appear. 0.6.0 is the first
+#      PyPI release whose bundled doc carries all eleven
+#      (`klt signoff --describe-grader` reports graded_t1_item_ids 1..11).
+#   2. 0.6.0 ships `klt signoff --check`, which re-grades the manifest and
+#      compares against the committed report while excluding the `build` block
+#      (klayout-tools#2249) -- so CI's staleness gate does not go red merely
+#      because a runner provisioned the same pinned version differently.
+#   3. 0.6.0 records the governing checklist's own content hash in the report
+#      (`source_doc_content_hash`), so the denominator of "3/22 met" is pinned
+#      and auditable rather than being whatever doc happened to be installed.
+#
+# MOVING THIS PIN IS A CLAIM CHANGE, NOT A CHORE. A newer grader can add items,
+# tighten a grading rule, or change a reason string; signoff/t1-report.json will
+# drift and CI will say so. Re-render it, read the diff row by row against
+# signoff/README.md's claim, and update both together.
+klayout-tools==0.6.0

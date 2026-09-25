@@ -23,10 +23,67 @@ SPICE round-trip) is **worked around locally** by this flow's own
 `bin/restore-cap-device-class.py`, which recovers the pre-regression
 verdict — 98 mismatches / 412 matched nets, against 124 / 393 without it. A
 newly-tried `--abstract-cells` black-boxing shape narrows this further to
-**6** mismatches, but rests on a not-yet-understood tool behaviour
-(klayout-tools#1911) and is recorded as a measurement, not adopted for
+**6** mismatches, but rests on a not-yet-understood tool behaviour — a
+same-instance pin-to-net binding fault, **not** the klayout-tools#1911/#1934
+gap originally suspected (that fix is merged upstream but, per a 2026-09-19
+ablation matrix, does not touch this collapse; corrected diagnosis filed as
+klayout-tools#2142) — and is recorded as a measurement, not adopted for
 signoff — see "LVS device/topology blocker" below for the full, current
 trace of both.**
+
+**Update (2026-09-23): `layout/requirements.txt` now pins
+`klayout-tools==0.6.0`, and #103 is still not LVS-clean.** v0.6.0 is the
+first release carrying klayout-tools#2147 (commit `3cc085c`, the fix for
+#2142), which was this issue's tracked blocker. Record
+`20260923-131726-fa1e0af` shows DRC still clean, connectivity still verified,
+and the whole-request `klt lvs` verdict field-identical to 0.5.0 (98
+mismatches). The `--abstract-cells` collapse is **also unchanged** under
+0.6.0. #2147 fixed a real but different bug. The actual mechanism is now
+located and filed as klayout-tools#2396: abstraction erases the MiM top
+plate but keeps its via, so every capacitor in the black box shorts top to
+bottom plate. Two further gaps sit behind it: klayout-tools#2398 (the well
+tap is erased, so cdac_array's `VDD` pin is cut off) and
+klayout-tools#2397 (0.6.0's reader-side #1876 fix never fires on this
+netlist, so `bin/restore-cap-device-class.py` stays load-bearing). See "Update
+(2026-09-23): re-measured on `klayout-tools==0.6.0`" below.
+
+**Update (2026-09-24, issue #362): the analog ground has a drawn pad.** Record
+`20260924-214710-b323061` is the current `reports/LATEST`, and
+`erc-reports/20260924-214731-b323061/` the current ERC record.
+`bin/build_layout.py`'s new `analog_ground_pad()` carries `comparator`'s own
+drawn `GND` pin — the only analog-ground conductor any sub-block here exposes —
+up to met4 and south, out of that macro's footprint, to a top-level `GND` pin
+label; `design/sar_adc_top.sch`/`.sym` gain the matching port (21 → **22**).
+The decision this implements, including what the pad is *not* (a second node
+beside the p-substrate), is
+[`DR-012`](../../spec/decision-records/DR-012-analog-ground-pad.md). DRC stays
+clean and the LVS mismatch count is **unchanged at 88**, in the same four
+categories, with the same 803/869 devices matched; the pin counts go 21/21/21 →
+**21/22/22** — reference 22 because `GND` is now a port, layout still 21 because
+`GND` and `VGND` are one extracted net (`GND|VGND`, the shared p-substrate),
+`matched` 22 because that one layout pin answers both reference ports. `klt erc`
+stays `clean`, 0 findings, on a byte-identical spec: `GND` read "1 island"
+before this change too, which is precisely why the "one island ≠ reaches a pad"
+caveat had to be retired by moving the layout rather than by re-reading the
+report.
+
+**Update (2026-09-24, issue #355): the digital supply rails are routed, and
+T1 item 11's continuity half now passes.** Record `20260924-190817-f3622fc` was
+the `reports/LATEST` of that increment (superseded by #362's above).
+`bin/build_layout.py` ties `sar_sequencer`'s and
+`seln_inverters`' own met5 PDN straps together and out to two new top-level
+supply pins (`VPWR`/`VGND`, per
+[`DR-010`](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)),
+which is what `klt erc` had graded FAIL as two disconnected islands per rail.
+DRC stays clean; the LVS verdict **improves** for the first time in this
+flow's history — **21/21/21** pins (was 19/19/19), **88** mismatches (was 98),
+**803/869** devices matched (was 794), nets 443/444/411 — because each digital
+rail is now one net on both sides instead of a `VPWR_SEQ`/`VPWR_SELN` pair.
+The remaining 88 are the *same* klayout-tools#1878 `combine_devices`-scoping
+blocker as before; nothing below about that blocker changed. Numbers quoted
+further down this document that predate this record (98 mismatches, 19/19/19
+pins, 444/446/412 nets) are the state of the record they name and are left
+as written.
 
 **Re-run for issue #245** (`layout/sampling-frontend/`'s own re-verification
 after issue #236's `Sa`/`Cmsw` sizing change), record
@@ -91,8 +148,9 @@ current writeup of both gaps.
 `20260918-191315-935ce76`: DRC stays clean and the LVS verdict is
 field-identical to `20260915-234004-76f48b9` (98 mismatches, 869/869/794
 devices, 444/446/412 nets, 19/19/19 pins, same four categories). What changed
-is geometry `klt drc` structurally could not see — see "Minimum-area rules:
-measured separately, because the deck has none" below. The composition's own
+is geometry `klt drc` structurally could not see at the `klt 0.5.0` pin of the
+day — see "Minimum-area rules: in the deck since `klt 0.6.0`, and clean"
+below, which also corrects that section's counts. The composition's own
 top-level `bbox_um` moves for the first time since PR #174, by 0.05 um in `x0`
 only (-20.200 -> -20.250), because the external `VDD` pin's label-only met4
 landing pad widened from 0.36 to 0.50 um; that pad is the composition's
@@ -101,68 +159,36 @@ leftmost shape. This re-run also picked up `layout/cdac-array/`'s,
 and `layout/sampling-frontend/`'s new `20260918-191227-935ce76`, so all five
 composition inputs are again each flow's current `reports/LATEST`.
 
-### Minimum-area rules: measured separately, because the deck has none
+### Minimum-area rules: in the deck since `klt 0.6.0`, and clean
 
-`klt drc --deck sky130` at the pinned `klayout-tools==0.5.0` authors **47
-rules across five kinds** (`width`, `space`, `enclosing`, `separation`,
-`isolated`) and **no `area`-kind rule at all**. sky130A's own metal
-minimum-area rules — `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a`
-0.240, `m5.4` 4.0 um^2, all five in the pinned PDK's own
-`libs.tech/klayout/drc/sky130A_mr.drc` — had therefore never looked at this
-layout, and a `status: "clean"` verdict said nothing about them. The deck gap
-is fixed upstream (klayout-tools#1989, commit `50cc29c3`) but **not
-released**; this repo grades against what is released.
+**Premise update (issue #363).** This section used to open "the deck has
+none", and that was true of `klayout-tools==0.5.0`: 47 rules across five kinds
+(`width`, `space`, `enclosing`, `separation`, `isolated`) and **no `area`-kind
+rule at all**, so sky130A's own metal minimum-area rules — `m1.6` 0.083,
+`m2.6` 0.0676, `m3.6` 0.240, `m4.4a` 0.240, `m5.4` 4.0 um^2, all five in the
+pinned PDK's own `libs.tech/klayout/drc/sky130A_mr.drc` — had never looked at
+this layout, and a `status: "clean"` verdict said nothing about them.
 
-Until that release lands, minimum area is measured by
-`docs/chipalooza/measure_metal_min_area.py`, which reads the thresholds and
-layer numbers out of the pinned PDK's own deck (never transcribed) and applies
-KLayout's own `Region#with_area` — the same primitive the deck's rule text
-calls — to each flow's current record:
+That gap closed when `layout/requirements.txt` moved to
+`klayout-tools==0.6.0` (issue #103, 2026-09-23), which contains
+klayout-tools#1989 (commit `50cc29c3`). **The pinned deck now authors 52 rules
+including `met1.area.1` … `met5.area.1` and `met1.holes_area.1` …
+`met5.holes_area.1`** — read them out of this record's own
+`reports/20260924-214710-b323061/drc.json` `coverage.rules_checked` (52 rules,
+the ten `met*.area.1`/`met*.holes_area.1` among them, field-identical to the
+superseded `20260924-190817-f3622fc`'s), which reports **0 violations**. Minimum area is a first-class part of this flow's
+`klt drc` verdict again, not an out-of-band footnote.
+
+`docs/chipalooza/measure_metal_min_area.py` is kept as an **independent
+cross-check** rather than retired. It reads the thresholds and layer numbers
+out of the pinned PDK's own deck (never transcribed) and applies KLayout's own
+`Region#with_area` — the same primitive the deck's rule text calls — to each
+flow's current record:
 
 ```
 layout/bin/setup-venv.sh                                    # once
 layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
 ```
-
-**That measurement is a CI gate, not a manual habit** (issue #338). It runs in
-`.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job — nightly, on
-`workflow_dispatch`, and on any PR labelled `run-pdk-smoke` — against the
-already-committed GDS in each flow's current `reports/LATEST` record, so it
-re-runs no layout flow and costs seconds. Two invocations, in this order:
-
-```
-layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
-    --self-test --baseline docs/chipalooza/metal_min_area_baseline.json
-layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py \
-    --baseline docs/chipalooza/metal_min_area_baseline.json
-```
-
-`--self-test` is the negative control this repo applies to every other layout
-verdict (see verdict 3 in the trivial-cell proof): it measures a
-deliberately-illegal fixture — one isolated square sized from the deck's own
-`m3.6` threshold, attributed to `cdac-array` — and exits non-zero unless the
-gate catches it, so a clean verdict from the second invocation cannot be
-vacuous.
-
-`--baseline docs/chipalooza/metal_min_area_baseline.json` is what keeps the
-145 tool-emitted shapes below from red-lining CI permanently. Each entry is a
-per-(flow, rule) **ceiling** carrying the issue that tracks it — all ten name
-#333 and nothing else — so:
-
-- one shape more than recorded, anywhere, **fails**: a new isolated pad from
-  this flow's own via risers is caught even though this flow is waived for
-  #333's shapes (a waiver is a ceiling, never a blanket exemption);
-- a flow with no entry — `cdac-array`, `comparator`, `sampling-frontend`, the
-  three whose metal this repo hand-authors end to end — is gated at **zero**;
-- fewer shapes than recorded **passes**, with a loud `STALE ALLOWANCE`
-  warning, so the day #333 is fixed the gate does not turn red on a closed
-  defect — it asks to be tightened.
-
-When #333 closes: delete `docs/chipalooza/metal_min_area_baseline.json` and
-drop the `--baseline` argument from that CI step. Nothing else references it.
-The baseline's own bookkeeping (what it waives, what it must never waive) is
-unit-tested headlessly on every push in
-`sim/tests/test_metal_min_area_baseline.py`.
 
 Issue #326 found **17 shapes below `m3.6`/`m4.4a`** in the composed GDS that
 this repo's own generators drew: 12 met3 + 1 met4 from this flow's via risers,
@@ -177,20 +203,89 @@ module's own wires keeps `PAD_UM` and none of the empirically-tuned clearances
 documented below moves. The composed GDS now measures **0** shapes below
 `m3.6`/`m4.4a`.
 
-What remains below threshold in the composed GDS is **145 shapes on
-met1/met2/met3/met5 that `klt`'s own place-and-route emitted** inside
-`sar_sequencer`/`seln_inverters` — generated via cells (`VIA_L1M1_PR_MR` met1
-0.290x0.230 um, `VIA_M2M3_PR` met3 0.330x0.330 um, `VIA_via5_6_*` met5
-1.420x1.600 um) and router-drawn stubs. No `sky130_fd_sc_hd__*` library cell
-violates anything. That is not geometry this repo authors: tracked here as
-issue #333 and filed generically upstream as klayout-tools#2072.
+**Nothing remains below threshold. The "145 residual shapes" this section
+used to report never existed** — they were an artifact of the measuring
+script, corrected under issue #363.
 
-The measurement itself is committed alongside the record it grades:
-`reports/20260918-191315-935ce76/minimum-area.json` is that script's own
-`--json` output against this record's `sar_adc_top.gds` — 0 shapes below
-`m3.6`/`m4.4a`, and every one of the 145 residual met1/met2/met3/met5 shapes
-listed with its own bounding box, so #333 starts from measured geometry rather
-than a re-derivation.
+That figure claimed 145 shapes on met1/met2/met3/met5 emitted by `klt`'s own
+place-and-route inside `sar_sequencer`/`seln_inverters` (generated via cells
+`VIA_L1M1_PR_MR` met1 0.290×0.230 um, `VIA_M2M3_PR` met3 0.330×0.330 um,
+`VIA_via5_6_*` met5 1.420×1.600 um, plus router-drawn stubs), split 112 +
+33 across the two producing flows. Every one of them is **fully merged into a
+wire or a PDN strap on its own layer** in the drawn GDS, which is exactly what
+the PDK's tech-LEF expects of a via enclosure — so none of them is below
+anything. The script under-merged: it built its region with
+`kdb.Region(); region.insert(iter); region.merge()`, and
+`Region#insert(RecursiveShapeIterator)` carries each shape's GDS user
+properties across, where KLayout's merge is property-aware and refuses to
+merge polygons whose properties differ. This repo's routed GDS attaches a
+net-name property (`[[1, "VPWR"]]`, `[[1, "VGND"]]`) to each PDN strap and
+none to the via cells inside it, so covered pads stayed separate polygons and
+were counted as standalone violations. On this record's met5 the two
+constructions read 24 polygons / 1058.75 um^2 (buggy) against 5 polygons /
+896.09 um^2 (correct) — and a merged region's area *is* its union area, so the
+larger number is a double count.
+
+**Two independent measurements now agree at zero**, which is how the defect
+was caught in the first place:
+
+| Measurement | `m1.6` | `m2.6` | `m3.6` | `m4.4a` | `m5.4` |
+| --- | --- | --- | --- | --- | --- |
+| `drc.json`'s own `met*.area.1` (record `20260924-214710-b323061`) | 0 | 0 | 0 | 0 | 0 |
+| `measure_metal_min_area.py`, corrected (same record, re-run under #362) | 0 | 0 | 0 | 0 | 0 |
+| `measure_metal_min_area.py`, pre-#363 (**wrong**) | 114 | 6 | 8 | 0 | 15 |
+
+The same correction applies to the two producing flows measured on their own
+GDS: `layout/sar-sequencer/` 112 → **0**, `layout/seln-inverters/` 33 → **0**.
+Issue #333's waiver over those residuals is therefore **withdrawn, not
+reaffirmed** — there was nothing to waive. The upstream filings that rested on
+the same count (klayout-tools#2072/#2075, klayout-tools#2139) are noted as
+superseded in each flow's README.
+
+**That zero is now enforced in CI, not just recorded here** (issue #338).
+`docs/chipalooza/measure_metal_min_area.py` runs as a step of
+`.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job — nightly, on
+`workflow_dispatch`, and on any PR labelled `run-pdk-smoke` — against the
+already-committed GDS in each flow's current `reports/LATEST` record, so it
+re-runs no layout flow and costs seconds. Two invocations, in this order:
+
+```
+layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py --self-test
+layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
+```
+
+`--self-test` is the negative control this repo applies to every other layout
+verdict (see verdict 3 in the trivial-cell proof): it measures a
+deliberately-illegal fixture — one isolated square sized from the deck's own
+`m3.6` threshold, attributed to `cdac-array` — and exits non-zero unless the
+gate catches it, so a clean verdict from the second invocation cannot be
+vacuous.
+
+**The gate is zero-tolerance, with no baseline or waiver file.** The
+"one judgement call" this issue was filed against — how to keep a real,
+filed, not-ours residual (issue #333's 145 shapes) from permanently
+red-lining CI — has no live case to design against: #333 closed under this
+same section's retraction above, and both independent measurements agree at
+**0** across every target today. Building a waiver mechanism now, keyed to a
+defect that no longer measures anything, would ship exactly the kind of
+carve-out that outlives its own finding — so the gate is a plain "any shape
+below threshold fails" check instead. A new isolated pad from any of this
+repo's own generators, in any of the six measured targets, turns CI red on
+the next push; if a genuine tool-emitted residual reappears in the future,
+the per-target/per-rule shape this script already reports is enough to scope
+a fresh, explicitly-tracked exception at that time.
+
+The regression is pinned by `sim/tests/test_measure_metal_min_area.py`, which
+reproduces the two constructions on a synthetic fixture where they disagree
+(a property-bearing strap covering a sub-threshold via pad) and asserts the
+corrected one; CI's headless `checks` job runs it against the pinned KLayout
+engine.
+
+`reports/20260918-191315-935ce76/minimum-area.json` — that script's `--json`
+output against the superseded 2026-09-18 record — is **pre-#363 output and its
+`below_min_area` counts are wrong**. It is kept, not rewritten:
+`layout/` evidence is append-only, and a record says what was measured at the
+time. Read it only through this section.
 
 `layout/sar-adc-top/bin/build_layout.py` places all five sub-blocks (`klt
 gen-compose`, explicit placement, each named as a `blocks[].cell` entry per
@@ -425,7 +520,16 @@ nodes, like `TAIL`), so they do not appear in this table.
 Unlike the other three full-custom blocks, `comparator` has a **real drawn
 `GND` pin** (7-port reference, `.SUBCKT comparator VDD GND CLK VINP VINN OUTP
 OUTN`) rather than relying only on the deck's substrate auto-merge — see
-below.
+below. Since issue **#362** that pin is also what the block's own top-level
+analog ground pad is built on: it is the only analog-ground conductor any
+sub-block in this composition draws, so `bin/build_layout.py`'s
+`analog_ground_pad()` risers off it (see "The analog ground pad" below).
+Direct inspection of this macro's own GDS around that pin, for the record:
+met1 `(0.15, 19.85)–(2.36, 20.15)` carrying the label, a via1 up to a
+`(1.15, 19.85)–(1.45, 20.15)` met2 landing, and a `tap.drawing` (65/44)
+rectangle `(0.0, 17.0)–(0.6, 23.0)` underneath — and **no met3 or met4
+anywhere in this macro at all**, which is what makes a met4 stub over its own
+footprint safe.
 
 ### `sar_sequencer` (top cell `sar_sequencer` in `layout/sar-sequencer/reports/20260905-191258-4c6c655/sar_sequencer.gds`)
 
@@ -494,10 +598,21 @@ Beyond each block's own already-closed internal wiring, per
 | `DOUT9` | `sar_sequencer.DOUT9` -> external output pin only (no CDAC/SELn use) |
 | `BUSY` | `sar_sequencer.BUSY` -> external output pin |
 | `comparator.OUTN` | left dead-ended (`OUTN_NC`) — not needed by the sequencer |
+| `VPWR` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `VDD`; see DR-010) |
+| `VGND` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `GND` *in metal*; see DR-010 and, for what the substrate does regardless, DR-012) |
+| `GND` (analog) | external pin, `comparator.GND` (issue #362 — the only drawn analog-ground conductor in this composition; `sampling_frontend` and `cdac_array` reach the same node through the substrate, not through this route; see DR-012) |
 
-Twenty top-level external chip pins in total: `VINP, VINN, VDD, VREFP, VREFN,
-VCM, CLK, RST_B, DOUT9..DOUT0, BUSY` (matching `design/sar_adc_top.sym`'s own
-pin list exactly).
+**22** top-level external chip pins in total: `VINP, VINN, VDD, VREFP, VREFN,
+VCM, CLK, RST_B, DOUT9..DOUT0, BUSY, VPWR, VGND, GND` (matching
+`design/sar_adc_top.sym`'s own pin list exactly, in order). `VPWR`/`VGND` were
+added by issue #355 and `GND` by issue #362; before #355 this list read
+"Twenty … pins in total" and then named nineteen, which the LVS pin counts
+(19/19/19) had always reported correctly.
+
+The layout side still promotes **21** of those 22, and that is not a missing
+pin: `GND` and `VGND` are one extracted net (`GND|VGND` — the shared
+p-substrate), so one promoted layout pin answers both reference ports, which
+the LVS `matched=22` count records. See DR-012.
 
 ## GND / VPWR / VGND: not a routing job (mostly)
 
@@ -506,36 +621,252 @@ synthesis (`layout/sampling-frontend-wells/README.md`, `layout/sampling-frontend
 header) plus `design/sar_adc_top.spice`'s own `.GLOBAL GND`/`.GLOBAL VDD`
 declarations and its item-2 "known integration gap" note:
 
-- **Analog `GND` is free.** `klt extract`'s sky130 deck synthesizes every
-  NMOS/PMOS-body's p-substrate connection as one globally-shared `vsubs` net
-  *regardless of drawn geometry* — so `sampling_frontend`'s GND (no drawn
-  pin at all) and `cdac_array`'s VSS (also no drawn pin) already report as
-  the same net the deck would assign `comparator`'s real, drawn `GND` pin to
-  as well, with **no wire required between the three blocks for this
-  assembly to reach a matching verdict** on that specific net. This still
-  needs confirming empirically against the *composed* (not per-block) flat
-  extraction before relying on it — the per-block READMEs establish the
-  mechanism, not this specific 3-block composition.
+- **Analog `GND` needs no wire between the three blocks — but it did need a
+  pad, and now has one (issue #362,
+  [`DR-012`](../../spec/decision-records/DR-012-analog-ground-pad.md)).**
+  `klt extract`'s sky130 deck synthesizes every NMOS/PMOS-body's p-substrate
+  connection as one globally-shared `vsubs` net *regardless of drawn geometry* —
+  so `sampling_frontend`'s GND (no drawn pin at all) and `cdac_array`'s VSS
+  (also no drawn pin) report as the same net the deck assigns `comparator`'s
+  real, drawn `GND` pin to, with **no wire required between the three blocks
+  for this assembly to reach a matching verdict** on that specific net.
+
+  **Confirmed on the composed extraction, not just inferred from the per-block
+  READMEs** (the caveat this paragraph used to carry):
+  `reports/20260924-214710-b323061/extract.json` reports one net named
+  `GND|VGND` carrying **692 devices** — the analog ground, the standard cells'
+  substrate ties and the p-substrate, all one node, with
+  `merged_net_labels` naming both labels on it. That is the mechanism working
+  as documented, one level up, and it is also the reason DR-010's domain
+  partition can only ever be about *metal return paths and pads*, never about
+  galvanic isolation.
+
+  What the auto-merge never supplied is a **terminal**. Until #362 this block
+  had `.GLOBAL GND` and no top-level `GND` pin anywhere, so the one net every
+  analog device returns through had nothing a package could bond to, while
+  `VDD` did. `klt erc` cannot see that distinction (one island is one island,
+  pin or no pin), which is why it passed throughout. See "The analog ground
+  pad" below for the geometry and DR-012 for the decision.
 - **`VDD` (analog) is a real net and must be routed** between
   `sampling_frontend`, `cdac_array`, and `comparator` (and the external
   `VDD` pin) — it is not part of the substrate auto-merge.
-- **Digital `VPWR`/`VGND` are two separate, self-contained domains, and
-  `design/sar_adc_top.sch`'s own netlist keeps them that way.** Neither
-  `VPWR` nor `VGND` is declared `.GLOBAL` in `design/sar_adc_top.spice`, and
-  neither is a formal port of the `sar_sequencer` subckt call at the top
-  level — so by ordinary SPICE hierarchy scoping, `sar_sequencer`'s own
-  internal `VPWR`/`VGND` (already a closed, self-contained rail per #102) is
-  a *different* net from `seln_inverters`' own internal `VPWR`/`VGND`
-  (this issue's own closed macro), even though both literally use the
-  string `"VPWR"`. **Do not tie them together** when building the top-level
-  LVS reference or the physical routing — per the schematic's own
-  documented item-2 gap note, both digital rails are meant to stay
-  unconnected to anything else at this structural level; a future
-  full-ADC testbench (#28/#29/#31) supplies their bias independently, the
-  same way `sim/sar-sequencer-behavioral/`'s own testbench already does.
-  (This is the existing, accepted VDD/GND-vs-VPWR/VGND divergence the
-  schematic's own header already documents, extended to cover two separate
-  digital instances rather than just analog-vs-digital.)
+- **Digital `VPWR`/`VGND` are ONE independent supply domain with their own
+  top-level pins — resolved 2026-09-24 by issue #355 and
+  [`DR-010`](../../spec/decision-records/DR-010-digital-supply-domain-partition.md).**
+  They are **not** tied to the analog `VDD`/`GND` anywhere on-die; they are
+  two distinct `.GLOBAL` nets (`design/sar_adc_top.spice` lines 323–324, since
+  issue #258), each now also a formal top-level port of `sar_adc_top`, and the
+  layout ties `sar_sequencer`'s and `seln_inverters`' own met5 PDN straps
+  together and out to a pin of that name. Both domains sit at the same 1.8 V
+  supply point (DR-001); the partition is of *domains and pins*, not voltages,
+  and the star point between them is off-die. Read DR-010 for the
+  substrate/supply-noise reasoning and for what that reasoning does **not**
+  claim (nothing in `sim/` measures the coupling).
+
+  <details>
+  <summary>Superseded reading (pre-#355), kept because several documents still
+  cite it</summary>
+
+  This section used to say: "*Neither `VPWR` nor `VGND` is declared `.GLOBAL`
+  in `design/sar_adc_top.spice`, and neither is a formal port of the
+  `sar_sequencer` subckt call at the top level — so by ordinary SPICE hierarchy
+  scoping, `sar_sequencer`'s own internal `VPWR`/`VGND` is a different net from
+  `seln_inverters`'. **Do not tie them together.**"
+
+  Two things were wrong with it by the time #355 read it. The `.GLOBAL` half
+  had been **false since issue #258** (which added the `lvpwr1`/`lvgnd1`
+  `global=true` label instances precisely so each rail would be one net across
+  the hierarchy) — the prose was never updated, and
+  `bin/generate-lvs-reference.py` had encoded the stale reading as
+  `VPWR_SEQ`/`VPWR_SELN`. The "do not tie them" half was a *scoping* claim
+  doing duty as a *physical* one: schematic scoping says nothing about whether
+  a laid-out block is powerable, and item 11 graded the physical question FAIL.
+
+  </details>
+
+**Graded: the supply-continuity half now passes; item 11 as a whole is still
+unmet (2026-09-24).** T1 checklist item 11 (Power delivery — structural,
+klayout-tools#2025) grades the *physical* question — is the supply connected to
+what it powers. Its first run (issue #344,
+`erc-reports/20260923-143401-1ee4ba8/`) came back FAIL: `VPWR` and `VGND` each
+resolved to **two** disconnected electrical islands, neither reaching a
+top-level supply. Issue #355 fixed the layout (not the spec, whose content hash
+is unchanged across every run), and `erc-reports/20260924-190825-f3622fc/`
+reported `erc_status: clean`, 0 findings — all four declared supplies at exactly
+one island each, no `erc.supply_short`. The current record,
+`erc-reports/20260924-214731-b323061/` (issue #362), reports the same on the
+layout that now also carries a drawn analog `GND` pad. **The item still does not
+render `met`**:
+`klt signoff` renders it `unmet` / `check_failed`, because its grading path
+(`_grade_power_delivery`) checks the cited LVS part *first* and item 4's LVS is
+still `mismatch` (klayout-tools#1878) — so the continuity half being clean is
+not what the reason is about. Behind that sits a second, latent reason the run
+never gets to: the item also requires zero `erc.missing_tie` from a tie the run
+actually checked, and this spec declares no `ties[]` (klayout-tools#2169 would
+turn a correct one into a false `erc.supply_short`), the state
+`supply_spec_disclosed_tool_limitation` names. See "Structural supply check
+(`klt erc`, T1 item 11)" below.
+
+**One stale-prose caveat, disclosed rather than edited away.**
+`erc-supply-spec.json` is deliberately byte-identical to the spec #344 wrote —
+that is what makes "the layout moved, not the gate" checkable, since both ERC
+records pin the same spec content hash. The cost is that three of its *prose*
+`_comment`/`ties_disclosure` passages still describe the #344-era run: the
+`SCOPE` block names the older graded GDS, the `VPWR` net comment says the rail
+is "KNOWN to come back as more than one island", and the tie disclosure's
+stand-in (c) quotes the old split `VPWR_SEQ`/`VPWR_SELN` LVS correspondence
+(now a single `VPB|VPWR` ↔ `VPWR`). None of it is graded content — `stackup`,
+`vias`, `nets[].name`/`kind` and the pass condition are untouched — but
+`ties_disclosure.reason` is echoed verbatim into every `erc.json`, so the third
+one ships inside committed evidence. Refreshing it re-mints the ERC record and
+cascades through the manifest, the tier report and four documents, so it is
+tracked as **#364** rather than folded in here.
+
+### The digital-rail route itself (issue #355)
+
+`bin/build_layout.py`'s `digital_supply_rail()` — **one met5 rectangle per
+rail, no via anywhere.** This is what open question 2 below had left untried.
+The two macros are placed at the same `dy` (`OFFSETS`), so `sar_sequencer`'s
+met5 strap for a rail and exactly one of `seln_inverters`' straps for the same
+rail occupy the *same* global y band:
+
+| Rail | Global y band (µm) | `sar_sequencer` strap x | `seln_inverters` strap x | Rail rectangle x |
+|---|---|---|---|---|
+| `VPWR` | −120.88 … −119.28 | 23.4175 … 61.5975 | 89.9875 … 172.2075 | 15.0 … 91.9875 |
+| `VGND` | −134.48 … −132.88 | 23.4175 … 61.5975 | 89.9875 … 171.8675 | 15.0 … 91.9875 |
+
+A rectangle spanning that band is therefore *colinear* with both straps — same
+layer, same 1.6 µm width (`m5.1`'s own minimum, which is what both macros'
+`klt place-and-route` drew) — so it merges into one polygon rather than
+landing on anything. Three consequences, none cosmetic:
+
+- **No via4 riser is needed**, so nothing has to satisfy `m5.3` (0.31 µm met5
+  enclosure of via4) or `m5.4` (4.0 µm² minimum area — sixteen times the area
+  of this module's own `ISLAND_PAD_UM` pad) on a freestanding pad. This module
+  draws no met5 pad at all, and `MET5` is deliberately left out of
+  `build_layout.py`'s `_METAL_CHAIN` so a future `riser(..., MET5)` fails loudly
+  instead of minting an illegal pad.
+- **No new spacing relation appears inside either macro.** Over each macro's
+  own footprint the rectangle is geometrically identical to the strap it merges
+  with, so the merged polygon's edges are the strap's own — already legal
+  against that macro's own neighbouring straps, which sit 12.0 µm away in y
+  (7.5× `m5.2`).
+- **It crosses no other net.** The rectangle is horizontal and every strap is
+  horizontal; `_check_digital_rail_clearance()` asserts every *other* strap's y
+  band clears this one by at least `m5.2`, and that neither rail's west stub
+  enters any other placed block's bbox. It passes *over* both macros' met4 PDN
+  columns, which is not a connection without a via4.
+
+The top-level `VPWR`/`VGND` pin labels land at `x = 18.0`, on the stretch of
+each rectangle that lies west of both macros' footprints — so the promoted pin
+is unambiguously on conductor this module drew (`--pin-source-cells` would not
+promote a macro-internal label anyway). Top-level pins go 19 → **21**.
+
+`klt drc` grades this geometry rather than the README arguing it: the pinned
+0.6.0 deck authors `met5.width.1` / `met5.space.1` / `met5.area.1` (see
+`reports/20260924-190817-f3622fc/drc.json`'s `coverage.rules_checked`) and the
+record is clean, 0 violations. The `klt erc` cross-checks that show the met5
+rectangle is what actually joins the two islands — including an ablation
+against the pre-#355 GDS — are in the ERC record's own "Cross-checks".
+
+### The analog ground pad (issue #362)
+
+`bin/build_layout.py`'s `analog_ground_pad()` — **one via riser and one met4
+stub, no horizontal leg.** The riser walks `comparator`'s own drawn `GND` met1
+pin (global `(101.5, 193.8)`) up to met4 without moving laterally, and a
+`WIRE_W` (0.4 µm) met4 stub runs **south** from there to `y = 170.0`, where the
+top-level `GND` pin label sits.
+
+| | |
+|---|---|
+| Anchor | `comparator.GND`, met1, local `(1.3, 20.0)` → global `(101.5, 193.8)` |
+| Stub | met4, `x` 101.3 … 101.7, `y` 169.8 … 194.0 |
+| Pin label | `72/5`-equivalent met4.pin (`71/5`) at `(101.5, 170.0)` |
+
+Three things about that shape are load-bearing:
+
+- **South, not north.** Every other analog net leaves its pin northward into a
+  per-net `analog_leg` jog row. `GND` cannot: `comparator`'s own `CLK` column
+  rises to met4 at `x = 102.1` and runs north from `y = 198.3`, **0.6 µm** from
+  this pin's own x — two 0.4 µm met4 wires sharing that gap leave 0.2 µm, and
+  `m4.2` needs 0.30 µm. Running south instead puts the two columns' `y` spans
+  4.1 µm apart, so they never face each other at all.
+  `_check_analog_ground_pad()` asserts exactly that condition (any comparator
+  pin within `WIRE_W + m4.2` in x must sit at or above `GND`'s own y), so a
+  future re-route fails in `build_layout.py` rather than in `klt drc`.
+- **It crosses nothing on the way out.** `comparator` draws **no met3 and no
+  met4 at all** (direct merged-`Region` dump of its committed GDS: layers
+  65/20, 66/20, 66/44, 67/20, 67/44, 68/20, 68/44, 69/20, 64/20, 65/44 only),
+  so the stub passes over that macro's own footprint on an empty level, and the
+  stretch below it — `y` 147.22 … 176.3, the channel between `sampling_frontend`
+  and `comparator` — holds no block bbox. The same assertion checks the label
+  lands in that channel rather than inside either macro.
+- **No horizontal leg, deliberately.** Grouping this pin with the other analog
+  supply pins in the west corridor would cost ~130 µm of met3 on a new exclusive
+  jog row, crossing four met4 corridor columns, in series with the one net where
+  series metal buys nothing. There is no pad ring in this composition — every
+  pin label sits where its own net's conductor already is — so the grouping has
+  no consumer yet. DR-012 records the trade and marks the position provisional.
+
+`klt drc` grades this geometry rather than the README arguing it:
+`reports/20260924-214710-b323061/drc.json` is clean, 0 violations — and since
+the pinned 0.6.0 deck authors `met1.area.1` … `met5.area.1` (see "Minimum-area
+rules" above), that verdict now covers minimum area too. The independent
+cross-check agrees, re-run on this record's own GDS after issue #363 corrected
+the script's property-aware-merge bug: **0** shapes below every one of
+`m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4`, the same **0** the pre-#362 GDS
+(`reports/20260924-190817-f3622fc/`) measures under the same corrected script.
+The pad this change adds shows up in that readout only as polygon counts — met3
+1341 → 1342, met4 28 → 29 — both above threshold, because the riser's isolated
+pads are `ISLAND_PAD_UM`-sized for exactly this reason. The `klt erc` ablation that shows the stub really is
+joined to `comparator`'s ground through this riser — cut `via3` and `GND` splits
+into two islands, where the pre-#362 GDS splits into none — is in the ERC
+record's own "Cross-checks".
+
+## Structural supply check (`klt erc`, T1 item 11)
+
+| | |
+|---|---|
+| Spec | `layout/sar-adc-top/erc-supply-spec.json` |
+| Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
+| Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
+| Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
+| Current record | `erc-reports/20260924-214731-b323061/` — `erc_status: clean`, 0 findings, grading `reports/20260924-214710-b323061/sar_adc_top.gds` |
+
+| Record | Graded GDS | Supply continuity | Item 11 as graded |
+|---|---|---|---|
+| `20260923-143401-1ee4ba8` (issue #344, first run) | `reports/20260919-050355-fb11617/` | **FAIL** — `VPWR`/`VGND` 2 islands each | `unmet` |
+| `20260924-190825-f3622fc` (issue #355) | `reports/20260924-190817-f3622fc/` | **PASS** — all four supplies 1 island each, 0 findings | `unmet` — `erc.missing_tie` is not computed (below) |
+| `20260924-214731-b323061` (issue #362) | `reports/20260924-214710-b323061/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings | `unmet` — same two reasons |
+
+The spec is **byte-identical** across all three runs (`sha256:fd4f5a93…` in
+every record's own `provenance.spec.content_hash`). The verdict moved because
+the layout moved, which is the only way it is allowed to move here.
+
+The third row is the case worth reading carefully: the number did **not** move,
+and issue #362 nevertheless changed something real. `GND` resolved to one island
+before it had any top-level pin and resolves to one island now that it has one,
+because "one island" and "reaches a pad" are different claims and a geometric
+connectivity model makes only the first. That is why the gap could only be
+closed by moving the layout, and why a passing supply row here must be read with
+the ERC record's own "Why `GND`'s pass must be read narrowly" section beside it.
+
+This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
+content hash; it regenerates no geometry, which is why it lives in its own
+`erc-reports/` tree rather than inside a `reports/` record (those are
+append-only). It runs from its own venv (`layout/.venv-erc`,
+`layout/erc-requirements.txt`) rather than the DRC/LVS flow's `layout/.venv`
+— the two pins are free to move independently, and the reason that separation
+was introduced was that `klayout-tools==0.5.0`'s `klt erc` emitted no
+`provenance` block and so could not pin a report to its input at all. Both
+files now pin 0.6.0; see `layout/erc-requirements.txt`'s own header.
+
+`erc.missing_tie` is deliberately **not computed** (no `ties[]` declared),
+disclosed in-report as `ties_disclosed_tool_limitation`: klayout-tools#2169
+turns a correct `ties[]` declaration on a routed standard-cell design into a
+false `erc.supply_short`. The well-tie evidence standing in for it — tap-cell
+instances, body/tub labels, and the LVS `net_correspondence` — is named in the
+record, along with where that stand-in is weaker than it looks.
 
 ## Composition mechanism actually used: `klt gen-compose` as a pure placer
 
@@ -573,14 +904,19 @@ Open questions this investigation worked through before that implementation
    pins — reaching them means a routed wire's own met5 geometry has to
    extend into (and overlap) that macro's own bounding box at the exact
    strap coordinates above, which is legal (same-layer overlap merges,
-   rather than violating spacing) but has not been tried here. **Update:**
-   per `design/sar_adc_top.spice`'s own hierarchy scoping (re-confirmed
-   directly against the generated netlist during this investigation),
-   neither `VPWR` nor `VGND` is a formal port of either macro's subckt call
-   at the top level — so this issue does not need to reach these straps at
-   all; they stay self-contained per-macro rails, exactly as the "GND / VPWR
-   / VGND" section below already concluded. Listed here only so a future
-   reader does not re-open the question.
+   rather than violating spacing) but has not been tried here. **Update
+   (2026-09-19, superseded):** it read "neither `VPWR` nor `VGND` is a formal
+   port of either macro's subckt call at the top level — so this issue does not
+   need to reach these straps at all; they stay self-contained per-macro
+   rails." **Resolved the other way, 2026-09-24 (issue #355, DR-010): the
+   straps ARE reached, and the original prediction above was the right one.**
+   Same-layer overlap does merge; it needs no via and no pad, and DRC is clean.
+   What the superseded update got wrong was treating a schematic-scoping
+   argument as settling a physical question — `klt erc` then graded the
+   physical question FAIL (two disconnected islands per rail, neither reaching
+   a top-level supply). See "The digital-rail route itself (issue #355)" above
+   for the geometry, and DR-010 for why the rails are one independent domain
+   rather than being tied to analog `VDD`/`GND`.
 3. `cdac_array` (223 µm wide) is far wider than `sampling_frontend` (196 µm)
    or `comparator` (24 µm), and its `TOP_P`/`TOP_N` sit on opposite edges
    ~221 µm apart while `sampling_frontend`/`comparator`'s own `TOP_P`/`TOP_N`
@@ -997,29 +1333,61 @@ sar_sequencer, seln_inverters no longer contribute any devices to fold at
 all).
 
 **Why this is not adopted for signoff, and is not the flow's default.** All
-6 remaining mismatches trace to one thing: `cdac_array__cdac_array`'s own
-schematic 4th port (a body/bulk tie resolved, in the *unabstracted* layout,
-through the sky130 deck's global-net fallback rather than a drawn label —
-the same mechanism the "GND / VPWR / VGND" section above already documents
-for other blocks) has **no drawn label anywhere in cdac_array's own
-definition**, so `--abstract-cells` silently drops it (23 resolved pins,
-not the reference's 24) — and, surprisingly, that drop does not just cost
-the black box its own 4th terminal: it also **corrupts the synthesized net
-name for several unrelated top-level nets** (`VINN`/`VINP`/`TOP_N`/`TOP_P`/
-`VREFN` collapse into one bogus composite label, cascading into the 6
-mismatches above), even though those nets never touch `cdac_array`'s own
-footprint. Isolated directly: abstracting `sar_sequencer`/`seln_inverters`
-alone (neither has a label-less port) leaves every net name clean;
-abstracting `cdac_array` alone, on its own, reproduces the corruption every
-time, independent of which other flags are combined with it. This is a new
-finding, distinct from klayout-tools#1876/#1878/#1085 (a different root
-cause — a black-boxed cell's *dropped, label-less* port perturbing
-*unrelated* net-name synthesis, not a combine_devices scoping question or a
-missing hierarchical-extraction mode), so it is not covered by an existing
-report — filed generically as
-[klayout-tools#1911](https://github.com/2AMLogic/klayout-tools/issues/1911).
+6 remaining mismatches trace to one thing: three of `cdac_array__cdac_array`'s
+own separately-declared pins (`TOP_N`, `TOP_P`, `VREFN`) get resolved onto
+**one** synthesized net, which additionally absorbs the (already
+legitimately dual-labelled, see the connectivity table's `TOP_N`/`TOP_P`
+rows) `VINN`/`VINP` net — `TOP_N|TOP_P|VINN|VINP|VREFN`, one composite label
+where five should exist. `klt extract`'s own `warnings[]` output names this
+directly: *"1 --abstract-cells instance(s) resolved two or more of their
+separately declared pins onto the same net: ... pins TOP_N, TOP_P, VREFN ->
+net '...' ... this ... is also the signature of a pin-to-net binding
+fault"*.
 
-Until #1911 is understood/fixed, this repo has no way to independently
+**Update (2026-09-19): the original diagnosis above was wrong.** The
+original recording of this section attributed the collapse to
+`cdac_array__cdac_array`'s 4th schematic port (a body/bulk tie with no
+drawn label, resolved only through the sky130 deck's global-net fallback)
+being silently dropped (23 resolved pins, not the reference's 24), and
+filed that as klayout-tools#1911. #1911 got an upstream fix (merged as
+commit `ad3f836`/PR #1934, not yet released as of this update) that indeed
+closes a real bug — but a **different** one: #1934's own PR description
+traces it to a black-boxed cell's *erased nwell/tap geometry* silently
+reclassifying a substrate tie *elsewhere in the design*, through the deck's
+whole-layout body-identity classification pass. That is a cross-instance,
+classification-side effect, and it is not what this section's 6 mismatches
+trace to.
+
+An ablation matrix (`layout/sar-adc-top/bin/probe-abstract-cells.py`,
+committed alongside this update; results in each record's own
+`abstract-probe.<klt-version>.summary.json`) re-measured the collapse
+directly against the fix's own targets and found neither one changes it:
+
+- Supplying `cdac_array`'s missing 4th port with a drawn tie (so the macro
+  now resolves all 24 of its schematic pins, not 23 — the exact condition
+  #1911's original diagnosis says should matter) leaves the composite net
+  **byte-for-byte unchanged**.
+- Stripping `cdac_array`'s own nwell/tap geometry (the exact geometry
+  #1934's classification-pass fix reasons about) also leaves the composite
+  net **unchanged**.
+- Turning `--pin-source-cells` off changes nothing either (this mechanism
+  was never about declared-pin sourcing).
+- Abstracting a *different* macro (`sar_sequencer`/`seln_inverters`
+  together, `cdac_array` left flat) reproduces only the design's own
+  legitimate `TOP_N|VINN`/`TOP_P|VINP` dual-label pair — the same pair a
+  fully flat (no `--abstract-cells` at all) extraction already reports —
+  and nothing more.
+
+So the currently-cited blocker rationale ("wait for a klayout-tools release
+containing #1934") does not actually apply here: once released, #1934 will
+not change this section's 6 mismatches, because the mechanism it fixes is
+not the one producing them. Filed the corrected diagnosis generically as
+[klayout-tools#2142](https://github.com/2AMLogic/klayout-tools/issues/2142)
+(closes-relationship to #1911/#1934 noted there as "related, different
+mechanism" rather than superseding — #1911/#1934 is a real, separate fix
+that this repo has no reason to distrust on its own terms).
+
+Until #2142 is understood/fixed, this repo has no way to independently
 confirm the 6 remaining mismatches are the cosmetic label artefact they
 appear to be, rather than a real connectivity defect the corrupted names
 happen to mask — so, per CLAUDE.md's "Verification is the product" (no
@@ -1027,10 +1395,69 @@ claim without a testbench this repo can actually audit), this shape is
 **recorded here as a measurement, not adopted**: `run-flow.sh` keeps using
 the already-audited 98-mismatch `combine_devices: true` /
 `flatten_reference: true` whole-request compare above as its signoff
-attempt. Once #1911 is resolved upstream, re-measure this shape first —
-if the 6 mismatches resolve to genuinely benign net-naming artefacts (or
-disappear once the underlying pin-drop is fixed), this is the shortest
+attempt. Once #2142 is resolved upstream, re-run
+`bin/probe-abstract-cells.py` first — if the composite net resolves to
+exactly the 3 pins it should split back into, this is still the shortest
 path to a full LVS match this issue has found so far.
+
+**Update (2026-09-23): re-measured on `klayout-tools==0.6.0`. #2147 does
+not resolve the collapse, and the actual mechanism is now located.**
+klayout-tools v0.6.0 (PyPI, 2026-09-22) is the first release containing
+#2147 (commit `3cc085c`; `gh api .../compare/v0.6.0...3cc085c` reports
+ahead_by 0). #2147 fixed two real probe-layer defects: a pin's probe layer
+was tracked per pin rather than per access point, and nwell/tap could act
+as a fallback answer. Its reproduced signature, though, is a macro's pins
+collapsing onto a **parent power strap**. The probe re-run on
+record `20260923-131726-fa1e0af`
+(`abstract-probe.klt-0.6.0.summary.json`) reproduces this repo's collapse
+**byte for byte** on 0.6.0, in all four `cdac_array`-abstracted variants.
+Only the warning text changed.
+
+The collapse is a merge of the parent's own nets, not a pin-binding
+fault. In the extracted top circuit, `TOP_N|VINN`, `TOP_P|VINP` and `VREFN`,
+three separate nets in the flat extraction, become one net, and the black
+box's pins then correctly bind to it. The flat netlist shows how that can
+happen: exactly one unit cap connects `VREFN` to `TOP_N|VINN`, and exactly
+one connects `VREFN` to `TOP_P|VINP`. Shorting every cap's top plate to its
+bottom plate merges precisely those three nets and leaves `VREFP` alone,
+which is exactly the observed shape. Reading klt 0.6.0's
+`extract_abstract.py`/`extract.py` explains it:
+`_abstract_cell_mask_layers()` erases every connectivity layer that is not
+contact/metal/via/label, which includes the MiM top plate (`capm`). But the
+deck's top-plate-via exclusion (#364/#1388) is scoped to
+`bottom_plate.interacting(top_plate)`, so it becomes empty once `capm` is
+gone. Every one of the 1024 via3 top-plate vias then reads as an ordinary
+met3→met4 via. The probe's new `cdac-no-capm-via` ablation confirms it: on
+a variant GDS with **only** those 1024 interior via3-on-capm shapes deleted,
+the composite net splits back into exactly the legitimate `TOP_N|VINN` /
+`TOP_P|VINP` pair, net count goes 425 → 427, and the tied-pin warning
+disappears. Filed generically as
+[klayout-tools#2396](https://github.com/2AMLogic/klayout-tools/issues/2396).
+
+**What would remain once #2396 is fixed (diagnostic, not signoff).** Re-running
+the 2026-09-15 hollow-reference compare
+(`reports/20260915-234004-76f48b9/abstract-cells-experiment.reference-hollow.spice`,
+`options.flatten_reference: false`) against a three-cell abstraction of
+that via3-stripped variant, after `restore-cap-device-class.py`, gives **2
+mismatches** (down from 6). Devices are 35/35/35 and pins 19/19. Both
+remaining entries are the `cdac_array` instance: a `topology` entry plus
+one unmatched layout net. The instance line shows why. The black box's
+`VDD` pin binds to a single-terminal net `$283` that appears nowhere else,
+and not to the routed `VDD`. `cdac_array.VDD` is a well-labelled pin
+whose only drawn route to the parent is #165's tap→licon→li1→mcon→met1
+landing (one `tap` shape in the well). Abstraction erases `tap`
+(klayout-tools#2082 restores the well itself, not the tap), so that route
+is severed. Filed generically as
+[klayout-tools#2398](https://github.com/2AMLogic/klayout-tools/issues/2398).
+Stacking the probe's `cdac-tied` substrate-tie variant on top as well gives
+3 mismatches (the tie's own `vsubs` pin becomes a second isolated net for
+the same reason), so that is not a route to a match either. `vsubs`
+still needs `--abstract-cell-lef` or a reference-side decision. None of these
+modified-GDS numbers is signoff evidence: this repo does not edit
+already-verified sub-block geometry to pass a compare.
+The unmodified-GDS `--abstract-cells` shape stays **not adopted**, for the
+same reason as before. `run-flow.sh`'s signoff attempt stays the whole-request
+compare.
 
 ## Remaining work (tracked against #103)
 
@@ -1070,8 +1497,21 @@ path to a full LVS match this issue has found so far.
       superseding the now-closed klayout-tools#1552), and (2) a newly
       surfaced capacitor device-class round-trip regression
       (klayout-tools#1876) — neither is fixable by this repo alone.
-- [ ] Once klayout-tools#1878/#1876 (or an equivalent workaround) resolve:
-      confirm an actual `match` verdict, and revisit whether `klt pex` (now
+- [x] `layout/requirements.txt` bumped to `klayout-tools==0.6.0` (2026-09-23,
+      the first release carrying #2147/`3cc085c`). Re-measured: whole-request
+      compare unchanged (98), `--abstract-cells` collapse unchanged, mechanism
+      located (see "Update (2026-09-23)" above).
+- [ ] **Blocked on klayout-tools#2396** (MiM top-plate short inside an
+      `--abstract-cells` black box) **and klayout-tools#2398** (well-tap
+      erasure cutting off `cdac_array.VDD`) for the `--abstract-cells` path.
+      Once both ship in a release, re-run `bin/probe-abstract-cells.py`
+      and the hollow-reference compare on the unmodified GDS. If that
+      reaches `match`, promote it into `run-flow.sh` as the signoff shape.
+      Separately, klayout-tools#2397 decides when
+      `bin/restore-cap-device-class.py` can retire. `capclass.json`'s
+      `noop: true` can no longer be the trigger, because #1876 was fixed on
+      the reader side.
+- [ ] Once an actual `match` verdict is reached, revisit whether `klt pex` (now
       implemented, unlike the tooling gap #103's own body anticipated) is
       usable for T1 item 7's post-layout verification — not attempted this
       increment, since `klt pex` presumes a device/net correspondence to
@@ -1098,7 +1538,12 @@ remain tool-blocked, as of this record:
   0.5.0 additionally introduced (klayout-tools#1876) no longer contributes:
   `bin/restore-cap-device-class.py` neutralises it locally and
   self-retires once it is fixed upstream (98 mismatches / 412 matched nets,
-  back to the pre-regression breakdown).
+  back to the pre-regression breakdown). **Re-checked 2026-09-23 on
+  `klayout-tools==0.6.0`: still checkable, still not clean.** The
+  whole-request compare is unchanged at 98. The `--abstract-cells` path,
+  the only shape that has come close, is now blocked on klayout-tools#2396
+  and #2398, not #2142. #2142 is fixed in 0.6.0 but was not this collapse's
+  cause.
 - **Item 7 (post-layout verification via `klt pex`)**: **not attempted,
   blocked on item 4.** `klt pex` is implemented upstream (unlike the tooling
   gap #103's own body anticipated when filed), but extracting parasitics
@@ -1114,7 +1559,7 @@ repo's own sub-block flows (#99–#102) and this issue's own new
 `layout/seln-inverters/` macro — no third-party layout, floorplan, or netlist
 was consulted.
 
-### `klt` build required: resolved — `klayout-tools==0.5.0`, no override needed
+### `klt` build required: resolved — pinned `klayout-tools` (0.5.0, now 0.6.0), no override needed
 
 `reports/20260907-110058-a546200/` through `reports/20260908-072857-80df05e/`
 were generated with a `klt` build from klayout-tools commit
@@ -1147,3 +1592,17 @@ flow anything: #1876 is neutralised locally by
 `bin/restore-cap-device-class.py` (see "Update: klayout-tools#1876 worked
 around locally" above), which needs no `klt` build change and retires itself
 when the upstream fix lands.
+
+`klayout-tools` v0.6.0 published to PyPI 2026-09-22T18:52:45Z and contains
+`3cc085c` (#2147) and #1921 (#1876's reader-side fix).
+`layout/requirements.txt` has pinned `klayout-tools==0.6.0` since
+2026-09-23; `reports/20260923-131726-fa1e0af/` onward is generated from that
+pin. That record, and the trivial-cell regression record
+`layout/trivial-cell/reports/20260923-131710-fa1e0af/`, were produced inside
+a Linux container (`python:3.14-bookworm`, the same pinned `klt`/`klayout`
+wheels, the same pinned sky130A PDK mounted read-only, and the worktree
+bind-mounted so `run-flow.sh` ran unmodified). The macOS host this
+session ran on was failing library validation for every native Python
+extension (`library load mig callout failed`), a host fault rather than a
+flow change. The DRC/extract/LVS verdicts match the macOS-generated 0.5.0
+records field for field wherever the tool behavior did not change.

@@ -26,6 +26,76 @@ lives next to `layout/sar-sequencer/` etc. rather than inside any of them.
 | `klt drc --deck sky130` | **CLEAN**, 0 violations |
 | `klt lvs` | **match**, 18/18 devices, 20/20 nets, 20/20 pins (9 informational "ambiguous pairing resolved structurally" warnings, one per symmetric `SELn<i>` net — expected for nine electrically-identical, independently-driven inverters, not a real defect) |
 
+## WITHDRAWN 2026-09-24 (issue #363): the "33 metal minimum-area violations" were a measurement artifact
+
+**This section used to be a dated waiver over 33 sub-minimum-area shapes,
+issued under issue #333 on 2026-09-19. It is withdrawn, not reaffirmed: there
+were never 33 violations, and there are none now.** The count came from
+`docs/chipalooza/measure_metal_min_area.py`, which issue #363 found
+**under-merges** the region it measures.
+
+The script built its region as `kdb.Region(); region.insert(iter);
+region.merge()`. `Region#insert(RecursiveShapeIterator)` carries each shape's
+GDS user properties across, and KLayout's merge is **property-aware**: two
+overlapping polygons whose property sets differ are never merged into one. The
+DEF→GDS merge attaches a net-name property (`[[1, "VPWR"]]`, `[[1, "VGND"]]`)
+to every PDN strap and none to the via cells sitting inside it, so a covered
+via pad stayed its own polygon and was counted as a standalone violation. The
+15 `m5.4` "violations" were the clearest case of all: each is a 1.42 × 1.60 um
+via5 patch lying wholly **inside** a 1.6 um-wide met5 PDN strap that is itself
+far above the 4.0 um² floor.
+
+Re-measured 2026-09-24 against the same
+`reports/20260917-180644-527ec73/seln_inverters.gds`, same pinned toolchain
+(`klayout 0.30.12`, open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b`),
+with the corrected construction:
+
+| Rule | Threshold | Merged polygons (pre-#363 → corrected) | Shapes below (pre-#363 → corrected) |
+| --- | --- | --- | --- |
+| `m1.6` | 0.083 um² | 130 → 60 | 18 → **0** |
+| `m2.6` | 0.0676 um² | 216 → 102 | 0 → **0** |
+| `m3.6` | 0.240 um² | 180 → 90 | 0 → **0** |
+| `m4.4a` | 0.240 um² | 111 → 6 | 0 → **0** |
+| `m5.4` | 4.0 um² | 20 → 5 | 15 → **0** |
+
+**33 → 0.** `layout/sar-sequencer/`, the other `klt place-and-route` flow,
+carried the companion waiver over 112 shapes on the same premise; it corrects
+to 0 the same way, and 112 + 33 was exactly the composed top level's
+now-retracted 145.
+
+**Independent corroboration.** This flow's own record predates the
+`klayout-tools==0.6.0` bump, so its `drc.json` carries no `area`-kind rule. But
+this block's GDS is composed verbatim into `layout/sar-adc-top/`, whose current
+record `20260924-190817-f3622fc` was minted on the 0.6.0 pin and whose
+`drc.json` `coverage.rules_checked` **does** include `met1.area.1` …
+`met5.area.1` (52 rules, status `clean`, **0 violations**) over geometry that
+contains this block's. Two independent measurements of the same five foundry
+rules now agree at zero; before #363 they disagreed, and the hand-rolled one
+was wrong.
+
+The regression is pinned by `sim/tests/test_measure_metal_min_area.py` and run
+in CI's headless `checks` job, so this count cannot silently drift again.
+
+**Upstream filings, now superseded.** `2AMLogic/klayout-tools#2139` was filed
+(generically, per CLAUDE.md's friction protocol) as the live tool gap for this
+"defect", with a generic 48-stage inverter-chain reproducer whose 99 sub-
+`m1.6`/`m5.4` shapes were counted with the same under-merging measurement; its
+premise does not survive #363, and it should be read as withdrawn on this
+repo's side. That withdrawal is now on the public record: under issue #373 the
+reproducer was re-run from its own quoted inputs and measured both ways on the
+identical output GDS — 76 shapes below threshold under the pre-#363
+construction, **0** under the corrected one — and a correction comment was
+posted on `#2139`, which had already been closed upstream (`COMPLETED`,
+2026-09-19) by merged PR `2AMLogic/klayout-tools#2144`. See
+`layout/sar-sequencer/README.md`'s copy of this block for the per-rule numbers
+and for why no revert of `#2144` was asked for. The earlier `#2072`/`#2075`
+pair is split: `#2075`'s `klt
+gen-compose` landing-pad fix addressed a real, separate defect (issue #326's 17
+shapes were genuinely isolated pads) and stands, while the place-and-route half
+does not. `#1989` — merged and, as of the 0.6.0 pin, **released** — is what
+gives `klt drc` its own `met*.area.1` rules and therefore the corroboration
+above.
+
 ## Which `klt` flow, and why
 
 `klt place-and-route` (OpenROAD), the same choice `layout/sar-sequencer/`

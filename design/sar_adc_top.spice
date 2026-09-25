@@ -13,13 +13,13 @@
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
 *   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
 *   design/sar_sequencer.sch: sha256:9d76813255ceb43a7f2dcde6cba04d6396cb9e7767c3e0f2cce178b5db849999
-*   design/sar_adc_top.sch: sha256:c8c766293e63cc5c87c833c9e98f7ab5b0debc839ce908067f2e968b9444e9a8
+*   design/sar_adc_top.sch: sha256:cc88452bd87e9186d60d195322b55fb07cd0eb6ffb81393e523a4a86a674eb2b
 *
 * Every device instance below is a ratified flavour (nfet_01v8/pfet_01v8/
 * cap_mim_m3_1 sky130_fd_pr primitives, or sky130_fd_sc_hd standard
 * cells) -- verified mechanically by this script, not by review alone.
 ** sch_path: design/sar_adc_top.sch
-**.subckt sar_adc_top VINP VINN VDD VREFP VREFN VCM CLK RST_B DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 BUSY
+**.subckt sar_adc_top VINP VINN VDD VREFP VREFN VCM CLK RST_B DOUT9 DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 BUSY VPWR VGND GND
 *.ipin VINP
 *.ipin VINN
 *.ipin VDD
@@ -39,6 +39,9 @@
 *.opin DOUT1
 *.opin DOUT0
 *.opin BUSY
+*.ipin VPWR
+*.ipin VGND
+*.ipin GND
 xfe VINP VINN SAMPLE_INT VCM VDD TOP_P TOP_N BPREF_P_NC BPREF_N_NC sampling_frontend
 xcdac VREFP VREFN VDD GND SELn0 SELp0 SELn1 SELp1 SELn2 SELp2 SELn3 SELp3 SELn4 SELp4 TOP_N TOP_P SELp5 SELn5 SELp6 SELn6 SELn7 SELp7 SELn8 SELp8 cdac_array
 xcmp VDD CLKN TOP_P TOP_N COMP_OUT OUTN_NC comparator

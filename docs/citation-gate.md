@@ -466,6 +466,182 @@ Status field is `proposed -- this record ratifies nothing ...`; only the first
 word is the status, and the prose after it is the record's own argument, not a
 fact this document restates.
 
+### Check 16 -- ERC supply readout parity (`check_erc_readout`)
+
+The first check to reach a `layout/` flow's **second** evidence tree. A flow's
+DRC/LVS verdicts live under `reports/<stamp>/`; its `klt erc` supply verdicts
+are minted by a separate run (`layout/<block>/bin/run-erc.sh`) into
+`erc-reports/<stamp>/`, with a `LATEST` pointer of its own. `EVIDENCE_PATH_RE`
+matches `records|reports` only, so **every ERC citation in this document is
+invisible to checks 3 and 4** -- `layout/sar-adc-top/erc-reports/<stamp>/` is
+not a `reports/` path, and no amount of citing it made it one. The proposal
+carries an ERC readout in two places (Section 3's `klt erc` bullet and Section
+7 item 9's per-supply island table), and until this check landed both were
+hand-transcribed prose that nothing would have caught going stale -- the exact
+drift class this gate exists for, one directory over from where it was already
+guarding.
+
+That the drift is real here rather than theoretical is on the record: item 9
+was written on 2026-09-23 against a failing run (`VPWR`/`VGND` at two islands
+each), and had to be re-transcribed by hand on 2026-09-24 when issue #355's
+supply-rail tie moved every number in it. The same item's own text carries the
+hand check twice -- "the ERC record is no longer a revision behind" was a
+qualification a pass added, then a later pass discharged, both by re-reading.
+
+So item 9 states the readout once, in a fixed sentence form, and this check
+recomputes all of it from the record `erc-reports/LATEST` actually resolves
+to: `erc_status`, the finding count, the per-supply island counts, the layout
+record the run graded, and what that flow's `reports/LATEST` names today.
+`--stats` prints the live sentence for every `layout/` flow that has an ERC
+record, so a fix is a paste.
+
+**Island counts are reconstructed, not read.** `klt erc` reports an island
+count only on the *failing* side, inside the `erc.unconnected_net` finding
+that carries the islands themselves; a passing supply produces no per-net
+number at all. So the "1" this readout states against each supply comes from
+the record's own `erc_coverage.checked` list -- a net that was graded and drew
+no finding resolved to exactly one island. Doing it this way is what lets the
+readout gate a **passing** table, which is the state this document is actually
+in and the one that goes stale silently. Coverage is graded in both directions
+like checks 8, 10, 14 and 15: a supply that disappears from the spec's
+`nets[]` (the cheapest way to make a failing continuity table read clean) is a
+finding, not a shorter table.
+
+**The verdict word is the ERC record's own "Staleness rule" made mechanical.**
+Each ERC record states that a newer `reports/<id>/` makes it stale, not wrong.
+This check evaluates that: `current` requires both that the ERC run graded the
+record `reports/LATEST` names **and** that the stream's sha256 still equals
+the `provenance.input.content_hash` `run-erc.sh` pinned at run time. The hash
+half is the load-bearing one -- a stamp comparison alone would call an ERC
+verdict current while the layout record it names had been rebuilt underneath
+it. Nothing is re-derived: the number compared against is the one the tool
+itself recorded.
+
+Anything unreadable resolves to `stale` rather than to an error: a missing
+`file` field, an absent hash, a stream this checker cannot open. That is the
+conservative direction, and it is chosen on the same reasoning as check 14's
+fingerprint -- a false `stale` is re-checked by hand, a false `current` would
+let an ungraded layout pass as power-delivery-checked.
+
+**What this check deliberately does NOT cover**, stated so it is not read as
+more than it is. It does not grade whether item 11 is *met*: continuity is one
+half of that item, `erc.missing_tie` is the other, and that check is not
+computed at all for this block (disclosed in the record as
+`ties_disclosure.kind = "tool_limitation"`, klayout-tools#2169). A green check
+16 therefore says "the stated supply readout is the current record's own", not
+"power delivery is signed off" -- `signoff/t1-report.json` is what grades the
+item, and it reads `unmet`. Nor does it read the antenna half of the same
+report: `status: clean_partial` is a different claim about a different subject
+(klayout-tools#1994), and item 9 quotes neither.
+
+### Check 17 -- T1 sign-off readout parity (`check_t1_readout`)
+
+The first check to reach a tree that is not a `layout/` flow's at all.
+`signoff/` holds this block's `klt signoff` manifest
+(`signoff/block-manifest.json`) and the machine-graded report it renders to
+(`signoff/t1-report.json`) -- this repository's T1 verdict of record since
+issue #345 -- and no earlier check can see either: they are neither a
+`records/`/`reports/` path (checks 3 and 4) nor an `erc-reports/` one (check
+16), and until this check landed `signoff` was not even in `OWN_TOP_LEVEL`,
+so check 2 did not verify a backticked `signoff/...` path existed.
+
+**The drift shape is the one this document was already in.** Section 7 item 9
+quoted that report's *two item-11 rows* -- "moved from `no_evidence` to
+`check_failed`" -- and nothing else, by hand. A reader got the grade of the
+one item that section happened to be discussing and no indication of what the
+same report makes of the other ten; and every number in the quote would have
+gone stale silently the next time `signoff/run-signoff.sh` re-rendered the
+report. Item 10 now states the scorecard once, in a fixed sentence form, and
+this check recomputes all of it: the grader version, the met count, the item
+total, the block tier, the exact set of rows graded `check_failed`, and every
+`layout/` record the manifest cites. `--stats` prints the live sentence, so a
+fix is a paste.
+
+**Both files are read, for different reasons.** The report states the verdict;
+the manifest names the records that verdict rests on. The rendered report
+cannot serve for the second: `klt signoff` drops the citation from every item
+it grades `unmet` (an unmet row renders `citation: null`), so items 4 and 11 --
+precisely the two whose evidence *was* read -- cite nothing in the report
+itself. Walking the manifest's `evidence` tree is what lets this check see the
+`reports/` **and** `erc-reports/` records the sign-off actually rests on.
+
+**Rows are graded in both directions**, like checks 8, 10, 14, 15 and 16. A
+row that starts failing and is left out of the list is a finding; so is a
+listed row that has since started passing. Dropping a row is the cheapest way
+to make a scorecard read better than it is, and shrinking the list is not a way
+to keep it truthful.
+
+**The verdict word is the half `signoff/check_evidence_hashes.py`
+structurally cannot cover.** That script re-hashes every artefact the manifest
+cites against the file on disk -- a real freshness gate, and the one the
+grader itself cannot do (klayout-tools#2196). But a manifest pinned to a
+**superseded yet still committed** record passes it with every hash intact:
+the bytes it names are exactly the bytes on disk, and the record is simply no
+longer the one that tree's `LATEST` names. Check 17 asks that second question,
+for each cited tree, and reads `stale` if either has moved -- including when
+the manifest cites no `layout/` record at all, which is the conservative
+direction: a sign-off resting on nothing from this repository's layout trees
+cannot be *current* with them, and a green there would be vacuous.
+
+**What this check deliberately does NOT cover.** It does not re-grade the
+checklist: whether an item *should* be met is `klt signoff`'s judgement
+against its own ruleset, and re-deriving it here would be a second, divergent
+grader. It does not verify the report is what the manifest currently renders
+to either -- `signoff/run-signoff.sh --check` is that gate, and it runs in
+CI's own `signoff-check` job with the pinned grader installed. A green check
+17 says "the scorecard this document states is the committed report's own, and
+that report rests on current layout records", not "the sign-off is correct".
+
+### Check 18 -- Section 4 freshness coverage (`check_freshness_coverage`)
+
+Check 6 gates how much of the *prose* checks 4/5 cover. Nothing gated how
+much of the **table** check 3 covers, and check 3 is the load-bearing one.
+
+Check 3's own entry above ends "Flows with no `LATEST` pointer are skipped:
+there is nothing to be stale against." That is true, and it is also the
+entire uncovered set -- stated only here, in the rationale document, and
+nowhere a reader of the proposal would meet it. The proposal's own summary of
+the gate said the opposite: "every row of the table above cites the *current*
+record of each `sim/`/`layout/` flow it draws on", without qualification. Of
+the 21 (row, flow) citation pairs in Section 4 when this check landed, **7 --
+spanning six rows and four `sim/` campaigns -- were not graded at all**, and
+their cells read exactly like the graded ones. That is the same
+prose-overstates-the-gate shape the "What 'attached' excludes" paragraph
+already had to correct once for checks 4/5, one table over.
+
+**The pair, not the citation, is the unit**, because it is what check 3
+evaluates: a row naming three stamps of one flow is one verdict about one
+flow. And each uncovered flow is stated **with its record count**, which is
+what says how large its hole is. A pointerless campaign holding one record has
+no other record its row could have meant; the twelve-record one is a citation
+chosen out of a set nothing re-derives.
+
+**Graded in both directions**, like checks 8, 10, 14, 15, 16 and 17. A
+campaign that starts publishing a pointer must leave the list; a flow that
+loses its pointer, or that a newly added row starts citing, must join it.
+Shrinking the list is the cheapest way to make the gate's coverage read better
+than it is.
+
+**Why "just require every cited flow to publish a `LATEST`" is rejected** --
+recorded here so it is not re-proposed blind. It reads like the obvious fix
+and it is wrong for at least one of the flows it would apply to.
+`sim/comparator-decision` holds twelve records that are **not a supersession
+chain**: they carry three distinct claims -- input-referred noise, decision
+delay, and kickback -- and three different Section 4 rows cite three different
+records of it on purpose. There is no single "current" record of that campaign
+for a pointer to name, so minting one would not make those three rows graded;
+it would make two of them *wrongly* graded, and the fix for the resulting CI
+failure would be to re-point a correct citation at an unrelated record. The
+same shape can arise in any campaign whose records answer more than one
+question. Making the uncovered set visible is the honest gate; making it
+empty by fiat is not.
+
+**What this check deliberately does NOT cover.** It says nothing about
+whether an ungraded citation is *stale* -- it cannot, which is the point:
+that judgement is exactly what no pointer file exists to make. A green check
+18 says "the table's ungraded set is the size and membership this document
+states", not "every citation in the table is current".
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
