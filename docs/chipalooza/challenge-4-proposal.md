@@ -2511,9 +2511,11 @@ tracker already owns.
    `state_reason: not_planned`, read this pass). The closure grades that
    proposal draft's own citations, not the gap it describes: the draft
    presented the first increment as landed and pointed a Builder at
-   `layout/top-glue/bin/check-schematic-parity.py` (not in this tree) as an
-   existing precedent to copy, and the closing comment re-verified against
-   `origin/main` that it is not there. That comment says the rest in terms —
+   `layout/top-glue/bin/check-schematic-parity.py` as an existing precedent
+   to copy when it was not yet landed, and the closing comment re-verified
+   against `origin/main` that it was not there at the time — true of
+   `origin/main` still, though PR #402's own diff has since added the path.
+   That comment says the rest in terms —
    the underlying gap, the eight undrawn primitives in
    [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice), is "still
    real and still worth tracking", and a revised draft would be promotable.
@@ -2537,11 +2539,13 @@ tracker already owns.
    2026-09-25T09:30:02Z and it is back at `loom:review-requested`, so the
    mid-pass label state an earlier draft of this paragraph recorded had
    already reversed. That churn is exactly why what the absence below rests
-   on is the merge, not the label. So `layout/top-glue/` (not in this tree)
-   and `layout/halflsb-offset/` (not in this tree) are both still absent from
-   `origin/main` — `git ls-tree -r origin/main --name-only` returns neither —
-   and §3 and §4 still cite no record from either flow, because there is none
-   to cite.
+   on is the merge, not the label. So `layout/top-glue/` — present in PR
+   #402's own diff, though not yet in `origin/main` until that PR merges —
+   and `layout/halflsb-offset/` (not in this tree), which no open PR
+   currently carries, are both still absent from `origin/main` —
+   `git ls-tree -r origin/main --name-only` returns neither — and §3 and §4
+   still cite no record from either flow, because there is none to cite
+   there yet.
 
    **Nothing a number in this document depends on moves**, for the same
    reason the split itself moved none when it was recorded: the composed
