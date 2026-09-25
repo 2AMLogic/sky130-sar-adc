@@ -901,7 +901,7 @@ blanket claim:
 > (**1** point),
 > `sim/comparator-decision/records/20260925-050027-0259924.md` (**1**
 > point), `sim/enob-estimate/records/20260906-082749-7724af3.md` (no PVT
-> point set), `sim/enob-estimate/records/20260906-173830-6f04f59.md` (no
+> point set), `sim/enob-estimate/records/20260925-090023-c3a6872.md` (no
 > PVT point set),
 > `sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md`
 > (**1** point),
