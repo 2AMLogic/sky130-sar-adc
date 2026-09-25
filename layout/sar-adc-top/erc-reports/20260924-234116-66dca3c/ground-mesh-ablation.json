@@ -55,13 +55,84 @@
       "spec_content_hash": "sha256:fd4f5a93160072689b6fbc52dcce01b7eab8b68c48e6dc2fb6632500aa929946"
     }
   },
+  "third_leg_cross_check": {
+    "label": "VSS",
+    "why": "`VSS` is `cdac_array`'s own ground terminal label and is NOT a declared supply of the graded spec, so the ablation's island count above cannot see that leg. This pass re-grades the same two GDS against a scratch spec (the graded one plus a `VSS` supply entry, written to the work dir, never committed): a short between the two declared names IS the claim that drawn metal joins them, because klt erc models drawn conductor only.",
+    "spec": "erc-supply-spec.with-vss.json (scratch, in the work dir)",
+    "variants": {
+      "full": {
+        "erc_status": "violations",
+        "erc_finding_count": 1,
+        "shorted_to_supply": [
+          {
+            "rule": "erc.supply_short",
+            "description": "declared nets 'GND' and 'VSS' are electrically the same net (shorted together)"
+          }
+        ],
+        "per_net": {
+          "GND": {
+            "findings": [
+              {
+                "rule": "erc.supply_short",
+                "description": "declared nets 'GND' and 'VSS' are electrically the same net (shorted together)",
+                "islands": null
+              }
+            ]
+          }
+        },
+        "spec_content_hash": "sha256:ec75c337ed4e4e6f9a1cfa81becc127264795d1fe75d6cfff517ad0729bdfcf2"
+      },
+      "ablated": {
+        "erc_status": "violations",
+        "erc_finding_count": 1,
+        "shorted_to_supply": [],
+        "per_net": {
+          "GND": {
+            "findings": [
+              {
+                "rule": "erc.unconnected_net",
+                "description": "declared net 'GND' resolves to 2 disconnected electrical islands (expected exactly one)",
+                "islands": [
+                  {
+                    "bbox": {
+                      "left": 103495,
+                      "bottom": 86450,
+                      "right": 130115,
+                      "top": 140720
+                    },
+                    "layer": "met1",
+                    "shape_count": 13
+                  },
+                  {
+                    "bbox": {
+                      "left": 100200,
+                      "bottom": 169800,
+                      "right": 102620,
+                      "top": 197800
+                    },
+                    "layer": "met4",
+                    "shape_count": 6
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "spec_content_hash": "sha256:ec75c337ed4e4e6f9a1cfa81becc127264795d1fe75d6cfff517ad0729bdfcf2"
+      }
+    }
+  },
   "verdict": {
     "as_predicted": true,
+    "ablation_as_predicted": true,
     "full_reproduces_record_gds": true,
     "full_is_one_island": true,
     "ablated_splits": true,
     "controls_unmoved": true,
     "controls_moved": [],
-    "reading": "The mesh, not the substrate, is what joins the three analog blocks' drawn grounds: removing it (and nothing else) splits GND into more than one island under a connectivity model that sees drawn conductor only."
+    "third_leg_as_predicted": true,
+    "third_leg_shorted_to_supply_full": true,
+    "third_leg_shorted_to_supply_ablated": false,
+    "reading": "The mesh, not the substrate, is what joins the three analog blocks' drawn grounds: removing it (and nothing else) splits GND into more than one island, and stops `VSS` from being the same electrical net as GND, under a connectivity model that sees drawn conductor only."
   }
 }

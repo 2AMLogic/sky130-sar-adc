@@ -103,7 +103,7 @@ supplied by the harness (not per-block).
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
 | `BUSY` | out | digital test output | 1 | Conversion-in-progress strobe |
 | `VPWR`, `VGND` | supply | 1.8 V digital rail + its return | — (rails, not slot line items) | The **digital** supply for the two `sky130_fd_sc_hd` standard-cell macros (`sar_sequencer`, `seln_inverters`). Added to the block's interface on 2026-09-24 by issue #355 / [DR-010](../../spec/decision-records/DR-010-digital-supply-domain-partition.md): the rails are deliberately **not** tied to `VDD`/`GND` *in metal* on-die (digital switching is coincident with the comparator decision by construction, so a shared metal rail would put the standard-cell bank's switching current on the comparator's own supply), and before #355 they reached no top-level supply at all — which `klt erc` graded as a structural power-delivery failure (§3, §7 item 9). Same 1.8 V supply point as `VDD`; the star point between the two domains is off-die. `VGND` and `GND` are nevertheless **one electrical node** in bulk sky130 (see the `GND` row) |
-| `GND` | supply | analog return | — (rail, not a slot line item) | The **analog** return: the node `sampling_frontend`, `cdac_array` and `comparator` all return through. Added to the block's interface on 2026-09-24 by issue #362 / [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) — before it, `VDD` was a port and its return was not, so the block had `.GLOBAL GND` and no terminal a package could bond to. The pad is the **p-substrate node's own drawn front-side terminal, not a second node**: bulk sky130 offers no isolation, and this block's own composed extraction reports `GND` and `VGND` as one net (`GND|VGND`, 692 devices). Two ground pads on one node is the intended shape — two bond points, so the digital return travels off-die rather than through the die's substrate past the comparator |
+| `GND` | supply | analog return | — (rail, not a slot line item) | The **analog** return: the node `sampling_frontend`, `cdac_array` and `comparator` all return through. Added to the block's interface on 2026-09-24 by issue #362 / [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) — before it, `VDD` was a port and its return was not, so the block had `.GLOBAL GND` and no terminal a package could bond to. The pad is the **p-substrate node's own drawn front-side terminal, not a second node**: bulk sky130 offers no isolation, and this block's own composed extraction reports `GND` and `VGND` as one net (`GND|VGND|VSS`, 692 devices — the third label is `cdac_array`'s own ground terminal, drawn by issue #377 / [DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md), joining the same node, not a new one). Two ground pads on one node is the intended shape — two bond points, so the digital return travels off-die rather than through the die's substrate past the comparator |
 
 **Totals against the assumed budget, machine-checked** (check 10 of the
 [citation gate](check_proposal_citations.py), added 2026-09-17): **2** of ≤24
@@ -3195,7 +3195,7 @@ tracker already owns.
      why the caveat had to be retired by changing the geometry. What DR-012
      does **not** claim: that `GND` and `VGND` are two electrical nodes. Bulk
      sky130 has no isolation between them and the composed extraction reports
-     them as one net (`GND|VGND`, 692 devices); the two pads are two bond
+     them as one net (`GND|VGND|VSS` on the current record, 692 devices); the two pads are two bond
      points on one node, which is what keeps the digital return off-die.
 
    **Does this move any §4 row? Not in verdict, but two rows' numbers move.**
@@ -3243,10 +3243,10 @@ tracker already owns.
     > **3** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `4 analog`, `4 digital`,
     > `11 analog`, `11 digital`; and its manifest cites
-    > `layout/sar-adc-top/erc-reports/LATEST` at **20260924-214731-b323061**
-    > against a pointer naming **20260924-214731-b323061**,
-    > `layout/sar-adc-top/reports/LATEST` at **20260924-214710-b323061**
-    > against a pointer naming **20260924-214710-b323061**: **current**.
+    > `layout/sar-adc-top/erc-reports/LATEST` at **20260924-234116-66dca3c**
+    > against a pointer naming **20260924-234116-66dca3c**,
+    > `layout/sar-adc-top/reports/LATEST` at **20260924-234053-66dca3c**
+    > against a pointer naming **20260924-234053-66dca3c**: **current**.
 
     Four things that readout states, each read out of the committed report
     rather than asserted here:

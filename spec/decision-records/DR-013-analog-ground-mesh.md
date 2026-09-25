@@ -58,6 +58,18 @@ This record closes it. The facts it rests on, each against a named artefact:
   the comparator-plus-pad island. `VDD`/`VPWR`/`VGND` are unmoved as controls,
   and the full variant's recomposed GDS is byte-identical (sha256) to the
   record's own, so the two runs differ by the mesh and nothing else.
+- **That island count reaches two of the three legs, so a second question is
+  asked for the third.** `cdac_array`'s terminal is labelled `VSS`, not `GND`,
+  and the graded spec does not declare `VSS` — so its orphaned island in the
+  ablated run has no declared name for `klt erc` to report, and reading "2
+  islands" as covering all three legs would be a smaller copy of the same
+  over-read. The probe therefore re-grades both GDS against a **scratch** spec
+  (the graded one plus a `VSS` supply entry, written to the work directory and
+  never committed): the full variant reports `erc.supply_short` — *"declared
+  nets 'GND' and 'VSS' are electrically the same net (shorted together)"* —
+  and the ablated variant reports no such short. Since `klt erc` models drawn
+  conductor only, that short *is* the claim that metal joins `cdac_array`'s
+  terminal to the analog ground, and it exists only while the mesh does.
 
 Not verified, and explicitly not claimed below: **no simulation in this repo
 measures ground-return impedance, substrate coupling, or the difference this
@@ -104,7 +116,12 @@ force for `layout/` from this record forward:
    an explicit failure*, because a mesh shape that touches another net's shape
    has merged `GND` with it — plus the channel and block-footprint
    constraints. `bin/probe-ground-mesh.py` is re-runnable and exits non-zero
-   if the ablation ever stops splitting.
+   if the ablation ever stops splitting, or if the third leg's `GND`/`VSS`
+   short ever stops depending on the mesh.
+   **The graded ERC spec does not declare `VSS`**, and that is deliberate:
+   the `GND`/`VSS` short is the design, so declaring it would make this
+   block's own T1 item 11 record report a defect for it. The declaration
+   lives only in the probe's scratch copy.
 7. **This record sets no numbers** and changes no row of
    `spec/target-spec.md`.
 

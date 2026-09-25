@@ -32,6 +32,35 @@ and cutting the mesh is a prediction this script can falsify:
 If the ablated run came back clean too, the mesh would be decorative and this
 script would say so.
 
+The third leg needs a second question
+-------------------------------------
+That island count covers two of the mesh's three members and not the third,
+and the difference is a naming one, not a wiring one. `comparator` and
+`sampling_frontend` both label their ground terminal `GND`, so cutting the
+mesh leaves two islands *of a declared supply* and `klt erc` reports it.
+`cdac_array`'s terminal is labelled `VSS` -- that sub-block's own schematic
+port name -- and `VSS` is not a declared supply in the graded spec, so its
+orphaned island in the ablated run has no declared name for `klt erc` to
+complain about. Reading the 2-island finding as covering all three legs
+would be a smaller version of exactly the over-read this script exists to
+prevent.
+
+So the same two GDS are graded a second time against a DIAGNOSTIC spec --
+the graded one plus a `VSS` supply entry, built here in the work directory
+and never committed -- which turns the third leg into a finding either way:
+
+    full layout  -> `GND` and `VSS` are ONE island (erc.supply_short)
+    mesh ablated -> no such short; `GND` splits instead
+
+A short between two declared supplies is normally a defect. Here it is the
+measurement: `klt erc` sees drawn conductor and nothing else, so "these two
+labels are the same electrical net" is a statement about metal, which is
+precisely the claim the mesh makes about `cdac_array`'s terminal. The graded
+spec deliberately does NOT declare `VSS` -- doing so would turn this block's
+own T1 item 11 record red over a short that is the design -- which is why
+this pass is a separate, scratch-spec diagnostic reported beside the
+ablation rather than a change to `erc-supply-spec.json`.
+
 What "ablated" means here
 -------------------------
 `build_layout.py --ablate-ground-mesh` re-emits the identical assembly with
@@ -57,9 +86,9 @@ Only the summary JSON is written into the record: the ablated GDS and its own
 ERC envelope are regenerable from the record's committed inputs by re-running
 this script, and go to a scratch work directory (`--work-dir`).
 
-Exit codes: 0 if the ablation behaved as predicted (full clean, ablated
-split), 3 if it did not (the verdict this script exists to be able to
-report), 1 if it could not run.
+Exit codes: 0 if BOTH predictions held (full clean / ablated split, and the
+third-leg short present only in the full variant), 3 if either did not (the
+verdict this script exists to be able to report), 1 if it could not run.
 """
 
 from __future__ import annotations
@@ -86,6 +115,12 @@ BLOCK_GDS = (
 #: `VPWR`, `VGND`) are reported too, as controls: the ablation must not move
 #: them, and a run where it does is measuring something other than the mesh.
 SUPPLY = "GND"
+
+#: `cdac_array`'s own ground terminal label -- its schematic port name, NOT a
+#: declared supply of the graded spec. See this module's docstring, "The third
+#: leg needs a second question", for why the diagnostic pass declares it and
+#: the graded spec must not.
+THIRD_LEG_LABEL = "VSS"
 
 
 def _sha256(path: pathlib.Path) -> str:
@@ -180,6 +215,52 @@ def supply_islands(report: dict) -> dict[str, dict]:
     return out
 
 
+def diagnostic_spec(spec: pathlib.Path, work: pathlib.Path) -> pathlib.Path:
+    """The graded ERC spec plus a `VSS` supply entry, written to the work dir.
+
+    NEVER written back into `layout/sar-adc-top/`: declaring `VSS` in the
+    graded spec would make this block's own T1 item 11 record report an
+    `erc.supply_short` for a short that IS the design. See this module's
+    docstring, "The third leg needs a second question".
+    """
+    doc = json.loads(spec.read_text())
+    doc["nets"] = list(doc.get("nets", [])) + [
+        {
+            "name": THIRD_LEG_LABEL,
+            "kind": "supply",
+            "_comment": [
+                "DIAGNOSTIC ONLY -- added by bin/probe-ground-mesh.py in a",
+                "scratch copy of layout/sar-adc-top/erc-supply-spec.json, so",
+                "that `cdac_array`'s own ground terminal label becomes a",
+                "declared name klt erc can report on. The graded spec does",
+                "not declare it and must not.",
+            ],
+        }
+    ]
+    out = work / "erc-supply-spec.with-vss.json"
+    out.write_text(json.dumps(doc, indent=2) + "\n")
+    return out
+
+
+def shorted_to_supply(report: dict, label: str) -> list[dict]:
+    """`erc.supply_short` findings naming BOTH `SUPPLY` and `label`.
+
+    `klt erc` files a short under one of the two nets it names, so match on
+    the description text rather than on the finding's own `net` key, and
+    record the finding verbatim either way.
+    """
+    hits = []
+    for finding in report.get("erc_findings", []):
+        if finding.get("rule") != "erc.supply_short":
+            continue
+        description = str(finding.get("description", ""))
+        if f"'{SUPPLY}'" in description and f"'{label}'" in description:
+            hits.append(
+                {"rule": finding.get("rule"), "description": description}
+            )
+    return hits
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("record", type=pathlib.Path, help="a reports/<record-id> directory")
@@ -199,10 +280,21 @@ def main() -> int:
     work = args.work_dir or pathlib.Path(tempfile.mkdtemp(prefix="ground-mesh-probe-"))
     work.mkdir(parents=True, exist_ok=True)
 
+    diag_spec = diagnostic_spec(spec, work)
+
     variants = {}
+    third_leg = {}
     for variant, ablate in (("full", False), ("ablated", True)):
         gds = compose(klt, work, record, bin_dir / "build_layout.py", variant, ablate)
         report = erc(klt, gds, spec, work / f"erc.{variant}.json")
+        diag = erc(klt, gds, diag_spec, work / f"erc.{variant}.with-vss.json")
+        third_leg[variant] = {
+            "erc_status": diag.get("erc_status"),
+            "erc_finding_count": diag.get("erc_finding_count"),
+            "shorted_to_supply": shorted_to_supply(diag, THIRD_LEG_LABEL),
+            "per_net": supply_islands(diag),
+            "spec_content_hash": diag.get("provenance", {}).get("spec", {}).get("content_hash"),
+        }
         variants[variant] = {
             # File NAME only, never this machine's scratch path: this summary
             # is committed evidence, and an absolute path from one worktree
@@ -235,6 +327,14 @@ def main() -> int:
         reproduces_record and not full_findings and ablated_findings and not controls_moved
     )
 
+    # The third leg: `cdac_array`'s terminal is joined to `GND` by drawn metal
+    # in the full variant and by nothing in the ablated one. Both halves are
+    # required -- a short present in BOTH variants would mean something other
+    # than the mesh joins them, which is the failure this half exists to catch.
+    third_leg_shorted_full = bool(third_leg["full"]["shorted_to_supply"])
+    third_leg_shorted_ablated = bool(third_leg["ablated"]["shorted_to_supply"])
+    third_leg_as_predicted = third_leg_shorted_full and not third_leg_shorted_ablated
+
     summary = {
         "schema": "sky130-sar-adc.ground-mesh-ablation/1",
         "issue": 377,
@@ -243,19 +343,40 @@ def main() -> int:
         "klt": subprocess.run([klt, "--version"], capture_output=True, text=True).stdout.strip(),
         "supply_under_test": SUPPLY,
         "variants": variants,
+        "third_leg_cross_check": {
+            "label": THIRD_LEG_LABEL,
+            "why": (
+                f"`{THIRD_LEG_LABEL}` is `cdac_array`'s own ground terminal "
+                "label and is NOT a declared supply of the graded spec, so "
+                "the ablation's island count above cannot see that leg. This "
+                "pass re-grades the same two GDS against a scratch spec (the "
+                f"graded one plus a `{THIRD_LEG_LABEL}` supply entry, written "
+                "to the work dir, never committed): a short between the two "
+                "declared names IS the claim that drawn metal joins them, "
+                "because klt erc models drawn conductor only."
+            ),
+            "spec": "erc-supply-spec.with-vss.json (scratch, in the work dir)",
+            "variants": third_leg,
+        },
         "verdict": {
-            "as_predicted": as_predicted,
+            "as_predicted": as_predicted and third_leg_as_predicted,
+            "ablation_as_predicted": as_predicted,
             "full_reproduces_record_gds": reproduces_record,
             "full_is_one_island": not full_findings,
             "ablated_splits": bool(ablated_findings),
             "controls_unmoved": not controls_moved,
             "controls_moved": controls_moved,
+            "third_leg_as_predicted": third_leg_as_predicted,
+            "third_leg_shorted_to_supply_full": third_leg_shorted_full,
+            "third_leg_shorted_to_supply_ablated": third_leg_shorted_ablated,
             "reading": (
                 "The mesh, not the substrate, is what joins the three analog "
                 "blocks' drawn grounds: removing it (and nothing else) splits "
-                f"{SUPPLY} into more than one island under a connectivity "
-                "model that sees drawn conductor only."
-                if as_predicted
+                f"{SUPPLY} into more than one island, and stops "
+                f"`{THIRD_LEG_LABEL}` from being the same electrical net as "
+                f"{SUPPLY}, under a connectivity model that sees drawn "
+                "conductor only."
+                if (as_predicted and third_leg_as_predicted)
                 else (
                     "NOT as predicted -- read the per-variant findings before "
                     "quoting this flow's clean ERC verdict as evidence about "
@@ -268,7 +389,7 @@ def main() -> int:
     args.out.write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary["verdict"], indent=2))
     print(f"probe-ground-mesh.py: wrote {args.out} (work dir {work})")
-    return 0 if as_predicted else 3
+    return 0 if (as_predicted and third_leg_as_predicted) else 3
 
 
 if __name__ == "__main__":

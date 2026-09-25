@@ -23,7 +23,8 @@ that issue #377 has meshed three sub-block ground terminals into it. A
 connectivity model that reports the same integer across all three states is not
 evidence about any of them. The evidence for the mesh is the **ablation** in
 "Cross-checks" below — remove the mesh and nothing else, and this same model
-splits `GND` into two islands.
+splits `GND` into two islands and stops reporting `cdac_array`'s `VSS`
+terminal as the same electrical net as `GND`.
 
 This **supersedes** `erc-reports/20260924-214731-b323061/` (issue #362), which
 graded an older GDS. That record is not wrong and is not edited: it graded the
@@ -113,12 +114,35 @@ byte-identical spec, same `klt` build:
 
 The two islands the ablated run names are `sampling_frontend`'s own ground
 (met1, bbox 103.495 … 130.115 × 86.45 … 140.72, 13 shapes) and the comparator's
-plus its pad (met4, 100.2 … 102.62 × 169.8 … 197.8, 6 shapes) — exactly the two
-the mesh joins. `VDD`, `VPWR` and `VGND` are unmoved between the variants, as
-controls, and the full variant's recomposed GDS is **byte-identical (sha256)**
-to the one this record grades, so the two runs differ by the mesh and nothing
-else. Summary committed beside this file as `ground-mesh-ablation.json`; the
-script exits 3 rather than 0 if the prediction ever fails.
+plus its pad (met4, 100.2 … 102.62 × 169.8 … 197.8, 6 shapes). `VDD`, `VPWR`
+and `VGND` are unmoved between the variants, as controls, and the full
+variant's recomposed GDS is **byte-identical (sha256)** to the one this record
+grades, so the two runs differ by the mesh and nothing else.
+
+That reaches **two of the mesh's three legs**, and the missing one is a naming
+artefact rather than a wiring doubt: `cdac_array`'s terminal is labelled `VSS`
+— its own schematic port name — and the graded spec above does not declare
+`VSS`, so that leg's orphaned island in the ablated run carries no declared
+name for `klt erc` to report on. Rather than let the 2-island finding stand in
+for three legs, the probe re-grades the same two GDS against a **scratch** spec
+(this one plus a `VSS` supply entry, written to the probe's work directory,
+never committed):
+
+| Variant | scratch spec (`+VSS`, diagnostic only) |
+|---|---|
+| full (as shipped) | `erc.supply_short` — *"declared nets 'GND' and 'VSS' are electrically the same net (shorted together)"* |
+| mesh ablated | no `GND`/`VSS` short; `GND` splits into 2 islands instead |
+
+A short between two declared supplies is ordinarily a defect. Here it is the
+measurement: this model sees drawn conductor and nothing else, so "`GND` and
+`VSS` are one electrical net" is a statement about *metal*, and it holds only
+while the mesh is drawn. **The graded spec deliberately does not declare
+`VSS`** — that short is the design, and declaring it would make this block's
+own item 11 record report a defect for it.
+
+Summary of both passes committed beside this file as
+`ground-mesh-ablation.json`; the script exits 3 rather than 0 if **either**
+prediction ever fails.
 
 **2. The stackup ablations from #362 still behave, and now say more.** Same
 method as the superseded record's (drop one entry from the spec's own `vias[]`

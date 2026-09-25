@@ -1049,7 +1049,10 @@ def analog_ground_pad_without_mesh(c: Canvas) -> None:
     own `GND`/`VSS` terminals; those are unchanged by this flag).
 
     Driven by `bin/probe-ground-mesh.py`, which runs both variants through the
-    same `klt erc` spec and writes the comparison into the ERC record.
+    graded `klt erc` spec -- and then through a scratch copy of it that also
+    declares `cdac_array`'s own `VSS` label, so the third mesh leg (whose
+    terminal is not named `GND` and so cannot show up in `GND`'s island count)
+    is measured too -- and writes both comparisons into the ERC record.
     """
     gx, gy, native = global_pin("comparator", "GND")
     assert native == MET1

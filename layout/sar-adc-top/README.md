@@ -617,9 +617,10 @@ added by issue #355 and `GND` by issue #362; before #355 this list read
 (19/19/19) had always reported correctly.
 
 The layout side still promotes **21** of those 22, and that is not a missing
-pin: `GND` and `VGND` are one extracted net (`GND|VGND` — the shared
-p-substrate), so one promoted layout pin answers both reference ports, which
-the LVS `matched=22` count records. See DR-012.
+pin: `GND` and `VGND` are one extracted net (`GND|VGND|VSS` since issue #377
+joined `cdac_array`'s own `VSS` label to it — the shared p-substrate), so one
+promoted layout pin answers both reference ports, which the LVS `matched=22`
+count records. See DR-012 and DR-013.
 
 ## GND / VPWR / VGND: not a routing job (mostly)
 
@@ -901,14 +902,40 @@ and grades both against the byte-identical ERC supply spec:
 
 The two islands the ablated run names are `sampling_frontend`'s own ground
 (met1, bbox 103.495 … 130.115 × 86.45 … 140.72) and the comparator's plus its
-pad (met4, 100.2 … 102.62 × 169.8 … 197.8) — i.e. exactly the two the mesh
-joins. `VDD`, `VPWR` and `VGND` are unmoved between the variants, as controls,
-and the full variant's recomposed GDS is **byte-identical** (sha256) to the
-record's own — so the two runs differ by the mesh and nothing else. The
-summary is committed at
+pad (met4, 100.2 … 102.62 × 169.8 … 197.8). `VDD`, `VPWR` and `VGND` are
+unmoved between the variants, as controls, and the full variant's recomposed
+GDS is **byte-identical** (sha256) to the record's own — so the two runs
+differ by the mesh and nothing else.
+
+**That island count covers two of the mesh's three legs, not three**, and the
+gap is a naming one rather than a wiring one: `comparator` and
+`sampling_frontend` both label their terminal `GND`, while `cdac_array`'s is
+labelled `VSS` (its own schematic port name), which the graded ERC spec does
+not declare — so that leg's orphaned island in the ablated run has no declared
+name for `klt erc` to report. Reading the 2-island finding as covering all
+three would be a smaller copy of exactly the over-read this whole section
+exists to retire, so the probe asks a second question. It re-grades the same
+two GDS against a **scratch** spec — the graded one plus a `VSS` supply entry,
+written to the work directory and never committed:
+
+| Variant | graded spec | scratch spec (`+VSS`, diagnostic) |
+|---|---|---|
+| full (as shipped) | `clean` | `erc.supply_short`: *"declared nets 'GND' and 'VSS' are electrically the same net (shorted together)"* |
+| mesh ablated | `GND` splits into 2 islands | no `GND`/`VSS` short — `GND` splits instead |
+
+A short between two declared supplies is normally a defect; here it is the
+measurement. `klt erc` sees drawn conductor and nothing else, so "these two
+labels are one electrical net" is a statement about *metal* — which is
+precisely what the `cdac_array` leg claims, and it is present only when the
+mesh is. The graded spec deliberately does **not** declare `VSS`: doing so
+would turn this block's own T1 item 11 record red over a short that is the
+design.
+
+The summary of both passes is committed at
 `erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`; the script
-exits 3 if the prediction fails, so a mesh that stopped mattering would turn
-the check red rather than quietly passing.
+exits 3 if **either** prediction fails, so a mesh that stopped mattering —
+in whole or in that one leg — would turn the check red rather than quietly
+passing.
 
 The earlier, narrower ablation from #362 — cut `via3` and the pad separates
 from `comparator`'s ground — is in the previous ERC record's own
