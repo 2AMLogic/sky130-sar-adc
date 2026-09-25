@@ -247,6 +247,18 @@ class FixtureTree:
         if latest:
             (report.parent / "LATEST").write_text(stamp + "\n")
 
+    def add_renderer(self, path: str, body: str):
+        """A record-minting entry point under `layout/`, for check 30.
+
+        Written as a path relative to the fixture root rather than keyed by
+        flow, because the entry point a record tree resolves to is exactly
+        what the check derives -- a helper that placed it for the caller
+        would hide the half of the behaviour under test.
+        """
+        entry = self.root / path
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        entry.write_text(body)
+
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
 
@@ -5113,6 +5125,225 @@ class TestAbsentPaths(unittest.TestCase):
             all(checker._own_tree_path(path) for _line, _offset, path in claims),
             claims,
         )
+
+
+class TestRendererCensus(unittest.TestCase):
+    """Check 30: the stated record-renderer census is this tree's own.
+
+    Check 26 counts records, which are append-only -- so its census is a
+    lagging indicator that reads identically whether a shortfall is live or
+    is already-fixed history awaiting a re-run. The document explained which
+    in prose, and the prose went false the day PR #420 (issue #407) fixed the
+    four renderers that printed only a PDK variant name, with every number
+    beside it still true. This check grades that explanation.
+    """
+
+    # The two real renderer shapes, reduced to the line each is recognised by.
+    INLINE = 'pdk_info = json.loads(run([klt, "pdk", "find", "--format", "json"]))\n'
+    DELEGATING = "from _record_common import build_argparser, render_pnr_drc_lvs_record\n"
+    VARIANT_ONLY = 'a(f"- PDK variant: {args.pdk_variant}")\n'
+    SHARED_PINNED = "def resolve_pdk_commit(klt, pdk_variant):\n    ...\n"
+    SHARED_UNPINNED = "def render_pnr_drc_lvs_record(title, args):\n    ...\n"
+
+    # Check 30 is anchored on the document stating check 26's record census,
+    # so every fixture body carries one. The numbers in it are never graded
+    # here (that is check 26's own test); only its presence is.
+    ANCHOR = (
+        "> **1** of the **1** records under `sim/*/records/` name both an "
+        "`ngspice` version and a 40-hex `open_pdks` commit, while of the "
+        "**1** records under `layout/*/reports/` and `layout/*/erc-reports/` "
+        "**1** name a `klt` version and **1** name the `open_pdks` commit\n"
+    )
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_renderer_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 8. Licensing and EDA flow\n\n"
+        if anchor:
+            text += self.ANCHOR
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, entry_points, pinning, naming, unpinned=()) -> str:
+        return checker.renderer_sentence(
+            {
+                "entry_points": entry_points,
+                "pinning": pinning,
+                "naming": naming,
+                "unpinned": list(unpinned),
+            }
+        )
+
+    def test_a_truthful_all_pinned_census_passes(self):
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer("layout/comparator/bin/render-record.py", self.INLINE)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_a_renderer_that_prints_only_the_variant_name_is_counted_as_such(self):
+        """The real pre-#420 shortfall's shape."""
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer("layout/comparator/bin/render-record.py", self.INLINE)
+        self.tree.add_layout_record("sar-adc-top", "l2")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(2, 1, 1, ("layout/sar-adc-top/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_a_drifted_count_is_reported(self):
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        misses = self.check(self.body(self.sentence(1, 1, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("pinning=1" in miss and "pinning=0" in miss for miss in misses))
+
+    def test_a_drifted_offender_list_is_reported_even_when_the_counts_agree(self):
+        """The failure a count-only census would absorb: right total, wrong file."""
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        misses = self.check(
+            self.body(self.sentence(1, 0, 1, ("layout/cdac-array/bin/render-record.py",)))
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("layout/cdac-array/bin/render-record.py", misses[0])
+        self.assertIn("layout/sar-adc-top/bin/render-record.py", misses[0])
+
+    def test_delegation_to_the_shared_record_builder_is_followed(self):
+        """sar-sequencer/seln-inverters are a title and a shared call, nothing else."""
+        self.tree.add_layout_record("sar-sequencer", "l1")
+        self.tree.add_renderer("layout/sar-sequencer/bin/render-record.py", self.DELEGATING)
+        self.tree.add_renderer("layout/bin/_record_common.py", self.SHARED_PINNED)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_delegation_to_an_unpinned_shared_builder_is_counted_as_unpinned(self):
+        """Following the delegation must be able to report a miss, not only a hit."""
+        self.tree.add_layout_record("sar-sequencer", "l1")
+        self.tree.add_renderer("layout/sar-sequencer/bin/render-record.py", self.DELEGATING)
+        self.tree.add_renderer("layout/bin/_record_common.py", self.SHARED_UNPINNED)
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-sequencer/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_importing_the_shared_module_without_delegating_inherits_no_pin(self):
+        """`build_argparser` alone delegates no provenance and must not count."""
+        self.tree.add_layout_record("cdac-array", "l1")
+        self.tree.add_renderer(
+            "layout/cdac-array/bin/render-record.py",
+            "from _record_common import build_argparser\n" + self.VARIANT_ONLY,
+        )
+        self.tree.add_renderer("layout/bin/_record_common.py", self.SHARED_PINNED)
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/cdac-array/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_a_flow_without_its_own_renderer_falls_back_to_the_shared_one(self):
+        """`layout/trivial-cell/` has no `bin/` of its own."""
+        self.tree.add_layout_record("trivial-cell", "l1")
+        self.tree.add_renderer("layout/bin/render-record.py", self.INLINE)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_the_erc_tree_is_graded_against_its_own_driver(self):
+        """`erc-reports/record.md` is hand-written from what run-erc.sh prints."""
+        self.tree.add_erc_record("sar-adc-top", "e1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/run-erc.sh", "python3 -c 'from _record_common import "
+            "resolve_pdk_commit'\n"
+        )
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_one_renderer_minting_two_record_trees_is_counted_once(self):
+        """Entry points, not record trees: a fix is made in one place."""
+        self.tree.add_layout_record("trivial-cell", "l1")
+        self.tree.add_layout_record("cdac-array", "l2")
+        self.tree.add_renderer("layout/bin/render-record.py", self.INLINE)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_a_record_tree_with_no_entry_point_at_all_is_reported(self):
+        self.tree.add_layout_record("ghost-flow", "l1")
+        self.assertEqual(
+            self.check(
+                self.body(self.sentence(1, 0, 1, ("layout/bin/render-record.py",)))
+            ),
+            [],
+        )
+
+    def test_stating_no_renderer_census_at_all_is_reported(self):
+        """Dropping it must not be a way back to an unqualified record census."""
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states check 26's record census but not the renderer census", misses[0])
+        self.assertIn("layout/sar-adc-top/bin/render-record.py", misses[0])
+
+    def test_a_document_without_the_record_census_is_not_graded(self):
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_check_is_inert_without_a_layout_tree(self):
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer("layout/comparator/bin/render-record.py", self.INLINE)
+        self.tree.add_layout_record("sar-adc-top", "l2")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        sentence = checker.renderer_sentence(checker.renderer_census())
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_renderer_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_covers_every_record_tree_in_the_tree(self):
+        """Not vacuous: the census must span the real record trees, not a subset.
+
+        A discovery rule that silently resolved nothing would make this check
+        pass by counting zero entry points -- the same vacuity trap checks 4
+        and 6 each needed a guard for.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        trees = sorted(
+            path
+            for glob in (checker.RENDERER_REPORT_GLOB, checker.RENDERER_ERC_GLOB)
+            for path in REPO_ROOT.glob(glob)
+            if path.is_dir()
+        )
+        self.assertTrue(trees, "no layout record trees found")
+        census = checker.renderer_census()
+        self.assertGreaterEqual(census["entry_points"], 1)
+        self.assertLessEqual(census["entry_points"], len(trees))
+        self.assertEqual(census["pinning"] + census["naming"], census["entry_points"])
+        # Every entry point the census resolved is a file that exists -- the
+        # "no entry point at all" arm must be reachable but not silently live.
+        self.assertEqual(census["unpinned"], [])
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

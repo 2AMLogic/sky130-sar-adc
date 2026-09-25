@@ -58,10 +58,11 @@ row cites (the clauses check 21 compares against), the live row count
 against), the live inductor-card census of every SPICE deck under `sim/`
 (the sentence check 25 compares against) and the live toolchain/PDK
 provenance census of every `sim/` and `layout/` record (the sentence check 26
-compares against) and each document's live Section 4 corner-grid census (the
-sentence check 28 compares against) instead of checking, which is
-what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24, 25,
-26 or 28 reports a drift. Exit status:
+compares against), each document's live Section 4 corner-grid census (the
+sentence check 28 compares against) and the live record-renderer census of
+every `layout/` record tree (the sentence check 30 compares against) instead
+of checking, which is what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18,
+19, 20, 21, 24, 25, 26, 28 or 30 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -1072,6 +1073,80 @@ ABSENT_MARKER = "(not in this tree)"
 ABSENT_CLAIM_RE = re.compile(
     r"`(?P<path>[^`]*)`(?:[ \t]*\n)?[ \t]*" + re.escape(ABSENT_MARKER)
 )
+
+
+# Check 30. Check 26's census is a LAGGING indicator, and on its own it cannot
+# tell a reader which of two very different worlds they are in. `layout/`
+# records are append-only evidence (`CLAUDE.md`), so "34 of the 67 name the
+# `open_pdks` commit" reads identically whether the flows still mint records
+# without the pin, or whether every flow was fixed this morning and the 33
+# shortfall is history no re-run has yet retired. Section 8 answered that by
+# naming the cause in prose -- "four of the eight `layout/` flows' record
+# renderers resolve the commit ... and four print only the variant name" --
+# and prose is what rots: PR #420 (issue #407, merged 2026-09-25) fixed the
+# other four and the ERC flow, and nothing in this gate could see that the
+# explanation had gone false while every number beside it stayed true. This
+# check grades the LEADING indicator instead, in both directions, so neither
+# an entry point that starts resolving the commit nor one that stops can drift
+# away from the sentence that explains check 26's numbers.
+RENDERER_REPORT_GLOB = "layout/*/reports"
+RENDERER_ERC_GLOB = "layout/*/erc-reports"
+
+# Which file mints a record tree's `record.md`, by the convention this
+# repository follows uniformly: a flow-local renderer where the flow has one,
+# the shared renderer otherwise (`layout/trivial-cell/` has no `bin/` of its
+# own), and the ERC driver for an `erc-reports/` tree -- that record.md is
+# written by hand from what the script prints, so the script is what has to
+# resolve the pin. A record tree whose entry point does not exist is counted
+# as not resolving and named in the census, rather than skipped: an
+# unattributable record tree is exactly the gap this check is for.
+RENDERER_LOCAL = "layout/{flow}/bin/render-record.py"
+RENDERER_SHARED = "layout/bin/render-record.py"
+RENDERER_ERC = "layout/{flow}/bin/run-erc.sh"
+
+# The shared module a renderer may delegate the whole record body to.
+RENDERER_SHARED_MODULE = "layout/bin/_record_common.py"
+
+# That delegation, matched explicitly rather than by "mentions the shared
+# module": a renderer importing only `build_argparser` from it delegates no
+# provenance at all and must not inherit the shared module's pin.
+RENDERER_DELEGATE_RE = re.compile(r"\brender_pnr_drc_lvs_record\b")
+
+# What counts as resolving the commit: a `klt pdk find` invocation (in either
+# the argv-list or the shell spelling) or a call to the shared helper that
+# wraps one. Deliberately NOT a search for the word "pdk" -- every one of
+# these files names a PDK variant, and printing only the variant name is the
+# defect.
+RENDERER_PIN_RE = re.compile(
+    r"\bresolve_pdk_commit\b|[\"']pdk[\"']\s*,\s*[\"']find[\"']|\bpdk find\b"
+)
+
+# What the census renders when every entry point resolves the commit -- i.e.
+# when the shortfall check 26 counts is purely historical. Spelled out rather
+# than left as an empty clause, `CORNER_GRID_NONE`'s reason: the true case has
+# to be a statement too, or it reads as a sentence someone forgot to finish.
+# The em dash is the document's own punctuation, not this module's: the
+# sentence is quoted verbatim into Section 8, and `--stats` has to print
+# exactly what the document must contain for the paste to pass.
+RENDERER_CENSUS_NONE = "**none** — every entry point resolves it"
+
+_RENDERER_ENTRY = r"`layout/[A-Za-z0-9._/-]+`"
+
+# The census sentence check 30 grades. Deliberately free of the phrase
+# "current `…/LATEST`", for check 17's reason: spelling it that way would
+# enrol this sentence in checks 4/6's pointer-claim census, where it is not a
+# pointer claim.
+RENDERER_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<entry_points>\d+)\*\* record-minting entry points under "
+    r"`layout/`, \*\*(?P<pinning>\d+)\*\* resolve the `open_pdks` commit "
+    r"before writing a record and \*\*(?P<naming>\d+)\*\* do not: "
+    r"(?P<offenders>"
+    + re.escape(RENDERER_CENSUS_NONE)
+    + r"|(?:" + _RENDERER_ENTRY + r"(?:, )?)+)"
+)
+
+# One entry point inside that sentence's exception clause.
+RENDERER_ENTRY_RE = re.compile(r"`(?P<entry>layout/[A-Za-z0-9._/-]+)`")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -4425,6 +4500,116 @@ def check_absent_paths(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _renderer_entry_point(tree: Path) -> str:
+    """The repo-relative path that mints `record.md` under this record tree."""
+    flow = tree.parent.name
+    if tree.name == "erc-reports":
+        return RENDERER_ERC.format(flow=flow)
+    local = RENDERER_LOCAL.format(flow=flow)
+    return local if (REPO_ROOT / local).is_file() else RENDERER_SHARED
+
+
+def renderer_census() -> dict:
+    """How many of this tree's record-minting entry points resolve the PDK pin.
+
+    The leading indicator behind `provenance_census`'s lagging one. Counted
+    over entry points rather than over record trees, because that is the unit
+    a fix is made in: one renderer minting two trees is one place to change,
+    and would otherwise be double-counted on both sides of the census.
+    """
+    shared_module = REPO_ROOT / RENDERER_SHARED_MODULE
+    shared_text = shared_module.read_text() if shared_module.is_file() else ""
+
+    entry_points: dict[str, bool] = {}
+    trees = sorted(
+        path
+        for glob in (RENDERER_REPORT_GLOB, RENDERER_ERC_GLOB)
+        for path in REPO_ROOT.glob(glob)
+        if path.is_dir()
+    )
+    for tree in trees:
+        entry = _renderer_entry_point(tree)
+        if entry in entry_points:
+            continue
+        path = REPO_ROOT / entry
+        text = path.read_text() if path.is_file() else ""
+        closure = text + (shared_text if RENDERER_DELEGATE_RE.search(text) else "")
+        entry_points[entry] = bool(RENDERER_PIN_RE.search(closure))
+
+    unpinned = sorted(entry for entry, pins in entry_points.items() if not pins)
+    return {
+        "entry_points": len(entry_points),
+        "pinning": len(entry_points) - len(unpinned),
+        "naming": len(unpinned),
+        "unpinned": unpinned,
+    }
+
+
+def renderer_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `RENDERER_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-30 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26 and 28.
+    """
+    offenders = (
+        RENDERER_CENSUS_NONE
+        if not census["unpinned"]
+        else ", ".join(f"`{entry}`" for entry in census["unpinned"])
+    )
+    return (
+        f"of the **{census['entry_points']}** record-minting entry points under "
+        f"`layout/`, **{census['pinning']}** resolve the `open_pdks` commit "
+        f"before writing a record and **{census['naming']}** do not: {offenders}"
+    )
+
+
+def check_renderer_census(doc: Path, text: str) -> list[str]:
+    """Check 30: the stated record-renderer census is this tree's own."""
+    if not (REPO_ROOT / "layout").is_dir():
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    if not PROVENANCE_CENSUS_RE.search(collapsed):
+        # A document that does not state check 26's record census states
+        # nothing this one qualifies, and is not made to.
+        return []
+    actual = renderer_census()
+    stated = list(RENDERER_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: states check 26's record census but not the "
+            f"renderer census that explains it -- records are append-only, so "
+            f"the record count alone cannot say whether a shortfall is live "
+            f"or already-fixed history awaiting a re-run. State it "
+            f"(`{renderer_sentence(actual)}` today), so the explanation is "
+            f"graded rather than asserted"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("entry_points", "pinning", "naming"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the renderer census says {field}={claimed}, but "
+                f"`layout/` reports {field}={actual[field]} -- restate it from "
+                f"`python3 docs/chipalooza/check_proposal_citations.py "
+                f"--stats`, and if an entry point now resolves the commit, say "
+                f"so rather than only moving the number"
+            )
+        listed = sorted(set(RENDERER_ENTRY_RE.findall(match.group("offenders"))))
+        if listed != actual["unpinned"]:
+            misses.append(
+                f"{where}: the renderer census names "
+                f"{', '.join(f'`{entry}`' for entry in listed) or 'no entry point'} "
+                f"as resolving no `open_pdks` commit, but `layout/` reports "
+                f"{', '.join(f'`{entry}`' for entry in actual['unpinned']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong entry "
+                f"point sends a reader to the wrong file to fix it"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -4456,6 +4641,7 @@ def check_document(doc: Path) -> list[str]:
         + check_label_claim_section(doc, text)
         + check_corner_grid_census(doc, text)
         + check_absent_paths(doc, text)
+        + check_renderer_census(doc, text)
     )
 
 
@@ -4649,6 +4835,13 @@ def main(argv: list[str]) -> int:
                     f"sim/ + layout/:   {flow}/ mints records naming no "
                     f"`open_pdks` commit: {short} of {total} (issue #407)"
                 )
+        # And the leading indicator behind that lagging one, which check 30
+        # grades: not how many records name the commit, but how many of the
+        # entry points that mint them resolve it at all. The two move at
+        # different times -- this one on the day a renderer is fixed, the one
+        # above only as each flow re-runs -- which is why both are stated.
+        if (REPO_ROOT / "layout").is_dir():
+            print(f"layout/: {renderer_sentence(renderer_census())}")
         return 0
 
     misses: list[str] = []

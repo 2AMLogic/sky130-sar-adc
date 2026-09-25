@@ -3924,18 +3924,38 @@ and is not claimed to be met.
   The `sim/` half is uniform because `sim/run_corners.py --check-env`
   resolves and enforces the pin before any corner runs (`sim/toolchain.json`,
   `sim/pdk.json`), and a drift is fatal there by default. The `layout/` half
-  is not, for two measured reasons: four of the eight `layout/` flows' record
-  renderers resolve the commit (`klt pdk find`) and four print only the
-  variant *name*, which is not a pin; and `klt`'s own provenance stamps no
-  PDK at all for the invocations these flows use — `provenance.pdk` is `null`
-  in the `--deck sky130`-invoked `drc.json`/`lvs.json`/`extract.json`, and
-  `{"source": "built-in", "version": null}` in the ERC report. So the DRC and
-  LVS verdicts Section 4's layout rows rest on record *which rule deck* ran
-  (`deck.content_hash`, itself gated by `layout/bin/check_drc_evidence.py`)
-  but not which PDK commit — `layout/sar-adc-top/` and `layout/cdac-array/`
-  among them. **Tracked as issue #407.** It moves no Section 4 verdict and no
-  verdict above is graded as though it were closed; what it costs is
-  reproducibility strength on the layout side, stated here rather than
-  overstated. Historical records are append-only and are not re-minted
-  (`CLAUDE.md`) — closing #407 means the *next* record carries the commit,
-  and this census moves with it.
+  was not, for two measured reasons. The first was **renderer divergence**:
+  four of the eight `layout/` flows' record renderers resolved the commit
+  (`klt pdk find`) and four printed only the variant *name*, which is not a
+  pin — `layout/sar-adc-top/` and `layout/cdac-array/` among them. That half
+  was tracked as issue #407 and **closed by PR #420 on 2026-09-25**, which
+  added `resolve_pdk_commit()` to `layout/bin/_record_common.py` and applied
+  it to the four flow renderers and to the ERC driver
+  (`layout/sar-adc-top/bin/run-erc.sh`). The counted statement of where that
+  leaves the tree, graded in both directions by check 30 of the
+  [citation gate](check_proposal_citations.py):
+
+  > of the **9** record-minting entry points under `layout/`, **9** resolve
+  > the `open_pdks` commit before writing a record and **0** do not:
+  > **none** — every entry point resolves it.
+
+  The second reason is unchanged and is not #407's to close: **`klt`'s own
+  provenance stamps no PDK at all** for the invocations these flows use —
+  `provenance.pdk` is `null` in the `--deck sky130`-invoked
+  `drc.json`/`lvs.json`/`extract.json`, and
+  `{"source": "built-in", "version": null}` in the ERC report — a property
+  of how these flows invoke `klt` rather than of any one record, re-confirmed
+  against this tree's own artefacts when #420 landed. So the pin a record
+  minted from here on carries is one the *renderer* resolved independently,
+  not one the tool stamped; the DRC and LVS verdicts Section 4's layout rows
+  rest on still record *which rule deck* ran (`deck.content_hash`, itself
+  gated by `layout/bin/check_drc_evidence.py`) on their own.
+
+  **The two censuses above are deliberately not the same number, and moved at
+  different times.** Records are append-only and are not re-minted
+  (`CLAUDE.md`), so #420 could not and did not change any record already in
+  the tree: the **34 of 67** figure is a statement about history, and each
+  flow's share of it retires only as that flow next re-runs. Until then the
+  record census stays where it is while the renderer census reads 9 of 9 —
+  which is precisely why both are stated. Neither moves a Section 4 verdict,
+  and no verdict above is graded as though any of this were otherwise.
