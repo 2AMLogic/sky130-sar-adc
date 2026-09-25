@@ -179,6 +179,17 @@ toolchain — the cache is a restart mechanism, never a path by which a stale
 number reaches an append-only record — and each record marks which of its runs
 were reused rather than presenting them as fresh.
 
+The open_pdks commit the gate uses is the **verified** one —
+`pdk.resolved_commit_verified()`, the commit volare encodes into the install
+path — not the display string records print. A non-volare install is only a
+*warning* in `--check-env`, and for every such install the display string is the
+same constant (`<pin> (unverified -- non-volare layout)`), so gating on it would
+make two genuinely different hand-installed model libraries look identical to
+the cache. A host that cannot verify its own open_pdks commit, or cannot report
+its ngspice version, therefore neither stores nor reuses: it simulates every
+time. Unverifiable provenance is a cache **miss**, never a match on a
+placeholder.
+
 This matters most for the deferred work in
 [#409](https://github.com/2AMLogic/sky130-sar-adc/issues/409): the ratified
 nine-point grid is 36–45 transients of this size, which is many hours of

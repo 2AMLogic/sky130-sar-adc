@@ -577,23 +577,52 @@ def assemble_deck(
 #
 # The integrity rule: a cached log may be reused ONLY if it provably belongs to
 # the same deck on the same toolchain. The sidecar therefore records the deck's
-# own sha256, the resolved open_pdks commit and the ngspice version, and any
+# own sha256, the *verified* open_pdks commit and the ngspice version, and any
 # mismatch re-simulates rather than reusing. That makes the cache a restart
 # mechanism, never a way for a stale number to reach a record: a record built
 # from reused logs is byte-identical to one built by running them back to back,
 # and it says which of its runs were reused.
+#
+# "Provably" is load-bearing, so an identity field this host cannot establish is
+# not a field it may match on -- see _cache_identity() -- and the cache declines
+# to store or reuse anything at all rather than gate on a placeholder that two
+# different installs would both produce.
 
 
 def _cache_key(point_id: str) -> str:
     return point_id.replace("@", "__")
 
 
-def _cache_identity(deck: str, pdk_info: pdk.PdkInfo) -> dict:
+def _cache_identity(deck: str, pdk_info: pdk.PdkInfo) -> dict | None:
+    """The fields a cached log must match to be reusable, or None when this
+    host cannot establish one of them.
+
+    `pdk.resolved_commit_verified()`, deliberately, and NOT
+    `pdk.resolved_commit()`: the latter is a *display* string whose own
+    docstring forbids treating it as proof of the install's provenance,
+    because for any non-volare install it falls back to the expected pin
+    annotated "(unverified -- non-volare layout)". `toolchain.check_env()`
+    treats a non-volare install as a warning rather than a failure, so that
+    fallback is reachable in a real run -- and it is a *constant*: two
+    genuinely different hand-installed model libraries produce the identical
+    string, so gating on it would let the cache hand back a log simulated
+    against library A for a run against library B. That is exactly the stale
+    number this gate exists to keep out of an append-only record.
+
+    The ngspice version gets the same treatment: "unknown" == "unknown" is not
+    a match, it is two hosts that both failed to answer. When either value is
+    unknowable there is no identity to gate on, so callers refuse rather than
+    matching on a placeholder.
+    """
+    open_pdks_commit = pdk.resolved_commit_verified(pdk_info)
+    ngspice_version = toolchain._ngspice_version()
+    if open_pdks_commit is None or ngspice_version is None:
+        return None
     return {
         "deck_sha256": evidence.sha256_text(deck),
-        "open_pdks_commit": pdk.resolved_commit(pdk_info),
+        "open_pdks_commit": open_pdks_commit,
         "pdk_variant": pdk_info.variant,
-        "ngspice": toolchain._ngspice_version() or "unknown",
+        "ngspice": ngspice_version,
     }
 
 
@@ -613,6 +642,14 @@ def load_cached_run(
     except (OSError, json.JSONDecodeError):
         return None
     want = _cache_identity(deck, pdk_info)
+    if want is None:
+        print(
+            f"  cached log for {point_id} ignored: this host cannot verify the "
+            "open_pdks commit or the ngspice version, so no stored log is provably "
+            "this deck's on this toolchain -- re-simulating",
+            flush=True,
+        )
+        return None
     for field, value in want.items():
         if meta.get(field) != value:
             print(
@@ -621,7 +658,19 @@ def load_cached_run(
                 flush=True,
             )
             return None
-    return log_path.read_text(), float(meta.get("wall_s", 0.0))
+    # A sidecar with no usable wall_s is malformed, not a run that took 0 s:
+    # reporting 0 would land in the record's wall-clock table as `0` and
+    # `0.00x`. Same disposition as every other unreadable field -- re-simulate.
+    try:
+        wall_s = float(meta["wall_s"])
+    except (KeyError, TypeError, ValueError):
+        print(
+            f"  cached log for {point_id} ignored: sidecar has no usable wall_s "
+            f"({meta.get('wall_s')!r}) -- re-simulating",
+            flush=True,
+        )
+        return None
+    return log_path.read_text(), wall_s
 
 
 def store_cached_run(
@@ -634,10 +683,19 @@ def store_cached_run(
 ) -> None:
     if log_cache is None:
         return
+    meta = _cache_identity(deck, pdk_info)
+    if meta is None:
+        # Nothing to write a gate against: a log stored without a verifiable
+        # identity could only ever be reused by weakening the gate later.
+        print(
+            f"  not caching {point_id}: this host cannot verify the open_pdks "
+            "commit or the ngspice version, so the log has no provable identity",
+            flush=True,
+        )
+        return
     log_cache.mkdir(parents=True, exist_ok=True)
     key = _cache_key(point_id)
     (log_cache / f"{key}.log").write_text(log_text)
-    meta = _cache_identity(deck, pdk_info)
     meta["wall_s"] = wall_s
     meta["point_id"] = point_id
     (log_cache / f"{key}.json").write_text(json.dumps(meta, indent=2) + "\n")
@@ -1105,13 +1163,15 @@ def write_record(
         a(
             "Rows marked **log reused from cache** were not re-simulated for this "
             "record: `--log-cache` found a stored ngspice log whose deck sha256, "
-            "open_pdks commit and ngspice version all matched the run about to be "
-            "made, and reused it rather than repeating a tens-of-minutes transient "
-            "after an interruption. The reported wall clock is the one measured when "
-            "that run actually executed. A mismatch on any identity field "
-            "re-simulates, so a reused log is provably the log of this same deck on "
-            "this same toolchain -- the cache is a restart mechanism, not a route by "
-            "which a stale number reaches a record."
+            "volare-verified open_pdks commit and ngspice version all matched the "
+            "run about to be made, and reused it rather than repeating a "
+            "tens-of-minutes transient after an interruption. The reported wall "
+            "clock is the one measured when that run actually executed. A mismatch "
+            "on any identity field re-simulates, and a host that cannot verify its "
+            "own open_pdks commit or ngspice version never reuses at all, so a "
+            "reused log is provably the log of this same deck on this same "
+            "toolchain -- the cache is a restart mechanism, not a route by which a "
+            "stale number reaches a record."
         )
         a("")
     a(
@@ -1350,12 +1410,14 @@ def main() -> int:
         default="",
         metavar="DIR",
         help="cache each completed run's ngspice log in DIR and reuse a cached log "
-        "when its deck sha256, open_pdks commit and ngspice version all match the "
-        "run about to be made. One arm here is a tens-of-minutes whole-ADC "
-        "transient and five in sequence outlive most process supervisors, so this "
-        "makes an interrupted campaign restartable without re-simulating the arms "
-        "that already finished. A mismatch on any identity field re-simulates; the "
-        "record names which of its runs were reused.",
+        "when its deck sha256, volare-verified open_pdks commit and ngspice version "
+        "all match the run about to be made. One arm here is a tens-of-minutes "
+        "whole-ADC transient and five in sequence outlive most process supervisors, "
+        "so this makes an interrupted campaign restartable without re-simulating "
+        "the arms that already finished. A mismatch on any identity field "
+        "re-simulates, and a host that cannot verify its own open_pdks commit or "
+        "ngspice version neither stores nor reuses; the record names which of its "
+        "runs were reused.",
     )
     ap.add_argument(
         "--supersedes",
