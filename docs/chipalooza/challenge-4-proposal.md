@@ -2383,6 +2383,66 @@ tracker already owns.
    check: still `loom:operator-only`/`loom:operator-decision`, a human
    decision this document does not act on.
 
+   **Update this pass (2026-09-25): the third of PR #352's three findings,
+   klayout-tools#2397, closed too — and it closed first, before either of the
+   two the paragraph above records.** That paragraph's summary sentence reads
+   "both upstream issues are now closed-with-fix-pending-release rather than
+   open", which enumerates #2396 and #2398 only, so a reader tracking which of
+   the three findings is still open would infer #2397 is. It is not.
+   Re-checked live this pass (`gh api
+   repos/2AMLogic/klayout-tools/issues/2397`): #2397 closed
+   **2026-09-24T02:11:27Z** (`state_reason: completed`) via
+   [klayout-tools#2425](https://github.com/2AMLogic/klayout-tools/pull/2425)
+   ("fix(lvs): case-fold circuit/device names in capacitor recovery map key",
+   merged 2026-09-24T02:11:26Z, commit `2808823`) — about four hours before
+   #2396 and six before #2398, and so already closed when the
+   2026-09-24T06:38:35Z Champion escalation named that trio's two blockers as
+   the live gap. Like both of those, it is **not in a published release**: `gh
+   api repos/2AMLogic/klayout-tools/compare/v0.6.0...2808823` reports
+   `ahead_by: 43, behind_by: 0` — downstream of the `v0.6.0` tag, not an
+   ancestor of it — and PyPI still gives `0.6.0` as the latest
+   `klayout-tools` while `gh api repos/2AMLogic/klayout-tools/tags` still
+   tops out at that same tag, which is exactly what `layout/requirements.txt`
+   pins. So the release gate the paragraph above leaves open is now one gate
+   over three commits (`2808823`, `a34fd79`, `c01c50c`), not two.
+
+   **Why this third closure gets its own line rather than a footnote to the
+   other two.** #2396 and #2398 sit behind the `--abstract-cells` shape this
+   flow has measured but never adopted for signoff, so their release changes
+   nothing this document grades until someone re-runs that probe. #2397 sits
+   on the **adopted** path: it is the finding that explains why
+   klayout-tools#1876's own upstream fix (#1921's reader-side capacitor-class
+   recovery) recovers 0 of this design's 1028 capacitors, and the 2026-09-16
+   update above had already named that upstream behaviour as the one "whose
+   release would retire this repo's local
+   `layout/sar-adc-top/bin/restore-cap-device-class.py` workaround" while
+   correctly ruling out klayout-tools#1944 as the commit that would do it.
+   `2808823` is the commit that would. Until it ships, the workaround stays
+   load-bearing — and on the pinned `klayout-tools==0.6.0` that is a property
+   of this tree rather than an expectation, read this pass out of the current
+   record's own
+   [`layout/sar-adc-top/reports/20260924-234053-66dca3c/capclass.json`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/capclass.json):
+   `c_cards: 1028`, `restored: 1028`, all to
+   `sky130_fd_pr__model__cap_mim`, and `noop: false`. That last field is the
+   one #2397's filing predicted could never read `true` off a reader-side fix,
+   so its value here is the direct in-repo evidence that the local script —
+   not the pinned tool — is still what resolves this compare's capacitor class
+   at all.
+
+   **No §4 verdict moves, and nothing about #103's own state changes.**
+   "DRC/LVS-clean GDS, full ADC" stays **PARTIAL — DRC MET, PIN DECLARATION
+   MET, LVS DEVICE MATCH UNMET/BLOCKED** at 88 mismatches on the cited
+   record, and "Post-layout PVT simulation, full ADC" stays **UNMET**; per
+   this item's established practice the rows stay graded against what is
+   *released*, and nothing has been. #103 was re-read live this pass and
+   still carries `loom:operator-only` + `loom:operator-decision` — still a
+   human ruling, not a queue position and not a self-clearing release wait,
+   which is the distinction a reader skimming this item's long
+   "waiting-on-a-release" trail is most likely to lose. What this update adds
+   is only the third line of the same bookkeeping, and the correction that
+   the trio's remaining gate is a single release rather than a partly-open
+   upstream investigation.
+
    **The composed top level still implements issue #56's superseded glue
    (found 2026-09-25, this pass; a layout gap, newly stated here rather than
    newly created).** §3's machine-checked census is what surfaced it. Two
