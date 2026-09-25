@@ -771,6 +771,27 @@ class TestInvocationFooter(unittest.TestCase):
                 missing, [], f"the footer would carry {missing}, absent from {bench['cold_start']}"
             )
 
+    def test_the_documented_sweep_command_is_the_footer_the_sweep_would_write(self) -> None:
+        """The half of the gate that CAN be checked before the run, is.
+
+        `--sweep --record` is not in `sim/spec-coverage.json` yet, and cannot be:
+        `check_spec_coverage.py` fails a bench entry that lists no evidence
+        record (`bench-has-no-record`), so the entry lands with the record it
+        names. That leaves `cold-start-undocumented` -- "the indexed command must
+        appear verbatim in `documented_in`" -- checkable now against the README
+        the entry will point at, which is the difference between discovering a
+        drifted command before the hours and after them.
+        """
+        readme = (EXPERIMENT_DIR / "README.md").read_text()
+        footer = si.sweep_invocation_line(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM, "")
+        self.assertIn(
+            f"python3 {footer}",
+            readme,
+            "the README does not document the exact command the default sweep would "
+            "record in its own footer -- indexing that record would fail "
+            "cold-start-undocumented",
+        )
+
     def test_the_runner_path_is_always_present(self) -> None:
         """The spec-coverage check matches the record's runner by this token."""
         for arms in (["ideal"], [arm.name for arm in si.ARMS]):
@@ -1110,6 +1131,185 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
         expected = len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM) + 1
         self.assertEqual(len(dumped), 2 * expected, dumped)
+
+
+class TestCostProbe(unittest.TestCase):
+    """`--cost-probe` (the price of the sweep box, before it is paid).
+
+    A probe is a *truncated* run of the real deck, which makes it two things at
+    once: the only cheap way to know what the box costs and whether its
+    off-anchor points converge at all -- and, if anything ever let one reach a
+    record, a run whose `.meas` cards never fired masquerading as evidence. So
+    the tests below pin the truncation itself and the refusals that keep a
+    probe's log out of both the record path and the restart cache.
+    """
+
+    def _deck(self, arm_name: str = "package") -> str:
+        """A deck-shaped string with exactly the committed fragment's `.tran`."""
+        return (
+            f"* arm={arm_name}\n"
+            ".include foo.spice\n"
+            + si.tb.FRAGMENT_PATH.read_text()
+            + ".end\n"
+        )
+
+    def test_the_truncated_deck_differs_only_in_the_tran_stop_time(self) -> None:
+        deck = self._deck()
+        sliced = si.truncate_tran(deck, 400.0)
+        before = [ln for ln in deck.splitlines() if not ln.startswith(".tran ")]
+        after = [ln for ln in sliced.splitlines() if not ln.startswith(".tran ")]
+        self.assertEqual(before, after, "a cost probe changed something besides .tran")
+        self.assertIn(".tran 0.5n 400n", sliced)
+
+    def test_the_requested_timestep_is_preserved(self) -> None:
+        """The probe measures solver work per simulated nanosecond, so changing
+        the requested step would change the very thing being priced."""
+        step = si.RE_TRAN_CARD.findall(self._deck())[0][0]
+        self.assertEqual(si.RE_TRAN_CARD.findall(si.truncate_tran(self._deck(), 400.0))[0][0], step)
+
+    def test_a_probe_must_be_shorter_than_the_run_it_prices(self) -> None:
+        stop_ns = si.fragment_tran_stop_ns()
+        self.assertIsNotNone(stop_ns)
+        for slice_ns in (stop_ns, stop_ns + 1.0, 0.0, -1.0):
+            with self.subTest(slice_ns=slice_ns):
+                with self.assertRaises(RuntimeError):
+                    si.truncate_tran(self._deck(), slice_ns)
+
+    def test_an_ambiguous_deck_is_refused_rather_than_guessed(self) -> None:
+        for deck in (self._deck() + ".tran 0.5n 100n\n", "* no tran here\n.end\n"):
+            with self.subTest(deck=deck[:20]):
+                with self.assertRaises(RuntimeError):
+                    si.truncate_tran(deck, 400.0)
+
+    def test_the_fragment_stop_time_is_read_from_the_fragment(self) -> None:
+        """Not restated in the runner: a probe's bound must follow the stimulus
+        it prices rather than a constant that can drift from it."""
+        self.assertAlmostEqual(si.fragment_tran_stop_ns(), 6283.3333, places=3)
+        self.assertIn(f"{si.fragment_tran_stop_ns():.4f}n", si.tb.FRAGMENT_PATH.read_text())
+
+    def test_spice_time_values_parse_or_decline(self) -> None:
+        self.assertAlmostEqual(si._spice_time_ns("6283.3333n"), 6283.3333, places=4)
+        self.assertAlmostEqual(si._spice_time_ns("1u"), 1000.0)
+        self.assertAlmostEqual(si._spice_time_ns("1ms"), 1e6)
+        self.assertAlmostEqual(si._spice_time_ns("2e-9"), 2.0)
+        for bad in ("", "abc", "6283x", "$(pwd)"):
+            self.assertIsNone(si._spice_time_ns(bad), bad)
+
+    def test_measurement_failures_are_not_reported_as_solver_trouble(self) -> None:
+        """A truncated run misses every `.meas` by construction. Treating that
+        as trouble would drown the one signal the probe exists to give."""
+        log = (
+            "Measurement d9_c1 FAILED\n"
+            "MIF-ERROR: no such measurement\n"
+            "Total analysis time (seconds) = 12\n"
+        )
+        self.assertEqual(si.solver_trouble_lines(log), [])
+
+    def test_solver_trouble_is_reported(self) -> None:
+        for line in (
+            "Warning: Timestep too small; time = 1.2e-09",
+            "doAnalyses: TRAN:  Timestep too small",
+            "ERROR: singular matrix: check node vdd_board",
+            "Fatal error: no convergence in dcop",
+        ):
+            with self.subTest(line=line):
+                self.assertEqual(si.solver_trouble_lines(f"ok\n{line}\nok\n"), [line])
+
+    def test_the_probe_table_ratios_against_the_anchor_point(self) -> None:
+        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        rows = [
+            {"arm": si.CONTROL_ARM, "wall_s": 50.0, "trouble": []},
+            {"arm": anchor, "wall_s": 200.0, "trouble": []},
+            {"arm": si.sweep_arm_name(10.0, si.R_SUBX_OHM), "wall_s": 100.0, "trouble": []},
+        ]
+        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        self.assertIn("NOT A MEASUREMENT", text)
+        self.assertIn("| 1.00x |", text)
+        self.assertIn("| 0.50x |", text)
+        self.assertIn("| 0.25x |", text)
+        self.assertIn(f"The anchor point is `{anchor}`", text)
+
+    def test_a_box_without_the_anchor_says_it_cannot_be_projected(self) -> None:
+        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        rows = [{"arm": si.sweep_arm_name(10.0, 3.0), "wall_s": 100.0, "trouble": []}]
+        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        self.assertIn("does not contain the anchor point", text)
+        self.assertIn("| n/a |", text)
+
+    def test_a_troubled_point_is_called_out_separately(self) -> None:
+        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        rows = [
+            {"arm": anchor, "wall_s": 200.0, "trouble": []},
+            {
+                "arm": si.sweep_arm_name(10.0, 300.0),
+                "wall_s": 9.0,
+                "trouble": ["Timestep too small"],
+            },
+        ]
+        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        self.assertIn("The solver had trouble at:", text)
+        self.assertIn("NOT known to be runnable over the full stimulus", text)
+
+    def test_the_cli_refuses_every_way_a_probe_could_become_evidence(self) -> None:
+        """A probe measures nothing, so `--record` must be impossible; and its
+        log shares a point-id with the real run of the same point, so caching it
+        would overwrite the log a restarted campaign reuses."""
+        import subprocess
+
+        for extra in (
+            ["--record"],
+            ["--log-cache", "/tmp/should-not-be-used"],
+            ["--supersedes", "20260101-000000-abcdef0"],
+        ):
+            with self.subTest(extra=extra):
+                proc = subprocess.run(
+                    [
+                        sys.executable,
+                        str(si.EXPERIMENT_DIR / "run_supply_impedance.py"),
+                        "--sweep",
+                        "--cost-probe",
+                        "400",
+                        *extra,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                self.assertEqual(proc.returncode, 2, proc.stderr)
+                self.assertIn("refused", proc.stderr)
+
+    def test_the_documented_probe_command_is_one_the_runner_accepts(self) -> None:
+        """The README quotes a probe invocation and reports numbers from it, so a
+        renamed flag must fail here rather than leave a documented command that
+        no longer runs."""
+        readme = (EXPERIMENT_DIR / "README.md").read_text()
+        match = re.search(
+            r"run_supply_impedance\.py --sweep --cost-probe (\d+(?:\.\d+)?)", readme
+        )
+        self.assertIsNotNone(match, "the README documents no --cost-probe invocation")
+        slice_ns = float(match.group(1))
+        self.assertGreater(slice_ns, 0.0)
+        self.assertLess(slice_ns, si.fragment_tran_stop_ns())
+        runner_src = (EXPERIMENT_DIR / "run_supply_impedance.py").read_text()
+        for flag in ("--cost-probe", "--sweep"):
+            self.assertIn(f'"{flag}"', runner_src)
+
+    def test_the_cli_refuses_a_probe_without_a_box_to_price(self) -> None:
+        import subprocess
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(si.EXPERIMENT_DIR / "run_supply_impedance.py"),
+                "--cost-probe",
+                "400",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("--sweep", proc.stderr)
 
 
 class TestDR012OpenItemIsRetired(unittest.TestCase):

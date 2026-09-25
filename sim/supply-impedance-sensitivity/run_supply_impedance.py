@@ -99,6 +99,16 @@ as-built `package` topology, re-run over a bounded grid of per-terminal bond
 inductance x lumped substrate-link resistance at the baseline corner, plus
 the same `ideal` control. See `SWEEP_*` below for the box and for why the
 substrate axis is `R_SUBX` rather than `R_SUB`.
+
+PRICING THE BOX BEFORE PAYING FOR IT (`--cost-probe NS`). The box is ten
+whole-ADC transients, so the first question about it is what it costs and
+whether its off-anchor points converge at all -- neither of which is knowable
+from the arm-comparison record, which contains one of the ten. `--cost-probe`
+re-runs each grid point's own deck over a TRUNCATED transient and reports only
+wall clock and solver status. It measures nothing about the DUT (the
+fragment's `.meas` cards sit outside the sliced span) and is refused with
+`--record`, so it cannot become evidence about this block -- only about what
+running the box would cost.
 """
 
 from __future__ import annotations
@@ -754,6 +764,183 @@ def assemble_deck(
         ".end",
     ]
     return "\n".join(lines) + "\n"
+
+
+# --------------------------------------------------------------------------
+# A cost probe: what the box would cost, before the box is paid for
+# --------------------------------------------------------------------------
+# The two things #409 keeps failing on are the same thing: nobody knows what a
+# deferred run costs until they have already spent it. The sweep's box is nine
+# grid points plus the control -- ten whole-ADC transients, each tens of
+# minutes -- and its expensive axis was assumed rather than measured: an
+# undecoupled bond inductance forces the transient solver's timestep down, so
+# "10x the inductance" reads like "10x the ringing", which reads like the row
+# nobody can afford.
+#
+# A cost probe is the cheap answer: the SAME assembled deck, over a truncated
+# transient. It measures nothing about the DUT -- the fragment's `.meas` cards
+# sit at conversion times outside the sliced span, so the run reports no codes
+# at all -- which is exactly why it is safe to run here and why it may never
+# mint a record. What it does establish, per grid point, is (a) wall clock for a
+# fixed simulated span, so the box's points can be priced relative to the one
+# point that has a committed full-run measurement, and (b) that the point's deck
+# assembles, parses and converges at all, which for every off-anchor point of
+# the box is otherwise unknown until the hours have been spent.
+RE_TRAN_CARD = re.compile(r"^\.tran\s+(\S+)\s+(\S+)[ \t]*$", re.MULTILINE)
+
+#: SPICE engineering suffixes for a time value, as seconds.
+_TIME_SUFFIX_S = {"": 1.0, "s": 1.0, "m": 1e-3, "u": 1e-6, "n": 1e-9, "p": 1e-12, "f": 1e-15}
+
+
+def _spice_time_ns(token: str) -> float | None:
+    """`token` as nanoseconds, or None when it is not a plain SPICE time value.
+
+    Deliberately conservative: an unrecognised form returns None and the caller
+    skips the comparison it wanted, rather than this function guessing a
+    magnitude and a probe silently being longer than the run it prices.
+    """
+    match = re.fullmatch(r"([0-9.]+(?:[eE][+-]?[0-9]+)?)\s*([a-zA-Z]*)", token.strip())
+    if not match:
+        return None
+    suffix = match.group(2).lower()
+    # ngspice accepts trailing unit noise ("6283n", "6283ns", "1ms"); the first
+    # letter carries the scale, the rest is the unit name.
+    scale = _TIME_SUFFIX_S.get(suffix) or _TIME_SUFFIX_S.get(suffix[:1] if suffix else "")
+    if scale is None:
+        return None
+    return float(match.group(1)) * scale * 1e9
+
+
+def truncate_tran(deck: str, slice_ns: float) -> str:
+    """The same deck with its transient stop time cut to `slice_ns`.
+
+    Only ever for `--cost-probe`. The timestep is left exactly as the committed
+    fragment set it, because the solver work per simulated nanosecond is what a
+    probe is measuring -- changing the requested step would change the thing
+    being priced.
+    """
+    if slice_ns <= 0.0:
+        raise RuntimeError("a cost probe's slice must be a positive number of nanoseconds")
+    cards = RE_TRAN_CARD.findall(deck)
+    if len(cards) != 1:
+        raise RuntimeError(
+            f"expected exactly one `.tran` card in the assembled deck, found {len(cards)} -- "
+            "refusing to guess which one bounds the run"
+        )
+    step, stop = cards[0]
+    stop_ns = _spice_time_ns(stop)
+    if stop_ns is not None and slice_ns >= stop_ns:
+        raise RuntimeError(
+            f"a {slice_ns:g} ns cost probe is not shorter than the {stop_ns:g} ns run it "
+            "exists to price -- run the campaign itself instead of probing it"
+        )
+    return RE_TRAN_CARD.sub(f".tran {step} {slice_ns:g}n", deck, count=1)
+
+
+def fragment_tran_stop_ns() -> float | None:
+    """The committed stimulus fragment's own transient stop time, in ns.
+
+    Read from the fragment rather than restated here, so a probe's bound stays
+    tied to the run it is pricing instead of to a constant that can drift from
+    it. None when the card cannot be parsed, in which case callers skip the
+    bound rather than inventing one.
+    """
+    cards = RE_TRAN_CARD.findall(tb.FRAGMENT_PATH.read_text())
+    if len(cards) != 1:
+        return None
+    return _spice_time_ns(cards[0][1])
+
+
+#: Log lines that mean the solver had trouble, not that a measurement failed.
+#: A probe reports these per point: for every off-anchor point of the box, this
+#: is the only evidence that the point is runnable at all before hours are
+#: committed to it. `.meas` failures are NOT here on purpose -- a truncated run
+#: is expected to miss every measurement, and treating that as trouble would
+#: make the probe's one signal useless.
+RE_SOLVER_TROUBLE = re.compile(
+    r"(?i)(fatal|aborted|singular matrix|no convergence|timestep too small|"
+    r"iteration limit reached)"
+)
+
+
+def solver_trouble_lines(log_text: str) -> list[str]:
+    return [line.strip() for line in log_text.splitlines() if RE_SOLVER_TROUBLE.search(line)]
+
+
+def run_cost_probe(
+    arms: list[Arm], slice_ns: float, scratch: Path, quiet: bool
+) -> list[dict]:
+    """Wall clock for a truncated run of each arm's own deck, at the baseline
+    corner, one simulation at a time. No measurement, no record."""
+    pdk_info = pdk.resolve()
+    dut_netlist_text = fc.dut_text()
+    process_corner, temp_c, supply_v = BASELINE_CORNER
+    rows: list[dict] = []
+    for arm in arms:
+        deck = truncate_tran(
+            assemble_deck(dut_netlist_text, pdk_info, arm, process_corner, temp_c, supply_v),
+            slice_ns,
+        )
+        t0 = time.time()
+        log_text = toolchain.run_ngspice_with_retry(
+            deck, scratch, f"cost_probe_{arm.name}", attempts=1
+        )
+        wall_s = time.time() - t0
+        trouble = solver_trouble_lines(log_text)
+        rows.append({"arm": arm.name, "wall_s": wall_s, "trouble": trouble})
+        if not quiet:
+            status = "converged" if not trouble else f"TROUBLE: {trouble[0]}"
+            print(f"  {arm.name}: {wall_s:.1f}s over {slice_ns:g} ns ({status})", flush=True)
+    return rows
+
+
+def cost_probe_lines(rows: list[dict], slice_ns: float, anchor_arm: str) -> list[str]:
+    """The probe's whole output: relative cost, and whether each point ran.
+
+    Ratios against the anchor point, not absolute seconds, are what the caller
+    can use: the anchor is the one point of the box that also has a committed
+    full-run wall clock, so `full(point) ~ full(anchor) * ratio(point)` projects
+    the box from a number this repo already recorded. Absolute seconds here are
+    a contended shared host's, and are printed only to show the ratio's basis.
+    """
+    anchor = next((r for r in rows if r["arm"] == anchor_arm), None)
+    out = [
+        f"Cost probe over a {slice_ns:g} ns slice -- NOT A MEASUREMENT of this DUT:",
+        "",
+        "| point | wall clock (s) | x the anchor point | solver |",
+        "|---|---|---|---|",
+    ]
+    for row in rows:
+        ratio = (
+            f"{row['wall_s'] / anchor['wall_s']:.2f}x"
+            if anchor and anchor["wall_s"] > 0
+            else "n/a"
+        )
+        solver = "converged" if not row["trouble"] else f"trouble: {row['trouble'][0]}"
+        out.append(f"| `{row['arm']}` | {row['wall_s']:.1f} | {ratio} | {solver} |")
+    if anchor is None:
+        out += [
+            "",
+            f"This box does not contain the anchor point `{anchor_arm}`, so its "
+            "numbers cannot be projected onto a committed full-run wall clock; they "
+            "are relative to nothing but each other.",
+        ]
+    else:
+        out += [
+            "",
+            f"The anchor point is `{anchor_arm}`. Multiply the ratio column by the "
+            "committed full-run wall clock of the arm it is card-for-card identical "
+            "to (`package`, in this campaign's arm-comparison record) to project what "
+            "the full box would cost on this host.",
+        ]
+    troubled = [row["arm"] for row in rows if row["trouble"]]
+    if troubled:
+        out += [
+            "",
+            "The solver had trouble at: " + ", ".join(f"`{name}`" for name in troubled)
+            + ". Those points are NOT known to be runnable over the full stimulus.",
+        ]
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -2310,6 +2497,18 @@ def main() -> int:
         f"{R_SUBX_OHM:g}). This is R_SUBX, the lumped GND/VGND substrate link -- "
         "NOT R_SUB, which the as-built network does not contain.",
     )
+    ap.add_argument(
+        "--cost-probe",
+        type=float,
+        default=None,
+        metavar="NS",
+        help="price the --sweep box instead of measuring it: re-run each grid "
+        "point's own deck over a TRUNCATED transient of NS nanoseconds and report "
+        "only wall clock and whether the solver converged. Measures nothing about "
+        "the DUT (the fragment's .meas cards sit outside the sliced span), so it "
+        "refuses --record and --log-cache; it exists so the box's price and "
+        "runnability are known before the hours are spent on it.",
+    )
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
     ap.add_argument(
         "--log-cache",
@@ -2401,6 +2600,53 @@ def main() -> int:
             )
             return 2
 
+    if args.cost_probe is not None:
+        if not args.sweep:
+            print(
+                "FAIL: --cost-probe prices the --sweep box; pass --sweep too. The "
+                "named arms already have measured per-run wall clock in the "
+                "campaign's arm-comparison record.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.record:
+            print(
+                "FAIL: --cost-probe --record is refused. A truncated transient "
+                "measures nothing about this DUT -- the stimulus fragment's .meas "
+                "cards sit at conversion times outside the sliced span -- so no "
+                "record may be minted from one.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.log_cache:
+            print(
+                "FAIL: --cost-probe --log-cache is refused. A probe's log is keyed "
+                "by the same point-id as the real run of that point, so caching one "
+                "would overwrite the stored log the real campaign restarts from. A "
+                "probe is minutes; it does not need to be restartable.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.supersedes:
+            print(
+                "FAIL: --cost-probe --supersedes is refused: a probe writes no "
+                "record, so it can supersede nothing.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.cost_probe <= 0.0:
+            print("FAIL: --cost-probe takes a positive number of nanoseconds", file=sys.stderr)
+            return 2
+        stimulus_ns = fragment_tran_stop_ns()
+        if stimulus_ns is not None and args.cost_probe >= stimulus_ns:
+            print(
+                f"FAIL: a {args.cost_probe:g} ns probe is not shorter than the "
+                f"{stimulus_ns:g} ns stimulus it exists to price -- run the campaign "
+                "itself instead of probing it.",
+                file=sys.stderr,
+            )
+            return 2
+
     if args.supersedes and not (
         EXPERIMENT_DIR / "records" / f"{args.supersedes}.md"
     ).is_file():
@@ -2457,6 +2703,21 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="supply-impedance-") as scratch_name:
         scratch = Path(scratch_name)
         log_cache = Path(args.log_cache).expanduser().resolve() if args.log_cache else None
+
+        if args.cost_probe is not None:
+            probe_arms = [ARMS_BY_NAME[CONTROL_ARM]] + sweep_arms(l_mults, rsubx_values)
+            print(
+                f"Pricing the R/L sweep box: {len(probe_arms)} truncated "
+                f"({args.cost_probe:g} ns) transients, one at a time. This measures "
+                "nothing about the DUT and writes no record."
+            )
+            rows = run_cost_probe(probe_arms, args.cost_probe, scratch, args.quiet)
+            print("")
+            for line in cost_probe_lines(
+                rows, args.cost_probe, sweep_arm_name(1.0, R_SUBX_OHM)
+            ):
+                print(line)
+            return 1 if any(row["trouble"] for row in rows) else 0
 
         if args.sweep:
             # The control runs FIRST (every delta is taken against it) and the
