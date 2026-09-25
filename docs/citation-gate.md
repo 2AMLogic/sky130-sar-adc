@@ -1272,6 +1272,7 @@ backwards passes here, as it does under checks 15, 16, 22, 25 and 26. And it
 grades no `layout/` citation, because a DRC/LVS verdict has no corner axis at
 all -- the sign-off-bar rows' post-layout PVT gap is §7 Item 1's subject and
 #103's, not this check's.
+
 ### Check 29 -- asserted-absent paths (`check_absent_paths`)
 
 The mirror image of check 2, and the check that makes a whole class of true
