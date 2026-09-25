@@ -68,10 +68,15 @@ class FixtureTree:
         lvs: dict | None = None,
         compose: dict | None = None,
         gds: dict[str, bytes] | None = None,
+        provenance: str = "",
     ):
         report = self.root / "layout" / block / "reports" / stamp
         report.mkdir(parents=True, exist_ok=True)
-        (report / "record.md").write_text("fixture record\n")
+        # `provenance` is the record's own "## Provenance" prose, which check
+        # 26 counts the tool versions and PDK commit out of. Empty by default,
+        # so every other check's fixtures keep the shape they were written
+        # against and a record that pins nothing stays the reachable case.
+        (report / "record.md").write_text("fixture record\n" + provenance)
         # The GDS artefacts check 14 fingerprints: for a composing flow, the
         # `<block>.gds` copies `run-flow.sh` pulled in; for a sub-block flow,
         # its own top-cell GDS. Keyed by file stem so one call can write both
@@ -103,10 +108,13 @@ class FixtureTree:
         power_terms: tuple[str, ...] = ("VDD",),
         kickback: tuple[tuple[float, float, str, str, float, str, str], ...] | None = None,
         kickback_split: bool = False,
+        provenance: str = "",
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
-        body = "fixture record\n"
+        # See `add_layout_record` for what `provenance` is and why it is empty
+        # by default.
+        body = "fixture record\n" + provenance
         if kickback is not None:
             # The `Measured value(s)` table check 21 re-derives the Kickback
             # row's figures from, in the shape
@@ -169,6 +177,7 @@ class FixtureTree:
         supplies: dict[str, int] | None = None,
         erc_status: str = "clean",
         content_hash: str | None = None,
+        provenance: str = "",
     ):
         """A `layout/<block>/erc-reports/<stamp>/erc.json` in check 16's shape.
 
@@ -187,7 +196,7 @@ class FixtureTree:
         """
         report = self.root / "layout" / block / "erc-reports" / stamp
         report.mkdir(parents=True, exist_ok=True)
-        (report / "record.md").write_text("fixture erc record\n")
+        (report / "record.md").write_text("fixture erc record\n" + provenance)
         supplies = {"VDD": 1} if supplies is None else supplies
         findings = [
             {
@@ -4443,6 +4452,152 @@ class TestGroundReturn(unittest.TestCase):
         self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
         doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
         self.assertEqual(checker.check_ground_return(doc, doc.read_text()), [])
+
+
+class TestProvenanceCensus(unittest.TestCase):
+    """Check 26: the stated toolchain/PDK provenance census is this tree's own.
+
+    Section 8's reproducibility claim speaks for the whole evidence tree at
+    once, so no pointer moves and no Section 4 number budges when it goes
+    false -- which it already had, for 33 of the 67 layout records, when this
+    check replaced the prose assertion with a census (issue #407).
+    """
+
+    ANCHOR = "Pinned by `sim/toolchain.json`.\n"
+    SIM_PINNED = "\n## Environment\n\n- PDK: sky130A @ " + "c" * 40 + "\n- ngspice: ngspice-46\n"
+    LAYOUT_PINNED = (
+        "\n## Provenance\n\n- `klt` version: klt 0.6.0\n- PDK: sky130A (open_pdks "
+        + "c" * 40
+        + ")\n"
+    )
+    LAYOUT_VARIANT_ONLY = (
+        "\n## Provenance\n\n- `klt` version: klt 0.6.0\n- PDK variant: sky130A\n"
+        "- repo commit: `" + "d" * 40 + "` (dirty)\n"
+    )
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_provenance_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 8. Licensing and EDA flow\n\n"
+        if anchor:
+            text += self.ANCHOR
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, sim_pinned, sim_records, layout_records, layout_klt, layout_pdk) -> str:
+        return checker.provenance_sentence(
+            {
+                "sim_pinned": sim_pinned,
+                "sim_records": sim_records,
+                "layout_records": layout_records,
+                "layout_klt": layout_klt,
+                "layout_pdk": layout_pdk,
+            }
+        )
+
+    def test_a_truthful_census_passes(self):
+        self.tree.add_sim_record("full-conversion-transient", "s1", provenance=self.SIM_PINNED)
+        self.tree.add_layout_record("comparator", "l1", provenance=self.LAYOUT_PINNED)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 1, 1, 1))), [])
+
+    def test_a_layout_record_that_pins_nothing_is_counted_as_such(self):
+        """The real shortfall's shape: a `klt` version, but only a variant name."""
+        self.tree.add_layout_record("comparator", "l1", provenance=self.LAYOUT_PINNED)
+        self.tree.add_layout_record("sar-adc-top", "l2", provenance=self.LAYOUT_VARIANT_ONLY)
+        self.assertEqual(self.check(self.body(self.sentence(0, 0, 2, 2, 1))), [])
+
+    def test_the_repo_commit_line_is_not_counted_as_pdk_provenance(self):
+        """`- repo commit: <40-hex>` is the hash a bare hex search miscounts."""
+        self.tree.add_layout_record("sar-adc-top", "l1", provenance=self.LAYOUT_VARIANT_ONLY)
+        misses = self.check(self.body(self.sentence(0, 0, 1, 1, 1)))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("layout_pdk=1", misses[0])
+        self.assertIn("layout_pdk=0", misses[0])
+        self.assertIn("layout/sar-adc-top/reports: 1 of 1", misses[0])
+
+    def test_a_record_stamp_beside_the_word_pdk_is_not_counted(self):
+        """The other miscount: a 7-hex stamp abbreviation prose quotes."""
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            "l1",
+            provenance="\n- `klt` version: klt 0.6.0\n- PDK deck run on 20260924-234053-66dca3c\n",
+        )
+        self.assertEqual(self.check(self.body(self.sentence(0, 0, 1, 1, 0))), [])
+
+    def test_a_sim_record_naming_no_ngspice_version_is_not_counted_as_pinned(self):
+        self.tree.add_sim_record(
+            "full-conversion-transient",
+            "s1",
+            provenance="\n- PDK: sky130A @ " + "c" * 40 + "\n- each ngspice run is one corner\n",
+        )
+        misses = self.check(self.body(self.sentence(1, 1, 0, 0, 0)))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("sim_pinned=1", misses[0])
+        self.assertIn("sim_pinned=0", misses[0])
+
+    def test_the_erc_record_tree_is_counted_too(self):
+        """`erc-reports/` is a record tree of the same kind, and pins nothing."""
+        self.tree.add_layout_record("sar-adc-top", "l1", provenance=self.LAYOUT_PINNED)
+        self.tree.add_erc_record("sar-adc-top", "e1", provenance="\n- `klt` version: klt 0.6.0\n")
+        self.assertEqual(self.check(self.body(self.sentence(0, 0, 2, 2, 1))), [])
+
+    def test_a_drifted_record_count_is_reported(self):
+        self.tree.add_sim_record("a", "s1", provenance=self.SIM_PINNED)
+        self.tree.add_sim_record("b", "s2", provenance=self.SIM_PINNED)
+        misses = self.check(self.body(self.sentence(2, 1, 0, 0, 0)))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("sim_records=1", misses[0])
+        self.assertIn("sim_records=2", misses[0])
+
+    def test_stating_no_census_at_all_is_reported(self):
+        """Deleting the numbers must not be a way back to "every record"."""
+        self.tree.add_layout_record("sar-adc-top", "l1", provenance=self.LAYOUT_VARIANT_ONLY)
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no census", misses[0])
+        self.assertIn("**0** name the `open_pdks` commit", misses[0])
+
+    def test_a_document_that_does_not_cite_the_pin_file_is_not_graded(self):
+        self.tree.add_layout_record("sar-adc-top", "l1", provenance=self.LAYOUT_VARIANT_ONLY)
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_check_is_inert_without_an_evidence_tree(self):
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.tree.add_sim_record("a", "s1", provenance=self.SIM_PINNED)
+        self.tree.add_layout_record("sar-adc-top", "l1", provenance=self.LAYOUT_VARIANT_ONLY)
+        sentence = checker.provenance_sentence(checker.provenance_census())
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_provenance_census(doc, doc.read_text()), [])
+
+    def test_the_real_layout_shortfall_is_not_vacuous(self):
+        """The finding this check was added for, asserted against the live tree.
+
+        A census that could only ever read "all of them" would be a check that
+        never fires. The gap issue #407 tracks is real today: some `layout/`
+        record names no `open_pdks` commit, and every `sim/` record does.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        census = checker.provenance_census()
+        self.assertEqual(census["sim_pinned"], census["sim_records"])
+        self.assertLess(census["layout_pdk"], census["layout_records"])
+        self.assertTrue(census["unpinned"])
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

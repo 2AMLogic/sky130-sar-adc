@@ -3649,7 +3649,37 @@ and is not claimed to be met.
   [klayout-tools](https://github.com/2AMLogic/klayout-tools/) (`klt`); the
   sky130A PDK fetched and pinned via
   [volare](https://github.com/efabless/volare)
-  (`docs/environment-setup.md`, `sim/pdk.json`). Every simulation record
-  cites its exact pinned toolchain versions (`sim/toolchain.json`), and
-  every layout record cites the `klt` version and PDK commit it ran
-  against.
+  (`docs/environment-setup.md`, `sim/pdk.json`).
+- **How far that pin actually reaches, counted rather than claimed**: a
+  brief's deliverable is evidence a third party can re-run, so this section
+  used to assert that "every simulation record cites its exact pinned
+  toolchain versions (`sim/toolchain.json`), and every layout record cites
+  the `klt` version and PDK commit it ran against." The second half of that
+  sentence was **not true when it was written**, and the census below — added
+  2026-09-25 and graded in both directions by check 26 of the
+  [citation gate](check_proposal_citations.py), whose rationale is in
+  [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
+
+  > **59** of the **59** records under `sim/*/records/` name both an
+  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **67**
+  > records under `layout/*/reports/` and `layout/*/erc-reports/` **66** name
+  > a `klt` version and **34** name the `open_pdks` commit.
+
+  The `sim/` half is uniform because `sim/run_corners.py --check-env`
+  resolves and enforces the pin before any corner runs (`sim/toolchain.json`,
+  `sim/pdk.json`), and a drift is fatal there by default. The `layout/` half
+  is not, for two measured reasons: four of the eight `layout/` flows' record
+  renderers resolve the commit (`klt pdk find`) and four print only the
+  variant *name*, which is not a pin; and `klt`'s own provenance stamps no
+  PDK at all for the invocations these flows use — `provenance.pdk` is `null`
+  in the `--deck sky130`-invoked `drc.json`/`lvs.json`/`extract.json`, and
+  `{"source": "built-in", "version": null}` in the ERC report. So the DRC and
+  LVS verdicts Section 4's layout rows rest on record *which rule deck* ran
+  (`deck.content_hash`, itself gated by `layout/bin/check_drc_evidence.py`)
+  but not which PDK commit — `layout/sar-adc-top/` and `layout/cdac-array/`
+  among them. **Tracked as issue #407.** It moves no Section 4 verdict and no
+  verdict above is graded as though it were closed; what it costs is
+  reproducibility strength on the layout side, stated here rather than
+  overstated. Historical records are append-only and are not re-minted
+  (`CLAUDE.md`) — closing #407 means the *next* record carries the commit,
+  and this census moves with it.

@@ -1057,6 +1057,70 @@ check read the *prose* around the census: a document that states the numbers
 correctly while describing their meaning backwards passes here, as it does
 under checks 15, 16 and 22.
 
+### Check 26 -- provenance census (`check_provenance_census`)
+
+Check 25 grades a claim about something this repository does *not* have. This
+one grades the claim a reader of the brief leans on hardest -- that the
+evidence above can be **re-run**: Section 8's statement of which tool
+versions and which PDK commit each record was produced under.
+
+It is a property of the whole evidence tree, like check 25's census and
+unlike every other check, so nothing else here moves when it stops being
+true. The difference is that this one had already stopped. Until 2026-09-25
+Section 8 asserted, in prose, that "every layout record cites the `klt`
+version and PDK commit it ran against". Measured against the tree that
+sentence was false for **33 of the 67** records under `layout/*/reports/` and
+`layout/*/erc-reports/`, for two independent reasons:
+
+- **Renderer divergence.** Four of the eight `layout/` flows' record
+  renderers resolve the commit (`klt pdk find --pdk <variant> --format json`,
+  printing its `version`); the other four print `- PDK variant: <variant>` --
+  the variant *name*, which is not a pin. `layout/sar-adc-top/`, whose DRC
+  and LVS verdicts Section 4's sign-off-bar rows rest on, is one of the four
+  that do not.
+- **`klt` stamps no PDK for these invocations.** `provenance.pdk` is `null`
+  in a `--deck sky130`-invoked `drc.json` / `lvs.json` / `extract.json`, and
+  `{"name": "sky130", "source": "built-in", "version": null}` in the ERC
+  report -- so the shortfall is not recoverable from the record directory's
+  JSON either. Only `compose.json`, the one step that resolves `PDK_ROOT`,
+  carries a commit.
+
+The `sim/` half is uniform (59 of 59) because `sim/run_corners.py
+--check-env` resolves and enforces the pin before any corner runs, and a
+drift there is fatal by default. That asymmetry is the finding, and stating
+it is the point: the gap itself is tracked as issue #407, which this check
+does not close and must not be read as closing.
+
+**What it grades.** Five numbers in one sentence -- the `sim/` records and
+how many name both an `ngspice` version and a 40-hex `open_pdks` commit, then
+the `layout/` records and how many name a `klt` version and a commit -- each
+re-derived from the tree, in both directions like checks 8, 10, 14--18, 20,
+24 and 25. Both directions matter more here than usual: the failure mode this
+check exists for is a *widening* of the claim back to "every record", and the
+failure mode after #407 lands is a census that stays pessimistic while the
+flows have started pinning. An absent census is a finding too, anchored on
+the document citing `sim/toolchain.json`, so deleting the inconvenient
+numbers is not a way to pass while still describing the flow as reproducible.
+
+**Two hashes it must not miscount, and does not.** A PDK commit is counted
+only when a 40-hex token sits on a line that also names the PDK. Every layout
+record carries a `repo commit:` line whose hash is the repository's own, and
+every record stamp ends in a 7-hex abbreviation (`20260924-234053-66dca3c`)
+that prose routinely quotes beside the word "PDK" -- a bare hex search over
+the document would count both as provenance the record does not have.
+
+**What this check deliberately does NOT cover.** It counts records that
+*name* a commit; it does not check that the commit named is the one
+`sim/pdk.json` pins, and it must not be extended to. Records are append-only
+(`CLAUDE.md`): a record minted against an earlier `open_pdks` commit is
+correct evidence of what was run, and grading it against today's pin would
+fail the gate on history it is not allowed to rewrite. Cross-checking the pin
+belongs to the flow that mints a record, not to a reader of one -- which is
+exactly what `layout/bin/render-record.py`'s own "PDK pin cross-check" line
+asks a human to do. Nor does it read the prose around the census: a document
+that states the five numbers correctly while describing their meaning
+backwards passes here, as it does under checks 15, 16, 22 and 25.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
