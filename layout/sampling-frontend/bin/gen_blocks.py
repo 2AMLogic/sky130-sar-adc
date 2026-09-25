@@ -90,7 +90,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _gen_common import add_klt_pdk_args, run_gen, write_and_check  # noqa: E402
-from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES  # noqa: E402
+from _pfet_devices import PFET_DEVICES  # noqa: E402
 
 #: One row per `sky130_fd_pr__nfet_01v8` instance, including `Msw_p`/`Msw_n`
 #: (see the matching-strategy note above for why they are plain singles here,

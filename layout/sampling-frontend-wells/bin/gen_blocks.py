@@ -68,7 +68,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _gen_common import add_klt_pdk_args, run_gen, write_and_check  # noqa: E402
-from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES as DEVICES  # noqa: E402
+from _pfet_devices import PFET_DEVICES as DEVICES  # noqa: E402
 
 #: Nets promoted to top-level pins.  Every net in this cell is external to it
 #: (it is a PFET-only slice of a larger schematic), so all fourteen are ports.
