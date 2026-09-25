@@ -796,6 +796,64 @@ layout it is compared against, so it is self-consistent rather than checked
 against `design/sar_adc_top.spice`. This check is the cheap half: it makes
 the document's *inventory* re-derived, which is what caught that.
 
+### Check 21 -- the Kickback row's derived figures (`check_kickback_decomposition`)
+
+Checks 12, 13, 16 and 17 re-derive a Section 4 figure from a machine-readable
+artefact (`compose.json`, `erc.json`, a `klt signoff` report). The Kickback row
+has no such artefact: its record's figures live in a Markdown table, and the
+row's *interpretation* of them is hand-written arithmetic. Both halves went
+wrong, and in the direction that makes the row read better than the evidence
+supports.
+
+The row quotes a **73.3673 mV** worst-case peak against a DRAFT `≤ 5 mV` target
+and then subtracts the record's `Vindiff = 0 mV` control row (`−70.3419 mV`) to
+conclude that `≈ 4.1 %` of the disturbance is decision-coupled. Until
+2026-09-25 the row stated that `3.0254 mV` residual as **"the decision transient
+itself"**. It is not: `sim/comparator-decision/run.py`'s `run_kickback_sweep`
+tracks one maximum and one minimum *across `VINP` and `VINN` together*, so both
+figures are per-pin extrema and their difference bounds neither the common-mode
+part of the disturbance (which a differential top-plate CDAC largely rejects)
+nor the differential part (which lands on the decision). Issue #390, filed from
+#349 on 2026-09-25, names that gap and mints a successor record carrying the
+split. DR-011's own Context and Consequences §3 draw a mitigation *direction*
+from the same subtraction, which is why a reader had no reason to doubt it --
+and exactly why the document's own restatement of it should be gated rather
+than trusted.
+
+**Three parts, all re-derived from the record the row itself cites** (by path,
+not through a `records/LATEST` pointer -- `sim/comparator-decision/` publishes
+none, so checks 3/4 have nothing to say about this row's freshness):
+
+- **(a) The measurement and both multiples.** The peak, its `Vindiff` point,
+  pin and instant, and `≈ 14.7×` / `≈ 36.7×` -- the multiples taken against the
+  bounds this row's **own Target cell** states, not against numbers repeated in
+  its prose. That is this check's acceptance-criterion-2 teeth: relaxing the
+  target so the multiple reads smaller moves the derived multiple with it and
+  fails here, rather than leaving the row quietly softened.
+- **(b) The control-row subtraction.** The control peak with its own pin and
+  instant, the residual, and both percentages. Same arithmetic as (a), graded
+  separately because it is the clause whose *reading* was the defect.
+- **(c) The cited table's own column list, in its own order, plus a verdict
+  clause** -- both directions, like checks 8, 10, 14, 15, 16, 17, 18 and 20.
+  While no column is a common-mode or differential quantity the row must say
+  so; once one is, that clause must go and the split must be restated from the
+  record. This is what keeps the qualification (b) now carries from outliving
+  its own expiry: #390's successor record adds exactly those columns, and this
+  check fails the row the moment it is cited.
+
+**What this check deliberately does NOT cover.** It does not grade the row's
+**verdict** (check 8 owns that vocabulary) and does not turn the DRAFT row into
+a pass/fail one -- `spec/README.md` forbids grading against an unratified bound,
+so the row stays INFORMATIONAL whatever the arithmetic says. It does not read
+`sim/comparator-decision/`'s other records: the row cites one, and a campaign
+with no `records/LATEST` has no "current" record for the gate to prefer. And it
+is scoped to Kickback rather than generalised to "every derived figure in
+Section 4": most rows quote a record's own stated figure, which checks 3 and 7
+already hold to current evidence, whereas this row performs arithmetic on two of
+them. Generalising would require a convention for marking a figure as derived,
+which does not exist -- do not extend this check to other rows without adding
+one first.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

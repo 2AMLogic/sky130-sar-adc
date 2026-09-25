@@ -48,9 +48,12 @@ verdict `signoff/` records for the block as a whole (the sentence check 17
 compares against), each document's live Section 4 freshness-coverage census
 (the sentence check 18 compares against) and the live per-source current
 columns of every `sim/` campaign's Power table (the term list check 19
-compares Section 5's power step against) instead of checking, which is what to
-run when check 6, 9, 12, 13, 14, 15, 16, 17, 18 or 19 reports a drift. Exit
-status:
+compares Section 5's power step against), the live device/cell inventory of
+`design/sar_adc_top.spice` (the sentences check 20 compares against) and each
+document's live Kickback readout re-derived from the record its own Section 4
+row cites (the clauses check 21 compares against) instead of checking, which is
+what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20 or 21 reports a
+drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -687,6 +690,61 @@ GLUE_PRIMITIVE_CENSUS_RE = re.compile(
 
 # One `<cell> ×<count>` entry inside either census list.
 GLUE_CELL_RE = re.compile(r"`(?P<cell>[A-Za-z0-9_]+)` \*\*×(?P<count>\d+)\*\*")
+
+# The Kickback row's cited record keeps its per-`Vindiff` figures under its own
+# `## Measured value(s)` heading, written by
+# `sim/comparator-decision/run.py kickback`.
+MEASURED_TABLE_HEADING_RE = re.compile(r"^#+\s+Measured value\(s\)\s*$", re.M)
+
+# One row of that table: the `Vindiff` point, then the two signed peak
+# deviations, each with the pin and instant it occurred at. Both peaks are
+# extrema over *either* pin independently (`run_kickback_sweep` tracks one
+# maximum and one minimum across VINP and VINN together), which is the whole
+# reason check 21 exists -- see docs/citation-gate.md.
+KICKBACK_ROW_RE = re.compile(
+    r"^\|\s*(?P<vindiff>[+-]?[0-9.]+)\s*"
+    r"\|\s*(?P<pos>[+-][0-9.]+)\s*\|\s*(?P<pos_pin>[A-Za-z0-9_]+) @ (?P<pos_time>[0-9.]+)\s*"
+    r"\|\s*(?P<neg>[+-][0-9.]+)\s*\|\s*(?P<neg_pin>[A-Za-z0-9_]+) @ (?P<neg_time>[0-9.]+)\s*\|",
+    re.M,
+)
+
+# Section 4's Kickback row states three things check 21 re-derives, in three
+# separate sentences: the measurement and its two multiples against the row's
+# own bounds, the control-row subtraction, and the cited table's own column
+# list. Three patterns rather than one -- a single pattern spanning all three
+# would go vacuous the moment a pass wrote a clause between any two of them.
+KICKBACK_PEAK_RE = re.compile(
+    r"the cited record measures \*\*(?P<peak>[0-9.]+) mV\*\* worst-case peak pin "
+    r"disturbance \(`Vindiff = (?P<vindiff>[+-][0-9.]+) mV`, `(?P<pin>[A-Za-z0-9_]+)` "
+    r"at (?P<time>[0-9.]+) ns\), i\.e\. `≈ (?P<target_mult>[0-9.]+)×` the "
+    r"`≤ (?P<target>[0-9.]+) mV` target and `≈ (?P<stretch_mult>[0-9.]+)×` the "
+    r"`≤ (?P<stretch>[0-9.]+) mV` stretch"
+)
+KICKBACK_SPLIT_RE = re.compile(
+    r"`Vindiff = 0 mV` control row \(\*\*[−-](?P<control>[0-9.]+) mV\*\*, "
+    r"`(?P<pin>[A-Za-z0-9_]+)` at (?P<time>[0-9.]+) ns\): "
+    r"`≈ (?P<baseline_pct>[0-9.]+) %` of that peak is already present with no "
+    r"decision to make, and `(?P<residual>[0-9.]+) mV` "
+    r"\(`≈ (?P<residual_pct>[0-9.]+) %`\) is what the "
+    r"`(?P<worst_vindiff>[+-][0-9.]+) mV` point adds on top of it"
+)
+KICKBACK_COLUMNS_RE = re.compile(
+    r"`Measured value\(s\)` table carries \*\*(?P<count>\d+)\*\* columns? — "
+    r"(?P<columns>(?:`[^`]+`(?:, )?)+) — (?P<verdict>[^.]*)"
+)
+
+# The clause that trailing `verdict` group must carry while the cited record
+# reports no common-mode or differential quantity -- and must NOT carry once it
+# does. That flip is the point of the check: the successor record #390 mints
+# (`Supersedes: 20260924-041815-afcb1b5`) adds exactly those columns, and this
+# row must then be re-derived rather than keep a qualification that has stopped
+# being true.
+KICKBACK_NO_SPLIT_CLAUSE = "none of them is a common-mode or differential quantity"
+
+# A Measured-value column name that IS such a quantity.
+KICKBACK_SPLIT_COLUMN_RE = re.compile(
+    r"common[-\s]?mode|differential|\bCM\b|\bdiff\b", re.I
+)
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -2902,6 +2960,301 @@ def check_top_cell_inventory(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _measured_value_table(record: Path) -> str | None:
+    """The `## Measured value(s)` section of a `sim/` record, or None.
+
+    `None` is "nothing to compare against" -- the record is gone, or carries no
+    such table -- which check 21 reports rather than passing silently.
+    """
+    if not record.is_file():
+        return None
+    text = record.read_text()
+    heading = MEASURED_TABLE_HEADING_RE.search(text)
+    if heading is None:
+        return None
+    section = text[heading.end() :]
+    end = re.search(r"^#+\s", section, re.M)
+    return section[: end.start()] if end is not None else section
+
+
+def _measured_columns(section: str) -> list[str]:
+    """That table's own header cells, in its own order."""
+    header = re.search(r"^\|(?P<cells>.+)\|\s*$", section.strip(), re.M)
+    if header is None:
+        return []
+    return [cell.strip() for cell in header.group("cells").split("|")]
+
+
+def _measured_extremum(point: re.Match) -> tuple[float, str, str]:
+    """The larger-magnitude of one row's two peaks, with its pin and instant.
+
+    This is the same selection `sim/comparator-decision/run.py` makes for its
+    own `Overall` line (`max(abs(peak_pos), abs(peak_neg))`), so the figure
+    this check re-derives is the record's own worst case rather than a second
+    opinion about it.
+    """
+    pos, neg = float(point.group("pos")), float(point.group("neg"))
+    if abs(neg) >= abs(pos):
+        return abs(neg), point.group("neg_pin"), point.group("neg_time")
+    return abs(pos), point.group("pos_pin"), point.group("pos_time")
+
+
+def kickback_readout(record: Path) -> dict | None:
+    """The Kickback row's figures, re-derived from its cited record's table.
+
+    `None` when there is nothing to compare against: no readable
+    `Measured value(s)` table, fewer than two `Vindiff` points, or no
+    `Vindiff = 0` control row for the subtraction to rest on.
+    """
+    section = _measured_value_table(record)
+    if section is None:
+        return None
+    points = list(KICKBACK_ROW_RE.finditer(section))
+    if len(points) < 2:
+        return None
+    control = next(
+        (point for point in points if float(point.group("vindiff")) == 0.0), None
+    )
+    if control is None:
+        return None
+    worst = max(points, key=lambda point: _measured_extremum(point)[0])
+    worst_mv, worst_pin, worst_time = _measured_extremum(worst)
+    control_mv, control_pin, control_time = _measured_extremum(control)
+    columns = _measured_columns(section)
+    return {
+        "columns": columns,
+        "has_split": any(
+            KICKBACK_SPLIT_COLUMN_RE.search(column) for column in columns
+        ),
+        "peak": worst_mv,
+        "vindiff": float(worst.group("vindiff")),
+        "pin": worst_pin,
+        "time": worst_time,
+        "control": control_mv,
+        "control_pin": control_pin,
+        "control_time": control_time,
+        "residual": worst_mv - control_mv,
+        "baseline_pct": control_mv / worst_mv * 100 if worst_mv else 0.0,
+        "residual_pct": (worst_mv - control_mv) / worst_mv * 100 if worst_mv else 0.0,
+    }
+
+
+def kickback_sentences(readout: dict, bounds: list[float]) -> str:
+    """The three Section 4 clauses in exactly the form check 21 accepts."""
+    columns = ", ".join(f"`{column}`" for column in readout["columns"])
+    verdict = (
+        "at least one of them is a common-mode or differential quantity, so "
+        "restate the split from the record instead of subtracting per-pin peaks"
+        if readout["has_split"]
+        else KICKBACK_NO_SPLIT_CLAUSE
+    )
+    return (
+        f"the cited record measures **{readout['peak']:.4f} mV** worst-case peak "
+        f"pin disturbance (`Vindiff = {readout['vindiff']:+g} mV`, "
+        f"`{readout['pin']}` at {readout['time']} ns), i.e. "
+        f"`≈ {readout['peak'] / bounds[0]:.1f}×` the `≤ {bounds[0]:g} mV` target "
+        f"and `≈ {readout['peak'] / bounds[1]:.1f}×` the `≤ {bounds[1]:g} mV` "
+        f"stretch. … `Vindiff = 0 mV` control row "
+        f"(**−{readout['control']:.4f} mV**, `{readout['control_pin']}` at "
+        f"{readout['control_time']} ns): `≈ {readout['baseline_pct']:.1f} %` of "
+        f"that peak is already present with no decision to make, and "
+        f"`{readout['residual']:.4f} mV` "
+        f"(`≈ {readout['residual_pct']:.1f} %`) is what the "
+        f"`{readout['vindiff']:+g} mV` point adds on top of it. … "
+        f"`Measured value(s)` table carries **{len(readout['columns'])}** "
+        f"columns — {columns} — {verdict}"
+    )
+
+
+def _kickback_row(text: str) -> tuple[int, list[str]] | None:
+    """Section 4's Kickback row, as `(line_number, cells)`."""
+    _header, rows = section_4_table(text)
+    for line_number, cells in rows:
+        if cells and _normalise_parameter(cells[0]).lower() == "kickback":
+            return line_number, cells
+    return None
+
+
+def _kickback_bounds(cell: str) -> list[float]:
+    """The `≤ <n> mV` bounds the row's own Target cell states, in its order."""
+    return [float(match.group(1)) for match in re.finditer(r"≤\s*([0-9.]+) mV", cell)]
+
+
+def check_kickback_decomposition(doc: Path, text: str) -> list[str]:
+    """Check 21: the Kickback row's figures are its cited record's own."""
+    row = _kickback_row(text)
+    if row is None:
+        return []
+    line_number, cells = row
+    where = f"{doc.name}:{line_number}"
+    if len(cells) < 4:
+        return [
+            f"{where}: the Kickback row has {len(cells)} cell(s) -- check 21 "
+            f"grades its Target, Verdict and Source columns"
+        ]
+    # The Verdict column carries the figures; the Source column carries the
+    # record they are re-derived from (check 7 asserts the header shape).
+    notes = cells[3]
+    bounds = _kickback_bounds(cells[1])
+    if len(bounds) < 2:
+        return [
+            f"{where}: the Kickback row's Target cell states "
+            f"{len(bounds)} `≤ <n> mV` bound(s) -- this row's multiples are "
+            f"derived against its own target and stretch, so both must be stated "
+            f"there"
+        ]
+    cited = [
+        match
+        for match in EVIDENCE_PATH_RE.finditer(" ".join(cells[3:]))
+        if match.group("top") == "sim"
+    ]
+    if not cited:
+        return [
+            f"{where}: the Kickback row states measured figures but cites no "
+            f"`sim/<campaign>/records/<stamp>` record they can be re-derived "
+            f"from"
+        ]
+    stamp = cited[-1].group("stamp")
+    campaign = cited[-1].group("block")
+    record = REPO_ROOT / "sim" / campaign / "records" / f"{stamp}.md"
+    readout = kickback_readout(record)
+    if readout is None:
+        return [
+            f"{where}: the Kickback row cites "
+            f"`sim/{campaign}/records/{stamp}.md`, which carries no "
+            f"`Measured value(s)` table with a `Vindiff = 0` control row and at "
+            f"least one other point -- the row's subtraction rests on both"
+        ]
+    misses = []
+
+    # (a) The measurement, and both multiples -- re-derived against the bounds
+    # the row's OWN Target cell states rather than against numbers repeated in
+    # the prose. That is this check's acceptance-criterion-2 teeth: relaxing the
+    # target to make `≈ 14.7×` read smaller moves the derived multiple with it
+    # and fails here, instead of leaving the row quietly softened.
+    stated = KICKBACK_PEAK_RE.search(notes)
+    if stated is None:
+        misses.append(
+            f"{where}: the Kickback row states no re-derivable measurement "
+            f"clause -- restate it from `python3 "
+            f"docs/chipalooza/check_proposal_citations.py --stats`"
+        )
+    else:
+        for label, said, actual in (
+            ("worst-case peak", stated.group("peak"), f"{readout['peak']:.4f}"),
+            ("that peak's `Vindiff` point", stated.group("vindiff"), f"{readout['vindiff']:+g}"),
+            ("that peak's pin", stated.group("pin"), readout["pin"]),
+            ("that peak's instant", stated.group("time"), readout["time"]),
+            ("the target bound", stated.group("target"), f"{bounds[0]:g}"),
+            ("the stretch bound", stated.group("stretch"), f"{bounds[1]:g}"),
+            (
+                "the multiple over target",
+                stated.group("target_mult"),
+                f"{readout['peak'] / bounds[0]:.1f}",
+            ),
+            (
+                "the multiple over stretch",
+                stated.group("stretch_mult"),
+                f"{readout['peak'] / bounds[1]:.1f}",
+            ),
+        ):
+            if said != actual:
+                misses.append(
+                    f"{where}: the Kickback row puts {label} at `{said}`, "
+                    f"re-derived from `sim/{campaign}/records/{stamp}.md` and "
+                    f"this row's own Target cell it is `{actual}`"
+                )
+
+    # (b) The control-row subtraction. Same arithmetic, stated separately
+    # because it is the clause whose *reading* has been the defect: the two
+    # figures are per-pin extrema, so their difference is not a
+    # common-mode/differential split -- see (c).
+    split = KICKBACK_SPLIT_RE.search(notes)
+    if split is None:
+        misses.append(
+            f"{where}: the Kickback row states no re-derivable control-row "
+            f"clause -- restate it from `python3 "
+            f"docs/chipalooza/check_proposal_citations.py --stats`"
+        )
+    else:
+        for label, said, actual in (
+            ("the control-row peak", split.group("control"), f"{readout['control']:.4f}"),
+            ("the control-row pin", split.group("pin"), readout["control_pin"]),
+            ("the control-row instant", split.group("time"), readout["control_time"]),
+            (
+                "the share present with no decision",
+                split.group("baseline_pct"),
+                f"{readout['baseline_pct']:.1f}",
+            ),
+            ("the residual", split.group("residual"), f"{readout['residual']:.4f}"),
+            (
+                "the residual's share",
+                split.group("residual_pct"),
+                f"{readout['residual_pct']:.1f}",
+            ),
+            (
+                "the point that residual is measured at",
+                split.group("worst_vindiff"),
+                f"{readout['vindiff']:+g}",
+            ),
+        ):
+            if said != actual:
+                misses.append(
+                    f"{where}: the Kickback row puts {label} at `{said}`, "
+                    f"re-derived from `sim/{campaign}/records/{stamp}.md` it is "
+                    f"`{actual}`"
+                )
+
+    # (c) The cited table's own column list, in its own order, plus the clause
+    # that says whether any of them is a common-mode or differential quantity.
+    # Both directions: the record reports neither today, so the row must say so
+    # -- and once the successor record #390 mints carries them, this flips and
+    # forces the row to be re-derived instead of carrying a qualification that
+    # has stopped being true.
+    columns = KICKBACK_COLUMNS_RE.search(notes)
+    if columns is None:
+        misses.append(
+            f"{where}: the Kickback row states no column list for "
+            f"`sim/{campaign}/records/{stamp}.md`'s own `Measured value(s)` "
+            f"table -- that list is what says whether the subtraction above is "
+            f"a common-mode/differential split; restate it from `python3 "
+            f"docs/chipalooza/check_proposal_citations.py --stats`"
+        )
+    else:
+        claimed = BACKTICK_SPAN_RE.findall(columns.group("columns"))
+        if int(columns.group("count")) != len(readout["columns"]):
+            misses.append(
+                f"{where}: the Kickback row says that table carries "
+                f"{columns.group('count')} column(s), but "
+                f"`sim/{campaign}/records/{stamp}.md`'s carries "
+                f"{len(readout['columns'])}"
+            )
+        if claimed != readout["columns"]:
+            misses.append(
+                f"{where}: the Kickback row lists that table's columns as "
+                f"{claimed}, but they are {readout['columns']} -- restate them "
+                f"from `python3 docs/chipalooza/check_proposal_citations.py "
+                f"--stats`"
+            )
+        says_no_split = KICKBACK_NO_SPLIT_CLAUSE in columns.group("verdict")
+        if readout["has_split"] and says_no_split:
+            misses.append(
+                f"{where}: the Kickback row says {KICKBACK_NO_SPLIT_CLAUSE}, but "
+                f"`sim/{campaign}/records/{stamp}.md`'s `Measured value(s)` table "
+                f"now carries one -- restate the split from the record instead of "
+                f"subtracting per-pin peaks"
+            )
+        if not readout["has_split"] and not says_no_split:
+            misses.append(
+                f"{where}: the Kickback row does not state that "
+                f"{KICKBACK_NO_SPLIT_CLAUSE} in "
+                f"`sim/{campaign}/records/{stamp}.md`'s `Measured value(s)` "
+                f"table -- without it the subtraction above reads as a "
+                f"common-mode/differential split it is not"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -2924,6 +3277,7 @@ def check_document(doc: Path) -> list[str]:
         + check_freshness_coverage(doc, text)
         + check_test_plan_ports(doc, text)
         + check_top_cell_inventory(doc, text)
+        + check_kickback_decomposition(doc, text)
     )
 
 
@@ -2960,6 +3314,29 @@ def main(argv: list[str]) -> int:
                 f"{doc.name}: "
                 f"{freshness_coverage_sentence(freshness_coverage(doc.read_text()))}"
             )
+            # And the Kickback row's own figures, which check 21 re-derives from
+            # the record that row cites -- printed per document because the
+            # bounds the multiples are taken against come from the row's own
+            # Target cell, not from the record.
+            row = _kickback_row(doc.read_text())
+            if row is not None:
+                bounds = _kickback_bounds(row[1][1])
+                cited = [
+                    match
+                    for match in EVIDENCE_PATH_RE.finditer(" ".join(row[1][3:]))
+                    if match.group("top") == "sim"
+                ]
+                if len(bounds) >= 2 and cited:
+                    record = (
+                        REPO_ROOT
+                        / "sim"
+                        / cited[-1].group("block")
+                        / "records"
+                        / f"{cited[-1].group('stamp')}.md"
+                    )
+                    readout = kickback_readout(record)
+                    if readout is not None:
+                        print(f"{doc.name}: {kickback_sentences(readout, bounds)}")
         # Every `layout/` flow, not only the one the document happens to state
         # today: this is also what to paste when ADDING a readout for a flow
         # that has none yet, and a flow with no readout prints nothing useful
