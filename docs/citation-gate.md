@@ -902,6 +902,55 @@ hand-maintained prose whose rendered form (`sim/spec-coverage.md`) is
 regenerated and gated by `sim/check_spec_coverage.py`, one tree up from this
 document.
 
+### Check 23 -- stamped currency claims (`check_stamped_currency_claims`)
+
+Checks 4 and 5 grade one shape of currency claim: the phrase *"current
+`<tree>/LATEST`"*, with the record named **before** it. This check grades the
+mirror shape, which nothing covered: a present-tense claim stated **before**
+the citation, naming the record by **stamp** rather than through a pointer --
+*"the current run, [`layout/sar-adc-top/erc-reports/<stamp>/record.md`]"*.
+
+That shape went stale in this document for exactly the reason a gate exists.
+Section 3's `klt erc` bullet and Section 7 item 9 both introduced #355's supply
+fix with "the current run" and a stamped citation. `erc-reports/` is
+append-only like every other evidence tree here, so issue #362 minted
+`20260924-214731-b323061` beside it and issue #377 then minted
+`20260924-234116-66dca3c`, and **neither moved a single number in the table
+either passage carries** -- all four supplies stayed at one island,
+`erc_status` stayed `clean`, findings stayed 0. So both citations went on
+naming a superseded record while every figure around them still read correct,
+and item 9's hand-written prose ended up contradicting check 16's
+machine-generated readout three paragraphs below it (the readout named
+`20260924-234053-66dca3c`; the prose named the run that graded the GDS before
+it, and restated that record's ablation table rather than the current one's).
+Check 16 could not see it: it reads the pointer and recomputes the readout,
+and has nothing to say about what path the surrounding prose cites. Neither
+could checks 3/4 -- `EVIDENCE_PATH_RE` matches `records|reports` only.
+
+**What it grades.** For each attached claim: the flow's own
+`<tree>/LATEST` must exist, and **every** stamp in the citation construct must
+be the one it resolves to. Both halves of a Markdown link are read -- display
+text and target -- so a link whose two halves name different records, or
+different trees, fails rather than half-passing; identical messages from the
+two halves are reported once. `erc-reports/` is in scope here even though
+checks 3/4 exclude it, because the pointer is read from the cited path's own
+tree rather than inferred from the top-level directory.
+
+**What this check deliberately does NOT cover.** Attachment is strict, and
+deliberately stricter than check 4's: nothing but whitespace, an opening
+bracket/paren/backtick and a comma or colon may sit between the claim and the
+citation. No word is tolerated in between, because in this document the very
+next words often introduce a *different* path -- "The current ERC record
+**grades** `layout/sar-adc-top/reports/<stamp>/sar_adc_top.gds`" cites the
+graded stream, not the record making the claim, and grading that against
+`reports/LATEST` would be checking the wrong pointer. A claim whose citation
+is further than 400 characters away, or which names no record at all, is
+narration and is skipped for the same reason checks 4/5 skip the unattached
+forms. And this check grades **currency, not content**: that a re-pointed
+passage still describes what the *new* record says is not mechanically
+checkable, which is why its failure message says "restate whatever the
+superseded record was quoted for" rather than only "re-point the citation".
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
