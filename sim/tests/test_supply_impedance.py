@@ -348,6 +348,80 @@ class TestArms(unittest.TestCase):
         self.assertIsNone(ideal.bonds["VGND"])
 
 
+class TestGroundPadAblation(unittest.TestCase):
+    """`no-gnd-pad` vs `package` is the pair DR-012 actually decided between,
+    and the record may only present it as an ablation if the two decks really
+    do differ in exactly one element (issue #409, item 2)."""
+
+    def _point(self, arm: str, cid: str, codes: list[int], gnd_pp: float) -> dict:
+        return {
+            "arm": arm,
+            "corner_id": cid,
+            "conversions": [
+                {"conversion": i + 1, "fraction": f, "code": c}
+                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+            ],
+            "extras": {"gnd_die_pp": gnd_pp},
+        }
+
+    def test_no_gnd_pad_and_package_differ_in_exactly_one_element(self) -> None:
+        null_opt = si.ARMS_BY_NAME["no-gnd-pad"]
+        as_built = si.ARMS_BY_NAME["package"]
+        # The one element: GND's own bond, present in one arm and absent in the
+        # other. Everything else -- the other three bonds and the substrate
+        # link -- must be identical, or the difference confounds two changes.
+        self.assertEqual(set(as_built.bonds) - set(null_opt.bonds), {"GND"})
+        self.assertEqual(null_opt.substrate, as_built.substrate)
+        for terminal in null_opt.bonds:
+            self.assertAlmostEqual(
+                null_opt.bonds[terminal].r_ohm, as_built.bonds[terminal].r_ohm, places=12
+            )
+            self.assertAlmostEqual(
+                null_opt.bonds[terminal].l_h, as_built.bonds[terminal].l_h, places=15
+            )
+
+    def test_the_two_decks_differ_only_in_the_ground_terminal_s_cards(self) -> None:
+        """The same claim one level down: on the cards themselves, not just on
+        the dataclass."""
+        null_cards = set(si.arm_network_lines(si.ARMS_BY_NAME["no-gnd-pad"]))
+        built_cards = set(si.arm_network_lines(si.ARMS_BY_NAME["package"]))
+        only_in_as_built = {c for c in built_cards - null_cards if not c.startswith("*")}
+        self.assertTrue(
+            all(re.match(r"^(VGNDA|LGND|RGND)\b", c) for c in only_in_as_built),
+            f"the two arms differ in more than GND's own cards: {only_in_as_built}",
+        )
+
+    def test_the_ablation_is_reported_when_both_arms_ran(self) -> None:
+        points = [
+            self._point("package", "tt_27c_1.80v", [10, 20, 30, 40, 50], 37.0e-3),
+            self._point("no-gnd-pad", "tt_27c_1.80v", [10, 20, 33, 40, 50], 74.0e-3),
+        ]
+        lines = si.gnd_pad_ablation_lines(points, ["package", "no-gnd-pad"], ["tt_27c_1.80v"])
+        self.assertEqual(len(lines), 1)
+        self.assertIn("3 LSB", lines[0])
+        self.assertIn("74.000 mV vs 37.000 mV", lines[0])
+        self.assertIn("2.0x", lines[0])
+
+    def test_a_record_without_the_null_option_says_nothing_about_the_pad(self) -> None:
+        """No noise in the records that omit the expensive arm: the omission
+        section already explains it."""
+        self.assertEqual(si.gnd_pad_ablation_lines([], ["ideal", "package"], ["tt_27c_1.80v"]), [])
+
+    def test_the_null_option_without_its_as_built_twin_is_not_an_ablation(self) -> None:
+        lines = si.gnd_pad_ablation_lines([], ["ideal", "no-gnd-pad"], ["tt_27c_1.80v"])
+        self.assertEqual(len(lines), 1)
+        self.assertIn("not available", lines[0])
+
+    def test_every_arm_has_a_standing_omission_reason(self) -> None:
+        """A record that omits an arm must be able to say why -- an unexplained
+        omission is not a valid record (`sim/README.md`)."""
+        for arm in si.ARMS:
+            if arm.name == si.CONTROL_ARM:
+                continue  # the control can never be omitted (the CLI refuses)
+            self.assertIn(arm.name, si.ARM_OMISSION_NOTES)
+            self.assertTrue(si.ARM_OMISSION_NOTES[arm.name].strip())
+
+
 class TestExtraMeasurements(unittest.TestCase):
     def test_rail_probes_watch_the_die_side_nodes(self) -> None:
         nodes = {node for _name, node, _label in si.RAIL_PROBES}
@@ -619,6 +693,37 @@ class TestInvocationFooter(unittest.TestCase):
         line = si.invocation_line([arm.name for arm in si.ARMS], True, "20260101-000000-abcdef0")
         self.assertIn("--corners", line)
         self.assertIn("--supersedes 20260101-000000-abcdef0", line)
+
+    def test_the_footer_stays_inside_the_indexed_cold_start_command(self) -> None:
+        """`check_spec_coverage.py` fails `cold-start-record-mismatch` if the
+        footer carries any token the indexed bench's documented `cold_start`
+        does not. That is why a scheduling-only flag (`--log-cache`, whose
+        argument is one machine's scratch directory) must never reach the
+        footer, and why a record minted with a different `--arms` list needs its
+        own bench entry rather than a quietly softened footer -- a failure that
+        would otherwise only surface after the hours-long run that minted it."""
+        index = json.loads((REPO_ROOT / "sim" / "spec-coverage.json").read_text())
+        runner = "sim/supply-impedance-sensitivity/run_supply_impedance.py"
+        benches = [
+            bench
+            for row in index["rows"]
+            for bench in row.get("benches", [])
+            if bench.get("runner") == runner
+        ]
+        self.assertTrue(benches, f"{runner} is not indexed in sim/spec-coverage.json")
+        for bench in benches:
+            tokens = bench["cold_start"].split()
+            cold_tokens = set(tokens)
+            arm_names = (
+                tokens[tokens.index("--arms") + 1].split(",")
+                if "--arms" in tokens
+                else [arm.name for arm in si.ARMS]
+            )
+            footer = si.invocation_line(arm_names, "--corners" in cold_tokens, "")
+            missing = [tok for tok in footer.split()[1:] if tok not in cold_tokens]
+            self.assertEqual(
+                missing, [], f"the footer would carry {missing}, absent from {bench['cold_start']}"
+            )
 
     def test_the_runner_path_is_always_present(self) -> None:
         """The spec-coverage check matches the record's runner by this token."""
