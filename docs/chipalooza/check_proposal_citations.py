@@ -51,11 +51,13 @@ compares against), each document's live Section 4 freshness-coverage census
 (the sentence check 18 compares against) and the live per-source current
 columns of every `sim/` campaign's Power table (the term list check 19
 compares Section 5's power step against), the live device/cell inventory of
-`design/sar_adc_top.spice` (the sentences check 20 compares against) and each
+`design/sar_adc_top.spice` (the sentences check 20 compares against), each
 document's live Kickback readout re-derived from the record its own Section 4
-row cites (the clauses check 21 compares against) instead of checking, which is
-what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20 or 21 reports a
-drift. Exit status:
+row cites (the clauses check 21 compares against) and the live row count
+`sim/report/generate.py --check` closes with (the line check 24 compares
+against) instead of checking, which is
+what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 or 24
+reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -788,6 +790,33 @@ STAMPED_RECORD_RE = re.compile(
     r"(?:(?P<top>sim|layout)/(?P<block>[A-Za-z0-9._-]+)/)?"
     r"(?P<tree>records|reports|erc-reports)/(?P<stamp>" + STAMP + r")"
 )
+
+
+# Check 24. `docs/characterization-report.md` is generated from the row table
+# in this module, and `sim/report/generate.py --check` closes by printing how
+# many rows it carries. The proposal quotes that line verbatim as the evidence
+# that it ran the command, so the number inside it is a transcribed machine
+# output living in prose -- the exact shape checks 6 and 18 exist for, one
+# artefact over.
+REPORT_MANIFEST = "sim/report/manifest.py"
+
+# The command whose output the document quotes. Used as the anchor for the
+# "quoted nothing at all" direction: a document that leans on this command
+# must state what it reports, or the check has nothing to grade.
+REPORT_CHECK_COMMAND = "sim/report/generate.py --check"
+
+# `sim/report/generate.py`'s own closing line, as the document quotes it. The
+# prefix is deliberately not anchored on `OK:` -- the document elides the
+# report's path with an ellipsis -- so the match starts at the fixed phrase.
+REPORT_ROW_COUNT_RE = re.compile(r"is fresh and up to date \((?P<rows>\d+) rows?\)")
+
+# `ROWS: tuple[Row, ...] = (` ... `)` in `sim/report/manifest.py`, and one
+# `Row(` constructor per entry inside it. Counted textually rather than by
+# importing the module: this gate is a pure file reader by design (see the
+# module docstring), and importing a sibling tree's module to count a tuple
+# would make a citation check execute repository code.
+REPORT_MANIFEST_ROWS_RE = re.compile(r"^ROWS\b[^\n]*=\s*\(\s*$", re.M)
+REPORT_MANIFEST_ROW_RE = re.compile(r"^    Row\(", re.M)
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -3459,6 +3488,71 @@ def check_stamped_currency_claims(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def report_row_count() -> int | None:
+    """How many rows `sim/report/generate.py --check` reports, re-derived.
+
+    That script closes with `len(manifest.ROWS)`, so the number is a property
+    of `sim/report/manifest.py`'s own row table and moves the moment a spec row
+    joins or leaves the characterization report. Counted from the source text
+    (one `Row(` constructor per entry, inside the `ROWS` tuple) rather than by
+    importing the module, so this gate stays the pure file reader its module
+    docstring claims it is.
+
+    None when the file carries no `ROWS` tuple this can find -- a restructured
+    manifest is reported rather than silently counted as zero, since a zero
+    would quietly disagree with every number the document could state.
+    """
+    manifest = REPO_ROOT / REPORT_MANIFEST
+    if not manifest.is_file():
+        return None
+    source = manifest.read_text()
+    opening = REPORT_MANIFEST_ROWS_RE.search(source)
+    if opening is None:
+        return None
+    end = source.find("\n)\n", opening.end())
+    block = source[opening.end() : end if end != -1 else len(source)]
+    return len(REPORT_MANIFEST_ROW_RE.findall(block))
+
+
+def check_report_row_count(doc: Path, text: str) -> list[str]:
+    """Check 24: a quoted report row count is the one the manifest carries."""
+    if not (REPO_ROOT / REPORT_MANIFEST).is_file():
+        return []
+    if REPORT_CHECK_COMMAND not in text:
+        # A document that does not lean on that command states no count of
+        # its own, and is not made to.
+        return []
+    derived = report_row_count()
+    if derived is None:
+        return [
+            f"{doc.name}: quotes `{REPORT_CHECK_COMMAND}`, but "
+            f"`{REPORT_MANIFEST}` no longer states a `ROWS` tuple this gate "
+            f"can count -- re-point this check at whatever replaced it rather "
+            f"than leaving the quoted row count ungraded"
+        ]
+    quoted = list(REPORT_ROW_COUNT_RE.finditer(text))
+    if not quoted:
+        return [
+            f"{doc.name}: names `{REPORT_CHECK_COMMAND}` but quotes none of "
+            f"its output -- quote the line it ends with "
+            f"(`is fresh and up to date ({derived} rows)` today), so the claim "
+            f"that it was run is graded rather than asserted"
+        ]
+    misses = []
+    for match in quoted:
+        stated = int(match.group("rows"))
+        if stated == derived:
+            continue
+        misses.append(
+            f"{doc.name}:{_line_of(text, match.start())}: quotes "
+            f"`{match.group(0)}` from `{REPORT_CHECK_COMMAND}`, but "
+            f"`{REPORT_MANIFEST}` carries {derived} rows -- re-run the command "
+            f"and restate its output, and check whether the row that moved the "
+            f"count belongs in Section 4 too"
+        )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -3484,6 +3578,7 @@ def check_document(doc: Path) -> list[str]:
         + check_kickback_decomposition(doc, text)
         + check_tracked_records(doc, text)
         + check_stamped_currency_claims(doc, text)
+        + check_report_row_count(doc, text)
     )
 
 
@@ -3639,6 +3734,16 @@ def main(argv: list[str]) -> int:
                 f"`design/sar_adc_top.sch` "
                 f"{glue_census_sentence(cell_census(glue, 'sc_hd'), 'sc_hd')} "
                 f"{glue_census_sentence(cell_census(glue, 'pr'), 'pr')}"
+            )
+        # And the row count `sim/report/generate.py --check` closes with, which
+        # check 24 grades the document's quotation of. Printed as the line the
+        # document quotes rather than as a bare integer, so a drifted quotation
+        # is fixed by pasting this back in.
+        rows = report_row_count()
+        if rows is not None:
+            print(
+                f"{REPORT_MANIFEST}: `{REPORT_CHECK_COMMAND}` reports "
+                f"`is fresh and up to date ({rows} rows)`"
             )
         return 0
 

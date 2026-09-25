@@ -951,6 +951,53 @@ passage still describes what the *new* record says is not mechanically
 checkable, which is why its failure message says "restate whatever the
 superseded record was quoted for" rather than only "re-point the citation".
 
+### Check 24 -- characterization-report row count (`check_report_row_count`)
+
+Every other check grades a claim about an *evidence record*. This one grades a
+claim about a **command's output**, which is a different thing the proposal
+does in the same breath: Section 4's "Reproducing this table" tells a reader
+to run `sim/report/generate.py --check`, and quotes the line it closes with
+(`OK: ... is fresh and up to date (N rows)`) as the evidence that it was run
+and passed.
+
+That quotation is a machine output transcribed into prose, so it drifts the
+way check 6's census and check 18's coverage sentence each drifted before they
+were gated. It did: it read `11 rows` from the document's first pass (PR #140,
+2026-09-05), which was true then, and stopped being true on 2026-09-24, when
+commit `86e905e` (PR #366, issue #361) added the DRAFT Kickback row to
+`sim/report/manifest.py` and took the report to twelve. Three later passes
+(PRs #393, #395, #396) edited that very Kickback row in Section 4 without the
+sentence one paragraph above the table moving, and no check could see it --
+checks 3/4/5/23 grade record paths and pointers, and a row count is neither.
+
+**What it grades.** The number in every quoted
+`is fresh and up to date (N rows)` must equal the number of `Row(` entries in
+`sim/report/manifest.py`'s own `ROWS` tuple -- which is exactly what
+`sim/report/generate.py` prints (`len(manifest.ROWS)`). Graded in both
+directions, like checks 8, 10, 14--18: a document that names the command and
+quotes **none** of its output fails too, so deleting the quotation is not a
+way to pass while still telling the reader to run it.
+
+**Counted textually, not by importing the manifest.** The gate is a pure file
+reader by design (no PDK, no network, no repository code executed), and
+importing a sibling tree's module to measure a tuple would give that up for a
+count a regex reads directly. The cost is stated rather than hidden: a
+manifest restructured to build its rows some other way -- a loop, a
+comprehension -- is reported as "no `ROWS` tuple this gate can count" instead
+of being counted wrong.
+
+**What this check deliberately does NOT cover.** It does not run the command,
+and says nothing about whether `docs/characterization-report.md` is actually
+fresh -- `npm run check:report` is what establishes that, on the same CI run,
+and this check would be a worse copy of it. Nor does it grade *which* rows the
+manifest carries: the row-by-row correspondence between that report and
+Section 4 is check 7's (against `spec/target-spec.md`) and check 11's (against
+`sim/spec-coverage.json`). A green check 24 says only that the number this
+document quotes is the number the command would print today. It is anchored on
+the command string, so a document that stops naming
+`sim/report/generate.py --check` entirely is not made to quote it -- Section 4's
+verdicts are held to evidence by checks 3 and 7 regardless.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

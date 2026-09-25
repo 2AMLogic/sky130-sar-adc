@@ -402,6 +402,50 @@ class FixtureTree:
         )
         (spec / "target-spec.md").write_text(body)
 
+    def add_report_manifest(self, rows: int, *, restructured: bool = False):
+        """A `sim/report/manifest.py` in the shape check 24 counts.
+
+        Written the way the real manifest is written -- a module-level
+        `ROWS: tuple[Row, ...] = (` tuple holding one `Row(` constructor per
+        characterization-report row, with a decoy `Row(` in a docstring above
+        it and a second tuple below, both of which a whole-file count would
+        swallow.
+
+        `restructured=True` builds the same rows without that tuple literal,
+        which is the "no `ROWS` tuple this gate can count" condition the check
+        reports separately from a disagreement.
+        """
+        report = self.root / "sim" / "report"
+        report.mkdir(parents=True, exist_ok=True)
+        body = [
+            '"""Fixture manifest.',
+            "",
+            "Each entry below is a Row( ... ) this docstring must not be counted as.",
+            '"""',
+            "",
+            "from dataclasses import dataclass",
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Row:",
+            "    id: str",
+            "",
+            "",
+        ]
+        if restructured:
+            body += [f"ROWS = tuple(Row(id=str(n)) for n in range({rows}))", ""]
+        else:
+            body += ["ROWS: tuple[Row, ...] = ("]
+            body += [f'    Row(\n        id="row{n}",\n    ),' for n in range(rows)]
+            body += [")", ""]
+        body += [
+            "SUPERSEDED_ROWS: tuple[Row, ...] = (",
+            '    Row(\n        id="not-a-report-row",\n    ),',
+            ")",
+            "",
+        ]
+        (report / "manifest.py").write_text("\n".join(body))
+
     def document(self, body: str) -> Path:
         doc = self.root / "docs" / "chipalooza" / "fixture.md"
         doc.write_text(body)
@@ -4179,6 +4223,101 @@ class TestStampedCurrencyClaims(unittest.TestCase):
         misses = self.check(body)
         self.assertEqual(len(misses), 1, misses)
         self.assertIn("names no", misses[0])
+
+
+class TestReportRowCount(unittest.TestCase):
+    """Check 24: the quoted `generate.py --check` row count is re-derived.
+
+    The defect shape is check 6's and check 18's -- a machine output
+    transcribed into prose, with nothing re-deriving it -- moved off the
+    evidence trees onto a command's own closing line. The real drift: the
+    proposal quoted `11 rows` from its first pass (PR #140, 2026-09-05), which
+    was true then and stopped being true on 2026-09-24 when PR #366 added the
+    DRAFT Kickback row to `sim/report/manifest.py`. Three later passes edited
+    that very row in Section 4 without the count one paragraph above the table
+    moving.
+    """
+
+    COMMAND = "`python3 sim/report/generate.py --check` verifies the report"
+    QUOTED = "(`OK: ... is fresh and up to date ({rows} rows)`)"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_report_row_count(self.tree.document(body), body)
+
+    def body(self, *, rows: int | None = 12, command: bool = True) -> str:
+        text = "## 4. Reproducing this table\n\n"
+        if command:
+            text += self.COMMAND + "\n"
+        if rows is not None:
+            text += self.QUOTED.format(rows=rows) + "\n"
+        return text
+
+    def test_a_quotation_matching_the_manifest_passes(self):
+        self.tree.add_report_manifest(12)
+        self.assertEqual(self.check(self.body(rows=12)), [])
+
+    def test_the_real_drift_is_reported(self):
+        """Eleven quoted against a twelve-row manifest -- the exact defect."""
+        self.tree.add_report_manifest(12)
+        misses = self.check(self.body(rows=11))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("is fresh and up to date (11 rows)", misses[0])
+        self.assertIn("carries 12 rows", misses[0])
+
+    def test_every_quotation_is_graded_not_only_the_first(self):
+        self.tree.add_report_manifest(12)
+        body = self.body(rows=12) + self.QUOTED.format(rows=9) + "\n"
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("(9 rows)", misses[0])
+
+    def test_quoting_none_of_the_output_is_reported(self):
+        """Deleting the quotation must not be a way to pass."""
+        self.tree.add_report_manifest(12)
+        misses = self.check(self.body(rows=None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("quotes none of", misses[0])
+        self.assertIn("(12 rows)", misses[0])
+
+    def test_a_document_that_does_not_name_the_command_is_not_graded(self):
+        self.tree.add_report_manifest(12)
+        self.assertEqual(self.check("Nothing about the report here.\n"), [])
+
+    def test_a_restructured_manifest_is_reported_not_counted_as_zero(self):
+        self.tree.add_report_manifest(12, restructured=True)
+        misses = self.check(self.body(rows=12))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("no longer states a `ROWS` tuple", misses[0])
+
+    def test_check_is_inert_without_the_manifest(self):
+        # No sim/report/manifest.py in the fixture tree at all.
+        self.assertEqual(self.check(self.body(rows=11)), [])
+
+    def test_the_count_ignores_rows_outside_the_rows_tuple(self):
+        """A docstring's `Row(` and a second tuple must not inflate the count."""
+        self.tree.add_report_manifest(3)
+        self.assertEqual(checker.report_row_count(), 3)
+
+    def test_the_real_manifest_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        FixtureTree_root = checker.REPO_ROOT
+        self.assertTrue((REPO_ROOT / checker.REPORT_MANIFEST).is_file())
+        # Point the checker back at the real tree for this one assertion.
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", FixtureTree_root))
+        derived = checker.report_row_count()
+        self.assertGreater(derived, 0)
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        text = doc.read_text()
+        quoted = [
+            int(match.group("rows"))
+            for match in checker.REPORT_ROW_COUNT_RE.finditer(text)
+        ]
+        self.assertTrue(quoted, "the proposal quotes no row count at all")
+        self.assertEqual(set(quoted), {derived})
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
