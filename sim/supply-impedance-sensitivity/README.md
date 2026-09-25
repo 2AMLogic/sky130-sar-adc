@@ -166,6 +166,14 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --rec
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
     --supersedes <record-id>   # name the prior record this one replaces
 
+# the bounded 2-D R/L sweep (DR-015's own open item; see its own section below):
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record
+
+# what that sweep would cost, and whether its points converge, WITHOUT running
+# it: each grid point's own deck over a truncated transient. Measures nothing
+# about the DUT, so it refuses --record.
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --cost-probe 400
+
 # the exact invocation that produced the committed baseline-corner record
 # (records/20260925-073912-0e385e5.md; no-gnd-pad omitted on cost, see below):
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record
@@ -245,15 +253,29 @@ per-arm wall clock. Consequences:
 Every record states the command that minted it in its `Written by` footer, and
 `sim/check_spec_coverage.py` requires every token of that footer after the
 runner path to appear in the bench's documented `cold_start`
-(`cold-start-record-mismatch`). The indexed `cold_start` today is the four-arm
-one that minted the committed record, so a run with any other `--arms` list —
-including the `ideal,package,no-gnd-pad` shape that would price the rejected
-option — needs its own bench entry in `sim/spec-coverage.json` and its own
-verbatim documented command here, the same way `sar-sequencer-behavioral`
-indexes its `--corners` variant separately.
-`sim/tests/test_supply_impedance.py` asserts the rule for every bench entry
-indexed against this runner, so once the new invocation is indexed the check is
-a unit test rather than a post-run surprise. (`--log-cache` never appears in a
+(`cold-start-record-mismatch`). Exactly **one** invocation of this runner is
+indexed today — the four-arm one that minted the committed arm-comparison
+record — so a run with any other `--arms` list or any sweep box, including the
+`ideal,package,no-gnd-pad` shape that would price the rejected option and
+`--sweep --record` (below), needs its own bench entry in
+`sim/spec-coverage.json` and its own verbatim documented command here, the same
+way `sar-sequencer-behavioral` indexes its `--corners` variant separately.
+
+A bench entry cannot be added *ahead* of its record: `sim/check_spec_coverage.py`
+fails an entry that lists no evidence record (`bench-has-no-record`), because a
+committed testbench with no record substantiates nothing. So the two halves of
+the gate land at different times, and both are pre-checked here rather than
+after the hours:
+
+- the **documented** half is checkable now, and is checked now —
+  `sim/tests/test_supply_impedance.py` asserts that the verbatim command this
+  README documents for `--sweep --record` is character-for-character the footer
+  the runner would write for the default box;
+- the **indexed** half lands with the record, in the same commit: mint the
+  record, then add the bench entry naming it, and the footer/`cold_start` rule
+  is enforced from then on for every indexed entry by the same test.
+
+(`--log-cache` never appears in a
 footer: it cannot change a number, and its argument is one machine's scratch
 path. Which runs reused a stored log is stated per row in the record's
 wall-clock table instead.)
@@ -265,6 +287,149 @@ then wired into the runner as a pre-flight guard: **neither the
 would reach global node `0` without passing through this campaign's series
 network and every arm would silently understate its effect — so the runner
 scans both and refuses to run rather than trusting it.
+
+## The bounded 2-D `R`/`L` sweep (`--sweep`)
+
+The five arms are five **networks** at **one** point of DR-015's assumed
+magnitudes. That can show whether the mechanism matters at that magnitude; it
+cannot find the magnitude at which it starts to.
+[DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)
+says so against itself — its "Alternatives considered" calls sweeping "the
+better experiment", deferred only on cost, and its "Open items" names the shape:
+"a bounded 2-D sweep (bond inductance × substrate resistance) at one corner".
+That is issue [#409](https://github.com/2AMLogic/sky130-sar-adc/issues/409)'s
+third item, and `--sweep` is it:
+
+```sh
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record
+```
+
+**What it sweeps.** The **as-built `package` topology** — all four supply
+terminals bonded, DR-012's chosen shape — over two axes, plus the same `ideal`
+control every number is a difference against:
+
+| axis | default box | what moving it means |
+| --- | --- | --- |
+| per-terminal bond **inductance** | `0×`, `1×`, `10×` of DR-015's 1.914 nH | `0×` is an inductance-free bond, `1×` is DR-015's assumption point, `10×` is a deliberately bad bond (a long wire, or a return with no nearby ground plane) |
+| the lumped substrate link **`R_SUBX`** | `3`, `30`, `300` Ω (DR-015 assumes 30) | how hard the p-substrate ties the analog and digital ground die nodes together — which decides how much of the digital ground's switching current returns through the analog bond |
+
+Both axes are configurable (`--sweep-l-mult`, `--sweep-rsubx`); a run that
+departs from the default box says so in its own record footer, and would need
+its own indexed bench entry the same way a different `--arms` list does.
+
+**A row moves one element and a column moves one other.** The bond *resistance*
+is held at DR-015's value throughout, so the `L` ladder at a fixed `R_SUBX` is a
+strict one-element family and so is the `R_SUBX` ladder at a fixed `L`. That is
+DR-015 item 5's requirement — attribute an effect to an element only by a
+difference that moves that element and nothing else — satisfied by construction
+on both axes rather than argued after the fact.
+
+**The grid is anchored to the committed arm comparison**, which is what makes it
+a walk *away from* DR-015's assumption point rather than an unrelated box: the
+`1× / 30 Ω` point is, card for card, the `package` arm, and the `0× / 30 Ω`
+point is `package-r-only`. Both identities are asserted before the run starts
+and again when the record is written (`sweep_anchor_matches_base_arm()`), and
+`sim/tests/test_supply_impedance.py` pins them, so a later edit cannot quietly
+re-centre the sweep.
+
+**`R_SUBX`, not `R_SUB`.** They are different stand-ins and only one of them is
+in this deck. `R_SUB` is a substrate-only *return* path and appears in the
+`substrate` and `no-gnd-pad` arms, not in the as-built network, so sweeping it
+here would sweep an element the swept topology does not contain. The arm where
+`R_SUB` is load-bearing is `no-gnd-pad` — the expensive one (see Runtime) — so
+an `R_SUB` sweep is that arm's own campaign and stays open on #409. Each sweep
+record says this in its own "What this sweep does not cover" section rather than
+letting "substrate resistance" be read as both.
+
+**The sweep record does not move `records/LATEST`, and supersedes nothing.** It
+is a *distinct* claim about the same DUT: the arm-comparison record compares
+five networks at DR-015's assumption point, the sweep walks a box around that
+point on one of them, and both stand. `records/LATEST` keeps naming the
+arm-comparison record — the one [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)
+and `docs/chipalooza/challenge-4-proposal.md`'s Power row cite by id — because
+moving it would make a citation of a record nothing had superseded read as
+*stale* to this repo's citation gate. Same disposition, for the same reason, as
+`sim/full-conversion-transient/run_conversion.py`'s diagnostic record writers.
+
+**Cost, and `--sweep --corners`.** The default box is nine whole-ADC transients
+plus the control, run one at a time, which is hours — use `--log-cache`, and see
+the cost probe below for what those hours actually are. The combination
+`--sweep --corners` is **refused**: it is #409's two deferred costs multiplied
+together, and this host may not run a multi-corner grid at all (next section).
+
+**No record of this sweep exists yet.** The mode, its anchors and its record
+writer are committed and unit-tested; the box itself has not been run. That is a
+cost deferral, stated here rather than left for a reader to infer from an empty
+`records/` row — the same disposition as the `no-gnd-pad` arm above, and still
+[#409](https://github.com/2AMLogic/sky130-sar-adc/issues/409)'s third item. When
+it is run, the record and its `sim/spec-coverage.json` bench entry land together
+(see "Before spending those hours" above).
+
+### Pricing the box before paying for it (`--cost-probe`)
+
+The first question about a ten-transient box is what it costs, and the second is
+whether its points converge at all — and for seven of the ten points neither was
+knowable from anything committed here, because the arm-comparison record contains
+only the `1× / 30 Ω` anchor, the `0× / 30 Ω` corner and the control. The intuition available
+instead was actively misleading: an undecoupled bond inductance forces the
+transient solver's timestep down, so `10×` the inductance reads like `10×` the
+ringing and therefore like the row nobody can afford.
+
+`--cost-probe NS` answers both cheaply. It re-runs **each grid point's own deck**
+over a truncated transient of `NS` nanoseconds and reports only wall clock and
+solver status:
+
+```sh
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --cost-probe 400
+```
+
+It **measures nothing about this block**, by construction: the committed
+fragment's `.meas` cards sit at conversion times outside the sliced span, so a
+probe run captures no codes and no currents. That is why `--cost-probe --record`
+is refused outright (a truncated run may never become evidence about the DUT),
+why `--cost-probe --log-cache` is refused (a probe's log shares its point-id with
+the real run of that point, so caching it would overwrite the stored log a
+restarted campaign resumes from), and why the probe must be strictly shorter than
+the stimulus it prices — a bound read out of the fragment itself rather than
+restated in the runner.
+
+The numbers it gives are **relative**, and that is the point: the `1× / 30 Ω`
+point is card-for-card the `package` arm, whose full-run wall clock is already
+recorded, so
+`full(point) ≈ full(package) × probe(point) / probe(anchor)` projects the whole
+box from a number this repo already has. Absolute seconds from a probe are a
+contended shared host's and are not a benchmark of anything.
+
+**What the probe says about the default box.** Run on this repo's dispatch host
+(`ngspice-46`, `sky130A @ c6d73a3`, `tt/27 °C/1.80 V`, 400 ns slice, one
+simulation at a time), every point of the default box converged, and the whole
+box turned out to be **bounded by its own anchor** — as a multiple of the
+`1× / 30 Ω` point's probe:
+
+| bond `L` (× DR-015) | `R_SUBX` = 3 Ω | `R_SUBX` = 30 Ω | `R_SUBX` = 300 Ω |
+|---|---|---|---|
+| `0×` | 0.49× | 0.53× | 0.52× |
+| `1×` | 0.96× | **1.00×** (anchor) | 0.96× |
+| `10×` | 0.96× | 0.63× | 0.47× |
+
+(the `ideal` control probed at 0.52× of the anchor, and is included in the ten.)
+Two consequences, bought for ≈ 30 minutes of probing:
+
+- **The `10×` row is not the expensive row.** The intuition that it would be
+  gets the mechanism backwards: raising `L` *lowers* the bond-wire resonance
+  (`f ≈ 1/2π√(LC)`), which *relaxes* the timestep the solver needs, so `10×`
+  costs at most what DR-015's own assumption point costs and mostly less. No
+  point of the box exceeds the anchor. Nothing in the box is a cost surprise
+  waiting to happen.
+- **The full box projects to ≈ 2.5 h on a host like this one** — the ratios sum
+  to ≈ 7.0 anchors, and the anchor's own committed full run is 1261 s. That is
+  ≈ 3.4× the committed four-arm campaign's own 2582 s, not the open-ended cost
+  the `10×` row was assumed to carry.
+
+Read these as ratios only. Absolute probe seconds move with whatever else the
+host is doing (the `10×` row's spread here is mostly contention, not physics),
+and the projection inherits that: it is the order of the box's cost, not a
+schedule.
 
 ## Why the committed record is not the full nine-point grid
 

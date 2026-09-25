@@ -744,16 +744,53 @@ class TestInvocationFooter(unittest.TestCase):
         for bench in benches:
             tokens = bench["cold_start"].split()
             cold_tokens = set(tokens)
-            arm_names = (
-                tokens[tokens.index("--arms") + 1].split(",")
-                if "--arms" in tokens
-                else [arm.name for arm in si.ARMS]
-            )
-            footer = si.invocation_line(arm_names, "--corners" in cold_tokens, "")
+            if "--sweep" in cold_tokens:
+                # The sweep mints through its own writer and its own footer
+                # function; the same gate applies to it, and it has its own
+                # pair of axis flags that must stay inside the indexed command.
+                l_mults = (
+                    tuple(float(v) for v in tokens[tokens.index("--sweep-l-mult") + 1].split(","))
+                    if "--sweep-l-mult" in tokens
+                    else si.SWEEP_L_MULTIPLIERS
+                )
+                rsubx = (
+                    tuple(float(v) for v in tokens[tokens.index("--sweep-rsubx") + 1].split(","))
+                    if "--sweep-rsubx" in tokens
+                    else si.SWEEP_RSUBX_OHM
+                )
+                footer = si.sweep_invocation_line(l_mults, rsubx, "")
+            else:
+                arm_names = (
+                    tokens[tokens.index("--arms") + 1].split(",")
+                    if "--arms" in tokens
+                    else [arm.name for arm in si.ARMS]
+                )
+                footer = si.invocation_line(arm_names, "--corners" in cold_tokens, "")
             missing = [tok for tok in footer.split()[1:] if tok not in cold_tokens]
             self.assertEqual(
                 missing, [], f"the footer would carry {missing}, absent from {bench['cold_start']}"
             )
+
+    def test_the_documented_sweep_command_is_the_footer_the_sweep_would_write(self) -> None:
+        """The half of the gate that CAN be checked before the run, is.
+
+        `--sweep --record` is not in `sim/spec-coverage.json` yet, and cannot be:
+        `check_spec_coverage.py` fails a bench entry that lists no evidence
+        record (`bench-has-no-record`), so the entry lands with the record it
+        names. That leaves `cold-start-undocumented` -- "the indexed command must
+        appear verbatim in `documented_in`" -- checkable now against the README
+        the entry will point at, which is the difference between discovering a
+        drifted command before the hours and after them.
+        """
+        readme = (EXPERIMENT_DIR / "README.md").read_text()
+        footer = si.sweep_invocation_line(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM, "")
+        self.assertIn(
+            f"python3 {footer}",
+            readme,
+            "the README does not document the exact command the default sweep would "
+            "record in its own footer -- indexing that record would fail "
+            "cold-start-undocumented",
+        )
 
     def test_the_runner_path_is_always_present(self) -> None:
         """The spec-coverage check matches the record's runner by this token."""
@@ -769,18 +806,510 @@ class TestDeckAssemblyUsesTheCommittedStimulus(unittest.TestCase):
     nothing else, so the fragment's own cards must survive into the deck."""
 
     def test_arm_table_renders_a_row_per_arm(self) -> None:
-        names = [arm.name for arm in si.ARMS]
-        table = "\n".join(si.arm_table_lines(names))
-        for name in names:
-            self.assertIn(f"| `{name}` |", table)
+        table = "\n".join(si.arm_table_lines(list(si.ARMS)))
+        for arm in si.ARMS:
+            self.assertIn(f"| `{arm.name}` |", table)
 
     def test_arm_table_states_no_bond_for_the_null_option(self) -> None:
-        table = "\n".join(si.arm_table_lines(["no-gnd-pad"]))
+        table = "\n".join(si.arm_table_lines([si.ARMS_BY_NAME["no-gnd-pad"]]))
         self.assertIn("no bond", table)
 
     def test_every_arm_is_reachable_from_the_cli_default(self) -> None:
         self.assertEqual(sorted(si.ARMS_BY_NAME), sorted(arm.name for arm in si.ARMS))
         self.assertIn(si.CONTROL_ARM, si.ARMS_BY_NAME)
+
+
+class TestBoundedRLSweep(unittest.TestCase):
+    """`--sweep` (issue #409 item 3; DR-015's own "No `R`/`L` sweep" open item).
+
+    A sweep is only a sweep of *one* element per axis, and it is only a walk
+    around the campaign's assumption point if its centre really is that point.
+    Both are properties a later edit could break while every run still
+    completed and still wrote a plausible record, so both are pinned here.
+    """
+
+    def test_the_anchor_point_is_the_committed_as_built_arm(self) -> None:
+        """The `1x` / DR-015-`R_SUBX` grid point must be, card for card, the
+        `package` arm the campaign already recorded -- otherwise the grid is a
+        box around nothing in particular."""
+        self.assertTrue(si.sweep_anchor_matches_base_arm())
+        anchor = [
+            c
+            for c in si.arm_network_lines(si.sweep_arm(1.0, si.R_SUBX_OHM))
+            if c and not c.startswith("*")
+        ]
+        base = [
+            c
+            for c in si.arm_network_lines(si.ARMS_BY_NAME[si.SWEEP_BASE_ARM])
+            if c and not c.startswith("*")
+        ]
+        self.assertEqual(anchor, base)
+
+    def test_the_zero_inductance_point_is_the_committed_r_only_arm(self) -> None:
+        """The other tie to the existing record: the bottom of the `L` ladder
+        is electrically `package-r-only`, the arm that record's bond-inductance
+        ablation is taken against."""
+        zero = [
+            c
+            for c in si.arm_network_lines(si.sweep_arm(0.0, si.R_SUBX_OHM))
+            if c and not c.startswith("*")
+        ]
+        r_only = [
+            c
+            for c in si.arm_network_lines(si.ARMS_BY_NAME["package-r-only"])
+            if c and not c.startswith("*")
+        ]
+        self.assertEqual(zero, r_only)
+
+    def test_a_row_of_the_grid_moves_only_the_inductance(self) -> None:
+        """DR-015 item 5: an effect may be attributed to an element only by a
+        difference that moves that element and nothing else."""
+        for rsubx in si.SWEEP_RSUBX_OHM:
+            arms = [si.sweep_arm(m, rsubx) for m in si.SWEEP_L_MULTIPLIERS]
+            for arm in arms[1:]:
+                self.assertEqual(set(arm.bonds), set(arms[0].bonds))
+                self.assertEqual(arm.substrate, arms[0].substrate)
+                for terminal in arm.bonds:
+                    self.assertAlmostEqual(
+                        arm.bonds[terminal].r_ohm, arms[0].bonds[terminal].r_ohm, places=12
+                    )
+            inductances = [a.bonds["GND"].l_h for a in arms]
+            self.assertEqual(inductances, sorted(inductances))
+            self.assertEqual(len(set(inductances)), len(inductances))
+
+    def test_a_column_of_the_grid_moves_only_the_substrate_link(self) -> None:
+        for mult in si.SWEEP_L_MULTIPLIERS:
+            arms = [si.sweep_arm(mult, r) for r in si.SWEEP_RSUBX_OHM]
+            for arm in arms[1:]:
+                self.assertEqual(arm.bonds, arms[0].bonds)
+            values = [a.substrate[0][3] for a in arms]
+            self.assertEqual(values, list(si.SWEEP_RSUBX_OHM))
+            self.assertEqual([a.substrate[0][:3] for a in arms], [("RSUBX", si.GND_DIE, "VGND")] * 3)
+
+    def test_the_default_box_brackets_dr015s_assumption_point(self) -> None:
+        """A sweep whose box sits entirely to one side of the assumption point
+        could not say whether that point is near a threshold."""
+        self.assertIn(1.0, si.SWEEP_L_MULTIPLIERS)
+        self.assertIn(si.R_SUBX_OHM, si.SWEEP_RSUBX_OHM)
+        self.assertLess(min(si.SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
+        self.assertGreater(max(si.SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
+        self.assertGreater(max(si.SWEEP_L_MULTIPLIERS), 1.0)
+        self.assertEqual(min(si.SWEEP_L_MULTIPLIERS), 0.0)
+
+    def test_grid_point_names_are_unique_and_usable_as_filenames(self) -> None:
+        """A grid point's name is also its log/deck filename and its log-cache
+        key, so a collision would silently overwrite another point's evidence."""
+        names = [a.name for a in si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertEqual(len(names), len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM))
+        for name in names:
+            self.assertRegex(name, r"^[A-Za-z0-9._-]+$")
+            self.assertNotIn(name, si.ARMS_BY_NAME, "a grid point shadows a named arm")
+
+    def test_the_cheap_points_run_first(self) -> None:
+        """An inductance-free bond has nothing to ring and finishes quickly, so
+        an interrupted sweep should leave the reusable points on disk."""
+        arms = si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+        self.assertEqual(
+            [a.bonds["GND"].l_h for a in arms],
+            sorted(a.bonds["GND"].l_h for a in arms),
+        )
+
+    def test_unphysical_sweep_points_are_refused(self) -> None:
+        for l_mult, rsubx in ((-1.0, 30.0), (1.0, 0.0), (1.0, -30.0)):
+            with self.subTest(point=(l_mult, rsubx)):
+                with self.assertRaises(RuntimeError):
+                    si.sweep_arm(l_mult, rsubx)
+
+    def test_a_base_arm_that_is_no_longer_fully_bonded_is_refused(self) -> None:
+        """The sweep claims to move around the AS-BUILT network. If the arm it
+        sweeps stopped being that, the run must fail rather than silently
+        sweep a different topology."""
+        original = si.ARMS_BY_NAME[si.SWEEP_BASE_ARM]
+        broken = si.Arm(
+            name=original.name,
+            summary=original.summary,
+            bonds={**original.bonds, "GND": si.IDEAL},
+            substrate=original.substrate,
+        )
+        si.ARMS_BY_NAME[si.SWEEP_BASE_ARM] = broken
+        try:
+            with self.assertRaises(RuntimeError):
+                si.sweep_arm(1.0, si.R_SUBX_OHM)
+        finally:
+            si.ARMS_BY_NAME[si.SWEEP_BASE_ARM] = original
+
+    def test_sweep_footer_states_the_box_only_when_it_departs_from_the_default(self) -> None:
+        self.assertEqual(
+            si.sweep_invocation_line(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM, ""),
+            f"{si.RUNNER_REL} --sweep --record",
+        )
+        wider = si.sweep_invocation_line((0.0, 1.0, 3.0, 10.0), si.SWEEP_RSUBX_OHM, "")
+        self.assertIn("--sweep-l-mult 0,1,3,10", wider)
+        other_r = si.sweep_invocation_line(si.SWEEP_L_MULTIPLIERS, (10.0, 100.0), "")
+        self.assertIn("--sweep-rsubx 10,100", other_r)
+        self.assertIn(
+            "--supersedes 20260101-000000-abcdef0",
+            si.sweep_invocation_line(
+                si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM, "20260101-000000-abcdef0"
+            ),
+        )
+
+
+class TestSweepFindings(unittest.TestCase):
+    """The sentences the sweep record states about magnitudes. A sweep that
+    reported "no code moved" while one had -- or a threshold at the wrong
+    point -- would be a wrong claim in an append-only record."""
+
+    def _point(self, l_mult: float, rsubx: float, gnd_pp: float, codes: list[int]) -> dict:
+        return {
+            "arm": si.sweep_arm_name(l_mult, rsubx),
+            "corner_id": "tt_27c_1.80v",
+            "conversions": [
+                {"conversion": i + 1, "fraction": f, "code": c}
+                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+            ],
+            "extras": {"gnd_die_pp": gnd_pp},
+            "missing": [],
+        }
+
+    def _grid(self, mover: tuple[float, float] | None) -> tuple[list[dict], dict]:
+        base = [214, 383, 511, 641, 1023]
+        control = self._point(0.0, 0.0, 0.0, base)
+        control["arm"] = si.CONTROL_ARM
+        points = [control]
+        for m in si.SWEEP_L_MULTIPLIERS:
+            for r in si.SWEEP_RSUBX_OHM:
+                codes = list(base)
+                if mover is not None and (m, r) >= mover:
+                    codes[2] += 4
+                points.append(self._point(m, r, 0.001 + m * 0.037, codes))
+        return points, control
+
+    def test_a_bounded_null_is_stated_as_bounded(self) -> None:
+        points, control = self._grid(None)
+        text = "\n".join(
+            si.sweep_findings_lines(points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+        )
+        self.assertIn("bounded null result", text)
+        self.assertIn("0 LSB", text)
+        self.assertIn("outside the box", text)
+
+    def test_a_threshold_inside_the_box_is_located(self) -> None:
+        points, control = self._grid((10.0, 30.0))
+        text = "\n".join(
+            si.sweep_findings_lines(points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+        )
+        self.assertIn("moves inside this box", text)
+        self.assertIn("`L = 10x`, `R_SUBX = 30 Ohm`", text)
+        self.assertIn("4 LSB", text)
+        self.assertIn("2 of 9 grid points", text)
+
+    def test_each_axis_is_read_one_element_at_a_time(self) -> None:
+        points, control = self._grid(None)
+        lines = si.sweep_findings_lines(
+            points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM
+        )
+        rows = [ln for ln in lines if ln.startswith("- **Bond inductance at")]
+        cols = [ln for ln in lines if ln.startswith("- **Substrate link at")]
+        self.assertEqual(len(rows), len(si.SWEEP_RSUBX_OHM))
+        self.assertEqual(len(cols), len(si.SWEEP_L_MULTIPLIERS))
+        for line in rows + cols:
+            self.assertIn("Only", line)
+
+    def test_the_worst_excursion_is_converted_to_lsb(self) -> None:
+        points, control = self._grid(None)
+        text = "\n".join(
+            si.sweep_findings_lines(points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+        )
+        self.assertIn("Worst die-side analog-ground excursion in the box", text)
+        self.assertIn("LSB at the nominal supply", text)
+        self.assertIn("upper bound rather than a prediction", text)
+
+
+class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
+    """The sweep writes its own record and must NOT move `records/LATEST`.
+
+    That pointer names the record the campaign's cited claim rests on -- the
+    arm comparison DR-012 and `docs/chipalooza/challenge-4-proposal.md`'s Power
+    row cite by record-id. The sweep supersedes none of it: it asks a different
+    question about the same DUT. Moving the pointer would make a citation of
+    the still-current arm-comparison record read as *stale* to this repo's
+    citation gate while nothing had actually superseded it -- the same
+    disposition, for the same reason, as `run_conversion.py`'s diagnostic
+    record writers.
+    """
+
+    def _write(self) -> tuple[Path, Path]:
+        import shutil
+        import tempfile
+
+        from harness import evidence
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        base = [214, 383, 511, 641, 1023]
+
+        def point(arm: str, gnd_pp: float) -> dict:
+            return {
+                "arm": arm,
+                "corner_id": "tt_27c_1.80v",
+                "process_corner": "tt",
+                "temp_c": 27.0,
+                "supply_v": 1.8,
+                "point_id": f"{arm}@tt_27c_1.80v",
+                "conversions": [
+                    {"conversion": i + 1, "fraction": f, "code": c}
+                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                ],
+                "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
+                "power_w": 27.9e-6,
+                "extras": {"gnd_die_pp": gnd_pp, "i_gnda": 2.2e-6},
+                "missing": [],
+                "log_text": "LOG\n",
+                "deck_text": "* deck\n",
+                "wall_s": 600.0,
+                "reused": False,
+            }
+
+        points = [point(si.CONTROL_ARM, 0.0)] + [
+            point(arm.name, 0.037)
+            for arm in si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+        ]
+        try:
+            si.EXPERIMENT_DIR = tmp_dir
+            evidence.resolve_provenance = fake_resolve
+            path = si.write_sweep_record(
+                points, "* netlist\n", si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM
+            )
+        finally:
+            si.EXPERIMENT_DIR = real_dir
+            evidence.resolve_provenance = real_resolve
+        return path, tmp_dir
+
+    def test_the_latest_pointer_is_not_moved(self) -> None:
+        _path, tmp_dir = self._write()
+        self.assertFalse((tmp_dir / "records" / "LATEST").exists())
+
+    def test_the_record_says_it_supersedes_nothing_and_why(self) -> None:
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("- **Supersedes**: (none)", text)
+        self.assertIn("does not supersede the campaign's arm-comparison record", text)
+
+    def test_the_record_carries_both_matrices_and_its_scope_caveats(self) -> None:
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("## Die-side analog-ground excursion over the swept box", text)
+        self.assertIn("## Worst mid-scale |delta code| vs the control, over the swept box", text)
+        self.assertIn("## What this sweep does not cover", text)
+        self.assertIn("## Subset-corner justification", text)
+        # The two elements the sweep does NOT move must be named, not implied.
+        self.assertIn("`R_SUB`, the substrate-only RETURN, is not swept", text)
+        self.assertIn("No extracted substrate network", text)
+        self.assertIn(
+            "Written by `sim/supply-impedance-sensitivity/run_supply_impedance.py "
+            "--sweep --record`",
+            text,
+        )
+
+    def test_every_run_appears_with_its_raw_log_and_deck(self) -> None:
+        _path, tmp_dir = self._write()
+        dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
+        expected = len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM) + 1
+        self.assertEqual(len(dumped), 2 * expected, dumped)
+
+
+class TestCostProbe(unittest.TestCase):
+    """`--cost-probe` (the price of the sweep box, before it is paid).
+
+    A probe is a *truncated* run of the real deck, which makes it two things at
+    once: the only cheap way to know what the box costs and whether its
+    off-anchor points converge at all -- and, if anything ever let one reach a
+    record, a run whose `.meas` cards never fired masquerading as evidence. So
+    the tests below pin the truncation itself and the refusals that keep a
+    probe's log out of both the record path and the restart cache.
+    """
+
+    def _deck(self, arm_name: str = "package") -> str:
+        """A deck-shaped string with exactly the committed fragment's `.tran`."""
+        return (
+            f"* arm={arm_name}\n"
+            ".include foo.spice\n"
+            + si.tb.FRAGMENT_PATH.read_text()
+            + ".end\n"
+        )
+
+    def test_the_truncated_deck_differs_only_in_the_tran_stop_time(self) -> None:
+        deck = self._deck()
+        sliced = si.truncate_tran(deck, 400.0)
+        before = [ln for ln in deck.splitlines() if not ln.startswith(".tran ")]
+        after = [ln for ln in sliced.splitlines() if not ln.startswith(".tran ")]
+        self.assertEqual(before, after, "a cost probe changed something besides .tran")
+        self.assertIn(".tran 0.5n 400n", sliced)
+
+    def test_the_requested_timestep_is_preserved(self) -> None:
+        """The probe measures solver work per simulated nanosecond, so changing
+        the requested step would change the very thing being priced."""
+        step = si.RE_TRAN_CARD.findall(self._deck())[0][0]
+        self.assertEqual(si.RE_TRAN_CARD.findall(si.truncate_tran(self._deck(), 400.0))[0][0], step)
+
+    def test_a_probe_must_be_shorter_than_the_run_it_prices(self) -> None:
+        stop_ns = si.fragment_tran_stop_ns()
+        self.assertIsNotNone(stop_ns)
+        for slice_ns in (stop_ns, stop_ns + 1.0, 0.0, -1.0):
+            with self.subTest(slice_ns=slice_ns):
+                with self.assertRaises(RuntimeError):
+                    si.truncate_tran(self._deck(), slice_ns)
+
+    def test_an_ambiguous_deck_is_refused_rather_than_guessed(self) -> None:
+        for deck in (self._deck() + ".tran 0.5n 100n\n", "* no tran here\n.end\n"):
+            with self.subTest(deck=deck[:20]):
+                with self.assertRaises(RuntimeError):
+                    si.truncate_tran(deck, 400.0)
+
+    def test_the_fragment_stop_time_is_read_from_the_fragment(self) -> None:
+        """Not restated in the runner: a probe's bound must follow the stimulus
+        it prices rather than a constant that can drift from it."""
+        self.assertAlmostEqual(si.fragment_tran_stop_ns(), 6283.3333, places=3)
+        self.assertIn(f"{si.fragment_tran_stop_ns():.4f}n", si.tb.FRAGMENT_PATH.read_text())
+
+    def test_spice_time_values_parse_or_decline(self) -> None:
+        self.assertAlmostEqual(si._spice_time_ns("6283.3333n"), 6283.3333, places=4)
+        self.assertAlmostEqual(si._spice_time_ns("1u"), 1000.0)
+        self.assertAlmostEqual(si._spice_time_ns("1ms"), 1e6)
+        self.assertAlmostEqual(si._spice_time_ns("2e-9"), 2.0)
+        for bad in ("", "abc", "6283x", "$(pwd)"):
+            self.assertIsNone(si._spice_time_ns(bad), bad)
+
+    def test_measurement_failures_are_not_reported_as_solver_trouble(self) -> None:
+        """A truncated run misses every `.meas` by construction. Treating that
+        as trouble would drown the one signal the probe exists to give."""
+        log = (
+            "Measurement d9_c1 FAILED\n"
+            "MIF-ERROR: no such measurement\n"
+            "Total analysis time (seconds) = 12\n"
+        )
+        self.assertEqual(si.solver_trouble_lines(log), [])
+
+    def test_solver_trouble_is_reported(self) -> None:
+        for line in (
+            "Warning: Timestep too small; time = 1.2e-09",
+            "doAnalyses: TRAN:  Timestep too small",
+            "ERROR: singular matrix: check node vdd_board",
+            "Fatal error: no convergence in dcop",
+        ):
+            with self.subTest(line=line):
+                self.assertEqual(si.solver_trouble_lines(f"ok\n{line}\nok\n"), [line])
+
+    def test_the_probe_table_ratios_against_the_anchor_point(self) -> None:
+        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        rows = [
+            {"arm": si.CONTROL_ARM, "wall_s": 50.0, "trouble": []},
+            {"arm": anchor, "wall_s": 200.0, "trouble": []},
+            {"arm": si.sweep_arm_name(10.0, si.R_SUBX_OHM), "wall_s": 100.0, "trouble": []},
+        ]
+        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        self.assertIn("NOT A MEASUREMENT", text)
+        self.assertIn("| 1.00x |", text)
+        self.assertIn("| 0.50x |", text)
+        self.assertIn("| 0.25x |", text)
+        self.assertIn(f"The anchor point is `{anchor}`", text)
+
+    def test_a_box_without_the_anchor_says_it_cannot_be_projected(self) -> None:
+        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        rows = [{"arm": si.sweep_arm_name(10.0, 3.0), "wall_s": 100.0, "trouble": []}]
+        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        self.assertIn("does not contain the anchor point", text)
+        self.assertIn("| n/a |", text)
+
+    def test_a_troubled_point_is_called_out_separately(self) -> None:
+        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        rows = [
+            {"arm": anchor, "wall_s": 200.0, "trouble": []},
+            {
+                "arm": si.sweep_arm_name(10.0, 300.0),
+                "wall_s": 9.0,
+                "trouble": ["Timestep too small"],
+            },
+        ]
+        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        self.assertIn("The solver had trouble at:", text)
+        self.assertIn("NOT known to be runnable over the full stimulus", text)
+
+    def test_the_cli_refuses_every_way_a_probe_could_become_evidence(self) -> None:
+        """A probe measures nothing, so `--record` must be impossible; and its
+        log shares a point-id with the real run of the same point, so caching it
+        would overwrite the log a restarted campaign reuses."""
+        import subprocess
+
+        for extra in (
+            ["--record"],
+            ["--log-cache", "/tmp/should-not-be-used"],
+            ["--supersedes", "20260101-000000-abcdef0"],
+        ):
+            with self.subTest(extra=extra):
+                proc = subprocess.run(
+                    [
+                        sys.executable,
+                        str(si.EXPERIMENT_DIR / "run_supply_impedance.py"),
+                        "--sweep",
+                        "--cost-probe",
+                        "400",
+                        *extra,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                self.assertEqual(proc.returncode, 2, proc.stderr)
+                self.assertIn("refused", proc.stderr)
+
+    def test_the_documented_probe_command_is_one_the_runner_accepts(self) -> None:
+        """The README quotes a probe invocation and reports numbers from it, so a
+        renamed flag must fail here rather than leave a documented command that
+        no longer runs."""
+        readme = (EXPERIMENT_DIR / "README.md").read_text()
+        match = re.search(
+            r"run_supply_impedance\.py --sweep --cost-probe (\d+(?:\.\d+)?)", readme
+        )
+        self.assertIsNotNone(match, "the README documents no --cost-probe invocation")
+        slice_ns = float(match.group(1))
+        self.assertGreater(slice_ns, 0.0)
+        self.assertLess(slice_ns, si.fragment_tran_stop_ns())
+        runner_src = (EXPERIMENT_DIR / "run_supply_impedance.py").read_text()
+        for flag in ("--cost-probe", "--sweep"):
+            self.assertIn(f'"{flag}"', runner_src)
+
+    def test_the_cli_refuses_a_probe_without_a_box_to_price(self) -> None:
+        import subprocess
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(si.EXPERIMENT_DIR / "run_supply_impedance.py"),
+                "--cost-probe",
+                "400",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("--sweep", proc.stderr)
 
 
 class TestDR012OpenItemIsRetired(unittest.TestCase):
