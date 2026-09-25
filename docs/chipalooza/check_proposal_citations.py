@@ -78,6 +78,13 @@ CHIPALOOZA_DIR = REPO_ROOT / "docs" / "chipalooza"
 # this document now cites both by path. Before that entry, a backticked
 # `signoff/...` path was silently unchecked by check 2 -- the same
 # not-my-directory hole `erc-reports/` had at checks 3/4 before check 16.
+#
+# ADDING AN ENTRY? Name it in `docs/citation-gate.md`'s check 2 parenthetical
+# too. That sentence is a claim about this gate's own coverage, so it is
+# gated: TestRationaleDocumentCoverage compares it to this frozenset in both
+# directions, and a one-sided edit fails `npm run test:unit`. (Check 17 added
+# `signoff` and left that list naming seven directories -- the drift this gate
+# now catches.)
 OWN_TOP_LEVEL = frozenset(
     (
         "sim",

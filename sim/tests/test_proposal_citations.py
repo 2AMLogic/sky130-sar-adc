@@ -3388,6 +3388,109 @@ class TestRationaleDocumentCoverage(unittest.TestCase):
         self.assertEqual(self.RATIONALE_DOC.parent, checker.CHIPALOOZA_DIR.parent)
         self.assertNotIn(self.RATIONALE_DOC, set(checker.CHIPALOOZA_DIR.glob("*.md")))
 
+    # -- Check 2's directory list: a prose claim about the gate's own coverage.
+    #
+    # `docs/citation-gate.md`'s check 2 entry names, in prose, the set of
+    # top-level directories whose backticked paths check 2 resolves -- i.e.
+    # `checker.OWN_TOP_LEVEL`. A directory missing from the frozenset is a whole
+    # tree whose bare citations the gate silently does not resolve, so the
+    # sentence is load-bearing, not decorative. The two had already drifted
+    # once: check 17 added `signoff` to the frozenset and left the sentence
+    # naming seven directories. Re-derived here in both directions rather than
+    # trusted, same discipline the checks themselves apply to the proposal.
+
+    CHECK_2_HEADING = "### Check 2 -- bare path references"
+    CHECK_2_LIST_RE = re.compile(r"top-level directories \(([^)]*)\)", re.DOTALL)
+
+    @classmethod
+    def parse_check_2_directories(cls, section: str) -> set[str] | None:
+        """The directories check 2's parenthesised list names, or None.
+
+        Anchored on the parenthetical specifically, NOT on the whole section:
+        the section deliberately also backticks an *upstream* path
+        (klayout-tools' `src/klayout_tools/lvs.py`) as its counter-example, and
+        a parser that swept the section would demand `src` in `OWN_TOP_LEVEL`
+        to pass -- exactly backwards. None means the parenthetical is gone.
+        """
+        match = cls.CHECK_2_LIST_RE.search(section)
+        if match is None:
+            return None
+        return set(re.findall(r"`([A-Za-z0-9_.-]+)/`", match.group(1)))
+
+    def check_2_section(self) -> str:
+        text = self.RATIONALE_DOC.read_text()
+        start = text.find(self.CHECK_2_HEADING)
+        self.assertNotEqual(
+            start,
+            -1,
+            f"docs/citation-gate.md has no {self.CHECK_2_HEADING!r} heading",
+        )
+        end = text.find("\n### ", start + len(self.CHECK_2_HEADING))
+        return text[start:] if end == -1 else text[start:end]
+
+    def test_the_check_2_directory_list_matches_own_top_level(self):
+        prose = self.parse_check_2_directories(self.check_2_section())
+        self.assertIsNotNone(
+            prose,
+            "check 2's entry no longer states a parenthesised 'top-level "
+            "directories (...)' list, so nothing re-derives what the prose "
+            "claims the gate covers",
+        )
+        frozen = set(checker.OWN_TOP_LEVEL)
+        self.assertEqual(
+            sorted(frozen - prose),
+            [],
+            "OWN_TOP_LEVEL carries directories docs/citation-gate.md's check 2 "
+            "entry does not name -- the prose understates the gate's coverage",
+        )
+        self.assertEqual(
+            sorted(prose - frozen),
+            [],
+            "docs/citation-gate.md's check 2 entry names directories "
+            "OWN_TOP_LEVEL does not carry -- the prose overstates the gate's "
+            "coverage, and citations under them are silently unresolved",
+        )
+
+    def test_the_check_2_prose_list_is_not_vacuously_satisfiable(self):
+        """The parser must actually be able to fail, and on the real shapes."""
+        real = self.check_2_section()
+        self.assertTrue(
+            self.parse_check_2_directories(real),
+            "parsed an empty set from the real section -- set equality against "
+            "a non-empty OWN_TOP_LEVEL would be the only thing keeping the "
+            "gate above honest",
+        )
+
+        # The exact drift check 17 left behind: one entry dropped from the
+        # prose must be reported, not absorbed.
+        dropped = real.replace(", `signoff/`)", ")")
+        self.assertNotEqual(dropped, real, "fixture no longer matches the prose")
+        self.assertEqual(
+            checker.OWN_TOP_LEVEL - (self.parse_check_2_directories(dropped) or set()),
+            {"signoff"},
+        )
+
+        # An entry the frozenset does not carry must be reported too.
+        added = real.replace("`signoff/`)", "`signoff/`, `bench/`)")
+        self.assertNotEqual(added, real, "fixture no longer matches the prose")
+        self.assertEqual(
+            (self.parse_check_2_directories(added) or set()) - checker.OWN_TOP_LEVEL,
+            {"bench"},
+        )
+
+        # A section with the parenthetical removed must read as absent, not as
+        # an empty set that trivially compares equal to nothing.
+        self.assertIsNone(
+            self.parse_check_2_directories(
+                real.replace("top-level directories (", "top-level directories: ")
+            )
+        )
+
+        # And the anchor must not be the whole section: the upstream
+        # counter-example is present and must not be parsed as one of ours.
+        self.assertIn("`src/klayout_tools/lvs.py`", real)
+        self.assertNotIn("src", self.parse_check_2_directories(real))
+
 
 if __name__ == "__main__":
     unittest.main()

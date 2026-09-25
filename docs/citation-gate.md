@@ -55,11 +55,27 @@ exists in this repository.
 
 Every backticked, whitespace-free reference whose first segment is one of
 this repo's own top-level directories (`sim/`, `layout/`, `spec/`, `design/`,
-`docs/`, `measurements/`, `ratification/`) resolves too. Not every evidence
-citation is a Markdown link: Section 4's Power row, for instance, cites its
-record as a bare backticked path. References whose first segment is NOT one
-of ours (e.g. klayout-tools' `src/klayout_tools/lvs.py`) are upstream paths
-and are left alone.
+`docs/`, `measurements/`, `ratification/`, `signoff/`) resolves too. Not every
+evidence citation is a Markdown link: Section 4's Power row, for instance,
+cites its record as a bare backticked path. References whose first segment is
+NOT one of ours (e.g. klayout-tools' `src/klayout_tools/lvs.py`) are upstream
+paths and are left alone.
+
+**That parenthesised list is itself gated, because it is a claim about the
+gate's own coverage.** It states `OWN_TOP_LEVEL` in the checker, and a
+directory absent from that frozenset is a whole tree whose bare citations
+check 2 silently does not resolve -- so a typo'd or dangling `signoff/...`
+path would have passed, unread, the way one did until check 17 added
+`signoff` (see check 17, and check 16 for the same not-my-directory shape at
+checks 3/4 with `erc-reports/`). The sentence above and the frozenset had
+already drifted once: check 17 added the eighth entry and left this list
+naming seven. Per this document's own discipline, the list is therefore
+re-derived rather than trusted --
+`TestRationaleDocumentCoverage.test_the_check_2_directory_list_matches_own_top_level`
+parses this parenthetical and compares it to `OWN_TOP_LEVEL` **in both
+directions**, so adding a directory to the frozenset without naming it here
+(or naming one here that the frozenset does not carry) fails
+`npm run test:unit`.
 
 ### Check 3 -- spec-row freshness (`check_spec_table_freshness`)
 
