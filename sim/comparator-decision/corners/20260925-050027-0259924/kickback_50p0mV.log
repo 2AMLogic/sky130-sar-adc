@@ -1,0 +1,53 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * comparator-decision kickback probe -- vindiff=50.0mv corner=tt temp=27.0c rsrc=1000.0ohm (issue #346)
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+ Reference value :  0.00000e+00
+ Reference value :  2.72140e-09
+ Reference value :  4.63140e-09
+ Reference value :  5.62750e-09
+ Reference value :  8.69750e-09
+ Reference value :  1.14675e-08
+ Reference value :  1.29125e-08
+ Reference value :  1.41825e-08
+ Reference value :  1.65825e-08
+ Reference value :  1.72375e-08
+ Reference value :  1.93575e-08
+ Reference value :  2.09925e-08
+ Reference value :  2.10075e-08
+ Reference value :  2.10275e-08
+ Reference value :  2.22475e-08
+ Reference value :  2.22675e-08
+ Reference value :  2.27225e-08
+ Reference value :  2.41975e-08
+ Reference value :  2.42175e-08
+ Reference value :  2.54175e-08
+ Reference value :  2.66875e-08
+ Reference value :  2.68475e-08
+ Reference value :  2.71175e-08
+ Reference value :  2.75725e-08
+ Reference value :  2.80475e-08
+ Reference value :  2.80675e-08
+ Reference value :  2.98625e-08
+ Reference value :  3.09225e-08
+ Reference value :  3.32675e-08
+ Reference value :  3.44125e-08
+ Reference value :  3.44325e-08
+ Reference value :  3.47125e-08
+ Reference value :  3.47275e-08
+ Reference value :  3.53775e-08
+ Reference value :  3.58275e-08
+ Reference value :  3.60625e-08
+ Reference value :  3.96125e-08
+ Reference value :  4.24725e-08
+No. of Data Rows : 9034
+Note: Simulation executed from .control section 

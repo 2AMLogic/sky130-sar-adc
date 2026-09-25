@@ -532,13 +532,22 @@ ROWS: tuple[Row, ...] = (
             "source -> resistor -> DUT pin), Vcm = 0.9 V, one reset(5.0 ns, "
             "CLK=0) -> evaluate(CLK=1.8 V) edge per run over a 40 ns evaluate "
             "window; the measured quantity is the peak pin disturbance across "
-            "that transition."
+            "that transition, now also decomposed into its common-mode and "
+            "differential components with later recovery pick-offs of both "
+            "(issue #390), over a Vindiff grid of 0 (symmetry control), "
+            "1.7578 mV (half a differential LSB) and 50 mV."
         ),
         verdict=(
             "INFORMATIONAL (DRAFT row, no ratified line to grade against). "
             "Worst-case peak pin disturbance 73.3673 mV on VINP at "
             "Vindiff = +50 mV -- approx. 14.7x the DRAFT <=5 mV target and "
-            "approx. 36.7x the <=2 mV stretch, at the one corner measured."
+            "approx. 36.7x the <=2 mV stretch, at the one corner measured. "
+            "The differential component of that disturbance -- the part a "
+            "differential top-plate CDAC does not reject, and therefore the "
+            "part that lands on a decision -- is 10.9153 mV at the same "
+            "point (approx. 2.2x the target) and 4.1918 mV at the half-LSB "
+            "overdrive a marginal SAR decision actually presents "
+            "(approx. 0.84x the target, approx. 2.1x the stretch)."
         ),
         notes=(
             "The Kickback row itself is new as of 2026-09-24 "
@@ -552,15 +561,26 @@ ROWS: tuple[Row, ...] = (
             "informational against an adopted candidate, not a verdict against "
             "a ratified line, and CLAUDE.md's 'do not relax a spec line to make "
             "a result pass' rule is why the gap is recorded rather than the "
-            "bound widened. Decomposition, from the cited record's own "
-            "Vindiff = 0 mV control row (-70.3419 mV): approx. 95.9 % of the "
-            "disturbance is CLK-gated reset/precharge/tail switching and only "
-            "approx. 4.1 % (3.0254 mV) is the decision transient itself. A "
-            "full-corner campaign is owed before this row could be ratified "
-            "(DR-011 Consequences section 5); mitigation selection is issue "
-            "#349's, which this row unblocks."
+            "bound widened. The decomposition above is issue #390's, the "
+            "first gate DR-014 named, and it replaces an earlier reading of "
+            "this row that this manifest carried until 2026-09-25: that "
+            "subtracting the cited record's Vindiff = 0 mV control peak from "
+            "its worst case split the disturbance into a "
+            "'CLK-gated reset/precharge/tail switching' share and a "
+            "'decision transient' share (approx. 95.9 % / approx. 4.1 %). "
+            "Both of those figures are extrema over EITHER pin "
+            "independently, so their difference was never a common-mode / "
+            "differential split; the superseding record measures the two "
+            "components directly instead. What that measurement shows: the "
+            "common-mode part barely moves with overdrive (-70.3419 mV at "
+            "the symmetry control, -70.4415 mV at +50 mV), and the "
+            "differential part is the smaller but non-negligible one. "
+            "Mitigation selection was answered by DR-014 (no preamp, no "
+            "mitigation adopted); DR-014 Consequences section 4 is the open "
+            "follow-on, and a full-corner campaign is still owed before this "
+            "row could be ratified (DR-011 Consequences section 5)."
         ),
-        sim_citations=("sim/comparator-decision/records/20260924-041815-afcb1b5.md",),
+        sim_citations=("sim/comparator-decision/records/20260925-050027-0259924.md",),
     ),
     Row(
         id="power",
