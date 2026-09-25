@@ -2507,11 +2507,28 @@ tracker already owns.
    but that it has **no route by which it self-clears**: even after #402
    merges, a fresh proposal for the carve-out has to be filed and land
    first. **PR #402**, the first increment, is still open and still unmerged
-   (`merged_at: null`); its review-cycle labels were cleared at
-   2026-09-25T09:30:02Z and it is back at `loom:review-requested`, so the
-   mid-pass label state an earlier draft of this paragraph recorded had
-   already reversed. That churn is exactly why what the absence below rests
-   on is the merge, not the label. So `layout/top-glue/` (not in this tree)
+   (`merged_at: null`), and its label state has moved again since the last
+   pass recorded it here — this paragraph's own prior word (cleared back to
+   `loom:review-requested` at 2026-09-25T09:30:02Z) is exactly the kind of
+   live-state sentence that rots the moment written, which is why it is
+   corrected in place rather than left to compound. Re-checked live this
+   pass (`gh api repos/2AMLogic/sky130-sar-adc/issues/402/events`,
+   2026-09-25T15:53Z): a second merge-conflict rejection and Doctor fix
+   cycle (07:27Z-11:30Z) reached Judge approval and `loom:pr` at 11:49:56Z,
+   then Champion's critical-file hold added `loom:operator` at 12:22:45Z —
+   `.github/workflows/ci.yml`'s diff is comment-only (documenting the new
+   `check:glue-parity` step, no job/step logic touched), but the
+   version-only carve-out this repo's Champion config exempts is scoped to
+   six named version-bearing files and does not extend to workflow files,
+   so the hold is a hard fail on the path alone and stands until a human
+   runs `./.loom/scripts/merge-pr.sh 402`. Champion's own automated
+   re-check additionally flagged, at 15:00:40Z, that `main` has since moved
+   underneath the held PR (`mergeStateStatus: DIRTY` against merge base
+   `0d5a4ff5`, 3 shared files, classified "possible structural overlap" —
+   a rebase read, not necessarily a conflict) without itself acting on it.
+   None of this changes what #401 waits on: PR #402 still has to merge, by a
+   human, and this document still only reports that state rather than acting
+   on it, the same restraint it already states for #103. So `layout/top-glue/` (not in this tree)
    and `layout/halflsb-offset/` (not in this tree) are both still absent from
    `origin/main` — `git ls-tree -r origin/main --name-only` returns neither —
    and §3 and §4 still cite no record from either flow, because there is none
