@@ -278,7 +278,7 @@ class TestArms(unittest.TestCase):
         self.assertEqual([c for c in cards if re.match(r"^L[A-Z]", c)], [])
 
     def test_package_and_package_r_only_differ_in_exactly_one_element(self) -> None:
-        """The record's only single-mechanism number depends on this."""
+        """The bond-inductance single-mechanism number depends on this."""
         full = si.ARMS_BY_NAME["package"]
         r_only = si.ARMS_BY_NAME["package-r-only"]
         self.assertEqual(set(full.bonds), set(r_only.bonds))
@@ -411,6 +411,36 @@ class TestGroundPadAblation(unittest.TestCase):
         lines = si.gnd_pad_ablation_lines([], ["ideal", "no-gnd-pad"], ["tt_27c_1.80v"])
         self.assertEqual(len(lines), 1)
         self.assertIn("not available", lines[0])
+
+    def test_the_bond_ablation_drops_its_uniqueness_claim_when_this_one_also_ran(self) -> None:
+        """Records are append-only, so an unconditional "this is the only
+        single-mechanism number" would be permanently false in any record that
+        also carries the ground-pad ablation. It must be conditional."""
+        points = [
+            self._point("package", "tt_27c_1.80v", [10, 20, 30, 40, 50], 37.0e-3),
+            self._point("package-r-only", "tt_27c_1.80v", [10, 20, 30, 40, 50], 0.059e-3),
+            self._point("no-gnd-pad", "tt_27c_1.80v", [10, 20, 33, 40, 50], 74.0e-3),
+        ]
+        arms = ["ideal", "package-r-only", "package", "no-gnd-pad"]
+        bond = si.ablation_lines(points, arms, ["tt_27c_1.80v"])
+        self.assertEqual(len(bond), 1)
+        self.assertNotIn("only single-mechanism number", bond[0])
+        self.assertIn("two single-mechanism numbers in this record", bond[0])
+        # and the sibling it now names is actually emitted into the same record
+        self.assertTrue(si.gnd_pad_ablation_lines(points, arms, ["tt_27c_1.80v"]))
+
+    def test_the_bond_ablation_keeps_its_uniqueness_claim_when_it_stands_alone(self) -> None:
+        """The committed four-arm record really does carry exactly one
+        single-mechanism number, and must keep saying so."""
+        points = [
+            self._point("package", "tt_27c_1.80v", [10, 20, 30, 40, 50], 37.0e-3),
+            self._point("package-r-only", "tt_27c_1.80v", [10, 20, 30, 40, 50], 0.059e-3),
+        ]
+        arms = ["ideal", "package-r-only", "package", "substrate"]
+        bond = si.ablation_lines(points, arms, ["tt_27c_1.80v"])
+        self.assertEqual(len(bond), 1)
+        self.assertIn("This is the only single-mechanism number in this record.", bond[0])
+        self.assertEqual(si.gnd_pad_ablation_lines(points, arms, ["tt_27c_1.80v"]), [])
 
     def test_every_arm_has_a_standing_omission_reason(self) -> None:
         """A record that omits an arm must be able to say why -- an unexplained

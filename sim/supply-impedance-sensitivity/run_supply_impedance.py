@@ -1411,12 +1411,18 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
 
     `package` and `package-r-only` carry the same per-terminal resistance on the
     same four terminals; the only difference is the series `L`. So the change
-    between them is bond inductance's own contribution, and it is the one number
-    in this record that isolates a single mechanism rather than comparing two
-    whole grounding schemes. Deliberately NOT computed against `substrate`: that
-    arm's resistance is ~300x the package resistance, so it differs from
-    `package` in two elements at once and a difference against it would confound
-    them.
+    between them is bond inductance's own contribution -- a number that isolates
+    a single mechanism rather than comparing two whole grounding schemes.
+    Deliberately NOT computed against `substrate`: that arm's resistance is ~300x
+    the package resistance, so it differs from `package` in two elements at once
+    and a difference against it would confound them.
+
+    Whether it is the record's *only* such number depends on which arms ran, so
+    the emitted sentence is conditional rather than an unconditional uniqueness
+    claim: a record that also carries `no-gnd-pad` alongside `package` gets a
+    second one-element ablation from `gnd_pad_ablation_lines()` below, and
+    records are append-only evidence -- a false "the only" written into one can
+    be corrected only by minting a superseding record.
     """
     if not {"package", "package-r-only"} <= set(arms_run):
         return [
@@ -1424,6 +1430,16 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
             "both the `package` and `package-r-only` arms, and this run did not "
             "include both."
         ]
+    # `package` is guaranteed present by the guard above, so the ground-pad
+    # ablation is reported for this record exactly when `no-gnd-pad` also ran
+    # (the same condition `gnd_pad_ablation_lines()` keys its own output on).
+    standing = (
+        "This and the ground-pad ablation below (`no-gnd-pad` vs `package`, "
+        "which isolates the other single element in this family of decks) are "
+        "the two single-mechanism numbers in this record."
+        if "no-gnd-pad" in arms_run
+        else "This is the only single-mechanism number in this record."
+    )
     out: list[str] = []
     for cid in corner_ids:
         full = next((q for q in points if q["corner_id"] == cid and q["arm"] == "package"), None)
@@ -1445,8 +1461,7 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
             "`package-r-only`, identical except for the series `L`): worst "
             "mid-scale code change = "
             + ("n/a" if delta is None else f"**{delta} LSB**")
-            + f"; analog-ground excursion {pp_txt}. This is the only "
-            "single-mechanism number in this record."
+            + f"; analog-ground excursion {pp_txt}. {standing}"
         )
     return out
 

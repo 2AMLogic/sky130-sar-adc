@@ -34,8 +34,11 @@ and the die's four supply terminals.
 
 - `package` vs `package-r-only` is a **strict one-element ablation**: same
   resistance, same terminals, the only difference is the series `L`. Their
-  difference is bond inductance's own contribution and nothing else, and it is
-  the one single-mechanism number the campaign produces.
+  difference is bond inductance's own contribution and nothing else. It is one
+  of the **two** single-mechanism numbers this campaign can produce — the
+  `no-gnd-pad` vs `package` bullet below is the other — and it is the only one
+  in a record whose arm set omits `no-gnd-pad` (`ablation_lines()` says which
+  case a given record is in rather than asserting uniqueness unconditionally).
 - `package-r-only` vs `ideal` is the bond resistance's own contribution.
 - `substrate` is **not** an ablation of `package`. Its resistance is ~300×
   larger (tens of ohms, vs ~100 mΩ), so a difference against `package` would
@@ -314,8 +317,9 @@ retires [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s
   return, DR-012's own stated order) **10.779 mV**. `package` vs
   `package-r-only` is a strict one-element ablation — same R, same terminals,
   only the series `L` differs — so bond inductance alone accounts for a
-  **~630×** jump in excursion, the one single-mechanism number this campaign
-  produces.
+  **~630×** jump in excursion, the only single-mechanism number **in this
+  record** (its four arms do not include `no-gnd-pad`, so the ground-pad
+  ablation is not among its numbers).
 - **Read this as "not fatal at this magnitude", not as "impedance does not
   matter".** A 37 mV undecoupled excursion (≈10.6 LSB at the nominal supply)
   on the comparator's own reference not flipping a captured code at `tt/27
