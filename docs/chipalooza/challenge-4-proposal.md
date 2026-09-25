@@ -871,12 +871,86 @@ which is now stale by about six hours as of this pass.
 
 ## 4. Target specification at Sky130's ratified 1.8 V rail
 
-Every row below is reported at this repository's own ratified PVT grid —
+The grid the rows below are reported at, where the record a row cites
+declares a grid at all, is this repository's own ratified PVT grid —
 process corners `{ff, fs, sf, ss, tt}`, temperature `{−40, 27, 125} °C`,
 supply `{1.62, 1.80, 1.98} V`, one-at-a-time (9 points) — per
 `spec/target-spec.md`'s "Numeric rows — RATIFIED 2026-08-19" section and
 `sim/README.md`'s "Corner-grid shape." No row below has ever been measured
 at, or claimed to hold at, any rail above 1.8 V core (§2.1).
+
+**How much of this table stands on all nine of those points is counted, not
+asserted.** That qualifier is new. Until 2026-09-25 this paragraph opened
+"Every row below is reported at this repository's own ratified PVT grid",
+and measured against the records the table actually cites, that sentence was
+false for **10 of its 22** (spec row, `sim/` record) citation pairs. The
+census below — added 2026-09-25 and graded in both directions by check 28 of
+the [citation gate](check_proposal_citations.py), whose rationale is in
+[`docs/citation-gate.md`](../citation-gate.md) — is what replaces the
+blanket claim:
+
+> of the **22** (spec row, `sim/` record) citation pairs in Section 4's
+> table, **12** name a record that declares the full **9**-point grid,
+> **8** name one that declares a smaller PVT point set, and **2** name one
+> that declares no PVT point set of its own:
+> `sim/cdac-array-transfer/records/20260828-005006-0c70212.md` (**1**
+> point), `sim/cdac-array-transfer/records/20260828-022618-f36913e.md`
+> (**1** point),
+> `sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md` (**1**
+> point), `sim/comparator-decision/records/20260924-041815-afcb1b5.md`
+> (**1** point),
+> `sim/comparator-decision/records/20260925-050027-0259924.md` (**1**
+> point), `sim/enob-estimate/records/20260906-082749-7724af3.md` (no PVT
+> point set), `sim/enob-estimate/records/20260906-173830-6f04f59.md` (no
+> PVT point set),
+> `sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md`
+> (**1** point),
+> `sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md` (**1**
+> point),
+> `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`
+> (**1** point).
+
+**No cited record hides this — the sentence above them did.** Each of the
+eight single-point records states its own subset-corner justification in its
+own header (the phrase is the harness's, not this document's), and the two
+that declare no PVT point set of their own are derived re-analyses that run
+no ngspice at all: `sim/enob-estimate/` composes the comparator campaign's
+binding-corner noise figure with the already-committed CDAC mismatch draws,
+and inherits whatever coverage those carry. Which rows the ten pairs sit
+under, and what each costs:
+
+- **Sample rate** (3 pairs) — the three mechanism budgets it cites at their
+  single-corner first pass (`sim/cdac-bit-trial-settling/`,
+  `sim/sampling-acquisition-settling/`, `sim/sequencer-logic-delay/`) are
+  each cited *alongside* the 9-point campaign that superseded them, and that
+  campaign is in the same Source cell. **No figure this row reports rests on
+  a single-corner record** — its own verdict cell reads every (a)–(d)
+  mechanism figure off the full grid, and the first-pass records are cited
+  for the supersession trail (§7 Item 2). The benign three of the ten.
+- **Kickback** (2 pairs) — both cited comparator runs are single-point
+  (`tt`/27 °C/1.8 V). This row already says so in its own cell ("**Single
+  corner only** … a first-pass baseline, not a corner campaign"), and
+  [DR-011](../../spec/decision-records/DR-011-comparator-kickback-target-row.md)
+  Consequences §5 already obliges a full-corner campaign before the row
+  could be ratified. Informational only either way.
+- **ENOB** (2 pairs) and **INL / DNL** (2 pairs) — the ENOB records are the
+  two derived re-analyses above; the two INL/DNL records are Monte Carlo
+  mismatch campaigns at the nominal PVT point (`tt_mm`, 27 °C, 1.8 V, N=40),
+  which sample the *mismatch* axis rather than the PVT one and say so in
+  their own statistical convention. Both rows are Informational only — no
+  ratified line exists to grade either against — and **neither states its
+  corner coverage in its own cell**, which is precisely what the blanket
+  sentence was covering for. Stated here rather than added to four cells.
+- **Power** (1 pair) — `sim/supply-impedance-sensitivity/` is single-point by
+  construction: it measures a *difference* between four supply-return
+  networks driving one stimulus at one corner, and this row cites it
+  non-gating, for completeness. The row's own µW figures come from the
+  9-point full-conversion campaign beside it.
+
+None of this moves a verdict — the four rows carrying those ten pairs are
+graded UNMEASURED or Informational only already, for reasons that have
+nothing to do with corner count. What it cost was a reader's right to take
+one sentence at the top of the table as speaking for every row beneath it.
 
 The verdict column below states one of five kinds, per this issue's own
 acceptance criterion ("every spec row states met/unmet... no row is

@@ -58,9 +58,10 @@ row cites (the clauses check 21 compares against), the live row count
 against), the live inductor-card census of every SPICE deck under `sim/`
 (the sentence check 25 compares against) and the live toolchain/PDK
 provenance census of every `sim/` and `layout/` record (the sentence check 26
-compares against) instead of checking, which is
-what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24, 25
-or 26 reports a drift. Exit status:
+compares against) and each document's live Section 4 corner-grid census (the
+sentence check 28 compares against) instead of checking, which is
+what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24, 25,
+26 or 28 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -949,6 +950,102 @@ LABEL_CLAIM_RE = re.compile(r"`?\bloom:(?P<label>[a-z][a-z0-9-]*)`?")
 # a future one is cheap) leaves the section unchanged rather than resetting
 # it, so a claim is never silently attributed to no section at all.
 SECTION_HEADING_RE = re.compile(r"^##\s+(?P<number>\d+)\.\s*(?P<title>.*)$")
+
+# Check 28. Section 4 opens by naming the PVT grid its rows are reported at,
+# and that sentence is the widest claim in the table: it speaks for every row
+# at once, before a reader reaches any of them. Until 2026-09-25 it read
+# "Every row below is reported at this repository's own ratified PVT grid",
+# and measured against the records the table actually cites that was false for
+# 10 of 22 (spec row, `sim/` record) pairs -- three naming a record that
+# declares a single nominal point (both of the Kickback row's comparator runs,
+# and the Power row's supply-impedance campaign) and seven naming one that
+# declares no PVT point set of its own (the two Monte Carlo linearity records,
+# the two derived ENOB re-analyses, and three superseded single-corner
+# mechanism budgets). None of those records hides it -- each states its own
+# subset-corner justification -- but the document spoke over them, and no
+# other check here could see it: checks 3/4/5/23 grade WHICH record a row
+# cites, never what corner coverage that record claims for itself.
+#
+# The grid sentence itself, matched against the same whitespace-collapsed text
+# checks 9 and 14--18 read (it spans three lines in the document).
+CORNER_GRID_RE = re.compile(
+    r"process corners `\{(?P<process>[^}]*)\}`, "
+    r"temperature `\{(?P<temps>[^}]*)\} °C`, "
+    r"supply `\{(?P<supplies>[^}]*)\} V`, "
+    r"one-at-a-time \((?P<points>\d+) points\)"
+)
+
+# The PDK pin the process axis of that grid is checked against, in both
+# directions. Without it the claim could be weakened into truth -- drop `sf`
+# and `fs` from the sentence and a four-corner campaign starts reading as the
+# full grid. `sim/pdk.json` is this repo's own list of the sections that exist
+# in the PDK library, so it is the one anchor that is not the document's.
+SIM_PDK_JSON = "sim/pdk.json"
+
+# The three shapes in which a record under `sim/*/records/` declares the PVT
+# points it ran at. All three are real and in use; keying on only the first
+# would misreport five records that DO declare a single nominal point as
+# declaring nothing, in a check whose whole subject is overstatement.
+#
+# (a) the corner-campaign driver's own line, written by
+#     `sim/harness/corners.py:corner_matrix_summary_line()`.
+RECORD_CORNER_MATRIX_RE = re.compile(
+    r"\*\*Corner matrix run\*\*:\s*process=\[(?P<process>[^\]]*)\],\s*"
+    r"temperature_c=\[(?P<temps>[^\]]*)\],\s*supply_v=\[(?P<supplies>[^\]]*)\]\s*"
+    r"\((?P<points>\d+)\s+(?:PVT\s+)?points?\b"
+)
+
+# (b) the mechanism-budget drivers' line (`tt`/27C/1.8V only, ...).
+RECORD_POINT_MATRIX_RE = re.compile(r"\*\*Point/corner matrix\*\*:(?P<body>[^\n]*)")
+
+# (c) the Monte Carlo drivers' line, where the PVT point is stated inside the
+#     statistical convention because the sampled axis is mismatch, not PVT.
+RECORD_STAT_POINT_RE = re.compile(
+    r"PVT point\s+process=(?P<process>\w+)\s+temp=(?P<temp>-?[\d.]+)\s*C\s+"
+    r"supply=(?P<supply>[\d.]+)\s*V"
+)
+
+# One `<process>`/<temp>C/<supply>V triple, as shape (b) writes it.
+RECORD_CORNER_TRIPLE_RE = re.compile(
+    r"`?(?P<process>tt|ss|ff|sf|fs)`?\s*/\s*(?P<temp>-?\d+(?:\.\d+)?)\s*C\s*/\s*"
+    r"(?P<supply>\d+(?:\.\d+)?)\s*V",
+    re.I,
+)
+
+# What the census renders when every cited record declares the full grid --
+# i.e. when the blanket sentence this check exists for would be true. Spelled
+# out rather than left as an empty clause, so the true case is a statement
+# too, `FRESHNESS_NONE`'s reason.
+CORNER_GRID_NONE = "**none** -- every cited record declares the full grid"
+
+_CORNER_GRID_ENTRY = (
+    r"`sim/[A-Za-z0-9._-]+/records/[A-Za-z0-9._-]+\.md` "
+    r"\((?:\*\*\d+\*\* points?|no PVT point set)\)"
+)
+
+# The census sentence check 28 grades. Deliberately free of the phrase
+# "current `records/LATEST`", for check 17's reason: spelling it that way
+# would enrol this sentence in checks 4/6's pointer-claim census, where it is
+# not a citation of anything.
+CORNER_GRID_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<pairs>\d+)\*\* \(spec row, `sim/` record\) citation pairs "
+    r"in Section 4's table, \*\*(?P<full>\d+)\*\* name a record that declares "
+    r"the full \*\*(?P<points>\d+)\*\*-point grid, \*\*(?P<subset>\d+)\*\* name "
+    r"one that declares a smaller PVT point set, and \*\*(?P<unstated>\d+)\*\* "
+    r"name one that declares no PVT point set of its own: (?P<records>"
+    + re.escape(CORNER_GRID_NONE)
+    + r"|(?:" + _CORNER_GRID_ENTRY + r"(?:, )?)+)\."
+)
+
+# One record inside that sentence's exception clause: the record it names and
+# the point count it declares, or the absence of one. The count is
+# load-bearing rather than decorative -- a row resting on a single nominal
+# point is a different claim from one resting on nine, and it is exactly the
+# difference the blanket sentence used to erase.
+CORNER_GRID_ENTRY_RE = re.compile(
+    r"`(?P<record>sim/[A-Za-z0-9._-]+/records/[A-Za-z0-9._-]+\.md)` "
+    r"\((?:\*\*(?P<points>\d+)\*\* points?|no PVT point set)\)"
+)
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -3946,6 +4043,287 @@ def check_label_claim_section(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _pdk_process_corners() -> list[str] | None:
+    """`sim/pdk.json`'s own process-corner list, or None if unreadable.
+
+    The one anchor in check 28 that is not the document's own sentence. A
+    missing or malformed pin file leaves the process axis ungraded rather than
+    failing the gate on it: the census over the records is the check's
+    subject, and a fixture tree that carries no PDK pin must still be able to
+    exercise it.
+    """
+    path = REPO_ROOT / SIM_PDK_JSON
+    if not path.is_file():
+        return None
+    try:
+        corners = json.loads(path.read_text())["process_corners"]
+    except (json.JSONDecodeError, KeyError, OSError):
+        return None
+    return [str(corner) for corner in corners] if isinstance(corners, list) else None
+
+
+def _axis_numbers(raw: str) -> tuple[float, ...]:
+    """The numeric axis values in `raw`, normalized for comparison.
+
+    U+2212 MINUS SIGN is what the document sets a negative temperature with
+    (`−40`) and U+002D is what a record writes (`-40`); `27` and `27.0` are
+    the same point. Comparing sorted floats rather than strings is what makes
+    the document's typography and the driver's `repr()` agree.
+    """
+    values = []
+    for token in raw.replace("−", "-").split(","):
+        token = token.strip().strip("'\"")
+        if not token:
+            continue
+        try:
+            values.append(float(token))
+        except ValueError:
+            return ()
+    return tuple(sorted(values))
+
+
+def _axis_names(raw: str) -> tuple[str, ...]:
+    """The non-numeric axis values in `raw` (the process corners), sorted."""
+    return tuple(
+        sorted(
+            token.strip().strip("'\"")
+            for token in raw.split(",")
+            if token.strip().strip("'\"")
+        )
+    )
+
+
+def stated_corner_grid(text: str) -> dict | None:
+    """The PVT grid Section 4 says its rows are reported at, or None.
+
+    Returned as axes plus the point count the document itself states, so both
+    can be graded: the axes against `sim/pdk.json` and against the records,
+    the count against the one-at-a-time identity |P| + |T| + |S| - 2 that
+    `sim/README.md`'s "Corner-grid shape" section describes and
+    `sim/harness/corners.py:oat_grid()` implements. Without the identity a
+    weakened sentence would simply redefine "full" and pass.
+    """
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = CORNER_GRID_RE.search(collapsed)
+    if stated is None:
+        return None
+    return {
+        "line": _line_of(text, offsets[stated.start()]),
+        "process": _axis_names(stated.group("process")),
+        "temps": _axis_numbers(stated.group("temps")),
+        "supplies": _axis_numbers(stated.group("supplies")),
+        "points": int(stated.group("points")),
+    }
+
+
+def declared_pvt_points(record: str) -> dict | None:
+    """The PVT point set a `sim/` record declares for itself, or None.
+
+    Three shapes, all in use in this tree (see `RECORD_*` above). A record
+    matching none of them declares no PVT point set of its own -- which is a
+    real answer, not a parse failure: the ENOB re-analyses run no ngspice at
+    all and inherit their binding corner from the records they combine.
+    """
+    matrix = RECORD_CORNER_MATRIX_RE.search(record)
+    if matrix is not None:
+        return {
+            "points": int(matrix.group("points")),
+            "process": _axis_names(matrix.group("process")),
+            "temps": _axis_numbers(matrix.group("temps")),
+            "supplies": _axis_numbers(matrix.group("supplies")),
+        }
+
+    triples: list[tuple[str, float, float]] = []
+    line = RECORD_POINT_MATRIX_RE.search(record)
+    if line is not None:
+        triples = [
+            (point.group("process").lower(), float(point.group("temp")), float(point.group("supply")))
+            for point in RECORD_CORNER_TRIPLE_RE.finditer(line.group("body"))
+        ]
+    if not triples:
+        stat = RECORD_STAT_POINT_RE.search(record)
+        if stat is not None:
+            triples = [
+                (
+                    stat.group("process").lower(),
+                    float(stat.group("temp")),
+                    float(stat.group("supply")),
+                )
+            ]
+    if not triples:
+        return None
+    points = sorted(set(triples))
+    return {
+        "points": len(points),
+        "process": tuple(sorted({point[0] for point in points})),
+        "temps": tuple(sorted({point[1] for point in points})),
+        "supplies": tuple(sorted({point[2] for point in points})),
+    }
+
+
+def _sim_record_text(block: str, stamp: str) -> str | None:
+    record = REPO_ROOT / "sim" / block / "records" / f"{stamp}.md"
+    return record.read_text() if record.is_file() else None
+
+
+def corner_grid_census(text: str) -> dict | None:
+    """How much of Section 4's table really stands on the stated grid.
+
+    Counted per (row, record) pair, check 18's unit one level finer: corner
+    coverage is a property of the record, not of the flow that minted it, and
+    a row citing one flow's nine-point campaign and its single-corner
+    first-pass budget is making two different claims.
+
+    None when the document states no grid at all -- there is then nothing to
+    be measured against, and a fixture is not made to invent one.
+    """
+    grid = stated_corner_grid(text)
+    if grid is None:
+        return None
+    pairs = {
+        (line_number, cite.group("block"), cite.group("stamp"))
+        for line_number, row in spec_table_rows(text)
+        for cite in EVIDENCE_PATH_RE.finditer(row)
+        if cite.group("top") == "sim"
+    }
+    counts = {"full": 0, "subset": 0, "unstated": 0}
+    records: dict[str, int | None] = {}
+    for _line, block, stamp in pairs:
+        body = _sim_record_text(block, stamp)
+        declared = declared_pvt_points(body) if body is not None else None
+        path = f"sim/{block}/records/{stamp}.md"
+        if declared is not None and (
+            declared["points"] == grid["points"]
+            and declared["process"] == grid["process"]
+            and declared["temps"] == grid["temps"]
+            and declared["supplies"] == grid["supplies"]
+        ):
+            counts["full"] += 1
+            continue
+        counts["subset" if declared is not None else "unstated"] += 1
+        records[path] = declared["points"] if declared is not None else None
+    return {
+        "pairs": len(pairs),
+        "points": grid["points"],
+        "records": sorted(records.items()),
+        **counts,
+    }
+
+
+def _corner_grid_entry(record: str, points: int | None) -> str:
+    if points is None:
+        return f"`{record}` (no PVT point set)"
+    return f"`{record}` (**{points}** point{'' if points == 1 else 's'})"
+
+
+def corner_grid_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `CORNER_GRID_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-28 failure is a paste, as it is
+    for checks 6, 9, 12--18 and 26.
+    """
+    records = (
+        ", ".join(
+            _corner_grid_entry(record, points) for record, points in census["records"]
+        )
+        or CORNER_GRID_NONE
+    )
+    return (
+        f"of the **{census['pairs']}** (spec row, `sim/` record) citation pairs "
+        f"in Section 4's table, **{census['full']}** name a record that "
+        f"declares the full **{census['points']}**-point grid, "
+        f"**{census['subset']}** name one that declares a smaller PVT point "
+        f"set, and **{census['unstated']}** name one that declares no PVT "
+        f"point set of its own: {records}."
+    )
+
+
+def check_corner_grid_census(doc: Path, text: str) -> list[str]:
+    """Check 28: Section 4's PVT-grid claim must be counted, not asserted."""
+    grid = stated_corner_grid(text)
+    if grid is None:
+        return []
+    misses: list[str] = []
+    where = f"{doc.name}:{grid['line']}"
+
+    # (a) The grid itself, against the two anchors that are not the document's
+    # own wording -- so it cannot be weakened into truth.
+    pinned = _pdk_process_corners()
+    if pinned is not None and tuple(sorted(pinned)) != grid["process"]:
+        misses.append(
+            f"{where}: Section 4 states the PVT grid's process axis as "
+            f"{{{', '.join(grid['process'])}}}, but `{SIM_PDK_JSON}` pins "
+            f"{{{', '.join(sorted(pinned))}}} -- state the grid this "
+            f"repository actually runs, rather than one the cited records "
+            f"happen to meet"
+        )
+    oat = len(grid["process"]) + len(grid["temps"]) + len(grid["supplies"]) - 2
+    if grid["points"] != oat:
+        misses.append(
+            f"{where}: Section 4 states a {grid['points']}-point "
+            f"one-at-a-time grid, but the axes it names are "
+            f"{len(grid['process'])} process x {len(grid['temps'])} "
+            f"temperature x {len(grid['supplies'])} supply, which is {oat} "
+            f"points by `sim/README.md`'s own corner-grid shape "
+            f"(|P| + |T| + |S| - 2)"
+        )
+
+    # (b) The census over the records the table actually cites. An absent one
+    # is a finding, check 25's and 26's shape: a document that names the grid
+    # for every row at once must say how many of them stand on it.
+    actual = corner_grid_census(text)
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = CORNER_GRID_CENSUS_RE.search(collapsed)
+    if stated is None:
+        return misses + [
+            f"{where}: Section 4 names the PVT grid its rows are reported at "
+            f"but states no census of how many of them stand on it -- "
+            f"{actual['full']} of its {actual['pairs']} (spec row, `sim/` "
+            f"record) citation pairs do. Paste the sentence `python3 "
+            f"docs/chipalooza/check_proposal_citations.py --stats` prints, "
+            f"rather than letting one sentence speak for rows it does not "
+            f"cover (issue #121)"
+        ]
+
+    at = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+    for field in ("pairs", "full", "subset", "unstated", "points"):
+        claimed = int(stated.group(field))
+        if claimed != actual[field]:
+            misses.append(
+                f"{at}: the Section 4 corner-grid census says {field}="
+                f"{claimed}, but this document's live census is "
+                f"{field}={actual[field]} -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`"
+            )
+
+    # Both directions, as checks 8, 10, 14--18 and 26 do. A record that starts
+    # running the full grid and is left in the list overstates the hole; one a
+    # newly added row starts citing and is left out understates it, which is
+    # the direction the blanket sentence already failed in once.
+    claimed_records = {
+        (
+            entry.group("record"),
+            int(entry.group("points")) if entry.group("points") else None,
+        )
+        for entry in CORNER_GRID_ENTRY_RE.finditer(stated.group("records"))
+    }
+    for record, points in sorted(
+        claimed_records ^ set(actual["records"]), key=lambda item: item[0]
+    ):
+        stated_here = (record, points) in claimed_records
+        declared = (
+            "no PVT point set" if points is None else f"**{points}** point(s)"
+        )
+        misses.append(
+            f"{at}: the Section 4 corner-grid census "
+            f"{'lists' if stated_here else 'omits'} `{record}` as declaring "
+            f"{declared}, which is not what that record and this document's "
+            f"own table report -- restate it from `python3 "
+            f"docs/chipalooza/check_proposal_citations.py --stats`"
+        )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -3975,6 +4353,7 @@ def check_document(doc: Path) -> list[str]:
         + check_ground_return(doc, text)
         + check_provenance_census(doc, text)
         + check_label_claim_section(doc, text)
+        + check_corner_grid_census(doc, text)
     )
 
 
@@ -4011,6 +4390,14 @@ def main(argv: list[str]) -> int:
                 f"{doc.name}: "
                 f"{freshness_coverage_sentence(freshness_coverage(doc.read_text()))}"
             )
+            # And the third census over the same table, which check 28 grades:
+            # not which record a row cites or whether it is current, but how
+            # many PVT points that record claims for itself. Printed per
+            # document because "the full grid" is the grid the document's own
+            # Section 4 states, not a constant of this script.
+            corner_grid = corner_grid_census(doc.read_text())
+            if corner_grid is not None:
+                print(f"{doc.name}: {corner_grid_sentence(corner_grid)}")
             # And the Kickback row's own figures, which check 21 re-derives from
             # the record that row cites -- printed per document because the
             # bounds the multiples are taken against come from the row's own

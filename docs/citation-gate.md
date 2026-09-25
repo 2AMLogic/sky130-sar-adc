@@ -1085,9 +1085,12 @@ sentence was false for **33 of the 67** records under `layout/*/reports/` and
   JSON either. Only `compose.json`, the one step that resolves `PDK_ROOT`,
   carries a commit.
 
-The `sim/` half is uniform (59 of 59) because `sim/run_corners.py
+The `sim/` half is uniform -- every one of its records, 59 of 59 on the day
+this check landed and every record minted since -- because `sim/run_corners.py
 --check-env` resolves and enforces the pin before any corner runs, and a
-drift there is fatal by default. That asymmetry is the finding, and stating
+drift there is fatal by default. (Stated that way rather than as a bare live
+count on purpose: the count moves with every new record, and the number that
+*is* re-derived per run lives in the document's own census, not here.) That asymmetry is the finding, and stating
 it is the point: the gap itself is tracked as issue #407, which this check
 does not close and must not be read as closing.
 
@@ -1177,6 +1180,91 @@ trail in the present tense, paragraph by dated paragraph ("#103 itself was
 re-blocked at that pass"), exactly as check 3 is scoped away from Section 7's
 prose for the same reason. The claim that governs is the last one in the
 item, which is a reading rule for humans, not a rule this gate enforces.
+
+### Check 28 -- Section 4's PVT-grid claim (`check_corner_grid_census`)
+
+Checks 3, 4, 5 and 23 all grade **which** record a Section 4 row cites, and
+whether it is the current one. None of them grades what that record claims
+for *itself* -- and the widest sentence in the table is exactly such a
+claim. Section 4 opens by naming the PVT grid its rows are reported at, and
+that sentence speaks for every row at once, before a reader reaches any of
+them.
+
+Until 2026-09-25 it read "Every row below is reported at this repository's
+own ratified PVT grid ... one-at-a-time (9 points)". Measured against the
+records the table actually cites, that was false for **10 of 22** (spec row,
+`sim/` record) citation pairs:
+
+- three single-point mechanism budgets under the **Sample rate** row, each
+  cited beside the 9-point campaign that superseded it (the benign case);
+- both comparator runs under the **Kickback** row, single-point by design and
+  already disclosed in that row's own cell;
+- two Monte Carlo linearity records under **INL / DNL** and two derived ENOB
+  re-analyses under **ENOB**, neither row stating any corner coverage of its
+  own;
+- the supply-impedance campaign under **Power**, single-point by construction
+  (it measures a difference between four supply-return networks at one
+  corner).
+
+No record hid it -- each states its own subset-corner justification, in its
+own header. The document spoke over them, which is the same
+prose-overstates-the-evidence shape checks 6, 18 and 26 exist for, and the
+same fix: replace the blanket sentence with a census that is re-derived
+rather than asserted.
+
+**What it grades.** Two things, because the census alone could be satisfied
+by weakening the claim instead of stating the exceptions.
+
+1. **The grid sentence itself**, against the two anchors that are not the
+   document's own wording: its process axis must be `sim/pdk.json`'s
+   `process_corners`, in both directions, and its stated point count must be
+   the one-at-a-time identity |P| + |T| + |S| - 2 that `sim/README.md`'s
+   "Corner-grid shape" section describes and
+   `sim/harness/corners.py:oat_grid()` implements. Without those, dropping
+   `sf` and `fs` from the sentence would turn a four-corner campaign into
+   "the full grid" and the census would read perfectly.
+2. **The census over the records the table cites**, per (row, record) pair --
+   check 18's unit one level finer, because corner coverage is a property of
+   the record and not of the flow that minted it. A row citing one flow's
+   nine-point campaign *and* its single-corner first pass is making two
+   different claims. Both the four counts and the list of the records behind
+   the exceptions are compared in both directions, as checks 8, 10, 14--18
+   and 26 do: a record that starts running the full grid and is left in the
+   list overstates the hole, and one a newly added row starts citing and is
+   left out understates it. An absent census is itself a finding, anchored on
+   the grid sentence existing, so deleting the inconvenient numbers is not a
+   way to keep the blanket claim.
+
+**Three record shapes, all of them real.** A record declares its PVT points
+in one of three forms, and keying on only the first would misreport five
+records that *do* declare a single nominal point as declaring nothing -- in a
+check whose whole subject is overstatement:
+
+- `- **Corner matrix run**: process=[...], temperature_c=[...],
+  supply_v=[...] (9 points, ...)`, written by
+  `sim/harness/corners.py:corner_matrix_summary_line()`;
+- `- **Point/corner matrix**: `tt`/27C/1.8V only ...`, the mechanism-budget
+  drivers' line;
+- `... PVT point process=tt temp=27.0C supply=1.8V`, inside the Monte Carlo
+  drivers' **Statistical convention** line -- stated there because the axis
+  those campaigns sample is mismatch, not PVT.
+
+A record matching none of the three declares no PVT point set of its own,
+which is a real answer rather than a parse failure: `sim/enob-estimate/`
+runs no ngspice at all and inherits its binding corner from the records it
+composes.
+
+**What this check deliberately does NOT cover.** It does not grade whether a
+subset-corner citation is *justified* -- only that the document counts it.
+Single-corner evidence is legitimate and this repository uses it on purpose
+(`sim/README.md`'s own corner-grid section says an OAT grid is a cost choice;
+each first-pass budget states why one point is enough for the mechanism it
+isolates). Nor does it read the exception list's surrounding prose: a
+document that states the four counts correctly while describing them
+backwards passes here, as it does under checks 15, 16, 22, 25 and 26. And it
+grades no `layout/` citation, because a DRC/LVS verdict has no corner axis at
+all -- the sign-off-bar rows' post-layout PVT gap is §7 Item 1's subject and
+#103's, not this check's.
 
 ## What the gate deliberately does not cover
 
