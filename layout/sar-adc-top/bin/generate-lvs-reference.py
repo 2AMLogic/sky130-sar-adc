@@ -2,10 +2,40 @@
 """Generate the top-level LVS reference for the SAR ADC assembly (issue
 #103): each of the five sub-blocks' own already-generated, already-verified
 flat reference subckt, concatenated, plus one new `.SUBCKT sar_adc_top`
-wrapper instantiating all five per `design/sar_adc_top.sch`'s own
-interconnect (mirrored 1:1 from `design/sar_adc_top.spice`'s own
-`xfe`/`xcdac`/`xcmp`/`xseq`/`xinv_seln<i>` instantiation lines -- see that
-file's header for its own schematic provenance).
+wrapper instantiating all five.
+
+!! STALE WRAPPER -- DO NOT READ `TOP_SUBCKT` BELOW AS CURRENT (issue #387) !!
+
+`TOP_SUBCKT` mirrors `design/sar_adc_top.spice`'s
+`xfe`/`xcdac`/`xcmp`/`xseq`/`xinv_seln<i>` instantiation lines **as they stood
+under issue #56**. It has not been re-derived since
+`spec/decision-records/DR-008-cdac-top-level-switching-polarity.md` superseded
+that wiring on 2026-09-11 (issue #263, PR #266). Concretely:
+
+  * `Xcdac` below wires every `SELp<i>` pin straight to `DOUT<i>` -- the
+    pre-DR-008 unconditional complementary drive. The schematic now derives
+    `SELp<i> = DOUT9 AND DOUT<i>` and `SELn<i> = DOUT9N AND DOUT<i>` from
+    eighteen `and2_1` gates.
+  * `Xinv seln_inverters` instantiates nine inverters that no longer appear in
+    `design/sar_adc_top.spice` at all.
+  * Absent entirely: DR-008's `and2_1` bank and `xor2_1` readout recode,
+    `xinv_dout9n`, `xinv_clkcap`, and DR-009's dummy comparator load and
+    half-LSB offset network (`xdum_mux_n`, `xdum_xnor_n`, `xand_halflsb`,
+    `xinv_halflsb` plus 8 `sky130_fd_pr` primitives).
+
+This matters more than an ordinary stale comment, because **the layout this
+reference is compared against was composed from the same superseded glue**
+(`bin/build_layout.py` places `seln_inverters`). The two sides of the `klt lvs`
+compare are therefore not independent: they agree with each other whatever the
+schematic says, so a clean device-level match would establish nothing about
+whether the composed GDS implements this repo's schematic. Re-deriving this
+wrapper from `design/sar_adc_top.spice` as it stands is half of the remaining
+work on #387; the other half is `bin/build_layout.py` placing
+`layout/top-glue/` (33 standard cells, already laid out and gated against the
+schematic on every run -- see `layout/top-glue/README.md`) and DR-009's offset
+network instead of `seln_inverters`. **The two must land together**: changing
+this wrapper alone would only make the reported mismatch count worse without
+making the compare meaningful.
 
 Does NOT re-derive any device-level topology: every device card comes
 unmodified from the four sub-blocks' own committed reference (`klt lvs`
@@ -47,7 +77,9 @@ Xfe VDD GND SAMPLE_INT VCM VINP VINN TOP_P TOP_N \
 BPREF_P_NC BPREF_N_NC BOOST_P_NC BOOST_N_NC sampling_frontend
 * cdac_array (layout/cdac-array/reference/cdac_array.lvs-reference.spice
 * ports: VREFP VREFN VDD vsubs SELn0 SELp0 .. SELn8 SELp8, TOP_N/TOP_P
-* mid-list -- mirrored verbatim from design/sar_adc_top.spice's own xcdac)
+* mid-list -- mirrored verbatim from design/sar_adc_top.spice's own xcdac AS
+* IT STOOD UNDER ISSUE #56: each SELp<i> pin is wired straight to DOUT<i>,
+* which DR-008 superseded on 2026-09-11. See this module's docstring.)
 Xcdac VREFP VREFN VDD GND SELn0 DOUT0 SELn1 DOUT1 SELn2 DOUT2 SELn3 DOUT3 \
 SELn4 DOUT4 TOP_N TOP_P DOUT5 SELn5 DOUT6 SELn6 SELn7 DOUT7 SELn8 DOUT8 \
 cdac_array

@@ -1,0 +1,908 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "top_glue.extract.spice",
+  "reference": "top_glue.lvs-reference.spice",
+  "top": "TOP_GLUE",
+  "reference_top": "TOP_GLUE",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": true,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
+  },
+  "hints_applied": null,
+  "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unchecked",
+    "reason": "no request.layout.deck was given (the pre-extracted request.layout.netlist form), so nothing establishes this layout's substrate/well-tap convention and no synthesized body net can be told apart from a real one -- this run verified nothing about the device bodies either way",
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
+  },
+  "mismatch_count": 9,
+  "error_count": 0,
+  "category_counts": {
+    "topology": 9
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 134,
+      "reference": 134,
+      "matched": 134
+    },
+    "devices": {
+      "layout": 234,
+      "reference": 234,
+      "matched": 234
+    },
+    "pins": {
+      "layout": 48,
+      "reference": 48,
+      "matched": 48
+    }
+  },
+  "device_classes": null,
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "491e52c0ac197072f3d645a46d5780210b73c6ee8a94e06ec7725621041ad304",
+    "reference_sha256": "adbaa862e035a778bd0d2a6750e9bcfa94df986e571a37db379a931924054b13",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:491e52c0ac197072f3d645a46d5780210b73c6ee8a94e06ec7725621041ad304",
+      "role": "netlist"
+    },
+    "klayout_version_mismatch": true
+  },
+  "mismatches": [
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$100",
+        "reference": "XAND_SELP0_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$128",
+        "reference": "XAND_SELP1_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$131",
+        "reference": "XAND_SELP2_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$26",
+        "reference": "XAND_SELP3_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$31",
+        "reference": "XAND_SELP4_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$60",
+        "reference": "XAND_SELP5_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$62",
+        "reference": "XAND_SELP6_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$93",
+        "reference": "XAND_SELP7_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "\\$99",
+        "reference": "XAND_SELP8_SNDA"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "ADCOUT3|X",
+      "reference": "ADCOUT0",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT2|X",
+      "reference": "ADCOUT1",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT5|X",
+      "reference": "ADCOUT2",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT6|X",
+      "reference": "ADCOUT3",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT4|X",
+      "reference": "ADCOUT4",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT7|X",
+      "reference": "ADCOUT5",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT1|X",
+      "reference": "ADCOUT6",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT0|X",
+      "reference": "ADCOUT7",
+      "pin": true
+    },
+    {
+      "layout": "ADCOUT8|X",
+      "reference": "ADCOUT8",
+      "pin": true
+    },
+    {
+      "layout": "B|BUSY",
+      "reference": "BUSY",
+      "pin": true
+    },
+    {
+      "layout": "A|CLK",
+      "reference": "CLK",
+      "pin": true
+    },
+    {
+      "layout": "CLKN|Y",
+      "reference": "CLKN",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT3",
+      "reference": "DOUT0",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT2",
+      "reference": "DOUT1",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT5",
+      "reference": "DOUT2",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT6",
+      "reference": "DOUT3",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT4",
+      "reference": "DOUT4",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT7",
+      "reference": "DOUT5",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT1",
+      "reference": "DOUT6",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT0",
+      "reference": "DOUT7",
+      "pin": true
+    },
+    {
+      "layout": "A|B|DOUT8",
+      "reference": "DOUT8",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT9",
+      "reference": "DOUT9",
+      "pin": true
+    },
+    {
+      "layout": "B|Y",
+      "reference": "DOUT9N",
+      "pin": false
+    },
+    {
+      "layout": "DUMLOAD_MUX_NC|X",
+      "reference": "DUMLOAD_MUX_NC",
+      "pin": true
+    },
+    {
+      "layout": "DUMLOAD_XNOR_NC|Y",
+      "reference": "DUMLOAD_XNOR_NC",
+      "pin": true
+    },
+    {
+      "layout": "A|HALF_LSB_EN|X",
+      "reference": "HALF_LSB_EN",
+      "pin": true
+    },
+    {
+      "layout": "HALF_LSB_ENN|Y",
+      "reference": "HALF_LSB_ENN",
+      "pin": true
+    },
+    {
+      "layout": "A|A1|OUTN_NC",
+      "reference": "OUTN_NC",
+      "pin": true
+    },
+    {
+      "layout": "A_N|PH_B9|S",
+      "reference": "PH_B9",
+      "pin": true
+    },
+    {
+      "layout": "SELN3|X",
+      "reference": "SELN0",
+      "pin": true
+    },
+    {
+      "layout": "SELN2|X",
+      "reference": "SELN1",
+      "pin": true
+    },
+    {
+      "layout": "SELN5|X",
+      "reference": "SELN2",
+      "pin": true
+    },
+    {
+      "layout": "SELN6|X",
+      "reference": "SELN3",
+      "pin": true
+    },
+    {
+      "layout": "SELN4|X",
+      "reference": "SELN4",
+      "pin": true
+    },
+    {
+      "layout": "SELN7|X",
+      "reference": "SELN5",
+      "pin": true
+    },
+    {
+      "layout": "SELN1|X",
+      "reference": "SELN6",
+      "pin": true
+    },
+    {
+      "layout": "SELN0|X",
+      "reference": "SELN7",
+      "pin": true
+    },
+    {
+      "layout": "SELN8|X",
+      "reference": "SELN8",
+      "pin": true
+    },
+    {
+      "layout": "SELP3|X",
+      "reference": "SELP0",
+      "pin": true
+    },
+    {
+      "layout": "SELP2|X",
+      "reference": "SELP1",
+      "pin": true
+    },
+    {
+      "layout": "SELP5|X",
+      "reference": "SELP2",
+      "pin": true
+    },
+    {
+      "layout": "SELP6|X",
+      "reference": "SELP3",
+      "pin": true
+    },
+    {
+      "layout": "SELP4|X",
+      "reference": "SELP4",
+      "pin": true
+    },
+    {
+      "layout": "SELP7|X",
+      "reference": "SELP5",
+      "pin": true
+    },
+    {
+      "layout": "SELP1|X",
+      "reference": "SELP6",
+      "pin": true
+    },
+    {
+      "layout": "SELP0|X",
+      "reference": "SELP7",
+      "pin": true
+    },
+    {
+      "layout": "SELP8|X",
+      "reference": "SELP8",
+      "pin": true
+    },
+    {
+      "layout": "VGND",
+      "reference": "VGND",
+      "pin": true
+    },
+    {
+      "layout": "VPB|VPWR",
+      "reference": "VPWR",
+      "pin": true
+    },
+    {
+      "layout": "\\$110",
+      "reference": "XAND_HALFLSB_A",
+      "pin": false
+    },
+    {
+      "layout": "\\$134",
+      "reference": "XAND_HALFLSB_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$111",
+      "reference": "XAND_HALFLSB_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$94",
+      "reference": "XAND_SELN0_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$74",
+      "reference": "XAND_SELN0_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$96",
+      "reference": "XAND_SELN1_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$79",
+      "reference": "XAND_SELN1_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$98",
+      "reference": "XAND_SELN2_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$90",
+      "reference": "XAND_SELN2_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$59",
+      "reference": "XAND_SELN3_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$53",
+      "reference": "XAND_SELN3_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$129",
+      "reference": "XAND_SELN4_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$123",
+      "reference": "XAND_SELN4_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$61",
+      "reference": "XAND_SELN5_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$44",
+      "reference": "XAND_SELN5_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$13",
+      "reference": "XAND_SELN6_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$9",
+      "reference": "XAND_SELN6_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$130",
+      "reference": "XAND_SELN7_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$121",
+      "reference": "XAND_SELN7_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$127",
+      "reference": "XAND_SELN8_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$106",
+      "reference": "XAND_SELN8_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$100",
+      "reference": "XAND_SELP0_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$88",
+      "reference": "XAND_SELP0_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$128",
+      "reference": "XAND_SELP1_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$108",
+      "reference": "XAND_SELP1_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$131",
+      "reference": "XAND_SELP2_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$119",
+      "reference": "XAND_SELP2_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$26",
+      "reference": "XAND_SELP3_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$15",
+      "reference": "XAND_SELP3_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$31",
+      "reference": "XAND_SELP4_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$24",
+      "reference": "XAND_SELP4_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$60",
+      "reference": "XAND_SELP5_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$51",
+      "reference": "XAND_SELP5_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$62",
+      "reference": "XAND_SELP6_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$46",
+      "reference": "XAND_SELP6_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$93",
+      "reference": "XAND_SELP7_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$72",
+      "reference": "XAND_SELP7_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$99",
+      "reference": "XAND_SELP8_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "\\$86",
+      "reference": "XAND_SELP8_Y",
+      "pin": false
+    },
+    {
+      "layout": "\\$22",
+      "reference": "XDUM_MUX_N_SB",
+      "pin": false
+    },
+    {
+      "layout": "\\$29",
+      "reference": "XDUM_MUX_N_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "\\$28",
+      "reference": "XDUM_MUX_N_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "\\$27",
+      "reference": "XDUM_MUX_N_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "\\$30",
+      "reference": "XDUM_MUX_N_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "\\$19",
+      "reference": "XDUM_MUX_N_XB",
+      "pin": false
+    },
+    {
+      "layout": "\\$78",
+      "reference": "XDUM_XNOR_N_INAND",
+      "pin": false
+    },
+    {
+      "layout": "\\$77",
+      "reference": "XDUM_XNOR_N_NMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$95",
+      "reference": "XDUM_XNOR_N_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$104",
+      "reference": "XDUM_XNOR_N_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$36",
+      "reference": "XXOR_CODE0_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$38",
+      "reference": "XXOR_CODE0_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$65",
+      "reference": "XXOR_CODE0_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$56",
+      "reference": "XXOR_CODE0_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$32",
+      "reference": "XXOR_CODE1_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$34",
+      "reference": "XXOR_CODE1_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$66",
+      "reference": "XXOR_CODE1_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$55",
+      "reference": "XXOR_CODE1_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$81",
+      "reference": "XXOR_CODE2_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$102",
+      "reference": "XXOR_CODE2_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$97",
+      "reference": "XXOR_CODE2_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$103",
+      "reference": "XXOR_CODE2_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$116",
+      "reference": "XXOR_CODE3_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$117",
+      "reference": "XXOR_CODE3_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$132",
+      "reference": "XXOR_CODE3_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$126",
+      "reference": "XXOR_CODE3_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$48",
+      "reference": "XXOR_CODE4_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$49",
+      "reference": "XXOR_CODE4_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$63",
+      "reference": "XXOR_CODE4_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$58",
+      "reference": "XXOR_CODE4_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$40",
+      "reference": "XXOR_CODE5_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$42",
+      "reference": "XXOR_CODE5_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$64",
+      "reference": "XXOR_CODE5_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$57",
+      "reference": "XXOR_CODE5_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$113",
+      "reference": "XXOR_CODE6_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$114",
+      "reference": "XXOR_CODE6_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$133",
+      "reference": "XXOR_CODE6_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$125",
+      "reference": "XXOR_CODE6_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$67",
+      "reference": "XXOR_CODE7_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$101",
+      "reference": "XXOR_CODE7_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$92",
+      "reference": "XXOR_CODE7_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$105",
+      "reference": "XXOR_CODE7_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "\\$3",
+      "reference": "XXOR_CODE8_INOR",
+      "pin": false
+    },
+    {
+      "layout": "\\$6",
+      "reference": "XXOR_CODE8_PMID",
+      "pin": false
+    },
+    {
+      "layout": "\\$12",
+      "reference": "XXOR_CODE8_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "\\$11",
+      "reference": "XXOR_CODE8_SNDPA",
+      "pin": false
+    }
+  ]
+}

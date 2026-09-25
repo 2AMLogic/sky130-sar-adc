@@ -117,6 +117,24 @@ name: CI
 #     three sibling `gen_blocks.py` modules all claim the same top-level module
 #     name, so one shared interpreter would let the first one cached in
 #     `sys.modules` answer the next one's `from gen_blocks import ...`.
+#   - `layout/top-glue/bin/check-schematic-parity.py` (issue #387) is also part
+#     of `check:ci` -> `checks` below (`npm run check:glue-parity`), and is
+#     likewise headless: the one PDK-derived input, each standard cell's own
+#     `.SUBCKT` pin order, is cached in
+#     `layout/top-glue/netlist/sky130_fd_sc_hd-pin-order.json` and verified
+#     against the real CDL on every run that HAS a PDK. It asserts that
+#     `layout/top-glue/netlist/top_glue.v` -- the netlist the top-level glue
+#     bank's geometry is placed and routed from -- is instance-for-instance,
+#     pin-for-pin, net-for-net identical to `design/sar_adc_top.spice`'s own
+#     top-level `sky130_fd_sc_hd` instance lines. `klt lvs` structurally
+#     cannot establish this on a generated-reference flow: the reference is
+#     generated from the same netlist the layout is built from, so the compare
+#     is self-consistent rather than anchored to the schematic. That is exactly
+#     how issue #56's DR-008-superseded `SELn<i> = NOT(DOUT<i>)` glue survived
+#     two weeks of DRC/LVS-clean runs (issue #387). Because the drift is
+#     invisible to the flow's own verdict, this gate is always-on rather than
+#     nightly; `sim/tests/test_top_glue_schematic_parity.py` pins the check
+#     itself against the historical netlist that went stale.
 #   - `sim/tests/test_measure_metal_min_area.py` (issue #363) runs as its own
 #     step of `checks` below rather than inside `check:ci`, because it is this
 #     repo's only unit test that needs the KLayout *engine* -- `npm run

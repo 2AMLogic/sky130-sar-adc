@@ -1,0 +1,14 @@
+check-schematic-parity.py: OK -- 33 instances, 6 cell types, every pin net-identical to design/sar_adc_top.spice
+  sky130_fd_sc_hd__and2_1: 18
+  sky130_fd_sc_hd__and2b_1: 1
+  sky130_fd_sc_hd__inv_1: 3
+  sky130_fd_sc_hd__mux2_1: 1
+  sky130_fd_sc_hd__xnor2_1: 1
+  sky130_fd_sc_hd__xor2_1: 9
+check-schematic-parity.py: OK -- 33 instances, 6 cell types, every pin net-identical to design/sar_adc_top.spice
+  sky130_fd_sc_hd__and2_1: 18
+  sky130_fd_sc_hd__and2b_1: 1
+  sky130_fd_sc_hd__inv_1: 3
+  sky130_fd_sc_hd__mux2_1: 1
+  sky130_fd_sc_hd__xnor2_1: 1
+  sky130_fd_sc_hd__xor2_1: 9

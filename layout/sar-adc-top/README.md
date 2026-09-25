@@ -2,12 +2,53 @@
 
 Top-level routing/assembly of the four sub-block layouts (`layout/sampling-frontend/`
 #99, `layout/cdac-array/` #100, `layout/comparator/` #101, `layout/sar-sequencer/`
-#102) plus this issue's own new glue logic (`layout/seln-inverters/`, the nine
-`SELn<i> = NOT(DOUT<i>)` inverters `design/sar_adc_top.sch` adds directly at
-the integration level — see that directory's own README) into one GDS
-matching `design/sar_adc_top.sch`'s hierarchy, per #103's scope: **placement
+#102) plus a glue-logic macro into one GDS, per #103's scope: **placement
 and interconnect/supply routing only — no sub-block's internal layout is
 touched.**
+
+## ⚠ The composed GDS implements superseded glue (issue #387)
+
+**The glue macro this assembly currently places is `layout/seln-inverters/` —
+the nine `SELn<i> = NOT(DOUT<i>)` inverters issue #56 added and
+`spec/decision-records/DR-008-cdac-top-level-switching-polarity.md` superseded
+on 2026-09-11** (issue #263, PR #266). It is not the glue
+`design/sar_adc_top.spice` specifies. That netlist's top level instantiates 33
+`sky130_fd_sc_hd` cells across 6 types (`and2_1` ×18, `and2b_1` ×1, `inv_1` ×3,
+`mux2_1` ×1, `xnor2_1` ×1, `xor2_1` ×9) and 8 `sky130_fd_pr` primitives across
+3 types (`cap_mim_m3_1` ×2, `nfet_01v8` ×2, `pfet_01v8` ×4 — DR-009's half-LSB
+offset network), and contains **no `xinv_seln<i>` instance at all**.
+
+Two consequences, both load-bearing for anyone reading a verdict below:
+
+1. **`bin/generate-lvs-reference.py`'s `TOP_SUBCKT` wrapper is built from the
+   same superseded instance list** — it wires each `cdac_array` `SELp<i>` pin
+   straight to `DOUT<i>`, the pre-DR-008 unconditional complementary drive —
+   so the reference and the layout agree *with each other* while agreeing with
+   nothing else. **`klt lvs` on this flow therefore cannot see the
+   divergence**, and a clean device-level match here (once klayout-tools#1878
+   is fixed) would **not** establish that the composed GDS implements the
+   schematic this repo builds. The 98 mismatches reported below are *not*
+   caused by this gap and fixing this gap will not reduce them; the two are
+   independent.
+2. **The 0.108 mm² composed extent quoted here and in
+   `docs/chipalooza/challenge-4-proposal.md` §4 is the extent of an assembly
+   that omits this glue** — a floor on the real top-level area, not an estimate
+   of it.
+
+**Progress (2026-09-25):** the standard-cell half now exists as
+`layout/top-glue/` — all 33 cells, DRC-clean, `klt lvs` match 234/234 devices
+and 48/48 pins, and gated against `design/sar_adc_top.spice` instance-for-
+instance on every run *and* in CI (`npm run check:glue-parity`), which is the
+check whose absence let this drift persist. **This assembly has not been
+re-composed against it.** Two pieces remain: DR-009's 8-primitive half-LSB
+offset network (no drawn geometry anywhere under `layout/` yet, **issue
+#400**), and this directory's own recomposition (**issue #401**) — `bin/build_layout.py`
+placing `top_glue` (plus that offset network) instead of `seln_inverters`,
+`bin/generate-lvs-reference.py`'s wrapper re-derived from
+`design/sar_adc_top.spice` as it stands, and a fresh record minted from
+`bin/run-flow.sh`. Until #401 lands, **every LVS number below describes the
+pre-DR-008 top level**, and the floorplan/pin/routing tables further down
+document that assembly, not the intended one.
 
 ## Status (as of this record)
 

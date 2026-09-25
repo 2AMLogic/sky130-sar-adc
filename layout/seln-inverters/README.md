@@ -1,20 +1,54 @@
-# layout/seln-inverters/ — SELn<i> = NOT(DOUT<i>) inverter bank (issue #103)
+# layout/seln-inverters/ — SUPERSEDED (issue #387): the glue this block draws is not in the schematic any more
+
+> **SUPERSEDED 2026-09-25 by `layout/top-glue/` (issue #387). Do not cite this
+> block's DRC/LVS verdicts as evidence about the top level.**
+>
+> This directory lays out nine `sky130_fd_sc_hd__inv_1` cells implementing
+> `SELn<i> = NOT(DOUT<i>)` — issue #56's unconditional complementary CDAC
+> bottom-plate drive. `spec/decision-records/DR-008-cdac-top-level-switching-polarity.md`
+> **superseded that wiring on 2026-09-11** (issue #263, PR #266): the drive is
+> now decision-directed, `SELp<i> = DOUT9 AND DOUT<i>` and
+> `SELn<i> = DOUT9N AND DOUT<i>`, built from eighteen `and2_1` gates plus an
+> `xinv_dout9n` complement. **`design/sar_adc_top.spice` contains no
+> `xinv_seln<i>` instance at all**, so the nine cells drawn here correspond to
+> nothing in the current schematic.
+>
+> The replacement is `layout/top-glue/`, whose netlist is gated against
+> `design/sar_adc_top.spice` on every run and in CI
+> (`layout/top-glue/bin/check-schematic-parity.py`) precisely so this cannot
+> happen again — a generated-reference LVS flow compares a layout against a
+> reference derived from the same netlist, so it agrees with itself whatever
+> the schematic says, which is why this block stayed clean and wrong for two
+> weeks.
+>
+> **Why it is still in the tree:** `layout/sar-adc-top/`'s composition still
+> reads this block's GDS (`bin/build_layout.py` places `seln_inverters`;
+> `bin/generate-lvs-reference.py`'s `TOP_SUBCKT` still wires each `SELp<i>`
+> straight to `DOUT<i>`). Deleting it would break that flow without fixing it.
+> It is retired — records kept, as append-only history — by the top-level
+> recomposition tracked as issue #401. Everything below this banner is
+> preserved as the record of what was built and verified, and remains accurate
+> *about those nine inverters*; it is no longer accurate about the SAR ADC's
+> top-level glue.
 
 Physical layout for the nine `sky130_fd_sc_hd__inv_1` instances
-`design/sar_adc_top.sch` (issue #56) adds directly at the top-level
+`design/sar_adc_top.sch` (issue #56) added directly at the top-level
 integration, not inside any sub-block: `DOUT<i>` (the SAR sequencer's own
-per-bit register output, #102) drives `SELn<i>` = `NOT(DOUT<i>)`, the CDAC
-array's (#100) N-side per-bit switch control. A differential DAC needs the
-two sides' `SEL` complementary (not equal) because
-`design/cdac/cdac_unit_cell.sch`'s single-control-line switch uses the
-identical truth table on both array sides — see `design/sar_adc_top.sch`'s
-own header for the full wiring rationale.
+per-bit register output, #102) drove `SELn<i>` = `NOT(DOUT<i>)`, the CDAC
+array's (#100) N-side per-bit switch control. That scheme's own rationale was
+that a differential DAC needs the two sides' `SEL` complementary (not equal)
+because `design/cdac/cdac_unit_cell.sch`'s single-control-line switch uses the
+identical truth table on both array sides. DR-008's closed-loop verification
+found the conclusion wrong (driving both sides unconditionally moves both
+bottom plates by a full reference swing on every bit trial); see that record,
+not `design/sar_adc_top.sch`'s superseded header, for the wiring that stands.
 
-**This is new top-level glue logic, not a sub-block re-layout.** None of
+**This was new top-level glue logic, not a sub-block re-layout.** None of
 #99 (sampling front end), #100 (CDAC array), #101 (comparator) or #102 (SAR
-sequencer)'s own schematics instantiate these nine cells; they exist only in
+sequencer)'s own schematics instantiate these nine cells; they existed only in
 the integration schematic issue #103 itself owns. That is why this directory
-lives next to `layout/sar-sequencer/` etc. rather than inside any of them.
+lives next to `layout/sar-sequencer/` etc. rather than inside any of them —
+and `layout/top-glue/` sits there now for the same reason.
 
 ## Status: DRC-clean, LVS-clean
 
@@ -99,11 +133,15 @@ above.
 ## Which `klt` flow, and why
 
 `klt place-and-route` (OpenROAD), the same choice `layout/sar-sequencer/`
-makes and for the same reason: `netlist/seln_inverters.v` is a **hand-verified
+makes and for the same reason: `netlist/seln_inverters.v` was a **hand-verified
 1:1 structural transliteration** of `design/sar_adc_top.sch`'s own
-`xinv_seln0..xinv_seln8` instances (nine independent `sky130_fd_sc_hd__inv_1`
-cells, `DOUT<i>` -> `A`, `SELn<i>` -> `Y`), not RTL — there is nothing for
-`klt synthesize` to usefully do.
+`xinv_seln0..xinv_seln8` instances **as that schematic stood under issue #56**
+(nine independent `sky130_fd_sc_hd__inv_1` cells, `DOUT<i>` -> `A`,
+`SELn<i>` -> `Y`), not RTL — there is nothing for `klt synthesize` to usefully
+do. Those nine instances no longer exist: DR-008 removed them on 2026-09-11,
+and nothing re-derived this netlist afterwards (issue #387). "1:1 with the
+schematic" was true when written and is not true now — see the banner at the
+top of this file.
 
 **No clock, no state — but the request schema still requires
 `constraints.clock_port`/`clock_period_ns`.** This design has zero sequential
@@ -202,12 +240,21 @@ was filed for this re-run.
 
 ## Where this fits into #103's top-level assembly
 
-This macro is one of the five blocks the top-level assembly places and
-routes (the other four being #99/#100/#101/#102's own already-closed
-layouts). Its own ports (`DOUT8..DOUT0`, `SELn8..SELn0`, `VPWR`, `VGND`) are
-documented, with exact DEF-derived coordinates, in
+This macro is, **for now and wrongly**, one of the five blocks the top-level
+assembly places and routes (the other four being #99/#100/#101/#102's own
+already-closed layouts). Its own ports (`DOUT8..DOUT0`, `SELn8..SELn0`,
+`VPWR`, `VGND`) are documented, with exact DEF-derived coordinates, in
 `layout/sar-adc-top/README.md`'s floorplan notes, alongside the other four
 blocks' pin geometry — see that directory for the composition/routing status.
+
+That composition is the reason this directory has not been deleted, and it is
+itself the remaining half of issue #387: the assembly (issue #401) must place
+`layout/top-glue/` and DR-009's half-LSB offset network (issue #400) instead of
+this block, and `layout/sar-adc-top/bin/generate-lvs-reference.py`'s `TOP_SUBCKT`
+wrapper must be re-derived from `design/sar_adc_top.spice` as it stands. Until
+then the composed `sar_adc_top.gds` implements issue #56's superseded glue, and
+no LVS verdict on it — clean or otherwise — says anything about whether it
+implements this repo's schematic.
 
 ## Provenance
 
