@@ -3255,6 +3255,70 @@ def check_kickback_decomposition(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def coverage_index_tracking() -> list[tuple[str, list[str]]]:
+    """`(parameter, [DR-<n>, ...])` per indexed row that tracks decision records.
+
+    Read out of `sim/spec-coverage.json`'s own `tracking` field -- the free-prose
+    field each row uses to say what work is still outstanding on it and which
+    decision records govern that. Only the `DR-<n>` tokens are taken: the field
+    also names issues and document sections, and those are not what this check
+    is about (see `docs/citation-gate.md`).
+
+    Empty when the index is absent or no row tracks a record, which is how
+    check 22 stays inert against the test fixtures; that the real index tracks
+    at least one is asserted by `sim/tests/test_proposal_citations.py`.
+    """
+    index = _load_json(REPO_ROOT / COVERAGE_INDEX)
+    if index is None or not isinstance(index.get("rows"), list):
+        return []
+    tracked: list[tuple[str, list[str]]] = []
+    for row in index["rows"]:
+        if not isinstance(row, dict):
+            continue
+        tracking = row.get("tracking")
+        if not isinstance(tracking, str):
+            continue
+        records = sorted(
+            {f"DR-{number}" for number in BARE_DECISION_RECORD_RE.findall(tracking)},
+            key=lambda name: int(name.removeprefix("DR-")),
+        )
+        if records:
+            tracked.append((_normalise_parameter(str(row.get("parameter", ""))), records))
+    return tracked
+
+
+def check_tracked_records(doc: Path, text: str) -> list[str]:
+    """Check 22: no Section 4 row falls behind the records its index tracks."""
+    tracked = coverage_index_tracking()
+    if not tracked:
+        return []
+    rows = {
+        _normalise_parameter(cells[0]): (line_number, " | ".join(cells))
+        for line_number, cells in section_4_table(text)[1]
+    }
+    if not rows:
+        return []
+    misses = []
+    for parameter, records in tracked:
+        found = rows.get(parameter)
+        if found is None:
+            # A spec row absent from Section 4 entirely is check 7's finding.
+            continue
+        line_number, row = found
+        for record in records:
+            # `(?!\d)` rather than `\b`: `DR-01` must not be satisfied by a row
+            # that names `DR-011`.
+            if re.search(rf"{re.escape(record)}(?!\d)", row):
+                continue
+            misses.append(
+                f'{doc.name}:{line_number}: spec row "{parameter}" does not name '
+                f"`{record}`, which `{COVERAGE_INDEX}` tracks as a decision record "
+                f"governing it -- a row may not restate its own disposition while "
+                f"ignoring a record this repo has indexed under it"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -3278,6 +3342,7 @@ def check_document(doc: Path) -> list[str]:
         + check_test_plan_ports(doc, text)
         + check_top_cell_inventory(doc, text)
         + check_kickback_decomposition(doc, text)
+        + check_tracked_records(doc, text)
     )
 
 

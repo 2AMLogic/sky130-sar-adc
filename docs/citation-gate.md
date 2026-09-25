@@ -854,6 +854,54 @@ them. Generalising would require a convention for marking a figure as derived,
 which does not exist -- do not extend this check to other rows without adding
 one first.
 
+### Check 22 -- tracked-record parity (`check_tracked_records`)
+
+Check 11 grades a Section 4 row against the *campaigns* `sim/spec-coverage.json`
+indexes under it. The same index also records, per row, the **decision records
+that govern the row's disposition** -- its `tracking` field -- and nothing
+graded that half. The gap is the one check 11 exists for, moved one tree over:
+a row whose disposition has been decided elsewhere, still restating the
+open-item text that decision answered.
+
+It is not hypothetical. DR-014 (issue #349, 2026-09-25) answered DR-011's
+"Mitigation selection" open item for the Kickback row -- no static preamp, no
+mitigation adopted, DR-004 Decision §1 stands -- and, in its own "Spec lines
+affected" section, repointed that row's `tracking` field off #349 onto itself
+and #390. `spec/target-spec.md`'s own Kickback note was updated in the same PR.
+Section 4's Kickback row was not: it went on saying "Mitigation selection is
+#349's, unblocked by this row's existence", a verbatim restatement of the open
+item, pointing at an issue that had just closed. Every check here passed --
+check 7 grades the Status column and both said DRAFT, check 21 grades the row's
+arithmetic and none of it moved, check 15 grades DR-014's *status* and it was
+correctly read out in Section 7. The row's own disposition was the one thing
+nothing compared.
+
+So every `DR-<n>` token in an indexed row's `tracking` field must be named in
+the Section 4 row of the same parameter. Rows are enumerated from the index
+rather than listed here, so a row that starts tracking a record later is
+discovered rather than remembered, and a row whose field names no record is
+simply not graded (`Sample rate` and `Power` track issues and a future record
+today, and neither is forced to name one that does not exist).
+
+**Forward direction only**, unlike checks 8, 10, 14, 15, 16, 17, 18 and 20.
+A Section 4 row legitimately names records the index does not track -- the
+ratifying DR-003 across most of the table, DR-007's candidate pair in the ENOB
+and INL/DNL rows -- because the
+`tracking` field is about *outstanding* work, not about provenance. Grading
+the reverse direction would fail the gate on rows that are correct as written.
+
+**What this check deliberately does NOT cover.** It grades that the record is
+*named*, never what the row says about it: a row naming DR-014 while describing
+its decision backwards still passes here. It also compares **bare numbers**, so
+it inherits the ambiguity check 15 documents -- this tree carries two DR-004s
+and two DR-007s, and naming either satisfies a `tracking` field that meant the
+other. Check 15 owns that collision and reports it the moment the two disagree;
+duplicating the resolution here would report one drift twice with two different
+fixes. And it does not read the `tracking` field's own accuracy: that field is
+hand-maintained prose whose rendered form (`sim/spec-coverage.md`) is
+regenerated and gated by `sim/check_spec_coverage.py`, one tree up from this
+document.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
