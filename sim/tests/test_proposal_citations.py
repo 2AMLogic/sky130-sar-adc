@@ -4980,6 +4980,109 @@ class TestCornerGridCensus(unittest.TestCase):
         self.assertEqual(checker.pointer_claim_census(sentence)["total"], 0)
 
 
+class TestAbsentPaths(unittest.TestCase):
+    """Check 29: a path asserted to be absent from this tree really is absent.
+
+    The defect shape, taken from the document's own history (2026-09-25):
+    Section 7 had to report that a sub-block existed only in an unmerged PR,
+    but check 2 fails on any own-tree path that does not resolve -- so the
+    only sayable form was a gesture at the parent directory ("no such flow
+    exists under `layout/`"), which names nothing the gate can re-evaluate
+    and therefore still reads true on the day the PR merges.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_absent_paths(self.tree.document(body), body)
+
+    def bare_paths(self, body: str) -> list[str]:
+        return checker.check_bare_paths(self.tree.document(body), body)
+
+    def test_a_genuinely_absent_path_passes(self):
+        body = "The flow `layout/top-glue/` (not in this tree) has not landed.\n"
+        self.assertEqual(self.check(body), [])
+
+    def test_the_absence_ending_is_reported(self):
+        """The whole point: the day the work lands, this passage must fail."""
+        self.tree.add_layout_record("top-glue", "20260925-000000-abc1234", latest=True)
+        body = "The flow `layout/top-glue/` (not in this tree) has not landed.\n"
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`layout/top-glue/`", misses[0])
+        self.assertIn("asserted absent", misses[0])
+
+    def test_check_2_skips_what_check_29_grades(self):
+        """Otherwise the document could not name an absent path at all."""
+        body = "The flow `layout/top-glue/` (not in this tree) has not landed.\n"
+        self.assertEqual(self.bare_paths(body), [])
+
+    def test_check_2_still_grades_an_unmarked_missing_path(self):
+        """The exemption is opt-in; dropping the marker restores check 2."""
+        body = "The flow `layout/top-glue/` has not landed.\n"
+        misses = self.bare_paths(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("does not exist", misses[0])
+
+    def test_the_marker_must_be_attached(self):
+        """Prose discussing an absence near a path is not a claim about it."""
+        body = (
+            "The flow `layout/top-glue/` is one of three pieces, and the "
+            "other two are (not in this tree) either.\n"
+        )
+        self.assertEqual(self.check(body), [])
+        # ...and check 2 still grades it, so nothing escaped both checks.
+        self.assertEqual(len(self.bare_paths(body)), 1)
+
+    def test_a_single_line_wrap_between_path_and_marker_is_tolerated(self):
+        body = "The flow `layout/top-glue/`\n(not in this tree) has not landed.\n"
+        self.assertEqual(self.check(body), [])
+        self.assertEqual(self.bare_paths(body), [])
+
+    def test_a_marker_spent_on_a_glob_is_reported(self):
+        """Else the marker exempts a reference from check 2 AND check 29."""
+        body = "Every `layout/*/top-glue/` (not in this tree) is missing.\n"
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("not a concrete path", misses[0])
+
+    def test_a_marker_spent_on_an_upstream_path_is_reported(self):
+        body = "Upstream's `src/klayout_tools/lvs.py` (not in this tree) is gone.\n"
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("not a concrete path", misses[0])
+
+    def test_stating_no_absence_at_all_passes(self):
+        """Silence is not a false claim -- the check must not demand a marker."""
+        self.assertEqual(self.check("No absences are claimed here.\n"), [])
+
+    def test_the_scan_reports_line_and_offset(self):
+        """`absent_claims` is shared with check 2, so its offsets must line up."""
+        body = "Intro.\n\nThe flow `layout/top-glue/` (not in this tree).\n"
+        claims = checker.absent_claims(body)
+        self.assertEqual(len(claims), 1, claims)
+        line, offset, path = claims[0]
+        self.assertEqual(line, 3)
+        self.assertEqual(path, "layout/top-glue/")
+        self.assertEqual(body[offset], "`")
+
+    def test_the_real_document_agrees(self):
+        """The live document, not a fixture: this is what CI actually grades."""
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_absent_paths(doc, doc.read_text()), [])
+
+    def test_the_real_document_still_makes_an_absence_claim(self):
+        """A check satisfied by deleting every claim would be vacuous."""
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        claims = checker.absent_claims(doc.read_text())
+        self.assertTrue(claims)
+        self.assertTrue(
+            all(checker._own_tree_path(path) for _line, _offset, path in claims),
+            claims,
+        )
+
+
 class TestRationaleDocumentCoverage(unittest.TestCase):
     """Every check in the chain must carry its rationale in docs/citation-gate.md.
 

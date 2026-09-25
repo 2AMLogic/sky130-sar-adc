@@ -77,6 +77,13 @@ directions**, so adding a directory to the frozenset without naming it here
 (or naming one here that the frozenset does not carry) fails
 `npm run test:unit`.
 
+**One exemption, and it is not a hole.** A path immediately followed by the
+literal marker `(not in this tree)` is the document asserting that path is
+*absent*, not citing it, so check 2 skips it -- and check 29 then asserts the
+absence, failing if the path ever does exist. The two share one path-shape
+test, so nothing falls between them; see check 29 for why the exemption
+exists at all.
+
 ### Check 3 -- spec-row freshness (`check_spec_table_freshness`)
 
 This is the load-bearing check. In the Section 4 spec table, each row is one
@@ -1265,6 +1272,55 @@ backwards passes here, as it does under checks 15, 16, 22, 25 and 26. And it
 grades no `layout/` citation, because a DRC/LVS verdict has no corner axis at
 all -- the sign-off-bar rows' post-layout PVT gap is §7 Item 1's subject and
 #103's, not this check's.
+### Check 29 -- asserted-absent paths (`check_absent_paths`)
+
+The mirror image of check 2, and the check that makes a whole class of true
+statement sayable for the first time.
+
+Check 2 grades a path the document **cites**: it must exist. But Section 7's
+whole job is to report work that has *not* landed -- a sub-block that lives
+only in an unmerged PR, a flow whose records there is therefore nothing in
+this tree to point at. Stating that precisely means naming a path that does
+not exist, which is exactly what check 2 fails on. So the document could not
+name it, and fell back on gesturing at the parent directory: "no such flow
+exists under `layout/`".
+
+**That vague form is the one that rots.** It names nothing the gate can
+re-evaluate, so on the day the PR merges and `layout/top-glue/` appears, the
+passage still reads "no such flow exists" and no check here can tell. This is
+the same defect shape as check 27's -- a claim about state that only a human
+re-read could catch -- arriving from the opposite direction: check 27's
+problem was a claim nothing could verify, this one's was a claim the document
+was structurally discouraged from making at all.
+
+**What it grades.** A backticked path immediately followed by the literal
+marker `(not in this tree)` is an *asserted-absent* path rather than a
+citation. Check 2 skips it; check 29 asserts it does not exist, and fails if
+it does, naming the path and saying what to do (update the passage, drop the
+marker, and let the path become an ordinary citation check 2 grades). The
+marker must follow the closing backtick immediately -- at most one line wrap,
+no intervening prose -- for the same directional reason checks 4/5 require an
+*attached* pointer claim: prose that merely discusses an absence near a path
+is not the document asserting that path is absent.
+
+The path-shape test itself (`_own_tree_path`) is shared with check 2 rather
+than restated, because the two grade the same shape from opposite directions
+and a shape one recognised and the other did not would be a hole in whichever
+half missed it. A marker spent on something that is *not* a concrete own-tree
+path -- a glob, a pattern, an upstream path -- is itself reported: without
+that arm the marker would be a way to exempt a reference from check 2 and
+check 29 at once, which is strictly worse than either.
+
+**What this check deliberately does NOT cover.** It does not find absence
+claims written in prose without the marker, and it is not meant to: inferring
+"this path does not exist" from English would fail on the many paragraphs
+here that narrate a path's history, and the fix would be to rewrite the
+supersession trail -- the opposite of what this gate is for. The marker is
+opt-in, so an unmarked vague claim is unchanged, not newly illegal. Nor does
+it say anything about *why* a path is absent (unmerged PR, closed proposal,
+never filed); that is forge state, which check 27 already establishes this
+gate cannot read. What it guarantees is narrower and enough: a passage cannot
+keep describing an absence after the absence ends.
 
 ## What the gate deliberately does not cover
 

@@ -1048,6 +1048,32 @@ CORNER_GRID_ENTRY_RE = re.compile(
 )
 
 
+# Check 29. The mirror image of check 2. Check 2 grades a path the document
+# CITES -- it must exist. This document also, necessarily, makes the opposite
+# claim, because Section 7's whole job is to report work that has NOT landed:
+# a sub-block that lives only in an unmerged PR, a flow whose records there is
+# therefore nothing in this tree to cite. Check 2 made that claim unsayable
+# precisely: naming the path would fail it, so the only sayable form was a
+# gesture at the parent directory ("no such flow exists under `layout/`") --
+# and the vague form is the one that rots silently, because on the day the PR
+# merges and the path appears, nothing in this gate can tell.
+#
+# The marker below buys the precision back. A backticked path immediately
+# followed by it is an ASSERTED-ABSENT path: check 2 skips it (it is not a
+# citation) and check 29 asserts the absence, so a passage describing work as
+# not yet landed fails CI on the day it lands instead of quietly describing a
+# tree this repository has moved past.
+ABSENT_MARKER = "(not in this tree)"
+
+# The marker must follow the closing backtick immediately -- at most one line
+# wrap, no intervening prose -- for the same directional reason checks 4/5
+# require an *attached* pointer claim: prose that merely discusses an absence
+# somewhere near a path is not this document asserting that path is absent.
+ABSENT_CLAIM_RE = re.compile(
+    r"`(?P<path>[^`]*)`(?:[ \t]*\n)?[ \t]*" + re.escape(ABSENT_MARKER)
+)
+
+
 def _unwrap_backticked(span: str) -> str:
     """Rejoin a backticked span that prose wrapped across lines.
 
@@ -1097,18 +1123,53 @@ def check_links(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _own_tree_path(span: str) -> bool:
+    """Is `span` a concrete path into one of this repo's own top-level trees?
+
+    Single-sourced because checks 2 and 29 grade the same shape from opposite
+    directions -- one demands the path exist, the other demands it not -- and
+    a shape one of them recognised and the other did not would be a hole in
+    whichever half missed it.
+    """
+    if not span or re.search(r"\s", span) or "/" not in span:
+        return False
+    if span.split("/", 1)[0] not in OWN_TOP_LEVEL:
+        return False
+    # A glob/placeholder is a pattern the prose is talking *about* (e.g.
+    # "every `layout/*/reports/LATEST` pointer"), not a path it cites.
+    return not (any(ch in span for ch in GLOB_CHARS) or "..." in span)
+
+
+def absent_claims(text: str) -> list[tuple[int, int, str]]:
+    """Every `(line, offset, path)` triple check 29 grades.
+
+    Returned rather than checked inline so check 2 can ask the same scan
+    which backticked spans are not citations, and so the test suite can
+    exercise the scan directly, as it does for `attached_pointer_claims` and
+    `label_claims`. `offset` is the position of the opening backtick, which
+    is what `BACKTICK_SPAN_RE` reports for the same span.
+    """
+    return [
+        (
+            _line_of(text, match.start()),
+            match.start(),
+            _unwrap_backticked(match.group("path")),
+        )
+        for match in ABSENT_CLAIM_RE.finditer(text)
+    ]
+
+
 def check_bare_paths(doc: Path, text: str) -> list[str]:
     """Check 2: every backticked path into this repo's own trees exists."""
     misses = []
+    # A path the document asserts is NOT in the tree is not a citation of it,
+    # and is check 29's to grade rather than this one's.
+    asserted_absent = {offset for _line, offset, _path in absent_claims(text)}
     for match in BACKTICK_SPAN_RE.finditer(text):
+        if match.start() in asserted_absent:
+            continue
         span = _unwrap_backticked(match.group(1))
-        if not span or re.search(r"\s", span) or "/" not in span:
-            continue
-        if span.split("/", 1)[0] not in OWN_TOP_LEVEL:
-            continue
-        # A glob/placeholder is a pattern the prose is talking *about* (e.g.
-        # "every `layout/*/reports/LATEST` pointer"), not a path it cites.
-        if any(ch in span for ch in GLOB_CHARS) or "..." in span:
+        if not _own_tree_path(span):
             continue
         if not _resolve(doc, "../../" + span).exists():
             misses.append(
@@ -4324,6 +4385,34 @@ def check_corner_grid_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def check_absent_paths(doc: Path, text: str) -> list[str]:
+    """Check 29: a path asserted to be absent from this tree really is absent."""
+    misses: list[str] = []
+    for line, _offset, span in absent_claims(text):
+        if not _own_tree_path(span):
+            misses.append(
+                f"{doc.name}:{line}: `{span}` carries the "
+                f'"{ABSENT_MARKER}" marker but is not a concrete path into one '
+                f"of this repository's own top-level trees "
+                f"({', '.join(sorted(OWN_TOP_LEVEL))}) -- the marker exempts a "
+                f"path from check 2, so it may not be spent on a glob, a "
+                f"pattern, or an upstream path check 2 was never going to "
+                f"resolve, which would exempt it from both checks at once "
+                f"(issue #121)"
+            )
+            continue
+        if _resolve(doc, "../../" + span).exists():
+            misses.append(
+                f"{doc.name}:{line}: `{span}` is asserted absent "
+                f'("{ABSENT_MARKER}") but now exists in this repository -- the '
+                f"work this passage describes as not yet landed has landed. "
+                f"Update the passage to what the tree now holds and drop the "
+                f"marker, so the path becomes an ordinary citation check 2 "
+                f"grades (issue #121)"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -4354,6 +4443,7 @@ def check_document(doc: Path) -> list[str]:
         + check_provenance_census(doc, text)
         + check_label_claim_section(doc, text)
         + check_corner_grid_census(doc, text)
+        + check_absent_paths(doc, text)
     )
 
 
