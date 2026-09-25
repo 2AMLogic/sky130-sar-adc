@@ -15,6 +15,16 @@ name: CI
 #     negative controls) runs in the `pdk-smoke` job below, gated on a
 #     nightly schedule / manual dispatch / an opt-in `run-pdk-smoke` label on
 #     a PR, because it needs a full volare PDK fetch.
+#   - The metal minimum-area gate (issue #338) also runs in `pdk-smoke`:
+#     `docs/chipalooza/measure_metal_min_area.py` cross-checks sky130A's own
+#     m1.6/m2.6/m3.6/m4.4a/m5.4 rules -- which the pinned klayout-tools==0.6.0
+#     deck now also checks natively (`met*.area.1`, issue #103) -- against
+#     each flow's current `reports/LATEST` GDS. It is PDK- and KLayout-gated,
+#     and it is run with a negative control (`--self-test`) first on every
+#     invocation. The gate is zero-tolerance (no baseline/waiver file): issue
+#     #333, the one tool-emitted residual this measurement ever had to hold
+#     out, is closed, and both this script (post-#363 fix) and the deck's own
+#     rules measure 0 shapes below threshold across every target today.
 #   - Everything claimed under `sim/<experiment>/records/` and
 #     `layout/trivial-cell/reports/` is evidence captured by a human/agent
 #     run of the PDK-gated runners, not a repeatable CI check — re-running it
@@ -387,3 +397,47 @@ jobs:
         run: |
           ./layout/bin/setup-venv.sh
           ./layout/bin/run-trivial-cell-flow.sh
+
+      - name: Metal minimum-area gate (issue #338)
+        # `klt drc --deck sky130` now checks m1.6/m2.6/m3.6/m4.4a/m5.4
+        # natively (klayout-tools#1989, in the pinned klayout-tools==0.6.0
+        # deck since issue #103) -- but it only ever re-checks a record when
+        # someone re-runs a layout flow by hand and commits the result.
+        # docs/chipalooza/measure_metal_min_area.py is kept as an independent
+        # cross-check of the SAME rules, applied directly to the
+        # already-committed GDS in each flow's current reports/LATEST record
+        # on every push down this path -- so it re-runs no layout flow (costs
+        # seconds, not minutes) and, being a second implementation of the same
+        # check, would itself disagree with `klt drc` if either one had a bug
+        # (which is exactly how issue #363's under-merge defect in THIS
+        # script, not the deck, was found). Issue #326 used it to find and fix
+        # 17 real violations this repo's own generators drew; THIS step is
+        # what stops the next one landing silently.
+        #
+        # It belongs in this job, not in `checks`, for the same reason
+        # everything else here does: it needs the pinned PDK deck (above) and
+        # the `klayout` module from layout/.venv (installed by the previous
+        # step's setup-venv.sh).
+        #
+        # --self-test FIRST, deliberately: a clean verdict means nothing until
+        # "fails" is shown reachable on the same rules in the same run, the
+        # same falsifiability discipline layout/*/README.md's negative-control
+        # verdicts apply to every other layout claim here. It measures a
+        # deliberately-illegal fixture (one isolated sub-m3.6 square,
+        # attributed to `cdac-array`) and exits non-zero unless the gate
+        # catches it.
+        #
+        # No baseline/waiver argument: the gate is zero-tolerance. It had one
+        # real case to design against -- 145 shapes `klt`'s own
+        # place-and-route emitted inside the two PnR'd digital macros, tracked
+        # as issue #333 (klayout-tools#2072 upstream) -- but #363 found that
+        # figure was itself a measurement bug in this script (an under-merged
+        # region double-counting via pads a PDN strap already covers), not
+        # geometry `klt` drew; the corrected script and the deck's own
+        # `met*.area.1` rules both report 0 shapes below threshold on every
+        # target today, and #333 is closed. See
+        # layout/sar-adc-top/README.md's "Minimum-area rules" section for the
+        # full trace.
+        run: |
+          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py --self-test
+          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py

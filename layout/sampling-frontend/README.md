@@ -100,7 +100,19 @@ re-run of this flow on the current pin would grade minimum area in-deck. (2)
 Issue #363 found the script **under-merged** its region and overstated
 sub-threshold counts elsewhere in `layout/`; this flow measured 0 before and
 after that fix, so the committed `minimum-area.json` above is unaffected.
-See `layout/sar-adc-top/README.md`'s "Minimum-area rules" section for both.
+
+**That zero is now enforced, not just recorded** (issue #338). The same
+measurement runs in `.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job —
+nightly, on `workflow_dispatch`, and on any PR labelled `run-pdk-smoke` —
+against each flow's current `reports/LATEST` GDS, with a negative control
+(`--self-test`) proving on every run that the gate can still fail. The gate
+is zero-tolerance, with no per-flow allowance: **this** flow draws its own
+metal, so the first sub-minimum `STACK_PAD_UM`-class pad reintroduced here —
+the defect #326 found above — turns CI red instead of waiting for someone to
+run the script by hand. See `layout/sar-adc-top/README.md` → "Minimum-area
+rules" for the gate's full mechanics, including why no waiver exists (issue
+#333, the one tool-emitted residual this gate ever had to hold out, is
+closed).
 
 | # | Verdict | Why it is here |
 | --- | --- | --- |

@@ -186,13 +186,24 @@ PAD_UM = 0.36  # generic via/wire landing pad side. Bigger than
 #: (`libs.tech/klayout/drc/sky130A_mr.drc`, open_pdks
 #: c6d73a35f524070e85faff4a6a9eef49553ebc2b -- the `sim/pdk.json` pin):
 #: `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a` 0.240 um^2, plus li1's
-#: own (`0.0561 um^2`, the deck's `linotace.with_area`). These are NOT checked
-#: by `klt drc`: at the pinned klayout-tools==0.5.0 the curated sky130 deck
-#: authors no `area`-kind rule at all, so a sub-minimum-area shape reads back
-#: `status: "clean"` (issue #326; fixed upstream by klayout-tools#1989, not yet
-#: released). `docs/chipalooza/measure_metal_min_area.py` is this repo's own
-#: stand-in measurement until that release lands -- run it against this flow's
-#: composed GDS after any change to the geometry below.
+#: own (`0.0561 um^2`, the deck's `linotace.with_area`). At the klt pin this
+#: module was written against (klayout-tools==0.5.0), NONE of these were
+#: checked by `klt drc`: the curated sky130 deck authored no `area`-kind rule
+#: at all, so a sub-minimum-area shape read back `status: "clean"` (issue
+#: #326). That gap has since closed -- `layout/requirements.txt` now pins
+#: klayout-tools==0.6.0 (issue #103), whose deck carries `met1.area.1` ...
+#: `met5.area.1` natively -- but `docs/chipalooza/measure_metal_min_area.py`
+#: is kept as an independent cross-check rather than retired, and since issue
+#: #338 it is a CI gate rather than a manual habit: `.github/workflows/ci.yml`'s
+#: PDK-gated `pdk-smoke` job measures this flow's current `reports/LATEST` GDS
+#: and fails on ANY shape below threshold -- no baseline, no waiver (issue
+#: #333, the one tool-emitted residual this gate ever had to hold out, is
+#: closed; see `layout/sar-adc-top/README.md`'s "Minimum-area rules" section).
+#: So a new via riser or stacked-via pad added below at `PAD_UM` /
+#: `STACK_PAD_UM`, on a layer nothing else here merges with, fails CI -- but
+#: only on the nightly/`run-pdk-smoke` path, so run it yourself after changing
+#: the geometry below rather than waiting for the nightly:
+#:     layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
 MIN_METAL_AREA_UM2 = {
     LI1: 0.0561,
     MET1: 0.083,

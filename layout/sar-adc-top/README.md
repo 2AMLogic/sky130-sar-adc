@@ -268,6 +268,39 @@ reaffirmed** — there was nothing to waive. The upstream filings that rested on
 the same count (klayout-tools#2072/#2075, klayout-tools#2139) are noted as
 superseded in each flow's README.
 
+**That zero is now enforced in CI, not just recorded here** (issue #338).
+`docs/chipalooza/measure_metal_min_area.py` runs as a step of
+`.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job — nightly, on
+`workflow_dispatch`, and on any PR labelled `run-pdk-smoke` — against the
+already-committed GDS in each flow's current `reports/LATEST` record, so it
+re-runs no layout flow and costs seconds. Two invocations, in this order:
+
+```
+layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py --self-test
+layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
+```
+
+`--self-test` is the negative control this repo applies to every other layout
+verdict (see verdict 3 in the trivial-cell proof): it measures a
+deliberately-illegal fixture — one isolated square sized from the deck's own
+`m3.6` threshold, attributed to `cdac-array` — and exits non-zero unless the
+gate catches it, so a clean verdict from the second invocation cannot be
+vacuous.
+
+**The gate is zero-tolerance, with no baseline or waiver file.** The
+"one judgement call" this issue was filed against — how to keep a real,
+filed, not-ours residual (issue #333's 145 shapes) from permanently
+red-lining CI — has no live case to design against: #333 closed under this
+same section's retraction above, and both independent measurements agree at
+**0** across every target today. Building a waiver mechanism now, keyed to a
+defect that no longer measures anything, would ship exactly the kind of
+carve-out that outlives its own finding — so the gate is a plain "any shape
+below threshold fails" check instead. A new isolated pad from any of this
+repo's own generators, in any of the six measured targets, turns CI red on
+the next push; if a genuine tool-emitted residual reappears in the future,
+the per-target/per-rule shape this script already reports is enough to scope
+a fresh, explicitly-tracked exception at that time.
+
 The regression is pinned by `sim/tests/test_measure_metal_min_area.py`, which
 reproduces the two constructions on a synthetic fixture where they disagree
 (a property-bearing strap covering a sub-threshold via pad) and asserts the
