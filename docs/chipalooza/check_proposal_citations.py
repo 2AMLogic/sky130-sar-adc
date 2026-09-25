@@ -55,10 +55,12 @@ compares Section 5's power step against), the live device/cell inventory of
 document's live Kickback readout re-derived from the record its own Section 4
 row cites (the clauses check 21 compares against), the live row count
 `sim/report/generate.py --check` closes with (the line check 24 compares
-against) and the live inductor-card census of every SPICE deck under `sim/`
-(the sentence check 25 compares against) instead of checking, which is
-what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24 or 25
-reports a drift. Exit status:
+against), the live inductor-card census of every SPICE deck under `sim/`
+(the sentence check 25 compares against) and the live toolchain/PDK
+provenance census of every `sim/` and `layout/` record (the sentence check 26
+compares against) instead of checking, which is
+what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24, 25
+or 26 reports a drift. Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -867,6 +869,60 @@ GROUND_RETURN_RE = re.compile(
 # the census. Deleting an inconvenient qualification is the drift this half
 # guards -- the other checks' "grade it when stated" rule would let it go.
 GROUND_RETURN_ANCHOR = "DR-012-analog-ground-pad.md"
+
+# Check 26. Section 8's provenance sentence is the only one in this document
+# that speaks for the *whole* evidence tree at once -- it tells a reader of
+# the brief that any record cited above can be re-run against the same tools.
+# Like check 25's disclaimer that makes it a property of the tree rather than
+# of any one report, so no pointer moves and no Section 4 number budges when
+# it stops being true; unlike check 25's, it had already stopped. The sentence
+# this check replaced ("every layout record cites the `klt` version and PDK
+# commit it ran against") was false for 33 of the 67 layout records on the day
+# it was graded: only four of the eight `layout/` flows' record renderers
+# resolve the PDK commit at all (`klt pdk find`), and `klt` stamps no PDK in
+# its own provenance for the `--deck`-invoked DRC/LVS/extract runs or the
+# built-in-PDK ERC run these flows use. Issue #407 tracks closing that gap;
+# this check keeps the document's statement of it true meanwhile, in both
+# directions, so neither a flow that starts pinning the commit nor one that
+# stops can drift away from the census unnoticed.
+PROVENANCE_SIM_GLOB = "sim/*/records/*.md"
+PROVENANCE_LAYOUT_GLOBS = (
+    "layout/*/reports/*/record.md",
+    "layout/*/erc-reports/*/record.md",
+)
+
+# A 40-hex commit on a line that also names the PDK. Both halves are
+# load-bearing. Every layout record carries a `repo commit:` line whose hash
+# is NOT a PDK commit, so the line test is what stops this counting the repo's
+# own sha as provenance it does not have; and every record stamp ends in a
+# 7-hex abbreviation (`20260924-234053-66dca3c`), so the full 40 is what stops
+# a stamp quoted beside the word "PDK" counting as one.
+PROVENANCE_COMMIT_RE = re.compile(r"\b[0-9a-f]{40}\b")
+
+# The two tool-version forms the trees actually write: `- ngspice: ngspice-46`
+# on the `sim/` side (a digit must follow, so prose about "each ngspice run"
+# is not a version), and a `klt`-adjacent semver on the `layout/` side
+# (`- `klt` version: klt 0.6.0`, `- `klt` version: `klt 0.4.0` (pinned, ...)`).
+PROVENANCE_NGSPICE_RE = re.compile(r"\bngspice[-\s]*v?\d", re.I)
+PROVENANCE_KLT_RE = re.compile(r"\bklt`?\s*(?:version)?[^\n]{0,30}?\b\d+\.\d+\.\d+", re.I)
+
+# The census sentence check 26 grades. Deliberately free of the phrase
+# "current `…/LATEST`", for check 17's reason: spelling it that way would
+# enrol this sentence in checks 4/6's pointer-claim census, where it is not a
+# pointer claim.
+PROVENANCE_CENSUS_RE = re.compile(
+    r"\*\*(?P<sim_pinned>\d+)\*\* of the \*\*(?P<sim_records>\d+)\*\* records "
+    r"under `sim/\*/records/` name both an `ngspice` version and a 40-hex "
+    r"`open_pdks` commit, while of the \*\*(?P<layout_records>\d+)\*\* records "
+    r"under `layout/\*/reports/` and `layout/\*/erc-reports/` "
+    r"\*\*(?P<layout_klt>\d+)\*\* name a `klt` version and "
+    r"\*\*(?P<layout_pdk>\d+)\*\* name the `open_pdks` commit"
+)
+
+# The anchor that makes an *absent* census a finding rather than a silence,
+# check 25's shape: a document that cites the pin file while describing its
+# own flow as reproducible must state how far that pin actually reaches.
+PROVENANCE_ANCHOR = "sim/toolchain.json"
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -3694,6 +3750,114 @@ def check_ground_return(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _names_pdk_commit(text: str) -> bool:
+    """Does this record name a PDK commit, as opposed to any other hash?
+
+    The test is per line rather than per document on purpose -- see this
+    module's check-26 constants for the two hashes that would otherwise be
+    miscounted as PDK provenance.
+    """
+    return any(
+        "pdk" in line.lower() and PROVENANCE_COMMIT_RE.search(line)
+        for line in text.splitlines()
+    )
+
+
+def provenance_census() -> dict:
+    """How far this tree's own records pin the tools that produced them.
+
+    Five numbers, all derived: the `sim/` records and how many of them name
+    both an `ngspice` version and a PDK commit, then the `layout/` records
+    (both the flow tree and the ERC tree, which are two record trees of the
+    same kind) and how many name a `klt` version and a PDK commit. `unpinned`
+    groups the shortfall by flow, so a failure reads as "this flow mints
+    records without it" rather than as a bare integer a reader has to go
+    hunting for -- check 25's `cards` field plays the same role.
+    """
+    sim = sorted(REPO_ROOT.glob(PROVENANCE_SIM_GLOB))
+    layout = sorted(path for glob in PROVENANCE_LAYOUT_GLOBS for path in REPO_ROOT.glob(glob))
+    sim_texts = [path.read_text() for path in sim]
+    layout_texts = [(path, path.read_text()) for path in layout]
+
+    unpinned: dict[str, list[int]] = {}
+    for path, text in layout_texts:
+        flow = "/".join(path.relative_to(REPO_ROOT).parts[:3])
+        counts = unpinned.setdefault(flow, [0, 0])
+        counts[1] += 1
+        if not _names_pdk_commit(text):
+            counts[0] += 1
+
+    return {
+        "sim_records": len(sim),
+        "sim_pinned": sum(
+            1
+            for text in sim_texts
+            if PROVENANCE_NGSPICE_RE.search(text) and _names_pdk_commit(text)
+        ),
+        "layout_records": len(layout),
+        "layout_klt": sum(1 for _path, text in layout_texts if PROVENANCE_KLT_RE.search(text)),
+        "layout_pdk": sum(1 for _path, text in layout_texts if _names_pdk_commit(text)),
+        "unpinned": {flow: tuple(counts) for flow, counts in sorted(unpinned.items()) if counts[0]},
+    }
+
+
+def provenance_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `PROVENANCE_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-26 failure is a paste, as it is
+    for checks 6, 9, 12, 13, 14, 15, 16, 17, 18, 24 and 25.
+    """
+    return (
+        f"**{census['sim_pinned']}** of the **{census['sim_records']}** records under "
+        f"`sim/*/records/` name both an `ngspice` version and a 40-hex `open_pdks` "
+        f"commit, while of the **{census['layout_records']}** records under "
+        f"`layout/*/reports/` and `layout/*/erc-reports/` **{census['layout_klt']}** "
+        f"name a `klt` version and **{census['layout_pdk']}** name the `open_pdks` commit"
+    )
+
+
+def check_provenance_census(doc: Path, text: str) -> list[str]:
+    """Check 26: the stated toolchain/PDK provenance census is this tree's own."""
+    if not any((REPO_ROOT / top).is_dir() for top in ("sim", "layout")):
+        return []
+    if PROVENANCE_ANCHOR not in text:
+        # A document that does not lean on the pin file claims nothing about
+        # how far the pin reaches, and is not made to.
+        return []
+    actual = provenance_census()
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(PROVENANCE_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `{PROVENANCE_ANCHOR}` as the pin its evidence "
+            f"was produced under, but states no census of how far that pin "
+            f"reaches -- state it (`{provenance_sentence(actual)}` today), so "
+            f"the claim is graded rather than asserted and cannot be quietly "
+            f"widened back into \"every record\""
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("sim_pinned", "sim_records", "layout_records", "layout_klt", "layout_pdk"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            detail = ""
+            if field == "layout_pdk" and actual["unpinned"]:
+                detail = " (" + ", ".join(
+                    f"{flow}: {short} of {total}" for flow, (short, total) in actual["unpinned"].items()
+                ) + " mint records naming none)"
+            misses.append(
+                f"{where}: the provenance census says {field}={claimed}, but "
+                f"the evidence tree reports {field}={actual[field]}{detail} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"a flow now pins the commit, say so rather than only moving "
+                f"the number (issue #407)"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -3721,6 +3885,7 @@ def check_document(doc: Path) -> list[str]:
         + check_stamped_currency_claims(doc, text)
         + check_report_row_count(doc, text)
         + check_ground_return(doc, text)
+        + check_provenance_census(doc, text)
     )
 
 
@@ -3895,6 +4060,17 @@ def main(argv: list[str]) -> int:
             print(f"{SIM_DECK_ROOT}/: {ground_return_sentence(census)}")
             for card in census["cards"]:
                 print(f"{SIM_DECK_ROOT}/:   inductor card at {card}")
+        # And the toolchain/PDK provenance census check 26 grades: the other
+        # property of the whole evidence tree, and the one Section 8's
+        # reproducibility claim to a reader of the brief rests on.
+        if any((REPO_ROOT / top).is_dir() for top in ("sim", "layout")):
+            provenance = provenance_census()
+            print(f"sim/ + layout/: {provenance_sentence(provenance)}")
+            for flow, (short, total) in provenance["unpinned"].items():
+                print(
+                    f"sim/ + layout/:   {flow}/ mints records naming no "
+                    f"`open_pdks` commit: {short} of {total} (issue #407)"
+                )
         return 0
 
     misses: list[str] = []
