@@ -9,7 +9,11 @@
 - **Decided by**: Builder agent, issue #362
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
-- **Related**: #377 / [DR-013](DR-013-analog-ground-mesh.md) (the analog
+- **Related**: #378 / [DR-015](DR-015-package-parasitic-assumption.md) and
+  [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/README.md)
+  (the impedance-argument measurement this record's second open item asked
+  for, and the package-parasitic assumption it rests on, since closed),
+  #377 / [DR-013](DR-013-analog-ground-mesh.md) (the analog
   ground mesh this record's largest open item asked for, since closed),
   #362 (this decision and its implementation), #355 / DR-010 (the
   same structural gap one domain over, and the record whose "Open items" named
@@ -266,13 +270,44 @@ enumerate:
   (`layout/sar-adc-top/bin/probe-ground-mesh.py`, summary in
   `erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`) in which
   removing the mesh and nothing else splits `GND` into two islands.
-- **The impedance argument is unmeasured.** No `sim/` campaign in this repo
+- ~~**The impedance argument is unmeasured.** No `sim/` campaign in this repo
   models the ground return at all — no package parasitics, no substrate
   resistance, no bond-wire inductance. A testbench that would settle it: drive
   the assembled `sar_adc_top` through package-like R+L on each of the four
   supply terminals, run `sim/full-conversion-transient/`'s own stimulus, and
   compare code errors against the ideal-ground case. Until that exists, no
-  number from this record may be quoted as measured. Tracked as **#378**.
+  number from this record may be quoted as measured. Tracked as **#378**.~~
+  **CLOSED**, at the scope stated below, by
+  [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/README.md)
+  (issue #378) and its first record,
+  `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`. That
+  campaign runs `sim/full-conversion-transient/`'s own committed stimulus,
+  unmodified, against the same committed `design/sar_adc_top.spice`, driving
+  the four supply terminals through
+  [DR-015](DR-015-package-parasitic-assumption.md)'s package-style R+L (a
+  *stated assumption* derived from wire geometry, not a package selection or
+  anyone else's data) instead of ideal sources. At the ratified baseline
+  corner (`tt_27c_1.80v`), the as-built shape (`package`: all four terminals
+  bonded through R = 102.2 mΩ + L = 1.914 nH) moves the captured code by
+  **0 LSB** against the ideal-ground control at every mid-scale input, while
+  the die-side analog-ground excursion is **37.333 mV** peak-to-peak — against
+  **0.059 mV** for the package resistance alone with the inductance zeroed
+  (`package-r-only`, a strict one-element ablation isolating the bond
+  inductance's own contribution), and **10.779 mV** for a lumped,
+  on-die-only substrate return of this record's own stated order
+  (`substrate`, `R_SUB` = 30 Ω — a stand-in, not an extracted network). So the
+  reasoning in "Decision" above is now a measurement at this one corner, not
+  only prose: the ground return's impedance is real and its **inductance**,
+  not its resistance, dominates the excursion it produces, but neither moves
+  a captured code at this magnitude. **What this does not close**, and what
+  no reader may take from it: a worst-corner claim (the campaign ran the
+  ratified baseline corner only, deferring the nine-point grid for reasons its
+  own record states — a shared-host policy against local multi-corner runs, a
+  batch route that cannot mint this repo's record format, and cost), and a
+  priced measurement of this record's own *rejected* `no-gnd-pad` null option
+  (implemented but not run, on cost — its own record estimates roughly an
+  order of magnitude more wall clock than the control arm). Both remain open,
+  tracked by [DR-015](DR-015-package-parasitic-assumption.md)'s "Open items".
 - **The pad's position is provisional.** There is no pad ring; when one exists,
   the analog ground terminal's placement relative to the other supply pads (and
   whether it wants more than one bond point of its own) is a real question this
