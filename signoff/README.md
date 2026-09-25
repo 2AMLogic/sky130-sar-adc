@@ -171,7 +171,7 @@ same composed GDS by content hash
 (`layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds`,
 `sha256:bbb9b537…`), so the pair is not two verdicts about two revisions.
 
-**What passes.** `layout/sar-adc-top/erc-reports/20260925-011943-f981dc9/`
+**What passes.** `layout/sar-adc-top/erc-reports/20260925-044420-f039594/`
 reports `erc_status: clean`, `erc_finding_count: 0`:
 
 | Supply | Islands | `erc.unconnected_net` | `erc.supply_short` |
@@ -191,10 +191,12 @@ gate did not move is checkable rather than asserted: the spec's **graded**
 fields (`stackup`, `vias`, `nets[]`, `ties_disclosure.kind` — the only content
 `klt erc` reads) canonicalise to the same digest `7f48fd89…` on every run from
 #344 to today, printed by `run-erc.sh` on each run. Issue **#364** refreshed
-the spec's prose `_comment`s (twice, now — once before issue #377's ground mesh
-landed and again after, since the mesh changed the *layout* this spec is graded
-against but not the spec itself), which moves its whole-file hash and nothing
-that digest covers.
+the spec's prose `_comment`s three times, now — once before issue #377's ground
+mesh landed, again after, and a third time to correct two GDS-specific shape
+counts a later Judge round found still described the superseded pre-mesh run —
+since none of the three changed the *layout* this spec is graded against, only
+the spec's prose, which moves its whole-file hash and nothing that digest
+covers.
 
 **Why it is still `unmet`, twice over — and in that order.** The rendered
 reason is **`check_failed`** (both columns; `citation: null`, the grader's

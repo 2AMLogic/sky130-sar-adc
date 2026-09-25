@@ -936,7 +936,7 @@ from `comparator`'s ground — is in the previous ERC record's own
 | Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
 | Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
 | Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
-| Current record | `erc-reports/20260925-011943-f981dc9/` — `erc_status: clean`, 0 findings, grading `reports/20260924-234053-66dca3c/sar_adc_top.gds` |
+| Current record | `erc-reports/20260925-044420-f039594/` — `erc_status: clean`, 0 findings, grading `reports/20260924-234053-66dca3c/sar_adc_top.gds` |
 
 | Record | Graded GDS | Supply continuity | Item 11 as graded |
 |---|---|---|---|
@@ -945,8 +945,9 @@ from `comparator`'s ground — is in the previous ERC record's own
 | `20260924-214731-b323061` (issue #362) | `reports/20260924-214710-b323061/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings | `unmet` — same two reasons |
 | `20260924-234116-66dca3c` (issue #377, ground mesh) | `reports/20260924-234053-66dca3c/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings (evidence for the mesh is the ablation above, not this row) | `unmet` — same two reasons |
 | `20260925-011943-f981dc9` (issue #364, prose re-mint) | `reports/20260924-234053-66dca3c/` | **PASS** — same bytes, same report | `unmet` — same two reasons |
+| `20260925-044420-f039594` (issue #364, second prose re-mint) | `reports/20260924-234053-66dca3c/` | **PASS** — same bytes, same report | `unmet` — same two reasons |
 
-**The gate has not moved across any of those five runs, and that is checkable.**
+**The gate has not moved across any of those six runs, and that is checkable.**
 `klt erc` grades `stackup`, `vias`, `nets[]` and `ties_disclosure.kind`; it
 ignores `_comment` keys and treats `ties_disclosure.reason` as a string to echo.
 Canonicalising exactly that graded subset and hashing it gives
@@ -955,13 +956,17 @@ revision of the spec from #344 to today — `run-erc.sh` prints it
 (`graded-spec subset sha256=…`) on each run, so it is re-derived rather than
 transcribed. The whole-file `provenance.spec.content_hash` carried that argument
 for the first four rows (`sha256:fd4f5a93…`, byte-identical); issue **#364**
-refreshed the spec's stale prose comments — once before the mesh landed, again
-after, since the mesh changed the graded *layout* and not the spec — which
-moved the whole-file hash to `sha256:9224444c…` both times while leaving the
-graded digest fixed. The verdict moved exactly twice: once because the layout
-moved (row 4, issue #377), and never because the gate did.
+refreshed the spec's stale prose comments three times — once before the mesh
+landed, once after (row 5), and once more (row 6) to correct two GDS-specific
+shape counts a Judge round found the row-5 re-mint had left describing the
+superseded `…-b323061` run instead of the graded `…-66dca3c` one — since none
+of the three changed the graded *layout*, only the spec. The whole-file hash
+moved to `sha256:9224444c…` for row 5 and `sha256:429841c8…` for row 6 while
+leaving the graded digest fixed both times. The verdict moved exactly twice:
+once because the layout moved (row 4, issue #377), and never because the gate
+did.
 
-The third, fourth and fifth rows are the ones worth reading carefully, for
+The third through sixth rows are the ones worth reading carefully, for
 different reasons. In the third, the number did **not** move and issue #362
 nevertheless changed something real: `GND` resolved to one island before it had
 any top-level pin and resolves to one island now that it has one, because "one
@@ -972,11 +977,11 @@ island before three sub-blocks' grounds were meshed in drawn metal and reads
 one island after — the evidence for the mesh is the ablation in that record's
 own "Cross-checks", not this row. Both cases are why a passing supply row here
 must be read with the cited ERC record's own "Why `GND`'s pass must be read
-narrowly" section beside it. In the fifth, *nothing* about the layout or the
-graded spec moved: a recursive field diff of the fourth and fifth records'
-`erc.json` files differs in exactly two leaves,
-`provenance.spec.content_hash` and `ties_disclosure.reason` — the record's own
-"The non-tuning argument" section carries the command.
+narrowly" section beside it. In the fifth and sixth, *nothing* about the layout
+or the graded spec moved: a recursive field diff of any two adjacent records'
+`erc.json` files among rows 4-6 differs in exactly the leaves
+`provenance.spec.content_hash` and (for row 6 vs. row 5) `ties_disclosure.reason`
+— the record's own "The non-tuning argument" section carries the command.
 
 This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
 content hash; it regenerates no geometry, which is why it lives in its own
