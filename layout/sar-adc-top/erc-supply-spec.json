@@ -40,12 +40,21 @@
     "names from text -- so every `label_layer` below is the `.label` (datatype",
     "5) layer, never the `.pin` (datatype 16) one.",
     "",
-    "SCOPE. Graded layout:",
-    "  layout/sar-adc-top/reports/20260919-050355-fb11617/sar_adc_top.gds",
-    "(that record's own LATEST-pointed top-level assembly). The stackup covers",
-    "exactly the conductor levels that layout draws -- verified with",
-    "`klt layers`: poly/li1/met1-met5 all carry geometry, as do licon1, mcon,",
-    "via, via2, via3 and via4."
+    "SCOPE. Graded layout: whichever top-level assembly",
+    "layout/sar-adc-top/reports/LATEST names -- run-erc.sh grades that record's",
+    "sar_adc_top.gds unless handed an explicit path, and every",
+    "erc-reports/<id>/erc.json pins the exact bytes it graded in",
+    "provenance.input.content_hash. That hash, not this sentence, is what says",
+    "WHICH layout a given verdict is about; this line only names the run of",
+    "record at the time it was last written:",
+    "  layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds",
+    "-- the run whose GDS first carries DR-012's drawn analog GND pad (issue",
+    "#362): `klt layers --flattened --include-text` finds a `GND` text",
+    "occurrence on met3 (69/5) here that the immediately preceding run",
+    "(`...-b323061`, unrelated PR #369) lacks. The stackup covers exactly the",
+    "conductor levels that layout draws -- verified with `klt layers` on that",
+    "GDS: poly/li1/met1-met5 all carry geometry, as do licon1, mcon, via,",
+    "via2, via3 and via4."
   ],
 
   "stackup": [
@@ -112,7 +121,8 @@
       "label_layer": "70/5",
       "_comment": [
         "met3.drawing 70/20, met3.label 70/5 (sky130A.lyp; EXTRACTION_DECK.",
-        "metals[3] / metal_labels[3]). Drawn geometry: yes (1416 shapes) -- it is",
+        "metals[3] / metal_labels[3]). Drawn geometry: yes (1428 shapes on the",
+        "graded GDS named under SCOPE above) -- it is",
         "both a routing plane for the analog crossings and the MiM capacitors'",
         "bottom plate. No text is drawn on 70/5 in this layout; the label_layer is",
         "declared anyway because a spec entry naming an absent layer is",
@@ -212,11 +222,18 @@
       "name": "VPWR",
       "kind": "supply",
       "_comment": [
-        "The std-cell digital supply rail. Declared even though it is KNOWN to",
-        "come back as more than one island, because item 11 grades the supply",
-        "this block draws, not the supply that would pass: hiding a rail by not",
-        "declaring it is precisely the spec-tuning issue #344 forbids. See the",
-        "record's record.md for the finding and the issue tracking it."
+        "The std-cell digital supply rail. Declared because item 11 grades the",
+        "supply this block draws, not the supply that would pass -- hiding a",
+        "rail by not declaring it is precisely the spec-tuning issue #344",
+        "forbids -- and the declaration is UNCHANGED across the verdict it has",
+        "carried. It went in while the rail was KNOWN to fail: #344's first run",
+        "(erc-reports/20260923-143401-1ee4ba8/) reported it as two disconnected",
+        "std-cell islands reaching no top-level supply. Issue #355 then tied",
+        "both macros' met5 PDN straps into one rail and out to a top-level pin",
+        "(spec/decision-records/DR-010-digital-supply-domain-partition.md), and",
+        "it has resolved to exactly ONE island on every run since. The layout",
+        "moved; this entry did not. See the record's record.md for the verdict",
+        "of the run in hand."
       ]
     },
     {
@@ -230,6 +247,6 @@
 
   "ties_disclosure": {
     "kind": "tool_limitation",
-    "reason": "No ties[] is declared, so erc.missing_tie is NOT COMPUTED for this layout -- an absence of evidence, not evidence of absence. sky130 taps ARE nameable here (tap.drawing 65/44 inside nwell.drawing 64/20, wired to li1 through licon1 66/44), so this is not an unexpressible stream; the obstacle is klayout-tools#2169, whose unisolated tie extraction collapses a real routed standard-cell design into one electrical island and reports a FALSE erc.supply_short from a correct ties[] declaration. Declaring ties[] here would therefore replace a stated gap with a misleading finding. Standing in for the ungraded check, and named so a reader can go look rather than take this on faith: (a) the two std-cell macros are tapped by klt place-and-route's own tap cells -- sky130_fd_sc_hd__tapvpwrvgnd_1 instances are present in the graded GDS by name (text.drawing 83/44 carries 'tapvpwrvgnd_1'), and 11 tap.drawing 65/44 shapes are drawn; (b) the body/tub labels VPB (nwell.label 64/5) and VNB (pwell.label 64/59) are drawn on the wells themselves; (c) the same record's LVS report (lvs.json) carries the supply nets in its net_correspondence -- VDD<->VDD (pin), and the two digital rails as VPWR<->VPWR_SEQ and VPWR$1<->VPWR_SELN. NOTE that (c) is a partial standin only: that LVS run's own status is 'mismatch', not 'match', and neither GND nor VGND appears in its net_correspondence at all."
+    "reason": "No ties[] is declared, so erc.missing_tie is NOT COMPUTED for this layout -- an absence of evidence, not evidence of absence. sky130 taps ARE nameable here (tap.drawing 65/44 inside nwell.drawing 64/20, wired to li1 through licon1 66/44), so this is not an unexpressible stream; the obstacle is klayout-tools#2169, whose unisolated tie extraction collapses a real routed standard-cell design into one electrical island and reports a FALSE erc.supply_short from a correct ties[] declaration. Declaring ties[] here would therefore replace a stated gap with a misleading finding. Standing in for the ungraded check, and named so a reader can go look rather than take this on faith: (a) the two std-cell macros are tapped by klt place-and-route's own tap cells -- sky130_fd_sc_hd__tapvpwrvgnd_1 instances are present in the graded GDS by name (text.drawing 83/44 carries 'tapvpwrvgnd_1'), and 12 tap.drawing 65/44 shapes are drawn; (b) the body/tub labels VPB (nwell.label 64/5) and VNB (pwell.label 64/59) are drawn on the wells themselves; (c) the same record's LVS report (lvs.json) carries the supply nets in its net_correspondence -- VDD<->VDD (pin), and ONE digital rail, VPB|VPWR<->VPWR (pin), where issue #344's run saw a split VPWR<->VPWR_SEQ / VPWR$1<->VPWR_SELN pair, because issue #355 made the two std-cell macros' rails one net. NOTE that (c) is a partial standin only: that LVS run's own status is 'mismatch', not 'match', and neither GND nor VGND appears in its net_correspondence at all -- GND appears on the reference side of a net.merged mismatch instead, since GND and VGND extract as the single net GND|VGND."
   }
 }
