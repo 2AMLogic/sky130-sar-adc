@@ -1286,6 +1286,17 @@ change re-pointing a Section 4 citation must restate the census from
 `--stats` in the same commit, and a change that merges onto a moved base must
 re-run the gate rather than trust its own branch's green.
 
+That last sentence was a convention with nothing enforcing it, which is why
+the firing happened at all -- and it is not check 28's to enforce, because a
+gate can only run where CI points it. What closes it is one required status
+check on `main`, which arms the merge-time base-freshness guard that already
+ships in `.loom/scripts/merge-pr.sh` and today has nothing to bind to. The
+decision, the live evidence that the guard is currently inert, and the one
+operator action it waits on are recorded in
+[`docs/merge-base-freshness.md`](merge-base-freshness.md) (issue #422). Until
+that lands, every census in this document -- not only check 28's -- is still
+detected on `main` rather than on the PR.
+
 **What this check deliberately does NOT cover.** It does not grade whether a
 subset-corner citation is *justified* -- only that the document counts it.
 Single-corner evidence is legitimate and this repository uses it on purpose
