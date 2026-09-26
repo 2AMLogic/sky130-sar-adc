@@ -246,7 +246,7 @@ sizes; the other two (`Choff_n`, `Choff_p`) predate it. What each group is:
   `VPWR`/`VGND`. They are not switched by any conversion event and are not
   part of DR-009's network. **They exist in `design/` only**: no
   `layout/sar-adc-top/` composition places them yet, so every DRC/LVS record
-  under that directory predates them (DR-016's own "Open items", and §7 Item
+  under that directory predates them (DR-017's own "Open items", and §7 Item
   1's LVS device-count discussion). Together with the eight above they are
   the only analog devices this design draws outside a sub-block.
 

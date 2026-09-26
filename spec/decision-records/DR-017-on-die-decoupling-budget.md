@@ -377,9 +377,25 @@ sense DR-010/DR-012/DR-015 do.
   host's per-process budget outright (#448).
 - **`design/sar_adc_top.spice`'s device count moves 869 → 871**, so every
   DRC/LVS record under `layout/sar-adc-top/reports/` is now stale against the
-  schematic by two devices, and `bin/generate-lvs-reference.py` will emit an
-  871-device reference the next time it runs. Named here so that a future LVS
-  device-count delta is traceable to this record rather than rediscovered.
+  schematic by two devices. **That staleness will not clear by re-running the
+  reference generator.** `layout/sar-adc-top/bin/generate-lvs-reference.py`
+  emits no top-level primitive devices at all: its `.SUBCKT sar_adc_top`
+  wrapper is a hardcoded template (that file's `TOP_SUBCKT`, lines 40–79) that
+  instantiates exactly the five sub-blocks — `Xfe` / `Xcdac` / `Xcmp` / `Xseq`
+  / `Xinv` — and nothing else. So its `869` was never a count of
+  `design/sar_adc_top.spice`'s devices; it is the count of the five composed
+  sub-blocks, and it already omits DR-009's eight top-level analog devices
+  (`Choff_n`/`Choff_p` and their six `Moff_*` drive FETs) and the 33
+  top-level `sky130_fd_sc_hd` glue cells. Re-running that generator on this
+  tree reproduces the committed
+  `layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.lvs-reference.spice`
+  byte-for-byte, with zero `Cdecap` cards. This is a pre-existing limitation of
+  that script, not something this record changes — emitting an 871-device
+  reference therefore requires a code change to it, and is part of the layout
+  work tracked as **#440** (alongside the `capm`-drawing generator the Open
+  items below already name). Named here so that a future LVS device-count delta
+  is traceable to this record rather than rediscovered, and so that #440's
+  builder does not expect `871` from an unmodified re-run.
 - **An area cost no `layout/` record yet reflects.** 8798.44 µm² (8.14 % of the
   composed die) is a schematic-level planning figure. Until a layout pass
   places these two devices, `compose.json`'s bounding box and every DRC/LVS and
@@ -409,8 +425,10 @@ sense DR-010/DR-012/DR-015 do.
   top level — ideally close to each domain's own switching devices, and
   ideally *over* sub-blocks that route below met3, which is the assumption
   Decision §3's area budget rests on — and re-running `klt drc` / `klt lvs`
-  against the now-871-device reference is real, separate layout work: it needs
-  a `capm`-drawing generator this top-level composer does not have today, and
+  against a reference that actually carries these two cards is real, separate
+  layout work: it needs a `capm`-drawing generator this top-level composer does
+  not have today **and** a `bin/generate-lvs-reference.py` that emits top-level
+  primitives at all (see the device-count bullet under "Consequences"), and
   it lands on top of that flow's own already-tracked LVS gap
   (`2AMLogic/klayout-tools#1878`). Tracked as **#440**, filed alongside this
   record; it also carries the instruction that if the met3/met4 real estate
