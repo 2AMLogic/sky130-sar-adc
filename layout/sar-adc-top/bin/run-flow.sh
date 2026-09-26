@@ -33,8 +33,14 @@
 #                            for every wire/via/label this assembly's own
 #                            interconnect needs, and the `klt gen-compose`
 #                            explicit-placement request naming all five
-#                            sub-blocks (as `blocks[].cell` entries, #1189)
-#                            plus this script's own new `route` cell.
+#                            sub-blocks plus the FOUR decoupling-capacitor unit
+#                            cells of issue #440/DR-017 (as `blocks[].cell`
+#                            entries, #1189) plus this script's own new `route`
+#                            cell. Also emits `decap.request.json` for step 2b.
+#   2b. `klt gen cap_array` -- the one 46.9 um MiM unit cell those four
+#                            placements share, plus `--verify-decap`, which
+#                            asserts the generator's own reported bbox/ports
+#                            still match the placement tables.
 #   3. `klt draw`          -- writes the routing cell verbatim, named
 #                            SAR_ADC_TOP_ROUTE (not the generic ROUTE every
 #                            other `bin/build_layout.py` flow in this repo
@@ -42,8 +48,9 @@
 #                            or `sampling_frontend`'s own internal ROUTE
 #                            cell once all five GDS files are merged -- see
 #                            "LVS pin declaration: resolved" in README.md.
-#   4. `klt gen-compose`   -- places the five sub-blocks + the routing cell
-#                            into one composed cell. No `routing` block:
+#   4. `klt gen-compose`   -- places the five sub-blocks + the four decap unit
+#                            cells + the routing cell into one composed cell.
+#                            No `routing` block:
 #                            this flow does its own routing (see
 #                            build_layout.py's docstring for why).
 #   5. `klt drc`           -- the composed layout must be CLEAN.
@@ -65,6 +72,13 @@
 #      `klt lvs` itself still reports a mismatch, but now for exactly one
 #      remaining reason (klayout-tools#1878): see record.md and README.md's
 #      "LVS device/topology blocker" section.
+#  7b. `probe-decap-sites.py` -- the two questions about DR-017's decoupling
+#      placement no verdict above can answer (issue #440): whether the
+#      met3/met4 field its area budget assumes was free, measured against the
+#      previous record's own GDS, and the lumped series resistance each of the
+#      four ties adds, from the PDK's own sheet/via resistances. Writes
+#      `decap-ties.json`, and HARD-FAILS if its resistance model no longer
+#      matches the rectangles build_layout.py drew.
 #
 # Exit codes: 0 if DRC is clean (this flow's own current hard gate -- LVS is
 # recorded whatever it reports, per the still-open LVS device/topology
@@ -94,6 +108,16 @@ require_pdk "$KLT" "$PDK_VARIANT"
 
 RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$TOP_DIR/reports/$RECORD_ID"
+# The record `reports/LATEST` names RIGHT NOW -- read before this run overwrites
+# it at the end. `probe-decap-sites.py` (step 7b) uses it as the baseline its
+# free-field arm measures against; that arm is only meaningful when the baseline
+# predates the decoupling placement, which the probe DETECTS (a `capm` plate
+# already inside one of the sites) rather than assumes, so a baseline that
+# already carries the pair reports an inconclusive arm instead of a false
+# verdict. Override with `DECAP_BASELINE_RECORD=<record-id>` to re-measure
+# against a specific earlier record -- which is what issue #440's own README
+# numbers do, against the last pre-placement record.
+PREV_RECORD="${DECAP_BASELINE_RECORD:-$(cat "$TOP_DIR/reports/LATEST" 2>/dev/null || true)}"
 mkdir -p "$OUT_DIR"
 echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
 
@@ -115,6 +139,28 @@ done
 
 # --- 2. Floorplan + route ---------------------------------------------------
 python3 "$TOP_DIR/bin/build_layout.py" "$OUT_DIR"
+
+# --- 2b. Generate the on-die decoupling unit cell (issue #440, DR-017) ------
+# DR-017 sizes one sky130_fd_pr__cap_mim_m3_1 per supply domain at
+# W = L = 46.9 um, MF = 2. `MF = 2` is drawn here as what it is: TWO matched
+# 46.9 um unit cells per domain, i.e. FOUR placements of this one generated
+# cell, whose own placement offsets and ties live in build_layout.py's
+# DECAP_OFFSETS / decoupling_caps().
+#
+# The generator is `klt gen cap_array` at num=1 -- the same generator, at the
+# same plate size, that layout/sampling-frontend/ already ships DRC-clean for
+# its own Csamp_{p,n} (that block's bin/gen_blocks.py CAP_DEVICES), which is
+# why this composer draws no capm/via3 stack of its own. Params come from
+# build_layout.py's own DECAP_GEN_PARAMS via decap.request.json (step 2), so
+# the geometry that is placed and the geometry that is generated cannot be
+# sourced from two different numbers -- and `--verify-decap` then asserts the
+# generator's own reported bbox/ports against the placement tables, so a klt
+# bump that moves the cell fails HERE instead of silently mis-tieing four
+# capacitors.
+( cd "$OUT_DIR" && "$KLT" gen cap_array --pdk "$PDK_VARIANT" \
+    --params decap.request.json --cell-name DECAP_UNIT \
+    -o decap_unit.gds --format json > decap.json )
+python3 "$TOP_DIR/bin/build_layout.py" --verify-decap "$OUT_DIR/decap.json"
 
 # --- 3. Draw every wire, via and label --------------------------------------
 ( cd "$OUT_DIR" && "$KLT" draw --params draw.request.json --cell-name "$ROUTE_CELL_NAME" \
@@ -234,6 +280,23 @@ cat > "$OUT_DIR/lvs.request.json" <<EOF
 }
 EOF
 ( cd "$OUT_DIR" && "$KLT" lvs lvs.request.json --format json > lvs.json ) || true
+
+# --- 7b. Decoupling real estate + tie resistance (issue #440, DR-017) -------
+# Neither `klt drc` (shapes) nor `klt erc` (connectivity, no resistance model)
+# nor `klt lvs` (a pre-existing mismatch here) can answer either of DR-017's two
+# standing questions about the placement: was the met3/met4 field its area
+# budget assumes actually free, and how much series resistance does each tie add
+# between a capacitor and the rail it decouples. This probe answers both by
+# measurement, and FAILS THE FLOW if its resistance model no longer matches the
+# rectangles `build_layout.py` actually drew -- so the README's numbers cannot
+# quietly drift away from the layout they describe.
+DECAP_BASELINE_ARG=()
+if [ -n "$PREV_RECORD" ] && [ -f "$TOP_DIR/reports/$PREV_RECORD/sar_adc_top.gds" ]; then
+  DECAP_BASELINE_ARG=(--baseline "$TOP_DIR/reports/$PREV_RECORD")
+fi
+python3 "$TOP_DIR/bin/probe-decap-sites.py" \
+  --record "$OUT_DIR" "${DECAP_BASELINE_ARG[@]}" --format json \
+  > "$OUT_DIR/decap-ties.json"
 
 # --- 8. Record summary -------------------------------------------------
 set +e

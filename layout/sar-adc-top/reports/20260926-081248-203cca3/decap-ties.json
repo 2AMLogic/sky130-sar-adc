@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "record": "layout/sar-adc-top/reports/20260926-081248-203cca3",
+  "baseline": "layout/sar-adc-top/reports/20260924-234053-66dca3c",
+  "pdk_root": "~/.volare/sky130A",
+  "pdk_resistances": {
+    "rm1": 0.125,
+    "rm2": 0.125,
+    "rm3": 0.047,
+    "rm4": 0.047,
+    "rm5": 0.0285,
+    "rcvia2": 3.41,
+    "rcvia3": 3.41,
+    "rcvia4": 0.38
+  },
+  "model_matches_drawn_geometry": true,
+  "model_problems": [],
+  "occupancy_baseline": {
+    "gds": "layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds",
+    "top_cell": "gen_compose_0",
+    "bbox_um": [
+      -20.25,
+      -161.6,
+      260.2,
+      223.9
+    ],
+    "bbox_w_h_um": [
+      280.45,
+      385.5
+    ],
+    "die_um2": 108113.475,
+    "layers": {
+      "met3": {
+        "shapes": 1639,
+        "area_um2": 12996.221,
+        "share_of_die": 12.021
+      },
+      "via3": {
+        "shapes": 1487,
+        "area_um2": 59.354,
+        "share_of_die": 0.055
+      },
+      "met4": {
+        "shapes": 235,
+        "area_um2": 3526.432,
+        "share_of_die": 3.262
+      },
+      "via4": {
+        "shapes": 17,
+        "area_um2": 10.88,
+        "share_of_die": 0.01
+      },
+      "met5": {
+        "shapes": 33,
+        "area_um2": 896.09,
+        "share_of_die": 0.829
+      },
+      "capm": {
+        "shapes": 1028,
+        "area_um2": 8280.162,
+        "share_of_die": 7.659
+      }
+    }
+  },
+  "occupancy_record": {
+    "gds": "layout/sar-adc-top/reports/20260926-081248-203cca3/sar_adc_top.gds",
+    "top_cell": "gen_compose_0",
+    "bbox_um": [
+      -20.25,
+      -161.6,
+      260.2,
+      223.9
+    ],
+    "bbox_w_h_um": [
+      280.45,
+      385.5
+    ],
+    "die_um2": 108113.475,
+    "layers": {
+      "met3": {
+        "shapes": 1651,
+        "area_um2": 22174.361,
+        "share_of_die": 20.51
+      },
+      "via3": {
+        "shapes": 1493,
+        "area_um2": 59.627,
+        "share_of_die": 0.055
+      },
+      "met4": {
+        "shapes": 256,
+        "area_um2": 4012.998,
+        "share_of_die": 3.712
+      },
+      "via4": {
+        "shapes": 19,
+        "area_um2": 12.16,
+        "share_of_die": 0.011
+      },
+      "met5": {
+        "shapes": 33,
+        "area_um2": 951.968,
+        "share_of_die": 0.881
+      },
+      "capm": {
+        "shapes": 1032,
+        "area_um2": 17078.602,
+        "share_of_die": 15.797
+      }
+    }
+  },
+  "site_clearance": {
+    "gds": "layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds",
+    "keepout_um": 1.0,
+    "baseline_predates_placement": true,
+    "sites_already_holding_a_capm_plate": [],
+    "sites": {
+      "decap_a0": {
+        "footprint_um": [
+          128.0,
+          150.0,
+          175.9,
+          198.82
+        ],
+        "clash_polygons": 0,
+        "clash_area_um2": 0.0,
+        "clear": true
+      },
+      "decap_a1": {
+        "footprint_um": [
+          180.0,
+          150.0,
+          227.9,
+          198.82
+        ],
+        "clash_polygons": 0,
+        "clash_area_um2": 0.0,
+        "clear": true
+      },
+      "decap_d0": {
+        "footprint_um": [
+          196.0,
+          -150.0,
+          243.9,
+          -101.18
+        ],
+        "clash_polygons": 0,
+        "clash_area_um2": 0.0,
+        "clear": true
+      },
+      "decap_d1": {
+        "footprint_um": [
+          196.0,
+          -98.0,
+          243.9,
+          -49.18
+        ],
+        "clash_polygons": 0,
+        "clash_area_um2": 0.0,
+        "clear": true
+      }
+    }
+  },
+  "free_corridors": {
+    "gds": "layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds",
+    "keepout_um": 1.0,
+    "unit_w_h_um": [
+      47.9,
+      48.82
+    ],
+    "corridors": {
+      "analog (east of comparator, north of sampling_frontend)": {
+        "rect_um": [
+          120.0,
+          139.5,
+          258.5,
+          219.5
+        ],
+        "w_h_um": [
+          138.5,
+          80.0
+        ],
+        "clash_polygons": 0,
+        "clash_area_um2": 0.0,
+        "units_across_x": 2,
+        "units_across_y": 1
+      },
+      "digital (east of seln_inverters, south of cdac_array)": {
+        "rect_um": [
+          193.0,
+          -165.0,
+          260.2,
+          -6.0
+        ],
+        "w_h_um": [
+          67.2,
+          159.0
+        ],
+        "clash_polygons": 0,
+        "clash_area_um2": 0.0,
+        "units_across_x": 1,
+        "units_across_y": 3
+      }
+    }
+  },
+  "ties": {
+    "VDD (analog supply -> both top plates)": {
+      "shared_ohm": 0.795,
+      "branch_ohm": {
+        "decap_a0": 3.842,
+        "decap_a1": 5.064
+      },
+      "branches_parallel_ohm": 2.185,
+      "tie_ohm": 2.98,
+      "per_leg_ohm": {
+        "decap_a0": 4.638,
+        "decap_a1": 5.86
+      }
+    },
+    "GND (analog return -> both bottom plates)": {
+      "shared_ohm": 8.601,
+      "branch_ohm": {
+        "decap_a0": 3.41,
+        "decap_a1": 6.66
+      },
+      "branches_parallel_ohm": 2.255,
+      "tie_ohm": 10.857,
+      "per_leg_ohm": {
+        "decap_a0": 12.011,
+        "decap_a1": 15.261
+      }
+    },
+    "VPWR (digital supply -> both top plates)": {
+      "shared_ohm": 1.641,
+      "branch_ohm": {
+        "decap_d0": 3.41,
+        "decap_d1": 4.632
+      },
+      "branches_parallel_ohm": 1.964,
+      "tie_ohm": 3.605,
+      "per_leg_ohm": {
+        "decap_d0": 5.051,
+        "decap_d1": 6.273
+      }
+    },
+    "VGND (digital return -> both bottom plates)": {
+      "shared_ohm": 7.7,
+      "branch_ohm": {
+        "decap_d0": 3.41,
+        "decap_d1": 5.765
+      },
+      "branches_parallel_ohm": 2.143,
+      "tie_ohm": 9.843,
+      "per_leg_ohm": {
+        "decap_d0": 11.11,
+        "decap_d1": 13.465
+      }
+    }
+  },
+  "per_domain": {
+    "capacitance_F": 8.869728e-12,
+    "esr_ohm": {
+      "analog (VDD/GND)": 13.837,
+      "digital (VPWR/VGND)": 13.448
+    },
+    "package_resonance_Hz": 1221501526.3,
+    "reactance_at_resonance_ohm": {
+      "analog (VDD/GND)": 14.69,
+      "digital (VPWR/VGND)": 14.69
+    },
+    "q_at_resonance": {
+      "analog (VDD/GND)": 1.062,
+      "digital (VPWR/VGND)": 1.092
+    },
+    "esr_equals_reactance_Hz": {
+      "analog (VDD/GND)": 1296784732.6,
+      "digital (VPWR/VGND)": 1334295831.7
+    }
+  }
+}
