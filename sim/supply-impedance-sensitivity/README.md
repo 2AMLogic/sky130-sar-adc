@@ -169,17 +169,22 @@ own and never has.
 - **Before [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)**
   (issue #431) the design had none at all, which is what
   [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)
-  item 6 records as a deliberate modelling choice. `records/20260925-073912-0e385e5.md`
-  is that undecoupled case, and stays the only committed measurement of it.
+  item 6 records as a deliberate modelling choice.
+  `records/20260925-073912-0e385e5.md` is the *first* committed measurement of
+  that undecoupled case, not the only one: every record in this directory that
+  carries the same DUT netlist sha256
+  (`96b3696ee9ecc84417c44f4bda51584e6a2cdd8d94c3ce9c4393993aef6c481f`) is
+  another undecoupled measurement, which as of this writing is every record
+  except the one named next.
 - **Since DR-017** the design carries one `cap_mim_m3_1` per supply domain
   (`Cdecap_a` across `VDD`/`GND`, `Cdecap_d` across `VPWR`/`VGND`, `MF = 2` →
-  8.870 pF each), so every record minted after it is the *decoupled* case.
-  **No such record exists yet**, for a reason that is this campaign's problem
-  rather than DR-017's: the `package` arm on the decoupled netlist outruns the
-  dispatch host's per-process budget (> 3800 s and never completing across five
-  attempts, against 1261 s undecoupled). Tracked as
-  [#448](https://github.com/2AMLogic/sky130-sar-adc/issues/448), which needs a
-  host, not code — see "Runtime" below.
+  8.870 pF each) — a **netlist** change, not a date, so a record's DUT netlist
+  sha256 remains the discriminator rather than when it was minted. (A record
+  can be minted well after DR-017 landed and still measure the undecoupled
+  netlist; `records/20260926-012944-a966fdf.md` does.) A decoupled-netlist
+  record now exists — see "What the decoupled netlist has and has not shown"
+  below for what it does and does not show, and for why `records/LATEST`
+  still names an undecoupled record even so.
 
 **No board decoupling is modelled in either case**, so the bonded arms' rail
 excursions remain an upper bound rather than a prediction for a real, decoupled

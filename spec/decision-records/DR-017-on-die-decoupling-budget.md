@@ -17,15 +17,23 @@
   *criterion* and §5's *deferral* are restated; §4's target verdict is
   unchanged in outcome and strengthened in reason. Nothing in the body is
   deleted or rewritten — a decision record's history is the point of having
-  one.
-- **Decided by**: Builder agent, issue #431 (body and Amendment A)
+  one. Separately, **Erratum (issue #453, 2026-09-26)**, also at the end of
+  this record: two sentences #449 added to "Spec lines affected" and
+  "Consequences" were false as originally written, not later-superseded by
+  new evidence the way Amendment A's model was — a wrong `records/LATEST`
+  citation and a false "only committed measurement" claim. Both are corrected
+  in place, struck through with the fix, using this record's own convention;
+  no decision, rationale, or measurement changes.
+- **Decided by**: Builder agent, issue #431 (body and Amendment A); Builder
+  agent, issue #453 (Erratum)
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands; Amendment A amends it in
   place rather than superseding it — the decision itself, one
   `sky130_fd_pr__cap_mim_m3_1` per supply domain at `MF = 2`, survives the
   refutation of the model that was used to argue for it, and is better
   supported afterwards than before)
-- **Related**: #431 (this decision and its implementation), DR-010
+- **Related**: #431 (this decision and its implementation), #453 (the
+  Erratum), DR-010
   (`DR-010-digital-supply-domain-partition.md`, whose "On-die decoupling for
   either domain is not designed, budgeted, or measured" open item this record
   answers), DR-012 (`DR-012-analog-ground-pad.md`, which carries the same item
@@ -382,8 +390,10 @@ sense DR-010/DR-012/DR-015 do.
   check 20 of `docs/chipalooza/check_proposal_citations.py` grades in both
   directions, so it is not optional. §4's Power row and §7 Item 1's DR-012
   retirement paragraph both still cite the *undecoupled* record
-  `20260925-073912-0e385e5` and stay correct while that record remains
-  `records/LATEST`; they move when #448 mints the decoupled one.
+  `20260925-073912-0e385e5` and stay correct ~~while that record remains
+  `records/LATEST`~~ **while `records/LATEST` names an undecoupled record — as
+  of this writing `20260925-204633-7339971.md`, not this one (see Erratum)**;
+  they move when #448 mints the decoupled one.
 
 ## Consequences
 
@@ -413,8 +423,10 @@ sense DR-010/DR-012/DR-015 do.
   whatever `design/sar_adc_top.spice` commits, that no *board* decoupling is
   modelled in any case, and that a record's own DUT netlist sha256 is how to
   tell which case it is. The baseline record `20260925-073912-0e385e5` stands
-  unedited and is **not** superseded: it remains the only committed measurement
-  of the undecoupled design.
+  unedited and is **not** superseded: ~~it remains the only committed
+  measurement of the undecoupled design~~ **it remains the campaign's first
+  undecoupled measurement and the record this record's tables quote; four
+  other committed records share its DUT netlist sha256 (see Erratum)**.
 - **Every `sim/` campaign that drives this netlist is now materially more
   expensive.** See the wall-clock finding under "What was measured": the
   electrically-inert `ideal` arm still took 3.7× longer with the two devices in.
@@ -783,3 +795,46 @@ numbers are struck in place with pointers here.
   paragraph and the chipalooza proposal's Power row, both of which are about the
   *undecoupled* upper bound on purpose. Re-pointing it is #448's call, not this
   amendment's.
+
+## Erratum (issue #453, 2026-09-26): two sentences #449 added were false as written
+
+Unlike Amendment A above — which corrects a rationale that later evidence
+refuted — the two corrections below fix statements that were false the moment
+`#449` (head `f0454424159de722418c4ff4257319b603c5701b`) committed them;
+nothing changed between then and now that made them so. Found by Judge
+re-review of that PR after a concurrent Judge pass had already approved it,
+recorded here rather than fixed on that branch because it had already merged.
+**No decision, rationale, model, or measurement changes.**
+
+1. **"Spec lines affected" cited the wrong `records/LATEST`.** The sentence
+   about `docs/chipalooza/challenge-4-proposal.md`'s §4 Power row and §7 Item 1
+   said those citations "stay correct while that record
+   [`20260925-073912-0e385e5`] remains `records/LATEST`". `records/LATEST` was
+   never `20260925-073912-0e385e5` — not at #449's own merge base (`4a6ae4f`),
+   and not now (`20260925-204633-7339971.md`, per `cat
+   sim/supply-impedance-sensitivity/records/LATEST`). The sentence's
+   *conclusion* was still right — both citations stay correct for as long as
+   `records/LATEST` names *any* undecoupled record, which it still does — only
+   the stated *condition* was wrong. Corrected in place above.
+2. **"Consequences" claimed a false uniqueness.** "The baseline record
+   `20260925-073912-0e385e5` … remains the only committed measurement of the
+   undecoupled design" was false when written: at #449's own merge
+   (`2026-09-26T03:07:49Z`), four other committed records already shared its
+   DUT netlist sha256
+   (`96b3696ee9ecc84417c44f4bda51584e6a2cdd8d94c3ce9c4393993aef6c481f`) —
+   `20260925-164447-722fcb0`, `20260925-204633-7339971`,
+   `20260926-000929-ce12f9b`, and `20260926-012944-a966fdf` — and the very same
+   Consequences bullet, two sentences earlier, names netlist sha256 as "how to
+   tell which case it is." `20260925-073912-0e385e5` remains that campaign's
+   *first* undecoupled measurement, and the record this record's own tables
+   quote, but it was never the only one. Corrected in place above.
+
+`sim/supply-impedance-sensitivity/README.md` carried the same two defects (at
+its own "so every record minted after it is the *decoupled* case" / "stays the
+only committed measurement of it" / "No such record exists yet" sentences),
+plus a related staleness once `records/20260926-050045-8e62675.md` (#409's
+full ratified grid, landed via #456) started running the as-committed decoupled
+netlist. That file is not a decision record, so all three are corrected in
+place there rather than annotated here; see its own "Which decoupling is in
+the deck changed on 2026-09-25" and "What the decoupled netlist has and has
+not shown" sections, which now agree with each other.
