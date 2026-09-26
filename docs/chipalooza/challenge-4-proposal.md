@@ -3956,9 +3956,11 @@ tracker already owns.
      section's rule is that each item points at the issue that already owns
      the work rather than inventing new tracking for it; this retirement's
      leftovers were the one place that rule was not being kept. Issue **#409**
-     (open) is where they live, and it names four, of which this paragraph
-     previously stated two: the nine-point ratified corner grid **has since
-     been run in full** (this clause read "deferred" against the campaign's
+     was where they lived — **it has since closed (2026-09-26); the dated
+     update below states what that does and does not change.** It names four
+     items, of which this paragraph previously stated two: the nine-point
+     ratified corner grid **has since been run in full** (this clause read
+     "deferred" against the campaign's
      own "Subset-corner justification" — a shared-host policy against a local
      multi-corner ngspice grid, `klt sim`'s request/response contract not
      being able to mint a record in this repo's own format, and the batch
@@ -3976,8 +3978,9 @@ tracker already owns.
      after next states what landed, what it cost, and the census that grades
      it); and `R_SUB`/`R_SUBX`
      remain lumped stand-ins with no extracted substrate network behind them —
-     the one of the four items that has not moved at all, and is now the
-     *only* one of the four still open (2026-09-26).
+     the one of the four items that has not moved at all, and — see the
+     update below — the one item #409's own final text still called open the
+     day the issue itself closed.
      Neither a worst-corner claim nor a priced-rejected-option claim may be
      read from **this** record, and it says so in its own words; the price of
      the rejected option is a *different* record's number, which is why the
@@ -3986,6 +3989,37 @@ tracker already owns.
      return and *a* lumped substrate stand-in of this record's own assumed
      magnitude, not a measurement of any real package or of this die's actual
      substrate.
+
+     **Update this pass (2026-09-26): #409 itself has closed, and item 4 is
+     now untracked by any open issue.** Re-checked live: #409 reports
+     `state: CLOSED`, `stateReason: COMPLETED`, `closedAt:
+     2026-09-26T07:03:47Z` — two seconds after PR #457 (the PR that made the
+     "has since been run in full" correction above) merged at
+     `2026-09-26T07:03:45Z`. This document does not credit that PR with the
+     closure: PR #457's own body only says `Part of #121` and never names
+     #409, and the two PRs that actually finished #409's other three items —
+     `#451` and `#456` — each say in as many words that they are "Part of
+     #409, not a closing PR," precisely because item 4 was still open when
+     they merged. So the mechanism behind the close is not stated here,
+     because no committed text in this repo names one; only the forge-side
+     fact (closed, `COMPLETED`) is. #409's own body is unmoved by its
+     closure — items 1-3 read `[x]` with the PR citations already quoted
+     above, item 4 still reads `[ ]`, and the issue's own closing line still
+     reads "Still open: item 4 only," restating the same two blocking
+     grounds this document already carries (no `klt` capability computes a
+     substrate network — `klt extract`/`lvs`/`components`/`precheck --help`
+     name "substrate" zero times, filed generically at
+     [`2AMLogic/klayout-tools#2515`](https://github.com/2AMLogic/klayout-tools/issues/2515),
+     open with no upstream movement; and no pad-ring/bond-diagram layout
+     exists in `layout/` for a substrate extraction to run against even if
+     the tool could). A repo-wide issue search for a successor
+     (`extracted substrate`, `substrate extraction`, `pad ring`) returns none
+     — item 4's residue has no open tracker at all right now. Item 4's
+     labels did not move with the state: #409 still carries `loom:blocked`
+     even while `CLOSED`, alongside `tier:goal-supporting` and
+     `loom:curated`. **Nothing in §4 moves for this**: item 4 was never
+     counted as closing anything graded there, R_SUB/R_SUBX still stand in
+     rather than extract, and this item's own verdict is unchanged.
 
      **The unrun arm is now counted, not only described (added 2026-09-25).**
      "Implemented but not run" is a claim about this campaign's *arm* axis —
