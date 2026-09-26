@@ -323,7 +323,7 @@ left owed; the rest remain open.
   transient, not the steady-state conversions the stimulus spends its span on.
 - **The corner axis of that gap is open at 2 of 9 points, not untouched and
   not closed.** Every record under this assumption used to be **one** corner
-  (`tt_27c_1.80v`); `sim/supply-impedance-sensitivity/records/20260925-181510-6dafa59.md`
+  (`tt_27c_1.80v`); `sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md`
   (issue #409 item 1) adds the slow-process point `ss_27c_1.80v` for the
   `ideal` control and the as-built `package` arm — the first non-baseline
   corner any record under this assumption contains, and the finding survives

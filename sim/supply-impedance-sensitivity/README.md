@@ -187,7 +187,7 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
     --supersedes <record-id>   # name the prior record this one replaces
 
 # the exact invocation that opened the ratified grid's corner axis
-# (records/20260925-181510-6dafa59.md): the control and the as-built arm at the
+# (records/20260926-012944-a966fdf.md): the control and the as-built arm at the
 # baseline corner and the slow-process corner, the first non-baseline point any
 # record of this campaign contains. A NAMED SUBSET of the same nine-point
 # ratified grid -- `--corner-points` can narrow that grid, never extend it --
@@ -706,7 +706,7 @@ re-checked on a measuring host on 2026-09-25 and **retired** rather than
 re-stated, because it was not what binds:
 
 - **The ngspice pin is satisfied here.** `--check-env` on the host that minted
-  `records/20260925-181510-6dafa59.md` reports `ngspice-46`, at
+  `records/20260926-012944-a966fdf.md` reports `ngspice-46`, at
   `sim/toolchain.json`'s `ngspice_min_major = 46` floor. The pin was never the
   obstacle on this host; it is the obstacle on the *batch fleet* (below).
 - **Local multi-corner simulation is not forbidden here.** The non-baseline
@@ -755,14 +755,34 @@ subset re-simulates only what it does not already have. Each such record states
 its own "Subset-corner justification" per `sim/README.md`'s rule, naming which
 points it holds and that the rest are owed.
 
-**Where the grid stands: 2 of 9 points, for 2 of 5 arms.**
+### What the first non-baseline corner found
+
+**Where the grid stands: 2 of 9 points, for 2 of 5 arms** —
 `tt_27c_1.80v` and `ss_27c_1.80v`, `ideal` + `package`
-(`records/20260925-181510-6dafa59.md`). What is owed is tracked in issue #409:
-the seven remaining points, and the three arms that have never left the
-baseline corner. The two points most likely to *move* a number are not yet
-among them — `ff_27c_1.80v` and `tt_-40c_1.80v`, where the fastest edges make
-the largest `L·di/dt` excursion — so the excursion figures in these records
-must still not be read as corner-worst-case.
+([`records/20260926-012944-a966fdf.md`](records/20260926-012944-a966fdf.md)).
+
+- **The null holds at the slow-process corner.** Worst mid-scale
+  `|Δ code|` = **0 LSB** at `ss_27c_1.80v`, as at the baseline. The two
+  near-full-scale codes do move with the corner (`-0.78·V_REF` reads 223 at
+  `ss` against 214 at `tt`), but they move **identically in the `ideal`
+  control and in the `package` arm**, so that is the corner acting on the ADC
+  and not the supply return acting on anything — which is exactly why the
+  mid-scale delta is taken against the control *at the same corner*.
+- **The excursion is _smaller_ at the slow corner, not larger**: `GND_DIE`
+  peak-to-peak **28.472 mV** at `ss` against **37.590 mV** at `tt` (0.76×),
+  and every other die node moves the same way. Consistent with the mechanism —
+  slower edges mean less `di/dt` into the same bond inductance — and it is a
+  reason **not** to read `ss` as the worst corner for this campaign.
+- **Cost, for the next session's planning**: `package@ss` took **1400 s**,
+  2.07× the `ideal` arm at the same corner and 2.07× the same arm at `tt` —
+  most of that a contended host rather than the corner itself.
+
+**What is owed, and tracked in issue #409**: the seven remaining points, and
+the three arms that have never left the baseline corner. The two points most
+likely to *move* the excursion are not yet among them — `ff_27c_1.80v` and
+`tt_-40c_1.80v`, where the fastest edges make the largest `L·di/dt`, and where
+the `ss` result above says to look. So no excursion figure in these records may
+be read as corner-worst-case.
 
 ## Findings
 
