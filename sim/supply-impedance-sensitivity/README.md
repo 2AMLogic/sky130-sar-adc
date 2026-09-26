@@ -1023,14 +1023,17 @@ measured against the option DR-012 **chose**. It is issue #409's item 2:
 
 ### What the decoupled netlist has and has not shown (2026-09-26, issue #431)
 
-Every record above measures the **undecoupled** design.
+Every record above measures the **undecoupled** design **except**
+[`records/20260926-050045-8e62675.md`](records/20260926-050045-8e62675.md), the
+full-grid record (see "What the full grid found"), which runs the as-committed
+decoupled netlist.
 [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md) (issue
 #431) put one `cap_mim_m3_1` per supply domain into
-`design/sar_adc_top.spice`, and sized it using this campaign — so three more
-`package`-arm measurements at `tt_27c_1.80v` now bear on it. **None of them is a
-record here**: one is a probe against a netlist that is not the committed
-design, and two are arms of an invocation that never finished. They are cited
-from DR-017, which says of each what it is.
+`design/sar_adc_top.spice`, and sized it using this campaign — so three
+`package`-arm measurements at `tt_27c_1.80v` bore on it before that record
+existed. **None of those three is a record here**: one is a probe against a
+netlist that is not the committed design, and two are arms of an invocation
+that never finished. They are cited from DR-017, which says of each what it is.
 
 - **`MF = 32` per domain (141.9 pF, a MiM area 1.3× the whole composed die):**
   `GND_DIE` **9.214 mV**, `VPWR_DIE` **12.153 mV**, captured code unchanged. The
@@ -1048,16 +1051,24 @@ from DR-017, which says of each what it is.
   nothing, and two across a purely *resistive* return change nothing — both as
   they must, and together the no-regression check DR-017 needed before adding
   any device.
-- **The as-committed `MF = 2` netlist, `package` arm: not measured.** This is the
-  number DR-017's decision would most like to cite, and
-  [#448](https://github.com/2AMLogic/sky130-sar-adc/issues/448) is its tracker.
-  It is a host problem, not a code problem — see "Budget a decoupled run from
-  decoupled numbers" above. Note that the sweep and null-option records above
-  were minted on a **Darwin arm64** host, so a host that can hold this arm may
-  well already be in the fleet; #448 is not waiting on new hardware, only on a
-  run.
+- **The as-committed `MF = 2` netlist, `package` arm: now measured, in a
+  record.** When this section was first written it was not measured — it was a
+  host problem, not a code problem (see "Budget a decoupled run from decoupled
+  numbers" above). The full-grid record
+  [`records/20260926-050045-8e62675.md`](records/20260926-050045-8e62675.md)
+  now carries it: at `tt_27c_1.80v`, `GND_DIE` **9.709 mV** peak-to-peak,
+  `VPWR_DIE` **12.799 mV**, captured codes unchanged from that record's own
+  `ideal` arm. This is the number DR-017's decision would most like to cite.
+  **Grading it against DR-017's prediction is not done here**:
+  [#448](https://github.com/2AMLogic/sky130-sar-adc/issues/448) is its tracker,
+  and that grading belongs there.
 
-So `records/LATEST` continues to name an **undecoupled** record, correctly: no
-committed record in this directory measures the decoupled netlist yet, and
-DR-012's retirement and `docs/chipalooza/challenge-4-proposal.md`'s Power row
-both rest on records that do exist rather than on a number nobody has run.
+`records/LATEST` continues to name an **undecoupled** record, correctly, even
+though a decoupled record now exists — for two reasons. First, the record
+writer (`run_supply_impedance.py`) moves `LATEST` only for a record whose
+corners are exactly the single baseline corner, and the full-grid record spans
+all nine ratified points, so it cannot move the pointer. Second, the documents
+that cite the pointer — DR-012's retirement,
+`docs/chipalooza/challenge-4-proposal.md`'s Power row, and check 31's arm
+census — rest on the undecoupled record it names, not on the
+decoupled one.

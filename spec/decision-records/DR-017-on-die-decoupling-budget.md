@@ -119,8 +119,15 @@ the two `Cdecap_*` cards' `MF` differs.
 |---|---|---|---|---|---|---|
 | 0 (no decoupling) | — | — | **37.333 mV** | **61.755 mV** | 0 LSB | 1261 s |
 | 32 (an affordability probe, **not** a proposal) | 141.916 pF | 140,775.04 µm² (130.2 % of die) | **9.214 mV** | **12.153 mV** | 0 LSB | 3323 s |
-| 2 (**this record's decision**) | 8.870 pF | 8798.44 µm² (8.14 % of die) | *not measured — see "Open items"* | *not measured* | *not measured* | > 3800 s |
+| 2 (**this record's decision**) | 8.870 pF | 8798.44 µm² (8.14 % of die) | ~~*not measured — see "Open items"*~~ **9.709 mV** † | ~~*not measured*~~ **12.799 mV** † | ~~*not measured*~~ 0 LSB † | > 3800 s |
 
+- † The `MF = 2` cells were blank when this record was written; they have since
+  been measured by
+  `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md` (issue
+  #409 item 1, `package` arm at `tt_27c_1.80v`, one point of its nine-point
+  grid). Grading them against this record's two-point prediction is left to
+  #448. The wall-clock cell is this record's own dispatch-host observation and
+  is unchanged.
 - The `MF = 0` row is the committed baseline record
   `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`
   (`package` arm, `tt_27c_1.80v`).
@@ -346,7 +353,9 @@ sense DR-010/DR-012/DR-015 do.
 ## Consequences
 
 - **The target in Decision §4 is not met, and is not claimed.** The as-shipped
-  `MF = 2` excursion is unmeasured (#448); the value the two-point fit predicts
+  `MF = 2` excursion ~~is unmeasured (#448)~~ has since been measured at
+  9.709 mV `GND_DIE` pp (`records/20260926-050045-8e62675.md`; grading it
+  against this record is #448's); the value the two-point fit predicts
   for it, 26.64 mV, is 7.6× the 3.5156 mV target, and the *best affordable*
   point measured on this axis — a MiM area 1.3× the whole die — is still 2.6×
   it. No reading of this record supports a claim that the die-side bounce meets
@@ -404,8 +413,13 @@ sense DR-010/DR-012/DR-015 do.
 
 ## Open items
 
-- **The shipped value's own `package`-arm number is not measured, and no
-  estimate stands in for it.** The `MF = 2` row of the sizing table above is
+- ~~**The shipped value's own `package`-arm number is not measured, and no
+  estimate stands in for it.**~~ **Since measured**:
+  `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md` (issue
+  #409 item 1) records `GND_DIE` 9.709 mV / `VPWR_DIE` 12.799 mV pp at
+  `tt_27c_1.80v` on the as-committed `MF = 2` netlist; grading that against
+  Decision §3/§4's 1/√C model remains #448's. The text below is kept as
+  written. The `MF = 2` row of the sizing table above is
   blank on purpose: five attempts at the campaign's own indexed four-arm
   invocation were each terminated by this dispatch host's ~63-minute
   per-process budget with that one arm still running, one of them on an
