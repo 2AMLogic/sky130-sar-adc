@@ -260,6 +260,12 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --recor
 # over the resistance that is its whole ground return (see its own section):
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record
 
+# the bounded decoupling-tie ESR ladder (DR-017's routing-parasitics open item;
+# see its own section below): the as-built `package` topology with the MEASURED
+# drawn tie resistance in series with each domain's own MiM pair, against the
+# committed netlist's ideal ties:
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --decap-esr --record
+
 # what that sweep would cost, and whether its points converge, WITHOUT running
 # it: each grid point's own deck over a truncated transient. Measures nothing
 # about the DUT, so it refuses --record.
@@ -383,15 +389,17 @@ Consequences:
 Every record states the command that minted it in its `Written by` footer, and
 `sim/check_spec_coverage.py` requires every token of that footer after the
 runner path to appear in the bench's documented `cold_start`
-(`cold-start-record-mismatch`). **Six** invocations of this runner are
+(`cold-start-record-mismatch`). **Seven** invocations of this runner are
 indexed today, one per committed **graded** record — the four-arm arm comparison
 (`--arms ideal,package-r-only,package,substrate --record`), the default sweep
 box (`--sweep --record`), the ground-pad ablation pair
 (`--arms ideal,package,no-gnd-pad --record`), the default null-option
 substrate ladder (`--null-sweep --record`), the two-point corner slice
-(`--arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`)
-and the full ratified grid (`--corners --record`) —
-so a run with any *other* `--arms` list, any other sweep box, or any other
+(`--arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`),
+the full ratified grid (`--corners --record`) and the default
+decoupling-tie ESR ladder (`--decap-esr --record`) —
+so a run with any *other* `--arms` list, any other sweep box, any other ladder,
+or any other
 corner subset needs its own bench entry in `sim/spec-coverage.json` and its own
 verbatim documented command here, the same way `sar-sequencer-behavioral`
 indexes its `--corners` variant separately. Every widening of the corner subset
@@ -907,6 +915,108 @@ not re-simulate the variants that already finished — which is not a hypothetic
 convenience: the first attempt at this box lost four finished runs when a
 fifth variant, then implemented with a series offset source, blew a 5400 s
 budget the same deck finishes in ~900 s without it.
+
+## The bounded decoupling-tie ESR ladder (`--decap-esr`)
+
+Every arm above takes the committed `design/sar_adc_top.spice` verbatim, and
+since [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+that netlist connects each supply domain's own MiM decoupling pair to its two
+rails through **ideal wires**. The drawn layout does not. Issue #440 placed
+those ties and measured them (`layout/sar-adc-top/bin/probe-decap-sites.py`, a
+lumped DC ladder assembled from `build_layout.py`'s own geometry constants and
+the PDK's own sheet/via resistances):
+
+| domain | drawn interconnect ESR | `Q` at the 1221.5 MHz DR-015 resonance | `ESR = X_C` at |
+| --- | --- | --- | --- |
+| analog (`VDD`/`GND`) | **13.837 Ω** | 1.062 | 1.297 GHz |
+| digital (`VPWR`/`VGND`) | **13.448 Ω** | 1.092 | 1.334 GHz |
+
+That is about **590×** the device's own plate resistance (`r1 = rm3·l/w`,
+0.0235 Ω for the shipped pair — the quantity DR-017's Amendment A argues from),
+and ~80 % of it is single-cut vias. **No netlist in this repo had ever carried
+it**, so every decoupled record above measures a capacitor pair that is better
+connected than the one on the die.
+
+```sh
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --decap-esr --record
+```
+
+**Why it is a sign question and not an obvious improvement.** A 2×2 via array at
+each riser and each plate entry would cut that resistance roughly 3× and is
+cheap in area, and #440 deliberately did *not* draw one, because which way the
+change moves the rails is not obvious:
+
+- the pair's reactance at the package resonance is 14.69 Ω, so at the as-built
+  ESR that resonance's `Q` is ≈ 1.06 — the ties are **damping** it, and removing
+  them raises `Q` as much as it lowers the impedance at resonance;
+- read the other way, ESR does not reach the pair's own reactance until
+  ~1.3 GHz, so where the bounce lives the pair should already be
+  reactance-dominated and 13.8 → 4.5 Ω should buy little.
+
+Both are design-time inferences about the same four resistors. This ladder is
+the measurement, and it is issue #465.
+
+**What it moves, and what it holds still.** Exactly one thing: the four tie
+resistors. Every rung is the as-built `package` topology (all four terminals
+bonded through DR-015's R+L, the same lumped `R_SUBX`, the same stimulus) with
+the measured tie resistance scaled by one multiplier, so the difference between
+two rungs is those resistors' own contribution and nothing else (DR-015 item
+5's requirement). The default ladder is two rungs, `0x` and `1x`:
+
+- the **`0x` rung emits no tie resistors at all** — it is the committed netlist
+  *card for card*, the idealisation the campaign's existing decoupled records
+  measured. That identity is asserted before the run and again at record-write
+  time (`decap_esr_anchor_matches_base_arm()`), on the arm network **and** on
+  the patched DUT body, and the runner refuses a ladder that omits this rung:
+  without it the ladder would measure a resistance against nothing.
+- the **`1x` rung is the layout as drawn.**
+
+Two rungs rather than four because each one is a whole-ADC transient of this
+campaign's most expensive shape (the `package` arm has repeatedly outrun a
+~63-minute per-process budget on this fleet, issue #448), and because the sign
+of the difference between these two *is* the question. A third rung at the
+projected 2×2-array value would quantify what the arrays recover, and is only
+worth its hour if this pair says the arrays are worth drawing at all.
+
+**A third deck transformation, and the only one that touches a device card.**
+`patch_dut_decap_ties()` re-points each decoupling capacitor's two plate nodes
+to new internal nodes and emits one resistor per tie from the rail's die node.
+It asserts the shape it is patching — exactly one card per instance, still a
+`sky130_fd_pr__cap_mim*` device, still connected to the two expected rails **in
+the card's own node order** — and refuses rather than patching a netlist that
+moved, because a resistance inserted into the wrong leg would produce a
+plausible record of a circuit nobody built. An arm with no ties gets the DUT
+body back unchanged, which is what makes the `0x` rung and all five named arms
+byte-identical to the decks they assembled before this transformation existed.
+
+**These resistors are a measurement, not an assumption** — unlike DR-015's R+L,
+which this ladder holds fixed on every rung. The runner reads the ohms out of a
+**pinned, committed layout record's** own `decap-ties.json`
+(`DECAP_TIE_RECORD`), not out of `reports/LATEST` and never from a hand-typed
+number, so a sim record here cannot state a resistance the layout never had, and
+it stays legible after a later layout record moves that pointer. The loader
+refuses a report whose `model_matches_drawn_geometry` is false, whose schema
+version moved, or whose per-tie ohms do not sum to its own per-domain ESR.
+
+**What it is not**: an extraction. Each tie is one lumped DC resistor — no
+frequency dependence, no skin effect, and above all **no interconnect
+inductance**. That half of DR-017's routing-parasitics item needs `klt pex` and
+the device/net correspondence this flow does not yet have
+([klayout-tools#1878](https://github.com/2AMLogic/klayout-tools/issues/1878),
+tracked with #103's LVS gap) and is out of scope here. Nor does the ladder run
+the 2×2 geometry itself: it brackets the reachable value between its two rungs,
+and the arrays could never reach `0x` in any case, because they divide only the
+*via* half of each ladder and the drawn met2/met4 half stays.
+
+Like the two sweeps, this mode writes its **own** record (the arm comparison
+ranks five networks, the sweeps walk boxes around DR-015's assumption point,
+this holds the network fixed and moves a resistance none of them contained), it
+supersedes nothing, and it deliberately **does not move `records/LATEST`** —
+that pointer names the record this campaign's cited claim rests on. `--arms` is
+refused with it (the ladder synthesizes its own rungs and always runs the
+`ideal` control), `--corners`/`--corner-points` are refused for the same reason
+`--sweep --corners` is, and `--cost-probe` works with it under the same
+refusals.
 
 ## Why the corner grid arrives in pieces
 
