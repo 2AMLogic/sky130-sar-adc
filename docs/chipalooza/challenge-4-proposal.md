@@ -3613,6 +3613,19 @@ tracker already owns.
    correction; this issue's acceptance criterion 4 remains
    not-yet-triggerable.
 
+   **Re-checked 2026-09-26**: `https://opencircuitdesign.com/chipalooza/rules-4.html`
+   still returns HTTP 404 (`curl -sI`, this pass); the parent `chipalooza/`
+   index still returns HTTP 200 with `Last-Modified: Sun, 06 Sep 2026
+   15:06:32 GMT` — byte-for-byte the same `Last-Modified`, `ETag`
+   (`"1c94-65ad1d8cdb1fa"`) and `Content-Length` (7316) as the 2026-09-16 and
+   2026-09-24 re-checks, so the index page itself has still not been
+   republished. 2AMLogic/2am#542's own tracking table still lists row 4
+   (Sky130, ChipFoundry) as "launches 2026-11-09" (submission 2026-11-23) —
+   unchanged across all six re-checks (2026-09-06, -08, -15, -16, -24, -26).
+   §2's slot-budget assumptions therefore still carry no rules-4.html-derived
+   correction; this issue's acceptance criterion 4 remains
+   not-yet-triggerable.
+
 8. **Whole-ADC (end-to-end) code correctness is not yet demonstrated — a
    campaign exists, found real defects, several are already fixed, and two
    remaining fixes are operator-decision items.** Added this pass: this
