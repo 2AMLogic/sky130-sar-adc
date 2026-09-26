@@ -397,20 +397,13 @@ def write_regen_evidence(
     points: list[RegenPoint], corner: str, temp_c: float,
     note: str = "", supersedes: str = "",
 ) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for p in points:
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
-        (corners_dir / f"vindiff_{safe}.log").write_text(p.log_text)
-
-    lines: list[str] = []
+        raw_logs[f"vindiff_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    record_path = prov.record_path
     a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: pending #1/#27 -- characterizes design/comparator.sch's "
         "regeneration time vs. differential input at one PVT point. Not a "
@@ -805,14 +798,13 @@ def write_kickback_evidence(
     points: list[KickbackPoint], corner: str, temp_c: float,
     note: str = "", supersedes: str = "",
 ) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for p in points:
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
-        (corners_dir / f"kickback_{safe}.log").write_text(p.log_text)
+        raw_logs[f"kickback_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
 
     worst = max(points, key=lambda p: max(abs(p.peak_pos_dev_v), abs(p.peak_neg_dev_v)))
     worst_abs_v = max(abs(worst.peak_pos_dev_v), abs(worst.peak_neg_dev_v))
@@ -827,11 +819,6 @@ def write_kickback_evidence(
     _diff_candidates = [p for p in points if p.vindiff_mv != 0.0] or list(points)
     worst_diff = max(_diff_candidates, key=lambda p: abs(p.peak_diff_dev_v))
 
-    lines: list[str] = []
-    a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: none -- INFORMATIONAL. spec/target-spec.md's Kickback "
         "row is DRAFT (added by DR-011 via issue #361, with its bound adopted "
@@ -1091,14 +1078,13 @@ def write_kickback_neutralized_evidence(
     text for a different claim (sim/README's distinct-claim-vs-correction
     distinction)."""
     dut_text = _dut_lines(DUT_FRAGMENT_NEUTRALIZED)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, dut_text)
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for p in points:
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
-        (corners_dir / f"kickback_neutralized_{safe}.log").write_text(p.log_text)
+        raw_logs[f"kickback_neutralized_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, dut_text, "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
 
     worst = max(points, key=lambda p: max(abs(p.peak_pos_dev_v), abs(p.peak_neg_dev_v)))
     worst_abs_v = max(abs(worst.peak_pos_dev_v), abs(worst.peak_neg_dev_v))
@@ -1122,11 +1108,6 @@ def write_kickback_neutralized_evidence(
         / abs(BASELINE_390_PEAK_NEG_MV) * 100.0
     )
 
-    lines: list[str] = []
-    a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: none -- INFORMATIONAL, and NOT a measurement of "
         "design/comparator.sch (the adopted design). This record measures "
@@ -1461,15 +1442,14 @@ def write_regen_corners_evidence(
     points: list[RegenCornerPoint], note: str = "",
     supersedes: str = "",
 ) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for p in points:
         cid = corners_mod.corner_id(p.corner, p.temp_c, p.supply_v)
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
-        (corners_dir / f"{cid}__vindiff_{safe}.log").write_text(p.log_text)
+        raw_logs[f"{cid}__vindiff_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
 
     controls = [p for p in points if p.vindiff_mv == 0.0]
     measured = [p for p in points if p.vindiff_mv != 0.0]
@@ -1484,11 +1464,6 @@ def write_regen_corners_evidence(
     n_corners = len(controls)
     clean_corner_ids = sorted({p.corner_id for p in controls if p.classify() == "CONTROL-OK"})
 
-    lines: list[str] = []
-    a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: pending #1/#27 -- attempts to characterize "
         "design/comparator.sch's decision (regeneration) delay vs. differential "
@@ -1968,6 +1943,13 @@ def run_offset_mc(
 def write_offset_evidence(
     result: OffsetResult, note: str = "", supersedes: str = "",
 ) -> Path:
+    # Left on the manual resolve_provenance() path rather than
+    # evidence.open_record() (issue #476): this is a Monte Carlo record, and
+    # its `# Monte Carlo record {record_id}` title line matches the
+    # repo-wide convention every other Monte Carlo writer uses
+    # (sim/harness/mc_runner.py:292, sim/cdac-array-transfer/run_mc.py:336) --
+    # open_record() hardcodes `# Record {record_id}`, so migrating would
+    # trade that convention for a cosmetic mismatch rather than remove any.
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
     record_id = prov.record_id
     record_path = prov.record_path
@@ -2281,14 +2263,13 @@ def write_noise_campaign_evidence(
 ) -> Path:
     info = pdk.resolve()
     netlist_text = _noise_deck(info, "tt", 27.0, VDD)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for r in results:
         cid = corners_mod.corner_id(r.corner, r.temp_c, r.supply_v)
-        (corners_dir / f"{cid}.log").write_text(r.log_text)
+        raw_logs[f"{cid}.log"] = r.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, netlist_text, "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
 
     binding = max(results, key=lambda r: r.differential_rms_v)
     binding_cid = corners_mod.corner_id(binding.corner, binding.temp_c, binding.supply_v)
@@ -2299,11 +2280,6 @@ def write_noise_campaign_evidence(
     temps_run = sorted({r.temp_c for r in results})
     supplies_run = sorted({r.supply_v for r in results})
 
-    lines: list[str] = []
-    a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- "
         "Comparator input-referred noise `<=1.0148 mV rms` (baseline, ENOB>9.0) / "
@@ -2388,18 +2364,11 @@ def write_noise_evidence(
 ) -> Path:
     info = pdk.resolve()
     netlist_text = _noise_deck(info, result.corner, result.temp_c)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    record_id = prov.record_id
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "corners", {"noise.log": result.log_text}
+    )
     record_path = prov.record_path
-    runs_dir = EXPERIMENT_DIR / "corners" / record_id
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    (runs_dir / "noise.log").write_text(result.log_text)
-
-    lines: list[str] = []
     a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: pending #1/#27 -- measures design/comparator.sch's "
         "(reduced sub-model, see below) input-referred noise, compared "
