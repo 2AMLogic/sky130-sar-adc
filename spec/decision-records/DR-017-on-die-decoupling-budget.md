@@ -393,7 +393,17 @@ sense DR-010/DR-012/DR-015 do.
   `20260925-073912-0e385e5` and stay correct ~~while that record remains
   `records/LATEST`~~ **while `records/LATEST` names an undecoupled record — as
   of this writing `20260925-204633-7339971.md`, not this one (see Erratum)**;
-  they move when #448 mints the decoupled one.
+  ~~they move when #448 mints the decoupled one~~ **and they have not moved: a
+  decoupled-netlist record now exists — `20260926-050045-8e62675`, minted by
+  #409's full ratified grid, not by #448 — and neither `records/LATEST` nor
+  these two citations moved for it (issue #464). `records/LATEST` cannot move
+  for that record: the campaign's writer re-points the pointer only for a
+  record whose corner set is exactly the single ratified baseline corner, and
+  that record spans all nine (`sim/supply-impedance-sensitivity/README.md`,
+  "What the decoupled netlist has and has not shown"). The two citations stay
+  where they are on purpose — both are about the *undecoupled* upper bound. See
+  Amendment A's closing bullet: re-pointing `records/LATEST` remains #448's
+  call, not this record's.**
 
 ## Consequences
 
