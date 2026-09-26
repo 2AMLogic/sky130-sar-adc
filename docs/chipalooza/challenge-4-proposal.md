@@ -802,16 +802,25 @@ decoupling capacitors,
 [`layout/sar-adc-top/reports/20260926-081248-203cca3/record.md`](../../layout/sar-adc-top/reports/20260926-081248-203cca3/record.md),
 the current `reports/LATEST` — every hop up to and including 2026-09-23 at an
 identical DRC/LVS verdict, identical device/net/pin counts and identical
-mismatch categories, and the 2026-09-24 hop the first that moves them at all,
-in the improving direction (19/19/19 → 21/21/21 pins, 98 → 88 mismatches,
-794 → 803 devices matched: two new top-level digital supply pins, and each
-digital rail one net instead of two — see the sign-off-bar readout in §4); `compose.json`'s
+mismatch categories; the 2026-09-24 hops the first that move them at all, in
+the improving direction (`20260924-190817-f3622fc`, issue #355: 19/19/19 →
+21/21/21 pins, 98 → 88 mismatches, 794 → 803 devices matched — two new
+top-level digital supply pins, and each digital rail one net instead of two;
+then `20260924-214710-b323061`, issue #362's analog ground pad, which moved
+the pin triple once more, to the 21/22/22 the current record still carries);
+and the 2026-09-26 hop the second event to move a count, and the first to move
+one by *adding devices* rather than by tying nets (869 → **871** devices on
+each side, 803 → **804** matched, 88 → **89** mismatches, the single added
+entry being one further `device.unmatched` — see the sign-off-bar readout in
+§4, which states the current numbers and, one paragraph below it, this hop's
+mechanism); `compose.json`'s
 top-level `bbox_um` was in turn byte-identical to `20260915-213439-bf2256f`'s,
 verified directly, moved by 0.05 µm in x0 only at the #326 re-composition,
 where the external `VDD` pin's own met4 landing pad widened, and is
 byte-identical again across the 2026-09-19 re-run), which §4's Area
 row and its two sign-off-bar rows are re-pointed onto below. **No §4 verdict moves**: DRC/LVS-clean GDS
-stays UNMET/BLOCKED (88 mismatches on the current record, 98 on every record
+stays UNMET/BLOCKED (89 mismatches on the current record, 88 on each of the
+three 2026-09-24 records and 98 on every record
 from `20260915-234004-76f48b9` through 2026-09-23 — better than the 124 this paragraph once
 cited, but still not clean), and post-layout PVT stays
 UNMET (still no extraction-based re-sim at any corner). #103 itself was
@@ -1338,6 +1347,33 @@ stamp-after-claim form. **No verdict moves because of this check**: the
 readout states the same DRC-clean / LVS-mismatch result §4's two sign-off-bar
 rows already carry, which is why it could be added without re-grading either.
 
+**One narrow exception to that, added 2026-09-26 (check 36), because the claim
+one paragraph above — that this readout is the document's *single*
+present-tense statement of these numbers — was not true of the document that
+made it.** Six passages in §3 and §7 restated the mismatch count in prose, in
+three explicitly present-tense forms (`N mismatches on the current record`,
+`currently N mismatches`, `the N-mismatch LVS gap`), and check 9 cannot see
+any of them: it matches this blockquote's own sentence and nothing else. When
+#440's decoupling placement moved the compare 88 → 89, the readout and §4's
+row moved and all six still read 88. Check 36 re-derives exactly those three
+forms against the composing flow's current `lvs.json` — the composing flow
+being identified from the tree (the one flow whose `compose.json` takes in a
+`blocks[]` entry that is a *cell* from a stream its own run did not produce),
+never pinned in the script. The *dated* forms stay ungraded for the reason
+above: "88 mismatches at the 2026-09-24 hop" was true when written and is a
+statement about a superseded record, while the same figure called *current* is
+a claim about whatever `reports/LATEST` resolves to today, for which there is
+exactly one true value. (The three gated forms are quoted above with their
+count elided as `N`, deliberately: spelling one of them out with a digit would
+make this paragraph itself a present-tense claim, and the gate would —
+correctly — fire on its own explanation. The dated example one sentence back
+can carry its real figure precisely because being dated is what puts it out of
+scope. Check 35's rationale needed the same care for the same reason.) **No
+verdict moves because of this
+check either** — the six passages were corrected onto the record §4's readout
+already carried, and neither sign-off-bar row's verdict depends on whether the
+gap is 88 or 89: it is not zero.
+
 **The gate now also grades what a row does *not* cite** (check 11, added
 2026-09-17), because checks 3 to 9 structurally cannot. Each of those grades a
 row against the evidence it already cites; none can see the opposite defect —
@@ -1589,8 +1625,9 @@ tracker already owns.
    contradicting them). **Nothing about the design's graded status changes
    with this correction** — what is still missing is exactly what the brief's
    sign-off bar grades, and both remain UNMET in §4: a `klt lvs`
-   **device-level match** on the composed GDS (currently 88 mismatches — see
-   §4's machine-checked sign-off-bar readout; 98 before issue #355's
+   **device-level match** on the composed GDS (currently 89 mismatches — see
+   §4's machine-checked sign-off-bar readout; 88 before issue #440's
+   2026-09-26 decoupling placement, and 98 before issue #355's
    2026-09-24 digital supply-rail tie), and
    **any post-layout PVT re-simulation** of the assembled top level (none has
    been run at any corner). Tracked as
@@ -2034,10 +2071,15 @@ tracker already owns.
    and on 2026-09-26 by issue #440's DR-017 decoupling placement,
    [`layout/sar-adc-top/reports/20260926-081248-203cca3/record.md`](../../layout/sar-adc-top/reports/20260926-081248-203cca3/record.md),
    the current `reports/LATEST` — every hop through 2026-09-23 at a
-   field-identical DRC/LVS verdict, and the 2026-09-24 hop the first to move
-   it (21/21/21 pins, 88 mismatches, 803/869 devices matched; DRC still
-   clean), for a reason that is not about this blocker: the two digital rails
-   became one net each with their own top-level pins;
+   field-identical DRC/LVS verdict, and the 2026-09-24 hops the first to move
+   it (`20260924-190817-f3622fc`: 21/21/21 pins, 88 mismatches, 803/869
+   devices matched; DRC still clean; then #362's ground pad took the pin
+   triple to 21/22/22), for a reason that is not about this blocker: the two
+   digital rails became one net each with their own top-level pins. The
+   2026-09-26 hop moved it again, for a reason that is also not about this
+   blocker: #440's two placed decoupling capacitors take both sides to 871
+   devices, 804 matched, and the compare to 89 mismatches in the same four
+   categories;
    `compose.json`'s top-level `bbox_um` was byte-identical to
    `20260915-213439-bf2256f`'s, moved by 0.05 µm in `x0` only at the #326
    re-composition, and is byte-identical again across the 2026-09-19 re-run
@@ -2047,8 +2089,9 @@ tracker already owns.
    item; both confirmed still **OPEN** upstream as of this check, `gh issue
    view 1876/1878/1911 --repo 2AMLogic/klayout-tools`). §4's two sign-off-bar
    rows are re-pointed onto this record; **no verdict in §4 moves as a
-   result** — DRC/LVS-clean GDS stays UNMET/BLOCKED (88 mismatches on the
-   current record, 98 on every record from `20260915-234004-76f48b9` through
+   result** — DRC/LVS-clean GDS stays UNMET/BLOCKED (89 mismatches on the
+   current record, 88 on each of the three 2026-09-24 records, 98 on every
+   record from `20260915-234004-76f48b9` through
    2026-09-23 —
    better than the 124 this item once cited, but still not clean) and post-layout PVT stays UNMET (still no extraction-based re-sim
    at any corner, regardless of which LVS shape is used).
@@ -2413,8 +2456,10 @@ tracker already owns.
    restated at every prior upstream-closure update above), the row stays
    graded against what is *released*, not what is merged — so **no §4
    verdict moves**: "DRC/LVS-clean GDS, full ADC" stays PARTIAL — DRC MET,
-   LVS DEVICE MATCH UNMET/BLOCKED (88 mismatches, the whole-request compare
-   that is this flow's actual signoff attempt), unaffected either way since
+   LVS DEVICE MATCH UNMET/BLOCKED (88 mismatches on the record current at this
+   pass, `20260924-234053-66dca3c`, and 89 on the current record since #440's
+   2026-09-26 decoupling placement — the whole-request compare
+   that is this flow's actual signoff attempt at either count), unaffected either way since
    the never-adopted `--abstract-cells` shape is not what grades this row.
    What changes is only the blocker's own bookkeeping: both upstream issues
    are now closed-with-fix-pending-release rather than open, consistent
@@ -2475,8 +2520,9 @@ tracker already owns.
 
    **No §4 verdict moves, and nothing about #103's own state changes.**
    "DRC/LVS-clean GDS, full ADC" stays **PARTIAL — DRC MET, PIN DECLARATION
-   MET, LVS DEVICE MATCH UNMET/BLOCKED** at 88 mismatches on the cited
-   record, and "Post-layout PVT simulation, full ADC" stays **UNMET**; per
+   MET, LVS DEVICE MATCH UNMET/BLOCKED** at 89 mismatches on the current
+   record — the same record this update reads the capacitor-class field out of
+   — and "Post-layout PVT simulation, full ADC" stays **UNMET**; per
    this item's established practice the rows stay graded against what is
    *released*, and nothing has been. #103 was re-read live this pass and
    still carries `loom:operator-only` + `loom:operator-decision` — still a
@@ -2758,7 +2804,10 @@ tracker already owns.
    not a label edit: it restates that `klayout-tools#2396` and `#2398`
    (this item's own 2026-09-24 update, above) are closed upstream, and
    flags — correctly — that closing the upstream issues is not the same as
-   confirming the 88-mismatch LVS gap has actually cleared, since no
+   confirming the LVS device-match gap has actually cleared (89 mismatches on
+   the current record; 88 when that comment was posted, before #440's
+   2026-09-26 decoupling placement took both sides of the compare to 871
+   devices), since no
    toolchain re-run against either fix has been performed; it asks for a
    Builder or operator to re-run `klt lvs` once a `klayout-tools` release
    ships them. That request is not yet actionable, for the same release-gate
@@ -2804,6 +2853,31 @@ tracker already owns.
    against DR-017's own standing "routing parasitics are not modelled" open
    item. Both are recorded in `layout/sar-adc-top/README.md`'s "On-die
    decoupling (DR-017)" and in DR-017's own Open items.
+
+   **Update this pass (2026-09-26, later) — erratum, no verdict moves: six
+   passages of this item and §3 still stated the *previous* mismatch count as
+   the current one.** The pass above restated §4's machine-checked readout and
+   both sign-off-bar rows onto `20260926-081248-203cca3`, moving the count
+   88 → 89 — but the same count is also restated in ordinary prose six times
+   (five in this item, one in §3's own layout-record trail), where check 9
+   cannot see it, and every one of the six still read 88 after that merge. All six are
+   corrected here against the record's own
+   [`lvs.json`](../../layout/sar-adc-top/reports/20260926-081248-203cca3/lvs.json):
+   89 mismatches, 88 errors, devices 871/871/804, nets 443/444/411, pins
+   21/22/22. Two *dated* figures are corrected with them, in the same
+   direction: the "2026-09-24 hop" was three records rather than one, and the
+   pin triple the last of them carries is 21/22/22 (issue #362's analog ground
+   pad) rather than the 21/21/21 issue #355's first record of that day
+   reported. **No §4 verdict moves** — neither sign-off-bar row turns on
+   whether the device-match gap is 88 or 89; it is not zero either way, and the
+   residual is the same klayout-tools#1878 category mix. **The recurrence is
+   gated rather than re-read**: check 36 of
+   [`docs/chipalooza/check_proposal_citations.py`](check_proposal_citations.py)
+   now re-derives the three explicitly present-tense prose forms of this count
+   from the composing flow's current `lvs.json` — the composing flow identified
+   from the tree, not pinned — and leaves every dated form alone, for the
+   reason §4's paragraph under the readout gives and
+   [`docs/citation-gate.md`](../citation-gate.md) argues at length.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
