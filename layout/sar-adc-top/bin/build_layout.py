@@ -105,6 +105,18 @@ Every net is one of:
   decided in
   `spec/decision-records/DR-010-digital-supply-domain-partition.md`, not here;
   see `digital_supply_rail()`.
+* **On-die supply decoupling** (`Cdecap_a` on `VDD`/`GND`, `Cdecap_d` on
+  `VPWR`/`VGND` -- issue #440, DR-017): four placed `klt gen cap_array` unit
+  cells (two per domain, the `MF = 2` DR-017 sizes), each a met3 bottom plate
+  under a `capm` top plate with its own via3/met4 top-plate lead. The only net
+  class here whose *device* is a placed sub-block rather than drawn geometry,
+  and the only one whose two terminals are reached on DIFFERENT layers for a
+  deck reason rather than a floorplan one: the sky130 extraction deck removes
+  every met3 shape that touches a `capm` plate from generic met3<->met4 (via3)
+  connectivity -- that exclusion is what stops a MiM cap's own top-plate via
+  from reading as a plate-to-plate short -- so a bottom plate is reachable
+  only from BELOW, through via2 from met2, while a top plate is reachable only
+  from ABOVE, on met4. See `decoupling_caps()`.
 * **Analog ground mesh** (`GND` -- issues #362 and #377): one met3 trunk in
   the open channel between `sampling_frontend` and `comparator`, with a met4
   dropper onto each of the three analog sub-blocks' OWN drawn ground
@@ -128,6 +140,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
@@ -147,8 +160,12 @@ MET3 = (70, 20)
 VIA3 = (70, 44)
 MET4 = (71, 20)
 MET4_PIN = (71, 5)
+VIA4 = (71, 44)
 MET5 = (72, 20)
 MET5_PIN = (72, 5)
+CAPM = (89, 44)  # MiM-cap top plate -- drawn only by the placed `cap_array`
+#                  decap units, never by this module; listed so
+#                  `_check_decoupling_caps()` can reason about it.
 # MET5 is deliberately NOT part of `_METAL_CHAIN`/`_VIA_BETWEEN`/
 # `MIN_METAL_AREA_UM2` below: nothing this module draws rises *to* met5 through
 # a via stack. The only met5 geometry here is the two digital supply rails
@@ -366,12 +383,92 @@ def _pin_layer_for(layer: tuple[int, int]) -> tuple[int, int]:
 # below) and so the analog TOP_P/TOP_N route lengths are (very nearly) equal
 # -- see the module docstring's "Floorplan" section.
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# On-die supply decoupling (issue #440, DR-017).
+#
+# DR-017 sizes one `sky130_fd_pr__cap_mim_m3_1` per supply domain at
+# `W = L = 46.9 um, MF = 2` -> 8.870 pF each, and explicitly leaves placement to
+# this issue. `MF = 2` is drawn here as what it is: TWO matched 46.9 um unit
+# cells per domain, in parallel across that domain's own supply/return pair.
+#
+# The unit cell is `klt gen cap_array` at `num = 1` -- the SAME generator, at
+# the SAME 46.9 um plate, that `layout/sampling-frontend/`'s own `Csamp_{p,n}`
+# already ships DRC-clean (`bin/gen_blocks.py`'s `CAP_DEVICES`), and the same
+# cell DR-017's own `C_u = 4434.86 fF` was computed for. Drawing the met3/`capm`
+# /via3/met4 stack by hand in this composer was the other option this issue
+# named; reusing the generator that is already proven on this PDK pin, in this
+# repo, at this exact plate size is strictly less risk for an identical device.
+# --------------------------------------------------------------------------- #
+DECAP_CELL_NAME = "DECAP_UNIT"
+
+#: The `klt gen cap_array` params the unit cell is generated from -- written out
+#: as `decap.request.json` by `main()` and consumed by `run-flow.sh`, so the
+#: geometry and the placement below can never be sourced from two different
+#: numbers. `spacing_um` is irrelevant at `num = 1` (there is no neighbour) and
+#: is left at the generator's own default for the same reason `gen_blocks.py`
+#: passes it: an explicit request is easier to diff than an implicit one.
+DECAP_GEN_PARAMS = {
+    "plate_w_um": 46.9,
+    "plate_h_um": 46.9,
+    "num": 1,
+    "spacing_um": 0.5,
+}
+
+#: Per-unit nominal capacitance, from the SAME two PDK coefficients DR-017's own
+#: Decision reads out of `libs.tech/ngspice/parameters/montecarlo.spice`
+#: (`camimc = 2.0000 fF/um^2` area, `cpmimc = 0.1900 fF/um` perimeter at
+#: nominal `mim = 0`): `2.0 * 46.9^2 + 0.19 * 4 * 46.9 = 4434.86 fF`. Quoted
+#: here (and asserted below) so this module's own arithmetic, the LVS
+#: reference's `C` cards and DR-017's table cannot drift apart silently. It is
+#: also exactly the value `layout/sampling-frontend/reference.spice` already
+#: carries for its own 46.9 um `C_CSAMP_{P,N}`.
+DECAP_UNIT_C_F = 4.434864e-12
+assert (
+    abs(
+        (
+            2.0 * DECAP_GEN_PARAMS["plate_w_um"] * DECAP_GEN_PARAMS["plate_h_um"]
+            + 0.19 * 2.0 * (DECAP_GEN_PARAMS["plate_w_um"] + DECAP_GEN_PARAMS["plate_h_um"])
+        )
+        * 1e-15
+        - DECAP_UNIT_C_F
+    )
+    < 1e-18
+), "DECAP_UNIT_C_F no longer matches the PDK's own MiM area/perimeter coefficients"
+
+#: The four placed decoupling-capacitor unit cells (issue #440, DR-017): two
+#: per supply domain, `MF = 2` each. Every offset here was chosen against a
+#: DIRECT MEASUREMENT of the already-composed die's own met3/met4/`capm`/via3/
+#: via4/met5 occupancy -- the layers a `cap_array` unit and its ties actually
+#: consume -- not against the block bounding boxes below: DR-017's Decision §3
+#: budget rests on a MiM cap being a back-end device, so what has to be free is
+#: those layers, and a bbox tells you nothing about them. Both sites are
+#: *inside* the pre-existing composed bounding box (280.450 x 385.500 um), so
+#: this allocation costs no die area at all, and neither site needs to overlay
+#: any sub-block (`_check_no_overlap` therefore still covers all nine blocks
+#: with no exemption). See `layout/sar-adc-top/README.md`, "On-die decoupling
+#: (DR-017)", for the measurement and the free-rectangle search behind these
+#: two numbers.
+DECAP_OFFSETS = {
+    # Analog pair, in the open met3/met4-free field east of `comparator` and
+    # north of `sampling_frontend` (measured free: x 120.0..258.5,
+    # y 139.5..219.5 with a 1.0 um keep-out).
+    "decap_a0": (128.0, 150.0),
+    "decap_a1": (180.0, 150.0),
+    # Digital pair, in the open field east of `seln_inverters` and south of
+    # `cdac_array` (measured free: x 193.0..265.0, y -165.0..-6.0, same
+    # keep-out). Stacked in y rather than side by side because that corridor is
+    # 72 um wide -- one 47.9 um unit fits, two do not.
+    "decap_d0": (196.0, -150.0),
+    "decap_d1": (196.0, -98.0),
+}
+
 OFFSETS = {
     "cdac_array": (0.0, 0.0),
     "sampling_frontend": (63.825, 88.25),
     "comparator": (100.2, 173.8),
     "sar_sequencer": (21.1175, -150.0),
     "seln_inverters": (87.6875, -150.0),
+    **DECAP_OFFSETS,
 }
 
 # Each sub-block's own bbox, in ITS OWN local frame -- verified directly
@@ -390,6 +487,15 @@ BBOX = {
     "comparator": (0.0, 2.5, 26.6, 38.65),
     "sar_sequencer": (0.0, 0.0, 42.57, 42.57),
     "seln_inverters": (0.0, 0.0, 86.195, 86.195),
+    # Every decap unit is the SAME generated cell (`decap_unit.gds`), so all
+    # four share one local bbox. Read off `klt gen cap_array`'s own report for
+    # `plate_w_um = plate_h_um = 46.9, num = 1` (x1 = 47.9 is the met3 bottom
+    # plate, 0.5 um wider than the 46.9 um `capm` plate on each side per
+    # `capm.3`; y1 = 48.82 is the met4 top-plate lead escaping the top edge),
+    # and re-asserted against that report on every run by `--verify-decap`, so
+    # a klt bump that moves the cell fails the flow instead of silently
+    # mis-placing four capacitors.
+    **{block: (0.0, 0.0, 47.9, 48.82) for block in DECAP_OFFSETS},
 }
 
 # Each sub-block's own top GDS cell name (needed for the `blocks[].cell`
@@ -402,7 +508,24 @@ CELL_NAME = {
     "comparator": "gen_compose_0",
     "sar_sequencer": "sar_sequencer",
     "seln_inverters": "seln_inverters",
+    **{block: DECAP_CELL_NAME for block in DECAP_OFFSETS},
 }
+
+#: The GDS file each block's own cell is read from, where it is NOT
+#: `<block-id>.gds`. The four decap units are four PLACEMENTS of one generated
+#: cell, which is the whole point of them being matched -- they are the same
+#: device, not four devices that happen to have the same parameters -- so all
+#: four name the same stream. Kept for `run-flow.sh` step 2b's `-o` target and
+#: for `bin/probe-ground-mesh.py`'s input list; the compose request itself
+#: reaches that stream through `DECAP_REPORT_JSON` instead (see `build()`).
+GDS_NAME = {block: f"{DECAP_CELL_NAME.lower()}.gds" for block in DECAP_OFFSETS}
+
+#: `klt gen cap_array`'s own response for the decap unit cell, written by
+#: `run-flow.sh` step 2b. All four `blocks[]` entries name it: a generator
+#: report is the accurate declaration for a cell this run produced, and it
+#: carries the cell name and bbox `gen-compose` would otherwise have to read
+#: back out of the stream.
+DECAP_REPORT_JSON = "decap.json"
 
 # Every pin this assembly's own interconnect touches: (block, name) ->
 # (x_um, y_um, layer) in that block's OWN LOCAL frame. Verified directly:
@@ -503,6 +626,26 @@ PIN = {
     },
     **{("cdac_array", f"SELp{i}"): (3.945 + 11 * i, -28.08, LI1) for i in range(9)},
     **{("cdac_array", f"SELn{i}"): (102.945 + 11 * i, -28.08, LI1) for i in range(9)},
+    # --- the four decap units (issue #440). Both ports come straight from
+    # `klt gen cap_array`'s own report for DECAP_GEN_PARAMS, and `--verify-decap`
+    # re-asserts them against that report on every run.
+    #
+    # `C0_BOT` is reported at the bottom plate's own LEFT EDGE (x = 0,
+    # direction 180) -- the plate is 47.9 um square and IS the terminal, so this
+    # coordinate is an edge, not a landing point. Every via2 into it is stepped
+    # `DECAP_VIA2_INSET_UM` inside the plate instead (see `decoupling_caps()`),
+    # exactly as `layout/sampling-frontend/bin/build_layout.py`'s own
+    # `MET3_VIA_INSET_UM` does for the same port of the same generator.
+    #
+    # `C0_TOP` is the 0.42 um met4 lead the generator runs from the plate's own
+    # centre via3 out through the cell's TOP edge, so a top-plate tie arrives
+    # from the north on met4 and needs no via at all. The reported y (48.61) is
+    # the port's own reference point -- half the lead's 0.42 um width inside the
+    # cell's own bbox top (48.82), which is where the met4 actually ends -- so a
+    # tie drawn TO this y still overlaps the lead by 0.21 um before
+    # `DECAP_TOP_OVERLAP_UM` is even applied.
+    **{(block, "C0_BOT"): (0.0, 23.95, MET3) for block in DECAP_OFFSETS},
+    **{(block, "C0_TOP"): (23.95, 48.61, MET4) for block in DECAP_OFFSETS},
 }
 
 
@@ -802,6 +945,23 @@ DIG_RAIL_REACH_UM = 2.0
 #: `bin/generate-lvs-reference.py`'s own `.SUBCKT sar_adc_top` port list).
 DIG_RAILS = ("VPWR", "VGND")
 
+#: East end of each digital rail's own met5 rectangle (issue #440). Before this
+#: issue each rail stopped `DIG_RAIL_REACH_UM` past `seln_inverters`' own strap's
+#: WEST end and let the macro's own strap carry it east; the digital decoupling
+#: pair sits further east still (`DECAP_OFFSETS`), so each rail is now carried
+#: past that macro's own strap's EAST end (172.2075 / 171.8675 globally) to a
+#: landing where `decoupling_caps()` can drop a via4 onto it in open field.
+#: Still ONE rectangle per rail, still colinear with (and merging into) both
+#: macros' own straps -- the extension is the same same-layer merge the west
+#: stretch already is, just continued in the other direction, so it creates no
+#: new met5 spacing relation and needs no via of its own.
+#:
+#: Each value is 2.0 um east of that rail's own via4 site below, which is 0.31 um
+#: (`m5.3`) more than the via4 needs; `_check_decoupling_caps()` asserts the
+#: enclosure rather than trusting this comment, and asserts the extension stops
+#: clear of every decap unit's own footprint.
+DIG_RAIL_EAST_X = {"VPWR": 187.0, "VGND": 192.0}
+
 
 def digital_supply_rail(c: Canvas, net: str) -> tuple[float, float, float, float]:
     """Tie `sar_sequencer`'s and `seln_inverters`' own met5 PDN rail for `net`
@@ -859,13 +1019,21 @@ def digital_supply_rail(c: Canvas, net: str) -> tuple[float, float, float, float
             "in the channel between the two macros, which crosses NEITHER macro's "
             "footprint) before changing OFFSETS."
         )
-    ix0, _iy0, _ix1, _iy1 = colinear[0]
+    ix0, _iy0, ix1, _iy1 = colinear[0]
     if abs((sy1 - sy0) - MET5_WIDTH_UM) > 1e-9:
         raise SystemExit(
             f"build_layout.py: {net}: strap width {sy1 - sy0} um is not m5.1's own "
             f"{MET5_WIDTH_UM} um -- re-read MET5_STRAP off the macro's own GDS"
         )
-    rect = (DIG_RAIL_PIN_X, sy0, ix0 + DIG_RAIL_REACH_UM, sy1)
+    east = max(ix0 + DIG_RAIL_REACH_UM, DIG_RAIL_EAST_X[net])
+    if east < ix1:
+        raise SystemExit(
+            f"build_layout.py: {net}: DIG_RAIL_EAST_X {DIG_RAIL_EAST_X[net]} is WEST "
+            f"of seln_inverters' own colinear strap's east end ({ix1}) -- the decap "
+            "via4 landing must be on the stretch THIS module draws, in open field, "
+            "not on the macro's own strap"
+        )
+    rect = (DIG_RAIL_PIN_X, sy0, east, sy1)
     c.rect(MET5, *rect)
     c.label(MET5_PIN, DIG_RAIL_LABEL_X, (sy0 + sy1) / 2.0, net)
     return rect
@@ -1222,6 +1390,451 @@ def _check_digital_rail_clearance(rails: dict[str, tuple[float, float, float, fl
                 )
 
 
+# --------------------------------------------------------------------------- #
+# On-die supply decoupling: the ties (issue #440, DR-017).
+#
+# sky130A's own via4/met5 rules for the ONE via4 this module draws per digital
+# rail, read out of the pinned deck (`klayout_tools/decks/sky130.py`, which
+# transcribes `sky130A_mr.drc`): `via4.1_a` 0.8 um min size, `via4.2` 0.8 um
+# min space, `via4.4` (met4 enclosure) 0.19 um, `m5.3` (met5 enclosure)
+# 0.31 um. All four ARE in this flow's own `drc.json` `coverage.rules_checked`,
+# so the geometry below is graded, not merely argued.
+#
+# WHY THIS MODULE STILL HAS NO met5 PAD SIZE (see MET5's note in the layer
+# table): it still draws none. The via4's met5 side is the digital rail
+# RECTANGLE this module already draws -- 1.6 um wide, so a centred 0.8 um via4
+# is enclosed by 0.40 um > `m5.3`, and `m5.4`'s 4.0 um^2 minimum area is
+# answered by the rail polygon it merges into, not by a freestanding pad. That
+# is why `_METAL_CHAIN`/`_VIA_BETWEEN` are still met1-met4 only and
+# `riser(..., MET5)` still (correctly) raises: there is no general met5 riser
+# here, only this one deliberate, asserted landing.
+# --------------------------------------------------------------------------- #
+VIA4_UM = 0.80  # via4 (met4<->met5) square side -- the pinned deck's
+#                 `via4.width.1` minimum, drawn AT minimum because the rail it
+#                 lands on is only 1.6 um wide.
+MET4_VIA4_PAD_UM = 1.20  # >= VIA4_UM + 2 * 0.19 (`met4.enclosing.via4.1`) with
+#                          margin; 1.44 um^2 also clears `met4.area.1` (0.240)
+#                          unaided, so this pad is safe even where nothing
+#                          merges with it.
+MET4_VIA4_ENC_UM = 0.19  # `met4.enclosing.via4.1`
+MET5_VIA4_ENC_UM = 0.31  # `met5.enclosing.via4.1`
+VIA3_SPACE_UM = 0.20  # `via3.space.1`
+VIA4_SPACE_UM = 0.80  # `via4.space.1`
+CAPM_SPACE_UM = 0.84  # `capm.space.1`
+MET1_SPACE_UM = 0.14  # `met1.space.1`
+MET2_SPACE_UM = 0.14  # `met2.space.1`
+
+#: Width of every conductor `decoupling_caps()` draws. Deliberately 5x
+#: `WIRE_W`: a decoupling capacitor is only worth its area if the path between
+#: it and the switching devices it serves is low-impedance, and DR-017's own
+#: closing open item names exactly that series resistance as the thing that can
+#: erode its measured benefit. At met3/met4's ~0.047 ohm/sq this turns the
+#: longest tie here (~86 um) from ~10 ohm into ~2 ohm. It is NOT free of
+#: consequence and is asserted, not assumed: a 2.0 um conductor needs 2.0 um of
+#: clear field, which is why every tie corridor below was measured first.
+DECAP_STRAP_W = 2.0
+
+#: How far inside a bottom plate's own edge a via2 lands. The `C0_BOT` port is
+#: reported AT the plate's left edge, and `met3.enclosing.via2.1` (0.065 um)
+#: fails for a via2 drawn there -- the same trap
+#: `layout/sampling-frontend/bin/build_layout.py`'s `MET3_VIA_INSET_UM` (0.20)
+#: documents. 2.0 um here rather than 0.20 because the via2's own met2 landing
+#: is `DECAP_STRAP_W` wide, so the *pad*, not the cut, is what has to stay
+#: inside the plate's footprint -- and because a tie that enters the plate
+#: 2 um in is easier to see in a layout viewer than one that grazes its edge.
+DECAP_VIA2_INSET_UM = 2.0
+
+#: How far a top-plate tie's own met4 column overlaps the unit cell's own met4
+#: top-plate lead. Any positive overlap merges (same layer), so this only has to
+#: beat DBU rounding -- 1.0 um does, and keeps the merge visible.
+DECAP_TOP_OVERLAP_UM = 1.0
+
+#: y of the analog pair's met2 return run, and the point on the analog ground
+#: where it taps. `comparator.GND`'s own met4 stub is the tap deliberately:
+#: it is the shortest path from this pair to the comparator, whose own decision
+#: reference is the node DR-012 and DR-017 both care about, AND it is the one
+#: piece of analog-ground conductor that `--ablate-ground-mesh` still draws --
+#: so the decoupling pair is identical in both build variants and
+#: `bin/probe-ground-mesh.py`'s two arms still differ by the mesh and nothing
+#: else. Asserted, not assumed, by `_check_decoupling_caps()`.
+DECAP_A_BOT_Y = 172.0
+
+#: y of the analog pair's met4 supply strap: above `comparator`'s own bbox top
+#: (212.45 once placed) and below the lowest `JOG_Y` (220.0), in a band measured
+#: free of met3/met4 east of the `comparator.VDD` column it merges into. Pure
+#: met4 from that column to both top plates -- no via anywhere on this net,
+#: because a top plate is a met4 terminal already.
+DECAP_A_TOP_Y = 216.0
+
+#: Where each digital rail's own via4 lands, on the met5 stretch this module
+#: draws east of `seln_inverters`' own strap (`DIG_RAIL_EAST_X`). Two different
+#: x so the two rails' met4 landings cannot come near each other: they are
+#: 13.6 um apart in y anyway, but the pads are 1.2 um and the rails are the two
+#: nets it would be worst to short.
+DECAP_D_VIA4_X = {"VPWR": 185.0, "VGND": 190.0}
+
+
+def _decap_unit_boxes() -> dict[str, tuple[float, float, float, float]]:
+    """Each decap unit's own global bbox -- the footprint its met3 bottom plate
+    and `capm` top plate occupy (the met4 lead reaches the top edge)."""
+    return {block: global_bbox(block) for block in DECAP_OFFSETS}
+
+
+def decoupling_caps(c: Canvas) -> dict[str, tuple[int, int]]:
+    """Tie the four placed decap units across their own domains' supply/return
+    conductors, and return one canvas slice per net for
+    `_check_decoupling_caps()`.
+
+    Why the two terminals are reached on different layers
+    -----------------------------------------------------
+    Not a floorplan preference -- an extraction-deck fact. sky130's MiM cap is
+    recognised as `{P1 => met3_con, P2 => capm}`, and the deck removes every
+    met3 shape that *interacts with* a `capm` plate from generic met3<->met4
+    (via3) connectivity. That exclusion is what stops the cap's own centre via3
+    -- which the DRM requires to sit over the bottom plate -- from reading as a
+    plate-to-plate short (it is also the exact behaviour
+    `layout/requirements.txt`'s 0.3.0 -> 0.4.0 note describes being narrowed to
+    `bottom_region.interacting(top_region)`). Two consequences this function is
+    built around:
+
+    * **A bottom plate is reachable only from BELOW**, through via2 from met2.
+      A via3 onto it -- or onto any met3 wire merged into it -- is excluded
+      from connectivity and would leave the plate floating. This is why both
+      return ties here run on met2 and step up through via2, exactly as
+      `layout/sampling-frontend/bin/build_layout.py` routes the same
+      generator's own `*_BOT` port.
+    * **A top plate is reachable only from ABOVE**, on met4, and any *new* met3
+      shape inside the cell's footprint shorts the two plates (that sub-block's
+      own `_step_down_to_met1` records finding this directly). So every supply
+      tie here is met4, merging with the unit's own met4 lead, and no met3 is
+      drawn inside any unit's footprint at all.
+
+    Analog pair (`Cdecap_a`, `VDD` / `GND`)
+    ---------------------------------------
+    * return: a met4->met2 riser on `comparator.GND`'s own met4 stub at
+      `DECAP_A_BOT_Y`, then one met2 run east under both units, with a via2 up
+      into each bottom plate `DECAP_VIA2_INSET_UM` inside its west edge.
+    * supply: one met4 strap at `DECAP_A_TOP_Y` from `comparator.VDD`'s own
+      met4 column east to the second unit's top-plate lead, with a met4 column
+      down onto each lead. No via on this net.
+
+    Digital pair (`Cdecap_d`, `VPWR` / `VGND`)
+    ------------------------------------------
+    * supply: one via4 from the `VPWR` rail rectangle down to met4 at
+      `DECAP_D_VIA4_X["VPWR"]`, a met4 strap east to the units' shared
+      top-plate-lead x, then one met4 column north through both leads.
+    * return: one via4 from the `VGND` rail down to met4, a met4->met2 riser
+      there (its intermediate met3 island is well clear of either plate), then
+      an L of met2 -- east, then north -- with a via2 up into each bottom
+      plate.
+
+    Both digital ties leave the rails at the rails' own centre-line y, so
+    neither adds a bend to the supply path that the rail does not already have.
+    """
+    slices: dict[str, tuple[int, int]] = {}
+    boxes = _decap_unit_boxes()
+
+    def bot_via_point(block: str) -> float:
+        """x of the via2 that lands in `block`'s own bottom plate."""
+        return boxes[block][0] + DECAP_VIA2_INSET_UM
+
+    def top_lead_x(block: str) -> float:
+        x, _y, layer = global_pin(block, "C0_TOP")
+        assert layer == MET4
+        return x
+
+    def top_lead_y(block: str) -> float:
+        _x, y, _layer = global_pin(block, "C0_TOP")
+        return y
+
+    # --- Cdecap_a return (GND): comparator's own met4 GND stub -> met2 -> both
+    #     bottom plates.
+    lo = len(c.shapes)
+    tap_x, _gy, native = global_pin("comparator", "GND")
+    assert native == MET1
+    c.riser(tap_x, DECAP_A_BOT_Y, MET4, MET2)
+    east = bot_via_point("decap_a1")
+    c.wire(MET2, tap_x, DECAP_A_BOT_Y, east, DECAP_A_BOT_Y, w=DECAP_STRAP_W)
+    for block in ("decap_a0", "decap_a1"):
+        c.via(MET2, MET3, bot_via_point(block), DECAP_A_BOT_Y)
+    slices["GND"] = (lo, len(c.shapes))
+
+    # --- Cdecap_a supply (VDD): comparator's own met4 VDD column -> met4 strap
+    #     -> both top-plate leads.
+    lo = len(c.shapes)
+    vdd_x, _vy, _native = global_pin("comparator", "VDD")
+    c.wire(
+        MET4, vdd_x, DECAP_A_TOP_Y, top_lead_x("decap_a1"), DECAP_A_TOP_Y, w=DECAP_STRAP_W
+    )
+    for block in ("decap_a0", "decap_a1"):
+        lead_x = top_lead_x(block)
+        c.wire(
+            MET4,
+            lead_x,
+            DECAP_A_TOP_Y,
+            lead_x,
+            top_lead_y(block) - DECAP_TOP_OVERLAP_UM,
+            w=DECAP_STRAP_W,
+        )
+    slices["VDD"] = (lo, len(c.shapes))
+    return slices
+
+
+def decoupling_caps_digital(
+    c: Canvas, rails: dict[str, tuple[float, float, float, float]]
+) -> dict[str, tuple[int, int]]:
+    """The digital half of `decoupling_caps()` -- separate only because it needs
+    the two rail rectangles `digital_supply_rail()` returns."""
+    slices: dict[str, tuple[int, int]] = {}
+    boxes = _decap_unit_boxes()
+
+    def rail_centre_y(net: str) -> float:
+        _x0, y0, _x1, y1 = rails[net]
+        return (y0 + y1) / 2.0
+
+    def via4_onto_rail(net: str) -> tuple[float, float]:
+        """One via4 from `net`'s own met5 rail rectangle down to met4, with a
+        met4 pad sized to satisfy `via4.4` (and `m4.4a`) unaided. NO met5 pad:
+        the rail rectangle is the met5 side, so `m5.3`/`m5.4` are answered by a
+        polygon this module already draws -- asserted in
+        `_check_decoupling_caps()`."""
+        x, y = DECAP_D_VIA4_X[net], rail_centre_y(net)
+        c.square(MET4, x, y, MET4_VIA4_PAD_UM)
+        c.square(VIA4, x, y, VIA4_UM)
+        return x, y
+
+    lead_x = global_pin("decap_d0", "C0_TOP")[0]
+    assert abs(lead_x - global_pin("decap_d1", "C0_TOP")[0]) < 1e-9, (
+        "the two digital decap units must share one top-plate-lead x -- they are "
+        "stacked in y on purpose, so one met4 column reaches both"
+    )
+
+    # --- Cdecap_d supply (VPWR): rail -> via4 -> met4 strap east -> one met4
+    #     column north through both top-plate leads.
+    lo = len(c.shapes)
+    vx, vy = via4_onto_rail("VPWR")
+    c.wire(MET4, vx, vy, lead_x, vy, w=DECAP_STRAP_W)
+    c.wire(MET4, lead_x, vy, lead_x, global_pin("decap_d1", "C0_TOP")[1], w=DECAP_STRAP_W)
+    slices["VPWR"] = (lo, len(c.shapes))
+
+    # --- Cdecap_d return (VGND): rail -> via4 -> met4->met2 riser -> met2 L ->
+    #     a via2 up into each bottom plate.
+    lo = len(c.shapes)
+    gx, gy = via4_onto_rail("VGND")
+    c.riser(gx, gy, MET4, MET2)
+    run_x = boxes["decap_d0"][0] + DECAP_VIA2_INSET_UM
+    c.wire(MET2, gx, gy, run_x, gy, w=DECAP_STRAP_W)
+    top_via_y = boxes["decap_d1"][1] + DECAP_VIA2_INSET_UM
+    c.wire(MET2, run_x, gy, run_x, top_via_y, w=DECAP_STRAP_W)
+    c.via(MET2, MET3, run_x, gy)
+    c.via(MET2, MET3, run_x, top_via_y)
+    slices["VGND"] = (lo, len(c.shapes))
+    return slices
+
+
+#: Every layer `_check_decoupling_caps()` grades a decap-drawn shape on, with
+#: that layer's own minimum-space threshold from the pinned deck.
+DECAP_SPACE_UM = {
+    MET1: MET1_SPACE_UM,
+    MET2: MET2_SPACE_UM,
+    MET3: MET3_SPACE_UM,
+    MET4: MET4_SPACE_UM,
+    MET5: MET5_SPACE_UM,
+    VIA2: 0.17,  # `via2.space.1`
+    VIA3: VIA3_SPACE_UM,
+    VIA4: VIA4_SPACE_UM,
+}
+
+#: Which net's conductor each decap tie reaches, and HOW.
+#:
+#: * `same_layer` -- the tie merges into that conductor as one polygon (the two
+#:   analog ties, which start on `comparator`'s own met4 GND stub and met4 VDD
+#:   column). Exactly one such merge per net is legitimate; any other zero
+#:   separation is a short, and the absence of this one is an open circuit.
+#: * `via4` -- the tie reaches a met5 rail through a via4 and draws no met5 at
+#:   all, so there is no same-layer contact to look for. What establishes THAT
+#:   connection is assertion 4 (the via4 is inside the rail rectangle with
+#:   `m5.3` of met5 on every side), and a `same_layer` contact on any layer
+#:   would be a defect, not the tie working.
+DECAP_MERGES_WITH = {
+    "GND": ("mesh", "same_layer"),
+    "VDD": ("vdd", "same_layer"),
+    "VPWR": ("rails", "via4"),
+    "VGND": ("rails", "via4"),
+}
+
+#: Layers a decap unit's own footprint must be CLEAR of, other than that unit's
+#: own ties -- the layers a `cap_array` unit and a MiM device rule can see.
+DECAP_KEEPOUT_LAYERS = (MET3, MET4, CAPM, VIA3, VIA4, MET5)
+
+#: Keep-out margin around each unit's footprint. Bigger than every space rule
+#: it has to satisfy (`capm.space.1` 0.84 is the tightest binding one), and the
+#: same margin the free-rectangle measurement behind `DECAP_OFFSETS` was run
+#: with, so the assertion and the measurement ask the same question.
+DECAP_KEEPOUT_UM = 1.0
+
+
+def _check_decoupling_caps(
+    c: Canvas,
+    decap_slices: dict[str, tuple[int, int]],
+    net_slices: dict[str, tuple[int, int]],
+    rails: dict[str, tuple[float, float, float, float]],
+) -> None:
+    """Standing assertions for `decoupling_caps()`/`decoupling_caps_digital()`.
+
+    These exist for the same reason `_check_analog_ground_mesh()`'s do: a clean
+    DRC verdict is not evidence that a capacitor is *connected to the right
+    thing*, and an LVS mismatch on this flow is pre-existing
+    (klayout-tools#1878), so "LVS went from 98 to 98 mismatches" cannot be read
+    as "the ties are right" either. What can be read that way is (a) these
+    assertions, (b) the per-net unfiltered-extraction table in the record, and
+    (c) `klt erc`'s one-island-per-supply verdict.
+
+    1. Every unit's footprint, grown by `DECAP_KEEPOUT_UM`, is free of every
+       met3/met4/`capm`/via3/via4/met5 shape this module draws other than its
+       own ties. (A sub-block's own internal geometry is not a canvas shape and
+       cannot be checked here -- that is what the direct free-rectangle
+       measurement behind `DECAP_OFFSETS` did, and what `klt drc` grades on the
+       composed layout.)
+    2. Every decap-drawn shape clears every shape this module draws for a
+       DIFFERENT net by that layer's own minimum space -- except the one
+       conductor its own net is supposed to merge with (`DECAP_MERGES_WITH`).
+       Zero separation there is the intended outcome; zero separation anywhere
+       else is a short.
+    3. Each net's intended merge actually HAPPENS: some shape of that net must
+       touch or overlap its named counterpart. An assertion that only forbids
+       shorts would pass a tie that reaches nothing at all.
+    4. Each via4 site is inside its own rail rectangle with at least `m5.3` of
+       met5 on every side, and the rail stops clear of every unit's footprint.
+    5. Each via2 into a bottom plate is at least `DECAP_VIA2_INSET_UM` inside
+       that plate on every side, and each top-plate tie's own met4 column
+       actually overlaps that unit's met4 lead.
+    """
+    boxes = _decap_unit_boxes()
+    decap_idx = {i for lo, hi in decap_slices.values() for i in range(lo, hi)}
+
+    # 1. footprint keep-out.
+    for block, box in boxes.items():
+        grown = (
+            box[0] - DECAP_KEEPOUT_UM,
+            box[1] - DECAP_KEEPOUT_UM,
+            box[2] + DECAP_KEEPOUT_UM,
+            box[3] + DECAP_KEEPOUT_UM,
+        )
+        for i, (layer, rect) in enumerate(c.shapes):
+            if i in decap_idx or layer not in DECAP_KEEPOUT_LAYERS:
+                continue
+            if rect[0] < grown[2] and grown[0] < rect[2] and rect[1] < grown[3] and grown[1] < rect[3]:
+                raise SystemExit(
+                    f"build_layout.py: {block}'s own decap footprint {box} (grown by "
+                    f"{DECAP_KEEPOUT_UM} um) contains this module's shape #{i} on layer "
+                    f"{layer} ({rect}), which is not one of that unit's own ties"
+                )
+
+    # 2/3. shorts, and the intended merges.
+    merged: dict[str, bool] = {
+        net: DECAP_MERGES_WITH[net][1] != "same_layer" for net in decap_slices
+    }
+    for net, (lo, hi) in decap_slices.items():
+        target, mechanism = DECAP_MERGES_WITH[net]
+        allow_lo, allow_hi = net_slices[target] if mechanism == "same_layer" else (0, 0)
+        for layer, rect in c.shapes[lo:hi]:
+            limit = DECAP_SPACE_UM.get(layer)
+            if limit is None:
+                continue
+            for i, (other_layer, other) in enumerate(c.shapes):
+                if other_layer != layer or lo <= i < hi:
+                    continue
+                gap = _boxes_separation(rect, other)
+                if gap >= limit - 1e-9:
+                    continue
+                if not (allow_lo <= i < allow_hi):
+                    raise SystemExit(
+                        f"build_layout.py: the {net} decap tie's shape on layer {layer} "
+                        f"({rect}) is {gap:.3f} um from this module's shape #{i} "
+                        f"({other}) -- space needs {limit} um, and {net} may only "
+                        f"merge with its own {DECAP_MERGES_WITH[net]} conductor"
+                    )
+                if gap <= 0.0:
+                    merged[net] = True
+    for net, ok in merged.items():
+        if not ok:
+            raise SystemExit(
+                f"build_layout.py: the {net} decap tie never TOUCHES this module's own "
+                f"{DECAP_MERGES_WITH[net][0]} conductor -- a tie that shorts nothing is "
+                "also a tie that connects nothing"
+            )
+
+    # 4. via4 landings, and the rail's own east end.
+    for net, x in DECAP_D_VIA4_X.items():
+        rx0, ry0, rx1, ry1 = rails[net]
+        y = (ry0 + ry1) / 2.0
+        need = VIA4_UM / 2.0 + MET5_VIA4_ENC_UM
+        if not (rx0 + need <= x <= rx1 - need):
+            raise SystemExit(
+                f"build_layout.py: the {net} decap via4 at x={x} is not enclosed by "
+                f"{MET5_VIA4_ENC_UM} um of its own met5 rail ({rx0}..{rx1}) -- m5.3"
+            )
+        if (ry1 - ry0) / 2.0 < need:
+            raise SystemExit(
+                f"build_layout.py: the {net} rail is only {ry1 - ry0} um wide -- a "
+                f"centred {VIA4_UM} um via4 needs {2 * need} um for m5.3"
+            )
+        for block, box in boxes.items():
+            if rx0 < box[2] and box[0] < rx1 and ry0 < box[3] and box[1] < ry1:
+                raise SystemExit(
+                    f"build_layout.py: the {net} met5 rail {rails[net]} overlaps "
+                    f"{block}'s own decap footprint {box} -- extend DIG_RAIL_EAST_X "
+                    "no further east than the via4 landing needs"
+                )
+
+    # 5. per-unit terminal geometry.
+    for block, box in boxes.items():
+        vx = box[0] + DECAP_VIA2_INSET_UM
+        if not (box[0] + DECAP_VIA2_INSET_UM - 1e-9 <= vx <= box[2] - DECAP_VIA2_INSET_UM):
+            raise SystemExit(
+                f"build_layout.py: {block}'s own bottom-plate via2 x={vx} is not "
+                f"{DECAP_VIA2_INSET_UM} um inside its plate ({box[0]}..{box[2]})"
+            )
+        lead_x, lead_y, lead_layer = global_pin(block, "C0_TOP")
+        assert lead_layer == MET4
+        if not (box[0] < lead_x < box[2]) or not (0.0 <= box[3] - lead_y <= 1.0):
+            raise SystemExit(
+                f"build_layout.py: {block}'s own C0_TOP lead ({lead_x}, {lead_y}) is "
+                f"not at its own footprint's top edge ({box}) -- re-read the port "
+                "table against klt gen cap_array's own report (--verify-decap)"
+            )
+
+    # The analog return tap must sit on the stretch of `comparator.GND`'s own
+    # met4 stub that BOTH build variants draw (`analog_ground_mesh()` runs it
+    # from the pin down to GND_MESH_Y; `analog_ground_pad_without_mesh()` only
+    # down to GND_PAD_Y), and south of `comparator`'s own bbox so neither the
+    # met2 run nor the riser's met3 island enters that footprint.
+    _gx, gy, _native = global_pin("comparator", "GND")
+    if not (GND_PAD_Y < DECAP_A_BOT_Y < gy):
+        raise SystemExit(
+            f"build_layout.py: DECAP_A_BOT_Y ({DECAP_A_BOT_Y}) is outside the stretch "
+            f"of comparator.GND's own met4 stub that BOTH build variants draw "
+            f"({GND_PAD_Y}..{gy}) -- --ablate-ground-mesh would leave the analog "
+            "decoupling pair's return floating, so the two arms of "
+            "bin/probe-ground-mesh.py would no longer differ by the mesh alone"
+        )
+    _cx0, cy0, _cx1, cy1 = global_bbox("comparator")
+    if DECAP_A_BOT_Y + DECAP_STRAP_W / 2.0 >= cy0:
+        raise SystemExit(
+            f"build_layout.py: the analog decap return run at y={DECAP_A_BOT_Y} enters "
+            f"comparator's own bbox (y0={cy0})"
+        )
+    # ...and the analog supply strap must sit above that bbox and below every
+    # jog row, in the band the free-rectangle measurement covered.
+    if not (cy1 < DECAP_A_TOP_Y < min(JOG_Y.values())):
+        raise SystemExit(
+            f"build_layout.py: DECAP_A_TOP_Y ({DECAP_A_TOP_Y}) is not between "
+            f"comparator's own bbox top ({cy1}) and the lowest analog jog row "
+            f"({min(JOG_Y.values())})"
+        )
+
+
 def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     """Build the whole assembly's draw + compose requests.
 
@@ -1265,6 +1878,7 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     #    direction with no block bbox anywhere along the whole vertical
     #    span), then climb the west corridor into its own `analog_leg`.
     # ------------------------------------------------------------------ #
+    vdd_lo = len(c.shapes)
     vx, vy, _ = global_pin("cdac_array", "VDD")
     c.riser(vx, vy, MET1, MET3)
     wx = WEST_CORRIDOR_X["VDD"]
@@ -1292,6 +1906,11 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     c.wire(MET3, wx, JOG_Y["VDD"], ext_x, JOG_Y["VDD"], w=WIRE_W)
     c.riser(ext_x, JOG_Y["VDD"], MET3, MET4, isolated_ends=True)
     c.label(MET4_PIN, ext_x, JOG_Y["VDD"], "VDD")
+    # Tracked as a canvas slice so `_check_decoupling_caps()` can tell the one
+    # conductor `Cdecap_a`'s supply tie is ALLOWED to merge with (this net) from
+    # every conductor it must not touch. Nothing above this point draws anything
+    # but analog `VDD`, which is what makes the slice meaningful.
+    vdd_slice = (vdd_lo, len(c.shapes))
 
     # ------------------------------------------------------------------ #
     # 3. VREFP / VREFN: cdac_array + one external pin each. Already on
@@ -1437,8 +2056,10 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     #    that reaches a sub-block conductor by same-layer merge rather
     #    than by a via riser onto a declared pin.
     # ------------------------------------------------------------------ #
+    rail_lo = len(c.shapes)
     rails = {net: digital_supply_rail(c, net) for net in DIG_RAILS}
     _check_digital_rail_clearance(rails)
+    rail_slice = (rail_lo, len(c.shapes))
 
     # ------------------------------------------------------------------ #
     # 8. Analog ground: the GND pad (issue #362, DR-012) and the mesh that
@@ -1455,12 +2076,34 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     #    else this module drew -- including the sections above, which is why
     #    this stage is last.
     # ------------------------------------------------------------------ #
+    mesh_lo = len(c.shapes)
     if ablate_ground_mesh:
         analog_ground_pad_without_mesh(c)
     else:
-        mesh_lo = len(c.shapes)
         mesh_segments = analog_ground_mesh(c)
         _check_analog_ground_mesh(c, mesh_segments, (mesh_lo, len(c.shapes)))
+    mesh_slice = (mesh_lo, len(c.shapes))
+
+    # ------------------------------------------------------------------ #
+    # 9. On-die supply decoupling (issue #440, DR-017): the four placed
+    #    `cap_array` unit cells' own ties -- `Cdecap_a` across the analog
+    #    `VDD`/`GND` pair, `Cdecap_d` across the digital `VPWR`/`VGND` pair,
+    #    `MF = 2` (two matched 46.9 um units) per domain. Last, because
+    #    `_check_decoupling_caps()` grades every tie against everything else
+    #    this module drew, including sections 7 and 8.
+    #
+    #    Identical in both build variants on purpose: the analog return taps
+    #    `comparator.GND`'s own met4 stub, which `--ablate-ground-mesh` still
+    #    draws, so that flag still removes the mesh AND NOTHING ELSE.
+    # ------------------------------------------------------------------ #
+    decap_slices = decoupling_caps(c)
+    decap_slices.update(decoupling_caps_digital(c, rails))
+    _check_decoupling_caps(
+        c,
+        decap_slices,
+        {"mesh": mesh_slice, "vdd": vdd_slice, "rails": rail_slice},
+        rails,
+    )
 
     draw_params = {
         "shapes": [
@@ -1475,13 +2118,33 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
 
     blocks = []
     for block in OFFSETS:
-        x0, y0, _x1, _y1 = BBOX[block]
-        dx, dy = OFFSETS[block]
+        if block in DECAP_OFFSETS:
+            # A decap unit is `blocks[].generator_report`, NOT `blocks[].cell`,
+            # even though all four placements share one stream. That is not a
+            # style choice -- it is what the block actually is. `blocks[].cell`
+            # means "an existing library cell in a stream this run did not
+            # produce", which is exactly true of the five sub-blocks (each one
+            # copied in from its own committed `reports/LATEST`) and exactly
+            # false of these: `run-flow.sh` step 2b GENERATES `decap_unit.gds`
+            # during the run, from this module's own `DECAP_GEN_PARAMS`, the
+            # same way step 3 generates `route.gds`.
+            #
+            # The distinction is load-bearing downstream, not cosmetic.
+            # `klt gen-compose` stamps `source: "cell"` vs
+            # `source: "generator_report"` on each entry of `compose.json`, and
+            # `docs/chipalooza/check_proposal_citations.py`'s check 14 uses
+            # exactly that field to decide which composed inputs must be traced
+            # back to a record of their own upstream flow. A decap unit has no
+            # upstream flow to trace to, and declaring it as a `cell` would
+            # assert that it does -- which that check correctly reports as an
+            # input "composed from something this repository does not keep".
+            blocks.append({"id": block, "generator_report": DECAP_REPORT_JSON})
+            continue
         blocks.append(
             {
                 "id": block,
                 "cell": {
-                    "gds_path": f"{block}.gds",
+                    "gds_path": GDS_NAME.get(block, f"{block}.gds"),
                     "cell_name": CELL_NAME[block],
                 },
             }
@@ -1506,9 +2169,67 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     return draw_params, compose_request
 
 
+def verify_decap(report_path: Path) -> int:
+    """Assert `klt gen cap_array`'s own report for the decap unit cell matches
+    every number this module placed four copies of it against.
+
+    The placement tables above carry the unit's bbox and both its port
+    positions as literals, because that is what a floorplan is. This check is
+    what stops those literals from becoming folklore: a `klt` bump that moves
+    the cell by a micron -- exactly what the 0.4.0 -> 0.5.0 bump did to this
+    flow's `sampling_frontend` pin table -- fails the flow here instead of
+    silently mis-tieing four capacitors.
+    """
+    report = json.loads(report_path.read_text())
+    problems: list[str] = []
+
+    if report.get("device_count") != 1:
+        problems.append(
+            f"device_count is {report.get('device_count')}, expected exactly 1 "
+            "(DR-017's MF = 2 is drawn as two PLACEMENTS of a one-unit cell)"
+        )
+    bbox = report.get("bbox_um") or {}
+    want = BBOX[next(iter(DECAP_OFFSETS))]
+    got = (bbox.get("x0"), bbox.get("y0"), bbox.get("x1"), bbox.get("y1"))
+    if any(g is None or abs(g - w) > 1e-6 for g, w in zip(got, want)):
+        problems.append(f"bbox_um is {got}, BBOX says {want}")
+
+    ports = {p["name"]: p for p in report.get("ports", [])}
+    for name in ("C0_BOT", "C0_TOP"):
+        port = ports.get(name)
+        if port is None:
+            problems.append(f"no {name} port in the report")
+            continue
+        wx, wy, wlayer = PIN[(next(iter(DECAP_OFFSETS)), name)]
+        layer = (port["layer"]["layer"], port["layer"]["datatype"])
+        if layer != wlayer:
+            problems.append(f"{name} is on layer {layer}, PIN says {wlayer}")
+        # C0_TOP's reported y is the met4 lead's own end; the table carries the
+        # cell's top edge, which is the same point and is what the tie needs.
+        if abs(port["x_um"] - wx) > 1e-6 or abs(port["y_um"] - wy) > 1e-6:
+            problems.append(
+                f"{name} is at ({port['x_um']}, {port['y_um']}), PIN says ({wx}, {wy})"
+            )
+
+    if problems:
+        print(
+            "build_layout.py --verify-decap: the generated decap unit cell no longer "
+            f"matches this module's own placement tables ({report_path}):",
+            file=sys.stderr,
+        )
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        return 1
+    print(
+        "build_layout.py --verify-decap: OK -- "
+        f"1 device, bbox {want}, C0_BOT/C0_TOP as placed"
+    )
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("out_dir", type=Path)
+    parser.add_argument("out_dir", type=Path, nargs="?")
     parser.add_argument(
         "--ablate-ground-mesh",
         action="store_true",
@@ -1520,12 +2241,34 @@ def main() -> int:
             "analog_ground_pad_without_mesh() and bin/probe-ground-mesh.py)"
         ),
     )
+    parser.add_argument(
+        "--verify-decap",
+        type=Path,
+        metavar="DECAP_JSON",
+        help=(
+            "instead of emitting requests, assert that `klt gen cap_array`'s own "
+            "report for the decoupling unit cell matches the bbox and port "
+            "positions this module's placement tables carry (issue #440)"
+        ),
+    )
     args = parser.parse_args()
+
+    if args.verify_decap is not None:
+        return verify_decap(args.verify_decap)
+    if args.out_dir is None:
+        parser.error("out_dir is required unless --verify-decap is given")
 
     draw_params, compose_request = build(ablate_ground_mesh=args.ablate_ground_mesh)
     (args.out_dir / "draw.request.json").write_text(json.dumps(draw_params, indent=2) + "\n")
     (args.out_dir / "compose.request.json").write_text(
         json.dumps(compose_request, indent=2) + "\n"
+    )
+    # The `klt gen cap_array` params the decoupling unit cell is generated from
+    # (issue #440), written out rather than duplicated in run-flow.sh so the
+    # geometry this module places and the geometry the generator draws can never
+    # come from two different numbers.
+    (args.out_dir / "decap.request.json").write_text(
+        json.dumps(DECAP_GEN_PARAMS, indent=2) + "\n"
     )
     print(
         f"build_layout.py: {len(draw_params['shapes'])} shapes, "

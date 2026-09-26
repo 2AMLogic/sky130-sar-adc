@@ -104,12 +104,26 @@ import tempfile
 
 TOP_CELL = "gen_compose_0"
 ROUTE_CELL_NAME = "SAR_ADC_TOP_ROUTE"
+#: Every input `build_layout.py`'s own compose request names, copied out of the
+#: graded record so both variants are composed from byte-identical inputs.
+#:
+#: The first five are `blocks[].cell` entries -- sub-block GDS files
+#: `run-flow.sh` pulled in from each sub-block's own committed record. The last
+#: two are the decoupling unit cell of issue #440: `klt gen cap_array`'s own
+#: response (`decap.json`, which is how the compose request names it -- a
+#: `blocks[].generator_report`, because `run-flow.sh` GENERATES this cell during
+#: the run) plus the stream that response points at. Both are taken from the
+#: record rather than regenerated, which is the whole point: the two ablation
+#: variants and the record itself then place the same bytes, so the arms differ
+#: by the mesh and nothing else.
 BLOCK_GDS = (
     "cdac_array.gds",
     "sampling_frontend.gds",
     "comparator.gds",
     "sar_sequencer.gds",
     "seln_inverters.gds",
+    "decap.json",
+    "decap_unit.gds",
 )
 #: The declared supply this ablation is about. The other three (`VDD`,
 #: `VPWR`, `VGND`) are reported too, as controls: the ablation must not move

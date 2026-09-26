@@ -454,11 +454,24 @@ sense DR-010/DR-012/DR-015 do.
   items below already name). Named here so that a future LVS device-count delta
   is traceable to this record rather than rediscovered, and so that #440's
   builder does not expect `871` from an unmodified re-run.
-- **An area cost no `layout/` record yet reflects.** 8798.44 µm² (8.14 % of the
-  composed die) is a schematic-level planning figure. Until a layout pass
-  places these two devices, `compose.json`'s bounding box and every DRC/LVS and
-  ERC record under `layout/sar-adc-top/` describe a die that does not contain
-  them.
+  **Update (issue #440, 2026-09-26): that code change is made.** The generator
+  now emits four `cap_mim_m3_1` cards — the first top-level primitives it has
+  ever carried, two per domain, matching how the layout draws `MF = 2` — and the
+  reference reaches **871** devices. It still emits neither DR-009's eight
+  top-level analog devices nor the 33 glue cells, because the layout does not
+  place those either; the rule that file now follows is "one card per device the
+  composed layout actually draws", so the remaining gap against
+  `design/sar_adc_top.spice` stays a *layout* gap, tracked where the layout is.
+- ~~**An area cost no `layout/` record yet reflects.**~~ **Reflected — and it
+  turned out not to be an area cost (issue #440).** 8798.44 µm² (8.14 % of the
+  composed die) was a schematic-level planning figure; record
+  `layout/sar-adc-top/reports/20260926-081248-203cca3/` places both devices and
+  reports the composed bounding box **unchanged** at 280.450 × 385.500 µm. Both
+  sites are in back-end field that a direct occupancy measurement found free
+  (met3 88 % free, met4 97 % free, zero clash at a 1.0 µm keep-out), so the
+  allocation displaced no routing and grew no die: 8.14 % is the share of the
+  die's *`capm` layer*, not of its area budget. What the placement *did* cost is
+  series resistance — see the routing-parasitics item under "Open items".
 
 ## Open items
 
@@ -483,20 +496,30 @@ sense DR-010/DR-012/DR-015 do.
   **#448**, which also states what must happen if the measurement refutes the
   1/√C model Decision §3 and §4 both rest on (a superseding record, not a
   wording fix).
-- **Layout placement, and DRC/LVS/ERC re-verification, are not done by this
-  record.** Placing `Cdecap_a`/`Cdecap_d` in `layout/sar-adc-top/`'s composed
-  top level — ideally close to each domain's own switching devices, and
-  ideally *over* sub-blocks that route below met3, which is the assumption
-  Decision §3's area budget rests on — and re-running `klt drc` / `klt lvs`
-  against a reference that actually carries these two cards is real, separate
-  layout work: it needs a `capm`-drawing generator this top-level composer does
-  not have today **and** a `bin/generate-lvs-reference.py` that emits top-level
-  primitives at all (see the device-count bullet under "Consequences"), and
-  it lands on top of that flow's own already-tracked LVS gap
-  (`2AMLogic/klayout-tools#1878`). Tracked as **#440**, filed alongside this
-  record; it also carries the instruction that if the met3/met4 real estate
-  does not hold, the answer is a superseding record reducing `MF`, not a silent
-  edit.
+- ~~**Layout placement, and DRC/LVS/ERC re-verification, are not done by this
+  record.**~~ **Done — issue #440, and Decision §3's area budget is CONFIRMED
+  placeable at `MF = 2`.** Record
+  `layout/sar-adc-top/reports/20260926-081248-203cca3/` places both capacitors
+  as four `klt gen cap_array` unit cells (two per domain, which is how `MF = 2`
+  is drawn), tied across their own domains' supply/return conductors: DRC clean
+  (0 violations / 52 rules), `klt erc` clean (0 findings, all four supplies at
+  one island each on the new geometry, `erc-reports/20260926-081822-203cca3/`),
+  and `klt lvs` against a regenerated **871**-device reference in the same four
+  mismatch categories as before, the one moved count being `device.unmatched`
+  66 → 67 (the already-tracked DR-012 substrate merge reaching a device, not a
+  new category). **No superseding record reducing `MF` is needed**: the
+  composed die's own back-end occupancy was measured directly before the
+  placement (`bin/probe-decap-sites.py`, committed as that record's
+  `decap-ties.json`) and met3 — the tightest of the six layers involved,
+  because it is both a routing plane and the MiM bottom plate — was **88 %
+  free**, met4 **97 % free**. Both sites fall inside the *pre-existing*
+  280.450 × 385.500 µm bounding box, so **the allocation cost no die area at
+  all** and displaced no routing. The two enabling gaps this item named are
+  closed the way it anticipated: the composer now generates the MiM unit cell
+  in-flow with `klt gen cap_array` rather than drawing `capm` by hand, and
+  `bin/generate-lvs-reference.py` emits top-level primitives for the first
+  time. Full measurement, corridors and interconnect:
+  `layout/sar-adc-top/README.md`, "On-die decoupling (DR-017)".
 - **No peak switching-current measurement exists in this repo.** A
   `sim/adc-rail-current/`-equivalent campaign (fine-timestep current
   integration bracketing the CDAC/comparator switching instants) would let a
@@ -535,10 +558,43 @@ sense DR-010/DR-012/DR-015 do.
   still assumptions, and this record's sizing inherits whatever slack or
   overreach they carry.
 - **Routing parasitics between each cap and its domain's switching devices are
-  not modelled.** This record adds an ideal `cap_mim_m3_1`; the series
-  resistance and inductance of however it is eventually routed will erode the
-  measured benefit. Flagged, not modelled — and one more reason the layout pass
-  above is a re-measurement, not just a placement.
+  not modelled — but the resistance half is now MEASURED on the drawn layout,
+  and it is three orders of magnitude larger than anything any simulation here
+  has contained.** This record adds an ideal `cap_mim_m3_1`, and issue #440's
+  placement quantifies what the drawn ties cost: **13.837 Ω of ESR on the
+  analog domain and 13.448 Ω on the digital**, at the PDK's own
+  `rm2`/`rm3`/`rm4` sheet and `rcvia2`/`rcvia3`/`rcvia4` per-cut resistances.
+  **~80 % of it is single-cut vias**, not metal — three 3.41 Ω cuts in each
+  return path against one in each supply path — so widening the 2.0 µm straps
+  would buy almost nothing while via arrays would cut it ≈3×.
+
+  **Amendment A below does not already cover this, and must not be read as
+  doing so.** Its "Eliminating one obvious explanation for the floor" section
+  eliminates the *device's own* plate resistance, the MiM subcircuit's
+  `r1 = rm3·l/w` — one square for a 46.9 µm plate, so `0.047 Ω` per unit and
+  `0.0235 Ω` for the shipped pair. That is the largest ESR present in *any*
+  measured point of its ladder, and the interconnect carries **~590×** it. The
+  `MF = 32` step Amendment A reasons from moved ESR between `0.0015 Ω` and
+  `0.024 Ω`; the layout's is `13.8 Ω`. Amendment A's conclusion (the residual
+  floor is not ESR-limited) stands on its own evidence and is not contradicted
+  here — it simply was never a measurement at this magnitude, because no
+  netlist in this repo has ever contained the interconnect at all.
+
+  What the measured ESR does and does not license, read against the pair's own
+  reactance: ESR does not reach `X_C` until ~1.3 GHz, so the pair still behaves
+  as a capacitor across the band the bounce lives in. But at the **1221.5 MHz**
+  resonance 8.870 pF forms with DR-015's 1.914 nH per-terminal package
+  inductance, **Q ≈ 1.06** — the ties are *comparable to* the reactance there,
+  so the ideal-cap excursion this record reports is optimistic at the top of the
+  band by an amount no simulation here has bounded, while a Q near 1 also damps
+  that resonance in the bounce's favour. **The sign of the net effect is
+  unmeasured**, and closing it needs a `sim/supply-impedance-sensitivity/` run
+  with the ESR in the netlist — which would also be the first run in this
+  campaign to distinguish device ESR from interconnect ESR. The inductance half
+  remains unmodelled entirely, needing extraction. Numbers and derivation:
+  `layout/sar-adc-top/README.md`, "On-die decoupling (DR-017)", and
+  `bin/probe-decap-sites.py`, which fails the layout flow if its model drifts
+  from the drawn geometry.
 
 ## Amendment A (issue #431, 2026-09-26): the `1/√C` model is refuted by the shipped value's own measurement
 
