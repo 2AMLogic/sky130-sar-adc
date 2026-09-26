@@ -114,6 +114,12 @@ class FixtureTree:
         arm_count: int | None = None,
         sweep_points: int | None = None,
         ladder_rungs: int | None = None,
+        excursions: tuple[tuple[str, str], ...] | None = None,
+        excursion_layout: str = "arm",
+        excursion_column: str | None = None,
+        excursion_dut: str = "a" * 64,
+        excursion_undecoupled: bool = True,
+        excursion_prose: str = "",
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
@@ -169,6 +175,51 @@ class FixtureTree:
                 f"plus the `ideal` control, at 1 corner point(s) = "
                 f"{ladder_rungs + 1} whole-ADC transients.\n"
             )
+        if excursions is not None:
+            # The die-side rail-excursion table check 35 reads the campaign's
+            # own `gnd_die pp (mV)` column out of, in BOTH the shapes this
+            # campaign's writers emit: `excursion_layout="arm"` is the
+            # arm-comparison/corner-grid table (`| corner-id | arm | ... |`,
+            # the excursion column third) and `"point"` is the sweep/ladder
+            # table (`| point | ... |`, second). A fixture that could only
+            # write one of them would leave the column-by-header parse
+            # untested against the layout it does not write, which is exactly
+            # the half that makes the check readable across both writers.
+            #
+            # `excursion_column` overrides the header text so a fixture can
+            # reach the "this records tree carries no excursion column at all"
+            # condition -- a silence the check must report as nothing to
+            # compare against rather than as an empty set of figures.
+            header = checker.EXCURSION_COLUMN if excursion_column is None else excursion_column
+            lead = "corner-id | arm" if excursion_layout == "arm" else "point"
+            width = 3 if excursion_layout == "arm" else 2
+            # The two lines that decide whether these figures are UNDECOUPLED
+            # upper bounds, written the way the real records write them: the
+            # assumption bullet a record that is the undecoupled case states of
+            # itself, and the DUT netlist sha256 by which every other record of
+            # the same netlist inherits it. `excursion_prose` is free text for
+            # the cost-section boilerplate every record of this campaign carries
+            # ("an undecoupled series inductance ..."), which a word search --
+            # rather than a bullet match -- would misread as a declaration.
+            if excursion_undecoupled:
+                body += (
+                    "\n## Assumptions\n\n"
+                    "- **No decoupling, on-die or on-board** (DR-015 item 6). "
+                    "Every point here is the undecoupled case.\n"
+                )
+            if excursion_prose:
+                body += f"\n{excursion_prose}\n"
+            body += f"\n- DUT netlist sha256: `{excursion_dut}`\n"
+            body += "\n## Die-side rail excursion over one steady-state conversion\n\n"
+            body += f"| {lead} | {header} | vgnd_die pp (mV) |\n"
+            body += "|---|" * (width + 1) + "\n"
+            for label, figure in excursions:
+                cells = (
+                    f"| `tt_27c_1.80v` | `{label}` |"
+                    if excursion_layout == "arm"
+                    else f"| `{label}` |"
+                )
+                body += f"{cells} {figure} | 0.000 |\n"
         if kickback is not None:
             # The `Measured value(s)` table check 21 re-derives the Kickback
             # row's figures from, in the shape
@@ -6291,6 +6342,533 @@ class TestDecouplingCensus(unittest.TestCase):
         )
         for record in census["untracked"]:
             self.assertTrue((REPO_ROOT / record).is_file(), record)
+
+
+class TestExcursionEnumeration(unittest.TestCase):
+    """Check 35: the *undecoupled* enumeration names every figure it must.
+
+    Check 33 grades who OWNS the on-die-decoupling gap; this grades the one
+    sentence that applies that gap's qualifier to a hand-written list of
+    die-side ground-excursion figures. That list went stale twice in one day
+    (PR #446 wrote eight figures four minutes before PR #445 merged with three
+    more in it; PR #447 then narrated all three in the same item and left the
+    list alone), and no check read it -- check 34 grades the ladder AXIS that
+    stales it, never the list.
+
+    Two parse hazards were measured against the live document before this
+    check was written, and both are regression-tested here:
+
+      - **unit-eliding chains**: the document writes `` `72.130` ->
+        `67.307` -> `137.093 mV` ``, so a three-decimal-plus-`mV` scan finds
+        one of three figures and misses exactly the ones that went stale;
+      - **unrelated `mV` figures at the same precision**: the same section
+        states `0.001`, `0.380` and `67.190 mV`, none of which is a
+        supply-return excursion, so a scan that required them would fail on
+        correct prose -- worse than the hand-maintained note, because it
+        teaches the next pass to reword around the gate.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_excursion_enumeration(self.tree.document(body), body)
+
+    def enumeration(self, *figures: str) -> str:
+        """The list as the document writes it: only the LAST figure carries `mV`.
+
+        Hazard 1 in the enumeration's own voice -- the sentence under test is
+        itself a unit-eliding chain, which is why the check parses both sides
+        of the comparison with the same chain reader.
+        """
+        quoted = [f"`{figure}`" for figure in figures[:-1]]
+        tail = f"`{figures[-1]} mV`"
+        joined = ", ".join(quoted)
+        return f"{joined} and {tail}" if quoted else tail
+
+    def body(
+        self,
+        narrative: str = "",
+        enumeration: str | None = None,
+        *,
+        item: bool = True,
+        other_item: str = "",
+        anchor: bool = True,
+    ) -> str:
+        """A Section 7 shaped document: one numbered item, then the sentence.
+
+        `other_item` is a SECOND numbered item placed above the first, which is
+        how the region bound is exercised: a figure stated there is outside the
+        narrative the enumeration says "above" of, and must not be required.
+        """
+        text = "## 7. Open items before sign-off\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.EXCURSION_RECORDS}/LATEST).\n\n"
+        if other_item:
+            text += f"8. **Some other gap.** {other_item}\n\n"
+        if item:
+            text += "9. **Power delivery is structurally graded.**\n"
+        if narrative:
+            text += f"   {narrative}\n"
+        if enumeration is not None:
+            text += (
+                f"\n   {enumeration} are each an **undecoupled** upper bound, and\n"
+                "   that is not this document's gloss on them.\n"
+            )
+        return text
+
+    def campaign(self, *excursions: str, **kwargs):
+        """One arm-comparison record carrying `excursions` plus the control."""
+        rows = tuple(
+            (f"arm-{index}", figure) for index, figure in enumerate(excursions)
+        )
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"),) + rows,
+            **kwargs,
+        )
+
+    # -- The claim itself, in both directions of the one it makes.
+
+    def test_a_complete_enumeration_passes(self):
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **10.779 mV** is substrate.",
+            self.enumeration("10.779", "37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_dropped_figure_is_reported(self):
+        """The mutation the acceptance criteria name: one figure removed."""
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **10.779 mV** is substrate.",
+            self.enumeration("37.333"),
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("10.779", misses[0])
+
+    # -- Hazard 1: a chain in which only the last figure carries its unit.
+
+    def test_a_unit_eliding_chain_is_followed(self):
+        """The exact shape PR #445's ladder is narrated in.
+
+        A `\\d+\\.\\d{3}\\s*mV` scan sees only `137.093` here, so the two
+        figures that actually went stale would be invisible to it.
+        """
+        self.campaign("72.130", "67.307", "137.093")
+        body = self.body(
+            "the excursion goes `72.130` -> `67.307` -> `137.093 mV` peak-to-peak.",
+            self.enumeration("137.093"),
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("67.307", misses[0])
+        self.assertIn("72.130", misses[0])
+
+    def test_the_chain_reader_follows_every_separator_the_document_uses(self):
+        """Arrow, slash, comma and "and" -- all four are live in the document."""
+        for span in (
+            "`1.111` -> `2.222` -> `3.333 mV`",
+            "`1.111`/`2.222`/`3.333 mV`",
+            "`1.111`, `2.222`, `3.333 mV`",
+            "`1.111`, `2.222` and `3.333 mV`",
+            "**1.111**, **2.222** and **3.333 mV**",
+        ):
+            with self.subTest(span=span):
+                self.assertEqual(
+                    checker.excursion_chain_figures(span),
+                    ["1.111", "2.222", "3.333"],
+                )
+
+    def test_a_figure_in_no_unit_bearing_chain_is_not_read_as_mv(self):
+        """Prose separates these two, so the unitless one states no excursion.
+
+        The live shape this is taken from: `**37.274 mV** of it to the bond
+        inductance alone (`0.059 mV` remains with `L = 0`)` -- the words between
+        the two figures are what must end the chain, so a figure that carries no
+        unit of its own and is not chained to one states no mV value at all.
+        """
+        self.assertEqual(
+            checker.excursion_chain_figures(
+                "`1.111 mV` remains with `L = 0`, and the ratio was `2.222` there."
+            ),
+            ["1.111"],
+        )
+
+    def test_a_figure_at_another_precision_is_not_a_row_value(self):
+        """`+27.6 mV` is a difference the renderer never prints as a row."""
+        self.assertEqual(checker.excursion_chain_figures("**+27.6 mV** of excursion"), [])
+
+    # -- Hazard 2: same-precision `mV` figures that are NOT excursions.
+
+    def test_an_unrelated_mv_figure_at_the_same_precision_is_not_required(self):
+        """The `0.001`/`0.380`/`67.190 mV` class, measured in the live document."""
+        self.campaign("37.333")
+        body = self.body(
+            "the excursion is **37.333 mV**, and the reference settles to "
+            "`0.380 mV` of ripple with `67.190 mV` of headroom.",
+            self.enumeration("37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_derived_difference_is_not_required(self):
+        """The live `2.070 mV` case: a subtraction no record row carries.
+
+        The document states it precisely to say it is NOT a measurement, so a
+        gate that demanded it be qualified as an excursion upper bound would
+        be requiring the document to contradict itself.
+        """
+        self.campaign("67.307", "65.237")
+        body = self.body(
+            "the ladder's `67.307 mV` rung against the arm's `65.237 mV` -- "
+            "do not read that `2.070 mV` as a measurement.",
+            self.enumeration("65.237", "67.307"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_the_ideal_controls_zero_is_not_required(self):
+        """`0.000` is mechanical: an ideal source holds the die node at 0 V."""
+        self.campaign("37.333")
+        body = self.body(
+            "the `ideal` control reads `0.000 mV` and the arm **37.333 mV**.",
+            self.enumeration("37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    # -- The region bound, and its vacuity trap.
+
+    def test_a_figure_in_another_numbered_item_is_not_required(self):
+        """"Above" means this item's own narrative, not the whole section."""
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**.",
+            self.enumeration("37.333"),
+            other_item="An unrelated `10.779 mV` figure lives here.",
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_an_enumeration_with_no_narrative_figures_above_it_is_a_finding(self):
+        """The vacuity trap, made loud instead of silent.
+
+        If the region anchor ever drifts -- the item renumbered away, the
+        narrative moved out from under the sentence -- the derived set goes
+        empty and a superset check would pass by grading nothing. That must be
+        the one case it reports instead.
+        """
+        self.campaign("37.333")
+        misses = self.check(self.body("", self.enumeration("37.333")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("grades nothing", misses[0])
+
+    def test_an_absent_enumeration_is_itself_a_finding(self):
+        """Deleting the sentence must not unqualify the figures above it."""
+        self.campaign("37.333", "10.779")
+        misses = self.check(
+            self.body("the excursion is **37.333 mV**, of which **10.779 mV** is substrate.")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("qualifies none of them", misses[0])
+        self.assertIn("10.779", misses[0])
+        self.assertIn("37.333", misses[0])
+
+    def test_a_document_with_no_supply_return_narrative_is_not_graded(self):
+        """The vacuity-trap guard's other side: silence on an unrelated doc."""
+        self.campaign("37.333")
+        self.assertEqual(self.check(self.body("Nothing about supply returns here.")), [])
+        self.assertEqual(self.check("# A document with no Section 7 at all\n"), [])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        """Checks 31, 32 and 34's anchor, for their reason."""
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **10.779 mV** is substrate.",
+            anchor=False,
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_single_quoted_figure_does_not_demand_the_qualifier(self):
+        """One figure in passing is a citation, not a narrative.
+
+        Measured against the live tree before this bound was added: the gate's
+        own rationale document quotes `65.237 mV` once, and a check that
+        demanded the whole qualifier sentence of it would be firing on correct
+        prose -- the failure mode this issue was filed rather than rushed to
+        avoid.
+        """
+        self.campaign("65.237")
+        self.assertEqual(
+            self.check(self.body("DR-012 attaches the word to its `65.237 mV` figure.")),
+            [],
+        )
+
+    # -- One-directional by design.
+
+    def test_an_interior_sweep_point_the_document_never_quotes_is_not_required(self):
+        """The committed set is larger than the document legitimately quotes."""
+        self.campaign("37.590", "22.556", "40.688")
+        body = self.body(
+            "the worst column point is **37.590 mV**.", self.enumeration("37.590")
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_an_enumerated_figure_no_record_carries_is_not_a_finding(self):
+        """`37.274` is a one-element ablation, not a row -- and legitimate."""
+        self.campaign("37.333")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **37.274 mV** is inductance.",
+            self.enumeration("37.274", "37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    # -- The third narrowing: only an UNDECOUPLED netlist's figures are owed.
+
+    def test_a_decoupled_netlists_figures_are_not_required(self):
+        """The live shape PR #457 created, caught by this check on the day it landed.
+
+        DR-017 landed on-die decoupling, and this campaign's newest record runs
+        the decoupled netlist -- a different DUT sha256 -- at nine corners across
+        five arms. Its excursion figures are real and are stated in the same §7
+        item, and they are NOT undecoupled upper bounds. Requiring them would
+        make the gate demand the document assert something false.
+        """
+        self.campaign("37.333")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260926-050045-8e62675",
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"), ("package", "13.964")),
+            excursion_dut="b" * 64,
+            excursion_undecoupled=False,
+        )
+        self.assertEqual(checker.excursion_row_figures(), {"37.333"})
+        body = self.body(
+            "the undecoupled excursion is **37.333 mV**; with DR-017's "
+            "decoupling in the netlist it is **13.964 mV** at the worst corner.",
+            self.enumeration("37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_record_that_does_not_repeat_the_declaration_inherits_it_by_dut_sha(self):
+        """Three of the five live undecoupled records never state it themselves."""
+        self.campaign("37.333")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-204633-7339971",
+            arms=("ideal", "no-gnd-pad"),
+            excursions=(("ideal", "0.000"), ("no-gnd-pad", "65.237")),
+            excursion_undecoupled=False,
+        )
+        self.assertEqual(checker.excursion_row_figures(), {"37.333", "65.237"})
+
+    def test_the_word_undecoupled_in_prose_is_not_a_declaration(self):
+        """Every record narrates "an undecoupled series inductance", decoupled or not.
+
+        Check 33's `DECOUPLING_LEAD_RE` made the same distinction for the same
+        reason: a word search over the record body would put the decoupled DUT
+        in the undecoupled set and silently re-admit its figures.
+        """
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260926-050045-8e62675",
+            latest=True,
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"), ("package", "13.964")),
+            excursion_dut="b" * 64,
+            excursion_undecoupled=False,
+            excursion_prose=(
+                "Reported because an undecoupled series inductance against the "
+                "die's own capacitance rings above the clock rate, so a bonded "
+                "arm costs more than the ideal one. No decoupling is cheap."
+            ),
+        )
+        self.assertEqual(checker.excursion_undecoupled_duts(), set())
+        self.assertIsNone(checker.excursion_row_figures())
+
+    def test_a_tree_with_no_undecoupled_declaration_grades_nothing(self):
+        self.campaign("37.333", excursion_undecoupled=False)
+        self.assertIsNone(checker.excursion_row_figures())
+        self.assertEqual(self.check(self.body("the excursion is **37.333 mV**.")), [])
+
+    # -- Both record layouts, and the silences.
+
+    def test_both_record_layouts_are_read_by_column_name(self):
+        """Two writers, two table shapes, one column header."""
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"), ("package", "37.333")),
+        )
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-164447-722fcb0",
+            sweep_points=9,
+            excursions=(("ideal", "0.000"), ("sweep-l10x-rsubx300", "111.622")),
+            excursion_layout="point",
+        )
+        self.assertEqual(checker.excursion_row_figures(), {"37.333", "111.622"})
+
+    def test_check_is_inert_without_the_campaign_records(self):
+        self.assertIsNone(checker.excursion_row_figures())
+        self.assertEqual(
+            self.check(self.body("the excursion is **37.333 mV**.")), []
+        )
+
+    def test_a_records_tree_with_no_excursion_column_grades_nothing(self):
+        """No tree-side figures to compare against is a silence, not a zero."""
+        self.campaign("37.333", excursion_column="gnd_die swing (mV)")
+        self.assertIsNone(checker.excursion_row_figures())
+        self.assertEqual(self.check(self.body("the excursion is **37.333 mV**.")), [])
+
+    # -- The live pair.
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_excursion_enumeration(doc, doc.read_text()), [])
+
+    def test_the_real_check_is_not_vacuous(self):
+        """The mutation test, automated: drop one figure and the live doc fails.
+
+        This is what keeps the check from passing by deriving an empty set
+        against the real tree -- the vacuity trap checks 4, 6 and 30--34 each
+        needed a guard for, and the one an "enumeration is a superset" claim
+        is most exposed to.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        text = doc.read_text()
+        required = checker.excursion_enumeration_figures(text)
+        self.assertIsNotNone(required)
+        self.assertGreaterEqual(
+            len(required),
+            8,
+            "the live document's supply-return narrative states almost no "
+            "record excursion figure -- the region anchor has drifted and the "
+            "check is grading nothing",
+        )
+        # The enumeration's own figure list, located the way the check locates
+        # it, so the mutation lands in the LIST and not on some earlier
+        # occurrence of the same figure elsewhere in the document -- most of
+        # these figures are stated several times over.
+        collapsed, offsets = checker._collapse_quoted_prose(text)
+        match = checker.EXCURSION_ENUM_RE.search(collapsed)
+        self.assertIsNotNone(match, "the live enumeration sentence no longer parses")
+        window = offsets[match.start("figures")]
+        anchor = offsets[match.end("figures") - 1] + 1
+        for figure in sorted(required):
+            with self.subTest(dropped=figure):
+                span = text[window:anchor]
+                dropped = re.sub(
+                    r"`" + re.escape(figure) + r"(?: mV)?`(?:,?\s+and)?[,\s]*",
+                    "",
+                    span,
+                    count=1,
+                )
+                self.assertNotEqual(
+                    dropped, span, f"{figure} is not in the enumeration sentence"
+                )
+                mutated = text[:window] + dropped + text[anchor:]
+                misses = checker.check_excursion_enumeration(doc, mutated)
+                self.assertTrue(misses, f"dropping {figure} was not reported")
+                self.assertTrue(
+                    any(figure in miss for miss in misses),
+                    f"dropping {figure} was reported without naming it: {misses}",
+                )
+
+    def test_the_real_documents_unrelated_mv_figures_are_not_required(self):
+        """Hazard 2 against the live document, not only against a fixture."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        required = checker.excursion_enumeration_figures(doc.read_text())
+        self.assertIsNotNone(required)
+        for figure in ("0.001", "0.380", "67.190", "2.070", "0.000"):
+            self.assertNotIn(figure, required)
+
+    def test_the_real_tree_carries_two_dut_generations_and_only_one_is_owed(self):
+        """The undecoupled narrowing, non-vacuous against the live tree.
+
+        If this assertion ever fails because the tree holds ONE DUT generation
+        again, the narrowing is untested by the live half and only the fixtures
+        above hold it -- which is worth knowing, because it is the half that
+        keeps the gate from demanding the document call a decoupled figure an
+        undecoupled upper bound.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        records = REPO_ROOT / checker.EXCURSION_RECORDS
+        duts = {
+            match.group("sha")
+            for record in records.glob("*.md")
+            for match in checker.EXCURSION_DUT_RE.finditer(record.read_text())
+        }
+        self.assertGreaterEqual(len(duts), 2, "only one DUT generation in the tree")
+        undecoupled = checker.excursion_undecoupled_duts()
+        self.assertTrue(undecoupled)
+        self.assertTrue(duts - undecoupled, "every DUT reads as undecoupled")
+        # And the decoupled generation's own figures really are excluded.
+        owed = checker.excursion_row_figures()
+        self.assertIsNotNone(owed)
+        for figure in ("13.964", "17.055", "9.709", "7.710", "0.070"):
+            self.assertNotIn(figure, owed)
+
+    def test_a_checked_document_without_the_narrative_is_ungraded(self):
+        """The vacuity-trap guard against the LIVE records tree, not a fixture.
+
+        `main()` grades every `docs/chipalooza/*.md`, and today that set is one
+        document -- so the exposure is the *next* one: a chipalooza document
+        that cites this campaign, or quotes one of its figures, without
+        narrating them must not be asked for a qualifier it never claimed.
+        Graded against the live records tree, because it is the live figure set
+        that decides.
+
+        (`docs/citation-gate.md` is deliberately NOT in that glob -- it
+        discusses these figures at length, and would fire. That it lives one
+        directory up on purpose is asserted by `TestRationaleDocumentCoverage`,
+        in `test_the_rationale_document_is_not_itself_a_checked_document`.)
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        documents = [
+            (doc.name, doc.read_text())
+            for doc in sorted(CHIPALOOZA_DIR.glob("*.md"))
+            if doc.name != "challenge-4-proposal.md"
+        ] + [
+            (
+                "challenge-5-proposal.md",
+                "# A later challenge\n\nNo supply-return narrative at all.\n",
+            ),
+            (
+                "campaign-notes.md",
+                "# Notes\n\nSee `sim/supply-impedance-sensitivity/records/LATEST`.\n",
+            ),
+            (
+                "one-figure.md",
+                "## 7. Open items\n\n1. **A gap.** The `package` arm reads "
+                "`37.590 mV` at the baseline corner, per "
+                "`sim/supply-impedance-sensitivity/records/LATEST`.\n",
+            ),
+        ]
+        for name, text in documents:
+            with self.subTest(doc=name):
+                self.assertEqual(
+                    checker.check_excursion_enumeration(CHIPALOOZA_DIR / name, text), []
+                )
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

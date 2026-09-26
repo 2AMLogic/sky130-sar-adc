@@ -1688,6 +1688,141 @@ this parse recognises, it reports **nothing** rather than a ladder of zero
 rungs -- checks 31 and 32's reason: there is no tree-side number to compare
 against, and inventing one would make the gate the author of a claim.
 
+### Check 35 -- the *undecoupled* excursion enumeration (`check_excursion_enumeration`)
+
+The sentence that sits *between* checks 33 and 34, and which neither can reach.
+
+Check 33 grades who **owns** the on-die-decoupling gap; checks 31, 32 and 34
+grade the three axes of the campaign that **produces** the die-side
+ground-excursion figures that gap makes upper bounds of. Between them, Section 7
+item 11 carries one hand-written sentence that applies the qualifier to a
+*list*: "`0.059`, `10.779`, ... and `137.093 mV`" are each an *undecoupled*
+upper bound. (Written with single-asterisk emphasis here on purpose: the
+double-asterisk form is the claim clause this check is anchored on, and this
+file quoting it verbatim beside a figure list would make the rationale document
+itself parse as an enumeration.) It was the only claim in that item still
+maintained by hand, and it went stale twice in one day:
+
+- **PR #446** wrote it with eight figures against a tree that did not yet carry
+  the substrate-return ladder. **PR #445** merged four minutes later with three
+  more undecoupled excursions in it (`67.307`, `72.130`, `137.093 mV`) — one
+  larger than anything in the list.
+- **PR #447** then narrated all three in the same item, publishing them three
+  paragraphs *above* the list, and added check 34 for the ladder **axis** while
+  leaving the list itself untouched. So the document under-counted its own
+  figures for one more merge, and PR #452 corrected the list by hand again.
+
+Check 34 catches the *event* that stales the list — a ladder record arriving, or
+the runner's ladder widening. It cannot catch the staleness, because it never
+reads the list. Check 30's defect shape, one sentence further down: the
+enumeration goes false while every number beside it stays true.
+
+**What it grades.** One direction only: the enumeration must be a **superset**
+of the figures re-derived from the tree. A figure is *required* iff both halves
+of an intersection hold —
+
+1. the narrative **above** the sentence, inside the same top-level numbered
+   item, states it as an `mV` figure with unit-eliding chains followed; **and**
+2. a committed record under `sim/supply-impedance-sensitivity/records/` carries
+   it in that record's own `gnd_die pp (mV)` column; **and**
+3. that record runs an **undecoupled** DUT netlist.
+
+The first two halves each kill one measured parse hazard, and the check was filed
+(issue #450) rather than rushed alongside check 34 because a gate that fires on
+correct prose is *worse* than the hand-maintained note — it teaches the next
+pass to reword around the check:
+
+- **Unit-eliding chains.** The document writes `` `72.130` → `67.307` →
+  `137.093 mV` ``, where only the last figure carries its unit. A
+  three-decimals-plus-`mV` scan finds one of those three and misses exactly the
+  figures that went stale. So figures are read as *chains*: a maximal run of
+  three-decimal atoms joined only by the separators the document actually uses
+  (arrow, slash, comma, "and"/"or", plus the backticks and bold markers around
+  them), and every atom of a chain counts when any atom carries the unit. Any
+  intervening **word** ends the chain, which is what keeps `**37.274 mV** of it
+  to the bond inductance alone (`0.059 mV` remains ...)` from being read as one.
+  The enumeration sentence is itself such a chain, so both sides of the
+  comparison are parsed with the same reader.
+- **Unrelated `mV` figures at the same precision.** The same section states
+  `0.001`, `0.380` and `67.190 mV`, none of which is a supply-return excursion —
+  and the narrative itself states a `2.070 mV` cross-record difference precisely
+  in order to say it is **not** a measurement (the cross-host `pp` reading rule).
+  Requiring any of those to be qualified as an undecoupled upper bound would fail
+  the gate on correct prose. Half (2) makes them mechanically out of scope: no
+  record row carries them.
+
+The excursion column is located **by header name**, not by index, because this
+campaign's writers emit two different table layouts around it
+(`| corner-id | arm | gnd_die pp (mV) | ...` for an arm comparison or corner
+grid, `| point | gnd_die pp (mV) | ...` for a sweep or a ladder). The `ideal`
+arm's `0.000` is dropped from the derived set: an ideal source holds the die node
+at exactly 0 V, so that row is a mechanical control rather than a measured
+excursion.
+
+**The third half is what the word *undecoupled* itself requires, and it is not
+hypothetical.** DR-017 landed on-die decoupling, and this campaign's newest
+record (`20260926-050045-8e62675`, the ratified nine-point grid across all five
+arms) runs the **decoupled** netlist — a different DUT sha256 from every earlier
+record of the same campaign. PR #457 narrated its figures in the same §7 item,
+and this check flagged them on its first run against the rebased tree: they are
+real, they are stated above the sentence, and they are **not** undecoupled upper
+bounds. Requiring them would make the gate demand the document assert something
+false — the fire-on-correct-prose failure in its most damaging form.
+
+The undecoupled DUT is re-derived from the records rather than pinned in the
+script: a record that *is* the undecoupled case says so in its own Assumptions
+section (`- **No decoupling, on-die or on-board** ...`), and every record sharing
+that record's `DUT netlist sha256` is the same netlist, so three of the five live
+undecoupled records inherit the declaration without repeating it. A future re-run
+with decoupling in the netlist drops out of the required set on the day it lands,
+with nothing here to update. The match is on the **assumption bullet** and never
+on the word "decoupling" anywhere in the record: every record of this campaign,
+the decoupled one included, narrates "an undecoupled series inductance ..." in
+its cost section, so a word search would put the decoupled DUT in the
+undecoupled set and silently re-admit its figures. Check 33's `DECOUPLING_LEAD_RE`
+draws the same distinction for the same reason.
+
+**Why one-directional.** The committed set is legitimately *larger* than what the
+document quotes — the 45-point corner grid and the 2-D sweep box carry interior
+points (`0.056`, `22.556`, `40.688`, `101.539 mV` and the grid's own 45 rows)
+that the document never states, and requiring them would be a different, much
+stronger claim than the sentence makes. The enumeration is also legitimately
+larger than the required set: `37.274 mV` is a one-element ablation *attribution*
+that no record row carries, and it belongs in the list. So the check demands
+coverage and never completeness in the other direction.
+
+**The vacuity guard, in both of its shapes.** A superset check whose derived set
+is empty passes by grading nothing — the trap checks 4, 6 and 30–34 each needed
+a guard for, and the one this shape is most exposed to. Two guards, pointing
+opposite ways:
+
+- An enumeration sentence **present** with no required figure above it in the
+  same numbered item is itself a **finding** ("the sentence grades nothing"):
+  that is what an item renumbered away, or a narrative moved out from under the
+  sentence, looks like, and it must be loud rather than silent.
+- An enumeration sentence **absent** is a finding only when the document cites
+  `sim/supply-impedance-sensitivity/` (checks 31, 32 and 34's anchor — deleting
+  the inconvenient sentence must not unqualify the figures above it) **and** one
+  numbered item states at least **two** of the campaign's record excursion
+  figures. One figure quoted in passing is a citation, which checks 3, 4, 22 and
+  23 already grade; the enumeration exists because a single item accumulates a
+  list. Measured, not assumed: the gate's own rationale document — this file —
+  quotes `65.237 mV` once, and without that bound the check would demand the
+  whole qualifier sentence of it.
+
+**What this check deliberately does NOT cover.** It does not grade the *wording*
+of the qualifier beyond the claim clause it is anchored on, and it does not grade
+whether each enumerated figure is still the figure its record carries — that is
+checks 3, 12 and 22's business. It does not read figures outside the numbered
+item the sentence sits in, so a future pass that states an excursion figure in a
+*neighbouring* item is not gated by this sentence (there are several
+same-precision `mV` figures in those items, which is the reason for the bound).
+And when no record under `sim/supply-impedance-sensitivity/records/` declares an
+undecoupled DUT, or no such record carries the `gnd_die pp (mV)` column at all,
+it reports **nothing** rather than an empty required set — checks 31, 32 and 34's
+rule: there is no tree-side figure to compare against, and inventing one would
+make the gate the author of a claim.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

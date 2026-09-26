@@ -4328,22 +4328,47 @@ tracker already owns.
      needed, and for this campaign to be re-run with the result in the
      netlist. Placement of whatever it decides is split out as #440, whose own
      tracking state §7 Item 1 above carries; this paragraph does not keep a
-     second copy of either issue's labels. **That list stood at eight figures
-     across two merges, and is the one thing in this item still maintained by
-     hand.** It was written (PR #446) against a tree that did not yet carry the
-     substrate-return ladder, four minutes before that ladder merged with three
-     more undecoupled excursions in it (`67.307`, `72.130`, `137.093 mV`); the
-     pass that then narrated the ladder in the paragraphs above (PR #447) added
-     check 34 for the *axis* and left the list itself untouched, so for one
-     more merge it under-counted figures printed three paragraphs above it.
-     Check 34 catches the event that stales it — a ladder arriving — but not
-     the staleness itself, and no check here reads this list. **#450** is where
-     that gap is tracked, per this section's rule that an open item points at
-     the issue that owns the work; two measured parse hazards are recorded
-     there (this document writes chains in which only the last figure carries
-     its `mV` unit, and §7's other items state unrelated `mV` figures at the
-     same precision), because a gate that fired on legitimate prose would be
-     worse than this note.
+     second copy of either issue's labels. **That list was the one thing in this
+     item maintained by hand, and it is not any more (2026-09-26).** It stood at
+     eight figures across two merges: written (PR #446) against a tree that did
+     not yet carry the substrate-return ladder, four minutes before that ladder
+     merged with three more undecoupled excursions in it (`67.307`, `72.130`,
+     `137.093 mV`), then left untouched by the pass that narrated all three in
+     the paragraphs above (PR #447) and added check 34 for the *axis* — so for
+     one more merge it under-counted figures printed three paragraphs above it,
+     and PR #452 corrected it by hand a second time. Check 34 catches the event
+     that stales the list — a ladder arriving — and never the staleness, because
+     it does not read the list. **Check 35** of the [citation
+     gate](check_proposal_citations.py) does, re-deriving what the list owes
+     from the tree rather than trusting the transcription: every figure this
+     item's own narrative states above the sentence *and* a committed record of
+     `sim/supply-impedance-sensitivity/records/` carries in its own
+     `gnd_die pp (mV)` column *and* that record runs an **undecoupled** DUT
+     netlist must appear in it. The derived list is printed by
+     `python3 docs/chipalooza/check_proposal_citations.py --stats` rather than
+     restated here, so this paragraph keeps no second copy of it. It is a
+     **superset** test in one direction only, deliberately: the enumeration
+     legitimately carries a figure no record row does (`37.274 mV` is a
+     one-element ablation *attribution*), and the records legitimately carry
+     interior sweep-box points this document never quotes. The two parse hazards
+     #450 recorded are what the check is built around rather than around a `mV`
+     scan — this document writes chains in which only the last figure carries
+     its unit, and §7 states unrelated `mV` figures at the same precision
+     (including the `2.070 mV` above, which is stated *in order to* say it is
+     not a measurement) — because a gate that fired on legitimate prose would
+     have been worse than the hand-maintained note.
+     **That third condition is why none of the nine-point grid's figures belong
+     in the list above, and the check is what draws the line rather than a
+     reader's memory.** The `13.964`/`17.055`/`9.643`/`0.070 mV` figures the
+     "item 1 has since closed too" paragraph states are from a record that runs
+     DR-017's *decoupled* netlist — a different DUT `sha256` from every earlier
+     record of this campaign — so they are measurements of the decoupled design
+     and not undecoupled upper bounds of anything. The check reads that off each
+     record's own assumption bullet and DUT hash, so the two generations cannot
+     be conflated by a later pass adding either kind of figure to this item.
+     [`docs/citation-gate.md`](../citation-gate.md) carries the rest of that
+     reasoning, including the two guards that keep the check from passing
+     vacuously in either direction.
 
      **What #431 does not give this item is a number, and the distinction
      matters because its own title carries one.** #431 is headlined
