@@ -170,7 +170,7 @@ the probe record it rests on
 **first** decision — the sign bit — about **1 µV** (`0.0003 LSB`) from its
 threshold, three orders of magnitude inside DR-004's stated `1.0148 mV`
 input-referred noise budget, while the die-side rail movement the non-ideal arms
-introduce spans `0.041 – 17.055 mV` across the ratified grid — **50× to
+introduce spans `0.041 – 17.055 mV` across the ratified grid — **~40× to
 ~17,000×** that margin. Its outcome is therefore a coin flip with respect to
 all of them, and a coin flip is **not monotone in the perturbation** — which is
 exactly what the ratified grid's own `0.057 mV → 6 LSB` / `13.7 mV → 0 LSB`
@@ -266,7 +266,7 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --cost-probe 400
 
 # the mid-scale boundary probe (issue #455 / DR-018): what this campaign's own
-# `+0.00*V_REF` code comparison does and does not measure. One corner, six
+# `+0.00*V_REF` code comparison does and does not measure. One corner, five
 # runs -- see "The mid-scale boundary probe" below.
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --midscale-probe --record
 
@@ -384,7 +384,7 @@ Every record states the command that minted it in its `Written by` footer, and
 `sim/check_spec_coverage.py` requires every token of that footer after the
 runner path to appear in the bench's documented `cold_start`
 (`cold-start-record-mismatch`). **Six** invocations of this runner are
-indexed today, one per committed record — the four-arm arm comparison
+indexed today, one per committed **graded** record — the four-arm arm comparison
 (`--arms ideal,package-r-only,package,substrate --record`), the default sweep
 box (`--sweep --record`), the ground-pad ablation pair
 (`--arms ideal,package,no-gnd-pad --record`), the default null-option
@@ -397,7 +397,10 @@ verbatim documented command here, the same way `sar-sequencer-behavioral`
 indexes its `--corners` variant separately. Every widening of the corner subset
 is therefore a new indexed invocation, not a re-run of an existing one — the
 price of `--corner-points` being part of a record's identity rather than a
-scheduling detail.
+scheduling detail. `--midscale-probe --record` is the one committed invocation
+*not* in that index: it mints a `diagnostics` record, grades no spec row and
+ranks no arm, so it carries no bench entry in `sim/spec-coverage.json` (see "The
+mid-scale boundary probe" below).
 
 A bench entry cannot be added *ahead* of its record: `sim/check_spec_coverage.py`
 fails an entry that lists no evidence record (`bench-has-no-record`), because a
@@ -792,7 +795,7 @@ not a measurement. Issue #455 asked which; this probe is the answer, and
 [DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md) is
 what it decided.
 
-**It is a diagnostic, not a campaign.** One corner (the anomaly's own), six
+**It is a diagnostic, not a campaign.** One corner (the anomaly's own), five
 runs, no spec row graded, no arm ranked. It refuses `--corners` and `--arms`,
 writes its own record, supersedes nothing and does not move `records/LATEST` —
 the same disposition as the two sweep modes.
@@ -815,11 +818,20 @@ the same disposition as the two sweep modes.
    with different consequences.
 
 **The perturbations are supply-unrelated by construction.** A `±0.1 LSB` DC
-differential input offset is applied as a *series source per input pin*, so the
-PWL schedule's breakpoint times — which the solver turns into timestep
-breakpoints — are bit-identical; the timestep variant replaces only the `.tran`
-card's requested step, leaving the stimulus, the stop time and every `.meas`
-instant alone. Neither touches the supply network, a device or the netlist. A
+differential input offset is applied by shifting the *levels* of the committed
+fragment's own two input `PWL` cards — every `{vdd_val*<f>}` value on `VINP`
+gains `offset_lsb/2^N` of the rail and every one on `VINN` loses it, so the
+common mode is held and the offset stays rail-referenced. Only the value
+expressions inside `{...}` are rewritten (and the count of rewrites is checked),
+so the PWL schedule's breakpoint times — which the solver turns into timestep
+breakpoints — are bit-identical, and the node set is the committed deck's: no
+source and no node is added. (An earlier draft inserted a series DC source per
+input pin instead; that is electrically identical but adds a capacitance-free
+node between two voltage sources, and it cost this deck **more than 4×** the
+control's wall clock — see `offset_vin()`.) The timestep variant replaces only
+the `.tran` card's requested step, leaving the stimulus, the stop time and every
+`.meas` instant alone. Neither touches the supply network, a device or the
+netlist. A
 mid-scale code that moves under those has moved for a reason this campaign does
 not measure.
 
@@ -859,6 +871,19 @@ five runs at `fs_27c_1.80v`:
   while the numerical floor on it is a few µV. That is the whole anomaly in one
   row: the thing that decides this conversion is smaller than the numerical noise
   on it, let alone than the effect being measured.
+- **And in that row the sign trial does not even follow the sign of its own
+  input.** The per-trial table prints the captured bit beside each margin
+  (`-> d<n>=<v>`), so this is readable directly: at
+  `package-r-only:tran-step-0.25n` bit 9 is presented with **`+0.0020 mV`** and
+  the search register still captures **`d9=0`**, the same bit both `as-committed`
+  variants capture from a *negative* `−0.0010 mV` input. Every one of the nine
+  magnitude trials resolves to a full rail in every variant, and the `±0.1 LSB`
+  offset variants' sign trials do track their input (`+0.3510 mV → d9=1`,
+  `−0.3540 mV → d9=0`). So the one trial whose input is inside the numerical
+  floor is also the one trial whose outcome is demonstrably *not* set by that
+  input's sign — which is the coin flip of
+  [DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md)
+  Decision §1, observed rather than argued.
 - **±0.1 LSB of DC input offset moves the code by exactly 1 LSB, and nothing
   else moves.** `+0.1 LSB` → 512, `−0.1 LSB` → 511, with the sign-trial margin
   tracking the offset 1:1 (`+0.3510` / `−0.3540 mV`). The `±0.25·V_REF` codes are

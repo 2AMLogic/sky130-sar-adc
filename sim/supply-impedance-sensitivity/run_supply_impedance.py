@@ -3275,7 +3275,9 @@ class Perturbation:
     name: str
     summary: str
     #: Differential input offset, in LSB, applied as +half on VINP and -half on
-    #: VINN through a series DC source (the PWL cards are untouched).
+    #: VINN by shifting the LEVELS of the committed fragment's own two input PWL
+    #: cards -- every breakpoint TIME and the node set stay the committed deck's
+    #: (no source and no node is added). See `offset_vin()`.
     vin_offset_lsb: float = 0.0
     #: Replacement for the `.tran` card's requested step, in ns. Purely
     #: numerical: the stimulus, the stop time and every `.meas` instant are
@@ -3570,7 +3572,7 @@ def run_midscale_probe_variant(
     # under the same rule (a cached log is reused only if its deck sha256,
     # verified open_pdks commit and ngspice version all match). A probe variant
     # is a whole-ADC transient too -- one of them measured 4x the control's wall
-    # clock -- and six in sequence outlive a dispatch session, so an interrupted
+    # clock -- and five in sequence outlive a dispatch session, so an interrupted
     # probe must not have to re-simulate the variants that already finished.
     # The point-id carries the perturbation, so a perturbed deck can never
     # collide with the arm comparison's own cache entry for the same arm.

@@ -44,8 +44,17 @@ name it rather than average it away.
 **What was measured** (`sim/supply-impedance-sensitivity/records/20260926-162049-476a8ab.md`,
 `run_supply_impedance.py --midscale-probe`, at `fs_27c_1.80v` only):
 
-1. **Reproduction.** Both points' own committed decks were re-run on a second
-   host at the pinned open_pdks commit and the same ngspice major version. The
+1. **Reproduction.** Both points' own committed decks were re-run at the pinned
+   open_pdks commit and the same ngspice major version, in a **different
+   execution environment** from the one that minted them. What evidences that,
+   in the committed tree rather than by assertion: the reference record's own
+   decks carry a `/Users/rwalters/.volare/…` `.lib` prefix
+   (`sim/supply-impedance-sensitivity/corners/20260926-050045-8e62675/package-r-only__fs_27c_1.80v.cir`)
+   while the probing host's is `/home/ubuntu/…` — the same two-host split
+   `sim/supply-impedance-sensitivity/README.md` § "Reproducing a deck across
+   hosts" already tabulates — and the identical decks visited **3–4× different
+   numbers of solver timepoints**, which is a property of the execution, not of
+   the deck. The
    `ideal@fs_27c_1.80v` control reproduces the committed log **to every printed
    digit** — all five captured codes and every per-rail average current to six
    significant figures. The `package-r-only@fs_27c_1.80v` point **does not
@@ -64,7 +73,17 @@ name it rather than average it away.
    own input-referred noise budget (Decision §2) is `1.0148 mV` (`0.29 LSB`) — so the
    marginal decision sits roughly **three orders of magnitude inside** the band
    the design promises nothing about, and the low-order trials are *not* near
-   their thresholds at all.
+   their thresholds at all. The record prints the *captured bit* beside every
+   margin, and at that margin it does not follow the input's sign: in the
+   `package-r-only:tran-step-0.25n` variant bit 9 is presented with **`+0.0020 mV`**
+   and the search register still captures **`d9 = 0`** — the same bit both
+   `as-committed` variants capture from a **negative** `−0.0010 mV` input — while
+   the `±0.1 LSB` offset variants' sign trials do track their input
+   (`+0.3510 mV → d9 = 1`, `−0.3540 mV → d9 = 0`) and all nine magnitude trials
+   resolve to a full rail in every variant. The comparator is therefore resolving
+   in time everywhere it is given a real input; the one trial inside the
+   numerical floor is the one whose outcome that input does not determine. That
+   is Decision §1's coin flip, observed directly rather than inferred.
 3. **What it would take to reach 505 through the magnitude search — and why no
    arm here can.** The recorded 505 is magnitude `6` in the below-mid-scale
    branch (`ADCOUT<i> = DOUT<i> XOR DOUT9N` with `DOUT9 = 0` makes
@@ -101,7 +120,7 @@ diverged in it.
    that mechanism. The mid-scale conversion's outcome is set by a decision with
    ~1 µV of margin, while the die-side rail movement every non-ideal arm of this
    campaign introduces spans **0.041 mV to 17.055 mV** across the ratified grid
-   (0.057–13.7 mV at this corner) — **50× to ~17,000× that margin**. Its outcome
+   (0.057–13.7 mV at this corner) — **~40× to ~17,000× that margin**. Its outcome
    is therefore a coin flip with respect to all of them, and a coin flip is
    **not monotone in the perturbation**. That is exactly what the recorded
    ordering shows.
@@ -120,6 +139,10 @@ diverged in it.
    between two decks is evidence of a circuit difference only if both decks are
    re-run on one host and one toolchain and the difference survives. Comparing a
    fresh run against a log minted elsewhere is not sufficient for this input.
+   A future reader checks "one host" the way item 1 above does — every committed
+   deck of this campaign carries its own PDK `.lib` path prefix, so two decks
+   minted in different environments are distinguishable from the committed
+   artifacts alone.
 5. **No design change is adopted on this evidence.** Nothing here shows the ADC
    failing a criterion it was given: the input sits on the MSB threshold, three
    orders of magnitude inside DR-004's stated noise budget, and a SAR without
@@ -157,7 +180,7 @@ diverged in it.
 - **Re-run the whole 45-run grid on one host to settle the ordering** — rejected
   on cost and value: 8+ hours of whole-ADC transients to re-measure a quantity
   this record has just established is a coin flip. The probe is one corner and
-  six runs, and it answers the question that was actually open.
+  five runs, and it answers the question that was actually open.
 - **Delete or amend record `20260926-050045-8e62675`'s 505 row** — refused by
   `CLAUDE.md`'s append-only rule. The record stays exactly as minted; the probe
   record and this decision record are what a reader meets beside it.
