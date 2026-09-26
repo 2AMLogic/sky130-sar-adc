@@ -301,12 +301,18 @@ enumerate:
   not its resistance, dominates the excursion it produces, but neither moves
   a captured code at this magnitude. **What this does not close**, and what
   no reader may take from it: a worst-corner claim (this record ran the
-  ratified baseline corner only; the nine-point grid is open at 2 of 9 points
-  for the `ideal`/`package` pair as of issue #409 item 1 — see that campaign's
-  "Why the corner grid arrives in pieces", whose first-stated reason, a
-  shared-host policy against local multi-corner runs, was re-checked and
-  **retired**, leaving a measured cost against a session that must end and a
-  batch route that cannot mint this repo's record format), and a
+  ratified baseline corner only; ~~the nine-point grid is open at 2 of 9 points
+  for the `ideal`/`package` pair as of issue #409 item 1~~ **the nine-point
+  grid has since been run for all five arms** —
+  `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`,
+  issue #409 item 1, on the netlist carrying DR-017's on-die decoupling, so a
+  different DUT from this record's: the as-built `package` return's worst
+  die-side ground excursion there is at the fast-process corner
+  `ff_27c_1.80v` (13.964 mV pp), ±0.25·V_REF codes move nowhere, and the
+  mid-scale input, which sits on the 511/512 code boundary, moves by at most
+  1 LSB in the bonded arms — see that campaign's "What the full grid found",
+  and #455 for the one mid-scale move the supply return does not explain),
+  and a
   priced measurement of this record's own *rejected* `no-gnd-pad` null option
   (implemented but not run, on cost — its own record estimates roughly an
   order of magnitude more wall clock than the control arm). Both were tracked

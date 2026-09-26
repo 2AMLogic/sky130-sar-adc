@@ -18,7 +18,8 @@
   ratified PVT grid, the `no-gnd-pad` arm, the `R`/`L` sweep and an extracted
   substrate network — of which the sweep, the `no-gnd-pad` arm and the
   substrate-*return* ladder that sweep left owed have since been closed at
-  stated scopes, the PVT grid is open at 2 of 9 points, and the substrate
+  stated scopes, the PVT grid is run at 9 of 9 points for all five arms on
+  the decoupled netlist, and the substrate
   network is now a filed tool gap (`2AMLogic/klayout-tools#2515`); see "Open
   items"), `CLAUDE.md`'s clean-room rule.
 
@@ -321,7 +322,7 @@ left owed; the rest remain open.
   the same record — against a truncated-slice calibration that had projected
   ~17× and several hours. A slice starting at `t = 0` prices the start-up
   transient, not the steady-state conversions the stimulus spends its span on.
-- **The corner axis of that gap is open at 2 of 9 points, not untouched and
+- ~~**The corner axis of that gap is open at 2 of 9 points, not untouched and
   not closed.** Every record under this assumption used to be **one** corner
   (`tt_27c_1.80v`); `sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md`
   (issue #409 item 1) adds the slow-process point `ss_27c_1.80v` for the
@@ -337,7 +338,30 @@ left owed; the rest remain open.
   pieces rather than in one run — a measured cost against a session that must
   end, not a host-policy ban, which was the stale reason and has been retired
   — is in that campaign's README under "Why the corner grid arrives in
-  pieces", and the remaining points are tracked in #409.
+  pieces", and the remaining points are tracked in #409.~~
+  **The corner axis of that gap is now CLOSED for the arm comparison**
+  (issue #409 item 1, 2026-09-26):
+  `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`
+  runs all five arms at all nine ratified points (`--corners --record`), on
+  the as-committed netlist that carries DR-017's on-die decoupling — so it is
+  a different DUT from every earlier record under this assumption, and is
+  read only within itself. Under this assumption's R+L and lumped
+  `R_SUB`/`R_SUBX`: the as-built `package` return's die-side ground excursion
+  is largest at the fast-process corner (**13.964 mV** pp at `ff_27c_1.80v`,
+  against 9.709 mV at the baseline and 7.710 mV at `tt_27c_1.62v`); the
+  rejected `no-gnd-pad` option costs 1.1–1.4× that at every point (worst
+  17.055 mV, also at `ff`); `package-r-only` never exceeds 0.070 mV, so the
+  bond inductance is the mechanism at every corner, not only the baseline.
+  Captured codes at ±0.25·V_REF do not move anywhere; the mid-scale input,
+  which sits on the 511/512 code boundary, moves by 1 LSB in the bonded arms
+  at three corners. One 6-LSB mid-scale move on the R-only arm at
+  `fs_27c_1.80v` is deterministic but cannot come from this mechanism (the
+  arms with ~200× its excursion did not move) and is tracked separately as
+  #455. What stays open: the swept box and the null-option ladder are still
+  one corner each (their `--corners` forms remain refused on cost), and
+  nothing here is about this die's substrate — `R_SUB`/`R_SUBX` are still
+  the lumped stand-ins, and extraction is the filed tool gap
+  `2AMLogic/klayout-tools#2515` (issue #409 item 4).
 - **No decoupling is designed, budgeted, or modelled** — carried over from
   DR-010 and DR-012 rather than settled here. When a decoupling plan exists,
   this assumption gains a second, decoupled variant and the pessimism above

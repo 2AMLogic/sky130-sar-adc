@@ -211,7 +211,13 @@ Other invocations:
 
 ```sh
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package
+
+# the exact invocation that produced the full ratified grid
+# (records/20260926-050045-8e62675.md): all five arms x all nine ratified
+# points, on the decoupled (DR-017) netlist. 45 whole-ADC transients -- add
+# --log-cache (below), and see "What the full grid found".
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record
+
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
     --supersedes <record-id>   # name the prior record this one replaces
 
@@ -349,13 +355,14 @@ Consequences:
 Every record states the command that minted it in its `Written by` footer, and
 `sim/check_spec_coverage.py` requires every token of that footer after the
 runner path to appear in the bench's documented `cold_start`
-(`cold-start-record-mismatch`). **Five** invocations of this runner are
+(`cold-start-record-mismatch`). **Six** invocations of this runner are
 indexed today, one per committed record — the four-arm arm comparison
 (`--arms ideal,package-r-only,package,substrate --record`), the default sweep
 box (`--sweep --record`), the ground-pad ablation pair
 (`--arms ideal,package,no-gnd-pad --record`), the default null-option
-substrate ladder (`--null-sweep --record`) and the two-point corner slice
-(`--arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`) —
+substrate ladder (`--null-sweep --record`), the two-point corner slice
+(`--arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`)
+and the full ratified grid (`--corners --record`) —
 so a run with any *other* `--arms` list, any other sweep box, or any other
 corner subset needs its own bench entry in `sim/spec-coverage.json` and its own
 verbatim documented command here, the same way `sar-sequencer-behavioral`
@@ -786,7 +793,7 @@ points it holds and that the rest are owed.
 
 ### What the first non-baseline corner found
 
-**Where the grid stands: 2 of 9 points, for 2 of 5 arms** —
+**Where the grid stood after that record: 2 of 9 points, for 2 of 5 arms** —
 `tt_27c_1.80v` and `ss_27c_1.80v`, `ideal` + `package`
 ([`records/20260926-012944-a966fdf.md`](records/20260926-012944-a966fdf.md)).
 
@@ -806,12 +813,99 @@ points it holds and that the rest are owed.
   2.07× the `ideal` arm at the same corner and 2.07× the same arm at `tt` —
   most of that a contended host rather than the corner itself.
 
-**What is owed, and tracked in issue #409**: the seven remaining points, and
-the three arms that have never left the baseline corner. The two points most
+**What that record said was owed** (now run — see the next section): the
+seven remaining points, and the three arms that had never left the baseline
+corner. The two points most
 likely to *move* the excursion are not yet among them — `ff_27c_1.80v` and
 `tt_-40c_1.80v`, where the fastest edges make the largest `L·di/dt`, and where
 the `ss` result above says to look. So no excursion figure in these records may
 be read as corner-worst-case.
+
+### What the full grid found
+
+**The grid is complete: 9 of 9 ratified points, for 5 of 5 arms** —
+[`records/20260926-050045-8e62675.md`](records/20260926-050045-8e62675.md),
+minted by the indexed `--corners --record` invocation. **It is a different
+DUT from every earlier record of this campaign**: it ran the as-committed
+`design/sar_adc_top.spice` *with* DR-017's on-die decoupling (one
+`cap_mim_m3_1` per supply domain, `MF = 2`), so its DUT netlist sha256 differs
+from theirs on purpose, and it supersedes none of them. Its `ideal` arm at
+`tt_27c_1.80v` reproduces the undecoupled baseline's captured codes
+(214 / 383 / 511 / 641 / 1023) and its total power (27.957 µW) exactly — two
+capacitors across ideal sources change nothing, the same no-regression check
+DR-017 records. Every number below is read **within** that one record, per the
+reading rule above.
+
+- **The worst corner for the bonded return is the fast-process one, as the
+  mechanism predicts.** `package` `GND_DIE` peak-to-peak ranges from
+  **7.710 mV** (`tt_27c_1.62v`) to **13.964 mV** (`ff_27c_1.80v`), with
+  `tt_27c_1.98v` (13.535 mV) next — the corners with the fastest edges and
+  the largest supply-current steps. `ss_27c_1.80v` (8.952 mV) is again *below*
+  the baseline (9.709 mV), so the slow-corner direction the two-point record
+  found survives on the decoupled netlist too. The rejected `no-gnd-pad`
+  option is worst at the same corner (**17.055 mV** at `ff`) and costs
+  **1.1× – 1.4×** `package`'s excursion at every point; `substrate`'s worst is
+  **9.643 mV** (`tt_27c_1.98v`); `package-r-only` never exceeds **0.070 mV**.
+  So the bond-inductance ablation holds at every corner: `L` is the mechanism,
+  corner by corner, not only at the baseline.
+- **The captured-code null holds at ±0.25·V_REF everywhere, and is 1 LSB, not
+  0, at mid-scale.** The `-0.25·V_REF` and `+0.25·V_REF` codes (383 / 641) do
+  not move in any arm at any of the nine points. The `+0.00·V_REF` input is
+  different: the `ideal` control itself reads 511 at some corners and 512 at
+  others, i.e. it sits on the 511/512 code boundary, and there the bonded
+  arms move by **1 LSB** (`package` at `sf_27c_1.80v`, `tt_-40c_1.80v`,
+  `tt_125c_1.80v`; `no-gnd-pad` at the latter two). A 1-LSB move on an input
+  that sits on a code edge is what a few-mV ground excursion *can* do; it is
+  not a missing code or a gain error, and no mid-scale input off that edge
+  moved.
+- **One mid-scale move is NOT attributable to the supply return, and is
+  stated rather than averaged away.** `package-r-only` at `fs_27c_1.80v`
+  reads **505** against the control's 511 (bits `d2`/`d1` resolved low) —
+  a **6-LSB** move on an arm whose die-side ground moves **0.057 mV**, while
+  the `package` and `no-gnd-pad` arms at the same corner, with ~200× that
+  excursion, read 511. The mechanism cannot produce that ordering, so this is
+  a different effect: a conversion whose low-order decisions resolve a
+  near-zero residual is sensitive to *any* perturbation of the deck, and a
+  0.1 Ω series resistor is one. It is deterministic, not solver noise — a
+  second, uncached run of both `ideal` and `package-r-only` at
+  `fs_27c_1.80v` on the same host reproduced 511 and 505 bit for bit. That
+  sensitivity is a property of the ADC at mid-scale, not of this campaign's
+  networks, and is tracked as its own issue
+  ([#455](https://github.com/2AMLogic/sky130-sar-adc/issues/455)) rather than
+  folded into a supply claim. Read the record's `package-r-only` "worst 6 LSB" finding with this
+  paragraph beside it.
+- **The decoupled `package` point DR-017 left unmeasured is in this record**
+  as a by-product: `package@tt_27c_1.80v` = **9.709 mV** `GND_DIE` pp on the
+  `MF = 2` netlist. It is quoted here for #448 to grade, not graded here —
+  comparing it with the undecoupled baseline's 37.333 mV crosses two records
+  and two netlists, which is #448's and DR-017's question, not this
+  campaign's.
+
+**Cost, and how it was paid.** The 45 runs are **8.2 h** of wall clock
+summed (`ideal` 322 – 393 s, `package-r-only` 277 – 402 s, `substrate`
+327 – 449 s, `no-gnd-pad` 780 – 971 s, `package` 1186 – 1438 s — every
+row is in the record), on an ngspice-46 host at the pinned open_pdks commit.
+They were not run one at a time: the `--log-cache` directory was filled by
+concurrent calls into this runner's own `run_point()` (the same deck
+assembly and the same identity-gated cache store the CLI uses, never a
+second deck builder), at most nine in flight — inside the session's
+`LOOM_SWEEP_CPU_BUDGET_CORES` — and the indexed invocation then minted the
+record by reusing all 45 logs. That is why every wall-clock row reads "log
+reused from cache", and why the per-run seconds are a concurrent,
+background-band figure rather than a benchmark; the documented command
+still reproduces the record serially. A first attempt at 22 concurrent
+runs was abandoned after ~20 minutes: children of an agent session on that
+host share a small aggregate CPU allotment, so each run got ≈ 20 % of a core
+and the fan-out bought nothing — capping concurrency to what the allotment
+can actually feed is what made the grid fit one session.
+
+**What is still not claimed.** This closes the corner axis of issue #409
+item 1 for the arm comparison. It does not extend the R/L sweep box or the
+null-option ladder over corners (`--sweep --corners` / `--null-sweep
+--corners` remain refused, as above), and nothing here is about *this* die's
+substrate — `R_SUB`/`R_SUBX` are still DR-015's lumped stand-ins, and
+extracting a real network is issue #409 item 4, blocked on a tool
+capability (`2AMLogic/klayout-tools#2515`).
 
 ## Findings
 
