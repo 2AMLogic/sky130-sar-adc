@@ -4096,6 +4096,69 @@ tracker already owns.
      ground-return impedance, and adding one here to hold this gap would be a
      spec change, which this document does not make.
 
+     **The word every excursion figure above is qualified by now has an owner
+     (added 2026-09-26).** `0.059`, `10.779`, `37.274`, `37.333`, `37.590`,
+     `65.237`, `99.749` and `111.622 mV` are each an **undecoupled** upper
+     bound, and that is not this document's gloss on them —
+     [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s own
+     Consequences attach the qualifier to its `65.237 mV` figure and defer for
+     it to "the last open item", and
+     [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)
+     carries the same item forward in the same words. §7's rule is that an
+     open item points at the issue that already owns the work; for this one
+     there was no issue to point at, which is why the qualifier has travelled
+     with every number above while naming nobody. **#431** (filed
+     2026-09-25T13:47:43Z) is now that tracker — it asks for a decision record
+     that sizes on-die decoupling per supply domain *or* records why none is
+     needed, and for this campaign to be re-run with the result in the
+     netlist. Placement of whatever it decides is split out as #440, whose own
+     tracking state §7 Item 1 above carries; this paragraph does not keep a
+     second copy of either issue's labels.
+
+     **What #431 does not give this item is a number, and the distinction
+     matters because its own title carries one.** #431 is headlined
+     `129–259 mV` of die-side analog-ground bounce over the ratified grid.
+     That figure is **not from this tree and may not be read against any
+     figure above**: it comes from a parallel #378 build —
+     `sim/ground-return-impedance/` (not in this tree), record
+     `20260925-134451-5b3f175` — that lost the race to the campaign this item
+     narrates and was never merged, under a *different* package model —
+     `spec/decision-records/DR-015-testbench-package-model.md`
+     (not in this tree), an isolated bond-wire `2.01 nH`/`0.099 Ω` per supply
+     terminal — than the `1.914 nH` package total DR-015 ratifies here. #431
+     says so itself and tells a Builder to re-verify against `main` rather
+     than quote it. The comparable committed number under this repo's own
+     ratified model is the `37.590 mV` the `package` arm measures at
+     `tt_27c_1.80v`, and `111.622 mV` as the worst point of the bounded box —
+     both already above, both already cited by record.
+
+     **Nothing moves, and the census is what will notice when it does.** No §4
+     row, verdict, Target or Status changes: #431 has landed no decision
+     record and no design change, so `design/sar_adc_top.spice` still declares
+     the devices the composed GDS draws and every figure above stands exactly
+     as its record states it. What *is* new is that the ownership claim can go
+     stale the moment a record strikes the item or names its tracker, and no
+     check here could see that — checks 3, 4, 22 and 23 grade evidence
+     citations, check 15 grades a decision record's *Status* line and nothing
+     else, and checks 31 and 32 grade one campaign's own axes. **Check 33** of
+     the [citation gate](check_proposal_citations.py) re-derives it from the
+     records themselves, counting only *unstruck* bullets whose own bold lead
+     names the gap (so DR-012's rejected-null-option item, which merely quotes
+     the word "undecoupled", is not miscounted as a fourth carrier):
+
+     > of the **3** decision records under `spec/decision-records/` whose own
+     > *Open items* still carry the on-die-decoupling gap, **0** name the
+     > issue that tracks it and **3** do not:
+     > `spec/decision-records/DR-010-digital-supply-domain-partition.md`,
+     > `spec/decision-records/DR-012-analog-ground-pad.md`,
+     > `spec/decision-records/DR-015-package-parasitic-assumption.md`
+
+     Read the `0` as the finding it is: three records carry this gap in their
+     own words and **none** of them yet points at #431, so the pointer exists
+     only here. The day one of them does — or strikes the item because #431's
+     decision record landed — that clause fails CI until this passage is
+     restated from what the tree then holds.
+
    **Does this move any §4 row? Not in verdict, but two rows' numbers move.**
    Item 11 is not a `spec/target-spec.md` row and no row is added for it here;
    the two sign-off-bar rows (post-layout PVT, DRC/LVS-clean GDS) stay
