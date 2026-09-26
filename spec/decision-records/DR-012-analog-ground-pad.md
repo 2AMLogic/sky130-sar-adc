@@ -311,7 +311,16 @@ enumerate:
   `ff_27c_1.80v` (13.964 mV pp), ±0.25·V_REF codes move nowhere, and the
   mid-scale input, which sits on the 511/512 code boundary, moves by at most
   1 LSB in the bonded arms — see that campaign's "What the full grid found",
-  and #455 for the one mid-scale move the supply return does not explain),
+  and #455 for the one mid-scale move the supply return does not explain.
+  **That mid-scale figure is now retired as a sensitivity number by
+  [DR-018](DR-018-midscale-code-metastable-msb.md)**: the `+0.00·V_REF` input
+  places the comparator's *first* (sign) decision ~1 µV from its threshold, so
+  its captured code is a coin flip with respect to every arm of that campaign
+  and is not monotone in the excursion. Nothing in *this* record's decision
+  rests on it — the argument above is the excursion, and the mid-scale code
+  entered only as corroboration — but a reader may no longer quote "at most
+  1 LSB" (or the 6 LSB) as a supply-return sensitivity. The `±0.25·V_REF`
+  null is unaffected and is what the code half of that campaign now carries),
   and a
   priced measurement of this record's own *rejected* `no-gnd-pad` null option
   (implemented but not run, on cost — its own record estimates roughly an

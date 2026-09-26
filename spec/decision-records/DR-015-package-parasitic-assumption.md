@@ -357,7 +357,15 @@ left owed; the rest remain open.
   at three corners. One 6-LSB mid-scale move on the R-only arm at
   `fs_27c_1.80v` is deterministic but cannot come from this mechanism (the
   arms with ~200× its excursion did not move) and is tracked separately as
-  #455. What stays open: the swept box and the null-option ladder are still
+  #455 — **now answered by
+  [DR-018](DR-018-midscale-code-metastable-msb.md), which retires the whole
+  `+0.00·V_REF` column as a sensitivity metric**: that input places the
+  comparator's *first* (sign) decision ~1 µV from its threshold, so its code is
+  a coin flip with respect to every arm here, the 6 LSB does not reproduce on a
+  second host, and neither the 1-LSB moves nor the 6-LSB one may be quoted as a
+  package-parasitic sensitivity. This assumption's own quantitative claims are
+  excursion claims and are untouched; the ±0.25·V_REF null carries the code
+  half. What stays open: the swept box and the null-option ladder are still
   one corner each (their `--corners` forms remain refused on cost), and
   nothing here is about this die's substrate — `R_SUB`/`R_SUBX` are still
   the lumped stand-ins, and extraction is the filed tool gap
