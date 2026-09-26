@@ -63,8 +63,11 @@ sentence check 28 compares against), the live record-renderer census of
 every `layout/` record tree (the sentence check 30 compares against) and the
 live supply-return arm and `--sweep`-box censuses of
 `sim/supply-impedance-sensitivity/` (the sentences checks 31 and 32 compare
-against) instead of checking, which is what to run when check 6, 9, 12, 13,
-14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31 or 32 reports a drift.
+against) and the live on-die-decoupling ownership census of
+`spec/decision-records/` (the sentence check 33 compares against) instead of
+checking, which is what to run when check 6, 9, 12, 13,
+14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31, 32 or 33 reports a
+drift.
 Exit status:
 
     0 - every citation checks out
@@ -1299,6 +1302,65 @@ SWEEP_CENSUS_RE = re.compile(
 # campaign is citing a single-magnitude record, and what bounds it is the box
 # nothing has walked. Deleting the sentence must not widen the citation.
 SWEEP_CENSUS_ANCHOR = ARM_CENSUS_ANCHOR
+
+# ---------------------------------------------------------------------------
+# Check 33: the on-die-decoupling gap's OWNERSHIP, across the decision records
+# that carry it.
+#
+# Three of this repo's decision records (DR-010, DR-012, DR-015) carry the same
+# open item in their own words -- on-die decoupling is not designed, budgeted,
+# or measured -- and DR-012 makes every excursion figure it states an
+# **undecoupled** upper bound by deferring to it. Section 7's own rule is that
+# each open item points at the issue that already tracks the work ("this
+# document does not invent new tracking"), and for this one there was no such
+# issue to point at until #431 was filed (2026-09-25). That is a claim about
+# the decision records rather than about any record under `sim/` or `layout/`,
+# so no check here could see it: checks 3/4/22/23 grade evidence citations,
+# check 15 grades a decision record's *Status* line and nothing else, and
+# checks 31/32 grade one campaign's axes. On the day one of those three
+# records strikes the item or names its tracker, a passage saying the gap is
+# carried by three records and owned by none goes false with every number
+# beside it still true -- check 30's defect shape, one tree over.
+DECOUPLING_OPEN_ITEMS_RE = re.compile(r"^##\s+Open items\s*$", re.M)
+
+# A top-level bullet of that section. Continuation lines are indented, so
+# splitting on a line that starts at column 0 with "- " keeps each bullet whole.
+DECOUPLING_BULLET_SPLIT_RE = re.compile(r"^(?=- )", re.M)
+
+# A bullet whose LEAD (its opening bold phrase) names the gap. Deliberately not
+# a search for "decoupl" anywhere in the bullet: DR-012's rejected-null-option
+# item quotes "undecoupled upper bounds" while being about something else
+# entirely, and counting it would make the census say four records carry an
+# item that three of them do.
+DECOUPLING_LEAD_RE = re.compile(r"^- (?P<struck>~~)?\*\*(?P<lead>[^*]+)\*\*")
+DECOUPLING_LEAD_TERM_RE = re.compile(r"decoupl", re.I)
+
+# What counts as naming the tracker: a bare `#<number>` forge reference inside
+# the bullet. The lookbehind is what keeps an upstream reference
+# (`klayout-tools#2400`) and a path fragment out of the match -- those name
+# somebody else's tracker, which is not ownership of this gap.
+DECOUPLING_TRACKER_RE = re.compile(r"(?<![\w/])#(?P<issue>\d+)\b")
+
+# What the census renders once every record that carries the gap names the
+# issue that owns it -- spelled out rather than left as an empty clause,
+# `ARM_CENSUS_NONE`'s reason. The em dash is the document's own punctuation:
+# `--stats` prints exactly what the document must contain for the paste to pass.
+DECOUPLING_CENSUS_NONE = "**none** — every record that carries it names its tracker"
+
+# The census sentence check 33 grades. The offender list is spelled as full
+# repo-relative paths so check 2 resolves each one too: a census that named a
+# record this tree does not have would otherwise be gated only by its count.
+DECOUPLING_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<carrying>\d+)\*\* decision records under "
+    r"`spec/decision-records/` whose own \*Open items\* still carry the "
+    r"on-die-decoupling gap, \*\*(?P<tracked>\d+)\*\* name the issue that "
+    r"tracks it and \*\*(?P<untracked>\d+)\*\* do not: (?P<records>"
+    + re.escape(DECOUPLING_CENSUS_NONE)
+    + r"|(?:`spec/decision-records/[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# One record inside that sentence's exception clause.
+DECOUPLING_RECORD_RE = re.compile(r"`(?P<record>spec/decision-records/[A-Za-z0-9._-]+)`")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -5042,6 +5104,136 @@ def check_sweep_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _open_item_bullets(text: str) -> list[str]:
+    """The top-level bullets of a decision record's `## Open items` section.
+
+    Empty when the record has no such section, which is the honest answer for
+    a record that declares nothing open -- not a bullet list of zero that a
+    caller might read as "checked and found none".
+    """
+    opening = DECOUPLING_OPEN_ITEMS_RE.search(text)
+    if opening is None:
+        return []
+    rest = text[opening.end() :]
+    end = re.search(r"^##\s", rest, re.M)
+    section = rest[: end.start()] if end else rest
+    return [
+        bullet
+        for bullet in DECOUPLING_BULLET_SPLIT_RE.split(section)
+        if bullet.startswith("- ")
+    ]
+
+
+def decoupling_census() -> dict:
+    """Which decision records still carry the on-die-decoupling gap, and who owns it.
+
+    Read out of each record's own `## Open items` section rather than from a
+    list here, so a fourth record picking the item up is discovered rather
+    than remembered. A bullet already struck through (`~~`) has been closed at
+    a stated scope by this repo's own convention -- DR-015 carries two of them
+    -- so it no longer *carries* the gap and is not counted either way.
+    """
+    directory = REPO_ROOT.joinpath(*DECISION_RECORDS_DIR)
+    carrying: list[str] = []
+    untracked: list[str] = []
+    if not directory.is_dir():
+        return {"carrying": 0, "tracked": 0, "untracked": []}
+    for entry in sorted(directory.iterdir()):
+        if not (entry.is_file() and DECISION_RECORD_FILE_RE.fullmatch(entry.name)):
+            continue
+        for bullet in _open_item_bullets(entry.read_text()):
+            lead = DECOUPLING_LEAD_RE.match(bullet)
+            if lead is None or lead.group("struck"):
+                continue
+            if not DECOUPLING_LEAD_TERM_RE.search(lead.group("lead")):
+                continue
+            path = f"{'/'.join(DECISION_RECORDS_DIR)}/{entry.name}"
+            carrying.append(path)
+            if not DECOUPLING_TRACKER_RE.search(bullet):
+                untracked.append(path)
+            break
+    return {
+        "carrying": len(carrying),
+        "tracked": len(carrying) - len(untracked),
+        "untracked": untracked,
+    }
+
+
+def decoupling_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `DECOUPLING_CENSUS_RE` matches.
+
+    Used by `--stats`, so the fix for a check-33 finding is a paste rather
+    than a hand transcription -- the guard checks 9, 12--18, 24--26, 28 and
+    30--32 all carry.
+    """
+    offenders = (
+        DECOUPLING_CENSUS_NONE
+        if not census["untracked"]
+        else ", ".join(f"`{record}`" for record in census["untracked"])
+    )
+    return (
+        f"of the **{census['carrying']}** decision records under "
+        f"`spec/decision-records/` whose own *Open items* still carry the "
+        f"on-die-decoupling gap, **{census['tracked']}** name the issue that "
+        f"tracks it and **{len(census['untracked'])}** do not: {offenders}"
+    )
+
+
+def check_decoupling_census(doc: Path, text: str) -> list[str]:
+    """Check 33: the stated on-die-decoupling ownership census is this tree's own."""
+    actual = decoupling_census()
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(DECOUPLING_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        if not any(f"`{record}`" in collapsed for record in actual["untracked"]):
+            # A document that cites none of the records carrying the gap
+            # qualifies nothing about who owns it, and is not made to.
+            return []
+        return [
+            f"{doc.name}: cites a decision record whose own open items still "
+            f"carry the on-die-decoupling gap, but states no ownership census "
+            f"-- that gap is what makes every ground-excursion figure in this "
+            f"tree an *undecoupled* upper bound, and Section 7's rule is that "
+            f"an open item points at the issue that tracks it. State it "
+            f"(`{decoupling_sentence(actual)}` today), so the ownership is "
+            f"graded rather than asserted and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("carrying", "tracked"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the decoupling census says {field}={claimed}, but "
+                f"`spec/decision-records/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"a record has since struck the item or named its tracker, say "
+                f"which rather than only moving the number"
+            )
+        claimed_untracked = int(match.group("untracked"))
+        if claimed_untracked != len(actual["untracked"]):
+            misses.append(
+                f"{where}: the decoupling census says untracked="
+                f"{claimed_untracked}, but `spec/decision-records/` reports "
+                f"untracked={len(actual['untracked'])} -- restate it from "
+                f"`--stats`"
+            )
+        listed = DECOUPLING_RECORD_RE.findall(match.group("records"))
+        if listed != actual["untracked"]:
+            misses.append(
+                f"{where}: the decoupling census names "
+                f"{', '.join(f'`{record}`' for record in listed) or 'no record'} "
+                f"as naming no tracker, but `spec/decision-records/` reports "
+                f"{', '.join(f'`{record}`' for record in actual['untracked']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"record sends a reader to the wrong file to fix it"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -5076,6 +5268,7 @@ def check_document(doc: Path) -> list[str]:
         + check_renderer_census(doc, text)
         + check_arm_census(doc, text)
         + check_sweep_census(doc, text)
+        + check_decoupling_census(doc, text)
     )
 
 
@@ -5292,6 +5485,14 @@ def main(argv: list[str]) -> int:
         sweep = sweep_census()
         if sweep is not None:
             print(f"sim/{ARM_CAMPAIGN}/: {sweep_sentence(sweep)}")
+        # And the gap those excursion figures are an upper bound *because* of,
+        # which check 33 grades: not a property of any record under `sim/` or
+        # `layout/` but of the decision records that carry the open item, and
+        # of whether any of them yet names the issue that owns it. Printed
+        # whenever the decision-record tree is readable, including when every
+        # carrying record names its tracker -- that is a statement too.
+        if REPO_ROOT.joinpath(*DECISION_RECORDS_DIR).is_dir():
+            print(f"spec/decision-records/: {decoupling_sentence(decoupling_census())}")
         return 0
 
     misses: list[str] = []

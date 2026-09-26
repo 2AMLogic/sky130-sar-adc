@@ -1560,6 +1560,65 @@ literals this parse recognises, it reports **nothing** rather than a box of
 zero points, check 31's reason: there is no tree-side number to compare
 against, and inventing one would make the gate the author of a claim.
 
+### Check 33 -- on-die-decoupling ownership census (`check_decoupling_census`)
+
+Checks 31 and 32 grade the two axes of one `sim/` campaign. This one grades
+the word every figure that campaign produces is *qualified* by, and where the
+qualifier's own open item is owned.
+
+Three decision records --
+`spec/decision-records/DR-010-digital-supply-domain-partition.md`,
+`spec/decision-records/DR-012-analog-ground-pad.md` and
+`spec/decision-records/DR-015-package-parasitic-assumption.md` -- carry the
+same open item in their own words: on-die decoupling is not designed,
+budgeted, or measured. DR-012 makes that item load-bearing on its numbers, by
+attaching **undecoupled** to its own `65.237 mV` figure and deferring for it to
+"the last open item". Section 7's standing rule is that an open item points at
+the issue that already tracks the work rather than inventing new tracking, and
+for this one there was no such issue to point at until #431 was filed on
+2026-09-25. Section 7 Item 11 now records that pointer, and the pointer lives
+only there -- none of the three records names it yet.
+
+**Why nothing else can see it move.** This is a claim about
+`spec/decision-records/`, not about any record under `sim/` or `layout/`, so
+checks 3, 4, 22 and 23 (evidence citations) cannot reach it. Check 15 reads a
+decision record's `Status` line and nothing else -- a record can strike an
+open item, or add a tracker to one, without its status word changing at all.
+Checks 31 and 32 grade the supply-impedance campaign's own axes, which do not
+move either. So the passage would keep saying the gap is carried by three
+records and owned by none long after a record fixed it: check 30's defect
+shape, one tree over.
+
+**What it grades.** Three numbers and a record list in one sentence, in both
+directions like checks 8, 10, 14--18, 25, 26, 28 and 30--32: how many decision
+records still carry the gap, how many of those name the issue that tracks it,
+how many do not, and which. Each record's own `## Open items` section is the
+basis rather than a list inside the checker, so a fourth record picking the
+item up is discovered automatically rather than when someone remembers it.
+
+**Two deliberately narrow predicates.** A bullet counts as carrying the gap
+only when its own **bold lead** names decoupling -- not when the word appears
+anywhere in it. DR-012's rejected-null-option item quotes "undecoupled upper
+bounds" while being about the `no-gnd-pad` arm, and an unanchored search would
+report four carriers where the tree has three. And a bullet already **struck
+through** (`~~`) has been closed at a stated scope by this repo's own
+convention -- DR-015 carries two such -- so it no longer carries the gap and is
+counted on neither side. "Names its tracker" is a bare `#<number>`, with a
+lookbehind that keeps an upstream reference (`klayout-tools#2400`) and a path
+fragment out of the match: those name somebody else's tracker, which is not
+ownership of this gap.
+
+**What this check deliberately does NOT cover.** It does not read the *content*
+of the decision #431 would land -- whether decoupling is added, and at what
+value, is a spec decision this document does not make and this gate does not
+grade. It does not check that the issue a bullet names is open, or is #431
+specifically: a forge state is exactly what this network-free gate cannot read
+(check 27's subject), so the predicate is "points at a tracker at all", which
+is the part a file read can settle. And an absent census is a finding only when
+the document cites one of the records that still carry the gap -- a document
+that cites none of them qualifies nothing about who owns it and is not made to
+invent a sentence about it.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

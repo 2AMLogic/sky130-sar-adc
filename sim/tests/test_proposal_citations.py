@@ -382,7 +382,12 @@ class FixtureTree:
             )
         )
 
-    def add_decision_record(self, name: str, status: str | None = "proposed"):
+    def add_decision_record(
+        self,
+        name: str,
+        status: str | None = "proposed",
+        open_items: list[str] | None = None,
+    ):
         """A `spec/decision-records/<name>` in the shape check 15 reads.
 
         Written in the real records' own shape -- a `- **Status**:` bullet
@@ -390,6 +395,12 @@ class FixtureTree:
         check must not read. `status=None` writes a record with no Status
         field at all, which is the "nothing to compare against" condition
         check 15 reports separately from a disagreement.
+
+        `open_items` appends a `## Open items` section carrying the given
+        bullets verbatim (each written as `- <bullet>`), which is what check
+        33 censuses. Absent by default, so every other check's fixtures keep
+        the shape they were written against and a record declaring nothing
+        open stays the reachable case.
         """
         records = self.root / "spec" / "decision-records"
         records.mkdir(parents=True, exist_ok=True)
@@ -399,6 +410,10 @@ class FixtureTree:
                 f"- **Status**: {status} — this fixture record ratifies nothing."
             )
         body += ["- **Date**: 2026-09-18", ""]
+        if open_items is not None:
+            body += ["## Open items", ""]
+            body += [f"- {item}" for item in open_items]
+            body.append("")
         (records / name).write_text("\n".join(body))
 
     def add_signoff(
@@ -5862,6 +5877,180 @@ class TestSweepCensus(unittest.TestCase):
         self.assertTrue((REPO_ROOT / checker.SWEEP_RECORDS).is_dir())
         self.assertTrue(list((REPO_ROOT / checker.SWEEP_RECORDS).glob("*.md")))
         self.assertEqual(census["records"], len(census["record_ids"]))
+
+
+class TestDecouplingCensus(unittest.TestCase):
+    """Check 33: the stated on-die-decoupling ownership census is this tree's own.
+
+    Three decision records carry the same open item -- on-die decoupling is
+    not designed, budgeted, or measured -- and DR-012 makes every excursion
+    figure it states an *undecoupled* upper bound by deferring to it. Section
+    7's rule is that an open item points at the issue that tracks it, and no
+    other check here can see that pointer move: check 15 reads a Status line
+    and nothing else, checks 3/4/22/23 grade evidence citations, checks 31/32
+    grade one campaign's axes.
+    """
+
+    CARRIER = "**On-die decoupling** for either domain is not designed."
+    OTHER = "**The pad's position is provisional.** No pad ring exists yet."
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_decoupling_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: str | None = None) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor is not None:
+            text += f"See `spec/decision-records/{anchor}`.\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, carrying, tracked, untracked=()) -> str:
+        return checker.decoupling_sentence(
+            {
+                "carrying": carrying,
+                "tracked": tracked,
+                "untracked": [
+                    f"spec/decision-records/{name}" for name in untracked
+                ],
+            }
+        )
+
+    def tree_with(self, *records):
+        """`records` as (filename, open-item bullets) pairs."""
+        for name, items in records:
+            self.tree.add_decision_record(name, open_items=list(items))
+
+    def test_a_truthful_untracked_census_passes(self):
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER]),
+            ("DR-012-b.md", [self.OTHER, self.CARRIER]),
+        )
+        body = self.body(
+            self.sentence(2, 0, ("DR-010-a.md", "DR-012-b.md")),
+            anchor="DR-010-a.md",
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_record_that_names_its_tracker_falsifies_the_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER + " Tracked as #431."]),
+            ("DR-012-b.md", [self.CARRIER]),
+        )
+        body = self.body(
+            self.sentence(2, 0, ("DR-010-a.md", "DR-012-b.md")),
+            anchor="DR-012-b.md",
+        )
+        misses = self.check(body)
+        self.assertTrue(misses)
+        self.assertTrue(any("tracked=0" in miss for miss in misses), misses)
+
+    def test_a_struck_item_no_longer_carries_the_gap(self):
+        self.tree_with(
+            ("DR-010-a.md", ["~~" + self.CARRIER + "~~ **CLOSED** by DR-016."]),
+            ("DR-012-b.md", [self.CARRIER]),
+        )
+        body = self.body(self.sentence(1, 0, ("DR-012-b.md",)), anchor="DR-012-b.md")
+        self.assertEqual(self.check(body), [])
+
+    def test_the_word_alone_inside_a_bullet_is_not_a_carrier(self):
+        """`ARM_RECORD_RE`'s discipline: the lead names it, or it does not count.
+
+        DR-012's real rejected-null-option item quotes "undecoupled upper
+        bounds" while being about the `no-gnd-pad` arm. An unanchored search
+        for the word would report it as a carrier.
+        """
+        self.tree_with(
+            (
+                "DR-012-b.md",
+                [
+                    "**The rejected null option now has a price.** The "
+                    "excursion figures are undecoupled upper bounds.",
+                    self.CARRIER,
+                ],
+            ),
+        )
+        body = self.body(self.sentence(1, 0, ("DR-012-b.md",)), anchor="DR-012-b.md")
+        self.assertEqual(self.check(body), [])
+
+    def test_an_upstream_reference_is_not_a_tracker(self):
+        """`klayout-tools#2400` names somebody else's tracker, not this gap's."""
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER + " See klayout-tools#2400."]),
+        )
+        body = self.body(self.sentence(1, 0, ("DR-010-a.md",)), anchor="DR-010-a.md")
+        self.assertEqual(self.check(body), [])
+
+    def test_a_drifted_record_list_is_reported_even_when_the_counts_agree(self):
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER]),
+            ("DR-015-c.md", [self.CARRIER]),
+        )
+        body = self.body(
+            self.sentence(2, 0, ("DR-010-a.md", "DR-012-b.md")),
+            anchor="DR-010-a.md",
+        )
+        misses = self.check(body)
+        self.assertTrue(any("sends a reader to the wrong file" in m for m in misses), misses)
+
+    def test_a_fully_tracked_census_passes_and_states_itself(self):
+        self.tree_with(("DR-010-a.md", [self.CARRIER + " Tracked as #431."]))
+        sentence = checker.decoupling_sentence(checker.decoupling_census())
+        self.assertIn(checker.DECOUPLING_CENSUS_NONE, sentence)
+        self.assertEqual(self.check(self.body(sentence, anchor="DR-010-a.md")), [])
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        self.tree_with(("DR-010-a.md", [self.CARRIER]))
+        misses = self.check(self.body(None, anchor="DR-010-a.md"))
+        self.assertTrue(misses)
+        self.assertIn("states no ownership census", misses[0])
+
+    def test_a_document_that_cites_no_carrier_is_not_graded(self):
+        self.tree_with(("DR-010-a.md", [self.CARRIER]))
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_record_with_no_open_items_section_carries_nothing(self):
+        self.tree.add_decision_record("DR-010-a.md")
+        self.assertEqual(checker.decoupling_census()["carrying"], 0)
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A `--stats` paste must pass, or the fix is a hand transcription."""
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER]),
+            ("DR-012-b.md", [self.CARRIER]),
+        )
+        sentence = checker.decoupling_sentence(checker.decoupling_census())
+        self.assertEqual(self.check(self.body(sentence, anchor="DR-010-a.md")), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_decoupling_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_finds_the_real_carriers(self):
+        """Not vacuous: the census must resolve against the live records.
+
+        A parse that silently found nothing would make the check pass by
+        censusing an empty set -- the vacuity trap checks 4, 6, 30, 31 and 32
+        each needed a guard for.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        census = checker.decoupling_census()
+        self.assertGreaterEqual(census["carrying"], 1)
+        self.assertEqual(
+            census["carrying"], census["tracked"] + len(census["untracked"])
+        )
+        for record in census["untracked"]:
+            self.assertTrue((REPO_ROOT / record).is_file(), record)
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
