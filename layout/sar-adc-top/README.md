@@ -48,9 +48,14 @@ area budget is confirmed placeable and cost no die area at all** — both sites
 fall inside the unchanged 280.450 × 385.500 µm bounding box, measured against
 the pre-placement die's own back-end occupancy (met3 was 88 % free, met4 97 %).
 The residual DR-017 asked to be told about is now quantified rather than
-flagged: the ties add **13.8 Ω / 13.4 Ω of ESR per domain, ~80 % of it
-single-cut vias**. See "On-die decoupling (DR-017)" below for the measurement,
-the corridors, and what the ESR does and does not mean.
+flagged: as first drawn the ties added **13.8 Ω / 13.4 Ω of ESR per domain,
+~80 % of it single-cut vias** — and issue #465 has since measured that that
+resistance *raises* every die-side rail's excursion (worst rail 1.333×) rather
+than usefully damping the package resonance, and drawn 2 × 2 via arrays at all
+six via2/via3 sites in those ties, taking the ESR to **7.2 Ω / 6.9 Ω per
+domain** at an unchanged DRC/LVS/ERC verdict and an unchanged bounding box
+(`reports/20260926-184816-e1176e3/`). See "On-die decoupling (DR-017)" below for
+both measurements, the corridors, and what remains irreducible.
 
 **Update (2026-09-23): `layout/requirements.txt` now pins
 `klayout-tools==0.6.0`, and #103 is still not LVS-clean.** v0.6.0 is the
@@ -1112,42 +1117,90 @@ actually carries**, failing the flow if the model has drifted from the layout.
 (That check earns its keep: it rejected a first draft of the probe that used one
 rail y for both digital returns.)
 
-| tie | shared leg | near / far branch | tie total |
-|---|---|---|---|
-| `VDD` (analog supply) | 0.795 Ω | 3.842 / 5.064 Ω | **2.980 Ω** |
-| `GND` (analog return) | 8.601 Ω | 3.410 / 6.660 Ω | **10.857 Ω** |
-| `VPWR` (digital supply) | 1.641 Ω | 3.410 / 4.632 Ω | **3.605 Ω** |
-| `VGND` (digital return) | 7.700 Ω | 3.410 / 5.765 Ω | **9.843 Ω** |
+As drawn today, with every via2/via3 in the four ties a **2 × 2 array of four
+cuts** (issue #465, `DECAP_VIA_ARRAY`; `reports/20260926-184816-e1176e3/`):
 
-| domain | C | ESR | Q at the 1221.5 MHz DR-015 resonance | ESR = X_C at |
+| tie | shared leg | near / far branch | tie total | as single cuts (#440) |
 |---|---|---|---|---|
-| analog (`VDD`/`GND`) | 8.870 pF | **13.837 Ω** | 1.06 | 1.297 GHz |
-| digital (`VPWR`/`VGND`) | 8.870 pF | **13.448 Ω** | 1.09 | 1.334 GHz |
+| `VDD` (analog supply) | 0.795 Ω | 3.842 / 5.064 Ω | **2.980 Ω** | 2.980 Ω (unchanged) |
+| `GND` (analog return) | 3.486 Ω | 0.853 / 4.103 Ω | **4.192 Ω** | 10.857 Ω |
+| `VPWR` (digital supply) | 1.641 Ω | 3.410 / 4.632 Ω | **3.605 Ω** | 3.605 Ω (unchanged) |
+| `VGND` (digital return) | 2.585 Ω | 0.853 / 3.208 Ω | **3.258 Ω** | 9.843 Ω |
 
-**The dominant term is not the metal — it is single-cut vias.** Each return path
-has three 3.41 Ω cuts (the met4→met2 riser's two, plus the via2 into each plate)
-against each supply path's one, which is why the return ties are 3.6× and 2.7×
-their own domain's supply tie *despite* the 2.0 µm conductor. Of the analog
-return's 8.601 Ω shared leg, 6.82 Ω is those two riser cuts and only 1.781 Ω is
-28.5 µm of met2.
+| domain | C | ESR | Q at the 1221.5 MHz DR-015 resonance | ESR = X_C at | as single cuts (#440) |
+|---|---|---|---|---|---|
+| analog (`VDD`/`GND`) | 8.870 pF | **7.172 Ω** | 2.05 | 2.502 GHz | 13.837 Ω, Q 1.06 |
+| digital (`VPWR`/`VGND`) | 8.870 pF | **6.863 Ω** | 2.14 | 2.615 GHz | 13.448 Ω, Q 1.09 |
 
-**What that does and does not mean for DR-017.** The pair still behaves as a
-capacitor over the whole band the bounce lives in — ESR does not reach the pair's
-own reactance until ~1.3 GHz. But at the 1221.5 MHz resonance that 8.870 pF
-forms with DR-015's 1.914 nH per-terminal package inductance, Q ≈ 1.06: the ties
-are **comparable to** the reactance there, so the ideal-cap measurement DR-017
-reports is optimistic at the top of the band, by an amount this pass has not
-simulated. Two honest halves of that: a Q near 1 also *damps* the resonance,
-which works in the bounce's favour, and the sign of the net effect is a
-simulation question, not a layout one.
+**What these ties are made of is vias, not metal**, at `rcvia2`/`rcvia3` =
+3.41 Ω per cut against 0.047–0.125 Ω/sq on 2.0 µm conductor. Each *return* path
+crosses three of those levels (the met4→met2 riser's two, plus the via2 into each
+plate) against each *supply* path's one — which is why, when all six were single
+cuts, the return ties were 3.6× and 2.7× their own domain's supply tie *despite*
+the wide conductor, and 6.82 Ω of the analog return's then-8.601 Ω shared leg was
+two via cuts against 1.781 Ω of 28.5 µm of met2.
 
-**The fix, if it is wanted, is a via array, not a wider strap.** Widening 2.0 µm
-conductor buys almost nothing when ~80 % of a return tie is via cuts; replacing
-each single-cut riser and plate entry with a 2 × 2 array would cut the ESR ≈ 3×.
-That change **moves no device and alters no declared value**, so it needs no
-superseding decision record — but it does need a re-measurement to say what it
-buys, which is a `sim/supply-impedance-sensitivity/` run and therefore out of
-this pass's scope. Tracked as its own follow-up.
+### Why the arrays were drawn, and why only 1.95× (issue #465)
+
+Widening the straps was never the lever; #440 said so and left the arrays
+undrawn on purpose, because **the sign of the benefit was not obvious**. The pair
+behaves as a capacitor over the whole band the bounce lives in — ESR did not
+reach its own reactance until ~1.3 GHz even at 13.8 Ω — but at the 1221.5 MHz
+resonance that 8.870 pF forms with DR-015's 1.914 nH per-terminal package
+inductance, Q was ≈ 1.06. The ties were *comparable to* the reactance there, and
+a Q near 1 **damps** a resonance. Cutting the resistance raises Q as much as it
+lowers the impedance at resonance, so it could plausibly have made the peak
+excursion worse.
+
+That is a simulation question, and #465 measured it before drawing anything:
+`sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md` ran the
+as-built `package` topology at `tt_27c_1.80v` twice, moving only these four
+resistors — a `0x` rung that is the committed netlist card for card, and a `1x`
+rung at the measured resistance. **Adding the drawn resistance raises all four
+die-side rails**: `GND_DIE` 9.854 → 9.975 mV, `VGND_DIE` 11.326 → 12.658 mV,
+`VDD_DIE` 9.156 → 10.123 mV, `VPWR_DIE` 12.135 → **16.180 mV** peak-to-peak
+(1.333×), at a ±2 % reading band, with 0 LSB of mid-scale code change between
+the rungs. Verdict **amplifying**, unanimous across four rails in two domains:
+the damping reading lost.
+
+**1.95×, not the ≈3× #440 projected**, and the shortfall is itself the finding —
+the arrays divide only the cuts this composer draws. Three cuts in these paths
+stay single, each for its own reason:
+
+- **the two via4 landings off the met5 rails.** `rcvia4` is 0.38 Ω/cut, 9×
+  below `rcvia2`/`rcvia3`, so this level is 2.8 % of the digital return tie; and
+  `via4.space.1` is 0.80 µm at a 0.80 µm cut, so a 2 × 2 grid spans 2.40 µm in
+  both axes where the met5 rail it lands on is 1.6 µm wide — a second cut across
+  the rail cannot be enclosed by `m5.3` at all.
+- **each `klt gen cap_array` unit cell's own centre via3 into `capm`** — 3.41 Ω,
+  and now the largest single term in *both* supply ties (it is why `VDD`'s
+  2.980 Ω does not move at all). That cut is inside the generated cell;
+  `build_layout.py` does not draw it and cannot widen it. Lowering it is a
+  generator change.
+
+Past the vias, the **metal** half of each ladder stays: 1.781 Ω of met2 on the
+analog return, 1.222–2.355 µm-scale met4 runs on the digital ties. So the arrays
+could never have reached the `0x` rung, and what fraction of the measured 1.333×
+they actually recover is **bounded but not simulated** — #465's ladder has two
+rungs, not a third at the array value. That residual is recorded in DR-017's
+routing-parasitics open item rather than implied to be closed.
+
+**Geometry cost: none measurable.** The pitch is
+`cut + that cut layer's own minimum space` read out of the pinned deck
+(`_via_array_pitch_um()`), 0.40 µm for both via2 and via3, and each landing pad
+grows by 0.20 µm to keep the same enclosure. DRC stays clean (0 violations /
+52 rules), `klt erc` stays clean with all four supplies at one island each
+(`erc-reports/20260926-184830-e1176e3/`), LVS is field-identical (89 mismatches,
+871/871/804), and the composed bounding box is unchanged at
+280.450 × 385.500 µm.
+
+**A latent under-check this found.** `DECAP_SPACE_UM[VIA2]` had been 0.17 µm
+since #440, but the pinned deck's `via2.space.1` is **0.20 µm** (`threshold_dbu=200`,
+sky130A_mr.drc "via2.2") — identical to `via3.space.1`, not tighter. So
+`_check_decoupling_caps()` assertion 2 would have passed a 0.18 µm via2 gap the
+deck rejects. Found the direct way: the first array pitched from 0.17 produced 24
+`via2.space.1` violations. `VIA2_SPACE_UM` is corrected, and the assertion table
+now reads from it.
 
 ## Structural supply check (`klt erc`, T1 item 11)
 
@@ -1157,7 +1210,7 @@ this pass's scope. Tracked as its own follow-up.
 | Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
 | Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
 | Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
-| Current record | `erc-reports/20260926-081822-203cca3/` — `erc_status: clean`, 0 findings, grading `reports/20260926-081248-203cca3/sar_adc_top.gds` (the first ERC record in this chain graded on **different geometry** rather than re-minted prose) |
+| Current record | `erc-reports/20260926-184830-e1176e3/` — `erc_status: clean`, 0 findings, grading `reports/20260926-184816-e1176e3/sar_adc_top.gds` (issue #465's via arrays; the second ERC record in this chain graded on **different geometry** rather than re-minted prose) |
 
 | Record | Graded GDS | Supply continuity | Item 11 as graded |
 |---|---|---|---|
@@ -1168,8 +1221,9 @@ this pass's scope. Tracked as its own follow-up.
 | `20260925-011943-f981dc9` (issue #364, prose re-mint) | `reports/20260924-234053-66dca3c/` | **PASS** — same bytes, same report | `unmet` — same two reasons |
 | `20260925-044420-f039594` (issue #364, second prose re-mint) | `reports/20260924-234053-66dca3c/` | **PASS** — same bytes, same report | `unmet` — same two reasons |
 | `20260926-081822-203cca3` (issue #440, DR-017 decoupling placed) | `reports/20260926-081248-203cca3/` | **PASS** — all four supplies 1 island each, 0 findings, on a GDS that gained four capacitors and four new conductors onto already-declared supplies | `unmet` — same two reasons |
+| `20260926-184830-e1176e3` (issue #465, decoupling-tie via arrays) | `reports/20260926-184816-e1176e3/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings, on a GDS in which six via stacks on those supplies' own drawn paths went from one cut to four | `unmet` — same two reasons |
 
-**The gate has not moved across any of those seven runs, and that is checkable.**
+**The gate has not moved across any of those eight runs, and that is checkable.**
 `klt erc` grades `stackup`, `vias`, `nets[]` and `ties_disclosure.kind`; it
 ignores `_comment` keys and treats `ties_disclosure.reason` as a string to echo.
 Canonicalising exactly that graded subset and hashing it gives
@@ -1827,8 +1881,24 @@ compare.
       `MF = 2`** against a direct back-end occupancy measurement, and cost no
       die area — so no superseding record was needed. See "On-die decoupling
       (DR-017)" above, including the ESR the ties cost (DR-017's own open
-      residual, now quantified: 13.8 Ω / 13.4 Ω per domain, ~80 % of it
-      single-cut vias).
+      residual, quantified by that pass at 13.8 Ω / 13.4 Ω per domain, ~80 % of
+      it single-cut vias).
+- [x] **Cut that ESR with via arrays — on a measurement, not on the
+      projection (issue #465).** Whether lowering the ties' resistance helps was
+      genuinely ambiguous (Q ≈ 1.06 damping vs. sharpening the DR-015
+      resonance), so it was simulated first:
+      `sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md`
+      measured the drawn resistance *raising* all four die-side rails, worst rail
+      12.135 → 16.180 mV pp (1.333×) at `tt_27c_1.80v`. Every via2/via3 in the
+      four ties is now a 2 × 2 array of four cuts, taking the ESR to
+      **7.172 Ω / 6.863 Ω per domain** at DRC clean (0 / 52 rules), `klt erc`
+      clean (0 findings, four supplies at one island each), a field-identical
+      LVS verdict (89 mismatches, 871/871/804) and an unchanged bounding box
+      (`reports/20260926-184816-e1176e3/`,
+      `erc-reports/20260926-184830-e1176e3/`). **Still open, and not implied
+      closed**: the reduced value has not been re-simulated (that ladder has two
+      rungs, not a third at the array value), and the interconnect *inductance*
+      half of DR-017's item needs `klt pex` (klayout-tools#1878).
 - [x] Hand-route (`klt draw`) every net in the interconnect table above.
       `layout/sar-adc-top/bin/build_layout.py` documents the concrete
       floorplan/layer-alternation scheme that made this tractable (met1
