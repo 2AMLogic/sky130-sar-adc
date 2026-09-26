@@ -2686,6 +2686,37 @@ tracker already owns.
    the paragraph after Item 4's readout describes). Item 4's readout now
    carries both records separately, and `#440`'s body still quotes the old
    `DR-016-…` filename — read it as DR-017.
+
+   **Update this pass (2026-09-26): #103 was touched again since the last
+   re-verification, by a comment, not a label change.** `gh api
+   repos/2AMLogic/sky130-sar-adc/issues/103` now reports `updated_at:
+   2026-09-26T00:13:21Z`, later than the `2026-09-24T06:38:37Z` the
+   immediately preceding update (above) cited as the issue's most recent
+   activity — so that update's own claim "no automated re-check has flipped
+   it since" is what has gone stale, not the labels it described: re-read
+   live this pass, #103 still carries exactly `loom:operator-only`,
+   `loom:operator-decision`, `loom:curated` and `tier:goal-advancing`, and
+   is still `state: open`. The new activity is a comment
+   ("Operator-parked, premise possibly stale", posted 2026-09-26T00:13:19Z),
+   not a label edit: it restates that `klayout-tools#2396` and `#2398`
+   (this item's own 2026-09-24 update, above) are closed upstream, and
+   flags — correctly — that closing the upstream issues is not the same as
+   confirming the 88-mismatch LVS gap has actually cleared, since no
+   toolchain re-run against either fix has been performed; it asks for a
+   Builder or operator to re-run `klt lvs` once a `klayout-tools` release
+   ships them. That request is not yet actionable, for the same release-gate
+   reason this item has tracked since 2026-09-16: re-verified live this pass,
+   `klayout-tools`'s latest published tag/PyPI release is still `v0.6.0`
+   (`gh api repos/2AMLogic/klayout-tools/tags` and the PyPI JSON API, both
+   checked this pass), and none of the three fixes behind it are ancestors of
+   that tag — `gh api repos/2AMLogic/klayout-tools/compare/v0.6.0...a34fd79`
+   (`#2396`'s fix) reports `ahead_by: 51`, the same compare against `c01c50c`
+   (`#2398`'s fix) reports `ahead_by: 54`, and against `2808823` (`#2397`'s
+   fix) reports `ahead_by: 43` — unchanged from this item's 2026-09-24 and
+   2026-09-25 updates above. **No §4 verdict moves, and #103's own state is
+   unchanged**: still open, still `loom:operator-only`/`loom:operator-decision`
+   — a human ruling this document records rather than acts on, per this
+   issue's own established convention.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
@@ -4124,6 +4155,28 @@ tracker already owns.
      `spec/target-spec.md` row, and the null it reports is *bounded* to
      `3–300 Ω` at one corner on an undecoupled die.
 
+     **That ladder also carries a reading rule this whole item is now bound
+     by, and it is not about the ladder.** DR-015's Consequences gained a
+     second item from the same record: the four committed records of this
+     campaign happen to span two hosts, and comparing the decks they share
+     shows that while a given deck is **bit-identical within** a host, *across*
+     hosts the averaged supply currents agree to `~0.1 %` and a peak-to-peak
+     does **not** — `0.69 %` on the bonded `package` ground, `3.2 %` on the
+     unbonded one — because a `pp` is read off whichever timesteps an adaptive
+     solver happened to place (`sim/supply-impedance-sensitivity/README.md`,
+     "Reproducing a deck across hosts"). So **a `pp` may only be subtracted
+     inside one record**, and a cross-record `pp` gap of a few percent states
+     nothing at all. Every excursion subtraction this item makes already obeys
+     that, which is worth showing rather than asserting: the `+27.6 mV`
+     ground-pad ablation is two arms of one record, the
+     `0.059`/`37.590`/`99.749`/`111.622 mV` column is the sweep record's own,
+     and the `37.274`/`10.779 mV` attributions are the four-arm record's own.
+     It is stated here so that a future pass reaching for the *obvious*
+     comparison — the ladder's `67.307 mV` anchor rung against the four-arm
+     record's `65.237 mV` `no-gnd-pad` arm, two records that are card-for-card
+     the same network — does not read that `2.070 mV` as a measurement. It is
+     within the cross-host `3.2 %` this rule exists for.
+
      **Why nothing already in the gate could have caught that either — the
      same blind spot, a third axis over.** A ladder record is the *union* of
      what checks 31 and 32 each miss: it never becomes
@@ -4178,8 +4231,9 @@ tracker already owns.
      spec change, which this document does not make.
 
      **The word every excursion figure above is qualified by now has an owner
-     (added 2026-09-26).** `0.059`, `10.779`, `37.274`, `37.333`, `37.590`,
-     `65.237`, `99.749` and `111.622 mV` are each an **undecoupled** upper
+     (added 2026-09-26; its enumeration corrected the same day).** `0.059`,
+     `10.779`, `37.274`, `37.333`, `37.590`, `65.237`, `67.307`, `72.130`,
+     `99.749`, `111.622` and `137.093 mV` are each an **undecoupled** upper
      bound, and that is not this document's gloss on them —
      [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s own
      Consequences attach the qualifier to its `65.237 mV` figure and defer for
@@ -4194,7 +4248,22 @@ tracker already owns.
      needed, and for this campaign to be re-run with the result in the
      netlist. Placement of whatever it decides is split out as #440, whose own
      tracking state §7 Item 1 above carries; this paragraph does not keep a
-     second copy of either issue's labels.
+     second copy of either issue's labels. **That list stood at eight figures
+     across two merges, and is the one thing in this item still maintained by
+     hand.** It was written (PR #446) against a tree that did not yet carry the
+     substrate-return ladder, four minutes before that ladder merged with three
+     more undecoupled excursions in it (`67.307`, `72.130`, `137.093 mV`); the
+     pass that then narrated the ladder in the paragraphs above (PR #447) added
+     check 34 for the *axis* and left the list itself untouched, so for one
+     more merge it under-counted figures printed three paragraphs above it.
+     Check 34 catches the event that stales it — a ladder arriving — but not
+     the staleness itself, and no check here reads this list. **#450** is where
+     that gap is tracked, per this section's rule that an open item points at
+     the issue that owns the work; two measured parse hazards are recorded
+     there (this document writes chains in which only the last figure carries
+     its `mV` unit, and §7's other items state unrelated `mV` figures at the
+     same precision), because a gate that fired on legitimate prose would be
+     worse than this note.
 
      **What #431 does not give this item is a number, and the distinction
      matters because its own title carries one.** #431 is headlined
@@ -4208,10 +4277,22 @@ tracker already owns.
      (not in this tree), an isolated bond-wire `2.01 nH`/`0.099 Ω` per supply
      terminal — than the `1.914 nH` package total DR-015 ratifies here. #431
      says so itself and tells a Builder to re-verify against `main` rather
-     than quote it. The comparable committed number under this repo's own
-     ratified model is the `37.590 mV` the `package` arm measures at
-     `tt_27c_1.80v`, and `111.622 mV` as the worst point of the bounded box —
-     both already above, both already cited by record.
+     than quote it. The comparable committed numbers under this repo's own
+     ratified model are the `37.590 mV` the `package` arm measures at
+     `tt_27c_1.80v`, `111.622 mV` as the worst point of the bounded box, and —
+     since 2026-09-26 — `137.093 mV` as the worst rung of the substrate-return
+     ladder; all three above, all three cited by record. **That third figure
+     changes the shape of this comparison rather than settling it, and this
+     paragraph carried only the first two for one merge after the ladder
+     landed.** `137.093 mV` is the same order as #431's headline band and sits
+     just below its low end, which is worth saying plainly instead of leaving
+     the older pair to imply this tree has nothing near it. It is still **not**
+     a confirmation of #431's number, for three reasons kept distinct here: it
+     belongs to DR-012's *rejected* topology (no analog-ground bond at all)
+     rather than the as-built one; it sits at the `300 Ω` end of a lumped
+     stand-in's two-decade ladder rather than at any assumed value; and it is
+     one corner, not the ratified grid #431 quotes over. A reader wanting the
+     as-built figure at DR-015's assumption point still reads `37.590 mV`.
 
      **The census caught its own first move, one pass later (2026-09-26).**
      When this item was written, three records carried the gap and none named a

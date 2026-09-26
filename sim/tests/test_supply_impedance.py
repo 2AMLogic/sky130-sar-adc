@@ -1735,6 +1735,41 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         self.assertIsNone(gate.ARM_RECORD_RE.search(text))
         self.assertIn("- **Ladder**:", text)
 
+    def test_the_citation_gates_ladder_census_does_see_this_record(self) -> None:
+        """The POSITIVE half of the guard above -- the one check 34 needs.
+
+        The two negatives above are what keep checks 31 and 32 from
+        miscounting a ladder record, and that deliberate invisibility is
+        precisely why check 34 exists: a ladder record is the union of every
+        other check's blind spot, so its own `- **Ladder**:` header is the ONLY
+        thing that tells the gate one has arrived. Asserting the negatives
+        without the positive leaves the worst outcome reachable -- a writer
+        that reworded that header would keep passing the three assertions above
+        while silently making check 34 blind to the very event it grades, which
+        is the state the gate was in for the four minutes between PR #445 and
+        PR #446.
+
+        So the gate's own regex is run against what this writer actually emits,
+        rather than against a fixture in the gate's test file -- the same
+        cross-file guard `TestSweepRecord` already carries for check 32.
+
+        The RUNG COUNT is asserted too, not merely the match. The header states
+        both the rungs and the transient total (`rungs + 1`, the `ideal`
+        control), and a gate that read the total would overstate the ladder's
+        coverage by exactly one on every record.
+        """
+        sys.path.insert(0, str(REPO_ROOT / "docs" / "chipalooza"))
+        import check_proposal_citations as gate  # noqa: PLC0415
+
+        path, _tmp = self._write()
+        ladder = gate.NULL_SWEEP_RECORD_RE.search(path.read_text())
+        self.assertIsNotNone(
+            ladder,
+            "the citation gate cannot identify this record as a ladder record -- "
+            "check 34 would not fire on the day the ladder is walked or widened",
+        )
+        self.assertEqual(int(ladder.group("rungs")), len(si.NULL_SWEEP_RSUBX_OHM))
+
 
 class TestCostProbe(unittest.TestCase):
     """`--cost-probe` (the price of the sweep box, before it is paid).
