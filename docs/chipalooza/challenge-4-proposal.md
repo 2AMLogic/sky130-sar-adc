@@ -4065,9 +4065,71 @@ tracker already owns.
      items" moved with it — its "No `R`/`L` sweep" entry is struck through
      and marked **CLOSED at a stated scope**, naming the box that closed it
      and, just as explicitly, what a *bounded* null does not license outside
-     that box. The other three items #409 tracks (the ratified PVT grid, the
-     `no-gnd-pad` record, an extracted substrate network) are untouched by
-     this record and stay open.
+     that box. The other three items #409 tracks are untouched **by this
+     record**, which is not the same as still open, and this clause said the
+     second of those things until 2026-09-26: the `no-gnd-pad` record (#409
+     item 2) was paid for separately and is ticked on the issue — the
+     paragraph three above states its numbers — so listing it here as open
+     contradicted this document's own text. What does stay open is item 1
+     (the ratified nine-point PVT grid) and item 4 (an extracted substrate
+     network), for the reasons each states.
+
+     **A third axis of the same campaign has since been walked, and it is a
+     different experiment from the box above rather than a re-run of it
+     (2026-09-26).** The 2-D box moved the lumped substrate resistor on the
+     as-built `package` topology, where `GND` has a bond of its own and that
+     resistor is a secondary shunt next to it — which is why the box's own
+     record said an `R_SUB` *return* sweep was still owed, and why DR-015's
+     claim that its `no-gnd-pad` arm is "*entirely* a function of `R_SUB`"
+     was still prose. PR #445 (the residual of #409's third item) is the
+     ladder that settles it:
+     [`20260926-000929-ce12f9b`](../../sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md)
+     re-runs DR-012's **rejected** `no-gnd-pad` topology at `3`/`30`/`300 Ω`
+     of lumped substrate return — the same constant over the same decade, but
+     where, with no analog-ground bond at all, that one resistor carries the
+     *entire* return current — with all three bonded terminals held at
+     DR-015's R+L, plus the `ideal` control, at `tt_27c_1.80v`. Its `30 Ω`
+     rung is card-for-card the committed `no-gnd-pad` arm, asserted in code
+     before the run and again at record-write time. What it found: **0 LSB**
+     of mid-scale captured-code movement at every rung, while the die-side
+     analog-ground excursion goes `72.130` → `67.307` → `137.093 mV`
+     peak-to-peak — **non-monotone**, so `3 Ω` is *worse* than the assumed
+     `30 Ω`, not better, and a 100× change in the stand-in moves the
+     excursion by only `1.90×`. That measurement **falsifies half** of the
+     DR-015 prose it was run to test: the dependence is real, but "with a
+     small `R_SUB` it looks harmless" is not what the ladder measures.
+     DR-015's "Open items" carries the retirement in its own words, struck
+     through and marked **CLOSED at a stated scope**. **No §4 row, verdict,
+     Target or Status moves on it**, for the same reason as the box above: a
+     sensitivity ladder around a stated assumption grades no
+     `spec/target-spec.md` row, and the null it reports is *bounded* to
+     `3–300 Ω` at one corner on an undecoupled die.
+
+     **Why nothing already in the gate could have caught that either — the
+     same blind spot, a third axis over.** A ladder record is the *union* of
+     what checks 31 and 32 each miss: it never becomes
+     `sim/supply-impedance-sensitivity/records/LATEST` (it supersedes
+     nothing, so checks 3, 4, 6 and 23 see no pointer move), it runs at one
+     corner (check 28 does not move), it carries no `- **Arms**:` line (check
+     31 does not see it) and no `- **Grid**:` line (check 32 does not see it
+     either). Check 34 of the [citation gate](check_proposal_citations.py)
+     grades it, re-derived from the runner's own ladder constant and from any
+     ladder record's own `- **Ladder**:` header, in both directions:
+
+     > of the **3** substrate-return magnitudes the default `--null-sweep`
+     > ladder in
+     > `sim/supply-impedance-sensitivity/run_supply_impedance.py` defines on
+     > DR-012's rejected `no-gnd-pad` topology, the records under
+     > `sim/supply-impedance-sensitivity/records/` carry **3**, in **1**
+     > ladder record: `20260926-000929-ce12f9b`
+
+     Read that census the way checks 31 and 32 already read themselves: it
+     is a statement about *this runner's default ladder*, not about the
+     magnitudes a real substrate takes. Widening the runner's ladder without
+     walking it drives the census back below full, which is the point — and
+     the rung count going to full does **not** retire #409's item 4, because
+     every rung of it is still the same single lumped stand-in with no
+     `klt extract` behind it.
 
      This retirement is **not** what turns check 25's own ground-return
      census (below) non-zero, and that is itself worth stating rather than
@@ -4140,7 +4202,7 @@ tracker already owns.
      stale the moment a record strikes the item or names its tracker, and no
      check here could see that — checks 3, 4, 22 and 23 grade evidence
      citations, check 15 grades a decision record's *Status* line and nothing
-     else, and checks 31 and 32 grade one campaign's own axes. **Check 33** of
+     else, and checks 31, 32 and 34 grade one campaign's own axes. **Check 33** of
      the [citation gate](check_proposal_citations.py) re-derives it from the
      records themselves, counting only *unstruck* bullets whose own bold lead
      names the gap (so DR-012's rejected-null-option item, which merely quotes

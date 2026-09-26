@@ -61,12 +61,12 @@ provenance census of every `sim/` and `layout/` record (the sentence check 26
 compares against), each document's live Section 4 corner-grid census (the
 sentence check 28 compares against), the live record-renderer census of
 every `layout/` record tree (the sentence check 30 compares against) and the
-live supply-return arm and `--sweep`-box censuses of
-`sim/supply-impedance-sensitivity/` (the sentences checks 31 and 32 compare
-against) and the live on-die-decoupling ownership census of
+live supply-return arm, `--sweep`-box and `--null-sweep`-ladder censuses of
+`sim/supply-impedance-sensitivity/` (the sentences checks 31, 32 and 34
+compare against) and the live on-die-decoupling ownership census of
 `spec/decision-records/` (the sentence check 33 compares against) instead of
 checking, which is what to run when check 6, 9, 12, 13,
-14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31, 32 or 33 reports a
+14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31, 32, 33 or 34 reports a
 drift.
 Exit status:
 
@@ -1361,6 +1361,84 @@ DECOUPLING_CENSUS_RE = re.compile(
 
 # One record inside that sentence's exception clause.
 DECOUPLING_RECORD_RE = re.compile(r"`(?P<record>spec/decision-records/[A-Za-z0-9._-]+)`")
+
+# ---------------------------------------------------------------------------
+# Check 34: the SAME campaign's THIRD axis -- the `--null-sweep` ladder.
+#
+# Checks 31 and 32 grade two axes of `run_supply_impedance.py`: which supply-
+# return ARMS a record ran, and how much of the bounded 2-D `--sweep` box any
+# record has walked. `--null-sweep` (PR #445, the residual of issue #409's
+# third item) is a third, and it is invisible to both plus to everything else
+# here, for the union of their reasons:
+#
+#   - it never moves `records/LATEST` -- it supersedes nothing, so the
+#     arm-comparison record stays the one DR-012 and Section 4's Power row
+#     cite (checks 3/4/6/23 grade pointers and stamps, and see nothing);
+#   - it runs at one corner, so check 28's PVT-grid census does not move;
+#   - it carries no `- **Arms**:` line, so check 31 does not see it;
+#   - it carries no `- **Grid**:` line either, so check 32 does not see it.
+#
+# And it is a DIFFERENT experiment from the 2-D box rather than a re-run of
+# it: that box moved the lumped substrate resistor on the as-built `package`
+# topology, where `GND` is bonded and the resistor is a secondary shunt; this
+# ladder moves the same constant over the same decade on DR-012's REJECTED
+# `no-gnd-pad` topology, where -- with no analog-ground bond at all -- that
+# one resistor carries the entire return current. Section 7's DR-012 item
+# bounds what the campaign may be read for on which magnitudes have been
+# walked and on WHICH topology, so a ladder arriving (or a rung being added to
+# the runner's default) leaves those sentences false with every number beside
+# them still true. Check 30's defect shape, a third axis over.
+NULL_SWEEP_RUNNER = ARM_RUNNER
+NULL_SWEEP_RECORDS = SWEEP_RECORDS
+
+# The runner's own ladder tuple, read as source text rather than imported (the
+# pure-file-reader rule `runner_arms` and `sweep_box` both record). A tuple
+# literal only: a computed ladder is a shape this parse does not recognise,
+# which check 34 reports as a silence rather than as a ladder of zero rungs.
+# The `^` anchor is what keeps this from also matching `SWEEP_RSUBX_OHM`, and
+# vice versa -- the two constants share a suffix and a file.
+NULL_SWEEP_AXIS_RE = re.compile(
+    r"^NULL_SWEEP_RSUBX_OHM\b[^=\n]*=\s*\((?P<values>[^)]*)\)", re.M
+)
+
+# The header line the null sweep's own record writer emits -- and the only
+# thing that distinguishes a ladder record from the other two record shapes in
+# the same `records/` tree (`- **Arms**:` for an arm comparison, `- **Grid**:`
+# for a 2-D sweep). The rung count is read from the record's own leading
+# number rather than from the `=` total beside it, because that total counts
+# the `ideal` control as well and the control is not a swept magnitude.
+NULL_SWEEP_RECORD_RE = re.compile(
+    r"- \*\*Ladder\*\*: (?P<rungs>\d+) substrate-return resistances plus the "
+)
+
+# What the census renders while the ladder has never been walked -- spelled
+# out, `SWEEP_CENSUS_NONE`'s reason. The em dash is the document's own.
+NULL_SWEEP_CENSUS_NONE = "**none** — the mode is committed and the ladder is unwalked"
+
+# The census sentence check 34 grades. Like `ARM_CENSUS_RE` and
+# `SWEEP_CENSUS_RE`, deliberately free of the phrase "current `records/LATEST`"
+# (check 17's reason) -- and, as for check 32, doubly so: a ladder record by
+# design never becomes that pointer. The topology is named in the sentence
+# because it is the half that distinguishes this axis from check 32's, and a
+# census that stated only the magnitudes would read as a duplicate of it.
+NULL_SWEEP_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<rungs>\d+)\*\* substrate-return magnitudes the default "
+    r"`--null-sweep` ladder in `"
+    + re.escape(NULL_SWEEP_RUNNER)
+    + r"` defines on DR-012's rejected `no-gnd-pad` topology, the records "
+    r"under `"
+    + re.escape(NULL_SWEEP_RECORDS)
+    + r"/` carry \*\*(?P<covered>\d+)\*\*, in \*\*(?P<records>\d+)\*\* ladder "
+    r"records?: (?P<names>"
+    + re.escape(NULL_SWEEP_CENSUS_NONE)
+    + r"|(?:`[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# Same anchor as checks 31 and 32, for the same reason: a document that cites
+# this campaign is citing records that walked one topology's magnitudes, and
+# what bounds them is the topology none of them moved. Deleting the sentence
+# must not widen the citation.
+NULL_SWEEP_CENSUS_ANCHOR = ARM_CENSUS_ANCHOR
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -5234,6 +5312,139 @@ def check_decoupling_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def null_sweep_ladder() -> int | None:
+    """How many substrate-return magnitudes the runner's default ladder walks.
+
+    Source-text read, `sweep_box`'s reason. `None` covers "no runner" and "the
+    ladder is not a tuple literal this parse recognises" -- both are nothing to
+    compare against, which check 34 reports as an ungraded silence rather than
+    as a ladder of zero rungs.
+    """
+    runner = REPO_ROOT / NULL_SWEEP_RUNNER
+    if not runner.is_file():
+        return None
+    match = NULL_SWEEP_AXIS_RE.search(runner.read_text())
+    if match is None:
+        return None
+    values = SWEEP_VALUE_RE.findall(match.group("values"))
+    return len(values) or None
+
+
+def null_sweep_records() -> list[tuple[str, int]]:
+    """Every committed ladder record of this campaign: (stamp, rungs walked).
+
+    A record is a *ladder* record when it carries the `- **Ladder**:` header
+    line only the null sweep's own writer emits; the arm-comparison record in
+    the same tree carries `- **Arms**:` and the 2-D sweep record carries
+    `- **Grid**:`, and neither is counted here. Sorted by stamp, which is the
+    chronological order these ids already impose.
+    """
+    records = REPO_ROOT / NULL_SWEEP_RECORDS
+    if not records.is_dir():
+        return []
+    found = []
+    for record in sorted(records.glob("*.md")):
+        ladder = NULL_SWEEP_RECORD_RE.search(record.read_text())
+        if ladder is not None:
+            found.append((record.stem, int(ladder.group("rungs"))))
+    return found
+
+
+def null_sweep_census() -> dict | None:
+    """How much of the runner's own default ladder this tree has walked.
+
+    `covered` is the LONGEST ladder any single committed record carries, not a
+    sum -- `sweep_census`'s reason: two records of the same ladder are two runs
+    of one experiment, and adding them would report a coverage no record
+    supports.
+    """
+    rungs = null_sweep_ladder()
+    if rungs is None:
+        return None
+    found = null_sweep_records()
+    return {
+        "rungs": rungs,
+        "covered": max((walked for _, walked in found), default=0),
+        "records": len(found),
+        "record_ids": [stamp for stamp, _ in found],
+    }
+
+
+def null_sweep_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `NULL_SWEEP_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-34 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26, 28 and 30--33.
+    """
+    names = (
+        NULL_SWEEP_CENSUS_NONE
+        if not census["record_ids"]
+        else ", ".join(f"`{stamp}`" for stamp in census["record_ids"])
+    )
+    plural = "" if census["records"] == 1 else "s"
+    return (
+        f"of the **{census['rungs']}** substrate-return magnitudes the default "
+        f"`--null-sweep` ladder in `{NULL_SWEEP_RUNNER}` defines on DR-012's "
+        f"rejected `no-gnd-pad` topology, the records under "
+        f"`{NULL_SWEEP_RECORDS}/` carry **{census['covered']}**, in "
+        f"**{census['records']}** ladder record{plural}: {names}"
+    )
+
+
+def check_null_sweep_census(doc: Path, text: str) -> list[str]:
+    """Check 34: the stated `--null-sweep` ladder census is this tree's own."""
+    if NULL_SWEEP_CENSUS_ANCHOR not in text:
+        # A document that does not cite this campaign qualifies nothing about
+        # the topology its records did not move, and is not made to.
+        return []
+    actual = null_sweep_census()
+    if actual is None:
+        # No runner, or a ladder this parse does not recognise: there is
+        # nothing to compare a census against, and inventing one would be a
+        # claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(NULL_SWEEP_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose 2-D sweep moves "
+            f"the lumped substrate resistor only where `GND` is bonded and it "
+            f"is a secondary shunt, while `{NULL_SWEEP_RUNNER}` defines a "
+            f"ladder that moves it on DR-012's rejected topology where it "
+            f"carries the whole return -- but states no ladder census. State "
+            f"it (`{null_sweep_sentence(actual)}` today), so the topology the "
+            f"cited records cannot speak for is graded rather than asserted "
+            f"and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("rungs", "covered", "records"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the ladder census says {field}={claimed}, but "
+                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"the ladder has now been walked, say what its record measures "
+                f"rather than only moving the number"
+            )
+        listed = ARM_TOKEN_RE.findall(match.group("names"))
+        if listed != actual["record_ids"]:
+            misses.append(
+                f"{where}: the ladder census names "
+                f"{', '.join(f'`{stamp}`' for stamp in listed) or 'no record'} "
+                f"as carrying the ladder, but `sim/{ARM_CAMPAIGN}/records/` "
+                f"holds "
+                f"{', '.join(f'`{stamp}`' for stamp in actual['record_ids']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"record misstates which topology has been swept"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -5269,6 +5480,7 @@ def check_document(doc: Path) -> list[str]:
         + check_arm_census(doc, text)
         + check_sweep_census(doc, text)
         + check_decoupling_census(doc, text)
+        + check_null_sweep_census(doc, text)
     )
 
 
@@ -5485,6 +5697,16 @@ def main(argv: list[str]) -> int:
         sweep = sweep_census()
         if sweep is not None:
             print(f"sim/{ARM_CAMPAIGN}/: {sweep_sentence(sweep)}")
+        # And the third axis of that same campaign, which check 34 grades: the
+        # same lumped substrate constant swept over the same decade, but on
+        # DR-012's REJECTED `no-gnd-pad` topology, where it carries the whole
+        # analog-ground return instead of shunting a bond. A ladder record is
+        # invisible to checks 3/4/6/23 (it never becomes `records/LATEST`), to
+        # check 28 (one corner), to check 31 (no `- **Arms**:` line) and to
+        # check 32 (no `- **Grid**:` line) -- the union of their blind spots.
+        null_sweep = null_sweep_census()
+        if null_sweep is not None:
+            print(f"sim/{ARM_CAMPAIGN}/: {null_sweep_sentence(null_sweep)}")
         # And the gap those excursion figures are an upper bound *because* of,
         # which check 33 grades: not a property of any record under `sim/` or
         # `layout/` but of the decision records that carry the open item, and

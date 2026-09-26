@@ -113,6 +113,7 @@ class FixtureTree:
         arms: tuple[str, ...] | None = None,
         arm_count: int | None = None,
         sweep_points: int | None = None,
+        ladder_rungs: int | None = None,
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
@@ -154,6 +155,19 @@ class FixtureTree:
                 f"substrate-link resistances = {sweep_points} swept points, "
                 f"plus the `ideal` control, at 1 corner point(s) = "
                 f"{sweep_points + 1} whole-ADC transients.\n"
+            )
+        if ladder_rungs is not None:
+            # The `- **Ladder**:` header line check 34 identifies a NULL-SWEEP
+            # record by, in the shape `write_null_sweep_record()` emits it --
+            # the third and last record shape this one `records/` tree holds.
+            # The `=` total is deliberately NOT `ladder_rungs`: the real
+            # renderer counts the `ideal` control in it, and the check must
+            # read the leading rung count rather than that total, because the
+            # control is not a swept magnitude.
+            body += (
+                f"\n- **Ladder**: {ladder_rungs} substrate-return resistances "
+                f"plus the `ideal` control, at 1 corner point(s) = "
+                f"{ladder_rungs + 1} whole-ADC transients.\n"
             )
         if kickback is not None:
             # The `Measured value(s)` table check 21 re-derives the Kickback
@@ -347,6 +361,35 @@ class FixtureTree:
             )
         existing = runner.read_text() if runner.is_file() else '"""fixture runner."""\n'
         runner.write_text(existing + "\n" + axes)
+
+    def add_null_sweep_axis(
+        self,
+        rsubx: tuple[float, ...] = (3.0, 30.0, 300.0),
+        *,
+        axis: str | None = None,
+    ):
+        """The runner's own `--null-sweep` ladder constant, for check 34.
+
+        Appended for `add_sweep_axes`' reason -- the real file carries the
+        `ARMS` table, the 2-D box's two tuples AND this one, and a fixture
+        that could only hold one of them would let three source-text parses
+        pass tests they never share a file in. That matters more here than
+        anywhere else in this tree: `SWEEP_RSUBX_OHM` and
+        `NULL_SWEEP_RSUBX_OHM` share a suffix, so only a fixture carrying both
+        can show that neither regex captures the other's tuple. `axis`
+        overrides the block, for the "shape this parse does not recognise"
+        case (a computed ladder).
+        """
+        runner = self.root / checker.NULL_SWEEP_RUNNER
+        runner.parent.mkdir(parents=True, exist_ok=True)
+        if axis is None:
+            axis = (
+                "NULL_SWEEP_RSUBX_OHM: tuple[float, ...] = ("
+                + ", ".join(f"{r:g}" for r in rsubx)
+                + ")\n"
+            )
+        existing = runner.read_text() if runner.is_file() else '"""fixture runner."""\n'
+        runner.write_text(existing + "\n" + axis)
 
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
@@ -5877,6 +5920,203 @@ class TestSweepCensus(unittest.TestCase):
         self.assertTrue((REPO_ROOT / checker.SWEEP_RECORDS).is_dir())
         self.assertTrue(list((REPO_ROOT / checker.SWEEP_RECORDS).glob("*.md")))
         self.assertEqual(census["records"], len(census["record_ids"]))
+
+
+class TestNullSweepCensus(unittest.TestCase):
+    """Check 34: the stated `--null-sweep` ladder census is this tree's own.
+
+    The THIRD axis of one campaign. Check 31 grades which arms a record ran,
+    check 32 how much of the bounded 2-D box any record walked; this grades a
+    ladder that moves the same lumped substrate constant over the same decade
+    on a DIFFERENT topology -- DR-012's rejected `no-gnd-pad` arm, where that
+    resistor carries the whole analog-ground return instead of shunting a
+    bond. A ladder record is the union of the other two checks' blind spots:
+    it never becomes `records/LATEST` (checks 3/4/6/23), runs at one corner
+    (check 28), carries no `- **Arms**:` line (check 31) and no `- **Grid**:`
+    line (check 32).
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_null_sweep_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.NULL_SWEEP_RECORDS}/LATEST).\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, rungs, covered, records, record_ids=()) -> str:
+        return checker.null_sweep_sentence(
+            {
+                "rungs": rungs,
+                "covered": covered,
+                "records": records,
+                "record_ids": list(record_ids),
+            }
+        )
+
+    def campaign(self, **kwargs):
+        """Today's real shape: a 3-rung ladder defined, an arm record, no ladder."""
+        self.tree.add_null_sweep_axis(**kwargs)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package-r-only", "package", "substrate"),
+        )
+
+    def test_a_truthful_unwalked_census_passes(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(self.sentence(3, 0, 0))), [])
+
+    def test_a_ladder_record_falsifies_the_unwalked_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        misses = self.check(self.body(self.sentence(3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("covered=0" in miss and "covered=3" in miss for miss in misses))
+        self.assertTrue(any("records=0" in miss and "records=1" in miss for miss in misses))
+        self.assertTrue(any("20260926-101010-abcdef0" in miss for miss in misses))
+
+    def test_a_truthful_walked_census_passes(self):
+        """The case PR #445 creates: the ladder finally walked."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        self.assertEqual(
+            self.check(self.body(self.sentence(3, 3, 1, ("20260926-101010-abcdef0",)))),
+            [],
+        )
+
+    def test_a_longer_ladder_in_the_runner_widens_the_census(self):
+        """The other direction: a rung added to the runner and nothing re-run."""
+        self.campaign(rsubx=(1.0, 3.0, 30.0, 300.0))
+        misses = self.check(self.body(self.sentence(3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("rungs=3" in miss and "rungs=4" in miss for miss in misses))
+
+    def test_a_drifted_record_list_is_reported_even_when_the_counts_agree(self):
+        """Right totals, wrong record -- what a count-only census absorbs."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        misses = self.check(self.body(self.sentence(3, 3, 1, ("20260101-000000-0000000",))))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("20260101-000000-0000000", misses[0])
+        self.assertIn("20260926-101010-abcdef0", misses[0])
+
+    def test_covered_is_the_longest_ladder_not_the_sum(self):
+        """Two records of the same ladder are two runs of one experiment."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260927-101010-abcdef1", ladder_rungs=2)
+        census = checker.null_sweep_census()
+        self.assertEqual(census["covered"], 3)
+        self.assertEqual(census["records"], 2)
+        self.assertEqual(
+            census["record_ids"], ["20260926-101010-abcdef0", "20260927-101010-abcdef1"]
+        )
+
+    def test_neither_of_the_other_two_record_shapes_is_a_ladder_record(self):
+        """Three writers share one `records/` tree; each emits its own header."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        census = checker.null_sweep_census()
+        self.assertEqual(census["records"], 0)
+        self.assertEqual(census["covered"], 0)
+
+    def test_the_rungs_are_read_from_the_leading_count_not_the_transient_total(self):
+        """The `=` total counts the `ideal` control, which is not a magnitude."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=2)
+        self.assertEqual(checker.null_sweep_census()["covered"], 2)
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        """Deleting the sentence must not widen what the citation may claim."""
+        self.campaign()
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no ladder census", misses[0])
+        self.assertIn("the ladder is unwalked", misses[0])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_a_runner_whose_ladder_is_computed_grades_nothing(self):
+        """No tree-side number to compare against is a silence, not a zero."""
+        self.tree.add_null_sweep_axis(axis="NULL_SWEEP_RSUBX_OHM = decade_around(30)\n")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=("ideal",)
+        )
+        self.assertIsNone(checker.null_sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_check_is_inert_without_the_runner_at_all(self):
+        self.assertIsNone(checker.null_sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_two_rsubx_constants_do_not_capture_each_other(self):
+        """`SWEEP_RSUBX_OHM` and `NULL_SWEEP_RSUBX_OHM` share a suffix.
+
+        Only a fixture carrying BOTH can show that neither source-text parse
+        reads the other's tuple -- and it is the exact confusion that would
+        make checks 32 and 34 silently census one axis twice.
+        """
+        self.tree.add_sweep_axes(l_mults=(0.0, 1.0, 10.0), rsubx=(3.0, 30.0, 300.0))
+        self.tree.add_null_sweep_axis(rsubx=(1.0, 3.0, 30.0, 300.0, 3000.0))
+        self.assertEqual(checker.null_sweep_ladder(), 5)
+        box = checker.sweep_box()
+        self.assertEqual(box, (3, 3))
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.campaign()
+        self.assertEqual(
+            self.check(self.body(checker.null_sweep_sentence(checker.null_sweep_census()))), []
+        )
+
+    def test_the_stats_sentence_singularises_one_record(self):
+        """`1 ladder records` would be the paste a reader has to hand-fix."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        sentence = checker.null_sweep_sentence(checker.null_sweep_census())
+        self.assertIn("in **1** ladder record:", sentence)
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_null_sweep_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_parses_the_real_runner_and_record(self):
+        """Not vacuous: both halves must resolve against the live tree.
+
+        A parse that silently resolved nothing would make the check pass by
+        censusing an empty ladder -- the vacuity trap checks 4, 6 and 30--32
+        each needed a guard for. The live record tree is asserted too: the
+        campaign's arm and sweep records must NOT be counted as ladder
+        records, which is the half a record-less tree could not exercise.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        census = checker.null_sweep_census()
+        self.assertIsNotNone(census)
+        self.assertGreaterEqual(census["rungs"], 2)
+        self.assertEqual(census["records"], len(census["record_ids"]))
+        records = REPO_ROOT / checker.NULL_SWEEP_RECORDS
+        self.assertTrue(records.is_dir())
+        # More `.md` records exist in that tree than are ladder records: the
+        # three shapes share it, and counting them all would be the vacuity.
+        self.assertLess(census["records"], len(list(records.glob("*.md"))))
 
 
 class TestDecouplingCensus(unittest.TestCase):
