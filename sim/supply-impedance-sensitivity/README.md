@@ -1041,9 +1041,14 @@ that never finished. They are cited from DR-017, which says of each what it is.
   sweep's or the null-option record's 37.590 mV, because the probe ran on the
   same Linux dispatch host that minted the first one (see the anchor-reproduction
   bullet two sections up for why the host matters at the third significant
-  figure). A factor of only **4.05** for 16× the capacitance DR-017 ships — the
-  ~1/√C response that is DR-017's central finding, and the reason it sizes from
-  an area budget rather than from a bounce target.
+  figure). A factor of only **4.05** for 16× the capacitance DR-017 ships. When
+  this bullet was written, that was read as a ~1/√C response and was DR-017's
+  reason for sizing from an area budget rather than a bounce target. **The
+  `MF = 2` point below has since refuted that law** (DR-017's Amendment A): the
+  shipped value already reaches a factor of 3.84, so this probe's extra 133 pF
+  buys 1.8 % of the total reduction, and the response is **saturating** rather
+  than a slow power law. The correct reading of this bullet is that it brackets
+  the top of the affordable range and shows there is nothing up there.
 - **The as-committed `MF = 2` netlist, `ideal` and `package-r-only` arms:**
   captured codes and all five average rail currents identical to the first
   record's own rows for the same arms, and `GND_DIE` unchanged at **0.059 mV**
@@ -1059,9 +1064,15 @@ that never finished. They are cited from DR-017, which says of each what it is.
   now carries it: at `tt_27c_1.80v`, `GND_DIE` **9.709 mV** peak-to-peak,
   `VPWR_DIE` **12.799 mV**, captured codes unchanged from that record's own
   `ideal` arm. This is the number DR-017's decision would most like to cite.
-  **Grading it against DR-017's prediction is not done here**:
-  [#448](https://github.com/2AMLogic/sky130-sar-adc/issues/448) is its tracker,
-  and that grading belongs there.
+  **Graded, in DR-017's Amendment A**: against that record's two-point `1/√C`
+  prediction of 26.64 mV it comes in **2.74× lower**, which refutes the law and
+  replaces it with a saturating response — the shipped `MF = 2` captures 98.2 %
+  of the reduction the `MF = 32` probe above achieves. The same record supplies
+  the worst corner of the ratified grid on this netlist, **13.964 mV** at
+  `ff_27c_1.80v`, and at most **1 LSB** of captured-code movement anywhere on it.
+  Note for anyone comparing the two netlists: the only like-for-like
+  decoupled/undecoupled pair in this campaign is at `tt_27c_1.80v`, because the
+  undecoupled arm-comparison record was never run at any other corner.
 
 `records/LATEST` continues to name an **undecoupled** record, correctly, even
 though a decoupled record now exists — for two reasons. First, the record

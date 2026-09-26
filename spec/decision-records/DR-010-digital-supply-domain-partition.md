@@ -243,9 +243,17 @@ that table does not enumerate:
   [DR-017](DR-017-on-die-decoupling-budget.md) (issue #431): one
   `cap_mim_m3_1` per supply domain — `Cdecap_d` across this record's own
   `VPWR`/`VGND` pair, `Cdecap_a` across `VDD`/`GND` — at `MF = 2` → 8.870 pF
-  each, sized from a met3/met4 area budget rather than from a bounce target,
-  because DR-017's own measurements show the die-side excursion falls only as
-  ~1/√C and **no affordable on-die capacitance reaches 1 LSB**. Note what that
+  each. **Read DR-017's Amendment A for the sizing rationale**: the body sized
+  from a met3/met4 area budget on the argument that the die-side excursion falls
+  only as ~1/√C, and the shipped value's own measurement has since refuted that
+  law. The response **saturates** — `MF = 2` already captures 98 % of the
+  reduction that 16× more capacitance achieves, which is why that value stands —
+  and **no on-die supply-pair capacitance reaches 1 LSB**, because the excursion
+  bottoms out near 2.6 LSB. On this record's own `VPWR_DIE` node the measured
+  improvement is 61.755 → 12.799 mV at `tt_27c_1.80v`, with a worst-corner
+  15.531 mV (4.418 LSB) at `tt_27c_1.98v` over the ratified grid
+  (`sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`).
+  Note what that
   does *not* retire: this record's "IR/di-dt axis" caveat above still stands —
   DR-017 is a decoupling decision, not an IR-drop analysis, and `klt power` has
   still never been run on this block. The capacitors are also in `design/` only;

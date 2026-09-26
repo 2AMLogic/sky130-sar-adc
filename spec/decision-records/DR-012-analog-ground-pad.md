@@ -348,11 +348,20 @@ enumerate:
 - ~~**On-die decoupling** for any domain is still not designed, budgeted, or
   measured (carried over from DR-010).~~ **ADDRESSED, at the scope that record
   states**, by [DR-017](DR-017-on-die-decoupling-budget.md) (issue #431): one
-  `cap_mim_m3_1` per supply domain, `MF = 2` → 8.870 pF each, sized from a
-  met3/met4 area budget rather than from a bounce target — because DR-017's own
-  measurements show this die's `package`-arm excursion falls only as ~1/√C, so
-  **no affordable on-die capacitance reaches 1 LSB** and the residual belongs
-  to the bond inductance (a packaging decision, not a die decision). Two parts
+  `cap_mim_m3_1` per supply domain, `MF = 2` → 8.870 pF each. **Read DR-017's
+  Amendment A for the sizing rationale**: the body sized from a met3/met4 area
+  budget on the argument that this die's `package`-arm excursion falls only as
+  ~1/√C, and the shipped value's own measurement has since refuted that law —
+  the response **saturates**, `MF = 2` captures 98 % of the reduction that 16×
+  more capacitance achieves, and **no on-die supply-pair capacitance reaches
+  1 LSB** because the excursion bottoms out near 2.6 LSB. The residual still
+  belongs to the bond inductance (a packaging decision, not a die decision).
+  On this record's own `GND_DIE` node the measured improvement is
+  37.333 → 9.709 mV at `tt_27c_1.80v`, with a worst-corner 13.964 mV
+  (3.972 LSB) at `ff_27c_1.80v` and at most 1 LSB of captured-code movement
+  anywhere on the ratified grid
+  (`sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`).
+  Two parts
   of the item stay open there rather than here: the capacitors exist in
   `design/` only and are not yet placed or DRC/LVS-verified in
   `layout/sar-adc-top/`, and the reference network (`VREFP`/`VREFN`/`VCM`,

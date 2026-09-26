@@ -4401,10 +4401,33 @@ tracker already owns.
      designed, budgeted, or modelled" as a statement about its own *testbench
      assumption*, which DR-017 changed the premise of but did not edit
      (append-only), and DR-017 carries the parts of the gap it deliberately did
-     not close — layout placement (#440) and the unmeasured `package`-arm number
-     for its own shipped value (#448) — in prose that names those issues without
-     matching the census's tracker pattern. The day either record is restated,
-     this clause fails CI until it is re-derived from what the tree then holds.
+     not close — layout placement (#440), and, until 2026-09-26, the unmeasured
+     `package`-arm number for its own shipped value (#448) — in prose that names
+     those issues without matching the census's tracker pattern. The day either
+     record is restated, this clause fails CI until it is re-derived from what
+     the tree then holds.
+
+     **That second part is now closed, and it cost DR-017 its central model.**
+     #409's nine-point grid
+     ([`20260926-050045-8e62675`](../../sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md))
+     ran on the as-shipped *decoupled* netlist — it identifies it by hash,
+     `6a0be472…` — so the value this design ships reads `GND_DIE` **9.709 mV**
+     peak-to-peak at `tt_27c_1.80v`, **2.74× below** the `26.64 mV` that
+     DR-017's own two-point `1/√C` fit predicted for it. **Amendment A** of
+     [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+     grades that refutation: the response **saturates** rather than following a
+     power law, `MF = 2` already captures 98.2 % of the reduction that 16× more
+     capacitance achieves, and the `≤ 1 LSB` bounce target is therefore
+     unreachable at *any* on-die supply-pair capacitance rather than at a merely
+     unaffordable one. The decision itself — two `cap_mim_m3_1`, `MF = 2` — is
+     unchanged and better supported than before; DR-017's `1.03 nF` /
+     4.7-die-area arithmetic is retracted there. The same record also supplies
+     the worst corner this item never had for the decoupled design:
+     **13.964 mV** (3.972 LSB) at `ff_27c_1.80v`, with at most **1 LSB** of
+     captured-code movement anywhere on the grid. It is **not** a worst-case
+     decoupled/undecoupled comparison — the undecoupled baseline was only ever
+     run at `tt_27c_1.80v`, so that single corner remains the only like-for-like
+     pair.
 
    **Does this move any §4 row? Not in verdict, but two rows' numbers move.**
    Item 11 is not a `spec/target-spec.md` row and no row is added for it here;
