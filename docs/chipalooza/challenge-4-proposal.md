@@ -206,11 +206,16 @@ regenerated netlist `design/sar_adc_top.spice`.
 sub-blocks above are not the whole design: outside every sub-block,
 `design/sar_adc_top.sch` adds **33** `sky130_fd_sc_hd` instances of **6** cell
 types — `and2_1` **×18**, `and2b_1` **×1**, `inv_1` **×3**, `mux2_1` **×1**,
-`xnor2_1` **×1**, `xor2_1` **×9** — and **8** `sky130_fd_pr` instances of
-**3** device types — `cap_mim_m3_1` **×2**, `nfet_01v8` **×2**, `pfet_01v8`
+`xnor2_1` **×1**, `xor2_1` **×9** — and **10** `sky130_fd_pr` instances of
+**3** device types — `cap_mim_m3_1` **×4**, `nfet_01v8` **×2**, `pfet_01v8`
 **×4**. Both censuses are recomputed from `design/sar_adc_top.spice`'s own
 instance lines and graded in both directions, per cell type, so a glue cell
-added, removed, or swapped for another fails CI here. What each group is:
+added, removed, or swapped for another fails CI here. **Two of the four
+`cap_mim_m3_1` are new this pass** (2026-09-25, issue #431): `Cdecap_a`
+(`VDD`/`GND`) and `Cdecap_d` (`VPWR`/`VGND`), the per-domain on-die
+decoupling capacitors
+[DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+sizes; the other two (`Choff_n`, `Choff_p`) predate it. What each group is:
 
 - The **eighteen `and2_1`** are
   [DR-008](../../spec/decision-records/DR-008-cdac-top-level-switching-polarity.md)'s
@@ -231,11 +236,19 @@ added, removed, or swapped for another fails CI here. What each group is:
 - The **third `inv_1`** (`xinv_clkcap`) inverts `CLK` to `CLKN` so the
   comparator is strobed at the end of the evaluate phase rather than its start
   (issue #264) — not a DR-008/DR-009 device.
-- All **eight `sky130_fd_pr` instances** are DR-009's half-LSB quantizer-offset
-  network (two `cap_mim_m3_1` injection caps and their six drive FETs) — the
-  only analog devices this design draws outside a sub-block, and the reason
-  §2.2's `VDD` row names "the DR-009 offset network" as a load on the analog
-  rail.
+- **Eight of the ten `sky130_fd_pr` instances** are DR-009's half-LSB
+  quantizer-offset network (two `cap_mim_m3_1` injection caps and their six
+  drive FETs) — the reason §2.2's `VDD` row names "the DR-009 offset network"
+  as a load on the analog rail.
+- The **remaining two `cap_mim_m3_1`** (`Cdecap_a`, `Cdecap_d`) are
+  [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)'s
+  per-domain on-die decoupling, one across `VDD`/`GND` and one across
+  `VPWR`/`VGND`. They are not switched by any conversion event and are not
+  part of DR-009's network. **They exist in `design/` only**: no
+  `layout/sar-adc-top/` composition places them yet, so every DRC/LVS record
+  under that directory predates them (DR-017's own "Open items", and §7 Item
+  1's LVS device-count discussion). Together with the eight above they are
+  the only analog devices this design draws outside a sub-block.
 
 **None of those 33 cells is a `SELn<i>` inverter.** Issue #56's original
 integration drew `SELn<i> = NOT(DOUT<i>)` as nine dedicated `inv_1`
@@ -2641,35 +2654,38 @@ tracker already owns.
    verdicts they already carry, and criterion 3 waits on exactly what it
    waited on before.
 
-   What *is* new is that this item now has a tracked event that will
-   invalidate those numbers, where every earlier one changed only their
-   explanation: #440 quotes #431's proposed netlist growth — 869 → 871 device
-   instances, two MiM capacitors — as the thing every existing record under
-   `layout/sar-adc-top/reports/` would then describe a die without. That
-   figure is #431's *proposed* content as filed, not committed fact, and is
-   quoted here as such; either way the staleness is caught rather than
-   remembered. **Check 9** of the [citation
+   What *is* new is that this item's numbers **are now stale by two devices,
+   and the invalidating event has happened** rather than being merely tracked.
+   #431 landed
+   [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)'s
+   two MiM decoupling capacitors in `design/sar_adc_top.sch` /
+   `design/sar_adc_top.spice`, taking that netlist from **869** to **871**
+   device instances — so every record under `layout/sar-adc-top/reports/`,
+   `reports/LATEST` = `20260924-234053-66dca3c` included, now describes a die
+   that does not contain them, and so does §4's sign-off-bar readout of that
+   record. **Nothing in §4 has been restated for it, on purpose**: those rows
+   report what the cited records measured, and the records have not been
+   re-run. #440 is where the re-run lives, and DR-017's own Consequences name
+   the 869 → 871 delta so a future LVS device-count difference is traceable
+   rather than rediscovered. **Check 9** of the [citation
    gate](check_proposal_citations.py) grades every device, net and pin count
    and every mismatch category in §4's readout against `reports/LATEST`'s own
    `lvs.json`, so the first re-run that mints a record with different counts
    fails CI here until this document is restated from it — the same
    structural shape as checks 27 and 29 above, applied to the counts.
 
-   **One thing not to read out of #440's text**: the decision record it names
-   throughout,
-   `spec/decision-records/DR-016-on-die-decoupling-budget.md`
-   (not in this tree), is *not* the DR-016 that Item 4's status readout below
-   reports. That
-   number is already taken by
+   **The DR-number collision this item recorded is resolved** (2026-09-26,
+   issue #431). Until this pass, #431's and #440's text both named an
+   on-die-decoupling record at a `DR-016-…` filename that did not exist in
+   `spec/decision-records/`, while `DR-016` was already taken by
    [DR-016](../../spec/decision-records/DR-016-kickback-headroom-neutral-mitigation-measurement.md),
    the unrelated kickback-mitigation record #434 closed on (§4's Kickback
-   row), so Item 4's "**DR-016** … is **proposed**" line says nothing about an
-   on-die decoupling budget and no such record exists to carry a status of its
-   own. #440's own verified-corrections note records the same collision and
-   points a future builder at re-deriving the number from whatever #431 lands
-   with. This document records that collision rather than resolving it:
-   choosing #431's record number is #431's to do, exactly as laying out a
-   decoupling capacitor is #440's.
+   row) — so Item 4's "**DR-016** … is **proposed**" line said nothing about
+   decoupling. #431 chose **DR-017** instead of adding a third duplicate number
+   to a tree that already carries two `DR-004`s and two `DR-007`s (the hazard
+   the paragraph after Item 4's readout describes). Item 4's readout now
+   carries both records separately, and `#440`'s body still quotes the old
+   `DR-016-…` filename — read it as DR-017.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
@@ -3192,6 +3208,9 @@ tracker already owns.
    > **DR-016**
    > (`spec/decision-records/DR-016-kickback-headroom-neutral-mitigation-measurement.md`)
    > is **proposed**.
+   > **DR-017**
+   > (`spec/decision-records/DR-017-on-die-decoupling-budget.md`) is
+   > **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
@@ -4194,32 +4213,37 @@ tracker already owns.
      `tt_27c_1.80v`, and `111.622 mV` as the worst point of the bounded box —
      both already above, both already cited by record.
 
-     **Nothing moves, and the census is what will notice when it does.** No §4
-     row, verdict, Target or Status changes: #431 has landed no decision
-     record and no design change, so `design/sar_adc_top.spice` still declares
-     the devices the composed GDS draws and every figure above stands exactly
-     as its record states it. What *is* new is that the ownership claim can go
-     stale the moment a record strikes the item or names its tracker, and no
-     check here could see that — checks 3, 4, 22 and 23 grade evidence
-     citations, check 15 grades a decision record's *Status* line and nothing
-     else, and checks 31, 32 and 34 grade one campaign's own axes. **Check 33** of
-     the [citation gate](check_proposal_citations.py) re-derives it from the
-     records themselves, counting only *unstruck* bullets whose own bold lead
-     names the gap (so DR-012's rejected-null-option item, which merely quotes
-     the word "undecoupled", is not miscounted as a fourth carrier):
+     **The census caught its own first move, one pass later (2026-09-26).**
+     When this item was written, three records carried the gap and none named a
+     tracker; #431 has since landed
+     [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+     and its two capacitors, and **DR-010 and DR-012 both struck their item and
+     pointed at it** — so the census is down to two carriers, and the clause
+     below is restated from the tree rather than from memory. This is exactly
+     the drift no other check here could see: checks 3, 4, 22 and 23 grade
+     evidence citations, check 15 grades a decision record's *Status* line and
+     nothing else, and checks 31, 32 and 34 grade one campaign's own axes.
+     **Check 33** of the [citation gate](check_proposal_citations.py) re-derives
+     it from the records themselves, counting only *unstruck* bullets whose own
+     bold lead names the gap (so DR-012's rejected-null-option item, which
+     merely quotes the word "undecoupled", is not miscounted as a carrier):
 
-     > of the **3** decision records under `spec/decision-records/` whose own
+     > of the **2** decision records under `spec/decision-records/` whose own
      > *Open items* still carry the on-die-decoupling gap, **0** name the
-     > issue that tracks it and **3** do not:
-     > `spec/decision-records/DR-010-digital-supply-domain-partition.md`,
-     > `spec/decision-records/DR-012-analog-ground-pad.md`,
-     > `spec/decision-records/DR-015-package-parasitic-assumption.md`
+     > issue that tracks it and **2** do not:
+     > `spec/decision-records/DR-015-package-parasitic-assumption.md`,
+     > `spec/decision-records/DR-017-on-die-decoupling-budget.md`
 
-     Read the `0` as the finding it is: three records carry this gap in their
-     own words and **none** of them yet points at #431, so the pointer exists
-     only here. The day one of them does — or strikes the item because #431's
-     decision record landed — that clause fails CI until this passage is
-     restated from what the tree then holds.
+     Read the remaining `0` for what it is, and note that it does **not** mean
+     the gap is untracked now. Both remaining carriers are carrying something
+     narrower than the original item: DR-015 carries "no decoupling is
+     designed, budgeted, or modelled" as a statement about its own *testbench
+     assumption*, which DR-017 changed the premise of but did not edit
+     (append-only), and DR-017 carries the parts of the gap it deliberately did
+     not close — layout placement (#440) and the unmeasured `package`-arm number
+     for its own shipped value (#448) — in prose that names those issues without
+     matching the census's tracker pattern. The day either record is restated,
+     this clause fails CI until it is re-derived from what the tree then holds.
 
    **Does this move any §4 row? Not in verdict, but two rows' numbers move.**
    Item 11 is not a `spec/target-spec.md` row and no row is added for it here;

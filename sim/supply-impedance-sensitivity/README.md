@@ -161,12 +161,41 @@ so a change there cannot be attributed to supply impedance. They are still
 printed in full in every record: excluded from the comparison, not from the
 evidence.
 
-**No decoupling exists anywhere in this design** — on-die decoupling is an
-explicit open item of both DR-010 and DR-012, and no board decoupling is
-modelled here either. The bonded arms are therefore an *undecoupled* package,
-and the rail excursions they report are an upper bound rather than a prediction
-for a decoupled system. That is stated in the record, not left for a reader to
-infer.
+**Which decoupling is in the deck changed on 2026-09-25, and a record's own
+`DUT netlist sha256` is how you tell which case it is.** This campaign always
+runs whatever `design/sar_adc_top.spice` commits; it adds no decoupling of its
+own and never has.
+
+- **Before [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)**
+  (issue #431) the design had none at all, which is what
+  [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)
+  item 6 records as a deliberate modelling choice. `records/20260925-073912-0e385e5.md`
+  is that undecoupled case, and stays the only committed measurement of it.
+- **Since DR-017** the design carries one `cap_mim_m3_1` per supply domain
+  (`Cdecap_a` across `VDD`/`GND`, `Cdecap_d` across `VPWR`/`VGND`, `MF = 2` →
+  8.870 pF each), so every record minted after it is the *decoupled* case.
+  **No such record exists yet**, for a reason that is this campaign's problem
+  rather than DR-017's: the `package` arm on the decoupled netlist outruns the
+  dispatch host's per-process budget (> 3800 s and never completing across five
+  attempts, against 1261 s undecoupled). Tracked as
+  [#448](https://github.com/2AMLogic/sky130-sar-adc/issues/448), which needs a
+  host, not code — see "Runtime" below.
+
+**No board decoupling is modelled in either case**, so the bonded arms' rail
+excursions remain an upper bound rather than a prediction for a real, decoupled
+system. That is stated in the record, not left for a reader to infer.
+
+**Budget a decoupled run from decoupled numbers.** DR-015 rejected adding
+decoupling partly on the expectation that it would make the bonded arms "ring
+less and simulate faster." Every arm measured on the decoupled netlist so far
+went the other way: `ideal` 2073 s vs 554 s, `package-r-only` 1534 s vs 312 s,
+`package` > 3800 s vs 1261 s. Host load is not controlled for across those
+pairs, but the `ideal` arm is *electrically unchanged* by two capacitors sitting
+across ideal sources and still took 3.7× longer, which load alone does not
+explain — the PDK MiM subcircuit carries its own internal series resistance
+(`r1 = rm3·l/w`), and the resulting sub-picosecond pole is something the
+transient solver has to resolve. Use `--log-cache` (below); on the decoupled
+netlist it is no longer optional.
 
 ## Cold start
 
@@ -897,3 +926,44 @@ measured against the option DR-012 **chose**. It is issue #409's item 2:
   `substrate` arm, and no corner other than the baseline. The nine-point
   ratified grid remains #409's item 1, and the extracted substrate network its
   item 4.
+
+### What the decoupled netlist has and has not shown (2026-09-26, issue #431)
+
+Every record above measures the **undecoupled** design.
+[DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md) (issue
+#431) put one `cap_mim_m3_1` per supply domain into
+`design/sar_adc_top.spice`, and sized it using this campaign — so three more
+`package`-arm measurements at `tt_27c_1.80v` now bear on it. **None of them is a
+record here**: one is a probe against a netlist that is not the committed
+design, and two are arms of an invocation that never finished. They are cited
+from DR-017, which says of each what it is.
+
+- **`MF = 32` per domain (141.9 pF, a MiM area 1.3× the whole composed die):**
+  `GND_DIE` **9.214 mV**, `VPWR_DIE` **12.153 mV**, captured code unchanged. The
+  comparison is against the **first** record's 37.333 / 61.755 mV rather than the
+  sweep's or the null-option record's 37.590 mV, because the probe ran on the
+  same Linux dispatch host that minted the first one (see the anchor-reproduction
+  bullet two sections up for why the host matters at the third significant
+  figure). A factor of only **4.05** for 16× the capacitance DR-017 ships — the
+  ~1/√C response that is DR-017's central finding, and the reason it sizes from
+  an area budget rather than from a bounce target.
+- **The as-committed `MF = 2` netlist, `ideal` and `package-r-only` arms:**
+  captured codes and all five average rail currents identical to the first
+  record's own rows for the same arms, and `GND_DIE` unchanged at **0.059 mV**
+  with the inductance zeroed. Two capacitors across *ideal* sources change
+  nothing, and two across a purely *resistive* return change nothing — both as
+  they must, and together the no-regression check DR-017 needed before adding
+  any device.
+- **The as-committed `MF = 2` netlist, `package` arm: not measured.** This is the
+  number DR-017's decision would most like to cite, and
+  [#448](https://github.com/2AMLogic/sky130-sar-adc/issues/448) is its tracker.
+  It is a host problem, not a code problem — see "Budget a decoupled run from
+  decoupled numbers" above. Note that the sweep and null-option records above
+  were minted on a **Darwin arm64** host, so a host that can hold this arm may
+  well already be in the fleet; #448 is not waiting on new hardware, only on a
+  run.
+
+So `records/LATEST` continues to name an **undecoupled** record, correctly: no
+committed record in this directory measures the decoupled netlist yet, and
+DR-012's retirement and `docs/chipalooza/challenge-4-proposal.md`'s Power row
+both rest on records that do exist rather than on a number nobody has run.

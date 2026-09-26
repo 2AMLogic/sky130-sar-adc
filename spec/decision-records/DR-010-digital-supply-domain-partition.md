@@ -238,5 +238,15 @@ that table does not enumerate:
   `GND` pad for a package to bond to. `klt erc` does not catch this (one island
   is one island, pin or no pin), and this record does not fix it: it is the
   same class of gap for the *analog* half, tracked separately as **#362**.
-- **On-die decoupling** for either domain is not designed, budgeted, or
-  measured.
+- ~~**On-die decoupling** for either domain is not designed, budgeted, or
+  measured.~~ **ADDRESSED, at the scope that record states**, by
+  [DR-017](DR-017-on-die-decoupling-budget.md) (issue #431): one
+  `cap_mim_m3_1` per supply domain — `Cdecap_d` across this record's own
+  `VPWR`/`VGND` pair, `Cdecap_a` across `VDD`/`GND` — at `MF = 2` → 8.870 pF
+  each, sized from a met3/met4 area budget rather than from a bounce target,
+  because DR-017's own measurements show the die-side excursion falls only as
+  ~1/√C and **no affordable on-die capacitance reaches 1 LSB**. Note what that
+  does *not* retire: this record's "IR/di-dt axis" caveat above still stands —
+  DR-017 is a decoupling decision, not an IR-drop analysis, and `klt power` has
+  still never been run on this block. The capacitors are also in `design/` only;
+  `layout/sar-adc-top/` does not place them yet.
