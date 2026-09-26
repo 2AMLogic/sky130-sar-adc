@@ -1950,6 +1950,192 @@ class TestCostProbe(unittest.TestCase):
         self.assertIn("--sweep", proc.stderr)
 
 
+class TestMidscaleBoundaryProbe(unittest.TestCase):
+    """The probe that says what this campaign's mid-scale code comparison means
+    (issue #455). Every failure mode here also simulates cleanly and writes a
+    plausible record, which is why each is pinned:
+
+    1. The perturbations must be supply-UNRELATED. If an input offset silently
+       edited the PWL schedule's breakpoint times, or the timestep perturbation
+       moved the stop time, the probe would be comparing two different
+       experiments and its whole conclusion would be unsupported.
+    2. The measurement cards must land before the deck's FINAL `.end`, not
+       before the first `.ends` subcircuit terminator -- the failure this
+       probe's own development actually hit.
+    3. The control variant is mandatory: without it there is no reproduction
+       row, and every perturbation row is a delta against nothing.
+    """
+
+    FRAGMENT = (
+        FULL_CONVERSION_DIR / "testbench" / "full_conversion_tb_fragment.spice"
+    )
+
+    def _fake_deck(self) -> str:
+        """A deck with the shape the probe's patches depend on: the fragment's
+        own input/tran cards, a subcircuit terminator to be left alone, and a
+        final `.end`."""
+        return (
+            "* header\n"
+            ".subckt dummy a b\n"
+            "R1 a b 1k\n"
+            ".ends\n"
+            "VINP VINP 0 PWL(0.0000n {vdd_val*0.11} 1950.0000n {vdd_val*0.11})\n"
+            "VINN VINN 0 PWL(0.0000n {vdd_val*0.89} 1950.0000n {vdd_val*0.89})\n"
+            ".tran 0.5n 6283.3333n\n"
+            ".meas tran d9_c3 find v(dout9) at=4075.0000n\n"
+            ".end\n"
+        )
+
+    def test_probe_cards_land_before_the_final_end_only(self) -> None:
+        out = si.insert_before_end(self._fake_deck(), [".meas tran probe find v(x) at=1n"])
+        lines = out.splitlines()
+        self.assertEqual(lines[-1], ".end")
+        self.assertEqual(lines[-2], ".meas tran probe find v(x) at=1n")
+        # the subcircuit terminator is untouched, and there is exactly one copy
+        # of the inserted card anywhere in the deck
+        self.assertEqual(out.count(".ends"), 1)
+        self.assertEqual(out.count(".meas tran probe find"), 1)
+
+    def test_a_deck_without_a_final_end_is_refused(self) -> None:
+        with self.assertRaises(RuntimeError):
+            si.insert_before_end("* header\n.ends\n", [".meas tran x find v(y) at=1n"])
+
+    def test_input_offset_is_differential_and_leaves_the_pwl_schedule_alone(self) -> None:
+        deck = self._fake_deck()
+        out = si.offset_vin(deck, +0.1, 1.8)
+        # the PWL cards keep every breakpoint time and value; only the node they
+        # drive is renamed, so the solver sees the same breakpoints
+        for pin in ("VINP", "VINN"):
+            before = next(l for l in deck.splitlines() if l.startswith(f"{pin} "))
+            after = next(l for l in out.splitlines() if l.startswith(f"{pin} "))
+            self.assertEqual(after, before.replace(f"{pin} {pin} 0", f"{pin} {pin}_OFS 0", 1))
+        one_lsb = 2.0 * 1.8 / 1024
+        vp = float(
+            next(l for l in out.splitlines() if l.startswith("VOFS_VINP ")).split()[-1]
+        )
+        vn = float(
+            next(l for l in out.splitlines() if l.startswith("VOFS_VINN ")).split()[-1]
+        )
+        # differential = +0.1 LSB, common mode unchanged
+        self.assertAlmostEqual(vp - vn, 0.1 * one_lsb, places=12)
+        self.assertAlmostEqual(vp + vn, 0.0, places=15)
+
+    def test_a_zero_offset_is_the_identity(self) -> None:
+        deck = self._fake_deck()
+        self.assertEqual(si.offset_vin(deck, 0.0, 1.8), deck)
+
+    def test_an_input_offset_refuses_a_deck_whose_source_cards_moved(self) -> None:
+        with self.assertRaises(RuntimeError):
+            si.offset_vin(self._fake_deck().replace("VINP VINP 0", "VIP VINP 0"), 0.1, 1.8)
+
+    def test_the_timestep_perturbation_moves_the_step_and_nothing_else(self) -> None:
+        out = si.retime_tran(self._fake_deck(), 0.25)
+        self.assertIn(".tran 0.25n 6283.3333n", out)
+        self.assertEqual(
+            [l for l in out.splitlines() if not l.startswith(".tran")],
+            [l for l in self._fake_deck().splitlines() if not l.startswith(".tran")],
+        )
+
+    def test_a_deck_without_a_tran_card_is_refused(self) -> None:
+        with self.assertRaises(RuntimeError):
+            si.retime_tran("* header\n.end\n", 0.25)
+
+    def test_every_default_variant_names_a_real_arm_and_perturbation(self) -> None:
+        for spec in si.MIDSCALE_PROBE_VARIANTS:
+            arm, sep, pert = spec.partition(":")
+            self.assertTrue(sep, f"{spec!r} is not `arm:perturbation`")
+            self.assertIn(arm, si.ARMS_BY_NAME)
+            self.assertIn(pert, si.PERTURBATIONS_BY_NAME)
+
+    def test_the_default_variants_carry_the_control_and_the_anomaly_arm(self) -> None:
+        self.assertIn(f"{si.CONTROL_ARM}:as-committed", si.MIDSCALE_PROBE_VARIANTS)
+        self.assertIn(
+            f"{si.MIDSCALE_PROBE_ARM}:as-committed", si.MIDSCALE_PROBE_VARIANTS
+        )
+
+    def test_as_committed_perturbs_nothing(self) -> None:
+        self.assertTrue(si.AS_COMMITTED.is_as_committed)
+        self.assertEqual(
+            [p.name for p in si.PERTURBATIONS if p.is_as_committed], ["as-committed"]
+        )
+
+    def test_the_probe_traces_the_conversion_the_anomaly_is_on(self) -> None:
+        self.assertIn(si.MIDSCALE_CONVERSION, si.MIDSCALE_PROBE_CONVERSIONS)
+        self.assertEqual(si.tb.input_fraction(si.MIDSCALE_CONVERSION), 0.0)
+
+    def test_the_probe_corner_is_the_corner_the_anomaly_was_recorded_at(self) -> None:
+        self.assertEqual(
+            si.corners_mod.corner_id(*si.MIDSCALE_PROBE_CORNER), "fs_27c_1.80v"
+        )
+
+    def test_the_reference_record_and_its_logs_are_in_the_repo(self) -> None:
+        """The probe reproduces against committed logs, so those logs -- not
+        just the record's Markdown tables -- have to be present."""
+        rid = si.MIDSCALE_PROBE_REFERENCE_RECORD
+        self.assertTrue((EXPERIMENT_DIR / "records" / f"{rid}.md").is_file())
+        for arm in (si.CONTROL_ARM, si.MIDSCALE_PROBE_ARM):
+            self.assertTrue(
+                (EXPERIMENT_DIR / "corners" / rid / f"{arm}__fs_27c_1.80v.log").is_file(),
+                f"{arm}@fs_27c_1.80v has no committed log in record {rid}",
+            )
+
+    def test_the_anomaly_the_probe_exists_for_is_still_in_that_record(self) -> None:
+        """If a later record ever supersedes this one with a reproducible
+        number, this test is the tripwire that says the probe's premise moved."""
+        control = si.committed_reference_point(
+            si.MIDSCALE_PROBE_REFERENCE_RECORD, si.CONTROL_ARM, "fs_27c_1.80v"
+        )
+        arm = si.committed_reference_point(
+            si.MIDSCALE_PROBE_REFERENCE_RECORD, si.MIDSCALE_PROBE_ARM, "fs_27c_1.80v"
+        )
+        self.assertIsNotNone(control)
+        self.assertIsNotNone(arm)
+        self.assertEqual(si._conv_code(control, si.MIDSCALE_CONVERSION), 511)
+        self.assertEqual(si._conv_code(arm, si.MIDSCALE_CONVERSION), 505)
+
+    def test_the_closest_trial_is_the_one_a_perturbation_could_flip(self) -> None:
+        trials = [
+            {
+                "conversion": si.MIDSCALE_CONVERSION,
+                "trials": [
+                    {"bit": 9, "missing": False, "v_in_mv": -0.001, "v_in_lsb": -0.0003,
+                     "decision": 0, "dout": 0},
+                    {"bit": 8, "missing": False, "v_in_mv": 894.2, "v_in_lsb": 254.4,
+                     "decision": 1, "dout": 0},
+                ],
+            }
+        ]
+        worst = si.closest_trial(trials, si.MIDSCALE_CONVERSION)
+        self.assertEqual(worst["bit"], 9)
+
+    def test_dr018_exists_and_states_the_reading_rule(self) -> None:
+        dr = REPO_ROOT / "spec" / "decision-records" / "DR-018-midscale-code-metastable-msb.md"
+        self.assertTrue(dr.is_file(), "DR-018 is missing")
+        text = dr.read_text()
+        self.assertIn("#455", text)
+        self.assertIn("+0.00", text)
+        for other in ("DR-012", "DR-015", "DR-017", "DR-004"):
+            self.assertIn(other, text, f"DR-018 does not relate itself to {other}")
+
+    def test_the_sign_bit_really_gates_every_sel_pair(self) -> None:
+        """DR-018's "a disturbed sign trial is not a 1-LSB event" argument reads
+        the committed netlist, so the netlist is checked here rather than
+        trusted: all nine SELn/SELp pairs must be gated by DOUT9/DOUT9N."""
+        netlist = (REPO_ROOT / "design" / "sar_adc_top.spice").read_text()
+        seln = re.findall(r"^xand_seln(\d) (\S+) (\S+) ", netlist, re.MULTILINE)
+        selp = re.findall(r"^xand_selp(\d) (\S+) (\S+) ", netlist, re.MULTILINE)
+        self.assertEqual(len(seln), 9)
+        self.assertEqual(len(selp), 9)
+        for _bit, a, b in seln:
+            self.assertIn("DOUT9N", (a, b))
+        for _bit, a, b in selp:
+            self.assertIn("DOUT9", (a, b))
+        # and the offset-binary recode is the same sign bit again
+        self.assertEqual(
+            len(re.findall(r"^xxor_code\d DOUT\d DOUT9N ", netlist, re.MULTILINE)), 9
+        )
+
+
 class TestDR012OpenItemIsRetired(unittest.TestCase):
     """The acceptance criterion this campaign exists to satisfy: DR-012's
     "the impedance argument is unmeasured" item is retired by citation rather
