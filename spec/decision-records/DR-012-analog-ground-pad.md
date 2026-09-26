@@ -338,9 +338,9 @@ enumerate:
   record does not answer.
 - ~~**On-die decoupling** for any domain is still not designed, budgeted, or
   measured (carried over from DR-010).~~ **ADDRESSED, at the scope that record
-  states**, by [DR-016](DR-016-on-die-decoupling-budget.md) (issue #431): one
+  states**, by [DR-017](DR-017-on-die-decoupling-budget.md) (issue #431): one
   `cap_mim_m3_1` per supply domain, `MF = 2` → 8.870 pF each, sized from a
-  met3/met4 area budget rather than from a bounce target — because DR-016's own
+  met3/met4 area budget rather than from a bounce target — because DR-017's own
   measurements show this die's `package`-arm excursion falls only as ~1/√C, so
   **no affordable on-die capacitance reaches 1 LSB** and the residual belongs
   to the bond inductance (a packaging decision, not a die decision). Two parts

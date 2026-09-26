@@ -2205,7 +2205,7 @@ def sweep_findings_lines(
             f"**{worst[2] * 1e3:.3f} mV** peak-to-peak ({worst[2] / lsb_v:.3f} LSB at "
             f"the nominal supply) at `L = {worst[0]:g}x`, "
             f"`R_SUBX = {worst[1]:g} Ohm`. Whatever on-die decoupling the committed "
-            "`design/sar_adc_top.spice` carries is in the deck (DR-016 added one "
+            "`design/sar_adc_top.spice` carries is in the deck (DR-017 added one "
             "`cap_mim_m3_1` per supply domain; DR-015 item 6's `no decoupling is "
             "modelled' premise held only before that). **No BOARD decoupling is "
             "modelled**, so the figure is still an upper bound rather than a "
@@ -2521,7 +2521,7 @@ def write_sweep_record(
     a(
         "- **No BOARD decoupling** is modelled anywhere in this campaign. On-die "
         "decoupling is whatever the committed `design/sar_adc_top.spice` carries: "
-        "since DR-016 (issue #431) that is one `cap_mim_m3_1` per supply domain, "
+        "since DR-017 (issue #431) that is one `cap_mim_m3_1` per supply domain, "
         "and DR-015 item 6's `no decoupling is modelled' premise no longer holds. "
         "Read a record's own DUT netlist sha256 to know which case it is."
     )

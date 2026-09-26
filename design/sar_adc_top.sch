@@ -834,7 +834,7 @@ C {devices/lab_pin.sym} 2780 2500 0 0 {name=l_offp_cp_g lab=VPWR}
 C {devices/lab_pin.sym} 2820 2470 0 0 {name=l_offp_cp_s lab=VCM}
 C {devices/lab_pin.sym} 2820 2500 0 0 {name=l_offp_cp_b lab=VDD}
 
-* --- On-die decoupling (issue #431, spec/decision-records/DR-016-on-die-
+* --- On-die decoupling (issue #431, spec/decision-records/DR-017-on-die-
 * decoupling-budget.md): one MiM cap per supply domain, tied directly
 * across that domain's own supply/return pair at the top level -- the
 * shortest path from each rail's own switching devices to its own return,
@@ -845,12 +845,12 @@ C {devices/lab_pin.sym} 2820 2500 0 0 {name=l_offp_cp_b lab=VDD}
 * (VPWR/VGND, the standard-cell bank). Both reuse the W=L=46.9 um
 * `Csamp` footprint already proven DRC-clean in design/sampling_frontend.sch
 * (4.435 pF per unit at the PDK's own 2.0 fF/um^2 area + 0.19 fF/um
-* perimeter coefficients), at MF=2 -> 8.870 pF per domain. DR-016 fixes
+* perimeter coefficients), at MF=2 -> 8.870 pF per domain. DR-017 fixes
 * MF from an AREA budget, not from a bounce target: that record's own
 * measurements show the die-side excursion falls only as ~1/sqrt(C), so no
 * affordable on-die capacitance reaches 1 LSB and the value is chosen at
 * the largest allocation the composed die's met3/met4 real estate can
-* plausibly carry. Read DR-016 before changing MF.
+* plausibly carry. Read DR-017 before changing MF.
 C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 2700 0 0 {name=Cdecap_a model=cap_mim_m3_1 W=46.9 L=46.9 MF=2 spiceprefix=X}
 C {devices/lab_pin.sym} 2600 2670 0 0 {name=l_decapa_bot lab=GND}
 C {devices/lab_pin.sym} 2600 2730 0 0 {name=l_decapa_top lab=VDD}

@@ -1,4 +1,4 @@
-# DR-016: One MiM decoupling capacitor per supply domain, sized from a met3/met4 area budget — because the die-side bounce is measured to fall only as ~1/√C and no affordable on-die capacitance reaches 1 LSB
+# DR-017: One MiM decoupling capacitor per supply domain, sized from a met3/met4 area budget — because the die-side bounce is measured to fall only as ~1/√C and no affordable on-die capacitance reaches 1 LSB
 
 - **Status**: proposed — like DR-010, DR-012 and DR-015 this record settles a
   design/testbench question, not a numeric row of `spec/target-spec.md`. It
@@ -108,42 +108,101 @@ cell reused here is `W = L = 46.9 µm` — the same footprint as
 ## What was measured
 
 Sizing here is **direct simulation**, not a closed form (see "Alternatives
-considered" for why the closed form is unavailable in this repo). Each point
-below is the same `sim/supply-impedance-sensitivity/` `package` arm, the same
-committed stimulus, the same corner, the same deck assembly — only the two
-`Cdecap_*` cards' `MF` differs.
+considered" for why the closed form is unavailable in this repo). Every number
+below comes from the same `sim/supply-impedance-sensitivity/` runner, the same
+committed stimulus, the same baseline corner and the same deck assembly — only
+the two `Cdecap_*` cards' `MF` differs.
 
-| `MF` per domain | `C` per domain | MiM area, both domains | `GND_DIE` p-p | `VPWR_DIE` p-p | worst mid-scale \|Δcode\| |
-|---|---|---|---|---|---|
-| 0 (no decoupling) | — | — | **37.333 mV** | **61.755 mV** | 0 LSB |
-| 2 (**this record's decision**) | 8.870 pF | 8798.44 µm² (8.14 % of die) | **PLACEHOLDER_GND_MF2 mV** | **PLACEHOLDER_VPWR_MF2 mV** | PLACEHOLDER_DCODE_MF2 LSB |
-| 32 (an affordability probe, **not** a proposal) | 141.916 pF | 140,775.04 µm² (130.2 % of die) | **9.214 mV** | **12.153 mV** | 0 LSB |
+### The sizing axis: how much does capacitance buy, on the arm that has inductance?
+
+| `MF` per domain | `C` per domain | MiM area, both domains | `GND_DIE` p-p | `VPWR_DIE` p-p | worst mid-scale \|Δcode\| | wall clock |
+|---|---|---|---|---|---|---|
+| 0 (no decoupling) | — | — | **37.333 mV** | **61.755 mV** | 0 LSB | 1261 s |
+| 32 (an affordability probe, **not** a proposal) | 141.916 pF | 140,775.04 µm² (130.2 % of die) | **9.214 mV** | **12.153 mV** | 0 LSB | 3323 s |
+| 2 (**this record's decision**) | 8.870 pF | 8798.44 µm² (8.14 % of die) | *not measured — see "Open items"* | *not measured* | *not measured* | > 3800 s |
 
 - The `MF = 0` row is the committed baseline record
-  `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`.
-- The `MF = 2` row is this record's own new committed record,
-  `sim/supply-impedance-sensitivity/records/PLACEHOLDER_NEW_RECORD.md`, minted by
-  the campaign's own indexed invocation with the decoupling in
-  `design/sar_adc_top.spice`.
-- The `MF = 32` row is **a probe, not a record**: it was produced by the same
-  runner's own `run_point()` on the same `package` arm and corner, against a
-  netlist that is *not* the committed design, so it mints no append-only
-  evidence. It is reproducible in one step — set `MF=2` → `MF=32` on both
-  `XCdecap_*` cards of `design/sar_adc_top.spice` and re-run the campaign's
-  documented invocation. It exists to answer one question the decision needs
-  and nothing else: *how much is even purchasable on this axis?* (3323 s of
-  wall clock on this host.)
+  `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`
+  (`package` arm, `tt_27c_1.80v`).
+- The `MF = 32` row is **a probe, not a record**: it is a complete run of the
+  same runner's own `run_point()` on the same `package` arm, corner and deck
+  assembly, against a netlist that is not the committed design — so it mints no
+  append-only evidence and moves no `records/LATEST`. It is reproducible in one
+  step: set `MF=2` → `MF=32` on both `XCdecap_*` cards of
+  `design/sar_adc_top.spice` and re-run the campaign's documented invocation. It
+  exists to answer one question the decision needs: *how much is even
+  purchasable on this axis?*
+- **The `MF = 2` `package`-arm row is honestly blank.** Five attempts at the
+  campaign's own indexed four-arm invocation were each terminated by this
+  host's ~63-minute per-process budget with that one arm still running,
+  including one attempt on an otherwise idle host. It is a **compute-resource
+  gap, not a result**: no number for it is asserted, estimated-as-measured, or
+  quoted anywhere in this record. Tracked as **#448**; the two arms of the same
+  invocation that *did* complete against the as-committed netlist are below.
 
 **The finding that drives this record: the excursion falls far more slowly than
 the capacitance rises.** Thirty-two unit cells per domain — a MiM area 1.3× the
 whole composed die — buys a factor of **4.05** on `GND_DIE` (37.333 → 9.214 mV)
-and **5.08** on `VPWR_DIE`. That is consistent with a bond-inductance tank whose
-impedance goes as `√(L/C)`: fitting `ΔV(C_d) = ΔV₀ / √(1 + C_d/C_die)` through
-the two measured endpoints puts the design's own supply-pair capacitance at
-`C_die ≈ 9.21 pF`, and predicts a **1/√C** law for everything in between — so
-that fit, made before the `MF = 2` run, predicts **26.64 mV** at `MF = 2`. The
-`MF = 2` row above is the third point, run afterwards, that tests that
-prediction rather than asserting it.
+and **5.08** on `VPWR_DIE`. That is what a bond-inductance tank whose impedance
+goes as `√(L/C)` predicts, and fitting `ΔV(C_d) = ΔV₀ / √(1 + C_d/C_die)`
+through those two points puts the design's own supply-pair capacitance at
+`C_die ≈ 9.21 pF`. Under that fit `MF = 2` would read **26.64 mV** — **a
+prediction from two points, not a measurement**, and the thing #448 exists to
+confirm or refute.
+
+### The as-committed netlist: two arms that did complete
+
+Both ran `design/sar_adc_top.spice` at DUT netlist
+`sha256:c93a2926b779922289539214d6f3471db7b2ffb95ba3b4dc97dee6279385fdb1`,
+against the baseline record's
+`sha256:96b3696ee9ecc84417c44f4bda51584e6a2cdd8d94c3ce9c4393993aef6c481f`,
+under the same invocation, at `tt_27c_1.80v`. **The committed netlist's hash is
+now `6a0be472…` instead**, and the difference is exactly one line: this record
+was renumbered DR-016 → DR-017 after those runs (the number had been taken on
+`main` meanwhile), which edits a schematic *comment* and therefore moves
+`design/sar_adc_top.sch`'s own sha256 in the netlist's provenance header. The
+device cards are byte-identical — `diff` of the two netlists is that single
+header line — so the runs below are runs of this design, but a re-run will
+re-simulate rather than hit `--log-cache` (the cache keys on the whole deck, as
+it should).
+
+| arm | `GND_DIE` p-p | `VGND_DIE` p-p | `VDD_DIE` p-p | `VPWR_DIE` p-p | captured codes | wall clock |
+|---|---|---|---|---|---|---|
+| `ideal` (with decoupling) | 0.000 mV | 0.000 mV | 0.000 mV | 0.000 mV | 214 / 383 / 511 / 641 / 1023 | 2073 s |
+| `ideal` (baseline record, no decoupling) | 0.000 mV | 0.000 mV | 0.000 mV | 0.000 mV | 214 / 383 / 511 / 641 / 1023 | 554 s |
+| `package-r-only` (with decoupling) | 0.059 mV | 0.086 mV | 0.059 mV | 0.086 mV | 214 / 383 / 511 / 641 / 1023 | 1534 s |
+| `package-r-only` (baseline record) | 0.059 mV | 0.088 mV | 0.059 mV | 0.089 mV | 214 / 383 / 511 / 641 / 1023 | 312 s |
+
+Two things these do establish, and they are not small:
+
+1. **The two added devices are inert where they should be.** Under ideal
+   supplies the captured codes are code-for-code identical to the baseline
+   record's `ideal` row, and so is every average rail current to four
+   significant figures — `I(VDD)` 2.097 µA, `I(VPWR)` 6.966 µA, `I(GND)`
+   2.177 µA, `I(VREFP)` 6.470 µA, `I(VCM)` 0.014 µA, against the baseline
+   record's 2.097 / 6.966 / 2.177 / 6.470 / 0.014. A capacitor across an ideal
+   source cannot move that source's node voltage, and measurement agrees. This
+   is the no-code-regression check the decision needs before adding any device.
+2. **The mechanism claim is confirmed on its own negative control.** With the
+   bond resistance present and the inductance zeroed, 8.870 pF per domain
+   changes `GND_DIE` not at all (0.059 mV, both cases). A capacitor across the
+   die's own supply/return pair does nothing to a purely resistive return —
+   exactly what "Alternatives considered" says below, now measured rather than
+   argued.
+
+**A cost finding worth carrying forward.** DR-015 rejected adding decoupling
+partly on the expectation that it would make the bonded arms "ring less and
+simulate faster". The opposite is observed on every arm: 2073 s vs 554 s on
+`ideal`, 1534 s vs 312 s on `package-r-only`, and > 3800 s vs 1261 s on
+`package`. **Host load varied over the runs and is not controlled for**, so
+these are not a clean 3–5× attribution — but the `ideal` arm is electrically
+*unchanged* by the two devices and still took 3.7× longer, which no load
+explanation alone covers. The plausible mechanism is the PDK MiM subcircuit's
+own internal series resistance (`r1 = rm3·l/w`, a fraction of an ohm for a
+square plate) against its capacitance: a sub-picosecond pole the transient
+solver must resolve. Anyone budgeting a `--corners` or `--sweep` run on the
+decoupled design should price it from these numbers, not from the undecoupled
+record's.
 
 **Consequence, stated before the decision so the decision is read against it:
 1 LSB is not reachable on this axis.** `1 LSB_diff = 2·V_REF/2^N = 3.5156 mV`
@@ -167,7 +226,7 @@ and that is where the residual is booked.
 3. **The sizing criterion is an area budget, not a bounce target**, because the
    measurement above shows a bounce target cannot be the criterion: the
    response is ~1/√C, so there is no knee to size to, and the value that would
-   meet 1 LSB is 4.5 die-areas of MiM. The budget is stated plainly and is a
+   meet 1 LSB is ~4.7 die-areas of MiM. The budget is stated plainly and is a
    choice, not a derivation: **≤ 10 % of the composed die's footprint across
    both domains**, on the argument that a back-end-of-line device drawn over
    existing sub-blocks costs routing real estate rather than silicon, and that
@@ -204,10 +263,13 @@ and that is where the residual is booked.
   second option).** Rejected, but it is the closest call in this record and the
   argument against it is not "the bounce is fatal" (it is not: 0 LSB moved at
   this corner) but *asymmetry of the alternatives*. Adding the caps is monotone
-  beneficial, costs no silicon and no pin, needs no new device flavour, and is
-  the only lever this repo controls; declining costs a measured ~25–30 %
-  (see the `MF = 2` row) of a real excursion on the comparator's own reference
-  in exchange for met3/met4 the layout has not yet been shown to need. The
+  beneficial (the response is monotone in `C`), costs no silicon and no pin,
+  needs no new device flavour, and is the only lever this repo controls;
+  declining forgoes a reduction the `MF = 32` point measures as real — a factor
+  of 4.05 at 16× this allocation — in exchange for met3/met4 the layout has not
+  yet been shown to need. What tips it is that the *sign* of the effect is
+  measured even though the magnitude at `MF = 2` is not (#448): a capacitor
+  across a bonded supply pair can only lower that pair's tank impedance. The
   honest framing is that this is a **cheap, partial** mitigation adopted with
   its limits stated, not a fix.
 - **Adopt gf180-sar-adc's DR-0036 method verbatim (0.5 LSB target, the
@@ -227,11 +289,14 @@ and that is where the residual is booked.
   the answer is unconstrained across four orders of magnitude* without the
   missing inputs — it is a reason not to pick a number, not a method for
   picking one.
-- **Sweep `MF` finely and pick the knee.** Rejected: there is no knee. A
-  1/√C response has none, and the two decoupled points already measured span a
-  16× range of `C_d` for a factor of ~4 in excursion. Further points would cost ~1 h of
-  whole-ADC transient each (see the probe's 3323 s) and would refine a curve
-  whose *shape* is already the finding.
+- **Sweep `MF` finely and pick the knee.** Rejected: there is no knee. A 1/√C
+  response has none, and the two `package`-arm points that do exist bracket the
+  whole affordable range — `C_d = 0` and `C_d = 141.9 pF`, a factor of 4.05 in
+  excursion across everything a die this size could hold. Each further point is
+  an hour or more of whole-ADC transient (see the probe's 3323 s, and #448 for
+  the arm that does not finish at all on this host), and would refine a curve
+  whose *shape* is the finding. The one point that would earn its cost is the
+  shipped value's own, which is why it is an open item rather than a sweep.
 - **Wait for #409's PVT grid and R/L sweep before sizing anything.** Rejected,
   per #431's filing comment and the Context above. The worst-corner number is
   still owed before the target in Decision §4 can be called anything other than
@@ -271,40 +336,45 @@ sense DR-010/DR-012/DR-015 do.
   Consequences is edited — only the open-item pointer moves, per the
   append-only convention for standing records.
 - `docs/chipalooza/challenge-4-proposal.md`: §3's top-level primitive census
-  moves from 8 to 10 `sky130_fd_pr` instances (`cap_mim_m3_1` ×2 → ×4), and
-  §4's Power row re-points at the new supply-impedance record. Both are
-  machine-graded by `docs/chipalooza/check_proposal_citations.py`, so neither
-  is optional.
+  moves from 8 to 10 `sky130_fd_pr` instances (`cap_mim_m3_1` ×2 → ×4), which
+  check 20 of `docs/chipalooza/check_proposal_citations.py` grades in both
+  directions, so it is not optional. §4's Power row and §7 Item 1's DR-012
+  retirement paragraph both still cite the *undecoupled* record
+  `20260925-073912-0e385e5` and stay correct while that record remains
+  `records/LATEST`; they move when #448 mints the decoupled one.
 
 ## Consequences
 
-- **The `package`-arm die-side excursion drops from 37.333 mV / 61.755 mV to
-  PLACEHOLDER_GND_MF2 mV / PLACEHOLDER_VPWR_MF2 mV** at `tt_27c_1.80v`
-  (`sim/supply-impedance-sensitivity/records/PLACEHOLDER_NEW_RECORD.md`), against
-  the 3.5156 mV target stated in Decision §4 — **not met, by design and by
-  measurement**, see "What was measured".
-- **Captured code is unchanged**: PLACEHOLDER_DCODE_MF2 LSB moved against the
-  ideal control at every mid-scale input, the same verdict the no-decoupling
-  baseline reached. This record improves margin without changing any
-  code-correctness verdict already on record, and the `ideal` arm of the new
-  record is itself the regression check that the two added devices are inert
-  under ideal supplies (a capacitor across an ideal source cannot move its node
-  voltage).
-- **DR-015's Decision clause 6 ("no decoupling is modelled, deliberately") now
-  has exactly one committed exception, and DR-015's own Consequences
-  anticipated it** ("When a decoupling plan exists, this assumption gains a
-  second, decoupled variant"). This is that variant. The baseline record
-  `20260925-073912-0e385e5` stands unedited and is **not** superseded: the two
-  records measure different netlists on purpose, and the older one remains the
-  only committed measurement of the undecoupled design.
-- **Simulation gets slower, not faster.** DR-015 rejected adding decoupling
-  partly on the argument that it would make the bonded arms ring less and
-  simulate faster. Measured, the opposite happened: the `MF = 32` probe cost
-  3323 s against the undecoupled `package` arm's 1261 s. Adding capacitance
-  lowers the tank's frequency but raises its Q against a 102.2 mΩ bond, so the
-  solver pays for a longer, lighter-damped settle. Anyone budgeting a future
-  `--corners` or `--sweep` run should price it from this record's own
-  wall-clock table, not from the undecoupled one.
+- **The target in Decision §4 is not met, and is not claimed.** The as-shipped
+  `MF = 2` excursion is unmeasured (#448); the value the two-point fit predicts
+  for it, 26.64 mV, is 7.6× the 3.5156 mV target, and the *best affordable*
+  point measured on this axis — a MiM area 1.3× the whole die — is still 2.6×
+  it. No reading of this record supports a claim that the die-side bounce meets
+  1 LSB.
+- **Captured code is unchanged wherever it has been checked.** Both completed
+  arms on the as-committed netlist reproduce the baseline record's captured
+  codes exactly (214 / 383 / 511 / 641 / 1023), as does the `MF = 32` probe on
+  the `package` arm. This record adds no code-correctness regression to
+  anything already on record — and, under ideal supplies, adds nothing at all:
+  the two devices are inert there to four significant figures of every rail
+  current.
+- **DR-015's Decision clause 6 ("no decoupling is modelled, deliberately") is
+  now false of `design/`, and DR-015's own Consequences anticipated it** ("When
+  a decoupling plan exists, this assumption gains a second, decoupled
+  variant"). Two places that asserted the old premise are corrected in the same
+  change as this record: `sim/supply-impedance-sensitivity/README.md` and that
+  runner's own sweep-record writer. Both now say that on-die decoupling is
+  whatever `design/sar_adc_top.spice` commits, that no *board* decoupling is
+  modelled in any case, and that a record's own DUT netlist sha256 is how to
+  tell which case it is. The baseline record `20260925-073912-0e385e5` stands
+  unedited and is **not** superseded: it remains the only committed measurement
+  of the undecoupled design.
+- **Every `sim/` campaign that drives this netlist is now materially more
+  expensive.** See the wall-clock finding under "What was measured": the
+  electrically-inert `ideal` arm still took 3.7× longer with the two devices in.
+  A `--corners` or `--sweep` run on the decoupled design must be budgeted from
+  the decoupled numbers, and one arm of the campaign now exceeds this dispatch
+  host's per-process budget outright (#448).
 - **`design/sar_adc_top.spice`'s device count moves 869 → 871**, so every
   DRC/LVS record under `layout/sar-adc-top/reports/` is now stale against the
   schematic by two devices, and `bin/generate-lvs-reference.py` will emit an
@@ -318,6 +388,22 @@ sense DR-010/DR-012/DR-015 do.
 
 ## Open items
 
+- **The shipped value's own `package`-arm number is not measured, and no
+  estimate stands in for it.** The `MF = 2` row of the sizing table above is
+  blank on purpose: five attempts at the campaign's own indexed four-arm
+  invocation were each terminated by this dispatch host's ~63-minute
+  per-process budget with that one arm still running, one of them on an
+  otherwise idle host. The other three arms complete and are
+  `--log-cache`-restartable; `package` alone is not. The batch route this host's
+  rules would otherwise prefer is closed for this campaign for two reasons
+  already recorded in its own README: `klt sim` owns a different
+  request/response contract and cannot mint a record in this repo's format, and
+  the fleet's runner image ships ngspice-42, below `sim/toolchain.json`'s
+  `ngspice_min_major = 46` floor. So this is a **compute-resource gap** — a host
+  that can hold one process for longer than an hour — and it is tracked as
+  **#448**, which also states what must happen if the measurement refutes the
+  1/√C model Decision §3 and §4 both rest on (a superseding record, not a
+  wording fix).
 - **Layout placement, and DRC/LVS/ERC re-verification, are not done by this
   record.** Placing `Cdecap_a`/`Cdecap_d` in `layout/sar-adc-top/`'s composed
   top level — ideally close to each domain's own switching devices, and

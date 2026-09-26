@@ -13,7 +13,7 @@
 *   design/cdac/cdac_array.sch: sha256:cb29cb46fa477459033e8feb9d71800c99b4cce82e67987281ecef2ed9dd8ef8
 *   design/comparator.sch: sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536
 *   design/sar_sequencer.sch: sha256:9d76813255ceb43a7f2dcde6cba04d6396cb9e7767c3e0f2cce178b5db849999
-*   design/sar_adc_top.sch: sha256:5d446b167e1d8e599b94b560cc073bdb34db16af995ac14458e6e17b03d6d800
+*   design/sar_adc_top.sch: sha256:0f23c97107ce78cad2c39416bd428786b18da35287e8b725fc3f2fd0a59c4fea
 *
 * Every device instance below is a ratified flavour (nfet_01v8/pfet_01v8/
 * cap_mim_m3_1 sky130_fd_pr primitives, or sky130_fd_sc_hd standard
