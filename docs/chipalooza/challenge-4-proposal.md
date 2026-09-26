@@ -2686,6 +2686,37 @@ tracker already owns.
    the paragraph after Item 4's readout describes). Item 4's readout now
    carries both records separately, and `#440`'s body still quotes the old
    `DR-016-…` filename — read it as DR-017.
+
+   **Update this pass (2026-09-26): #103 was touched again since the last
+   re-verification, by a comment, not a label change.** `gh api
+   repos/2AMLogic/sky130-sar-adc/issues/103` now reports `updated_at:
+   2026-09-26T00:13:21Z`, later than the `2026-09-24T06:38:37Z` the
+   immediately preceding update (above) cited as the issue's most recent
+   activity — so that update's own claim "no automated re-check has flipped
+   it since" is what has gone stale, not the labels it described: re-read
+   live this pass, #103 still carries exactly `loom:operator-only`,
+   `loom:operator-decision`, `loom:curated` and `tier:goal-advancing`, and
+   is still `state: open`. The new activity is a comment
+   ("Operator-parked, premise possibly stale", posted 2026-09-26T00:13:19Z),
+   not a label edit: it restates that `klayout-tools#2396` and `#2398`
+   (this item's own 2026-09-24 update, above) are closed upstream, and
+   flags — correctly — that closing the upstream issues is not the same as
+   confirming the 88-mismatch LVS gap has actually cleared, since no
+   toolchain re-run against either fix has been performed; it asks for a
+   Builder or operator to re-run `klt lvs` once a `klayout-tools` release
+   ships them. That request is not yet actionable, for the same release-gate
+   reason this item has tracked since 2026-09-16: re-verified live this pass,
+   `klayout-tools`'s latest published tag/PyPI release is still `v0.6.0`
+   (`gh api repos/2AMLogic/klayout-tools/tags` and the PyPI JSON API, both
+   checked this pass), and none of the three fixes behind it are ancestors of
+   that tag — `gh api repos/2AMLogic/klayout-tools/compare/v0.6.0...a34fd79`
+   (`#2396`'s fix) reports `ahead_by: 51`, the same compare against `c01c50c`
+   (`#2398`'s fix) reports `ahead_by: 54`, and against `2808823` (`#2397`'s
+   fix) reports `ahead_by: 43` — unchanged from this item's 2026-09-24 and
+   2026-09-25 updates above. **No §4 verdict moves, and #103's own state is
+   unchanged**: still open, still `loom:operator-only`/`loom:operator-decision`
+   — a human ruling this document records rather than acts on, per this
+   issue's own established convention.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
