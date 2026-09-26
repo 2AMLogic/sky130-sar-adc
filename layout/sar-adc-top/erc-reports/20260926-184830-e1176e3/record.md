@@ -1,8 +1,8 @@
 # `klt erc` supply record `20260926-184830-e1176e3` — T1 item 11 (Power delivery, structural)
 
 **Verdict: unchanged from the record it supersedes, on a layout whose supply
-geometry really did move** — six via stacks in the decoupling ties went from one
-cut to four (issue #465). Both halves of item 11, stated up front so neither
+geometry really did move** — eight via stacks in the decoupling ties went from
+one cut to four (issue #465). Both halves of item 11, stated up front so neither
 hides behind the other:
 
 - **Passing:** all four of this block's drawn supplies (`VDD`, `GND`, `VPWR`,
@@ -33,8 +33,8 @@ and `reports/20260926-184816-e1176e3/decap-ties.json` reports the ESR down to
 
 **That is precisely the kind of change that has to be re-graded here rather than
 reasoned about, because it edits the conductor of a declared supply.** Each of
-those six sites is a *series* element in a supply island's own path: three of
-them (the two risers' met2↔met3 levels and the met3↔met4 levels) are the only
+those eight sites is a *series* element in a supply island's own path: four of
+them (the two risers' met2↔met3 levels and their met3↔met4 levels) are the only
 connection between a rail and the met2 run beyond them, and four are the only
 connection between a met2 run and a capacitor's met3 bottom plate. Widening one
 means deleting its single cut and drawing four new ones on a 0.40 µm pitch with

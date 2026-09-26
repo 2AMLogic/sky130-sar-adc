@@ -206,6 +206,50 @@ def _decap_series_resistance(ties: dict) -> list[str]:
     return lines
 
 
+def _decap_via_array_sites() -> dict[str, int]:
+    """How many via sites the decoupling ties widen, per cut level -- counted
+    out of `probe-decap-sites.py`'s own tie ladders rather than written here.
+
+    Same reason `cuts` is read out of `build_layout` below: the number of via
+    STACKS that went from one cut to four is not the number of via2 sites. Each
+    met4->met2 riser passes through TWO cut levels (a via3 and a via2) and each
+    of the four bottom-plate entries is one via2, so a hand-typed count is
+    exactly the kind of number that drifts -- an earlier draft of this
+    paragraph said "six", which is the via2 tally, not the site tally. The
+    ladder read here is the same model `probe-decap-sites.py`'s
+    `verify_against_record()` checks cut-by-cut against the record's own
+    `draw.request.json`, so a count taken from it cannot describe a via grid
+    the composer did not draw.
+
+    Returns e.g. `{"via2": 6, "via3": 2}` -- only the sites this composer
+    draws AND widens (`Via.at is not None` at the full `DECAP_VIA_ARRAY` grid);
+    the via4 landings off the met5 rails and each `cap_array` unit cell's own
+    centre via3 stay single-cut and are deliberately excluded.
+    """
+    import importlib.util
+
+    import build_layout as bl  # noqa: E402  (same directory; see sys.path above)
+
+    probe_path = Path(__file__).resolve().parent / "probe-decap-sites.py"
+    spec = importlib.util.spec_from_file_location("probe_decap_sites", probe_path)
+    assert spec and spec.loader
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+
+    cuts = bl.DECAP_VIA_ARRAY**2
+    sites: dict[str, int] = {}
+    for ladder in probe.tie_ladders().values():
+        segments = list(ladder["shared"])
+        for branch in ladder["branches"].values():
+            segments.extend(branch)
+        for seg in segments:
+            if not isinstance(seg, probe.Via) or seg.cuts != cuts or seg.at is None:
+                continue
+            level = probe.RVIA_PARAM[(seg.lo, seg.hi)].replace("rc", "", 1)
+            sites[level] = sites.get(level, 0) + 1
+    return sites
+
+
 def _decap_via_narrative() -> list[str]:
     """Why the vias, not the metal, are what these ties' resistance is made of
     -- keyed off the cut count `build_layout` actually drew.
@@ -237,11 +281,16 @@ def _decap_via_narrative() -> list[str]:
             "`sim/supply-impedance-sensitivity/` (issue #465); see README.md's "
             "\"On-die decoupling (DR-017)\"."
         ]
+    sites = _decap_via_array_sites()
+    total = sum(sites.values())
+    breakdown = " + ".join(f"{n} {level}" for level, n in sorted(sites.items()))
     return [
         head
         + f" **Every via2/via3 the ties draw is a {bl.DECAP_VIA_ARRAY}x"
         f"{bl.DECAP_VIA_ARRAY} array of {cuts} cuts** (issue #465), so each of "
-        f"those six levels contributes 3.41/{cuts} = {3.41 / cuts:.3f} ohm instead "
+        f"those {total} sites ({breakdown} -- the two met4->met2 risers' two "
+        f"levels each, plus the four via2 plate entries) contributes "
+        f"3.41/{cuts} = {3.41 / cuts:.3f} ohm instead "
         "of 3.41. That is drawn on measurement in both directions: issue #440 "
         "measured the single-cut ties at 13.837 / 13.448 ohm per domain with ~80 % "
         "of it in those cuts, and "

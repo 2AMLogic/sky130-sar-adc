@@ -52,7 +52,8 @@ flagged: as first drawn the ties added **13.8 Ω / 13.4 Ω of ESR per domain,
 ~80 % of it single-cut vias** — and issue #465 has since measured that that
 resistance *raises* every die-side rail's excursion (worst rail 1.333×) rather
 than usefully damping the package resonance, and drawn 2 × 2 via arrays at all
-six via2/via3 sites in those ties, taking the ESR to **7.2 Ω / 6.9 Ω per
+eight via2/via3 sites in those ties (six via2 and two via3 — the two risers pass
+through both levels), taking the ESR to **7.2 Ω / 6.9 Ω per
 domain** at an unchanged DRC/LVS/ERC verdict and an unchanged bounding box
 (`reports/20260926-184816-e1176e3/`). See "On-die decoupling (DR-017)" below for
 both measurements, the corridors, and what remains irreducible.
@@ -1135,7 +1136,7 @@ cuts** (issue #465, `DECAP_VIA_ARRAY`; `reports/20260926-184816-e1176e3/`):
 **What these ties are made of is vias, not metal**, at `rcvia2`/`rcvia3` =
 3.41 Ω per cut against 0.047–0.125 Ω/sq on 2.0 µm conductor. Each *return* path
 crosses three of those levels (the met4→met2 riser's two, plus the via2 into each
-plate) against each *supply* path's one — which is why, when all six were single
+plate) against each *supply* path's one — which is why, when all eight were single
 cuts, the return ties were 3.6× and 2.7× their own domain's supply tie *despite*
 the wide conductor, and 6.82 Ω of the analog return's then-8.601 Ω shared leg was
 two via cuts against 1.781 Ω of 28.5 µm of met2.
@@ -1221,7 +1222,7 @@ now reads from it.
 | `20260925-011943-f981dc9` (issue #364, prose re-mint) | `reports/20260924-234053-66dca3c/` | **PASS** — same bytes, same report | `unmet` — same two reasons |
 | `20260925-044420-f039594` (issue #364, second prose re-mint) | `reports/20260924-234053-66dca3c/` | **PASS** — same bytes, same report | `unmet` — same two reasons |
 | `20260926-081822-203cca3` (issue #440, DR-017 decoupling placed) | `reports/20260926-081248-203cca3/` | **PASS** — all four supplies 1 island each, 0 findings, on a GDS that gained four capacitors and four new conductors onto already-declared supplies | `unmet` — same two reasons |
-| `20260926-184830-e1176e3` (issue #465, decoupling-tie via arrays) | `reports/20260926-184816-e1176e3/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings, on a GDS in which six via stacks on those supplies' own drawn paths went from one cut to four | `unmet` — same two reasons |
+| `20260926-184830-e1176e3` (issue #465, decoupling-tie via arrays) | `reports/20260926-184816-e1176e3/` | **PASS** — unchanged, all four supplies 1 island each, 0 findings, on a GDS in which eight via stacks on those supplies' own drawn paths went from one cut to four | `unmet` — same two reasons |
 
 **The gate has not moved across any of those eight runs, and that is checkable.**
 `klt erc` grades `stackup`, `vias`, `nets[]` and `ties_disclosure.kind`; it

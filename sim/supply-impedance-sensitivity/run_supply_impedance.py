@@ -5075,9 +5075,11 @@ def write_decap_esr_record(
         "- **The 2x2-via-array geometry itself.** This ladder brackets the reachable "
         "value between `0x` and the as-built `1x`; it does not run the projected "
         "~4-5 Ohm array ESR as its own rung. The arrays could never reach `0x` in "
-        "any case -- they divide the via half of each ladder, and the metal half "
-        f"({ties.tie_ohm['GND']:.3f} Ohm of the analog return tie is mostly drawn "
-        "met2) stays."
+        "any case -- they divide the via half of each ladder and leave the metal "
+        f"half untouched. Of the analog return tie's {ties.tie_ohm['GND']:.3f} Ohm, "
+        "issue #440 measured ~80 % as single via cuts; it is the met2 remainder of "
+        "that -- not the whole tie -- that no via array can divide, and it is what "
+        "holds even a fully arrayed tie above `0x`."
     )
     a(
         "- **Other corners.** One corner point, for the cost reason stated below. "

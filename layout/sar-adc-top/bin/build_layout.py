@@ -1624,8 +1624,9 @@ def decoupling_caps(c: Canvas) -> dict[str, tuple[int, int]]:
 
     Why every via2/via3 here is a cut ARRAY (issue #465)
     ---------------------------------------------------
-    Each of the six via2/via3 sites these two functions draw -- the two risers'
-    two levels each, and the four via2 plate entries -- passes
+    Each of the eight via2/via3 sites these two functions draw -- the two
+    risers' two levels each, and the four via2 plate entries, i.e. six via2
+    sites and two via3 sites -- passes
     `array=DECAP_VIA_ARRAY`, so it is four cuts in parallel rather than the one
     cut this flow's `riser()`/`via()` convention draws everywhere else. That is
     the only lever on these ties' resistance that exists: #440 measured them at
