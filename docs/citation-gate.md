@@ -1619,6 +1619,75 @@ the document cites one of the records that still carry the gap -- a document
 that cites none of them qualifies nothing about who owns it and is not made to
 invent a sentence about it.
 
+### Check 34 -- `--null-sweep` ladder census (`check_null_sweep_census`)
+
+The **third** axis of the one campaign checks 31 and 32 already grade, and the
+one whose record shape is invisible to the union of everything before it.
+
+`--null-sweep` (landed 2026-09-26 in PR #445, the residual of issue #409's
+third item) walks a bounded one-axis ladder -- the lumped substrate resistance
+at `3`/`30`/`300 Ω` -- on **DR-012's rejected `no-gnd-pad` topology**, where
+`GND` has no bond at all and that single resistor carries the analog ground's
+entire return current. That is not the 2-D box check 32 grades run again: the
+box moved a resistor of the same name over the same decade on the as-built
+`package` topology, where `GND` *is* bonded through ~102 mΩ and the resistor is
+a secondary shunt beside it. Same constant, same decade, structurally different
+experiment -- which is why the box's own record said an `R_SUB` *return* sweep
+was still owed, and why
+`spec/decision-records/DR-015-package-parasitic-assumption.md`'s claim that the
+rejected arm is "*entirely* a function of `R_SUB`" stayed prose until this
+ladder measured it (and falsified half of it: at `3 Ω` the excursion is
+**worse** than at the assumed `30 Ω`, so the dependence is real but not
+monotone). Like a sweep record, a ladder record **does not move
+`records/LATEST`** -- it supersedes nothing.
+
+**Why nothing else can see it arrive.** This record shape defeats every check
+before it, for the *union* of checks 31's and 32's reasons: checks 3, 4, 6 and
+23 grade pointers and stamps, and a ladder record is never the pointer; check
+28 grades the PVT grid, and the ladder runs at one corner; check 31 reads the
+`- **Arms**:` line, which a ladder record does not carry; and check 32 reads the
+`- **Grid**:` line, which it does not carry either. Section 7's DR-012 item
+bounds what this campaign may be read for on which magnitudes have been walked
+**and on which topology**, so a ladder arriving -- or a rung being added to the
+runner's default and left unwalked -- leaves those sentences false with every
+number beside them still true. Check 30's defect shape, a third axis over.
+
+**What it grades.** Three numbers and a record list in one sentence, in both
+directions like checks 8, 10, 14--18, 25, 26, 28 and 30--33: how many
+substrate-return magnitudes the runner's default ladder defines, how many the
+longest committed ladder record carries, how many ladder records exist, and
+which. The ladder is re-derived from the runner's own `NULL_SWEEP_RSUBX_OHM`
+tuple, read as source text and never imported (`report_row_count`'s
+pure-file-reader rule). A ladder record is identified by the `- **Ladder**:`
+header line only the null sweep's own writer emits -- the third and last record
+shape that single `records/` tree holds -- and its rung count is read from that
+line's **leading** number rather than from the `=` total beside it, because
+that total counts the `ideal` control and the control is not a swept magnitude.
+`covered` is a maximum and not a sum, check 32's reason. The census sentence
+names the topology explicitly: that is the half which distinguishes this axis
+from check 32's, and a census stating only the magnitudes would read as a
+duplicate of it. An absent census is a finding, anchored -- like checks 31 and
+32 -- on the document citing `sim/supply-impedance-sensitivity/` at all.
+
+**One parse hazard worth naming.** `SWEEP_RSUBX_OHM` and
+`NULL_SWEEP_RSUBX_OHM` share a suffix and live in the same file. Both patterns
+are `^`-anchored so neither captures the other's tuple, and a test carrying
+*both* constants at deliberately different lengths is what holds that apart --
+without it, the two checks could silently census one axis twice.
+
+**What this check deliberately does NOT cover.** It does not grade whether a
+ladder record's rungs are the runner's *current* default: a record of a
+deliberately different ladder (`--null-sweep-rsub`) is legitimate and says so
+in its own footer. It does not read the ladder's *findings* -- the non-monotone
+result above is Section 7's prose and check 12's business, not this check's.
+And a full rung count does **not** retire issue #409's fourth item: every rung
+is the same single lumped stand-in with no `klt extract` behind it, so a walked
+ladder bounds the *sensitivity* to the stand-in and says nothing about this
+die's substrate. When the runner is absent or its ladder is not a tuple literal
+this parse recognises, it reports **nothing** rather than a ladder of zero
+rungs -- checks 31 and 32's reason: there is no tree-side number to compare
+against, and inventing one would make the gate the author of a claim.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
