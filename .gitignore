@@ -26,6 +26,15 @@ __pycache__/
 # resulting logs back under sim/<experiment>/, so this only catches
 # interactive/xschem scratch (see sim/xschemrc's netlist_dir).
 sim/build/
+# `--log-cache` restart caches. A campaign whose single run is tens of minutes
+# offers a cache so an interruption does not throw away the arms that finished
+# (`sim/supply-impedance-sensitivity/README.md`), and that README names
+# `.cache/supply-impedance` as the directory to use. The cached logs are not
+# evidence -- a run that keeps them copies the ones it actually used into its
+# own record under sim/<experiment>/corners/ -- so the cache is scratch and
+# must not be able to ride into a commit alongside the record it helped mint.
+/.cache/
+
 # ngspice model-check scratch dumps (e.g. bsim4v5.out) from ad hoc ngspice
 # invocations at repo root. Root-anchored so it doesn't clobber unrelated
 # *.out files elsewhere in the tree -- notably sim/smoke_test.ngspice.out,

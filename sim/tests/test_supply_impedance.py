@@ -744,7 +744,20 @@ class TestInvocationFooter(unittest.TestCase):
         for bench in benches:
             tokens = bench["cold_start"].split()
             cold_tokens = set(tokens)
-            if "--sweep" in cold_tokens:
+            if "--null-sweep" in cold_tokens:
+                # The null-option ladder mints through its own writer and its
+                # own footer function; the same gate applies to it, and its one
+                # axis flag must stay inside the indexed command.
+                rsub = (
+                    tuple(
+                        float(v)
+                        for v in tokens[tokens.index("--null-sweep-rsub") + 1].split(",")
+                    )
+                    if "--null-sweep-rsub" in tokens
+                    else si.NULL_SWEEP_RSUBX_OHM
+                )
+                footer = si.null_sweep_invocation_line(rsub, "")
+            elif "--sweep" in cold_tokens:
                 # The sweep mints through its own writer and its own footer
                 # function; the same gate applies to it, and it has its own
                 # pair of axis flags that must stay inside the indexed command.
@@ -790,6 +803,22 @@ class TestInvocationFooter(unittest.TestCase):
             "the README does not document the exact command the default sweep would "
             "record in its own footer -- indexing that record would fail "
             "cold-start-undocumented",
+        )
+
+    def test_the_documented_null_sweep_command_is_the_footer_it_would_write(self) -> None:
+        """Same pre-run half of the gate as the sweep's, for the same reason:
+        `cold-start-undocumented` ("the indexed command must appear verbatim in
+        `documented_in`") is checkable against the README before the hours are
+        spent, and is the difference between finding a drifted command before
+        the run and after it."""
+        readme = (EXPERIMENT_DIR / "README.md").read_text()
+        footer = si.null_sweep_invocation_line(si.NULL_SWEEP_RSUBX_OHM, "")
+        self.assertIn(
+            f"python3 {footer}",
+            readme,
+            "the README does not document the exact command the default "
+            "null-option ladder would record in its own footer -- indexing that "
+            "record would fail cold-start-undocumented",
         )
 
     def test_the_runner_path_is_always_present(self) -> None:
@@ -956,6 +985,208 @@ class TestBoundedRLSweep(unittest.TestCase):
         )
 
 
+class TestBoundedNullOptionSubstrateLadder(unittest.TestCase):
+    """`--null-sweep` (issue #409; the residual of DR-015's substrate item).
+
+    DR-015 says in prose that the `no-gnd-pad` arm is "*entirely* a function of
+    `R_SUB`: with a small `R_SUB` it looks harmless, with a large one it looks
+    fatal". This ladder is what measures that, and it is only that measurement
+    if two things hold: the swept element really is the analog ground's whole
+    return (which is true only on a topology where `GND` has no bond), and the
+    ladder's centre really is the point the campaign already recorded. Both are
+    properties a later edit could break while every run still completed and
+    still wrote a plausible record.
+    """
+
+    def test_the_anchor_point_is_the_committed_null_option_arm(self) -> None:
+        self.assertTrue(si.null_sweep_anchor_matches_base_arm())
+        anchor = [
+            c
+            for c in si.arm_network_lines(si.null_sweep_arm(si.R_SUBX_OHM))
+            if c and not c.startswith("*")
+        ]
+        base = [
+            c
+            for c in si.arm_network_lines(si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM])
+            if c and not c.startswith("*")
+        ]
+        self.assertEqual(anchor, base)
+
+    def test_the_swept_element_is_the_analog_grounds_only_return(self) -> None:
+        """What makes this ladder a different experiment from `--sweep` rather
+        than a re-run of it: on the as-built topology `GND` is bonded and the
+        swept resistor is a shunt; here `GND` has no bond at all, so that same
+        resistor carries the entire analog-ground return current."""
+        for r in si.NULL_SWEEP_RSUBX_OHM:
+            arm = si.null_sweep_arm(r)
+            self.assertNotIn("GND", arm.bonds, "the null option must leave `GND` unbonded")
+            self.assertEqual(len(arm.substrate), 1)
+            inst, node_a, node_b, ohm = arm.substrate[0]
+            self.assertEqual((inst, node_a, node_b), ("RSUBX", si.GND_DIE, "VGND"))
+            self.assertEqual(ohm, r)
+        # ... whereas the 2-D sweep's points bond every terminal.
+        self.assertEqual(
+            set(si.sweep_arm(1.0, si.R_SUBX_OHM).bonds), set(si.TERMINAL_ORDER)
+        )
+
+    def test_the_ladder_moves_one_element_and_nothing_else(self) -> None:
+        """DR-015 item 5: an effect may be attributed to an element only by a
+        difference that moves that element and nothing else."""
+        arms = si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)
+        for arm in arms[1:]:
+            self.assertEqual(arm.bonds, arms[0].bonds)
+        values = [a.substrate[0][3] for a in arms]
+        self.assertEqual(values, list(si.NULL_SWEEP_RSUBX_OHM))
+        self.assertEqual(len(set(values)), len(values))
+
+    def test_the_bonded_terminals_stay_at_dr015s_stated_values(self) -> None:
+        """This is a one-axis ladder, not a second 2-D box: the three bonded
+        terminals must be DR-015's R+L at every point, so a result here is a
+        statement about the substrate return at DR-015's bond."""
+        for r in si.NULL_SWEEP_RSUBX_OHM:
+            for terminal, bond in si.null_sweep_arm(r).bonds.items():
+                with self.subTest(r=r, terminal=terminal):
+                    self.assertAlmostEqual(bond.r_ohm, si.PACKAGE_R_OHM, places=12)
+                    self.assertAlmostEqual(bond.l_h, si.PACKAGE_L_H, places=15)
+
+    def test_the_default_ladder_brackets_dr015s_assumption_point(self) -> None:
+        """A ladder sitting entirely to one side of the assumption point could
+        not say whether that point is near a threshold -- which is the whole
+        question DR-015's 'harmless ... fatal' sentence poses."""
+        self.assertIn(si.R_SUBX_OHM, si.NULL_SWEEP_RSUBX_OHM)
+        self.assertLess(min(si.NULL_SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
+        self.assertGreater(max(si.NULL_SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
+
+    def test_ladder_point_names_are_unique_and_do_not_collide_with_the_2d_box(self) -> None:
+        """A point's name is also its log/deck filename and its log-cache key,
+        so a collision with a named arm or with a `--sweep` grid point would
+        silently overwrite another run's evidence."""
+        names = [a.name for a in si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)]
+        self.assertEqual(len(names), len(set(names)))
+        box = {a.name for a in si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)}
+        for name in names:
+            self.assertRegex(name, r"^[A-Za-z0-9._-]+$")
+            self.assertNotIn(name, si.ARMS_BY_NAME, "a ladder point shadows a named arm")
+            self.assertNotIn(name, box, "a ladder point collides with a --sweep grid point")
+
+    def test_unphysical_ladder_points_are_refused(self) -> None:
+        for r in (0.0, -30.0):
+            with self.subTest(r=r):
+                with self.assertRaises(RuntimeError):
+                    si.null_sweep_arm(r)
+
+    def test_a_base_arm_that_regained_a_ground_bond_is_refused(self) -> None:
+        """If the arm this ladder sweeps stopped being DR-012's rejected null
+        option, the run must fail rather than silently sweep a shunt and report
+        it as a return."""
+        original = si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM]
+        broken = si.Arm(
+            name=original.name,
+            summary=original.summary,
+            bonds={**original.bonds, "GND": si.Bond(si.PACKAGE_R_OHM, si.PACKAGE_L_H)},
+            substrate=original.substrate,
+        )
+        si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM] = broken
+        try:
+            with self.assertRaises(RuntimeError):
+                si.null_sweep_arm(si.R_SUBX_OHM)
+        finally:
+            si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM] = original
+
+    def test_footer_states_the_ladder_only_when_it_departs_from_the_default(self) -> None:
+        self.assertEqual(
+            si.null_sweep_invocation_line(si.NULL_SWEEP_RSUBX_OHM, ""),
+            f"{si.RUNNER_REL} --null-sweep --record",
+        )
+        self.assertIn(
+            "--null-sweep-rsub 1,10,100",
+            si.null_sweep_invocation_line((1.0, 10.0, 100.0), ""),
+        )
+        self.assertIn(
+            "--supersedes 20260101-000000-abcdef0",
+            si.null_sweep_invocation_line(
+                si.NULL_SWEEP_RSUBX_OHM, "20260101-000000-abcdef0"
+            ),
+        )
+
+
+class TestNullOptionLadderFindings(unittest.TestCase):
+    """The sentences the null-option record states about magnitudes. A ladder
+    that reported "no code moved" while one had -- or that located a threshold
+    at the wrong rung -- would be a wrong claim in an append-only record."""
+
+    def _point(self, rsub: float, gnd_pp: float, codes: list[int]) -> dict:
+        return {
+            "arm": si.null_sweep_arm_name(rsub),
+            "corner_id": "tt_27c_1.80v",
+            "conversions": [
+                {"conversion": i + 1, "fraction": f, "code": c}
+                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+            ],
+            "extras": {"gnd_die_pp": gnd_pp},
+            "missing": [],
+        }
+
+    def _ladder(self, mover: float | None) -> tuple[list[dict], dict]:
+        base = [214, 383, 511, 641, 1023]
+        control = self._point(0.0, 0.0, base)
+        control["arm"] = si.CONTROL_ARM
+        points = [control]
+        for r in si.NULL_SWEEP_RSUBX_OHM:
+            codes = list(base)
+            if mover is not None and r >= mover:
+                codes[2] += 3
+            points.append(self._point(r, 0.001 * r, codes))
+        return points, control
+
+    def test_a_bounded_null_is_stated_as_bounded(self) -> None:
+        points, control = self._ladder(None)
+        text = "\n".join(
+            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+        )
+        self.assertIn("bounded null result", text)
+        self.assertIn("0 LSB", text)
+        self.assertIn("outside** this ladder", text)
+        # A null on the CODE row must not be reported as "the pad does not matter".
+        self.assertIn("NOT a finding that the pad does not matter", text)
+
+    def test_a_threshold_inside_the_ladder_is_located(self) -> None:
+        points, control = self._ladder(300.0)
+        text = "\n".join(
+            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+        )
+        self.assertIn("moves inside this ladder", text)
+        self.assertIn("**300 Ohm**", text)
+        self.assertIn("3 LSB", text)
+        self.assertIn("1 of 3 points", text)
+
+    def test_the_sensitivity_dr015_asserted_is_reported_as_a_measured_ratio(self) -> None:
+        """The one number this record exists to produce."""
+        points, control = self._ladder(None)
+        text = "\n".join(
+            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+        )
+        self.assertIn("How sensitive the rejected option actually is", text)
+        self.assertIn("100x change", text)  # 3 Ohm -> 300 Ohm
+        self.assertIn("100.00x", text)  # the excursion ratio of this fixture
+        self.assertIn("argument from one point", text)
+
+    def test_the_ladder_is_anchored_to_the_committed_arm_record(self) -> None:
+        points, control = self._ladder(None)
+        lines = si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+        self.assertIn("anchored to the committed ground-pad ablation", lines[0])
+        self.assertIn("card for card", lines[0])
+
+    def test_the_worst_excursion_is_converted_to_lsb(self) -> None:
+        points, control = self._ladder(None)
+        text = "\n".join(
+            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+        )
+        self.assertIn("Worst die-side analog-ground excursion on the ladder", text)
+        self.assertIn("LSB at the nominal supply", text)
+        self.assertIn("upper bound rather than a prediction", text)
+
+
 class TestSweepFindings(unittest.TestCase):
     """The sentences the sweep record states about magnitudes. A sweep that
     reported "no code moved" while one had -- or a threshold at the wrong
@@ -1118,7 +1349,8 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         self.assertIn("## What this sweep does not cover", text)
         self.assertIn("## Subset-corner justification", text)
         # The two elements the sweep does NOT move must be named, not implied.
-        self.assertIn("`R_SUB`, the substrate-only RETURN, is not swept", text)
+        self.assertIn("The substrate-only RETURN is not swept here", text)
+        self.assertIn("`--null-sweep`", text)
         self.assertIn("No extracted substrate network", text)
         self.assertIn(
             "Written by `sim/supply-impedance-sensitivity/run_supply_impedance.py "
@@ -1159,6 +1391,139 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
             int(grid.group("points")),
             len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM),
         )
+
+
+class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
+    """The null-option ladder writes its own record and must NOT move
+    `records/LATEST`, for the same reason the 2-D sweep must not: that pointer
+    names this flow's newest ARM-COMPARISON record, which is what the citation
+    gate's arm census (check 31) reads. This record carries no arm census to
+    offer -- it is one topology at three magnitudes -- and it supersedes
+    nothing, so moving the pointer onto it would make a citation of a record
+    nothing had superseded read as stale.
+
+    It must also stay invisible to the *sweep* census (check 32), which counts
+    grid points of the 2-D box: a ladder record that matched that parse would
+    inflate a census of a box it is not a point of.
+    """
+
+    def _write(self) -> tuple[Path, Path]:
+        import shutil
+        import tempfile
+
+        from harness import evidence
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        base = [214, 383, 511, 641, 1023]
+
+        def point(arm: str, gnd_pp: float, bonded_gnd: bool) -> dict:
+            return {
+                "arm": arm,
+                "corner_id": "tt_27c_1.80v",
+                "process_corner": "tt",
+                "temp_c": 27.0,
+                "supply_v": 1.8,
+                "point_id": f"{arm}@tt_27c_1.80v",
+                "conversions": [
+                    {"conversion": i + 1, "fraction": f, "code": c}
+                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                ],
+                "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
+                "power_w": 27.3e-6,
+                "extras": (
+                    {"gnd_die_pp": gnd_pp, "vgnd_die_pp": 0.004, "i_gnda": 2.2e-6}
+                    if bonded_gnd
+                    else {"gnd_die_pp": gnd_pp, "vgnd_die_pp": 0.004}
+                ),
+                "missing": [],
+                "log_text": "LOG\n",
+                "deck_text": "* deck\n",
+                "wall_s": 500.0,
+                "reused": False,
+            }
+
+        points = [point(si.CONTROL_ARM, 0.0, True)] + [
+            point(arm.name, 0.065, False) for arm in si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)
+        ]
+        try:
+            si.EXPERIMENT_DIR = tmp_dir
+            evidence.resolve_provenance = fake_resolve
+            path = si.write_null_sweep_record(points, "* netlist\n", si.NULL_SWEEP_RSUBX_OHM)
+        finally:
+            si.EXPERIMENT_DIR = real_dir
+            evidence.resolve_provenance = real_resolve
+        return path, tmp_dir
+
+    def test_the_latest_pointer_is_not_moved(self) -> None:
+        _path, tmp_dir = self._write()
+        self.assertFalse((tmp_dir / "records" / "LATEST").exists())
+
+    def test_the_record_says_it_supersedes_nothing_and_why(self) -> None:
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("- **Supersedes**: (none)", text)
+        self.assertIn("It supersedes nothing, and is not a re-run of the 2-D sweep", text)
+
+    def test_the_record_names_which_stand_in_it_moved(self) -> None:
+        """The naming precision this record exists to keep: DR-015 calls the
+        rejected arm a function of `R_SUB`, while the deck instance that plays
+        that role in it is named `RSUBX`. A record that swept "the substrate
+        resistance" without saying which element moved would be unreadable
+        against the 2-D box, which moved an element of the same name in a
+        topology where it does something else."""
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("## Which stand-in this ladder moves, and what it is called", text)
+        self.assertIn("one resistor", text)
+        self.assertIn("`R_SUB`'s role", text)
+
+    def test_the_record_carries_its_scope_caveats(self) -> None:
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("## Die-side analog-ground excursion along the ladder", text)
+        self.assertIn("## What this ladder does not cover", text)
+        self.assertIn("## Subset-corner justification", text)
+        self.assertIn("No extracted substrate network", text)
+        self.assertIn("The bond inductance is not crossed with this axis", text)
+        self.assertIn(
+            "Written by `sim/supply-impedance-sensitivity/run_supply_impedance.py "
+            "--null-sweep --record`",
+            text,
+        )
+
+    def test_every_run_appears_with_its_raw_log_and_deck(self) -> None:
+        _path, tmp_dir = self._write()
+        dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
+        self.assertEqual(len(dumped), 2 * (len(si.NULL_SWEEP_RSUBX_OHM) + 1), dumped)
+
+    def test_the_citation_gates_two_censuses_do_not_see_this_record(self) -> None:
+        """Neither the arm census (check 31) nor the sweep census (check 32)
+        may count a ladder record: it is not an arm comparison and it is not a
+        point of the 2-D box. Both are parsed off a header line this writer
+        deliberately spells differently (`- **Ladder**:`), so the parse is
+        asserted here against what the writer actually emits."""
+        sys.path.insert(0, str(REPO_ROOT / "docs" / "chipalooza"))
+        import check_proposal_citations as gate  # noqa: PLC0415
+
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIsNone(gate.SWEEP_RECORD_GRID_RE.search(text))
+        self.assertIsNone(gate.ARM_RECORD_RE.search(text))
+        self.assertIn("- **Ladder**:", text)
 
 
 class TestCostProbe(unittest.TestCase):

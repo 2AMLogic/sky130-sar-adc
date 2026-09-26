@@ -37,7 +37,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 | Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
-| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20260912-002315-9aaf1ca.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md` |
+| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20260912-002315-9aaf1ca.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md` |
 | Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20260827-213107-e13bc1e.md`<br>`20260827-212404-e13bc1e.md` |
 
 ## Per-row detail
@@ -281,6 +281,14 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record`
 - Documented in: `sim/supply-impedance-sensitivity/README.md`
 - Evidence: `sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power once more, over the one-axis ladder that the 2-D box above could not reach (the residual of issue #409 item 3, and DR-015's own R_SUB open item): DR-012's REJECTED no-gnd-pad topology re-run with the lumped substrate RETURN at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the box above because it is a separate invocation with its own documented cold start and a structurally different experiment: the box moves a substrate resistance that sits BESIDE a bonded GND as a shunt, this moves the same constant where it is the analog ground's entire path to the board. Its 30 Ohm rung is card-for-card the no-gnd-pad arm of the ablation record, asserted in code before the run and again at record-write time. Reported informationally, same as the rows above; no power target is proposed here either, the ladder's total power spread (27.27-27.97 uW) is stated in the record rather than graded, and I(GND) is 'n/a (no bond)' on every swept row by construction.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md`
 
 ### Corners
 

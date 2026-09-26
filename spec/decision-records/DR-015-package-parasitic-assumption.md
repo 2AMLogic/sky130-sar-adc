@@ -16,8 +16,9 @@
   on-die-decoupling item), `sim/supply-impedance-sensitivity/` (the first and
   currently only consumer), #409 (the residual work this record defers: the
   ratified PVT grid, the `no-gnd-pad` arm, the `R`/`L` sweep and an extracted
-  substrate network — of which the sweep and the `no-gnd-pad` arm have since
-  been closed at stated scopes, see "Open items"), `CLAUDE.md`'s clean-room
+  substrate network — of which the sweep, the `no-gnd-pad` arm and the
+  substrate-*return* ladder that sweep left owed have since been closed at
+  stated scopes, see "Open items"), `CLAUDE.md`'s clean-room
   rule.
 
 ## Context
@@ -170,11 +171,24 @@ the same way DR-012 constrains an interface without setting a number.
   for it. That cost is the price of not modelling a decoupling network that
   does not exist.
 - **The substrate stand-in is the weakest element here, and it is load-bearing
-  for one arm.** The `no-gnd-pad` arm of `sim/supply-impedance-sensitivity/`
+  for one arm.** ~~The `no-gnd-pad` arm of `sim/supply-impedance-sensitivity/`
   (DR-012's rejected null option) is *entirely* a function of `R_SUB`: with a
-  small `R_SUB` it looks harmless, with a large one it looks fatal. That arm
+  small `R_SUB` it looks harmless, with a large one it looks fatal.~~ That arm
   must always be read as "at this assumed magnitude", and closing it properly
-  needs an extracted substrate network, which is its own open item.
+  needs an extracted substrate network, which is its own open item. **The
+  struck-through sentence was an argument from one measured point, and the
+  ladder that measured the rest of them corrects half of it** —
+  `sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md`, the
+  `no-gnd-pad` topology at `3`/`30`/`300 Ω` of substrate return. "With a large
+  one it looks fatal" survives directionally (the die-side analog-ground
+  excursion roughly doubles at `300 Ω`, to `137.093 mV`); **"with a small
+  `R_SUB` it looks harmless" does not** — at `3 Ω` the excursion is
+  `72.130 mV`, *worse* than the assumed `30 Ω`'s `67.307 mV`, because a small
+  return welds the analog ground to `VGND` and it inherits that bond's ringing
+  instead of escaping it. The dependence is therefore real but **not monotone**,
+  and the correct statement is the one the record makes: an endpoint ratio of
+  `1.90×` across `100×` of resistance, with a minimum somewhere near the assumed
+  value, and no slope quotable from either half.
 - **A reader can no longer find an unexplained impedance in a deck.** The
   values are computed from named geometry in one file and restated in every
   record, so the provenance question is answered in the artefact rather than in
@@ -185,13 +199,28 @@ the same way DR-012 constrains an interface without setting a number.
   cheap — with no inductance there is nothing to ring, so it costs about what
   the ideal control costs — and without it a campaign can only say "these two
   grounding schemes differ", never "the bond inductance is what did it".
+- **A rail *excursion* under this assumption is only subtractable inside one
+  record.** Item 5's one-element ablations are differences, and a difference is
+  only as good as the reproducibility of its terms. The four
+  `sim/supply-impedance-sensitivity/` records happen to span two machines, and
+  comparing the decks they share shows the same deck is bit-identical *within* a
+  host while *across* hosts the averaged currents agree to ~0.1 % and the
+  peak-to-peak of a ringing ground does not: 0.69 % on the bonded `package`
+  ground, 3.2 % on the unbonded one (`sim/supply-impedance-sensitivity/README.md`,
+  "Reproducing a deck across hosts"). A `pp` value is read off whichever
+  timesteps an adaptive solver placed, so it carries that much host-dependence
+  and no more precision than that. **Consequence for this record's item 4:** a
+  cross-record `pp` difference smaller than a few percent states nothing, and
+  every excursion claim made under this assumption must be a within-record
+  delta — which, as of this writing, every one of them is.
 
 ## Open items
 
 These are tracked together as **#409** rather than left as prose, so that
-"deferred" is a queue entry and not a memory. Two are now closed at stated
-scopes — the `R`/`L` sweep and the `no-gnd-pad` arm that prices DR-012's
-rejected option; the rest remain open.
+"deferred" is a queue entry and not a memory. Three are now closed at stated
+scopes — the `R`/`L` sweep, the `no-gnd-pad` arm that prices DR-012's rejected
+option, and the substrate-*return* sweep that the first of those explicitly
+left owed; the rest remain open.
 
 - ~~**No `R`/`L` sweep.** One assumption point shows whether the mechanism
   matters at that magnitude; it does not find the magnitude at which it starts
@@ -212,14 +241,40 @@ rejected option; the rest remain open.
   not change:** the null is *bounded*, so nothing here licenses a claim outside
   `L ≤ 10×`, `R_SUBX ∈ [3, 300] Ω`, or at any other corner; the excursion
   figures are undecoupled upper bounds (item 6); and the two axes interact
-  non-monotonically, so neither may be quoted as a trend on its own. The
+  non-monotonically, so neither may be quoted as a trend on its own. ~~The
   substrate-only *return* `R_SUB` is **not** swept — it is absent from the
   as-built topology, and sweeping it is the `no-gnd-pad` arm's own campaign,
-  still open below.
+  still open below.~~ That last sentence is now **also closed**, by the ladder
+  in the item below it.
+- ~~**The substrate-only *return* has never been swept, only the shunt.** The
+  2-D box above moves `R_SUBX` on the as-built topology, where `GND` has a bond
+  of its own and that resistor is a secondary path; the magnitude question this
+  record's own Consequences raise is about the topology where the same resistor
+  is the analog ground's *only* path to the board. Until that is swept, the
+  claim that the rejected option is "entirely a function of `R_SUB`" is
+  prose.~~ **CLOSED, at the scope stated here**, by
+  `sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md` (the
+  residual of issue #409 item 3) — the `no-gnd-pad` topology at `3`/`30`/`300 Ω`
+  of substrate return with all three bonded terminals held at this record's R+L,
+  plus the `ideal` control, at `tt_27c_1.80v`. Its `30 Ω` rung is card-for-card
+  the `no-gnd-pad` arm of the record above, asserted in code before the run and
+  again when the record is written. **What it changes for this record:** the
+  Consequences item that asserted the sensitivity now carries a measurement, and
+  that measurement **falsifies half of it** (see the strike-through there) — the
+  dependence is real but not monotone, and `3 Ω` is worse than the assumed
+  `30 Ω`, not better. **What it does not change:** no mid-scale captured code
+  moves at any rung (worst `|Δ code|` = 0 LSB), but that null is *bounded* to
+  `[3, 300] Ω` at one corner and says nothing outside it; the excursions remain
+  undecoupled upper bounds (item 6); and the swept element is still a lumped
+  stand-in, so the ladder bounds the *sensitivity to the assumption* and is not
+  a measurement of this die's substrate — the item below is untouched by it.
 - **No extracted substrate network.** `R_SUB`/`R_SUBX` stay lumped stand-ins
   until something in `layout/` can produce a real substrate network for this
   composition. Until then no result here is a statement about this die's
-  substrate.
+  substrate. **The ladder above makes this the sharpest remaining gap, not a
+  softer one**: now that the rejected topology is known to depend on the
+  substrate magnitude non-monotonically, with a minimum near the assumed value,
+  picking the assumed value out of a range is no longer a conservative choice.
 - ~~**The one arm that would price DR-012's *rejected* option has not been
   run.** `sim/supply-impedance-sensitivity/`'s `no-gnd-pad` arm is implemented
   but absent from the first committed record, on cost: a high-impedance,
@@ -242,9 +297,10 @@ rejected option; the rest remain open.
   **What it does not change:** the arm is still *entirely* a function of the
   lumped `R_SUB`/`R_SUBX` stand-ins at `30 Ω` — the next item below is
   unaffected, and the figure is evidence about *a* substrate-only return of
-  that order, not about this die's substrate — and there is still no sweep of
+  that order, not about this die's substrate. ~~and there is still no sweep of
   `R_SUB` itself (the 2-D box above swept `R_SUBX` on the as-built topology,
-  which `no-gnd-pad` is not). **The cost claim that deferred it was wrong**,
+  which `no-gnd-pad` is not)~~ — **that last residual is now closed too**, by
+  the ladder in the next item. **The cost claim that deferred it was wrong**,
   and is corrected rather than quietly dropped: the full-stimulus run took
   **487 s, 1.67× the `ideal` control** — *cheaper* than the `package` arm in
   the same record — against a truncated-slice calibration that had projected
@@ -252,8 +308,9 @@ rejected option; the rest remain open.
   transient, not the steady-state conversions the stimulus spends its span on.
 - **The corner axis of that gap is untouched by it.** Every record under this
   assumption is **one** corner (`tt_27c_1.80v`), so the findings that a bonded
-  return, a swept box, and now the null option each cost < 1 LSB are statements
-  about that point and not about the ratified grid.
+  return, a swept box, the null option and now a two-decade substrate ladder
+  each cost < 1 LSB are statements about that point and not about the ratified
+  grid. Four independent nulls at one corner are still one corner.
 - **No decoupling is designed, budgeted, or modelled** — carried over from
   DR-010 and DR-012 rather than settled here. When a decoupling plan exists,
   this assumption gains a second, decoupled variant and the pessimism above
