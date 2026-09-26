@@ -1624,6 +1624,49 @@ PRESENT_TENSE_MISMATCH_RE = re.compile(
 # fixing it knows which sentence form fired.
 PRESENT_TENSE_MISMATCH_FORMS = ("on_the_current_record", "currently", "the_gap")
 
+# Check 37: which `sim/` campaigns holding committed evidence this document
+# cites AT ALL -- the one coverage question every other check here assumes has
+# already been answered.
+#
+# Check 11 grades the same question per Section 4 row, and would have caught
+# this: no row may be graded while ignoring a campaign `sim/spec-coverage.json`
+# indexes under it. But it skips any row whose `claim_class` is outside
+# `MEASURED_CLAIM_CLASSES`, and the index's `structural` row (**Architecture**)
+# is the home of four benches. Two of them -- `sim/sampling-frontend/` and
+# `sim/sampling-cdac-handoff/` -- are indexed NOWHERE ELSE, so their records
+# were cited nowhere in this document at all, and no check could see it:
+# checks 3/4/5/23 grade citations that exist, check 6 counts pointer claims,
+# check 28 censuses the grids of cited records. An omission is invisible to all
+# of them.
+#
+# That is not a bookkeeping gap. The two uncited campaigns are the only ones in
+# this tree that exercise the sampling front end loaded by the real CDAC array,
+# as `design/sar_adc_top.sch` wires it -- roughly twice the top-plate load the
+# PVT-complete acquisition campaign's own front-end-only DUT carries. So their
+# absence let Section 4's Sample rate row read "all four constituent mechanisms
+# ... PVT-complete" with no statement that mechanism (d)'s grid was run at half
+# the assembled load, which is the shape of an unqualified claim this document
+# exists to not make.
+#
+# Graded as a census rather than as "every campaign must be cited", the shape
+# checks 6, 18, 26 and 31--34 already use: a campaign this document genuinely
+# has no use for is legitimate, but it must be NAMED as uncited rather than
+# silently absent, with the size of the hole (its record count) stated.
+CAMPAIGN_CENSUS_NONE = (
+    "**none** — every campaign holding a committed record is cited by path"
+)
+
+CAMPAIGN_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<campaigns>\d+)\*\* campaigns under `sim/` holding at "
+    r"least one committed record, \*\*(?P<cited>\d+)\*\* are cited by path in "
+    r"this document and \*\*(?P<uncited>\d+)\*\* are not: (?P<flows>"
+    + re.escape(CAMPAIGN_CENSUS_NONE)
+    + r"|(?:`sim/[A-Za-z0-9._-]+/` \(\*\*\d+\*\* records?\)(?:, )?)+)"
+)
+
+# One campaign inside that sentence's exception clause.
+CAMPAIGN_CENSUS_FLOW_RE = re.compile(r"`sim/(?P<flow>[A-Za-z0-9._-]+)/` \(\*\*\d+\*\* records?\)")
+
 
 def _unwrap_backticked(span: str) -> str:
     """Rejoin a backticked span that prose wrapped across lines.
@@ -5945,6 +5988,161 @@ def check_present_tense_mismatch(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def sim_campaigns_with_records() -> list[str]:
+    """Every `sim/<flow>/` holding at least one committed `records/*.md`.
+
+    Read off the tree rather than out of `sim/spec-coverage.json`: a campaign
+    that is missing from the index too is exactly the case a check reading the
+    index could not see. `records/LATEST` is a pointer file, not a record, so
+    the `.md` filter is what makes "holding a record" mean it.
+    """
+    root = REPO_ROOT / "sim"
+    if not root.is_dir():
+        return []
+    flows = []
+    for entry in sorted(root.iterdir()):
+        if not entry.is_dir() or not (entry / "records").is_dir():
+            continue
+        if campaign_record_count(entry.name):
+            flows.append(entry.name)
+    return flows
+
+
+def campaign_record_count(flow: str) -> int:
+    """How many committed records `sim/<flow>/records/` holds."""
+    records = REPO_ROOT / "sim" / flow / "records"
+    if not records.is_dir():
+        return 0
+    return sum(1 for child in records.glob("*.md") if child.is_file())
+
+
+def campaign_census(text: str) -> dict:
+    """Which `sim/` campaigns holding a record this document cites by path.
+
+    "Cited by path" is `EVIDENCE_PATH_RE` -- the same shape checks 1--5 and 23
+    grade a citation in -- and deliberately NOT a mention of the campaign
+    directory. This document names `sim/vcm-drive-budget/` and
+    `sim/full-conversion-transient/` in prose in a dozen places each; saying a
+    campaign exists is not saying which of its records a claim rests on, and a
+    gate that accepted the directory mention would have passed the document
+    this check was written against (it names `sim/sampling-frontend/`'s
+    testbench path repeatedly while citing none of its records).
+    """
+    flows = sim_campaigns_with_records()
+    cited = {
+        match.group("block")
+        for match in EVIDENCE_PATH_RE.finditer(text)
+        if match.group("top") == "sim"
+    }
+    uncited = [flow for flow in flows if flow not in cited]
+    return {
+        "campaigns": len(flows),
+        "cited": len(flows) - len(uncited),
+        "uncited": uncited,
+        "record_counts": {flow: campaign_record_count(flow) for flow in uncited},
+    }
+
+
+def campaign_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `CAMPAIGN_CENSUS_RE` matches.
+
+    Used by `--stats`, so the fix for a check-37 finding is a paste rather than
+    a hand transcription -- as it is for checks 6, 9, 12--18, 24--26, 28 and
+    30--34.
+    """
+    flows = (
+        CAMPAIGN_CENSUS_NONE
+        if not census["uncited"]
+        else ", ".join(
+            f"`sim/{flow}/` (**{census['record_counts'][flow]}** "
+            f"record{'' if census['record_counts'][flow] == 1 else 's'})"
+            for flow in census["uncited"]
+        )
+    )
+    return (
+        f"of the **{census['campaigns']}** campaigns under `sim/` holding at "
+        f"least one committed record, **{census['cited']}** are cited by path "
+        f"in this document and **{len(census['uncited'])}** are not: {flows}"
+    )
+
+
+def check_campaign_census(doc: Path, text: str) -> list[str]:
+    """Check 37: the stated `sim/` campaign-citation census is this tree's own."""
+    if not coverage_index_rows() or not section_4_flows(text):
+        # A document with no Section 4 spec table, or a tree with no coverage
+        # index to be accountable to, claims nothing about which campaigns its
+        # verdicts rest on, and is not made to. Anchored on the tree and on the
+        # table rather than on a sentence: deleting the census must not be a way
+        # to unstate an omission, and the escape hatch left is deleting Section
+        # 4's table itself, which checks 7, 8, 11 and 28 all report.
+        return []
+    actual = campaign_census(text)
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(CAMPAIGN_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        if not actual["uncited"]:
+            # Every campaign holding a record is cited. There is no hole to
+            # size, so the census is optional rather than owed -- the same
+            # disposition check 33 takes when nothing carries its gap.
+            return []
+        return [
+            f"{doc.name}: holds no citation of "
+            + ", ".join(
+                f"`sim/{flow}/` (**{actual['record_counts'][flow]}** "
+                f"record{'' if actual['record_counts'][flow] == 1 else 's'})"
+                for flow in actual["uncited"]
+            )
+            + f", and states no campaign-citation census either -- a campaign "
+            f"this repo has committed evidence for is either cited by path or "
+            f"named as uncited, never silently absent. Cite it, or state the "
+            f"census (`{campaign_sentence(actual)}` today)"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field, value in (
+            ("campaigns", actual["campaigns"]),
+            ("cited", actual["cited"]),
+            ("uncited", len(actual["uncited"])),
+        ):
+            claimed = int(match.group(field))
+            if claimed == value:
+                continue
+            misses.append(
+                f"{where}: the campaign-citation census says {field}={claimed}, "
+                f"but `sim/` reports {field}={value} -- restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if a "
+                f"campaign has since been cited say what its record measures "
+                f"rather than only moving the number"
+            )
+        listed = CAMPAIGN_CENSUS_FLOW_RE.findall(match.group("flows"))
+        if listed != actual["uncited"]:
+            misses.append(
+                f"{where}: the campaign-citation census names "
+                f"{', '.join(f'`sim/{flow}/`' for flow in listed) or 'no campaign'} "
+                f"as uncited, but `sim/` reports "
+                f"{', '.join(f'`sim/{flow}/`' for flow in actual['uncited']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"campaign misstates which evidence this document stands on"
+            )
+            continue
+        for flow in listed:
+            claimed = int(
+                re.search(
+                    r"`sim/" + re.escape(flow) + r"/` \(\*\*(\d+)\*\*",
+                    match.group("flows"),
+                ).group(1)
+            )
+            if claimed != actual["record_counts"][flow]:
+                misses.append(
+                    f"{where}: the campaign-citation census says `sim/{flow}/` "
+                    f"holds {claimed} records, but it holds "
+                    f"{actual['record_counts'][flow]} -- restate the clause from "
+                    f"`--stats`; the record count is what says how large the hole is"
+                )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -5983,6 +6181,7 @@ def check_document(doc: Path) -> list[str]:
         + check_null_sweep_census(doc, text)
         + check_excursion_enumeration(doc, text)
         + check_present_tense_mismatch(doc, text)
+        + check_campaign_census(doc, text)
     )
 
 
@@ -6027,6 +6226,11 @@ def main(argv: list[str]) -> int:
             corner_grid = corner_grid_census(doc.read_text())
             if corner_grid is not None:
                 print(f"{doc.name}: {corner_grid_sentence(corner_grid)}")
+            # And the fourth, one level out from the table: not how good a cited
+            # record is, but which campaigns holding committed evidence this
+            # document cites AT ALL (check 37). Printed per document because
+            # "cited" is a property of the document, not of the tree.
+            print(f"{doc.name}: {campaign_sentence(campaign_census(doc.read_text()))}")
             # And the figures check 35 obliges this document's own *undecoupled*
             # enumeration to name: printed as the derived list rather than as a
             # replacement sentence, because the enumeration is legitimately a

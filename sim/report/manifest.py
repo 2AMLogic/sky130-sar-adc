@@ -97,7 +97,15 @@ ROWS: tuple[Row, ...] = (
             "worst-case, rail-to-rail differential input value acquired "
             "once SAMPLE re-asserts): now ALSO PVT-complete (the same full "
             "ratified OAT grid, 9 one-at-a-time points), one step direction. "
-            "All four mechanisms are now PVT-complete. Issue #236 fixed the "
+            "All four mechanisms are now PVT-complete -- (d) at HALF the "
+            "assembled top-plate load: its grid reads "
+            "`sim/sampling-frontend/testbench/sampling_frontend_dut.spice` in "
+            "place, so TOP_P/TOP_N carry only the front end's own "
+            "Csamp_p/Csamp_n (~4.43 pF/side per DR-004), while "
+            "`design/sar_adc_top.sch` ties them to the CDAC array as well "
+            "(~4.43 pF/side more). The only two runs that carry the combined "
+            "load are tt-centric and pre-#236; see (d) in the Notes and issue "
+            "#469. Issue #236 fixed the "
             "sampling front end's own acquisition mechanism (the fourth) "
             "after it was found to fail the DR-006 phase budget at every "
             "ratified corner; re-measured against the full grid, it now "
@@ -106,7 +114,9 @@ ROWS: tuple[Row, ...] = (
         verdict=(
             "UNMEASURED as an end-to-end sample-rate figure (four "
             "mechanisms probed individually, not combined); all four "
-            "mechanisms are now PVT-complete AND all four now clear the "
+            "mechanisms are now PVT-complete (mechanism (d) at half the "
+            "assembled top-plate load -- see the Conditions and Notes) AND "
+            "all four now clear the "
             "DR-006 worst-case phase budget at every ratified corner -- "
             "CDAC settling and sequencer logic delay by a wide margin, "
             "comparator decision delay PASSes its own reset-integrity "
@@ -217,7 +227,30 @@ ROWS: tuple[Row, ...] = (
             "`tt_27c_1.62v` at 0.380 mV (~0.2x the half-LSB) vs. that same "
             "corner's pre-fix 67.190 mV (~38.2x). This mechanism is no "
             "longer the standout bottleneck of the four -- all four now "
-            "clear the budget at every ratified corner. Three things this "
+            "clear the budget at every ratified corner. ONE SCOPE QUALIFIER "
+            "ON THAT 9/9, stated 2026-09-26 and not a re-measurement: this "
+            "campaign reads "
+            "`sim/sampling-frontend/testbench/sampling_frontend_dut.spice` in "
+            "place (its own Netlist provenance says so), so TOP_P/TOP_N carry "
+            "only the front end's own Csamp_p/Csamp_n -- ~4.43 pF/side per "
+            "DR-004 -- whereas `design/sar_adc_top.sch` ties them to the CDAC "
+            "array too, adding ~4.43 pF/side of bit capacitance: roughly "
+            "double. Exactly two runs in this tree load the combined pair, "
+            "both tt-centric and both pre-#236: "
+            "`sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md` "
+            "(issue #95 -- tt/27C/1.8V across 3 input points x 3 CDAC "
+            "previous-code states, plus ONE directional ss point, which "
+            "reported 5.33 mV single-ended on TOP_P at worst_case_pp, ~3.0x "
+            "the provisional differential half-LSB, and attributed the "
+            "excursion to the doubled load) and "
+            "`sim/sampling-frontend/records/20260825-021113-a237c79.md`'s "
+            "Experiment 6 (issue #61, tt only). The 5.33 mV is NOT a live "
+            "verdict either -- #236's Sa re-gating and 16x Cmsw widening moved "
+            "the front-end-only binding corner from 67.19 mV to 0.380 mV, so "
+            "the combined case may well clear too -- but nothing in this tree "
+            "measures it. Taking the combined-load DUT to the ratified grid is "
+            "filed as issue #469; no verdict here moves on it either way. "
+            "Three things this "
             "fix touches are explicitly NOT yet re-derived: "
             "`sim/vcm-drive-budget/`'s R_source/C_decouple budget (a wider "
             "`Cmsw` draws more peak current from the shared `VCM` rail), "
@@ -372,6 +405,8 @@ ROWS: tuple[Row, ...] = (
             "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
+            "sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md",
+            "sim/sampling-frontend/records/20260825-021113-a237c79.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
             "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
         ),
