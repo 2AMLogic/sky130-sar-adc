@@ -394,6 +394,18 @@
           "documented_in": "sim/supply-impedance-sensitivity/README.md",
           "covers": "The same per-rail average current/power once more, over the one-axis ladder that the 2-D box above could not reach (the residual of issue #409 item 3, and DR-015's own R_SUB open item): DR-012's REJECTED no-gnd-pad topology re-run with the lumped substrate RETURN at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the box above because it is a separate invocation with its own documented cold start and a structurally different experiment: the box moves a substrate resistance that sits BESIDE a bonded GND as a shunt, this moves the same constant where it is the analog ground's entire path to the board. Its 30 Ohm rung is card-for-card the no-gnd-pad arm of the ablation record, asserted in code before the run and again at record-write time. Reported informationally, same as the rows above; no power target is proposed here either, the ladder's total power spread (27.27-27.97 uW) is stated in the record rather than graded, and I(GND) is 'n/a (no bond)' on every swept row by construction.",
           "records": ["sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power again, at the first NON-baseline point of the ratified corner set any record of this campaign contains (issue #409 item 1): the ideal control and the as-built package arm at tt_27c_1.80v and the slow-process corner ss_27c_1.80v. A separate bench entry from the ones above because a corner subset changes what was simulated and therefore reaches the record footer -- so every widening of the subset is its own indexed invocation rather than a re-run of an existing one. Two of nine ratified points and two of five arms: the record states its own Subset-corner justification, and the seven remaining points stay open on #409 -- including ff_27c_1.80v and tt_-40c_1.80v, where the fastest edges should make the largest excursion. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT power figures move with the corner (26.97 uW ideal / 26.81 uW package at ss, against 27.96 / 27.25 at tt), and the die-side ground excursion is SMALLER at the slow corner (28.472 mV against 37.590 mV), which is why ss may not be quoted as this campaign's worst corner.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md"]
         }
       ]
     },

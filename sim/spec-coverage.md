@@ -37,7 +37,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 | Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
-| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20260912-002315-9aaf1ca.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md` |
+| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20260912-002315-9aaf1ca.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md` |
 | Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20260827-213107-e13bc1e.md`<br>`20260827-212404-e13bc1e.md` |
 
 ## Per-row detail
@@ -289,6 +289,14 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record`
 - Documented in: `sim/supply-impedance-sensitivity/README.md`
 - Evidence: `sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power again, at the first NON-baseline point of the ratified corner set any record of this campaign contains (issue #409 item 1): the ideal control and the as-built package arm at tt_27c_1.80v and the slow-process corner ss_27c_1.80v. A separate bench entry from the ones above because a corner subset changes what was simulated and therefore reaches the record footer -- so every widening of the subset is its own indexed invocation rather than a re-run of an existing one. Two of nine ratified points and two of five arms: the record states its own Subset-corner justification, and the seven remaining points stay open on #409 -- including ff_27c_1.80v and tt_-40c_1.80v, where the fastest edges should make the largest excursion. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT power figures move with the corner (26.97 uW ideal / 26.81 uW package at ss, against 27.96 / 27.25 at tt), and the die-side ground excursion is SMALLER at the slow corner (28.472 mV against 37.590 mV), which is why ss may not be quoted as this campaign's worst corner.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md`
 
 ### Corners
 

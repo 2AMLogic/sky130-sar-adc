@@ -1316,9 +1316,46 @@ def format_point(point: dict) -> str:
     )
 
 
+def full_ratified_grid() -> list[tuple[str, float, float]]:
+    """The nine ratified OAT points, in `ratified_oat_grid()`'s own order."""
+    return corners_mod.ratified_oat_grid(
+        NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
+    )
+
+
+def resolve_grid(corners_mode: bool, corner_points: list[str]) -> list[tuple[str, float, float]]:
+    """Which points of the ratified grid this invocation runs.
+
+    Three shapes, one of which is new (issue #409 item 1): the baseline corner
+    (default), the whole ratified grid (`--corners`), or a NAMED SUBSET of that
+    same grid (`--corner-points`). The subset exists because the grid is hours
+    of sequential whole-ADC transients and a dispatch host's session is not --
+    `.loom/docs/long-running-compute.md` allows local simulation but forbids a
+    process outliving the session that started it, so the sanctioned way to
+    reach nine points is to run the ones a session can afford and let
+    `--log-cache` carry the finished ones forward. A subset is never a new
+    corner: the ids are looked up IN the ratified grid, so this flag can narrow
+    the ratified set but can never invent a point outside it.
+    """
+    grid = full_ratified_grid()
+    if corner_points:
+        by_id = {corners_mod.corner_id(*point): point for point in grid}
+        unknown = [cid for cid in corner_points if cid not in by_id]
+        if unknown:
+            raise ValueError(
+                f"corner point(s) {unknown} are not in the ratified grid -- "
+                f"available: {sorted(by_id)}"
+            )
+        # Ratified-grid order, not the order the caller happened to type.
+        return [point for cid, point in by_id.items() if cid in set(corner_points)]
+    if corners_mode:
+        return grid
+    return [BASELINE_CORNER]
+
+
 def run_campaign(
     arms: list[Arm],
-    corners_mode: bool,
+    grid: list[tuple[str, float, float]],
     quiet: bool,
     scratch: Path,
     log_cache: Path | None = None,
@@ -1332,13 +1369,6 @@ def run_campaign(
     """
     pdk_info = pdk.resolve()
     dut_netlist_text = fc.dut_text()
-
-    if corners_mode:
-        grid = corners_mod.ratified_oat_grid(
-            NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
-        )
-    else:
-        grid = [BASELINE_CORNER]
 
     points: list[dict] = []
     for arm in arms:
@@ -1452,7 +1482,12 @@ def arm_table_lines(arms: list[Arm], substrate_note: bool = True) -> list[str]:
     return out
 
 
-def invocation_line(arm_names: list[str], corners_mode: bool, supersedes: str) -> str:
+def invocation_line(
+    arm_names: list[str],
+    corners_mode: bool,
+    supersedes: str,
+    corner_points: list[str] | None = None,
+) -> str:
     """The command that actually produced this record, not a canonical stand-in.
 
     `sim/check_spec_coverage.py` reads the `Written by` footer to check a record
@@ -1484,7 +1519,9 @@ def invocation_line(arm_names: list[str], corners_mode: bool, supersedes: str) -
     parts = [RUNNER_REL]
     if arm_names != [arm.name for arm in ARMS]:
         parts.append("--arms " + ",".join(arm_names))
-    if corners_mode:
+    if corner_points:
+        parts.append("--corner-points " + ",".join(corner_points))
+    elif corners_mode:
         parts.append("--corners")
     parts.append("--record")
     if supersedes:
@@ -1498,6 +1535,7 @@ def write_record(
     corners_mode: bool,
     arm_names: list[str],
     supersedes: str = "",
+    corner_points: list[str] | None = None,
 ) -> Path:
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR,
@@ -1757,14 +1795,22 @@ def write_record(
                 a(f"- **`{name}`** is {note}")
         a("")
 
-    if not corners_mode:
+    # Keyed on what was actually COVERED, not on which flag asked for it: a
+    # `--corner-points` run is a subset of the ratified grid and owes the same
+    # justification a baseline-only run does (issue #409 item 1). Only a run
+    # that covered all nine points is exempt.
+    if len(corner_ids) < len(full_ratified_grid()):
         lines.extend(
             subset_corner_lines(
                 corner_ids,
                 "the arm comparison",
                 f"{len(arms_run)} arms",
                 len(arms_run),
-                "a mechanism comparison at the baseline corner",
+                (
+                    "a mechanism comparison over the corner points it names"
+                    if len(corner_ids) > 1
+                    else "a mechanism comparison at the baseline corner"
+                ),
             )
         )
 
@@ -1788,11 +1834,26 @@ def write_record(
     )
     a("")
     lines.extend(
-        evidence.footer_lines(invocation_line(arm_names, corners_mode, supersedes), supersedes)
+        evidence.footer_lines(
+            invocation_line(arm_names, corners_mode, supersedes, corner_points), supersedes
+        )
     )
 
     path = evidence.close_record(prov, lines, "Record")
-    (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{prov.record_id}.md\n")
+    # The pointer names the record this campaign's CITED claim rests on -- the
+    # baseline-corner arm comparison DR-012 and
+    # `docs/chipalooza/challenge-4-proposal.md`'s Power row cite by id -- and
+    # moving it is what makes every citing document stale (the citation gate's
+    # checks 3 and 4). A corner-axis record does not supersede that claim: it
+    # asks the follow-up question "does the corner axis move it?", on a reduced
+    # arm set, and the arms it drops are where the bond-inductance ablation and
+    # the substrate arm live. So it mints and does not repoint, the same
+    # disposition -- and for the same reason -- as the `--sweep` and
+    # `--null-sweep` writers. Whether a FULL nine-point grid at the full arm
+    # set should take the pointer is a decision for that record and for the
+    # documents citing it, not something this writer makes silently.
+    if corner_ids == [corners_mod.corner_id(*BASELINE_CORNER)]:
+        (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{prov.record_id}.md\n")
     return path
 
 
@@ -1806,29 +1867,49 @@ def subset_corner_lines(
     """`sim/README.md`'s required justification for running a subset of the
     ratified corner set, shared by every record this runner writes.
 
-    It is one argument, not one per record mode: the three constraints below
-    are properties of the HOST and of the cost of one whole-ADC transient, so
-    a second record mode that also runs at the baseline corner must state the
-    same three and must not get to paraphrase them into something weaker.
-    Only the sentence naming what ran, and the cost arithmetic, differ.
+    It is one argument, not one per record mode: the constraints below are
+    properties of the HOST and of the cost of one whole-ADC transient, so a
+    second record mode that also runs a corner subset must state the same ones
+    and must not get to paraphrase them into something weaker. Only the
+    sentence naming what ran, and the cost arithmetic, differ.
+
+    The constraint set was RE-DERIVED against a measuring host on 2026-09-25
+    (issue #409 item 1) rather than carried forward: the earlier wording said
+    this host's operating rules forbade a local multi-corner grid at all, and
+    that is not what binds. A dispatch host may run ngspice locally -- every
+    run in the table above did -- but no process of a session may outlive it
+    (`.loom/docs/long-running-compute.md`), so what binds is that the whole
+    grid must fit inside one session or be advanced in pieces across several.
+    The obsolete reason is not merely replaced, it is named, because a record
+    that quietly swapped its justification would be indistinguishable from one
+    that never checked.
     """
+    baseline_id = corners_mod.corner_id(*BASELINE_CORNER)
+    partial_grid = corner_ids != [baseline_id]
     out = [
         "## Subset-corner justification (`sim/README.md`)",
         "",
         (
             f"This record runs {what_ran} at {len(corner_ids)} point(s) of the "
             f"ratified corner set ({', '.join('`' + c + '`' for c in corner_ids)}), "
-            "not all nine. Three separate constraints bind, and none of them is a "
+            "not all nine. Two constraints bind, and neither of them is a "
             "judgement that the corners do not matter:"
         ),
         "",
         (
-            "- **Host policy.** The machine this record was produced on is a "
-            "shared dispatch worker whose operating rules forbid running a "
-            "multi-corner ngspice grid locally; a grid there must be expressed as "
-            "a `klt sim` request and submitted to an EDA batch fleet. Sequential "
-            "single-corner runs are the shape those rules do allow, and that is "
-            "what the table above is."
+            f"- **Cost, against a session that must end.** The nine-point ratified "
+            f"grid across {decks_label} is {9 * n_decks} whole-ADC transients at "
+            "the per-run wall clock measured above -- hours, and the arithmetic is "
+            "in the table rather than in a projection. The host is a dispatch "
+            "worker on which an agent session may run ngspice locally (every run "
+            "above did) but on which **no process may outlive the session that "
+            "started it** (`.loom/docs/long-running-compute.md`); the sanctioned "
+            "answer there is to scope the run to the session and land the "
+            "increment, which is what this record is. `--corner-points` runs a "
+            "named subset of the same ratified grid and `--log-cache` carries "
+            "finished points across sessions, so the grid is completed by "
+            "accumulation -- each session adding the points it can afford -- "
+            "rather than needing one sitting long enough to hold all of it."
         ),
         (
             "- **The batch route cannot mint a record in THIS repo's format.** "
@@ -1846,20 +1927,29 @@ def subset_corner_lines(
             "with anything already under `sim/`."
         ),
         (
-            f"- **Cost.** The nine-point ratified grid across {decks_label} is "
-            f"{9 * n_decks} whole-ADC transients. At the per-run cost measured "
-            "above that is a campaign in its own right, not a longer version of "
-            "this one."
+            "- **What is NOT a constraint, and used to be stated as one.** The "
+            "host's ngspice satisfies `sim/toolchain.json`'s floor (the "
+            "environment block below names the exact build), and local "
+            "multi-corner simulation is not forbidden here -- the points above "
+            "were run locally, one at a time, in a single session. Records before "
+            "issue #409 item 1 stated a blanket host-policy ban; that reason was "
+            "re-checked on a measuring host and retired."
         ),
         "",
         (
-            "So the ratified-grid run is **deferred, not skipped**: the runner "
-            "already implements it (`--corners`, the nine-point "
-            "`ratified_oat_grid()` x the decks) and this experiment's README names "
-            "the exact command. What it needs is a host whose ngspice satisfies "
-            "the pin and whose policy allows a grid -- not more code. Until then, "
-            f"no statement in this record is a corner-worst-case claim; it is "
-            f"{what_it_is_instead}."
+            "So the ratified-grid run is **partially done and still open**, not "
+            "skipped: the runner implements the whole of it (`--corners`, the "
+            "nine-point `ratified_oat_grid()` x the decks), this experiment's "
+            "README names the exact command, and "
+            + (
+                f"{len(corner_ids)} of the nine points are now measured here. "
+                "The remaining points are owed and are tracked in issue #409."
+                if partial_grid
+                else "what is owed is the eight non-baseline points, tracked in "
+                "issue #409."
+            )
+            + " Until they are in a record, no statement here is a "
+            f"corner-worst-case claim; it is {what_it_is_instead}."
         ),
         "",
     ]
@@ -3118,8 +3208,21 @@ def main() -> int:
         "--corners",
         action="store_true",
         help="run every arm at all nine points of the ratified OAT grid instead of "
-        "the baseline corner only (NOT runnable on a shared dispatch host -- see "
-        "this experiment's README.md)",
+        "the baseline corner only. Hours of sequential whole-ADC transients -- see "
+        "this experiment's README.md, and --corner-points for advancing the same "
+        "grid in session-sized pieces",
+    )
+    ap.add_argument(
+        "--corner-points",
+        default=None,
+        metavar="ID,ID,...",
+        help="run a NAMED SUBSET of the same ratified OAT grid, by corner-id (e.g. "
+        "tt_27c_1.80v,ss_27c_1.80v). Narrows the ratified set; it cannot name a "
+        "point outside it. Exists because the full grid is hours and a dispatch "
+        "session is not (issue #409 item 1): with --log-cache, finished points "
+        "carry across sessions, so the grid is completed by accumulation. The "
+        "record states its own subset-corner justification either way. Mutually "
+        "exclusive with --corners.",
     )
     ap.add_argument(
         "--arms",
@@ -3235,6 +3338,23 @@ def main() -> int:
         )
         return 2
 
+    corner_points = [cid.strip() for cid in (args.corner_points or "").split(",") if cid.strip()]
+    if corner_points and args.corners:
+        print(
+            "FAIL: --corners and --corner-points are the same axis stated two ways "
+            "(all nine ratified points, or a named subset of them). Pick one.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        grid = resolve_grid(args.corners, corner_points)
+    except ValueError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 2
+    # Ratified-grid order, so the footer names the subset the same way the
+    # record's tables order it however the caller typed the list.
+    corner_points = [corners_mod.corner_id(*point) for point in grid] if corner_points else []
+
     l_mults: tuple[float, ...] = ()
     rsubx_values: tuple[float, ...] = ()
     null_rsub_values: tuple[float, ...] = ()
@@ -3257,12 +3377,12 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 2
-        if args.corners:
+        if args.corners or args.corner_points:
             print(
-                "FAIL: --null-sweep --corners is refused, for the same reason "
-                "--sweep --corners is: it multiplies a swept ladder by the ratified "
-                "grid, and this host may not run a multi-corner ngspice grid at all "
-                "-- see this experiment's README.md.",
+                "FAIL: --null-sweep with --corners/--corner-points is refused, for "
+                "the same reason --sweep is: it multiplies a swept ladder by the "
+                "ratified grid, which is a campaign in its own right rather than a "
+                "longer version of this one -- see this experiment's README.md.",
                 file=sys.stderr,
             )
             return 2
@@ -3300,12 +3420,13 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 2
-        if args.corners:
+        if args.corners or args.corner_points:
             print(
-                "FAIL: --sweep --corners is refused. It is the two deferred costs of "
-                "issue #409 multiplied together (a 2-D box at every ratified corner), "
-                "and this host may not run a multi-corner ngspice grid at all -- see "
-                "this experiment's README.md.",
+                "FAIL: --sweep with --corners/--corner-points is refused. It is two "
+                "of issue #409's costs multiplied together (a 2-D box at every "
+                "ratified corner) -- nine boxes of whole-ADC transients, a campaign "
+                "in its own right rather than a longer version of this one. See this "
+                "experiment's README.md.",
                 file=sys.stderr,
             )
             return 2
@@ -3476,14 +3597,19 @@ def main() -> int:
             )
         else:
             arms = [ARMS_BY_NAME[name] for name in arm_names]
-            n_corners = 9 if args.corners else 1
             print(
-                f"Running {len(arms)} arm(s) x {n_corners} corner point(s) = "
-                f"{len(arms) * n_corners} full-conversion transients:"
+                f"Running {len(arms)} arm(s) x {len(grid)} corner point(s) = "
+                f"{len(arms) * len(grid)} full-conversion transients"
+                + (
+                    " (" + ", ".join(corners_mod.corner_id(*p) for p in grid) + ")"
+                    if corner_points
+                    else ""
+                )
+                + ":"
             )
 
         points, dut_netlist_text = run_campaign(
-            arms, args.corners, args.quiet, scratch, log_cache=log_cache
+            arms, grid, args.quiet, scratch, log_cache=log_cache
         )
 
         print("")
@@ -3510,7 +3636,14 @@ def main() -> int:
             ):
                 print(line)
             if args.record:
-                write_record(points, dut_netlist_text, args.corners, arm_names, args.supersedes)
+                write_record(
+                    points,
+                    dut_netlist_text,
+                    args.corners,
+                    arm_names,
+                    args.supersedes,
+                    corner_points,
+                )
 
     return 1 if any(p["missing"] for p in points) else 0
 
