@@ -335,14 +335,60 @@ class Wire:
         )
 
 
-class Via:
-    """One via stack level, `cuts` cuts in parallel."""
+#: The cut layer between each adjoining metal pair, for `Via.verify()`. Same
+#: mapping `build_layout._VIA_BETWEEN` draws from, restated over `RVIA_PARAM`'s
+#: own keys so this script never reaches into that module's private name.
+VIA_CUT_LAYER = {
+    (bl.MET2, bl.MET3): bl.VIA2,
+    (bl.MET3, bl.MET4): bl.VIA3,
+    (bl.MET4, bl.MET5): bl.VIA4,
+}
 
-    def __init__(self, lo, hi, cuts, note):
+
+class Via:
+    """One via stack level, `cuts` cuts in parallel.
+
+    `at` is the (x, y) the layout centres that level's cut grid on, when this
+    script can name it. It is what makes `cuts` CHECKABLE rather than merely
+    asserted: `verify()` counts the cut rectangles the record actually drew
+    around that point and rejects a count this model disagrees with. A `Via`
+    with `at = None` is one whose cuts are drawn inside a placed cell rather
+    than by `build_layout` (each `cap_array` unit's own centre via3 into
+    `capm`), and is not checkable from the composer's own draw request.
+    """
+
+    def __init__(self, lo, hi, cuts, note, at=None):
         self.lo, self.hi, self.cuts, self.note = lo, hi, cuts, note
+        self.at = at
 
     def ohms(self, res: dict[str, float]) -> float:
         return res[RVIA_PARAM[(self.lo, self.hi)]] / self.cuts
+
+    def verify(self, drawn: set) -> str | None:
+        """`None` if the record drew exactly `cuts` cuts at `at`, else why not.
+
+        The window is generous on purpose -- half a micron around the site --
+        because what is being checked is the CUT COUNT (the only thing the
+        resistance depends on), not the pitch, which is `build_layout`'s own
+        space-rule arithmetic and `klt drc`'s to grade.
+        """
+        if self.at is None:
+            return None
+        cut = VIA_CUT_LAYER[(self.lo, self.hi)]
+        x, y = self.at
+        found = sum(
+            1
+            for layer, rect in drawn
+            if layer == cut
+            and abs((rect[0] + rect[2]) / 2.0 - x) <= 0.5
+            and abs((rect[1] + rect[3]) / 2.0 - y) <= 0.5
+        )
+        if found == self.cuts:
+            return None
+        return (
+            f"this model counts {self.cuts} {_layer_name(cut)} cut(s) at "
+            f"({x}, {y}) but the record drew {found} ({self.note})"
+        )
 
     def describe(self, res) -> str:
         param = RVIA_PARAM[(self.lo, self.hi)]
@@ -387,6 +433,13 @@ def tie_ladders() -> dict[str, dict]:
     # a first draft of this script using one y for both.
     rail_y = {net: _rail_centre_y(net) for net in bl.DIG_RAILS}
 
+    # Cuts per via2/via3 site the DECOUPLING TIES draw -- read out of
+    # `build_layout` rather than typed here, so the resistance this script
+    # reports can never disagree with the grid the composer drew (issue #465).
+    # The via4 landings and each unit cell's own centre via3 stay at one cut;
+    # `decoupling_caps()`'s own docstring says why, per via.
+    n = bl.DECAP_VIA_ARRAY**2
+
     ladders: dict[str, dict] = {
         "VDD (analog supply -> both top plates)": {
             "shared": [
@@ -412,23 +465,28 @@ def tie_ladders() -> dict[str, dict]:
         },
         "GND (analog return -> both bottom plates)": {
             "shared": [
-                Via(bl.MET3, bl.MET4, 1, "riser off comparator.GND's own met4 stub"),
-                Via(bl.MET2, bl.MET3, 1, "riser, met3 island down to met2"),
+                Via(bl.MET3, bl.MET4, n, "riser off comparator.GND's own met4 stub",
+                    at=(tap_x, a_y)),
+                Via(bl.MET2, bl.MET3, n, "riser, met3 island down to met2",
+                    at=(tap_x, a_y)),
                 Wire(bl.MET2, tap_x, a_y, bot_via_x("decap_a0"), a_y, w,
                      "met2 run east under the pair"),
             ],
             "branches": {
-                "decap_a0": [Via(bl.MET2, bl.MET3, 1, "via2 up into the bottom plate")],
+                "decap_a0": [Via(bl.MET2, bl.MET3, n, "via2 up into the bottom plate",
+                                 at=(bot_via_x("decap_a0"), a_y))],
                 "decap_a1": [
                     Wire(bl.MET2, bot_via_x("decap_a0"), a_y, bot_via_x("decap_a1"), a_y, w,
                          "met2 run on east to the far unit"),
-                    Via(bl.MET2, bl.MET3, 1, "via2 up into the bottom plate"),
+                    Via(bl.MET2, bl.MET3, n, "via2 up into the bottom plate",
+                        at=(bot_via_x("decap_a1"), a_y)),
                 ],
             },
         },
         "VPWR (digital supply -> both top plates)": {
             "shared": [
-                Via(bl.MET4, bl.MET5, 1, "via4 down off the met5 rail"),
+                Via(bl.MET4, bl.MET5, 1, "via4 down off the met5 rail",
+                    at=(bl.DECAP_D_VIA4_X["VPWR"], rail_y["VPWR"])),
                 Wire(bl.MET4, bl.DECAP_D_VIA4_X["VPWR"], rail_y["VPWR"],
                      lead("decap_d0")[0], rail_y["VPWR"], w,
                      "met4 strap east to the shared lead x"),
@@ -449,21 +507,27 @@ def tie_ladders() -> dict[str, dict]:
         },
         "VGND (digital return -> both bottom plates)": {
             "shared": [
-                Via(bl.MET4, bl.MET5, 1, "via4 down off the met5 rail"),
-                Via(bl.MET3, bl.MET4, 1, "riser, met4 pad down to its met3 island"),
-                Via(bl.MET2, bl.MET3, 1, "riser, met3 island down to met2"),
+                Via(bl.MET4, bl.MET5, 1, "via4 down off the met5 rail",
+                    at=(bl.DECAP_D_VIA4_X["VGND"], rail_y["VGND"])),
+                Via(bl.MET3, bl.MET4, n, "riser, met4 pad down to its met3 island",
+                    at=(bl.DECAP_D_VIA4_X["VGND"], rail_y["VGND"])),
+                Via(bl.MET2, bl.MET3, n, "riser, met3 island down to met2",
+                    at=(bl.DECAP_D_VIA4_X["VGND"], rail_y["VGND"])),
                 Wire(bl.MET2, bl.DECAP_D_VIA4_X["VGND"], rail_y["VGND"],
                      bot_via_x("decap_d0"), rail_y["VGND"], w,
                      "met2 run east to the plate x"),
             ],
             "branches": {
-                "decap_d0": [Via(bl.MET2, bl.MET3, 1, "via2 up into the bottom plate")],
+                "decap_d0": [Via(bl.MET2, bl.MET3, n, "via2 up into the bottom plate",
+                                 at=(bot_via_x("decap_d0"), rail_y["VGND"]))],
                 "decap_d1": [
                     Wire(bl.MET2, bot_via_x("decap_d0"), rail_y["VGND"],
                          bot_via_x("decap_d0"),
                          boxes["decap_d1"][1] + bl.DECAP_VIA2_INSET_UM, w,
                          "met2 run north to the far unit"),
-                    Via(bl.MET2, bl.MET3, 1, "via2 up into the bottom plate"),
+                    Via(bl.MET2, bl.MET3, n, "via2 up into the bottom plate",
+                        at=(bot_via_x("decap_d0"),
+                            boxes["decap_d1"][1] + bl.DECAP_VIA2_INSET_UM)),
                 ],
             },
         },
@@ -507,14 +571,28 @@ def evaluate(ladders: dict[str, dict], res: dict[str, float]) -> dict:
 
 def verify_against_record(ladders: dict[str, dict], record: Path) -> list[str]:
     """Every `Wire` in the ladder must be a rectangle the record's own
-    `draw.request.json` carries. A missing one means this model is describing a
-    layout that was not built."""
+    `draw.request.json` carries, and every `Via` that names its own position
+    must find exactly as many cuts there as this model divides by. A mismatch
+    either way means this model is describing a layout that was not built.
+
+    The via half of this check is what makes the cut-ARRAY resistance (issue
+    #465) evidence rather than an assertion: `Via.cuts` appears in the reported
+    ohms as `R/cuts`, so a model that says four cuts where the composer drew one
+    would under-report this tie's resistance by 3x and nothing else in the flow
+    would notice -- `klt drc` grades shapes and `klt erc` has no resistance in
+    it. Restricted to the ties' own sites by construction: the only `Via`s
+    carrying an `at` are the ones `build_layout` draws itself."""
     request = json.loads((record / "draw.request.json").read_text())
     drawn = {(tuple(s["layer"]), tuple(round(v, 6) for v in s["rect_um"]))
              for s in request["shapes"]}
     problems = []
     for tie, spec in ladders.items():
         for seg in spec["shared"] + [s for segs in spec["branches"].values() for s in segs]:
+            if isinstance(seg, Via):
+                why = seg.verify(drawn)
+                if why is not None:
+                    problems.append(f"{tie}: {why}")
+                continue
             if not isinstance(seg, Wire):
                 continue
             key = (seg.layer, tuple(round(v, 6) for v in seg.rect()))
