@@ -6871,6 +6871,218 @@ class TestExcursionEnumeration(unittest.TestCase):
                 )
 
 
+class TestPresentTenseMismatch(unittest.TestCase):
+    """Check 36: a present-tense prose mismatch count is the current record's.
+
+    Check 9 grades the readout blockquote, which Section 4 introduces as the
+    document's "single present-tense statement" of the composed top level's
+    DRC/LVS numbers. That claim was false about the document that made it: six
+    passages in Sections 3 and 7 restated the mismatch count in prose, in three
+    present-tense forms check 9 cannot see, and when issue #440's decoupling
+    placement (PR #466, 2026-09-26) moved the compare 88 -> 89, the readout and
+    the Section 4 row moved while all six still read 88.
+
+    The prose figures that must stay UNGRADED are tested as carefully as the
+    ones that must not: Section 7 narrates superseded records paragraph by
+    paragraph, and a gate that fired on `88 mismatches at the 2026-09-24 hop`
+    would fail on correct prose and teach the next pass to reword around it.
+    """
+
+    STAMP = "20260926-081248-203cca3"
+    CURRENT = 89
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.add_top(self.CURRENT)
+
+    def add_top(self, mismatch_count: int, *, composing: bool = True):
+        """The composed top level's current record, at `mismatch_count`."""
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            self.STAMP,
+            latest=True,
+            drc={"status": "clean", "violation_count": 0},
+            lvs=lvs_json(
+                mismatch_count=mismatch_count,
+                error_count=mismatch_count - 1,
+                devices=(871, 871, 804),
+                nets=(443, 444, 411),
+                pins=(21, 22, 22),
+            ),
+            compose=compose_json(
+                blocks=[composed_block("cdac_array")]
+                if composing
+                else [composed_block("route", source="generator_report")]
+            ),
+        )
+
+    def readout(self, block: str = "sar-adc-top", mismatch_count: int | None = None) -> str:
+        """The check-9 readout sentence, as `--stats` prints it for `block`."""
+        live = checker.signoff_readout(block)
+        self.assertIsNotNone(live, block)
+        if mismatch_count is not None:
+            live = dict(live, mismatch_count=mismatch_count)
+        return "> " + checker.readout_sentence(block, live) + "\n"
+
+    def body(self, prose: str, *, readout: bool = True) -> str:
+        text = "## 7. Open items before sign-off\n\n"
+        if readout:
+            text += self.readout() + "\n"
+        return text + f"1. **Top-level layout.** {prose}\n"
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_present_tense_mismatch(self.tree.document(body), body)
+
+    # -- The three present-tense forms, each graded.
+
+    def test_the_current_count_passes_in_every_form(self):
+        for prose in (
+            "Stays UNMET/BLOCKED (89 mismatches on the current record).",
+            "A device-level match is missing (currently 89 mismatches).",
+            "Closing the upstream issue is not the same as clearing "
+            "the 89-mismatch LVS gap.",
+        ):
+            with self.subTest(prose=prose):
+                self.assertEqual(self.check(self.body(prose)), [])
+
+    def test_the_real_drift_is_reported_in_every_form(self):
+        """88 left behind in prose against an 89-mismatch record: PR #466's gap."""
+        for prose in (
+            "Stays UNMET/BLOCKED (88 mismatches on the current record).",
+            "A device-level match is missing (currently 88 mismatches).",
+            "Closing the upstream issue is not the same as clearing "
+            "the 88-mismatch LVS gap.",
+        ):
+            with self.subTest(prose=prose):
+                misses = self.check(self.body(prose))
+                self.assertEqual(len(misses), 1, misses)
+                self.assertIn("88", misses[0])
+                self.assertIn(
+                    "`layout/sar-adc-top/reports/LATEST` reports 89 mismatches",
+                    misses[0],
+                )
+
+    def test_the_finding_names_both_dispositions(self):
+        """Restate it, or date it -- never delete it."""
+        misses = self.check(self.body("(88 mismatches on the current record)."))
+        self.assertIn("--stats", misses[0])
+        self.assertIn("dated historical", misses[0])
+
+    # -- What must stay ungraded, so the gate cannot fire on correct prose.
+
+    def test_a_dated_historical_figure_is_not_graded(self):
+        prose = (
+            "Every hop through 2026-09-23 reported 98 mismatches, the "
+            "2026-09-24 hop 88 mismatches, and `20260924-214710-b323061` the "
+            "same 88 mismatches at 21/22/22 pins."
+        )
+        self.assertEqual(self.check(self.body(prose)), [])
+
+    def test_the_readout_itself_is_not_graded_twice(self):
+        """Check 9 owns the blockquote; this check must not double-report it."""
+        self.assertEqual(self.check(self.body("Nothing stated in prose.")), [])
+
+    def test_a_document_stating_no_present_tense_figure_is_not_failed_for_it(self):
+        prose = "See §4's machine-checked sign-off-bar readout for the count."
+        self.assertEqual(self.check(self.body(prose)), [])
+
+    # -- Parse shapes measured against the live document.
+
+    def test_a_figure_wrapped_across_lines_is_still_graded(self):
+        """The live document wraps this very phrase mid-sentence."""
+        prose = "Stays UNMET/BLOCKED (88 mismatches on the\n   current record)."
+        misses = self.check(self.body(prose))
+        self.assertEqual(len(misses), 1, misses)
+
+    def test_a_bold_wrapped_figure_is_graded(self):
+        misses = self.check(self.body("Still **88** mismatches on the current record."))
+        self.assertEqual(len(misses), 1, misses)
+
+    def test_every_occurrence_is_graded_not_only_the_first(self):
+        body = self.body(
+            "Stays UNMET/BLOCKED (88 mismatches on the current record), and a "
+            "device-level match is still missing (currently 88 mismatches)."
+        )
+        self.assertEqual(len(self.check(body)), 2)
+
+    # -- Which flow the claim is graded against.
+
+    def test_a_sub_block_count_cannot_become_the_grading_basis(self):
+        """`layout/comparator/` reports 1 mismatch and composes no cell."""
+        self.tree.add_layout_record(
+            "comparator",
+            "20260924-120000-abcdef0",
+            latest=True,
+            drc={"status": "clean", "violation_count": 0},
+            lvs=lvs_json(
+                mismatch_count=1,
+                error_count=0,
+                status="match",
+                devices=(11, 11, 11),
+                nets=(9, 9, 9),
+                pins=(6, 6, 6),
+            ),
+            compose=compose_json(blocks=[composed_block("route", source="generator_report")]),
+        )
+        body = (
+            "## 7. Open items\n\n"
+            + self.readout()
+            + "\n"
+            + self.readout("comparator")
+            + "\n1. **Top-level layout.** Still 1 mismatches on the current record.\n"
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("reports 89 mismatches", misses[0])
+        self.assertNotIn("comparator", misses[0])
+
+    def test_a_present_tense_figure_with_no_composing_readout_is_reported(self):
+        """The vacuity guard: silence here would make deleting the readout a pass."""
+        self.add_top(self.CURRENT, composing=False)
+        misses = self.check(self.body("(89 mismatches on the current record)."))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("reads out no composing", misses[0])
+
+    def test_a_figure_stated_without_any_readout_is_reported(self):
+        misses = self.check(
+            self.body("(89 mismatches on the current record).", readout=False)
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("reads out no composing", misses[0])
+
+    def test_composed_mismatch_counts_names_only_the_composing_flow(self):
+        body = self.body("Nothing stated in prose.")
+        self.assertEqual(checker.composed_mismatch_counts(body), {"sar-adc-top": 89})
+
+    # -- The live pair, not a fixture: this is what CI actually grades.
+
+    def test_the_real_document_and_the_real_tree_agree(self):
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        text = doc.read_text()
+        counts = checker.composed_mismatch_counts(text)
+        self.assertEqual(
+            list(counts),
+            ["sar-adc-top"],
+            "the composing flow is no longer identified from the tree as the "
+            "single flow whose composition takes in a cell",
+        )
+        stated = list(
+            checker.PRESENT_TENSE_MISMATCH_RE.finditer(
+                checker._collapse_quoted_prose(text)[0]
+            )
+        )
+        self.assertTrue(
+            stated,
+            "the document states none of the three present-tense forms, so this "
+            "check grades nothing on the live pair -- if that is deliberate, "
+            "retire the check rather than leaving it vacuous",
+        )
+        self.assertEqual(checker.check_present_tense_mismatch(doc, text), [])
+
+
 class TestRationaleDocumentCoverage(unittest.TestCase):
     """Every check in the chain must carry its rationale in docs/citation-gate.md.
 

@@ -1584,6 +1584,46 @@ EXCURSION_NARRATIVE_ANCHOR = ARM_CENSUS_ANCHOR
 # avoid.
 EXCURSION_NARRATIVE_MIN = 2
 
+# Check 36: the LVS mismatch count where it is stated in PROSE and in the
+# PRESENT TENSE -- the one figure class that is both.
+#
+# Section 4 introduces check 9's readout as "the document's single present-tense
+# statement" of the composed top level's DRC/LVS numbers, and gives the reason
+# it had to become one: the numbers move, and on each earlier move it was a
+# human re-read, not a check, that carried them forward. The claim was not true
+# of the document that made it. Six passages in Sections 3 and 7 restate the
+# mismatch count in present-tense prose, in three forms -- `N mismatches on the
+# current record`, `currently N mismatches`, and `the N-mismatch LVS gap` -- and
+# check 9 cannot see any of them: it matches the readout blockquote's own
+# sentence and nothing else.
+#
+# The drift, measured: issue #440 placed DR-017's two per-domain decoupling
+# capacitors (PR #466, 2026-09-26) and the composed compare moved from 88
+# mismatches to 89 -- both sides gained the two devices, and the one added
+# entry is a further `device.unmatched`. The readout moved with the record, the
+# Section 4 row that cites it moved, and all six prose passages still read 88.
+#
+# Why only these three forms, when `docs/citation-gate.md`'s "What the gate
+# deliberately does not cover" says Section 7's prose figures are NOT graded --
+# and gives a good reason (that section narrates superseded records paragraph by
+# paragraph, so grading its dated figures as present-tense claims would fail the
+# gate on correct prose, and the fix would be to rewrite the supersession trail
+# the gate exists to protect)? Because each of these three forms names the
+# CURRENT record in so many words. `88 mismatches at the 2026-09-24 hop` and `98
+# on every record through 2026-09-23` are dated historical statements and stay
+# ungraded; `88 mismatches on the current record` is a claim about whatever
+# `reports/LATEST` resolves to today, and there is exactly one true value for it.
+PRESENT_TENSE_MISMATCH_RE = re.compile(
+    r"(?:\*\*)?(?P<on_the_current_record>\d+)(?:\*\*)? mismatches on the current record"
+    r"|currently (?:\*\*)?(?P<currently>\d+)(?:\*\*)? mismatches"
+    r"|the (?:\*\*)?(?P<the_gap>\d+)(?:\*\*)?-mismatch LVS gap"
+)
+
+# The named groups above, in the order they are tried. One of them carries the
+# figure on any match; which one is what the finding quotes back, so a reader
+# fixing it knows which sentence form fired.
+PRESENT_TENSE_MISMATCH_FORMS = ("on_the_current_record", "currently", "the_gap")
+
 
 def _unwrap_backticked(span: str) -> str:
     """Rejoin a backticked span that prose wrapped across lines.
@@ -5826,6 +5866,85 @@ def check_excursion_enumeration(doc: Path, text: str) -> list[str]:
     ]
 
 
+def composed_mismatch_counts(text: str) -> dict[str, int]:
+    """`{flow: mismatch count}` for each COMPOSING flow the document reads out.
+
+    The present-tense forms check 36 grades are all about the composed top
+    level's device-match gap, and which flow that is comes from the tree rather
+    than being pinned here: it is the flow whose current composition takes in at
+    least one `blocks[]` entry whose `source` is a *cell* -- a stream that run
+    did not produce, i.e. another flow's record. Every other flow of this tree
+    composes only cells it generates in-flow (or composes nothing at all), so a
+    sub-block's own mismatch count can never become the basis a present-tense
+    claim is graded against: `layout/comparator/` and `layout/sampling-frontend/`
+    each report 1 mismatch, which would otherwise make "1 mismatches on the
+    current record" pass against the wrong flow.
+
+    Restricted further to flows the document actually states a check-9 readout
+    for: that readout is where the fix for a finding here is pasted from, so a
+    flow the document never reads out is one it could not be told to restate.
+    """
+    collapsed, _offsets = _collapse_quoted_prose(text)
+    counts: dict[str, int] = {}
+    for stated in READOUT_RE.finditer(collapsed):
+        block = stated.group("flow").split("/", 1)[1]
+        if not composition_inputs(block):
+            continue
+        readout = signoff_readout(block)
+        if readout is None:
+            continue
+        count = readout.get("mismatch_count")
+        if isinstance(count, int):
+            counts[block] = count
+    return counts
+
+
+def check_present_tense_mismatch(doc: Path, text: str) -> list[str]:
+    """Check 36: a present-tense prose mismatch count is the current record's."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(PRESENT_TENSE_MISMATCH_RE.finditer(collapsed))
+    if not stated:
+        # A document that states none of these forms makes no present-tense
+        # prose claim about the count, and is not made to: check 9's readout is
+        # where the figure belongs, and a prose passage may point at it instead
+        # of repeating it.
+        return []
+    counts = composed_mismatch_counts(text)
+    misses = []
+    for match in stated:
+        form = next(
+            name for name in PRESENT_TENSE_MISMATCH_FORMS if match.group(name) is not None
+        )
+        claimed = int(match.group(form))
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        if not counts:
+            # Nothing composing to grade against. Reported rather than passed
+            # over: the sentence claims a present-tense value for a record this
+            # document reads out, so the missing readout is the finding.
+            misses.append(
+                f"{where}: states `{match.group(0)}` in the present tense, but "
+                f"this document reads out no composing `layout/` flow whose "
+                f"current record could carry that count -- state the "
+                f"sign-off-bar readout check 9 grades, or write the figure as "
+                f"the dated historical one it is"
+            )
+            continue
+        if claimed in counts.values():
+            continue
+        misses.append(
+            f"{where}: states `{match.group(0)}` in the present tense, but "
+            + ", ".join(
+                f"`layout/{block}/reports/LATEST` reports {count} mismatches"
+                for block, count in sorted(counts.items())
+            )
+            + " -- restate it from check 9's own readout (`python3 "
+            "docs/chipalooza/check_proposal_citations.py --stats`), or, if the "
+            "figure is a dated historical one, say which record and pass it "
+            "carried it instead of calling it current"
+        )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -5863,6 +5982,7 @@ def check_document(doc: Path) -> list[str]:
         + check_decoupling_census(doc, text)
         + check_null_sweep_census(doc, text)
         + check_excursion_enumeration(doc, text)
+        + check_present_tense_mismatch(doc, text)
     )
 
 

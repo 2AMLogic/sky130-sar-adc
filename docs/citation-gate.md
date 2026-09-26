@@ -1823,6 +1823,67 @@ it reports **nothing** rather than an empty required set — checks 31, 32 and 3
 rule: there is no tree-side figure to compare against, and inventing one would
 make the gate the author of a claim.
 
+### Check 36 -- the present-tense mismatch count in prose (`check_present_tense_mismatch`)
+
+The one figure in this document that is **both** stated in prose **and** stated
+in the present tense: the composed top level's `klt lvs` mismatch count.
+
+Section 4 introduces check 9's readout as "the document's single present-tense
+statement" of those numbers, and gives the reason it had to become one -- the
+numbers move, and on each earlier move it was a human re-read, not a check, that
+carried them forward. **The claim was not true of the document that made it.**
+Six passages in Sections 3 and 7 restated the mismatch count in prose, in three
+forms, and check 9 can see none of them: it matches the readout blockquote's own
+sentence and nothing else.
+
+- `N mismatches on the current record`
+- `currently N mismatches`
+- `the N-mismatch LVS gap`
+
+The drift, measured rather than imagined: issue #440 placed DR-017's two
+per-domain decoupling capacitors (PR #466, 2026-09-26), both sides of the compare
+gained the two devices, and the count moved 88 -> 89 with one further
+`device.unmatched` entry. Check 9's readout moved with the record and so did the
+Section 4 row citing it; **all six prose passages still read 88**, three of them
+inside paragraphs the same PR had just edited to name the new record.
+
+**Why three forms and not a figure scan.** The "What the gate deliberately does
+not cover" section below says Section 7's prose figures are not graded, and gives
+a good reason: that section narrates superseded records paragraph by paragraph,
+so grading its dated figures as present-tense claims would fail the gate on
+correct prose, and the fix would be to rewrite the supersession trail the gate
+exists to protect. That reason survives intact here, because each of these three
+forms names the **current** record in so many words. `88 mismatches at the
+2026-09-24 hop` and `98 on every record through 2026-09-23` are dated historical
+statements and stay ungraded; `88 mismatches on the current record` is a claim
+about whatever `reports/LATEST` resolves to today, for which there is exactly one
+true value. A finding's own message names both dispositions, so the fix is
+either restating the figure or dating it -- never deleting it.
+
+**Which flow it grades against, and why that is not pinned here.** The composing
+flow is the one whose current `compose.json` takes in at least one `blocks[]`
+entry whose `source` is a **cell** -- a stream that run did not produce, i.e.
+another flow's record. Every other flow in this tree composes only cells it
+generates in-flow, or composes nothing at all, so `layout/sar-adc-top/` is
+identified from the tree rather than by name. That distinction is load-bearing
+and was measured: `layout/comparator/` and `layout/sampling-frontend/` each
+report **1** mismatch on their own current records, so a check that graded
+against every flow carrying a `compose.json` would let `1 mismatches on the
+current record` pass against the wrong flow. The set is narrowed once more to
+flows the document states a check-9 readout for: that readout is where the fix
+for a finding here is pasted from, so a flow the document never reads out is one
+it could not be told to restate.
+
+**What this check deliberately does NOT cover.** It does not grade any other
+field of the compare (device, net or pin counts, or the category mix) in prose --
+only the mismatch count, which is the figure the document restates and the one
+that moved. It does not grade the *dated* forms, above. It does not fire on a
+document that states none of the three forms: pointing at the readout instead of
+repeating the figure is the preferred shape, not a hole. And it cannot stop a
+future pass from inventing a fourth present-tense phrasing -- what it can do, and
+does, is make the three the document actually uses mechanical, so the specific
+recurrence that has now happened once cannot happen silently again.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
@@ -1861,6 +1922,12 @@ paragraph by paragraph, whereas a Section 4 row is a verdict that must stand
 on current evidence -- which is also how issue #121's own acceptance criteria
 and Test Plan frame it ("every spec-row verdict ... traces to ... a dated
 `sim/`/`layout/` record cited by path").
+
+Check 36 is the one narrow exception to that scoping, and it is an exception
+that does not weaken the reason: it grades three prose forms that each name the
+**current** record in so many words, and leaves every dated form of the same
+figure alone. See its entry above for why a general figure scan over Section 7
+would fail the gate on correct prose.
 
 ## Adding a check
 
