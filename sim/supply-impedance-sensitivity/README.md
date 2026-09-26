@@ -171,6 +171,10 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
 # the bounded 2-D R/L sweep (DR-015's own open item; see its own section below):
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record
 
+# the bounded null-option substrate ladder: DR-012's REJECTED topology swept
+# over the resistance that is its whole ground return (see its own section):
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record
+
 # what that sweep would cost, and whether its points converge, WITHOUT running
 # it: each grid point's own deck over a truncated transient. Measures nothing
 # about the DUT, so it refuses --record.
@@ -289,11 +293,12 @@ Consequences:
 Every record states the command that minted it in its `Written by` footer, and
 `sim/check_spec_coverage.py` requires every token of that footer after the
 runner path to appear in the bench's documented `cold_start`
-(`cold-start-record-mismatch`). **Three** invocations of this runner are
+(`cold-start-record-mismatch`). **Four** invocations of this runner are
 indexed today, one per committed record — the four-arm arm comparison
 (`--arms ideal,package-r-only,package,substrate --record`), the default sweep
-box (`--sweep --record`) and the ground-pad ablation pair
-(`--arms ideal,package,no-gnd-pad --record`) — so a run with any *other*
+box (`--sweep --record`), the ground-pad ablation pair
+(`--arms ideal,package,no-gnd-pad --record`) and the default null-option
+substrate ladder (`--null-sweep --record`) — so a run with any *other*
 `--arms` list or any other sweep box needs its own bench entry in
 `sim/spec-coverage.json` and its own verbatim documented command here, the same
 way `sar-sequencer-behavioral` indexes its `--corners` variant separately. The
@@ -512,6 +517,152 @@ of trusted. Measured full-run cost, as a multiple of the anchor's own full run
   *committed* arm-comparison record's own 1261 s anchor the same 7.8 is ≈ 2.7 h,
   against the ≈ 2.5 h projected — the ratio is the transferable part, the
   absolute hours are whichever host you scale by.
+
+## The bounded null-option substrate ladder (`--null-sweep`)
+
+The 2-D box above deliberately does **not** sweep a substrate *return*, and
+says so in its own scope section: on the as-built `package` topology `GND` has
+a bond of its own, so the resistor that box moves sits **beside** that bond as a
+shunt between the two ground die nodes. The topology where that same resistor
+**is** the analog ground's entire path to the board is `no-gnd-pad` — DR-012's
+rejected null option — and sweeping it there is a different experiment with a
+different reading. That is `--null-sweep`:
+
+```sh
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record
+```
+
+**The gap it closes is a claim, not an absence.**
+[DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)'s
+Consequences section says of that arm:
+
+> The `no-gnd-pad` arm … is **entirely** a function of `R_SUB`: with a small
+> `R_SUB` it looks harmless, with a large one it looks fatal.
+
+Both halves of that sentence are predictions about magnitudes the campaign had
+only ever run at **one** value (DR-015's assumed 30 Ω). The `no-gnd-pad` record
+priced the option at that point; this ladder is what turns "harmless … fatal"
+into a measured sensitivity.
+
+**What it sweeps.** One axis, on the `no-gnd-pad` topology, plus the same
+`ideal` control every number is a difference against:
+
+| axis | default ladder | what moving it means |
+| --- | --- | --- |
+| the lumped substrate **return** | `3`, `30`, `300` Ω (DR-015 assumes 30) | how well the p-substrate alone gets the analog ground's current off the die, with no analog ground bond to help it — the assumption the whole rejected-option result rests on |
+
+The three bonded terminals (`VDD`, `VPWR`, `VGND`) keep DR-015's R+L unchanged
+at every rung, so each step moves one element and nothing else (DR-015 item 5).
+This is a **one-axis ladder on purpose**: crossing it with the inductance
+ladder would be a second 2-D box and would confound the question, which is what
+the rejected topology costs as the substrate assumption moves.
+
+**Which stand-in moves, and what it is called.** DR-015 item 2 defines two
+lumped stand-ins — `R_SUB`, a substrate-only ground *return*, and `R_SUBX`, the
+link "between the analog and digital ground die nodes". In this topology **one
+resistor is both**: it spans `GND_DIE` and `VGND` (so the deck names its
+instance `RSUBX`, after the node pair it bridges) and, with `GND` unbonded, it
+is also the only path the analog ground has to the board (so it plays `R_SUB`'s
+role). DR-015 sets both to the same 30 Ω, so at the anchor the distinction
+changes no number — but a ladder that swept "the substrate resistance" without
+saying which element moved would be unreadable next to the 2-D box, which moved
+an element of the same name in a topology where it does something else. Every
+record this mode writes states it in its own section.
+
+**The ladder is anchored to the committed ground-pad ablation.** Its `30 Ω`
+rung is, card for card, the `no-gnd-pad` arm of
+[`records/20260925-204633-7339971.md`](records/20260925-204633-7339971.md) —
+same three bonded terminals at DR-015's R+L, same unbonded `GND`, same
+stimulus. That identity is asserted before the run starts and again when the
+record is written (`null_sweep_anchor_matches_base_arm()`), and
+`sim/tests/test_supply_impedance.py` pins it, so a later edit cannot quietly
+re-centre the ladder onto a topology that is no longer DR-012's rejected
+option.
+
+**It supersedes nothing and does not move `records/LATEST`**, for the same
+reason the 2-D sweep record does not: that pointer names this flow's newest
+*arm-comparison* record, which is what the citation gate's arm census (check
+31) reads, and a ladder record carries no arm census to offer. It is also
+invisible to the *sweep* census (check 32) by construction — its header line is
+`- **Ladder**:` rather than `- **Grid**:`, because it is not a point of that
+box — and `sim/tests/test_supply_impedance.py` asserts both censuses' parses
+against what this writer actually emits.
+
+### What the first ladder found, and the one thing it changes
+
+[`records/20260926-000929-ce12f9b.md`](records/20260926-000929-ce12f9b.md) is
+the first run of this mode. Two of its results need reading carefully, because
+neither is the shape DR-015's prose predicts.
+
+**The excursion is not monotone in the substrate return.** Down the ladder the
+die-side analog ground moves `72.130 mV → 67.307 mV → 137.093 mV` for
+`3 Ω → 30 Ω → 300 Ω`, while `VGND`'s own die node falls monotonically
+(`72.288 → 71.425 → 57.388 mV`). So the middle rung is the *quietest* of the
+three, and "small `R_SUB` looks harmless" — the first half of DR-015's sentence
+— is **not** what the measurement says at this corner: 3 Ω is slightly worse
+than the assumed 30 Ω, not better. Only the second half survives, and only
+directionally: at 300 Ω the excursion roughly doubles. The two halves of the
+ladder are doing different things — at a small return the analog ground is
+welded to `VGND` and inherits its bond's ringing, at a large one it floats free
+of the board altogether — and a single resistor sweeping across that crossover
+is not a curve anyone should read a slope off. The endpoint ratio the record
+reports (**1.90×** over 100× of resistance) is exactly that: an endpoint ratio,
+stated instead of a trend.
+
+**No captured code moves anywhere on the ladder** (worst mid-scale
+`|Δ code|` = 0 LSB at every rung). That is a *bounded* null, over 3–300 Ω at
+`tt_27c_1.80v` only, and it is not a finding that the pad does not matter — the
+rail moves where the code does not.
+
+### Reproducing a deck across hosts: what agrees, and to what
+
+The `30 Ω` rung and the `no-gnd-pad` arm of
+[`records/20260925-204633-7339971.md`](records/20260925-204633-7339971.md) are
+the same deck — `diff` of the two committed `.cir` files differs only in
+comments and in the `.lib` path prefix — at the same pinned
+`open_pdks c6d73a35…` and the same ngspice major. They do not print the same
+numbers, and the four committed records between them say exactly why: the
+`.lib` prefix is `/home/ubuntu/…` in two of them and `/Users/rwalters/…` in the
+other two, so this campaign has, by accident, run the same decks on **two
+hosts**.
+
+| deck | host A (`/home/ubuntu`) | host B (`/Users/rwalters`) | difference |
+| --- | --- | --- | --- |
+| `ideal`, total power | `27.971 µW` (`…073912`, `…000929`) | `27.957 µW` (`…164447`, `…204633`) | 0.05 % |
+| `ideal`, `I(VDD)` | `2.097 µA` | `2.094 µA` | 0.14 % |
+| `package`, `GND_DIE` pp | `37.333 mV` (`…073912`) | `37.590 mV` (`…204633`) | 0.69 % |
+| `no-gnd-pad` (= `30 Ω` rung), `GND_DIE` pp | `67.307 mV` (`…000929`) | `65.237 mV` (`…204633`) | 3.2 % |
+
+**Within a host the same deck is bit-identical across separate records** — the
+`ideal` control prints `2.097 / 6.966 / 2.177 µA` in both host-A records and
+`2.094 / 6.961 / 2.174 µA` in both host-B ones — so the spread in the right
+column is host, not run-to-run noise. Across hosts the *averaged* quantities
+agree to a tenth of a percent, while a *peak-to-peak* disagrees by ten to fifty
+times that, and it disagrees most on the arm whose ground rings hardest: 0.69 %
+on the bonded `package` ground, 3.2 % on the unbonded one. That is what a pp
+figure is — a value read off whichever timesteps an adaptive solver happened to
+place on a lightly-damped waveform — and not a defect in either run.
+
+**The consequence is a reading rule.** A few percent of difference in a `pp`
+column taken *across* records is inside the host's own spread, so pp numbers
+may only be subtracted *within* one record, where every arm saw the same solver
+on the same machine. Every delta this campaign actually claims — in every
+record — is already within-record; this table is what licenses that restriction
+instead of leaving it to etiquette. It also bounds the anchor check: the `30 Ω`
+rung is the committed `no-gnd-pad` arm *by construction* (asserted card for
+card, twice, in code), and reproduces it *numerically* to 3.2 % on a different
+machine.
+
+**Cost, and why it could be paid now and not before.** This ladder was owed
+from the day `--sweep` landed, and was not run for the same reason the
+`no-gnd-pad` arm itself was not: a truncated-slice projection of roughly an
+order of magnitude per run. The full `no-gnd-pad` run then measured **1.67×**
+the control — see the struck-through bullet under "Runtime" above — so the
+ladder is three runs of that order plus the control, not the day-long campaign
+the projection implied. `--cost-probe` accepts `--null-sweep` as well, under
+exactly the same refusals (`--record`, `--log-cache`, `--supersedes` and a
+slice not shorter than the stimulus are all rejected), and `--null-sweep
+--corners` is refused for the same reason `--sweep --corners` is.
 
 ## Why the committed record is not the full nine-point grid
 
