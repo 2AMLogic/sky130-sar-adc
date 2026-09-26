@@ -1524,6 +1524,17 @@ class TestCoverageIndexParity(unittest.TestCase):
         "(../../sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md)"
     )
 
+    def graded(self, misses: list[str]) -> list[str]:
+        """Check 11's own findings out of the whole chain's output.
+
+        These fixtures deliberately hold a campaign record the fixture
+        document does not cite, which is *also* check 37's finding -- the two
+        checks cover the same absence at different scopes (per row, and
+        document-wide), so a test about one filters out the other rather than
+        asserting on the union.
+        """
+        return [miss for miss in misses if "spec-coverage.json" in miss]
+
     def test_an_indexed_campaign_the_row_never_cites_is_reported(self):
         self.tree.add_coverage_index(
             {
@@ -1600,7 +1611,7 @@ class TestCoverageIndexParity(unittest.TestCase):
                 "| Corners | −40/27/125 °C | **RATIFIED** | **MET** | harness self-test |",
             )
         )
-        self.assertEqual(misses, [])
+        self.assertEqual(self.graded(misses), [])
 
     def test_an_unbenched_row_is_excluded(self):
         self.tree.add_coverage_index(
@@ -1609,7 +1620,7 @@ class TestCoverageIndexParity(unittest.TestCase):
         misses = self.tree.check(
             spec_table("| Power | provisional | DRAFT | **UNMEASURED** | none yet |")
         )
-        self.assertEqual(misses, [])
+        self.assertEqual(self.graded(misses), [])
 
     def test_a_same_record_deferral_inherits_the_row_above(self):
         """The LSB/Sampling-cap shape: deferring is not the same as ignoring."""
@@ -1648,8 +1659,9 @@ class TestCoverageIndexParity(unittest.TestCase):
                 "| LSB (differential) | `3.5156 mV` | **RATIFIED** | **MET** | same record |",
             )
         )
-        self.assertEqual(len(misses), 1, misses)
-        self.assertIn("LSB (differential)", misses[0])
+        reported = self.graded(misses)
+        self.assertEqual(len(reported), 1, misses)
+        self.assertIn("LSB (differential)", reported[0])
 
     def test_check_is_inert_without_the_coverage_index(self):
         # No sim/spec-coverage.json in the fixture tree at all.
@@ -7081,6 +7093,251 @@ class TestPresentTenseMismatch(unittest.TestCase):
             "retire the check rather than leaving it vacuous",
         )
         self.assertEqual(checker.check_present_tense_mismatch(doc, text), [])
+
+
+class TestCampaignCensus(unittest.TestCase):
+    """Check 37: which `sim/` campaigns holding evidence the document cites at all.
+
+    The gap this was written for: `sim/spec-coverage.json`'s one `structural`
+    row (**Architecture**) indexes four benches, check 11 skips rows outside
+    `MEASURED_CLAIM_CLASSES`, and two of those benches are indexed nowhere
+    else -- so `sim/sampling-frontend/` and `sim/sampling-cdac-handoff/` were
+    cited nowhere in the document, and every other check here grades citations
+    that exist rather than ones that are missing.
+
+    The two things that must NOT be gradeable as a citation are tested as
+    carefully as the ones that must: a mention of the campaign *directory*
+    (this document names `sim/vcm-drive-budget/` in prose a dozen times) and a
+    `records/` directory with no stamp (which is how the **Corners** row cited
+    the two smoke campaigns). Accepting either would have passed the document
+    the check was written against.
+    """
+
+    STAMP = "20260824-231304-144edeb"
+    OTHER = "20260825-021113-a237c79"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        # Check 37 is anchored on the tree (a coverage index) AND on the
+        # document (a Section 4 table); both are built by default so a test
+        # states only what it is about, and the two inert cases get their own
+        # tests below.
+        self.tree.add_coverage_index(
+            {"parameter": "Architecture", "claim_class": "structural"}
+        )
+
+    def body(self, *rows: str, census: str | None = None) -> str:
+        text = spec_table(*rows)
+        if census is not None:
+            text += "\n> " + census + "\n"
+        return text
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_campaign_census(self.tree.document(body), body)
+
+    def cite(self, campaign: str, stamp: str) -> str:
+        return f"`sim/{campaign}/records/{stamp}.md`"
+
+    def row(self, *citations: str) -> str:
+        return "| Architecture | topology | DRAFT | **MET** | " + ", ".join(citations) + " |"
+
+    # -- The omission, in the shape it really occurred.
+
+    def test_an_uncited_campaign_with_no_census_is_reported(self):
+        self.tree.add_sim_record("sampling-cdac-handoff", self.STAMP)
+        misses = self.check(self.body(self.row("`design/sar_adc_top.sch`")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("sim/sampling-cdac-handoff/", misses[0])
+        self.assertIn("**1** record", misses[0])
+        self.assertIn("states no campaign-citation census", misses[0])
+
+    def test_citing_the_campaign_by_path_clears_it(self):
+        self.tree.add_sim_record("sampling-cdac-handoff", self.STAMP)
+        body = self.body(self.row(self.cite("sampling-cdac-handoff", self.STAMP)))
+        self.assertEqual(self.check(body), [])
+
+    def test_the_record_count_sizes_the_hole(self):
+        """Two records is a wider hole than one, and the message says which."""
+        self.tree.add_sim_record("sampling-frontend", self.STAMP)
+        self.tree.add_sim_record("sampling-frontend", self.OTHER)
+        misses = self.check(self.body(self.row("`design/sampling_frontend.sch`")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("**2** records", misses[0])
+
+    # -- The two near-miss citation shapes that must still count as uncited.
+
+    def test_naming_the_campaign_directory_is_not_a_citation(self):
+        """`sim/vcm-drive-budget/` in prose says a campaign exists, not which record."""
+        self.tree.add_sim_record("vcm-drive-budget", self.STAMP)
+        misses = self.check(
+            self.body(self.row("see `sim/vcm-drive-budget/` for the drive budget"))
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("sim/vcm-drive-budget/", misses[0])
+
+    def test_naming_the_records_directory_without_a_stamp_is_not_a_citation(self):
+        """The shape the Corners row used: `sim/mc-smoke/records/`, no stamp."""
+        self.tree.add_sim_record("mc-smoke", self.STAMP)
+        misses = self.check(self.body(self.row("`sim/mc-smoke/records/`")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("sim/mc-smoke/", misses[0])
+
+    def test_a_records_latest_pointer_is_not_a_stamp_citation(self):
+        self.tree.add_sim_record("mc-smoke", self.STAMP, latest=True)
+        misses = self.check(self.body(self.row("`sim/mc-smoke/records/LATEST`")))
+        self.assertEqual(len(misses), 1, misses)
+
+    # -- A LATEST pointer file must not be counted as a record.
+
+    def test_the_latest_pointer_is_not_counted_as_a_record(self):
+        self.tree.add_sim_record("mc-smoke", self.STAMP, latest=True)
+        census = checker.campaign_census("")
+        self.assertEqual(census["record_counts"]["mc-smoke"], 1)
+
+    # -- The census sentence, graded in both directions.
+
+    def test_the_correct_census_passes(self):
+        self.tree.add_sim_record("sampling-cdac-handoff", self.STAMP)
+        self.tree.add_sim_record("sampling-frontend", self.OTHER)
+        body = self.body(
+            self.row(self.cite("sampling-cdac-handoff", self.STAMP)),
+            census=checker.campaign_sentence(checker.campaign_census("")),
+        )
+        # The sentence is derived from a document citing nothing, so it must
+        # be re-derived against the body it lands in -- which is the point.
+        body = self.body(
+            self.row(self.cite("sampling-cdac-handoff", self.STAMP)),
+            census=checker.campaign_sentence(checker.campaign_census(body)),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_stale_count_in_the_census_is_reported(self):
+        self.tree.add_sim_record("sampling-cdac-handoff", self.STAMP)
+        self.tree.add_sim_record("sampling-frontend", self.OTHER)
+        row = self.row(self.cite("sampling-cdac-handoff", self.STAMP))
+        live = checker.campaign_sentence(checker.campaign_census(self.body(row)))
+        stale = live.replace("**2** campaigns", "**1** campaigns")
+        self.assertNotEqual(stale, live, "fixture no longer matches the sentence")
+        misses = self.check(self.body(row, census=stale))
+        self.assertTrue(any("campaigns=1" in miss for miss in misses), misses)
+
+    def test_naming_the_wrong_uncited_campaign_is_reported(self):
+        self.tree.add_sim_record("sampling-cdac-handoff", self.STAMP)
+        self.tree.add_sim_record("sampling-frontend", self.OTHER)
+        row = self.row(self.cite("sampling-cdac-handoff", self.STAMP))
+        live = checker.campaign_sentence(checker.campaign_census(self.body(row)))
+        self.assertIn("`sim/sampling-frontend/`", live)
+        wrong = live.replace("`sim/sampling-frontend/`", "`sim/mc-smoke/`")
+        misses = self.check(self.body(row, census=wrong))
+        self.assertTrue(any("misstates which evidence" in miss for miss in misses), misses)
+
+    def test_a_wrong_record_count_in_the_exception_clause_is_reported(self):
+        self.tree.add_sim_record("sampling-frontend", self.STAMP)
+        self.tree.add_sim_record("sampling-frontend", self.OTHER)
+        row = self.row("`design/sampling_frontend.sch`")
+        live = checker.campaign_sentence(checker.campaign_census(self.body(row)))
+        self.assertIn("(**2** records)", live)
+        wrong = live.replace("(**2** records)", "(**1** records)")
+        misses = self.check(self.body(row, census=wrong))
+        self.assertTrue(any("how large the hole is" in miss for miss in misses), misses)
+
+    def test_a_census_claiming_none_uncited_against_a_real_hole_is_reported(self):
+        """Deleting the exception list must not be a way to unstate the hole."""
+        self.tree.add_sim_record("sampling-frontend", self.STAMP)
+        misses = self.check(
+            self.body(
+                self.row("`design/sampling_frontend.sch`"),
+                census=(
+                    "of the **1** campaigns under `sim/` holding at least one "
+                    "committed record, **1** are cited by path in this document "
+                    "and **0** are not: " + checker.CAMPAIGN_CENSUS_NONE
+                ),
+            )
+        )
+        self.assertTrue(misses, "a census claiming full coverage went ungraded")
+        self.assertTrue(any("cited=1" in miss for miss in misses), misses)
+
+    # -- Inertness, and the two anchors that hold it.
+
+    def test_no_coverage_index_makes_the_check_inert(self):
+        tree = FixtureTree(self)
+        tree.add_sim_record("sampling-frontend", self.STAMP)
+        body = spec_table(self.row("`design/sampling_frontend.sch`"))
+        self.assertEqual(checker.check_campaign_census(tree.document(body), body), [])
+
+    def test_no_section_4_table_makes_the_check_inert(self):
+        self.tree.add_sim_record("sampling-frontend", self.STAMP)
+        body = "## 7. Open items\n\n1. **Something.** No spec table here.\n"
+        self.assertEqual(self.check(body), [])
+
+    def test_full_coverage_needs_no_census_sentence(self):
+        """Nothing to size means the census is optional, not owed."""
+        self.tree.add_sim_record("sampling-cdac-handoff", self.STAMP)
+        body = self.body(self.row(self.cite("sampling-cdac-handoff", self.STAMP)))
+        self.assertEqual(self.check(body), [])
+
+    def test_a_campaign_with_no_committed_record_is_not_demanded(self):
+        (self.tree.root / "sim" / "empty-campaign" / "records").mkdir(parents=True)
+        body = self.body(self.row("`design/sar_adc_top.sch`"))
+        self.assertEqual(self.check(body), [])
+
+
+class TestCampaignCensusAgainstTheRealTree(unittest.TestCase):
+    """Check 37 on the live document and the live `sim/` tree.
+
+    A separate class from `TestCampaignCensus` on purpose: `FixtureTree`
+    monkeypatches `checker.REPO_ROOT` for the lifetime of the test that builds
+    one, so a live-tree assertion made in that class would silently resolve
+    against the fixture's empty tree and pass vacuously.
+    """
+
+    def test_the_real_document_cites_every_campaign_holding_a_record(self):
+        """The positive form on the real tree: this is what the pass fixed.
+
+        Asserted as a floor on the campaign count too, so a `sim/` tree that
+        stopped being walked would fail here rather than pass vacuously with
+        zero campaigns and zero holes.
+        """
+        text = (checker.CHIPALOOZA_DIR / "challenge-4-proposal.md").read_text()
+        census = checker.campaign_census(text)
+        self.assertGreaterEqual(census["campaigns"], 14, census)
+        self.assertEqual(census["uncited"], [], census)
+
+    def test_the_two_campaigns_the_check_was_written_for_are_cited_by_path(self):
+        text = (checker.CHIPALOOZA_DIR / "challenge-4-proposal.md").read_text()
+        for campaign in ("sampling-frontend", "sampling-cdac-handoff"):
+            with self.subTest(campaign=campaign):
+                self.assertTrue(
+                    any(
+                        match.group("block") == campaign
+                        for match in checker.EVIDENCE_PATH_RE.finditer(text)
+                        if match.group("top") == "sim"
+                    ),
+                    f"sim/{campaign}/ is no longer cited by path",
+                )
+
+    def test_the_stats_sentence_round_trips_on_the_real_document(self):
+        """`--stats` output must be pasteable: what it prints, the check accepts."""
+        text = (checker.CHIPALOOZA_DIR / "challenge-4-proposal.md").read_text()
+        sentence = checker.campaign_sentence(checker.campaign_census(text))
+        match = checker.CAMPAIGN_CENSUS_RE.search(sentence)
+        self.assertIsNotNone(match, sentence)
+        self.assertEqual(int(match.group("campaigns")), len(checker.sim_campaigns_with_records()))
+
+    def test_the_real_document_states_the_census(self):
+        """A stated census is what makes a future hole a graded finding.
+
+        Without the sentence the check still fires -- but only via its
+        no-census branch, which reports the omission rather than the drift.
+        With it, a newly-uncited campaign is reported against a number a
+        reader can diff.
+        """
+        text = (checker.CHIPALOOZA_DIR / "challenge-4-proposal.md").read_text()
+        collapsed, _offsets = checker._collapse_quoted_prose(text)
+        self.assertTrue(
+            checker.CAMPAIGN_CENSUS_RE.search(collapsed),
+            "challenge-4-proposal.md no longer states the campaign-citation census",
+        )
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):
