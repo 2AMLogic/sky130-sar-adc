@@ -2634,20 +2634,22 @@ tracker already owns.
    lands on the composed top level, and it is the first tracked one whose
    arrival moves this document's *numbers* rather than only the reasons
    behind its verdicts.** #440 was filed at 2026-09-25T18:06:01Z (open,
-   `loom:blocked` + `loom:triage`, read live this pass) to place two
+   `loom:blocked` + `loom:triage` as read live that pass — its tracking state
+   has since moved, see the 2026-09-26 update below) to place two
    per-domain decoupling capacitors in `layout/sar-adc-top/`'s composition —
    one across the analog `VDD`/`GND` pair, one across the digital
    `VPWR`/`VGND` pair — and to re-run `klt drc`, `klt lvs` and `klt erc`
    against the result. It is not a defect report against the assembly: the
-   capacitors are a schematic-level sizing decision (#431, open and
+   capacitors are a schematic-level sizing decision (#431, then open and
    `loom:building`) that deliberately left placement to a separate pass, and
-   #440 is that pass. **Nothing in this document moves yet, and the reason is
+   #440 is that pass. **Nothing in this document moved then, and the reason was
    checkable offline rather than taken from either issue's text** — the design
-   those capacitors belong to has not landed. At this document's own HEAD,
-   `git grep -i cdecap origin/main -- design/ spec/` returns nothing,
-   `git ls-tree -r origin/main --name-only -- spec/decision-records/` carries
-   no on-die-decoupling record, and #431 has no open PR. So
-   `design/sar_adc_top.spice` still declares exactly the devices the composed
+   those capacitors belong to had not landed. At this document's HEAD as of
+   that pass (the next paragraph records the landing that ended this),
+   `git grep -i cdecap origin/main -- design/ spec/` returned nothing,
+   `git ls-tree -r origin/main --name-only -- spec/decision-records/` carried
+   no on-die-decoupling record, and #431 had no open PR. So
+   `design/sar_adc_top.spice` then declared exactly the devices the composed
    GDS draws, `layout/sar-adc-top/reports/LATEST` is still
    `20260924-234053-66dca3c`, §4's machine-checked sign-off-bar readout is
    still that record's own numbers, both §4 sign-off-bar rows keep the
@@ -2684,8 +2686,32 @@ tracker already owns.
    decoupling. #431 chose **DR-017** instead of adding a third duplicate number
    to a tree that already carries two `DR-004`s and two `DR-007`s (the hazard
    the paragraph after Item 4's readout describes). Item 4's readout now
-   carries both records separately, and `#440`'s body still quotes the old
-   `DR-016-…` filename — read it as DR-017.
+   carries both records separately. `#440`'s *body* has since been restated
+   against DR-017 (its remaining `DR-016` mentions are in dated curation notes
+   recording the rename), but its *title* still reads "place DR-016's two
+   per-domain decoupling caps" — read it as DR-017.
+
+   **Update this pass (2026-09-26): #440 and #431 have swapped states, and
+   the paragraphs above were corrected in place for it.** Re-read live this
+   pass (`gh api repos/2AMLogic/sky130-sar-adc/issues/440/events` and
+   `…/issues/431/events`): #440 lost `loom:blocked` and `loom:triage` at
+   2026-09-26T05:49:50Z when its curator re-check found PR #449 merged (DR-017
+   plus both `Cdecap_a`/`Cdecap_d` cards on
+   [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice)), was promoted
+   to `loom:issue` at 06:11:36Z, and has carried `loom:building` since
+   07:28:07Z (a second claim, after a first from 06:42:18Z was released at
+   07:27:52Z) — open, with no PR yet. #431 went the other way: it moved from
+   `loom:building` to `loom:blocked` at 07:24:23Z, with its own comment naming
+   the reason — AC1 closed by PR #449, AC3 by PR #458 (DR-017's Amendment A,
+   which Item 9 below carries), and AC2, the layout placement and
+   DRC/LVS/ERC re-run, is the only work left and is #440's. So the dependency
+   this item recorded has inverted: the *design* is landed and the *layout* is
+   now the live work, rather than the reverse. **No §4 verdict or number
+   moves**: `git ls-tree -r origin/main --name-only -- layout/sar-adc-top/reports/`
+   mints no record after `20260924-234053-66dca3c`, which is still
+   `reports/LATEST`, so §4's sign-off-bar readout still describes the
+   869-device assembly without the two capacitors, exactly as the paragraph
+   above says, and check 9 remains the tripwire for the re-run #440 owes.
 
    **Update this pass (2026-09-26): #103 was touched again since the last
    re-verification, by a comment, not a label change.** `gh api
