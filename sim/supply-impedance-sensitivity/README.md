@@ -73,6 +73,24 @@ from are ratified as a *stated assumption* by
 and re-rendered from the runner's own constants into every record this campaign
 writes. **They are an assumption, not a measurement of any package**, and the
 substrate resistor is a *lumped stand-in*, not an extracted network.
+
+**Why the substrate one cannot yet be replaced by an extraction** (issue #409
+item 4, checked against `klt 0.6.0` on 2026-09-25): nothing in the layout
+toolchain can produce a substrate network to put here. `klt extract
+--parasitics` models conductor parasitics only — per-net R along drawn
+interconnect and net-to-*ground* C, where ground is a single ideal reference
+node — so two taps on the same bulk net are shorted with zero impedance
+between them however far apart they are drawn; no `klt` command mentions a
+substrate at all; and `klt pdk stackup`'s own `substrate` entry carries
+permittivity but neither resistivity nor thickness, so even the material input
+such a solve needs is missing. Per `CLAUDE.md`'s friction protocol that
+capability gap is filed generically at
+[`2AMLogic/klayout-tools#2515`](https://github.com/2AMLogic/klayout-tools/issues/2515)
+— tool gap only, no design detail. Filing it does **not** close the item:
+until an extraction exists, `R_SUB`/`R_SUBX` stay assumptions and every number
+that leans on them is evidence about *a* substrate-style return of that order,
+not about this die's.
+
 `sim/tests/test_supply_impedance.py` parses DR-015's table back out of the
 Markdown and compares it against the code, so the record and the runner cannot
 drift apart silently.
@@ -167,6 +185,15 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,pa
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --record \
     --supersedes <record-id>   # name the prior record this one replaces
+
+# the exact invocation that opened the ratified grid's corner axis
+# (records/20260925-181510-6dafa59.md): the control and the as-built arm at the
+# baseline corner and the slow-process corner, the first non-baseline point any
+# record of this campaign contains. A NAMED SUBSET of the same nine-point
+# ratified grid -- `--corner-points` can narrow that grid, never extend it --
+# because the whole grid is hours and a dispatch session is not (see "Why the
+# corner grid arrives in pieces").
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record
 
 # the bounded 2-D R/L sweep (DR-015's own open item; see its own section below):
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record
@@ -293,16 +320,20 @@ Consequences:
 Every record states the command that minted it in its `Written by` footer, and
 `sim/check_spec_coverage.py` requires every token of that footer after the
 runner path to appear in the bench's documented `cold_start`
-(`cold-start-record-mismatch`). **Four** invocations of this runner are
+(`cold-start-record-mismatch`). **Five** invocations of this runner are
 indexed today, one per committed record — the four-arm arm comparison
 (`--arms ideal,package-r-only,package,substrate --record`), the default sweep
 box (`--sweep --record`), the ground-pad ablation pair
-(`--arms ideal,package,no-gnd-pad --record`) and the default null-option
-substrate ladder (`--null-sweep --record`) — so a run with any *other*
-`--arms` list or any other sweep box needs its own bench entry in
-`sim/spec-coverage.json` and its own verbatim documented command here, the same
-way `sar-sequencer-behavioral` indexes its `--corners` variant separately. The
-`--corners` grid is the next one that will need one.
+(`--arms ideal,package,no-gnd-pad --record`), the default null-option
+substrate ladder (`--null-sweep --record`) and the two-point corner slice
+(`--arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`) —
+so a run with any *other* `--arms` list, any other sweep box, or any other
+corner subset needs its own bench entry in `sim/spec-coverage.json` and its own
+verbatim documented command here, the same way `sar-sequencer-behavioral`
+indexes its `--corners` variant separately. Every widening of the corner subset
+is therefore a new indexed invocation, not a re-run of an existing one — the
+price of `--corner-points` being part of a record's identity rather than a
+scheduling detail.
 
 A bench entry cannot be added *ahead* of its record: `sim/check_spec_coverage.py`
 fails an entry that lists no evidence record (`bench-has-no-record`), because a
@@ -413,8 +444,10 @@ carrying the number it wants rather than the pointer alone.
 **Cost, and `--sweep --corners`.** The default box is nine whole-ADC transients
 plus the control, run one at a time, which is hours — use `--log-cache`, and see
 the cost probe below for what those hours actually are. The combination
-`--sweep --corners` is **refused**: it is #409's two deferred costs multiplied
-together, and this host may not run a multi-corner grid at all (next section).
+`--sweep --corners` (and `--sweep --corner-points`) is **refused**: it is two
+of #409's costs multiplied together — nine boxes of whole-ADC transients, a
+campaign in its own right rather than a longer version of this one
+(see "Why the corner grid arrives in pieces").
 
 **The box has been run**, and its record is
 [`records/20260925-164447-722fcb0.md`](records/20260925-164447-722fcb0.md) —
@@ -664,43 +697,72 @@ exactly the same refusals (`--record`, `--log-cache`, `--supersedes` and a
 slice not shorter than the stimulus are all rejected), and `--null-sweep
 --corners` is refused for the same reason `--sweep --corners` is.
 
-## Why the committed record is not the full nine-point grid
+## Why the corner grid arrives in pieces
 
-`--corners` (every arm × the nine-point ratified OAT grid) is implemented and
-is the command a **simulation host** should run. The record committed here is
-the baseline corner only, and each record states its own
-"Subset-corner justification" per `sim/README.md`'s rule. Three constraints
-bind at once:
+`--corners` (every arm × the nine-point ratified OAT grid) is implemented, and
+until issue #409 item 1 this section said the grid was waiting for a host whose
+**policy** allowed a local multi-corner ngspice run at all. That reason was
+re-checked on a measuring host on 2026-09-25 and **retired** rather than
+re-stated, because it was not what binds:
 
-- **Host policy.** The record was produced on a shared dispatch worker whose
-  operating rules forbid running a multi-corner ngspice grid locally; a grid
-  there must be expressed as a `klt sim` request and submitted to an EDA batch
-  fleet. Sequential single-corner runs are the shape those rules allow.
-- **The batch route cannot mint a record in this repo's format.** `klt sim`
-  owns its own request/response JSON contract and its own corner expansion,
-  while every record under `sim/` is written by this repo's
+- **The ngspice pin is satisfied here.** `--check-env` on the host that minted
+  `records/20260925-181510-6dafa59.md` reports `ngspice-46`, at
+  `sim/toolchain.json`'s `ngspice_min_major = 46` floor. The pin was never the
+  obstacle on this host; it is the obstacle on the *batch fleet* (below).
+- **Local multi-corner simulation is not forbidden here.** The non-baseline
+  point in that record was simulated locally, in one session, one deck at a
+  time. A blanket "this host may not run a grid" is therefore false, and the
+  two `--sweep --corners` / `--null-sweep --corners` refusals in the runner no
+  longer cite it either — they cite the cost of nine boxes, which is true.
+
+What *does* bind is a cost against a session that must end, and it is measured
+rather than projected:
+
+- **The grid is hours; a dispatch session is not.** Five arms × nine points is
+  45 whole-ADC transients; even the two-arm slice this README documents is 18.
+  At the per-arm wall clock in the records (`ideal` 292 s, `package` 678 s on
+  an uncontended host) two arms × nine points is ≈ 2.4 h *before* contention.
+  With contention it is much worse, and that was measured too: on 2026-09-25
+  this host was simultaneously running another repo's Monte-Carlo ngspice
+  campaign, and the `ideal` deck that costs 292 s alone was getting ≈ 26 % of
+  one core — about 19 minutes of wall clock for the same 5 minutes of CPU.
+  Under that load the 18-run slice projects to ≈ 9 h.
+- **No process may outlive the session that started it.**
+  `.loom/docs/long-running-compute.md` is explicit: an agent session may run
+  ngspice locally, but backgrounding a multi-hour job past the end of the
+  session is forbidden (a real 12-hour outage is the reason), and the
+  sanctioned answer is to *scope the run to the session, land the increment,
+  and name what is left*. That is the shape this campaign now uses.
+- **The batch route still cannot mint a record in this repo's format.** `klt
+  sim` owns its own request/response JSON contract and its own corner
+  expansion, while every record under `sim/` is written by this repo's
   `sim/harness/evidence.py` against a deck this repo assembles — so routing the
   grid there produces a different artefact, not this one. Separately, the
   fleet's runner image installs ngspice from the distribution archive, and this
   repo's own [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
   already records what that means: the archive build is **ngspice-42**, below
-  `sim/toolchain.json`'s `ngspice_min_major = 46` floor, which is exactly why
-  CI builds ngspice from source instead. A record minted below that floor is
-  refused by `sim/check_spec_coverage.py`'s pin gate and would not be
-  comparable with anything already under `sim/`.
-- **Cost.** Five arms × nine corner points is 45 whole-ADC transients at the
-  per-arm cost above — a campaign in its own right, not a longer version of
-  this one. (It is, however, a *smaller* campaign than this section used to
-  claim: the parenthetical here said `no-gnd-pad` alone would account for most
-  of it, on the projection the measured 487 s run has since falsified. At the
-  measured per-arm costs the whole 45-run grid is on the order of
-  `45 × ~450 s ≈ 6 h` of sequential simulation, which is a scheduling problem
-  rather than an intractable one — the binding constraints are the two above.)
+  the floor above, which is exactly why CI builds ngspice from source instead.
+  A record minted below that floor is refused by
+  `sim/check_spec_coverage.py`'s pin gate and would not be comparable with
+  anything already under `sim/`. This constraint is unchanged.
 
-So the grid is **deferred, not skipped**: the code exists, the command is
-written down, and what is missing is a host whose ngspice satisfies the pin and
-whose policy allows a grid. Until then nothing here is a corner-worst-case
-claim; it is a mechanism comparison at the baseline corner.
+**So the grid is completed by accumulation, and `--corner-points` is the
+mechanism.** It names a subset of the *same* `ratified_oat_grid()` — it can
+narrow that grid and can never invent a point outside it — and
+[`--log-cache`](#--log-cache-because-one-arm-outlives-most-process-supervisors)
+carries finished points across sessions on a host, so a later run of a wider
+subset re-simulates only what it does not already have. Each such record states
+its own "Subset-corner justification" per `sim/README.md`'s rule, naming which
+points it holds and that the rest are owed.
+
+**Where the grid stands: 2 of 9 points, for 2 of 5 arms.**
+`tt_27c_1.80v` and `ss_27c_1.80v`, `ideal` + `package`
+(`records/20260925-181510-6dafa59.md`). What is owed is tracked in issue #409:
+the seven remaining points, and the three arms that have never left the
+baseline corner. The two points most likely to *move* a number are not yet
+among them — `ff_27c_1.80v` and `tt_-40c_1.80v`, where the fastest edges make
+the largest `L·di/dt` excursion — so the excursion figures in these records
+must still not be read as corner-worst-case.
 
 ## Findings
 
@@ -730,8 +792,8 @@ retires [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s
   guarantee at every corner or every package. DR-015's stated-assumption
   values, not a real package, are what was driven.
 - **Two things this record does not price**, named rather than left implicit:
-  the nine-point ratified corner grid (deferred — see "Why the committed
-  record is not the full nine-point grid" above), and DR-012's *rejected*
+  the nine-point ratified corner grid (partially done since, and still open —
+  see "Why the corner grid arrives in pieces" above), and DR-012's *rejected*
   `no-gnd-pad` null option (implemented, not run, on cost — see "Runtime"
   above). Neither a worst-corner claim nor a "the rejected option would have
   cost N mV/LSB" claim may be made from this record alone. The second of those

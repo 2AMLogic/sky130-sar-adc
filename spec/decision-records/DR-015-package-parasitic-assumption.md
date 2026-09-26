@@ -18,8 +18,9 @@
   ratified PVT grid, the `no-gnd-pad` arm, the `R`/`L` sweep and an extracted
   substrate network — of which the sweep, the `no-gnd-pad` arm and the
   substrate-*return* ladder that sweep left owed have since been closed at
-  stated scopes, see "Open items"), `CLAUDE.md`'s clean-room
-  rule.
+  stated scopes, the PVT grid is open at 2 of 9 points, and the substrate
+  network is now a filed tool gap (`2AMLogic/klayout-tools#2515`); see "Open
+  items"), `CLAUDE.md`'s clean-room rule.
 
 ## Context
 
@@ -275,6 +276,20 @@ left owed; the rest remain open.
   softer one**: now that the rejected topology is known to depend on the
   substrate magnitude non-monotonically, with a minimum near the assumed value,
   picking the assumed value out of a range is no longer a conservative choice.
+  **The gap is now known to be a TOOL gap, and is filed as one** (issue #409
+  item 4, checked against `klt 0.6.0` on 2026-09-25): `klt extract
+  --parasitics` models conductor parasitics only — per-net R along drawn
+  interconnect and net-to-*ground* C, where ground is a single ideal reference
+  node — so two taps on the same bulk net are shorted with zero impedance
+  between them however far apart they are drawn. No `klt` command mentions a
+  substrate at all, and `klt pdk stackup`'s own `substrate` entry carries
+  permittivity but neither resistivity nor thickness, so even the material
+  input a substrate-resistance solve needs is absent. Per `CLAUDE.md`'s
+  friction protocol the capability gap is filed generically at
+  `2AMLogic/klayout-tools#2515` (tool gap only, no design detail). **This does
+  not close the item**: a filed tool gap is not an extracted network, and until
+  one exists every number here that leans on `R_SUB`/`R_SUBX` is evidence about
+  *a* substrate-style return of that order, not about this die's.
 - ~~**The one arm that would price DR-012's *rejected* option has not been
   run.** `sim/supply-impedance-sensitivity/`'s `no-gnd-pad` arm is implemented
   but absent from the first committed record, on cost: a high-impedance,
@@ -306,11 +321,23 @@ left owed; the rest remain open.
   the same record — against a truncated-slice calibration that had projected
   ~17× and several hours. A slice starting at `t = 0` prices the start-up
   transient, not the steady-state conversions the stimulus spends its span on.
-- **The corner axis of that gap is untouched by it.** Every record under this
-  assumption is **one** corner (`tt_27c_1.80v`), so the findings that a bonded
-  return, a swept box, the null option and now a two-decade substrate ladder
-  each cost < 1 LSB are statements about that point and not about the ratified
-  grid. Four independent nulls at one corner are still one corner.
+- **The corner axis of that gap is open at 2 of 9 points, not untouched and
+  not closed.** Every record under this assumption used to be **one** corner
+  (`tt_27c_1.80v`); `sim/supply-impedance-sensitivity/records/20260925-181510-6dafa59.md`
+  (issue #409 item 1) adds the slow-process point `ss_27c_1.80v` for the
+  `ideal` control and the as-built `package` arm — the first non-baseline
+  corner any record under this assumption contains, and the finding survives
+  it: **0 LSB** of captured-code movement there too. What that buys is
+  narrow and is stated as such. The swept box, the null option and the
+  substrate ladder are still one corner each; three of the five arms have
+  never left the baseline; and the seven remaining ratified points include
+  both of the ones most likely to move the excursion — `ff_27c_1.80v` and
+  `tt_-40c_1.80v`, where the fastest edges make the largest `L·di/dt`. So
+  nothing here is a corner-worst-case claim yet. Why the grid arrives in
+  pieces rather than in one run — a measured cost against a session that must
+  end, not a host-policy ban, which was the stale reason and has been retired
+  — is in that campaign's README under "Why the corner grid arrives in
+  pieces", and the remaining points are tracked in #409.
 - **No decoupling is designed, budgeted, or modelled** — carried over from
   DR-010 and DR-012 rather than settled here. When a decoupling plan exists,
   this assumption gains a second, decoupled variant and the pessimism above

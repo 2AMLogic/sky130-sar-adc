@@ -300,10 +300,13 @@ enumerate:
   only prose: the ground return's impedance is real and its **inductance**,
   not its resistance, dominates the excursion it produces, but neither moves
   a captured code at this magnitude. **What this does not close**, and what
-  no reader may take from it: a worst-corner claim (the campaign ran the
-  ratified baseline corner only, deferring the nine-point grid for reasons its
-  own record states — a shared-host policy against local multi-corner runs, a
-  batch route that cannot mint this repo's record format, and cost), and a
+  no reader may take from it: a worst-corner claim (this record ran the
+  ratified baseline corner only; the nine-point grid is open at 2 of 9 points
+  for the `ideal`/`package` pair as of issue #409 item 1 — see that campaign's
+  "Why the corner grid arrives in pieces", whose first-stated reason, a
+  shared-host policy against local multi-corner runs, was re-checked and
+  **retired**, leaving a measured cost against a session that must end and a
+  batch route that cannot mint this repo's record format), and a
   priced measurement of this record's own *rejected* `no-gnd-pad` null option
   (implemented but not run, on cost — its own record estimates roughly an
   order of magnitude more wall clock than the control arm). Both were tracked

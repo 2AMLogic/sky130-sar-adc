@@ -778,7 +778,17 @@ class TestInvocationFooter(unittest.TestCase):
                     if "--arms" in tokens
                     else [arm.name for arm in si.ARMS]
                 )
-                footer = si.invocation_line(arm_names, "--corners" in cold_tokens, "")
+                # A corner subset is part of the record's identity, so it
+                # reaches the footer and must be inside the indexed command
+                # too -- the same gate the arm list is held to.
+                corner_points = (
+                    tokens[tokens.index("--corner-points") + 1].split(",")
+                    if "--corner-points" in tokens
+                    else []
+                )
+                footer = si.invocation_line(
+                    arm_names, "--corners" in cold_tokens, "", corner_points
+                )
             missing = [tok for tok in footer.split()[1:] if tok not in cold_tokens]
             self.assertEqual(
                 missing, [], f"the footer would carry {missing}, absent from {bench['cold_start']}"
@@ -821,6 +831,41 @@ class TestInvocationFooter(unittest.TestCase):
             "record would fail cold-start-undocumented",
         )
 
+    def test_a_corner_subset_reaches_the_footer(self) -> None:
+        """`--corner-points` changes WHAT WAS SIMULATED, so it is part of the
+        record's identity and is stated -- the same rule that puts `--arms` in
+        the footer and keeps `--log-cache` out of it."""
+        line = si.invocation_line(
+            ["ideal", "package"], False, "", ["tt_27c_1.80v", "ss_27c_1.80v"]
+        )
+        self.assertIn("--corner-points tt_27c_1.80v,ss_27c_1.80v", line)
+        self.assertNotIn("--corners ", line + " ")
+
+    def test_a_full_grid_run_says_corners_not_a_nine_point_list(self) -> None:
+        """The two flags are the same axis stated two ways; the footer names
+        whichever one the run used, and never both."""
+        line = si.invocation_line([arm.name for arm in si.ARMS], True, "")
+        self.assertIn("--corners", line)
+        self.assertNotIn("--corner-points", line)
+
+    def test_the_documented_corner_slice_command_is_the_footer_it_would_write(self) -> None:
+        """Same pre-run half of the `cold-start-undocumented` gate the sweep and
+        the null-option ladder are held to. The corner axis is the one that will
+        keep widening (issue #409 item 1), so every widening is a new documented
+        command -- checked here against the README before the hours are spent,
+        not after."""
+        readme = (EXPERIMENT_DIR / "README.md").read_text()
+        footer = si.invocation_line(
+            ["ideal", "package"], False, "", ["tt_27c_1.80v", "ss_27c_1.80v"]
+        )
+        self.assertIn(
+            f"python3 {footer}",
+            readme,
+            "the README does not document the exact command the committed corner "
+            "slice recorded in its own footer -- indexing that record would fail "
+            "cold-start-undocumented",
+        )
+
     def test_the_runner_path_is_always_present(self) -> None:
         """The spec-coverage check matches the record's runner by this token."""
         for arms in (["ideal"], [arm.name for arm in si.ARMS]):
@@ -828,6 +873,52 @@ class TestInvocationFooter(unittest.TestCase):
                 "sim/supply-impedance-sensitivity/run_supply_impedance.py",
                 si.invocation_line(arms, False, ""),
             )
+
+
+class TestCornerSubsetSelection(unittest.TestCase):
+    """`--corner-points` exists so the ratified grid can be advanced in
+    session-sized pieces (issue #409 item 1). The one property that makes that
+    safe is that it can only ever NARROW the ratified set."""
+
+    def test_no_selection_is_the_baseline_corner(self) -> None:
+        self.assertEqual(si.resolve_grid(False, []), [si.BASELINE_CORNER])
+
+    def test_corners_is_the_whole_ratified_grid(self) -> None:
+        grid = si.resolve_grid(True, [])
+        self.assertEqual(len(grid), 9)
+        self.assertEqual(grid, si.full_ratified_grid())
+
+    def test_a_named_subset_is_a_subset_of_the_ratified_grid(self) -> None:
+        grid = si.resolve_grid(False, ["ss_27c_1.80v", "tt_27c_1.80v"])
+        self.assertEqual(len(grid), 2)
+        for point in grid:
+            self.assertIn(point, si.full_ratified_grid())
+
+    def test_the_subset_is_returned_in_ratified_grid_order(self) -> None:
+        """Not the order the caller typed: the footer, the record's tables and
+        the grid itself must agree on an ordering, and the ratified grid owns
+        it."""
+        typed_backwards = si.resolve_grid(False, ["ff_27c_1.80v", "tt_27c_1.80v"])
+        ratified_order = [
+            point
+            for point in si.full_ratified_grid()
+            if si.corners_mod.corner_id(*point) in {"ff_27c_1.80v", "tt_27c_1.80v"}
+        ]
+        self.assertEqual(typed_backwards, ratified_order)
+
+    def test_a_point_outside_the_ratified_grid_is_refused(self) -> None:
+        """The flag narrows the ratified corner set; it may not invent a corner
+        the spec never ratified -- that would be a testbench choosing its own
+        PVT points, which `sim/README.md` does not allow."""
+        with self.assertRaises(ValueError) as caught:
+            si.resolve_grid(False, ["tt_27c_1.80v", "tt_85c_1.80v"])
+        self.assertIn("tt_85c_1.80v", str(caught.exception))
+
+    def test_every_documented_subset_point_exists(self) -> None:
+        """Guards the README's own corner-ids against a grid change."""
+        ids = {si.corners_mod.corner_id(*point) for point in si.full_ratified_grid()}
+        for cid in ("tt_27c_1.80v", "ss_27c_1.80v"):
+            self.assertIn(cid, ids)
 
 
 class TestDeckAssemblyUsesTheCommittedStimulus(unittest.TestCase):
@@ -1391,6 +1482,125 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
             int(grid.group("points")),
             len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM),
         )
+
+
+class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
+    """A corner-axis record mints and does not repoint (issue #409 item 1).
+
+    `records/LATEST` names the record this campaign's cited claim rests on --
+    the baseline-corner arm comparison DR-012 and
+    `docs/chipalooza/challenge-4-proposal.md`'s Power row cite by id -- and
+    moving it is exactly what makes a citing document stale to this repo's
+    citation gate. A corner slice supersedes none of that: it asks whether the
+    corner axis moves the answer, on a REDUCED arm set whose dropped arms are
+    where the bond-inductance ablation and the substrate arm live. Same
+    disposition as the sweep and the null-option ladder, and asserted here so
+    a later edit cannot quietly restore the repoint.
+    """
+
+    def _write(self, corner_ids: list[str]) -> tuple[Path, Path]:
+        import shutil
+        import tempfile
+
+        from harness import evidence
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        base = [214, 383, 511, 641, 1023]
+
+        def point(arm: str, cid: str, gnd_pp: float) -> dict:
+            process, temp, supply = next(
+                p for p in si.full_ratified_grid() if si.corners_mod.corner_id(*p) == cid
+            )
+            return {
+                "arm": arm,
+                "corner_id": cid,
+                "process_corner": process,
+                "temp_c": temp,
+                "supply_v": supply,
+                "point_id": f"{arm}@{cid}",
+                "conversions": [
+                    {"conversion": i + 1, "fraction": f, "code": c}
+                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                ],
+                "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
+                "power_w": 27.9e-6,
+                "extras": {"gnd_die_pp": gnd_pp, "i_gnda": 2.2e-6},
+                "missing": [],
+                "log_text": "LOG\n",
+                "deck_text": "* deck\n",
+                "wall_s": 600.0,
+                "reused": False,
+            }
+
+        points = [
+            point(arm, cid, 0.0 if arm == si.CONTROL_ARM else 0.037)
+            for arm in ("ideal", "package")
+            for cid in corner_ids
+        ]
+        try:
+            si.EXPERIMENT_DIR = tmp_dir
+            evidence.resolve_provenance = fake_resolve
+            path = si.write_record(
+                points,
+                "* netlist\n",
+                False,
+                ["ideal", "package"],
+                "",
+                corner_ids if corner_ids != ["tt_27c_1.80v"] else [],
+            )
+        finally:
+            si.EXPERIMENT_DIR = real_dir
+            evidence.resolve_provenance = real_resolve
+        return path, tmp_dir
+
+    def test_a_corner_slice_leaves_the_pointer_alone(self) -> None:
+        _path, tmp_dir = self._write(["tt_27c_1.80v", "ss_27c_1.80v"])
+        self.assertFalse((tmp_dir / "records" / "LATEST").exists())
+
+    def test_a_baseline_corner_record_still_moves_the_pointer(self) -> None:
+        """The disposition is about the CORNER AXIS, not about arm subsets --
+        the two committed baseline-corner records both ran an arm subset and
+        both moved the pointer, and that behaviour is unchanged."""
+        _path, tmp_dir = self._write(["tt_27c_1.80v"])
+        self.assertEqual((tmp_dir / "records" / "LATEST").read_text().strip(), "REC.md")
+
+    def test_the_slice_record_states_its_subset_justification(self) -> None:
+        path, _tmp = self._write(["tt_27c_1.80v", "ss_27c_1.80v"])
+        text = path.read_text()
+        self.assertIn("## Subset-corner justification", text)
+        self.assertIn("2 point(s) of the ratified corner set", text)
+        self.assertIn("`tt_27c_1.80v`", text)
+        self.assertIn("`ss_27c_1.80v`", text)
+        self.assertIn(
+            "Written by `sim/supply-impedance-sensitivity/run_supply_impedance.py "
+            "--arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`",
+            text,
+        )
+
+    def test_the_retired_host_policy_reason_is_named_not_reused(self) -> None:
+        """The reason this record does NOT give is load-bearing: the earlier
+        wording ("this host may not run a multi-corner grid at all") was
+        re-checked and retired, and a record that silently swapped its
+        justification would be indistinguishable from one that never looked."""
+        path, _tmp = self._write(["tt_27c_1.80v", "ss_27c_1.80v"])
+        text = path.read_text()
+        self.assertIn("What is NOT a constraint, and used to be stated as one", text)
+        self.assertNotIn("operating rules forbid running a", text)
+        self.assertIn("long-running-compute.md", text)
 
 
 class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
