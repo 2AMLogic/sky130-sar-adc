@@ -2000,25 +2000,45 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             si.insert_before_end("* header\n.ends\n", [".meas tran x find v(y) at=1n"])
 
+    def _levels(self, deck: str, pin: str) -> list[float]:
+        line = next(l for l in deck.splitlines() if l.startswith(f"{pin} "))
+        return [float(m.group("frac")) for m in si._PWL_VALUE_RE.finditer(line)]
+
     def test_input_offset_is_differential_and_leaves_the_pwl_schedule_alone(self) -> None:
         deck = self._fake_deck()
         out = si.offset_vin(deck, +0.1, 1.8)
-        # the PWL cards keep every breakpoint time and value; only the node they
-        # drive is renamed, so the solver sees the same breakpoints
+        # every breakpoint TIME is untouched: blanking the value expressions
+        # makes the two cards byte-identical
         for pin in ("VINP", "VINN"):
             before = next(l for l in deck.splitlines() if l.startswith(f"{pin} "))
             after = next(l for l in out.splitlines() if l.startswith(f"{pin} "))
-            self.assertEqual(after, before.replace(f"{pin} {pin} 0", f"{pin} {pin}_OFS 0", 1))
-        one_lsb = 2.0 * 1.8 / 1024
-        vp = float(
-            next(l for l in out.splitlines() if l.startswith("VOFS_VINP ")).split()[-1]
-        )
-        vn = float(
-            next(l for l in out.splitlines() if l.startswith("VOFS_VINN ")).split()[-1]
-        )
-        # differential = +0.1 LSB, common mode unchanged
-        self.assertAlmostEqual(vp - vn, 0.1 * one_lsb, places=12)
-        self.assertAlmostEqual(vp + vn, 0.0, places=15)
+            self.assertEqual(
+                si._PWL_VALUE_RE.sub("{}", before), si._PWL_VALUE_RE.sub("{}", after)
+            )
+        # and the node set is untouched -- no series source, no extra node
+        self.assertNotIn("_OFS", out)
+        # +0.1 LSB differential, common mode held, at every breakpoint
+        dfrac = 0.1 / 1024
+        for pin, sign in (("VINP", +1.0), ("VINN", -1.0)):
+            before, after = self._levels(deck, pin), self._levels(out, pin)
+            self.assertEqual(len(before), len(after))
+            for b, a in zip(before, after):
+                self.assertAlmostEqual(a - b, sign * dfrac, places=12)
+
+    def test_the_offset_is_rail_referenced_so_it_tracks_the_supply(self) -> None:
+        """`1 LSB_diff = 2*V_REF/2^N` with `V_REF = V_DD` (DR-003), so a
+        fraction-of-rail shift is the same number of LSB at every supply."""
+        out = si.offset_vin(self._fake_deck(), +0.1, 1.8)
+        for supply_v in (1.62, 1.8, 1.98):
+            one_lsb = 2.0 * supply_v / 1024
+            diff_v = supply_v * (
+                (self._levels(out, "VINP")[0] - self._levels(out, "VINN")[0])
+                - (
+                    self._levels(self._fake_deck(), "VINP")[0]
+                    - self._levels(self._fake_deck(), "VINN")[0]
+                )
+            )
+            self.assertAlmostEqual(diff_v / one_lsb, 0.1, places=9)
 
     def test_a_zero_offset_is_the_identity(self) -> None:
         deck = self._fake_deck()

@@ -3322,14 +3322,18 @@ PERTURBATIONS: tuple[Perturbation, ...] = (
 
 PERTURBATIONS_BY_NAME = {p.name: p for p in PERTURBATIONS}
 
-#: The default variant list, as `arm:perturbation`. Ordered cheapest-first-value:
-#: the two reproduction runs come first (they are the ones that decide whether
-#: the recorded 505 is a property of the deck at all), then the perturbations.
+#: The default variant list, as `arm:perturbation`. Ordered most-load-bearing
+#: first: the two reproduction runs decide whether the recorded 505 is a
+#: property of the deck at all, and everything after them is only worth reading
+#: if those two ran. Five runs, ~1.6 h of whole-ADC transient on the reference
+#: toolchain -- `{CONTROL_ARM}:tran-step-0.25n` is implemented and selectable
+#: but left out of the default box, because the timestep perturbation's finding
+#: (it moves the sign trial's margin by ~3 uV and the code by nothing) is
+#: already carried by the arm that the anomaly is on.
 MIDSCALE_PROBE_VARIANTS: tuple[str, ...] = (
     f"{CONTROL_ARM}:as-committed",
     f"{MIDSCALE_PROBE_ARM}:as-committed",
     f"{MIDSCALE_PROBE_ARM}:tran-step-0.25n",
-    f"{CONTROL_ARM}:tran-step-0.25n",
     f"{CONTROL_ARM}:vin+0.1lsb",
     f"{CONTROL_ARM}:vin-0.1lsb",
 )
@@ -3341,6 +3345,10 @@ _VIN_CARD_RE = {
     "VINP": re.compile(r"^VINP VINP 0 PWL\(", re.MULTILINE),
     "VINN": re.compile(r"^VINN VINN 0 PWL\(", re.MULTILINE),
 }
+
+#: One rail-referenced value expression on those cards, e.g. `{vdd_val*0.375}`.
+#: The offset shifts these and only these -- see `offset_vin()`.
+_PWL_VALUE_RE = re.compile(r"\{vdd_val\*(?P<frac>-?[0-9.]+)\}")
 
 
 def insert_before_end(deck: str, extra: list[str]) -> str:
@@ -3368,40 +3376,79 @@ def lsb_v(supply_v: float) -> float:
 def offset_vin(deck: str, offset_lsb: float, supply_v: float) -> str:
     """`deck` with a DC differential input offset of `offset_lsb` LSB.
 
-    Implemented as a series DC source between each PWL generator and the DUT
-    pin -- `VINP` drives `VINP_OFS` and a `VOFSP` source spans `VINP_OFS` to
-    `VINP` -- rather than by editing the PWL cards. Two reasons: the PWL
-    breakpoint times (which the solver turns into timestep breakpoints) stay
-    bit-identical, so the only thing that changed is the DC level; and the
-    committed fragment's own text is not rewritten, so a schedule change
-    upstream cannot silently land in a different offset here.
+    Implemented by shifting the LEVELS of the committed fragment's own two
+    `PWL` input cards -- every `{vdd_val*<f>}` value on the `VINP` card gains
+    `offset_lsb/2^N` of the rail and every one on `VINN` loses it -- and
+    nothing else. `+offset_lsb` therefore raises VINP by half an LSB and lowers
+    VINN by the same: a DIFFERENTIAL offset of exactly `offset_lsb` LSB with
+    the input common mode held. It stays rail-referenced (`{vdd_val*...}`,
+    `1 LSB_diff = 2*V_REF/2^N` with `V_REF = V_DD`, DR-003), like every other
+    number in that fragment.
 
-    `+offset_lsb` raises VINP by half an LSB-step and lowers VINN by the same,
-    i.e. it is a DIFFERENTIAL offset of exactly `offset_lsb` LSB with the input
-    common mode held.
+    Two properties this deliberately preserves, because the probe's whole claim
+    is that it changed one thing:
+
+    * **Every breakpoint TIME is untouched.** Only the value expressions
+      inside `{...}` are rewritten, and the count of rewritten values is
+      checked, so the solver's PWL breakpoints -- and therefore the timestep
+      sequence's anchors -- are the committed deck's.
+    * **The node set is untouched.** An earlier draft inserted a series DC
+      source per pin instead; that is electrically identical but adds a
+      capacitance-free node between two voltage sources, and it cost this deck
+      **more than 4x** the control's wall clock (one variant blew a 5400 s
+      budget that the unperturbed deck finishes in ~900 s). A perturbation
+      probe may not be the most expensive run in the campaign, and it may not
+      change the matrix it is supposed to leave alone.
     """
     if offset_lsb == 0.0:
         return deck
-    half_v = 0.5 * offset_lsb * lsb_v(supply_v)
-    text = deck
-    extra: list[str] = [
-        "* --- issue #455 mid-scale boundary probe: a DC differential input",
-        f"* offset of {offset_lsb:+g} LSB ({offset_lsb * lsb_v(supply_v) * 1e3:+.4f} mV at "
-        f"{supply_v:g} V), as a series source per pin. The PWL cards above are",
-        "* untouched, so every breakpoint time is unchanged. ------------------",
-    ]
-    for pin, pattern in _VIN_CARD_RE.items():
-        hits = len(pattern.findall(text))
-        if hits != 1:
-            raise RuntimeError(
-                f"mid-scale probe: expected exactly one `{pin} {pin} 0 PWL(` card in "
-                f"the assembled deck, found {hits} -- the committed fragment changed "
-                "shape; re-derive this probe's input offset."
-            )
-        text = pattern.sub(f"{pin} {pin}_OFS 0 PWL(", text, count=1)
-        sign = +1.0 if pin == "VINP" else -1.0
-        extra.append(f"VOFS_{pin} {pin} {pin}_OFS DC {sign * half_v:.9e}")
-    return insert_before_end(text, extra)
+    # Half the differential offset per pin, as a fraction of the rail:
+    # half of `offset_lsb * 2*V_DD/2^N` is `offset_lsb * V_DD/2^N`.
+    dfrac = offset_lsb / (2**tb.N_BITS)
+    lines = deck.splitlines(keepends=True)
+    rewritten = 0
+    for i, line in enumerate(lines):
+        for pin, pattern in _VIN_CARD_RE.items():
+            if not pattern.match(line):
+                continue
+            sign = +1.0 if pin == "VINP" else -1.0
+
+            def shift(m: re.Match, sign: float = sign) -> str:
+                return "{vdd_val*" + f"{float(m.group('frac')) + sign * dfrac:.12f}" + "}"
+
+            new_line, n = _PWL_VALUE_RE.subn(shift, line)
+            if n == 0:
+                raise RuntimeError(
+                    f"mid-scale probe: the `{pin}` PWL card carries no "
+                    "`{vdd_val*<f>}` value expressions -- the committed fragment "
+                    "changed shape; re-derive this probe's input offset."
+                )
+            # times are everything outside the braces: they must be untouched
+            if _PWL_VALUE_RE.sub("{}", line) != _PWL_VALUE_RE.sub("{}", new_line):
+                raise RuntimeError(
+                    f"mid-scale probe: shifting the `{pin}` PWL levels changed "
+                    "something other than its values -- refusing to run a "
+                    "perturbation that moved a breakpoint time."
+                )
+            lines[i] = new_line
+            rewritten += 1
+    if rewritten != len(_VIN_CARD_RE):
+        raise RuntimeError(
+            f"mid-scale probe: expected exactly {len(_VIN_CARD_RE)} input PWL cards "
+            f"(`{'`, `'.join(_VIN_CARD_RE)}`) in the assembled deck, rewrote "
+            f"{rewritten} -- the committed fragment changed shape; re-derive this "
+            "probe's input offset."
+        )
+    return insert_before_end(
+        "".join(lines),
+        [
+            "* --- issue #455 mid-scale boundary probe: the two input PWL cards",
+            f"* above carry a DC differential offset of {offset_lsb:+g} LSB "
+            f"({offset_lsb * lsb_v(supply_v) * 1e3:+.4f} mV at {supply_v:g} V),",
+            "* applied to their LEVELS only -- every breakpoint time, every node",
+            "* and every other card is the committed deck's. --------------------",
+        ],
+    )
 
 
 def retime_tran(deck: str, step_ns: float) -> str:
@@ -3510,17 +3557,33 @@ def run_midscale_probe_variant(
     temp_c: float,
     supply_v: float,
     quiet: bool,
+    log_cache: Path | None = None,
 ) -> dict:
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
     deck, dm_names = midscale_probe_deck(
         dut_netlist_text, pdk_info, arm, perturbation, process_corner, temp_c, supply_v
     )
     tag = f"{arm.name}__{perturbation.name}"
-    t0 = time.time()
-    log_text = toolchain.run_ngspice_with_retry(
-        deck, scratch, f"midscale_probe_{tag}_{cid}", attempts=2
-    )
-    wall_s = time.time() - t0
+    # Same identity-gated cache the arm comparison uses, for the same reason and
+    # under the same rule (a cached log is reused only if its deck sha256,
+    # verified open_pdks commit and ngspice version all match). A probe variant
+    # is a whole-ADC transient too -- one of them measured 4x the control's wall
+    # clock -- and six in sequence outlive a dispatch session, so an interrupted
+    # probe must not have to re-simulate the variants that already finished.
+    # The point-id carries the perturbation, so a perturbed deck can never
+    # collide with the arm comparison's own cache entry for the same arm.
+    point_id = f"{arm.name}+{perturbation.name}@{cid}"
+    cached = load_cached_run(log_cache, point_id, deck, pdk_info)
+    if cached is not None:
+        log_text, wall_s = cached
+        print(f"  reusing cached log for {point_id} ({wall_s:.0f}s when it ran)", flush=True)
+    else:
+        t0 = time.time()
+        log_text = toolchain.run_ngspice_with_retry(
+            deck, scratch, f"midscale_probe_{tag}_{cid}", attempts=2
+        )
+        wall_s = time.time() - t0
+        store_cached_run(log_cache, point_id, deck, pdk_info, log_text, wall_s)
 
     names = tb.all_measure_names() + extra_measure_names(arm) + dm_names
     parsed = measure.parse(log_text, names, anchored=False)
@@ -3641,9 +3704,10 @@ def midscale_probe_findings_lines(points: list[dict]) -> list[str]:
                 f"({worst['v_in_lsb']:+.5f} LSB) of comparator input.** Every other "
                 "traced decision of that conversion is further from its threshold "
                 f"(see the per-trial table). One LSB is {mid['lsb_mv']:.4f} mV at "
-                f"{mid['supply_v']:g} V, and DR-004's ratified input-referred noise "
-                "budget is 1.0148 mV -- so that margin is not a 'code boundary' in "
-                "the 1-LSB sense at all."
+                f"{mid['supply_v']:g} V, and DR-004's own input-referred noise "
+                "budget (Decision item 2; DR-004 is itself `proposed`, so that is a "
+                "stated budget rather than a ratified line) is 1.0148 mV -- so that "
+                "margin is not a 'code boundary' in the 1-LSB sense at all."
             )
             if worst["bit"] == tb.N_BITS - 1:
                 out.append(
@@ -3941,7 +4005,11 @@ def write_midscale_probe_record(
 
 
 def run_midscale_probe(
-    variants: tuple[str, ...], corner: tuple[str, float, float], scratch: Path, quiet: bool
+    variants: tuple[str, ...],
+    corner: tuple[str, float, float],
+    scratch: Path,
+    quiet: bool,
+    log_cache: Path | None = None,
 ) -> tuple[list[dict], str]:
     pdk_info = pdk.resolve()
     dut_netlist_text = fc.dut_text()
@@ -3959,6 +4027,7 @@ def run_midscale_probe(
             temp_c,
             supply_v,
             quiet,
+            log_cache=log_cache,
         )
         points.append(point)
     return points, dut_netlist_text
@@ -4442,7 +4511,7 @@ def main() -> int:
                 f"({', '.join(probe_variants)}):"
             )
             points, dut_netlist_text = run_midscale_probe(
-                probe_variants, probe_corner, scratch, args.quiet
+                probe_variants, probe_corner, scratch, args.quiet, log_cache=log_cache
             )
             print("")
             for line in midscale_probe_findings_lines(points):
