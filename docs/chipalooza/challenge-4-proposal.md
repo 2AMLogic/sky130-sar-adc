@@ -3957,12 +3957,15 @@ tracker already owns.
      the work rather than inventing new tracking for it; this retirement's
      leftovers were the one place that rule was not being kept. Issue **#409**
      (open) is where they live, and it names four, of which this paragraph
-     previously stated two: the nine-point ratified corner grid is deferred
-     (the campaign's own "Subset-corner justification" names three binding
-     constraints — a shared-host policy against a local multi-corner ngspice
-     grid, `klt sim`'s request/response contract not being able to mint a
-     record in this repo's own format, and the batch fleet's ngspice build
-     sitting below `sim/toolchain.json`'s `ngspice_min_major = 46` pin);
+     previously stated two: the nine-point ratified corner grid **has since
+     been run in full** (this clause read "deferred" against the campaign's
+     own "Subset-corner justification" — a shared-host policy against a local
+     multi-corner ngspice grid, `klt sim`'s request/response contract not
+     being able to mint a record in this repo's own format, and the batch
+     fleet's ngspice build sitting below `sim/toolchain.json`'s
+     `ngspice_min_major = 46` pin — until `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`
+     ran all five arms at all nine points in one session; see the "now CLOSED
+     for the arm comparison" paragraph below for what it found);
      DR-012's *rejected* `no-gnd-pad` null option **has since been run** (see
      the arm census below — it cost 487 s, not the several hours the ~17×
      slice projection claimed, and priced the rejected option at +27.6 mV of
@@ -3973,7 +3976,8 @@ tracker already owns.
      after next states what landed, what it cost, and the census that grades
      it); and `R_SUB`/`R_SUBX`
      remain lumped stand-ins with no extracted substrate network behind them —
-     the one of the four items that has not moved at all.
+     the one of the four items that has not moved at all, and is now the
+     *only* one of the four still open (2026-09-26).
      Neither a worst-corner claim nor a priced-rejected-option claim may be
      read from **this** record, and it says so in its own words; the price of
      the rejected option is a *different* record's number, which is why the
@@ -4133,9 +4137,38 @@ tracker already owns.
      second of those things until 2026-09-26: the `no-gnd-pad` record (#409
      item 2) was paid for separately and is ticked on the issue — the
      paragraph three above states its numbers — so listing it here as open
-     contradicted this document's own text. What does stay open is item 1
-     (the ratified nine-point PVT grid) and item 4 (an extracted substrate
-     network), for the reasons each states.
+     contradicted this document's own text. **Item 1 has since closed too, for
+     the arm comparison (2026-09-26), which leaves item 4 as the only one of
+     the four still open.**
+     [`sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`](../../sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md)
+     runs all five arms at all nine ratified points in one session — the
+     nine-point grid this item and DR-015's own "Open items" both used to
+     name as deferred. It supersedes nothing (it runs DR-017's decoupled
+     netlist, a different DUT from every earlier record of this campaign, so
+     `records/LATEST` does not move to it), and within itself: the as-built
+     `package` arm's worst die-side `GND_DIE` excursion is **13.964 mV**
+     peak-to-peak at `ff_27c_1.80v` (9.709 mV at the `tt_27c_1.80v` baseline,
+     7.710 mV at its lowest, `tt_27c_1.62v`); the rejected `no-gnd-pad` arm is
+     worse at every point, worst **17.055 mV** also at `ff_27c_1.80v`; the
+     on-die-only `substrate` return worst is **9.643 mV** at `tt_27c_1.98v`;
+     `package-r-only` never exceeds **0.070 mV**, also at `tt_27c_1.98v` — so
+     bond inductance, not resistance, is the dominant term at every corner,
+     not only the baseline. The `±0.25·V_REF` codes do not move in any arm at
+     any of the 45 runs; the mid-scale `+0.00·V_REF` input, which sits on the
+     511/512 code boundary, moves by at most 1 LSB in the bonded arms, at
+     three corners (`sf_27c_1.80v`, `tt_-40c_1.80v`, `tt_125c_1.80v`). One
+     exception is deliberately not folded into that null: `package-r-only` at
+     `fs_27c_1.80v` reads captured code `505` against the control's `511` — a
+     6-LSB move on the one arm with 0.057 mV of ground excursion, ~200×
+     *less* than arms that still read `511` there, so the supply-return
+     mechanism this campaign measures cannot be the cause. It reproduced bit
+     for bit on an uncached re-run and is tracked on its own, per this
+     section's rule that an open item points at the issue that already owns
+     the work, as **#455** — filed by the same PR that minted this record, so
+     no second tracker is opened here for it. What stays open is item 4 alone
+     (an extracted substrate network), for the reason it states; DR-015's own
+     "Open items" carries this same item 1 retirement in its own words, struck
+     through and marked **CLOSED for the arm comparison**.
 
      **A third axis of the same campaign has since been walked, and it is a
      different experiment from the box above rather than a re-run of it
