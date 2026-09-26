@@ -63,11 +63,13 @@ sentence check 28 compares against), the live record-renderer census of
 every `layout/` record tree (the sentence check 30 compares against) and the
 live supply-return arm, `--sweep`-box and `--null-sweep`-ladder censuses of
 `sim/supply-impedance-sensitivity/` (the sentences checks 31, 32 and 34
-compare against) and the live on-die-decoupling ownership census of
-`spec/decision-records/` (the sentence check 33 compares against) instead of
+compare against), the live on-die-decoupling ownership census of
+`spec/decision-records/` (the sentence check 33 compares against) and each
+document's live derived excursion-figure set (the figures check 35 requires its
+own *undecoupled* enumeration to name) instead of
 checking, which is what to run when check 6, 9, 12, 13,
-14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31, 32, 33 or 34 reports a
-drift.
+14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31, 32, 33, 34 or 35
+reports a drift.
 Exit status:
 
     0 - every citation checks out
@@ -1439,6 +1441,148 @@ NULL_SWEEP_CENSUS_RE = re.compile(
 # what bounds them is the topology none of them moved. Deleting the sentence
 # must not widen the citation.
 NULL_SWEEP_CENSUS_ANCHOR = ARM_CENSUS_ANCHOR
+
+# ---------------------------------------------------------------------------
+# Check 35: the ENUMERATION that applies check 33's gap to check 34's figures.
+#
+# Check 33 grades who owns the on-die-decoupling gap; checks 31, 32 and 34
+# grade the three axes of the campaign that produces the numbers the gap makes
+# upper bounds of. Between them sits one sentence that neither shape reaches: a
+# hand-written list of every die-side ground-excursion figure Section 7's
+# supply-return narrative states, qualified in one breath as **undecoupled**
+# upper bounds. It is the only claim in that item still maintained by hand, and
+# it went stale twice in one day:
+#
+#   - PR #446 wrote it with eight figures against a tree that did not yet carry
+#     the substrate-return ladder; PR #445 merged four minutes later with three
+#     more undecoupled excursions in it, one larger than anything in the list;
+#   - PR #447 then narrated all three in the same item -- publishing them three
+#     paragraphs above the list -- and added check 34 for the ladder AXIS while
+#     leaving the list itself untouched, so the document under-counted its own
+#     figures for one more merge.
+#
+# Check 34 catches the EVENT that stales the list (a ladder record arriving, or
+# the runner's ladder widening). It cannot catch the staleness, because it never
+# reads the list. Check 30's defect shape again, one sentence further down: the
+# enumeration goes false while every number beside it stays true.
+#
+# Two parse hazards were measured against the live document before this check
+# was written, and both are why it is not a `\d+\.\d{3}\s*mV` scan:
+#
+#   - **Unit-eliding chains.** The document writes figure chains in which only
+#     the last figure carries its unit -- `` `72.130` -> `67.307` ->
+#     `137.093 mV` `` -- so a unit-bearing scan finds one of those three and
+#     misses exactly the figures that went stale. The enumeration sentence is
+#     itself such a chain, which is why BOTH sides of the comparison are read
+#     with the same chain reader (`excursion_chain_figures`).
+#   - **Unrelated `mV` figures at the same precision.** The same section states
+#     `0.001`, `0.380` and `67.190 mV`, and the narrative itself states a
+#     `2.070 mV` cross-record difference precisely in order to say it is NOT a
+#     measurement. Requiring any of those to be qualified as an excursion upper
+#     bound would fail the gate on correct prose -- and a gate that fires on
+#     correct prose is worse than the hand-maintained note, because it teaches
+#     the next pass to reword around the check.
+#
+# So the required set is an INTERSECTION, and each half kills one hazard class:
+# a figure is required iff (a) the narrative above the sentence states it as an
+# mV figure, chains followed, and (b) a committed record of this campaign
+# carries it in its own `gnd_die pp (mV)` column. (b) is what makes `2.070`,
+# `67.190` and every other same-precision non-excursion figure mechanically
+# out of scope; (a) is what keeps the 45-point corner grid's and the sweep
+# box's interior points -- committed figures the document legitimately never
+# quotes -- from being demanded of a sentence that only claims to cover what is
+# written above it.
+EXCURSION_RECORDS = SWEEP_RECORDS
+
+# The column header both of this campaign's record writers emit, in two
+# otherwise different table layouts: `| corner-id | arm | gnd_die pp (mV) | ...`
+# for an arm comparison or corner grid, `| point | gnd_die pp (mV) | ...` for a
+# sweep or a ladder. The column is located BY HEADER NAME rather than by index,
+# which is the only parse that reads both.
+EXCURSION_COLUMN = "gnd_die pp (mV)"
+
+# The `ideal` arm's row value, dropped from the derived set: an ideal source
+# holds the die node at exactly 0 V, so this is a mechanical control rather
+# than a measured excursion, and a document is not made to qualify it as an
+# undecoupled upper bound.
+EXCURSION_CONTROL = "0.000"
+
+# ...and the third narrowing, which the word **undecoupled** itself requires.
+# DR-017 landed on-die decoupling, and this campaign's newest record runs the
+# decoupled netlist (a different DUT sha256 from every earlier record of the
+# same campaign). Its excursion figures are real and stated in the same item,
+# but they are NOT undecoupled upper bounds -- demanding they be qualified as
+# such would make the gate require the document to assert something false,
+# which is the fire-on-correct-prose failure in its most damaging form.
+#
+# The undecoupled DUT is identified from the records rather than pinned here:
+# a record that is the undecoupled case says so in its own Assumptions section,
+# and every record sharing that record's DUT sha256 is the same netlist. So the
+# set of undecoupled DUTs is read off the self-declaring records and applied to
+# the rest -- which means a future re-run with decoupling in the netlist drops
+# out of the required set on the day it lands, with nothing here to update.
+#
+# Matched on the ASSUMPTION BULLET and never on the word "decoupling" anywhere
+# in the record: every record of this campaign narrates "an undecoupled series
+# inductance ..." in its cost section, including the decoupled one, so a
+# word search would put the decoupled DUT in the undecoupled set. Check 33's
+# `DECOUPLING_LEAD_RE` made the same distinction for the same reason.
+EXCURSION_DUT_RE = re.compile(r"^- DUT netlist sha256: `(?P<sha>[0-9a-f]{64})`", re.M)
+EXCURSION_UNDECOUPLED_RE = re.compile(
+    r"^- \*\*No decoupling, on-die or on-board\*\*", re.M
+)
+
+# A figure atom: three decimals, which is what this campaign's renderer emits.
+# A figure at any other precision cannot be a row value, so it could never be
+# required -- and restricting the atom keeps a ratio (`1.74x`) or a
+# one-decimal difference (`+27.6 mV`) out of the chain grouping below.
+EXCURSION_ATOM_RE = re.compile(r"\d+\.\d{3}(?!\d)")
+
+# What makes an atom (or the chain it ends) unit-bearing. Applied at the atom's
+# own end offset, so `**37.333 mV**`, `` `0.059 mV` `` and `137.093 mV` all
+# read as mV while a bare `` `72.130` `` does not.
+EXCURSION_UNIT_RE = re.compile(r"[`*\s]*mV\b")
+
+# What joins two atoms into ONE chain, from which a single trailing unit is
+# read: the four separators the document actually uses between figures -- an
+# arrow (`->`, written as an en-arrow), a slash, a comma, and "and"/"or" --
+# plus the backticks and bold markers around them. Deliberately narrow: any
+# intervening WORD ends the chain, which is what keeps `**37.274 mV** of it to
+# the bond inductance alone (`0.059 mV` ...` from being read as one chain.
+EXCURSION_CHAIN_SEP_RE = re.compile(r"[`*\s]*(?:→|->|/|,\s*(?:and|or)?|and|or)[`*\s]*")
+
+# The claim the enumeration makes, and the anchor the sentence is found by. Not
+# a phrase this check invents: it is the document's own wording, and the word
+# `undecoupled` is the one check 33's gap is the owner of.
+EXCURSION_ENUM_CLAIM = "are each an **undecoupled** upper bound"
+
+# The enumeration sentence itself: a chain of backticked figures, at most one
+# of which carries the unit, immediately followed by that claim.
+EXCURSION_ENUM_RE = re.compile(
+    r"(?P<figures>(?:`\d+\.\d+(?: mV)?`[,\s]*(?:and[,\s]*)?)+)" + re.escape(EXCURSION_ENUM_CLAIM)
+)
+
+# The region the sentence's own word "above" resolves to: the top-level
+# numbered item of the document's own outline that contains it. Bounding the
+# scan to that item rather than to the whole section is what keeps a `mV`
+# figure in a NEIGHBOURING item -- there are several, at this same precision --
+# from being demanded of a sentence that does not claim to cover it.
+EXCURSION_ITEM_RE = re.compile(r"^\d+\. ", re.M)
+
+# What makes an ABSENT enumeration a finding rather than a silence, the shape
+# checks 31, 32 and 34 each use: the document citing this campaign at all.
+# Deleting the inconvenient sentence must not be a way to unqualify the figures
+# above it.
+EXCURSION_NARRATIVE_ANCHOR = ARM_CENSUS_ANCHOR
+
+# ...and how many of this campaign's excursion figures one numbered item must
+# state before it counts as *narrating* them rather than citing one. A document
+# that quotes a single figure in passing is making a citation, which checks 3,
+# 4, 22 and 23 already grade; the enumeration exists because ONE item
+# accumulates a list, and demanding the qualifier of a passing mention is the
+# fire-on-correct-prose failure this check was filed rather than rushed to
+# avoid.
+EXCURSION_NARRATIVE_MIN = 2
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -5445,6 +5589,243 @@ def check_null_sweep_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def excursion_chain_figures(span: str) -> list[str]:
+    """Every figure `span` states as an mV value, unit-eliding chains followed.
+
+    A chain is a maximal run of three-decimal atoms joined only by the
+    separators `EXCURSION_CHAIN_SEP_RE` recognises; it is an *mV* chain when any
+    of its atoms is followed by the unit. Every atom of an mV chain counts, which
+    is the whole point: the document writes `` `72.130` -> `67.307` ->
+    `137.093 mV` `` and a scan that required each figure to carry its own unit
+    would see one of those three.
+
+    Order-preserving and deduplicated, so a finding names figures in the order a
+    reader meets them rather than in set order.
+    """
+    figures: list[str] = []
+    chain: list[re.Match] = []
+
+    def flush() -> None:
+        if not chain:
+            return
+        if not any(EXCURSION_UNIT_RE.match(span, atom.end()) for atom in chain):
+            return
+        for atom in chain:
+            if atom.group(0) not in figures:
+                figures.append(atom.group(0))
+
+    for atom in EXCURSION_ATOM_RE.finditer(span):
+        joined = chain and EXCURSION_CHAIN_SEP_RE.fullmatch(span[chain[-1].end() : atom.start()])
+        if joined:
+            chain.append(atom)
+            continue
+        flush()
+        chain = [atom]
+    flush()
+    return figures
+
+
+def excursion_undecoupled_duts() -> set[str]:
+    """Every DUT netlist sha256 a record of this campaign declares undecoupled.
+
+    Read off the records that state it as an assumption of their own, then
+    applied by sha256 to every record sharing that netlist -- so a record that
+    does not repeat the declaration is still recognised, and one that runs a
+    netlist carrying decoupling is not swept in with it.
+    """
+    records = REPO_ROOT / EXCURSION_RECORDS
+    if not records.is_dir():
+        return set()
+    duts: set[str] = set()
+    for record in sorted(records.glob("*.md")):
+        text = record.read_text()
+        if EXCURSION_UNDECOUPLED_RE.search(text) is None:
+            continue
+        dut = EXCURSION_DUT_RE.search(text)
+        if dut is not None:
+            duts.add(dut.group("sha"))
+    return duts
+
+
+def excursion_row_figures() -> set[str] | None:
+    """Every `gnd_die pp (mV)` row value this campaign's UNDECOUPLED records carry.
+
+    Read out of each record's own table by COLUMN HEADER, because the campaign's
+    writers emit two different layouts around the same column. The `ideal`
+    control's `0.000` is dropped: it is mechanical, not a measured excursion.
+    Records whose DUT netlist is not one `excursion_undecoupled_duts` names are
+    skipped entirely: their figures are real, and are not upper bounds of the
+    undecoupled case.
+
+    `None` covers "no records tree", "no record declares an undecoupled DUT" and
+    "no such record carries that column" -- all three are nothing to compare an
+    enumeration against, which check 35 reports as a silence rather than as an
+    empty set of figures (checks 31, 32 and 34's rule).
+    """
+    records = REPO_ROOT / EXCURSION_RECORDS
+    if not records.is_dir():
+        return None
+    undecoupled = excursion_undecoupled_duts()
+    if not undecoupled:
+        return None
+    figures: set[str] = set()
+    seen_column = False
+    for record in sorted(records.glob("*.md")):
+        text = record.read_text()
+        dut = EXCURSION_DUT_RE.search(text)
+        if dut is None or dut.group("sha") not in undecoupled:
+            continue
+        column = None
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                column = None
+                continue
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            if EXCURSION_COLUMN in cells:
+                column = cells.index(EXCURSION_COLUMN)
+                seen_column = True
+                continue
+            if column is None or column >= len(cells):
+                continue
+            value = cells[column]
+            if EXCURSION_ATOM_RE.fullmatch(value) and value != EXCURSION_CONTROL:
+                figures.add(value)
+    return figures if seen_column else None
+
+
+def excursion_enumeration_figures(text: str) -> list[str] | None:
+    """The figures `text`'s supply-return narrative obliges its enumeration to name.
+
+    The intersection this check is built on: stated above the enumeration, as an
+    mV figure with chains followed, AND carried by a committed record's own
+    `gnd_die pp (mV)` column. `None` means there is nothing to compare against
+    at all -- no records column, or no enumeration sentence to bound a region
+    with -- which is a silence rather than a set of zero figures.
+    """
+    rows = excursion_row_figures()
+    if rows is None:
+        return None
+    region = _excursion_region(text)
+    if region is None:
+        return None
+    return [figure for figure in excursion_chain_figures(region) if figure in rows]
+
+
+def _excursion_region(text: str) -> str | None:
+    """The narrative the enumeration's own word "above" resolves to.
+
+    From the start of the top-level numbered item that contains the enumeration
+    sentence, up to the sentence itself. `None` when there is no enumeration
+    sentence to bound against (the region is only defined relative to it) or
+    when the sentence sits under no numbered item at all -- in which case the
+    document's outline is not the one this parse reads, and inventing a region
+    would make the gate the author of a claim.
+    """
+    collapsed, offsets = _collapse_quoted_prose(text)
+    match = EXCURSION_ENUM_RE.search(collapsed)
+    if match is None:
+        return None
+    end = offsets[match.start()]
+    items = [item.start() for item in EXCURSION_ITEM_RE.finditer(text) if item.start() < end]
+    if not items:
+        return None
+    return text[items[-1] : end]
+
+
+def _excursion_items(text: str) -> list[str]:
+    """The document's own top-level numbered items, each whole.
+
+    An item runs to the next one or to the end of the text. Empty when the
+    document has no numbered outline, which is the honest answer for a document
+    whose structure this parse does not read -- not a single item spanning
+    everything.
+    """
+    starts = [item.start() for item in EXCURSION_ITEM_RE.finditer(text)]
+    if not starts:
+        return []
+    bounds = starts + [len(text)]
+    return [text[bounds[index] : bounds[index + 1]] for index in range(len(starts))]
+
+
+def excursion_narrated_figures(text: str, rows: set[str]) -> list[str]:
+    """The record excursion figures the richest single numbered item of `text` states.
+
+    Used only to make an *absent* enumeration a finding, where there is no
+    sentence to bound a region against. Per item rather than per document, and
+    only for an item stating at least `EXCURSION_NARRATIVE_MIN` of them, so a
+    document that quotes one figure in passing is not asked to carry a
+    qualifier for a narrative it does not have.
+    """
+    narrated: list[str] = []
+    for item in _excursion_items(text):
+        figures = [figure for figure in excursion_chain_figures(item) if figure in rows]
+        if len(figures) >= EXCURSION_NARRATIVE_MIN and len(figures) > len(narrated):
+            narrated = figures
+    return narrated
+
+
+def check_excursion_enumeration(doc: Path, text: str) -> list[str]:
+    """Check 35: the *undecoupled* enumeration names every figure it must."""
+    rows = excursion_row_figures()
+    if rows is None:
+        # No records tree, or no record carrying the excursion column: there is
+        # nothing to re-derive an enumeration against, and inventing a required
+        # set would be a claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = EXCURSION_ENUM_RE.search(collapsed)
+    if stated is None:
+        if EXCURSION_NARRATIVE_ANCHOR not in text:
+            # A document that does not cite this campaign qualifies nothing
+            # about its figures, and is not made to -- checks 31, 32 and 34's
+            # anchor, for their reason.
+            return []
+        narrated = excursion_narrated_figures(text, rows)
+        if not narrated:
+            # A document with no numbered item narrating this campaign's
+            # excursion figures qualifies nothing about their decoupling. This
+            # is the guard that keeps the check off a document that quotes one
+            # figure in passing rather than firing on correct prose.
+            return []
+        return [
+            f"{doc.name}: states {len(narrated)} die-side ground-excursion "
+            f"figure(s) a committed record of `{EXCURSION_RECORDS}/` carries "
+            f"({', '.join(f'`{figure}`' for figure in narrated)}) and "
+            f"qualifies none of them -- every one is an **undecoupled** upper "
+            f"bound while the gap check 33 censuses is open, so state the "
+            f"sentence that says so (`... {EXCURSION_ENUM_CLAIM}`); deleting it "
+            f"does not make the figures decoupled"
+        ]
+    required = excursion_enumeration_figures(text)
+    where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+    if not required:
+        # The vacuity trap, made loud. A superset check whose required set is
+        # empty passes by grading nothing, so the one case it must report is
+        # its own region having resolved to nothing -- the item renumbered
+        # away, or the narrative moved out from under the sentence.
+        return [
+            f"{where}: this enumeration qualifies excursion figures as "
+            f"**undecoupled** upper bounds, but no figure above it in the same "
+            f"numbered item is one a committed record of `{EXCURSION_RECORDS}/` "
+            f"carries -- so the sentence grades nothing. Either the narrative it "
+            f"covers has moved out from under it, or it no longer belongs here"
+        ]
+    enumerated = set(excursion_chain_figures(stated.group("figures")))
+    missing = [figure for figure in required if figure not in enumerated]
+    if not missing:
+        return []
+    return [
+        f"{where}: the **undecoupled** enumeration omits "
+        f"{', '.join(f'`{figure}`' for figure in missing)}, which the narrative "
+        f"above it states and a committed record of `{EXCURSION_RECORDS}/` "
+        f"carries in its own `{EXCURSION_COLUMN}` column -- add each to the "
+        f"list (`python3 docs/chipalooza/check_proposal_citations.py --stats` "
+        f"prints the full derived set), because the qualifier is what bounds "
+        f"every one of those figures while the gap check 33 censuses is open"
+    ]
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -5481,6 +5862,7 @@ def check_document(doc: Path) -> list[str]:
         + check_sweep_census(doc, text)
         + check_decoupling_census(doc, text)
         + check_null_sweep_census(doc, text)
+        + check_excursion_enumeration(doc, text)
     )
 
 
@@ -5525,6 +5907,21 @@ def main(argv: list[str]) -> int:
             corner_grid = corner_grid_census(doc.read_text())
             if corner_grid is not None:
                 print(f"{doc.name}: {corner_grid_sentence(corner_grid)}")
+            # And the figures check 35 obliges this document's own *undecoupled*
+            # enumeration to name: printed as the derived list rather than as a
+            # replacement sentence, because the enumeration is legitimately a
+            # SUPERSET of it (a one-element ablation attribution is a figure the
+            # list should carry and no record row does), so pasting this over
+            # the sentence would drop figures rather than fix it.
+            excursions = excursion_enumeration_figures(doc.read_text())
+            if excursions is not None:
+                print(
+                    f"{doc.name}: the **undecoupled** enumeration must name at "
+                    f"least these {len(excursions)} figure(s), each stated above "
+                    f"it and carried by a committed record's own "
+                    f"`{EXCURSION_COLUMN}` column: "
+                    + ", ".join(f"`{figure}`" for figure in excursions)
+                )
             # And the Kickback row's own figures, which check 21 re-derives from
             # the record that row cites -- printed per document because the
             # bounds the multiples are taken against come from the row's own
