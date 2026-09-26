@@ -281,6 +281,26 @@ assert all(
 ), "ISLAND_PAD_UM no longer clears sky130A's own metal minimum-area rules"
 
 
+def _via_array_pitch_um(cut: tuple[int, int]) -> float:
+    """Centre-to-centre pitch for a multi-cut via array on `cut`.
+
+    `cut side + that cut layer's own minimum space`, from the pinned deck's own
+    space rules -- so an array is legal by construction rather than by a
+    hand-checked number, and a deck bump that tightens a space rule moves the
+    pitch here instead of minting a violation. Deliberately the MINIMUM legal
+    pitch: every micron of pitch is a micron the enclosing pad has to grow, and
+    these arrays sit in measured-free but not unlimited back-end field.
+    """
+    space = {VIA2: VIA2_SPACE_UM, VIA3: VIA3_SPACE_UM, VIA4: VIA4_SPACE_UM}.get(cut)
+    if space is None:
+        raise ValueError(
+            f"no minimum-space rule recorded for cut layer {cut} -- a via array there "
+            "needs its own space rule read out of the pinned deck first"
+        )
+    cut_side = {MCON: MCON_UM, VIA1: VIA1_UM}.get(cut, VIA_UM)
+    return cut_side + space
+
+
 class Canvas:
     """Shape/label accumulator -- the same minimal drawing surface every
     other `bin/build_layout.py` in this repo uses, re-derived here (rather
@@ -318,6 +338,7 @@ class Canvas:
         y: float,
         pad_lo: float = PAD_UM,
         pad_hi: float = PAD_UM,
+        array: int = 1,
     ) -> None:
         """One via/mcon cut, with a landing pad on both adjoining metals.
 
@@ -326,12 +347,38 @@ class Canvas:
         caller whose pad stands alone on its own layer passes `_pad_side(...)`
         instead, so the pad clears that metal's own minimum-area rule unaided
         (see `_pad_side`).
+
+        `array = N` draws an `N x N` grid of cuts instead of one, centred on
+        the same (x, y), on `_via_array_pitch_um()`'s own cut+space pitch, and
+        grows BOTH pads by the grid's own extent so each keeps exactly the
+        enclosure the caller's single-cut pad size already gave it. `array = 1`
+        (the default for every other call site in this module) draws precisely
+        what this method drew before the parameter existed -- same three
+        rectangles, same sizes -- so no existing geometry moves.
+
+        Why a parameter and not a new method: a via stack's cut count is a
+        *resistance* choice, not a topology one. `rcvia2`/`rcvia3` are 3.41 ohm
+        per cut in this PDK -- three orders of magnitude above the metal either
+        side of them -- so N cuts in parallel is the only lever on a via's own
+        contribution, and it is measured as `R/N` by
+        `bin/probe-decap-sites.py`'s own ladder.
         """
+        if array < 1:
+            raise ValueError(f"via array must be at least 1x1, got {array}")
         cut = _VIA_BETWEEN[(at_layer_lo, at_layer_hi)]
         cut_side = {MCON: MCON_UM, VIA1: VIA1_UM}.get(cut, VIA_UM)
-        self.square(at_layer_lo, x, y, pad_lo)
-        self.square(at_layer_hi, x, y, pad_hi)
-        self.square(cut, x, y, cut_side)
+        # The grid's own extent, and how much the pads have to grow to keep the
+        # caller's enclosure on all four sides of it. `array == 1` never asks
+        # for a pitch: most cut layers in this flow have no space rule recorded
+        # here (they never needed one), and a single cut has no neighbour.
+        pitch = _via_array_pitch_um(cut) if array > 1 else 0.0
+        grow = (array - 1) * pitch
+        self.square(at_layer_lo, x, y, pad_lo + grow)
+        self.square(at_layer_hi, x, y, pad_hi + grow)
+        first = -(array - 1) * pitch / 2.0
+        for ix in range(array):
+            for iy in range(array):
+                self.square(cut, x + first + ix * pitch, y + first + iy * pitch, cut_side)
 
     def riser(
         self,
@@ -340,6 +387,7 @@ class Canvas:
         from_layer: tuple[int, int],
         to_layer: tuple[int, int],
         isolated_ends: bool = False,
+        array: int = 1,
     ) -> None:
         """Stack via cuts directly above/below (x, y) to walk from
         `from_layer` to `to_layer` (either direction) through every
@@ -356,13 +404,20 @@ class Canvas:
         caller attaches its own wire there and the merged polygon is what the
         rule measures -- unless the caller says otherwise with
         `isolated_ends=True` (a landing that only carries a pin label).
+
+        `array = N` widens EVERY level of the stack to an `N x N` grid of cuts
+        (see `via()`). It is passed, not defaulted, at exactly the call sites
+        whose series resistance has been measured to matter -- the decoupling
+        ties (issue #465) -- because this method's single-cut convention is
+        used by every supply riser in this flow and widening it globally is a
+        much larger DRC surface for paths whose resistance nothing has measured.
         """
         lo, hi = sorted((_layer_index(from_layer), _layer_index(to_layer)))
         for i in range(lo, hi):
             below, above = _METAL_CHAIN[i], _METAL_CHAIN[i + 1]
             pad_lo = PAD_UM if i == lo and not isolated_ends else _pad_side(below)
             pad_hi = PAD_UM if i + 1 == hi and not isolated_ends else _pad_side(above)
-            self.via(below, above, x, y, pad_lo=pad_lo, pad_hi=pad_hi)
+            self.via(below, above, x, y, pad_lo=pad_lo, pad_hi=pad_hi, array=array)
 
     def label(self, layer: tuple[int, int], x: float, y: float, text: str) -> None:
         self.labels.append((layer, text, x, y))
@@ -1418,6 +1473,16 @@ MET4_VIA4_PAD_UM = 1.20  # >= VIA4_UM + 2 * 0.19 (`met4.enclosing.via4.1`) with
 #                          merges with it.
 MET4_VIA4_ENC_UM = 0.19  # `met4.enclosing.via4.1`
 MET5_VIA4_ENC_UM = 0.31  # `met5.enclosing.via4.1`
+VIA2_SPACE_UM = 0.20  # `via2.space.1`. 0.20, not the 0.17 `DECAP_SPACE_UM`
+#                       asserted against until issue #465: the pinned deck's own
+#                       rule is `threshold_dbu=200` (sky130A_mr.drc "via2.2",
+#                       `via2.space(0.2, euclidian)`) -- identical to
+#                       `via3.space.1` below, not tighter. The old 0.17 was an
+#                       UNDER-check: `_check_decoupling_caps()` assertion 2 would
+#                       have passed a 0.18 um via2 gap the deck rejects. Found by
+#                       pitching this flow's first via2 array from it and
+#                       reading `via2.space.1` off the resulting 24-violation
+#                       DRC report.
 VIA3_SPACE_UM = 0.20  # `via3.space.1`
 VIA4_SPACE_UM = 0.80  # `via4.space.1`
 CAPM_SPACE_UM = 0.84  # `capm.space.1`
@@ -1433,6 +1498,32 @@ MET2_SPACE_UM = 0.14  # `met2.space.1`
 #: consequence and is asserted, not assumed: a 2.0 um conductor needs 2.0 um of
 #: clear field, which is why every tie corridor below was measured first.
 DECAP_STRAP_W = 2.0
+
+#: Cut-grid side for every via2/via3 the decoupling ties draw: `N x N` cuts in
+#: parallel instead of the single cut `Canvas.riser()`/`Canvas.via()` use
+#: everywhere else in this flow. `2` -> four cuts, so each of those levels
+#: contributes `rcvia2/4` = 0.853 ohm instead of 3.41 ohm.
+#:
+#: MEASURED, not assumed, in both directions:
+#:
+#: * Issue #440 measured the as-drawn ties at 13.837 ohm (analog) / 13.448 ohm
+#:   (digital) per domain and found **~80 % of it single-cut vias** -- widening
+#:   the already-2.0 um straps further would have bought under an ohm.
+#: * Issue #465 then measured whether cutting that resistance HELPS, because it
+#:   was not obvious: at 13.8 ohm the resonance the 8.870 pF pair forms with
+#:   DR-015's bond inductance has `Q ~ 1.06`, so the ties might have been
+#:   *damping* it. `sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md`
+#:   settles it -- adding the measured resistance to the committed netlist raises
+#:   every die-side rail's excursion (worst rail `VPWR_DIE` 12.135 -> 16.180 mV,
+#:   1.333x, at `tt_27c_1.80v`). The ties cost bounce; they do not buy damping.
+#:
+#: Scope, deliberately: `2`, and only at the decoupling ties' own call sites.
+#: NOT a global `riser()` change (every supply riser in this flow is single-cut
+#: by convention and none of their resistances has been measured), and not `3`
+#: or more -- the pad grows with the grid, these arrays sit in field measured
+#: free at a 1.0 um keep-out, and past the via the *metal* half of each ladder
+#: (which arrays cannot touch) is what remains.
+DECAP_VIA_ARRAY = 2
 
 #: How far inside a bottom plate's own edge a via2 lands. The `C0_BOT` port is
 #: reported AT the plate's left edge, and `met3.enclosing.via2.1` (0.065 um)
@@ -1530,6 +1621,31 @@ def decoupling_caps(c: Canvas) -> dict[str, tuple[int, int]]:
 
     Both digital ties leave the rails at the rails' own centre-line y, so
     neither adds a bend to the supply path that the rail does not already have.
+
+    Why every via2/via3 here is a cut ARRAY (issue #465)
+    ---------------------------------------------------
+    Each of the eight via2/via3 sites these two functions draw -- the two
+    risers' two levels each, and the four via2 plate entries, i.e. six via2
+    sites and two via3 sites -- passes
+    `array=DECAP_VIA_ARRAY`, so it is four cuts in parallel rather than the one
+    cut this flow's `riser()`/`via()` convention draws everywhere else. That is
+    the only lever on these ties' resistance that exists: #440 measured them at
+    13.8 / 13.4 ohm per domain with **~80 % of it in single cuts**, and #465 then
+    measured that the resistance *costs* die-side bounce rather than damping the
+    package resonance (`sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md`).
+    See `DECAP_VIA_ARRAY` for the evidence and the scope.
+
+    Three vias in these paths are deliberately NOT widened, and each for its own
+    reason:
+
+    * **The two via4 landings off the met5 rails** -- `via4_onto_rail()`'s own
+      docstring: 0.38 ohm/cut, and the 1.6 um rail cannot enclose a second cut
+      across it.
+    * **Each unit cell's own centre via3 into `capm`** -- 3.41 ohm, and the
+      single largest remaining term in both supply ties. It is inside the
+      `klt gen cap_array` cell, not drawn here at all, so widening it is a
+      generator change and not this module's to make. It is why the analog
+      supply tie (2.980 ohm) barely moves: 3.41 ohm of each branch is that cut.
     """
     slices: dict[str, tuple[int, int]] = {}
     boxes = _decap_unit_boxes()
@@ -1552,11 +1668,11 @@ def decoupling_caps(c: Canvas) -> dict[str, tuple[int, int]]:
     lo = len(c.shapes)
     tap_x, _gy, native = global_pin("comparator", "GND")
     assert native == MET1
-    c.riser(tap_x, DECAP_A_BOT_Y, MET4, MET2)
+    c.riser(tap_x, DECAP_A_BOT_Y, MET4, MET2, array=DECAP_VIA_ARRAY)
     east = bot_via_point("decap_a1")
     c.wire(MET2, tap_x, DECAP_A_BOT_Y, east, DECAP_A_BOT_Y, w=DECAP_STRAP_W)
     for block in ("decap_a0", "decap_a1"):
-        c.via(MET2, MET3, bot_via_point(block), DECAP_A_BOT_Y)
+        c.via(MET2, MET3, bot_via_point(block), DECAP_A_BOT_Y, array=DECAP_VIA_ARRAY)
     slices["GND"] = (lo, len(c.shapes))
 
     # --- Cdecap_a supply (VDD): comparator's own met4 VDD column -> met4 strap
@@ -1597,7 +1713,24 @@ def decoupling_caps_digital(
         met4 pad sized to satisfy `via4.4` (and `m4.4a`) unaided. NO met5 pad:
         the rail rectangle is the met5 side, so `m5.3`/`m5.4` are answered by a
         polygon this module already draws -- asserted in
-        `_check_decoupling_caps()`."""
+        `_check_decoupling_caps()`.
+
+        **Deliberately still ONE cut, where the via2/via3 levels of these same
+        ties are now `DECAP_VIA_ARRAY x DECAP_VIA_ARRAY` (issue #465).** Two
+        independent reasons, both measured rather than preferred:
+
+        * **It has almost nothing to give.** `rcvia4` is **0.38 ohm** per cut in
+          this PDK -- 9x below `rcvia2`/`rcvia3`'s 3.41 ohm -- so this level is
+          2.8 % of the digital return tie's 9.843 ohm. Four cuts here would
+          recover 0.285 ohm.
+        * **The rail cannot hold the array.** `via4.space.1` is 0.80 um at a
+          0.80 um cut, so a 2x2 grid spans 2.40 um in *both* axes, and the met5
+          rail it lands on is `MET5_STRAP` wide -- 1.6 um. A second cut across
+          the rail cannot be enclosed by `m5.3` at all; assertion 4 of
+          `_check_decoupling_caps()` is what would catch it. A 1x2 grid *along*
+          the rail would fit, and is not drawn: it would trade the two bullets
+          above against a second geometry to maintain for a quarter of an ohm.
+        """
         x, y = DECAP_D_VIA4_X[net], rail_centre_y(net)
         c.square(MET4, x, y, MET4_VIA4_PAD_UM)
         c.square(VIA4, x, y, VIA4_UM)
@@ -1621,13 +1754,13 @@ def decoupling_caps_digital(
     #     a via2 up into each bottom plate.
     lo = len(c.shapes)
     gx, gy = via4_onto_rail("VGND")
-    c.riser(gx, gy, MET4, MET2)
+    c.riser(gx, gy, MET4, MET2, array=DECAP_VIA_ARRAY)
     run_x = boxes["decap_d0"][0] + DECAP_VIA2_INSET_UM
     c.wire(MET2, gx, gy, run_x, gy, w=DECAP_STRAP_W)
     top_via_y = boxes["decap_d1"][1] + DECAP_VIA2_INSET_UM
     c.wire(MET2, run_x, gy, run_x, top_via_y, w=DECAP_STRAP_W)
-    c.via(MET2, MET3, run_x, gy)
-    c.via(MET2, MET3, run_x, top_via_y)
+    c.via(MET2, MET3, run_x, gy, array=DECAP_VIA_ARRAY)
+    c.via(MET2, MET3, run_x, top_via_y, array=DECAP_VIA_ARRAY)
     slices["VGND"] = (lo, len(c.shapes))
     return slices
 
@@ -1640,7 +1773,7 @@ DECAP_SPACE_UM = {
     MET3: MET3_SPACE_UM,
     MET4: MET4_SPACE_UM,
     MET5: MET5_SPACE_UM,
-    VIA2: 0.17,  # `via2.space.1`
+    VIA2: VIA2_SPACE_UM,  # `via2.space.1`
     VIA3: VIA3_SPACE_UM,
     VIA4: VIA4_SPACE_UM,
 }

@@ -744,7 +744,20 @@ class TestInvocationFooter(unittest.TestCase):
         for bench in benches:
             tokens = bench["cold_start"].split()
             cold_tokens = set(tokens)
-            if "--null-sweep" in cold_tokens:
+            if "--decap-esr" in cold_tokens:
+                # The decoupling-tie ladder mints through its own writer and its
+                # own footer function; the same gate applies to it, and its one
+                # ladder flag must stay inside the indexed command.
+                mults = (
+                    tuple(
+                        float(v)
+                        for v in tokens[tokens.index("--decap-esr-mult") + 1].split(",")
+                    )
+                    if "--decap-esr-mult" in tokens
+                    else si.DECAP_ESR_MULTIPLIERS
+                )
+                footer = si.decap_esr_invocation_line(mults, "")
+            elif "--null-sweep" in cold_tokens:
                 # The null-option ladder mints through its own writer and its
                 # own footer function; the same gate applies to it, and its one
                 # axis flag must stay inside the indexed command.
@@ -830,6 +843,23 @@ class TestInvocationFooter(unittest.TestCase):
             "null-option ladder would record in its own footer -- indexing that "
             "record would fail cold-start-undocumented",
         )
+
+    def test_the_documented_decap_esr_command_is_the_footer_it_would_write(self) -> None:
+        """Same pre-run half of the `cold-start-undocumented` gate the sweeps are
+        held to, for the same reason: checkable before the hours, not after."""
+        readme = (EXPERIMENT_DIR / "README.md").read_text()
+        footer = si.decap_esr_invocation_line(si.DECAP_ESR_MULTIPLIERS, "")
+        self.assertIn(
+            f"python3 {footer}",
+            readme,
+            "the README does not document the exact command the default "
+            "decoupling-tie ESR ladder would record in its own footer -- indexing "
+            "that record would fail cold-start-undocumented",
+        )
+
+    def test_a_non_default_ladder_reaches_the_footer(self) -> None:
+        line = si.decap_esr_invocation_line((0.0, 0.33, 1.0), "")
+        self.assertIn("--decap-esr-mult 0,0.33,1", line)
 
     def test_a_corner_subset_reaches_the_footer(self) -> None:
         """`--corner-points` changes WHAT WAS SIMULATED, so it is part of the
@@ -2155,6 +2185,454 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
             len(re.findall(r"^xxor_code\d DOUT\d DOUT9N ", netlist, re.MULTILINE)), 9
         )
 
+
+DR017 = REPO_ROOT / "spec" / "decision-records" / "DR-017-on-die-decoupling-budget.md"
+
+
+class TestDecapTieMeasurement(unittest.TestCase):
+    """The decoupling-tie resistances are READ from a committed layout record,
+    never typed in (issue #465).
+
+    This is the first thing in `sim/` that puts a number measured in `layout/`
+    into a netlist, so the failure mode is new: a hand-copied ohm value drifting
+    from the layout record it claims to come from would be invisible in both
+    trees. Every guard here refuses rather than degrades, because the
+    alternative is an append-only sim record stating a resistance no layout ever
+    had.
+    """
+
+    def _report(self) -> dict:
+        return json.loads(
+            (REPO_ROOT / si.DECAP_TIE_RECORD / "decap-ties.json").read_text()
+        )
+
+    def test_the_pinned_record_is_a_committed_layout_report(self) -> None:
+        self.assertTrue(
+            (REPO_ROOT / si.DECAP_TIE_RECORD / "decap-ties.json").is_file(),
+            f"{si.DECAP_TIE_RECORD}/decap-ties.json is not in the tree",
+        )
+        # Pinned by id, not resolved through reports/LATEST: a record is
+        # append-only evidence, and the resistance a simulation ran at must stay
+        # legible after a later layout record moves that pointer.
+        self.assertIn("/reports/", si.DECAP_TIE_RECORD)
+        self.assertNotIn("LATEST", si.DECAP_TIE_RECORD)
+
+    def test_every_ohm_matches_the_layout_record_exactly(self) -> None:
+        ties = si.load_decap_ties()
+        report = self._report()
+        for terminal, key in si.DECAP_TIE_KEYS.items():
+            self.assertAlmostEqual(
+                ties.tie_ohm[terminal],
+                report["ties"][key]["tie_ohm"],
+                places=9,
+                msg=f"{terminal} drifted from {si.DECAP_TIE_RECORD}",
+            )
+        self.assertEqual(
+            ties.esr_ohm, {k: float(v) for k, v in report["per_domain"]["esr_ohm"].items()}
+        )
+        self.assertAlmostEqual(
+            ties.capacitance_f, report["per_domain"]["capacitance_F"], places=18
+        )
+
+    def test_each_domains_esr_is_its_two_ties_in_series(self) -> None:
+        ties = si.load_decap_ties()
+        for _instance, domain, terminals in si.DECAP_DEVICES:
+            self.assertAlmostEqual(
+                sum(ties.tie_ohm[t] for t in terminals), ties.esr_ohm[domain], places=3
+            )
+
+    def _write_report(self, mutate) -> str:
+        import tempfile
+
+        report = self._report()
+        mutate(report)
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree, tmp, ignore_errors=True)
+        (tmp / "decap-ties.json").write_text(json.dumps(report))
+        return str(tmp)
+
+    def test_a_probe_that_disowns_its_own_model_is_refused(self) -> None:
+        """`model_matches_drawn_geometry` is the probe's statement that each
+        segment of its ladder is a rectangle the layout really drew. A report
+        that says otherwise describes a layout nobody built."""
+        path = self._write_report(
+            lambda r: r.update(model_matches_drawn_geometry=False, model_problems=["x"])
+        )
+        with self.assertRaises(RuntimeError) as cm:
+            si.load_decap_ties(path)
+        self.assertIn("does NOT match the drawn geometry", str(cm.exception))
+
+    def test_a_schema_bump_is_refused_rather_than_guessed_at(self) -> None:
+        path = self._write_report(lambda r: r.update(schema_version=2))
+        with self.assertRaises(RuntimeError):
+            si.load_decap_ties(path)
+
+    def test_a_report_that_disagrees_with_itself_is_refused(self) -> None:
+        """If the per-tie ohms do not sum to the per-domain ESR, the two halves
+        of the file disagree about the same domain and neither may be simulated."""
+        path = self._write_report(
+            lambda r: r["ties"]["VDD (analog supply -> both top plates)"].update(tie_ohm=99.0)
+        )
+        with self.assertRaises(RuntimeError) as cm:
+            si.load_decap_ties(path)
+        self.assertIn("disagrees with itself", str(cm.exception))
+
+    def test_a_missing_report_is_refused(self) -> None:
+        with self.assertRaises(RuntimeError):
+            si.load_decap_ties("layout/sar-adc-top/reports/does-not-exist")
+
+
+class TestDecapEsrLadder(unittest.TestCase):
+    """`--decap-esr` is a strict ONE-element ladder over a measured resistance
+    (issue #465), and its whole value rests on two properties: the `0x` rung is
+    the committed netlist card for card, and the `1x` rung inserts each tie's
+    own resistance into its own leg."""
+
+    def setUp(self) -> None:
+        self.ties = si.load_decap_ties()
+
+    def test_the_zero_rung_is_card_for_card_the_package_arm(self) -> None:
+        self.assertTrue(
+            si.decap_esr_anchor_matches_base_arm(self.ties),
+            "the 0x rung is no longer the committed netlist + the `package` arm -- "
+            "the ladder would be anchored to nothing",
+        )
+
+    def test_the_zero_rung_carries_no_tie_resistors_at_all(self) -> None:
+        """Not four zero-valued ones: a 0 Ohm resistor is a different element
+        with two extra nodes, and the point of that rung is to BE the committed
+        netlist."""
+        self.assertEqual(si.decap_esr_arm(0.0, self.ties).decap_ties, ())
+
+    def test_the_ladder_moves_only_the_tie_resistance(self) -> None:
+        base = si.ARMS_BY_NAME[si.DECAP_ESR_BASE_ARM]
+        for mult in (0.0, 1.0, 2.5):
+            rung = si.decap_esr_arm(mult, self.ties)
+            self.assertEqual(rung.bonds, base.bonds, f"{mult}x moved a bond")
+            self.assertEqual(rung.substrate, base.substrate, f"{mult}x moved the substrate link")
+
+    def test_each_tie_resistance_lands_on_its_own_leg(self) -> None:
+        rung = si.decap_esr_arm(1.0, self.ties)
+        by_key = {(inst, terminal): ohms for inst, terminal, ohms in rung.decap_ties}
+        self.assertEqual(len(rung.decap_ties), 4)
+        for instance, _domain, terminals in si.DECAP_DEVICES:
+            for terminal in terminals:
+                self.assertAlmostEqual(
+                    by_key[(instance, terminal)], self.ties.tie_ohm[terminal], places=9
+                )
+
+    def test_a_rung_scales_every_tie_by_the_same_multiplier(self) -> None:
+        rung = si.decap_esr_arm(0.25, self.ties)
+        for instance, terminal, ohms in rung.decap_ties:
+            self.assertAlmostEqual(ohms, self.ties.tie_ohm[terminal] * 0.25, places=9)
+
+    def test_a_negative_multiplier_is_refused(self) -> None:
+        with self.assertRaises(RuntimeError):
+            si.decap_esr_arm(-1.0, self.ties)
+
+    def _body(self) -> str:
+        body, _hits = si.patch_dut_ground(si.fc.dut_text())
+        return body
+
+    def test_the_patch_re_points_only_the_decoupling_cards(self) -> None:
+        body = self._body()
+        patched, cards = si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+        changed = [
+            (a, b)
+            for a, b in zip(body.splitlines(), patched.splitlines())
+            if a != b
+        ]
+        self.assertEqual(len(body.splitlines()), len(patched.splitlines()))
+        self.assertEqual(len(changed), len(si.DECAP_DEVICES), changed)
+        for old, _new in changed:
+            self.assertTrue(
+                any(old.startswith(inst) for inst, _d, _t in si.DECAP_DEVICES), old
+            )
+        self.assertEqual(len(cards), 4)
+
+    def test_the_emitted_resistors_reach_the_right_die_nodes(self) -> None:
+        body = self._body()
+        _patched, cards = si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+        emitted = {}
+        for card in cards:
+            inst, node_a, node_b, value = card.split()
+            emitted[inst] = (node_a, node_b, float(value))
+        for instance, _domain, terminals in si.DECAP_DEVICES:
+            for terminal in terminals:
+                key = f"RTIE_{instance.lstrip('X').upper()}_{terminal}"
+                self.assertIn(key, emitted)
+                die_node, plate_node, ohms = emitted[key]
+                self.assertEqual(die_node, si.TERMINALS[terminal]["die"])
+                self.assertEqual(plate_node, f"{instance.lstrip('X').upper()}_{terminal}")
+                self.assertAlmostEqual(ohms, self.ties.tie_ohm[terminal], places=6)
+
+    def test_the_series_resistance_per_domain_is_the_measured_esr(self) -> None:
+        """The number the record reports must be the number the deck contains."""
+        rung = si.decap_esr_arm(1.0, self.ties)
+        for _instance, domain, terminals in si.DECAP_DEVICES:
+            in_deck = sum(
+                ohms
+                for inst, terminal, ohms in rung.decap_ties
+                if terminal in terminals
+            )
+            self.assertAlmostEqual(in_deck, self.ties.esr_ohm[domain], places=3)
+
+    def test_every_named_arm_leaves_the_dut_body_untouched(self) -> None:
+        """Which is what keeps all five committed arms' decks byte-identical to
+        what they assembled before this transformation existed."""
+        body = self._body()
+        for arm in si.ARMS:
+            patched, cards = si.patch_dut_decap_ties(body, arm)
+            self.assertEqual(patched, body, arm.name)
+            self.assertEqual(cards, [], arm.name)
+
+    def test_a_netlist_without_the_decoupling_card_is_refused(self) -> None:
+        body = "\n".join(
+            line for line in self._body().splitlines() if not line.startswith("XCdecap_a")
+        )
+        with self.assertRaises(RuntimeError) as cm:
+            si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+        self.assertIn("XCdecap_a", str(cm.exception))
+
+    def test_a_swapped_plate_order_is_refused_rather_than_mis_tied(self) -> None:
+        """A resistance inserted into the wrong leg would still simulate and
+        still write a plausible record."""
+        body = self._body().replace(
+            f"XCdecap_a {si.GND_DIE} VDD ", f"XCdecap_a VDD {si.GND_DIE} "
+        )
+        with self.assertRaises(RuntimeError) as cm:
+            si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+        self.assertIn("not the expected", str(cm.exception))
+
+    def test_a_different_decoupling_device_is_refused(self) -> None:
+        body = self._body().replace(
+            f"XCdecap_a {si.GND_DIE} VDD sky130_fd_pr__cap_mim_m3_1",
+            f"XCdecap_a {si.GND_DIE} VDD some_other_cap",
+        )
+        with self.assertRaises(RuntimeError) as cm:
+            si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+        self.assertIn("no longer a", str(cm.exception))
+
+    def test_rung_names_cannot_collide_with_either_sweep(self) -> None:
+        names = {si.decap_esr_arm_name(m) for m in (0.0, 1.0)}
+        others = {si.sweep_arm_name(1.0, 30.0), si.null_sweep_arm_name(30.0)} | {
+            arm.name for arm in si.ARMS
+        }
+        self.assertEqual(names & others, set())
+
+    def test_the_default_ladder_contains_the_anchor_rung(self) -> None:
+        self.assertIn(0.0, si.DECAP_ESR_MULTIPLIERS)
+        self.assertIn(1.0, si.DECAP_ESR_MULTIPLIERS)
+
+
+class TestDecapEsrVerdict(unittest.TestCase):
+    """The verdict is COMPUTED from the two rungs, because it is the whole
+    deliverable of issue #465 and a written one could drift from the table it
+    sits under."""
+
+    def _points(self, pp_0: dict[str, float], pp_1: dict[str, float]) -> list[dict]:
+        def point(arm: str, pps: dict[str, float]) -> dict:
+            return {
+                "arm": arm,
+                "corner_id": "tt_27c_1.80v",
+                "conversions": [
+                    {"conversion": i + 1, "fraction": f, "code": 100}
+                    for i, f in enumerate(si.tb.INPUT_FRACTIONS)
+                ],
+                "extras": {f"{k}_pp": v for k, v in pps.items()},
+            }
+
+        return [
+            point(si.decap_esr_arm_name(0.0), pp_0),
+            point(si.decap_esr_arm_name(1.0), pp_1),
+        ]
+
+    def _all(self, value: float) -> dict[str, float]:
+        return {probe: value for probe, _n, _l in si.RAIL_PROBES}
+
+    def test_a_lower_excursion_with_the_ties_in_is_damping(self) -> None:
+        v = si.decap_esr_verdict(self._points(self._all(0.040), self._all(0.030)), (0.0, 1.0))
+        self.assertTrue(v["available"])
+        self.assertEqual(v["direction"], "damping")
+
+    def test_a_higher_excursion_with_the_ties_in_is_amplifying(self) -> None:
+        v = si.decap_esr_verdict(self._points(self._all(0.030), self._all(0.040)), (0.0, 1.0))
+        self.assertEqual(v["direction"], "amplifying")
+
+    def test_a_sub_band_difference_is_a_wash(self) -> None:
+        v = si.decap_esr_verdict(self._points(self._all(0.030), self._all(0.0303)), (0.0, 1.0))
+        self.assertEqual(v["direction"], "wash")
+
+    def test_rails_that_disagree_are_reported_as_mixed(self) -> None:
+        pp_0 = self._all(0.030)
+        pp_1 = dict(pp_0)
+        probes = [probe for probe, _n, _l in si.RAIL_PROBES]
+        pp_1[probes[0]] = 0.060
+        pp_1[probes[1]] = 0.010
+        v = si.decap_esr_verdict(self._points(pp_0, pp_1), (0.0, 1.0))
+        self.assertEqual(v["direction"], "mixed")
+
+    def test_a_missing_rung_is_unavailable_not_a_verdict(self) -> None:
+        points = self._points(self._all(0.030), self._all(0.040))[:1]
+        v = si.decap_esr_verdict(points, (0.0, 1.0))
+        self.assertFalse(v["available"])
+        self.assertEqual(v["direction"], "unavailable")
+
+    def test_every_direction_has_a_via_array_reading(self) -> None:
+        """The record's "what this means for the drawn geometry" sentence is
+        keyed on the verdict, so a direction with no reading would be a silent
+        KeyError after an hours-long run."""
+        for direction in ("damping", "amplifying", "wash", "mixed", "unavailable"):
+            self.assertIn(direction, si.DECAP_ESR_VIA_ARRAY_READING)
+            self.assertTrue(si.DECAP_ESR_VIA_ARRAY_READING[direction].strip())
+
+
+class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
+    """The ladder writes its own record and must NOT move `records/LATEST`.
+
+    Same disposition, and the same reason, as the two sweep writers: that
+    pointer names the record this campaign's cited claim rests on, and this
+    record supersedes none of it -- it asks a different question, on a DUT body
+    no other record in this campaign has ever simulated.
+    """
+
+    def _write(self) -> tuple[Path, Path]:
+        import shutil
+        import tempfile
+
+        from harness import evidence
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        base = [214, 383, 511, 641, 1023]
+        ties = si.load_decap_ties()
+
+        def point(arm: str, pp: float) -> dict:
+            return {
+                "arm": arm,
+                "corner_id": "tt_27c_1.80v",
+                "process_corner": "tt",
+                "temp_c": 27.0,
+                "supply_v": 1.8,
+                "point_id": f"{arm}@tt_27c_1.80v",
+                "conversions": [
+                    {"conversion": i + 1, "fraction": f, "code": c}
+                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                ],
+                "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6, "i_vrefp": 1e-6, "i_vcm": 1e-7},
+                "power_w": 27.9e-6,
+                "extras": {
+                    **{f"{probe}_pp": pp for probe, _n, _l in si.RAIL_PROBES},
+                    "i_gnda": 2.2e-6,
+                },
+                "missing": [],
+                "log_text": "LOG\n",
+                "deck_text": "* deck\n",
+                "wall_s": 600.0,
+                "reused": False,
+            }
+
+        points = [point(si.CONTROL_ARM, 0.0)] + [
+            point(si.decap_esr_arm_name(m), 0.040 - 0.005 * m)
+            for m in si.DECAP_ESR_MULTIPLIERS
+        ]
+        try:
+            si.EXPERIMENT_DIR = tmp_dir
+            evidence.resolve_provenance = fake_resolve
+            path = si.write_decap_esr_record(
+                points, "* netlist\n", si.DECAP_ESR_MULTIPLIERS, ties
+            )
+        finally:
+            si.EXPERIMENT_DIR = real_dir
+            evidence.resolve_provenance = real_resolve
+        return path, tmp_dir
+
+    def test_the_latest_pointer_is_not_moved(self) -> None:
+        _path, tmp_dir = self._write()
+        self.assertFalse((tmp_dir / "records" / "LATEST").exists())
+
+    def test_the_record_says_it_supersedes_nothing(self) -> None:
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("- **Supersedes**: (none)", text)
+        self.assertIn("It supersedes nothing", text)
+
+    def test_the_record_states_the_sign_and_what_it_means_for_the_geometry(self) -> None:
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("## The measured decoupling ties (issue #440)", text)
+        self.assertIn("## Findings", text)
+        self.assertIn("The sign, which is what this record exists to establish", text)
+        self.assertIn("What that means for the drawn geometry", text)
+        self.assertIn("## What this ladder does not cover", text)
+        self.assertIn("## Subset-corner justification", text)
+        # The half of DR-017's item this ladder does NOT close must be named.
+        self.assertIn("The interconnect INDUCTANCE of the same ties", text)
+        self.assertIn(si.DECAP_TIE_RECORD, text)
+        self.assertIn(
+            "Written by `sim/supply-impedance-sensitivity/run_supply_impedance.py "
+            "--decap-esr --record`",
+            text,
+        )
+
+    def test_the_record_cannot_be_mistaken_for_any_other_record_shape(self) -> None:
+        """Three record shapes already live in this `records/` tree, and the
+        citation gate tells them apart by their own header lines (`- **Arms**:`
+        for an arm comparison, `- **Grid**:` for the 2-D sweep, `- **Ladder**: N
+        substrate-return resistances` for the null-option ladder). A fourth
+        shape that collided with one of them would be miscounted by a check that
+        cannot see it."""
+        sys.path.insert(0, str(REPO_ROOT / "docs" / "chipalooza"))
+        import check_proposal_citations as gate  # noqa: PLC0415
+
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIsNone(gate.ARM_RECORD_RE.search(text))
+        self.assertIsNone(gate.SWEEP_RECORD_GRID_RE.search(text))
+        self.assertIsNone(gate.NULL_SWEEP_RECORD_RE.search(text))
+
+    def test_every_run_appears_with_its_raw_log_and_deck(self) -> None:
+        _path, tmp_dir = self._write()
+        dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
+        self.assertEqual(len(dumped), 2 * (len(si.DECAP_ESR_MULTIPLIERS) + 1), dumped)
+
+
+class TestDR017RoutingParasiticsItemIsAnswered(unittest.TestCase):
+    """DR-017's routing-parasitics open item said the sign of the interconnect
+    ESR's net effect was unmeasured and named the run that would settle it
+    (issue #465). Once that run exists, the record must say which way it went --
+    in DR-017, by record-id, whichever way the measurement came out."""
+
+    def test_dr017_names_the_ladder_that_closes_its_item(self) -> None:
+        self.assertIn("--decap-esr", DR017.read_text())
+
+    def test_dr017_cites_a_record_of_this_campaign_by_id(self) -> None:
+        text = DR017.read_text()
+        ids = {p.stem for p in (EXPERIMENT_DIR / "records").glob("*.md")}
+        self.assertTrue(ids, "the campaign has minted no record yet")
+        self.assertTrue(
+            any(rid in text for rid in ids),
+            f"DR-017 cites none of this campaign's records {sorted(ids)}",
+        )
+
+    def test_dr017_still_names_the_clause_it_answered(self) -> None:
+        """Append-only house style: the clause is answered in place, not
+        deleted, so a reader can still see what was once unmeasured."""
+        text = DR017.read_text()
+        self.assertIn("The sign of the net effect is", text)
 
 class TestDR012OpenItemIsRetired(unittest.TestCase):
     """The acceptance criterion this campaign exists to satisfy: DR-012's

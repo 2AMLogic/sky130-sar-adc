@@ -38,7 +38,7 @@
     "      enumerated in signoff/README.md, which is where the item's",
     "      claimant-enforced disclosure obligation is actually discharged.",
     "  4   (bare -- both partitions) layout/sar-adc-top/.../lvs.json. Cited even",
-    "      though it does NOT pass: `status: \"mismatch\"` (98 mismatches), so it",
+    "      though it does NOT pass: `status: \"mismatch\"` (89 mismatches), so it",
     "      renders unmet/check_failed. That is the point -- 'an LVS run exists",
     "      and did not match' is a materially different, and more useful,",
     "      machine-readable statement than 'no evidence'. NOT PINNED, and the",
@@ -144,19 +144,19 @@
   },
   "evidence": {
     "3": {
-      "file": "layout/sar-adc-top/reports/20260926-081248-203cca3/drc.json",
-      "content_hash": "sha256:72a5fb7f0f5b2fb2cde9aa0f7470522b1ea48f198cd190d94c81ffffa12afadb"
+      "file": "layout/sar-adc-top/reports/20260926-184816-e1176e3/drc.json",
+      "content_hash": "sha256:fe38e3b58f6d4867e5239911c9a7fbf3b2107d7265b732f48c978e4b6387aa9e"
     },
     "4": {
-      "file": "layout/sar-adc-top/reports/20260926-081248-203cca3/lvs.json"
+      "file": "layout/sar-adc-top/reports/20260926-184816-e1176e3/lvs.json"
     },
     "11": [
       {
-        "file": "layout/sar-adc-top/erc-reports/20260926-081822-203cca3/erc.json",
-        "content_hash": "sha256:72a5fb7f0f5b2fb2cde9aa0f7470522b1ea48f198cd190d94c81ffffa12afadb"
+        "file": "layout/sar-adc-top/erc-reports/20260926-184830-e1176e3/erc.json",
+        "content_hash": "sha256:fe38e3b58f6d4867e5239911c9a7fbf3b2107d7265b732f48c978e4b6387aa9e"
       },
       {
-        "file": "layout/sar-adc-top/reports/20260926-081248-203cca3/lvs.json"
+        "file": "layout/sar-adc-top/reports/20260926-184816-e1176e3/lvs.json"
       }
     ],
     "8.analog": {

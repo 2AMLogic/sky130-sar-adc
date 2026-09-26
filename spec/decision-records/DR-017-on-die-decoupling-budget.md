@@ -578,6 +578,53 @@ sense DR-010/DR-012/DR-015 do.
   return path against one in each supply path — so widening the 2.0 µm straps
   would buy almost nothing while via arrays would cut it ≈3×.
 
+  **Update (issue #465, 2026-09-26): the sign is now MEASURED, it went against
+  the ties, and the via arrays are drawn.** The closing clause of this item
+  below — "the sign of the net effect is unmeasured" — is what #465 closed, and
+  it is the only clause of this item that is retired. Two records, in that
+  order:
+
+  1. `sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md`
+     (`--decap-esr`, the campaign's first ladder to put the interconnect in the
+     netlist at all) ran the as-built `package` topology at `tt_27c_1.80v` twice,
+     changing exactly the four tie resistors: a `0x` rung that is the committed
+     netlist card for card, and a `1x` rung at #440's measured resistance.
+     **Adding the drawn resistance raises every one of the four die-side rails**
+     — `GND_DIE` 9.854 → 9.975 mV (1.012×), `VGND_DIE` 11.326 → 12.658 mV
+     (1.118×), `VDD_DIE` 9.156 → 10.123 mV (1.106×), `VPWR_DIE` 12.135 →
+     16.180 mV (**1.333×**) peak-to-peak — at a ±2 % reading band, with worst
+     mid-scale |Δcode| between the rungs of **0 LSB**. Verdict: **amplifying**,
+     unanimously across four rails in two domains. **The Q ≈ 1.06 damping
+     reading below is therefore refuted as a net effect at this corner for this
+     stimulus**: the ties cost excursion, they do not buy damping.
+  2. `layout/sar-adc-top/reports/20260926-184816-e1176e3/` then draws every
+     via2/via3 in those four ties as a **2×2 array of four cuts**
+     (`build_layout.py`'s `DECAP_VIA_ARRAY`), reducing the measured ESR to
+     **7.172 Ω** (analog) and **6.863 Ω** (digital) — **1.93× / 1.96×**, raising
+     `Q` at the package resonance from 1.062/1.092 to 2.048/2.140. DRC stays
+     clean (0 violations, 52 rules), LVS is field-identical (**89** mismatches,
+     871/871/804 devices, the same four categories), the composed bounding box is
+     unchanged at 280.450 × 385.500 µm, and `klt erc` is clean with all four
+     supplies at one island each (`erc-reports/20260926-184830-e1176e3/`).
+
+  **Not the ≈3× this item projected, and the shortfall is itself a finding.**
+  1.95× rather than 3× because the arrays divide only the cuts this composer
+  draws. Three cuts in these paths stay single: each domain's two via4 landings
+  off the met5 rails (`rcvia4` = 0.38 Ω/cut, and the 1.6 µm rail cannot enclose a
+  second cut across it), and — now the largest single term in both **supply**
+  ties — **each `klt gen cap_array` unit cell's own centre via3 into `capm`**, a
+  3.41 Ω cut inside the generated cell that `build_layout.py` does not draw and
+  cannot widen. That is why the analog supply tie is unmoved at 2.980 Ω. Lowering
+  it is a generator change, and is not tracked here.
+
+  **What is still owed on the resistance half**, so this is not read as closed:
+  the reduced ESR has **not** been re-simulated. #465's ladder brackets the
+  reachable value between its `0x` and `1x` rungs and deliberately did not run a
+  third rung at the array value, so how much of the 1.333× the arrays actually
+  recover is bounded but not measured — and the arrays could never reach `0x` in
+  any case, since the drawn met2/met4 half of each ladder stays. One corner,
+  DR-015's assumed package magnitudes, no board decoupling.
+
   **Amendment A below does not already cover this, and must not be read as
   doing so.** Its "Eliminating one obvious explanation for the floor" section
   eliminates the *device's own* plate resistance, the MiM subcircuit's
@@ -597,10 +644,16 @@ sense DR-010/DR-012/DR-015 do.
   inductance, **Q ≈ 1.06** — the ties are *comparable to* the reactance there,
   so the ideal-cap excursion this record reports is optimistic at the top of the
   band by an amount no simulation here has bounded, while a Q near 1 also damps
-  that resonance in the bounce's favour. **The sign of the net effect is
+  that resonance in the bounce's favour. ~~**The sign of the net effect is
   unmeasured**, and closing it needs a `sim/supply-impedance-sensitivity/` run
   with the ESR in the netlist — which would also be the first run in this
-  campaign to distinguish device ESR from interconnect ESR. The inductance half
+  campaign to distinguish device ESR from interconnect ESR.~~ **The sign of the
+  net effect is MEASURED as of issue #465 — the ties are amplifying, not damping
+  — by exactly the run this clause asked for: that campaign's `--decap-esr`
+  ladder, `records/20260926-183200-e8fa47c.md`. See the Update above, which is
+  also the reason the clause is struck rather than deleted: the Q ≈ 1 damping
+  reading was a real physical argument and a reader should be able to see it, and
+  see that it lost.** The inductance half
   remains unmodelled entirely, needing extraction. Numbers and derivation:
   `layout/sar-adc-top/README.md`, "On-die decoupling (DR-017)", and
   `bin/probe-decap-sites.py`, which fails the layout flow if its model drifts

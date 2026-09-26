@@ -202,21 +202,113 @@ def _decap_series_resistance(ties: dict) -> list[str]:
             f"pair's own reactance at {per['esr_equals_reactance_Hz'][domain] / 1e9:.3f} "
             "GHz."
         )
-    lines.append(
-        "  **The dominant term is not the metal -- it is the SINGLE-CUT vias**, at "
-        "`rcvia2`/`rcvia3` = 3.41 ohm per cut. Each return path has three (the "
-        "met4->met2 riser's two, plus the via2 into each plate) against each supply "
-        "path's one, which is why the return ties are 3.6x and 2.7x their own "
-        "domain's supply tie despite running on 2.0 um conductor. Of the analog "
-        "return's 8.601 ohm shared leg, 6.82 ohm is those two riser cuts and only "
-        "1.781 ohm is 28.5 um of met2. Widening the straps further therefore buys "
-        "almost nothing; a via ARRAY at each riser and each plate entry would cut "
-        "the ESR ~3x, and that is a separate change with its own re-measurement -- "
-        "it moves no device and changes no declared value, so it needs no "
-        "superseding decision record. See README.md's \"On-die decoupling "
-        "(DR-017)\" for what it would and would not buy."
-    )
+    lines.extend(_decap_via_narrative())
     return lines
+
+
+def _decap_via_array_sites() -> dict[str, int]:
+    """How many via sites the decoupling ties widen, per cut level -- counted
+    out of `probe-decap-sites.py`'s own tie ladders rather than written here.
+
+    Same reason `cuts` is read out of `build_layout` below: the number of via
+    STACKS that went from one cut to four is not the number of via2 sites. Each
+    met4->met2 riser passes through TWO cut levels (a via3 and a via2) and each
+    of the four bottom-plate entries is one via2, so a hand-typed count is
+    exactly the kind of number that drifts -- an earlier draft of this
+    paragraph said "six", which is the via2 tally, not the site tally. The
+    ladder read here is the same model `probe-decap-sites.py`'s
+    `verify_against_record()` checks cut-by-cut against the record's own
+    `draw.request.json`, so a count taken from it cannot describe a via grid
+    the composer did not draw.
+
+    Returns e.g. `{"via2": 6, "via3": 2}` -- only the sites this composer
+    draws AND widens (`Via.at is not None` at the full `DECAP_VIA_ARRAY` grid);
+    the via4 landings off the met5 rails and each `cap_array` unit cell's own
+    centre via3 stay single-cut and are deliberately excluded.
+    """
+    import importlib.util
+
+    import build_layout as bl  # noqa: E402  (same directory; see sys.path above)
+
+    probe_path = Path(__file__).resolve().parent / "probe-decap-sites.py"
+    spec = importlib.util.spec_from_file_location("probe_decap_sites", probe_path)
+    assert spec and spec.loader
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+
+    cuts = bl.DECAP_VIA_ARRAY**2
+    sites: dict[str, int] = {}
+    for ladder in probe.tie_ladders().values():
+        segments = list(ladder["shared"])
+        for branch in ladder["branches"].values():
+            segments.extend(branch)
+        for seg in segments:
+            if not isinstance(seg, probe.Via) or seg.cuts != cuts or seg.at is None:
+                continue
+            level = probe.RVIA_PARAM[(seg.lo, seg.hi)].replace("rc", "", 1)
+            sites[level] = sites.get(level, 0) + 1
+    return sites
+
+
+def _decap_via_narrative() -> list[str]:
+    """Why the vias, not the metal, are what these ties' resistance is made of
+    -- keyed off the cut count `build_layout` actually drew.
+
+    Derived rather than written, because this paragraph's whole point is a
+    comparison between the drawn cut count and `rcvia2`/`rcvia3`: a record that
+    kept asserting "SINGLE-CUT" after the arrays landed (issue #465) would be
+    describing a layout nobody built, which is the failure mode every other
+    number in this section is read back from an artefact to avoid.
+    """
+    import build_layout as bl  # noqa: E402  (same directory; see sys.path below)
+
+    cuts = bl.DECAP_VIA_ARRAY**2
+    head = (
+        "  **What these ties' resistance is made of is vias, not metal**, at "
+        "`rcvia2`/`rcvia3` = 3.41 ohm per cut against `rm2`/`rm4` = 0.125/0.047 "
+        "ohm/sq on 2.0 um conductor. Each return path crosses three of those "
+        "levels (the met4->met2 riser's two, plus the via2 into each plate) "
+        "against each supply path's one."
+    )
+    if cuts == 1:
+        return [
+            head
+            + " Every one of them is a SINGLE cut. Of the analog return's 8.601 ohm "
+            "shared leg, 6.82 ohm is those two riser cuts and only 1.781 ohm is "
+            "28.5 um of met2 -- so widening the straps further buys almost nothing, "
+            "while a via ARRAY at each riser and each plate entry would cut the ESR "
+            "~3x. Whether that is worth drawing was measured in "
+            "`sim/supply-impedance-sensitivity/` (issue #465); see README.md's "
+            "\"On-die decoupling (DR-017)\"."
+        ]
+    sites = _decap_via_array_sites()
+    total = sum(sites.values())
+    breakdown = " + ".join(f"{n} {level}" for level, n in sorted(sites.items()))
+    return [
+        head
+        + f" **Every via2/via3 the ties draw is a {bl.DECAP_VIA_ARRAY}x"
+        f"{bl.DECAP_VIA_ARRAY} array of {cuts} cuts** (issue #465), so each of "
+        f"those {total} sites ({breakdown} -- the two met4->met2 risers' two "
+        f"levels each, plus the four via2 plate entries) contributes "
+        f"3.41/{cuts} = {3.41 / cuts:.3f} ohm instead "
+        "of 3.41. That is drawn on measurement in both directions: issue #440 "
+        "measured the single-cut ties at 13.837 / 13.448 ohm per domain with ~80 % "
+        "of it in those cuts, and "
+        "`sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md` then "
+        "measured that the resistance COSTS die-side bounce (worst rail 12.135 -> "
+        "16.180 mV peak-to-peak, 1.333x, at `tt_27c_1.80v`) rather than usefully "
+        "damping the package resonance."
+        "\n\n"
+        "  Three cuts in these paths are deliberately still single, which is why "
+        "the reduction is ~1.95x rather than the ~3x issue #440 projected: each "
+        "domain's two via4 landings off the met5 rails (`rcvia4` = 0.38 ohm/cut, "
+        "and the 1.6 um rail cannot enclose a second cut across it) and -- the "
+        "binding one -- **each `klt gen cap_array` unit cell's own centre via3 "
+        "into `capm`**, 3.41 ohm, which this composer does not draw and cannot "
+        "widen. That single cut is now the largest term in both supply ties, and "
+        "moving it is a generator change. See README.md's \"On-die decoupling "
+        "(DR-017)\"."
+    ]
 
 
 def _decoupling_section(
