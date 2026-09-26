@@ -161,6 +161,24 @@ so a change there cannot be attributed to supply impedance. They are still
 printed in full in every record: excluded from the comparison, not from the
 evidence.
 
+**And of those three, the `+0.00·V_REF` code is not a sensitivity metric
+either** — issue #455, settled by
+[DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md) and
+the probe record it rests on
+([`records/20260926-162049-476a8ab.md`](records/20260926-162049-476a8ab.md), see
+"The mid-scale boundary probe" below). That input places the comparator's
+**first** decision — the sign bit — about **1 µV** (`0.0003 LSB`) from its
+threshold, three orders of magnitude inside DR-004's stated `1.0148 mV`
+input-referred noise budget, while the die-side rail movement the non-ideal arms
+introduce spans `0.041 – 17.055 mV` across the ratified grid — **50× to
+~17,000×** that margin. Its outcome is therefore a coin flip with respect to
+all of them, and a coin flip is **not monotone in the perturbation** — which is
+exactly what the ratified grid's own `0.057 mV → 6 LSB` / `13.7 mV → 0 LSB`
+ordering shows. A code delta on that input is reported here as an observation,
+never as an `N LSB` sensitivity of a supply-return mechanism. The
+`±0.25·V_REF` codes carry the code comparison instead: they do not move in any
+arm at any ratified corner in any committed record of this campaign.
+
 **Which decoupling is in the deck changed on 2026-09-25, and a record's own
 `DUT netlist sha256` is how you tell which case it is.** This campaign always
 runs whatever `design/sar_adc_top.spice` commits; it adds no decoupling of its
@@ -246,6 +264,11 @@ python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --
 # it: each grid point's own deck over a truncated transient. Measures nothing
 # about the DUT, so it refuses --record.
 python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --cost-probe 400
+
+# the mid-scale boundary probe (issue #455 / DR-018): what this campaign's own
+# `+0.00*V_REF` code comparison does and does not measure. One corner, six
+# runs -- see "The mid-scale boundary probe" below.
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --midscale-probe --record
 
 # the exact invocation that produced the committed baseline-corner record
 # (records/20260925-073912-0e385e5.md; no-gnd-pad omitted on cost, see below):
@@ -727,6 +750,20 @@ rung is the committed `no-gnd-pad` arm *by construction* (asserted card for
 card, twice, in code), and reproduces it *numerically* to 3.2 % on a different
 machine.
 
+**A captured code can also disagree across hosts, and that is a sharper
+statement than a few percent** (issue #455, 2026-09-26). The mid-scale boundary
+probe below re-ran two committed decks of the ratified-grid record on host A:
+`ideal@fs_27c_1.80v` came back **identical to every printed digit** — all five
+codes and every per-rail average current to six significant figures — while
+`package-r-only@fs_27c_1.80v`, whose committed log (host B) reads mid-scale
+**505**, came back **511**, with its per-rail currents on the control's values.
+The two runs of that deck also differ 3–4× in how many timepoints the solver
+visited. So the reading rule above extends one step: a *code* difference between
+two decks is evidence of a circuit difference only if both decks are re-run on
+one host and the difference survives. The quantity that made this possible is
+not the solver's accuracy but the input's own margin — see the probe section and
+[DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md).
+
 **Cost, and why it could be paid now and not before.** This ladder was owed
 from the day `--sweep` landed, and was not run for the same reason the
 `no-gnd-pad` arm itself was not: a truncated-slice projection of roughly an
@@ -737,6 +774,114 @@ the projection implied. `--cost-probe` accepts `--null-sweep` as well, under
 exactly the same refusals (`--record`, `--log-cache`, `--supersedes` and a
 slice not shorter than the stimulus are all rejected), and `--null-sweep
 --corners` is refused for the same reason `--sweep --corners` is.
+
+## The mid-scale boundary probe (`--midscale-probe`)
+
+```sh
+python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --midscale-probe --record
+```
+
+**What it is for.** The ratified grid reported one code movement this
+campaign's own stated mechanism cannot produce: `package-r-only` at
+`fs_27c_1.80v` — the control plus a ~0.1 Ω series resistor per terminal,
+**0.057 mV** of die-side ground movement — read **505** on the `+0.00·V_REF`
+input against the control's **511**, while `package` (11.4 mV) and `no-gnd-pad`
+(13.7 mV) read 511 at the same corner. Nothing monotone in the excursion orders
+those three that way, so either something else moves that code or the code is
+not a measurement. Issue #455 asked which; this probe is the answer, and
+[DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md) is
+what it decided.
+
+**It is a diagnostic, not a campaign.** One corner (the anomaly's own), six
+runs, no spec row graded, no arm ranked. It refuses `--corners` and `--arms`,
+writes its own record, supersedes nothing and does not move `records/LATEST` —
+the same disposition as the two sweep modes.
+
+**The two things it does that the code comparison cannot:**
+
+1. **Reproduction, not assumption.** It re-runs the *committed decks* of the
+   anomalous point and of its control, and diffs the fresh measurements against
+   those points' own committed logs — parsed out of the logs, never transcribed
+   from a record's tables. The control is the mechanical check on the
+   comparison itself: if it does not reproduce, nothing else in the probe means
+   anything.
+2. **A per-trial margin, not a code.** Every variant's deck carries
+   `sim/full-conversion-transient/run_conversion.py`'s own
+   `--decision-margin-trace` cards (imported, identical instants), so each of
+   the ten bit trials of each traced mid-scale conversion reports the
+   comparator's *own* differential input at the instant it was asked to decide.
+   That is what separates "a late trial sitting a fraction of an LSB from its
+   threshold" from "a metastable **first** trial", which are different defects
+   with different consequences.
+
+**The perturbations are supply-unrelated by construction.** A `±0.1 LSB` DC
+differential input offset is applied as a *series source per input pin*, so the
+PWL schedule's breakpoint times — which the solver turns into timestep
+breakpoints — are bit-identical; the timestep variant replaces only the `.tran`
+card's requested step, leaving the stimulus, the stop time and every `.meas`
+instant alone. Neither touches the supply network, a device or the netlist. A
+mid-scale code that moves under those has moved for a reason this campaign does
+not measure.
+
+### What the probe found
+
+[`records/20260926-162049-476a8ab.md`](records/20260926-162049-476a8ab.md),
+five runs at `fs_27c_1.80v`:
+
+| variant | what differs from the control's own committed deck | mid-scale code | sign-trial (bit 9) margin |
+| --- | --- | --- | --- |
+| `ideal:as-committed` | — (the reproduction control) | **511** | `−0.0010 mV` (`−0.00028 LSB`) |
+| `package-r-only:as-committed` | ~0.1 Ω per supply terminal | **511** — committed log says **505** | `−0.0010 mV` |
+| `package-r-only:tran-step-0.25n` | the `.tran` requested step only | **511** | `+0.0020 mV` (`+0.00057 LSB`) |
+| `ideal:vin+0.1lsb` | `+0.1 LSB` of DC input offset | **512** | `+0.3510 mV` (`+0.09984 LSB`) |
+| `ideal:vin-0.1lsb` | `−0.1 LSB` of DC input offset | **511** | `−0.3540 mV` (`−0.10069 LSB`) |
+
+- **The control reproduces; the anomalous point does not.** `ideal@fs_27c_1.80v`
+  re-run from its own committed deck returns the committed log's numbers **to
+  every printed digit** — all five codes, and `I(VDD)`/`I(VPWR)`/`I(VREFP)` to
+  six significant figures. `package-r-only@fs_27c_1.80v` returns **511**, not the
+  committed log's 505, and its per-rail currents land on the *control's* values
+  (`2.11295 µA` against the control's `2.11351 µA`), which is what 0.1 Ω in
+  series with a ~7 µA rail should do. So the 6 LSB is not a reproducible property
+  of that deck.
+- **Exactly one decision of that conversion is anywhere near its threshold: the
+  sign bit, at ~1 µV.** The nine magnitude trials that follow are presented with
+  `+254.36`, `+127.46`, `+63.98`, `+32.24`, `+16.37`, `+8.43`, `+4.46`, `+2.48`
+  and `+1.49 LSB` — the smallest is `+5.245 mV`, and all nine are decided
+  correctly. The mid-scale conversion is therefore *not* a "low-order decisions
+  resolve a near-zero residual" case, which is what this campaign's own earlier
+  paragraph assumed.
+- **A solver-only change moves that margin by more than the margin itself.**
+  Halving the `.tran` step takes bit 9's input from `−0.0010 mV` to
+  `+0.0020 mV` — a 3 µV move that *changes its sign* — while every code stays
+  put. Both arms print the same margin at the same timestep, so the arm's own
+  contribution to this quantity is below the probe's 0.1 µV print resolution
+  while the numerical floor on it is a few µV. That is the whole anomaly in one
+  row: the thing that decides this conversion is smaller than the numerical noise
+  on it, let alone than the effect being measured.
+- **±0.1 LSB of DC input offset moves the code by exactly 1 LSB, and nothing
+  else moves.** `+0.1 LSB` → 512, `−0.1 LSB` → 511, with the sign-trial margin
+  tracking the offset 1:1 (`+0.3510` / `−0.3540 mV`). The `±0.25·V_REF` codes are
+  383 and 641 in **every** variant. So the `+0.00·V_REF` input sits on the
+  511/512 edge to within a tenth of an LSB, and a code read there measures where
+  the input sits on that edge — not the supply network.
+- **505 is not in that edge's neighbourhood.** The edge's two outcomes are 511
+  and 512. Reaching 505 needs the bit-2 trial to decide the other way, and that
+  trial is presented with `+15.694 mV` (`+4.46 LSB`) — `275×` the R-only arm's
+  entire die-side ground excursion at this corner, and more than any arm's there.
+  The magnitude search is not reachable by this campaign's perturbations at all.
+- **What the probe does not establish**, and says so in its own Findings: the
+  trajectory *inside* the recorded 505 run. It is not reproducible here, so its
+  per-trial margins cannot be recovered after the fact. Running this probe on a
+  host where the mid-scale code does move is what would name the diverging trial.
+
+**Cost, and restartability.** Five whole-ADC transients, `1008 – 1730 s` each
+(~1.6 h). The probe goes through the campaign's own identity-gated
+`--log-cache` (keyed by `arm+perturbation@corner`), so an interrupted probe does
+not re-simulate the variants that already finished — which is not a hypothetical
+convenience: the first attempt at this box lost four finished runs when a
+fifth variant, then implemented with a series offset source, blew a 5400 s
+budget the same deck finishes in ~900 s without it.
 
 ## Why the corner grid arrives in pieces
 
@@ -878,7 +1023,15 @@ reading rule above.
   networks, and is tracked as its own issue
   ([#455](https://github.com/2AMLogic/sky130-sar-adc/issues/455)) rather than
   folded into a supply claim. Read the record's `package-r-only` "worst 6 LSB" finding with this
-  paragraph beside it.
+  paragraph beside it. **#455 is now answered** — see "The mid-scale boundary
+  probe" below and
+  [DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md) —
+  and it answered two things this paragraph had wrong: the near-zero residual is
+  at the **sign** trial, not the "low-order decisions" (every magnitude trial of
+  that conversion has ≥1.49 LSB of margin), and the 505 does **not** reproduce
+  on a second host from that point's own committed deck, while the `ideal`
+  control at the same corner reproduces to every printed digit. "Deterministic"
+  was true of the host that minted it and is not a property of the deck.
 - **The decoupled `package` point DR-017 left unmeasured is in this record**
   as a by-product: `package@tt_27c_1.80v` = **9.709 mV** `GND_DIE` pp on the
   `MF = 2` netlist. It is quoted here for #448 to grade, not graded here —

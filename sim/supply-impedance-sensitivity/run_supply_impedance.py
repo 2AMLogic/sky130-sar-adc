@@ -3301,14 +3301,16 @@ PERTURBATIONS: tuple[Perturbation, ...] = (
     AS_COMMITTED,
     Perturbation(
         "vin+0.1lsb",
-        "the same deck with a +0.1 LSB DC differential input offset (a series DC "
-        "source per input pin; the PWL schedule, the supply network and the DUT "
-        "are untouched)",
+        "the same deck with a +0.1 LSB DC differential input offset, applied to "
+        "the LEVELS of the committed fragment's own two input PWL cards -- every "
+        "breakpoint time, every node and the supply network are the committed "
+        "deck's",
         vin_offset_lsb=+0.1,
     ),
     Perturbation(
         "vin-0.1lsb",
-        "the same deck with a -0.1 LSB DC differential input offset",
+        "the same deck with a -0.1 LSB DC differential input offset, applied the "
+        "same way",
         vin_offset_lsb=-0.1,
     ),
     Perturbation(
@@ -3574,6 +3576,7 @@ def run_midscale_probe_variant(
     # collide with the arm comparison's own cache entry for the same arm.
     point_id = f"{arm.name}+{perturbation.name}@{cid}"
     cached = load_cached_run(log_cache, point_id, deck, pdk_info)
+    reused = cached is not None
     if cached is not None:
         log_text, wall_s = cached
         print(f"  reusing cached log for {point_id} ({wall_s:.0f}s when it ran)", flush=True)
@@ -3600,6 +3603,7 @@ def run_midscale_probe_variant(
         extras={name: parsed.get(name) for name in extra_measure_names(arm)},
         missing=measure.missing(parsed, names),
         wall_s=wall_s,
+        reused=reused,
         deck_text=deck,
         log_text=log_text,
     )
@@ -3906,7 +3910,19 @@ def write_midscale_probe_record(
         for c in MIDSCALE_PROBE_CONVERSIONS:
             code = _conv_code(p, c)
             cells.append("n/a" if code is None else str(code))
-        a(f"| `{p['variant']}` | " + " | ".join(cells) + f" | {p['wall_s']:.0f} |")
+        wall = f"{p['wall_s']:.0f}" + (
+            " (log reused from cache)" if p.get("reused") else ""
+        )
+        a(f"| `{p['variant']}` | " + " | ".join(cells) + f" | {wall} |")
+    a("")
+    a(
+        "A row marked **log reused from cache** was not re-simulated for this "
+        "record: the campaign's own identity-gated `--log-cache` found a stored "
+        "log whose deck sha256, volare-verified open_pdks commit and ngspice "
+        "version all matched the run about to be made, and the wall clock shown "
+        "is the one measured when that run actually executed (same mechanism, "
+        "same gate, same disposition as the arm-comparison records)."
+    )
     a("")
     a(
         f"The ideal code for `+0.00*V_REF` is {tb.ideal_code(0.0)} "
@@ -3940,7 +3956,7 @@ def write_midscale_probe_record(
                 cells.append("n/a")
             else:
                 cells.append(
-                    f"{tr['v_in_mv']:+.4f} mV ({tr['v_in_lsb']:+.3f} LSB) -> d{bit}={tr['dout']}"
+                    f"{tr['v_in_mv']:+.4f} mV ({tr['v_in_lsb']:+.4f} LSB) -> d{bit}={tr['dout']}"
                 )
         a(f"| {bit} | " + " | ".join(cells) + " |")
     a("")

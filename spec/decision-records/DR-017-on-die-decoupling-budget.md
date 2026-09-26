@@ -758,7 +758,14 @@ the full ratified nine-point grid, `package` arm, `GND_DIE` peak-to-peak —
   *different* corner from the analog node's worst.
 - **Worst mid-scale |Δcode| on the `package` arm across all nine points = 1 LSB**
   (that record's own Findings). The decoupled design moves at most one code
-  anywhere on the ratified grid.
+  anywhere on the ratified grid. **Read with
+  [DR-018](DR-018-midscale-code-metastable-msb.md):** that `|Δcode|` is read on
+  the `+0.00·V_REF` input, which places the comparator's *first* (sign) decision
+  ~1 µV from its threshold — so the 1 LSB is a coin flip with respect to the
+  decoupling too, not a decoupling sensitivity, and this Amendment's
+  quantitative case is the two excursion bullets above it. The `±0.25·V_REF`
+  codes, which do not move anywhere in that record, are the code evidence that
+  survives.
 
 **This is not a worst-case comparison against the undecoupled design**, and must
 not be quoted as one: the undecoupled baseline was only ever run at

@@ -3452,6 +3452,9 @@ tracker already owns.
    > **DR-017**
    > (`spec/decision-records/DR-017-on-die-decoupling-budget.md`) is
    > **proposed**.
+   > **DR-018**
+   > (`spec/decision-records/DR-018-midscale-code-metastable-msb.md`) is
+   > **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
@@ -4443,7 +4446,28 @@ tracker already owns.
      for bit on an uncached re-run and is tracked on its own, per this
      section's rule that an open item points at the issue that already owns
      the work, as **#455** — filed by the same PR that minted this record, so
-     no second tracker is opened here for it. What stays open is item 4 alone
+     no second tracker is opened here for it. **#455 has since closed
+     (2026-09-26), and its answer retires the whole `+0.00·V_REF` column as a
+     sensitivity metric rather than explaining the 6 LSB.**
+     [`sim/supply-impedance-sensitivity/records/20260926-162049-476a8ab.md`](../../sim/supply-impedance-sensitivity/records/20260926-162049-476a8ab.md)
+     re-ran that point's own committed deck and its control on a second host at
+     the pinned PDK commit: the `ideal` control reproduced to every printed
+     digit, and the `package-r-only` point did **not** — it read the control's
+     511, with its per-rail currents on the control's values. With per-bit-trial
+     comparator-margin probes on every variant, the mid-scale conversion has
+     exactly one decision anywhere near its threshold — the **sign bit**, at
+     about **1 µV** (`0.0003 LSB`), three orders of magnitude inside DR-004's
+     stated `1.0148 mV` input-referred noise budget — while all nine magnitude trials are
+     presented with ≥ **1.49 LSB**. Since `DOUT9` gates all nine `SELn`/`SELp`
+     pairs and the offset-binary recode, a disturbance there re-runs the whole
+     magnitude search rather than nudging one bit, which is why a *multi*-LSB
+     mid-scale code is its expected signature.
+     [DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md)
+     states the consequence: this campaign's supply-return claims rest on the
+     die-side excursions and on the `±0.25·V_REF` codes, and no mid-scale code
+     delta — the 6 LSB or the 1 LSB — may be quoted as a sensitivity of a
+     supply-return, package-parasitic or decoupling mechanism. Every excursion
+     figure in this paragraph is unaffected. What stays open is item 4 alone
      (an extracted substrate network), for the reason it states; DR-015's own
      "Open items" carries this same item 1 retirement in its own words, struck
      through and marked **CLOSED for the arm comparison**.
@@ -4538,7 +4562,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **108** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **109** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      Read this census the way it already reads itself: **a floor on the gap,
@@ -4824,7 +4848,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **67** of the **67** records under `sim/*/records/` name both an
+  > **68** of the **68** records under `sim/*/records/` name both an
   > `ngspice` version and a 40-hex `open_pdks` commit, while of the **69**
   > records under `layout/*/reports/` and `layout/*/erc-reports/` **68** name
   > a `klt` version and **36** name the `open_pdks` commit.
