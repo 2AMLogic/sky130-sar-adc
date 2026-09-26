@@ -4227,7 +4227,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **107** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **108** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      Read this census the way it already reads itself: **a floor on the gap,
@@ -4465,7 +4465,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **66** of the **66** records under `sim/*/records/` name both an
+  > **67** of the **67** records under `sim/*/records/` name both an
   > `ngspice` version and a 40-hex `open_pdks` commit, while of the **67**
   > records under `layout/*/reports/` and `layout/*/erc-reports/` **66** name
   > a `klt` version and **34** name the `open_pdks` commit.

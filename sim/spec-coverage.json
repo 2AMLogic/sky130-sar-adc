@@ -406,6 +406,18 @@
           "documented_in": "sim/supply-impedance-sensitivity/README.md",
           "covers": "The same per-rail average current/power again, at the first NON-baseline point of the ratified corner set any record of this campaign contains (issue #409 item 1): the ideal control and the as-built package arm at tt_27c_1.80v and the slow-process corner ss_27c_1.80v. A separate bench entry from the ones above because a corner subset changes what was simulated and therefore reaches the record footer -- so every widening of the subset is its own indexed invocation rather than a re-run of an existing one. Two of nine ratified points and two of five arms: the record states its own Subset-corner justification, and the seven remaining points stay open on #409 -- including ff_27c_1.80v and tt_-40c_1.80v, where the fastest edges should make the largest excursion. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT power figures move with the corner (26.97 uW ideal / 26.81 uW package at ss, against 27.96 / 27.25 at tt), and the die-side ground excursion is SMALLER at the slow corner (28.472 mV against 37.590 mV), which is why ss may not be quoted as this campaign's worst corner.",
           "records": ["sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power once more, over the WHOLE ratified corner set for every arm the runner implements (issue #409 item 1): all five supply-return networks x the nine ratified OAT points = 45 whole-ADC transients, on the as-committed DECOUPLED design/sar_adc_top.spice (DR-017's one MiM cap per supply domain), so it is compared with nothing minted on the undecoupled netlist -- the records above measure a different DUT sha256 on purpose. A separate bench entry because --corners changes what was simulated and reaches the record footer. No Subset-corner justification is owed: every ratified point is present. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT total power of the ideal control across the grid spans 21.60 uW (tt_27c_1.62v) to 34.24 uW (tt_27c_1.98v), with the supply corners bounding it rather than process or temperature; and the largest die-side analog-ground excursion of the as-built package arm is at the fast-process corner ff_27c_1.80v (13.964 mV), not at the baseline.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md"]
         }
       ]
     },
