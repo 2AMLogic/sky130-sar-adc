@@ -1,0 +1,36 @@
+# .loom/resync-ignore — paths Loom must not overwrite or delete.
+#
+# Format: one `.loom/`-relative path per line, exact match (no globs). Blank
+# lines and `#` comments ignored. See `.loom/docs/repo-owned-files.md`.
+#
+# ---------------------------------------------------------------------------
+# Issue #475 — local fix to worktree.sh's stale-worktree reset decision
+# ---------------------------------------------------------------------------
+#
+# `worktree.sh`'s "worktree directory already exists and is registered with
+# git" fast path decided preserve-vs-reset from only two inputs (commits ahead
+# of BASE_REF, uncommitted changes). A worktree whose HEAD is a STRICT ANCESTOR
+# of its own pushed tip `origin/<branch>` — the normal shape of a branch that
+# carries an open PR pushed by an earlier pass — scored 0-ahead and clean, so
+# the script reset the local branch ref backwards to BASE_REF (main), past the
+# PR's head. Under `LOOM_FORCE_SCOPE=protected` (which the daemon exports so
+# headless agents can force-push their own branch) the next commit+push from
+# that reset state would have erased the open PR's commits on the remote.
+# Observed 2026-09-26 on `feature/issue-121` / PR #470; recovered by hand.
+#
+# Disposition per `.loom/docs/repo-owned-files.md` §"Before you hand-edit an
+# installed file, stop": the preferred move is (a) upstream the fix in
+# `rjwalters/loom`'s `defaults/scripts/worktree.sh`. That is NOT available to
+# this workspace — the forge credentials here are a GitHub App installation
+# token scoped to the `2AMLogic` org only (`gh api repos/rjwalters/loom` reports
+# `permissions: {pull:false, push:false, …}`, `gh api user` → 403, and there is
+# no `2AMLogic/loom` fork to push a branch to). So this repo takes move (b):
+# apply the fix locally and pin the path, with the divergence declared here.
+#
+# RETIRING THIS PIN: once the same fix lands upstream in
+# `rjwalters/loom`'s `defaults/scripts/worktree.sh`, delete both lines below
+# and let the next `chore: resync installed Loom surfaces` pass take the
+# upstream copy. Until then a resync would silently revert the fix and delete
+# its regression test.
+scripts/worktree.sh
+scripts/tests/test-worktree-stale-reset-preserves-pushed-tip.sh

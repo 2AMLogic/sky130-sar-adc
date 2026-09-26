@@ -531,6 +531,65 @@ _worktree_upstream_check() {
     return 0
 }
 
+# _worktree_head_behind_pushed_tip <worktree-path>  (#475, LOCAL DIVERGENCE)
+#
+# True (exit 0) when the worktree's HEAD is a STRICT ANCESTOR of the branch's
+# own pushed tip, `origin/$BRANCH_NAME` — i.e. the remote holds commits this
+# checkout does not. That is the ordinary shape of a branch carrying an OPEN
+# PR whose head was pushed by an earlier pass, and it is precisely the state
+# the preserve/reset decision below used to misread as "stale".
+#
+# WHY THIS EXISTS. That decision keys on `$BASE_REF..HEAD` (commits ahead of
+# main) and `git status --porcelain` only. A worktree parked at a plain `main`
+# commit is legitimately 0-ahead and clean, so it scored as stale and the
+# branch ref was `git reset --hard`-ed back to BASE_REF — moving the LOCAL ref
+# backwards past its own pushed tip. The drift report `_worktree_upstream_check`
+# prints immediately above ("is behind the pushed tip of branch …") had already
+# computed exactly this fact and then discarded it. Under
+# `LOOM_FORCE_SCOPE=protected` — which `loom-daemon-start.sh` exports so a
+# headless agent can force-push its own branch without an unanswerable guard
+# ASK — the next commit-and-push from that reset state force-pushes `main + 1`
+# over `origin/$BRANCH_NAME` and ERASES the open PR's commits, recoverable only
+# from a remote reflog nobody holds. Observed 2026-09-26 on `feature/issue-121`
+# (open PR #470); this repo's issue #475.
+#
+# STRICT ancestor, not mere inequality: a branch whose local commits have not
+# been pushed yet (HEAD ahead of, or diverged from, the pushed tip) is already
+# preserved by the `local_commits_ahead` arm, and a squash-merged branch whose
+# ref still lingers on origin is NOT an ancestor of anything the worktree is
+# sitting on — so the legitimately-stale reset path (a worktree on a landed or
+# never-pushed branch) is untouched and still resets exactly as before.
+#
+# The fetch: `_worktree_upstream_check` already refreshes
+# `refs/remotes/origin/$BRANCH_NAME` — but ONLY when a daemon binary resolved,
+# and it documents its own no-daemon degradation as "a lost diagnosis, not a
+# lost file". Here the degradation WOULD be a lost file (the reset is
+# destructive and the loss is on a remote), so this guard refuses to inherit
+# it: with no daemon it fetches the one ref itself. Best-effort — a repo that
+# cannot be reached simply leaves the remote-tracking ref as-is, and we fall
+# back to today's behaviour rather than blocking worktree creation.
+_worktree_head_behind_pushed_tip() {
+    local wt="$1"
+    local head_sha origin_tip
+
+    [[ -n "${BRANCH_NAME:-}" ]] || return 1
+
+    if [[ -z "${_WT_DAEMON_BIN:-}" ]]; then
+        git -C "$wt" fetch --quiet origin \
+            "+refs/heads/$BRANCH_NAME:refs/remotes/origin/$BRANCH_NAME" \
+            >/dev/null 2>&1 || true
+    fi
+
+    origin_tip="$(git -C "$wt" rev-parse --verify --quiet \
+        "refs/remotes/origin/$BRANCH_NAME" 2>/dev/null)" || return 1
+    [[ -n "$origin_tip" ]] || return 1
+
+    head_sha="$(git -C "$wt" rev-parse --verify --quiet HEAD 2>/dev/null)" || return 1
+    [[ -n "$head_sha" && "$head_sha" != "$origin_tip" ]] || return 1
+
+    git -C "$wt" merge-base --is-ancestor "$head_sha" "$origin_tip" 2>/dev/null
+}
+
 # Shared preamble for the two `loom_exec_script_helper` verbs below (`remove`,
 # and the WIP trio): source lib/script-helper.sh, or exit 2 naming $1. The exec
 # line itself deliberately stays in each caller with its subcommand spelled
@@ -1550,7 +1609,19 @@ if [[ -d "$WORKTREE_PATH" ]]; then
         # remediation hint agrees with the preserve/reset decision below.
         _worktree_upstream_check registered-worktree "$WORKTREE_PATH" "$local_uncommitted"
 
-        if [[ "$local_commits_ahead" -gt 0 || -n "$local_uncommitted" ]]; then
+        # #475: the third input to this decision. The two above only see work
+        # that is LOCAL (committed ahead of the base, or uncommitted); a branch
+        # whose work lives on the remote — the shape of an open PR pushed by an
+        # earlier pass, with this checkout parked at an ancestor commit — scored
+        # 0-ahead and clean and was reset backwards past its own pushed tip. See
+        # _worktree_head_behind_pushed_tip above for the force-push hazard that
+        # creates. Preserve instead: the drift report already printed the
+        # `pull --ff-only` remediation, so the resync stays the caller's
+        # explicit act rather than something this script does under them (which
+        # is also the contract test-worktree-existing-dir-drift-check.sh Test 1
+        # pins: warn, never move HEAD).
+        if [[ "$local_commits_ahead" -gt 0 || -n "$local_uncommitted" ]] \
+           || _worktree_head_behind_pushed_tip "$WORKTREE_PATH"; then
             # Worktree has real work - preserve it
             # Back-fill/refresh the Loom sentinel so a resumed worktree that
             # lost its marker stays cleanup-eligible (#3548).
@@ -1561,6 +1632,10 @@ if [[ -d "$WORKTREE_PATH" ]]; then
                     print_info "Worktree has $local_commits_ahead commit(s) ahead of main - preserving existing work"
                 elif [[ -n "$local_uncommitted" ]]; then
                     print_info "Worktree has uncommitted changes - preserving existing work"
+                else
+                    # Only reachable via the #475 arm: 0 ahead, clean tree, but
+                    # HEAD is a strict ancestor of the branch's pushed tip.
+                    print_info "Worktree is behind the pushed tip of 'origin/$BRANCH_NAME' - preserving the branch ref instead of resetting it to $BASE_DISPLAY (resync with the 'pull --ff-only' above)"
                 fi
                 echo ""
                 print_info "To use this worktree: cd $WORKTREE_PATH"
