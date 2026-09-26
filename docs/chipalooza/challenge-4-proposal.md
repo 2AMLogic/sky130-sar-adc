@@ -2679,7 +2679,9 @@ tracker already owns.
    re-check additionally flagged, at 15:00:40Z, that `main` has since moved
    underneath the held PR (`mergeStateStatus: DIRTY` against merge base
    `0d5a4ff5`, 3 shared files, classified "possible structural overlap" —
-   a rebase read, not necessarily a conflict) without itself acting on it.
+   a rebase read, not necessarily a conflict) without itself acting on it —
+   a read that has since hardened into an actual conflict (see the
+   2026-09-26 update at the end of this item).
    None of this changes what #401 waits on: PR #402 still has to merge, by a
    human, and this document still only reports that state rather than acting
    on it, the same restraint it already states for #103. So `layout/top-glue/` (not in this tree)
@@ -2777,7 +2779,8 @@ tracker already owns.
    [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice)), was promoted
    to `loom:issue` at 06:11:36Z, and has carried `loom:building` since
    07:28:07Z (a second claim, after a first from 06:42:18Z was released at
-   07:27:52Z) — open, with no PR yet. #431 went the other way: it moved from
+   07:27:52Z) — open, with no PR yet, as of that pass (it has since closed;
+   see the 2026-09-26 update at the end of this item). #431 went the other way: it moved from
    `loom:building` to `loom:blocked` at 07:24:23Z, with its own comment naming
    the reason — AC1 closed by PR #449, AC3 by PR #458 (DR-017's Amendment A,
    which Item 9 below carries), and AC2, the layout placement and
@@ -2878,6 +2881,52 @@ tracker already owns.
    from the tree, not pinned — and leaves every dated form alone, for the
    reason §4's paragraph under the readout gives and
    [`docs/citation-gate.md`](../citation-gate.md) argues at length.
+
+   **Update this pass (2026-09-26, re-verification) — three tracking-state
+   moves, no verdict or number moves.** Re-read live this pass (`gh api
+   repos/2AMLogic/sky130-sar-adc/issues/<N>` and `…/events`, for #103, #387,
+   #401, #402, #431 and #440):
+   (a) **#440 is closed** (`state: closed`, `state_reason: completed`,
+   2026-09-26T10:21:48Z), by PR #466 merging at 10:21:47Z as `6fc02f0` —
+   the pass the update above narrates, so the "open, with no PR yet" of
+   this item's earlier 2026-09-26 update is corrected in place to a
+   dated reading. One label oddity is recorded rather than acted on: one
+   minute after closure (10:22:49Z) `loom:issue` was re-added to the
+   closed issue, so a label-only query would still list #440 as ready work;
+   its `state` is authoritative.
+   (b) **#431 is closed too** (`state: closed`, `state_reason: completed`,
+   2026-09-26T12:57:04Z). #431 had been `loom:blocked` since 07:24:23Z,
+   and its 07:24:25Z comment named #440 as the only blocker. Once #440
+   closed, a curator re-check at 12:57:03Z confirmed all three acceptance
+   criteria had landed and closed the issue: AC1 by PR #449 (DR-017), AC2
+   by PR #466 (placement plus the DRC/LVS/ERC re-run, via #440) and AC3 by
+   PR #458 (DR-017's Amendment A, graded against the decoupled campaign
+   record). Nothing in this document changes as a result, because §4
+   already cites the re-run record directly.
+   (c) **PR #402 has drifted from "possible structural overlap" into an
+   actual conflict**: Champion's held-PR notice at 2026-09-25T19:35:05Z
+   reports `mergeable` now `CONFLICTING`, and `gh api
+   repos/2AMLogic/sky130-sar-adc/pulls/402` this pass returns `mergeable:
+   false`, `mergeable_state: dirty`, `merged_at: null`, still carrying
+   `loom:pr` + `loom:operator`. So it now needs a rebase *and* a human
+   merge, not only the latter; #401 (open, `loom:blocked` — and, not
+   noted by earlier passes, also `loom:triage` since 2026-09-25T05:01:25Z)
+   still waits on it, per its curator's 06:47:43Z re-check
+   (`DEPS=402:OPEN`, unchanged fingerprint). #387 is unchanged (open,
+   `loom:blocked`, last touched 2026-09-25T11:29:20Z).
+   **Unchanged, re-verified this pass**: #103 is still open with exactly
+   `loom:operator-only`, `loom:operator-decision`, `loom:curated` and
+   `tier:goal-advancing` and `updated_at: 2026-09-26T00:13:21Z` (no activity
+   since the comment the update above records); `klayout-tools`'s latest
+   tag and PyPI release are still `v0.6.0`, and the compares from `v0.6.0`
+   to `a34fd79` / `c01c50c` / `2808823` still report `ahead_by` 51 / 54 / 43
+   with `behind_by: 0` — none of the three fixes has shipped;
+   `layout/sar-adc-top/reports/LATEST` is still `20260926-081248-203cca3`,
+   the record §4 is restated from; and `rules-4.html` still returns HTTP
+   404, so acceptance criterion 4's slot-budget re-check is still not
+   triggered. **No §4 verdict moves**: both sign-off-bar rows keep the
+   grades they carry, and criterion 3 still waits on #103's release-gated
+   `klt lvs` re-run and on #401's composition.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
