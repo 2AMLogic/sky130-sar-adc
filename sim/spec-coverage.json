@@ -103,10 +103,13 @@
             "sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice",
             "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice"
           ],
-          "cold_start": "python3 sim/sampling-cdac-handoff/run_handoff.py --record",
+          "cold_start": "python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record",
           "documented_in": "sim/sampling-cdac-handoff/run_handoff.py",
-          "covers": "The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95).",
-          "records": ["sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md"]
+          "covers": "The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95), and -- at that same assembled top-plate load -- the acquisition residual at the DR-006 worst-case phase budget across the ratified PVT grid (issue #469).",
+          "records": [
+            "sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md",
+            "sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md"
+          ]
         },
         {
           "experiment": "cdac-array-transfer",

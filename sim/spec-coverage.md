@@ -27,7 +27,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 
 | Spec row | Status | Coverage | Testbench(es) | Evidence record(s) |
 |---|---|---|---|---|
-| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
+| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20260926-231457-ebf79e8.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
 | Resolution `N` | RATIFIED | benched (ratified, graded pass/fail) | `sim/sar-sequencer-behavioral` | `20260827-211956-e13bc1e.md` |
 | Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20260907-013225-5f176a6.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20260912-002315-9aaf1ca.md` |
 | ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate` | `20260828-005033-0c70212.md` |
@@ -56,13 +56,14 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Documented in: `sim/sampling-frontend/run_transient.py`
 - Evidence: `sim/sampling-frontend/records/20260821-072657-433a294.md`
 
-**`sim/sampling-cdac-handoff`** — The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95).
+**`sim/sampling-cdac-handoff`** — The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95), and -- at that same assembled top-plate load -- the acquisition residual at the DR-006 worst-case phase budget across the ratified PVT grid (issue #469).
 
 - Testbench: `sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice`, `sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice`
 - Runner: `sim/sampling-cdac-handoff/run_handoff.py`
-- Cold start: `python3 sim/sampling-cdac-handoff/run_handoff.py --record`
+- Cold start: `python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record`
 - Documented in: `sim/sampling-cdac-handoff/run_handoff.py`
 - Evidence: `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`
+- Evidence: `sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md`
 
 **`sim/cdac-array-transfer`** — Charge redistribution: the array's own code-to-output transfer characteristic (issue #53).
 
