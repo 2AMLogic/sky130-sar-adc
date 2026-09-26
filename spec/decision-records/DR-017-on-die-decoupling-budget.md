@@ -5,9 +5,26 @@
   inherits the same provisional status as every record still resting on
   DR-003's DRAFT numeric inputs.
 - **Date**: 2026-09-25
-- **Decided by**: Builder agent, issue #431
+- **Amended**: 2026-09-26 — **Amendment A (issue #431)**, at the end of this
+  record: the shipped value's own `package`-arm excursion has since been
+  measured, and it **refutes the `1/√C` model** this record's Decision §3
+  reasons from and whose name is in the title above. **Read Amendment A before
+  quoting any capacitance-scaling claim from the body below** — in particular
+  the fitted `C_die ≈ 9.21 pF`, the `26.64 mV` prediction, and the
+  "`≈ 1.03 nF` per domain / 4.7× the composed die" arithmetic, all three of
+  which the amendment retracts. **Decision §1, §2 and §6 stand unchanged**
+  (the device, its `MF = 2` value, and the deferral of placement); §3's
+  *criterion* and §5's *deferral* are restated; §4's target verdict is
+  unchanged in outcome and strengthened in reason. Nothing in the body is
+  deleted or rewritten — a decision record's history is the point of having
+  one.
+- **Decided by**: Builder agent, issue #431 (body and Amendment A)
 - **Supersedes**: none
-- **Superseded by**: (none while this record stands)
+- **Superseded by**: (none while this record stands; Amendment A amends it in
+  place rather than superseding it — the decision itself, one
+  `sky130_fd_pr__cap_mim_m3_1` per supply domain at `MF = 2`, survives the
+  refutation of the model that was used to argue for it, and is better
+  supported afterwards than before)
 - **Related**: #431 (this decision and its implementation), DR-010
   (`DR-010-digital-supply-domain-partition.md`, whose "On-die decoupling for
   either domain is not designed, budgeted, or measured" open item this record
@@ -157,6 +174,15 @@ through those two points puts the design's own supply-pair capacitance at
 prediction from two points, not a measurement**, and the thing #448 exists to
 confirm or refute.
 
+> **REFUTED — read Amendment A.** The `MF = 2` point has since been measured at
+> **9.709 mV**, 2.74× *below* this prediction. The response is not `1/√C`; it
+> **saturates**, and 98.2 % of the reduction that 16× more capacitance achieves
+> is already delivered at `MF = 2`. The fitted `C_die ≈ 9.21 pF` and every
+> number derived from it (including the `1.03 nF` / 4.7-die-area figure below)
+> are retracted by Amendment A. The *direction* of this paragraph's finding —
+> that capacitance buys far less than proportionally — survives; its *law*,
+> and therefore its claim that there is no knee to size to, does not.
+
 ### The as-committed netlist: two arms that did complete
 
 Both ran `design/sar_adc_top.spice` at DUT netlist
@@ -213,9 +239,14 @@ record's.
 
 **Consequence, stated before the decision so the decision is read against it:
 1 LSB is not reachable on this axis.** `1 LSB_diff = 2·V_REF/2^N = 3.5156 mV`
-(DR-003 Item 2). Under the fitted law, reaching it from 37.333 mV needs
+(DR-003 Item 2). ~~Under the fitted law, reaching it from 37.333 mV needs
 `C_d ≈ 112 × C_die ≈ 1.03 nF` per domain — about **510,000 µm²** of MiM,
-**4.7× the composed die**. On-die decoupling therefore *improves* this number;
+**4.7× the composed die**.~~ **That arithmetic is retracted by Amendment A**:
+it is a consequence of the refuted `1/√C` law, and the measured response
+implies something stronger, not milder — the target is unreachable at *any*
+on-die supply-pair capacitance, because the excursion bottoms out near
+9.2 mV (2.6 LSB) and 16× the shipped allocation moves it 1.8 %. On-die
+decoupling therefore *improves* this number;
 it does not *solve* it. The lever that does is the bond inductance itself (a
 packaging decision this repo has not made — DR-015's own closing consequence),
 and that is where the residual is booked.
@@ -233,7 +264,11 @@ and that is where the residual is booked.
 3. **The sizing criterion is an area budget, not a bounce target**, because the
    measurement above shows a bounce target cannot be the criterion: the
    response is ~1/√C, so there is no knee to size to, and the value that would
-   meet 1 LSB is ~4.7 die-areas of MiM. The budget is stated plainly and is a
+   meet 1 LSB is ~4.7 die-areas of MiM. **[Amendment A restates this clause:
+   there *is* a knee, `MF = 2` is at or past it, and the criterion is now that
+   measured knee rather than the 10 % area budget — which the shipped value
+   satisfies incidentally, and which must no longer be read as licence to
+   *raise* `MF` if more met3/met4 turns out to be free.]** The budget is stated plainly and is a
    choice, not a derivation: **≤ 10 % of the composed die's footprint across
    both domains**, on the argument that a back-end-of-line device drawn over
    existing sub-blocks costs routing real estate rather than silicon, and that
@@ -354,12 +389,14 @@ sense DR-010/DR-012/DR-015 do.
 
 - **The target in Decision §4 is not met, and is not claimed.** The as-shipped
   `MF = 2` excursion ~~is unmeasured (#448)~~ has since been measured at
-  9.709 mV `GND_DIE` pp (`records/20260926-050045-8e62675.md`; grading it
-  against this record is #448's); the value the two-point fit predicts
-  for it, 26.64 mV, is 7.6× the 3.5156 mV target, and the *best affordable*
+  9.709 mV `GND_DIE` pp (`records/20260926-050045-8e62675.md`; ~~grading it
+  against this record is #448's~~ **graded in Amendment A**); ~~the value the
+  two-point fit predicts for it, 26.64 mV, is 7.6× the 3.5156 mV target~~ **the
+  measured 9.709 mV is 2.76× the 3.5156 mV target**, and the *best affordable*
   point measured on this axis — a MiM area 1.3× the whole die — is still 2.6×
   it. No reading of this record supports a claim that the die-side bounce meets
-  1 LSB.
+  1 LSB. **Amendment A adds the worst corner of the ratified grid: 13.964 mV
+  (3.972 LSB) at `ff_27c_1.80v`, on the as-shipped netlist.**
 - **Captured code is unchanged wherever it has been checked.** Both completed
   arms on the as-committed netlist reproduce the baseline record's captured
   codes exactly (214 / 383 / 511 / 641 / 1023), as does the `MF = 32` probe on
@@ -459,14 +496,21 @@ sense DR-010/DR-012/DR-015 do.
   this die — has never been driven through a realistic impedance. Until it is,
   neither this record nor DR-015 can say what fraction of the residual
   `GND_DIE` excursion is even *addressable* by supply-pair decoupling.
-- **The worst-case PVT grid is still owed**, unchanged from DR-012's and
+- ~~**The worst-case PVT grid is still owed**, unchanged from DR-012's and
   DR-015's standing items and #409's scope: this record's numbers are one
   corner (`tt_27c_1.80v`). When #409 lands a full-grid re-run on `main`, it
   should be run **with** this record's decoupling in the netlist too, so the
   worst-corner bounce is known for the as-decided design and not only for the
-  undecoupled baseline. Note also that the MiM area coefficient itself moves
-  ±11 % across the PDK's own cap corners, which this single nominal-corner
-  measurement does not exercise.
+  undecoupled baseline.~~ **Done, exactly as asked**:
+  `records/20260926-050045-8e62675.md` is that full-grid re-run and it ran on
+  the as-shipped decoupled netlist; Amendment A reads the worst corner off it
+  (13.964 mV `GND_DIE` pp at `ff_27c_1.80v`). **What stays open**: the
+  undecoupled baseline is still one corner, so there is no worst-corner-to-
+  worst-corner decoupled/undecoupled comparison — only the `tt_27c_1.80v` pair.
+  And note that the MiM area coefficient itself moves
+  ±11 % across the PDK's own cap corners, which **neither** that grid nor this
+  record's own nominal-corner sizing exercises: the grid walks
+  process/temperature/voltage, not the PDK's `mim` cap corner.
 - **The residual belongs to the package, and no packaging decision exists.**
   The gap between the measured excursion and Decision §4's 3.5156 mV target is
   set by bond inductance, which this repo has not chosen. DR-015's own closing
@@ -483,3 +527,259 @@ sense DR-010/DR-012/DR-015 do.
   resistance and inductance of however it is eventually routed will erode the
   measured benefit. Flagged, not modelled — and one more reason the layout pass
   above is a re-measurement, not just a placement.
+
+## Amendment A (issue #431, 2026-09-26): the `1/√C` model is refuted by the shipped value's own measurement
+
+**Read this section before quoting any capacitance-scaling number from the body
+above.** The body sized `MF = 2` without ever measuring `MF = 2` on the arm the
+sizing argument is about, and said so plainly — the row was left blank and
+tracked as #448. That measurement now exists, on `main`, on the as-committed
+netlist, and it **refutes the `1/√C` law the body fitted through its other two
+points**. The refutation runs in the design's favour: the shipped capacitor is
+**2.7× more effective than the body predicted**, and the reason the 1 LSB
+target is unreachable is stronger and simpler than the body's arithmetic said.
+
+**Decision §1, §2 and §6 stand unchanged.** One
+`sky130_fd_pr__cap_mim_m3_1` per supply domain, `MF = 2` → 8.870 pF each,
+placement still deferred to #440. **Nothing in `design/` changes.** What changes
+is the *reason* `MF = 2` is right (§3), the *arithmetic* behind the target
+verdict (§4, same verdict), and the *disposition* of §5's deferred question.
+
+### Where the measurement came from
+
+`sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md` — issue
+#409 item 1, the full ratified nine-point PVT grid × five arms, minted
+2026-09-26. It was **not** run for this record, and it does not mention
+decoupling; it identifies its DUT by hash, which is exactly the mechanism this
+record's own Consequences named as "how to tell which case it is":
+
+> `- DUT netlist sha256: 6a0be472ef845710dbdce0aa68c4e6ede8c4894c1e0368fe19281a87bc926b7f`
+
+That is the hash of `design/sar_adc_top.spice` as this record committed it,
+`MF = 2` cards included. So the grid is a measurement of **this** decision's
+netlist, and the `package` arm at `tt_27c_1.80v` is the row the blank cell
+wanted. The comparison is arm-for-arm legitimate: same runner, same committed
+stimulus fragment (`d819f870…`), same DR-015 package assumption, same
+`R_SUBX = 30 Ω`, same corner. The grid's fifth arm (`no-gnd-pad`) changes no
+other arm's deck.
+
+One independent check that the two runs are comparable at all: the average rail
+currents on the `package` arm are the same to three or four significant figures
+across the netlist change — `I(VDD)` 2.121 → 2.113 µA, `I(VPWR)` 6.502 →
+6.546 µA, `I(GND)` 2.204 → 2.198 µA, `I(VREFP)` 6.503 → 6.503 µA. A decoupling
+capacitor is not supposed to change how much charge the conversion consumes,
+only where it comes from on the short timescale, and it does not.
+
+### Grading the prediction
+
+`package` arm, `tt_27c_1.80v`, peak-to-peak die-side excursion:
+
+| `MF` | `C` per domain | `GND_DIE` measured | body's `1/√C` prediction | `VPWR_DIE` measured | that law's `VPWR_DIE` prediction |
+|---|---|---|---|---|---|
+| 0 | — | 37.333 mV | *(fit anchor)* | 61.755 mV | *(fit anchor)* |
+| **2** | **8.870 pF** | **9.709 mV** | 26.64 mV | **12.799 mV** | 38.67 mV |
+| 32 | 141.916 pF | 9.214 mV † | *(fit anchor)* | 12.153 mV † | *(fit anchor)* |
+
+† The `MF = 32` row is the body's own probe, **not committed evidence** — see
+the body's "What was measured". Which half of this amendment depends on it
+matters, so it is stated once and not blurred: the **refutation** below does
+not need it (it is the body's own published prediction against a committed
+measurement), while the **saturation shape** does.
+
+**Verdict: refuted, on both domains, in the same direction.** The body's fit
+over-predicts the shipped value's excursion by **2.74×** on `GND_DIE`
+(26.64 vs 9.709 mV) and **3.02×** on `VPWR_DIE` (38.67 vs 12.799 mV). Two
+nodes in two different supply domains, refuted by the same factor to within
+10 % — this is not a corner artefact or a single bad `.meas`.
+
+The other two die-side nodes the same two records both report agree, and they
+were never part of any fit: `VGND_DIE` 40.817 → 10.790 mV (3.78×) and
+`VDD_DIE` 25.108 → 8.968 mV (2.80×). All four die-side supply nodes improve by
+2.8–4.8× from 8.870 pF per domain.
+
+### What the three points say instead: the response saturates
+
+The body's `1/√C` reading came from having only the endpoints, where a
+saturating curve and a slow power law are indistinguishable. With the middle
+point in, they are not:
+
+- **Between `MF = 2` and `MF = 32` — a 16.0× increase in capacitance — the
+  excursion falls 9.709 → 9.214 mV.** That is **1.054×**, where the fitted law
+  requires 2.89×.
+- **`MF = 2` already captures 98.2 % of the total reduction** that 16× more
+  capacitance achieves (27.624 mV of 28.119 mV). On `VPWR_DIE`, 98.7 %
+  (48.956 of 49.602 mV).
+- **Marginal value collapses by ~840×.** The first 8.870 pF per domain buys
+  3.11 mV/pF. The next 133.046 pF buys 0.0037 mV/pF — 0.495 mV total, in
+  exchange for a further 131,976 µm² of MiM, **122 % of the whole composed
+  die**.
+- **There is an empirical floor near 9.2 mV** (2.62 LSB_diff) at this corner,
+  and `MF = 2` sits within **5.4 %** of it. Equivalently: **at least 24.7 % of
+  the undecoupled 37.333 mV is not removable by supply-pair capacitance** at
+  any allocation this die could hold.
+
+So the body's Decision §3 was right that a bounce target cannot be *met*, and
+wrong about why: not "no knee, so size by area" but **"a knee, and `MF = 2` is
+at or just past it, and past it there is a floor decoupling cannot reach."**
+
+**What this amendment does not claim.** It does not claim a functional form.
+Three points fit a three-parameter saturating curve exactly, which proves
+nothing about shape; every statement above is a ratio between measured points,
+not a law. It does not locate the knee — the interval between 0 and 8.870 pF is
+unmeasured, so "`MF = 2` is at or past the knee" is an upper bound on the
+knee's position, not a measurement of it. And the floor is an *empirical* one:
+no measured point lies below 9.214 mV, which is not the same as a proof that
+none could.
+
+### Eliminating one obvious explanation for the floor, and naming the likely one
+
+**It is not the capacitor's own series resistance.** The PDK's MiM subcircuit
+carries a plate resistance `r1 = rm3·l/w`; `MF` unit cells in parallel divide
+it by `MF`, so the `MF = 32` point has **1/16** the ESR of the shipped one. An
+ESR-limited response would have improved substantially over that step. It
+improved 1.8 %. ESR is not what the excursion is resting on.
+
+**The likely mechanism is current whose loop does not contain the decoupled
+pair — and this is a hypothesis, not a measurement.** `VREFP`/`VREFN`/`VCM` are
+driven by *ideal sources at the die* in this campaign by construction (it is a
+campaign about DR-012's four *supply* terminals). Charge the CDAC draws from
+`VREFP` returns to the board through `GND`'s own bond inductance, and a
+capacitor tied across `VDD`/`GND` is not in that loop — it can only circulate
+current between those two nodes. The magnitudes are consistent with that being
+material rather than marginal: on this arm and corner the reference terminal
+carries **3.1× the analog supply's own average current** (`I(VREFP)` 6.503 µA
+vs `I(VDD)` 2.113 µA). The second candidate is the lumped `R_SUBX = 30 Ω`
+link, which injects the digital ground's own excursion into `GND_DIE`
+regardless of what either supply pair is decoupled with.
+
+Both remain hypotheses: these are **average** currents over a whole conversion,
+not the peak transients that set a bounce, and this repo has no peak-current
+campaign (already an open item above). The measurement that would settle it is
+also already an open item above — *"The reference network is undecoupled and
+unmeasured"* — and this amendment raises its priority rather than adding a new
+one: it is now the item standing between this design and any further reduction
+of `GND_DIE`, because the axis this record controls is spent.
+
+### The worst corner, now that the grid exists
+
+The same record supplies what the body could not: the as-shipped design across
+the full ratified nine-point grid, `package` arm, `GND_DIE` peak-to-peak —
+
+| corner | mV | | corner | mV |
+|---|---|---|---|---|
+| `ff_27c_1.80v` | **13.964** (worst) | | `tt_125c_1.80v` | 9.617 |
+| `tt_27c_1.98v` | 13.535 | | `tt_27c_1.80v` | 9.709 |
+| `fs_27c_1.80v` | 11.415 | | `ss_27c_1.80v` | 8.952 |
+| `tt_-40c_1.80v` | 11.318 | | `tt_27c_1.62v` | 7.710 (best) |
+| `sf_27c_1.80v` | 9.917 | | | |
+
+- **Worst `GND_DIE` = 13.964 mV = 3.972 LSB_diff**, at `ff_27c_1.80v`. The
+  baseline corner this record sized at is **70 %** of the worst; the grid
+  spreads 1.81× end to end.
+- **Worst `VPWR_DIE` = 15.531 mV = 4.418 LSB_diff**, at `tt_27c_1.98v` — a
+  *different* corner from the analog node's worst.
+- **Worst mid-scale |Δcode| on the `package` arm across all nine points = 1 LSB**
+  (that record's own Findings). The decoupled design moves at most one code
+  anywhere on the ratified grid.
+
+**This is not a worst-case comparison against the undecoupled design**, and must
+not be quoted as one: the undecoupled baseline was only ever run at
+`tt_27c_1.80v`, so the only like-for-like pair in this repo remains
+37.333 → 9.709 mV at that one corner. 13.964 mV (decoupled, `ff`) against
+37.333 mV (undecoupled, `tt`) compares two different corners and is worth
+nothing.
+
+### What this changes in the Decision above
+
+1. **§3's criterion is restated: the measured knee, not the area budget.**
+   `MF = 2` is retained because 16× more capacitance buys 1.8 %, not because it
+   is the largest allocation fitting inside 10 % of the composed die. The area
+   budget is now **satisfied incidentally and is no longer the binding
+   constraint** — which cuts the way that matters for #440: if a layout pass
+   finds *more* met3/met4 free than the body assumed, that is **not** a reason
+   to raise `MF`. Raising it is now positively rejected, on measurement.
+2. **§4's verdict is unchanged and its reason is stronger.** The target
+   (`≤ 1 LSB_diff = 3.5156 mV`) is still stated and still not met: 9.709 mV
+   (2.76 LSB) at the baseline corner, 13.964 mV (3.97 LSB) at the worst. The
+   body's route to it — `≈ 1.03 nF` per domain, 4.7 die-areas — is **retracted**
+   as a consequence of the refuted law. The correct statement is that **no
+   on-die supply-pair capacitance reaches the target**, because the response
+   bottoms out near 2.6 LSB. The residual still books to bond inductance, which
+   is still a packaging decision this repo has not made.
+3. **§5's deferred question is closed, not answered.** The body deferred an
+   asymmetric per-domain split until "#409's grid says which domain actually
+   binds". The grid has landed, and the honest reading is that the question is
+   now **moot**: both domains are already within ~5 % of their own floors at
+   `MF = 2`, so there is nothing to win by moving allocation between them, and
+   a reallocation could only push whichever domain it shrinks back toward its
+   knee. Equal allocation stands. (For the record, the grid does not hand over
+   a single binding domain either: `GND_DIE` is worst at `ff_27c_1.80v` and
+   `VPWR_DIE` at `tt_27c_1.98v`, and the analog node — smaller in mV — is the
+   one that is the comparator's own reference.)
+4. **§6's fallback gains a caveat #440 needs.** The body told #440 that if the
+   met3/met4 real estate does not hold, reducing `MF` is safe because "the
+   response is monotone, so a smaller cap is a smaller benefit and never a wrong
+   one". Monotonicity is not in question, but the *cost* of a reduction is no
+   longer small and no longer known: `MF = 2` sits near a knee whose position
+   below 8.870 pF **has not been measured**, so a reduction to `MF = 1` could
+   cost anywhere between nothing and most of the 3.84× this record buys. **A
+   reduction below `MF = 2` must be measured, not assumed** — it needs the
+   `package`-arm point at the reduced value, in a superseding record, exactly as
+   the body already instructed for the area question.
+
+### Why this is an amendment and not a superseding record
+
+#448 stated, reasonably, that a refutation of the `1/√C` model would be "a
+superseding-record question, not a wording fix", because Decision §3 and §4
+both rest on that model. The distinction this amendment draws is between a
+record's **decision** and its **rationale**. Nothing here changes what the
+design does: the same two devices, at the same value, in the same places, with
+the same target stated and unmet. What changed is that the argument offered for
+that value was wrong, and the corrected argument supports the same value more
+firmly than the original did. A superseding record would retire a decision that
+the evidence has just confirmed, and would fork the citation trail of a record
+four documents already point at. This repo's own precedent for that shape is
+DR-004's Amendment A, which changed a *topology* in place; changing a rationale
+while keeping the decision is a strictly smaller move.
+
+**What would have forced a superseding record**, and did not happen: a measured
+`MF = 2` point that made `MF = 2` the *wrong* value — either far worse than the
+body assumed (in which case the area budget would have to be re-argued against
+a real bounce target) or so good that the target became reachable (in which case
+§4's verdict would flip). The measurement did neither. The two clauses that are
+*substantively* rewritten here (§3's criterion, §5's disposition) are both
+recorded above in full rather than edited in the body, and the body's refuted
+numbers are struck in place with pointers here.
+
+### What Amendment A leaves open
+
+- **The knee is bounded, not located.** No point exists between 0 and 8.870 pF
+  per domain. One `package`-arm run at `MF = 1` would locate it and directly
+  de-risk §6's fallback for #440. It was **attempted for this amendment and
+  abandoned**: the host was carrying a load average of ~24 from a concurrent
+  campaign in another repository and the control arm timed out on its first
+  attempt, so the run was killed rather than added to the contention. It is a
+  ~26-minute two-arm run on an uncontended host (344 s + 1190 s at this corner,
+  from the grid record's own wall clock), and it mints no record — it is a probe
+  on a non-committed netlist, exactly like the body's `MF = 32` point.
+- **The `MF = 32` point is still not committed evidence.** The saturation claim
+  above leans on it. Promoting it to a record means running the campaign's
+  indexed invocation against an `MF = 32` netlist that this design does not
+  ship, which is not obviously worth an hour of transient; the alternative, and
+  the cheaper one, is the `MF = 1` probe above, which tests the same shape from
+  the side the decision actually lives on.
+- **The cap-corner axis is untouched.** The MiM area coefficient moves ±11 %
+  across the PDK's own `mim` corners (body, "Die area"), and neither the
+  nine-point grid nor any measurement here walks it — the grid varies
+  process/temperature/voltage only. So every capacitance in this record is a
+  nominal-corner capacitance.
+- **The floor's mechanism is unattributed.** ESR is eliminated above; the
+  reference-return and `R_SUBX` candidates are not distinguished from each
+  other, and both are argued from average rather than peak currents. Until the
+  reference network is driven through a real impedance, this record cannot say
+  what fraction of the 9.2 mV floor is even *addressable* by any on-die device.
+- **`records/LATEST` still names the undecoupled record** and this amendment
+  does not move it. That pointer is load-bearing for DR-012's retirement
+  paragraph and the chipalooza proposal's Power row, both of which are about the
+  *undecoupled* upper bound on purpose. Re-pointing it is #448's call, not this
+  amendment's.
