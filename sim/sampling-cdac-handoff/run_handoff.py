@@ -1160,7 +1160,7 @@ def write_corners_record(points: list[dict], control: list[dict], regen_note: st
     lines.extend(evidence.footer_lines("sim/sampling-cdac-handoff/run_handoff.py", ""))
 
     record_path.write_text("\n".join(lines) + "\n")
-    (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     print(f"\nWrote record: {record_path}")
     return record_path
 

@@ -464,13 +464,17 @@ turn by that document's own check 18/25 coverage census.
 per-campaign variant:
 
 - The pointer is written by the runner's own record-writing code, in the same
-  function and at the same moment it writes `records/<record-id>.md`, e.g.
-  `sim/sequencer-logic-delay/run_sequencer_logic_delay.py`:
+  function and at the same moment it writes `records/<record-id>.md`, through
+  the one shared harness helper — never a hand-rolled `LATEST` write (issue
+  #482), e.g. `sim/sequencer-logic-delay/run_sequencer_logic_delay.py`:
   ```python
   record_path.write_text("\n".join(lines) + "\n")
-  latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-  latest_path.write_text(f"{record_id}.md\n")
+  evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
   ```
+  `evidence.write_latest_pointer()` owns the pointer's path and its exact
+  one-line `<record-id>.md` payload, so a new campaign bootstrapped by copying
+  a sibling runner cannot drift from this convention. It deliberately does not
+  create a missing `records/` — every caller writes its record there first.
 - A flow whose runner mints records through more than one code path (e.g. a
   single-corner mode and a `--corners` full-grid mode) writes `LATEST`
   unconditionally at **every** successful record-write site, so the pointer

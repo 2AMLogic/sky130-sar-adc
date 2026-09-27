@@ -600,7 +600,7 @@ def write_record(
     )
 
     path = evidence.close_record(prov, lines, "Record")
-    (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{prov.record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
     return path
 
 

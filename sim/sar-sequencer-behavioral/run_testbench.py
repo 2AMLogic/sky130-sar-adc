@@ -243,8 +243,7 @@ def run(record: bool) -> int:
             lines.append("")
             lines.extend(evidence.footer_lines("sim/sar-sequencer-behavioral/run_testbench.py", ""))
             record_path.write_text("\n".join(lines))
-            latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-            latest_path.write_text(f"{record_id}.md\n")
+            evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
             print(f"\nRecord written: {record_path.relative_to(REPO_ROOT)}")
 
         return 0 if all_pass else 1
@@ -425,8 +424,7 @@ def run_corner_campaign(record: bool, quiet: bool = False) -> int:
         lines.append("")
         lines.extend(evidence.footer_lines("sim/sar-sequencer-behavioral/run_testbench.py --corners", ""))
         record_path.write_text("\n".join(lines))
-        latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-        latest_path.write_text(f"{record_id}.md\n")
+        evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
         print(f"\nRecord written: {record_path.relative_to(REPO_ROOT)}")
 
     print("OVERALL (all corners): PASS" if overall_ok else "OVERALL (all corners): FAIL")
