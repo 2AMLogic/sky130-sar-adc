@@ -2297,7 +2297,7 @@ def write_record(
     # set should take the pointer is a decision for that record and for the
     # documents citing it, not something this writer makes silently.
     if corner_ids == [corners_mod.corner_id(*BASELINE_CORNER)]:
-        (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{prov.record_id}.md\n")
+        evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
     return path
 
 

@@ -168,6 +168,46 @@ class TestEvidence(unittest.TestCase):
         self.assertEqual(len(parts[1]), 6)
 
 
+class TestWriteLatestPointer(unittest.TestCase):
+    """evidence.write_latest_pointer() -- the records/LATEST pointer write the
+    `sim/*/run_*.py` drivers each hand-rolled as the same two lines before
+    issue #482 folded it into the harness next to close_record()."""
+
+    def test_writes_record_id_dot_md_with_a_trailing_newline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            experiment_dir = Path(tmp)
+            (experiment_dir / "records").mkdir()
+            path = evidence.write_latest_pointer(experiment_dir, "20260927-010203-abc1234")
+            self.assertEqual(path.read_text(), "20260927-010203-abc1234.md\n")
+
+    def test_returns_the_pointer_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            experiment_dir = Path(tmp)
+            (experiment_dir / "records").mkdir()
+            path = evidence.write_latest_pointer(experiment_dir, "20260927-010203-abc1234")
+            self.assertEqual(path, experiment_dir / "records" / "LATEST")
+
+    def test_overwrites_a_prior_pointer_rather_than_appending(self):
+        """The pointer names the CURRENT record; records themselves are
+        append-only, the pointer is not."""
+        with tempfile.TemporaryDirectory() as tmp:
+            experiment_dir = Path(tmp)
+            (experiment_dir / "records").mkdir()
+            evidence.write_latest_pointer(experiment_dir, "20260101-000000-old0000")
+            path = evidence.write_latest_pointer(experiment_dir, "20260927-010203-new0000")
+            self.assertEqual(path.read_text(), "20260927-010203-new0000.md\n")
+
+    def test_does_not_create_a_missing_records_dir(self):
+        """Every caller writes its record into records/ first, so a missing
+        records/ means the caller is mis-wired -- surface that rather than
+        minting a pointer into an empty directory."""
+        with tempfile.TemporaryDirectory() as tmp:
+            experiment_dir = Path(tmp)
+            with self.assertRaises(FileNotFoundError):
+                evidence.write_latest_pointer(experiment_dir, "20260927-010203-abc1234")
+            self.assertFalse((experiment_dir / "records").exists())
+
+
 class TestRunKltYield(unittest.TestCase):
     """evidence.run_klt_yield() -- shared plumbing extracted (issue #131)
     from the two byte-identical `_run_klt_yield` private helpers PR #130

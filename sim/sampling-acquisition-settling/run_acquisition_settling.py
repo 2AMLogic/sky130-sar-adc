@@ -724,8 +724,7 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
-    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-    latest_path.write_text(f"{record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     print(f"\nWrote record: {record_path}")
 
 
@@ -946,8 +945,7 @@ def write_corners_record(points: list[dict]) -> Path:
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
-    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-    latest_path.write_text(f"{record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     print(f"\nWrote record: {record_path}")
     return record_path
 

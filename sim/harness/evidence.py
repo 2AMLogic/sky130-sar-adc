@@ -193,6 +193,25 @@ def close_record(prov: ProvenanceInfo, lines: list[str], label: str) -> Path:
     return prov.record_path
 
 
+def write_latest_pointer(experiment_dir: Path, record_id: str) -> Path:
+    """Point `<experiment_dir>/records/LATEST` at `<record_id>.md` and return
+    that pointer's path (issue #482). Records are append-only; this pointer is
+    not -- it names whichever record is current, so a later run overwrites it.
+
+    This is the two-line idiom every `sim/*/run_*.py` record writer repeated
+    verbatim after writing its record, and is the last piece of per-record
+    bookkeeping to move into this module (cf. resolve_provenance(), issue #235;
+    open_record()/close_record(), issue #314). Deliberately does NOT create a
+    missing `records/`: every caller writes its record there first, so an
+    absent directory means a mis-wired caller, not a directory to mint. Writers
+    that deliberately do not move the pointer -- the supplementary sweeps in
+    sim/supply-impedance-sensitivity/run_supply_impedance.py -- simply do not
+    call this, exactly as before."""
+    latest_path = experiment_dir / "records" / "LATEST"
+    latest_path.write_text(f"{record_id}.md\n")
+    return latest_path
+
+
 @dataclass
 class CornersProvenanceInfo(ProvenanceInfo):
     """ProvenanceInfo plus the per-campaign values every `--corners` record
