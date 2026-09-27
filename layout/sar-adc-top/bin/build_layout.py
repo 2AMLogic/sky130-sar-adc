@@ -1901,7 +1901,6 @@ def _check_decoupling_caps(
     # 4. via4 landings, and the rail's own east end.
     for net, x in DECAP_D_VIA4_X.items():
         rx0, ry0, rx1, ry1 = rails[net]
-        y = (ry0 + ry1) / 2.0
         need = VIA4_UM / 2.0 + MET5_VIA4_ENC_UM
         if not (rx0 + need <= x <= rx1 - need):
             raise SystemExit(
