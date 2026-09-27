@@ -1379,6 +1379,83 @@ class TestSweepFindings(unittest.TestCase):
         self.assertIn("upper bound rather than a prediction", text)
 
 
+class TestSharedRecordTableHelpers(unittest.TestCase):
+    """The three table-rendering helpers issue #486 extracted out of
+    `write_sweep_record`, `write_null_sweep_record`, and
+    `write_decap_esr_record`'s hand-copied blocks
+    (`_captured_code_table_lines`, `_rail_current_table_lines`,
+    `_wall_clock_table_lines`). Pinned directly against synthetic points here,
+    independent of any one writer's own fixture, so a content regression in a
+    shared helper is caught even if a particular writer's own test happens
+    not to exercise the changed cell. The per-writer test classes below add
+    the complementary check that each writer is actually wired to call these
+    helpers with the right `row_label`.
+    """
+
+    def _point(self, arm: str, code_offset: int = 0, **overrides) -> dict:
+        base_codes = [214, 383, 511, 641, 1023]
+        codes = [c + code_offset for c in base_codes]
+        point = {
+            "arm": arm,
+            "conversions": [
+                {"conversion": i + 1, "fraction": f, "code": c}
+                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+            ],
+            "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
+            "power_w": 27.9e-6,
+            "extras": {"gnd_die_pp": 0.010, "i_gnda": 2.2e-6},
+            "wall_s": 500.0,
+            "reused": False,
+        }
+        point.update(overrides)
+        return point
+
+    def test_captured_code_table_uses_the_row_label_and_pins_the_delta_suffix(self) -> None:
+        control = self._point(si.CONTROL_ARM)
+        swept = self._point("some-arm", code_offset=3)
+        table = "\n".join(si._captured_code_table_lines([control, swept], control, "rung"))
+        self.assertIn("| rung | ", table)
+        self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", table)
+        self.assertIn(
+            "| `some-arm` | 217 (+3) | 386 (+3) | 514 (+3) | 644 (+3) | 1026 (+3) | 3 |",
+            table,
+        )
+
+    def test_rail_current_table_carries_the_extra_note_only_when_given(self) -> None:
+        control = self._point(si.CONTROL_ARM)
+        without_note = "\n".join(si._rail_current_table_lines([control], "point"))
+        self.assertIn(
+            "| `ideal` | 10.000 | n/a | n/a | n/a | 1.000 | 2.000 | 2.200 | 27.900 |",
+            without_note,
+        )
+        self.assertNotIn("no bond current", without_note)
+        with_note = "\n".join(
+            si._rail_current_table_lines([control], "point", extra_note="EXTRA NOTE TEXT")
+        )
+        self.assertIn("EXTRA NOTE TEXT", with_note)
+
+    def test_wall_clock_table_reconciles_the_full_cache_reuse_note(self) -> None:
+        """Pins the FULL four-sentence cache-reuse note -- the two sweep
+        writers' own copy before this helper existed, not
+        `write_decap_esr_record`'s shorter one, which had silently dropped
+        the last two sentences (issue #486). Because `write_decap_esr_record`
+        now calls this same helper, this also guards its own rendered output
+        against the drift recurring."""
+        control = self._point(si.CONTROL_ARM)
+        reused = self._point("rung-a", wall_s=100.0, reused=True)
+        table = "\n".join(si._wall_clock_table_lines([control, reused], control, "rung"))
+        self.assertIn("| rung | wall clock (s) | x the `ideal` control |", table)
+        self.assertIn("| `ideal` | 500 | 1.00x |", table)
+        self.assertIn("| `rung-a` | 100 (log reused from cache) | 0.20x |", table)
+        self.assertIn("log reused from cache", table)
+        self.assertIn("A mismatch on any identity field re-simulates", table)
+        self.assertIn(
+            "a host that cannot verify its own open_pdks commit or ngspice "
+            "version never reuses at all",
+            table,
+        )
+
+
 class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
     """The sweep writes its own record and must NOT move `records/LATEST`.
 
@@ -1512,6 +1589,31 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
             int(grid.group("points")),
             len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM),
         )
+
+    def test_the_three_shared_tables_render_their_actual_rows(self) -> None:
+        """Pins actual row content (not just the section heading) for all
+        three tables issue #486 extracted into `_captured_code_table_lines`,
+        `_rail_current_table_lines`, and `_wall_clock_table_lines` -- would
+        catch this writer silently stopping calling one of them, or calling
+        it with the wrong arguments."""
+        path, _tmp = self._write()
+        text = path.read_text()
+        first_swept = si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)[0].name
+        self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", text)
+        self.assertIn(
+            f"| `{first_swept}` | 214 (+0) | 383 (+0) | 511 (+0) | 641 (+0) | "
+            "1023 (+0) | 0 |",
+            text,
+        )
+        self.assertIn(
+            "| `ideal` | 0.000 | n/a | n/a | n/a | 1.000 | 2.000 | 2.200 | 27.900 |", text
+        )
+        self.assertIn(
+            f"| `{first_swept}` | 37.000 | n/a | n/a | n/a | 1.000 | 2.000 | "
+            "2.200 | 27.900 |",
+            text,
+        )
+        self.assertIn("| `ideal` | 600 | 1.00x |", text)
 
 
 class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
@@ -1799,6 +1901,34 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
             "check 34 would not fire on the day the ladder is walked or widened",
         )
         self.assertEqual(int(ladder.group("rungs")), len(si.NULL_SWEEP_RSUBX_OHM))
+
+    def test_the_three_shared_tables_render_their_actual_rows(self) -> None:
+        """Same guard as the 2-D sweep's own version, plus the one thing
+        that differs between the two writers' rail table: the extra
+        `I(GND)` no-bond note this writer alone passes to
+        `_rail_current_table_lines` -- pinned here so a future edit cannot
+        silently drop it while the shared table itself keeps rendering."""
+        path, _tmp = self._write()
+        text = path.read_text()
+        first_swept = si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)[0].name
+        self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", text)
+        self.assertIn(
+            f"| `{first_swept}` | 214 (+0) | 383 (+0) | 511 (+0) | 641 (+0) | "
+            "1023 (+0) | 0 |",
+            text,
+        )
+        self.assertIn(
+            "| `ideal` | 0.000 | 4.000 | n/a | n/a | 1.000 | 2.000 | 2.200 | 27.300 |", text
+        )
+        self.assertIn(
+            f"| `{first_swept}` | 65.000 | 4.000 | n/a | n/a | 1.000 | 2.000 | "
+            "n/a (no bond) | 27.300 |",
+            text,
+        )
+        self.assertIn(
+            "`I(GND)` is `n/a (no bond)` on every swept row by construction", text
+        )
+        self.assertIn("| `ideal` | 500 | 1.00x |", text)
 
 
 class TestCostProbe(unittest.TestCase):
@@ -2608,6 +2738,28 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
         _path, tmp_dir = self._write()
         dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
         self.assertEqual(len(dumped), 2 * (len(si.DECAP_ESR_MULTIPLIERS) + 1), dumped)
+
+    def test_the_shared_tables_use_rung_as_the_row_label_and_render_their_rows(self) -> None:
+        """This writer is the one of the three that labels rows `rung` rather
+        than `point` -- pinned here so the shared helpers' `row_label`
+        parameter is confirmed wired correctly, not just present. Also pins
+        that this writer's own copy of the wall-clock cache-reuse note --
+        which, before issue #486, silently dropped two sentences the other
+        two writers' copies carried -- now renders the same reconciled note
+        `TestSharedRecordTableHelpers` pins directly against the helper."""
+        path, _tmp = self._write()
+        text = path.read_text()
+        self.assertIn("## Captured code per rung", text)
+        first_rung = si.decap_esr_arm_name(si.DECAP_ESR_MULTIPLIERS[0])
+        self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", text)
+        self.assertIn(
+            f"| `{first_rung}` | 214 (+0) | 383 (+0) | 511 (+0) | 641 (+0) | "
+            "1023 (+0) | 0 |",
+            text,
+        )
+        self.assertIn("| rung | wall clock (s) | x the `ideal` control |", text)
+        self.assertIn("| `ideal` | 600 | 1.00x |", text)
+        self.assertIn(f"| `{first_rung}` | 600 | 1.00x |", text)
 
 
 class TestDR017RoutingParasiticsItemIsAnswered(unittest.TestCase):
