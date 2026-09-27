@@ -1973,14 +1973,23 @@ def invocation_line(
     return " ".join(parts)
 
 
-def write_record(
-    points: list[dict],
-    dut_netlist_text: str,
-    corners_mode: bool,
-    arm_names: list[str],
-    supersedes: str = "",
-    corner_points: list[str] | None = None,
-) -> Path:
+def _open_corners_record(
+    points: list[dict], dut_netlist_text: str
+) -> tuple[evidence.ProvenanceInfo, list[str], list[str], list[str], list[float], list[float]]:
+    """Open a `corners` record, dump each point's raw log and deck, and derive
+    the corner/process/temperature/supply summaries every one of the four
+    writers below needs before its own arm/control derivation.
+
+    Deliberately stops there (issue #486). `write_record()` goes on to compute
+    `arms_run` (the ARM NAMES touched by any point) and `controls` (one
+    CONTROL PER CORNER, keyed by corner id) because it supports a multi-corner
+    `corners` run with its own control at each point; the other three writers
+    instead compute a single point-filter list (`grid_points`/`swept`/`rungs`)
+    and one `control` point, because each of them runs at a single corner.
+    That is a real difference in what each writer needs, not a copy-pasted
+    variable name, so each writer keeps computing its own version rather than
+    this helper trying to parameterize it away.
+    """
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR,
         dut_netlist_text,
@@ -1990,12 +1999,26 @@ def write_record(
     deck_dir = EXPERIMENT_DIR / "corners" / prov.record_id
     for p in points:
         (deck_dir / f"{p['point_id'].replace('@', '__')}.cir").write_text(p["deck_text"])
-
-    arms_run = [name for name in (a.name for a in ARMS) if any(p["arm"] == name for p in points)]
     corner_ids = sorted({p["corner_id"] for p in points})
     processes = sorted({p["process_corner"] for p in points})
     temps = sorted({p["temp_c"] for p in points})
     supplies = sorted({p["supply_v"] for p in points})
+    return prov, lines, corner_ids, processes, temps, supplies
+
+
+def write_record(
+    points: list[dict],
+    dut_netlist_text: str,
+    corners_mode: bool,
+    arm_names: list[str],
+    supersedes: str = "",
+    corner_points: list[str] | None = None,
+) -> Path:
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
+    )
+
+    arms_run = [name for name in (a.name for a in ARMS) if any(p["arm"] == name for p in points)]
     controls = {p["corner_id"]: p for p in points if p["arm"] == CONTROL_ARM}
 
     a = lines.append
@@ -2756,6 +2779,113 @@ def sweep_findings_lines(
     return out
 
 
+def _captured_code_table_lines(
+    points: list[dict], control: dict | None, row_label: str
+) -> list[str]:
+    """The "Captured code per point/rung" table, shared verbatim (modulo the
+    row label) across `write_sweep_record`, `write_null_sweep_record`, and
+    `write_decap_esr_record` -- `write_record()` has no equivalent block, it
+    reports captured codes per corner-id x arm instead."""
+    out = [
+        f"| {row_label} | "
+        + " | ".join(f"`{f:+.2f}*V_REF` (ideal {tb.ideal_code(f)})" for f in tb.INPUT_FRACTIONS)
+        + " | worst \\|delta code\\| vs `ideal` (mid-scale) |",
+        "|---" * (len(tb.INPUT_FRACTIONS) + 2) + "|",
+    ]
+    for p in points:
+        deltas = code_delta(p, control) if control else {}
+        cells = []
+        for cv in p["conversions"]:
+            code = "MISSING" if cv["code"] is None else str(cv["code"])
+            delta = deltas.get(cv["conversion"])
+            suffix = "" if delta is None or p["arm"] == CONTROL_ARM else f" ({delta:+d})"
+            cells.append(f"{code}{suffix}")
+        worst = (
+            "-- (control)"
+            if p["arm"] == CONTROL_ARM
+            else worst_mid_scale_delta(p, control) if control else "n/a"
+        )
+        out.append(f"| `{p['arm']}` | " + " | ".join(cells) + f" | {worst} |")
+    return out
+
+
+def _rail_current_table_lines(
+    points: list[dict], row_label: str, extra_note: str | None = None
+) -> list[str]:
+    """The "Rail excursion and average current per point" table, shared
+    verbatim across the two writers that have it -- `write_sweep_record` and
+    `write_null_sweep_record`. `write_record()` and `write_decap_esr_record()`
+    each report rail excursion and average current as separate tables and have
+    no equivalent single block. `extra_note`, if given, is appended as its own
+    paragraph after the table -- `write_null_sweep_record()`'s one-sentence
+    addition that `I(GND)` is `n/a (no bond)` on every swept row by
+    construction."""
+    out = [
+        f"| {row_label} | "
+        + " | ".join(f"{name} pp (mV)" for name, _n, _l in RAIL_PROBES)
+        + " | I(VDD) (uA) | I(VPWR) (uA) | I(GND) (uA) | total power (uW) |",
+        "|---" * (len(RAIL_PROBES) + 5) + "|",
+    ]
+    for p in points:
+        cells = [_mv(p["extras"].get(f"{probe}_pp")) for probe, _n, _l in RAIL_PROBES]
+        i_gnda = p["extras"].get("i_gnda")
+        out.append(
+            f"| `{p['arm']}` | "
+            + " | ".join(cells)
+            + f" | {_ua(p['currents'].get('i_vdd'))} | {_ua(p['currents'].get('i_vpwr'))} | "
+            + f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
+            + f"{p['power_w'] * 1e6:.3f} |"
+        )
+    out.append("")
+    if extra_note:
+        out.append(extra_note)
+        out.append("")
+    return out
+
+
+def _wall_clock_table_lines(
+    points: list[dict], control: dict | None, row_label: str
+) -> list[str]:
+    """The "Wall-clock cost per run" table and its cache-reuse note, shared
+    across `write_sweep_record`, `write_null_sweep_record`, and
+    `write_decap_esr_record` -- `write_record()` has no equivalent block, its
+    own wall-clock table is keyed by corner-id x arm instead. Each writer
+    appends its own trailing sentence about why the cost is reported after
+    calling this; that sentence is writer-specific and is not part of this
+    helper.
+
+    The cache-reuse note is the FULL four-sentence version -- the two sweep
+    writers' own copies before this helper existed, not
+    `write_decap_esr_record()`'s shorter one, which had silently dropped the
+    "a mismatch on any identity field re-simulates" and "a host that cannot
+    verify ..." sentences (issue #486). Reconciled to the fuller text so all
+    three writers state the same cache-reuse guarantee.
+    """
+    out = [
+        f"| {row_label} | wall clock (s) | x the `ideal` control |",
+        "|---|---|---|",
+    ]
+    base = None if control is None else control.get("wall_s")
+    for p in points:
+        ratio = "--" if not base else f"{p['wall_s'] / base:.2f}x"
+        note = " (log reused from cache)" if p.get("reused") else ""
+        out.append(f"| `{p['arm']}` | {p['wall_s']:.0f}{note} | {ratio} |")
+    out.append("")
+    if any(p.get("reused") for p in points):
+        out.append(
+            "Rows marked **log reused from cache** were not re-simulated for this "
+            "record: `--log-cache` found a stored ngspice log whose deck sha256, "
+            "volare-verified open_pdks commit and ngspice version all matched the "
+            "run about to be made, and reused it rather than repeating a "
+            "tens-of-minutes transient after an interruption. The reported wall "
+            "clock is the one measured when that run actually executed. A mismatch "
+            "on any identity field re-simulates, and a host that cannot verify its "
+            "own open_pdks commit or ngspice version never reuses at all."
+        )
+        out.append("")
+    return out
+
+
 def write_sweep_record(
     points: list[dict],
     dut_netlist_text: str,
@@ -2775,21 +2905,11 @@ def write_sweep_record(
     they share by calling the same helpers, so neither can drift into a softer
     version of the other's caveats.
     """
-    prov, lines = evidence.open_record(
-        EXPERIMENT_DIR,
-        dut_netlist_text,
-        "corners",
-        {f"{p['point_id'].replace('@', '__')}.log": p["log_text"] for p in points},
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
     )
-    deck_dir = EXPERIMENT_DIR / "corners" / prov.record_id
-    for p in points:
-        (deck_dir / f"{p['point_id'].replace('@', '__')}.cir").write_text(p["deck_text"])
 
     grid_points = [p for p in points if p["arm"] != CONTROL_ARM]
-    corner_ids = sorted({p["corner_id"] for p in points})
-    processes = sorted({p["process_corner"] for p in points})
-    temps = sorted({p["temp_c"] for p in points})
-    supplies = sorted({p["supply_v"] for p in points})
     control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
 
     a = lines.append
@@ -2948,47 +3068,12 @@ def write_sweep_record(
 
     a("## Captured code per point")
     a("")
-    a(
-        "| point | "
-        + " | ".join(f"`{f:+.2f}*V_REF` (ideal {tb.ideal_code(f)})" for f in tb.INPUT_FRACTIONS)
-        + " | worst \\|delta code\\| vs `ideal` (mid-scale) |"
-    )
-    a("|---" * (len(tb.INPUT_FRACTIONS) + 2) + "|")
-    for p in points:
-        deltas = code_delta(p, control) if control else {}
-        cells = []
-        for cv in p["conversions"]:
-            code = "MISSING" if cv["code"] is None else str(cv["code"])
-            delta = deltas.get(cv["conversion"])
-            suffix = "" if delta is None or p["arm"] == CONTROL_ARM else f" ({delta:+d})"
-            cells.append(f"{code}{suffix}")
-        worst = (
-            "-- (control)"
-            if p["arm"] == CONTROL_ARM
-            else worst_mid_scale_delta(p, control) if control else "n/a"
-        )
-        a(f"| `{p['arm']}` | " + " | ".join(cells) + f" | {worst} |")
+    lines.extend(_captured_code_table_lines(points, control, "point"))
     a("")
 
     a("## Rail excursion and average current per point")
     a("")
-    a(
-        "| point | "
-        + " | ".join(f"{name} pp (mV)" for name, _n, _l in RAIL_PROBES)
-        + " | I(VDD) (uA) | I(VPWR) (uA) | I(GND) (uA) | total power (uW) |"
-    )
-    a("|---" * (len(RAIL_PROBES) + 5) + "|")
-    for p in points:
-        cells = [_mv(p["extras"].get(f"{probe}_pp")) for probe, _n, _l in RAIL_PROBES]
-        i_gnda = p["extras"].get("i_gnda")
-        a(
-            f"| `{p['arm']}` | "
-            + " | ".join(cells)
-            + f" | {_ua(p['currents'].get('i_vdd'))} | {_ua(p['currents'].get('i_vpwr'))} | "
-            + f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
-            + f"{p['power_w'] * 1e6:.3f} |"
-        )
-    a("")
+    lines.extend(_rail_current_table_lines(points, "point"))
 
     a("## Findings")
     a("")
@@ -2998,26 +3083,7 @@ def write_sweep_record(
 
     a("## Wall-clock cost per run")
     a("")
-    a("| point | wall clock (s) | x the `ideal` control |")
-    a("|---|---|---|")
-    base = None if control is None else control.get("wall_s")
-    for p in points:
-        ratio = "--" if not base else f"{p['wall_s'] / base:.2f}x"
-        note = " (log reused from cache)" if p.get("reused") else ""
-        a(f"| `{p['arm']}` | {p['wall_s']:.0f}{note} | {ratio} |")
-    a("")
-    if any(p.get("reused") for p in points):
-        a(
-            "Rows marked **log reused from cache** were not re-simulated for this "
-            "record: `--log-cache` found a stored ngspice log whose deck sha256, "
-            "volare-verified open_pdks commit and ngspice version all matched the "
-            "run about to be made, and reused it rather than repeating a "
-            "tens-of-minutes transient after an interruption. The reported wall "
-            "clock is the one measured when that run actually executed. A mismatch "
-            "on any identity field re-simulates, and a host that cannot verify its "
-            "own open_pdks commit or ngspice version never reuses at all."
-        )
-        a("")
+    lines.extend(_wall_clock_table_lines(points, control, "point"))
     a(
         "Reported for the same two reasons the arm-comparison record reports it: it "
         "is the input to the subset-corner justification below, and the cost itself "
@@ -3297,21 +3363,11 @@ def write_null_sweep_record(
     block, the footer rules -- are shared by calling the same helpers, so none
     of the three can drift into a softer version of another's caveats.
     """
-    prov, lines = evidence.open_record(
-        EXPERIMENT_DIR,
-        dut_netlist_text,
-        "corners",
-        {f"{p['point_id'].replace('@', '__')}.log": p["log_text"] for p in points},
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
     )
-    deck_dir = EXPERIMENT_DIR / "corners" / prov.record_id
-    for p in points:
-        (deck_dir / f"{p['point_id'].replace('@', '__')}.cir").write_text(p["deck_text"])
 
     swept = [p for p in points if p["arm"] != CONTROL_ARM]
-    corner_ids = sorted({p["corner_id"] for p in points})
-    processes = sorted({p["process_corner"] for p in points})
-    temps = sorted({p["temp_c"] for p in points})
-    supplies = sorted({p["supply_v"] for p in points})
     control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
 
     a = lines.append
@@ -3474,53 +3530,22 @@ def write_null_sweep_record(
 
     a("## Captured code per point")
     a("")
-    a(
-        "| point | "
-        + " | ".join(f"`{f:+.2f}*V_REF` (ideal {tb.ideal_code(f)})" for f in tb.INPUT_FRACTIONS)
-        + " | worst \\|delta code\\| vs `ideal` (mid-scale) |"
-    )
-    a("|---" * (len(tb.INPUT_FRACTIONS) + 2) + "|")
-    for p in points:
-        deltas = code_delta(p, control) if control else {}
-        cells = []
-        for cv in p["conversions"]:
-            code = "MISSING" if cv["code"] is None else str(cv["code"])
-            delta = deltas.get(cv["conversion"])
-            suffix = "" if delta is None or p["arm"] == CONTROL_ARM else f" ({delta:+d})"
-            cells.append(f"{code}{suffix}")
-        worst = (
-            "-- (control)"
-            if p["arm"] == CONTROL_ARM
-            else worst_mid_scale_delta(p, control) if control else "n/a"
-        )
-        a(f"| `{p['arm']}` | " + " | ".join(cells) + f" | {worst} |")
+    lines.extend(_captured_code_table_lines(points, control, "point"))
     a("")
 
     a("## Rail excursion and average current per point")
     a("")
-    a(
-        "| point | "
-        + " | ".join(f"{name} pp (mV)" for name, _n, _l in RAIL_PROBES)
-        + " | I(VDD) (uA) | I(VPWR) (uA) | I(GND) (uA) | total power (uW) |"
-    )
-    a("|---" * (len(RAIL_PROBES) + 5) + "|")
-    for p in points:
-        cells = [_mv(p["extras"].get(f"{probe}_pp")) for probe, _n, _l in RAIL_PROBES]
-        i_gnda = p["extras"].get("i_gnda")
-        a(
-            f"| `{p['arm']}` | "
-            + " | ".join(cells)
-            + f" | {_ua(p['currents'].get('i_vdd'))} | {_ua(p['currents'].get('i_vpwr'))} | "
-            + f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
-            + f"{p['power_w'] * 1e6:.3f} |"
+    lines.extend(
+        _rail_current_table_lines(
+            points,
+            "point",
+            extra_note=(
+                "`I(GND)` is `n/a (no bond)` on every swept row by construction: this "
+                "topology's whole point is that the analog ground has no bond current "
+                "to measure, because it has no bond."
+            ),
         )
-    a("")
-    a(
-        "`I(GND)` is `n/a (no bond)` on every swept row by construction: this "
-        "topology's whole point is that the analog ground has no bond current to "
-        "measure, because it has no bond."
     )
-    a("")
 
     a("## Findings")
     a("")
@@ -3530,26 +3555,7 @@ def write_null_sweep_record(
 
     a("## Wall-clock cost per run")
     a("")
-    a("| point | wall clock (s) | x the `ideal` control |")
-    a("|---|---|---|")
-    base = None if control is None else control.get("wall_s")
-    for p in points:
-        ratio = "--" if not base else f"{p['wall_s'] / base:.2f}x"
-        note = " (log reused from cache)" if p.get("reused") else ""
-        a(f"| `{p['arm']}` | {p['wall_s']:.0f}{note} | {ratio} |")
-    a("")
-    if any(p.get("reused") for p in points):
-        a(
-            "Rows marked **log reused from cache** were not re-simulated for this "
-            "record: `--log-cache` found a stored ngspice log whose deck sha256, "
-            "volare-verified open_pdks commit and ngspice version all matched the "
-            "run about to be made, and reused it rather than repeating a "
-            "tens-of-minutes transient after an interruption. The reported wall "
-            "clock is the one measured when that run actually executed. A mismatch "
-            "on any identity field re-simulates, and a host that cannot verify its "
-            "own open_pdks commit or ngspice version never reuses at all."
-        )
-        a("")
+    lines.extend(_wall_clock_table_lines(points, control, "point"))
     a(
         "Reported because this campaign's cost history is itself evidence: this "
         "topology was left unrun across several passes on a truncated-slice "
@@ -4804,21 +4810,11 @@ def write_decap_esr_record(
     environment block, the footer rules -- they share by calling the same
     helpers.
     """
-    prov, lines = evidence.open_record(
-        EXPERIMENT_DIR,
-        dut_netlist_text,
-        "corners",
-        {f"{p['point_id'].replace('@', '__')}.log": p["log_text"] for p in points},
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
     )
-    deck_dir = EXPERIMENT_DIR / "corners" / prov.record_id
-    for p in points:
-        (deck_dir / f"{p['point_id'].replace('@', '__')}.cir").write_text(p["deck_text"])
 
     rungs = [p for p in points if p["arm"] != CONTROL_ARM]
-    corner_ids = sorted({p["corner_id"] for p in points})
-    processes = sorted({p["process_corner"] for p in points})
-    temps = sorted({p["temp_c"] for p in points})
-    supplies = sorted({p["supply_v"] for p in points})
     control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
     verdict = decap_esr_verdict(points, mults)
 
@@ -4977,26 +4973,7 @@ def write_decap_esr_record(
 
     a("## Captured code per rung")
     a("")
-    a(
-        "| rung | "
-        + " | ".join(f"`{f:+.2f}*V_REF` (ideal {tb.ideal_code(f)})" for f in tb.INPUT_FRACTIONS)
-        + " | worst \\|delta code\\| vs `ideal` (mid-scale) |"
-    )
-    a("|---" * (len(tb.INPUT_FRACTIONS) + 2) + "|")
-    for p in points:
-        deltas = code_delta(p, control) if control else {}
-        cells = []
-        for cv in p["conversions"]:
-            code = "MISSING" if cv["code"] is None else str(cv["code"])
-            delta = deltas.get(cv["conversion"])
-            suffix = "" if delta is None or p["arm"] == CONTROL_ARM else f" ({delta:+d})"
-            cells.append(f"{code}{suffix}")
-        worst = (
-            "-- (control)"
-            if p["arm"] == CONTROL_ARM
-            else worst_mid_scale_delta(p, control) if control else "n/a"
-        )
-        a(f"| `{p['arm']}` | " + " | ".join(cells) + f" | {worst} |")
+    lines.extend(_captured_code_table_lines(points, control, "rung"))
     a("")
     a(
         "The two `+-0.78*V_REF` columns are reported but EXCLUDED from the worst-delta "
@@ -5033,24 +5010,7 @@ def write_decap_esr_record(
 
     a("## Wall-clock cost per run")
     a("")
-    a("| rung | wall clock (s) | x the `ideal` control |")
-    a("|---|---|---|")
-    base = None if control is None else control.get("wall_s")
-    for p in points:
-        ratio = "--" if not base else f"{p['wall_s'] / base:.2f}x"
-        note = " (log reused from cache)" if p.get("reused") else ""
-        a(f"| `{p['arm']}` | {p['wall_s']:.0f}{note} | {ratio} |")
-    a("")
-    if any(p.get("reused") for p in points):
-        a(
-            "Rows marked **log reused from cache** were not re-simulated for this "
-            "record: `--log-cache` found a stored ngspice log whose deck sha256, "
-            "volare-verified open_pdks commit and ngspice version all matched the run "
-            "about to be made, and reused it rather than repeating a tens-of-minutes "
-            "transient after an interruption. The reported wall clock is the one "
-            "measured when that run actually executed."
-        )
-        a("")
+    lines.extend(_wall_clock_table_lines(points, control, "rung"))
     a(
         "Reported for the same two reasons every record of this campaign reports it: "
         "it is the input to the subset-corner justification below, and it is itself a "
