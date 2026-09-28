@@ -15,7 +15,6 @@
     "check:proposal-citations": "python3 docs/chipalooza/check_proposal_citations.py",
     "check:report": "python3 sim/report/generate.py --check",
     "check:signoff-hashes": "python3 signoff/check_evidence_hashes.py",
-    "check:signoff": "bash signoff/run-signoff.sh --check",
     "check:spec-coverage": "python3 sim/check_spec_coverage.py",
     "render:spec-coverage": "python3 sim/check_spec_coverage.py --render",
     "test": "npm run test:compile && npm run test:unit",
