@@ -166,7 +166,6 @@ def build_transient(
     bp_ron: float = 2e3,
     hold_probe_ns: float | None = None,
     tran_step_ps: float = TRAN_STEP_PS,
-    extra_meas: list[tuple[str, str, float]] | None = None,
 ) -> str:
     """Assemble one transient deck around the unmodified DUT fragment.
 
@@ -266,8 +265,6 @@ def build_transient(
         ("top_p_late", "TOP_P", LATE_PROBE_NS),
         ("top_n_late", "TOP_N", LATE_PROBE_NS),
     ]
-    if extra_meas:
-        meas += extra_meas
 
     lines.append(".control")
     lines.append(f"tran {tran_step_ps}p {TRAN_STOP_NS}n")
@@ -326,9 +323,7 @@ def build_ac_capacitance(
 # The 22 `.meas tran ... find ... at=` names build_transient()'s .control
 # block can emit (a superset of build_full_load_transient()'s own 6-name
 # subset) -- passed to harness.measure.parse() as its required explicit
-# allowlist. build_transient()'s optional caller-supplied extra_meas is
-# currently unused by every call site in this file; if a future caller
-# passes extra_meas, its names must be added here too.
+# allowlist.
 TRAN_MEASURE_NAMES = [
     "top_p_end", "top_n_end", "bp_p_end", "bp_n_end", "g_p_end", "g_n_end",
     "boost_p_end", "boost_n_end", "bsbot_p_end", "bsbot_n_end",
