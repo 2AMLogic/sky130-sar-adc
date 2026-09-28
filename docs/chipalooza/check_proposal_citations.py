@@ -1120,6 +1120,24 @@ RENDERER_SHARED_MODULE = "layout/bin/_record_common.py"
 # provenance at all and must not inherit the shared module's pin.
 RENDERER_DELEGATE_RE = re.compile(r"\brender_pnr_drc_lvs_record\b")
 
+# The same pair for the strict-discipline shared module (issue #474): the
+# strict renderers used to invoke `klt pdk find` inline, byte-identically, in
+# four files; that block now lives in `_record_common_strict.py` as
+# `resolve_pdk_info_strict`. Only the provenance call is matched, on the same
+# reasoning as `RENDERER_DELEGATE_RE` above -- a renderer importing only
+# `build_argparser_strict`/`load_json_strict` delegates no provenance.
+RENDERER_SHARED_MODULE_STRICT = "layout/bin/_record_common_strict.py"
+RENDERER_DELEGATE_STRICT_RE = re.compile(r"\bresolve_pdk_info_strict\b")
+
+# Every (shared module, delegating call) pair the census follows. Following
+# the delegation into the module -- rather than treating the call's name as
+# proof on its own -- is what keeps this a LEADING indicator: a shared helper
+# that stopped resolving the commit flips its delegators to unpinned too.
+RENDERER_DELEGATIONS = (
+    (RENDERER_SHARED_MODULE, RENDERER_DELEGATE_RE),
+    (RENDERER_SHARED_MODULE_STRICT, RENDERER_DELEGATE_STRICT_RE),
+)
+
 # What counts as resolving the commit: a `klt pdk find` argv-list invocation
 # (`["pdk", "find", ...]`) or a call to the shared helper that wraps one.
 # Deliberately NOT a search for the word "pdk" -- every one of these files
@@ -5004,8 +5022,21 @@ def renderer_census() -> dict:
     a fix is made in: one renderer minting two trees is one place to change,
     and would otherwise be double-counted on both sides of the census.
     """
-    shared_module = REPO_ROOT / RENDERER_SHARED_MODULE
-    shared_text = shared_module.read_text() if shared_module.is_file() else ""
+    # Comments are stripped from every text before anything is matched
+    # against it (issue #424): both the pin spellings and the delegating call
+    # names above are real identifiers, so a comment that merely *names* one
+    # -- of the delegation, now, as well as of the pin -- must not count.
+    shared_texts = [
+        (
+            delegate_re,
+            _without_hash_comments(
+                (REPO_ROOT / module).read_text()
+                if (REPO_ROOT / module).is_file()
+                else ""
+            ),
+        )
+        for module, delegate_re in RENDERER_DELEGATIONS
+    ]
 
     entry_points: dict[str, bool] = {}
     trees = sorted(
@@ -5019,11 +5050,11 @@ def renderer_census() -> dict:
         if entry in entry_points:
             continue
         path = REPO_ROOT / entry
-        text = path.read_text() if path.is_file() else ""
-        closure = text + (shared_text if RENDERER_DELEGATE_RE.search(text) else "")
-        entry_points[entry] = bool(
-            RENDERER_PIN_RE.search(_without_hash_comments(closure))
+        text = _without_hash_comments(path.read_text() if path.is_file() else "")
+        closure = text + "".join(
+            shared for delegate_re, shared in shared_texts if delegate_re.search(text)
         )
+        entry_points[entry] = bool(RENDERER_PIN_RE.search(closure))
 
     unpinned = sorted(entry for entry, pins in entry_points.items() if not pins)
     return {
