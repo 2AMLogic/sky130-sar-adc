@@ -34,8 +34,6 @@ than riding on the LVS verdict.
 """
 from __future__ import annotations
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -45,6 +43,8 @@ from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
     git_field,
     load_json_strict,
+    resolve_pdk_info_strict,
+    tool_version_strict,
 )
 
 BLOCKS = ("tail", "inpair", "latn", "latp", "rst", "rstd")
@@ -72,17 +72,8 @@ def main() -> int:
     branch = _git(args.repo_root, "rev-parse", "--abbrev-ref", "HEAD")
     dirty = _git(args.repo_root, "status", "--porcelain") != ""
 
-    klt_version = subprocess.run(
-        [args.klt, "--version"], check=True, capture_output=True, text=True
-    ).stdout.strip()
-    pdk_info = json.loads(
-        subprocess.run(
-            [args.klt, "pdk", "find", "--pdk", args.pdk_variant, "--format", "json"],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-    )
+    klt_version = tool_version_strict(args.klt, "--version")
+    pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)
 
     dirty_blocks = sorted(
         block for block in BLOCKS if block_drc.get(block, {}).get("status") != "clean"

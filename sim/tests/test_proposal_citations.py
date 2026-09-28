@@ -5336,12 +5336,25 @@ class TestRendererCensus(unittest.TestCase):
     beside it still true. This check grades that explanation.
     """
 
-    # The two real renderer shapes, reduced to the line each is recognised by.
+    # The three real renderer shapes, reduced to the line each is recognised
+    # by. `DELEGATING_STRICT` is the shape issue #474 created: the strict
+    # renderers' own byte-identical inline `klt pdk find` block moved into
+    # `_record_common_strict.py` as `resolve_pdk_info_strict`, so those files
+    # now carry the call instead of the argv.
     INLINE = 'pdk_info = json.loads(run([klt, "pdk", "find", "--format", "json"]))\n'
     DELEGATING = "from _record_common import build_argparser, render_pnr_drc_lvs_record\n"
+    DELEGATING_STRICT = "pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)\n"
     VARIANT_ONLY = 'a(f"- PDK variant: {args.pdk_variant}")\n'
     SHARED_PINNED = "def resolve_pdk_commit(klt, pdk_variant):\n    ...\n"
     SHARED_UNPINNED = "def render_pnr_drc_lvs_record(title, args):\n    ...\n"
+    SHARED_STRICT_PINNED = (
+        "def resolve_pdk_info_strict(klt, pdk_variant):\n"
+        '    return json.loads(run([klt, "pdk", "find", "--format", "json"]))\n'
+    )
+    SHARED_STRICT_UNPINNED = (
+        "def resolve_pdk_info_strict(klt, pdk_variant):\n"
+        '    return {"variant": pdk_variant}\n'
+    )
 
     # Check 30 is anchored on the document stating check 26's record census,
     # so every fixture body carries one. The numbers in it are never graded
@@ -5431,6 +5444,72 @@ class TestRendererCensus(unittest.TestCase):
             self.check(
                 self.body(
                     self.sentence(1, 0, 1, ("layout/sar-sequencer/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_delegation_to_the_strict_shared_module_is_followed(self):
+        """Issue #474: the strict renderers call a helper instead of `run`.
+
+        The four strict-discipline renderers used to carry a byte-identical
+        inline `klt pdk find` argv list each; that block now lives in
+        `layout/bin/_record_common_strict.py`. The census must follow that
+        delegation the same way it follows `render_pnr_drc_lvs_record`, or a
+        pure extraction would read as four renderers losing their pin.
+        """
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer(
+            "layout/comparator/bin/render-record.py", self.DELEGATING_STRICT
+        )
+        self.tree.add_renderer(
+            "layout/bin/_record_common_strict.py", self.SHARED_STRICT_PINNED
+        )
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_delegation_to_an_unpinned_strict_shared_module_is_counted_as_unpinned(
+        self,
+    ):
+        """Following it must be able to report a miss, not only a hit: a
+        `resolve_pdk_info_strict` that stopped resolving the commit has to
+        flip every renderer delegating to it, which is what makes this a
+        leading indicator rather than a name check."""
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer(
+            "layout/comparator/bin/render-record.py", self.DELEGATING_STRICT
+        )
+        self.tree.add_renderer(
+            "layout/bin/_record_common_strict.py", self.SHARED_STRICT_UNPINNED
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(
+                        1, 0, 1, ("layout/comparator/bin/render-record.py",)
+                    )
+                )
+            ),
+            [],
+        )
+
+    def test_a_comment_only_resolve_pdk_info_strict_mention_is_not_counted(self):
+        """Issue #424's failure shape, one delegation over: naming, not
+        calling. `resolve_pdk_info_strict` is a real identifier, so a comment
+        mentioning it would otherwise pull the strict module's own (genuinely
+        pinned) text into the closure and count the renderer as pinned."""
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/render-record.py",
+            "# unlike the strict flows, this one does not call "
+            "`resolve_pdk_info_strict`\n" + self.VARIANT_ONLY,
+        )
+        self.tree.add_renderer(
+            "layout/bin/_record_common_strict.py", self.SHARED_STRICT_PINNED
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/render-record.py",))
                 )
             ),
             [],
