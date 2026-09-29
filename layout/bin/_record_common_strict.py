@@ -106,3 +106,74 @@ def build_argparser_strict() -> argparse.ArgumentParser:
     parser.add_argument("--klt", required=True)
     parser.add_argument("--pdk-variant", required=True)
     return parser
+
+
+def render_provenance_header(
+    klt_version: str,
+    drc: dict,
+    pdk_info: dict,
+    sha: str,
+    branch: str,
+    dirty: bool,
+) -> list[str]:
+    """Return the `## Provenance` header lines shared byte-for-byte by the
+    `comparator`/`sampling-frontend`/`sampling-frontend-wells` flows: the
+    section title and the four `klt`/KLayout/PDK/repo-commit bullets.
+
+    Each caller's own DRC-deck bullet (and any further deck-specific lines)
+    legitimately differ -- e.g. `sampling-frontend-wells` cites the n-well
+    isolation rules its curated deck carries -- so those are appended by the
+    caller after this header, not folded in here.
+    """
+    return [
+        "## Provenance",
+        "",
+        f"- `klt` version: {klt_version}",
+        f"- KLayout engine: {drc.get('provenance', {}).get('klayout_version')}",
+        f"- PDK: {pdk_info.get('variant')} ({pdk_info.get('version')})",
+        f"- PDK root: resolved via `{pdk_info.get('resolved_via')}`",
+        f"- repo commit: `{sha}` on `{branch}`{' (dirty working tree)' if dirty else ''}",
+    ]
+
+
+def render_net_correspondence(lvs: dict) -> list[str]:
+    """Return the `## Net correspondence (layout <-> reference)` section,
+    byte-identical across the `comparator`/`sampling-frontend`/
+    `sampling-frontend-wells` flows."""
+    lines = ["## Net correspondence (layout <-> reference)", ""]
+    for entry in lvs.get("net_correspondence", []):
+        marker = "pin" if entry.get("pin") else "internal"
+        lines.append(f"- `{entry.get('layout')}` <-> `{entry.get('reference')}` ({marker})")
+    lines.append("")
+    return lines
+
+
+def render_lvs_findings(lvs: dict, title: str = "Reported LVS findings") -> list[str]:
+    """Return the LVS findings section shared by the `comparator`/
+    `sampling-frontend`/`sampling-frontend-wells` flows: a `## {title}`
+    header, the `mismatches` list (or `- none`), and, on a `match` verdict, a
+    closing sentence naming the interpolated `error_count`.
+
+    `title` covers the header wording difference: `sampling-frontend` and
+    `sampling-frontend-wells` both title this "Reported LVS findings (good
+    reference)"; `comparator` omits the "(good reference)" suffix, since its
+    LVS stage runs against only one reference, not a good/bad pair.
+    """
+    lines = [f"## {title}", ""]
+    findings = lvs.get("mismatches", [])
+    if not findings:
+        lines.append("- none")
+    for finding in findings:
+        lines.append(
+            f"- [{finding.get('severity')}] {finding.get('category')}: "
+            f"{finding.get('description')}"
+        )
+    if lvs.get("status") == "match":
+        lines.append("")
+        lines.append(
+            "Every finding above is reported at `severity: warning` with "
+            f"`error_count = {lvs.get('error_count')}`; `klt lvs`'s own overall "
+            f"verdict for this run is `{lvs.get('status')}`."
+        )
+    lines.append("")
+    return lines

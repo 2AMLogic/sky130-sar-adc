@@ -43,6 +43,9 @@ from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
     git_field,
     load_json_strict,
+    render_lvs_findings,
+    render_net_correspondence,
+    render_provenance_header,
     resolve_pdk_info_strict,
     tool_version_strict,
 )
@@ -125,13 +128,8 @@ def main() -> int:
         a(f"- [{'x' if ok else ' '}] {desc}")
     a("")
 
-    a("## Provenance")
-    a("")
-    a(f"- `klt` version: {klt_version}")
-    a(f"- KLayout engine: {drc.get('provenance', {}).get('klayout_version')}")
-    a(f"- PDK: {pdk_info.get('variant')} ({pdk_info.get('version')})")
-    a(f"- PDK root: resolved via `{pdk_info.get('resolved_via')}`")
-    a(f"- repo commit: `{sha}` on `{branch}`{' (dirty working tree)' if dirty else ''}")
+    for line in render_provenance_header(klt_version, drc, pdk_info, sha, branch, dirty):
+        a(line)
     a(
         f"- DRC deck: `{drc.get('deck')}` "
         f"({drc.get('provenance', {}).get('deck', {}).get('content_hash')})"
@@ -245,31 +243,11 @@ def main() -> int:
         )
     a("")
 
-    a("## Net correspondence (layout <-> reference)")
-    a("")
-    for entry in lvs.get("net_correspondence", []):
-        marker = "pin" if entry.get("pin") else "internal"
-        a(f"- `{entry.get('layout')}` <-> `{entry.get('reference')}` ({marker})")
-    a("")
+    for line in render_net_correspondence(lvs):
+        a(line)
 
-    a("## Reported LVS findings")
-    a("")
-    findings = lvs.get("mismatches", [])
-    if not findings:
-        a("- none")
-    for finding in findings:
-        a(
-            f"- [{finding.get('severity')}] {finding.get('category')}: "
-            f"{finding.get('description')}"
-        )
-    if lvs.get("status") == "match":
-        a("")
-        a(
-            "Every finding above is reported at `severity: warning` with "
-            "`error_count = 0`; `klt lvs`'s own overall verdict for this run is "
-            f"`{lvs.get('status')}`."
-        )
-    a("")
+    for line in render_lvs_findings(lvs, title="Reported LVS findings"):
+        a(line)
 
     print("\n".join(lines))
     return 0 if all_pass else 1
