@@ -1,0 +1,15 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "netlist": "top_glue.extract.spice",
+    "top": "top_glue"
+  },
+  "reference": {
+    "netlist": "top_glue.lvs-reference.spice",
+    "top": "top_glue"
+  },
+  "options": {
+    "combine_devices": true
+  }
+}
