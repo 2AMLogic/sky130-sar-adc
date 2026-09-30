@@ -42,6 +42,7 @@ from _record_common import (  # noqa: E402
     build_argparser,
     git_commit_and_dirty,
     load_json,
+    resolve_pdk_commit,
     tool_version,
 )
 
@@ -80,10 +81,18 @@ def main() -> int:
     lines.append("## Provenance")
     lines.append(f"- `klt` version: {tool_version(args.klt, '--version')}")
     lines.append(f"- xschem version: {tool_version('xschem', '--version')}")
-    lines.append(f"- PDK variant: {args.pdk_variant}")
+    lines.append(
+        f"- PDK: {args.pdk_variant} ({resolve_pdk_commit(args.klt, args.pdk_variant)})"
+    )
+    # `klt drc`/`klt extract`/`klt lvs` above are all invoked `--deck`-only (no
+    # `--pdk`), so their own JSON envelopes stamp `provenance.pdk: null` --
+    # this flow's `open_pdks` commit pin comes only from the independent
+    # `resolve_pdk_commit()` line above (issue #407). Still print
+    # `provenance.pdk` when a future `klt` build (or a flow change) populates
+    # it, as a cheap cross-check against the resolution above.
     array_pdk = (per_top["cdac_array"]["extract"].get("provenance") or {}).get("pdk")
-    if array_pdk:
-        lines.append(f"- resolved PDK: {array_pdk.get('name')} {array_pdk.get('version')}")
+    if array_pdk and array_pdk.get("version"):
+        lines.append(f"- extraction's own provenance.pdk: {array_pdk.get('name')} {array_pdk.get('version')}")
     lines.append(f"- repo commit: `{commit}`{' (dirty)' if dirty else ''}")
     lines.append("")
 

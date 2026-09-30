@@ -7,11 +7,27 @@ interconnect (mirrored 1:1 from `design/sar_adc_top.spice`'s own
 `xfe`/`xcdac`/`xcmp`/`xseq`/`xinv_seln<i>` instantiation lines -- see that
 file's header for its own schematic provenance).
 
-Does NOT re-derive any device-level topology: every device card comes
-unmodified from the four sub-blocks' own committed reference (`klt lvs`
-already verifies these against each sub-block's own schematic in each
-sub-block's own flow) -- this script only adds the *composition* the
-schematic itself specifies, one level up.
+Does NOT re-derive any sub-block's device-level topology: every sub-block
+device card comes unmodified from the four sub-blocks' own committed reference
+(`klt lvs` already verifies these against each sub-block's own schematic in
+each sub-block's own flow) -- this script adds the *composition* the schematic
+itself specifies, one level up, plus the only devices that exist at that level
+and nowhere else.
+
+**Top-level primitive devices** (issue #440). Until issue #440 this wrapper
+emitted *no* top-level primitives at all, which is why its device count (869)
+was never `design/sar_adc_top.spice`'s own (871 as of DR-017) and why DR-017's
+Consequences section warns that re-running this script unmodified could not
+close that gap. It now emits the four `cap_mim_m3_1` unit capacitors DR-017's
+`MF = 2` per-domain decoupling is drawn as (`DECAP_CARDS`, appended to the
+wrapper below). It still does NOT emit DR-009's eight top-level analog devices
+(`Choff_{n,p}` and their six `Moff_*` drive FETs) or the 33 top-level
+`sky130_fd_sc_hd` glue cells, because **those are not in the layout either** --
+nothing in `layout/sar-adc-top/` places them yet, so declaring them here would
+manufacture a device-count mismatch rather than describe one. The rule this
+file follows is "one card per device the composed layout actually draws", not
+"one card per card in the schematic"; the remaining gap between the two is a
+layout gap, tracked where the layout is.
 
 Usage:
     layout/sar-adc-top/bin/generate-lvs-reference.py \\
@@ -75,6 +91,27 @@ VPWR VGND sar_sequencer
 Xinv DOUT8 DOUT7 DOUT6 DOUT5 DOUT4 DOUT3 DOUT2 DOUT1 DOUT0 \
 SELn8 SELn7 SELn6 SELn5 SELn4 SELn3 SELn2 SELn1 SELn0 \
 VPWR VGND seln_inverters
+* On-die supply decoupling (DR-017, issue #431; placed in layout by issue #440)
+* -- the FIRST top-level primitive devices this reference has ever carried, and
+* the reason this wrapper's device count is no longer just the five sub-blocks'
+* (see this script's own DECAP_CARDS docstring). design/sar_adc_top.spice
+* declares one cap_mim_m3_1 per supply domain at W = L = 46.9 um, MF = 2; the
+* layout draws each as TWO matched 46.9 um `klt gen cap_array` unit cells in
+* parallel, so this side declares two cards per domain to match device for
+* device. `options.combine_devices` then folds each parallel pair on BOTH sides.
+*
+* Node order is <bottom plate> <top plate>, matching
+* layout/sampling-frontend/reference.spice's own cap convention for the same
+* generator's ports (its C_CSAMP_P is `BPREF_P TOP_P`, i.e. *_BOT then *_TOP),
+* and the layout ties each domain's return to the met3 bottom plate and its
+* supply to the capm/met4 top plate accordingly. The value is the same
+* 4.434864e-12 that file carries for its own 46.9 um plate, from the PDK's own
+* camimc/cpmimc coefficients -- see build_layout.py's DECAP_UNIT_C_F, which
+* re-derives it from those two numbers and asserts the result.
+Cdecap_a0 GND VDD 4.434864e-12 sky130_fd_pr__model__cap_mim
+Cdecap_a1 GND VDD 4.434864e-12 sky130_fd_pr__model__cap_mim
+Cdecap_d0 VGND VPWR 4.434864e-12 sky130_fd_pr__model__cap_mim
+Cdecap_d1 VGND VPWR 4.434864e-12 sky130_fd_pr__model__cap_mim
 .ENDS
 """
 

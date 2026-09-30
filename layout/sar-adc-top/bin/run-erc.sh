@@ -32,6 +32,13 @@ REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv-erc/bin/klt"
 SPEC="$BLOCK_DIR/erc-supply-spec.json"
 ERC_REPORTS="$BLOCK_DIR/erc-reports"
+# The PDK *install* to pin in the record's provenance, resolved via `klt pdk
+# find` (issue #407) -- independent of `klt erc`'s own `--pdk sky130` flag
+# below, which selects a built-in antenna-ratio limit table, NOT a PDK
+# install, and so never carries an `open_pdks` commit (its `provenance.pdk`
+# is `{"name": "sky130", "source": "built-in", "version": null}`). Matches
+# the `sky130A` pin every other `layout/*/bin/run-flow.sh` resolves.
+PDK_VARIANT=sky130A
 
 # shellcheck source=../../bin/_flow_common.sh
 source "$LAYOUT_DIR/bin/_flow_common.sh"
@@ -57,7 +64,21 @@ RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$ERC_REPORTS/$RECORD_ID"
 mkdir -p "$OUT_DIR"
 
+# Reuses layout/bin/_record_common.py's own `resolve_pdk_commit` (issue
+# #407) rather than re-parsing `klt pdk find --format json` here, so this
+# script's PDK pin can never drift from the one every other flow's
+# render-record.py prints.
+PDK_COMMIT="$(
+  cd "$REPO_ROOT" && python3 -c "
+import sys
+sys.path.insert(0, 'layout/bin')
+from _record_common import resolve_pdk_commit
+print(resolve_pdk_commit('$KLT', '$PDK_VARIANT'))
+"
+)"
+
 echo "$PROG: klt $("$KLT" --version | awk '{print $2}')"
+echo "$PROG: pdk    $PDK_VARIANT ($PDK_COMMIT)"
 echo "$PROG: layout $GDS"
 echo "$PROG: spec   $SPEC"
 
@@ -120,8 +141,30 @@ for label, got, want in (
     if got != want:
         sys.exit(f"run-erc.sh: {label} content-hash mismatch: {got} != {want}")
 
+spec = json.load(open(spec_path))
+
+# The non-tuning invariant (issue #364). The WHOLE-FILE spec hash asserted
+# above pins the bytes this run read -- but it also moves when a `_comment` is
+# rewritten, so it cannot carry "the layout moved, the gate did not" across a
+# prose refresh. This digest can: it canonicalises only what `klt erc` actually
+# grades -- `stackup`, `vias`, `nets[]` and `ties_disclosure.kind`, with every
+# underscore-prefixed (comment) key dropped at both levels -- so two specs that
+# ask the same question hash the same however their prose differs. Quote it in
+# the record's record.md; it is the thing a later reader compares across runs.
+_graded = lambda o: {k: v for k, v in o.items() if not k.startswith("_")}
+graded_spec = json.dumps(
+    {
+        "stackup": [_graded(e) for e in spec["stackup"]],
+        "vias": [_graded(e) for e in spec["vias"]],
+        "nets": [_graded(e) for e in spec["nets"]],
+        "ties_disclosure.kind": (spec.get("ties_disclosure") or {}).get("kind"),
+    },
+    sort_keys=True,
+    separators=(",", ":"),
+).encode()
+
 findings = report.get("erc_findings", [])
-supplies = {n["name"] for n in json.load(open(spec_path)).get("nets", [])}
+supplies = {n["name"] for n in spec.get("nets", [])}
 blocking = [
     f
     for f in findings
@@ -130,6 +173,10 @@ blocking = [
 ]
 ties = report.get("ties_disclosure") or {}
 print(f"run-erc.sh: content-hashes verified (layout + spec)")
+print(
+    "run-erc.sh: graded-spec subset sha256="
+    + hashlib.sha256(graded_spec).hexdigest()
+)
 print(f"run-erc.sh: erc_status={report.get('erc_status')} findings={len(findings)}")
 # This line grades ONE half of T1 item 11 -- the supply-continuity rules. The
 # item also requires zero `erc.missing_tie` FROM A TIE THE RUN ACTUALLY
@@ -156,3 +203,4 @@ PY
 echo "$RECORD_ID" >"$ERC_REPORTS/LATEST"
 echo "$PROG: wrote $OUT_DIR/erc.json (erc-reports/LATEST -> $RECORD_ID)"
 echo "$PROG: write $OUT_DIR/record.md by hand -- the verdict narrative is not generated"
+echo "$PROG: include the \"pdk\" line above (\"$PDK_VARIANT ($PDK_COMMIT)\") in its Provenance table (issue #407)"

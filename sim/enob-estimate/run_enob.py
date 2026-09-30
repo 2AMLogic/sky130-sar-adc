@@ -407,6 +407,7 @@ def main() -> int:
 
     if args.record:
         record_path.write_text("\n".join(lines))
+        evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
         print(f"wrote {record_path}")
     else:
         print("\n".join(lines))
