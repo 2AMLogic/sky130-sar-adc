@@ -96,8 +96,8 @@ layout/comparator/**/.klt/
 .loom/exit-codes/
 .loom/sweep-checkpoint/
 .loom/sweep-run/
-.loom/state/ci-telemetry/
-.loom/state/fleet-captain/
+.loom/state/*
+!.loom/state/detect-unlabeled-epics-dismissed
 .loom/concierge/
 .loom/stats/
 .loom/diagnostics/
