@@ -206,11 +206,16 @@ regenerated netlist `design/sar_adc_top.spice`.
 sub-blocks above are not the whole design: outside every sub-block,
 `design/sar_adc_top.sch` adds **33** `sky130_fd_sc_hd` instances of **6** cell
 types — `and2_1` **×18**, `and2b_1` **×1**, `inv_1` **×3**, `mux2_1` **×1**,
-`xnor2_1` **×1**, `xor2_1` **×9** — and **8** `sky130_fd_pr` instances of
-**3** device types — `cap_mim_m3_1` **×2**, `nfet_01v8` **×2**, `pfet_01v8`
+`xnor2_1` **×1**, `xor2_1` **×9** — and **10** `sky130_fd_pr` instances of
+**3** device types — `cap_mim_m3_1` **×4**, `nfet_01v8` **×2**, `pfet_01v8`
 **×4**. Both censuses are recomputed from `design/sar_adc_top.spice`'s own
 instance lines and graded in both directions, per cell type, so a glue cell
-added, removed, or swapped for another fails CI here. What each group is:
+added, removed, or swapped for another fails CI here. **Two of the four
+`cap_mim_m3_1` are new this pass** (2026-09-25, issue #431): `Cdecap_a`
+(`VDD`/`GND`) and `Cdecap_d` (`VPWR`/`VGND`), the per-domain on-die
+decoupling capacitors
+[DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+sizes; the other two (`Choff_n`, `Choff_p`) predate it. What each group is:
 
 - The **eighteen `and2_1`** are
   [DR-008](../../spec/decision-records/DR-008-cdac-top-level-switching-polarity.md)'s
@@ -231,11 +236,19 @@ added, removed, or swapped for another fails CI here. What each group is:
 - The **third `inv_1`** (`xinv_clkcap`) inverts `CLK` to `CLKN` so the
   comparator is strobed at the end of the evaluate phase rather than its start
   (issue #264) — not a DR-008/DR-009 device.
-- All **eight `sky130_fd_pr` instances** are DR-009's half-LSB quantizer-offset
-  network (two `cap_mim_m3_1` injection caps and their six drive FETs) — the
-  only analog devices this design draws outside a sub-block, and the reason
-  §2.2's `VDD` row names "the DR-009 offset network" as a load on the analog
-  rail.
+- **Eight of the ten `sky130_fd_pr` instances** are DR-009's half-LSB
+  quantizer-offset network (two `cap_mim_m3_1` injection caps and their six
+  drive FETs) — the reason §2.2's `VDD` row names "the DR-009 offset network"
+  as a load on the analog rail.
+- The **remaining two `cap_mim_m3_1`** (`Cdecap_a`, `Cdecap_d`) are
+  [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)'s
+  per-domain on-die decoupling, one across `VDD`/`GND` and one across
+  `VPWR`/`VGND`. They are not switched by any conversion event and are not
+  part of DR-009's network. **They exist in `design/` only**: no
+  `layout/sar-adc-top/` composition places them yet, so every DRC/LVS record
+  under that directory predates them (DR-017's own "Open items", and §7 Item
+  1's LVS device-count discussion). Together with the eight above they are
+  the only analog devices this design draws outside a sub-block.
 
 **None of those 33 cells is a `SELn<i>` inverter.** Issue #56's original
 integration drew `SELn<i> = NOT(DOUT<i>)` as nine dedicated `inv_1`
@@ -594,12 +607,20 @@ placing all five sub-block layouts
   correct two GDS-specific shape counts a later Judge round found still
   described the superseded pre-mesh run — which moves the whole-file hash and
   nothing the tool reads), and the current run
-  ([`erc-reports/20260925-044420-f039594/record.md`](../../layout/sar-adc-top/erc-reports/20260925-044420-f039594/record.md),
-  which supersedes `20260925-011943-f981dc9` (issue #364's second prose
+  ([`erc-reports/20260926-184830-e1176e3/record.md`](../../layout/sar-adc-top/erc-reports/20260926-184830-e1176e3/record.md),
+  issue #465, the second record in this chain graded on *different geometry*
+  rather than on re-minted prose — every via2/via3 in the four decoupling ties
+  is now a 2×2 array of four cuts instead of one, which edits a series element
+  in three of the four declared supplies' own drawn paths — which supersedes
+  `20260926-081822-203cca3` (issue #440, the first such record: it placed
+  DR-017's two per-domain decoupling capacitors, so each of the four declared
+  supplies gained drawn conductor),
+  `20260925-044420-f039594` (issue #364's third prose re-mint),
+  `20260925-011943-f981dc9` (issue #364's second prose
   re-mint), `20260924-234116-66dca3c` (issue #377's analog ground mesh),
   `20260924-214731-b323061` (issue #362's analog ground pad), and
-  `20260924-190825-f3622fc` (issue #355), none of which moved a number in
-  this bullet)
+  `20260924-190825-f3622fc` (issue #355) — **not one of which moved a number in
+  this bullet**, #440 and #465 included)
   reports `erc_status: clean`, 0 findings — all four supplies at one island
   each, no `erc.supply_short`. **That is the continuity half only**: the
   checklist item also requires zero `erc.missing_tie` from a tie the run
@@ -780,18 +801,40 @@ and on 2026-09-24 by issue #355's digital supply-rail tie, then by issue
 ([`layout/sar-adc-top/reports/20260924-214710-b323061/record.md`](../../layout/sar-adc-top/reports/20260924-214710-b323061/record.md)),
 and finally by issue #377's analog ground mesh,
 [`layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md),
-the current `reports/LATEST` — every hop up to and including 2026-09-23 at an
+and on 2026-09-26 by issue #440's placement of DR-017's two per-domain
+decoupling capacitors,
+[`layout/sar-adc-top/reports/20260926-081248-203cca3/record.md`](../../layout/sar-adc-top/reports/20260926-081248-203cca3/record.md),
+and later the same day by issue #465's 2×2 via arrays at those four
+decoupling ties,
+[`layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md`](../../layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md),
+the current `reports/LATEST` — which moves **no** DRC or LVS number at all
+(clean at 0 violations, still 89 mismatches in the same four categories,
+871/871/804 devices, 21/22/22 pins, the same composed bounding box): it lowers
+the ties' own measured series resistance from 13.837/13.448 Ω per domain to
+**7.172/6.863 Ω** (`decap-ties.json`), which no verdict in this flow can see,
+which is exactly why the change rests on a `sim/` record instead
+(`sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md`,
+issue #465) — every hop up to and including 2026-09-23 at an
 identical DRC/LVS verdict, identical device/net/pin counts and identical
-mismatch categories, and the 2026-09-24 hop the first that moves them at all,
-in the improving direction (19/19/19 → 21/21/21 pins, 98 → 88 mismatches,
-794 → 803 devices matched: two new top-level digital supply pins, and each
-digital rail one net instead of two — see the sign-off-bar readout in §4); `compose.json`'s
+mismatch categories; the 2026-09-24 hops the first that move them at all, in
+the improving direction (`20260924-190817-f3622fc`, issue #355: 19/19/19 →
+21/21/21 pins, 98 → 88 mismatches, 794 → 803 devices matched — two new
+top-level digital supply pins, and each digital rail one net instead of two;
+then `20260924-214710-b323061`, issue #362's analog ground pad, which moved
+the pin triple once more, to the 21/22/22 the current record still carries);
+and the 2026-09-26 hop the second event to move a count, and the first to move
+one by *adding devices* rather than by tying nets (869 → **871** devices on
+each side, 803 → **804** matched, 88 → **89** mismatches, the single added
+entry being one further `device.unmatched` — see the sign-off-bar readout in
+§4, which states the current numbers and, one paragraph below it, this hop's
+mechanism); `compose.json`'s
 top-level `bbox_um` was in turn byte-identical to `20260915-213439-bf2256f`'s,
 verified directly, moved by 0.05 µm in x0 only at the #326 re-composition,
 where the external `VDD` pin's own met4 landing pad widened, and is
 byte-identical again across the 2026-09-19 re-run), which §4's Area
 row and its two sign-off-bar rows are re-pointed onto below. **No §4 verdict moves**: DRC/LVS-clean GDS
-stays UNMET/BLOCKED (88 mismatches on the current record, 98 on every record
+stays UNMET/BLOCKED (89 mismatches on the current record, 88 on each of the
+three 2026-09-24 records and 98 on every record
 from `20260915-234004-76f48b9` through 2026-09-23 — better than the 124 this paragraph once
 cited, but still not clean), and post-layout PVT stays
 UNMET (still no extraction-based re-sim at any corner). #103 itself was
@@ -889,9 +932,9 @@ the [citation gate](check_proposal_citations.py), whose rationale is in
 [`docs/citation-gate.md`](../citation-gate.md) — is what replaces the
 blanket claim:
 
-> of the **22** (spec row, `sim/` record) citation pairs in Section 4's
-> table, **12** name a record that declares the full **9**-point grid,
-> **8** name one that declares a smaller PVT point set, and **2** name one
+> of the **26** (spec row, `sim/` record) citation pairs in Section 4's
+> table, **13** name a record that declares the full **9**-point grid,
+> **10** name one that declares a smaller PVT point set, and **3** name one
 > that declares no PVT point set of its own:
 > `sim/cdac-array-transfer/records/20260828-005006-0c70212.md` (**1**
 > point), `sim/cdac-array-transfer/records/20260828-022618-f36913e.md`
@@ -900,14 +943,20 @@ blanket claim:
 > point), `sim/comparator-decision/records/20260924-041815-afcb1b5.md`
 > (**1** point),
 > `sim/comparator-decision/records/20260925-050027-0259924.md` (**1**
+> point),
+> `sim/comparator-decision/records/20260925-182138-23ad4d8.md` (**1**
 > point), `sim/enob-estimate/records/20260906-082749-7724af3.md` (no PVT
 > point set), `sim/enob-estimate/records/20260925-090023-c3a6872.md` (no
 > PVT point set),
 > `sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md`
 > (**1** point),
+> `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md` (no PVT
+> point set),
 > `sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md` (**1**
 > point),
 > `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`
+> (**1** point),
+> `sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md`
 > (**1** point).
 
 **One name in that list was stale the moment the census landed, and was
@@ -931,9 +980,12 @@ write-up of the race, not the repair of it. **No count moved** — still **22**
 pairs, **12** / **8** / **2** — because the re-run declares no PVT point set
 of its own for exactly the reason its predecessor did (it runs no ngspice;
 see the paragraph below), and no Section 4 verdict, figure, Target or Status
-moved either. Tracked as #417; the both-directions rule is what made a
-two-minute merge race visible at all, rather than leaving the census quietly
-one record behind.
+moved either. The race was reported as #417, which is **closed**
+(`completed`, 2026-09-25T11:13:01Z) — closed by PR #421, the write-up this
+paragraph began as, not by #419's repair, so its closure marks this record of
+the race landing and adds no fix of its own. Nothing about it stays open; the
+both-directions rule is what made a two-minute merge race visible at all,
+rather than leaving the census quietly one record behind.
 
 **No cited record hides this — the sentence above them did.** Each of the
 eight single-point records states its own subset-corner justification in its
@@ -1043,16 +1095,16 @@ audience with an explicit Challenge-brief verdict column.
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | **MET** — same record as `V_REF` | same record |
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | **MET** — sim structural check (9/9 corners); independent layout evidence also exists and is now DRC- and LVS-confirmed (drawn `C_u = 8.6473 fF`, unit-cap count 1024 = 512/side × 2). The original record's LVS "match" did not reproduce against its own committed artefacts (#148); #148's fix compares the array's 1024 drawn unit capacitors 1:1 against the reference (no `combine_devices` folding) and its replacement record's match reproduces on repeat runs. **Re-cited 2026-09-17** (issue #323) onto the flow's `klt 0.5.0` re-run, `reports/LATEST` as of this pass: `drc.json`/`lvs.json` are field-identical to the superseded `klt 0.4.0` record this row previously cited — same DRC-clean, same LVS match (2 mismatches, 0 errors), same 1060/1060/1060 device and 42/42/42 net counts — no verdict change. **Re-cited 2026-09-24** (issue #377) onto the flow's first `klt 0.6.0` run, which also draws this block's new `VSS` p-substrate tap and pin: `drc.json` still clean at 0 violations and `lvs.json` still `match`, with the same 1060/1060/1060 device, 42/42/42 net and 24/24/24 pin counts; the mismatch count goes 2 → 1 because the substrate net now carries a drawn `VSS` label and `device.body_unverified` stops firing — a naming fact about the deck's global tie, not a newly verified body tie. The drawn unit capacitance and unit-cap count are untouched, so this row's own quantity does not move | same record; [`layout/cdac-array/reports/20260924-233346-66dca3c/record.md`](../../layout/cdac-array/reports/20260924-233346-66dca3c/record.md) (current `reports/LATEST`, issue #377's `VSS` tap; supersedes `reports/20260917-180543-527ec73/`, the `klt 0.5.0` version-parity re-run, which supersedes `reports/20260906-020815-38cdbd3/`, the `klt 0.4.0`-built record — issue #323's version-parity re-run, no verdict change — which itself supersedes `reports/20260905-220338-9fb9b04/` — issue #165's own tap/landing-pad fix (PR #170) re-ran this flow with an identical extraction/LVS/unit-cap outcome, see §7 Item 1 — which itself supersedes `reports/20260825-132454-51cbdd4/`, see #148) |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.8643 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)). Re-measured this pass against issue #175's amended (reset-integrity-fixed) device set — the binding-corner figure moved from 0.9591 to 0.8643 mV rms; the pass/fail outcome is unchanged | [`sim/comparator-decision/records/20260906-065109-eedd532.md`](../../sim/comparator-decision/records/20260906-065109-eedd532.md) |
-| Kickback | `≤ 5 mV` peak pin disturbance into a `1 kΩ` series source impedance, single decision edge (target); stretch `≤ 2 mV` | DRAFT (new row, DR-011 candidate) | **Informational only — no ratified line exists to grade against.** This row is new as of 2026-09-24 ([DR-011](../../spec/decision-records/DR-011-comparator-kickback-target-row.md) via #361), and its bound is **adopted verbatim** from the sibling `2AMLogic/sky130-comparator` canary's own DR-002-ratified row as a stated interim choice — not derived from this block's own system-level budget (DR-011 "Alternatives considered" names the derivation this repo cannot do yet, and why). Against it, informationally: the cited record measures **73.3673 mV** worst-case peak pin disturbance (`Vindiff = +50 mV`, `VINP` at 5.108 ns), i.e. `≈ 14.7×` the `≤ 5 mV` target and `≈ 36.7×` the `≤ 2 mV` stretch. **Single corner only** (`tt`/27 °C/1.8 V, 1 PVT point) — this is a first-pass baseline, not a corner campaign, so the figure is not a worst-case-over-PVT one. Against the record's own `Vindiff = 0 mV` control row (**−70.3419 mV**, `VINP` at 5.108 ns): `≈ 95.9 %` of that peak is already present with no decision to make, and `3.0254 mV` (`≈ 4.1 %`) is what the `+50 mV` point adds on top of it. **That subtraction is not a common-mode/differential split, and this row does not read it as one** — until 2026-09-25 it stated the `≈ 4.1 %` term as "the decision transient itself", which overstates what a per-pin subtraction can separate: both figures above are the extremum over *either* pin independently (`sim/comparator-decision/run.py`'s `run_kickback_sweep` tracks one maximum and one minimum across `VINP` and `VINN` together), so neither bounds the *differential* part of the disturbance. The cited record now measures that split directly, and this row reads it off the measurement instead of inferring it: the record's own `Measured value(s)` table carries **9** columns — `Vindiff (mV)`, `peak+ (mV)`, `pin / time (ns)`, `peak- (mV)`, `pin / time (ns)`, `CM+ (mV) @ t (ns)`, `CM- (mV) @ t (ns)`, `diff+ (mV) @ t (ns)`, `diff- (mV) @ t (ns)` — at least one of them is a common-mode or differential quantity, so restate the split from the record instead of subtracting per-pin peaks. **The measured split** (issue #390, the first gate [DR-014](../../spec/decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) names, record `20260925-050027-0259924` superseding #346's baseline): the common-mode component barely moves with overdrive — `−70.3419 mV` at the `Vindiff = 0 mV` symmetry-control point, `−70.4415 mV` at `+50 mV` — so essentially all of the `73.3673 mV` per-pin figure is common-mode, which a differential top-plate CDAC rejects to first order. The differential component, which it does not reject and which therefore lands on a decision, is `−10.9153 mV` at `+50 mV` (`≈ 2.2×` the `≤ 5 mV` target) and `+4.1918 mV` at the half-LSB overdrive `+1.7578 mV` that a marginal SAR decision actually presents (`≈ 0.84×` the target, `≈ 2.1×` the `≤ 2 mV` stretch). Both components are back below `0.001 mV` by `t = 10 ns`, about 4.9 ns after the CLK ramp ends. So the `≈ 14.7×` above stands as the multiple on the quantity the row bounds, while the decision-relevant component is a far smaller multiple of it — not negligible, and still over the target at the large-overdrive point. DR-011's Context reads the old subtraction as a clock-coupled/decision-coupled split, and its Consequences §3 draws a mitigation direction from it ("clock-edge and reset/tail-switch shaping … matters far more here"); that direction was read off a per-pin quantity, and the measured split above is what any re-derivation of it now has to rest on. **Mitigation selection is no longer open work on #349.** [DR-014](../../spec/decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) (2026-09-25, the record #349 closed on) answers DR-011's "Mitigation selection" open item by adopting **no** mitigation: a static preamp is not adopted and [DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md) Decision §1 stands, on DR-003 Item 1's `876.9 mV` common-mode headroom stack against a continuously biased stage at this rail, and clock-edge shaping is rejected as a gap-closer in the same record. So the `≈ 14.7×` above is a gap left **unmitigated by decision**, not one awaiting a chosen fix. DR-014's own first gate was #390's split rather than a topology change, and that gate is now measured (above); what remains open on this track is DR-014 Consequences §4 — measuring the headroom-neutral mitigation classes it names, now that the differential component is known to exceed the target at large overdrive. `sim/spec-coverage.json` carries that disposition too — DR-014 repointed the Kickback row's `tracking` field off #349 onto itself and #390 — and check 22 of the [citation gate](check_proposal_citations.py) fails this row if it falls behind that field again. Ratification would additionally oblige a full-corner kickback campaign (DR-011 Consequences §5) | [`sim/comparator-decision/records/20260924-041815-afcb1b5.md`](../../sim/comparator-decision/records/20260924-041815-afcb1b5.md) (#346's baseline, superseded 2026-09-25); [`sim/comparator-decision/records/20260925-050027-0259924.md`](../../sim/comparator-decision/records/20260925-050027-0259924.md) (#390's decomposition, the record this row's figures are re-derived from) |
+| Kickback | `≤ 5 mV` peak pin disturbance into a `1 kΩ` series source impedance, single decision edge (target); stretch `≤ 2 mV` | DRAFT (new row, DR-011 candidate) | **Informational only — no ratified line exists to grade against.** This row is new as of 2026-09-24 ([DR-011](../../spec/decision-records/DR-011-comparator-kickback-target-row.md) via #361), and its bound is **adopted verbatim** from the sibling `2AMLogic/sky130-comparator` canary's own DR-002-ratified row as a stated interim choice — not derived from this block's own system-level budget (DR-011 "Alternatives considered" names the derivation this repo cannot do yet, and why). Against it, informationally: the cited record measures **73.3673 mV** worst-case peak pin disturbance (`Vindiff = +50 mV`, `VINP` at 5.108 ns), i.e. `≈ 14.7×` the `≤ 5 mV` target and `≈ 36.7×` the `≤ 2 mV` stretch. **Single corner only** (`tt`/27 °C/1.8 V, 1 PVT point) — this is a first-pass baseline, not a corner campaign, so the figure is not a worst-case-over-PVT one. Against the record's own `Vindiff = 0 mV` control row (**−70.3419 mV**, `VINP` at 5.108 ns): `≈ 95.9 %` of that peak is already present with no decision to make, and `3.0254 mV` (`≈ 4.1 %`) is what the `+50 mV` point adds on top of it. **That subtraction is not a common-mode/differential split, and this row does not read it as one** — until 2026-09-25 it stated the `≈ 4.1 %` term as "the decision transient itself", which overstates what a per-pin subtraction can separate: both figures above are the extremum over *either* pin independently (`sim/comparator-decision/run.py`'s `run_kickback_sweep` tracks one maximum and one minimum across `VINP` and `VINN` together), so neither bounds the *differential* part of the disturbance. The cited record now measures that split directly, and this row reads it off the measurement instead of inferring it: the record's own `Measured value(s)` table carries **9** columns — `Vindiff (mV)`, `peak+ (mV)`, `pin / time (ns)`, `peak- (mV)`, `pin / time (ns)`, `CM+ (mV) @ t (ns)`, `CM- (mV) @ t (ns)`, `diff+ (mV) @ t (ns)`, `diff- (mV) @ t (ns)` — at least one of them is a common-mode or differential quantity, so restate the split from the record instead of subtracting per-pin peaks. **The measured split** (issue #390, the first gate [DR-014](../../spec/decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) names, record `20260925-050027-0259924` superseding #346's baseline): the common-mode component barely moves with overdrive — `−70.3419 mV` at the `Vindiff = 0 mV` symmetry-control point, `−70.4415 mV` at `+50 mV` — so essentially all of the `73.3673 mV` per-pin figure is common-mode, which a differential top-plate CDAC rejects to first order. The differential component, which it does not reject and which therefore lands on a decision, is `−10.9153 mV` at `+50 mV` (`≈ 2.2×` the `≤ 5 mV` target) and `+4.1918 mV` at the half-LSB overdrive `+1.7578 mV` that a marginal SAR decision actually presents (`≈ 0.84×` the target, `≈ 2.1×` the `≤ 2 mV` stretch). Both components are back below `0.001 mV` by `t = 10 ns`, about 4.9 ns after the CLK ramp ends. So the `≈ 14.7×` above stands as the multiple on the quantity the row bounds, while the decision-relevant component is a far smaller multiple of it — not negligible, and still over the target at the large-overdrive point. DR-011's Context reads the old subtraction as a clock-coupled/decision-coupled split, and its Consequences §3 draws a mitigation direction from it ("clock-edge and reset/tail-switch shaping … matters far more here"); that direction was read off a per-pin quantity, and the measured split above is what any re-derivation of it now has to rest on. **Mitigation selection is no longer open work on #349.** [DR-014](../../spec/decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) (2026-09-25, the record #349 closed on) answers DR-011's "Mitigation selection" open item by adopting **no** mitigation: a static preamp is not adopted and [DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md) Decision §1 stands, on DR-003 Item 1's `876.9 mV` common-mode headroom stack against a continuously biased stage at this rail, and clock-edge shaping is rejected as a gap-closer in the same record. So the `≈ 14.7×` above is a gap left **unmitigated by decision**, not one awaiting a chosen fix. DR-014's own first gate was #390's split rather than a topology change, and that gate is now measured (above); what remains open on this track is DR-014 Consequences §4 — measuring the headroom-neutral mitigation classes it names, now that the differential component is known to exceed the target at large overdrive. That follow-on was filed as #434 (double-tail latch, cross-coupled neutralization, complementary-clock charge compensation, per DR-014 §(c)/Open items), and one of the three is now measured. **Cross-coupled neutralization** — added to the same 11-device latch as an EXPERIMENTAL, non-adopted DUT variant (`sim/comparator-decision/testbench/comparator_core_neutralized.spice`; no `design/comparator.sch` change), sized from the input pair's own BSIM4 `Cgd` overlap term rather than fitted or hand-tuned — moves the worst-case peak differential deviation from `−10.9153 mV` to `−10.8355 mV` at `Vindiff = +50 mV` (`≈ −0.7 %`; `sim/comparator-decision/records/20260925-182138-23ad4d8.md`, informational, not graded against the DRAFT row per `spec/README.md`), and the worst-case peak per-pin disturbance from `73.3673 mV` to `69.9461 mV` (`≈ −4.7 %`). **[DR-016](../../spec/decision-records/DR-016-kickback-headroom-neutral-mitigation-measurement.md)** (2026-09-25, the record #434 closed on) weighs that result: a `0.7 %` differential reduction does not close enough of the gap to reconsider a mitigation, so **DR-014's Decision stands** — no static preamp, no mitigation adopted — and this measured class is why: the input pair's own coupling capacitance is a small fraction of the charge this latch's larger, `CLK`-gated tail and reset devices inject, so neutralizing only that path barely moves the differential figure. The double-tail latch and complementary-clock charge compensation classes remain unmeasured; per #434's own acceptance criteria, landing one class was sufficient to close it, so it is closed on this evidence rather than left open pending the other two. `sim/spec-coverage.json` carries that disposition too — its Kickback row's `tracking` field now names DR-016 alongside DR-014/#390/#434 — and check 22 of the [citation gate](check_proposal_citations.py) fails this row if it falls behind that field again. Ratification would additionally oblige a full-corner kickback campaign (DR-011 Consequences §5) | [`sim/comparator-decision/records/20260924-041815-afcb1b5.md`](../../sim/comparator-decision/records/20260924-041815-afcb1b5.md) (#346's baseline, superseded 2026-09-25); [`sim/comparator-decision/records/20260925-050027-0259924.md`](../../sim/comparator-decision/records/20260925-050027-0259924.md) (#390's decomposition, the record this row's figures are re-derived from) |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | `sim/harness-corner-smoke/records/`, `sim/mc-smoke/records/` |
-| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (all four constituent mechanisms now checked individually and all four now PVT-complete; the one mechanism previously found NOT to clear the phase budget at any ratified corner has since been fixed by issue #236 and now clears it at all 9/9 — see (d)'s "Update this pass (2026-09-08)")** — **Update this pass (2026-09-15): a full-hierarchy, whole-ADC code-correctness campaign now exists (`sim/full-conversion-transient/`, issue #254) — this row previously stated none did; that is now stale.** Its most recent full-grid run ([`records/20260912-002315-9aaf1ca.md`](../../sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md), pre-dates the current schematic) found 0/9 corners code-correct; several of the defects it surfaced have since been fixed (DR-008, DR-009) but two architecture/sizing decisions remain open (issues #267 and #269, both escalated to a human operator — §7 Item 8 carries their dated tracking state) before a fresh 9-corner re-run would be meaningful. **Citation note (this pass)**: that record is also what `sim/full-conversion-transient/records/LATEST` resolves to (verified against the pointer file this pass); the pointer is `records/LATEST`, not `reports/LATEST` as this row previously wrote it, and this row now cites the record by full path so the citation does not depend on the pointer at all. See §7 Item 8 for the full campaign history and root causes. The four *mechanism-level* timing-budget checks below (a)–(d) are a distinct, narrower claim (does each stage clear its DR-006 phase budget in isolation) from this whole-ADC *code-correctness* campaign (does the assembled loop converge to the right code) — both are now evidenced, and both are open in different ways. The 1.2–12 MHz timing budget itself is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is now **PVT-complete** (full ratified OAT grid, 9 corners): binding corner `tt_27c_1.62v` at 13.2312 ns (bit 8/MSB, rise), 6.3× inside the DR-006-derived 83.333 ns phase budget; fastest corner `tt_27c_1.98v` at 10.3019 ns (8.1×); worst-to-best spread only 1.28× across the grid, and the tt/27 °C/1.8 V point reproduces the single-corner record's own 11.3861 ns exactly. All 9/9 corners clear the budget — not the bottleneck anywhere on the grid. A secondary, non-gating finding: the smallest-swing diagnostic row (bit 0, ~0.2% of VDD swing) failed to produce a 99%-settling crossing at 5/9 corners, root-caused (confirmed window-invariant out to 300 ns, not asserted without evidence) to a small, genuine, already-converged offset between the real simulated circuit and the analytic closed-form ideal — negligible against bit 8's own ~1.8 V swing but exceeding 1% of bit 0's own ~4 mV swing at some corners; bit 8 (the array's own true worst case, confirmed by its own tau_i(i) derivation) crossed cleanly at all 9/9 corners, so this does not affect the worst-case finding (see §7 Item 2 for the full root-cause trace). (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). (c) The SAR sequencer's own CLK-to-phase-output logic delay is now **PVT-complete** (full ratified OAT grid, 9 corners), covering all 11 of its own ring-sequencer phase transitions at every corner (99 phase measurements): binding corner `ss_27c_1.80v` at 0.4237 ns (phase `b1`), 196.7× inside the DR-006 budget; fastest corner `ff_27c_1.80v` at 0.2480 ns (336.1×); worst-to-best spread only 1.71× across the grid. All 9/9 corners clear the budget by more than two orders of magnitude — the smallest of the four mechanisms measured, and not the bottleneck at any ratified corner. (d) **The sampling front end's own acquisition of a new, worst-case (rail-to-rail) differential input value is now ALSO PVT-complete (full ratified OAT grid, 9 corners) — and it is the only mechanism of the four found NOT to clear the budget, at EVERY ratified corner**: the single-corner (`tt`/27 °C/1.8 V) finding of a 23.43 mV residual (~13.3× the provisional differential LSB's half-step), traced to the bootstrap precharge PFET `Sa`'s imperfect off-state once `BOOST_x` is boosted above `VDD`, was not a corner-specific artifact — every one of the 9 ratified corners exceeds the half-LSB reference scale, with a binding corner of `tt_27c_1.62v` at 67.19 mV (~38.2× the half-LSB, 2.9× worse than the tt/27 °C/1.8 V baseline) and a best corner of `tt_27c_1.98v` at 9.00 mV (~5.1×). This is the opposite outcome from mechanisms (a)–(c); the front end's own acquisition, not the CDAC, comparator, or sequencer, is the likely bottleneck for an end-to-end sample-rate figure at the fast end of the DRAFT range, across the full ratified PVT grid, not just one corner — strengthening, not merely narrowing, the open item, and consistent with DR-006's own deferred "non-uniform phase allocation" alternative. The design-fix follow-up this finding implies (a topology/sizing fix for the bootstrap precharge PFET `Sa`, or adopting the non-uniform-phase-allocation alternative) is now tracked as issue #236, filed this pass, since this document compiles evidence rather than designing circuit fixes. **Update this pass (2026-09-08): issue #236 closed with a circuit fix, not a phase reallocation — `design/sampling_frontend.sch`'s uniform DR-006 phase budget is UNCHANGED.** Instrumenting `BOOST_x` directly isolated two independent limiters, both fixed: (1) `Sa`'s gate moved from `SAMPLE` to the switch's own gate node `G_{p,n}` — `Sa`'s source is the boosted node itself, so gating it from a VDD-level `SAMPLE` left `V_sg ~= VIN` (an ON device discharging `BOOST_x` throughout the sample phase, not a leaky off one); gating it from `G_{p,n}` instead (GND during hold via `Sd`, shorted to `BOOST_x` by `Se` during sampling) makes `V_sg ~= 0`, genuinely off; (2) once (1) was applied, the common-mode reference transmission gate `Cmswn/Cmswp` — in series with `Csamp` on the acquisition path via the floating `BPREF_x` node — was the limiter that remained, fixed by widening it from W=1 µm to W=16 µm. Re-running the full ratified PVT grid ([`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md)) with both fixes applied: **all 9/9 ratified corners now clear the DR-006 worst-case (12 MHz) phase budget, worst case 0.380 mV (`tt_27c_1.62v`, ~0.2× the half-LSB) vs. the pre-fix 67.19 mV (~38.2×) at the same corner** — the sampling front end's own acquisition is no longer the standout bottleneck the pre-#236 schematic made it, alongside mechanisms (a)–(c). This does not itself produce an end-to-end sample-rate figure (still open, per the summary cell above). Three things this fix touched were explicitly NOT re-derived by #236 itself: `sim/vcm-drive-budget/`'s R_source/C_decouple budget (the wider `Cmsw` draws more peak current from the shared `VCM` rail), and `layout/sampling-frontend/`'s LVS match and `layout/sar-adc-top/`'s composition of it (both stale against the schematic's new `Sa` gate net and `Cmsw` width) — tracked as follow-up issue #245 (and its own follow-up, #248) rather than asserted clean here. **Update this pass (2026-09-15): all three have since been re-derived (issues #245/#248 via PRs #249/#250, merged 2026-09-08), closing this gap.** `layout/sampling-frontend/`'s reference netlist and drawn geometry were updated to match the post-#236 schematic and re-verified DRC-clean/LVS-clean (24/24 devices, 17/17 nets, 12/12 pins, all three negative-control fixtures still correctly mismatching) — [`layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md`](../../layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md), re-pointed 2026-09-24 onto issue #377's `GND` pin promotion (same 24/24/17/17/12/12 counts; supersedes `20260918-191227-935ce76`). `layout/sar-adc-top/`'s composition was re-run against the updated sub-block GDS — DRC clean, and its LVS device-match verdict came back numerically identical to the pre-#245 baseline (869/869/794 devices, 444/446/412 nets, the same mismatch categories), confirming the pre-existing `combine_devices`-scoping gap (§7 Item 1) is unaffected and no new blocker was introduced — [`layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md`](../../layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md), superseded 2026-09-24 by issue #355's digital supply-rail tie, then by #362's analog ground pad (`20260924-214710-b323061`), then by issue #377's analog ground mesh, [`layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md), the current `reports/LATEST` (#355's was the first hop whose DRC/LVS verdict is NOT field-identical: 21/21/21 pins and 88 mismatches, an improvement; #362 moved the pins to 21/22/22 and #377 moved nothing at all — and none of the three is a simulation, so this row's UNMEASURED status is untouched). **Both citations re-pointed 2026-09-16** off the `20260908-070934-80df05e` / `20260908-072857-80df05e` records that originally established these two claims, again 2026-09-18 off `20260915-120718-1e90b14` / `20260915-234004-76f48b9` onto issue #326's minimum-area re-runs (`20260918-191227-935ce76` / `20260918-191315-935ce76`), and the `layout/sar-adc-top/` half once more 2026-09-19 onto this issue's own `--abstract-cells` ablation-probe re-run (`20260919-050355-fb11617`), and 2026-09-23 onto issue #103's `klayout-tools==0.6.0` pin-bump re-run (`20260923-131726-fa1e0af`); each is its own flow's current `reports/LATEST` — every hop again field-identical on `drc.json` and `lvs.json` to the record it supersedes — the first §4 row found stale by this document's new [citation gate](check_proposal_citations.py) rather than by a hand re-read, and stale since 2026-09-08 (every other §4 row had been re-pointed in the meantime; this one, buried mid-narrative in the sample-rate cell, had not). Neither number above moves, and that is verified from the artefacts rather than assumed from the re-runs' intent: `layout/sampling-frontend/`'s `lvs.json` is field-identical across the two records (`status: "match"`, 24/24 devices, 17/17 nets, 12/12 pins, `category_counts: {device.body_unverified: 1, topology: 1}`) with `drc.json` clean in both, and all three negative controls still mismatch in the current record; `layout/sar-adc-top/`'s `lvs.json` is likewise field-identical (`status: "mismatch"`, `mismatch_count: 98`, `error_count: 97`, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins, `category_counts: {device.unmatched: 75, net.merged: 12, net.split: 10, topology.flattened: 1}`) with `drc.json` clean in both. What the newer records add is provenance, not verdicts: both were re-run under `klayout-tools` `v0.5.0` rather than `0.4.0` (the sampling front end's MIM-cap arrays grow 0.92 µm in y under `v0.5.0`, the same growth §4's Area row already tracks — it changes no device, net, or pin count), and the top-level record additionally carries PR #287's capacitor-device-class restore. A follow-up pass (#250) then folded `layout/sampling-frontend-wells/` (issue #122) forward onto the same post-#236 device table too (byte-identical composed GDS confirmed, so `layout/sar-adc-top/`'s own composition needed no further re-run) and took the VCM drive budget's remaining `--corners` legs to the full ratified PVT grid — see §7 Item 6 for that budget's own (materially different, and looser) post-#236 results | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, single-corner first pass); [`sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md`](../../sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md) (CDAC mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete); [`sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md`](../../sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md) (sequencer mechanism, single-corner first pass); [`sim/sequencer-logic-delay/records/20260906-230516-0904419.md`](../../sim/sequencer-logic-delay/records/20260906-230516-0904419.md) (sequencer mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record); [`sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md`](../../sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md) (front-end acquisition mechanism, single-corner first pass, pre-#236); [`sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md`](../../sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md) (front-end acquisition mechanism, full ratified PVT grid, pre-#236, superseded); [`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md) (front-end acquisition mechanism, full ratified PVT grid, post-#236 fix, PVT-complete, all 9/9 corners clear the budget); [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) (the interface *precondition* on mechanism (d) — how much external `VCM` drive resistance the front end tolerates while still acquiring inside these windows; full ratified PVT grid, bare `R_source`, DR-006 worst-case window, post-#236) and [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md) (the same budget's `C_decouple` axis at the legacy window, full grid, post-#236 — the record this campaign's current `records/LATEST` resolves to; all four post-#236 legs are listed in §7 Item 6, which is also where this budget's own open item lives). This last campaign is indexed under this row in [`sim/spec-coverage.json`](../../sim/spec-coverage.json) — "rather than under a row of its own", since it measures the same quantity as the acquisition bench with the `VCM` drive made non-ideal — and was cited only from §7 until this pass, which check 11 reports as a gap in this row rather than in that section |
+| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (all four constituent mechanisms now checked individually and all four now PVT-complete; the one mechanism previously found NOT to clear the phase budget at any ratified corner has since been fixed by issue #236 and now clears it at all 9/9 — see (d)'s "Update this pass (2026-09-08)")** — **Update this pass (2026-09-15): a full-hierarchy, whole-ADC code-correctness campaign now exists (`sim/full-conversion-transient/`, issue #254) — this row previously stated none did; that is now stale.** Its most recent full-grid run ([`records/20260912-002315-9aaf1ca.md`](../../sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md), pre-dates the current schematic) found 0/9 corners code-correct; several of the defects it surfaced have since been fixed (DR-008, DR-009) but two architecture/sizing decisions remain open (issues #267 and #269, both escalated to a human operator — §7 Item 8 carries their dated tracking state) before a fresh 9-corner re-run would be meaningful. **Citation note (this pass)**: that record is also what `sim/full-conversion-transient/records/LATEST` resolves to (verified against the pointer file this pass); the pointer is `records/LATEST`, not `reports/LATEST` as this row previously wrote it, and this row now cites the record by full path so the citation does not depend on the pointer at all. See §7 Item 8 for the full campaign history and root causes. The four *mechanism-level* timing-budget checks below (a)–(d) are a distinct, narrower claim (does each stage clear its DR-006 phase budget in isolation) from this whole-ADC *code-correctness* campaign (does the assembled loop converge to the right code) — both are now evidenced, and both are open in different ways. The 1.2–12 MHz timing budget itself is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is now **PVT-complete** (full ratified OAT grid, 9 corners): binding corner `tt_27c_1.62v` at 13.2312 ns (bit 8/MSB, rise), 6.3× inside the DR-006-derived 83.333 ns phase budget; fastest corner `tt_27c_1.98v` at 10.3019 ns (8.1×); worst-to-best spread only 1.28× across the grid, and the tt/27 °C/1.8 V point reproduces the single-corner record's own 11.3861 ns exactly. All 9/9 corners clear the budget — not the bottleneck anywhere on the grid. A secondary, non-gating finding: the smallest-swing diagnostic row (bit 0, ~0.2% of VDD swing) failed to produce a 99%-settling crossing at 5/9 corners, root-caused (confirmed window-invariant out to 300 ns, not asserted without evidence) to a small, genuine, already-converged offset between the real simulated circuit and the analytic closed-form ideal — negligible against bit 8's own ~1.8 V swing but exceeding 1% of bit 0's own ~4 mV swing at some corners; bit 8 (the array's own true worst case, confirmed by its own tau_i(i) derivation) crossed cleanly at all 9/9 corners, so this does not affect the worst-case finding (see §7 Item 2 for the full root-cause trace). (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). (c) The SAR sequencer's own CLK-to-phase-output logic delay is now **PVT-complete** (full ratified OAT grid, 9 corners), covering all 11 of its own ring-sequencer phase transitions at every corner (99 phase measurements): binding corner `ss_27c_1.80v` at 0.4237 ns (phase `b1`), 196.7× inside the DR-006 budget; fastest corner `ff_27c_1.80v` at 0.2480 ns (336.1×); worst-to-best spread only 1.71× across the grid. All 9/9 corners clear the budget by more than two orders of magnitude — the smallest of the four mechanisms measured, and not the bottleneck at any ratified corner. (d) **The sampling front end's own acquisition of a new, worst-case (rail-to-rail) differential input value is now ALSO PVT-complete (full ratified OAT grid, 9 corners) — and it is the only mechanism of the four found NOT to clear the budget, at EVERY ratified corner**: the single-corner (`tt`/27 °C/1.8 V) finding of a 23.43 mV residual (~13.3× the provisional differential LSB's half-step), traced to the bootstrap precharge PFET `Sa`'s imperfect off-state once `BOOST_x` is boosted above `VDD`, was not a corner-specific artifact — every one of the 9 ratified corners exceeds the half-LSB reference scale, with a binding corner of `tt_27c_1.62v` at 67.19 mV (~38.2× the half-LSB, 2.9× worse than the tt/27 °C/1.8 V baseline) and a best corner of `tt_27c_1.98v` at 9.00 mV (~5.1×). This is the opposite outcome from mechanisms (a)–(c); the front end's own acquisition, not the CDAC, comparator, or sequencer, is the likely bottleneck for an end-to-end sample-rate figure at the fast end of the DRAFT range, across the full ratified PVT grid, not just one corner — strengthening, not merely narrowing, the open item, and consistent with DR-006's own deferred "non-uniform phase allocation" alternative. The design-fix follow-up this finding implies (a topology/sizing fix for the bootstrap precharge PFET `Sa`, or adopting the non-uniform-phase-allocation alternative) is now tracked as issue #236, filed this pass, since this document compiles evidence rather than designing circuit fixes. **Update this pass (2026-09-08): issue #236 closed with a circuit fix, not a phase reallocation — `design/sampling_frontend.sch`'s uniform DR-006 phase budget is UNCHANGED.** Instrumenting `BOOST_x` directly isolated two independent limiters, both fixed: (1) `Sa`'s gate moved from `SAMPLE` to the switch's own gate node `G_{p,n}` — `Sa`'s source is the boosted node itself, so gating it from a VDD-level `SAMPLE` left `V_sg ~= VIN` (an ON device discharging `BOOST_x` throughout the sample phase, not a leaky off one); gating it from `G_{p,n}` instead (GND during hold via `Sd`, shorted to `BOOST_x` by `Se` during sampling) makes `V_sg ~= 0`, genuinely off; (2) once (1) was applied, the common-mode reference transmission gate `Cmswn/Cmswp` — in series with `Csamp` on the acquisition path via the floating `BPREF_x` node — was the limiter that remained, fixed by widening it from W=1 µm to W=16 µm. Re-running the full ratified PVT grid ([`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md)) with both fixes applied: **all 9/9 ratified corners now clear the DR-006 worst-case (12 MHz) phase budget, worst case 0.380 mV (`tt_27c_1.62v`, ~0.2× the half-LSB) vs. the pre-fix 67.19 mV (~38.2×) at the same corner** — the sampling front end's own acquisition is no longer the standout bottleneck the pre-#236 schematic made it, alongside mechanisms (a)–(c). **Update this pass (2026-09-26): that grid reads the front-end fragment ALONE, and mechanism (d) has now been re-measured at the load the top level actually presents** — `design/sar_adc_top.sch` ties the same `TOP_P`/`TOP_N` to the CDAC array too, so the assembled top-plate load is the front end's own `Csamp_p`/`Csamp_n` (~4.43 pF/side, DR-004) **plus** the array's own ~4.43 pF/side of bit capacitance: roughly double what the record above was run against. Same stimulus, same two fixed-time probe instants, same 9 ratified OAT points, only the load differs ([`sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md`](../../sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md), this campaign's own new `--corners` mode). **All 9/9 corners still clear the DR-006 worst-case (12 MHz) phase budget at the assembled load**: binding corner `tt_27c_1.62v` at 0.926 mV (0.53× the provisional differential half-LSB reference scale) against the front-end-only grid's 0.380 mV at that same corner — a factor ~2.4 for the doubled load — and every other corner at or below 0.053 mV. So mechanism (d)'s PVT-complete status is now a statement about the assembled load, not only about the front end in isolation; before this pass the qualifier belonged in this cell, and the reason it is gone is a measurement, not a rewording. The one pre-existing combined-load figure in the tree — 5.33 mV single-ended at one directional `ss` point in [`sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`](../../sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md), which that record itself deferred to "a future timing pass" — is retired by the new grid rather than by argument: it predates #236 and measured a different quantity (the error at the end of a 400 ns SAMPLE window, not the residual at the DR-006 budget). The new record **extends rather than supersedes** it, because that record's own question (does the array's previous code corrupt the sampled value) is answered and still stands — the new run reproduces its code-state independence at the baseline corner as its own control (worst-node residual varies by 0.010 mV across all three previous-code states). This does not itself produce an end-to-end sample-rate figure (still open, per the summary cell above). Three things this fix touched were explicitly NOT re-derived by #236 itself: `sim/vcm-drive-budget/`'s R_source/C_decouple budget (the wider `Cmsw` draws more peak current from the shared `VCM` rail), and `layout/sampling-frontend/`'s LVS match and `layout/sar-adc-top/`'s composition of it (both stale against the schematic's new `Sa` gate net and `Cmsw` width) — tracked as follow-up issue #245 (and its own follow-up, #248) rather than asserted clean here. **Update this pass (2026-09-15): all three have since been re-derived (issues #245/#248 via PRs #249/#250, merged 2026-09-08), closing this gap.** `layout/sampling-frontend/`'s reference netlist and drawn geometry were updated to match the post-#236 schematic and re-verified DRC-clean/LVS-clean (24/24 devices, 17/17 nets, 12/12 pins, all three negative-control fixtures still correctly mismatching) — [`layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md`](../../layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md), re-pointed 2026-09-24 onto issue #377's `GND` pin promotion (same 24/24/17/17/12/12 counts; supersedes `20260918-191227-935ce76`). `layout/sar-adc-top/`'s composition was re-run against the updated sub-block GDS — DRC clean, and its LVS device-match verdict came back numerically identical to the pre-#245 baseline (869/869/794 devices, 444/446/412 nets, the same mismatch categories), confirming the pre-existing `combine_devices`-scoping gap (§7 Item 1) is unaffected and no new blocker was introduced — [`layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md`](../../layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md), superseded 2026-09-24 by issue #355's digital supply-rail tie, then by #362's analog ground pad (`20260924-214710-b323061`), then by issue #377's analog ground mesh (`20260924-234053-66dca3c`), then on 2026-09-26 by issue #440's placement of DR-017's two per-domain decoupling capacitors (`20260926-081248-203cca3`), and later the same day by issue #465's 2×2 via arrays at those four decoupling ties, [`layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md`](../../layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md), the current `reports/LATEST` (#355's was the first hop whose DRC/LVS verdict is NOT field-identical: 21/21/21 pins and 88 mismatches, an improvement; #362 moved the pins to 21/22/22; #377 moved nothing at all; #440 moved devices 869 → **871** on both sides with 804 matched and one more `device.unmatched` entry, 88 → **89**; and #465 moved nothing — and none of the five is a simulation, so this row's UNMEASURED status is untouched). **Both citations re-pointed 2026-09-16** off the `20260908-070934-80df05e` / `20260908-072857-80df05e` records that originally established these two claims, again 2026-09-18 off `20260915-120718-1e90b14` / `20260915-234004-76f48b9` onto issue #326's minimum-area re-runs (`20260918-191227-935ce76` / `20260918-191315-935ce76`), and the `layout/sar-adc-top/` half once more 2026-09-19 onto this issue's own `--abstract-cells` ablation-probe re-run (`20260919-050355-fb11617`), and 2026-09-23 onto issue #103's `klayout-tools==0.6.0` pin-bump re-run (`20260923-131726-fa1e0af`); each is its own flow's current `reports/LATEST` — every hop again field-identical on `drc.json` and `lvs.json` to the record it supersedes — the first §4 row found stale by this document's new [citation gate](check_proposal_citations.py) rather than by a hand re-read, and stale since 2026-09-08 (every other §4 row had been re-pointed in the meantime; this one, buried mid-narrative in the sample-rate cell, had not). Neither number above moves, and that is verified from the artefacts rather than assumed from the re-runs' intent: `layout/sampling-frontend/`'s `lvs.json` is field-identical across the two records (`status: "match"`, 24/24 devices, 17/17 nets, 12/12 pins, `category_counts: {device.body_unverified: 1, topology: 1}`) with `drc.json` clean in both, and all three negative controls still mismatch in the current record; `layout/sar-adc-top/`'s `lvs.json` is likewise field-identical (`status: "mismatch"`, `mismatch_count: 98`, `error_count: 97`, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins, `category_counts: {device.unmatched: 75, net.merged: 12, net.split: 10, topology.flattened: 1}`) with `drc.json` clean in both. What the newer records add is provenance, not verdicts: both were re-run under `klayout-tools` `v0.5.0` rather than `0.4.0` (the sampling front end's MIM-cap arrays grow 0.92 µm in y under `v0.5.0`, the same growth §4's Area row already tracks — it changes no device, net, or pin count), and the top-level record additionally carries PR #287's capacitor-device-class restore. A follow-up pass (#250) then folded `layout/sampling-frontend-wells/` (issue #122) forward onto the same post-#236 device table too (byte-identical composed GDS confirmed, so `layout/sar-adc-top/`'s own composition needed no further re-run) and took the VCM drive budget's remaining `--corners` legs to the full ratified PVT grid — see §7 Item 6 for that budget's own (materially different, and looser) post-#236 results | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, single-corner first pass); [`sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md`](../../sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md) (CDAC mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete); [`sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md`](../../sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md) (sequencer mechanism, single-corner first pass); [`sim/sequencer-logic-delay/records/20260906-230516-0904419.md`](../../sim/sequencer-logic-delay/records/20260906-230516-0904419.md) (sequencer mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record); [`sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md`](../../sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md) (front-end acquisition mechanism, single-corner first pass, pre-#236); [`sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md`](../../sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md) (front-end acquisition mechanism, full ratified PVT grid, pre-#236, superseded); [`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md) (front-end acquisition mechanism, full ratified PVT grid, post-#236 fix, PVT-complete, all 9/9 corners clear the budget); [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) (the interface *precondition* on mechanism (d) — how much external `VCM` drive resistance the front end tolerates while still acquiring inside these windows; full ratified PVT grid, bare `R_source`, DR-006 worst-case window, post-#236) and [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md) (the same budget's `C_decouple` axis at the legacy window, full grid, post-#236 — the record this campaign's current `records/LATEST` resolves to; all four post-#236 legs are listed in §7 Item 6, which is also where this budget's own open item lives). This last campaign is indexed under this row in [`sim/spec-coverage.json`](../../sim/spec-coverage.json) — "rather than under a row of its own", since it measures the same quantity as the acquisition bench with the `VCM` drive made non-ideal — and was cited only from §7 until this pass, which check 11 reports as a gap in this row rather than in that section |
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only — no ratified line exists to grade against.** Against `spec/target-spec.md`'s *current* DRAFT row (DR-007's candidate pair): 8.506 bit (mean-case CDAC mismatch) **meets** both the > 7.5 baseline and the > 8.0 stretch; 7.755 bit (worst-case CDAC mismatch) **meets the > 7.5 baseline but NOT the > 8.0 stretch**. Against the *original*, pre-DR-007 DRAFT row (> 9.0 / > 9.5) neither figure meets either bound. Re-composed this pass against DR-004 Amendment A's amended comparator-noise figure (0.8643 mV rms, down from 0.9591 — the same figure the comparator-noise row above already cites), moving the estimate from 8.491/7.749 to 8.506/7.755; the met/unmet outcome is unchanged in kind. **Correction**: this row previously headlined "DOES NOT MEET even the un-ratified DR-007 candidate", which overstated the shortfall — the source record's own scoring table marks the worst case as *meeting* the > 7.5 baseline, failing only the > 8.0 stretch (see §7 Item 4). **Re-pointed 2026-09-25** (issue #405, which minted this flow's first `records/LATEST` pointer): the DR-007-candidate citation now names `20260925-090023-c3a6872`, a same-inputs re-run of `20260906-173830-6f04f59` (identical `--cdac-mc-record`/target flags) that reproduces its figures byte-for-byte (8.506 / 7.755 bit) — the prior record is not wrong, just no longer this flow's `records/LATEST`; no verdict changes | [`sim/enob-estimate/records/20260925-090023-c3a6872.md`](../../sim/enob-estimate/records/20260925-090023-c3a6872.md) (current `records/LATEST`; DR-007-candidate scoring, composed from the post-amendment comparator noise, reproduces `20260906-173830-6f04f59`); [`sim/enob-estimate/records/20260906-082749-7724af3.md`](../../sim/enob-estimate/records/20260906-082749-7724af3.md) (identical figures scored against the original > 9.0 / > 9.5 row — the record `docs/characterization-report.md` pins) |
-| INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim. A re-scoring against DR-007's wider ±2.0 LSB candidate **does** exist in-repo (a pure re-parse of the same 40 committed mismatch draws, no new ngspice run): its worst single draw is max\|DNL\| = 1.9716 LSB and max\|INL\| = 1.3147 LSB, i.e. every sampled draw falls inside the ±2.0 LSB candidate bound — but `klt yield` produced no report in that record's environment (a known, already-filed packaging gap, klayout-tools#1061), so there is **no machine-checked yield-fraction verdict against the candidate bound**, and N=40 is not sized for a tight yield-fraction claim in any case. Not graded met/unmet here: the candidate bound is not ratified | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) (original ≤ ±1 LSB scoring — the record `docs/characterization-report.md` pins); [`sim/cdac-array-transfer/records/20260828-022618-f36913e.md`](../../sim/cdac-array-transfer/records/20260828-022618-f36913e.md) (DR-007-candidate re-scoring of the same draws) |
-| Power | provisional, minimise at rate | DRAFT | **UNMEASURED as a spec-row figure** — this row asks for power *at a rate*, and there is neither a ratified power line to grade against nor an established rate to report it at (the Sample rate row above is itself UNMEASURED). What does exist, and is reported here rather than left absent, is the first whole-ADC supply-current measurement on this block — average ADC-core power over one steady-state conversion at the DR-006 worst-case `f_clk = 12 MHz`: min **21.600 µW** at `tt_27c_1.62v`, typ **27.971 µW** at `tt_27c_1.80v`, max **34.237 µW** at `tt_27c_1.98v`, over **9** corners. Those five figures are recomputed from the cited record's own Power table by check 12 of the [citation gate](check_proposal_citations.py) rather than hand-transcribed. **Two scope caveats, both load-bearing**: (i) every rail and reference in that testbench is an *ideal* source and this design has no reference buffer, clock generator or output driver yet, so this is the ADC core only — a real system's reference and clock power is not included; (ii) the same record's code-correctness check FAILS at 9/9 corners (the three mid-scale inputs land within ±1 LSB, the two near-full-scale inputs do not — §7 Item 8, open decisions #267/#269), so these are the currents of a conversion that is not yet correct across its full input range, and a re-measurement is owed once either decision lands. **Correction (2026-09-17)**: this row read "BLOCKED / UNMEASURED — no full-block power campaign exists" until this pass, which had been stale since 2026-09-12 — [`docs/characterization-report.md`](../../docs/characterization-report.md)'s own Power row (the regenerable source this table mirrors) and [`sim/spec-coverage.json`](../../sim/spec-coverage.json) (this repo's spec-row → evidence index) both carried this campaign meanwhile. It was found by check 11, not by a re-read. One non-gating extra, unchanged: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0154 mW) is for the digital sequencer sub-block only, not the full ADC, is not a `sim/` evidence record, and is not tied to the ratified corner set | [`sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`](../../sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md) (current `records/LATEST`; issue #254's end-to-end campaign — both the figures above and the code-correctness caveat are read out of this one record); `layout/sar-sequencer/reports/20260917-180601-527ec73/record.md` (current `reports/LATEST`, #102's own LVS-clean record, re-run under `klt 0.5.0` this pass — issue #323, field-identical DRC/LVS to the superseded `klt 0.4.0` record `reports/20260905-191258-4c6c655/`, no verdict change; non-gating, cited for completeness only — supersedes in turn `reports/20260825-124031-1a2f7c1/`, which predates #102's LVS fix and still reports an LVS **mismatch**, see §7 Item 1); [`sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`](../../sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md) (current `records/LATEST`; issue #378's supply-return impedance sensitivity campaign, replaying this same figure's stimulus with DR-015's package-style R+L / lumped-substrate arms driving the four supply terminals instead of ideal sources — DR-012's own "the impedance argument is unmeasured" open item, not a re-measurement of the figures above: at the baseline corner the as-built `package` arm's total power (27.238 µW) is within 3% of the `ideal` control (27.971 µW), while its analog-ground return current rises from 2.177 µA to 2.204 µA and its die-side `GND_DIE` excursion is 37.333 mV peak-to-peak — non-gating for this row, cited for completeness only, per check 11) |
-| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7), and its extent is stated here in the fixed form check 13 of the [citation gate](check_proposal_citations.py) recomputes from that record's own `compose.json` (**area readout, machine-checked**): the composed cell `gen_compose_0` on the record `layout/sar-adc-top/reports/LATEST` resolves to spans **-20.250** µm to **260.200** µm in x and **-161.600** µm to **223.900** µm in y, i.e. **280.450** µm × **385.500** µm ≈ **0.108** mm². Every figure in that sentence is recomputed from `compose.json`'s top-level `bbox_um` on each CI run, so the by-hand `cmp`/field-diff verification each re-citation below records is now done by the gate instead. Unchanged by issue #180's comparator re-draw, and unchanged again by PR #227's routing-cell rename: this row now cites the current `reports/LATEST` record, and its `compose.json` bounding box is byte-identical to the superseded `20260906-101939-1250ff4` record's (the only two differences between those two files are a new `dbu_um: 0.001` field and the routing block's `cell_name`, `ROUTE` → `SAR_ADC_TOP_ROUTE` — no `bbox_um` or `offset_um` value moved). Verified by diffing the two artefacts, not assumed from the rename's intent. **Re-cited 2026-09-15** onto `20260908-072857-80df05e`, `reports/LATEST` at that moment (issue #245's post-#236 re-run, PR #249): its `compose.json` is **byte-identical** (`cmp`) to the `20260907-110058-a546200` file previously cited here, so this row's bounding box and area figure are unchanged — again verified by comparing the artefacts, not assumed from the re-run's intent (see §3). **Re-cited again 2026-09-15 (later)** onto the current `reports/LATEST`, `20260915-213439-bf2256f` (PR #275's `klayout-tools` `v0.5.0` rebuild, merged): this `compose.json` is *not* byte-identical to `20260908-072857-80df05e`'s, but the two differ in exactly two fields and neither moves this row's number — the `open_pdks` provenance string, and the `sampling_frontend` sub-block's own `bbox_um.y1` (146.3 → 147.22 µm, the 0.92 µm growth in that block's MIM-cap arrays under `v0.5.0` described in §7 Item 1). The composition's **top-level `bbox_um` is identical** in both (`x0, y0 = -20.2, -161.6` to `x1, y1 = 260.2, 223.9` µm), so 280.4 µm × 385.5 µm ≈ 0.108 mm² stands — verified by diffing the two artefacts field-by-field, not assumed. This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a device-level mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against. **Re-cited 2026-09-16** onto `20260915-234004-76f48b9`, `reports/LATEST` after two further #103 increments (PR #287's #1876 neutralisation, PR #290's abstract-cells experiment, both `Part of #103` — see §7 Item 1): its `compose.json` top-level `bbox_um` is byte-identical to `20260915-213439-bf2256f`'s, verified directly. **Re-cited again 2026-09-18** onto `20260918-191315-935ce76`, issue #326's minimum-area re-composition — the first re-run since PR #174 on which this box *moves*, and by exactly the amount the fix predicts: `x0` goes −20.200 → **−20.250** µm (width 280.400 → **280.450** µm) because the external `VDD` pin's own met4 landing pad, which carries only that pin's label and so has to clear `m4.4a` (0.240 µm²) unaided, widened from 0.36 to 0.50 µm and that pad is the composition's own leftmost shape. No other coordinate moves, and the mm² figure is unchanged at ≈ 0.108. **Re-cited again 2026-09-19** onto `20260919-050355-fb11617`, this issue's own `--abstract-cells` ablation-probe re-run: its `compose.json` is byte-identical to `20260918-191315-935ce76`'s, verified directly (`diff` over both files), so no coordinate in this row moves at this hop. **Re-cited again 2026-09-24** onto `20260924-234053-66dca3c`, issue #377's analog ground mesh: its `compose.json` top-level `bbox_um` is field-identical to the two records it supersedes (`x0` −20.250, `y0` −161.600, `x1` 260.200, `y1` 223.900, verified directly) — the mesh's westernmost geometry is a met4 corridor track at x = −16.0, 4 µm inside the external `VDD` pin's landing pad that still sets `x0` — so no coordinate in this row moves | [`layout/sar-adc-top/reports/20260924-234053-66dca3c/compose.json`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/compose.json) (current `reports/LATEST`, issue #377's analog ground mesh; supersedes `20260924-214710-b323061`, issue #362's analog ground pad, and `20260924-190817-f3622fc`, issue #355's digital supply-rail tie, 2026-09-24: the composed `bbox_um` is unchanged by any of them — the two new met5 rails and their pin labels sit well inside the existing extent — so no coordinate in this row moves; it supersedes `20260923-131726-fa1e0af`, issue #103's `klayout-tools==0.6.0` pin-bump re-run of 2026-09-23: identical placement and `bbox_um` to `20260919-050355-fb11617`'s, differing only by the `source_path`/`source_digest` provenance fields 0.6.0's `gen-compose` adds, so no coordinate in this row moves; that record was in turn byte-identical to, and superseded, [`20260918-191315-935ce76/compose.json`](../../layout/sar-adc-top/reports/20260918-191315-935ce76/compose.json), which supersedes [`20260915-234004-76f48b9/compose.json`](../../layout/sar-adc-top/reports/20260915-234004-76f48b9/compose.json), whose top-level `bbox_um` was byte-identical to [`20260915-213439-bf2256f/compose.json`](../../layout/sar-adc-top/reports/20260915-213439-bf2256f/compose.json), which is identical in turn to [`20260908-072857-80df05e/compose.json`](../../layout/sar-adc-top/reports/20260908-072857-80df05e/compose.json), which is byte-identical to [`20260907-110058-a546200/compose.json`](../../layout/sar-adc-top/reports/20260907-110058-a546200/compose.json), which in turn supersedes [`20260906-101939-1250ff4/compose.json`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json), same bounding box) |
+| INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim. A re-scoring against DR-007's wider ±2.0 LSB candidate **does** exist in-repo (a pure re-parse of the same 40 committed mismatch draws, no new ngspice run): its worst single draw is max\|DNL\| = 1.9716 LSB and max\|INL\| = 1.3147 LSB, i.e. every sampled draw falls inside the ±2.0 LSB candidate bound — but `klt yield` produced no report in that record's environment (a known packaging gap — **re-checked live this pass (2026-09-26)**: klayout-tools#1061 is now `CLOSED`/`COMPLETED`, but only fixed the gap's *discoverability* (docs/`--help` text via #1078), not the gap itself; a second friction report on the same substantive ask, klayout-tools#2466, was also closed `COMPLETED` this way (docs-only #2474); the actual "publish `klt_yield_native` as a prebuilt wheel" ask has now been raised and closed twice without ever being attempted, and was untracked by any open issue as of this pass — filed fresh at klayout-tools#2531, kept generic per this repo's friction protocol), so there is **no machine-checked yield-fraction verdict against the candidate bound**, and N=40 is not sized for a tight yield-fraction claim in any case. Not graded met/unmet here: the candidate bound is not ratified | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) (original ≤ ±1 LSB scoring — the record `docs/characterization-report.md` pins); [`sim/cdac-array-transfer/records/20260828-022618-f36913e.md`](../../sim/cdac-array-transfer/records/20260828-022618-f36913e.md) (DR-007-candidate re-scoring of the same draws) |
+| Power | provisional, minimise at rate | DRAFT | **UNMEASURED as a spec-row figure** — this row asks for power *at a rate*, and there is neither a ratified power line to grade against nor an established rate to report it at (the Sample rate row above is itself UNMEASURED). What does exist, and is reported here rather than left absent, is the first whole-ADC supply-current measurement on this block — average ADC-core power over one steady-state conversion at the DR-006 worst-case `f_clk = 12 MHz`: min **21.600 µW** at `tt_27c_1.62v`, typ **27.971 µW** at `tt_27c_1.80v`, max **34.237 µW** at `tt_27c_1.98v`, over **9** corners. Those five figures are recomputed from the cited record's own Power table by check 12 of the [citation gate](check_proposal_citations.py) rather than hand-transcribed. **Two scope caveats, both load-bearing**: (i) every rail and reference in that testbench is an *ideal* source and this design has no reference buffer, clock generator or output driver yet, so this is the ADC core only — a real system's reference and clock power is not included; (ii) the same record's code-correctness check FAILS at 9/9 corners (the three mid-scale inputs land within ±1 LSB, the two near-full-scale inputs do not — §7 Item 8, open decisions #267/#269), so these are the currents of a conversion that is not yet correct across its full input range, and a re-measurement is owed once either decision lands. **Correction (2026-09-17)**: this row read "BLOCKED / UNMEASURED — no full-block power campaign exists" until this pass, which had been stale since 2026-09-12 — [`docs/characterization-report.md`](../../docs/characterization-report.md)'s own Power row (the regenerable source this table mirrors) and [`sim/spec-coverage.json`](../../sim/spec-coverage.json) (this repo's spec-row → evidence index) both carried this campaign meanwhile. It was found by check 11, not by a re-read. One non-gating extra, unchanged: `layout/sar-sequencer/`'s OpenROAD PnR static estimate (0.0154 mW) is for the digital sequencer sub-block only, not the full ADC, is not a `sim/` evidence record, and is not tied to the ratified corner set | [`sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`](../../sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md) (current `records/LATEST`; issue #254's end-to-end campaign — both the figures above and the code-correctness caveat are read out of this one record); `layout/sar-sequencer/reports/20260917-180601-527ec73/record.md` (current `reports/LATEST`, #102's own LVS-clean record, re-run under `klt 0.5.0` this pass — issue #323, field-identical DRC/LVS to the superseded `klt 0.4.0` record `reports/20260905-191258-4c6c655/`, no verdict change; non-gating, cited for completeness only — supersedes in turn `reports/20260825-124031-1a2f7c1/`, which predates #102's LVS fix and still reports an LVS **mismatch**, see §7 Item 1); [`sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`](../../sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md) (issue #378's supply-return impedance sensitivity campaign, replaying this same figure's stimulus with DR-015's package-style R+L / lumped-substrate arms driving the four supply terminals instead of ideal sources — DR-012's own "the impedance argument is unmeasured" open item, not a re-measurement of the figures above: at the baseline corner the as-built `package` arm's total power (27.238 µW) is within 3% of the `ideal` control (27.971 µW), while its analog-ground return current rises from 2.177 µA to 2.204 µA and its die-side `GND_DIE` excursion is 37.333 mV peak-to-peak — non-gating for this row, cited for completeness only, per check 11); [`sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md`](../../sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md) (current `records/LATEST` as of 2026-09-25, issue #409's item 2 — the same campaign's `ideal`/`package`/`no-gnd-pad` run, which prices DR-012's *rejected* null option: it **supersedes nothing**, and in particular does not replace the four-arm record beside it, which is still where this campaign's bond-inductance ablation lives. It moved the pointer because it is that flow's newest arm-comparison record, which is what the pointer names. Same non-gating status for this row: at the baseline corner the `no-gnd-pad` arm's total power is 27.296 µW against the `package` arm's 27.248 µW and the `ideal` control's 27.957 µW, with no `I(GND)` column at all on that row — the arm has no ground bond for a current to be measured in — while its die-side `GND_DIE` excursion is 65.237 mV peak-to-peak against `package`'s 37.590 mV. Neither figure is a power claim for this row, and the two records' `package` arms differ by 0.010 µW across two hosts) |
+| Area | max, not yet specified in `spec/target-spec.md` | Not a spec row yet | **Informational only, not a spec-row verdict** — a composed top-level layout now exists (§3, §7), and its extent is stated here in the fixed form check 13 of the [citation gate](check_proposal_citations.py) recomputes from that record's own `compose.json` (**area readout, machine-checked**): the composed cell `gen_compose_0` on the record `layout/sar-adc-top/reports/LATEST` resolves to spans **-20.250** µm to **260.200** µm in x and **-161.600** µm to **223.900** µm in y, i.e. **280.450** µm × **385.500** µm ≈ **0.108** mm². Every figure in that sentence is recomputed from `compose.json`'s top-level `bbox_um` on each CI run, so the by-hand `cmp`/field-diff verification each re-citation below records is now done by the gate instead. Unchanged by issue #180's comparator re-draw, and unchanged again by PR #227's routing-cell rename: this row now cites the current `reports/LATEST` record, and its `compose.json` bounding box is byte-identical to the superseded `20260906-101939-1250ff4` record's (the only two differences between those two files are a new `dbu_um: 0.001` field and the routing block's `cell_name`, `ROUTE` → `SAR_ADC_TOP_ROUTE` — no `bbox_um` or `offset_um` value moved). Verified by diffing the two artefacts, not assumed from the rename's intent. **Re-cited 2026-09-15** onto `20260908-072857-80df05e`, `reports/LATEST` at that moment (issue #245's post-#236 re-run, PR #249): its `compose.json` is **byte-identical** (`cmp`) to the `20260907-110058-a546200` file previously cited here, so this row's bounding box and area figure are unchanged — again verified by comparing the artefacts, not assumed from the re-run's intent (see §3). **Re-cited again 2026-09-15 (later)** onto the current `reports/LATEST`, `20260915-213439-bf2256f` (PR #275's `klayout-tools` `v0.5.0` rebuild, merged): this `compose.json` is *not* byte-identical to `20260908-072857-80df05e`'s, but the two differ in exactly two fields and neither moves this row's number — the `open_pdks` provenance string, and the `sampling_frontend` sub-block's own `bbox_um.y1` (146.3 → 147.22 µm, the 0.92 µm growth in that block's MIM-cap arrays under `v0.5.0` described in §7 Item 1). The composition's **top-level `bbox_um` is identical** in both (`x0, y0 = -20.2, -161.6` to `x1, y1 = 260.2, 223.9` µm), so 280.4 µm × 385.5 µm ≈ 0.108 mm² stands — verified by diffing the two artefacts field-by-field, not assumed. This is a raw `klt gen-compose` bounding-box readout, not an LVS-clean, sign-off-grade area figure — the composition's `klt lvs` verdict is still a device-level mismatch (see §3, §7 Item 1), and no spec row exists yet to grade this number against. **Re-cited 2026-09-16** onto `20260915-234004-76f48b9`, `reports/LATEST` after two further #103 increments (PR #287's #1876 neutralisation, PR #290's abstract-cells experiment, both `Part of #103` — see §7 Item 1): its `compose.json` top-level `bbox_um` is byte-identical to `20260915-213439-bf2256f`'s, verified directly. **Re-cited again 2026-09-18** onto `20260918-191315-935ce76`, issue #326's minimum-area re-composition — the first re-run since PR #174 on which this box *moves*, and by exactly the amount the fix predicts: `x0` goes −20.200 → **−20.250** µm (width 280.400 → **280.450** µm) because the external `VDD` pin's own met4 landing pad, which carries only that pin's label and so has to clear `m4.4a` (0.240 µm²) unaided, widened from 0.36 to 0.50 µm and that pad is the composition's own leftmost shape. No other coordinate moves, and the mm² figure is unchanged at ≈ 0.108. **Re-cited again 2026-09-19** onto `20260919-050355-fb11617`, this issue's own `--abstract-cells` ablation-probe re-run: its `compose.json` is byte-identical to `20260918-191315-935ce76`'s, verified directly (`diff` over both files), so no coordinate in this row moves at this hop. **Re-cited again 2026-09-24** onto `20260924-234053-66dca3c`, issue #377's analog ground mesh: its `compose.json` top-level `bbox_um` is field-identical to the two records it supersedes (`x0` −20.250, `y0` −161.600, `x1` 260.200, `y1` 223.900, verified directly) — the mesh's westernmost geometry is a met4 corridor track at x = −16.0, 4 µm inside the external `VDD` pin's landing pad that still sets `x0` — so no coordinate in this row moves. **Re-cited again 2026-09-26** onto `20260926-081248-203cca3`, issue #440's placement of DR-017's two per-domain decoupling capacitors: its `compose.json` top-level `bbox_um` is again field-identical (`x0` −20.250, `y0` −161.600, `x1` 260.200, `y1` 223.900, verified directly against the record it supersedes) — **that immobility is this hop's whole finding**, because DR-017's own Decision §3 budgeted 8798.44 µm² of `capm` (8.14 % of this box) as an area *cost*, and both decoupling sites turned out to fit in back-end field already inside the extent, so the allocation grew no die at all; see `layout/sar-adc-top/README.md`'s "On-die decoupling (DR-017)" for the occupancy measurement — so no coordinate in this row moves. **Re-cited again 2026-09-26 (later)** onto `20260926-184816-e1176e3`, issue #465's 2×2 via arrays at those same four decoupling ties: field-identical once more (`x0` −20.250, `y0` −161.600, `x1` 260.200, `y1` 223.900, verified directly), and necessarily so — that hop replaces eight single via cuts with eight four-cut grids on a 0.40 µm pitch, growing each landing pad by 0.20 µm, all of it in the same interior back-end field, so it cannot reach the extent. What it moves is the ties' measured series resistance (13.837/13.448 Ω → **7.172/6.863 Ω** per domain), which is not an area quantity and appears in no column of this row | [`layout/sar-adc-top/reports/20260926-184816-e1176e3/compose.json`](../../layout/sar-adc-top/reports/20260926-184816-e1176e3/compose.json) (current `reports/LATEST`, issue #465's 2×2 via arrays at the four decoupling ties; supersedes `20260926-081248-203cca3`, issue #440's DR-017 decoupling placement; supersedes `20260924-234053-66dca3c`, issue #377's analog ground mesh; supersedes `20260924-214710-b323061`, issue #362's analog ground pad, and `20260924-190817-f3622fc`, issue #355's digital supply-rail tie, 2026-09-24: the composed `bbox_um` is unchanged by any of them — the two new met5 rails and their pin labels sit well inside the existing extent — so no coordinate in this row moves; it supersedes `20260923-131726-fa1e0af`, issue #103's `klayout-tools==0.6.0` pin-bump re-run of 2026-09-23: identical placement and `bbox_um` to `20260919-050355-fb11617`'s, differing only by the `source_path`/`source_digest` provenance fields 0.6.0's `gen-compose` adds, so no coordinate in this row moves; that record was in turn byte-identical to, and superseded, [`20260918-191315-935ce76/compose.json`](../../layout/sar-adc-top/reports/20260918-191315-935ce76/compose.json), which supersedes [`20260915-234004-76f48b9/compose.json`](../../layout/sar-adc-top/reports/20260915-234004-76f48b9/compose.json), whose top-level `bbox_um` was byte-identical to [`20260915-213439-bf2256f/compose.json`](../../layout/sar-adc-top/reports/20260915-213439-bf2256f/compose.json), which is identical in turn to [`20260908-072857-80df05e/compose.json`](../../layout/sar-adc-top/reports/20260908-072857-80df05e/compose.json), which is byte-identical to [`20260907-110058-a546200/compose.json`](../../layout/sar-adc-top/reports/20260907-110058-a546200/compose.json), which in turn supersedes [`20260906-101939-1250ff4/compose.json`](../../layout/sar-adc-top/reports/20260906-101939-1250ff4/compose.json), same bounding box) |
 | Digital sequencer/output register — physical implementation | transistor-level netlist + place-and-route layout | — | **MET** — netlist exists (`design/sar_sequencer.sch`); place-and-route layout exists and is DRC-clean and LVS-clean (#102). **This row's evidence changed shape on 2026-09-17**: it cited only `layout/sar-sequencer/README.md`, a hand-written file, so its DRC/LVS claim was the one §4 verdict no check in the [citation gate](check_proposal_citations.py) could reach — check 3 grades the dated records a row cites, and this row cited none. It now cites that flow's own dated record, and the numbers behind the verdict (`klt drc` clean, 0 violations; `klt lvs` match, 0 mismatches, 0 errors; devices 760/760/760, nets 395/395/395) are recomputed from that record's `drc.json`/`lvs.json` by check 9, in §3's sub-block readout. The verdict itself does not move. One asymmetry that readout surfaces and this row does not hide: the same record's pin counts are 30 layout / 28 reference / 30 matched, traced to two post-CTS clock-tree leaf nets appearing in the pin correspondence but not in the reference `.SUBCKT`'s own 28 ports — root-caused and documented, issue #322: a `klt extract` net-label-merging pin-flagging gap not fully superseded by `--def-pins` (filed generically at `2AMLogic/klayout-tools#2000`), so 30/28/30 stands as the record's own correct figure rather than a hand-corrected one, per `layout/sar-sequencer/README.md`'s own provenance section. **Re-cited 2026-09-17** (issue #323): this flow was re-run under the `klt 0.5.0` this repo now pins, and its `drc.json`/`lvs.json` are field-identical to the superseded `klt 0.4.0` record this row previously cited — same clean DRC, same 0-mismatch LVS match, same 760/760/760 device and 395/395/395 net counts, and the same 30/28/30 pin-count asymmetry issue #322 root-causes (unchanged by the tool bump, so #322's root cause is not `klt`-version-sensitive) | [`layout/sar-sequencer/reports/20260917-180601-527ec73/record.md`](../../layout/sar-sequencer/reports/20260917-180601-527ec73/record.md) (current `reports/LATEST`; #102's own LVS-clean record, now built under `klt 0.5.0` — supersedes `reports/20260905-191258-4c6c655/`, the `klt 0.4.0`-built record via PR #141, no verdict change, see §3 and issue #323), [`layout/sar-sequencer/README.md`](../../layout/sar-sequencer/README.md) |
-| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET** — a top-level layout now exists (PR #174, re-verified against the amended comparator geometry by PR #188, then again against PR #227's pin-declaration fix) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; tracked under #103, under epic #25. **Update this pass (2026-09-15)**: #103's `klayout-tools` release blocker has cleared (`v0.5.0`, see §7 Item 1) and #103 was back in this repo's ready queue at that pass (§7 Item 1 carries the dated tracking-state trail; it has moved several times since — see this row's 2026-09-25 update below) — not yet MET, since no post-layout PVT sim has landed. **Citation re-pointed this pass** (the §7 Item 1 residual this document deliberately deferred until PR #273 landed): re-pointed off the one-record-old `20260907-110058-a546200` onto `20260908-072857-80df05e`, `reports/LATEST` at that moment — verified byte-for-byte equivalent (`compose.json` identical, `drc.json` clean in both, `lvs.json` aggregate fields identical: `status: "mismatch"`, `mismatch_count: 98`, `error_count: 97`, same four `category_counts`), so no verdict changes. **Update (2026-09-15, later): #103's PR #275 — now merged (2026-09-15T22:00:46Z) — has since run the deferred build against `klayout-tools` `v0.5.0`, and this row's citation is re-pointed again onto that build, the current `reports/LATEST` (`20260915-213439-bf2256f`).** Still **UNMET**: DRC stays clean and connectivity stays independently verified, but no PVT re-simulation of the assembled top level has been run either — that gap is unchanged by the layout-side rebuild. `klt lvs`'s device-level mismatch also did not clear on the rebuild (see the row below for the count); this row's own verdict does not move. **Update (2026-09-16)**: two further `Part of #103` increments (PR #287, PR #290 — see §7 Item 1) landed after the update above; neither runs a PVT re-simulation (both are LVS-shape measurements), so this row's verdict is unaffected — still **UNMET**. Citation re-pointed onto `20260915-234004-76f48b9`, then again this pass. **Update this pass (2026-09-18)**: issue #326 re-ran the flow to eliminate 17 sub-minimum-area metal shapes (see the row below), minting `20260918-191315-935ce76`; it is a layout-geometry pass, not a simulation one, so this row's verdict is unaffected — still **UNMET**, no extraction-based re-sim at any corner. **Update this pass (2026-09-19)**: this issue's own `--abstract-cells` ablation probe re-ran the flow to measure against a freshly built composition, minting `20260919-050355-fb11617` at a field-identical DRC/LVS verdict; it is an LVS-shape measurement, not a simulation one, so this row's verdict is again unaffected — still **UNMET**, no extraction-based re-sim at any corner. **Update this pass (2026-09-24, later)**: issue #362 re-ran the flow after adding the top-level analog `GND` pad ([DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)), minting `20260924-214710-b323061`; it is a layout/interface change, not a simulation, so this row's verdict is unaffected — still **UNMET**, no extraction-based re-sim at any corner. **Update this pass (2026-09-24, later still)**: issue #377 re-ran it again after meshing the three analog blocks' ground terminals ([DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)), minting `20260924-234053-66dca3c`; again a layout change and not a simulation, so this row is again unaffected — still **UNMET**. **Update this pass (2026-09-25): no evidence has moved, but the *kind* of blocker behind this row has.** The 2026-09-15 update above read "#103 … back in this repo's ready queue", which was this row's newest word on its own tracking issue and is no longer what that issue's state means: since 2026-09-24T06:38:37Z #103 is escalated to a **human operator ruling** — a decision, not a dependency an automated re-check can clear — after a `blocked`↔`issue` re-check oscillation independently tracked as #342. This row's verdict is unchanged (**UNMET**: no extraction-based re-sim of the assembled top level at any corner) and this document does not attempt #103's work; what changes is that the gap is now correctly reported as waiting on a ruling rather than on a queue position. §7 Item 1's 2026-09-24 update is the dated tracking-state trail, and is the only place in this document that names the labels themselves (check 27) | [`layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md) (current `reports/LATEST`, issue #377's 2026-09-24 analog ground mesh — a layout change, not a simulation, so this row stays **UNMET**; supersedes `20260924-214710-b323061`, issue #362's analog-ground pad, which supersedes `20260924-190817-f3622fc`, issue #355's digital supply-rail tie, which superseded `20260923-131726-fa1e0af`, issue #103's `klayout-tools==0.6.0` pin-bump re-run, which was field-identical and which in turn superseded supersedes `20260919-050355-fb11617`, `20260918-191315-935ce76`, `20260915-234004-76f48b9` and, before it, `20260915-213439-bf2256f`, the records this row previously cited) |
-| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS, re-confirmed after PR #227. `klt lvs` pin promotion: **exact** — layout=19/reference=19/matched=19 — via PR #227's `--pin-source-cells` fix (klayout-tools#1513/#1515), resolving the prior pin-declaration mismatch. `klt lvs` device match: still a mismatch (869/869 devices, matched 794 — unchanged, since the same flattened netlist is compared, only pin promotion changed) — root-caused to a second, distinct upstream gap: `options.combine_devices` has no per-subcircuit scoping, and the five sub-blocks do not all need the same setting. Filed at [klayout-tools#1552](https://github.com/2AMLogic/klayout-tools/issues/1552), which **closed**, fixed by klayout-tools#1556 (commit `5598e540`), but like klayout-tools#1515 before it, not yet in a published release — PyPI still tops out at 0.4.0. klayout-tools#1556's own `combine_devices_per_circuit` helper turned out to skip the existing whole-netlist path's `#559`/`#1497` resistor-offset and capacitor-C corrections, flagged as an unverified caveat and filed at [klayout-tools#1557](https://github.com/2AMLogic/klayout-tools/issues/1557); that issue has since **closed** too, fixed by klayout-tools#1560 (commit `2d603ba5`), again not yet in a published release at the time this row was last graded. **Update this pass (2026-09-15)**: `klayout-tools` `v0.5.0` published 2026-09-15T02:19:49Z and verified to contain all three of #1515, #1556, and #1560 (each is an ancestor of the `v0.5.0` tag per `gh api .../compare/v0.5.0...<commit>`, see §7 Item 1) — the release-gate blocker has cleared. #103 was back in this repo's ready queue at that pass (§7 Item 1 carries the dated tracking-state trail; it has moved several times since — see this row's 2026-09-25 update below), but this row stays UNMET/BLOCKED rather than MET: no new `layout/sar-adc-top/` record has landed yet showing a v0.5.0-built device match, so whether the gap actually closes is still #103's open finding to report. **Citation re-pointed this pass** (same residual as the row above): re-pointed onto `20260908-072857-80df05e`, `reports/LATEST` at that moment, verified byte-for-byte equivalent to the prior `20260907-110058-a546200` citation — no verdict changes. **Update (2026-09-15, later): the v0.5.0 build this row was waiting on has since run, in #103's PR #275, now merged (2026-09-15T22:00:46Z) — the gap did not close, and in fact regressed before a second fix narrowed it back down.** `klt drc` stays clean; `klt lvs`'s device match moved from the pre-bump 98 mismatches to 128 (a stale hand-transcribed `sampling_frontend` pin table, unrelated to the tool bump, contributed 4 of those), then to 124 once that table was corrected against the current committed GDS — still not a match, and worse than the pre-bump baseline this row previously cited. Root-caused, per PR #275, to two distinct upstream gaps, both filed generically this pass and both still open: [klayout-tools#1876](https://github.com/2AMLogic/klayout-tools/issues/1876) (the `#1558`/`#1564` "write bare `C` cards for unbound capacitors" fix drops the capacitor device class's own name from extracted SPICE text, so this flow's pre-extracted-netlist `klt lvs` shape can no longer resolve capacitor devices to their reference-side counterpart by class name) and [klayout-tools#1878](https://github.com/2AMLogic/klayout-tools/issues/1878) (`options.combine_devices_per_circuit`, klayout-tools#1556's own fix for the *previous* blocker this row named, is a no-op for a `klt gen-compose`d layout: `klt extract`'s layout-side output is always one flat circuit — hierarchical extraction still doesn't exist, klayout-tools#1085 — so there is no per-macro subcircuit boundary left for the per-circuit flag to scope). This row stays **UNMET/BLOCKED**, now on #1876/#1878 rather than on the v0.5.0 release gate, which has cleared. **Citation re-pointed onto that build**: PR #275 merged, so `20260915-213439-bf2256f/` is part of this repo's own committed `reports/` tree and `layout/sar-adc-top/reports/LATEST` resolves to it — its `lvs.json` is the primary source for the 124 figure quoted above (`status: "mismatch"`, `mismatch_count: 124`, `error_count: 123`, `counts.devices` 869 layout / 869 reference / 794 matched, `counts.pins` 19/19/19, `category_counts: {device.unmatched: 99, net.merged: 12, net.split: 10, topology: 2, topology.flattened: 1}`), and its `drc.json` reports `violations: []`. **Update (2026-09-16): klayout-tools#1876 is now neutralised locally, `Part of #103` (PR #287, merged 2026-09-15T23:27:08Z)** — `layout/sar-adc-top/bin/restore-cap-device-class.py` restores each capacitor's device-class token onto its `C` card from `klt extract`'s own per-instance provenance comment before the LVS request, reproducing the **pre-0.5.0 98-mismatch / 412-matched-net** baseline exactly (`device.unmatched: 75`, `net.merged: 12`, `net.split: 10`, `topology.flattened: 1`; the spurious capacitor-class `topology: 2` category is gone). **klayout-tools#1878 remains the sole blocker** — still UNMET/BLOCKED, better than the 124-mismatch figure this row previously carried but not a match. A fourth LVS shape was then measured, `Part of #103` (PR #290, merged 2026-09-16T00:02:07Z): `--abstract-cells` black-boxing the three sub-blocks whose `combine_devices` need opposes the other two, against a matching hollowed reference, narrows the same composed GDS to **6 mismatches** (`device.unmatched: 3`) — but all 6 trace to a new, distinct defect (`--abstract-cells` silently drops `cdac_array`'s label-less 4th port, corrupting unrelated net names), filed generically as [klayout-tools#1911](https://github.com/2AMLogic/klayout-tools/issues/1911) and **not adopted for signoff** pending independent confirmation the corruption is cosmetic — `run-flow.sh` is unchanged and the recorded attempt stays the audited 98-mismatch compare. This row's verdict does not move: still **UNMET/BLOCKED**, on klayout-tools#1878 (with #1911 as a further open item, not yet actionable). **Update (2026-09-16, later)**: klayout-tools#1876 and #1878 have both since closed upstream (2026-09-16T03:44:54Z and 2026-09-16T03:43:13Z respectively) — #1876 via a genuine code fix ([klayout-tools#1921](https://github.com/2AMLogic/klayout-tools/pull/1921), merged, commit `c5438290`), #1878 via a **documentation-only** fix ([klayout-tools#1924](https://github.com/2AMLogic/klayout-tools/pull/1924)) that confirms, rather than closes, the underlying capability gap (`klt extract` still has no hierarchical/per-macro subcircuit output). Neither fix is in a published release — `klayout-tools` is still at `v0.5.0`, and `c5438290` is 48 commits ahead of that tag (`gh api .../compare/v0.5.0...c5438290`). klayout-tools#1911 remains open. **Update (2026-09-16, still later): klayout-tools#1911 has since closed too, via a genuine code fix** — [klayout-tools#1934](https://github.com/2AMLogic/klayout-tools/pull/1934) ("fix(extract): stop `--abstract-cells` from corrupting unrelated net names"), merged 2026-09-16T09:50:33Z, commit `ad3f8363`. Its own body traces the corruption to `--abstract-cells` erasing a black-boxed cell's `nwell`/`substrate_isolation` before the whole-layout body-identity classification pass reads them, which could merge unrelated substrate-tied nets under one bogus composite label — the same defect class this row's #1911 filing observed — and adds regression coverage for it (`test_abstract_cells_does_not_merge_unrelated_nets_onto_the_global_net`). This closes out all three of the upstream gaps this row has tracked (#1876, #1878, #1911), but **none of the three fixing commits is in a published release**: `klayout-tools`'s latest tag is still `v0.5.0`, and `gh api repos/2AMLogic/klayout-tools/compare/v0.5.0...ad3f8363` reports `ahead_by: 61, behind_by: 0`. Per this repo's own established practice (set by #103's PR #275), the row stays graded against what is released, not what is merged-but-unreleased. This row's verdict does not move: still **UNMET/BLOCKED**, now waiting solely on a `klayout-tools` release containing all three fixes rather than on any open upstream issue — see §7 Item 1 for the full trace. Citation re-pointed onto the record that produced both increments' numbers. **Update this pass (2026-09-18), issue #326 — the DRC half of this row was narrower than it read.** `klt drc`'s clean verdict covers the 47 rules the curated `sky130` deck authors at the pinned `klayout-tools==0.5.0`, across five kinds (`width`, `space`, `enclosing`, `separation`, `isolated`) — it authors **no `area`-kind rule**, so sky130A's own metal minimum-area rules (`m1.6`, `m2.6`, `m3.6`, `m4.4a`, `m5.4`) had never looked at this layout. Measured directly with [`docs/chipalooza/measure_metal_min_area.py`](measure_metal_min_area.py) (added this pass: it reads the thresholds and layer numbers out of the pinned PDK's own deck and applies KLayout's own `Region#with_area`, the primitive that deck's rule text calls), the superseded record's composed GDS carried **17 shapes below `m3.6`/`m4.4a`** that this flow's own router drew — 12 met3 + 1 met4 from `layout/sar-adc-top/bin/build_layout.py`'s via risers and 4 met3 from `layout/sampling-frontend/bin/build_layout.py`'s stacked-via pads. Both generators now size a pad that stands alone on its own layer to clear that layer's own minimum-area rule, and the re-composed record cited here measures **0** sub-minimum met3/met4 shapes, at an unchanged DRC verdict (clean, 0 violations) and an unchanged LVS verdict (98 mismatches, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins, same four categories). What remains below threshold in the composed GDS is **145 shapes on met1/met2/met3/met5 that `klt`'s own place-and-route emitted** inside the two digital macros (generated via cells `VIA_L1M1_PR_MR`/`VIA_M2M3_PR`/`VIA_via5_6_*` plus router-drawn stubs; no `sky130_fd_sc_hd__*` library cell violates anything) — tracked as #333 here and filed generically upstream as [klayout-tools#2072](https://github.com/2AMLogic/klayout-tools/issues/2072). So the DRC component of this row is **MET for the deck's 47 rules and, for this repo's own drawn geometry, for minimum area as well** — scope-limited only by the 145 tool-emitted shapes and by the fact that minimum area is still measured out-of-band until a `klayout-tools` release carries [#1989](https://github.com/2AMLogic/klayout-tools/pull/1989)'s `met1.area.1`…`met5.area.1` rules. The row's overall verdict does not move: still **UNMET/BLOCKED** on the LVS half. **Update this pass (2026-09-19)**: this issue's own `--abstract-cells` ablation probe re-ran the flow so the probe measures against a freshly built composition, minting `20260919-050355-fb11617` — DRC still clean at 0 violations, LVS still `mismatch` at 98 mismatches/97 errors, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins and the same four mismatch categories, i.e. field-identical to the record it supersedes, and the probe's corrected diagnosis (see §7 Item 1) does not change any of them. Verdict unchanged: still **UNMET/BLOCKED** on the LVS half. **Update this pass (2026-09-24): the DRC half's minimum-area scope limit above is stale, and minimum area is now graded in-deck.** The paragraph above, dated 2026-09-18, scoped the DRC component to "the deck's 47 rules" plus an out-of-band minimum-area measurement "until a `klayout-tools` release carries #1989's `met1.area.1`…`met5.area.1` rules". That release has landed and is pinned: issue #103's `klayout-tools==0.6.0` bump (PR #352, `layout/requirements.txt`) carries them. Read directly from the cited record's own `drc.json` `coverage`: **52** rules checked, **0** skipped, **5** inapplicable (`capm2.*` and `met4.enclosing.capm2.1`, all `no_applicable_geometry` — this layout draws no `capm2`), and the 52 include `met1.area.1`, `met2.area.1`, `met3.area.1`, `met4.area.1` and `met5.area.1` plus the matching `met*.holes_area.1` rules — status **clean**, **0** violations. The 0.6.0 re-run it supersedes, `20260923-131726-fa1e0af`, already checked the same 52 rules including all five `met*.area.1`, also clean at 0. So the DRC component of this row is now **MET against the curated deck's own minimum-area rules**, not only against an out-of-band stand-in, and the "145 tool-emitted shapes" residual no longer scopes it: that figure came from [`docs/chipalooza/measure_metal_min_area.py`](measure_metal_min_area.py), which issue #363 (open at the time) had since found **under-merges** the region it measures and so overstates its sub-minimum counts — on this same composition's met5 it reported via-cell shapes lying wholly inside a PDN strap as sub-minimum, where the deck's own `met5.area.1` reports none. **Resolved (2026-09-24, issue #363)**: the under-merge is fixed — `Region#insert(RecursiveShapeIterator)` carries GDS user properties into the region and KLayout's merge is property-aware, so a property-tagged PDN strap never merged with the untagged via cells inside it — and the corrected re-measurement of this same record reports **0** shapes below every one of `m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4`, matching the deck's own `met*.area.1` result exactly. The "145 residual shapes" figure is retracted, and issue #333's waiver of those residuals is **withdrawn rather than reaffirmed** — there was nothing to waive (see `layout/sar-sequencer/README.md` and `layout/seln-inverters/README.md`, whose 112- and 33-shape waivers both correct to 0). This row's grading is unaffected either way: it cites the deck's own in-deck `met*.area.1` result, not the out-of-band script. The row's overall verdict does not move: still **UNMET/BLOCKED** on the LVS half (88 mismatches on the cited record, §4's machine-checked sign-off-bar readout). **Update this pass (2026-09-24, later)**: the `--abstract-cells` path's two blockers, klayout-tools#2396 and #2398, have both since closed upstream via real code fixes (commits `a34fd79`/`c01c50c`, merged 2026-09-24T06:04:21Z/08:09:47Z respectively) — neither is in a published release yet (`klayout-tools==0.6.0`, the current PyPI/tag, was published 2026-09-22T18:52:45Z, and `gh api .../compare/v0.6.0...<commit>` reports each fix commit `ahead_by` 51/54, `behind_by` 0 — downstream of the tag, not an ancestor of it; see §7 Item 1 for the full re-check). This row's verdict is unaffected either way: the whole-request compare above, not the never-adopted `--abstract-cells` shape, is what grades it.. **Update this pass (2026-09-24, later still)**: issue #362 gave the analog ground its own top-level pin ([DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)) and re-ran the flow, minting `20260924-214710-b323061`. The verdict does not move and neither does a single LVS number: DRC still clean at 0 violations, still **88** mismatches in the same four categories, same 803/869 devices and 411/443 nets. What does move is the pin row, to **21 layout / 22 reference / 22 matched** — the reference now carries `GND` and `VGND` as two ports of what the layout extracts as one net (`GND|VGND`, the shared p-substrate that bulk sky130 offers no way to split), so one promoted layout pin answers both reference ports. `layout < reference` here is DR-012's central physical fact showing up in a count, not a missing pin. **Update this pass (2026-09-24, later still)**: issue #377 meshed all three analog blocks' own drawn ground terminals into that pad ([DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)), minting `20260924-234053-66dca3c`, and **not one LVS or DRC number moves**: still clean at 0 violations across the same 52 rules, still **88** mismatches in the same four categories, same 803/869 devices, 411/443 nets and 21/22/22 pins. That immobility is the point rather than a disappointment — the p-substrate already joined those nets, so no ordinary verdict here can see a ground mesh appear or disappear; the evidence that the drawn conductor is what joins them is an ERC ablation (`layout/sar-adc-top/bin/probe-ground-mesh.py`: remove the mesh and nothing else, and `GND` splits into 2 islands), committed at `erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`. This row's verdict does not move: still **UNMET/BLOCKED** on the LVS half. **Update this pass (2026-09-25): same correction as the row above — the LVS half's blocker is now a human ruling, not a queue position.** #103, which owns the composed-GDS LVS work this row grades, has been escalated to a human operator since 2026-09-24T06:38:37Z (see #342 for the re-check oscillation that prompted it); the 2026-09-15 update above, which read "#103 … back in this repo's ready queue", was this row's newest word on that issue and no longer describes it. No LVS or DRC number moves and no verdict moves: still **PARTIAL — DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** at 88 mismatches on the cited record. §7 Item 1's 2026-09-24 update carries the dated tracking-state trail (check 27) | [`layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md) (current `reports/LATEST`, issue #377's 2026-09-24 analog ground mesh: DRC clean at 0 violations, LVS still `mismatch` at **88**, pin promotion **21/22/22**, 803/869 devices matched — field-identical to the record it supersedes; supersedes `20260924-214710-b323061`, issue #362's analog-ground pad, which reported the same 88 mismatches and introduced the 21/22/22 pin row (DR-012), and which supersedes `20260924-190817-f3622fc`, issue #355's digital supply-rail tie, which reported the same 88 mismatches at pin promotion 21/21/21 — the two new top-level digital supply pins `VPWR`/`VGND` (DR-010) — and which superseded `20260923-131726-fa1e0af`, issue #103's `klayout-tools==0.6.0` pin-bump re-run, which reported DRC clean at 0 violations and LVS `mismatch` at 98, field-identical to `20260919-050355-fb11617`; the `--abstract-cells` path is now blocked on klayout-tools#2396/#2398 rather than #2142, see `layout/sar-adc-top/README.md`; supersedes `20260919-050355-fb11617`, this issue's `--abstract-cells` ablation-probe re-run, which superseded `20260918-191315-935ce76`, issue #326's minimum-area re-composition, at a field-identical DRC/LVS verdict, which in turn superseded `20260915-234004-76f48b9` at a field-identical DRC/LVS verdict, which in turn superseded `20260915-213439-bf2256f`, the 124-mismatch record this row previously cited, and the intermediate `20260915-222624-10afb15`), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
+| **Post-layout PVT simulation, full ADC** | brief sign-off bar | — | **UNMET** — a top-level layout now exists (PR #174, re-verified against the amended comparator geometry by PR #188, then again against PR #227's pin-declaration fix) but no extraction-based re-sim of the assembled `sar_adc_top` has been run against any PVT point; tracked under #103, under epic #25. **Update this pass (2026-09-15)**: #103's `klayout-tools` release blocker has cleared (`v0.5.0`, see §7 Item 1) and #103 was back in this repo's ready queue at that pass (§7 Item 1 carries the dated tracking-state trail; it has moved several times since — see this row's 2026-09-25 update below) — not yet MET, since no post-layout PVT sim has landed. **Citation re-pointed this pass** (the §7 Item 1 residual this document deliberately deferred until PR #273 landed): re-pointed off the one-record-old `20260907-110058-a546200` onto `20260908-072857-80df05e`, `reports/LATEST` at that moment — verified byte-for-byte equivalent (`compose.json` identical, `drc.json` clean in both, `lvs.json` aggregate fields identical: `status: "mismatch"`, `mismatch_count: 98`, `error_count: 97`, same four `category_counts`), so no verdict changes. **Update (2026-09-15, later): #103's PR #275 — now merged (2026-09-15T22:00:46Z) — has since run the deferred build against `klayout-tools` `v0.5.0`, and this row's citation is re-pointed again onto that build, the current `reports/LATEST` (`20260915-213439-bf2256f`).** Still **UNMET**: DRC stays clean and connectivity stays independently verified, but no PVT re-simulation of the assembled top level has been run either — that gap is unchanged by the layout-side rebuild. `klt lvs`'s device-level mismatch also did not clear on the rebuild (see the row below for the count); this row's own verdict does not move. **Update (2026-09-16)**: two further `Part of #103` increments (PR #287, PR #290 — see §7 Item 1) landed after the update above; neither runs a PVT re-simulation (both are LVS-shape measurements), so this row's verdict is unaffected — still **UNMET**. Citation re-pointed onto `20260915-234004-76f48b9`, then again this pass. **Update this pass (2026-09-18)**: issue #326 re-ran the flow to eliminate 17 sub-minimum-area metal shapes (see the row below), minting `20260918-191315-935ce76`; it is a layout-geometry pass, not a simulation one, so this row's verdict is unaffected — still **UNMET**, no extraction-based re-sim at any corner. **Update this pass (2026-09-19)**: this issue's own `--abstract-cells` ablation probe re-ran the flow to measure against a freshly built composition, minting `20260919-050355-fb11617` at a field-identical DRC/LVS verdict; it is an LVS-shape measurement, not a simulation one, so this row's verdict is again unaffected — still **UNMET**, no extraction-based re-sim at any corner. **Update this pass (2026-09-24, later)**: issue #362 re-ran the flow after adding the top-level analog `GND` pad ([DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)), minting `20260924-214710-b323061`; it is a layout/interface change, not a simulation, so this row's verdict is unaffected — still **UNMET**, no extraction-based re-sim at any corner. **Update this pass (2026-09-24, later still)**: issue #377 re-ran it again after meshing the three analog blocks' ground terminals ([DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)), minting `20260924-234053-66dca3c`; again a layout change and not a simulation, so this row is again unaffected — still **UNMET**. **Update this pass (2026-09-26)**: issue #440 placed DR-017's two per-domain decoupling capacitors, minting `20260926-081248-203cca3`; a third layout change and still not a simulation, so this row is unaffected once more — still **UNMET**. **Update this pass (2026-09-26, later)**: issue #465 drew 2×2 via arrays at those four decoupling ties, minting `20260926-184816-e1176e3`. This is the first layout hop in this chain that a simulation *drove* — issue #465 measured that the ties' drawn resistance raises the die-side rails before drawing anything (see §7 Item 1) — and it still does not move this row: that measurement inserts the tie resistance by hand into the **schematic** netlist, not into an extracted one, so the post-layout-extraction re-sim this row asks for remains unrun (it needs `klt pex`, klayout-tools#1878 / issue #103). Still **UNMET**. **Update this pass (2026-09-25): no evidence has moved, but the *kind* of blocker behind this row has.** The 2026-09-15 update above read "#103 … back in this repo's ready queue", which was this row's newest word on its own tracking issue and is no longer what that issue's state means: since 2026-09-24T06:38:37Z #103 is escalated to a **human operator ruling** — a decision, not a dependency an automated re-check can clear — after a `blocked`↔`issue` re-check oscillation independently tracked as #342. This row's verdict is unchanged (**UNMET**: no extraction-based re-sim of the assembled top level at any corner) and this document does not attempt #103's work; what changes is that the gap is now correctly reported as waiting on a ruling rather than on a queue position. §7 Item 1's 2026-09-24 update is the dated tracking-state trail, and is the only place in this document that names the labels themselves (check 27) | [`layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md`](../../layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md) (current `reports/LATEST`, issue #465's 2026-09-26 via arrays at the four decoupling ties — a layout change, not a post-layout simulation, so this row stays **UNMET**; supersedes `20260926-081248-203cca3`, issue #440's 2026-09-26 DR-017 decoupling placement; supersedes `20260924-234053-66dca3c`, issue #377's analog ground mesh, which supersedes `20260924-214710-b323061`, issue #362's analog-ground pad, which supersedes `20260924-190817-f3622fc`, issue #355's digital supply-rail tie, which superseded `20260923-131726-fa1e0af`, issue #103's `klayout-tools==0.6.0` pin-bump re-run, which was field-identical and which in turn superseded supersedes `20260919-050355-fb11617`, `20260918-191315-935ce76`, `20260915-234004-76f48b9` and, before it, `20260915-213439-bf2256f`, the records this row previously cited) |
+| **DRC/LVS-clean GDS, full ADC, in-repo** | brief sign-off bar | — | **PARTIAL — DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET / BLOCKED**. `klt drc`: clean, 0 violations, on the composed top-level GDS, re-confirmed after PR #227. `klt lvs` pin promotion: **exact** — layout=19/reference=19/matched=19 — via PR #227's `--pin-source-cells` fix (klayout-tools#1513/#1515), resolving the prior pin-declaration mismatch. `klt lvs` device match: still a mismatch (869/869 devices, matched 794 — unchanged, since the same flattened netlist is compared, only pin promotion changed) — root-caused to a second, distinct upstream gap: `options.combine_devices` has no per-subcircuit scoping, and the five sub-blocks do not all need the same setting. Filed at [klayout-tools#1552](https://github.com/2AMLogic/klayout-tools/issues/1552), which **closed**, fixed by klayout-tools#1556 (commit `5598e540`), but like klayout-tools#1515 before it, not yet in a published release — PyPI still tops out at 0.4.0. klayout-tools#1556's own `combine_devices_per_circuit` helper turned out to skip the existing whole-netlist path's `#559`/`#1497` resistor-offset and capacitor-C corrections, flagged as an unverified caveat and filed at [klayout-tools#1557](https://github.com/2AMLogic/klayout-tools/issues/1557); that issue has since **closed** too, fixed by klayout-tools#1560 (commit `2d603ba5`), again not yet in a published release at the time this row was last graded. **Update this pass (2026-09-15)**: `klayout-tools` `v0.5.0` published 2026-09-15T02:19:49Z and verified to contain all three of #1515, #1556, and #1560 (each is an ancestor of the `v0.5.0` tag per `gh api .../compare/v0.5.0...<commit>`, see §7 Item 1) — the release-gate blocker has cleared. #103 was back in this repo's ready queue at that pass (§7 Item 1 carries the dated tracking-state trail; it has moved several times since — see this row's 2026-09-25 update below), but this row stays UNMET/BLOCKED rather than MET: no new `layout/sar-adc-top/` record has landed yet showing a v0.5.0-built device match, so whether the gap actually closes is still #103's open finding to report. **Citation re-pointed this pass** (same residual as the row above): re-pointed onto `20260908-072857-80df05e`, `reports/LATEST` at that moment, verified byte-for-byte equivalent to the prior `20260907-110058-a546200` citation — no verdict changes. **Update (2026-09-15, later): the v0.5.0 build this row was waiting on has since run, in #103's PR #275, now merged (2026-09-15T22:00:46Z) — the gap did not close, and in fact regressed before a second fix narrowed it back down.** `klt drc` stays clean; `klt lvs`'s device match moved from the pre-bump 98 mismatches to 128 (a stale hand-transcribed `sampling_frontend` pin table, unrelated to the tool bump, contributed 4 of those), then to 124 once that table was corrected against the current committed GDS — still not a match, and worse than the pre-bump baseline this row previously cited. Root-caused, per PR #275, to two distinct upstream gaps, both filed generically this pass and both still open: [klayout-tools#1876](https://github.com/2AMLogic/klayout-tools/issues/1876) (the `#1558`/`#1564` "write bare `C` cards for unbound capacitors" fix drops the capacitor device class's own name from extracted SPICE text, so this flow's pre-extracted-netlist `klt lvs` shape can no longer resolve capacitor devices to their reference-side counterpart by class name) and [klayout-tools#1878](https://github.com/2AMLogic/klayout-tools/issues/1878) (`options.combine_devices_per_circuit`, klayout-tools#1556's own fix for the *previous* blocker this row named, is a no-op for a `klt gen-compose`d layout: `klt extract`'s layout-side output is always one flat circuit — hierarchical extraction still doesn't exist, klayout-tools#1085 — so there is no per-macro subcircuit boundary left for the per-circuit flag to scope). This row stays **UNMET/BLOCKED**, now on #1876/#1878 rather than on the v0.5.0 release gate, which has cleared. **Citation re-pointed onto that build**: PR #275 merged, so `20260915-213439-bf2256f/` is part of this repo's own committed `reports/` tree and `layout/sar-adc-top/reports/LATEST` resolves to it — its `lvs.json` is the primary source for the 124 figure quoted above (`status: "mismatch"`, `mismatch_count: 124`, `error_count: 123`, `counts.devices` 869 layout / 869 reference / 794 matched, `counts.pins` 19/19/19, `category_counts: {device.unmatched: 99, net.merged: 12, net.split: 10, topology: 2, topology.flattened: 1}`), and its `drc.json` reports `violations: []`. **Update (2026-09-16): klayout-tools#1876 is now neutralised locally, `Part of #103` (PR #287, merged 2026-09-15T23:27:08Z)** — `layout/sar-adc-top/bin/restore-cap-device-class.py` restores each capacitor's device-class token onto its `C` card from `klt extract`'s own per-instance provenance comment before the LVS request, reproducing the **pre-0.5.0 98-mismatch / 412-matched-net** baseline exactly (`device.unmatched: 75`, `net.merged: 12`, `net.split: 10`, `topology.flattened: 1`; the spurious capacitor-class `topology: 2` category is gone). **klayout-tools#1878 remains the sole blocker** — still UNMET/BLOCKED, better than the 124-mismatch figure this row previously carried but not a match. A fourth LVS shape was then measured, `Part of #103` (PR #290, merged 2026-09-16T00:02:07Z): `--abstract-cells` black-boxing the three sub-blocks whose `combine_devices` need opposes the other two, against a matching hollowed reference, narrows the same composed GDS to **6 mismatches** (`device.unmatched: 3`) — but all 6 trace to a new, distinct defect (`--abstract-cells` silently drops `cdac_array`'s label-less 4th port, corrupting unrelated net names), filed generically as [klayout-tools#1911](https://github.com/2AMLogic/klayout-tools/issues/1911) and **not adopted for signoff** pending independent confirmation the corruption is cosmetic — `run-flow.sh` is unchanged and the recorded attempt stays the audited 98-mismatch compare. This row's verdict does not move: still **UNMET/BLOCKED**, on klayout-tools#1878 (with #1911 as a further open item, not yet actionable). **Update (2026-09-16, later)**: klayout-tools#1876 and #1878 have both since closed upstream (2026-09-16T03:44:54Z and 2026-09-16T03:43:13Z respectively) — #1876 via a genuine code fix ([klayout-tools#1921](https://github.com/2AMLogic/klayout-tools/pull/1921), merged, commit `c5438290`), #1878 via a **documentation-only** fix ([klayout-tools#1924](https://github.com/2AMLogic/klayout-tools/pull/1924)) that confirms, rather than closes, the underlying capability gap (`klt extract` still has no hierarchical/per-macro subcircuit output). Neither fix is in a published release — `klayout-tools` is still at `v0.5.0`, and `c5438290` is 48 commits ahead of that tag (`gh api .../compare/v0.5.0...c5438290`). klayout-tools#1911 remains open. **Update (2026-09-16, still later): klayout-tools#1911 has since closed too, via a genuine code fix** — [klayout-tools#1934](https://github.com/2AMLogic/klayout-tools/pull/1934) ("fix(extract): stop `--abstract-cells` from corrupting unrelated net names"), merged 2026-09-16T09:50:33Z, commit `ad3f8363`. Its own body traces the corruption to `--abstract-cells` erasing a black-boxed cell's `nwell`/`substrate_isolation` before the whole-layout body-identity classification pass reads them, which could merge unrelated substrate-tied nets under one bogus composite label — the same defect class this row's #1911 filing observed — and adds regression coverage for it (`test_abstract_cells_does_not_merge_unrelated_nets_onto_the_global_net`). This closes out all three of the upstream gaps this row has tracked (#1876, #1878, #1911), but **none of the three fixing commits is in a published release**: `klayout-tools`'s latest tag is still `v0.5.0`, and `gh api repos/2AMLogic/klayout-tools/compare/v0.5.0...ad3f8363` reports `ahead_by: 61, behind_by: 0`. Per this repo's own established practice (set by #103's PR #275), the row stays graded against what is released, not what is merged-but-unreleased. This row's verdict does not move: still **UNMET/BLOCKED**, now waiting solely on a `klayout-tools` release containing all three fixes rather than on any open upstream issue — see §7 Item 1 for the full trace. Citation re-pointed onto the record that produced both increments' numbers. **Update this pass (2026-09-18), issue #326 — the DRC half of this row was narrower than it read.** `klt drc`'s clean verdict covers the 47 rules the curated `sky130` deck authors at the pinned `klayout-tools==0.5.0`, across five kinds (`width`, `space`, `enclosing`, `separation`, `isolated`) — it authors **no `area`-kind rule**, so sky130A's own metal minimum-area rules (`m1.6`, `m2.6`, `m3.6`, `m4.4a`, `m5.4`) had never looked at this layout. Measured directly with [`docs/chipalooza/measure_metal_min_area.py`](measure_metal_min_area.py) (added this pass: it reads the thresholds and layer numbers out of the pinned PDK's own deck and applies KLayout's own `Region#with_area`, the primitive that deck's rule text calls), the superseded record's composed GDS carried **17 shapes below `m3.6`/`m4.4a`** that this flow's own router drew — 12 met3 + 1 met4 from `layout/sar-adc-top/bin/build_layout.py`'s via risers and 4 met3 from `layout/sampling-frontend/bin/build_layout.py`'s stacked-via pads. Both generators now size a pad that stands alone on its own layer to clear that layer's own minimum-area rule, and the re-composed record cited here measures **0** sub-minimum met3/met4 shapes, at an unchanged DRC verdict (clean, 0 violations) and an unchanged LVS verdict (98 mismatches, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins, same four categories). What remains below threshold in the composed GDS is **145 shapes on met1/met2/met3/met5 that `klt`'s own place-and-route emitted** inside the two digital macros (generated via cells `VIA_L1M1_PR_MR`/`VIA_M2M3_PR`/`VIA_via5_6_*` plus router-drawn stubs; no `sky130_fd_sc_hd__*` library cell violates anything) — tracked as #333 here and filed generically upstream as [klayout-tools#2072](https://github.com/2AMLogic/klayout-tools/issues/2072). So the DRC component of this row is **MET for the deck's 47 rules and, for this repo's own drawn geometry, for minimum area as well** — scope-limited only by the 145 tool-emitted shapes and by the fact that minimum area is still measured out-of-band until a `klayout-tools` release carries [#1989](https://github.com/2AMLogic/klayout-tools/pull/1989)'s `met1.area.1`…`met5.area.1` rules. The row's overall verdict does not move: still **UNMET/BLOCKED** on the LVS half. **Update this pass (2026-09-19)**: this issue's own `--abstract-cells` ablation probe re-ran the flow so the probe measures against a freshly built composition, minting `20260919-050355-fb11617` — DRC still clean at 0 violations, LVS still `mismatch` at 98 mismatches/97 errors, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins and the same four mismatch categories, i.e. field-identical to the record it supersedes, and the probe's corrected diagnosis (see §7 Item 1) does not change any of them. Verdict unchanged: still **UNMET/BLOCKED** on the LVS half. **Update this pass (2026-09-24): the DRC half's minimum-area scope limit above is stale, and minimum area is now graded in-deck.** The paragraph above, dated 2026-09-18, scoped the DRC component to "the deck's 47 rules" plus an out-of-band minimum-area measurement "until a `klayout-tools` release carries #1989's `met1.area.1`…`met5.area.1` rules". That release has landed and is pinned: issue #103's `klayout-tools==0.6.0` bump (PR #352, `layout/requirements.txt`) carries them. Read directly from the cited record's own `drc.json` `coverage`: **52** rules checked, **0** skipped, **5** inapplicable (`capm2.*` and `met4.enclosing.capm2.1`, all `no_applicable_geometry` — this layout draws no `capm2`), and the 52 include `met1.area.1`, `met2.area.1`, `met3.area.1`, `met4.area.1` and `met5.area.1` plus the matching `met*.holes_area.1` rules — status **clean**, **0** violations. The 0.6.0 re-run it supersedes, `20260923-131726-fa1e0af`, already checked the same 52 rules including all five `met*.area.1`, also clean at 0. So the DRC component of this row is now **MET against the curated deck's own minimum-area rules**, not only against an out-of-band stand-in, and the "145 tool-emitted shapes" residual no longer scopes it: that figure came from [`docs/chipalooza/measure_metal_min_area.py`](measure_metal_min_area.py), which issue #363 (open at the time) had since found **under-merges** the region it measures and so overstates its sub-minimum counts — on this same composition's met5 it reported via-cell shapes lying wholly inside a PDN strap as sub-minimum, where the deck's own `met5.area.1` reports none. **Resolved (2026-09-24, issue #363)**: the under-merge is fixed — `Region#insert(RecursiveShapeIterator)` carries GDS user properties into the region and KLayout's merge is property-aware, so a property-tagged PDN strap never merged with the untagged via cells inside it — and the corrected re-measurement of this same record reports **0** shapes below every one of `m1.6`/`m2.6`/`m3.6`/`m4.4a`/`m5.4`, matching the deck's own `met*.area.1` result exactly. The "145 residual shapes" figure is retracted, and issue #333's waiver of those residuals is **withdrawn rather than reaffirmed** — there was nothing to waive (see `layout/sar-sequencer/README.md` and `layout/seln-inverters/README.md`, whose 112- and 33-shape waivers both correct to 0). This row's grading is unaffected either way: it cites the deck's own in-deck `met*.area.1` result, not the out-of-band script. The row's overall verdict does not move: still **UNMET/BLOCKED** on the LVS half (88 mismatches on the cited record, §4's machine-checked sign-off-bar readout). **Update this pass (2026-09-24, later)**: the `--abstract-cells` path's two blockers, klayout-tools#2396 and #2398, have both since closed upstream via real code fixes (commits `a34fd79`/`c01c50c`, merged 2026-09-24T06:04:21Z/08:09:47Z respectively) — neither is in a published release yet (`klayout-tools==0.6.0`, the current PyPI/tag, was published 2026-09-22T18:52:45Z, and `gh api .../compare/v0.6.0...<commit>` reports each fix commit `ahead_by` 51/54, `behind_by` 0 — downstream of the tag, not an ancestor of it; see §7 Item 1 for the full re-check). This row's verdict is unaffected either way: the whole-request compare above, not the never-adopted `--abstract-cells` shape, is what grades it.. **Update this pass (2026-09-24, later still)**: issue #362 gave the analog ground its own top-level pin ([DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)) and re-ran the flow, minting `20260924-214710-b323061`. The verdict does not move and neither does a single LVS number: DRC still clean at 0 violations, still **88** mismatches in the same four categories, same 803/869 devices and 411/443 nets. What does move is the pin row, to **21 layout / 22 reference / 22 matched** — the reference now carries `GND` and `VGND` as two ports of what the layout extracts as one net (`GND|VGND`, the shared p-substrate that bulk sky130 offers no way to split), so one promoted layout pin answers both reference ports. `layout < reference` here is DR-012's central physical fact showing up in a count, not a missing pin. **Update this pass (2026-09-24, later still)**: issue #377 meshed all three analog blocks' own drawn ground terminals into that pad ([DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)), minting `20260924-234053-66dca3c`, and **not one LVS or DRC number moves**: still clean at 0 violations across the same 52 rules, still **88** mismatches in the same four categories, same 803/869 devices, 411/443 nets and 21/22/22 pins. That immobility is the point rather than a disappointment — the p-substrate already joined those nets, so no ordinary verdict here can see a ground mesh appear or disappear; the evidence that the drawn conductor is what joins them is an ERC ablation (`layout/sar-adc-top/bin/probe-ground-mesh.py`: remove the mesh and nothing else, and `GND` splits into 2 islands), committed at `erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`. This row's verdict does not move: still **UNMET/BLOCKED** on the LVS half. **Update this pass (2026-09-26, issue #440)**: DR-017's two per-domain decoupling capacitors are now placed (`20260926-081248-203cca3`), and this is the first hop in a week at which an LVS number *does* move — but only as the two new devices require. DRC stays clean at 0 violations across the same 52 rules. `bin/generate-lvs-reference.py` now emits top-level primitive devices for the first time, so both sides go 869 → **871**, with **804** matched (was 803). Mismatches go 88 → **89** in the *same four categories*: the one added entry is a `device.unmatched` on the analog pair, whose `GND` return terminal sits on the reference side of an already-tracked `net.merged` entry and therefore has no reference device it can correspond to — the DR-012 substrate merge reaching a device, not a new mismatch class, and the digital pair (return port `VGND`, the name the comparer paired that merged layout net with) does correspond. `klt erc` was re-run too (`erc-reports/20260926-081822-203cca3/`): still `clean`, 0 findings, all four supplies at one island each on the new geometry. **Update this pass (2026-09-26, issue #465)**: the four ties those capacitors hang on now draw every via2/via3 as a 2×2 array of four cuts instead of one (`20260926-184816-e1176e3`), on a measurement — the drawn ties' 13.837/13.448 Ω per domain was measured to *raise* every die-side rail's excursion, worst rail by 1.333× (see §7 Item 1) — and **not one number this row grades moves**: DRC still clean at 0 violations across the same 52 rules, LVS still `mismatch` at **89** in the same four categories, still 871/871/**804** devices, 443/444/411 nets, 21/22/22 pins, and `klt erc` re-run at `erc-reports/20260926-184830-e1176e3/` still `clean` with 0 findings and all four supplies at one island each. That immobility is expected and is the reason the change had to rest on a `sim/` record: a via's cut count is a resistance, and neither `klt drc` (shapes) nor `klt erc` (connectivity) nor this flow's LVS (devices and nets) can see one. What did move is measured by `bin/probe-decap-sites.py` and lives beside the verdict: per-domain tie ESR **13.837/13.448 Ω → 7.172/6.863 Ω**. **Update this pass (2026-09-25): same correction as the row above — the LVS half's blocker is now a human ruling, not a queue position.** #103, which owns the composed-GDS LVS work this row grades, has been escalated to a human operator since 2026-09-24T06:38:37Z (see #342 for the re-check oscillation that prompted it); the 2026-09-15 update above, which read "#103 … back in this repo's ready queue", was this row's newest word on that issue and no longer describes it. No LVS or DRC number moves and no verdict moves: still **PARTIAL — DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** at 89 mismatches on the cited record. §7 Item 1's 2026-09-24 update carries the dated tracking-state trail (check 27) | [`layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md`](../../layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md) (current `reports/LATEST`, issue #465's 2026-09-26 via arrays at the four decoupling ties: DRC clean at 0 violations, LVS still `mismatch` at **89**, pin promotion **21/22/22**, **804/871** devices matched — field-identical to the record it supersedes, `20260926-081248-203cca3`, issue #440's 2026-09-26 DR-017 decoupling placement, which reported the same verdict and introduced the 871/804 device counts; which supersedes `20260924-234053-66dca3c`, issue #377's analog ground mesh, which reported the same verdict at **88** mismatches and 803/869 devices and was field-identical to the record it supersedes, and which supersedes `20260924-214710-b323061`, issue #362's analog-ground pad, which reported the same 88 mismatches and introduced the 21/22/22 pin row (DR-012), and which supersedes `20260924-190817-f3622fc`, issue #355's digital supply-rail tie, which reported the same 88 mismatches at pin promotion 21/21/21 — the two new top-level digital supply pins `VPWR`/`VGND` (DR-010) — and which superseded `20260923-131726-fa1e0af`, issue #103's `klayout-tools==0.6.0` pin-bump re-run, which reported DRC clean at 0 violations and LVS `mismatch` at 98, field-identical to `20260919-050355-fb11617`; the `--abstract-cells` path is now blocked on klayout-tools#2396/#2398 rather than #2142, see `layout/sar-adc-top/README.md`; supersedes `20260919-050355-fb11617`, this issue's `--abstract-cells` ablation-probe re-run, which superseded `20260918-191315-935ce76`, issue #326's minimum-area re-composition, at a field-identical DRC/LVS verdict, which in turn superseded `20260915-234004-76f48b9` at a field-identical DRC/LVS verdict, which in turn superseded `20260915-213439-bf2256f`, the 124-mismatch record this row previously cited, and the intermediate `20260915-222624-10afb15`), [`layout/sar-adc-top/README.md`](../../layout/sar-adc-top/README.md) |
 
 ### Reproducing this table
 
@@ -1135,12 +1187,12 @@ What can drift unnoticed is not that either set exists but its *size and
 membership*, so that is gated (check 18), in the same shape check 6 gates the
 pointer-claim census below:
 
-> of the **22** (spec row, evidence flow) citation pairs in Section 4's
-> table, **17** name a flow that publishes a `LATEST` pointer and are
+> of the **23** (spec row, evidence flow) citation pairs in Section 4's
+> table, **18** name a flow that publishes a `LATEST` pointer and are
 > therefore freshness-checked by check 3; the remaining **5** name a flow that
 > publishes none, whose current record nothing grades:
 > `sim/cdac-array-transfer` (**4** records), `sim/comparator-decision`
-> (**13** records).
+> (**14** records).
 
 `python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
 sentence live, to be pasted back in when it moves. It is graded in both
@@ -1252,11 +1304,26 @@ whole mismatch-category mapping, in both directions):
 > **Sign-off-bar readout, machine-checked:**
 > on the record `layout/sar-adc-top/reports/LATEST` resolves to, `klt drc`
 > reports status **clean** with **0** violations, and `klt lvs` reports status
-> **mismatch** with **88** mismatches and **87** errors; devices **869**
-> layout / **869** reference / **803** matched; nets **443** / **444** /
+> **mismatch** with **89** mismatches and **88** errors; devices **871**
+> layout / **871** reference / **804** matched; nets **443** / **444** /
 > **411** matched; pins **21** / **22** / **22** matched; by category
-> `device.unmatched: 66`, `net.merged: 11`, `net.split: 10`,
+> `device.unmatched: 67`, `net.merged: 11`, `net.split: 10`,
 > `topology.flattened: 1`.
+
+**The readout above moved again on 2026-09-26**, and for a new reason: issue
+#440 placed [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)'s
+two per-domain decoupling capacitors in `layout/sar-adc-top/`, so this is the
+first hop at which the *composed layout gained devices* rather than being
+re-run against a new tool. `bin/generate-lvs-reference.py` emits top-level
+primitive devices for the first time, which takes both sides 869 → **871** with
+**804** matched, and the compare 88 → **89** — the single added entry being a
+`device.unmatched` on the analog pair, whose `GND` return terminal sits on the
+reference side of an already-tracked `net.merged` entry and so has no reference
+device it can correspond to. The four mismatch *categories* are unchanged, DRC
+is still clean at 0 violations across the same 52 rules, and `klt erc` was
+re-run on the new geometry (`erc-reports/20260926-081822-203cca3/`) and is still `clean` at 0
+findings. This discharges the staleness §7 Item 1 recorded when #431 landed
+those two devices at schematic level only.
 
 The readout above moved on 2026-09-24, for the first time in this document's
 history in the *improving* direction: issue #355 tied the two standard-cell
@@ -1295,6 +1362,33 @@ would fail the gate on correct prose — the same reason checks 4 and 5 skip the
 stamp-after-claim form. **No verdict moves because of this check**: the
 readout states the same DRC-clean / LVS-mismatch result §4's two sign-off-bar
 rows already carry, which is why it could be added without re-grading either.
+
+**One narrow exception to that, added 2026-09-26 (check 36), because the claim
+one paragraph above — that this readout is the document's *single*
+present-tense statement of these numbers — was not true of the document that
+made it.** Six passages in §3 and §7 restated the mismatch count in prose, in
+three explicitly present-tense forms (`N mismatches on the current record`,
+`currently N mismatches`, `the N-mismatch LVS gap`), and check 9 cannot see
+any of them: it matches this blockquote's own sentence and nothing else. When
+#440's decoupling placement moved the compare 88 → 89, the readout and §4's
+row moved and all six still read 88. Check 36 re-derives exactly those three
+forms against the composing flow's current `lvs.json` — the composing flow
+being identified from the tree (the one flow whose `compose.json` takes in a
+`blocks[]` entry that is a *cell* from a stream its own run did not produce),
+never pinned in the script. The *dated* forms stay ungraded for the reason
+above: "88 mismatches at the 2026-09-24 hop" was true when written and is a
+statement about a superseded record, while the same figure called *current* is
+a claim about whatever `reports/LATEST` resolves to today, for which there is
+exactly one true value. (The three gated forms are quoted above with their
+count elided as `N`, deliberately: spelling one of them out with a digit would
+make this paragraph itself a present-tense claim, and the gate would —
+correctly — fire on its own explanation. The dated example one sentence back
+can carry its real figure precisely because being dated is what puts it out of
+scope. Check 35's rationale needed the same care for the same reason.) **No
+verdict moves because of this
+check either** — the six passages were corrected onto the record §4's readout
+already carried, and neither sign-off-bar row's verdict depends on whether the
+gap is 88 or 89: it is not zero.
 
 **The gate now also grades what a row does *not* cite** (check 11, added
 2026-09-17), because checks 3 to 9 structurally cannot. Each of those grades a
@@ -1547,8 +1641,9 @@ tracker already owns.
    contradicting them). **Nothing about the design's graded status changes
    with this correction** — what is still missing is exactly what the brief's
    sign-off bar grades, and both remain UNMET in §4: a `klt lvs`
-   **device-level match** on the composed GDS (currently 88 mismatches — see
-   §4's machine-checked sign-off-bar readout; 98 before issue #355's
+   **device-level match** on the composed GDS (currently 89 mismatches — see
+   §4's machine-checked sign-off-bar readout; 88 before issue #440's
+   2026-09-26 decoupling placement, and 98 before issue #355's
    2026-09-24 digital supply-rail tie), and
    **any post-layout PVT re-simulation** of the assembled top level (none has
    been run at any corner). Tracked as
@@ -1989,11 +2084,22 @@ tracker already owns.
    and on 2026-09-24 by issue #355's digital supply-rail tie, then by #362's
    analog ground pad and #377's analog ground mesh,
    [`layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md),
+   and on 2026-09-26 by issue #440's DR-017 decoupling placement,
+   [`layout/sar-adc-top/reports/20260926-081248-203cca3/record.md`](../../layout/sar-adc-top/reports/20260926-081248-203cca3/record.md),
+   and later the same day by issue #465's 2×2 via arrays at the four
+   decoupling ties,
+   [`layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md`](../../layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md),
    the current `reports/LATEST` — every hop through 2026-09-23 at a
-   field-identical DRC/LVS verdict, and the 2026-09-24 hop the first to move
-   it (21/21/21 pins, 88 mismatches, 803/869 devices matched; DRC still
-   clean), for a reason that is not about this blocker: the two digital rails
-   became one net each with their own top-level pins;
+   field-identical DRC/LVS verdict, and the 2026-09-24 hops the first to move
+   it (`20260924-190817-f3622fc`: 21/21/21 pins, 88 mismatches, 803/869
+   devices matched; DRC still clean; then #362's ground pad took the pin
+   triple to 21/22/22), for a reason that is not about this blocker: the two
+   digital rails became one net each with their own top-level pins. The
+   2026-09-26 hops moved it again, for a reason that is also not about this
+   blocker: #440's two placed decoupling capacitors take both sides to 871
+   devices, 804 matched, and the compare to 89 mismatches in the same four
+   categories, and #465's via arrays at those same ties then moved **nothing**
+   — same 871/871/804, same 89 in the same four categories, DRC still clean;
    `compose.json`'s top-level `bbox_um` was byte-identical to
    `20260915-213439-bf2256f`'s, moved by 0.05 µm in `x0` only at the #326
    re-composition, and is byte-identical again across the 2026-09-19 re-run
@@ -2003,8 +2109,9 @@ tracker already owns.
    item; both confirmed still **OPEN** upstream as of this check, `gh issue
    view 1876/1878/1911 --repo 2AMLogic/klayout-tools`). §4's two sign-off-bar
    rows are re-pointed onto this record; **no verdict in §4 moves as a
-   result** — DRC/LVS-clean GDS stays UNMET/BLOCKED (88 mismatches on the
-   current record, 98 on every record from `20260915-234004-76f48b9` through
+   result** — DRC/LVS-clean GDS stays UNMET/BLOCKED (89 mismatches on the
+   current record, 88 on each of the three 2026-09-24 records, 98 on every
+   record from `20260915-234004-76f48b9` through
    2026-09-23 —
    better than the 124 this item once cited, but still not clean) and post-layout PVT stays UNMET (still no extraction-based re-sim
    at any corner, regardless of which LVS shape is used).
@@ -2298,17 +2405,27 @@ tracker already owns.
      name while `klt` upper-cases it, so it recovers 0 of this design's 1028
      capacitors. None of the three is adopted for signoff — `run-flow.sh`'s
      audited whole-request compare stays the recorded attempt, now minted at
-     [`layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md`](../../layout/sar-adc-top/reports/20260924-234053-66dca3c/record.md),
-     the current `reports/LATEST` (superseding `20260924-214710-b323061`,
+     [`layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md`](../../layout/sar-adc-top/reports/20260926-184816-e1176e3/record.md),
+     the current `reports/LATEST` (superseding `20260926-081248-203cca3`, issue
+     #440's DR-017 decoupling placement, which superseded
+     `20260924-234053-66dca3c`, issue #377's analog
+     ground mesh, which superseded `20260924-214710-b323061`,
      which superseded `20260923-131726-fa1e0af`, which superseded
      `20260919-050355-fb11617`, this item's prior citations).
-     Its verdict is **88** mismatches, not the 98 this item's earlier passes
+     Its verdict is **89** mismatches, not the 98 this item's earlier passes
      recorded: issue #355's digital supply-rail tie (DR-010) took the pins
-     from 19/19/19 to 21/21/21 and matched nine more devices. None of the
-     three findings above is affected — the `--abstract-cells` collapse and
-     the capacitor-class workaround are unchanged, and the residual mismatch
-     is the same klayout-tools#1878 category mix over two fewer nets per
-     side.
+     from 19/19/19 to 21/21/21 and matched nine more devices (98 → 88), and
+     issue #440's DR-017 decoupling placement then added one more
+     `device.unmatched` entry (88 → 89) for the analog pair, whose `GND`
+     return terminal sits on the reference side of an already-tracked
+     `net.merged` entry and therefore cannot correspond — the DR-012
+     substrate merge reaching a device, not a new mismatch category. Issue
+     #465's 2×2 via arrays at those same four decoupling ties then moved no
+     count at all: still 89, same four categories, same 871/871/804 devices,
+     DRC still clean. None of
+     the three findings above is affected — the `--abstract-cells` collapse
+     and the capacitor-class workaround are unchanged, and the residual
+     mismatch is the same klayout-tools#1878 category mix.
 
    **No §4 verdict moves**: "DRC/LVS-clean GDS, full ADC" stays **PARTIAL —
    DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED** and
@@ -2364,8 +2481,10 @@ tracker already owns.
    restated at every prior upstream-closure update above), the row stays
    graded against what is *released*, not what is merged — so **no §4
    verdict moves**: "DRC/LVS-clean GDS, full ADC" stays PARTIAL — DRC MET,
-   LVS DEVICE MATCH UNMET/BLOCKED (88 mismatches, the whole-request compare
-   that is this flow's actual signoff attempt), unaffected either way since
+   LVS DEVICE MATCH UNMET/BLOCKED (88 mismatches on the record current at this
+   pass, `20260924-234053-66dca3c`, and 89 on the current record since #440's
+   2026-09-26 decoupling placement — the whole-request compare
+   that is this flow's actual signoff attempt at either count), unaffected either way since
    the never-adopted `--abstract-cells` shape is not what grades this row.
    What changes is only the blocker's own bookkeeping: both upstream issues
    are now closed-with-fix-pending-release rather than open, consistent
@@ -2375,6 +2494,69 @@ tracker already owns.
    the `--abstract-cells` probe. #103's own state is unchanged by this
    check: still `loom:operator-only`/`loom:operator-decision`, a human
    decision this document does not act on.
+
+   **Update this pass (2026-09-25): the third of PR #352's three findings,
+   klayout-tools#2397, closed too — and it closed first, before either of the
+   two the paragraph above records.** That paragraph's summary sentence reads
+   "both upstream issues are now closed-with-fix-pending-release rather than
+   open", which enumerates #2396 and #2398 only, so a reader tracking which of
+   the three findings is still open would infer #2397 is. It is not.
+   Re-checked live this pass (`gh api
+   repos/2AMLogic/klayout-tools/issues/2397`): #2397 closed
+   **2026-09-24T02:11:27Z** (`state_reason: completed`) via
+   [klayout-tools#2425](https://github.com/2AMLogic/klayout-tools/pull/2425)
+   ("fix(lvs): case-fold circuit/device names in capacitor recovery map key",
+   merged 2026-09-24T02:11:26Z, commit `2808823`) — about four hours before
+   #2396 and six before #2398, and so already closed when the
+   2026-09-24T06:38:35Z Champion escalation named that trio's two blockers as
+   the live gap. Like both of those, it is **not in a published release**: `gh
+   api repos/2AMLogic/klayout-tools/compare/v0.6.0...2808823` reports
+   `ahead_by: 43, behind_by: 0` — downstream of the `v0.6.0` tag, not an
+   ancestor of it — and PyPI still gives `0.6.0` as the latest
+   `klayout-tools` while `gh api repos/2AMLogic/klayout-tools/tags` still
+   tops out at that same tag, which is exactly what `layout/requirements.txt`
+   pins. So the release gate the paragraph above leaves open is now one gate
+   over three commits (`2808823`, `a34fd79`, `c01c50c`), not two.
+
+   **Why this third closure gets its own line rather than a footnote to the
+   other two.** #2396 and #2398 sit behind the `--abstract-cells` shape this
+   flow has measured but never adopted for signoff, so their release changes
+   nothing this document grades until someone re-runs that probe. #2397 sits
+   on the **adopted** path: it is the finding that explains why
+   klayout-tools#1876's own upstream fix (#1921's reader-side capacitor-class
+   recovery) recovers 0 of this design's 1028 capacitors, and the 2026-09-16
+   update above had already named that upstream behaviour as the one "whose
+   release would retire this repo's local
+   `layout/sar-adc-top/bin/restore-cap-device-class.py` workaround" while
+   correctly ruling out klayout-tools#1944 as the commit that would do it.
+   `2808823` is the commit that would. Until it ships, the workaround stays
+   load-bearing — and on the pinned `klayout-tools==0.6.0` that is a property
+   of this tree rather than an expectation, read this pass out of the current
+   record's own
+   [`layout/sar-adc-top/reports/20260926-081248-203cca3/capclass.json`](../../layout/sar-adc-top/reports/20260926-081248-203cca3/capclass.json):
+   `c_cards: 1032`, `restored: 1032`, all to
+   `sky130_fd_pr__model__cap_mim`, and `noop: false` (1028 → **1032** because
+   issue #440 placed DR-017's four decoupling unit cells; the workaround's own
+   reach is unchanged — still every `C` card the extractor emits). That last field is the
+   one #2397's filing predicted could never read `true` off a reader-side fix,
+   so its value here is the direct in-repo evidence that the local script —
+   not the pinned tool — is still what resolves this compare's capacitor class
+   at all.
+
+   **No §4 verdict moves, and nothing about #103's own state changes.**
+   "DRC/LVS-clean GDS, full ADC" stays **PARTIAL — DRC MET, PIN DECLARATION
+   MET, LVS DEVICE MATCH UNMET/BLOCKED** at 89 mismatches on the current
+   record — the same record this update reads the capacitor-class field out of
+   — and "Post-layout PVT simulation, full ADC" stays **UNMET**; per
+   this item's established practice the rows stay graded against what is
+   *released*, and nothing has been. #103 was re-read live this pass and
+   still carries `loom:operator-only` + `loom:operator-decision` — still a
+   human ruling, not a queue position and not a self-clearing release wait,
+   which is the distinction a reader skimming this item's long
+   "waiting-on-a-release" trail is most likely to lose. What this update adds
+   is only the third line of the same bookkeeping, and the correction that
+   the trio's remaining gate is a single release rather than a partly-open
+   upstream investigation.
 
    **The composed top level still implements issue #56's superseded glue
    (found 2026-09-25, this pass; a layout gap, newly stated here rather than
@@ -2535,14 +2717,33 @@ tracker already owns.
    but that it has **no route by which it self-clears**: even after #402
    merges, a fresh proposal for the carve-out has to be filed and land
    first. **PR #402**, the first increment, is still open and still unmerged
-   (`merged_at: null`); its review-cycle labels were cleared at
-   2026-09-25T09:30:02Z and it is back at `loom:review-requested`, so the
-   mid-pass label state an earlier draft of this paragraph recorded had
-   already reversed. That churn is exactly why what the absence below rests
-   on is the merge, not the label. So `layout/top-glue/` — present in PR
-   #402's own diff, though not yet in `origin/main` until that PR merges —
-   and `layout/halflsb-offset/` (not in this tree), which no open PR
-   currently carries, are both still absent from `origin/main` —
+   (`merged_at: null`), and its label state has moved again since the last
+   pass recorded it here — this paragraph's own prior word (cleared back to
+   `loom:review-requested` at 2026-09-25T09:30:02Z) is exactly the kind of
+   live-state sentence that rots the moment written, which is why it is
+   corrected in place rather than left to compound. Re-checked live this
+   pass (`gh api repos/2AMLogic/sky130-sar-adc/issues/402/events`,
+   2026-09-25T15:53Z): a second merge-conflict rejection and Doctor fix
+   cycle (07:27Z-11:30Z) reached Judge approval and `loom:pr` at 11:49:56Z,
+   then Champion's critical-file hold added `loom:operator` at 12:22:45Z —
+   `.github/workflows/ci.yml`'s diff is comment-only (documenting the new
+   `check:glue-parity` step, no job/step logic touched), but the
+   version-only carve-out this repo's Champion config exempts is scoped to
+   six named version-bearing files and does not extend to workflow files,
+   so the hold is a hard fail on the path alone and stands until a human
+   runs `./.loom/scripts/merge-pr.sh 402`. Champion's own automated
+   re-check additionally flagged, at 15:00:40Z, that `main` has since moved
+   underneath the held PR (`mergeStateStatus: DIRTY` against merge base
+   `0d5a4ff5`, 3 shared files, classified "possible structural overlap" —
+   a rebase read, not necessarily a conflict) without itself acting on it —
+   a read that has since hardened into an actual conflict (see the
+   2026-09-26 update at the end of this item).
+   None of this changes what #401 waits on: PR #402 still has to merge, by a
+   human, and this document still only reports that state rather than acting
+   on it, the same restraint it already states for #103. So `layout/top-glue/`
+   — present in PR #402's own diff, though not yet in `origin/main` until
+   that PR merges — and `layout/halflsb-offset/` (not in this tree), which no
+   open PR currently carries, are both still absent from `origin/main` —
    `git ls-tree -r origin/main --name-only` returns neither — and §3 and §4
    still cite no record from either flow, because there is none to cite
    there yet.
@@ -2565,6 +2766,225 @@ tracker already owns.
    in this tree": it fails CI if that path ever *does* exist. This paragraph
    therefore cannot outlive the state it describes — the same structural
    shape check 27 applied to the label copies above, applied to the absences.
+
+   **Update this pass (2026-09-25, later still): a fourth requirement now
+   lands on the composed top level, and it is the first tracked one whose
+   arrival moves this document's *numbers* rather than only the reasons
+   behind its verdicts.** #440 was filed at 2026-09-25T18:06:01Z (open,
+   `loom:blocked` + `loom:triage` as read live that pass — its tracking state
+   has since moved, see the 2026-09-26 update below) to place two
+   per-domain decoupling capacitors in `layout/sar-adc-top/`'s composition —
+   one across the analog `VDD`/`GND` pair, one across the digital
+   `VPWR`/`VGND` pair — and to re-run `klt drc`, `klt lvs` and `klt erc`
+   against the result. It is not a defect report against the assembly: the
+   capacitors are a schematic-level sizing decision (#431, then open and
+   `loom:building`) that deliberately left placement to a separate pass, and
+   #440 is that pass. **Nothing in this document moved then, and the reason was
+   checkable offline rather than taken from either issue's text** — the design
+   those capacitors belong to had not landed. At this document's HEAD as of
+   that pass (the next paragraph records the landing that ended this),
+   `git grep -i cdecap origin/main -- design/ spec/` returned nothing,
+   `git ls-tree -r origin/main --name-only -- spec/decision-records/` carried
+   no on-die-decoupling record, and #431 had no open PR. So
+   `design/sar_adc_top.spice` then declared exactly the devices the composed
+   GDS draws, `layout/sar-adc-top/reports/LATEST` is still
+   `20260924-234053-66dca3c`, §4's machine-checked sign-off-bar readout is
+   still that record's own numbers, both §4 sign-off-bar rows keep the
+   verdicts they already carry, and criterion 3 waits on exactly what it
+   waited on before.
+
+   What *is* new is that this item's numbers **are now stale by two devices,
+   and the invalidating event has happened** rather than being merely tracked.
+   #431 landed
+   [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)'s
+   two MiM decoupling capacitors in `design/sar_adc_top.sch` /
+   `design/sar_adc_top.spice`, taking that netlist from **869** to **871**
+   device instances — so every record under `layout/sar-adc-top/reports/`,
+   `reports/LATEST` = `20260924-234053-66dca3c` included, now describes a die
+   that does not contain them, and so does §4's sign-off-bar readout of that
+   record. **Nothing in §4 has been restated for it, on purpose**: those rows
+   report what the cited records measured, and the records have not been
+   re-run. #440 is where the re-run lives, and DR-017's own Consequences name
+   the 869 → 871 delta so a future LVS device-count difference is traceable
+   rather than rediscovered. **Check 9** of the [citation
+   gate](check_proposal_citations.py) grades every device, net and pin count
+   and every mismatch category in §4's readout against `reports/LATEST`'s own
+   `lvs.json`, so the first re-run that mints a record with different counts
+   fails CI here until this document is restated from it — the same
+   structural shape as checks 27 and 29 above, applied to the counts.
+
+   **The DR-number collision this item recorded is resolved** (2026-09-26,
+   issue #431). Until this pass, #431's and #440's text both named an
+   on-die-decoupling record at a `DR-016-…` filename that did not exist in
+   `spec/decision-records/`, while `DR-016` was already taken by
+   [DR-016](../../spec/decision-records/DR-016-kickback-headroom-neutral-mitigation-measurement.md),
+   the unrelated kickback-mitigation record #434 closed on (§4's Kickback
+   row) — so Item 4's "**DR-016** … is **proposed**" line said nothing about
+   decoupling. #431 chose **DR-017** instead of adding a third duplicate number
+   to a tree that already carries two `DR-004`s and two `DR-007`s (the hazard
+   the paragraph after Item 4's readout describes). Item 4's readout now
+   carries both records separately. `#440`'s *body* has since been restated
+   against DR-017 (its remaining `DR-016` mentions are in dated curation notes
+   recording the rename), but its *title* still reads "place DR-016's two
+   per-domain decoupling caps" — read it as DR-017.
+
+   **Update this pass (2026-09-26): #440 and #431 have swapped states, and
+   the paragraphs above were corrected in place for it.** Re-read live this
+   pass (`gh api repos/2AMLogic/sky130-sar-adc/issues/440/events` and
+   `…/issues/431/events`): #440 lost `loom:blocked` and `loom:triage` at
+   2026-09-26T05:49:50Z when its curator re-check found PR #449 merged (DR-017
+   plus both `Cdecap_a`/`Cdecap_d` cards on
+   [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice)), was promoted
+   to `loom:issue` at 06:11:36Z, and has carried `loom:building` since
+   07:28:07Z (a second claim, after a first from 06:42:18Z was released at
+   07:27:52Z) — open, with no PR yet, as of that pass (it has since closed;
+   see the 2026-09-26 update at the end of this item). #431 went the other way: it moved from
+   `loom:building` to `loom:blocked` at 07:24:23Z, with its own comment naming
+   the reason — AC1 closed by PR #449, AC3 by PR #458 (DR-017's Amendment A,
+   which Item 9 below carries), and AC2, the layout placement and
+   DRC/LVS/ERC re-run, is the only work left and is #440's. So the dependency
+   this item recorded has inverted: the *design* is landed and the *layout* is
+   now the live work, rather than the reverse. **No §4 verdict or number
+   moves**: `git ls-tree -r origin/main --name-only -- layout/sar-adc-top/reports/`
+   mints no record after `20260924-234053-66dca3c`, which is still
+   `reports/LATEST`, so §4's sign-off-bar readout still describes the
+   869-device assembly without the two capacitors, exactly as the paragraph
+   above says, and check 9 remains the tripwire for the re-run #440 owes.
+
+   **Update this pass (2026-09-26): #103 was touched again since the last
+   re-verification, by a comment, not a label change.** `gh api
+   repos/2AMLogic/sky130-sar-adc/issues/103` now reports `updated_at:
+   2026-09-26T00:13:21Z`, later than the `2026-09-24T06:38:37Z` the
+   immediately preceding update (above) cited as the issue's most recent
+   activity — so that update's own claim "no automated re-check has flipped
+   it since" is what has gone stale, not the labels it described: re-read
+   live this pass, #103 still carries exactly `loom:operator-only`,
+   `loom:operator-decision`, `loom:curated` and `tier:goal-advancing`, and
+   is still `state: open`. The new activity is a comment
+   ("Operator-parked, premise possibly stale", posted 2026-09-26T00:13:19Z),
+   not a label edit: it restates that `klayout-tools#2396` and `#2398`
+   (this item's own 2026-09-24 update, above) are closed upstream, and
+   flags — correctly — that closing the upstream issues is not the same as
+   confirming the LVS device-match gap has actually cleared (89 mismatches on
+   the current record; 88 when that comment was posted, before #440's
+   2026-09-26 decoupling placement took both sides of the compare to 871
+   devices), since no
+   toolchain re-run against either fix has been performed; it asks for a
+   Builder or operator to re-run `klt lvs` once a `klayout-tools` release
+   ships them. That request is not yet actionable, for the same release-gate
+   reason this item has tracked since 2026-09-16: re-verified live this pass,
+   `klayout-tools`'s latest published tag/PyPI release is still `v0.6.0`
+   (`gh api repos/2AMLogic/klayout-tools/tags` and the PyPI JSON API, both
+   checked this pass), and none of the three fixes behind it are ancestors of
+   that tag — `gh api repos/2AMLogic/klayout-tools/compare/v0.6.0...a34fd79`
+   (`#2396`'s fix) reports `ahead_by: 51`, the same compare against `c01c50c`
+   (`#2398`'s fix) reports `ahead_by: 54`, and against `2808823` (`#2397`'s
+   fix) reports `ahead_by: 43` — unchanged from this item's 2026-09-24 and
+   2026-09-25 updates above. **No §4 verdict moves, and #103's own state is
+   unchanged**: still open, still `loom:operator-only`/`loom:operator-decision`
+   — a human ruling this document records rather than acts on, per this
+   issue's own established convention.
+
+   **Update this pass (2026-09-26, issue #440): the two-device staleness this
+   item recorded above is DISCHARGED — the composed layout now contains
+   DR-017's decoupling pair, and §4 IS restated from the re-run.** The
+   paragraph above ("this item's numbers are now stale by two devices … Nothing
+   in §4 has been restated for it, on purpose … #440 is where the re-run
+   lives") was correct when written and is superseded rather than wrong: #440
+   ran it. Record `20260926-081248-203cca3` places `MF = 2` per domain as four
+   `klt gen cap_array` unit cells, and the numbers move exactly as the two new
+   devices require — both sides 869 → **871**, **804** matched, mismatches
+   88 → **89** in the *same four categories* (the added entry is the DR-012
+   substrate merge reaching a device, not a new class), DRC still clean at
+   0 violations / 52 rules, and `klt erc` re-run `clean` at 0 findings on the
+   new geometry (`erc-reports/20260926-081822-203cca3/`). §4's machine-checked sign-off-bar
+   readout, its Area row and both sign-off-bar rows are restated from that
+   record this pass, so check 9 passes on the new counts rather than blocking
+   on them. **No §4 *verdict* moves**: "DRC/LVS-clean GDS, full ADC" is still
+   **PARTIAL — DRC MET, PIN DECLARATION MET, LVS DEVICE MATCH UNMET/BLOCKED**,
+   because the residual is the same klayout-tools#1878
+   `combine_devices`-scoping gap, and #103's own operator-parked state is
+   untouched by this. Two findings of the pass are worth recording here because
+   they are about DR-017 rather than about #103: its Decision §3 area budget
+   (8798.44 µm² of `capm`, 8.14 % of the die) is **confirmed placeable and cost
+   no die area at all** — the composed `bbox_um` is field-identical, because
+   both sites turned out to be already-free back-end field inside the existing
+   extent — and the ties the placement needs add **13.837 Ω / 13.448 Ω of ESR
+   per domain**, ~80 % of it single-cut vias, which is the first measured number
+   against DR-017's own standing "routing parasitics are not modelled" open
+   item. Both are recorded in `layout/sar-adc-top/README.md`'s "On-die
+   decoupling (DR-017)" and in DR-017's own Open items.
+
+   **Update this pass (2026-09-26, later) — erratum, no verdict moves: six
+   passages of this item and §3 still stated the *previous* mismatch count as
+   the current one.** The pass above restated §4's machine-checked readout and
+   both sign-off-bar rows onto `20260926-081248-203cca3`, moving the count
+   88 → 89 — but the same count is also restated in ordinary prose six times
+   (five in this item, one in §3's own layout-record trail), where check 9
+   cannot see it, and every one of the six still read 88 after that merge. All six are
+   corrected here against the record's own
+   [`lvs.json`](../../layout/sar-adc-top/reports/20260926-081248-203cca3/lvs.json):
+   89 mismatches, 88 errors, devices 871/871/804, nets 443/444/411, pins
+   21/22/22. Two *dated* figures are corrected with them, in the same
+   direction: the "2026-09-24 hop" was three records rather than one, and the
+   pin triple the last of them carries is 21/22/22 (issue #362's analog ground
+   pad) rather than the 21/21/21 issue #355's first record of that day
+   reported. **No §4 verdict moves** — neither sign-off-bar row turns on
+   whether the device-match gap is 88 or 89; it is not zero either way, and the
+   residual is the same klayout-tools#1878 category mix. **The recurrence is
+   gated rather than re-read**: check 36 of
+   [`docs/chipalooza/check_proposal_citations.py`](check_proposal_citations.py)
+   now re-derives the three explicitly present-tense prose forms of this count
+   from the composing flow's current `lvs.json` — the composing flow identified
+   from the tree, not pinned — and leaves every dated form alone, for the
+   reason §4's paragraph under the readout gives and
+   [`docs/citation-gate.md`](../citation-gate.md) argues at length.
+
+   **Update this pass (2026-09-26, re-verification) — three tracking-state
+   moves, no verdict or number moves.** Re-read live this pass (`gh api
+   repos/2AMLogic/sky130-sar-adc/issues/<N>` and `…/events`, for #103, #387,
+   #401, #402, #431 and #440):
+   (a) **#440 is closed** (`state: closed`, `state_reason: completed`,
+   2026-09-26T10:21:48Z), by PR #466 merging at 10:21:47Z as `6fc02f0` —
+   the pass the update above narrates, so the "open, with no PR yet" of
+   this item's earlier 2026-09-26 update is corrected in place to a
+   dated reading. One label oddity is recorded rather than acted on: one
+   minute after closure (10:22:49Z) `loom:issue` was re-added to the
+   closed issue, so a label-only query would still list #440 as ready work;
+   its `state` is authoritative.
+   (b) **#431 is closed too** (`state: closed`, `state_reason: completed`,
+   2026-09-26T12:57:04Z). #431 had been `loom:blocked` since 07:24:23Z,
+   and its 07:24:25Z comment named #440 as the only blocker. Once #440
+   closed, a curator re-check at 12:57:03Z confirmed all three acceptance
+   criteria had landed and closed the issue: AC1 by PR #449 (DR-017), AC2
+   by PR #466 (placement plus the DRC/LVS/ERC re-run, via #440) and AC3 by
+   PR #458 (DR-017's Amendment A, graded against the decoupled campaign
+   record). Nothing in this document changes as a result, because §4
+   already cites the re-run record directly.
+   (c) **PR #402 has drifted from "possible structural overlap" into an
+   actual conflict**: Champion's held-PR notice at 2026-09-25T19:35:05Z
+   reports `mergeable` now `CONFLICTING`, and `gh api
+   repos/2AMLogic/sky130-sar-adc/pulls/402` this pass returns `mergeable:
+   false`, `mergeable_state: dirty`, `merged_at: null`, still carrying
+   `loom:pr` + `loom:operator`. So it now needs a rebase *and* a human
+   merge, not only the latter; #401 (open, `loom:blocked` — and, not
+   noted by earlier passes, also `loom:triage` since 2026-09-25T05:01:25Z)
+   still waits on it, per its curator's 06:47:43Z re-check
+   (`DEPS=402:OPEN`, unchanged fingerprint). #387 is unchanged (open,
+   `loom:blocked`, last touched 2026-09-25T11:29:20Z).
+   **Unchanged, re-verified this pass**: #103 is still open with exactly
+   `loom:operator-only`, `loom:operator-decision`, `loom:curated` and
+   `tier:goal-advancing` and `updated_at: 2026-09-26T00:13:21Z` (no activity
+   since the comment the update above records); `klayout-tools`'s latest
+   tag and PyPI release are still `v0.6.0`, and the compares from `v0.6.0`
+   to `a34fd79` / `c01c50c` / `2808823` still report `ahead_by` 51 / 54 / 43
+   with `behind_by: 0` — none of the three fixes has shipped;
+   `layout/sar-adc-top/reports/LATEST` is still `20260926-081248-203cca3`,
+   the record §4 is restated from; and `rules-4.html` still returns HTTP
+   404, so acceptance criterion 4's slot-budget re-check is still not
+   triggered. **No §4 verdict moves**: both sign-off-bar rows keep the
+   grades they carry, and criterion 3 still waits on #103's release-gated
+   `klt lvs` re-run and on #401's composition.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
@@ -2793,6 +3213,35 @@ tracker already owns.
    `layout/sampling-frontend/`'s previously LVS-clean match and
    `layout/sar-adc-top/`'s composition of it (both now stale against the
    schematic's new `Sa` gate net and `Cmsw` width).
+
+   **Update this pass (2026-09-26): that grid reads the front-end fragment
+   ALONE, and mechanism (d) has now been re-measured at the load the top
+   level actually presents.** `design/sar_adc_top.sch` ties the same
+   `TOP_P`/`TOP_N` to the CDAC array too, so the assembled top-plate load is
+   the front end's own `Csamp_p`/`Csamp_n` (~4.43 pF/side, DR-004) **plus**
+   the array's own ~4.43 pF/side of bit capacitance — roughly double what
+   the record above was run against. `sim/sampling-cdac-handoff/` gained a
+   `--corners` mode for this (issue #469): same stimulus, same two
+   fixed-time probe instants, same 9 ratified OAT points as the front-end-
+   only campaign above, only the load differs
+   ([`sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md`](../../sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md)).
+   **All 9/9 corners still clear the DR-006 worst-case (12 MHz) phase budget
+   at the assembled load**: binding corner `tt_27c_1.62v` at 0.926 mV (0.53×
+   the provisional differential half-LSB reference scale) against the
+   front-end-only grid's 0.380 mV at that same corner — a factor ~2.4 for
+   the doubled load — and every other corner at or below 0.053 mV. The one
+   pre-existing combined-load figure in the tree — 5.33 mV single-ended at
+   one directional `ss` point in
+   [`sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`](../../sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md),
+   which that record itself deferred to "a future timing pass" — is retired
+   by this grid rather than by argument: it predates #236 and measured a
+   different quantity (the error at the end of a 400 ns SAMPLE window, not
+   the residual at the DR-006 budget). The new record extends rather than
+   supersedes it, reproducing its previous-code-state independence control
+   at the baseline corner (worst-node residual varies by 0.010 mV across
+   all three previous-code states). Mechanism (d)'s PVT-complete status is
+   now a statement about the assembled load, not only about the front end
+   in isolation.
 
    **Update this pass (2026-09-06): the sequencer's own logic delay was
    taken to the same full ratified PVT grid, and it is now the third
@@ -3084,6 +3533,15 @@ tracker already owns.
    > **DR-015**
    > (`spec/decision-records/DR-015-package-parasitic-assumption.md`) is
    > **proposed**.
+   > **DR-016**
+   > (`spec/decision-records/DR-016-kickback-headroom-neutral-mitigation-measurement.md`)
+   > is **proposed**.
+   > **DR-017**
+   > (`spec/decision-records/DR-017-on-die-decoupling-budget.md`) is
+   > **proposed**.
+   > **DR-018**
+   > (`spec/decision-records/DR-018-midscale-code-metastable-msb.md`) is
+   > **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
@@ -3111,6 +3569,37 @@ tracker already owns.
    as one this repo does **not** have. **No §4 row is re-graded by this
    check**: DR-007 is still `proposed`, the ENOB and INL/DNL rows are still
    *Informational only*, and this item does not close.
+
+   **Update this pass (2026-09-26): the INL/DNL row's `klt yield` gap
+   citation was one dependency-state behind, and its would-be successor
+   turned out to be untracked.** This item's INL/DNL correction (above,
+   2026-09-06) cited klayout-tools#1061 as "a known, already-filed packaging
+   gap" without a closure check — that citation had not been re-verified
+   live since it was written, unlike almost every other dependency this
+   document tracks. Re-checked live this pass: `gh api
+   repos/2AMLogic/klayout-tools/issues/1061` reports `state: CLOSED`,
+   `state_reason: COMPLETED` (closed 2026-08-17, via #1078) — but #1078's own
+   body marks its fix as *discoverability only* (`--help` text, docs
+   callouts) and explicitly leaves "publish a prebuilt wheel" as the harder,
+   deferred remediation. A `gh api search/issues` sweep for the wheel/native-
+   extension ask surfaced a second, independent friction report on the exact
+   same substantive point — klayout-tools#2466 (filed over a month later,
+   explicitly distinguishing itself from #1061: "this report is not a re-file
+   of that... the consequence #1061's second bullet... left open") — also
+   `CLOSED`/`COMPLETED`, again via a documentation-only PR (#2474, a caveat
+   sentence added to klayout-tools' own `design-evidence-tiers.md`), with the
+   closing Curator's
+   own scoping note again marking "publish a prebuilt wheel" deliberately out
+   of scope. So the substantive ask — the actual reason `klt yield` cannot
+   run from a published or git-pinned install, which is what this row's gap
+   is about — has been raised and closed twice without ever being attempted,
+   and as of this pass was untracked by any *open* issue at all. Filed fresh,
+   kept generic per this repo's own friction protocol (`CLAUDE.md`):
+   [`klayout-tools#2531`](https://github.com/2AMLogic/klayout-tools/issues/2531).
+   **No §4 verdict moves**: the underlying capability gap is unchanged —
+   `klt yield` still cannot produce a report for the cited record's
+   environment either way — only the citation chain is corrected, in both
+   §4's INL/DNL row and this item's own text above.
 5. **Differential-reference vs. single "bandgap reference" slot mismatch**
    (§2.2). This design's `VREFP`/`VREFN` pair does not map cleanly onto a
    single bias/bandgap-reference budget line the way the port-parity
@@ -3455,6 +3944,19 @@ tracker already owns.
    correction; this issue's acceptance criterion 4 remains
    not-yet-triggerable.
 
+   **Re-checked 2026-09-26**: `https://opencircuitdesign.com/chipalooza/rules-4.html`
+   still returns HTTP 404 (`curl -sI`, this pass); the parent `chipalooza/`
+   index still returns HTTP 200 with `Last-Modified: Sun, 06 Sep 2026
+   15:06:32 GMT` — byte-for-byte the same `Last-Modified`, `ETag`
+   (`"1c94-65ad1d8cdb1fa"`) and `Content-Length` (7316) as the 2026-09-16 and
+   2026-09-24 re-checks, so the index page itself has still not been
+   republished. 2AMLogic/2am#542's own tracking table still lists row 4
+   (Sky130, ChipFoundry) as "launches 2026-11-09" (submission 2026-11-23) —
+   unchanged across all six re-checks (2026-09-06, -08, -15, -16, -24, -26).
+   §2's slot-budget assumptions therefore still carry no rules-4.html-derived
+   correction; this issue's acceptance criterion 4 remains
+   not-yet-triggerable.
+
 8. **Whole-ADC (end-to-end) code correctness is not yet demonstrated — a
    campaign exists, found real defects, several are already fixed, and two
    remaining fixes are operator-decision items.** Added this pass: this
@@ -3570,7 +4072,13 @@ tracker already owns.
    the sequencer switches coincidentally with the comparator decision by
    construction, so a shared metal rail would land the standard-cell bank's
    switching current on the comparator's own supply). The current run,
-   [`layout/sar-adc-top/erc-reports/20260925-044420-f039594/record.md`](../../layout/sar-adc-top/erc-reports/20260925-044420-f039594/record.md),
+   [`layout/sar-adc-top/erc-reports/20260926-184830-e1176e3/record.md`](../../layout/sar-adc-top/erc-reports/20260926-184830-e1176e3/record.md)
+   — the second in this chain graded on *moved geometry*, issue #465's 2×2 via
+   arrays at the four decoupling ties, which replace a single cut with four in
+   eight via stacks that are each a series element in a declared supply's own
+   drawn path (it supersedes `20260926-081822-203cca3`, the first such record:
+   issue #440's placement of DR-017's two per-domain decoupling capacitors, each
+   of which is new drawn conductor on an already-declared supply) —
    reports `erc_status: clean`, **0** findings:
 
    | Supply | Islands, 2026-09-23 | Islands, now | Continuity verdict |
@@ -3630,8 +4138,8 @@ tracker already owns.
    > on the record `layout/sar-adc-top/erc-reports/LATEST` resolves to, `klt
    > erc` reports `erc_status` **clean** with **0** findings; the declared
    > supplies resolve to `GND` **1**, `VDD` **1**, `VGND` **1**, `VPWR` **1**
-   > electrical islands; and it grades `20260924-234053-66dca3c`, while
-   > `reports/LATEST` there names `20260924-234053-66dca3c`: **current**.
+   > electrical islands; and it grades `20260926-184816-e1176e3`, while
+   > `reports/LATEST` there names `20260926-184816-e1176e3`: **current**.
 
    Three things that readout closes, none of which any earlier check could
    see. First, **an ERC record was invisible to the gate entirely**: this
@@ -3723,8 +4231,8 @@ tracker already owns.
    - **The ERC record is no longer a revision behind** — that qualification,
      carried by the 2026-09-23 pass, is now discharged. The current ERC record
      grades
-     `layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_adc_top.gds`
-     (`sha256:bbb9b537…`, hash-asserted at run time), which is exactly what
+     `layout/sar-adc-top/reports/20260926-081248-203cca3/sar_adc_top.gds`
+     (`sha256:72a5fb7f…`, hash-asserted at run time), which is exactly what
      `layout/sar-adc-top/reports/LATEST` resolves to. Its own "Staleness rule"
      still applies to the next layout re-run: a newer `reports/<id>/` makes
      this ERC record stale, not wrong, and `run-erc.sh` is what mints a fresh
@@ -3780,21 +4288,358 @@ tracker already owns.
      measurement at this one corner, not only prose — real impedance,
      inductance-dominated, not (yet) fatal to a captured code at this
      magnitude.
-     **This closes the item at a stated scope, not without residue**: the
-     nine-point ratified corner grid is deferred (the campaign's own
-     "Subset-corner justification" names three binding constraints — a
-     shared-host policy against a local multi-corner ngspice grid, `klt
-     sim`'s request/response contract not being able to mint a record in
-     this repo's own format, and the batch fleet's ngspice build sitting
-     below `sim/toolchain.json`'s `ngspice_min_major = 46` pin), and DR-012's
-     *rejected* `no-gnd-pad` null option is implemented but not run, on cost
-     (~17× the control arm's wall clock, projecting to several hours). Neither
-     a worst-corner claim nor a priced-rejected-option claim may be read from
-     this record, and it says so in its own words. It is also, on the same
-     honesty rule DR-015 states of itself, evidence about *a* supply return
-     and *a* lumped substrate stand-in of this record's own assumed
+     **This closes the item at a stated scope, not without residue — and the
+     residue has a tracker of its own (pointer added 2026-09-25).** This
+     section's rule is that each item points at the issue that already owns
+     the work rather than inventing new tracking for it; this retirement's
+     leftovers were the one place that rule was not being kept. Issue **#409**
+     was where they lived — **it has since closed (2026-09-26); the dated
+     update below states what that does and does not change.** It names four
+     items, of which this paragraph previously stated two: the nine-point
+     ratified corner grid **has since been run in full** (this clause read
+     "deferred" against the campaign's
+     own "Subset-corner justification" — a shared-host policy against a local
+     multi-corner ngspice grid, `klt sim`'s request/response contract not
+     being able to mint a record in this repo's own format, and the batch
+     fleet's ngspice build sitting below `sim/toolchain.json`'s
+     `ngspice_min_major = 46` pin — until `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`
+     ran all five arms at all nine points in one session; see the "now CLOSED
+     for the arm comparison" paragraph below for what it found);
+     DR-012's *rejected* `no-gnd-pad` null option **has since been run** (see
+     the arm census below — it cost 487 s, not the several hours the ~17×
+     slice projection claimed, and priced the rejected option at +27.6 mV of
+     die-side ground excursion and 0 LSB of captured code); the `R`/`L` ×
+     substrate-resistance sweep **has since been walked** too, over a bounded
+     box at this same corner — this clause read "absent" until 2026-09-25 and
+     then "implemented but not run", and both are now behind it (the paragraph
+     after next states what landed, what it cost, and the census that grades
+     it); and `R_SUB`/`R_SUBX`
+     remain lumped stand-ins with no extracted substrate network behind them —
+     the one of the four items that has not moved at all, and — see the
+     update below — the one item #409's own final text still called open the
+     day the issue itself closed.
+     Neither a worst-corner claim nor a priced-rejected-option claim may be
+     read from **this** record, and it says so in its own words; the price of
+     the rejected option is a *different* record's number, which is why the
+     census below is scoped to one record at a time. It is also, on
+     the same honesty rule DR-015 states of itself, evidence about *a* supply
+     return and *a* lumped substrate stand-in of this record's own assumed
      magnitude, not a measurement of any real package or of this die's actual
      substrate.
+
+     **Update this pass (2026-09-26): #409 itself has closed, and item 4 is
+     now untracked by any open issue.** Re-checked live: #409 reports
+     `state: CLOSED`, `stateReason: COMPLETED`, `closedAt:
+     2026-09-26T07:03:47Z` — two seconds after PR #457 (the PR that made the
+     "has since been run in full" correction above) merged at
+     `2026-09-26T07:03:45Z`. This document does not credit that PR with the
+     closure: PR #457's own body only says `Part of #121` and never names
+     #409, and the two PRs that actually finished #409's other three items —
+     `#451` and `#456` — each say in as many words that they are "Part of
+     #409, not a closing PR," precisely because item 4 was still open when
+     they merged. So the mechanism behind the close is not stated here,
+     because no committed text in this repo names one; only the forge-side
+     fact (closed, `COMPLETED`) is. #409's own body is unmoved by its
+     closure — items 1-3 read `[x]` with the PR citations already quoted
+     above, item 4 still reads `[ ]`, and the issue's own closing line still
+     reads "Still open: item 4 only," restating the same two blocking
+     grounds this document already carries (no `klt` capability computes a
+     substrate network — `klt extract`/`lvs`/`components`/`precheck --help`
+     name "substrate" zero times, filed generically at
+     [`2AMLogic/klayout-tools#2515`](https://github.com/2AMLogic/klayout-tools/issues/2515),
+     open with no upstream movement; and no pad-ring/bond-diagram layout
+     exists in `layout/` for a substrate extraction to run against even if
+     the tool could). A repo-wide issue search for a successor
+     (`extracted substrate`, `substrate extraction`, `pad ring`) returns none
+     — item 4's residue has no open tracker at all right now. Item 4's
+     labels did not move with the state: #409 still carries `loom:blocked`
+     even while `CLOSED`, alongside `tier:goal-supporting` and
+     `loom:curated`. **Nothing in §4 moves for this**: item 4 was never
+     counted as closing anything graded there, R_SUB/R_SUBX still stand in
+     rather than extract, and this item's own verdict is unchanged.
+
+     **The unrun arm is now counted, not only described (added 2026-09-25).**
+     "Implemented but not run" is a claim about this campaign's *arm* axis —
+     the supply-return networks its runner drives one DUT through — and that
+     axis is not the PVT grid check 28 censuses. A record covering a subset
+     of it is bounded by the arms it left out, exactly as `sim/README.md`
+     requires a corner subset to be justified, and the campaign's own
+     renderer states that per record (its "Arms this record does not contain"
+     section, plus a standing omission note per arm). Nothing graded *this*
+     document's version of it, so on the day #409's item 2 mints a record
+     pricing the null option, the paragraph above would still read "not run"
+     with every number beside it still true — the shape check 30 was added
+     for, one axis over. Check 31 of the [citation
+     gate](check_proposal_citations.py) now re-derives it from the runner's
+     own arm table and the record's own header, in both directions:
+
+     > of the **5** supply-return arms
+     > `sim/supply-impedance-sensitivity/run_supply_impedance.py` implements,
+     > the record `sim/supply-impedance-sensitivity/records/LATEST` names runs
+     > **3** and leaves **2** unrun: `package-r-only`, `substrate`
+
+     **That census moved on 2026-09-25 (later), and the arms it names moved
+     with it — read the sentence, not the count.** #409's item 2 minted the
+     record the paragraph above was written in anticipation of
+     ([`20260925-204633-7339971`](../../sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md),
+     `ideal`/`package`/`no-gnd-pad` at `tt_27c_1.80v`), and because that is
+     this campaign's newest *arm-comparison* record it is what
+     `records/LATEST` now resolves to — so the census above is now the arm
+     coverage of **that** record. It says two arms are unrun *in it*, and both
+     of them (`package-r-only`, `substrate`) are run in the four-arm record
+     beside it, which nothing supersedes. **Across the campaign's two arm
+     records all five arms have now been run**, and no single record carries
+     more than four of them; a reader wanting the bond-inductance ablation
+     reads the older record and one wanting the ground-pad ablation reads the
+     newer, exactly as each record's own "Arms this record does not contain"
+     section directs. The count going *up* on the unrun axis while coverage
+     went up in fact is the honest behaviour of a per-record census, not a
+     regression, and is why this paragraph states the campaign-level fact in
+     prose rather than pretending the census is one.
+
+     **What that record actually priced, and the projection it falsified.**
+     PR #429 (issue #409) had landed the machinery that turns the arm into a
+     price — the runner computes the `package` vs `no-gnd-pad` one-element
+     ablation and refuses to present an unpaired `no-gnd-pad` row as one — and
+     minted no record, because the run was believed to be the several-hour one
+     #409 describes. It was not: **487 s, 1.67× the `ideal` control and less
+     than the `package` arm's 678 s** in the same record. The ~17×-per-ns
+     figure behind "several hours" came from a truncated calibration slice,
+     which prices this deck's start-up transient rather than the steady-state
+     conversions the stimulus spends its span on; the cost-probe route is a
+     convergence and runnability check, and this document should not have
+     carried its projection as a reason an arm could not be run. The
+     measurement itself: deleting DR-012's analog ground pad costs
+     **+27.6 mV** of die-side `GND_DIE` excursion (**65.237 mV** against the
+     `package` arm's **37.590 mV**, 1.74×) and **0 LSB** of captured code, at
+     one corner and at DR-015's lumped `R_SUB`/`R_SUBX` = 30 Ω stand-in — a
+     number about *a* substrate-only return of that order, undecoupled, not
+     about this die's substrate. **No §4 row, verdict, Target or Status moves
+     on it**: the Power row's citation list gains the record (check 3's
+     freshness rule) and nothing it grades changes, because this campaign
+     measures a difference against an ideal-source control rather than a
+     spec-row quantity.
+
+     **The sweep box is counted too — first as committed-but-unrun, then as
+     walked, both on 2026-09-25 (corrected twice in one day).** The
+     residue paragraph above said, until this pass, that *no* `R`/`L` ×
+     substrate-resistance sweep existed. That stopped being true at
+     2026-09-25T15:29Z, when PR #432 (issue #409, its third item) landed
+     [`--sweep`](../../sim/supply-impedance-sensitivity/README.md) — a
+     bounded 2-D box around DR-015's single assumption point, on the as-built
+     `package` topology: **3** bond-inductance multipliers (`0×`, `1×`, `10×`
+     of DR-015's per-terminal value) × **3** lumped substrate-link `R_SUBX`
+     values (`3`, `30`, `300` Ω, a decade either side of DR-015's assumed 30)
+     = **9** grid points, plus the same `ideal` control, and *anchored*: the
+     `1× / 30 Ω` point is card-for-card the committed `package` arm and the
+     `0× / 30 Ω` corner is `package-r-only`, asserted before the run starts,
+     again at record-write time, and pinned by
+     [`sim/tests/test_supply_impedance.py`](../../sim/tests/test_supply_impedance.py).
+     A row of the grid moves only `L` and a column only `R_SUBX`, so either
+     may be attributed to its own mechanism — DR-015 item 5's requirement,
+     satisfied by construction rather than argued after the fact.
+
+     **The box has since been walked (2026-09-25, later still).** What was
+     owed after PR #432 was the measurement itself, and
+     `sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md`
+     is it: the ten decks of the default box, sequential, at `tt_27c_1.80v`,
+     **3049 s** of wall clock, every point converged. What it found is a
+     **bounded null on codes** — worst `|Δ code|` = **0 LSB** at all **9**
+     grid points, out to `L = 10×` DR-015's bond inductance and `R_SUBX`
+     across two decades — while the die-side analog-ground excursion keeps
+     climbing behind it: `0.059 mV` → `37.590 mV` → `99.749 mV` along the
+     `R_SUBX = 30 Ω` column, worst **111.622 mV** (≈31.8 LSB, undecoupled by
+     construction) at `10× / 300 Ω`. Read that as *the threshold is outside
+     this box*, not as *there is none*: the record says so in its own words,
+     and the `R_SUBX` axis is non-monotonic between the `1×` and `10×` rows,
+     so neither axis may be quoted as a trend on its own. The sweep's writer
+     deliberately never moves
+     `sim/supply-impedance-sensitivity/records/LATEST` (it supersedes
+     nothing, so the arm-comparison record stays the one DR-012 and §4's
+     Power row cite). **No §4 row, verdict, Target or Status moves here
+     either**: the box is a sensitivity map around DR-015's assumption
+     point, and no `spec/target-spec.md` row is graded by it.
+
+     **The cost probe PR #432 bought can now be graded against the run it
+     priced.** `--cost-probe` re-ran each grid point's own deck over a
+     truncated transient and concluded that **no point exceeds its own
+     anchor** — the `10×` inductance row *cheaper* than DR-015's assumption
+     point, not dearer, because more `L` lowers the bond-wire resonance and
+     so relaxes the solver's timestep. The full run says the **decision** was
+     right (the `10×` row is not the unaffordable row) and the **per-point
+     numbers** were not a forecast: that row came in at up to `1.16×` the
+     anchor against a predicted `0.47–0.96×`, so three points do exceed the
+     anchor rather than none, a truncated slice being exactly the part of the
+     transient that does not pay for the ring-down `L` scales. The box total
+     was the transferable part: `≈ 7.0` anchors predicted, **7.8** measured
+     (≈ 2.7 h scaled by the `package` arm's committed **1261 s** run, against
+     the **≈ 2.5 h** projected). Read all of those as **wall clock, not
+     evidence**: they live in the campaign's README rather than in a
+     `records/` entry because a probe measures nothing about this block by
+     construction (the committed fragment's `.meas` cards sit outside the
+     sliced span, which is why `--cost-probe --record` is refused outright).
+
+     **Why nothing already in the gate could have caught that clause.** A
+     sweep record is, by the design above, never
+     `sim/supply-impedance-sensitivity/records/LATEST` — so checks 3, 4, 6
+     and 23, which grade pointers and stamps, cannot see one arrive. It runs
+     at one corner, so check 28's PVT-grid census would not move. It carries
+     no `- **Arms**:` line at all, so check 31's census immediately above
+     would not move either. Check 32 of the [citation
+     gate](check_proposal_citations.py) grades the axis those three leave
+     uncovered, re-derived from the runner's own box definition and from any
+     sweep record's own `- **Grid**:` header, in both directions:
+
+     > of the **9** grid points the default `--sweep` box in
+     > `sim/supply-impedance-sensitivity/run_supply_impedance.py` defines
+     > (**3** bond-inductance multipliers × **3** substrate-link
+     > resistances), the records under
+     > `sim/supply-impedance-sensitivity/records/` carry **9**, in **1**
+     > sweep record: `20260925-164447-722fcb0`
+
+     That census has now moved, which is what check 32 was added to notice:
+     it read `0` of `9` when the mode was committed and unrun, and reads
+     `9` of `9` since #409's third item was paid for. DR-015's own "Open
+     items" moved with it — its "No `R`/`L` sweep" entry is struck through
+     and marked **CLOSED at a stated scope**, naming the box that closed it
+     and, just as explicitly, what a *bounded* null does not license outside
+     that box. The other three items #409 tracks are untouched **by this
+     record**, which is not the same as still open, and this clause said the
+     second of those things until 2026-09-26: the `no-gnd-pad` record (#409
+     item 2) was paid for separately and is ticked on the issue — the
+     paragraph three above states its numbers — so listing it here as open
+     contradicted this document's own text. **Item 1 has since closed too, for
+     the arm comparison (2026-09-26), which leaves item 4 as the only one of
+     the four still open.**
+     [`sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`](../../sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md)
+     runs all five arms at all nine ratified points in one session — the
+     nine-point grid this item and DR-015's own "Open items" both used to
+     name as deferred. It supersedes nothing (it runs DR-017's decoupled
+     netlist, a different DUT from every earlier record of this campaign, so
+     `records/LATEST` does not move to it), and within itself: the as-built
+     `package` arm's worst die-side `GND_DIE` excursion is **13.964 mV**
+     peak-to-peak at `ff_27c_1.80v` (9.709 mV at the `tt_27c_1.80v` baseline,
+     7.710 mV at its lowest, `tt_27c_1.62v`); the rejected `no-gnd-pad` arm is
+     worse at every point, worst **17.055 mV** also at `ff_27c_1.80v`; the
+     on-die-only `substrate` return worst is **9.643 mV** at `tt_27c_1.98v`;
+     `package-r-only` never exceeds **0.070 mV**, also at `tt_27c_1.98v` — so
+     bond inductance, not resistance, is the dominant term at every corner,
+     not only the baseline. The `±0.25·V_REF` codes do not move in any arm at
+     any of the 45 runs; the mid-scale `+0.00·V_REF` input, which sits on the
+     511/512 code boundary, moves by at most 1 LSB in the bonded arms, at
+     three corners (`sf_27c_1.80v`, `tt_-40c_1.80v`, `tt_125c_1.80v`). One
+     exception is deliberately not folded into that null: `package-r-only` at
+     `fs_27c_1.80v` reads captured code `505` against the control's `511` — a
+     6-LSB move on the one arm with 0.057 mV of ground excursion, ~200×
+     *less* than arms that still read `511` there, so the supply-return
+     mechanism this campaign measures cannot be the cause. It reproduced bit
+     for bit on an uncached re-run and is tracked on its own, per this
+     section's rule that an open item points at the issue that already owns
+     the work, as **#455** — filed by the same PR that minted this record, so
+     no second tracker is opened here for it. **#455 has since closed
+     (2026-09-26), and its answer retires the whole `+0.00·V_REF` column as a
+     sensitivity metric rather than explaining the 6 LSB.**
+     [`sim/supply-impedance-sensitivity/records/20260926-162049-476a8ab.md`](../../sim/supply-impedance-sensitivity/records/20260926-162049-476a8ab.md)
+     re-ran that point's own committed deck and its control on a second host at
+     the pinned PDK commit: the `ideal` control reproduced to every printed
+     digit, and the `package-r-only` point did **not** — it read the control's
+     511, with its per-rail currents on the control's values. With per-bit-trial
+     comparator-margin probes on every variant, the mid-scale conversion has
+     exactly one decision anywhere near its threshold — the **sign bit**, at
+     about **1 µV** (`0.0003 LSB`), three orders of magnitude inside DR-004's
+     stated `1.0148 mV` input-referred noise budget — while all nine magnitude trials are
+     presented with ≥ **1.49 LSB**. Since `DOUT9` gates all nine `SELn`/`SELp`
+     pairs and the offset-binary recode, a disturbance there re-runs the whole
+     magnitude search rather than nudging one bit, which is why a *multi*-LSB
+     mid-scale code is its expected signature.
+     [DR-018](../../spec/decision-records/DR-018-midscale-code-metastable-msb.md)
+     states the consequence: this campaign's supply-return claims rest on the
+     die-side excursions and on the `±0.25·V_REF` codes, and no mid-scale code
+     delta — the 6 LSB or the 1 LSB — may be quoted as a sensitivity of a
+     supply-return, package-parasitic or decoupling mechanism. Every excursion
+     figure in this paragraph is unaffected. What stays open is item 4 alone
+     (an extracted substrate network), for the reason it states; DR-015's own
+     "Open items" carries this same item 1 retirement in its own words, struck
+     through and marked **CLOSED for the arm comparison**.
+
+     **A third axis of the same campaign has since been walked, and it is a
+     different experiment from the box above rather than a re-run of it
+     (2026-09-26).** The 2-D box moved the lumped substrate resistor on the
+     as-built `package` topology, where `GND` has a bond of its own and that
+     resistor is a secondary shunt next to it — which is why the box's own
+     record said an `R_SUB` *return* sweep was still owed, and why DR-015's
+     claim that its `no-gnd-pad` arm is "*entirely* a function of `R_SUB`"
+     was still prose. PR #445 (the residual of #409's third item) is the
+     ladder that settles it:
+     [`20260926-000929-ce12f9b`](../../sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md)
+     re-runs DR-012's **rejected** `no-gnd-pad` topology at `3`/`30`/`300 Ω`
+     of lumped substrate return — the same constant over the same decade, but
+     where, with no analog-ground bond at all, that one resistor carries the
+     *entire* return current — with all three bonded terminals held at
+     DR-015's R+L, plus the `ideal` control, at `tt_27c_1.80v`. Its `30 Ω`
+     rung is card-for-card the committed `no-gnd-pad` arm, asserted in code
+     before the run and again at record-write time. What it found: **0 LSB**
+     of mid-scale captured-code movement at every rung, while the die-side
+     analog-ground excursion goes `72.130` → `67.307` → `137.093 mV`
+     peak-to-peak — **non-monotone**, so `3 Ω` is *worse* than the assumed
+     `30 Ω`, not better, and a 100× change in the stand-in moves the
+     excursion by only `1.90×`. That measurement **falsifies half** of the
+     DR-015 prose it was run to test: the dependence is real, but "with a
+     small `R_SUB` it looks harmless" is not what the ladder measures.
+     DR-015's "Open items" carries the retirement in its own words, struck
+     through and marked **CLOSED at a stated scope**. **No §4 row, verdict,
+     Target or Status moves on it**, for the same reason as the box above: a
+     sensitivity ladder around a stated assumption grades no
+     `spec/target-spec.md` row, and the null it reports is *bounded* to
+     `3–300 Ω` at one corner on an undecoupled die.
+
+     **That ladder also carries a reading rule this whole item is now bound
+     by, and it is not about the ladder.** DR-015's Consequences gained a
+     second item from the same record: the four committed records of this
+     campaign happen to span two hosts, and comparing the decks they share
+     shows that while a given deck is **bit-identical within** a host, *across*
+     hosts the averaged supply currents agree to `~0.1 %` and a peak-to-peak
+     does **not** — `0.69 %` on the bonded `package` ground, `3.2 %` on the
+     unbonded one — because a `pp` is read off whichever timesteps an adaptive
+     solver happened to place (`sim/supply-impedance-sensitivity/README.md`,
+     "Reproducing a deck across hosts"). So **a `pp` may only be subtracted
+     inside one record**, and a cross-record `pp` gap of a few percent states
+     nothing at all. Every excursion subtraction this item makes already obeys
+     that, which is worth showing rather than asserting: the `+27.6 mV`
+     ground-pad ablation is two arms of one record, the
+     `0.059`/`37.590`/`99.749`/`111.622 mV` column is the sweep record's own,
+     and the `37.274`/`10.779 mV` attributions are the four-arm record's own.
+     It is stated here so that a future pass reaching for the *obvious*
+     comparison — the ladder's `67.307 mV` anchor rung against the four-arm
+     record's `65.237 mV` `no-gnd-pad` arm, two records that are card-for-card
+     the same network — does not read that `2.070 mV` as a measurement. It is
+     within the cross-host `3.2 %` this rule exists for.
+
+     **Why nothing already in the gate could have caught that either — the
+     same blind spot, a third axis over.** A ladder record is the *union* of
+     what checks 31 and 32 each miss: it never becomes
+     `sim/supply-impedance-sensitivity/records/LATEST` (it supersedes
+     nothing, so checks 3, 4, 6 and 23 see no pointer move), it runs at one
+     corner (check 28 does not move), it carries no `- **Arms**:` line (check
+     31 does not see it) and no `- **Grid**:` line (check 32 does not see it
+     either). Check 34 of the [citation gate](check_proposal_citations.py)
+     grades it, re-derived from the runner's own ladder constant and from any
+     ladder record's own `- **Ladder**:` header, in both directions:
+
+     > of the **3** substrate-return magnitudes the default `--null-sweep`
+     > ladder in
+     > `sim/supply-impedance-sensitivity/run_supply_impedance.py` defines on
+     > DR-012's rejected `no-gnd-pad` topology, the records under
+     > `sim/supply-impedance-sensitivity/records/` carry **3**, in **1**
+     > ladder record: `20260926-000929-ce12f9b`
+
+     Read that census the way checks 31 and 32 already read themselves: it
+     is a statement about *this runner's default ladder*, not about the
+     magnitudes a real substrate takes. Widening the runner's ladder without
+     walking it drives the census back below full, which is the point — and
+     the rung count going to full does **not** retire #409's item 4, because
+     every rung of it is still the same single lumped stand-in with no
+     `klt extract` behind it.
 
      This retirement is **not** what turns check 25's own ground-return
      census (below) non-zero, and that is itself worth stating rather than
@@ -3807,7 +4652,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **101** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **120** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      Read this census the way it already reads itself: **a floor on the gap,
@@ -3822,6 +4667,150 @@ tracker already owns.
      produce. **No §4 verdict moves**: no `spec/target-spec.md` row grades
      ground-return impedance, and adding one here to hold this gap would be a
      spec change, which this document does not make.
+
+     **The word every excursion figure above is qualified by now has an owner
+     (added 2026-09-26; its enumeration corrected the same day).** `0.059`,
+     `10.779`, `37.274`, `37.333`, `37.590`, `65.237`, `67.307`, `72.130`,
+     `99.749`, `111.622` and `137.093 mV` are each an **undecoupled** upper
+     bound, and that is not this document's gloss on them —
+     [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s own
+     Consequences attach the qualifier to its `65.237 mV` figure and defer for
+     it to "the last open item", and
+     [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md)
+     carries the same item forward in the same words. §7's rule is that an
+     open item points at the issue that already owns the work; for this one
+     there was no issue to point at, which is why the qualifier has travelled
+     with every number above while naming nobody. **#431** (filed
+     2026-09-25T13:47:43Z) is now that tracker — it asks for a decision record
+     that sizes on-die decoupling per supply domain *or* records why none is
+     needed, and for this campaign to be re-run with the result in the
+     netlist. Placement of whatever it decides is split out as #440, whose own
+     tracking state §7 Item 1 above carries; this paragraph does not keep a
+     second copy of either issue's labels. **That list was the one thing in this
+     item maintained by hand, and it is not any more (2026-09-26).** It stood at
+     eight figures across two merges: written (PR #446) against a tree that did
+     not yet carry the substrate-return ladder, four minutes before that ladder
+     merged with three more undecoupled excursions in it (`67.307`, `72.130`,
+     `137.093 mV`), then left untouched by the pass that narrated all three in
+     the paragraphs above (PR #447) and added check 34 for the *axis* — so for
+     one more merge it under-counted figures printed three paragraphs above it,
+     and PR #452 corrected it by hand a second time. Check 34 catches the event
+     that stales the list — a ladder arriving — and never the staleness, because
+     it does not read the list. **Check 35** of the [citation
+     gate](check_proposal_citations.py) does, re-deriving what the list owes
+     from the tree rather than trusting the transcription: every figure this
+     item's own narrative states above the sentence *and* a committed record of
+     `sim/supply-impedance-sensitivity/records/` carries in its own
+     `gnd_die pp (mV)` column *and* that record runs an **undecoupled** DUT
+     netlist must appear in it. The derived list is printed by
+     `python3 docs/chipalooza/check_proposal_citations.py --stats` rather than
+     restated here, so this paragraph keeps no second copy of it. It is a
+     **superset** test in one direction only, deliberately: the enumeration
+     legitimately carries a figure no record row does (`37.274 mV` is a
+     one-element ablation *attribution*), and the records legitimately carry
+     interior sweep-box points this document never quotes. The two parse hazards
+     #450 recorded are what the check is built around rather than around a `mV`
+     scan — this document writes chains in which only the last figure carries
+     its unit, and §7 states unrelated `mV` figures at the same precision
+     (including the `2.070 mV` above, which is stated *in order to* say it is
+     not a measurement) — because a gate that fired on legitimate prose would
+     have been worse than the hand-maintained note.
+     **That third condition is why none of the nine-point grid's figures belong
+     in the list above, and the check is what draws the line rather than a
+     reader's memory.** The `13.964`/`17.055`/`9.643`/`0.070 mV` figures the
+     "item 1 has since closed too" paragraph states are from a record that runs
+     DR-017's *decoupled* netlist — a different DUT `sha256` from every earlier
+     record of this campaign — so they are measurements of the decoupled design
+     and not undecoupled upper bounds of anything. The check reads that off each
+     record's own assumption bullet and DUT hash, so the two generations cannot
+     be conflated by a later pass adding either kind of figure to this item.
+     [`docs/citation-gate.md`](../citation-gate.md) carries the rest of that
+     reasoning, including the two guards that keep the check from passing
+     vacuously in either direction.
+
+     **What #431 does not give this item is a number, and the distinction
+     matters because its own title carries one.** #431 is headlined
+     `129–259 mV` of die-side analog-ground bounce over the ratified grid.
+     That figure is **not from this tree and may not be read against any
+     figure above**: it comes from a parallel #378 build —
+     `sim/ground-return-impedance/` (not in this tree), record
+     `20260925-134451-5b3f175` — that lost the race to the campaign this item
+     narrates and was never merged, under a *different* package model —
+     `spec/decision-records/DR-015-testbench-package-model.md`
+     (not in this tree), an isolated bond-wire `2.01 nH`/`0.099 Ω` per supply
+     terminal — than the `1.914 nH` package total DR-015 ratifies here. #431
+     says so itself and tells a Builder to re-verify against `main` rather
+     than quote it. The comparable committed numbers under this repo's own
+     ratified model are the `37.590 mV` the `package` arm measures at
+     `tt_27c_1.80v`, `111.622 mV` as the worst point of the bounded box, and —
+     since 2026-09-26 — `137.093 mV` as the worst rung of the substrate-return
+     ladder; all three above, all three cited by record. **That third figure
+     changes the shape of this comparison rather than settling it, and this
+     paragraph carried only the first two for one merge after the ladder
+     landed.** `137.093 mV` is the same order as #431's headline band and sits
+     just below its low end, which is worth saying plainly instead of leaving
+     the older pair to imply this tree has nothing near it. It is still **not**
+     a confirmation of #431's number, for three reasons kept distinct here: it
+     belongs to DR-012's *rejected* topology (no analog-ground bond at all)
+     rather than the as-built one; it sits at the `300 Ω` end of a lumped
+     stand-in's two-decade ladder rather than at any assumed value; and it is
+     one corner, not the ratified grid #431 quotes over. A reader wanting the
+     as-built figure at DR-015's assumption point still reads `37.590 mV`.
+
+     **The census caught its own first move, one pass later (2026-09-26).**
+     When this item was written, three records carried the gap and none named a
+     tracker; #431 has since landed
+     [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+     and its two capacitors, and **DR-010 and DR-012 both struck their item and
+     pointed at it** — so the census is down to two carriers, and the clause
+     below is restated from the tree rather than from memory. This is exactly
+     the drift no other check here could see: checks 3, 4, 22 and 23 grade
+     evidence citations, check 15 grades a decision record's *Status* line and
+     nothing else, and checks 31, 32 and 34 grade one campaign's own axes.
+     **Check 33** of the [citation gate](check_proposal_citations.py) re-derives
+     it from the records themselves, counting only *unstruck* bullets whose own
+     bold lead names the gap (so DR-012's rejected-null-option item, which
+     merely quotes the word "undecoupled", is not miscounted as a carrier):
+
+     > of the **2** decision records under `spec/decision-records/` whose own
+     > *Open items* still carry the on-die-decoupling gap, **0** name the
+     > issue that tracks it and **2** do not:
+     > `spec/decision-records/DR-015-package-parasitic-assumption.md`,
+     > `spec/decision-records/DR-017-on-die-decoupling-budget.md`
+
+     Read the remaining `0` for what it is, and note that it does **not** mean
+     the gap is untracked now. Both remaining carriers are carrying something
+     narrower than the original item: DR-015 carries "no decoupling is
+     designed, budgeted, or modelled" as a statement about its own *testbench
+     assumption*, which DR-017 changed the premise of but did not edit
+     (append-only), and DR-017 carries the parts of the gap it deliberately did
+     not close — layout placement (#440), and, until 2026-09-26, the unmeasured
+     `package`-arm number for its own shipped value (#448) — in prose that names
+     those issues without matching the census's tracker pattern. The day either
+     record is restated, this clause fails CI until it is re-derived from what
+     the tree then holds.
+
+     **That second part is now closed, and it cost DR-017 its central model.**
+     #409's nine-point grid
+     ([`20260926-050045-8e62675`](../../sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md))
+     ran on the as-shipped *decoupled* netlist — it identifies it by hash,
+     `6a0be472…` — so the value this design ships reads `GND_DIE` **9.709 mV**
+     peak-to-peak at `tt_27c_1.80v`, **2.74× below** the `26.64 mV` that
+     DR-017's own two-point `1/√C` fit predicted for it. **Amendment A** of
+     [DR-017](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+     grades that refutation: the response **saturates** rather than following a
+     power law, `MF = 2` already captures 98.2 % of the reduction that 16× more
+     capacitance achieves, and the `≤ 1 LSB` bounce target is therefore
+     unreachable at *any* on-die supply-pair capacitance rather than at a merely
+     unaffordable one. The decision itself — two `cap_mim_m3_1`, `MF = 2` — is
+     unchanged and better supported than before; DR-017's `1.03 nF` /
+     4.7-die-area arithmetic is retracted there. The same record also supplies
+     the worst corner this item never had for the decoupled design:
+     **13.964 mV** (3.972 LSB) at `ff_27c_1.80v`, with at most **1 LSB** of
+     captured-code movement anywhere on the grid. It is **not** a worst-case
+     decoupled/undecoupled comparison — the undecoupled baseline was only ever
+     run at `tt_27c_1.80v`, so that single corner remains the only like-for-like
+     pair.
 
    **Does this move any §4 row? Not in verdict, but two rows' numbers move.**
    Item 11 is not a `spec/target-spec.md` row and no row is added for it here;
@@ -3868,10 +4857,10 @@ tracker already owns.
     > **3** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `4 analog`, `4 digital`,
     > `11 analog`, `11 digital`; and its manifest cites
-    > `layout/sar-adc-top/erc-reports/LATEST` at **20260925-044420-f039594**
-    > against a pointer naming **20260925-044420-f039594**,
-    > `layout/sar-adc-top/reports/LATEST` at **20260924-234053-66dca3c**
-    > against a pointer naming **20260924-234053-66dca3c**: **current**.
+    > `layout/sar-adc-top/erc-reports/LATEST` at **20260926-184830-e1176e3**
+    > against a pointer naming **20260926-184830-e1176e3**,
+    > `layout/sar-adc-top/reports/LATEST` at **20260926-184816-e1176e3**
+    > against a pointer naming **20260926-184816-e1176e3**: **current**.
 
     Four things that readout states, each read out of the committed report
     rather than asserted here:
@@ -3949,26 +4938,64 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **61** of the **61** records under `sim/*/records/` name both an
-  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **69**
-  > records under `layout/*/reports/` and `layout/*/erc-reports/` **68** name
-  > a `klt` version and **34** name the `open_pdks` commit.
+  > **70** of the **70** records under `sim/*/records/` name both an
+  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **73**
+  > records under `layout/*/reports/` and `layout/*/erc-reports/` **72** name
+  > a `klt` version and **38** name the `open_pdks` commit.
 
   The `sim/` half is uniform because `sim/run_corners.py --check-env`
   resolves and enforces the pin before any corner runs (`sim/toolchain.json`,
   `sim/pdk.json`), and a drift is fatal there by default. The `layout/` half
-  is not, for two measured reasons: four of the eight `layout/` flows' record
-  renderers resolve the commit (`klt pdk find`) and four print only the
-  variant *name*, which is not a pin; and `klt`'s own provenance stamps no
-  PDK at all for the invocations these flows use — `provenance.pdk` is `null`
-  in the `--deck sky130`-invoked `drc.json`/`lvs.json`/`extract.json`, and
-  `{"source": "built-in", "version": null}` in the ERC report. So the DRC and
-  LVS verdicts Section 4's layout rows rest on record *which rule deck* ran
-  (`deck.content_hash`, itself gated by `layout/bin/check_drc_evidence.py`)
-  but not which PDK commit — `layout/sar-adc-top/` and `layout/cdac-array/`
-  among them. **Tracked as issue #407.** It moves no Section 4 verdict and no
-  verdict above is graded as though it were closed; what it costs is
-  reproducibility strength on the layout side, stated here rather than
-  overstated. Historical records are append-only and are not re-minted
-  (`CLAUDE.md`) — closing #407 means the *next* record carries the commit,
-  and this census moves with it.
+  was not, for two measured reasons. The first was **renderer divergence**:
+  four of the eight `layout/` flows' record renderers resolved the commit
+  (`klt pdk find`) and four printed only the variant *name*, which is not a
+  pin — `layout/sar-adc-top/` and `layout/cdac-array/` among them. That half
+  was tracked as issue #407 and **closed by PR #420 on 2026-09-25**, which
+  added `resolve_pdk_commit()` to `layout/bin/_record_common.py` and applied
+  it to the four flow renderers and to the ERC driver
+  (`layout/sar-adc-top/bin/run-erc.sh`). The counted statement of where that
+  leaves the tree, graded in both directions by check 30 of the
+  [citation gate](check_proposal_citations.py):
+
+  > of the **10** record-minting entry points under `layout/`, **10** resolve
+  > the `open_pdks` commit before writing a record and **0** do not:
+  > **none** — every entry point resolves it.
+
+  The tenth entry point is `layout/top-glue/`'s `bin/render-record.py`
+  (PR #402), which resolves the commit by calling the same shared
+  `_record_common.render_pnr_drc_lvs_record` helper #420 fixed, so it pins
+  without a change of its own. Its two committed records
+  (`20260925-043546-0259924`, `20260925-045851-0259924`) were minted before
+  #420 landed and name only the PDK variant. That is why the layout record
+  count rises by two while the `open_pdks`-commit count stays at 38.
+
+  The second reason is unchanged and is not #407's to close: **`klt`'s own
+  provenance stamps no PDK at all** for the invocations these flows use —
+  `provenance.pdk` is `null` in the `--deck sky130`-invoked
+  `drc.json`/`lvs.json`/`extract.json`, and
+  `{"source": "built-in", "version": null}` in the ERC report — a property
+  of how these flows invoke `klt` rather than of any one record, re-confirmed
+  against this tree's own artefacts when #420 landed. So the pin a record
+  minted from here on carries is one the *renderer* resolved independently,
+  not one the tool stamped; the DRC and LVS verdicts Section 4's layout rows
+  rest on still record *which rule deck* ran (`deck.content_hash`, itself
+  gated by `layout/bin/check_drc_evidence.py`) on their own.
+
+  **The two censuses above are deliberately not the same number, and moved at
+  different times.** Records are append-only and are not re-minted
+  (`CLAUDE.md`), so #420 could not and did not change any record already in
+  the tree: the **34 of 67** figure is a statement about history, and each
+  flow's share of it retires only as that flow next re-runs. Until then the
+  record census stays where it is while the renderer census reads 9 of 9 —
+  which is precisely why both are stated. Neither moves a Section 4 verdict,
+  and no verdict above is graded as though any of this were otherwise.
+
+  **That retirement-by-re-run is visible in the numbers above, and is the
+  whole of why they moved this pass.** Issue #465's via-array change re-ran
+  `layout/sar-adc-top/bin/run-flow.sh` and `bin/run-erc.sh`, minting two new
+  records — and both name the commit, taking the layout census from 36 of 69
+  to **38 of 71** (and `klt`-version from 68 of 69 to 70 of 71) with no
+  renderer change of any kind. The `sim/` half moved 67 → **68** for the same
+  mechanical reason, that campaign's own new `--decap-esr` record. So neither
+  half's move is a claim about tooling; each is one more re-run's worth of the
+  history the paragraph above says can only retire this way.

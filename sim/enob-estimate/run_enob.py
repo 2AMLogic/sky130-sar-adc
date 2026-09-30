@@ -407,8 +407,7 @@ def main() -> int:
 
     if args.record:
         record_path.write_text("\n".join(lines))
-        latest_path = records_dir / "LATEST"
-        latest_path.write_text(f"{record_id}.md\n")
+        evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
         print(f"wrote {record_path}")
     else:
         print("\n".join(lines))

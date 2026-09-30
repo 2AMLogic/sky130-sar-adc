@@ -48,7 +48,16 @@ THE FIVE ARMS (see `ARMS` below for the exact networks):
                     bond of its own and reaches the board only through the
                     lumped substrate resistance to `VGND`'s die node and out
                     through *its* bond. The other three terminals keep their
-                    R+L.
+                    R+L. Paired with `package` this is the campaign's SECOND
+                    strict one-element ablation -- same three bonded
+                    terminals, same substrate link, the only difference is
+                    whether `GND` is bonded -- so that pair prices the option
+                    DR-012 rejected against the option it chose. It was long
+                    believed to be the most expensive arm by a wide margin, on
+                    a truncated-slice projection; the full run measured 1.67x
+                    the control, CHEAPER than `package`. See this experiment's
+                    README on runtime for why the projection was wrong, and
+                    `--null-sweep` below for the sweep that projection blocked.
 
 WHAT THE SUBSTRATE RESISTOR IS NOT. There is no extracted substrate network
 in this repo. `R_SUB`/`R_SUBX` below are a **lumped stand-in** whose
@@ -82,11 +91,54 @@ board-side star point), which is the physically honest choice for off-die
 stimulus and is what makes a die-side ground excursion appear where it
 really appears: as a shift between the die's own reference and everything
 the outside world drives.
+
+THE BOUNDED 2-D SWEEP (`--sweep`, issue #409's third item). The five arms
+above all sit at ONE point of DR-015's assumed magnitudes, which can only
+show whether the mechanism matters at that point -- never the magnitude at
+which it starts to matter. `--sweep` is DR-015's own named follow-up: the
+as-built `package` topology, re-run over a bounded grid of per-terminal bond
+inductance x lumped substrate-link resistance at the baseline corner, plus
+the same `ideal` control. See `SWEEP_*` below for the box and for why the
+substrate axis is `R_SUBX` rather than `R_SUB`.
+
+THE BOUNDED NULL-OPTION SUBSTRATE LADDER (`--null-sweep`, issue #409). The
+2-D box above moves a substrate resistance on the AS-BUILT network, where
+`GND` is bonded and that resistor is a secondary shunt. `--null-sweep` moves
+the same constant where it is load-bearing instead: on the `no-gnd-pad`
+topology, whose analog ground reaches the board only through it. That is the
+measured version of DR-015's own prose claim that the rejected option is
+"entirely a function of `R_SUB`: with a small `R_SUB` it looks harmless, with
+a large one it looks fatal" -- a claim made, until that ladder ran, from one
+point. See `NULL_SWEEP_*` below.
+
+THE DECOUPLING-TIE ESR LADDER (`--decap-esr`, issue #465). Every arm above
+takes the committed `design/sar_adc_top.spice` verbatim, and since DR-017 that
+netlist ties each supply domain's own MiM decoupling pair to its rails through
+IDEAL wires. The drawn layout does not: issue #440's `probe-decap-sites.py`
+measured the four drawn ties at 13.837 Ohm (analog) and 13.448 Ohm (digital)
+per domain, ~80 % of it single-cut vias. No netlist in this repo has ever
+carried that resistance, so every decoupled record this campaign has minted so
+far measures a capacitor pair that is better connected than the one on the
+die. `--decap-esr` is the ladder that closes that gap: the as-built `package`
+topology, re-run with the MEASURED per-domain tie resistance in series with
+each MiM pair, over a bounded multiplier ladder whose `0x` rung is the
+committed netlist card for card. See `DECAP_ESR_*` below.
+
+PRICING A BOX BEFORE PAYING FOR IT (`--cost-probe NS`). The 2-D box is ten
+whole-ADC transients, so the first question about it is what it costs and
+whether its off-anchor points converge at all -- neither of which is knowable
+from the arm-comparison record, which contains one of the ten. `--cost-probe`
+re-runs each grid point's own deck over a TRUNCATED transient and reports only
+wall clock and solver status. It measures nothing about the DUT (the
+fragment's `.meas` cards sit outside the sliced span) and is refused with
+`--record`, so it cannot become evidence about this block -- only about what
+running the box would cost.
 """
 
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import math
 import os
@@ -94,10 +146,14 @@ import re
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
+#: This runner's repo-relative path, as every record's `Written by` footer and
+#: `sim/spec-coverage.json`'s bench index must spell it.
+RUNNER_REL = "sim/supply-impedance-sensitivity/run_supply_impedance.py"
 SIM_DIR = EXPERIMENT_DIR.parent
 FULL_CONVERSION_DIR = SIM_DIR / "full-conversion-transient"
 sys.path.insert(0, str(SIM_DIR))
@@ -237,6 +293,13 @@ class Arm:
     bonds: dict[str, Bond | None]
     #: extra lumped resistors, as (instance name, node a, node b, ohms)
     substrate: tuple[tuple[str, str, str, float], ...] = field(default=())
+    #: MEASURED decoupling-tie interconnect resistance to insert between a
+    #: rail's die node and one plate of one of the DUT's own decoupling
+    #: capacitors, as `(cap instance, supply terminal, ohms)` triples (issue
+    #: #465; see `DECAP_ESR_*` below). Empty on every named arm in `ARMS`, so
+    #: their decks are byte-identical to what they were before this field
+    #: existed -- only the synthesized `--decap-esr` ladder points carry it.
+    decap_ties: tuple[tuple[str, str, float], ...] = field(default=())
 
 
 def _pkg() -> Bond:
@@ -318,6 +381,628 @@ ARMS: tuple[Arm, ...] = (
 
 ARMS_BY_NAME = {arm.name: arm for arm in ARMS}
 CONTROL_ARM = "ideal"
+
+#: Why a record that does NOT contain an arm is still a valid record.
+#:
+#: `sim/README.md` requires a corner subset to be justified; an arm subset is
+#: the same kind of omission and gets the same treatment, so every arm the
+#: runner offers has a standing reason a record may state when it leaves that
+#: arm out. These are properties of the ARM (what it is for, and what a record
+#: without it therefore cannot say), not of any one run -- a record-specific
+#: reason belongs in that record's own prose, not in a constant here.
+ARM_OMISSION_NOTES: dict[str, str] = {
+    "package-r-only": (
+        "the `L = 0` twin of `package`. A record without it has no "
+        "**bond-inductance ablation** -- that number is the difference between "
+        "these two arms and cannot be reconstructed from either one alone -- so "
+        "such a record may compare whole grounding schemes but may not attribute "
+        "a difference to the series `L`."
+    ),
+    "package": (
+        "the as-built shape DR-012 chose (four drawn pads, star point off-die). "
+        "A record without it has no as-built row, so nothing in it is a statement "
+        "about what this block's own ground plan costs."
+    ),
+    "substrate": (
+        "an **on-die-only** resistive return of DR-012's stated order. It answers "
+        "a different question from the bonded arms rather than ablating them (its "
+        "resistance is ~300x the package R), so a record without it is not missing "
+        "a term in any comparison the other arms make -- it simply does not ask "
+        "that question."
+    ),
+    "no-gnd-pad": (
+        "DR-012's rejected null option. Paired with `package` it is the one pair "
+        "that prices DR-012's rejected alternative against the option DR-012 chose, "
+        "so a record without it says nothing about what the null option would have "
+        "cost. Omitting it was for a long time called a **cost** decision, on a "
+        "truncated-slice projection of roughly an order of magnitude and 'several "
+        "hours' per run; the full run measured **1.67x the control** -- cheaper "
+        "than the `package` arm beside it. A record that leaves this arm out may "
+        "therefore state the arm's *scope* as its reason (it asks a different "
+        "question from the bonded ladder) but may no longer plead its price."
+    ),
+}
+
+
+# --------------------------------------------------------------------------
+# The bounded 2-D R/L sweep (issue #409 item 3; DR-015's own open item)
+# --------------------------------------------------------------------------
+# The five arms above are five NETWORKS at ONE point of DR-015's assumed
+# magnitudes. That shows whether the mechanism matters at that point; it
+# cannot show the magnitude at which it starts to. DR-015 says so itself, in
+# both its "Alternatives considered" ("Sweep R/L over a range instead of
+# fixing one point ... this is the better experiment") and its "Open items"
+# ("A bounded 2-D sweep (bond inductance x substrate resistance) at one
+# corner is the natural follow-up").
+#
+# WHAT IS SWEPT. The deck is the AS-BUILT `package` arm -- all four supply
+# terminals bonded, DR-012's chosen shape -- with two axes:
+#
+#   * `SWEEP_L_MULTIPLIERS`: the per-terminal bond INDUCTANCE, as a multiple
+#     of DR-015's own value. `0x` is an inductance-free bond (electrically the
+#     `package-r-only` arm), `1x` is DR-015's assumption point (electrically
+#     the `package` arm), and the top of the ladder is a deliberately bad bond
+#     -- a long wire, or a return with no nearby ground plane.
+#   * `SWEEP_RSUBX_OHM`: the lumped substrate link between the analog and
+#     digital ground DIE nodes, a decade either side of DR-015's 30 Ohm. This
+#     is "how hard the p-substrate ties the two ground domains together" --
+#     DR-012's own premise that `GND` and `VGND` are one extracted net -- and
+#     it is what decides how much of the digital ground's switching current
+#     returns through the analog bond.
+#
+# So a ROW of the grid (one `R_SUBX`, the L ladder) changes exactly one
+# element, and so does a COLUMN. That is DR-015 item 5's requirement -- an
+# effect may be attributed to an element only by a difference that moves that
+# element and nothing else -- satisfied by construction for both axes.
+#
+# WHY THIS AXIS IS A SHUNT, NOT A RETURN. On the as-built deck `GND` has a
+# bond of its own, so the resistor this axis moves sits BESIDE that bond as a
+# shunt between the two ground die nodes -- it decides how much of the digital
+# ground's switching current comes back through the analog bond, not how the
+# analog ground reaches the board. The topology where that same resistor IS
+# the whole analog-ground return is `no-gnd-pad`, and sweeping it there is a
+# different experiment with a different reading: `--null-sweep` below. Every
+# record this sweep writes says which of the two it moved rather than letting
+# "substrate resistance" be read as both.
+SWEEP_BASE_ARM = "package"
+
+#: Multipliers of DR-015's per-terminal bond inductance `PACKAGE_L_H`.
+SWEEP_L_MULTIPLIERS: tuple[float, ...] = (0.0, 1.0, 10.0)
+
+#: The lumped substrate link `R_SUBX`, in ohms: a decade either side of
+#: DR-015's assumed 30 Ohm.
+SWEEP_RSUBX_OHM: tuple[float, ...] = (3.0, 30.0, 300.0)
+
+
+def sweep_arm_name(l_mult: float, rsubx_ohm: float) -> str:
+    """The grid point's arm name -- also its log/deck filename and its cache
+    key, so it carries both coordinates and no separator that a path would
+    choke on."""
+    return f"sweep-l{l_mult:g}x-rsubx{rsubx_ohm:g}"
+
+
+def sweep_arm(l_mult: float, rsubx_ohm: float) -> Arm:
+    """One grid point, as a synthesized arm over the as-built topology.
+
+    The bond RESISTANCE is taken from the base arm's own bonds rather than
+    re-asserted from `PACKAGE_R_OHM`, so the sweep follows the arm it sweeps
+    instead of drifting from it, and only the inductance moves along that
+    axis.
+    """
+    base = ARMS_BY_NAME[SWEEP_BASE_ARM]
+    if set(base.bonds) != set(TERMINAL_ORDER) or any(b is None for b in base.bonds.values()):
+        raise RuntimeError(
+            f"the sweep's base arm `{SWEEP_BASE_ARM}` no longer bonds all four supply "
+            "terminals through an impedance -- the swept topology is not the as-built "
+            "one any more; re-derive the sweep before running it."
+        )
+    if l_mult < 0.0 or rsubx_ohm <= 0.0:
+        raise RuntimeError(
+            f"sweep point ({l_mult}, {rsubx_ohm}) is not physical: the inductance "
+            "multiplier must be >= 0 and the substrate link must be > 0 Ohm"
+        )
+    bonds = {t: Bond(b.r_ohm, b.l_h * l_mult) for t, b in base.bonds.items()}
+    l_h = PACKAGE_L_H * l_mult
+    return Arm(
+        name=sweep_arm_name(l_mult, rsubx_ohm),
+        summary=(
+            f"as-built `{SWEEP_BASE_ARM}` topology at {l_mult:g}x DR-015's bond "
+            f"inductance (L = {l_h * 1e9:.3f} nH per terminal, R unchanged at "
+            f"{PACKAGE_R_OHM * 1e3:.1f} mOhm) and a lumped substrate link "
+            f"R_SUBX = {rsubx_ohm:g} Ohm"
+        ),
+        bonds=bonds,
+        substrate=(("RSUBX", GND_DIE, "VGND", rsubx_ohm),),
+    )
+
+
+def sweep_arms(l_mults: tuple[float, ...], rsubx_values: tuple[float, ...]) -> list[Arm]:
+    """The grid, cheapest axis first: an inductance-free bond has nothing to
+    ring, so running the L ladder in ascending order front-loads the points
+    that finish quickly and leaves a partially-completed campaign (which
+    `--log-cache` can resume) as useful as possible."""
+    return [sweep_arm(m, r) for m in l_mults for r in rsubx_values]
+
+
+def sweep_anchor_matches_base_arm() -> bool:
+    """Is the `(1x, DR-015's R_SUBX)` grid point electrically the committed
+    `package` arm?
+
+    It must be: that point is the sweep's tie to the campaign's existing
+    arm-comparison record, and the whole reading of the grid is "how far does
+    the answer move as you walk away from DR-015's assumption point". If a
+    later edit made the anchor a different network, the sweep would still run
+    and still write a plausible record -- while no longer being anchored to
+    anything. Compared on the emitted CARDS (comments excluded, since they
+    carry the arm's name), which is the level at which "electrically the same
+    deck" is a fact rather than an intention.
+    """
+    anchor = [
+        line
+        for line in arm_network_lines(sweep_arm(1.0, R_SUBX_OHM))
+        if line and not line.startswith("*")
+    ]
+    base = [
+        line
+        for line in arm_network_lines(ARMS_BY_NAME[SWEEP_BASE_ARM])
+        if line and not line.startswith("*")
+    ]
+    return anchor == base
+
+
+# --------------------------------------------------------------------------
+# The bounded null-option substrate sweep (`--null-sweep`, issue #409)
+# --------------------------------------------------------------------------
+# WHAT GAP THIS CLOSES. DR-015's Consequences section makes a claim about the
+# `no-gnd-pad` arm that nothing in this repo had measured:
+#
+#     "The `no-gnd-pad` arm ... is *entirely* a function of `R_SUB`: with a
+#      small `R_SUB` it looks harmless, with a large one it looks fatal."
+#
+# That is two predictions ("harmless", "fatal") about magnitudes this campaign
+# has only ever run at ONE value. The arm-comparison record priced the null
+# option at DR-015's assumed 30 Ohm; the 2-D `--sweep` box moved a substrate
+# resistance but on the AS-BUILT `package` topology, where `GND` has a bond of
+# its own and the substrate link is a secondary shunt rather than a return. So
+# the sensitivity DR-015 asserts is still, at this point, an assertion.
+#
+# WHAT IS SWEPT, AND WHY IT IS THE ELEMENT DR-015 MEANS. The base deck is
+# `no-gnd-pad`: `GND` has no bond, so the analog ground's ONLY path to the
+# board is the lumped resistor between `GND_DIE` and `VGND` and then out
+# through `VGND`'s own bond. In that topology that one resistor is
+# simultaneously both of DR-015 item 2's stand-ins -- it sits "between the
+# analog and digital ground die nodes" (`R_SUBX`'s definition) AND it is the
+# whole substrate-only ground RETURN (`R_SUB`'s role). The deck instance is
+# named `RSUBX` because that is the node pair it spans, and this sweep moves
+# that instance; the record says both things rather than letting one name be
+# read as the other. DR-015 sets both stand-ins to 30 Ohm, so at the anchor
+# point the distinction costs nothing numerically -- it is a naming precision,
+# not a change of magnitude.
+#
+# WHY THIS IS NOT THE 2-D SWEEP AGAIN. `--sweep` moves `R_SUBX` on a deck
+# where `GND` is bonded through ~102 mOhm; a decade of change in a 30 Ohm
+# shunt next to a 0.1 Ohm bond barely moves the analog ground. Here the same
+# element carries the entire return current. Same constant, same decade,
+# structurally different experiment.
+#
+# ONE AXIS, NOT TWO, ON PURPOSE. Crossing this with the bond-inductance
+# ladder would be a second 2-D box and would confound the question: the point
+# of a null-option sweep is what the REJECTED topology costs as the substrate
+# assumption moves, with every other element held at DR-015's stated values.
+# The three bonded terminals keep DR-015's R+L exactly, so each point differs
+# from the committed `no-gnd-pad` arm in one element and from its neighbours
+# in one element (DR-015 item 5).
+NULL_SWEEP_BASE_ARM = "no-gnd-pad"
+
+#: The lumped substrate resistance, in ohms: a decade either side of DR-015's
+#: assumed 30 Ohm, matching the 2-D sweep's own bracket so the two boxes are
+#: read on the same scale.
+NULL_SWEEP_RSUBX_OHM: tuple[float, ...] = (3.0, 30.0, 300.0)
+
+
+def null_sweep_arm_name(rsubx_ohm: float) -> str:
+    """The swept point's arm name -- also its log/deck filename and its cache
+    key. Prefixed distinctly from `sweep_arm_name()` so a point of this
+    campaign can never collide with, or be mistaken for, a point of the 2-D
+    box in a cache directory or a records listing."""
+    return f"nullsweep-rsub{rsubx_ohm:g}"
+
+
+def null_sweep_arm(rsubx_ohm: float) -> Arm:
+    """One swept point: DR-012's rejected topology at one substrate magnitude.
+
+    The bonds are taken from the base arm itself rather than re-asserted from
+    `PACKAGE_R_OHM`/`PACKAGE_L_H`, so this sweep follows the arm it sweeps
+    instead of drifting from it, and only the substrate resistance moves.
+    """
+    base = ARMS_BY_NAME[NULL_SWEEP_BASE_ARM]
+    if "GND" in base.bonds:
+        raise RuntimeError(
+            f"the null sweep's base arm `{NULL_SWEEP_BASE_ARM}` now gives `GND` a bond "
+            "of its own -- the swept topology is not DR-012's rejected null option any "
+            "more, and its substrate resistor is no longer the analog ground's only "
+            "return; re-derive the sweep before running it."
+        )
+    if len(base.substrate) != 1:
+        raise RuntimeError(
+            f"the null sweep's base arm `{NULL_SWEEP_BASE_ARM}` carries "
+            f"{len(base.substrate)} lumped substrate elements, not one -- this sweep "
+            "moves a single resistor and cannot say which one is the return."
+        )
+    if rsubx_ohm <= 0.0:
+        raise RuntimeError(
+            f"null-sweep point ({rsubx_ohm}) is not physical: a substrate resistance "
+            "must be > 0 Ohm"
+        )
+    inst, node_a, node_b, _ohm = base.substrate[0]
+    return Arm(
+        name=null_sweep_arm_name(rsubx_ohm),
+        summary=(
+            f"DR-012's rejected `{NULL_SWEEP_BASE_ARM}` topology (GND unbonded) with "
+            f"its lumped substrate return at {rsubx_ohm:g} Ohm; the other three "
+            f"terminals keep DR-015's R+L unchanged"
+        ),
+        bonds=dict(base.bonds),
+        substrate=((inst, node_a, node_b, rsubx_ohm),),
+    )
+
+
+def null_sweep_arms(rsubx_values: tuple[float, ...]) -> list[Arm]:
+    """The ladder, in the order given. Unlike the 2-D box there is no known
+    cheap-first ordering to exploit: the cost of this topology is set by how
+    hard its ground rings, which is not monotone in the return resistance, so
+    the ladder runs in the order the caller stated it."""
+    return [null_sweep_arm(r) for r in rsubx_values]
+
+
+def null_sweep_anchor_matches_base_arm() -> bool:
+    """Is the `R = DR-015's value` point electrically the committed
+    `no-gnd-pad` arm?
+
+    Same contract, and same reason, as `sweep_anchor_matches_base_arm()`: that
+    point is this sweep's tie to the arm-comparison record that already priced
+    the null option, and without the tie the ladder would still run and still
+    write a plausible record while being anchored to nothing.
+    """
+    anchor = [
+        line
+        for line in arm_network_lines(null_sweep_arm(R_SUBX_OHM))
+        if line and not line.startswith("*")
+    ]
+    base = [
+        line
+        for line in arm_network_lines(ARMS_BY_NAME[NULL_SWEEP_BASE_ARM])
+        if line and not line.startswith("*")
+    ]
+    return anchor == base
+
+
+# --------------------------------------------------------------------------
+# The decoupling-tie ESR ladder (`--decap-esr`, issue #465)
+# --------------------------------------------------------------------------
+# WHAT GAP THIS CLOSES. DR-017 put one `cap_mim_m3_1` pair per supply domain
+# into `design/sar_adc_top.spice`, and that netlist connects each pair to its
+# two rails through ideal wires -- the only series resistance in it is the PDK
+# MiM subcircuit's own plate resistance (`r1 = rm3*l/w`, 0.0235 Ohm for the
+# shipped pair). The DRAWN ties are not ideal. Issue #440 placed them and
+# measured them with `layout/sar-adc-top/bin/probe-decap-sites.py`, a lumped DC
+# ladder assembled from `build_layout.py`'s own geometry constants and the PDK's
+# own sheet/via resistances:
+#
+#     analog  (`VDD`/`GND`)   13.837 Ohm per domain
+#     digital (`VPWR`/`VGND`) 13.448 Ohm per domain
+#
+# about 590x the device's own ESR, and ~80 % of it single-cut vias. Nothing in
+# this repo has ever simulated a netlist containing it, so every decoupled
+# record this campaign has minted measures a better-connected capacitor than the
+# one on the die.
+#
+# WHY IT IS A SIGN QUESTION AND NOT AN OBVIOUS IMPROVEMENT. A 2x2 via array at
+# each riser and each plate entry would cut that resistance roughly 3x, and #440
+# deliberately did not draw one, because which way the change moves the rails is
+# not obvious:
+#
+#   * The pair's own reactance at the DR-015 package resonance (1221.5 MHz for
+#     8.870 pF against 1.914 nH) is 14.69 Ohm, so at the as-built ESR the
+#     quality factor of that resonance is Q ~ 1.06 (analog) / 1.09 (digital) --
+#     critically-damped-ish. Removing the ESR raises Q, which sharpens the
+#     resonance as much as it lowers the impedance at it, and a lightly damped
+#     tank rings longer after every switching edge.
+#   * Read the other way, ESR does not reach the pair's own reactance until
+#     ~1.3 GHz, so at the frequencies the bounce lives at the pair is already
+#     reactance-dominated and 13.8 -> 4.5 Ohm should buy little.
+#
+# Both arguments are design-time inferences. This ladder is the measurement.
+#
+# WHAT IS MOVED, AND WHAT IS NOT. Exactly one thing: the four tie resistors.
+# Every rung is the as-built `package` topology (all four supply terminals
+# bonded through DR-015's R+L, the same lumped `R_SUBX`, the same stimulus) with
+# the measured tie resistance scaled by one multiplier. The `0x` rung emits no
+# tie resistors at all -- it is the committed netlist card for card, the
+# idealisation the campaign's existing decoupled records measured -- and that
+# identity is asserted before the run (`decap_esr_anchor_matches_base_arm()`)
+# rather than described. So the difference between two rungs is the tie
+# resistance's own contribution and nothing else (DR-015 item 5's requirement).
+#
+# WHAT THESE RESISTORS ARE, AND ARE NOT. They are a MEASUREMENT of this repo's
+# own drawn layout, not an assumption like DR-015's R+L: their provenance is a
+# committed layout record id, and the runner reads the values out of that
+# record's own `decap-ties.json` rather than carrying a hand-typed number. But
+# they are a LUMPED DC ladder: one resistor per tie, no frequency dependence, no
+# skin effect, and above all **no interconnect inductance** -- the other half of
+# DR-017's routing-parasitics open item, which needs `klt pex` and the
+# device/net correspondence this flow does not yet have (klayout-tools#1878),
+# and which stays out of scope here.
+DECAP_ESR_BASE_ARM = "package"
+
+#: The committed layout record whose `decap-ties.json` this ladder reads its
+#: resistances out of (issue #440's placement pass). Pinned by id, not resolved
+#: through `reports/LATEST`, because a record is append-only evidence and the
+#: resistance a simulation was run at must stay legible after a later layout
+#: record moves that pointer. Bumping this constant is how a re-drawn tie
+#: reaches this campaign.
+DECAP_TIE_RECORD = "layout/sar-adc-top/reports/20260926-081248-203cca3"
+
+#: Multipliers of the MEASURED per-tie resistance. `0` is the committed
+#: netlist (no tie resistance at all), `1` is the layout as drawn. Two rungs on
+#: purpose: each one is a whole-ADC transient of the expensive `package` shape,
+#: and the sign of the difference between these two is the entire question
+#: issue #465 asks. A third rung at the 2x2-via-array projection would quantify
+#: what the arrays recover, and is only worth its hour if this pair says the
+#: arrays are worth drawing at all.
+DECAP_ESR_MULTIPLIERS: tuple[float, ...] = (0.0, 1.0)
+
+#: How far apart two rungs' excursions must be before the ladder is read as
+#: having a DIRECTION. A stated reading threshold, not a measured uncertainty:
+#: these are `.meas`-reported peak-to-peak values from one deterministic
+#: transient each, so the band exists to stop a sub-percent difference being
+#: reported as a mechanism, not because the solver's own noise is known.
+DECAP_ESR_WASH_BAND = 0.02
+
+#: The DUT's own decoupling capacitors (DR-017), as
+#: `(instance, domain key in decap-ties.json's per_domain, the supply terminals
+#: its two plates tie to IN THE CARD'S OWN NODE ORDER)`. The node order is part
+#: of the contract: `patch_dut_decap_ties()` asserts the committed card still
+#: connects those two nets in that order and refuses to patch a netlist whose
+#: shape has moved, rather than silently inserting the analog return's
+#: resistance into the supply leg.
+DECAP_DEVICES: tuple[tuple[str, str, tuple[str, str]], ...] = (
+    ("XCdecap_a", "analog (VDD/GND)", ("GND", "VDD")),
+    ("XCdecap_d", "digital (VPWR/VGND)", ("VGND", "VPWR")),
+)
+
+#: Supply terminal -> the `ties` key `decap-ties.json` reports that terminal's
+#: own drawn tie under.
+DECAP_TIE_KEYS: dict[str, str] = {
+    "VDD": "VDD (analog supply -> both top plates)",
+    "GND": "GND (analog return -> both bottom plates)",
+    "VPWR": "VPWR (digital supply -> both top plates)",
+    "VGND": "VGND (digital return -> both bottom plates)",
+}
+
+#: The device this campaign expects to find on a decoupling card. Asserted so a
+#: future netlist that swaps the decoupling device for something else fails here
+#: instead of being silently re-tied.
+DECAP_DEVICE_MODEL = "sky130_fd_pr__cap_mim"
+
+
+@dataclass(frozen=True)
+class DecapTieMeasurement:
+    """One committed layout record's measured decoupling-tie resistances."""
+
+    record: str
+    #: supply terminal -> the drawn tie's lumped resistance, in ohms
+    tie_ohm: dict[str, float]
+    #: domain -> that domain's total interconnect ESR (its two ties in series)
+    esr_ohm: dict[str, float]
+    capacitance_f: float
+    q_at_resonance: dict[str, float]
+    reactance_at_resonance_ohm: dict[str, float]
+    package_resonance_hz: float
+    esr_equals_reactance_hz: dict[str, float]
+
+    def domain_esr_line(self, mult: float = 1.0) -> str:
+        return ", ".join(
+            f"{domain} {ohms * mult:.3f} Ohm" for domain, ohms in self.esr_ohm.items()
+        )
+
+
+@functools.lru_cache(maxsize=None)
+def load_decap_ties(record: str = DECAP_TIE_RECORD) -> DecapTieMeasurement:
+    """The measured tie resistances, read out of a committed layout record.
+
+    Never a hand-typed number: the values below are exactly the ones
+    `layout/sar-adc-top/bin/probe-decap-sites.py` derived from the drawn
+    geometry and the PDK's own sheet/via resistances, and the record id they
+    came from reaches this campaign's own record so a reader can re-derive them.
+
+    Every guard here refuses rather than degrades. In particular
+    `model_matches_drawn_geometry` is the probe's own statement that each `Wire`
+    of its ladder is a rectangle the layout really drew; a record whose probe
+    said otherwise is not a measurement of anything, and simulating its numbers
+    would put a resistance in an append-only sim record that no layout ever had.
+    """
+    path = REPO_ROOT / record / "decap-ties.json"
+    if not path.is_file():
+        raise RuntimeError(
+            f"no decap-ties.json under {record}/ -- the decoupling-tie ESR ladder "
+            "reads its resistances out of a committed layout record (issue #440's "
+            "`probe-decap-sites.py`), and cannot run without one."
+        )
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{record}/decap-ties.json is not readable JSON: {exc}") from exc
+    if data.get("schema_version") != 1:
+        raise RuntimeError(
+            f"{record}/decap-ties.json is schema_version "
+            f"{data.get('schema_version')!r}, not 1 -- re-derive this ladder against "
+            "the new schema before running it."
+        )
+    if not data.get("model_matches_drawn_geometry", False) or data.get("model_problems"):
+        raise RuntimeError(
+            f"{record}/decap-ties.json reports that its own resistance model does "
+            "NOT match the drawn geometry "
+            f"({data.get('model_problems')}) -- those ohms describe a layout that "
+            "was not built, so they may not be simulated."
+        )
+    ties = data.get("ties") or {}
+    tie_ohm: dict[str, float] = {}
+    for terminal, key in DECAP_TIE_KEYS.items():
+        entry = ties.get(key)
+        if not isinstance(entry, dict) or not isinstance(entry.get("tie_ohm"), (int, float)):
+            raise RuntimeError(
+                f"{record}/decap-ties.json has no `ties[{key!r}].tie_ohm` -- the "
+                "probe's report changed shape; re-derive this ladder."
+            )
+        value = float(entry["tie_ohm"])
+        if value <= 0.0:
+            raise RuntimeError(
+                f"{record}/decap-ties.json reports a non-physical tie resistance "
+                f"for {terminal}: {value} Ohm"
+            )
+        tie_ohm[terminal] = value
+    per_domain = data.get("per_domain") or {}
+    esr_ohm = {k: float(v) for k, v in (per_domain.get("esr_ohm") or {}).items()}
+    for _inst, domain, terminals in DECAP_DEVICES:
+        if domain not in esr_ohm:
+            raise RuntimeError(
+                f"{record}/decap-ties.json has no per-domain ESR for {domain!r} -- "
+                "the probe's report changed shape; re-derive this ladder."
+            )
+        legs = sum(tie_ohm[t] for t in terminals)
+        # Both sides are rounded to 3 decimals by the probe, so the sum of two
+        # of them can differ from the reported total in the last digit; a
+        # larger gap means the two halves of that file disagree about the same
+        # domain and neither may be simulated.
+        if abs(legs - esr_ohm[domain]) > 2e-3:
+            raise RuntimeError(
+                f"{record}/decap-ties.json disagrees with itself for {domain}: its "
+                f"two ties sum to {legs:.3f} Ohm but its per-domain ESR is "
+                f"{esr_ohm[domain]:.3f} Ohm."
+            )
+    capacitance_f = float(per_domain.get("capacitance_F") or 0.0)
+    if capacitance_f <= 0.0:
+        raise RuntimeError(
+            f"{record}/decap-ties.json reports no per-domain capacitance -- the "
+            "probe's report changed shape; re-derive this ladder."
+        )
+    return DecapTieMeasurement(
+        record=record,
+        tie_ohm=tie_ohm,
+        esr_ohm=esr_ohm,
+        capacitance_f=capacitance_f,
+        q_at_resonance={k: float(v) for k, v in (per_domain.get("q_at_resonance") or {}).items()},
+        reactance_at_resonance_ohm={
+            k: float(v) for k, v in (per_domain.get("reactance_at_resonance_ohm") or {}).items()
+        },
+        package_resonance_hz=float(per_domain.get("package_resonance_Hz") or 0.0),
+        esr_equals_reactance_hz={
+            k: float(v) for k, v in (per_domain.get("esr_equals_reactance_Hz") or {}).items()
+        },
+    )
+
+
+def decap_esr_arm_name(mult: float) -> str:
+    """The rung's arm name -- also its log/deck filename and its cache key.
+    Prefixed distinctly from `sweep_arm_name()` / `null_sweep_arm_name()` so a
+    point of this ladder can never collide with, or be mistaken for, a point of
+    either sweep in a cache directory or a records listing."""
+    return f"decapesr-{mult:g}x"
+
+
+def _decap_node(instance: str, terminal: str) -> str:
+    """The internal node between a tie resistor and the capacitor's own plate."""
+    return f"{instance.lstrip('Xx').upper()}_{terminal}"
+
+
+def _decap_tie_instance(instance: str, terminal: str) -> str:
+    return f"RTIE_{instance.lstrip('Xx').upper()}_{terminal}"
+
+
+def decap_esr_arm(mult: float, ties: DecapTieMeasurement) -> Arm:
+    """One rung: the as-built topology with `mult` x the measured tie resistance.
+
+    The bonds are taken from the base arm itself rather than re-asserted from
+    `PACKAGE_R_OHM`/`PACKAGE_L_H`, so this ladder follows the arm it moves
+    around instead of drifting from it, and only the tie resistance moves.
+
+    `mult == 0` emits NO tie resistors rather than four zero-valued ones: a
+    0 Ohm resistor is a different (degenerate) element with two extra nodes, and
+    the whole point of that rung is to be the committed netlist card for card.
+    """
+    base = ARMS_BY_NAME[DECAP_ESR_BASE_ARM]
+    if set(base.bonds) != set(TERMINAL_ORDER) or any(b is None for b in base.bonds.values()):
+        raise RuntimeError(
+            f"the decap-ESR ladder's base arm `{DECAP_ESR_BASE_ARM}` no longer bonds "
+            "all four supply terminals through an impedance -- the topology the ties "
+            "are being added to is not the as-built one any more; re-derive the "
+            "ladder before running it."
+        )
+    if mult < 0.0:
+        raise RuntimeError(
+            f"decap-ESR rung ({mult}) is not physical: an interconnect resistance "
+            "multiplier must be >= 0"
+        )
+    triples: tuple[tuple[str, str, float], ...] = ()
+    if mult > 0.0:
+        triples = tuple(
+            (instance, terminal, ties.tie_ohm[terminal] * mult)
+            for instance, _domain, terminals in DECAP_DEVICES
+            for terminal in terminals
+        )
+    if mult == 0.0:
+        summary = (
+            f"as-built `{DECAP_ESR_BASE_ARM}` topology with NO decoupling-tie "
+            "interconnect resistance -- the committed netlist card for card, which is "
+            "the idealisation every decoupled record in this campaign has measured"
+        )
+    else:
+        summary = (
+            f"as-built `{DECAP_ESR_BASE_ARM}` topology with {mult:g}x the MEASURED "
+            f"drawn decoupling-tie resistance ({ties.domain_esr_line(mult)} per "
+            "domain, in series with that domain's own MiM pair) from "
+            f"`{ties.record}`"
+        )
+    return Arm(
+        name=decap_esr_arm_name(mult),
+        summary=summary,
+        bonds=dict(base.bonds),
+        substrate=base.substrate,
+        decap_ties=triples,
+    )
+
+
+def decap_esr_arms(mults: tuple[float, ...], ties: DecapTieMeasurement) -> list[Arm]:
+    """The ladder, in the order given. The caller runs it ascending so an
+    interrupted campaign leaves the rung that ties this record to the existing
+    decoupled records (`0x`) on disk first."""
+    return [decap_esr_arm(m, ties) for m in mults]
+
+
+def decap_esr_anchor_matches_base_arm(ties: DecapTieMeasurement) -> bool:
+    """Is the `0x` rung card-for-card the committed `package` arm?
+
+    Same contract, and same reason, as `sweep_anchor_matches_base_arm()` -- but
+    checked on BOTH halves of the deck this mode touches, because this ladder is
+    the first thing in the campaign that rewrites the DUT body as well as the
+    arm network. Without the tie, the ladder would still run and still write a
+    plausible record while being anchored to nothing.
+    """
+    anchor = decap_esr_arm(0.0, ties)
+    base = ARMS_BY_NAME[DECAP_ESR_BASE_ARM]
+    anchor_net = [
+        line for line in arm_network_lines(anchor) if line and not line.startswith("*")
+    ]
+    base_net = [line for line in arm_network_lines(base) if line and not line.startswith("*")]
+    body, _hits = patch_dut_ground(fc.dut_text())
+    anchor_body, anchor_ties = patch_dut_decap_ties(body, anchor)
+    base_body, base_ties = patch_dut_decap_ties(body, base)
+    return (
+        anchor_net == base_net
+        and anchor_body == base_body == body
+        and anchor_ties == base_ties == []
+    )
 
 
 # --------------------------------------------------------------------------
@@ -412,6 +1097,97 @@ def patch_dut_ground(dut_netlist_text: str) -> tuple[str, int]:
             "this campaign's ground rename."
         )
     return "\n".join(out), hits
+
+
+def patch_dut_decap_ties(dut_body: str, arm: Arm) -> tuple[str, list[str]]:
+    """Insert this arm's measured decoupling-tie resistance into the DUT body.
+
+    The THIRD testbench-only transformation of this campaign (issue #465), and
+    the only one that touches a device card rather than a net name or a source
+    card. For each `(cap instance, supply terminal, ohms)` triple the arm
+    carries, the capacitor's own plate node is re-pointed to a new internal node
+    and a resistor is emitted from the rail's die node to it -- so the rail still
+    sees the capacitor, through the resistance the layout actually drew.
+
+    Returns `(patched body, the resistor cards)`. An arm with no triples gets
+    the body back UNCHANGED and no cards, which is what makes the ladder's `0x`
+    rung and every named arm byte-identical to the deck they assembled before
+    this transformation existed.
+
+    Every shape assumption is asserted rather than assumed, for the same reason
+    `patch_dut_ground()` asserts the port declaration: a netlist that moved would
+    otherwise be re-tied silently, and a resistor inserted into the wrong leg
+    would produce a plausible record of a circuit nobody built.
+    """
+    if not arm.decap_ties:
+        return dut_body, []
+
+    wanted: dict[str, dict[str, float]] = {}
+    for instance, terminal, ohms in arm.decap_ties:
+        wanted.setdefault(instance, {})[terminal] = ohms
+
+    text = dut_body
+    cards: list[str] = []
+    for instance, domain, terminals in DECAP_DEVICES:
+        per_terminal = wanted.pop(instance, None)
+        if per_terminal is None:
+            continue
+        pattern = re.compile(rf"(?m)^{re.escape(instance)}[ \t]+(\S+)[ \t]+(\S+)[ \t]+(\S.*)$")
+        found = pattern.findall(text)
+        if len(found) != 1:
+            raise RuntimeError(
+                f"expected exactly one `{instance}` card in design/sar_adc_top.spice, "
+                f"found {len(found)} -- DR-017's {domain} decoupling capacitor is not "
+                "where this campaign's tie model says it is; re-derive the "
+                "decoupling-tie ladder before running it."
+            )
+        node_a, node_b, tail = found[0]
+        if DECAP_DEVICE_MODEL not in tail:
+            raise RuntimeError(
+                f"`{instance}` is no longer a `{DECAP_DEVICE_MODEL}*` device "
+                f"({tail.split()[0]!r}) -- the decoupling device changed; re-derive "
+                "the decoupling-tie ladder rather than re-tying an unknown element."
+            )
+        expected = tuple(TERMINALS[t]["die"] for t in terminals)
+        if (node_a, node_b) != expected:
+            raise RuntimeError(
+                f"`{instance}` connects ({node_a}, {node_b}), not the expected "
+                f"{expected} for the {domain} domain -- its plate order or its rails "
+                "moved, and inserting a measured tie resistance into the wrong leg "
+                "would misstate which path carries it; re-derive the ladder."
+            )
+        new_nodes: list[str] = []
+        for terminal, node in zip(terminals, (node_a, node_b)):
+            ohms = per_terminal.get(terminal)
+            if ohms is None:
+                new_nodes.append(node)
+                continue
+            internal = _decap_node(instance, terminal)
+            new_nodes.append(internal)
+            cards.append(f"{_decap_tie_instance(instance, terminal)} {node} {internal} {ohms:.6e}")
+        text = pattern.sub(
+            lambda m, new=new_nodes: f"{instance} {new[0]} {new[1]} {m.group(3)}",
+            text,
+            count=1,
+        )
+    if wanted:
+        raise RuntimeError(
+            f"arm `{arm.name}` carries tie resistance for capacitor instance(s) "
+            f"{sorted(wanted)}, which are not in this campaign's DECAP_DEVICES table"
+        )
+    return text, cards
+
+
+def decap_tie_comment_lines(arm: Arm, ties_record: str) -> list[str]:
+    """The header comment the measured tie resistors are emitted under."""
+    if not arm.decap_ties:
+        return []
+    return [
+        "* --- issue #465: MEASURED decoupling-tie interconnect resistance ---------",
+        f"* From {ties_record}/decap-ties.json (issue #440's probe): a lumped DC",
+        "* ladder over the DRAWN straps/vias, from the PDK's own sheet/via",
+        "* resistances. No interconnect INDUCTANCE is modelled (out of scope).",
+    ]
 
 
 def check_pdk_has_no_bare_gnd_node(pdk_info: pdk.PdkInfo) -> list[str]:
@@ -540,6 +1316,7 @@ def assemble_deck(
         raise RuntimeError(f"sky130_fd_sc_hd combined SPICE deck not found at {stdcell_spice}")
 
     dut_body, _hits = patch_dut_ground(dut_netlist_text)
+    dut_body, decap_tie_cards = patch_dut_decap_ties(dut_body, arm)
     fragment = patch_fragment_supplies(tb.FRAGMENT_PATH.read_text(), arm)
 
     lines = [
@@ -559,12 +1336,192 @@ def assemble_deck(
         "",
         dut_body,
         "",
+        *decap_tie_comment_lines(arm, DECAP_TIE_RECORD),
+        *decap_tie_cards,
+        *([""] if decap_tie_cards else []),
         *arm_network_lines(arm),
         fragment,
         *extra_measure_lines(arm),
         ".end",
     ]
     return "\n".join(lines) + "\n"
+
+
+# --------------------------------------------------------------------------
+# A cost probe: what the box would cost, before the box is paid for
+# --------------------------------------------------------------------------
+# The two things #409 keeps failing on are the same thing: nobody knows what a
+# deferred run costs until they have already spent it. The sweep's box is nine
+# grid points plus the control -- ten whole-ADC transients, each tens of
+# minutes -- and its expensive axis was assumed rather than measured: an
+# undecoupled bond inductance forces the transient solver's timestep down, so
+# "10x the inductance" reads like "10x the ringing", which reads like the row
+# nobody can afford.
+#
+# A cost probe is the cheap answer: the SAME assembled deck, over a truncated
+# transient. It measures nothing about the DUT -- the fragment's `.meas` cards
+# sit at conversion times outside the sliced span, so the run reports no codes
+# at all -- which is exactly why it is safe to run here and why it may never
+# mint a record. What it does establish, per grid point, is (a) wall clock for a
+# fixed simulated span, so the box's points can be priced relative to the one
+# point that has a committed full-run measurement, and (b) that the point's deck
+# assembles, parses and converges at all, which for every off-anchor point of
+# the box is otherwise unknown until the hours have been spent.
+RE_TRAN_CARD = re.compile(r"^\.tran\s+(\S+)\s+(\S+)[ \t]*$", re.MULTILINE)
+
+#: SPICE engineering suffixes for a time value, as seconds.
+_TIME_SUFFIX_S = {"": 1.0, "s": 1.0, "m": 1e-3, "u": 1e-6, "n": 1e-9, "p": 1e-12, "f": 1e-15}
+
+
+def _spice_time_ns(token: str) -> float | None:
+    """`token` as nanoseconds, or None when it is not a plain SPICE time value.
+
+    Deliberately conservative: an unrecognised form returns None and the caller
+    skips the comparison it wanted, rather than this function guessing a
+    magnitude and a probe silently being longer than the run it prices.
+    """
+    match = re.fullmatch(r"([0-9.]+(?:[eE][+-]?[0-9]+)?)\s*([a-zA-Z]*)", token.strip())
+    if not match:
+        return None
+    suffix = match.group(2).lower()
+    # ngspice accepts trailing unit noise ("6283n", "6283ns", "1ms"); the first
+    # letter carries the scale, the rest is the unit name.
+    scale = _TIME_SUFFIX_S.get(suffix) or _TIME_SUFFIX_S.get(suffix[:1] if suffix else "")
+    if scale is None:
+        return None
+    return float(match.group(1)) * scale * 1e9
+
+
+def truncate_tran(deck: str, slice_ns: float) -> str:
+    """The same deck with its transient stop time cut to `slice_ns`.
+
+    Only ever for `--cost-probe`. The timestep is left exactly as the committed
+    fragment set it, because the solver work per simulated nanosecond is what a
+    probe is measuring -- changing the requested step would change the thing
+    being priced.
+    """
+    if slice_ns <= 0.0:
+        raise RuntimeError("a cost probe's slice must be a positive number of nanoseconds")
+    cards = RE_TRAN_CARD.findall(deck)
+    if len(cards) != 1:
+        raise RuntimeError(
+            f"expected exactly one `.tran` card in the assembled deck, found {len(cards)} -- "
+            "refusing to guess which one bounds the run"
+        )
+    step, stop = cards[0]
+    stop_ns = _spice_time_ns(stop)
+    if stop_ns is not None and slice_ns >= stop_ns:
+        raise RuntimeError(
+            f"a {slice_ns:g} ns cost probe is not shorter than the {stop_ns:g} ns run it "
+            "exists to price -- run the campaign itself instead of probing it"
+        )
+    return RE_TRAN_CARD.sub(f".tran {step} {slice_ns:g}n", deck, count=1)
+
+
+def fragment_tran_stop_ns() -> float | None:
+    """The committed stimulus fragment's own transient stop time, in ns.
+
+    Read from the fragment rather than restated here, so a probe's bound stays
+    tied to the run it is pricing instead of to a constant that can drift from
+    it. None when the card cannot be parsed, in which case callers skip the
+    bound rather than inventing one.
+    """
+    cards = RE_TRAN_CARD.findall(tb.FRAGMENT_PATH.read_text())
+    if len(cards) != 1:
+        return None
+    return _spice_time_ns(cards[0][1])
+
+
+#: Log lines that mean the solver had trouble, not that a measurement failed.
+#: A probe reports these per point: for every off-anchor point of the box, this
+#: is the only evidence that the point is runnable at all before hours are
+#: committed to it. `.meas` failures are NOT here on purpose -- a truncated run
+#: is expected to miss every measurement, and treating that as trouble would
+#: make the probe's one signal useless.
+RE_SOLVER_TROUBLE = re.compile(
+    r"(?i)(fatal|aborted|singular matrix|no convergence|timestep too small|"
+    r"iteration limit reached)"
+)
+
+
+def solver_trouble_lines(log_text: str) -> list[str]:
+    return [line.strip() for line in log_text.splitlines() if RE_SOLVER_TROUBLE.search(line)]
+
+
+def run_cost_probe(
+    arms: list[Arm], slice_ns: float, scratch: Path, quiet: bool
+) -> list[dict]:
+    """Wall clock for a truncated run of each arm's own deck, at the baseline
+    corner, one simulation at a time. No measurement, no record."""
+    pdk_info = pdk.resolve()
+    dut_netlist_text = fc.dut_text()
+    process_corner, temp_c, supply_v = BASELINE_CORNER
+    rows: list[dict] = []
+    for arm in arms:
+        deck = truncate_tran(
+            assemble_deck(dut_netlist_text, pdk_info, arm, process_corner, temp_c, supply_v),
+            slice_ns,
+        )
+        t0 = time.time()
+        log_text = toolchain.run_ngspice_with_retry(
+            deck, scratch, f"cost_probe_{arm.name}", attempts=1
+        )
+        wall_s = time.time() - t0
+        trouble = solver_trouble_lines(log_text)
+        rows.append({"arm": arm.name, "wall_s": wall_s, "trouble": trouble})
+        if not quiet:
+            status = "converged" if not trouble else f"TROUBLE: {trouble[0]}"
+            print(f"  {arm.name}: {wall_s:.1f}s over {slice_ns:g} ns ({status})", flush=True)
+    return rows
+
+
+def cost_probe_lines(rows: list[dict], slice_ns: float, anchor_arm: str) -> list[str]:
+    """The probe's whole output: relative cost, and whether each point ran.
+
+    Ratios against the anchor point, not absolute seconds, are what the caller
+    can use: the anchor is the one point of the box that also has a committed
+    full-run wall clock, so `full(point) ~ full(anchor) * ratio(point)` projects
+    the box from a number this repo already recorded. Absolute seconds here are
+    a contended shared host's, and are printed only to show the ratio's basis.
+    """
+    anchor = next((r for r in rows if r["arm"] == anchor_arm), None)
+    out = [
+        f"Cost probe over a {slice_ns:g} ns slice -- NOT A MEASUREMENT of this DUT:",
+        "",
+        "| point | wall clock (s) | x the anchor point | solver |",
+        "|---|---|---|---|",
+    ]
+    for row in rows:
+        ratio = (
+            f"{row['wall_s'] / anchor['wall_s']:.2f}x"
+            if anchor and anchor["wall_s"] > 0
+            else "n/a"
+        )
+        solver = "converged" if not row["trouble"] else f"trouble: {row['trouble'][0]}"
+        out.append(f"| `{row['arm']}` | {row['wall_s']:.1f} | {ratio} | {solver} |")
+    if anchor is None:
+        out += [
+            "",
+            f"This box does not contain the anchor point `{anchor_arm}`, so its "
+            "numbers cannot be projected onto a committed full-run wall clock; they "
+            "are relative to nothing but each other.",
+        ]
+    else:
+        out += [
+            "",
+            f"The anchor point is `{anchor_arm}`. Multiply the ratio column by the "
+            "committed full-run wall clock of the arm it is card-for-card identical "
+            "to (`package`, in this campaign's arm-comparison record) to project what "
+            "the full box would cost on this host.",
+        ]
+    troubled = [row["arm"] for row in rows if row["trouble"]]
+    if troubled:
+        out += [
+            "",
+            "The solver had trouble at: " + ", ".join(f"`{name}`" for name in troubled)
+            + ". Those points are NOT known to be runnable over the full stimulus.",
+        ]
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -803,26 +1760,62 @@ def format_point(point: dict) -> str:
     )
 
 
+def full_ratified_grid() -> list[tuple[str, float, float]]:
+    """The nine ratified OAT points, in `ratified_oat_grid()`'s own order."""
+    return corners_mod.ratified_oat_grid(
+        NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
+    )
+
+
+def resolve_grid(corners_mode: bool, corner_points: list[str]) -> list[tuple[str, float, float]]:
+    """Which points of the ratified grid this invocation runs.
+
+    Three shapes, one of which is new (issue #409 item 1): the baseline corner
+    (default), the whole ratified grid (`--corners`), or a NAMED SUBSET of that
+    same grid (`--corner-points`). The subset exists because the grid is hours
+    of sequential whole-ADC transients and a dispatch host's session is not --
+    `.loom/docs/long-running-compute.md` allows local simulation but forbids a
+    process outliving the session that started it, so the sanctioned way to
+    reach nine points is to run the ones a session can afford and let
+    `--log-cache` carry the finished ones forward. A subset is never a new
+    corner: the ids are looked up IN the ratified grid, so this flag can narrow
+    the ratified set but can never invent a point outside it.
+    """
+    grid = full_ratified_grid()
+    if corner_points:
+        by_id = {corners_mod.corner_id(*point): point for point in grid}
+        unknown = [cid for cid in corner_points if cid not in by_id]
+        if unknown:
+            raise ValueError(
+                f"corner point(s) {unknown} are not in the ratified grid -- "
+                f"available: {sorted(by_id)}"
+            )
+        # Ratified-grid order, not the order the caller happened to type.
+        return [point for cid, point in by_id.items() if cid in set(corner_points)]
+    if corners_mode:
+        return grid
+    return [BASELINE_CORNER]
+
+
 def run_campaign(
-    arm_names: list[str],
-    corners_mode: bool,
+    arms: list[Arm],
+    grid: list[tuple[str, float, float]],
     quiet: bool,
     scratch: Path,
     log_cache: Path | None = None,
 ) -> tuple[list[dict], str]:
+    """Run each arm at each corner point, one simulation at a time.
+
+    Takes `Arm` objects rather than names because `--sweep` synthesizes its
+    grid points (`sweep_arm()`) instead of choosing from `ARMS`; both modes
+    otherwise run through exactly the same deck assembly, cache and
+    measurement path, so a sweep point is the same kind of evidence as an arm.
+    """
     pdk_info = pdk.resolve()
     dut_netlist_text = fc.dut_text()
 
-    if corners_mode:
-        grid = corners_mod.ratified_oat_grid(
-            NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
-        )
-    else:
-        grid = [BASELINE_CORNER]
-
     points: list[dict] = []
-    for arm_name in arm_names:
-        arm = ARMS_BY_NAME[arm_name]
+    for arm in arms:
         for process_corner, temp_c, supply_v in grid:
             point = run_point(
                 dut_netlist_text,
@@ -907,27 +1900,38 @@ def _bond_cell(arm: Arm, terminal: str) -> str:
     return f"R = {_ohms(bond.r_ohm)} + L = {bond.l_h * 1e9:.3f} nH"
 
 
-def arm_table_lines(arms_run: list[str]) -> list[str]:
+def arm_table_lines(arms: list[Arm], substrate_note: bool = True) -> list[str]:
+    """One row per arm, as networks.
+
+    Takes `Arm` objects rather than names so the sweep's synthesized grid
+    points (`sweep_arm()`), which are not in `ARMS`, render through the same
+    table as the named arms.
+    """
     out = [
         "| arm | " + " | ".join(f"`{t}`" for t in TERMINAL_ORDER) + " | what it isolates |",
         "|---" * (len(TERMINAL_ORDER) + 2) + "|",
     ]
-    for name in arms_run:
-        arm = ARMS_BY_NAME[name]
+    for arm in arms:
         cells = " | ".join(_bond_cell(arm, t) for t in TERMINAL_ORDER)
-        out.append(f"| `{name}` | {cells} | {arm.summary} |")
+        out.append(f"| `{arm.name}` | {cells} | {arm.summary} |")
     out.append("")
-    out.append(
-        f"Every arm also carries one lumped `R_SUBX = {R_SUBX_OHM:g} Ohm` between "
-        "the analog and digital ground DIE nodes, because DR-012's own extraction "
-        "evidence says those two are one net through the p-substrate. In "
-        f"`{CONTROL_ARM}` both of its ends are held at 0 V by ideal sources, so it "
-        "carries no current and the control stays a true zero-impedance reference."
-    )
+    if substrate_note:
+        out.append(
+            f"Every arm also carries one lumped `R_SUBX = {R_SUBX_OHM:g} Ohm` between "
+            "the analog and digital ground DIE nodes, because DR-012's own extraction "
+            "evidence says those two are one net through the p-substrate. In "
+            f"`{CONTROL_ARM}` both of its ends are held at 0 V by ideal sources, so it "
+            "carries no current and the control stays a true zero-impedance reference."
+        )
     return out
 
 
-def invocation_line(arm_names: list[str], corners_mode: bool, supersedes: str) -> str:
+def invocation_line(
+    arm_names: list[str],
+    corners_mode: bool,
+    supersedes: str,
+    corner_points: list[str] | None = None,
+) -> str:
     """The command that actually produced this record, not a canonical stand-in.
 
     `sim/check_spec_coverage.py` reads the `Written by` footer to check a record
@@ -935,11 +1939,33 @@ def invocation_line(arm_names: list[str], corners_mode: bool, supersedes: str) -
     non-rewritable half of the evidence trail -- so the footer states the real
     arm list and the real flags. A reader who runs exactly this line gets
     exactly this record's arm set back.
+
+    WHAT BELONGS HERE, AND WHAT DELIBERATELY DOES NOT. Flags that change what
+    was simulated (`--arms`, `--corners`) or which record this one replaces
+    (`--supersedes`) are part of this record's identity and are stated. A flag
+    that only changes how the run was *scheduled* is not: `--log-cache` is a
+    restart mechanism whose reuse is identity-gated on deck sha256, open_pdks
+    commit and ngspice version, so it cannot change a number, and its argument
+    is one machine's scratch directory rather than anything about the
+    experiment. Naming it here would break the footer twice over -- a
+    placeholder such as `<DIR>` is not runnable as written, and
+    `check_spec_coverage.py` requires every token after the runner path to
+    appear in the indexed bench's documented `cold_start`
+    (`cold-start-record-mismatch`), which a machine-local path can never
+    satisfy. Which runs did reuse a stored log IS provenance this record
+    carries: the wall-clock table marks those rows individually.
+
+    That gate binds the other direction too. A record minted with an `--arms`
+    list the indexed `cold_start` does not document needs its own bench entry in
+    `sim/spec-coverage.json` -- the shape `sar-sequencer-behavioral` already
+    uses for its `--corners` variant -- rather than a footer softened to fit.
     """
-    parts = ["sim/supply-impedance-sensitivity/run_supply_impedance.py"]
+    parts = [RUNNER_REL]
     if arm_names != [arm.name for arm in ARMS]:
         parts.append("--arms " + ",".join(arm_names))
-    if corners_mode:
+    if corner_points:
+        parts.append("--corner-points " + ",".join(corner_points))
+    elif corners_mode:
         parts.append("--corners")
     parts.append("--record")
     if supersedes:
@@ -947,13 +1973,23 @@ def invocation_line(arm_names: list[str], corners_mode: bool, supersedes: str) -
     return " ".join(parts)
 
 
-def write_record(
-    points: list[dict],
-    dut_netlist_text: str,
-    corners_mode: bool,
-    arm_names: list[str],
-    supersedes: str = "",
-) -> Path:
+def _open_corners_record(
+    points: list[dict], dut_netlist_text: str
+) -> tuple[evidence.ProvenanceInfo, list[str], list[str], list[str], list[float], list[float]]:
+    """Open a `corners` record, dump each point's raw log and deck, and derive
+    the corner/process/temperature/supply summaries every one of the four
+    writers below needs before its own arm/control derivation.
+
+    Deliberately stops there (issue #486). `write_record()` goes on to compute
+    `arms_run` (the ARM NAMES touched by any point) and `controls` (one
+    CONTROL PER CORNER, keyed by corner id) because it supports a multi-corner
+    `corners` run with its own control at each point; the other three writers
+    instead compute a single point-filter list (`grid_points`/`swept`/`rungs`)
+    and one `control` point, because each of them runs at a single corner.
+    That is a real difference in what each writer needs, not a copy-pasted
+    variable name, so each writer keeps computing its own version rather than
+    this helper trying to parameterize it away.
+    """
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR,
         dut_netlist_text,
@@ -963,12 +1999,26 @@ def write_record(
     deck_dir = EXPERIMENT_DIR / "corners" / prov.record_id
     for p in points:
         (deck_dir / f"{p['point_id'].replace('@', '__')}.cir").write_text(p["deck_text"])
-
-    arms_run = [name for name in (a.name for a in ARMS) if any(p["arm"] == name for p in points)]
     corner_ids = sorted({p["corner_id"] for p in points})
     processes = sorted({p["process_corner"] for p in points})
     temps = sorted({p["temp_c"] for p in points})
     supplies = sorted({p["supply_v"] for p in points})
+    return prov, lines, corner_ids, processes, temps, supplies
+
+
+def write_record(
+    points: list[dict],
+    dut_netlist_text: str,
+    corners_mode: bool,
+    arm_names: list[str],
+    supersedes: str = "",
+    corner_points: list[str] | None = None,
+) -> Path:
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
+    )
+
+    arms_run = [name for name in (a.name for a in ARMS) if any(p["arm"] == name for p in points)]
     controls = {p["corner_id"]: p for p in points if p["arm"] == CONTROL_ARM}
 
     a = lines.append
@@ -1031,7 +2081,7 @@ def write_record(
 
     a("## The arms, as networks")
     a("")
-    lines.extend(arm_table_lines(arms_run))
+    lines.extend(arm_table_lines([ARMS_BY_NAME[name] for name in arms_run]))
     a("")
     a(
         "Read the ladder, not any single row: `package` vs `package-r-only` "
@@ -1043,7 +2093,11 @@ def write_record(
         f"{R_SUB_OHM / PACKAGE_R_OHM:.0f}x larger. `no-gnd-pad` is DR-012's "
         "rejected null option, and per DR-015's own open item it is a function of "
         "`R_SUB` above all else, so it must always be read as \"at this assumed "
-        "magnitude\"."
+        "magnitude\"; against `package` it is itself a strict one-element "
+        "ablation -- same three bonded terminals, same substrate link, the only "
+        "difference is whether `GND` has a bond of its own -- so that pair, and "
+        "only that pair, prices the option DR-012 rejected against the option it "
+        "chose."
     )
     a("")
 
@@ -1202,73 +2256,30 @@ def write_record(
             "code offers was skipped."
         )
         a("")
-        if "no-gnd-pad" in omitted_arms:
-            a(
-                "- **`no-gnd-pad`** (DR-012's rejected null option) is omitted on "
-                "**cost**, not on merit. Its ground is a high-impedance, "
-                "lightly-damped node, which drives the transient solver's timestep "
-                "down hard: a bounded calibration slice of the same deck measured "
-                "it at roughly an order of magnitude more wall clock per simulated "
-                "nanosecond than the control arm, which projects to several hours "
-                "for one run of this stimulus. It is implemented, it is reachable "
-                "with `--arms`, and it remains the arm that would price DR-012's "
-                "rejected alternative directly -- so this record's findings are "
-                "about the *cost of the bonded return*, and say nothing about what "
-                "the null option would have cost."
-            )
-            a("")
+        for name in omitted_arms:
+            note = ARM_OMISSION_NOTES.get(name)
+            if note:
+                a(f"- **`{name}`** is {note}")
+        a("")
 
-    if not corners_mode:
-        a("## Subset-corner justification (`sim/README.md`)")
-        a("")
-        a(
-            "This record runs the arm comparison at "
-            f"{len(corner_ids)} point(s) of the ratified corner set "
-            f"({', '.join('`' + c + '`' for c in corner_ids)}), not all nine. "
-            "Three separate constraints bind, and none of them is a judgement "
-            "that the corners do not matter:"
+    # Keyed on what was actually COVERED, not on which flag asked for it: a
+    # `--corner-points` run is a subset of the ratified grid and owes the same
+    # justification a baseline-only run does (issue #409 item 1). Only a run
+    # that covered all nine points is exempt.
+    if len(corner_ids) < len(full_ratified_grid()):
+        lines.extend(
+            subset_corner_lines(
+                corner_ids,
+                "the arm comparison",
+                f"{len(arms_run)} arms",
+                len(arms_run),
+                (
+                    "a mechanism comparison over the corner points it names"
+                    if len(corner_ids) > 1
+                    else "a mechanism comparison at the baseline corner"
+                ),
+            )
         )
-        a("")
-        a(
-            "- **Host policy.** The machine this record was produced on is a "
-            "shared dispatch worker whose operating rules forbid running a "
-            "multi-corner ngspice grid locally; a grid there must be expressed as "
-            "a `klt sim` request and submitted to an EDA batch fleet. Sequential "
-            "single-corner runs are the shape those rules do allow, and that is "
-            "what the table above is."
-        )
-        a(
-            "- **The batch route cannot mint a record in THIS repo's format.** "
-            "`klt sim` owns its own request/response JSON contract and its own "
-            "corner expansion; every record under `sim/` is written by this repo's "
-            "`sim/harness/evidence.py` against a deck this repo assembles. Routing "
-            "the grid through `klt sim` would produce a different artefact, not "
-            "this one. Separately, the fleet's runner image installs ngspice from "
-            "the distribution archive, and this repo's own CI already records what "
-            "that means: `.github/workflows/ci.yml` states that the archive build "
-            "is **ngspice-42**, below `sim/toolchain.json`'s "
-            "`ngspice_min_major = 46` floor, which is why CI builds ngspice from "
-            "source instead. A record minted below that floor is refused by "
-            "`sim/check_spec_coverage.py`'s pin gate and would not be comparable "
-            "with anything already under `sim/`."
-        )
-        a(
-            "- **Cost.** The nine-point ratified grid across "
-            f"{len(arms_run)} arms is {9 * len(arms_run)} whole-ADC transients. "
-            "At the per-run cost measured above that is a campaign in its own "
-            "right, not a longer version of this one."
-        )
-        a("")
-        a(
-            "So the ratified-grid run is **deferred, not skipped**: the runner "
-            "already implements it (`--corners`, the nine-point "
-            "`ratified_oat_grid()` x the arms) and this experiment's README names "
-            "the exact command. What it needs is a host whose ngspice satisfies "
-            "the pin and whose policy allows a grid -- not more code. Until then, "
-            "no statement in this record is a corner-worst-case claim; it is a "
-            "mechanism comparison at the baseline corner."
-        )
-        a("")
 
     lines.extend(
         evidence.environment_block(
@@ -1290,12 +2301,126 @@ def write_record(
     )
     a("")
     lines.extend(
-        evidence.footer_lines(invocation_line(arm_names, corners_mode, supersedes), supersedes)
+        evidence.footer_lines(
+            invocation_line(arm_names, corners_mode, supersedes, corner_points), supersedes
+        )
     )
 
     path = evidence.close_record(prov, lines, "Record")
-    (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{prov.record_id}.md\n")
+    # The pointer names the record this campaign's CITED claim rests on -- the
+    # baseline-corner arm comparison DR-012 and
+    # `docs/chipalooza/challenge-4-proposal.md`'s Power row cite by id -- and
+    # moving it is what makes every citing document stale (the citation gate's
+    # checks 3 and 4). A corner-axis record does not supersede that claim: it
+    # asks the follow-up question "does the corner axis move it?", on a reduced
+    # arm set, and the arms it drops are where the bond-inductance ablation and
+    # the substrate arm live. So it mints and does not repoint, the same
+    # disposition -- and for the same reason -- as the `--sweep` and
+    # `--null-sweep` writers. Whether a FULL nine-point grid at the full arm
+    # set should take the pointer is a decision for that record and for the
+    # documents citing it, not something this writer makes silently.
+    if corner_ids == [corners_mod.corner_id(*BASELINE_CORNER)]:
+        evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
     return path
+
+
+def subset_corner_lines(
+    corner_ids: list[str],
+    what_ran: str,
+    decks_label: str,
+    n_decks: int,
+    what_it_is_instead: str,
+) -> list[str]:
+    """`sim/README.md`'s required justification for running a subset of the
+    ratified corner set, shared by every record this runner writes.
+
+    It is one argument, not one per record mode: the constraints below are
+    properties of the HOST and of the cost of one whole-ADC transient, so a
+    second record mode that also runs a corner subset must state the same ones
+    and must not get to paraphrase them into something weaker. Only the
+    sentence naming what ran, and the cost arithmetic, differ.
+
+    The constraint set was RE-DERIVED against a measuring host on 2026-09-25
+    (issue #409 item 1) rather than carried forward: the earlier wording said
+    this host's operating rules forbade a local multi-corner grid at all, and
+    that is not what binds. A dispatch host may run ngspice locally -- every
+    run in the table above did -- but no process of a session may outlive it
+    (`.loom/docs/long-running-compute.md`), so what binds is that the whole
+    grid must fit inside one session or be advanced in pieces across several.
+    The obsolete reason is not merely replaced, it is named, because a record
+    that quietly swapped its justification would be indistinguishable from one
+    that never checked.
+    """
+    baseline_id = corners_mod.corner_id(*BASELINE_CORNER)
+    partial_grid = corner_ids != [baseline_id]
+    out = [
+        "## Subset-corner justification (`sim/README.md`)",
+        "",
+        (
+            f"This record runs {what_ran} at {len(corner_ids)} point(s) of the "
+            f"ratified corner set ({', '.join('`' + c + '`' for c in corner_ids)}), "
+            "not all nine. Two constraints bind, and neither of them is a "
+            "judgement that the corners do not matter:"
+        ),
+        "",
+        (
+            f"- **Cost, against a session that must end.** The nine-point ratified "
+            f"grid across {decks_label} is {9 * n_decks} whole-ADC transients at "
+            "the per-run wall clock measured above -- hours, and the arithmetic is "
+            "in the table rather than in a projection. The host is a dispatch "
+            "worker on which an agent session may run ngspice locally (every run "
+            "above did) but on which **no process may outlive the session that "
+            "started it** (`.loom/docs/long-running-compute.md`); the sanctioned "
+            "answer there is to scope the run to the session and land the "
+            "increment, which is what this record is. `--corner-points` runs a "
+            "named subset of the same ratified grid and `--log-cache` carries "
+            "finished points across sessions, so the grid is completed by "
+            "accumulation -- each session adding the points it can afford -- "
+            "rather than needing one sitting long enough to hold all of it."
+        ),
+        (
+            "- **The batch route cannot mint a record in THIS repo's format.** "
+            "`klt sim` owns its own request/response JSON contract and its own "
+            "corner expansion; every record under `sim/` is written by this repo's "
+            "`sim/harness/evidence.py` against a deck this repo assembles. Routing "
+            "the grid through `klt sim` would produce a different artefact, not "
+            "this one. Separately, the fleet's runner image installs ngspice from "
+            "the distribution archive, and this repo's own CI already records what "
+            "that means: `.github/workflows/ci.yml` states that the archive build "
+            "is **ngspice-42**, below `sim/toolchain.json`'s "
+            "`ngspice_min_major = 46` floor, which is why CI builds ngspice from "
+            "source instead. A record minted below that floor is refused by "
+            "`sim/check_spec_coverage.py`'s pin gate and would not be comparable "
+            "with anything already under `sim/`."
+        ),
+        (
+            "- **What is NOT a constraint, and used to be stated as one.** The "
+            "host's ngspice satisfies `sim/toolchain.json`'s floor (the "
+            "environment block below names the exact build), and local "
+            "multi-corner simulation is not forbidden here -- the points above "
+            "were run locally, one at a time, in a single session. Records before "
+            "issue #409 item 1 stated a blanket host-policy ban; that reason was "
+            "re-checked on a measuring host and retired."
+        ),
+        "",
+        (
+            "So the ratified-grid run is **partially done and still open**, not "
+            "skipped: the runner implements the whole of it (`--corners`, the "
+            "nine-point `ratified_oat_grid()` x the decks), this experiment's "
+            "README names the exact command, and "
+            + (
+                f"{len(corner_ids)} of the nine points are now measured here. "
+                "The remaining points are owed and are tracked in issue #409."
+                if partial_grid
+                else "what is owed is the eight non-baseline points, tracked in "
+                "issue #409."
+            )
+            + " Until they are in a record, no statement here is a "
+            f"corner-worst-case claim; it is {what_it_is_instead}."
+        ),
+        "",
+    ]
+    return out
 
 
 def findings_lines(
@@ -1330,6 +2455,7 @@ def findings_lines(
             + "."
         )
     out.extend(ablation_lines(points, arms_run, corner_ids))
+    out.extend(gnd_pad_ablation_lines(points, arms_run, corner_ids))
     missing_points = [p["point_id"] for p in points if p["missing"]]
     if missing_points:
         out.append(
@@ -1346,12 +2472,18 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
 
     `package` and `package-r-only` carry the same per-terminal resistance on the
     same four terminals; the only difference is the series `L`. So the change
-    between them is bond inductance's own contribution, and it is the one number
-    in this record that isolates a single mechanism rather than comparing two
-    whole grounding schemes. Deliberately NOT computed against `substrate`: that
-    arm's resistance is ~300x the package resistance, so it differs from
-    `package` in two elements at once and a difference against it would confound
-    them.
+    between them is bond inductance's own contribution -- a number that isolates
+    a single mechanism rather than comparing two whole grounding schemes.
+    Deliberately NOT computed against `substrate`: that arm's resistance is ~300x
+    the package resistance, so it differs from `package` in two elements at once
+    and a difference against it would confound them.
+
+    Whether it is the record's *only* such number depends on which arms ran, so
+    the emitted sentence is conditional rather than an unconditional uniqueness
+    claim: a record that also carries `no-gnd-pad` alongside `package` gets a
+    second one-element ablation from `gnd_pad_ablation_lines()` below, and
+    records are append-only evidence -- a false "the only" written into one can
+    be corrected only by minting a superseding record.
     """
     if not {"package", "package-r-only"} <= set(arms_run):
         return [
@@ -1359,6 +2491,16 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
             "both the `package` and `package-r-only` arms, and this run did not "
             "include both."
         ]
+    # `package` is guaranteed present by the guard above, so the ground-pad
+    # ablation is reported for this record exactly when `no-gnd-pad` also ran
+    # (the same condition `gnd_pad_ablation_lines()` keys its own output on).
+    standing = (
+        "This and the ground-pad ablation below (`no-gnd-pad` vs `package`, "
+        "which isolates the other single element in this family of decks) are "
+        "the two single-mechanism numbers in this record."
+        if "no-gnd-pad" in arms_run
+        else "This is the only single-mechanism number in this record."
+    )
     out: list[str] = []
     for cid in corner_ids:
         full = next((q for q in points if q["corner_id"] == cid and q["arm"] == "package"), None)
@@ -1380,15 +2522,2597 @@ def ablation_lines(points: list[dict], arms_run: list[str], corner_ids: list[str
             "`package-r-only`, identical except for the series `L`): worst "
             "mid-scale code change = "
             + ("n/a" if delta is None else f"**{delta} LSB**")
-            + f"; analog-ground excursion {pp_txt}. This is the only "
-            "single-mechanism number in this record."
+            + f"; analog-ground excursion {pp_txt}. {standing}"
+        )
+    return out
+
+
+def gnd_pad_ablation_lines(
+    points: list[dict], arms_run: list[str], corner_ids: list[str]
+) -> list[str]:
+    """The ground-PAD ablation: `no-gnd-pad` against `package`.
+
+    This is the pair DR-012 actually decided between. The two arms carry the
+    same package R+L on `VDD`, `VPWR` and `VGND`, the same lumped `R_SUBX`
+    between the two ground die nodes, and the same stimulus; the ONLY
+    difference is whether `GND` has a bond of its own. So the difference
+    between them is the drawn analog ground pad's own contribution and nothing
+    else -- the price of the option DR-012 rejected, at this corner and at
+    DR-015's assumed magnitudes.
+
+    Deliberately NOT computed against `ideal` or `substrate`: `ideal` differs
+    from `no-gnd-pad` in four elements at once, and `substrate` differs in the
+    bond inductance as well as the ground path, so neither difference would
+    isolate the pad. Read together with the bond-inductance ablation above,
+    which isolates the other single element in the same family of decks.
+
+    `no-gnd-pad` is a function of `R_SUB`/`R_SUBX` above all else (DR-015's own
+    open item), so every line this produces is stated as "at this assumed
+    magnitude" rather than as a prediction for this die.
+    """
+    if "no-gnd-pad" not in arms_run:
+        return []
+    if "package" not in arms_run:
+        return [
+            "- **Ground-pad ablation not available in this record**: it needs both "
+            "the `package` and `no-gnd-pad` arms (they differ in exactly one "
+            "element -- whether `GND` is bonded), and this run did not include "
+            "both. The `no-gnd-pad` rows above are therefore a grounding scheme's "
+            "own numbers, not a priced difference against the as-built shape."
+        ]
+    out: list[str] = []
+    for cid in corner_ids:
+        null_opt = next(
+            (q for q in points if q["corner_id"] == cid and q["arm"] == "no-gnd-pad"), None
+        )
+        as_built = next(
+            (q for q in points if q["corner_id"] == cid and q["arm"] == "package"), None
+        )
+        if null_opt is None or as_built is None:
+            continue
+        delta = worst_mid_scale_delta(null_opt, as_built)
+        pp_null = null_opt["extras"].get("gnd_die_pp")
+        pp_built = as_built["extras"].get("gnd_die_pp")
+        if pp_null is None or pp_built is None:
+            pp_txt = "n/a"
+        else:
+            pp_txt = f"{pp_null * 1e3:.3f} mV vs {pp_built * 1e3:.3f} mV"
+            if pp_built > 0.0:
+                pp_txt += f" ({pp_null / pp_built:.1f}x)"
+        out.append(
+            f"- **Ground-pad ablation at `{cid}`** (`no-gnd-pad` vs `package`, "
+            "identical except that `GND` has no bond of its own): worst mid-scale "
+            "code change = "
+            + ("n/a" if delta is None else f"**{delta} LSB**")
+            + f"; die-side analog-ground excursion {pp_txt}. This is the price of "
+            "the option DR-012 rejected, measured against the option it chose, at "
+            f"`R_SUB` = {R_SUB_OHM:g} Ohm / `R_SUBX` = {R_SUBX_OHM:g} Ohm -- a "
+            "LUMPED stand-in (DR-015), so it is a number about a resistive return "
+            "of that order and not about this die's substrate."
         )
     return out
 
 
 # --------------------------------------------------------------------------
+# The sweep's own record
+# --------------------------------------------------------------------------
+def sweep_invocation_line(
+    l_mults: tuple[float, ...], rsubx_values: tuple[float, ...], supersedes: str
+) -> str:
+    """The `--sweep` counterpart of `invocation_line()`, under the same rules:
+    a flag that changes what was simulated is stated, one that only changes
+    how the run was scheduled (`--log-cache`) is not. The axis flags appear
+    only when the run departed from the documented box, so the default sweep's
+    footer is exactly the command `sim/spec-coverage.json` indexes."""
+    parts = [RUNNER_REL, "--sweep"]
+    if tuple(l_mults) != SWEEP_L_MULTIPLIERS:
+        parts.append("--sweep-l-mult " + ",".join(f"{m:g}" for m in l_mults))
+    if tuple(rsubx_values) != SWEEP_RSUBX_OHM:
+        parts.append("--sweep-rsubx " + ",".join(f"{r:g}" for r in rsubx_values))
+    parts.append("--record")
+    if supersedes:
+        parts.append(f"--supersedes {supersedes}")
+    return " ".join(parts)
+
+
+def _sweep_point(points: list[dict], l_mult: float, rsubx_ohm: float) -> dict | None:
+    name = sweep_arm_name(l_mult, rsubx_ohm)
+    return next((p for p in points if p["arm"] == name), None)
+
+
+def sweep_matrix_lines(
+    points: list[dict],
+    l_mults: tuple[float, ...],
+    rsubx_values: tuple[float, ...],
+    cell: Callable[[dict], str],
+) -> list[str]:
+    """The grid as a matrix: one row per bond-inductance multiplier, one
+    column per substrate-link resistance. Rendered this way, not as a flat
+    list, because the whole point of a 2-D sweep is that a reader can read one
+    axis at a time -- a row is a one-element `L` family and a column is a
+    one-element `R_SUBX` family (DR-015 item 5)."""
+    out = [
+        "| bond `L` (x DR-015) | " + " | ".join(f"`R_SUBX` = {r:g} Ohm" for r in rsubx_values) + " |",
+        "|---" * (len(rsubx_values) + 1) + "|",
+    ]
+    for m in l_mults:
+        cells = []
+        for r in rsubx_values:
+            p = _sweep_point(points, m, r)
+            cells.append("(not run)" if p is None else cell(p))
+        out.append(
+            f"| **{m:g}x** ({PACKAGE_L_H * m * 1e9:.3f} nH) | " + " | ".join(cells) + " |"
+        )
+    return out
+
+
+def sweep_findings_lines(
+    points: list[dict],
+    control: dict | None,
+    l_mults: tuple[float, ...],
+    rsubx_values: tuple[float, ...],
+) -> list[str]:
+    """What the swept box says, as differences rather than as a table reading.
+
+    Every bullet is a statement about a MAGNITUDE, because that is the gap
+    DR-015 opened: its single assumption point can say "not fatal here", and
+    only a sweep can say "and it stays that way out to N x that assumption,
+    at this corner".
+    """
+    out: list[str] = []
+
+    out.append(
+        "- **The grid is anchored to the committed arm comparison.** Its "
+        f"`{sweep_arm_name(1.0, R_SUBX_OHM)}` point is, card for card, the "
+        f"`{SWEEP_BASE_ARM}` arm this campaign already recorded at this corner: "
+        f"same per-terminal R+L, same lumped `R_SUBX = {R_SUBX_OHM:g} Ohm`, same "
+        "stimulus. "
+        + (
+            "Checked at record-write time (`sweep_anchor_matches_base_arm()`), so "
+            "the sweep is tied to the existing record rather than merely described "
+            "as being."
+            if sweep_anchor_matches_base_arm()
+            else "**This check FAILED at record-write time** -- the anchor point is "
+            "no longer the as-built arm, so nothing below may be read as a walk "
+            "away from DR-015's assumption point."
+        )
+    )
+
+    # The L axis, read one substrate value at a time (a one-element family).
+    for r in rsubx_values:
+        cells = []
+        for m in l_mults:
+            p = _sweep_point(points, m, r)
+            pp = None if p is None else p["extras"].get("gnd_die_pp")
+            cells.append("n/a" if pp is None else f"{pp * 1e3:.3f} mV")
+        out.append(
+            f"- **Bond inductance at `R_SUBX = {r:g} Ohm`**: die-side analog-ground "
+            "excursion "
+            + " -> ".join(cells)
+            + " as `L` goes "
+            + " -> ".join(f"{m:g}x" for m in l_mults)
+            + ". Only `L` moves along this row, so the change is the bond "
+            "inductance's own contribution (DR-015 item 5)."
+        )
+
+    # The substrate axis, read one inductance at a time.
+    for m in l_mults:
+        cells = []
+        for r in rsubx_values:
+            p = _sweep_point(points, m, r)
+            pp = None if p is None else p["extras"].get("gnd_die_pp")
+            cells.append("n/a" if pp is None else f"{pp * 1e3:.3f} mV")
+        out.append(
+            f"- **Substrate link at `L = {m:g}x`**: die-side analog-ground excursion "
+            + " -> ".join(cells)
+            + " as `R_SUBX` goes "
+            + " -> ".join(f"{r:g} Ohm" for r in rsubx_values)
+            + ". Only `R_SUBX` moves along this column -- this is how hard the "
+            "p-substrate ties the analog and digital ground die nodes together, "
+            "not a substrate RETURN resistance (see the scope section below)."
+        )
+
+    # Where, if anywhere, in this box a captured code moves.
+    if control is not None:
+        moved = []
+        for m in l_mults:
+            for r in rsubx_values:
+                p = _sweep_point(points, m, r)
+                if p is None:
+                    continue
+                delta = worst_mid_scale_delta(p, control)
+                if delta:
+                    moved.append((m, r, delta))
+        if moved:
+            first = min(moved, key=lambda t: (t[0], t[1]))
+            out.append(
+                "- **A mid-scale captured code moves inside this box.** The "
+                f"smallest point at which it does is `L = {first[0]:g}x`, "
+                f"`R_SUBX = {first[1]:g} Ohm` (worst mid-scale |delta code| = "
+                f"**{first[2]} LSB** vs the `{CONTROL_ARM}` control); "
+                f"{len(moved)} of {len(l_mults) * len(rsubx_values)} grid points "
+                "move at least one mid-scale code. So the mechanism has a "
+                "threshold within the swept magnitudes, and DR-015's assumption "
+                "point is on one side of it at this corner."
+            )
+        else:
+            out.append(
+                "- **No mid-scale captured code moves anywhere in this box.** Every "
+                f"grid point reproduces the `{CONTROL_ARM}` control's mid-scale "
+                "codes exactly (worst |delta code| = **0 LSB**), out to "
+                f"`L = {max(l_mults):g}x` DR-015's bond inductance and "
+                f"`R_SUBX` from {min(rsubx_values):g} to {max(rsubx_values):g} Ohm. "
+                "That is a **bounded null result**: the threshold this sweep went "
+                "looking for is outside the box, not located inside it, and a "
+                "wider box (or another corner) could still find one."
+            )
+
+    # The worst excursion anywhere in the box, in mV and in LSB.
+    worst = None
+    for m in l_mults:
+        for r in rsubx_values:
+            p = _sweep_point(points, m, r)
+            pp = None if p is None else p["extras"].get("gnd_die_pp")
+            if pp is not None and (worst is None or pp > worst[2]):
+                worst = (m, r, pp)
+    if worst is not None:
+        lsb_v = 2.0 * NOMINAL_SUPPLY_V / 2**tb.N_BITS
+        out.append(
+            "- **Worst die-side analog-ground excursion in the box**: "
+            f"**{worst[2] * 1e3:.3f} mV** peak-to-peak ({worst[2] / lsb_v:.3f} LSB at "
+            f"the nominal supply) at `L = {worst[0]:g}x`, "
+            f"`R_SUBX = {worst[1]:g} Ohm`. Whatever on-die decoupling the committed "
+            "`design/sar_adc_top.spice` carries is in the deck (DR-017 added one "
+            "`cap_mim_m3_1` per supply domain; DR-015 item 6's `no decoupling is "
+            "modelled` premise held only before that). **No BOARD decoupling is "
+            "modelled**, so the figure is still an upper bound rather than a "
+            "prediction."
+        )
+
+    missing_points = [p["point_id"] for p in points if p["missing"]]
+    if missing_points:
+        out.append(
+            "- **Incomplete runs** (some `.meas` value did not come back): "
+            + ", ".join(f"`{pid}`" for pid in missing_points)
+            + " -- reported rather than dropped."
+        )
+    return out
+
+
+def _captured_code_table_lines(
+    points: list[dict], control: dict | None, row_label: str
+) -> list[str]:
+    """The "Captured code per point/rung" table, shared verbatim (modulo the
+    row label) across `write_sweep_record`, `write_null_sweep_record`, and
+    `write_decap_esr_record` -- `write_record()` has no equivalent block, it
+    reports captured codes per corner-id x arm instead."""
+    out = [
+        f"| {row_label} | "
+        + " | ".join(f"`{f:+.2f}*V_REF` (ideal {tb.ideal_code(f)})" for f in tb.INPUT_FRACTIONS)
+        + " | worst \\|delta code\\| vs `ideal` (mid-scale) |",
+        "|---" * (len(tb.INPUT_FRACTIONS) + 2) + "|",
+    ]
+    for p in points:
+        deltas = code_delta(p, control) if control else {}
+        cells = []
+        for cv in p["conversions"]:
+            code = "MISSING" if cv["code"] is None else str(cv["code"])
+            delta = deltas.get(cv["conversion"])
+            suffix = "" if delta is None or p["arm"] == CONTROL_ARM else f" ({delta:+d})"
+            cells.append(f"{code}{suffix}")
+        worst = (
+            "-- (control)"
+            if p["arm"] == CONTROL_ARM
+            else worst_mid_scale_delta(p, control) if control else "n/a"
+        )
+        out.append(f"| `{p['arm']}` | " + " | ".join(cells) + f" | {worst} |")
+    return out
+
+
+def _rail_current_table_lines(
+    points: list[dict], row_label: str, extra_note: str | None = None
+) -> list[str]:
+    """The "Rail excursion and average current per point" table, shared
+    verbatim across the two writers that have it -- `write_sweep_record` and
+    `write_null_sweep_record`. `write_record()` and `write_decap_esr_record()`
+    each report rail excursion and average current as separate tables and have
+    no equivalent single block. `extra_note`, if given, is appended as its own
+    paragraph after the table -- `write_null_sweep_record()`'s one-sentence
+    addition that `I(GND)` is `n/a (no bond)` on every swept row by
+    construction."""
+    out = [
+        f"| {row_label} | "
+        + " | ".join(f"{name} pp (mV)" for name, _n, _l in RAIL_PROBES)
+        + " | I(VDD) (uA) | I(VPWR) (uA) | I(GND) (uA) | total power (uW) |",
+        "|---" * (len(RAIL_PROBES) + 5) + "|",
+    ]
+    for p in points:
+        cells = [_mv(p["extras"].get(f"{probe}_pp")) for probe, _n, _l in RAIL_PROBES]
+        i_gnda = p["extras"].get("i_gnda")
+        out.append(
+            f"| `{p['arm']}` | "
+            + " | ".join(cells)
+            + f" | {_ua(p['currents'].get('i_vdd'))} | {_ua(p['currents'].get('i_vpwr'))} | "
+            + f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
+            + f"{p['power_w'] * 1e6:.3f} |"
+        )
+    out.append("")
+    if extra_note:
+        out.append(extra_note)
+        out.append("")
+    return out
+
+
+def _wall_clock_table_lines(
+    points: list[dict], control: dict | None, row_label: str
+) -> list[str]:
+    """The "Wall-clock cost per run" table and its cache-reuse note, shared
+    across `write_sweep_record`, `write_null_sweep_record`, and
+    `write_decap_esr_record` -- `write_record()` has no equivalent block, its
+    own wall-clock table is keyed by corner-id x arm instead. Each writer
+    appends its own trailing sentence about why the cost is reported after
+    calling this; that sentence is writer-specific and is not part of this
+    helper.
+
+    The cache-reuse note is the FULL four-sentence version -- the two sweep
+    writers' own copies before this helper existed, not
+    `write_decap_esr_record()`'s shorter one, which had silently dropped the
+    "a mismatch on any identity field re-simulates" and "a host that cannot
+    verify ..." sentences (issue #486). Reconciled to the fuller text so all
+    three writers state the same cache-reuse guarantee.
+    """
+    out = [
+        f"| {row_label} | wall clock (s) | x the `ideal` control |",
+        "|---|---|---|",
+    ]
+    base = None if control is None else control.get("wall_s")
+    for p in points:
+        ratio = "--" if not base else f"{p['wall_s'] / base:.2f}x"
+        note = " (log reused from cache)" if p.get("reused") else ""
+        out.append(f"| `{p['arm']}` | {p['wall_s']:.0f}{note} | {ratio} |")
+    out.append("")
+    if any(p.get("reused") for p in points):
+        out.append(
+            "Rows marked **log reused from cache** were not re-simulated for this "
+            "record: `--log-cache` found a stored ngspice log whose deck sha256, "
+            "volare-verified open_pdks commit and ngspice version all matched the "
+            "run about to be made, and reused it rather than repeating a "
+            "tens-of-minutes transient after an interruption. The reported wall "
+            "clock is the one measured when that run actually executed. A mismatch "
+            "on any identity field re-simulates, and a host that cannot verify its "
+            "own open_pdks commit or ngspice version never reuses at all."
+        )
+        out.append("")
+    return out
+
+
+def write_sweep_record(
+    points: list[dict],
+    dut_netlist_text: str,
+    l_mults: tuple[float, ...],
+    rsubx_values: tuple[float, ...],
+    supersedes: str = "",
+) -> Path:
+    """The `--sweep` record.
+
+    A separate writer from `write_record()` on purpose: the two records make
+    different claims and must not be able to borrow each other's sentences.
+    `write_record()` compares NETWORKS at DR-015's assumption point; this one
+    walks a bounded box AROUND that point on the as-built network, so its
+    tables are matrices over the two swept axes and its findings are about
+    magnitudes. What they do share -- the DR-015 assumption table, the
+    subset-corner justification, the environment block, the footer rules --
+    they share by calling the same helpers, so neither can drift into a softer
+    version of the other's caveats.
+    """
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
+    )
+
+    grid_points = [p for p in points if p["arm"] != CONTROL_ARM]
+    control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
+
+    a = lines.append
+    a(
+        "- **Claim**: `spec/target-spec.md#target-table` -- **Power** (DRAFT row), "
+        "INFORMATIONAL only, and the evidence "
+        "`spec/decision-records/DR-015-package-parasitic-assumption.md`'s open item "
+        "(\"No `R`/`L` sweep ... a bounded 2-D sweep (bond inductance x substrate "
+        "resistance) at one corner is the natural follow-up\", issue #409) asks "
+        "for. It edits no spec row, proposes no power target, and grades nothing "
+        "against a ratified line. What it measures is how far the campaign's "
+        "existing answer MOVES as DR-015's two assumed magnitudes are walked "
+        "away from, on the as-built supply-return network."
+    )
+    a(
+        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with two "
+        "TESTBENCH-ONLY transformations that are never written back to `design/`: "
+        "the DUT's `GND` net is renamed `GND_DIE` (a net named `GND` is ngspice's "
+        "global node 0 and would short out every series element this campaign "
+        "inserts), and the committed fragment's `VVDD`/`VVPWR`/`VVGND` source "
+        "cards are re-pointed to board-side nodes. Source instance names, the "
+        "`.tran` card, the clock/reset/input schedule and every code and phase "
+        "`.meas` card are used verbatim."
+    )
+    a(corners_mod.corner_matrix_summary_line(processes, temps, supplies, len(corner_ids)))
+    a(
+        f"- **Grid**: {len(l_mults)} bond-inductance multipliers x "
+        f"{len(rsubx_values)} substrate-link resistances = {len(grid_points)} swept "
+        f"points, plus the `{CONTROL_ARM}` control, at {len(corner_ids)} corner "
+        f"point(s) = {len(points)} whole-ADC transients. Every swept point is the "
+        f"as-built `{SWEEP_BASE_ARM}` topology (all four supply terminals bonded, "
+        "DR-012's chosen shape) with exactly those two elements moved."
+    )
+    a(
+        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
+        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
+        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
+        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
+        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
+        "the remaining five carrying DC differential inputs of "
+        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
+        + "."
+    )
+    a("")
+
+    a("## Why this record exists")
+    a("")
+    a(
+        "[DR-015](../../../spec/decision-records/DR-015-package-parasitic-assumption.md) "
+        "fixes ONE point in the space of package-style parasitics, and says in its "
+        "own \"Alternatives considered\" that sweeping instead of fixing \"is the "
+        "better experiment\" -- deferred only on cost. A single point can show "
+        "whether the mechanism matters *at that magnitude*; it cannot find the "
+        "magnitude at which it starts to. This record is that bounded sweep, at "
+        "the baseline corner, on the as-built network, and it is the third item of "
+        "[issue #409](https://github.com/2AMLogic/sky130-sar-adc/issues/409). It "
+        "does not supersede the campaign's arm-comparison record: that record "
+        "compares five NETWORKS at DR-015's assumption point, this one walks a box "
+        "around that point on one of them, and both statements stand."
+    )
+    a("")
+
+    a("## The package-style assumption (DR-015), and which of it is swept")
+    a("")
+    lines.extend(_assumption_lines())
+    a("")
+    a(
+        "The sweep moves the **bond inductance** row (as a multiple of the stated "
+        f"total, {PACKAGE_L_H * 1e9:.3f} nH per terminal) and the **substrate link "
+        "`R_SUBX`** row. The bond RESISTANCE is held at DR-015's value throughout, "
+        "so a row of the grid changes one element and a column changes one other "
+        "-- which is what lets either be attributed to its own mechanism "
+        "(DR-015 item 5) rather than reported as a comparison of two schemes."
+    )
+    a("")
+    a(
+        "**What the substrate axis is, and is not.** `R_SUBX` is the lumped "
+        "stand-in for the p-substrate path that makes `GND` and `VGND` one "
+        "extracted net (DR-012's own extraction evidence). Sweeping it asks how "
+        "hard the substrate ties the two ground domains together, which is what "
+        "decides how much of the digital ground's switching current comes back "
+        "through the analog bond. It is **not** `R_SUB`, the substrate-only "
+        "RETURN resistance -- that element appears only in the `substrate` and "
+        "`no-gnd-pad` arms, not in the as-built network swept here, and the arm "
+        "where it is load-bearing is the expensive one this campaign has not yet "
+        "run. There is still no extracted substrate network in this repo; both are "
+        "single lumped resistors standing in for a distributed, layout-dependent "
+        "thing, so every number below is evidence about *a* return of that order, "
+        "not about *this* die's substrate."
+    )
+    a("")
+
+    a("## The swept points, as networks")
+    a("")
+    lines.extend(
+        arm_table_lines(
+            [ARMS_BY_NAME[CONTROL_ARM]] + [sweep_arm(m, r) for m in l_mults for r in rsubx_values],
+            substrate_note=False,
+        )
+    )
+    a(
+        f"The `{CONTROL_ARM}` row is the control every delta below is taken "
+        "against: ideal sources at the die, the zero-impedance case every other "
+        "`sim/` campaign runs. Each swept row also carries its own lumped "
+        "`R_SUBX` between the analog and digital ground DIE nodes, which is the "
+        "second axis; in `ideal` both ends of that link are held at 0 V, so it "
+        "carries no current and the control stays a true zero-impedance reference."
+    )
+    a("")
+
+    a("## Die-side analog-ground excursion over the swept box")
+    a("")
+    lines.extend(
+        sweep_matrix_lines(
+            points,
+            l_mults,
+            rsubx_values,
+            lambda p: f"{_mv(p['extras'].get('gnd_die_pp'))} mV",
+        )
+    )
+    a("")
+    a(
+        "Peak-to-peak `GND_DIE` excursion over the same steady-state conversion "
+        "the fragment averages its supply currents over. The "
+        f"`{CONTROL_ARM}` control's own value is "
+        f"{'n/a' if control is None else _mv(control['extras'].get('gnd_die_pp'))} mV "
+        "-- mechanically zero, because an ideal source holds the die node at 0 V; a "
+        "nonzero value there would mean the networks are not wired as stated."
+    )
+    a("")
+
+    a("## Worst mid-scale |delta code| vs the control, over the swept box")
+    a("")
+    lines.extend(
+        sweep_matrix_lines(
+            points,
+            l_mults,
+            rsubx_values,
+            lambda p: (
+                "n/a"
+                if control is None or worst_mid_scale_delta(p, control) is None
+                else f"{worst_mid_scale_delta(p, control)} LSB"
+            ),
+        )
+    )
+    a("")
+    a(
+        "The two `+-0.78*V_REF` inputs are EXCLUDED from this matrix (they are "
+        "reported per point in the table below): "
+        "`sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md` already "
+        "records them as wrong by ~100 LSB at every corner (issue #267, "
+        "common-mode saturation at large differential input, still open), so a "
+        "change there could not be attributed to supply impedance."
+    )
+    a("")
+
+    a("## Captured code per point")
+    a("")
+    lines.extend(_captured_code_table_lines(points, control, "point"))
+    a("")
+
+    a("## Rail excursion and average current per point")
+    a("")
+    lines.extend(_rail_current_table_lines(points, "point"))
+
+    a("## Findings")
+    a("")
+    for line in sweep_findings_lines(points, control, l_mults, rsubx_values):
+        a(line)
+    a("")
+
+    a("## Wall-clock cost per run")
+    a("")
+    lines.extend(_wall_clock_table_lines(points, control, "point"))
+    a(
+        "Reported for the same two reasons the arm-comparison record reports it: it "
+        "is the input to the subset-corner justification below, and the cost itself "
+        "tracks the physics -- an undecoupled series inductance against the die's "
+        "own capacitance rings above the clock rate and forces the transient "
+        "solver's timestep down. These are wall-clock seconds on a shared, "
+        "contended host, so they are ratios between points rather than a benchmark."
+    )
+    a("")
+
+    a("## What this sweep does not cover")
+    a("")
+    a(
+        "Stated for the same reason `sim/README.md` requires a corner subset to be "
+        "justified: a reader must not have to infer which questions this box leaves "
+        "open."
+    )
+    a("")
+    a(
+        "- **The substrate-only RETURN is not swept here.** On the as-built "
+        f"`{SWEEP_BASE_ARM}` topology this grid moves around, `GND` has a bond of "
+        "its own, so the swept resistor is a shunt between two ground die nodes "
+        "rather than the analog ground's path to the board. The topology where the "
+        "same element IS that path is `no-gnd-pad` (DR-012's rejected null "
+        "option); sweeping it there is a separate ladder with a separate reading, "
+        f"which this runner provides as `--null-sweep`."
+    )
+    a(
+        "- **No extracted substrate network.** `R_SUBX` remains a single lumped "
+        "resistor standing in for a distributed, layout-dependent network, with no "
+        "`klt extract` behind it (issue #409's fourth item). Sweeping a stand-in "
+        "over two decades bounds the *sensitivity* to it; it does not turn it into "
+        "a measurement of this die."
+    )
+    a(
+        "- **No BOARD decoupling** is modelled anywhere in this campaign. On-die "
+        "decoupling is whatever the committed `design/sar_adc_top.spice` carries: "
+        "since DR-017 (issue #431) that is one `cap_mim_m3_1` per supply domain, "
+        "and DR-015 item 6's `no decoupling is modelled` premise no longer holds. "
+        "Read a record's own DUT netlist sha256 to know which case it is."
+    )
+    a(
+        "- **The two near-full-scale inputs** are outside every code comparison "
+        "above, for the reason stated under the delta matrix (issue #267)."
+    )
+    a(
+        "- **The box is bounded, and a null inside it is not a null outside it.** "
+        f"`L` is swept to {max(l_mults):g}x DR-015's value and `R_SUBX` over "
+        f"{min(rsubx_values):g}-{max(rsubx_values):g} Ohm at one corner. Nothing "
+        "here states what happens beyond those edges."
+    )
+    a("")
+
+    lines.extend(
+        subset_corner_lines(
+            corner_ids,
+            "the sweep",
+            f"the {len(points)} decks of this record",
+            len(points),
+            "a bounded sensitivity map at the baseline corner",
+        )
+    )
+
+    lines.extend(
+        evidence.environment_block(
+            pdk_line=prov.pdk_line,
+            ngspice_line=prov.ng_version,
+            netlist_sha256=prov.netlist_sha,
+            extra={
+                "tran step": f"{tb.TRAN_STEP_NS} ns",
+                "simulated span": f"{tb.t_stop_ns():.1f} ns per run",
+                "runs": (
+                    f"{len(points)} ({len(grid_points)} swept points + the "
+                    f"`{CONTROL_ARM}` control x {len(corner_ids)} corner point)"
+                ),
+                "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "swept box": (
+                    "bond L in {"
+                    + ", ".join(f"{m:g}x" for m in l_mults)
+                    + "} of DR-015's "
+                    + f"{PACKAGE_L_H * 1e9:.3f} nH; R_SUBX in "
+                    + "{"
+                    + ", ".join(f"{r:g}" for r in rsubx_values)
+                    + "} Ohm; bond R fixed at "
+                    + f"{PACKAGE_R_OHM * 1e3:.1f} mOhm (DR-015)"
+                ),
+            },
+        )
+    )
+    a("")
+    lines.extend(
+        evidence.footer_lines(
+            sweep_invocation_line(l_mults, rsubx_values, supersedes), supersedes
+        )
+    )
+
+    # Deliberately NOT records/LATEST. That pointer names the record this
+    # campaign's cited claim rests on -- the arm comparison DR-012 and
+    # `docs/chipalooza/challenge-4-proposal.md`'s Power row cite by id -- and
+    # this record does not replace it: it is a distinct, non-superseding claim
+    # about a different question (how far the answer moves around DR-015's
+    # assumption point). Moving the pointer would make a citation of the
+    # still-current arm-comparison record read as stale to the citation gate
+    # while nothing had actually superseded it. Same disposition, for the same
+    # reason, as `sim/full-conversion-transient/run_conversion.py`'s diagnostic
+    # record writers.
+    return evidence.close_record(prov, lines, "Sweep record")
+
+
+# --------------------------------------------------------------------------
+# The null-option sweep's own record
+# --------------------------------------------------------------------------
+def null_sweep_invocation_line(rsubx_values: tuple[float, ...], supersedes: str) -> str:
+    """The `--null-sweep` counterpart of `invocation_line()`, under the same
+    rules: a flag that changes what was simulated is stated, one that only
+    changes how the run was scheduled (`--log-cache`) is not. The axis flag
+    appears only when the run departed from the documented ladder, so the
+    default run's footer is exactly the command `sim/spec-coverage.json`
+    indexes."""
+    parts = [RUNNER_REL, "--null-sweep"]
+    if tuple(rsubx_values) != NULL_SWEEP_RSUBX_OHM:
+        parts.append("--null-sweep-rsub " + ",".join(f"{r:g}" for r in rsubx_values))
+    parts.append("--record")
+    if supersedes:
+        parts.append(f"--supersedes {supersedes}")
+    return " ".join(parts)
+
+
+def _null_sweep_point(points: list[dict], rsubx_ohm: float) -> dict | None:
+    name = null_sweep_arm_name(rsubx_ohm)
+    return next((p for p in points if p["arm"] == name), None)
+
+
+def null_sweep_findings_lines(
+    points: list[dict], control: dict | None, rsubx_values: tuple[float, ...]
+) -> list[str]:
+    """What the null-option ladder says.
+
+    Every bullet is about a MAGNITUDE, because the gap this closes is a
+    magnitude claim: DR-015 asserts that the rejected topology looks harmless
+    at a small substrate resistance and fatal at a large one, from a single
+    measured point. The bullets below either find that transition inside the
+    ladder or report that it is not there -- and say which.
+    """
+    out: list[str] = []
+
+    out.append(
+        "- **The ladder is anchored to the committed ground-pad ablation.** Its "
+        f"`{null_sweep_arm_name(R_SUBX_OHM)}` point is, card for card, the "
+        f"`{NULL_SWEEP_BASE_ARM}` arm this campaign already recorded at this corner: "
+        "same three bonded terminals at DR-015's R+L, same unbonded `GND`, same "
+        "stimulus, same lumped resistor at DR-015's assumed "
+        f"{R_SUBX_OHM:g} Ohm. "
+        + (
+            "Checked at record-write time (`null_sweep_anchor_matches_base_arm()`), "
+            "so the ladder is tied to that record rather than merely described as "
+            "being."
+            if null_sweep_anchor_matches_base_arm()
+            else "**This check FAILED at record-write time** -- the anchor point is no "
+            "longer the committed null-option arm, so nothing below may be read as a "
+            "walk away from DR-015's assumption point."
+        )
+    )
+
+    cells = []
+    for r in rsubx_values:
+        p = _null_sweep_point(points, r)
+        pp = None if p is None else p["extras"].get("gnd_die_pp")
+        cells.append("n/a" if pp is None else f"{pp * 1e3:.3f} mV")
+    out.append(
+        "- **Die-side analog-ground excursion along the ladder**: "
+        + " -> ".join(cells)
+        + " as the lumped substrate return goes "
+        + " -> ".join(f"{r:g} Ohm" for r in rsubx_values)
+        + ". Only that resistor moves, so the change is the substrate return's own "
+        "contribution and nothing else (DR-015 item 5)."
+    )
+
+    if control is not None:
+        moved = []
+        for r in rsubx_values:
+            p = _null_sweep_point(points, r)
+            if p is None:
+                continue
+            delta = worst_mid_scale_delta(p, control)
+            if delta:
+                moved.append((r, delta))
+        if moved:
+            first = min(moved, key=lambda t: t[0])
+            out.append(
+                "- **A mid-scale captured code moves inside this ladder.** The "
+                f"smallest substrate resistance at which it does is "
+                f"**{first[0]:g} Ohm** (worst mid-scale |delta code| = "
+                f"**{first[1]} LSB** vs the `{CONTROL_ARM}` control); "
+                f"{len(moved)} of {len(rsubx_values)} points move at least one "
+                "mid-scale code. So DR-012's rejected topology has a substrate "
+                "magnitude at which it stops being free, that magnitude is located "
+                "**inside** the swept ladder at this corner, and DR-015's assumed "
+                f"{R_SUBX_OHM:g} Ohm is on one side of it."
+            )
+        else:
+            out.append(
+                "- **No mid-scale captured code moves anywhere in this ladder.** "
+                f"Every point reproduces the `{CONTROL_ARM}` control's mid-scale "
+                "codes exactly (worst |delta code| = **0 LSB**) across "
+                f"{min(rsubx_values):g}-{max(rsubx_values):g} Ohm of lumped substrate "
+                "return. That is a **bounded null result** for DR-012's rejected "
+                "option: the magnitude at which deleting the analog ground pad "
+                "would cost a code is **outside** this ladder, not located inside "
+                "it, and a wider ladder (or another corner) could still find one. "
+                "It is specifically NOT a finding that the pad does not matter -- "
+                "the excursion row above moves even where the code row does not."
+            )
+
+    worst = None
+    for r in rsubx_values:
+        p = _null_sweep_point(points, r)
+        pp = None if p is None else p["extras"].get("gnd_die_pp")
+        if pp is not None and (worst is None or pp > worst[1]):
+            worst = (r, pp)
+    if worst is not None:
+        lsb_v = 2.0 * NOMINAL_SUPPLY_V / 2**tb.N_BITS
+        out.append(
+            "- **Worst die-side analog-ground excursion on the ladder**: "
+            f"**{worst[1] * 1e3:.3f} mV** peak-to-peak ({worst[1] / lsb_v:.3f} LSB at "
+            f"the nominal supply) at a {worst[0]:g} Ohm substrate return. "
+            "Undecoupled by construction (DR-015 item 6): this design has no on-die "
+            "decoupling and none is modelled, so the figure is an upper bound rather "
+            "than a prediction."
+        )
+
+    # The sensitivity itself -- the number DR-015's prose asserted and nothing
+    # measured. Reported as a ratio across the whole ladder rather than a slope,
+    # because two decades of a lumped stand-in is not a curve anyone should fit.
+    first_p = _null_sweep_point(points, min(rsubx_values))
+    last_p = _null_sweep_point(points, max(rsubx_values))
+    pp_first = None if first_p is None else first_p["extras"].get("gnd_die_pp")
+    pp_last = None if last_p is None else last_p["extras"].get("gnd_die_pp")
+    if pp_first and pp_last:
+        out.append(
+            "- **How sensitive the rejected option actually is to the assumption**: "
+            f"a {max(rsubx_values) / min(rsubx_values):g}x change in the lumped "
+            "substrate return (from "
+            f"{min(rsubx_values):g} to {max(rsubx_values):g} Ohm) moves the die-side "
+            f"analog-ground excursion by {pp_last / pp_first:.2f}x "
+            f"({pp_first * 1e3:.3f} mV -> {pp_last * 1e3:.3f} mV). This is the "
+            "measured version of DR-015's own prose claim that the arm is "
+            "\"*entirely* a function of `R_SUB`\" -- which was, until this record, an "
+            "argument from one point."
+        )
+
+    missing_points = [p["point_id"] for p in points if p["missing"]]
+    if missing_points:
+        out.append(
+            "- **Incomplete runs** (some `.meas` value did not come back): "
+            + ", ".join(f"`{pid}`" for pid in missing_points)
+            + " -- reported rather than dropped."
+        )
+    return out
+
+
+def write_null_sweep_record(
+    points: list[dict],
+    dut_netlist_text: str,
+    rsubx_values: tuple[float, ...],
+    supersedes: str = "",
+) -> Path:
+    """The `--null-sweep` record.
+
+    A third writer, for the same reason there is a second: these records make
+    different claims and must not be able to borrow each other's sentences.
+    `write_record()` compares NETWORKS at DR-015's assumption point;
+    `write_sweep_record()` walks a 2-D box around that point on the AS-BUILT
+    network; this one walks one axis on the REJECTED network, where that axis
+    is the entire ground return rather than a shunt. The shared parts -- the
+    DR-015 assumption table, the subset-corner justification, the environment
+    block, the footer rules -- are shared by calling the same helpers, so none
+    of the three can drift into a softer version of another's caveats.
+    """
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
+    )
+
+    swept = [p for p in points if p["arm"] != CONTROL_ARM]
+    control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
+
+    a = lines.append
+    a(
+        "- **Claim**: `spec/target-spec.md#target-table` -- **Power** (DRAFT row), "
+        "INFORMATIONAL only, and the evidence "
+        "`spec/decision-records/DR-015-package-parasitic-assumption.md` needs to "
+        "support a sensitivity claim it currently makes in prose: that the "
+        f"`{NULL_SWEEP_BASE_ARM}` arm -- DR-012's REJECTED null option -- is "
+        "\"*entirely* a function of `R_SUB`: with a small `R_SUB` it looks harmless, "
+        "with a large one it looks fatal\". It edits no spec row, proposes no power "
+        "target, and grades nothing against a ratified line."
+    )
+    a(
+        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with two "
+        "TESTBENCH-ONLY transformations that are never written back to `design/`: "
+        "the DUT's `GND` net is renamed `GND_DIE` (a net named `GND` is ngspice's "
+        "global node 0 and would short out every series element this campaign "
+        "inserts), and the committed fragment's `VVDD`/`VVPWR`/`VVGND` source "
+        "cards are re-pointed to board-side nodes. Source instance names, the "
+        "`.tran` card, the clock/reset/input schedule and every code and phase "
+        "`.meas` card are used verbatim."
+    )
+    a(corners_mod.corner_matrix_summary_line(processes, temps, supplies, len(corner_ids)))
+    a(
+        f"- **Ladder**: {len(swept)} substrate-return resistances plus the "
+        f"`{CONTROL_ARM}` control, at {len(corner_ids)} corner point(s) = "
+        f"{len(points)} whole-ADC transients. Every swept point is the "
+        f"`{NULL_SWEEP_BASE_ARM}` topology (`GND` unbonded; `VDD`/`VPWR`/`VGND` at "
+        "DR-015's R+L) with exactly one element moved."
+    )
+    a(
+        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
+        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
+        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
+        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
+        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
+        "the remaining five carrying DC differential inputs of "
+        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
+        + "."
+    )
+    a("")
+
+    a("## Why this record exists")
+    a("")
+    a(
+        "[DR-015](../../../spec/decision-records/DR-015-package-parasitic-assumption.md)'s "
+        "Consequences section says, of the arm that implements DR-012's *rejected* "
+        f"option: \"The `{NULL_SWEEP_BASE_ARM}` arm ... is **entirely** a function of "
+        "`R_SUB`: with a small `R_SUB` it looks harmless, with a large one it looks "
+        "fatal.\" Until this record that was an argument, not a measurement -- the "
+        "campaign had run that topology at exactly one substrate magnitude "
+        f"({R_SUBX_OHM:g} Ohm), so \"harmless\" and \"fatal\" were both extrapolations "
+        "from a single point. This record is the bounded ladder that turns the "
+        "sensitivity into a number, at the baseline corner, and it is the residual "
+        "of [issue #409](https://github.com/2AMLogic/sky130-sar-adc/issues/409)'s "
+        "third item that the 2-D box did not reach."
+    )
+    a("")
+    a(
+        "**It supersedes nothing, and is not a re-run of the 2-D sweep.** That box "
+        f"moved a substrate resistance on the as-built `{SWEEP_BASE_ARM}` topology, "
+        "where `GND` is bonded through ~"
+        f"{PACKAGE_R_OHM * 1e3:.0f} mOhm and the substrate resistor is a secondary "
+        "shunt between two ground die nodes. Here the SAME element carries the "
+        "analog ground's entire return current, because there is no analog ground "
+        "bond at all. Same constant, same decade, structurally different "
+        "experiment -- and the reason the earlier record's own scope section said "
+        "an `R_SUB` sweep was still owed."
+    )
+    a("")
+
+    a("## Which stand-in this ladder moves, and what it is called")
+    a("")
+    a(
+        "DR-015 item 2 defines two lumped stand-ins: `R_SUB`, a substrate-only "
+        "ground RETURN, and `R_SUBX`, the link \"between the analog and digital "
+        f"ground die nodes\". In the `{NULL_SWEEP_BASE_ARM}` topology **one resistor "
+        "is both**: it spans `GND_DIE` and `VGND` (so the deck names its instance "
+        "`RSUBX`, after the node pair it bridges) and, with `GND` unbonded, it is "
+        "also the only path the analog ground has to the board (so it plays "
+        "`R_SUB`'s role). DR-015 sets both stand-ins to the same "
+        f"{R_SUBX_OHM:g} Ohm, so at the anchor point the distinction changes no "
+        "number -- but a record that swept \"the substrate resistance\" without "
+        "saying which element moved would be unreadable against the 2-D box, which "
+        "swept an element with the same name in a topology where it does something "
+        "else. What moved here is the single resistor named in every deck under "
+        "this record, and nothing else."
+    )
+    a("")
+
+    a("## The package-style assumption (DR-015), and which of it is swept")
+    a("")
+    lines.extend(_assumption_lines())
+    a("")
+    a(
+        "The ladder moves **only** the lumped substrate row. The per-terminal bond "
+        f"R+L is held at DR-015's stated {PACKAGE_R_OHM * 1e3:.1f} mOhm / "
+        f"{PACKAGE_L_H * 1e9:.3f} nH on all three bonded terminals throughout, so "
+        "each step changes one element and nothing else (DR-015 item 5)."
+    )
+    a("")
+
+    a("## The swept points, as networks")
+    a("")
+    lines.extend(
+        arm_table_lines(
+            [ARMS_BY_NAME[CONTROL_ARM]] + [null_sweep_arm(r) for r in rsubx_values],
+            substrate_note=False,
+        )
+    )
+    a(
+        f"The `{CONTROL_ARM}` row is the control every delta below is taken against: "
+        "ideal sources at the die, the zero-impedance case every other `sim/` "
+        "campaign runs. Each swept row carries its own lumped resistor between the "
+        "analog and digital ground DIE nodes, which is the swept axis; in `ideal` "
+        "both ends of that resistor are held at 0 V, so it carries no current and "
+        "the control stays a true zero-impedance reference."
+    )
+    a("")
+
+    a("## Die-side analog-ground excursion along the ladder")
+    a("")
+    a(
+        "| lumped substrate return | `GND_DIE` pp | `VGND` pp | worst mid-scale "
+        "\\|delta code\\| vs `ideal` |"
+    )
+    a("|---|---|---|---|")
+    for r in rsubx_values:
+        p = _null_sweep_point(points, r)
+        if p is None:
+            a(f"| **{r:g} Ohm** | (not run) | (not run) | (not run) |")
+            continue
+        worst = (
+            "n/a"
+            if control is None or worst_mid_scale_delta(p, control) is None
+            else f"{worst_mid_scale_delta(p, control)} LSB"
+        )
+        anchor = " (anchor)" if r == R_SUBX_OHM else ""
+        a(
+            f"| **{r:g} Ohm**{anchor} | {_mv(p['extras'].get('gnd_die_pp'))} mV | "
+            f"{_mv(p['extras'].get('vgnd_die_pp'))} mV | {worst} |"
+        )
+    a("")
+    a(
+        "Peak-to-peak over the same steady-state conversion the fragment averages "
+        f"its supply currents over. The `{CONTROL_ARM}` control's own `GND_DIE` "
+        "value is "
+        f"{'n/a' if control is None else _mv(control['extras'].get('gnd_die_pp'))} mV "
+        "-- mechanically zero, because an ideal source holds the die node at 0 V; a "
+        "nonzero value there would mean the networks are not wired as stated. The "
+        "two `+-0.78*V_REF` inputs are EXCLUDED from the delta column (they are "
+        "reported per point in the table below): "
+        "`sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md` already "
+        "records them as wrong by ~100 LSB at every corner (issue #267, "
+        "common-mode saturation at large differential input, still open), so a "
+        "change there could not be attributed to supply impedance."
+    )
+    a("")
+
+    a("## Captured code per point")
+    a("")
+    lines.extend(_captured_code_table_lines(points, control, "point"))
+    a("")
+
+    a("## Rail excursion and average current per point")
+    a("")
+    lines.extend(
+        _rail_current_table_lines(
+            points,
+            "point",
+            extra_note=(
+                "`I(GND)` is `n/a (no bond)` on every swept row by construction: this "
+                "topology's whole point is that the analog ground has no bond current "
+                "to measure, because it has no bond."
+            ),
+        )
+    )
+
+    a("## Findings")
+    a("")
+    for line in null_sweep_findings_lines(points, control, rsubx_values):
+        a(line)
+    a("")
+
+    a("## Wall-clock cost per run")
+    a("")
+    lines.extend(_wall_clock_table_lines(points, control, "point"))
+    a(
+        "Reported because this campaign's cost history is itself evidence: this "
+        "topology was left unrun across several passes on a truncated-slice "
+        "projection of roughly an order of magnitude that a full run then "
+        "falsified (1.67x the control, "
+        "`records/20260925-204633-7339971.md`). These are wall-clock seconds on a "
+        "shared, contended host, so they are ratios between points rather than a "
+        "benchmark."
+    )
+    a("")
+
+    a("## What this ladder does not cover")
+    a("")
+    a(
+        "Stated for the same reason `sim/README.md` requires a corner subset to be "
+        "justified: a reader must not have to infer which questions it leaves open."
+    )
+    a("")
+    a(
+        "- **No extracted substrate network** (issue #409's fourth item, and "
+        "DR-015's own still-open one). The swept element is a single lumped "
+        "resistor standing in for a distributed, layout-dependent thing, with no "
+        "`klt extract` behind it. Sweeping a stand-in over two decades bounds the "
+        "*sensitivity* to it -- which is exactly what this record is for -- but it "
+        "does not turn any point of the ladder into a measurement of this die's "
+        "substrate, and no number here may be quoted as one."
+    )
+    a(
+        "- **The bond inductance is not crossed with this axis.** All three bonded "
+        "terminals stay at DR-015's R+L throughout, so this is a one-axis ladder "
+        "and not a second 2-D box. A point here is therefore a statement about the "
+        "substrate return at DR-015's bond, not at an arbitrary one."
+    )
+    a(
+        "- **No decoupling, on-die or on-board** (DR-015 item 6, carried from "
+        "DR-010 and DR-012). Every point here is the undecoupled case."
+    )
+    a(
+        "- **The two near-full-scale inputs** are outside every code comparison "
+        "above, for the reason stated under the excursion table (issue #267)."
+    )
+    a(
+        "- **The ladder is bounded, and a null inside it is not a null outside "
+        f"it.** The substrate return is swept over {min(rsubx_values):g}-"
+        f"{max(rsubx_values):g} Ohm at one corner. Nothing here states what happens "
+        "beyond those edges."
+    )
+    a("")
+
+    lines.extend(
+        subset_corner_lines(
+            corner_ids,
+            "the null-option substrate ladder",
+            f"the {len(points)} decks of this record",
+            len(points),
+            "a bounded sensitivity ladder at the baseline corner",
+        )
+    )
+
+    lines.extend(
+        evidence.environment_block(
+            pdk_line=prov.pdk_line,
+            ngspice_line=prov.ng_version,
+            netlist_sha256=prov.netlist_sha,
+            extra={
+                "tran step": f"{tb.TRAN_STEP_NS} ns",
+                "simulated span": f"{tb.t_stop_ns():.1f} ns per run",
+                "runs": (
+                    f"{len(points)} ({len(swept)} swept points + the "
+                    f"`{CONTROL_ARM}` control x {len(corner_ids)} corner point)"
+                ),
+                "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "swept ladder": (
+                    f"`{NULL_SWEEP_BASE_ARM}` topology; lumped substrate return in {{"
+                    + ", ".join(f"{r:g}" for r in rsubx_values)
+                    + "} Ohm (DR-015 assumes "
+                    + f"{R_SUBX_OHM:g}); bond R+L fixed at {PACKAGE_R_OHM * 1e3:.1f} "
+                    + f"mOhm / {PACKAGE_L_H * 1e9:.3f} nH on VDD/VPWR/VGND (DR-015)"
+                ),
+            },
+        )
+    )
+    a("")
+    lines.extend(
+        evidence.footer_lines(
+            null_sweep_invocation_line(rsubx_values, supersedes), supersedes
+        )
+    )
+
+    # Deliberately NOT records/LATEST, for the same reason the 2-D sweep record
+    # is not: that pointer names this flow's newest ARM-COMPARISON record, which
+    # is what `check_proposal_citations.py`'s arm census reads. This record
+    # contains no arm census to offer -- it is one topology at three magnitudes
+    # -- and moving the pointer onto it would make a citation of a record
+    # nothing had superseded read as stale.
+    return evidence.close_record(prov, lines, "Null-option sweep record")
+
+
+# --------------------------------------------------------------------------
+# The mid-scale boundary probe (issue #455)
+# --------------------------------------------------------------------------
+# This campaign's code comparison is read on three mid-scale inputs, and on one
+# of them -- `+0.00*V_REF` -- the `package-r-only` arm at `fs_27c_1.80v` was
+# recorded 6 LSB away from the control (505 against 511) while the two arms with
+# ~200x its die-side ground excursion read the control's code exactly. A
+# supply-return mechanism cannot produce that ordering, so SOMETHING ELSE moves
+# that code, and until it is named every "0 LSB / 1 LSB mid-scale delta" in this
+# campaign is a number whose own error bar is unknown.
+#
+# This probe is what names it. It is a DIAGNOSTIC, not a corner campaign: one
+# corner, a handful of variants, and it grades nothing against a spec row. Two
+# things it does that the code comparison cannot:
+#
+#   1. It re-runs the committed deck of the recorded point and DIFFS the fresh
+#      measurements against the committed log's, so "reproducible" stops being
+#      an assumption. The control arm at the same corner is re-run beside it as
+#      the mechanical check on the comparison itself.
+#   2. It adds the per-trial decision-margin probes
+#      (`sim/full-conversion-transient/run_conversion.py`'s own
+#      `--decision-margin-trace` cards, imported rather than re-derived) to each
+#      variant's deck, so every bit trial of the mid-scale conversions reports
+#      the comparator's OWN differential input at the decision instant. That
+#      turns "the residual is near zero somewhere" into a number per trial, and
+#      it is what distinguishes a low-order boundary flip (a late trial sitting
+#      within a fraction of an LSB of its threshold) from a metastable FIRST
+#      trial (the sign bit, which gates all nine SELn/SELp pairs at once and so
+#      cannot move the code by one LSB).
+#
+# And it runs the perturbations issue #455 asks for: a DC input offset of
+# +-0.1 LSB and a changed `.tran` requested step, both of which leave the supply
+# network exactly as the control has it. A mid-scale code that moves under those
+# is a code that the supply-return ladder may not be read on.
+
+#: The corner the 6-LSB move was recorded at (`fs_27c_1.80v`).
+MIDSCALE_PROBE_CORNER: tuple[str, float, float] = ("fs", 27.0, NOMINAL_SUPPLY_V)
+
+#: The record whose committed logs this probe reproduces against. Its
+#: `package-r-only@fs_27c_1.80v` point is the 505; its `ideal@fs_27c_1.80v`
+#: point is the 511 that point is a delta against.
+MIDSCALE_PROBE_REFERENCE_RECORD = "20260926-050045-8e62675"
+
+#: The arm the anomaly is on, beside the control every delta is taken against.
+MIDSCALE_PROBE_ARM = "package-r-only"
+
+#: The conversions traced. Same three mid-scale inputs
+#: `--decision-margin-trace` traces, for the same reason: the near-full-scale
+#: conversions are already wrong by ~100 LSB at every corner (issue #267), so
+#: nothing about them can be attributed to anything this probe changes.
+MIDSCALE_PROBE_CONVERSIONS: tuple[int, ...] = fc.DECISION_MARGIN_CONVERSIONS
+
+#: The conversion whose code the anomaly is on (`+0.00*V_REF`). The same
+#: conversion the committed fragment averages its supply currents over.
+MIDSCALE_CONVERSION: int = tb.IDD_CONVERSION
+
+
+@dataclass(frozen=True)
+class Perturbation:
+    """One supply-UNRELATED change to a variant's deck.
+
+    Every field here changes either the stimulus's DC operating point by a
+    fraction of an LSB or the solver's own timestep sequence -- never the supply
+    network, never a device, never the netlist. That is the whole point: a
+    mid-scale code that moves under one of these has moved for a reason the
+    supply-impedance ladder does not measure.
+    """
+
+    name: str
+    summary: str
+    #: Differential input offset, in LSB, applied as +half on VINP and -half on
+    #: VINN by shifting the LEVELS of the committed fragment's own two input PWL
+    #: cards -- every breakpoint TIME and the node set stay the committed deck's
+    #: (no source and no node is added). See `offset_vin()`.
+    vin_offset_lsb: float = 0.0
+    #: Replacement for the `.tran` card's requested step, in ns. Purely
+    #: numerical: the stimulus, the stop time and every `.meas` instant are
+    #: unchanged, only the sequence of timepoints the solver visits.
+    tran_step_ns: float | None = None
+
+    @property
+    def is_as_committed(self) -> bool:
+        return self.vin_offset_lsb == 0.0 and self.tran_step_ns is None
+
+
+AS_COMMITTED = Perturbation(
+    "as-committed",
+    "the committed deck of this point, unchanged -- the reproduction control",
+)
+
+#: The perturbation menu. `0.1 LSB` because it is the smallest input change that
+#: is unambiguously larger than anything numerical and still far below one code;
+#: the halved `.tran` step because issue #455 names it, and because this host's
+#: own reproduction of the reference record already showed the two builds
+#: visiting 3-4x different numbers of timepoints for the same deck.
+PERTURBATIONS: tuple[Perturbation, ...] = (
+    AS_COMMITTED,
+    Perturbation(
+        "vin+0.1lsb",
+        "the same deck with a +0.1 LSB DC differential input offset, applied to "
+        "the LEVELS of the committed fragment's own two input PWL cards -- every "
+        "breakpoint time, every node and the supply network are the committed "
+        "deck's",
+        vin_offset_lsb=+0.1,
+    ),
+    Perturbation(
+        "vin-0.1lsb",
+        "the same deck with a -0.1 LSB DC differential input offset, applied the "
+        "same way",
+        vin_offset_lsb=-0.1,
+    ),
+    Perturbation(
+        "tran-step-0.25n",
+        "the same deck with the `.tran` requested step halved to 0.25 ns -- a "
+        "SOLVER-ONLY change: same circuit, same stimulus, same stop time, same "
+        "measurement instants, different sequence of timepoints",
+        tran_step_ns=0.25,
+    ),
+)
+
+PERTURBATIONS_BY_NAME = {p.name: p for p in PERTURBATIONS}
+
+#: The default variant list, as `arm:perturbation`. Ordered most-load-bearing
+#: first: the two reproduction runs decide whether the recorded 505 is a
+#: property of the deck at all, and everything after them is only worth reading
+#: if those two ran. Five runs, ~1.6 h of whole-ADC transient on the reference
+#: toolchain -- `{CONTROL_ARM}:tran-step-0.25n` is implemented and selectable
+#: but left out of the default box, because the timestep perturbation's finding
+#: (it moves the sign trial's margin by ~3 uV and the code by nothing) is
+#: already carried by the arm that the anomaly is on.
+MIDSCALE_PROBE_VARIANTS: tuple[str, ...] = (
+    f"{CONTROL_ARM}:as-committed",
+    f"{MIDSCALE_PROBE_ARM}:as-committed",
+    f"{MIDSCALE_PROBE_ARM}:tran-step-0.25n",
+    f"{CONTROL_ARM}:vin+0.1lsb",
+    f"{CONTROL_ARM}:vin-0.1lsb",
+)
+
+#: The fragment's own input source cards, matched at line start so a rename in
+#: the committed fragment fails loudly here instead of silently probing an
+#: un-offset deck.
+_VIN_CARD_RE = {
+    "VINP": re.compile(r"^VINP VINP 0 PWL\(", re.MULTILINE),
+    "VINN": re.compile(r"^VINN VINN 0 PWL\(", re.MULTILINE),
+}
+
+#: One rail-referenced value expression on those cards, e.g. `{vdd_val*0.375}`.
+#: The offset shifts these and only these -- see `offset_vin()`.
+_PWL_VALUE_RE = re.compile(r"\{vdd_val\*(?P<frac>-?[0-9.]+)\}")
+
+
+def insert_before_end(deck: str, extra: list[str]) -> str:
+    """`deck` with `extra` inserted immediately before its FINAL `.end` card.
+
+    Anchored on the deck's terminal `\\n.end\\n` rather than searching for
+    `.end`: a whole-hierarchy netlist is full of `.ends` subcircuit terminators,
+    and a substring replace would scatter copies of the probe cards through the
+    middle of the DUT (found while writing this probe, not hypothetically).
+    """
+    marker = "\n.end\n"
+    if not deck.endswith(marker):
+        raise RuntimeError(
+            "mid-scale probe: assembled deck does not end with a `.end` card -- "
+            "re-derive where this probe inserts its measurement cards."
+        )
+    return deck[: -len(marker)] + "\n" + "\n".join(extra) + marker
+
+
+def lsb_v(supply_v: float) -> float:
+    """One differential LSB: `2*V_REF/2^N` with `V_REF = V_DD` (DR-003)."""
+    return 2.0 * supply_v / (2**tb.N_BITS)
+
+
+def offset_vin(deck: str, offset_lsb: float, supply_v: float) -> str:
+    """`deck` with a DC differential input offset of `offset_lsb` LSB.
+
+    Implemented by shifting the LEVELS of the committed fragment's own two
+    `PWL` input cards -- every `{vdd_val*<f>}` value on the `VINP` card gains
+    `offset_lsb/2^N` of the rail and every one on `VINN` loses it -- and
+    nothing else. `+offset_lsb` therefore raises VINP by half an LSB and lowers
+    VINN by the same: a DIFFERENTIAL offset of exactly `offset_lsb` LSB with
+    the input common mode held. It stays rail-referenced (`{vdd_val*...}`,
+    `1 LSB_diff = 2*V_REF/2^N` with `V_REF = V_DD`, DR-003), like every other
+    number in that fragment.
+
+    Two properties this deliberately preserves, because the probe's whole claim
+    is that it changed one thing:
+
+    * **Every breakpoint TIME is untouched.** Only the value expressions
+      inside `{...}` are rewritten, and the count of rewritten values is
+      checked, so the solver's PWL breakpoints -- and therefore the timestep
+      sequence's anchors -- are the committed deck's.
+    * **The node set is untouched.** An earlier draft inserted a series DC
+      source per pin instead; that is electrically identical but adds a
+      capacitance-free node between two voltage sources, and it cost this deck
+      **more than 4x** the control's wall clock (one variant blew a 5400 s
+      budget that the unperturbed deck finishes in ~900 s). A perturbation
+      probe may not be the most expensive run in the campaign, and it may not
+      change the matrix it is supposed to leave alone.
+    """
+    if offset_lsb == 0.0:
+        return deck
+    # Half the differential offset per pin, as a fraction of the rail:
+    # half of `offset_lsb * 2*V_DD/2^N` is `offset_lsb * V_DD/2^N`.
+    dfrac = offset_lsb / (2**tb.N_BITS)
+    lines = deck.splitlines(keepends=True)
+    rewritten = 0
+    for i, line in enumerate(lines):
+        for pin, pattern in _VIN_CARD_RE.items():
+            if not pattern.match(line):
+                continue
+            sign = +1.0 if pin == "VINP" else -1.0
+
+            def shift(m: re.Match, sign: float = sign) -> str:
+                return "{vdd_val*" + f"{float(m.group('frac')) + sign * dfrac:.12f}" + "}"
+
+            new_line, n = _PWL_VALUE_RE.subn(shift, line)
+            if n == 0:
+                raise RuntimeError(
+                    f"mid-scale probe: the `{pin}` PWL card carries no "
+                    "`{vdd_val*<f>}` value expressions -- the committed fragment "
+                    "changed shape; re-derive this probe's input offset."
+                )
+            # times are everything outside the braces: they must be untouched
+            if _PWL_VALUE_RE.sub("{}", line) != _PWL_VALUE_RE.sub("{}", new_line):
+                raise RuntimeError(
+                    f"mid-scale probe: shifting the `{pin}` PWL levels changed "
+                    "something other than its values -- refusing to run a "
+                    "perturbation that moved a breakpoint time."
+                )
+            lines[i] = new_line
+            rewritten += 1
+    if rewritten != len(_VIN_CARD_RE):
+        raise RuntimeError(
+            f"mid-scale probe: expected exactly {len(_VIN_CARD_RE)} input PWL cards "
+            f"(`{'`, `'.join(_VIN_CARD_RE)}`) in the assembled deck, rewrote "
+            f"{rewritten} -- the committed fragment changed shape; re-derive this "
+            "probe's input offset."
+        )
+    return insert_before_end(
+        "".join(lines),
+        [
+            "* --- issue #455 mid-scale boundary probe: the two input PWL cards",
+            f"* above carry a DC differential offset of {offset_lsb:+g} LSB "
+            f"({offset_lsb * lsb_v(supply_v) * 1e3:+.4f} mV at {supply_v:g} V),",
+            "* applied to their LEVELS only -- every breakpoint time, every node",
+            "* and every other card is the committed deck's. --------------------",
+        ],
+    )
+
+
+def retime_tran(deck: str, step_ns: float) -> str:
+    """`deck` with the `.tran` card's REQUESTED STEP replaced by `step_ns`.
+
+    The stop time is left exactly as the committed fragment sets it, so every
+    `.meas` instant still lands inside the run and the probe measures the same
+    conversions. Nothing about the circuit or the stimulus changes -- this moves
+    only the sequence of timepoints the solver visits, which is precisely the
+    "supply-unrelated perturbation" issue #455 asks for. (`truncate_tran()`
+    above deliberately refuses to touch the step for the opposite reason: a cost
+    probe must price the same solve, not a different one.)
+    """
+    match = RE_TRAN_CARD.search(deck)
+    if match is None:
+        raise RuntimeError(
+            "mid-scale probe: no `.tran <step> <stop>` card found in the assembled "
+            "deck -- re-derive this probe's timestep perturbation."
+        )
+    card = f".tran {step_ns:g}n {match.group(2)}"
+    return deck[: match.start()] + card + deck[match.end() :]
+
+
+def midscale_probe_deck(
+    dut_netlist_text: str,
+    pdk_info: pdk.PdkInfo,
+    arm: Arm,
+    perturbation: Perturbation,
+    process_corner: str,
+    temp_c: float,
+    supply_v: float,
+) -> tuple[str, list[str]]:
+    """`(deck, measurement names)` for one variant: this campaign's own arm deck,
+    plus the imported per-trial decision-margin probes, plus the variant's
+    perturbation. Returns the extra measurement names so the caller parses
+    exactly what it asked for."""
+    deck = assemble_deck(dut_netlist_text, pdk_info, arm, process_corner, temp_c, supply_v)
+    extra_meas, names = fc.decision_margin_measure_lines(MIDSCALE_PROBE_CONVERSIONS)
+    deck = insert_before_end(deck, extra_meas)
+    if perturbation.vin_offset_lsb != 0.0:
+        deck = offset_vin(deck, perturbation.vin_offset_lsb, supply_v)
+    if perturbation.tran_step_ns is not None:
+        deck = retime_tran(deck, perturbation.tran_step_ns)
+    return deck, names
+
+
+def parse_midscale_trials(
+    parsed: dict[str, float | None], supply_v: float
+) -> list[dict]:
+    """The per-trial decision-margin rows for every traced conversion.
+
+    Same decoding as `run_conversion.py`'s own `run_decision_margin_point()` --
+    the comparator's differential input at the decision instant, the decision it
+    produced, and the bit the register captured -- reported here per conversion
+    rather than graded, because the question this probe asks is not "is the
+    comparator right" (issue #263 asked that) but "how close to its threshold is
+    any decision of this conversion".
+    """
+    threshold = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
+    one_lsb = lsb_v(supply_v)
+    out: list[dict] = []
+    for c in MIDSCALE_PROBE_CONVERSIONS:
+        trials = []
+        for p in range(tb.N_BITS):
+            pre = f"dm_c{c}_p{p}"
+            topp, topn = parsed.get(f"{pre}_topp"), parsed.get(f"{pre}_topn")
+            comp, dout = parsed.get(f"{pre}_comp"), parsed.get(f"{pre}_dout")
+            if None in (topp, topn, comp, dout):
+                trials.append(dict(bit=tb.N_BITS - 1 - p, missing=True))
+                continue
+            v_in = topp - topn
+            trials.append(
+                dict(
+                    bit=tb.N_BITS - 1 - p,
+                    missing=False,
+                    v_in_mv=v_in * 1e3,
+                    v_in_lsb=v_in / one_lsb,
+                    decision=1 if comp > threshold else 0,
+                    dout=1 if dout > threshold else 0,
+                )
+            )
+        out.append(dict(conversion=c, fraction=tb.input_fraction(c), trials=trials))
+    return out
+
+
+def closest_trial(conversions: list[dict], conversion: int | None = None) -> dict | None:
+    """The traced trial whose comparator input is closest to zero -- the one
+    decision of the conversion that a perturbation could plausibly flip."""
+    trials = [
+        dict(conversion=conv["conversion"], **tr)
+        for conv in conversions
+        if conversion is None or conv["conversion"] == conversion
+        for tr in conv["trials"]
+        if not tr["missing"]
+    ]
+    return min(trials, key=lambda tr: abs(tr["v_in_lsb"])) if trials else None
+
+
+def run_midscale_probe_variant(
+    dut_netlist_text: str,
+    pdk_info: pdk.PdkInfo,
+    scratch: Path,
+    arm: Arm,
+    perturbation: Perturbation,
+    process_corner: str,
+    temp_c: float,
+    supply_v: float,
+    quiet: bool,
+    log_cache: Path | None = None,
+) -> dict:
+    cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+    deck, dm_names = midscale_probe_deck(
+        dut_netlist_text, pdk_info, arm, perturbation, process_corner, temp_c, supply_v
+    )
+    tag = f"{arm.name}__{perturbation.name}"
+    # Same identity-gated cache the arm comparison uses, for the same reason and
+    # under the same rule (a cached log is reused only if its deck sha256,
+    # verified open_pdks commit and ngspice version all match). A probe variant
+    # is a whole-ADC transient too -- one of them measured 4x the control's wall
+    # clock -- and five in sequence outlive a dispatch session, so an interrupted
+    # probe must not have to re-simulate the variants that already finished.
+    # The point-id carries the perturbation, so a perturbed deck can never
+    # collide with the arm comparison's own cache entry for the same arm.
+    point_id = f"{arm.name}+{perturbation.name}@{cid}"
+    cached = load_cached_run(log_cache, point_id, deck, pdk_info)
+    reused = cached is not None
+    if cached is not None:
+        log_text, wall_s = cached
+        print(f"  reusing cached log for {point_id} ({wall_s:.0f}s when it ran)", flush=True)
+    else:
+        t0 = time.time()
+        log_text = toolchain.run_ngspice_with_retry(
+            deck, scratch, f"midscale_probe_{tag}_{cid}", attempts=2
+        )
+        wall_s = time.time() - t0
+        store_cached_run(log_cache, point_id, deck, pdk_info, log_text, wall_s)
+
+    names = tb.all_measure_names() + extra_measure_names(arm) + dm_names
+    parsed = measure.parse(log_text, names, anchored=False)
+    result = fc.decode(parsed, supply_v)
+    point = dict(
+        variant=f"{arm.name}:{perturbation.name}",
+        arm=arm.name,
+        perturbation=perturbation.name,
+        corner_id=cid,
+        supply_v=supply_v,
+        lsb_mv=lsb_v(supply_v) * 1e3,
+        conversions=result["conversions"],
+        trials=parse_midscale_trials(parsed, supply_v),
+        extras={name: parsed.get(name) for name in extra_measure_names(arm)},
+        missing=measure.missing(parsed, names),
+        wall_s=wall_s,
+        reused=reused,
+        deck_text=deck,
+        log_text=log_text,
+    )
+    if not quiet:
+        codes = " ".join(
+            f"{cv['fraction']:+.2f}:{cv['code']}" for cv in mid_scale_conversions(point)
+        )
+        worst = closest_trial(point["trials"], MIDSCALE_CONVERSION)
+        print(
+            f"  [{point['variant']} @ {cid}] codes(mid-scale) {codes}; "
+            f"closest decision of the mid-scale conversion: "
+            + (
+                "n/a"
+                if worst is None
+                else f"bit {worst['bit']} at {worst['v_in_mv']:+.4f} mV "
+                f"({worst['v_in_lsb']:+.5f} LSB)"
+            )
+            + f"; {wall_s:.0f}s",
+            flush=True,
+        )
+    return point
+
+
+def committed_reference_point(record_id: str, arm_name: str, corner_id: str) -> dict | None:
+    """The codes and rail excursion a committed log of `record_id` reports for
+    one point, or None when that log is not in the repo.
+
+    Read from the committed `corners/<record-id>/<arm>__<corner>.log` rather
+    than from the record's Markdown tables: the log is the primary artifact, and
+    parsing it means this probe's reproduction table cannot disagree with the
+    evidence it claims to reproduce because someone transcribed a number.
+    """
+    log_path = EXPERIMENT_DIR / "corners" / record_id / f"{arm_name}__{corner_id}.log"
+    if not log_path.is_file():
+        return None
+    arm = ARMS_BY_NAME.get(arm_name)
+    names = tb.all_measure_names() + (extra_measure_names(arm) if arm else [])
+    parsed = measure.parse(log_path.read_text(), names, anchored=False)
+    supply_v = float(corner_id.rsplit("_", 1)[-1].rstrip("v"))
+    decoded = fc.decode(parsed, supply_v)
+    return dict(
+        arm=arm_name,
+        corner_id=corner_id,
+        record_id=record_id,
+        conversions=decoded["conversions"],
+        extras={name: parsed.get(name) for name in (extra_measure_names(arm) if arm else [])},
+    )
+
+
+def _conv_code(point: dict | None, conversion: int) -> int | None:
+    if point is None:
+        return None
+    for conv in point["conversions"]:
+        if conv["conversion"] == conversion:
+            return conv["code"]
+    return None
+
+
+def midscale_probe_findings_lines(points: list[dict]) -> list[str]:
+    """What the probe found, as bullets -- the same text the record carries.
+
+    Written as a set of statements each of which is falsified by a single number
+    in the tables above it, because the claim being made is a negative one (the
+    recorded 6-LSB move is not a measurement of the supply return) and a
+    negative claim has to be checkable.
+    """
+    out: list[str] = []
+    by_variant = {p["variant"]: p for p in points}
+    cid = points[0]["corner_id"] if points else corners_mod.corner_id(*MIDSCALE_PROBE_CORNER)
+
+    for arm_name in (CONTROL_ARM, MIDSCALE_PROBE_ARM):
+        fresh = by_variant.get(f"{arm_name}:as-committed")
+        if fresh is None:
+            continue
+        committed = committed_reference_point(MIDSCALE_PROBE_REFERENCE_RECORD, arm_name, cid)
+        fresh_code = _conv_code(fresh, MIDSCALE_CONVERSION)
+        committed_code = _conv_code(committed, MIDSCALE_CONVERSION)
+        if committed_code is None:
+            out.append(
+                f"- **`{arm_name}` has no committed log at `{cid}` in record "
+                f"`{MIDSCALE_PROBE_REFERENCE_RECORD}`** to reproduce against, so this "
+                "run stands alone rather than confirming or contradicting anything."
+            )
+            continue
+        verdict = (
+            "**reproduces**" if fresh_code == committed_code else "**does NOT reproduce**"
+        )
+        out.append(
+            f"- **`{arm_name}@{cid}` {verdict}.** Re-running that point's own committed "
+            f"deck on this host at the pinned PDK commit gives mid-scale code "
+            f"**{fresh_code}**; record `{MIDSCALE_PROBE_REFERENCE_RECORD}`'s committed "
+            f"log for the same point reports **{committed_code}**."
+        )
+
+    mid = by_variant.get(f"{CONTROL_ARM}:as-committed")
+    if mid is not None:
+        worst = closest_trial(mid["trials"], MIDSCALE_CONVERSION)
+        if worst is not None:
+            out.append(
+                f"- **The mid-scale conversion's marginal decision is bit "
+                f"{worst['bit']}, at {worst['v_in_mv']:+.4f} mV "
+                f"({worst['v_in_lsb']:+.5f} LSB) of comparator input.** Every other "
+                "traced decision of that conversion is further from its threshold "
+                f"(see the per-trial table). One LSB is {mid['lsb_mv']:.4f} mV at "
+                f"{mid['supply_v']:g} V, and DR-004's own input-referred noise "
+                "budget (Decision item 2; DR-004 is itself `proposed`, so that is a "
+                "stated budget rather than a ratified line) is 1.0148 mV -- so that "
+                "margin is not a 'code boundary' in the 1-LSB sense at all."
+            )
+            if worst["bit"] == tb.N_BITS - 1:
+                out.append(
+                    "- **That marginal decision is the SIGN bit, and the sign bit "
+                    "cannot move the code by 1 LSB.** `DOUT9` gates all nine "
+                    "`SELn`/`SELp` pairs through `DOUT9N` (`design/sar_adc_top.spice`) "
+                    "and selects which side of mid-scale the remaining nine trials "
+                    "resolve, so a disturbance there re-runs the whole magnitude "
+                    "search rather than nudging one bit. A multi-LSB mid-scale code "
+                    "is the expected signature of a disturbed sign trial; a 1-LSB one "
+                    "is the lucky case."
+                )
+
+    def as_committed_code(point: dict) -> int | None:
+        return _conv_code(
+            by_variant.get(f"{point['arm']}:as-committed"), MIDSCALE_CONVERSION
+        )
+
+    moved = [
+        p
+        for p in points
+        if p["perturbation"] != "as-committed"
+        and _conv_code(p, MIDSCALE_CONVERSION) != as_committed_code(p)
+    ]
+    if moved:
+        out.append(
+            "- **Supply-unrelated perturbations move this code.** "
+            + "; ".join(
+                f"`{p['variant']}` reads {_conv_code(p, MIDSCALE_CONVERSION)} against "
+                f"its own arm's as-committed {as_committed_code(p)}"
+                for p in moved
+            )
+            + ". None of these variants changes the supply network, a device or the "
+            "netlist -- they change the input DC level by a fraction of an LSB, or "
+            "only the solver's timestep sequence."
+        )
+    else:
+        out.append(
+            "- **No supply-unrelated perturbation in this probe moved the mid-scale "
+            "code.** Every variant reads its own arm's as-committed code, so this "
+            "probe does not demonstrate input-offset or timestep sensitivity at this "
+            "corner -- it bounds it below the perturbations tried, and the "
+            "reproduction rows above are what carry the finding."
+        )
+
+    off_boundary = []
+    for p in points:
+        for conv in mid_scale_conversions(p):
+            if conv["conversion"] != MIDSCALE_CONVERSION:
+                off_boundary.append((p["variant"], conv["fraction"], conv["code"]))
+    if off_boundary:
+        codes_by_input: dict[float, set[int]] = {}
+        for _v, frac, code in off_boundary:
+            codes_by_input.setdefault(frac, set()).add(code)
+        stable = [f"{frac:+.2f}: {sorted(codes)}" for frac, codes in sorted(codes_by_input.items())]
+        out.append(
+            "- **The off-boundary mid-scale inputs do not move at all, in any "
+            "variant.** " + "; ".join(stable) + " across every variant of this probe "
+            "(input fraction: the codes any variant produced). The sensitivity is a "
+            "property of the `+0.00*V_REF` input, not of the deck, the arm or the "
+            "perturbations."
+        )
+    return out
+
+
+def midscale_probe_invocation_line(variants: tuple[str, ...], corner_id: str, supersedes: str) -> str:
+    """The `--midscale-probe` counterpart of `invocation_line()`, under the same
+    rules: a flag that changes what was simulated is stated, one that only
+    changes scheduling is not."""
+    parts = [RUNNER_REL, "--midscale-probe"]
+    if tuple(variants) != MIDSCALE_PROBE_VARIANTS:
+        parts.append("--midscale-probe-variants " + ",".join(variants))
+    if corner_id != corners_mod.corner_id(*MIDSCALE_PROBE_CORNER):
+        parts.append(f"--corner-points {corner_id}")
+    parts.append("--record")
+    if supersedes:
+        parts.append(f"--supersedes {supersedes}")
+    return " ".join(parts)
+
+
+def write_midscale_probe_record(
+    points: list[dict], netlist_text: str, variants: tuple[str, ...], supersedes: str
+) -> Path:
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR,
+        netlist_text,
+        "diagnostics",
+        {
+            f"midscale-probe-{p['variant'].replace(':', '-')}-{p['corner_id']}.log": p[
+                "log_text"
+            ]
+            for p in points
+        },
+    )
+    cid = points[0]["corner_id"] if points else corners_mod.corner_id(*MIDSCALE_PROBE_CORNER)
+    a = lines.append
+
+    a(
+        "- **Claim**: issue #455 -- DIAGNOSTIC/mechanism evidence about this "
+        "campaign's OWN mid-scale code comparison, not a spec row, not a corner "
+        "campaign, and not a supply-impedance measurement. It asks one question: "
+        f"is the 6-LSB mid-scale move record `{MIDSCALE_PROBE_REFERENCE_RECORD}` "
+        f"records for `{MIDSCALE_PROBE_ARM}@{cid}` (505 against the control's 511) a "
+        "property of that deck, and if so which decision of that conversion moved. "
+        "It proposes no target, edits no spec row and supersedes no record."
+    )
+    a(
+        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with this "
+        "campaign's two standing testbench-only transformations (the `GND` -> "
+        "`GND_DIE` rename, and the board-side supply re-pointing on bonded arms) and "
+        "NOTHING else. Every variant below is the same DUT; the perturbations act on "
+        "the stimulus's DC level or on the solver, never on the netlist."
+    )
+    a(
+        f"- **Corner**: `{cid}` only -- the point the anomaly was recorded at. A "
+        "mechanism trace, not a corner campaign: the ratified grid's mid-scale codes "
+        f"are already in record `{MIDSCALE_PROBE_REFERENCE_RECORD}`, and this probe "
+        "exists to say what they mean."
+    )
+    a(
+        "- **Conversions traced**: "
+        + ", ".join(
+            f"conversion {c} (`{tb.input_fraction(c):+.2f}*V_REF`)"
+            for c in MIDSCALE_PROBE_CONVERSIONS
+        )
+        + ". The near-full-scale inputs are excluded for the same reason this "
+        "campaign's code comparison excludes them (issue #267)."
+    )
+    a(
+        "- **Probe instants**: the comparator's differential input 1 ns before the "
+        "CLK falling edge that opens each trial's evaluate half (DAC settled, latch "
+        "still in reset), its decision 1 ns before the capturing rising edge, and the "
+        "captured bit 2 ns after it -- `run_conversion.py`'s own "
+        "`decision_margin_measure_lines()`, imported rather than re-derived, so the "
+        "instants are identical to the committed `--decision-margin-trace` record's."
+    )
+    a("")
+
+    a("## The variants")
+    a("")
+    a("| variant | arm's supply network | what was perturbed |")
+    a("|---|---|---|")
+    for p in points:
+        arm = ARMS_BY_NAME[p["arm"]]
+        pert = PERTURBATIONS_BY_NAME[p["perturbation"]]
+        a(f"| `{p['variant']}` | {arm.summary} | {pert.summary} |")
+    a("")
+
+    a("## Reproduction of the recorded point")
+    a("")
+    a(
+        f"Each row re-runs the committed deck of a point of record "
+        f"`{MIDSCALE_PROBE_REFERENCE_RECORD}` and compares the fresh measurements "
+        "with that record's own committed log, parsed from the log rather than "
+        "transcribed from its tables."
+    )
+    a("")
+    a(
+        "| point | mid-scale code, committed log | mid-scale code, re-run here | "
+        "`GND_DIE` pp committed | `GND_DIE` pp here | verdict |"
+    )
+    a("|---|---|---|---|---|---|")
+    for arm_name in (CONTROL_ARM, MIDSCALE_PROBE_ARM):
+        fresh = next((p for p in points if p["variant"] == f"{arm_name}:as-committed"), None)
+        if fresh is None:
+            continue
+        committed = committed_reference_point(MIDSCALE_PROBE_REFERENCE_RECORD, arm_name, cid)
+        fresh_code = _conv_code(fresh, MIDSCALE_CONVERSION)
+        committed_code = _conv_code(committed, MIDSCALE_CONVERSION)
+        verdict = (
+            "n/a (no committed log)"
+            if committed_code is None
+            else ("identical" if committed_code == fresh_code else "**DIFFERS**")
+        )
+        a(
+            f"| `{arm_name}@{cid}` | "
+            f"{'n/a' if committed_code is None else committed_code} | "
+            f"{'n/a' if fresh_code is None else fresh_code} | "
+            f"{_mv(None if committed is None else committed['extras'].get('gnd_die_pp'))} mV | "
+            f"{_mv(fresh['extras'].get('gnd_die_pp'))} mV | {verdict} |"
+        )
+    a("")
+
+    a("## Captured mid-scale codes, per variant")
+    a("")
+    a(
+        "| variant | "
+        + " | ".join(
+            f"`{tb.input_fraction(c):+.2f}*V_REF`" for c in MIDSCALE_PROBE_CONVERSIONS
+        )
+        + " | wall clock (s) |"
+    )
+    a("|---" * (len(MIDSCALE_PROBE_CONVERSIONS) + 2) + "|")
+    for p in points:
+        cells = []
+        for c in MIDSCALE_PROBE_CONVERSIONS:
+            code = _conv_code(p, c)
+            cells.append("n/a" if code is None else str(code))
+        wall = f"{p['wall_s']:.0f}" + (
+            " (log reused from cache)" if p.get("reused") else ""
+        )
+        a(f"| `{p['variant']}` | " + " | ".join(cells) + f" | {wall} |")
+    a("")
+    a(
+        "A row marked **log reused from cache** was not re-simulated for this "
+        "record: the campaign's own identity-gated `--log-cache` found a stored "
+        "log whose deck sha256, volare-verified open_pdks commit and ngspice "
+        "version all matched the run about to be made, and the wall clock shown "
+        "is the one measured when that run actually executed (same mechanism, "
+        "same gate, same disposition as the arm-comparison records)."
+    )
+    a("")
+    a(
+        f"The ideal code for `+0.00*V_REF` is {tb.ideal_code(0.0)} "
+        f"(`spec/target-spec.md`, RATIFIED DR-003), and this campaign's control reads "
+        "511 at some corners and 512 at others -- which is the whole reason this "
+        "input was worth probing."
+    )
+    a("")
+
+    a("## Per-trial decision margin, mid-scale conversion")
+    a("")
+    a(
+        "The comparator's own differential input at each bit trial's decision "
+        "instant, per variant. This is the table that says which decision of the "
+        "conversion a perturbation could plausibly flip -- and which ones it could "
+        "not."
+    )
+    a("")
+    header = "| bit | " + " | ".join(f"`{p['variant']}`" for p in points) + " |"
+    a(header)
+    a("|---" * (len(points) + 1) + "|")
+    for idx in range(tb.N_BITS):
+        bit = tb.N_BITS - 1 - idx
+        cells = []
+        for p in points:
+            conv = next(
+                (c for c in p["trials"] if c["conversion"] == MIDSCALE_CONVERSION), None
+            )
+            tr = None if conv is None else conv["trials"][idx]
+            if tr is None or tr["missing"]:
+                cells.append("n/a")
+            else:
+                cells.append(
+                    f"{tr['v_in_mv']:+.4f} mV ({tr['v_in_lsb']:+.4f} LSB) -> d{bit}={tr['dout']}"
+                )
+        a(f"| {bit} | " + " | ".join(cells) + " |")
+    a("")
+    a(
+        "`-> d<n>=<v>` is the bit the search register captured for that trial, so a "
+        "row states both what the comparator was asked and what the loop did with "
+        "the answer. A magnitude-search trial of this conversion is *supposed* to "
+        "read a large positive input and capture 0: the sign trial has already "
+        "chosen the branch, and the magnitude then walks down from half scale."
+    )
+    a("")
+
+    a("## Findings")
+    a("")
+    for line in midscale_probe_findings_lines(points):
+        a(line)
+    a("")
+    a(
+        "- **What this probe does NOT establish.** It does not reconstruct the "
+        f"trajectory that produced the recorded 505: that run is not reproducible "
+        "here, so its own per-trial margins cannot be read out after the fact. What "
+        "would settle it is running this probe on a host where the mid-scale code "
+        "does move -- the per-trial table then names the diverging trial directly."
+    )
+    a("")
+
+    lines.extend(
+        evidence.environment_block(
+            pdk_line=prov.pdk_line,
+            ngspice_line=prov.ng_version,
+            netlist_sha256=prov.netlist_sha,
+            extra={
+                "tran step": f"{tb.TRAN_STEP_NS} ns (as committed; one variant halves it)",
+                "simulated span": f"{tb.t_stop_ns():.1f} ns per run",
+                "runs": f"{len(points)} (one per variant, one at a time)",
+                "corner": f"`{cid}`",
+                "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "reproduced against": (
+                    f"record `{MIDSCALE_PROBE_REFERENCE_RECORD}`'s committed logs under "
+                    f"`corners/{MIDSCALE_PROBE_REFERENCE_RECORD}/`"
+                ),
+                "one LSB": f"{lsb_v(points[0]['supply_v']) * 1e3:.4f} mV differential"
+                if points
+                else "n/a",
+            },
+        )
+    )
+    a("")
+    lines.extend(
+        evidence.footer_lines(
+            midscale_probe_invocation_line(variants, cid, supersedes), supersedes
+        )
+    )
+
+    # Deliberately NOT records/LATEST, for the same reason the two sweep records
+    # are not: that pointer names this campaign's newest ARM-COMPARISON record,
+    # which is what the proposal citation census reads. This record contains no
+    # arm census -- it is one corner, two networks and three perturbations of a
+    # single conversion -- and moving the pointer onto it would make a citation
+    # of a record nothing had superseded read as stale.
+    return evidence.close_record(prov, lines, "Mid-scale boundary probe record")
+
+
+def run_midscale_probe(
+    variants: tuple[str, ...],
+    corner: tuple[str, float, float],
+    scratch: Path,
+    quiet: bool,
+    log_cache: Path | None = None,
+) -> tuple[list[dict], str]:
+    pdk_info = pdk.resolve()
+    dut_netlist_text = fc.dut_text()
+    process_corner, temp_c, supply_v = corner
+    points: list[dict] = []
+    for spec in variants:
+        arm_name, _, pert_name = spec.partition(":")
+        point = run_midscale_probe_variant(
+            dut_netlist_text,
+            pdk_info,
+            scratch,
+            ARMS_BY_NAME[arm_name],
+            PERTURBATIONS_BY_NAME[pert_name],
+            process_corner,
+            temp_c,
+            supply_v,
+            quiet,
+            log_cache=log_cache,
+        )
+        points.append(point)
+    return points, dut_netlist_text
+
+
+# --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# The decoupling-tie ESR ladder's own record
+# --------------------------------------------------------------------------
+def decap_esr_invocation_line(mults: tuple[float, ...], supersedes: str) -> str:
+    """The `--decap-esr` counterpart of `invocation_line()`, under the same
+    rules: a flag that changes what was simulated is stated, one that only
+    changes how the run was scheduled (`--log-cache`) is not. The ladder flag
+    appears only when the run departed from the documented rungs, so the default
+    run's footer is exactly the command `sim/spec-coverage.json` indexes."""
+    parts = [RUNNER_REL, "--decap-esr"]
+    if tuple(mults) != DECAP_ESR_MULTIPLIERS:
+        parts.append("--decap-esr-mult " + ",".join(f"{m:g}" for m in mults))
+    parts.append("--record")
+    if supersedes:
+        parts.append(f"--supersedes {supersedes}")
+    return " ".join(parts)
+
+
+def _decap_esr_point(points: list[dict], mult: float) -> dict | None:
+    name = decap_esr_arm_name(mult)
+    return next((p for p in points if p["arm"] == name), None)
+
+
+def decap_esr_verdict(
+    points: list[dict], mults: tuple[float, ...], band: float = DECAP_ESR_WASH_BAND
+) -> dict:
+    """Which way the MEASURED tie resistance moves the die-side rails.
+
+    This is the whole deliverable of issue #465, so it is computed rather than
+    written: the `1x` rung's peak-to-peak excursion on each of the four die-side
+    rails, against the `0x` rung's, with a stated reading band
+    (`DECAP_ESR_WASH_BAND`) below which a difference is called a wash instead of
+    a direction. A `mixed` verdict -- some rails up, some down, by more than the
+    band -- is reported as `mixed` rather than resolved by picking a favourite
+    rail: four rails disagreeing IS the finding in that case.
+
+    `direction` is about the SIGN of adding the drawn resistance. The question
+    the layout actually asks is the reverse one (would cutting it help?), which
+    is the same measurement read backwards: `damping` means the drawn ties
+    lower the excursion, so cutting them with via arrays would raise it.
+    """
+    zero = _decap_esr_point(points, 0.0)
+    built = _decap_esr_point(points, 1.0)
+    out: dict = {
+        "available": False,
+        "band": band,
+        "per_rail": {},
+        "direction": "unavailable",
+        "worst_0x": None,
+        "worst_1x": None,
+        "code_delta": None,
+    }
+    if 0.0 not in mults or 1.0 not in mults or zero is None or built is None:
+        return out
+    per_rail: dict[str, float | None] = {}
+    for probe, _node, _label in RAIL_PROBES:
+        a = zero["extras"].get(f"{probe}_pp")
+        b = built["extras"].get(f"{probe}_pp")
+        per_rail[probe] = None if a is None or b is None or a <= 0.0 else b / a
+    ratios = [r for r in per_rail.values() if r is not None]
+    if not ratios:
+        out["per_rail"] = per_rail
+        return out
+    seen = set()
+    for ratio in ratios:
+        if ratio < 1.0 - band:
+            seen.add("damping")
+        elif ratio > 1.0 + band:
+            seen.add("amplifying")
+        else:
+            seen.add("wash")
+    if seen == {"wash"}:
+        direction = "wash"
+    elif seen <= {"damping", "wash"}:
+        direction = "damping"
+    elif seen <= {"amplifying", "wash"}:
+        direction = "amplifying"
+    else:
+        direction = "mixed"
+    pps_zero = [zero["extras"].get(f"{p}_pp") for p, _n, _l in RAIL_PROBES]
+    pps_built = [built["extras"].get(f"{p}_pp") for p, _n, _l in RAIL_PROBES]
+    out.update(
+        available=True,
+        per_rail=per_rail,
+        direction=direction,
+        worst_0x=max([v for v in pps_zero if v is not None], default=None),
+        worst_1x=max([v for v in pps_built if v is not None], default=None),
+        code_delta=worst_mid_scale_delta(built, zero),
+    )
+    return out
+
+
+#: What each verdict direction means for the geometry question issue #465 asks:
+#: should `build_layout.py` draw 2x2 via arrays at the decoupling ties?
+DECAP_ESR_VIA_ARRAY_READING: dict[str, str] = {
+    "damping": (
+        "**the via arrays are NOT worth drawing.** The drawn ties LOWER the die-side "
+        "excursion, so cutting their resistance -- which is exactly what a 2x2 array "
+        "at each riser and each plate entry would do -- moves the rails back toward "
+        "the higher-excursion `0x` rung. The ~13.8 Ohm is damping the resonance the "
+        "8.870 pF pair forms with DR-015's bond inductance (Q ~ 1.06), not spoiling "
+        "the decoupling, so spending vias to remove it would make this measurement "
+        "worse rather than better"
+    ),
+    "amplifying": (
+        "**cutting the tie resistance is directionally worth something.** The drawn "
+        "ties RAISE the die-side excursion, so a 2x2 via array at each riser and each "
+        "plate entry -- which #440 projected at roughly a 3x reduction, to ~4-5 Ohm "
+        "per domain -- would recover part of that difference. How much is NOT "
+        "measured here: this ladder brackets the reachable value between its two "
+        "rungs rather than running the projected array geometry itself, and the "
+        "arrays cannot reach the `0x` rung (they can only reduce the via half of the "
+        "ladder, and the metal half stays)"
+    ),
+    "wash": (
+        "**the via arrays are NOT worth drawing.** The drawn ties move the die-side "
+        "excursion by less than the stated reading band on every rail, so the "
+        "reachable ~3x reduction has nothing measurable to recover. At the "
+        "frequencies this stimulus excites, the pair is reactance-dominated and its "
+        "series resistance is not what sets the excursion"
+    ),
+    "mixed": (
+        "**no single verdict.** The four die-side rails do not agree on the sign by "
+        "more than the stated reading band, so this record does not support a "
+        "statement that cutting the tie resistance helps OR hurts. Reported as "
+        "measured rather than resolved by choosing one rail"
+    ),
+    "unavailable": (
+        "**not answerable from this record.** It needs both the `0x` and `1x` rungs, "
+        "and this run did not produce both"
+    ),
+}
+
+
+def decap_esr_findings_lines(
+    points: list[dict],
+    control: dict | None,
+    mults: tuple[float, ...],
+    ties: DecapTieMeasurement,
+) -> list[str]:
+    """What the ladder says, as differences between rungs."""
+    out: list[str] = []
+
+    out.append(
+        "- **The ladder is anchored to the committed decoupled netlist.** Its "
+        f"`{decap_esr_arm_name(0.0)}` rung emits no tie resistors at all, so it is "
+        f"card for card the `{DECAP_ESR_BASE_ARM}` arm this campaign has already "
+        "recorded on the same DUT: same per-terminal R+L, same lumped "
+        f"`R_SUBX = {R_SUBX_OHM:g} Ohm`, same stimulus, same device cards. "
+        + (
+            "Checked before the run and again at record-write time "
+            "(`decap_esr_anchor_matches_base_arm()`), on the arm network AND on the "
+            "patched DUT body, so the ladder is tied to the existing records rather "
+            "than merely described as being."
+            if decap_esr_anchor_matches_base_arm(ties)
+            else "**This check FAILED** -- the `0x` rung is no longer the committed "
+            "netlist, so nothing below may be read as the tie resistance's own "
+            "contribution."
+        )
+    )
+
+    out.append(
+        "- **Where the resistance comes from**: "
+        f"`{ties.record}/decap-ties.json`, issue #440's measurement of the DRAWN "
+        f"ties -- {ties.domain_esr_line()} per domain, read out of that record by "
+        "this runner rather than typed in. It is a lumped DC ladder over the drawn "
+        "straps and vias from the PDK's own sheet/via resistances: no frequency "
+        "dependence, and **no interconnect inductance** (the other half of DR-017's "
+        "routing-parasitics item, which needs `klt pex`, is not modelled here)."
+    )
+
+    for probe, _node, label in RAIL_PROBES:
+        cells = []
+        for m in mults:
+            p = _decap_esr_point(points, m)
+            pp = None if p is None else p["extras"].get(f"{probe}_pp")
+            cells.append("n/a" if pp is None else f"{pp * 1e3:.3f} mV")
+        out.append(
+            f"- **{label}**: peak-to-peak die-side excursion "
+            + " -> ".join(cells)
+            + " as the drawn tie resistance goes "
+            + " -> ".join(f"{m:g}x" for m in mults)
+            + ". Only those four resistors move along this row."
+        )
+
+    verdict = decap_esr_verdict(points, mults)
+    if verdict["available"]:
+        ratios = ", ".join(
+            f"{label.split('(')[0].strip()} "
+            + (
+                "n/a"
+                if verdict["per_rail"].get(probe) is None
+                else f"{verdict['per_rail'][probe]:.3f}x"
+            )
+            for probe, _node, label in RAIL_PROBES
+        )
+        worst_0 = verdict["worst_0x"]
+        worst_1 = verdict["worst_1x"]
+        out.append(
+            "- **The sign, which is what this record exists to establish**: adding the "
+            "measured drawn tie resistance to the committed netlist takes the worst "
+            f"die-side rail excursion from **{worst_0 * 1e3:.3f} mV** to "
+            f"**{worst_1 * 1e3:.3f} mV** peak-to-peak "
+            f"({worst_1 / worst_0:.3f}x), per rail {ratios}, at a stated reading band "
+            f"of +-{verdict['band'] * 100:g} %. Worst mid-scale |delta code| between "
+            "the two rungs = "
+            + ("n/a" if verdict["code_delta"] is None else f"**{verdict['code_delta']} LSB**")
+            + f". Direction: **{verdict['direction']}**."
+        )
+    out.append(
+        "- **What that means for the drawn geometry**: "
+        + DECAP_ESR_VIA_ARRAY_READING[verdict["direction"]]
+        + ". One corner (`"
+        + corners_mod.corner_id(*BASELINE_CORNER)
+        + "`), DR-015's assumed package magnitudes, no board decoupling, and a "
+        "DC-only tie model -- so this is a directional finding about this stimulus at "
+        "this corner, not a universal statement about decoupling ESR."
+    )
+
+    if control is not None:
+        moved = []
+        for m in mults:
+            p = _decap_esr_point(points, m)
+            if p is None:
+                continue
+            delta = worst_mid_scale_delta(p, control)
+            if delta:
+                moved.append((m, delta))
+        if moved:
+            out.append(
+                "- **A mid-scale captured code moves on this ladder** (against the "
+                f"`{CONTROL_ARM}` control): "
+                + ", ".join(f"`{m:g}x` = {d} LSB" for m, d in moved)
+                + f"; {len(moved)} of {len(mults)} rungs move at least one mid-scale "
+                "code."
+            )
+        else:
+            out.append(
+                f"- **No mid-scale captured code moves on this ladder.** Every rung "
+                f"reproduces the `{CONTROL_ARM}` control's mid-scale codes exactly "
+                "(worst |delta code| = **0 LSB**), so the tie resistance changes the "
+                "rails' own excursion without changing a captured code at this "
+                "corner -- a bounded null result on the code axis, not a null on the "
+                "excursion axis."
+            )
+
+    missing_points = [p["point_id"] for p in points if p["missing"]]
+    if missing_points:
+        out.append(
+            "- **Incomplete runs** (some `.meas` value did not come back): "
+            + ", ".join(f"`{pid}`" for pid in missing_points)
+            + " -- reported rather than dropped."
+        )
+    return out
+
+
+def _decap_tie_table_lines(ties: DecapTieMeasurement) -> list[str]:
+    """The measured tie resistances, as the record states them."""
+    out = [
+        "| drawn tie | lumped resistance | domain | domain ESR | Q at the package "
+        "resonance | ESR = X_C at |",
+        "|---|---|---|---|---|---|",
+    ]
+    for instance, domain, terminals in DECAP_DEVICES:
+        for terminal in terminals:
+            key = DECAP_TIE_KEYS[terminal]
+            out.append(
+                f"| `{key}` | {ties.tie_ohm[terminal]:.3f} Ohm | {domain} | "
+                f"**{ties.esr_ohm[domain]:.3f} Ohm** | "
+                f"{ties.q_at_resonance.get(domain, float('nan')):.3f} | "
+                f"{ties.esr_equals_reactance_hz.get(domain, 0.0) / 1e9:.3f} GHz |"
+            )
+    out.append("")
+    out.append(
+        f"Each domain's ESR is its two ties in series, carrying its {ties.capacitance_f * 1e12:.3f} "
+        f"pF pair. `Q` and the crossover are the probe's own, at the "
+        f"{ties.package_resonance_hz / 1e6:.1f} MHz resonance that capacitance forms "
+        f"with DR-015's per-terminal {PACKAGE_L_H * 1e9:.3f} nH; the pair's reactance "
+        "there is "
+        + ", ".join(
+            f"{v:.2f} Ohm ({k})" for k, v in ties.reactance_at_resonance_ohm.items()
+        )
+        + "."
+    )
+    return out
+
+
+def write_decap_esr_record(
+    points: list[dict],
+    dut_netlist_text: str,
+    mults: tuple[float, ...],
+    ties: DecapTieMeasurement,
+    supersedes: str = "",
+) -> Path:
+    """The `--decap-esr` record.
+
+    A separate writer from `write_record()` and from the two sweep writers, for
+    the same reason they are separate from each other: the records make different
+    claims and must not be able to borrow each other's sentences. The arm
+    comparison ranks NETWORKS at DR-015's assumption point; the sweeps walk boxes
+    around that point; this one holds the network fixed and moves a MEASURED
+    resistance that no netlist in this repo had ever contained. What they share
+    -- the DR-015 assumption table, the subset-corner justification, the
+    environment block, the footer rules -- they share by calling the same
+    helpers.
+    """
+    prov, lines, corner_ids, processes, temps, supplies = _open_corners_record(
+        points, dut_netlist_text
+    )
+
+    rungs = [p for p in points if p["arm"] != CONTROL_ARM]
+    control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
+    verdict = decap_esr_verdict(points, mults)
+
+    a = lines.append
+    a(
+        "- **Claim**: `spec/target-spec.md#target-table` -- **Power** (DRAFT row), "
+        "INFORMATIONAL only, and the evidence "
+        "`spec/decision-records/DR-017-on-die-decoupling-budget.md`'s "
+        "routing-parasitics open item (\"the sign of the net effect is still "
+        "unmeasured\", issue #465) asks for. It edits no spec row, proposes no power "
+        "target, and grades nothing against a ratified line. What it measures is "
+        "whether the interconnect resistance the DRAWN decoupling ties add -- "
+        "measured in `layout/sar-adc-top/`, never yet present in any netlist here -- "
+        "raises or lowers the die-side rail excursion."
+    )
+    a(
+        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with "
+        "THREE testbench-only transformations that are never written back to "
+        "`design/`: the DUT's `GND` net is renamed `GND_DIE` (a net named `GND` is "
+        "ngspice's global node 0 and would short out every series element this "
+        "campaign inserts); the committed fragment's `VVDD`/`VVPWR`/`VVGND` source "
+        "cards are re-pointed to board-side nodes; and on every rung above `0x`, "
+        "each decoupling capacitor's two plate nodes are re-pointed behind a "
+        "resistor carrying that tie's own MEASURED resistance. Source instance "
+        "names, the `.tran` card, the clock/reset/input schedule and every code and "
+        "phase `.meas` card are used verbatim, and the `0x` rung's deck contains "
+        "none of the third transformation at all."
+    )
+    a(corners_mod.corner_matrix_summary_line(processes, temps, supplies, len(corner_ids)))
+    a(
+        f"- **Ladder**: {len(mults)} rungs of the measured tie resistance "
+        f"({', '.join(f'{m:g}x' for m in mults)}) plus the `{CONTROL_ARM}` control, "
+        f"at {len(corner_ids)} corner point(s) = {len(points)} whole-ADC transients. "
+        f"Every rung is the as-built `{DECAP_ESR_BASE_ARM}` topology with exactly "
+        "those four resistors moved."
+    )
+    a(
+        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
+        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
+        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
+        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
+        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
+        "the remaining five carrying DC differential inputs of "
+        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
+        + "."
+    )
+    a("")
+
+    a("## Why this record exists")
+    a("")
+    a(
+        "[DR-017](../../../spec/decision-records/DR-017-on-die-decoupling-budget.md) "
+        "put one `cap_mim_m3_1` pair per supply domain into the design, and its "
+        "Amendment A argues about ESR on the strength of the DEVICE's own plate "
+        "resistance (0.0235 Ohm for the shipped pair). Issue #440 then drew the ties "
+        "and measured what the INTERCONNECT adds: about 590x that, and ~80 % of it "
+        "single-cut vias. A 2x2 via array at each riser and each plate entry would "
+        "cut it roughly 3x and is cheap in area -- but #440 declined to draw one, "
+        "because the sign of the benefit is not obvious. At the as-built resistance "
+        "the resonance the pair forms with DR-015's bond inductance has `Q ~ 1.06`, "
+        "so the ties are comparable to the pair's own reactance there and are "
+        "DAMPING that resonance; removing them raises `Q` as much as it lowers the "
+        "impedance at resonance. Read the other way, ESR does not reach the pair's "
+        "reactance until ~1.3 GHz, so the pair should already be "
+        "reactance-dominated where the bounce lives. Both readings are design-time "
+        "inferences about the same four resistors. This record replaces them with a "
+        "measurement, and it is [issue "
+        "#465](https://github.com/2AMLogic/sky130-sar-adc/issues/465). It supersedes "
+        "nothing: the arm comparison ranks five networks at DR-015's assumption "
+        "point, the sweeps walk boxes around it, and this ladder holds the network "
+        "fixed and moves a resistance none of them contained."
+    )
+    a("")
+
+    a("## The measured decoupling ties (issue #440)")
+    a("")
+    lines.extend(_decap_tie_table_lines(ties))
+    a("")
+    a(
+        "**These are a measurement, not an assumption** -- unlike DR-015's R+L "
+        "below. Their provenance is a committed, append-only layout record "
+        f"(`{ties.record}`), and this runner reads the ohms out of that record's own "
+        "`decap-ties.json` rather than carrying a copy, so a record here cannot "
+        "state a resistance the layout never had. What they are NOT: an extraction. "
+        "Each is one lumped DC resistor assembled from `build_layout.py`'s own "
+        "geometry constants and the PDK's sheet/via resistances "
+        "(`res_typical__cap_typical.spice`), with no frequency dependence, no skin "
+        "effect, and **no interconnect inductance** -- that half of DR-017's "
+        "routing-parasitics item needs `klt pex` and the device/net correspondence "
+        "this flow does not yet have (klayout-tools#1878), and is out of scope here."
+    )
+    a("")
+
+    a("## The package-style assumption (DR-015), which this ladder holds fixed")
+    a("")
+    lines.extend(_assumption_lines())
+    a("")
+    a(
+        "Every row above is identical on every rung. The ladder moves only the four "
+        "measured tie resistors, so the difference between two rungs is their own "
+        "contribution and nothing else (DR-015 item 5). The `R_SUB` row does not "
+        f"appear in this ladder's decks at all: the as-built `{DECAP_ESR_BASE_ARM}` "
+        "topology bonds all four terminals, and only the `substrate`/`no-gnd-pad` "
+        "arms carry that element."
+    )
+    a("")
+
+    a("## The rungs, as networks")
+    a("")
+    lines.extend(
+        arm_table_lines(
+            [ARMS_BY_NAME[CONTROL_ARM]] + decap_esr_arms(tuple(mults), ties),
+            substrate_note=False,
+        )
+    )
+    a(
+        f"The `{CONTROL_ARM}` row is the control every code delta below is taken "
+        "against: ideal sources at the die, the zero-impedance case every other "
+        "`sim/` campaign runs. Its own deck carries no tie resistors either -- the "
+        "third transformation is applied per rung, and the control is not a rung. "
+        f"Every rung carries the same lumped `R_SUBX = {R_SUBX_OHM:g} Ohm` between "
+        "the analog and digital ground die nodes; in `ideal` both of its ends are "
+        "held at 0 V, so it carries no current."
+    )
+    a("")
+
+    a("## Die-side rail excursion per rung")
+    a("")
+    a(
+        "| rung | tie resistance per domain | "
+        + " | ".join(f"{name} pp (mV)" for name, _n, _l in RAIL_PROBES)
+        + " |"
+    )
+    a("|---" * (len(RAIL_PROBES) + 2) + "|")
+    for p in points:
+        if p["arm"] == CONTROL_ARM:
+            label, scale = f"`{CONTROL_ARM}` (control)", "-- (no bond, no ties)"
+        else:
+            mult = next(
+                (m for m in mults if decap_esr_arm_name(m) == p["arm"]),
+                None,
+            )
+            label = f"`{p['arm']}`"
+            scale = "none" if mult in (None, 0.0) else ties.domain_esr_line(mult)
+        cells = [_mv(p["extras"].get(f"{probe}_pp")) for probe, _n, _l in RAIL_PROBES]
+        a(f"| {label} | {scale} | " + " | ".join(cells) + " |")
+    a("")
+    a(
+        "`pp` is the peak-to-peak excursion of the DIE-side node over the same "
+        "steady-state conversion the fragment averages its supply currents over. "
+        f"The `{CONTROL_ARM}` row is the mechanical control: an ideal source holds "
+        "each die node at its own DC value, so a nonzero ground excursion there "
+        "would mean the networks are not wired the way this record says."
+    )
+    a("")
+
+    a("## Captured code per rung")
+    a("")
+    lines.extend(_captured_code_table_lines(points, control, "rung"))
+    a("")
+    a(
+        "The two `+-0.78*V_REF` columns are reported but EXCLUDED from the worst-delta "
+        "column: `sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md` "
+        "already records them as wrong by ~100 LSB at every corner (issue #267, "
+        "common-mode saturation at large differential input, still open), so a change "
+        "there could not be attributed to a decoupling tie."
+    )
+    a("")
+
+    a("## Average rail current per rung")
+    a("")
+    a(
+        "| rung | I(VDD) (uA) | I(VPWR) (uA) | I(GND) (uA) | I(VREFP) (uA) | "
+        "I(VCM) (uA) | total power (uW) |"
+    )
+    a("|---|---|---|---|---|---|---|")
+    for p in points:
+        i_gnda = p["extras"].get("i_gnda")
+        a(
+            f"| `{p['arm']}` | {_ua(p['currents'].get('i_vdd'))} | "
+            f"{_ua(p['currents'].get('i_vpwr'))} | "
+            f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
+            f"{_ua(p['currents'].get('i_vrefp'))} | {_ua(p['currents'].get('i_vcm'))} | "
+            f"{p['power_w'] * 1e6:.3f} |"
+        )
+    a("")
+
+    a("## Findings")
+    a("")
+    for line in decap_esr_findings_lines(points, control, tuple(mults), ties):
+        a(line)
+    a("")
+
+    a("## Wall-clock cost per run")
+    a("")
+    lines.extend(_wall_clock_table_lines(points, control, "rung"))
+    a(
+        "Reported for the same two reasons every record of this campaign reports it: "
+        "it is the input to the subset-corner justification below, and it is itself a "
+        "finding -- this campaign's expensive shape is the bonded one, and the "
+        "`package` arm has repeatedly outrun a ~63-minute per-process budget on this "
+        "fleet (issue #448), which is why this ladder has two rungs rather than four. "
+        "These are wall-clock seconds on a shared, contended host, so they are ratios "
+        "between rungs rather than a benchmark of either."
+    )
+    a("")
+
+    a("## What this ladder does not cover")
+    a("")
+    a(
+        "- **The interconnect INDUCTANCE of the same ties.** The other half of "
+        "DR-017's routing-parasitics item. It needs an extraction (`klt pex`) that "
+        "presumes a device/net correspondence this flow does not yet have "
+        "(klayout-tools#1878, tracked with #103's LVS gap), so these decks model "
+        "resistance only."
+    )
+    a(
+        "- **The 2x2-via-array geometry itself.** This ladder brackets the reachable "
+        "value between `0x` and the as-built `1x`; it does not run the projected "
+        "~4-5 Ohm array ESR as its own rung. The arrays could never reach `0x` in "
+        "any case -- they divide the via half of each ladder and leave the metal "
+        f"half untouched. Of the analog return tie's {ties.tie_ohm['GND']:.3f} Ohm, "
+        "issue #440 measured ~80 % as single via cuts; it is the met2 remainder of "
+        "that -- not the whole tie -- that no via array can divide, and it is what "
+        "holds even a fully arrayed tie above `0x`."
+    )
+    a(
+        "- **Other corners.** One corner point, for the cost reason stated below. "
+        "The full ratified grid at this ladder would be "
+        f"{len(mults) + 1} x 9 whole-ADC transients."
+    )
+    a(
+        "- **Board decoupling**, which no record of this campaign models, so every "
+        "excursion here remains an upper bound rather than a prediction for a real "
+        "system."
+    )
+    a(
+        "- **The two near-full-scale inputs**, outside every code comparison above "
+        "for the reason stated under that table (issue #267)."
+    )
+    a("")
+
+    lines.extend(
+        subset_corner_lines(
+            corner_ids,
+            "the decoupling-tie ESR ladder",
+            f"the {len(points)} decks of this record",
+            len(points),
+            "a one-element sign measurement at the baseline corner",
+        )
+    )
+
+    lines.extend(
+        evidence.environment_block(
+            pdk_line=prov.pdk_line,
+            ngspice_line=prov.ng_version,
+            netlist_sha256=prov.netlist_sha,
+            extra={
+                "tran step": f"{tb.TRAN_STEP_NS} ns",
+                "simulated span": f"{tb.t_stop_ns():.1f} ns per run",
+                "runs": (
+                    f"{len(points)} ({len(rungs)} rungs + the `{CONTROL_ARM}` control "
+                    f"x {len(corner_ids)} corner point)"
+                ),
+                "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "decoupling-tie measurement": (
+                    f"{ties.record}/decap-ties.json -- {ties.domain_esr_line()} per "
+                    f"domain, {ties.capacitance_f * 1e12:.3f} pF per domain (issue #440)"
+                ),
+                "tie-resistance ladder": (
+                    "{" + ", ".join(f"{m:g}x" for m in mults) + "} of the measured value"
+                ),
+                "verdict": (
+                    f"{verdict['direction']} at a +-{verdict['band'] * 100:g} % reading band"
+                ),
+            },
+        )
+    )
+    a("")
+    lines.extend(
+        evidence.footer_lines(
+            decap_esr_invocation_line(tuple(mults), supersedes), supersedes
+        )
+    )
+
+    # Deliberately NOT records/LATEST, for the same reason the two sweep writers
+    # decline it: that pointer names the record this campaign's CITED claim rests
+    # on -- the baseline-corner arm comparison DR-012 and
+    # `docs/chipalooza/challenge-4-proposal.md`'s Power row cite, and which
+    # DR-017's own erratum reads as "any undecoupled record" -- and this record
+    # does not replace it. It asks a different question (which way a measured
+    # interconnect resistance moves the rails), on a DUT body no other record in
+    # this campaign has ever simulated. Moving the pointer would make citations
+    # of the still-current arm-comparison record read as stale to the citation
+    # gate while nothing had actually superseded them.
+    return evidence.close_record(prov, lines, "Decoupling-tie ESR ladder record")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check-env", action="store_true", help="only check toolchain/PDK pin")
@@ -1396,13 +5120,138 @@ def main() -> int:
         "--corners",
         action="store_true",
         help="run every arm at all nine points of the ratified OAT grid instead of "
-        "the baseline corner only (NOT runnable on a shared dispatch host -- see "
-        "this experiment's README.md)",
+        "the baseline corner only. Hours of sequential whole-ADC transients -- see "
+        "this experiment's README.md, and --corner-points for advancing the same "
+        "grid in session-sized pieces",
+    )
+    ap.add_argument(
+        "--corner-points",
+        default=None,
+        metavar="ID,ID,...",
+        help="run a NAMED SUBSET of the same ratified OAT grid, by corner-id (e.g. "
+        "tt_27c_1.80v,ss_27c_1.80v). Narrows the ratified set; it cannot name a "
+        "point outside it. Exists because the full grid is hours and a dispatch "
+        "session is not (issue #409 item 1): with --log-cache, finished points "
+        "carry across sessions, so the grid is completed by accumulation. The "
+        "record states its own subset-corner justification either way. Mutually "
+        "exclusive with --corners.",
     )
     ap.add_argument(
         "--arms",
-        default=",".join(arm.name for arm in ARMS),
-        help="comma-separated subset of the supply-return arms to run (default: all)",
+        default=None,
+        help="comma-separated subset of the supply-return arms to run (default: all). "
+        "Not meaningful with --sweep, which synthesizes its own grid points.",
+    )
+    ap.add_argument(
+        "--sweep",
+        action="store_true",
+        help="DR-015's own open item (issue #409): instead of the named arms, run a "
+        "bounded 2-D sweep of the AS-BUILT supply-return network at the baseline "
+        "corner -- per-terminal bond inductance (as a multiple of DR-015's value) x "
+        "the lumped substrate link R_SUBX -- plus the `ideal` control. Writes its "
+        "own record with --record; that record does NOT supersede the arm-comparison "
+        "record and does not move records/LATEST.",
+    )
+    ap.add_argument(
+        "--sweep-l-mult",
+        default=",".join(f"{m:g}" for m in SWEEP_L_MULTIPLIERS),
+        metavar="M1,M2,...",
+        help="the sweep's bond-inductance axis, as multipliers of DR-015's "
+        f"per-terminal {PACKAGE_L_H * 1e9:.3f} nH (default: "
+        f"{','.join(f'{m:g}' for m in SWEEP_L_MULTIPLIERS)}). A departure from the "
+        "default box is stated in the record's own footer.",
+    )
+    ap.add_argument(
+        "--sweep-rsubx",
+        default=",".join(f"{r:g}" for r in SWEEP_RSUBX_OHM),
+        metavar="R1,R2,...",
+        help="the sweep's substrate-link axis, in ohms (default: "
+        f"{','.join(f'{r:g}' for r in SWEEP_RSUBX_OHM)}; DR-015 assumes "
+        f"{R_SUBX_OHM:g}). This is R_SUBX, the lumped GND/VGND substrate link -- "
+        "NOT R_SUB, which the as-built network does not contain.",
+    )
+    ap.add_argument(
+        "--null-sweep",
+        action="store_true",
+        help="the residual of DR-015's substrate open item (issue #409): instead of "
+        "the named arms, run a bounded ONE-axis ladder over the lumped substrate "
+        f"return of the `{NULL_SWEEP_BASE_ARM}` topology -- DR-012's rejected null "
+        "option, where that one resistor is the analog ground's entire path to the "
+        "board -- at the baseline corner, plus the `ideal` control. Not the same "
+        f"experiment as --sweep, which moves the same constant on the as-built "
+        f"`{SWEEP_BASE_ARM}` topology where `GND` is bonded. Writes its own record "
+        "with --record; that record supersedes nothing and does not move "
+        "records/LATEST.",
+    )
+    ap.add_argument(
+        "--null-sweep-rsub",
+        default=",".join(f"{r:g}" for r in NULL_SWEEP_RSUBX_OHM),
+        metavar="R1,R2,...",
+        help="the null-option ladder's substrate axis, in ohms (default: "
+        f"{','.join(f'{r:g}' for r in NULL_SWEEP_RSUBX_OHM)}; DR-015 assumes "
+        f"{R_SUBX_OHM:g}). A departure from the default ladder is stated in the "
+        "record's own footer.",
+    )
+    ap.add_argument(
+        "--midscale-probe",
+        action="store_true",
+        help="issue #455: instead of the arm comparison, run the mid-scale boundary "
+        "probe -- a DIAGNOSTIC at one corner (default "
+        f"{corners_mod.corner_id(*MIDSCALE_PROBE_CORNER)}, the point the 6-LSB "
+        "mid-scale move was recorded at) that (a) re-runs the committed decks of that "
+        "point and its control and diffs them against the committed logs, and (b) "
+        "re-runs the control under supply-UNRELATED perturbations (a +-0.1 LSB DC "
+        "input offset, a halved .tran step), with per-bit-trial comparator-margin "
+        "probes on every variant. Writes its own record with --record; that record "
+        "supersedes nothing and does not move records/LATEST.",
+    )
+    ap.add_argument(
+        "--midscale-probe-variants",
+        default=",".join(MIDSCALE_PROBE_VARIANTS),
+        metavar="ARM:PERT,...",
+        help="the probe's variant list, as `arm:perturbation` pairs (default: "
+        + ",".join(MIDSCALE_PROBE_VARIANTS)
+        + "). Perturbations available: "
+        + ", ".join(p.name for p in PERTURBATIONS)
+        + ". A departure from the default list is stated in the record's own footer.",
+    )
+    ap.add_argument(
+        "--decap-esr",
+        action="store_true",
+        help="DR-017's routing-parasitics open item (issue #465): instead of the "
+        "named arms, run a bounded ONE-element ladder over the MEASURED "
+        "decoupling-tie interconnect resistance -- the as-built `"
+        + DECAP_ESR_BASE_ARM
+        + "` topology with each domain's own drawn tie resistance (from "
+        f"{DECAP_TIE_RECORD}/decap-ties.json, issue #440) in series with that "
+        "domain's MiM pair -- at the baseline corner, plus the `" + CONTROL_ARM + "` "
+        "control. The `0x` rung is the committed netlist card for card, so the "
+        "difference between rungs is those four resistors' own contribution. Writes "
+        "its own record with --record; that record supersedes nothing and does not "
+        "move records/LATEST.",
+    )
+    ap.add_argument(
+        "--decap-esr-mult",
+        default=",".join(f"{m:g}" for m in DECAP_ESR_MULTIPLIERS),
+        metavar="M1,M2,...",
+        help="the decoupling-tie ladder, as multipliers of the MEASURED per-tie "
+        f"resistance (default: {','.join(f'{m:g}' for m in DECAP_ESR_MULTIPLIERS)}). "
+        "`0` is the committed netlist (no tie resistance at all) and must be present "
+        "-- it is the rung that anchors the ladder to the campaign's existing "
+        "decoupled records. A departure from the default ladder is stated in the "
+        "record's own footer.",
+    )
+    ap.add_argument(
+        "--cost-probe",
+        type=float,
+        default=None,
+        metavar="NS",
+        help="price the --sweep box instead of measuring it: re-run each grid "
+        "point's own deck over a TRUNCATED transient of NS nanoseconds and report "
+        "only wall clock and whether the solver converged. Measures nothing about "
+        "the DUT (the fragment's .meas cards sit outside the sliced span), so it "
+        "refuses --record and --log-cache; it exists so the box's price and "
+        "runnability are known before the hours are spent on it.",
     )
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
     ap.add_argument(
@@ -1429,7 +5278,11 @@ def main() -> int:
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
-    arm_names = [name.strip() for name in args.arms.split(",") if name.strip()]
+    arm_names = [
+        name.strip()
+        for name in (args.arms or ",".join(arm.name for arm in ARMS)).split(",")
+        if name.strip()
+    ]
     unknown = [name for name in arm_names if name not in ARMS_BY_NAME]
     if unknown:
         print(
@@ -1445,6 +5298,316 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+
+    corner_points = [cid.strip() for cid in (args.corner_points or "").split(",") if cid.strip()]
+    if corner_points and args.corners:
+        print(
+            "FAIL: --corners and --corner-points are the same axis stated two ways "
+            "(all nine ratified points, or a named subset of them). Pick one.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        grid = resolve_grid(args.corners, corner_points)
+    except ValueError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 2
+    # Ratified-grid order, so the footer names the subset the same way the
+    # record's tables order it however the caller typed the list.
+    corner_points = [corners_mod.corner_id(*point) for point in grid] if corner_points else []
+
+    l_mults: tuple[float, ...] = ()
+    rsubx_values: tuple[float, ...] = ()
+    null_rsub_values: tuple[float, ...] = ()
+    decap_mults: tuple[float, ...] = ()
+    decap_ties: DecapTieMeasurement | None = None
+    modes = [
+        name
+        for name, on in (
+            ("--sweep", args.sweep),
+            ("--null-sweep", args.null_sweep),
+            ("--midscale-probe", args.midscale_probe),
+            ("--decap-esr", args.decap_esr),
+        )
+        if on
+    ]
+    # The `--sweep` + `--null-sweep` pair keeps its own, older message below;
+    # this guard covers every pairing that involves the decap-ESR ladder.
+    if args.decap_esr and len(modes) > 1:
+        print(
+            f"FAIL: {' and '.join(modes)} are different experiments (two topologies "
+            "and a netlist transformation) and each writes its own record. Run them "
+            "one at a time.",
+            file=sys.stderr,
+        )
+        return 2
+    if args.decap_esr:
+        if args.arms is not None:
+            print(
+                "FAIL: --arms is not meaningful with --decap-esr. The ladder "
+                f"synthesizes its own rungs over the `{DECAP_ESR_BASE_ARM}` topology "
+                f"and always runs the `{CONTROL_ARM}` control; pick the ladder with "
+                "--decap-esr-mult instead.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.corners or args.corner_points:
+            print(
+                "FAIL: --decap-esr with --corners/--corner-points is refused, for the "
+                "same reason --sweep is: it multiplies a ladder of the campaign's "
+                "most expensive arm shape by the ratified grid, which is a campaign in "
+                "its own right rather than a longer version of this one -- see this "
+                "experiment's README.md.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            decap_mults = tuple(float(v) for v in args.decap_esr_mult.split(",") if v.strip())
+        except ValueError as exc:
+            print(f"FAIL: could not parse the decap-ESR ladder: {exc}", file=sys.stderr)
+            return 2
+        if not decap_mults:
+            print("FAIL: the decap-ESR ladder needs at least one rung", file=sys.stderr)
+            return 2
+        if 0.0 not in decap_mults:
+            print(
+                "FAIL: the decap-ESR ladder must include the `0` rung -- it is the "
+                "committed netlist card for card, and it is what ties this record's "
+                "numbers to the campaign's existing decoupled records. Without it "
+                "the ladder measures a resistance against nothing.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            decap_ties = load_decap_ties()
+            ladder = decap_esr_arms(decap_mults, decap_ties)
+            # Dry-run the DUT transformation now rather than after the first
+            # hour: a netlist whose decoupling cards moved would otherwise fail
+            # part-way through the ladder.
+            body, _hits = patch_dut_ground(fc.dut_text())
+            for arm in ladder:
+                patch_dut_decap_ties(body, arm)
+        except RuntimeError as exc:
+            print(f"FAIL: {exc}", file=sys.stderr)
+            return 2
+        if not decap_esr_anchor_matches_base_arm(decap_ties):
+            print(
+                "FAIL: the decap-ESR ladder's `0x` rung is no longer card-for-card "
+                f"the `{DECAP_ESR_BASE_ARM}` arm on the committed netlist -- the "
+                "ladder would not be a one-element walk away from what this campaign "
+                "has already recorded. Re-derive it before running.",
+                file=sys.stderr,
+            )
+            return 2
+    if args.sweep and args.null_sweep:
+        print(
+            "FAIL: --sweep and --null-sweep are different experiments on different "
+            f"topologies (the as-built `{SWEEP_BASE_ARM}` network and DR-012's "
+            f"rejected `{NULL_SWEEP_BASE_ARM}` one) and each writes its own record. "
+            "Run them one at a time.",
+            file=sys.stderr,
+        )
+        return 2
+    if args.null_sweep:
+        if args.arms is not None:
+            print(
+                "FAIL: --arms is not meaningful with --null-sweep. The ladder "
+                f"synthesizes its own points over the `{NULL_SWEEP_BASE_ARM}` "
+                f"topology and always runs the `{CONTROL_ARM}` control; pick the "
+                "ladder with --null-sweep-rsub instead.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.corners or args.corner_points:
+            print(
+                "FAIL: --null-sweep with --corners/--corner-points is refused, for "
+                "the same reason --sweep is: it multiplies a swept ladder by the "
+                "ratified grid, which is a campaign in its own right rather than a "
+                "longer version of this one -- see this experiment's README.md.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            null_rsub_values = tuple(
+                float(v) for v in args.null_sweep_rsub.split(",") if v.strip()
+            )
+        except ValueError as exc:
+            print(f"FAIL: could not parse the null-sweep axis: {exc}", file=sys.stderr)
+            return 2
+        if not null_rsub_values:
+            print("FAIL: the null-sweep axis needs at least one value", file=sys.stderr)
+            return 2
+        try:
+            null_sweep_arms(null_rsub_values)
+        except RuntimeError as exc:
+            print(f"FAIL: {exc}", file=sys.stderr)
+            return 2
+        if not null_sweep_anchor_matches_base_arm():
+            print(
+                f"FAIL: the null sweep's anchor point (R = {R_SUBX_OHM:g} Ohm) is no "
+                f"longer card-for-card the `{NULL_SWEEP_BASE_ARM}` arm -- the ladder "
+                "would not be a walk away from DR-015's assumption point. Re-derive "
+                "it before running.",
+                file=sys.stderr,
+            )
+            return 2
+    if args.sweep:
+        if args.arms is not None:
+            print(
+                "FAIL: --arms is not meaningful with --sweep. The sweep synthesizes "
+                f"its own grid points over the as-built `{SWEEP_BASE_ARM}` topology "
+                f"and always runs the `{CONTROL_ARM}` control; pick the box with "
+                "--sweep-l-mult / --sweep-rsubx instead.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.corners or args.corner_points:
+            print(
+                "FAIL: --sweep with --corners/--corner-points is refused. It is two "
+                "of issue #409's costs multiplied together (a 2-D box at every "
+                "ratified corner) -- nine boxes of whole-ADC transients, a campaign "
+                "in its own right rather than a longer version of this one. See this "
+                "experiment's README.md.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            l_mults = tuple(float(v) for v in args.sweep_l_mult.split(",") if v.strip())
+            rsubx_values = tuple(float(v) for v in args.sweep_rsubx.split(",") if v.strip())
+        except ValueError as exc:
+            print(f"FAIL: could not parse a sweep axis: {exc}", file=sys.stderr)
+            return 2
+        if not l_mults or not rsubx_values:
+            print("FAIL: both sweep axes need at least one value", file=sys.stderr)
+            return 2
+        try:
+            sweep_arms(l_mults, rsubx_values)
+        except RuntimeError as exc:
+            print(f"FAIL: {exc}", file=sys.stderr)
+            return 2
+        if not sweep_anchor_matches_base_arm():
+            print(
+                "FAIL: the sweep's anchor point (1x DR-015's L, "
+                f"R_SUBX = {R_SUBX_OHM:g} Ohm) is no longer card-for-card the "
+                f"`{SWEEP_BASE_ARM}` arm -- the sweep would not be a walk around the "
+                "campaign's own assumption point. Re-derive it before running.",
+                file=sys.stderr,
+            )
+            return 2
+
+    probe_variants: tuple[str, ...] = ()
+    probe_corner = MIDSCALE_PROBE_CORNER
+    if args.midscale_probe:
+        if args.sweep or args.null_sweep or args.cost_probe is not None:
+            print(
+                "FAIL: --midscale-probe is a diagnostic about this campaign's own "
+                "code comparison, not a swept network box or a cost probe. Each "
+                "writes its own record; run them one at a time.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.arms is not None:
+            print(
+                "FAIL: --arms is not meaningful with --midscale-probe: the probe "
+                "names its own (arm, perturbation) variants. Use "
+                "--midscale-probe-variants instead.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.corners:
+            print(
+                "FAIL: --midscale-probe --corners is refused. The probe is a "
+                "mechanism trace at the ONE point the anomaly was recorded at; the "
+                "ratified grid's mid-scale codes are already recorded (see "
+                f"records/{MIDSCALE_PROBE_REFERENCE_RECORD}.md), and this probe "
+                "exists to say what they mean. Name a different single point with "
+                "--corner-points if needed.",
+                file=sys.stderr,
+            )
+            return 2
+        if len(grid) != 1:
+            print(
+                f"FAIL: --midscale-probe runs at exactly one corner point, got "
+                f"{len(grid)}. Pass a single --corner-points id, or none for the "
+                f"default {corners_mod.corner_id(*MIDSCALE_PROBE_CORNER)}.",
+                file=sys.stderr,
+            )
+            return 2
+        probe_corner = (
+            grid[0] if corner_points else MIDSCALE_PROBE_CORNER
+        )
+        probe_variants = tuple(
+            v.strip() for v in args.midscale_probe_variants.split(",") if v.strip()
+        )
+        if not probe_variants:
+            print("FAIL: --midscale-probe-variants needs at least one variant", file=sys.stderr)
+            return 2
+        for spec in probe_variants:
+            arm_name, sep, pert_name = spec.partition(":")
+            if not sep or arm_name not in ARMS_BY_NAME or pert_name not in PERTURBATIONS_BY_NAME:
+                print(
+                    f"FAIL: unknown probe variant {spec!r}. Expected `arm:perturbation` "
+                    f"with arm in {[a.name for a in ARMS]} and perturbation in "
+                    f"{[p.name for p in PERTURBATIONS]}.",
+                    file=sys.stderr,
+                )
+                return 2
+        if f"{CONTROL_ARM}:as-committed" not in probe_variants:
+            print(
+                f"FAIL: the probe's variant list must include `{CONTROL_ARM}:"
+                "as-committed`. It is the reproduction control: without it there is "
+                "nothing to say whether this host reproduces the recorded point at "
+                "all, and every perturbation row would be a delta against nothing.",
+                file=sys.stderr,
+            )
+            return 2
+
+    if args.cost_probe is not None:
+        if not (args.sweep or args.null_sweep or args.decap_esr):
+            print(
+                "FAIL: --cost-probe prices a synthesized box or ladder; pass "
+                "--sweep, --null-sweep or --decap-esr too. The named arms already have "
+                "measured per-run wall clock in the campaign's arm-comparison records.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.record:
+            print(
+                "FAIL: --cost-probe --record is refused. A truncated transient "
+                "measures nothing about this DUT -- the stimulus fragment's .meas "
+                "cards sit at conversion times outside the sliced span -- so no "
+                "record may be minted from one.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.log_cache:
+            print(
+                "FAIL: --cost-probe --log-cache is refused. A probe's log is keyed "
+                "by the same point-id as the real run of that point, so caching one "
+                "would overwrite the stored log the real campaign restarts from. A "
+                "probe is minutes; it does not need to be restartable.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.supersedes:
+            print(
+                "FAIL: --cost-probe --supersedes is refused: a probe writes no "
+                "record, so it can supersede nothing.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.cost_probe <= 0.0:
+            print("FAIL: --cost-probe takes a positive number of nanoseconds", file=sys.stderr)
+            return 2
+        stimulus_ns = fragment_tran_stop_ns()
+        if stimulus_ns is not None and args.cost_probe >= stimulus_ns:
+            print(
+                f"FAIL: a {args.cost_probe:g} ns probe is not shorter than the "
+                f"{stimulus_ns:g} ns stimulus it exists to price -- run the campaign "
+                "itself instead of probing it.",
+                file=sys.stderr,
+            )
+            return 2
 
     if args.supersedes and not (
         EXPERIMENT_DIR / "records" / f"{args.supersedes}.md"
@@ -1501,25 +5664,143 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="supply-impedance-") as scratch_name:
         scratch = Path(scratch_name)
-        n_corners = 9 if args.corners else 1
-        print(
-            f"Running {len(arm_names)} arm(s) x {n_corners} corner point(s) = "
-            f"{len(arm_names) * n_corners} full-conversion transients:"
-        )
         log_cache = Path(args.log_cache).expanduser().resolve() if args.log_cache else None
+
+        if args.cost_probe is not None:
+            if args.decap_esr:
+                assert decap_ties is not None
+                probe_arms = [ARMS_BY_NAME[CONTROL_ARM]] + decap_esr_arms(
+                    decap_mults, decap_ties
+                )
+                anchor_name = decap_esr_arm_name(0.0)
+                what = "decoupling-tie ESR ladder"
+            elif args.null_sweep:
+                probe_arms = [ARMS_BY_NAME[CONTROL_ARM]] + null_sweep_arms(null_rsub_values)
+                anchor_name = null_sweep_arm_name(R_SUBX_OHM)
+                what = "null-option substrate ladder"
+            else:
+                probe_arms = [ARMS_BY_NAME[CONTROL_ARM]] + sweep_arms(l_mults, rsubx_values)
+                anchor_name = sweep_arm_name(1.0, R_SUBX_OHM)
+                what = "R/L sweep box"
+            print(
+                f"Pricing the {what}: {len(probe_arms)} truncated "
+                f"({args.cost_probe:g} ns) transients, one at a time. This measures "
+                "nothing about the DUT and writes no record."
+            )
+            rows = run_cost_probe(probe_arms, args.cost_probe, scratch, args.quiet)
+            print("")
+            for line in cost_probe_lines(rows, args.cost_probe, anchor_name):
+                print(line)
+            return 1 if any(row["trouble"] for row in rows) else 0
+
+        if args.midscale_probe:
+            print(
+                f"Running the mid-scale boundary probe (issue #455) at "
+                f"{corners_mod.corner_id(*probe_corner)}: {len(probe_variants)} "
+                "full-conversion transients, one at a time "
+                f"({', '.join(probe_variants)}):"
+            )
+            points, dut_netlist_text = run_midscale_probe(
+                probe_variants, probe_corner, scratch, args.quiet, log_cache=log_cache
+            )
+            print("")
+            for line in midscale_probe_findings_lines(points):
+                print(line)
+            if args.record:
+                write_midscale_probe_record(
+                    points, dut_netlist_text, probe_variants, args.supersedes
+                )
+            return 1 if any(p["missing"] for p in points) else 0
+
+        if args.decap_esr:
+            assert decap_ties is not None
+            # The control runs first (every code delta is taken against it) and
+            # the ladder ascends, so an interrupted run leaves the rung that
+            # anchors this record to the existing decoupled records on disk.
+            arms = [ARMS_BY_NAME[CONTROL_ARM]] + decap_esr_arms(decap_mults, decap_ties)
+            print(
+                "Running the bounded decoupling-tie ESR ladder at the baseline "
+                f"corner: {len(decap_mults)} rungs "
+                f"({', '.join(f'{m:g}x' for m in decap_mults)} of "
+                f"{decap_ties.domain_esr_line()} per domain, measured in "
+                f"{decap_ties.record}) + the `{CONTROL_ARM}` control = {len(arms)} "
+                "full-conversion transients:"
+            )
+        elif args.null_sweep:
+            arms = [ARMS_BY_NAME[CONTROL_ARM]] + null_sweep_arms(null_rsub_values)
+            print(
+                f"Running the bounded null-option substrate ladder at the baseline "
+                f"corner: {len(null_rsub_values)} points + the `{CONTROL_ARM}` "
+                f"control = {len(arms)} full-conversion transients:"
+            )
+        elif args.sweep:
+            # The control runs FIRST (every delta is taken against it) and the
+            # inductance ladder ascends, so an interrupted sweep leaves the
+            # cheapest, most-reusable points on disk rather than none of them.
+            arms = [ARMS_BY_NAME[CONTROL_ARM]] + sweep_arms(l_mults, rsubx_values)
+            print(
+                f"Running the bounded R/L sweep at the baseline corner: "
+                f"{len(l_mults)} x {len(rsubx_values)} grid points + the "
+                f"`{CONTROL_ARM}` control = {len(arms)} full-conversion transients:"
+            )
+        else:
+            arms = [ARMS_BY_NAME[name] for name in arm_names]
+            print(
+                f"Running {len(arms)} arm(s) x {len(grid)} corner point(s) = "
+                f"{len(arms) * len(grid)} full-conversion transients"
+                + (
+                    " (" + ", ".join(corners_mod.corner_id(*p) for p in grid) + ")"
+                    if corner_points
+                    else ""
+                )
+                + ":"
+            )
+
         points, dut_netlist_text = run_campaign(
-            arm_names, args.corners, args.quiet, scratch, log_cache=log_cache
+            arms, grid, args.quiet, scratch, log_cache=log_cache
         )
 
-        controls = {p["corner_id"]: p for p in points if p["arm"] == CONTROL_ARM}
         print("")
-        for line in findings_lines(
-            points, controls, arm_names, sorted({p["corner_id"] for p in points})
-        ):
-            print(line)
-
-        if args.record:
-            write_record(points, dut_netlist_text, args.corners, arm_names, args.supersedes)
+        if args.decap_esr:
+            assert decap_ties is not None
+            control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
+            for line in decap_esr_findings_lines(points, control, decap_mults, decap_ties):
+                print(line)
+            if args.record:
+                write_decap_esr_record(
+                    points, dut_netlist_text, decap_mults, decap_ties, args.supersedes
+                )
+        elif args.null_sweep:
+            control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
+            for line in null_sweep_findings_lines(points, control, null_rsub_values):
+                print(line)
+            if args.record:
+                write_null_sweep_record(
+                    points, dut_netlist_text, null_rsub_values, args.supersedes
+                )
+        elif args.sweep:
+            control = next((p for p in points if p["arm"] == CONTROL_ARM), None)
+            for line in sweep_findings_lines(points, control, l_mults, rsubx_values):
+                print(line)
+            if args.record:
+                write_sweep_record(
+                    points, dut_netlist_text, l_mults, rsubx_values, args.supersedes
+                )
+        else:
+            controls = {p["corner_id"]: p for p in points if p["arm"] == CONTROL_ARM}
+            for line in findings_lines(
+                points, controls, arm_names, sorted({p["corner_id"] for p in points})
+            ):
+                print(line)
+            if args.record:
+                write_record(
+                    points,
+                    dut_netlist_text,
+                    args.corners,
+                    arm_names,
+                    args.supersedes,
+                    corner_points,
+                )
 
     return 1 if any(p["missing"] for p in points) else 0
 

@@ -110,6 +110,16 @@ class FixtureTree:
         kickback_split: bool = False,
         provenance: str = "",
         corners: str = "",
+        arms: tuple[str, ...] | None = None,
+        arm_count: int | None = None,
+        sweep_points: int | None = None,
+        ladder_rungs: int | None = None,
+        excursions: tuple[tuple[str, str], ...] | None = None,
+        excursion_layout: str = "arm",
+        excursion_column: str | None = None,
+        excursion_dut: str = "a" * 64,
+        excursion_undecoupled: bool = True,
+        excursion_prose: str = "",
     ):
         records = self.root / "sim" / campaign / "records"
         records.mkdir(parents=True, exist_ok=True)
@@ -123,6 +133,93 @@ class FixtureTree:
         # its own" case -- a real one, and the one a fixture must be able to
         # reach without saying anything.
         body = "fixture record\n" + corners + ("\n" if corners else "") + provenance
+        if arms is not None:
+            # The `- **Arms**:` header line check 31 reads the run arm set out
+            # of, in the shape `sim/supply-impedance-sensitivity/
+            # run_supply_impedance.py` writes it. `arm_count` defaults to the
+            # length of `arms` -- the only shape the real renderer can emit --
+            # and is overridable so a fixture can make the printed count and
+            # the printed list disagree, which is the case the check is
+            # deliberately graded on the list for.
+            printed = len(arms) if arm_count is None else arm_count
+            body += (
+                f"\n- **Arms**: {printed} supply-return networks "
+                + ", ".join(f"`{arm}`" for arm in arms)
+                + " x 1 corner point(s) = "
+                + f"{printed} transient runs.\n"
+            )
+        if sweep_points is not None:
+            # The `- **Grid**:` header line check 32 identifies a SWEEP record
+            # by, in the shape `write_sweep_record()` emits it -- and the only
+            # thing that distinguishes one from the arm-comparison record in
+            # the same tree. The two factors in front of the `=` are fixed at
+            # 3 x 3 rather than derived from `sweep_points`, deliberately: the
+            # check reads the TOTAL and never the factors, so a fixture must
+            # be able to state a total the factors do not multiply out to.
+            body += (
+                f"\n- **Grid**: 3 bond-inductance multipliers x 3 "
+                f"substrate-link resistances = {sweep_points} swept points, "
+                f"plus the `ideal` control, at 1 corner point(s) = "
+                f"{sweep_points + 1} whole-ADC transients.\n"
+            )
+        if ladder_rungs is not None:
+            # The `- **Ladder**:` header line check 34 identifies a NULL-SWEEP
+            # record by, in the shape `write_null_sweep_record()` emits it --
+            # the third and last record shape this one `records/` tree holds.
+            # The `=` total is deliberately NOT `ladder_rungs`: the real
+            # renderer counts the `ideal` control in it, and the check must
+            # read the leading rung count rather than that total, because the
+            # control is not a swept magnitude.
+            body += (
+                f"\n- **Ladder**: {ladder_rungs} substrate-return resistances "
+                f"plus the `ideal` control, at 1 corner point(s) = "
+                f"{ladder_rungs + 1} whole-ADC transients.\n"
+            )
+        if excursions is not None:
+            # The die-side rail-excursion table check 35 reads the campaign's
+            # own `gnd_die pp (mV)` column out of, in BOTH the shapes this
+            # campaign's writers emit: `excursion_layout="arm"` is the
+            # arm-comparison/corner-grid table (`| corner-id | arm | ... |`,
+            # the excursion column third) and `"point"` is the sweep/ladder
+            # table (`| point | ... |`, second). A fixture that could only
+            # write one of them would leave the column-by-header parse
+            # untested against the layout it does not write, which is exactly
+            # the half that makes the check readable across both writers.
+            #
+            # `excursion_column` overrides the header text so a fixture can
+            # reach the "this records tree carries no excursion column at all"
+            # condition -- a silence the check must report as nothing to
+            # compare against rather than as an empty set of figures.
+            header = checker.EXCURSION_COLUMN if excursion_column is None else excursion_column
+            lead = "corner-id | arm" if excursion_layout == "arm" else "point"
+            width = 3 if excursion_layout == "arm" else 2
+            # The two lines that decide whether these figures are UNDECOUPLED
+            # upper bounds, written the way the real records write them: the
+            # assumption bullet a record that is the undecoupled case states of
+            # itself, and the DUT netlist sha256 by which every other record of
+            # the same netlist inherits it. `excursion_prose` is free text for
+            # the cost-section boilerplate every record of this campaign carries
+            # ("an undecoupled series inductance ..."), which a word search --
+            # rather than a bullet match -- would misread as a declaration.
+            if excursion_undecoupled:
+                body += (
+                    "\n## Assumptions\n\n"
+                    "- **No decoupling, on-die or on-board** (DR-015 item 6). "
+                    "Every point here is the undecoupled case.\n"
+                )
+            if excursion_prose:
+                body += f"\n{excursion_prose}\n"
+            body += f"\n- DUT netlist sha256: `{excursion_dut}`\n"
+            body += "\n## Die-side rail excursion over one steady-state conversion\n\n"
+            body += f"| {lead} | {header} | vgnd_die pp (mV) |\n"
+            body += "|---|" * (width + 1) + "\n"
+            for label, figure in excursions:
+                cells = (
+                    f"| `tt_27c_1.80v` | `{label}` |"
+                    if excursion_layout == "arm"
+                    else f"| `{label}` |"
+                )
+                body += f"{cells} {figure} | 0.000 |\n"
         if kickback is not None:
             # The `Measured value(s)` table check 21 re-derives the Kickback
             # row's figures from, in the shape
@@ -247,6 +344,104 @@ class FixtureTree:
         if latest:
             (report.parent / "LATEST").write_text(stamp + "\n")
 
+    def add_renderer(self, path: str, body: str):
+        """A record-minting entry point under `layout/`, for check 30.
+
+        Written as a path relative to the fixture root rather than keyed by
+        flow, because the entry point a record tree resolves to is exactly
+        what the check derives -- a helper that placed it for the caller
+        would hide the half of the behaviour under test.
+        """
+        entry = self.root / path
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        entry.write_text(body)
+
+    def add_arm_runner(self, *arms: str, table: str | None = None):
+        """The supply-impedance runner's own `ARMS` table, for check 31.
+
+        Written as real Python in the runner's own shape -- an `ARMS: tuple`
+        annotation, one `Arm(...)` per arm with its `name=` on its own line
+        and a nested `bonds=` mapping -- because the parse under test is a
+        source-text read, and a fixture that flattened the arms to a bare list
+        of strings would pass while the real table went unrecognised. `table`
+        overrides the whole body, for the "shape this parse does not
+        recognise" case.
+        """
+        runner = self.root / checker.ARM_RUNNER
+        runner.parent.mkdir(parents=True, exist_ok=True)
+        if table is None:
+            table = "ARMS: tuple[Arm, ...] = (\n"
+            for arm in arms:
+                table += (
+                    "    Arm(\n"
+                    f'        name="{arm}",\n'
+                    '        summary="fixture arm",\n'
+                    '        bonds={"VDD": IDEAL, "GND": IDEAL},\n'
+                    "    ),\n"
+                )
+            table += ")\n"
+        runner.write_text('"""fixture runner."""\n\n' + table)
+
+    def add_sweep_axes(
+        self,
+        l_mults: tuple[float, ...] = (0.0, 1.0, 10.0),
+        rsubx: tuple[float, ...] = (3.0, 30.0, 300.0),
+        *,
+        axes: str | None = None,
+    ):
+        """The runner's own `--sweep` box constants, for check 32.
+
+        Appended to the runner rather than written over it: the real file
+        carries both the `ARMS` table check 31 parses and these two tuples,
+        and a fixture that could only hold one of them would let the two
+        source-text parses pass tests they never share a file in. Written as
+        real annotated tuple literals for `add_arm_runner`'s reason. `axes`
+        overrides the whole block, for the "shape this parse does not
+        recognise" case (a computed box).
+        """
+        runner = self.root / checker.SWEEP_RUNNER
+        runner.parent.mkdir(parents=True, exist_ok=True)
+        if axes is None:
+            axes = (
+                "SWEEP_L_MULTIPLIERS: tuple[float, ...] = ("
+                + ", ".join(f"{m:g}" for m in l_mults)
+                + ")\n"
+                "SWEEP_RSUBX_OHM: tuple[float, ...] = ("
+                + ", ".join(f"{r:g}" for r in rsubx)
+                + ")\n"
+            )
+        existing = runner.read_text() if runner.is_file() else '"""fixture runner."""\n'
+        runner.write_text(existing + "\n" + axes)
+
+    def add_null_sweep_axis(
+        self,
+        rsubx: tuple[float, ...] = (3.0, 30.0, 300.0),
+        *,
+        axis: str | None = None,
+    ):
+        """The runner's own `--null-sweep` ladder constant, for check 34.
+
+        Appended for `add_sweep_axes`' reason -- the real file carries the
+        `ARMS` table, the 2-D box's two tuples AND this one, and a fixture
+        that could only hold one of them would let three source-text parses
+        pass tests they never share a file in. That matters more here than
+        anywhere else in this tree: `SWEEP_RSUBX_OHM` and
+        `NULL_SWEEP_RSUBX_OHM` share a suffix, so only a fixture carrying both
+        can show that neither regex captures the other's tuple. `axis`
+        overrides the block, for the "shape this parse does not recognise"
+        case (a computed ladder).
+        """
+        runner = self.root / checker.NULL_SWEEP_RUNNER
+        runner.parent.mkdir(parents=True, exist_ok=True)
+        if axis is None:
+            axis = (
+                "NULL_SWEEP_RSUBX_OHM: tuple[float, ...] = ("
+                + ", ".join(f"{r:g}" for r in rsubx)
+                + ")\n"
+            )
+        existing = runner.read_text() if runner.is_file() else '"""fixture runner."""\n'
+        runner.write_text(existing + "\n" + axis)
+
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
 
@@ -281,7 +476,12 @@ class FixtureTree:
             )
         )
 
-    def add_decision_record(self, name: str, status: str | None = "proposed"):
+    def add_decision_record(
+        self,
+        name: str,
+        status: str | None = "proposed",
+        open_items: list[str] | None = None,
+    ):
         """A `spec/decision-records/<name>` in the shape check 15 reads.
 
         Written in the real records' own shape -- a `- **Status**:` bullet
@@ -289,6 +489,12 @@ class FixtureTree:
         check must not read. `status=None` writes a record with no Status
         field at all, which is the "nothing to compare against" condition
         check 15 reports separately from a disagreement.
+
+        `open_items` appends a `## Open items` section carrying the given
+        bullets verbatim (each written as `- <bullet>`), which is what check
+        33 censuses. Absent by default, so every other check's fixtures keep
+        the shape they were written against and a record declaring nothing
+        open stays the reachable case.
         """
         records = self.root / "spec" / "decision-records"
         records.mkdir(parents=True, exist_ok=True)
@@ -298,6 +504,10 @@ class FixtureTree:
                 f"- **Status**: {status} — this fixture record ratifies nothing."
             )
         body += ["- **Date**: 2026-09-18", ""]
+        if open_items is not None:
+            body += ["## Open items", ""]
+            body += [f"- {item}" for item in open_items]
+            body.append("")
         (records / name).write_text("\n".join(body))
 
     def add_signoff(
@@ -5113,6 +5323,1843 @@ class TestAbsentPaths(unittest.TestCase):
             all(checker._own_tree_path(path) for _line, _offset, path in claims),
             claims,
         )
+
+
+class TestRendererCensus(unittest.TestCase):
+    """Check 30: the stated record-renderer census is this tree's own.
+
+    Check 26 counts records, which are append-only -- so its census is a
+    lagging indicator that reads identically whether a shortfall is live or
+    is already-fixed history awaiting a re-run. The document explained which
+    in prose, and the prose went false the day PR #420 (issue #407) fixed the
+    four renderers that printed only a PDK variant name, with every number
+    beside it still true. This check grades that explanation.
+    """
+
+    # The three real renderer shapes, reduced to the line each is recognised
+    # by. `DELEGATING_STRICT` is the shape issue #474 created: the strict
+    # renderers' own byte-identical inline `klt pdk find` block moved into
+    # `_record_common_strict.py` as `resolve_pdk_info_strict`, so those files
+    # now carry the call instead of the argv.
+    INLINE = 'pdk_info = json.loads(run([klt, "pdk", "find", "--format", "json"]))\n'
+    DELEGATING = "from _record_common import build_argparser, render_pnr_drc_lvs_record\n"
+    DELEGATING_STRICT = "pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)\n"
+    VARIANT_ONLY = 'a(f"- PDK variant: {args.pdk_variant}")\n'
+    SHARED_PINNED = "def resolve_pdk_commit(klt, pdk_variant):\n    ...\n"
+    SHARED_UNPINNED = "def render_pnr_drc_lvs_record(title, args):\n    ...\n"
+    SHARED_STRICT_PINNED = (
+        "def resolve_pdk_info_strict(klt, pdk_variant):\n"
+        '    return json.loads(run([klt, "pdk", "find", "--format", "json"]))\n'
+    )
+    SHARED_STRICT_UNPINNED = (
+        "def resolve_pdk_info_strict(klt, pdk_variant):\n"
+        '    return {"variant": pdk_variant}\n'
+    )
+
+    # Check 30 is anchored on the document stating check 26's record census,
+    # so every fixture body carries one. The numbers in it are never graded
+    # here (that is check 26's own test); only its presence is.
+    ANCHOR = (
+        "> **1** of the **1** records under `sim/*/records/` name both an "
+        "`ngspice` version and a 40-hex `open_pdks` commit, while of the "
+        "**1** records under `layout/*/reports/` and `layout/*/erc-reports/` "
+        "**1** name a `klt` version and **1** name the `open_pdks` commit\n"
+    )
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_renderer_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 8. Licensing and EDA flow\n\n"
+        if anchor:
+            text += self.ANCHOR
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, entry_points, pinning, naming, unpinned=()) -> str:
+        return checker.renderer_sentence(
+            {
+                "entry_points": entry_points,
+                "pinning": pinning,
+                "naming": naming,
+                "unpinned": list(unpinned),
+            }
+        )
+
+    def test_a_truthful_all_pinned_census_passes(self):
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer("layout/comparator/bin/render-record.py", self.INLINE)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_a_renderer_that_prints_only_the_variant_name_is_counted_as_such(self):
+        """The real pre-#420 shortfall's shape."""
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer("layout/comparator/bin/render-record.py", self.INLINE)
+        self.tree.add_layout_record("sar-adc-top", "l2")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(2, 1, 1, ("layout/sar-adc-top/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_a_drifted_count_is_reported(self):
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        misses = self.check(self.body(self.sentence(1, 1, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("pinning=1" in miss and "pinning=0" in miss for miss in misses))
+
+    def test_a_drifted_offender_list_is_reported_even_when_the_counts_agree(self):
+        """The failure a count-only census would absorb: right total, wrong file."""
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        misses = self.check(
+            self.body(self.sentence(1, 0, 1, ("layout/cdac-array/bin/render-record.py",)))
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("layout/cdac-array/bin/render-record.py", misses[0])
+        self.assertIn("layout/sar-adc-top/bin/render-record.py", misses[0])
+
+    def test_delegation_to_the_shared_record_builder_is_followed(self):
+        """sar-sequencer/seln-inverters are a title and a shared call, nothing else."""
+        self.tree.add_layout_record("sar-sequencer", "l1")
+        self.tree.add_renderer("layout/sar-sequencer/bin/render-record.py", self.DELEGATING)
+        self.tree.add_renderer("layout/bin/_record_common.py", self.SHARED_PINNED)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_delegation_to_an_unpinned_shared_builder_is_counted_as_unpinned(self):
+        """Following the delegation must be able to report a miss, not only a hit."""
+        self.tree.add_layout_record("sar-sequencer", "l1")
+        self.tree.add_renderer("layout/sar-sequencer/bin/render-record.py", self.DELEGATING)
+        self.tree.add_renderer("layout/bin/_record_common.py", self.SHARED_UNPINNED)
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-sequencer/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_delegation_to_the_strict_shared_module_is_followed(self):
+        """Issue #474: the strict renderers call a helper instead of `run`.
+
+        The four strict-discipline renderers used to carry a byte-identical
+        inline `klt pdk find` argv list each; that block now lives in
+        `layout/bin/_record_common_strict.py`. The census must follow that
+        delegation the same way it follows `render_pnr_drc_lvs_record`, or a
+        pure extraction would read as four renderers losing their pin.
+        """
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer(
+            "layout/comparator/bin/render-record.py", self.DELEGATING_STRICT
+        )
+        self.tree.add_renderer(
+            "layout/bin/_record_common_strict.py", self.SHARED_STRICT_PINNED
+        )
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_delegation_to_an_unpinned_strict_shared_module_is_counted_as_unpinned(
+        self,
+    ):
+        """Following it must be able to report a miss, not only a hit: a
+        `resolve_pdk_info_strict` that stopped resolving the commit has to
+        flip every renderer delegating to it, which is what makes this a
+        leading indicator rather than a name check."""
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer(
+            "layout/comparator/bin/render-record.py", self.DELEGATING_STRICT
+        )
+        self.tree.add_renderer(
+            "layout/bin/_record_common_strict.py", self.SHARED_STRICT_UNPINNED
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(
+                        1, 0, 1, ("layout/comparator/bin/render-record.py",)
+                    )
+                )
+            ),
+            [],
+        )
+
+    def test_a_comment_only_resolve_pdk_info_strict_mention_is_not_counted(self):
+        """Issue #424's failure shape, one delegation over: naming, not
+        calling. `resolve_pdk_info_strict` is a real identifier, so a comment
+        mentioning it would otherwise pull the strict module's own (genuinely
+        pinned) text into the closure and count the renderer as pinned."""
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/render-record.py",
+            "# unlike the strict flows, this one does not call "
+            "`resolve_pdk_info_strict`\n" + self.VARIANT_ONLY,
+        )
+        self.tree.add_renderer(
+            "layout/bin/_record_common_strict.py", self.SHARED_STRICT_PINNED
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_importing_the_shared_module_without_delegating_inherits_no_pin(self):
+        """`build_argparser` alone delegates no provenance and must not count."""
+        self.tree.add_layout_record("cdac-array", "l1")
+        self.tree.add_renderer(
+            "layout/cdac-array/bin/render-record.py",
+            "from _record_common import build_argparser\n" + self.VARIANT_ONLY,
+        )
+        self.tree.add_renderer("layout/bin/_record_common.py", self.SHARED_PINNED)
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/cdac-array/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_a_flow_without_its_own_renderer_falls_back_to_the_shared_one(self):
+        """`layout/trivial-cell/` has no `bin/` of its own."""
+        self.tree.add_layout_record("trivial-cell", "l1")
+        self.tree.add_renderer("layout/bin/render-record.py", self.INLINE)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_the_erc_tree_is_graded_against_its_own_driver(self):
+        """`erc-reports/record.md` is hand-written from what run-erc.sh prints."""
+        self.tree.add_erc_record("sar-adc-top", "e1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/run-erc.sh", "python3 -c 'from _record_common import "
+            "resolve_pdk_commit'\n"
+        )
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_a_comment_only_pdk_find_mention_is_not_counted_as_resolving(self):
+        """Issue #424: a comment *spelling out* `klt pdk find` is not a call.
+
+        `RENDERER_PIN_RE` used to have a third, unanchored alternative,
+        `\\bpdk find\\b`, that matched the phrase anywhere in the file --
+        including inside a `#` comment explaining an approach the script does
+        *not* take. A renderer whose only mention of the phrase is such a
+        comment, with no real invocation anywhere, must be counted unpinned.
+        """
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/render-record.py",
+            "# rather than re-parsing 'klt pdk find --format json' here\n"
+            + self.VARIANT_ONLY,
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_a_comment_only_resolve_pdk_commit_mention_is_not_counted_as_resolving(
+        self,
+    ):
+        """The same failure shape one alternative over: naming, not calling.
+
+        `resolve_pdk_commit` is a real Python identifier, so even the
+        narrower, argv-anchored form of `RENDERER_PIN_RE` is satisfied by a
+        comment that merely *names* it -- e.g. explaining that the pin is
+        obtained elsewhere -- unless comments are stripped before matching.
+        """
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/render-record.py",
+            "# Reuses layout/bin/_record_common.py's own `resolve_pdk_commit`\n"
+            + self.VARIANT_ONLY,
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/render-record.py",))
+                )
+            ),
+            [],
+        )
+
+    def test_the_run_erc_comment_only_repro_is_counted_as_unpinned(self):
+        """The literal regression this issue reproduced.
+
+        `run-erc.sh`'s real comment (issue #407) explains, in prose, why it
+        reuses `resolve_pdk_commit` instead of re-parsing `klt pdk find`
+        itself -- naming both pin spellings without calling either. Stripped
+        of the real call, this entry point must flip from pinned to unpinned.
+        """
+        self.tree.add_erc_record("sar-adc-top", "e1")
+        self.tree.add_renderer(
+            "layout/sar-adc-top/bin/run-erc.sh",
+            "# Reuses layout/bin/_record_common.py's own `resolve_pdk_commit`\n"
+            "# (issue #407) rather than re-parsing `klt pdk find --format json`\n"
+            "# here, so this script's PDK pin can never drift.\n"
+            + self.VARIANT_ONLY,
+        )
+        self.assertEqual(
+            self.check(
+                self.body(
+                    self.sentence(1, 0, 1, ("layout/sar-adc-top/bin/run-erc.sh",))
+                )
+            ),
+            [],
+        )
+
+    def test_one_renderer_minting_two_record_trees_is_counted_once(self):
+        """Entry points, not record trees: a fix is made in one place."""
+        self.tree.add_layout_record("trivial-cell", "l1")
+        self.tree.add_layout_record("cdac-array", "l2")
+        self.tree.add_renderer("layout/bin/render-record.py", self.INLINE)
+        self.assertEqual(self.check(self.body(self.sentence(1, 1, 0))), [])
+
+    def test_a_record_tree_with_no_entry_point_at_all_is_reported(self):
+        self.tree.add_layout_record("ghost-flow", "l1")
+        self.assertEqual(
+            self.check(
+                self.body(self.sentence(1, 0, 1, ("layout/bin/render-record.py",)))
+            ),
+            [],
+        )
+
+    def test_stating_no_renderer_census_at_all_is_reported(self):
+        """Dropping it must not be a way back to an unqualified record census."""
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states check 26's record census but not the renderer census", misses[0])
+        self.assertIn("layout/sar-adc-top/bin/render-record.py", misses[0])
+
+    def test_a_document_without_the_record_census_is_not_graded(self):
+        self.tree.add_layout_record("sar-adc-top", "l1")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_check_is_inert_without_a_layout_tree(self):
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.tree.add_layout_record("comparator", "l1")
+        self.tree.add_renderer("layout/comparator/bin/render-record.py", self.INLINE)
+        self.tree.add_layout_record("sar-adc-top", "l2")
+        self.tree.add_renderer("layout/sar-adc-top/bin/render-record.py", self.VARIANT_ONLY)
+        sentence = checker.renderer_sentence(checker.renderer_census())
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_renderer_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_covers_every_record_tree_in_the_tree(self):
+        """Not vacuous: the census must span the real record trees, not a subset.
+
+        A discovery rule that silently resolved nothing would make this check
+        pass by counting zero entry points -- the same vacuity trap checks 4
+        and 6 each needed a guard for.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        trees = sorted(
+            path
+            for glob in (checker.RENDERER_REPORT_GLOB, checker.RENDERER_ERC_GLOB)
+            for path in REPO_ROOT.glob(glob)
+            if path.is_dir()
+        )
+        self.assertTrue(trees, "no layout record trees found")
+        census = checker.renderer_census()
+        self.assertGreaterEqual(census["entry_points"], 1)
+        self.assertLessEqual(census["entry_points"], len(trees))
+        self.assertEqual(census["pinning"] + census["naming"], census["entry_points"])
+        # Every entry point the census resolved is a file that exists -- the
+        # "no entry point at all" arm must be reachable but not silently live.
+        self.assertEqual(census["unpinned"], [])
+
+
+class TestArmCensus(unittest.TestCase):
+    """Check 31: the stated supply-return arm census is this tree's own.
+
+    Check 28 censuses the PVT grid a cited record covers. This campaign's
+    records are a subset of a second axis its *runner* defines -- the
+    supply-return arms -- and Section 7's DR-012 retirement is bounded by the
+    arm it left unrun ("no priced-rejected-option claim may be read from this
+    record"). Nothing graded that sentence, so a record pricing the null
+    option would leave it reading "not run" with every number beside it still
+    true: check 30's defect shape, one axis over.
+    """
+
+    ARMS = ("ideal", "package-r-only", "package", "substrate", "no-gnd-pad")
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_arm_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.ARM_POINTER}).\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, offered, ran, unrun, unrun_arms=()) -> str:
+        return checker.arm_sentence(
+            {
+                "offered": offered,
+                "ran": ran,
+                "unrun": unrun,
+                "unrun_arms": list(unrun_arms),
+            }
+        )
+
+    def campaign(self, *, ran=ARMS[:4], offered=ARMS, **kwargs):
+        self.tree.add_arm_runner(*offered)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=ran, **kwargs
+        )
+
+    def test_a_truthful_census_with_one_unrun_arm_passes(self):
+        """Today's real shape: four arms run, `no-gnd-pad` priced by nothing."""
+        self.campaign()
+        self.assertEqual(self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",)))), [])
+
+    def test_a_truthful_all_run_census_passes(self):
+        """The case #409 item 2 creates: the null option finally priced."""
+        self.campaign(ran=self.ARMS)
+        self.assertEqual(self.check(self.body(self.sentence(5, 5, 0))), [])
+
+    def test_a_record_that_prices_the_unrun_arm_falsifies_the_old_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.campaign(ran=self.ARMS)
+        misses = self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",))))
+        self.assertTrue(misses)
+        self.assertTrue(any("ran=4" in miss and "ran=5" in miss for miss in misses))
+        self.assertTrue(any("no-gnd-pad" in miss and "none" in miss for miss in misses))
+
+    def test_a_new_arm_in_the_runner_widens_the_census(self):
+        """The other direction: an arm added to the runner and never run."""
+        self.campaign(offered=self.ARMS + ("bondwire-sweep",))
+        misses = self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",))))
+        self.assertTrue(misses)
+        self.assertTrue(any("offered=5" in miss and "offered=6" in miss for miss in misses))
+
+    def test_a_drifted_arm_list_is_reported_even_when_the_counts_agree(self):
+        """Right total, wrong arm -- the failure a count-only census absorbs."""
+        self.campaign()
+        misses = self.check(self.body(self.sentence(5, 4, 1, ("substrate",))))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("`substrate`", misses[0])
+        self.assertIn("`no-gnd-pad`", misses[0])
+
+    def test_the_unrun_list_keeps_the_runner_s_own_order(self):
+        """Not alphabetical: the record's omission section reads in this order."""
+        self.campaign(ran=("ideal",))
+        census = checker.arm_census()
+        self.assertEqual(
+            census["unrun_arms"], ["package-r-only", "package", "substrate", "no-gnd-pad"]
+        )
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        """Deleting the sentence must not widen what the citation may claim."""
+        self.campaign()
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no arm census", misses[0])
+        self.assertIn("`no-gnd-pad`", misses[0])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_the_arms_are_read_from_the_list_not_from_the_printed_count(self):
+        """A count and a list that disagree are graded on the names."""
+        self.campaign(arm_count=99)
+        self.assertEqual(self.check(self.body(self.sentence(5, 4, 1, ("no-gnd-pad",)))), [])
+
+    def test_a_runner_whose_table_is_unrecognised_grades_nothing(self):
+        """No tree-side number to compare against is a silence, not a zero."""
+        self.tree.add_arm_runner(table="ARMS = build_arms()\n")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=self.ARMS[:4]
+        )
+        self.assertIsNone(checker.arm_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_record_without_an_arms_line_grades_nothing(self):
+        self.tree.add_arm_runner(*self.ARMS)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True
+        )
+        self.assertIsNone(checker.arm_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_campaign_without_a_latest_pointer_grades_nothing(self):
+        self.tree.add_arm_runner(*self.ARMS)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", arms=self.ARMS[:4]
+        )
+        self.assertIsNone(checker.arm_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_check_is_inert_without_the_campaign_at_all(self):
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.campaign()
+        self.assertEqual(self.check(self.body(checker.arm_sentence(checker.arm_census()))), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_arm_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_parses_the_real_runner_and_record(self):
+        """Not vacuous: both halves must resolve against the live tree.
+
+        A parse that silently resolved nothing would make the check pass by
+        comparing two empty sets -- the vacuity trap checks 4, 6 and 30 each
+        needed a guard for.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        offered = checker.runner_arms()
+        ran = checker.record_arms()
+        self.assertIn("no-gnd-pad", offered)
+        self.assertIn("ideal", offered)
+        self.assertTrue(ran)
+        self.assertTrue(set(ran) <= set(offered), (ran, offered))
+        census = checker.arm_census()
+        self.assertEqual(census["ran"] + census["unrun"], census["offered"])
+        self.assertEqual(census["offered"], len(offered))
+
+
+class TestSweepCensus(unittest.TestCase):
+    """Check 32: the stated `--sweep` box census is this tree's own.
+
+    Check 31 grades which ARMS a record ran. This grades a MODE of the same
+    runner that has no record at all and, by design, cannot acquire one any
+    other check here would see: a sweep record never becomes
+    `records/LATEST` (checks 3/4/6/23), runs at one corner (check 28) and
+    carries no `- **Arms**:` line (check 31). Section 7 Item 11 bounds its
+    DR-012 retirement on the box being unwalked, so walking it would leave
+    that sentence false with every number beside it still true.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_sweep_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.SWEEP_RECORDS}/LATEST).\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, points, l_mults, rsubx, covered, records, record_ids=()) -> str:
+        return checker.sweep_sentence(
+            {
+                "points": points,
+                "l_mults": l_mults,
+                "rsubx": rsubx,
+                "covered": covered,
+                "records": records,
+                "record_ids": list(record_ids),
+            }
+        )
+
+    def campaign(self, **kwargs):
+        """Today's real shape: a 3x3 box defined, an arm record, no sweep."""
+        self.tree.add_sweep_axes(**kwargs)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package-r-only", "package", "substrate"),
+        )
+
+    def test_a_truthful_unwalked_census_passes(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(self.sentence(9, 3, 3, 0, 0))), [])
+
+    def test_a_sweep_record_falsifies_the_unwalked_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        misses = self.check(self.body(self.sentence(9, 3, 3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("covered=0" in miss and "covered=9" in miss for miss in misses))
+        self.assertTrue(any("records=0" in miss and "records=1" in miss for miss in misses))
+        self.assertTrue(any("20260926-101010-abcdef0" in miss for miss in misses))
+
+    def test_a_truthful_walked_census_passes(self):
+        """The case #409 item 3 creates: the box finally paid for."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        self.assertEqual(
+            self.check(self.body(self.sentence(9, 3, 3, 9, 1, ("20260926-101010-abcdef0",)))),
+            [],
+        )
+
+    def test_a_wider_box_in_the_runner_widens_the_census(self):
+        """The other direction: an axis lengthened and nothing run."""
+        self.campaign(l_mults=(0.0, 1.0, 10.0, 100.0))
+        misses = self.check(self.body(self.sentence(9, 3, 3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("points=9" in miss and "points=12" in miss for miss in misses))
+        self.assertTrue(any("l_mults=3" in miss and "l_mults=4" in miss for miss in misses))
+
+    def test_a_drifted_record_list_is_reported_even_when_the_counts_agree(self):
+        """Right totals, wrong record -- what a count-only census absorbs."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        misses = self.check(self.body(self.sentence(9, 3, 3, 9, 1, ("20260101-000000-0000000",))))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("20260101-000000-0000000", misses[0])
+        self.assertIn("20260926-101010-abcdef0", misses[0])
+
+    def test_covered_is_the_largest_box_not_the_sum(self):
+        """Two records of the same box are two runs of one experiment."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260927-101010-abcdef1", sweep_points=4)
+        census = checker.sweep_census()
+        self.assertEqual(census["covered"], 9)
+        self.assertEqual(census["records"], 2)
+        self.assertEqual(
+            census["record_ids"], ["20260926-101010-abcdef0", "20260927-101010-abcdef1"]
+        )
+
+    def test_an_arm_comparison_record_is_not_a_sweep_record(self):
+        """The two writers share a tree; only one emits a `- **Grid**:` line."""
+        self.campaign()
+        census = checker.sweep_census()
+        self.assertEqual(census["records"], 0)
+        self.assertEqual(census["covered"], 0)
+
+    def test_the_points_are_read_from_the_total_not_from_the_factors(self):
+        """A total and its factors that disagree are graded on the total."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=4)
+        self.assertEqual(checker.sweep_census()["covered"], 4)
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        """Deleting the sentence must not widen what the citation may claim."""
+        self.campaign()
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no sweep census", misses[0])
+        self.assertIn("the box is unrun", misses[0])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_a_runner_whose_box_is_computed_grades_nothing(self):
+        """No tree-side number to compare against is a silence, not a zero."""
+        self.tree.add_sweep_axes(axes="SWEEP_L_MULTIPLIERS = build_ladder()\n")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=("ideal",)
+        )
+        self.assertIsNone(checker.sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_runner_with_only_one_of_the_two_axes_grades_nothing(self):
+        """Half a box is not a box: both axes must parse or neither counts."""
+        self.tree.add_sweep_axes(
+            axes="SWEEP_L_MULTIPLIERS: tuple[float, ...] = (0, 1, 10)\n"
+        )
+        self.assertIsNone(checker.sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_check_is_inert_without_the_runner_at_all(self):
+        self.assertIsNone(checker.sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.campaign()
+        self.assertEqual(
+            self.check(self.body(checker.sweep_sentence(checker.sweep_census()))), []
+        )
+
+    def test_the_stats_sentence_singularises_one_record(self):
+        """`1 sweep records` would be the paste a reader has to hand-fix."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        sentence = checker.sweep_sentence(checker.sweep_census())
+        self.assertIn("in **1** sweep record:", sentence)
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_sweep_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_parses_the_real_runner(self):
+        """Not vacuous: the box must resolve against the live runner.
+
+        A parse that silently resolved nothing would make the check pass by
+        censusing an empty box -- the vacuity trap checks 4, 6, 30 and 31 each
+        needed a guard for. The live record tree is asserted too: its arm
+        record must NOT be counted as a sweep record, which is the half of
+        this parse a record-less tree could not exercise.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        census = checker.sweep_census()
+        self.assertIsNotNone(census)
+        self.assertGreaterEqual(census["l_mults"], 2)
+        self.assertGreaterEqual(census["rsubx"], 2)
+        self.assertEqual(census["points"], census["l_mults"] * census["rsubx"])
+        self.assertTrue((REPO_ROOT / checker.SWEEP_RECORDS).is_dir())
+        self.assertTrue(list((REPO_ROOT / checker.SWEEP_RECORDS).glob("*.md")))
+        self.assertEqual(census["records"], len(census["record_ids"]))
+
+
+class TestNullSweepCensus(unittest.TestCase):
+    """Check 34: the stated `--null-sweep` ladder census is this tree's own.
+
+    The THIRD axis of one campaign. Check 31 grades which arms a record ran,
+    check 32 how much of the bounded 2-D box any record walked; this grades a
+    ladder that moves the same lumped substrate constant over the same decade
+    on a DIFFERENT topology -- DR-012's rejected `no-gnd-pad` arm, where that
+    resistor carries the whole analog-ground return instead of shunting a
+    bond. A ladder record is the union of the other two checks' blind spots:
+    it never becomes `records/LATEST` (checks 3/4/6/23), runs at one corner
+    (check 28), carries no `- **Arms**:` line (check 31) and no `- **Grid**:`
+    line (check 32).
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_null_sweep_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: bool = True) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.NULL_SWEEP_RECORDS}/LATEST).\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, rungs, covered, records, record_ids=()) -> str:
+        return checker.null_sweep_sentence(
+            {
+                "rungs": rungs,
+                "covered": covered,
+                "records": records,
+                "record_ids": list(record_ids),
+            }
+        )
+
+    def campaign(self, **kwargs):
+        """Today's real shape: a 3-rung ladder defined, an arm record, no ladder."""
+        self.tree.add_null_sweep_axis(**kwargs)
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package-r-only", "package", "substrate"),
+        )
+
+    def test_a_truthful_unwalked_census_passes(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(self.sentence(3, 0, 0))), [])
+
+    def test_a_ladder_record_falsifies_the_unwalked_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        misses = self.check(self.body(self.sentence(3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("covered=0" in miss and "covered=3" in miss for miss in misses))
+        self.assertTrue(any("records=0" in miss and "records=1" in miss for miss in misses))
+        self.assertTrue(any("20260926-101010-abcdef0" in miss for miss in misses))
+
+    def test_a_truthful_walked_census_passes(self):
+        """The case PR #445 creates: the ladder finally walked."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        self.assertEqual(
+            self.check(self.body(self.sentence(3, 3, 1, ("20260926-101010-abcdef0",)))),
+            [],
+        )
+
+    def test_a_longer_ladder_in_the_runner_widens_the_census(self):
+        """The other direction: a rung added to the runner and nothing re-run."""
+        self.campaign(rsubx=(1.0, 3.0, 30.0, 300.0))
+        misses = self.check(self.body(self.sentence(3, 0, 0)))
+        self.assertTrue(misses)
+        self.assertTrue(any("rungs=3" in miss and "rungs=4" in miss for miss in misses))
+
+    def test_a_drifted_record_list_is_reported_even_when_the_counts_agree(self):
+        """Right totals, wrong record -- what a count-only census absorbs."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        misses = self.check(self.body(self.sentence(3, 3, 1, ("20260101-000000-0000000",))))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("20260101-000000-0000000", misses[0])
+        self.assertIn("20260926-101010-abcdef0", misses[0])
+
+    def test_covered_is_the_longest_ladder_not_the_sum(self):
+        """Two records of the same ladder are two runs of one experiment."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260927-101010-abcdef1", ladder_rungs=2)
+        census = checker.null_sweep_census()
+        self.assertEqual(census["covered"], 3)
+        self.assertEqual(census["records"], 2)
+        self.assertEqual(
+            census["record_ids"], ["20260926-101010-abcdef0", "20260927-101010-abcdef1"]
+        )
+
+    def test_neither_of_the_other_two_record_shapes_is_a_ladder_record(self):
+        """Three writers share one `records/` tree; each emits its own header."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", sweep_points=9)
+        census = checker.null_sweep_census()
+        self.assertEqual(census["records"], 0)
+        self.assertEqual(census["covered"], 0)
+
+    def test_the_rungs_are_read_from_the_leading_count_not_the_transient_total(self):
+        """The `=` total counts the `ideal` control, which is not a magnitude."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=2)
+        self.assertEqual(checker.null_sweep_census()["covered"], 2)
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        """Deleting the sentence must not widen what the citation may claim."""
+        self.campaign()
+        misses = self.check(self.body(None))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("states no ladder census", misses[0])
+        self.assertIn("the ladder is unwalked", misses[0])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        self.campaign()
+        self.assertEqual(self.check(self.body(None, anchor=False)), [])
+
+    def test_a_runner_whose_ladder_is_computed_grades_nothing(self):
+        """No tree-side number to compare against is a silence, not a zero."""
+        self.tree.add_null_sweep_axis(axis="NULL_SWEEP_RSUBX_OHM = decade_around(30)\n")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN, "20260925-073912-0e385e5", latest=True, arms=("ideal",)
+        )
+        self.assertIsNone(checker.null_sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_check_is_inert_without_the_runner_at_all(self):
+        self.assertIsNone(checker.null_sweep_census())
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_the_two_rsubx_constants_do_not_capture_each_other(self):
+        """`SWEEP_RSUBX_OHM` and `NULL_SWEEP_RSUBX_OHM` share a suffix.
+
+        Only a fixture carrying BOTH can show that neither source-text parse
+        reads the other's tuple -- and it is the exact confusion that would
+        make checks 32 and 34 silently census one axis twice.
+        """
+        self.tree.add_sweep_axes(l_mults=(0.0, 1.0, 10.0), rsubx=(3.0, 30.0, 300.0))
+        self.tree.add_null_sweep_axis(rsubx=(1.0, 3.0, 30.0, 300.0, 3000.0))
+        self.assertEqual(checker.null_sweep_ladder(), 5)
+        box = checker.sweep_box()
+        self.assertEqual(box, (3, 3))
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A --stats paste must pass, which is how every readout check is fixed."""
+        self.campaign()
+        self.assertEqual(
+            self.check(self.body(checker.null_sweep_sentence(checker.null_sweep_census()))), []
+        )
+
+    def test_the_stats_sentence_singularises_one_record(self):
+        """`1 ladder records` would be the paste a reader has to hand-fix."""
+        self.campaign()
+        self.tree.add_sim_record(checker.ARM_CAMPAIGN, "20260926-101010-abcdef0", ladder_rungs=3)
+        sentence = checker.null_sweep_sentence(checker.null_sweep_census())
+        self.assertIn("in **1** ladder record:", sentence)
+        self.assertEqual(self.check(self.body(sentence)), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_null_sweep_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_parses_the_real_runner_and_record(self):
+        """Not vacuous: both halves must resolve against the live tree.
+
+        A parse that silently resolved nothing would make the check pass by
+        censusing an empty ladder -- the vacuity trap checks 4, 6 and 30--32
+        each needed a guard for. The live record tree is asserted too: the
+        campaign's arm and sweep records must NOT be counted as ladder
+        records, which is the half a record-less tree could not exercise.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        census = checker.null_sweep_census()
+        self.assertIsNotNone(census)
+        self.assertGreaterEqual(census["rungs"], 2)
+        self.assertEqual(census["records"], len(census["record_ids"]))
+        records = REPO_ROOT / checker.NULL_SWEEP_RECORDS
+        self.assertTrue(records.is_dir())
+        # More `.md` records exist in that tree than are ladder records: the
+        # three shapes share it, and counting them all would be the vacuity.
+        self.assertLess(census["records"], len(list(records.glob("*.md"))))
+
+
+class TestDecouplingCensus(unittest.TestCase):
+    """Check 33: the stated on-die-decoupling ownership census is this tree's own.
+
+    Three decision records carry the same open item -- on-die decoupling is
+    not designed, budgeted, or measured -- and DR-012 makes every excursion
+    figure it states an *undecoupled* upper bound by deferring to it. Section
+    7's rule is that an open item points at the issue that tracks it, and no
+    other check here can see that pointer move: check 15 reads a Status line
+    and nothing else, checks 3/4/22/23 grade evidence citations, checks 31/32
+    grade one campaign's axes.
+    """
+
+    CARRIER = "**On-die decoupling** for either domain is not designed."
+    OTHER = "**The pad's position is provisional.** No pad ring exists yet."
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_decoupling_census(self.tree.document(body), body)
+
+    def body(self, sentence: str | None, *, anchor: str | None = None) -> str:
+        text = "## 7. Open items\n\n"
+        if anchor is not None:
+            text += f"See `spec/decision-records/{anchor}`.\n"
+        if sentence is not None:
+            text += f"\n> {sentence}\n"
+        return text
+
+    def sentence(self, carrying, tracked, untracked=()) -> str:
+        return checker.decoupling_sentence(
+            {
+                "carrying": carrying,
+                "tracked": tracked,
+                "untracked": [
+                    f"spec/decision-records/{name}" for name in untracked
+                ],
+            }
+        )
+
+    def tree_with(self, *records):
+        """`records` as (filename, open-item bullets) pairs."""
+        for name, items in records:
+            self.tree.add_decision_record(name, open_items=list(items))
+
+    def test_a_truthful_untracked_census_passes(self):
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER]),
+            ("DR-012-b.md", [self.OTHER, self.CARRIER]),
+        )
+        body = self.body(
+            self.sentence(2, 0, ("DR-010-a.md", "DR-012-b.md")),
+            anchor="DR-010-a.md",
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_record_that_names_its_tracker_falsifies_the_census(self):
+        """The drift this check exists for, stated as the failure it must be."""
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER + " Tracked as #431."]),
+            ("DR-012-b.md", [self.CARRIER]),
+        )
+        body = self.body(
+            self.sentence(2, 0, ("DR-010-a.md", "DR-012-b.md")),
+            anchor="DR-012-b.md",
+        )
+        misses = self.check(body)
+        self.assertTrue(misses)
+        self.assertTrue(any("tracked=0" in miss for miss in misses), misses)
+
+    def test_a_struck_item_no_longer_carries_the_gap(self):
+        self.tree_with(
+            ("DR-010-a.md", ["~~" + self.CARRIER + "~~ **CLOSED** by DR-016."]),
+            ("DR-012-b.md", [self.CARRIER]),
+        )
+        body = self.body(self.sentence(1, 0, ("DR-012-b.md",)), anchor="DR-012-b.md")
+        self.assertEqual(self.check(body), [])
+
+    def test_the_word_alone_inside_a_bullet_is_not_a_carrier(self):
+        """`ARM_RECORD_RE`'s discipline: the lead names it, or it does not count.
+
+        DR-012's real rejected-null-option item quotes "undecoupled upper
+        bounds" while being about the `no-gnd-pad` arm. An unanchored search
+        for the word would report it as a carrier.
+        """
+        self.tree_with(
+            (
+                "DR-012-b.md",
+                [
+                    "**The rejected null option now has a price.** The "
+                    "excursion figures are undecoupled upper bounds.",
+                    self.CARRIER,
+                ],
+            ),
+        )
+        body = self.body(self.sentence(1, 0, ("DR-012-b.md",)), anchor="DR-012-b.md")
+        self.assertEqual(self.check(body), [])
+
+    def test_an_upstream_reference_is_not_a_tracker(self):
+        """`klayout-tools#2400` names somebody else's tracker, not this gap's."""
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER + " See klayout-tools#2400."]),
+        )
+        body = self.body(self.sentence(1, 0, ("DR-010-a.md",)), anchor="DR-010-a.md")
+        self.assertEqual(self.check(body), [])
+
+    def test_a_drifted_record_list_is_reported_even_when_the_counts_agree(self):
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER]),
+            ("DR-015-c.md", [self.CARRIER]),
+        )
+        body = self.body(
+            self.sentence(2, 0, ("DR-010-a.md", "DR-012-b.md")),
+            anchor="DR-010-a.md",
+        )
+        misses = self.check(body)
+        self.assertTrue(any("sends a reader to the wrong file" in m for m in misses), misses)
+
+    def test_a_fully_tracked_census_passes_and_states_itself(self):
+        self.tree_with(("DR-010-a.md", [self.CARRIER + " Tracked as #431."]))
+        sentence = checker.decoupling_sentence(checker.decoupling_census())
+        self.assertIn(checker.DECOUPLING_CENSUS_NONE, sentence)
+        self.assertEqual(self.check(self.body(sentence, anchor="DR-010-a.md")), [])
+
+    def test_an_absent_census_is_itself_a_finding(self):
+        self.tree_with(("DR-010-a.md", [self.CARRIER]))
+        misses = self.check(self.body(None, anchor="DR-010-a.md"))
+        self.assertTrue(misses)
+        self.assertIn("states no ownership census", misses[0])
+
+    def test_a_document_that_cites_no_carrier_is_not_graded(self):
+        self.tree_with(("DR-010-a.md", [self.CARRIER]))
+        self.assertEqual(self.check(self.body(None)), [])
+
+    def test_a_record_with_no_open_items_section_carries_nothing(self):
+        self.tree.add_decision_record("DR-010-a.md")
+        self.assertEqual(checker.decoupling_census()["carrying"], 0)
+
+    def test_the_stats_sentence_is_what_the_check_matches(self):
+        """A `--stats` paste must pass, or the fix is a hand transcription."""
+        self.tree_with(
+            ("DR-010-a.md", [self.CARRIER]),
+            ("DR-012-b.md", [self.CARRIER]),
+        )
+        sentence = checker.decoupling_sentence(checker.decoupling_census())
+        self.assertEqual(self.check(self.body(sentence, anchor="DR-010-a.md")), [])
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_decoupling_census(doc, doc.read_text()), [])
+
+    def test_the_real_census_finds_the_real_carriers(self):
+        """Not vacuous: the census must resolve against the live records.
+
+        A parse that silently found nothing would make the check pass by
+        censusing an empty set -- the vacuity trap checks 4, 6, 30, 31 and 32
+        each needed a guard for.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        census = checker.decoupling_census()
+        self.assertGreaterEqual(census["carrying"], 1)
+        self.assertEqual(
+            census["carrying"], census["tracked"] + len(census["untracked"])
+        )
+        for record in census["untracked"]:
+            self.assertTrue((REPO_ROOT / record).is_file(), record)
+
+
+class TestExcursionEnumeration(unittest.TestCase):
+    """Check 35: the *undecoupled* enumeration names every figure it must.
+
+    Check 33 grades who OWNS the on-die-decoupling gap; this grades the one
+    sentence that applies that gap's qualifier to a hand-written list of
+    die-side ground-excursion figures. That list went stale twice in one day
+    (PR #446 wrote eight figures four minutes before PR #445 merged with three
+    more in it; PR #447 then narrated all three in the same item and left the
+    list alone), and no check read it -- check 34 grades the ladder AXIS that
+    stales it, never the list.
+
+    Two parse hazards were measured against the live document before this
+    check was written, and both are regression-tested here:
+
+      - **unit-eliding chains**: the document writes `` `72.130` ->
+        `67.307` -> `137.093 mV` ``, so a three-decimal-plus-`mV` scan finds
+        one of three figures and misses exactly the ones that went stale;
+      - **unrelated `mV` figures at the same precision**: the same section
+        states `0.001`, `0.380` and `67.190 mV`, none of which is a
+        supply-return excursion, so a scan that required them would fail on
+        correct prose -- worse than the hand-maintained note, because it
+        teaches the next pass to reword around the gate.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_excursion_enumeration(self.tree.document(body), body)
+
+    def enumeration(self, *figures: str) -> str:
+        """The list as the document writes it: only the LAST figure carries `mV`.
+
+        Hazard 1 in the enumeration's own voice -- the sentence under test is
+        itself a unit-eliding chain, which is why the check parses both sides
+        of the comparison with the same chain reader.
+        """
+        quoted = [f"`{figure}`" for figure in figures[:-1]]
+        tail = f"`{figures[-1]} mV`"
+        joined = ", ".join(quoted)
+        return f"{joined} and {tail}" if quoted else tail
+
+    def body(
+        self,
+        narrative: str = "",
+        enumeration: str | None = None,
+        *,
+        item: bool = True,
+        other_item: str = "",
+        anchor: bool = True,
+    ) -> str:
+        """A Section 7 shaped document: one numbered item, then the sentence.
+
+        `other_item` is a SECOND numbered item placed above the first, which is
+        how the region bound is exercised: a figure stated there is outside the
+        narrative the enumeration says "above" of, and must not be required.
+        """
+        text = "## 7. Open items before sign-off\n\n"
+        if anchor:
+            text += f"See [the campaign](../../{checker.EXCURSION_RECORDS}/LATEST).\n\n"
+        if other_item:
+            text += f"8. **Some other gap.** {other_item}\n\n"
+        if item:
+            text += "9. **Power delivery is structurally graded.**\n"
+        if narrative:
+            text += f"   {narrative}\n"
+        if enumeration is not None:
+            text += (
+                f"\n   {enumeration} are each an **undecoupled** upper bound, and\n"
+                "   that is not this document's gloss on them.\n"
+            )
+        return text
+
+    def campaign(self, *excursions: str, **kwargs):
+        """One arm-comparison record carrying `excursions` plus the control."""
+        rows = tuple(
+            (f"arm-{index}", figure) for index, figure in enumerate(excursions)
+        )
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"),) + rows,
+            **kwargs,
+        )
+
+    # -- The claim itself, in both directions of the one it makes.
+
+    def test_a_complete_enumeration_passes(self):
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **10.779 mV** is substrate.",
+            self.enumeration("10.779", "37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_dropped_figure_is_reported(self):
+        """The mutation the acceptance criteria name: one figure removed."""
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **10.779 mV** is substrate.",
+            self.enumeration("37.333"),
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("10.779", misses[0])
+
+    # -- Hazard 1: a chain in which only the last figure carries its unit.
+
+    def test_a_unit_eliding_chain_is_followed(self):
+        """The exact shape PR #445's ladder is narrated in.
+
+        A `\\d+\\.\\d{3}\\s*mV` scan sees only `137.093` here, so the two
+        figures that actually went stale would be invisible to it.
+        """
+        self.campaign("72.130", "67.307", "137.093")
+        body = self.body(
+            "the excursion goes `72.130` -> `67.307` -> `137.093 mV` peak-to-peak.",
+            self.enumeration("137.093"),
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("67.307", misses[0])
+        self.assertIn("72.130", misses[0])
+
+    def test_the_chain_reader_follows_every_separator_the_document_uses(self):
+        """Arrow, slash, comma and "and" -- all four are live in the document."""
+        for span in (
+            "`1.111` -> `2.222` -> `3.333 mV`",
+            "`1.111`/`2.222`/`3.333 mV`",
+            "`1.111`, `2.222`, `3.333 mV`",
+            "`1.111`, `2.222` and `3.333 mV`",
+            "**1.111**, **2.222** and **3.333 mV**",
+        ):
+            with self.subTest(span=span):
+                self.assertEqual(
+                    checker.excursion_chain_figures(span),
+                    ["1.111", "2.222", "3.333"],
+                )
+
+    def test_a_figure_in_no_unit_bearing_chain_is_not_read_as_mv(self):
+        """Prose separates these two, so the unitless one states no excursion.
+
+        The live shape this is taken from: `**37.274 mV** of it to the bond
+        inductance alone (`0.059 mV` remains with `L = 0`)` -- the words between
+        the two figures are what must end the chain, so a figure that carries no
+        unit of its own and is not chained to one states no mV value at all.
+        """
+        self.assertEqual(
+            checker.excursion_chain_figures(
+                "`1.111 mV` remains with `L = 0`, and the ratio was `2.222` there."
+            ),
+            ["1.111"],
+        )
+
+    def test_a_figure_at_another_precision_is_not_a_row_value(self):
+        """`+27.6 mV` is a difference the renderer never prints as a row."""
+        self.assertEqual(checker.excursion_chain_figures("**+27.6 mV** of excursion"), [])
+
+    # -- Hazard 2: same-precision `mV` figures that are NOT excursions.
+
+    def test_an_unrelated_mv_figure_at_the_same_precision_is_not_required(self):
+        """The `0.001`/`0.380`/`67.190 mV` class, measured in the live document."""
+        self.campaign("37.333")
+        body = self.body(
+            "the excursion is **37.333 mV**, and the reference settles to "
+            "`0.380 mV` of ripple with `67.190 mV` of headroom.",
+            self.enumeration("37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_derived_difference_is_not_required(self):
+        """The live `2.070 mV` case: a subtraction no record row carries.
+
+        The document states it precisely to say it is NOT a measurement, so a
+        gate that demanded it be qualified as an excursion upper bound would
+        be requiring the document to contradict itself.
+        """
+        self.campaign("67.307", "65.237")
+        body = self.body(
+            "the ladder's `67.307 mV` rung against the arm's `65.237 mV` -- "
+            "do not read that `2.070 mV` as a measurement.",
+            self.enumeration("65.237", "67.307"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_the_ideal_controls_zero_is_not_required(self):
+        """`0.000` is mechanical: an ideal source holds the die node at 0 V."""
+        self.campaign("37.333")
+        body = self.body(
+            "the `ideal` control reads `0.000 mV` and the arm **37.333 mV**.",
+            self.enumeration("37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    # -- The region bound, and its vacuity trap.
+
+    def test_a_figure_in_another_numbered_item_is_not_required(self):
+        """"Above" means this item's own narrative, not the whole section."""
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**.",
+            self.enumeration("37.333"),
+            other_item="An unrelated `10.779 mV` figure lives here.",
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_an_enumeration_with_no_narrative_figures_above_it_is_a_finding(self):
+        """The vacuity trap, made loud instead of silent.
+
+        If the region anchor ever drifts -- the item renumbered away, the
+        narrative moved out from under the sentence -- the derived set goes
+        empty and a superset check would pass by grading nothing. That must be
+        the one case it reports instead.
+        """
+        self.campaign("37.333")
+        misses = self.check(self.body("", self.enumeration("37.333")))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("grades nothing", misses[0])
+
+    def test_an_absent_enumeration_is_itself_a_finding(self):
+        """Deleting the sentence must not unqualify the figures above it."""
+        self.campaign("37.333", "10.779")
+        misses = self.check(
+            self.body("the excursion is **37.333 mV**, of which **10.779 mV** is substrate.")
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("qualifies none of them", misses[0])
+        self.assertIn("10.779", misses[0])
+        self.assertIn("37.333", misses[0])
+
+    def test_a_document_with_no_supply_return_narrative_is_not_graded(self):
+        """The vacuity-trap guard's other side: silence on an unrelated doc."""
+        self.campaign("37.333")
+        self.assertEqual(self.check(self.body("Nothing about supply returns here.")), [])
+        self.assertEqual(self.check("# A document with no Section 7 at all\n"), [])
+
+    def test_a_document_that_does_not_cite_the_campaign_is_not_graded(self):
+        """Checks 31, 32 and 34's anchor, for their reason."""
+        self.campaign("37.333", "10.779")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **10.779 mV** is substrate.",
+            anchor=False,
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_single_quoted_figure_does_not_demand_the_qualifier(self):
+        """One figure in passing is a citation, not a narrative.
+
+        Measured against the live tree before this bound was added: the gate's
+        own rationale document quotes `65.237 mV` once, and a check that
+        demanded the whole qualifier sentence of it would be firing on correct
+        prose -- the failure mode this issue was filed rather than rushed to
+        avoid.
+        """
+        self.campaign("65.237")
+        self.assertEqual(
+            self.check(self.body("DR-012 attaches the word to its `65.237 mV` figure.")),
+            [],
+        )
+
+    # -- One-directional by design.
+
+    def test_an_interior_sweep_point_the_document_never_quotes_is_not_required(self):
+        """The committed set is larger than the document legitimately quotes."""
+        self.campaign("37.590", "22.556", "40.688")
+        body = self.body(
+            "the worst column point is **37.590 mV**.", self.enumeration("37.590")
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_an_enumerated_figure_no_record_carries_is_not_a_finding(self):
+        """`37.274` is a one-element ablation, not a row -- and legitimate."""
+        self.campaign("37.333")
+        body = self.body(
+            "the excursion is **37.333 mV**, of which **37.274 mV** is inductance.",
+            self.enumeration("37.274", "37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    # -- The third narrowing: only an UNDECOUPLED netlist's figures are owed.
+
+    def test_a_decoupled_netlists_figures_are_not_required(self):
+        """The live shape PR #457 created, caught by this check on the day it landed.
+
+        DR-017 landed on-die decoupling, and this campaign's newest record runs
+        the decoupled netlist -- a different DUT sha256 -- at nine corners across
+        five arms. Its excursion figures are real and are stated in the same §7
+        item, and they are NOT undecoupled upper bounds. Requiring them would
+        make the gate demand the document assert something false.
+        """
+        self.campaign("37.333")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260926-050045-8e62675",
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"), ("package", "13.964")),
+            excursion_dut="b" * 64,
+            excursion_undecoupled=False,
+        )
+        self.assertEqual(checker.excursion_row_figures(), {"37.333"})
+        body = self.body(
+            "the undecoupled excursion is **37.333 mV**; with DR-017's "
+            "decoupling in the netlist it is **13.964 mV** at the worst corner.",
+            self.enumeration("37.333"),
+        )
+        self.assertEqual(self.check(body), [])
+
+    def test_a_record_that_does_not_repeat_the_declaration_inherits_it_by_dut_sha(self):
+        """Three of the five live undecoupled records never state it themselves."""
+        self.campaign("37.333")
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-204633-7339971",
+            arms=("ideal", "no-gnd-pad"),
+            excursions=(("ideal", "0.000"), ("no-gnd-pad", "65.237")),
+            excursion_undecoupled=False,
+        )
+        self.assertEqual(checker.excursion_row_figures(), {"37.333", "65.237"})
+
+    def test_the_word_undecoupled_in_prose_is_not_a_declaration(self):
+        """Every record narrates "an undecoupled series inductance", decoupled or not.
+
+        Check 33's `DECOUPLING_LEAD_RE` made the same distinction for the same
+        reason: a word search over the record body would put the decoupled DUT
+        in the undecoupled set and silently re-admit its figures.
+        """
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260926-050045-8e62675",
+            latest=True,
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"), ("package", "13.964")),
+            excursion_dut="b" * 64,
+            excursion_undecoupled=False,
+            excursion_prose=(
+                "Reported because an undecoupled series inductance against the "
+                "die's own capacitance rings above the clock rate, so a bonded "
+                "arm costs more than the ideal one. No decoupling is cheap."
+            ),
+        )
+        self.assertEqual(checker.excursion_undecoupled_duts(), set())
+        self.assertIsNone(checker.excursion_row_figures())
+
+    def test_a_tree_with_no_undecoupled_declaration_grades_nothing(self):
+        self.campaign("37.333", excursion_undecoupled=False)
+        self.assertIsNone(checker.excursion_row_figures())
+        self.assertEqual(self.check(self.body("the excursion is **37.333 mV**.")), [])
+
+    # -- Both record layouts, and the silences.
+
+    def test_both_record_layouts_are_read_by_column_name(self):
+        """Two writers, two table shapes, one column header."""
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-073912-0e385e5",
+            latest=True,
+            arms=("ideal", "package"),
+            excursions=(("ideal", "0.000"), ("package", "37.333")),
+        )
+        self.tree.add_sim_record(
+            checker.ARM_CAMPAIGN,
+            "20260925-164447-722fcb0",
+            sweep_points=9,
+            excursions=(("ideal", "0.000"), ("sweep-l10x-rsubx300", "111.622")),
+            excursion_layout="point",
+        )
+        self.assertEqual(checker.excursion_row_figures(), {"37.333", "111.622"})
+
+    def test_check_is_inert_without_the_campaign_records(self):
+        self.assertIsNone(checker.excursion_row_figures())
+        self.assertEqual(
+            self.check(self.body("the excursion is **37.333 mV**.")), []
+        )
+
+    def test_a_records_tree_with_no_excursion_column_grades_nothing(self):
+        """No tree-side figures to compare against is a silence, not a zero."""
+        self.campaign("37.333", excursion_column="gnd_die swing (mV)")
+        self.assertIsNone(checker.excursion_row_figures())
+        self.assertEqual(self.check(self.body("the excursion is **37.333 mV**.")), [])
+
+    # -- The live pair.
+
+    def test_the_real_tree_and_the_real_document_agree(self):
+        """The live pair, not a fixture: this is what CI actually grades."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        self.assertEqual(checker.check_excursion_enumeration(doc, doc.read_text()), [])
+
+    def test_the_real_check_is_not_vacuous(self):
+        """The mutation test, automated: drop one figure and the live doc fails.
+
+        This is what keeps the check from passing by deriving an empty set
+        against the real tree -- the vacuity trap checks 4, 6 and 30--34 each
+        needed a guard for, and the one an "enumeration is a superset" claim
+        is most exposed to.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        text = doc.read_text()
+        required = checker.excursion_enumeration_figures(text)
+        self.assertIsNotNone(required)
+        self.assertGreaterEqual(
+            len(required),
+            8,
+            "the live document's supply-return narrative states almost no "
+            "record excursion figure -- the region anchor has drifted and the "
+            "check is grading nothing",
+        )
+        # The enumeration's own figure list, located the way the check locates
+        # it, so the mutation lands in the LIST and not on some earlier
+        # occurrence of the same figure elsewhere in the document -- most of
+        # these figures are stated several times over.
+        collapsed, offsets = checker._collapse_quoted_prose(text)
+        match = checker.EXCURSION_ENUM_RE.search(collapsed)
+        self.assertIsNotNone(match, "the live enumeration sentence no longer parses")
+        window = offsets[match.start("figures")]
+        anchor = offsets[match.end("figures") - 1] + 1
+        for figure in sorted(required):
+            with self.subTest(dropped=figure):
+                span = text[window:anchor]
+                dropped = re.sub(
+                    r"`" + re.escape(figure) + r"(?: mV)?`(?:,?\s+and)?[,\s]*",
+                    "",
+                    span,
+                    count=1,
+                )
+                self.assertNotEqual(
+                    dropped, span, f"{figure} is not in the enumeration sentence"
+                )
+                mutated = text[:window] + dropped + text[anchor:]
+                misses = checker.check_excursion_enumeration(doc, mutated)
+                self.assertTrue(misses, f"dropping {figure} was not reported")
+                self.assertTrue(
+                    any(figure in miss for miss in misses),
+                    f"dropping {figure} was reported without naming it: {misses}",
+                )
+
+    def test_the_real_documents_unrelated_mv_figures_are_not_required(self):
+        """Hazard 2 against the live document, not only against a fixture."""
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        required = checker.excursion_enumeration_figures(doc.read_text())
+        self.assertIsNotNone(required)
+        for figure in ("0.001", "0.380", "67.190", "2.070", "0.000"):
+            self.assertNotIn(figure, required)
+
+    def test_the_real_tree_carries_two_dut_generations_and_only_one_is_owed(self):
+        """The undecoupled narrowing, non-vacuous against the live tree.
+
+        If this assertion ever fails because the tree holds ONE DUT generation
+        again, the narrowing is untested by the live half and only the fixtures
+        above hold it -- which is worth knowing, because it is the half that
+        keeps the gate from demanding the document call a decoupled figure an
+        undecoupled upper bound.
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        records = REPO_ROOT / checker.EXCURSION_RECORDS
+        duts = {
+            match.group("sha")
+            for record in records.glob("*.md")
+            for match in checker.EXCURSION_DUT_RE.finditer(record.read_text())
+        }
+        self.assertGreaterEqual(len(duts), 2, "only one DUT generation in the tree")
+        undecoupled = checker.excursion_undecoupled_duts()
+        self.assertTrue(undecoupled)
+        self.assertTrue(duts - undecoupled, "every DUT reads as undecoupled")
+        # And the decoupled generation's own figures really are excluded.
+        owed = checker.excursion_row_figures()
+        self.assertIsNotNone(owed)
+        for figure in ("13.964", "17.055", "9.709", "7.710", "0.070"):
+            self.assertNotIn(figure, owed)
+
+    def test_a_checked_document_without_the_narrative_is_ungraded(self):
+        """The vacuity-trap guard against the LIVE records tree, not a fixture.
+
+        `main()` grades every `docs/chipalooza/*.md`, and today that set is one
+        document -- so the exposure is the *next* one: a chipalooza document
+        that cites this campaign, or quotes one of its figures, without
+        narrating them must not be asked for a qualifier it never claimed.
+        Graded against the live records tree, because it is the live figure set
+        that decides.
+
+        (`docs/citation-gate.md` is deliberately NOT in that glob -- it
+        discusses these figures at length, and would fire. That it lives one
+        directory up on purpose is asserted by `TestRationaleDocumentCoverage`,
+        in `test_the_rationale_document_is_not_itself_a_checked_document`.)
+        """
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        documents = [
+            (doc.name, doc.read_text())
+            for doc in sorted(CHIPALOOZA_DIR.glob("*.md"))
+            if doc.name != "challenge-4-proposal.md"
+        ] + [
+            (
+                "challenge-5-proposal.md",
+                "# A later challenge\n\nNo supply-return narrative at all.\n",
+            ),
+            (
+                "campaign-notes.md",
+                "# Notes\n\nSee `sim/supply-impedance-sensitivity/records/LATEST`.\n",
+            ),
+            (
+                "one-figure.md",
+                "## 7. Open items\n\n1. **A gap.** The `package` arm reads "
+                "`37.590 mV` at the baseline corner, per "
+                "`sim/supply-impedance-sensitivity/records/LATEST`.\n",
+            ),
+        ]
+        for name, text in documents:
+            with self.subTest(doc=name):
+                self.assertEqual(
+                    checker.check_excursion_enumeration(CHIPALOOZA_DIR / name, text), []
+                )
+
+
+class TestPresentTenseMismatch(unittest.TestCase):
+    """Check 36: a present-tense prose mismatch count is the current record's.
+
+    Check 9 grades the readout blockquote, which Section 4 introduces as the
+    document's "single present-tense statement" of the composed top level's
+    DRC/LVS numbers. That claim was false about the document that made it: six
+    passages in Sections 3 and 7 restated the mismatch count in prose, in three
+    present-tense forms check 9 cannot see, and when issue #440's decoupling
+    placement (PR #466, 2026-09-26) moved the compare 88 -> 89, the readout and
+    the Section 4 row moved while all six still read 88.
+
+    The prose figures that must stay UNGRADED are tested as carefully as the
+    ones that must not: Section 7 narrates superseded records paragraph by
+    paragraph, and a gate that fired on `88 mismatches at the 2026-09-24 hop`
+    would fail on correct prose and teach the next pass to reword around it.
+    """
+
+    STAMP = "20260926-081248-203cca3"
+    CURRENT = 89
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.add_top(self.CURRENT)
+
+    def add_top(self, mismatch_count: int, *, composing: bool = True):
+        """The composed top level's current record, at `mismatch_count`."""
+        self.tree.add_layout_record(
+            "sar-adc-top",
+            self.STAMP,
+            latest=True,
+            drc={"status": "clean", "violation_count": 0},
+            lvs=lvs_json(
+                mismatch_count=mismatch_count,
+                error_count=mismatch_count - 1,
+                devices=(871, 871, 804),
+                nets=(443, 444, 411),
+                pins=(21, 22, 22),
+            ),
+            compose=compose_json(
+                blocks=[composed_block("cdac_array")]
+                if composing
+                else [composed_block("route", source="generator_report")]
+            ),
+        )
+
+    def readout(self, block: str = "sar-adc-top", mismatch_count: int | None = None) -> str:
+        """The check-9 readout sentence, as `--stats` prints it for `block`."""
+        live = checker.signoff_readout(block)
+        self.assertIsNotNone(live, block)
+        if mismatch_count is not None:
+            live = dict(live, mismatch_count=mismatch_count)
+        return "> " + checker.readout_sentence(block, live) + "\n"
+
+    def body(self, prose: str, *, readout: bool = True) -> str:
+        text = "## 7. Open items before sign-off\n\n"
+        if readout:
+            text += self.readout() + "\n"
+        return text + f"1. **Top-level layout.** {prose}\n"
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_present_tense_mismatch(self.tree.document(body), body)
+
+    # -- The three present-tense forms, each graded.
+
+    def test_the_current_count_passes_in_every_form(self):
+        for prose in (
+            "Stays UNMET/BLOCKED (89 mismatches on the current record).",
+            "A device-level match is missing (currently 89 mismatches).",
+            "Closing the upstream issue is not the same as clearing "
+            "the 89-mismatch LVS gap.",
+        ):
+            with self.subTest(prose=prose):
+                self.assertEqual(self.check(self.body(prose)), [])
+
+    def test_the_real_drift_is_reported_in_every_form(self):
+        """88 left behind in prose against an 89-mismatch record: PR #466's gap."""
+        for prose in (
+            "Stays UNMET/BLOCKED (88 mismatches on the current record).",
+            "A device-level match is missing (currently 88 mismatches).",
+            "Closing the upstream issue is not the same as clearing "
+            "the 88-mismatch LVS gap.",
+        ):
+            with self.subTest(prose=prose):
+                misses = self.check(self.body(prose))
+                self.assertEqual(len(misses), 1, misses)
+                self.assertIn("88", misses[0])
+                self.assertIn(
+                    "`layout/sar-adc-top/reports/LATEST` reports 89 mismatches",
+                    misses[0],
+                )
+
+    def test_the_finding_names_both_dispositions(self):
+        """Restate it, or date it -- never delete it."""
+        misses = self.check(self.body("(88 mismatches on the current record)."))
+        self.assertIn("--stats", misses[0])
+        self.assertIn("dated historical", misses[0])
+
+    # -- What must stay ungraded, so the gate cannot fire on correct prose.
+
+    def test_a_dated_historical_figure_is_not_graded(self):
+        prose = (
+            "Every hop through 2026-09-23 reported 98 mismatches, the "
+            "2026-09-24 hop 88 mismatches, and `20260924-214710-b323061` the "
+            "same 88 mismatches at 21/22/22 pins."
+        )
+        self.assertEqual(self.check(self.body(prose)), [])
+
+    def test_the_readout_itself_is_not_graded_twice(self):
+        """Check 9 owns the blockquote; this check must not double-report it."""
+        self.assertEqual(self.check(self.body("Nothing stated in prose.")), [])
+
+    def test_a_document_stating_no_present_tense_figure_is_not_failed_for_it(self):
+        prose = "See §4's machine-checked sign-off-bar readout for the count."
+        self.assertEqual(self.check(self.body(prose)), [])
+
+    # -- Parse shapes measured against the live document.
+
+    def test_a_figure_wrapped_across_lines_is_still_graded(self):
+        """The live document wraps this very phrase mid-sentence."""
+        prose = "Stays UNMET/BLOCKED (88 mismatches on the\n   current record)."
+        misses = self.check(self.body(prose))
+        self.assertEqual(len(misses), 1, misses)
+
+    def test_a_bold_wrapped_figure_is_graded(self):
+        misses = self.check(self.body("Still **88** mismatches on the current record."))
+        self.assertEqual(len(misses), 1, misses)
+
+    def test_every_occurrence_is_graded_not_only_the_first(self):
+        body = self.body(
+            "Stays UNMET/BLOCKED (88 mismatches on the current record), and a "
+            "device-level match is still missing (currently 88 mismatches)."
+        )
+        self.assertEqual(len(self.check(body)), 2)
+
+    # -- Which flow the claim is graded against.
+
+    def test_a_sub_block_count_cannot_become_the_grading_basis(self):
+        """`layout/comparator/` reports 1 mismatch and composes no cell."""
+        self.tree.add_layout_record(
+            "comparator",
+            "20260924-120000-abcdef0",
+            latest=True,
+            drc={"status": "clean", "violation_count": 0},
+            lvs=lvs_json(
+                mismatch_count=1,
+                error_count=0,
+                status="match",
+                devices=(11, 11, 11),
+                nets=(9, 9, 9),
+                pins=(6, 6, 6),
+            ),
+            compose=compose_json(blocks=[composed_block("route", source="generator_report")]),
+        )
+        body = (
+            "## 7. Open items\n\n"
+            + self.readout()
+            + "\n"
+            + self.readout("comparator")
+            + "\n1. **Top-level layout.** Still 1 mismatches on the current record.\n"
+        )
+        misses = self.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("reports 89 mismatches", misses[0])
+        self.assertNotIn("comparator", misses[0])
+
+    def test_a_present_tense_figure_with_no_composing_readout_is_reported(self):
+        """The vacuity guard: silence here would make deleting the readout a pass."""
+        self.add_top(self.CURRENT, composing=False)
+        misses = self.check(self.body("(89 mismatches on the current record)."))
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("reads out no composing", misses[0])
+
+    def test_a_figure_stated_without_any_readout_is_reported(self):
+        misses = self.check(
+            self.body("(89 mismatches on the current record).", readout=False)
+        )
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("reads out no composing", misses[0])
+
+    def test_composed_mismatch_counts_names_only_the_composing_flow(self):
+        body = self.body("Nothing stated in prose.")
+        self.assertEqual(checker.composed_mismatch_counts(body), {"sar-adc-top": 89})
+
+    # -- The live pair, not a fixture: this is what CI actually grades.
+
+    def test_the_real_document_and_the_real_tree_agree(self):
+        fixture_root = checker.REPO_ROOT
+        checker.REPO_ROOT = REPO_ROOT
+        self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
+        doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
+        text = doc.read_text()
+        counts = checker.composed_mismatch_counts(text)
+        self.assertEqual(
+            list(counts),
+            ["sar-adc-top"],
+            "the composing flow is no longer identified from the tree as the "
+            "single flow whose composition takes in a cell",
+        )
+        stated = list(
+            checker.PRESENT_TENSE_MISMATCH_RE.finditer(
+                checker._collapse_quoted_prose(text)[0]
+            )
+        )
+        self.assertTrue(
+            stated,
+            "the document states none of the three present-tense forms, so this "
+            "check grades nothing on the live pair -- if that is deliberate, "
+            "retire the check rather than leaving it vacuous",
+        )
+        self.assertEqual(checker.check_present_tense_mismatch(doc, text), [])
 
 
 class TestRationaleDocumentCoverage(unittest.TestCase):

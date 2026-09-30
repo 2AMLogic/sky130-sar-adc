@@ -58,10 +58,19 @@ row cites (the clauses check 21 compares against), the live row count
 against), the live inductor-card census of every SPICE deck under `sim/`
 (the sentence check 25 compares against) and the live toolchain/PDK
 provenance census of every `sim/` and `layout/` record (the sentence check 26
-compares against) and each document's live Section 4 corner-grid census (the
-sentence check 28 compares against) instead of checking, which is
-what to run when check 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24, 25,
-26 or 28 reports a drift. Exit status:
+compares against), each document's live Section 4 corner-grid census (the
+sentence check 28 compares against), the live record-renderer census of
+every `layout/` record tree (the sentence check 30 compares against) and the
+live supply-return arm, `--sweep`-box and `--null-sweep`-ladder censuses of
+`sim/supply-impedance-sensitivity/` (the sentences checks 31, 32 and 34
+compare against), the live on-die-decoupling ownership census of
+`spec/decision-records/` (the sentence check 33 compares against) and each
+document's live derived excursion-figure set (the figures check 35 requires its
+own *undecoupled* enumeration to name) instead of
+checking, which is what to run when check 6, 9, 12, 13,
+14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26, 28, 30, 31, 32, 33, 34 or 35
+reports a drift.
+Exit status:
 
     0 - every citation checks out
     1 - one or more citations are stale/broken (each one listed on stdout)
@@ -1072,6 +1081,566 @@ ABSENT_MARKER = "(not in this tree)"
 ABSENT_CLAIM_RE = re.compile(
     r"`(?P<path>[^`]*)`(?:[ \t]*\n)?[ \t]*" + re.escape(ABSENT_MARKER)
 )
+
+
+# Check 30. Check 26's census is a LAGGING indicator, and on its own it cannot
+# tell a reader which of two very different worlds they are in. `layout/`
+# records are append-only evidence (`CLAUDE.md`), so "34 of the 67 name the
+# `open_pdks` commit" reads identically whether the flows still mint records
+# without the pin, or whether every flow was fixed this morning and the 33
+# shortfall is history no re-run has yet retired. Section 8 answered that by
+# naming the cause in prose -- "four of the eight `layout/` flows' record
+# renderers resolve the commit ... and four print only the variant name" --
+# and prose is what rots: PR #420 (issue #407, merged 2026-09-25) fixed the
+# other four and the ERC flow, and nothing in this gate could see that the
+# explanation had gone false while every number beside it stayed true. This
+# check grades the LEADING indicator instead, in both directions, so neither
+# an entry point that starts resolving the commit nor one that stops can drift
+# away from the sentence that explains check 26's numbers.
+RENDERER_REPORT_GLOB = "layout/*/reports"
+RENDERER_ERC_GLOB = "layout/*/erc-reports"
+
+# Which file mints a record tree's `record.md`, by the convention this
+# repository follows uniformly: a flow-local renderer where the flow has one,
+# the shared renderer otherwise (`layout/trivial-cell/` has no `bin/` of its
+# own), and the ERC driver for an `erc-reports/` tree -- that record.md is
+# written by hand from what the script prints, so the script is what has to
+# resolve the pin. A record tree whose entry point does not exist is counted
+# as not resolving and named in the census, rather than skipped: an
+# unattributable record tree is exactly the gap this check is for.
+RENDERER_LOCAL = "layout/{flow}/bin/render-record.py"
+RENDERER_SHARED = "layout/bin/render-record.py"
+RENDERER_ERC = "layout/{flow}/bin/run-erc.sh"
+
+# The shared module a renderer may delegate the whole record body to.
+RENDERER_SHARED_MODULE = "layout/bin/_record_common.py"
+
+# That delegation, matched explicitly rather than by "mentions the shared
+# module": a renderer importing only `build_argparser` from it delegates no
+# provenance at all and must not inherit the shared module's pin.
+RENDERER_DELEGATE_RE = re.compile(r"\brender_pnr_drc_lvs_record\b")
+
+# The same pair for the strict-discipline shared module (issue #474): the
+# strict renderers used to invoke `klt pdk find` inline, byte-identically, in
+# four files; that block now lives in `_record_common_strict.py` as
+# `resolve_pdk_info_strict`. Only the provenance call is matched, on the same
+# reasoning as `RENDERER_DELEGATE_RE` above -- a renderer importing only
+# `build_argparser_strict`/`load_json_strict` delegates no provenance.
+RENDERER_SHARED_MODULE_STRICT = "layout/bin/_record_common_strict.py"
+RENDERER_DELEGATE_STRICT_RE = re.compile(r"\bresolve_pdk_info_strict\b")
+
+# Every (shared module, delegating call) pair the census follows. Following
+# the delegation into the module -- rather than treating the call's name as
+# proof on its own -- is what keeps this a LEADING indicator: a shared helper
+# that stopped resolving the commit flips its delegators to unpinned too.
+RENDERER_DELEGATIONS = (
+    (RENDERER_SHARED_MODULE, RENDERER_DELEGATE_RE),
+    (RENDERER_SHARED_MODULE_STRICT, RENDERER_DELEGATE_STRICT_RE),
+)
+
+# What counts as resolving the commit: a `klt pdk find` argv-list invocation
+# (`["pdk", "find", ...]`) or a call to the shared helper that wraps one.
+# Deliberately NOT a search for the word "pdk" -- every one of these files
+# names a PDK variant, and printing only the variant name is the defect. No
+# bare-shell-text alternative (e.g. `pdk find`) is matched either: unlike the
+# argv-list form, a plain word sequence matches a *comment describing* the
+# invocation just as readily as the invocation itself -- no entry point under
+# `layout/` invokes `klt pdk find` from shell today, so there is nothing this
+# predicate would miss by requiring the argv-list or `resolve_pdk_commit`
+# spelling. Re-add a shell-text alternative only once an entry point needs
+# one, anchored to command position, not as an unanchored substring search.
+#
+# `renderer_census()` also strips whole-line `#` comments before matching
+# (issue #424): `resolve_pdk_commit` is a real Python identifier, so even
+# this narrower regex is satisfied by a comment that merely *names* it (e.g.
+# "# Reuses ... resolve_pdk_commit ..." describing an approach taken
+# elsewhere) with no call anywhere in the file -- comment-stripping is what
+# actually keeps that from counting, not the choice of alternative above.
+RENDERER_PIN_RE = re.compile(
+    r"\bresolve_pdk_commit\b|[\"']pdk[\"']\s*,\s*[\"']find[\"']"
+)
+
+# A whole-line `#` comment (leading whitespace then `#` to end of line), in
+# either Python or POSIX shell -- the only two languages `renderer_census()`'s
+# entry points are written in. Stripped before matching `RENDERER_PIN_RE` so
+# a comment merely *describing* an invocation (naming `resolve_pdk_commit` or
+# a `klt pdk find` spelling in prose) cannot itself satisfy the predicate.
+_HASH_COMMENT_LINE_RE = re.compile(r"^[ \t]*#.*$", re.MULTILINE)
+
+# What the census renders when every entry point resolves the commit -- i.e.
+# when the shortfall check 26 counts is purely historical. Spelled out rather
+# than left as an empty clause, `CORNER_GRID_NONE`'s reason: the true case has
+# to be a statement too, or it reads as a sentence someone forgot to finish.
+# The em dash is the document's own punctuation, not this module's: the
+# sentence is quoted verbatim into Section 8, and `--stats` has to print
+# exactly what the document must contain for the paste to pass.
+RENDERER_CENSUS_NONE = "**none** — every entry point resolves it"
+
+_RENDERER_ENTRY = r"`layout/[A-Za-z0-9._/-]+`"
+
+# The census sentence check 30 grades. Deliberately free of the phrase
+# "current `…/LATEST`", for check 17's reason: spelling it that way would
+# enrol this sentence in checks 4/6's pointer-claim census, where it is not a
+# pointer claim.
+RENDERER_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<entry_points>\d+)\*\* record-minting entry points under "
+    r"`layout/`, \*\*(?P<pinning>\d+)\*\* resolve the `open_pdks` commit "
+    r"before writing a record and \*\*(?P<naming>\d+)\*\* do not: "
+    r"(?P<offenders>"
+    + re.escape(RENDERER_CENSUS_NONE)
+    + r"|(?:" + _RENDERER_ENTRY + r"(?:, )?)+)"
+)
+
+# One entry point inside that sentence's exception clause.
+RENDERER_ENTRY_RE = re.compile(r"`(?P<entry>layout/[A-Za-z0-9._/-]+)`")
+
+# Check 31. One `sim/` campaign publishes records that are a subset of an axis
+# its RUNNER defines rather than of the PVT grid check 28 grades: the
+# supply-impedance campaign's *arms*, the supply-return networks it drives one
+# DUT through. `sim/README.md` requires a corner subset to be justified, and
+# that campaign's renderer applies the same rule to arms -- it emits an "Arms
+# this record does not contain" section, and since issue #409's first
+# increment a standing omission note per arm. Section 7's DR-012 item leans on
+# exactly that subset: it retires DR-012's "the impedance argument is
+# unmeasured" open item by citation while stating that DR-012's *rejected*
+# `no-gnd-pad` null option is implemented but never run, so no
+# priced-rejected-option claim may be read from the record. Nothing graded
+# that sentence. On the day a record prices the null option (issue #409 item
+# 2, whose ablation machinery landed 2026-09-25 in PR #429 while the
+# several-hour measurement stayed owed) the document would still say the claim
+# cannot be read, with every number beside it still true -- check 30's defect
+# shape on a different axis, graded the same way and in both directions.
+ARM_CAMPAIGN = "supply-impedance-sensitivity"
+ARM_RUNNER = f"sim/{ARM_CAMPAIGN}/run_supply_impedance.py"
+ARM_POINTER = f"sim/{ARM_CAMPAIGN}/records/LATEST"
+
+# The runner's own arm table, read as source text rather than imported, for
+# `report_row_count`'s reason: this gate is a pure file reader. The `name=`
+# keyword is anchored to its own line so the nested `bonds=`/`substrate=`
+# mappings inside each arm contribute nothing.
+ARM_TABLE_RE = re.compile(r"^ARMS\b[^\n]*=\s*\(\s*$", re.M)
+ARM_NAME_RE = re.compile(r'^\s+name="(?P<arm>[A-Za-z0-9._-]+)",\s*$', re.M)
+
+# The header line every record of this campaign carries, written by its
+# renderer: `- **Arms**: 4 supply-return networks `ideal`, ... x 1 corner
+# point(s) = 4 transient runs.` The arms are read from the LIST, never from
+# the count in front of it -- the list is what names what ran, and a record
+# whose count disagreed with its list must be graded on the names.
+ARM_RECORD_RE = re.compile(
+    r"- \*\*Arms\*\*: \d+ supply-return networks (?P<arms>[^\n]*?) x \d+ corner"
+)
+ARM_TOKEN_RE = re.compile(r"`(?P<arm>[A-Za-z0-9._-]+)`")
+
+# What the census renders once every arm has been run -- spelled out rather
+# than left as an empty clause, `RENDERER_CENSUS_NONE`'s reason. The em dash
+# is the document's own punctuation: `--stats` prints exactly what the
+# document must contain for the paste to pass.
+ARM_CENSUS_NONE = "**none** — every arm the runner implements has been run"
+
+# The census sentence check 31 grades. Deliberately free of the phrase
+# "current `records/LATEST`", for check 17's reason: spelling it that way
+# would enrol this sentence in checks 4/6's pointer-claim census, where it is
+# not a pointer claim.
+ARM_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<offered>\d+)\*\* supply-return arms `"
+    + re.escape(ARM_RUNNER)
+    + r"` implements, the record `"
+    + re.escape(ARM_POINTER)
+    + r"` names runs \*\*(?P<ran>\d+)\*\* and leaves \*\*(?P<unrun>\d+)\*\* unrun: "
+    r"(?P<arms>"
+    + re.escape(ARM_CENSUS_NONE)
+    + r"|(?:`[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# The anchor that makes an *absent* arm census a finding rather than a
+# silence, the shape checks 25, 28 and 30 each use: a document that cites this
+# campaign at all is citing a record that ran a subset of the runner's arms,
+# and the subset is what bounds what the record may be read for. Deleting the
+# inconvenient sentence is not a way to widen the citation.
+ARM_CENSUS_ANCHOR = f"sim/{ARM_CAMPAIGN}/"
+
+# ---------------------------------------------------------------------------
+# Check 32: the same campaign's SWEEP-MODE axis.
+#
+# Check 31 grades the arms a record ran; this one grades a *mode* of the same
+# runner that has no record at all. `--sweep` (PR #432, issue #409's third
+# item) walks a bounded 2-D box -- bond-inductance multiplier x the lumped
+# substrate link `R_SUBX` -- around DR-015's single assumption point, and
+# deliberately does NOT move `records/LATEST`: it supersedes nothing, so the
+# arm-comparison record stays the one DR-012 and Section 4's Power row cite.
+# That disposition is exactly what makes the claim ungradeable by every check
+# already here: checks 3/4/6/23 grade pointers and stamps, check 28 grades the
+# PVT grid, check 31 grades the arm list of the record the pointer names --
+# and a sweep record would be none of those things. Section 7's DR-012 item
+# bounds its retirement on the box being unrun ("DR-015's assumption is tested
+# at one magnitude rather than swept"), so on the day the box is run that
+# sentence goes false with every number beside it still true. Check 30's
+# defect shape, a second axis over from check 31.
+SWEEP_RUNNER = ARM_RUNNER
+SWEEP_RECORDS = f"sim/{ARM_CAMPAIGN}/records"
+
+# The runner's two axis tuples, read as source text (never imported -- the
+# same pure-file-reader rule `report_row_count` and `runner_arms` record). A
+# tuple literal only: a computed box is a shape this parse does not recognise,
+# which check 32 reports as a silence rather than as a census of zero.
+SWEEP_L_AXIS_RE = re.compile(r"^SWEEP_L_MULTIPLIERS\b[^=\n]*=\s*\((?P<values>[^)]*)\)", re.M)
+SWEEP_R_AXIS_RE = re.compile(r"^SWEEP_RSUBX_OHM\b[^=\n]*=\s*\((?P<values>[^)]*)\)", re.M)
+SWEEP_VALUE_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+
+# The header line the sweep's own record writer emits -- and the only thing
+# that distinguishes a sweep record from an arm-comparison record in the same
+# `records/` tree (that one carries `- **Arms**:` instead). The swept-point
+# count is read from the `=` total rather than multiplied out of the two
+# factors in front of it, for `ARM_RECORD_RE`'s reason: the record states what
+# it ran, and a record whose factors disagreed with its total must be graded
+# on what it says it covered.
+SWEEP_RECORD_GRID_RE = re.compile(
+    r"- \*\*Grid\*\*: \d+ bond-inductance multipliers x \d+ substrate-link "
+    r"resistances = (?P<points>\d+) swept points"
+)
+
+# What the census renders while the box has never been run -- spelled out,
+# `ARM_CENSUS_NONE`'s reason. The em dash is the document's own punctuation.
+SWEEP_CENSUS_NONE = "**none** — the mode is committed and the box is unrun"
+
+# The census sentence check 32 grades. Like `ARM_CENSUS_RE`, deliberately free
+# of the phrase "current `records/LATEST`" (check 17's reason) -- and doubly
+# so here, because a sweep record by design never becomes that pointer.
+SWEEP_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<points>\d+)\*\* grid points the default `--sweep` box in `"
+    + re.escape(SWEEP_RUNNER)
+    + r"` defines \(\*\*(?P<l_mults>\d+)\*\* bond-inductance multipliers × "
+    r"\*\*(?P<rsubx>\d+)\*\* substrate-link resistances\), the records under `"
+    + re.escape(SWEEP_RECORDS)
+    + r"/` carry \*\*(?P<covered>\d+)\*\*, in \*\*(?P<records>\d+)\*\* sweep "
+    r"records?: (?P<names>"
+    + re.escape(SWEEP_CENSUS_NONE)
+    + r"|(?:`[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# Same anchor as check 31, for the same reason: a document that cites this
+# campaign is citing a single-magnitude record, and what bounds it is the box
+# nothing has walked. Deleting the sentence must not widen the citation.
+SWEEP_CENSUS_ANCHOR = ARM_CENSUS_ANCHOR
+
+# ---------------------------------------------------------------------------
+# Check 33: the on-die-decoupling gap's OWNERSHIP, across the decision records
+# that carry it.
+#
+# Three of this repo's decision records (DR-010, DR-012, DR-015) carry the same
+# open item in their own words -- on-die decoupling is not designed, budgeted,
+# or measured -- and DR-012 makes every excursion figure it states an
+# **undecoupled** upper bound by deferring to it. Section 7's own rule is that
+# each open item points at the issue that already tracks the work ("this
+# document does not invent new tracking"), and for this one there was no such
+# issue to point at until #431 was filed (2026-09-25). That is a claim about
+# the decision records rather than about any record under `sim/` or `layout/`,
+# so no check here could see it: checks 3/4/22/23 grade evidence citations,
+# check 15 grades a decision record's *Status* line and nothing else, and
+# checks 31/32 grade one campaign's axes. On the day one of those three
+# records strikes the item or names its tracker, a passage saying the gap is
+# carried by three records and owned by none goes false with every number
+# beside it still true -- check 30's defect shape, one tree over.
+DECOUPLING_OPEN_ITEMS_RE = re.compile(r"^##\s+Open items\s*$", re.M)
+
+# A top-level bullet of that section. Continuation lines are indented, so
+# splitting on a line that starts at column 0 with "- " keeps each bullet whole.
+DECOUPLING_BULLET_SPLIT_RE = re.compile(r"^(?=- )", re.M)
+
+# A bullet whose LEAD (its opening bold phrase) names the gap. Deliberately not
+# a search for "decoupl" anywhere in the bullet: DR-012's rejected-null-option
+# item quotes "undecoupled upper bounds" while being about something else
+# entirely, and counting it would make the census say four records carry an
+# item that three of them do.
+DECOUPLING_LEAD_RE = re.compile(r"^- (?P<struck>~~)?\*\*(?P<lead>[^*]+)\*\*")
+DECOUPLING_LEAD_TERM_RE = re.compile(r"decoupl", re.I)
+
+# What counts as naming the tracker: a bare `#<number>` forge reference inside
+# the bullet. The lookbehind is what keeps an upstream reference
+# (`klayout-tools#2400`) and a path fragment out of the match -- those name
+# somebody else's tracker, which is not ownership of this gap.
+DECOUPLING_TRACKER_RE = re.compile(r"(?<![\w/])#(?P<issue>\d+)\b")
+
+# What the census renders once every record that carries the gap names the
+# issue that owns it -- spelled out rather than left as an empty clause,
+# `ARM_CENSUS_NONE`'s reason. The em dash is the document's own punctuation:
+# `--stats` prints exactly what the document must contain for the paste to pass.
+DECOUPLING_CENSUS_NONE = "**none** — every record that carries it names its tracker"
+
+# The census sentence check 33 grades. The offender list is spelled as full
+# repo-relative paths so check 2 resolves each one too: a census that named a
+# record this tree does not have would otherwise be gated only by its count.
+DECOUPLING_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<carrying>\d+)\*\* decision records under "
+    r"`spec/decision-records/` whose own \*Open items\* still carry the "
+    r"on-die-decoupling gap, \*\*(?P<tracked>\d+)\*\* name the issue that "
+    r"tracks it and \*\*(?P<untracked>\d+)\*\* do not: (?P<records>"
+    + re.escape(DECOUPLING_CENSUS_NONE)
+    + r"|(?:`spec/decision-records/[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# One record inside that sentence's exception clause.
+DECOUPLING_RECORD_RE = re.compile(r"`(?P<record>spec/decision-records/[A-Za-z0-9._-]+)`")
+
+# ---------------------------------------------------------------------------
+# Check 34: the SAME campaign's THIRD axis -- the `--null-sweep` ladder.
+#
+# Checks 31 and 32 grade two axes of `run_supply_impedance.py`: which supply-
+# return ARMS a record ran, and how much of the bounded 2-D `--sweep` box any
+# record has walked. `--null-sweep` (PR #445, the residual of issue #409's
+# third item) is a third, and it is invisible to both plus to everything else
+# here, for the union of their reasons:
+#
+#   - it never moves `records/LATEST` -- it supersedes nothing, so the
+#     arm-comparison record stays the one DR-012 and Section 4's Power row
+#     cite (checks 3/4/6/23 grade pointers and stamps, and see nothing);
+#   - it runs at one corner, so check 28's PVT-grid census does not move;
+#   - it carries no `- **Arms**:` line, so check 31 does not see it;
+#   - it carries no `- **Grid**:` line either, so check 32 does not see it.
+#
+# And it is a DIFFERENT experiment from the 2-D box rather than a re-run of
+# it: that box moved the lumped substrate resistor on the as-built `package`
+# topology, where `GND` is bonded and the resistor is a secondary shunt; this
+# ladder moves the same constant over the same decade on DR-012's REJECTED
+# `no-gnd-pad` topology, where -- with no analog-ground bond at all -- that
+# one resistor carries the entire return current. Section 7's DR-012 item
+# bounds what the campaign may be read for on which magnitudes have been
+# walked and on WHICH topology, so a ladder arriving (or a rung being added to
+# the runner's default) leaves those sentences false with every number beside
+# them still true. Check 30's defect shape, a third axis over.
+NULL_SWEEP_RUNNER = ARM_RUNNER
+NULL_SWEEP_RECORDS = SWEEP_RECORDS
+
+# The runner's own ladder tuple, read as source text rather than imported (the
+# pure-file-reader rule `runner_arms` and `sweep_box` both record). A tuple
+# literal only: a computed ladder is a shape this parse does not recognise,
+# which check 34 reports as a silence rather than as a ladder of zero rungs.
+# The `^` anchor is what keeps this from also matching `SWEEP_RSUBX_OHM`, and
+# vice versa -- the two constants share a suffix and a file.
+NULL_SWEEP_AXIS_RE = re.compile(
+    r"^NULL_SWEEP_RSUBX_OHM\b[^=\n]*=\s*\((?P<values>[^)]*)\)", re.M
+)
+
+# The header line the null sweep's own record writer emits -- and the only
+# thing that distinguishes a ladder record from the other two record shapes in
+# the same `records/` tree (`- **Arms**:` for an arm comparison, `- **Grid**:`
+# for a 2-D sweep). The rung count is read from the record's own leading
+# number rather than from the `=` total beside it, because that total counts
+# the `ideal` control as well and the control is not a swept magnitude.
+NULL_SWEEP_RECORD_RE = re.compile(
+    r"- \*\*Ladder\*\*: (?P<rungs>\d+) substrate-return resistances plus the "
+)
+
+# What the census renders while the ladder has never been walked -- spelled
+# out, `SWEEP_CENSUS_NONE`'s reason. The em dash is the document's own.
+NULL_SWEEP_CENSUS_NONE = "**none** — the mode is committed and the ladder is unwalked"
+
+# The census sentence check 34 grades. Like `ARM_CENSUS_RE` and
+# `SWEEP_CENSUS_RE`, deliberately free of the phrase "current `records/LATEST`"
+# (check 17's reason) -- and, as for check 32, doubly so: a ladder record by
+# design never becomes that pointer. The topology is named in the sentence
+# because it is the half that distinguishes this axis from check 32's, and a
+# census that stated only the magnitudes would read as a duplicate of it.
+NULL_SWEEP_CENSUS_RE = re.compile(
+    r"of the \*\*(?P<rungs>\d+)\*\* substrate-return magnitudes the default "
+    r"`--null-sweep` ladder in `"
+    + re.escape(NULL_SWEEP_RUNNER)
+    + r"` defines on DR-012's rejected `no-gnd-pad` topology, the records "
+    r"under `"
+    + re.escape(NULL_SWEEP_RECORDS)
+    + r"/` carry \*\*(?P<covered>\d+)\*\*, in \*\*(?P<records>\d+)\*\* ladder "
+    r"records?: (?P<names>"
+    + re.escape(NULL_SWEEP_CENSUS_NONE)
+    + r"|(?:`[A-Za-z0-9._-]+`(?:, )?)+)"
+)
+
+# Same anchor as checks 31 and 32, for the same reason: a document that cites
+# this campaign is citing records that walked one topology's magnitudes, and
+# what bounds them is the topology none of them moved. Deleting the sentence
+# must not widen the citation.
+NULL_SWEEP_CENSUS_ANCHOR = ARM_CENSUS_ANCHOR
+
+# ---------------------------------------------------------------------------
+# Check 35: the ENUMERATION that applies check 33's gap to check 34's figures.
+#
+# Check 33 grades who owns the on-die-decoupling gap; checks 31, 32 and 34
+# grade the three axes of the campaign that produces the numbers the gap makes
+# upper bounds of. Between them sits one sentence that neither shape reaches: a
+# hand-written list of every die-side ground-excursion figure Section 7's
+# supply-return narrative states, qualified in one breath as **undecoupled**
+# upper bounds. It is the only claim in that item still maintained by hand, and
+# it went stale twice in one day:
+#
+#   - PR #446 wrote it with eight figures against a tree that did not yet carry
+#     the substrate-return ladder; PR #445 merged four minutes later with three
+#     more undecoupled excursions in it, one larger than anything in the list;
+#   - PR #447 then narrated all three in the same item -- publishing them three
+#     paragraphs above the list -- and added check 34 for the ladder AXIS while
+#     leaving the list itself untouched, so the document under-counted its own
+#     figures for one more merge.
+#
+# Check 34 catches the EVENT that stales the list (a ladder record arriving, or
+# the runner's ladder widening). It cannot catch the staleness, because it never
+# reads the list. Check 30's defect shape again, one sentence further down: the
+# enumeration goes false while every number beside it stays true.
+#
+# Two parse hazards were measured against the live document before this check
+# was written, and both are why it is not a `\d+\.\d{3}\s*mV` scan:
+#
+#   - **Unit-eliding chains.** The document writes figure chains in which only
+#     the last figure carries its unit -- `` `72.130` -> `67.307` ->
+#     `137.093 mV` `` -- so a unit-bearing scan finds one of those three and
+#     misses exactly the figures that went stale. The enumeration sentence is
+#     itself such a chain, which is why BOTH sides of the comparison are read
+#     with the same chain reader (`excursion_chain_figures`).
+#   - **Unrelated `mV` figures at the same precision.** The same section states
+#     `0.001`, `0.380` and `67.190 mV`, and the narrative itself states a
+#     `2.070 mV` cross-record difference precisely in order to say it is NOT a
+#     measurement. Requiring any of those to be qualified as an excursion upper
+#     bound would fail the gate on correct prose -- and a gate that fires on
+#     correct prose is worse than the hand-maintained note, because it teaches
+#     the next pass to reword around the check.
+#
+# So the required set is an INTERSECTION, and each half kills one hazard class:
+# a figure is required iff (a) the narrative above the sentence states it as an
+# mV figure, chains followed, and (b) a committed record of this campaign
+# carries it in its own `gnd_die pp (mV)` column. (b) is what makes `2.070`,
+# `67.190` and every other same-precision non-excursion figure mechanically
+# out of scope; (a) is what keeps the 45-point corner grid's and the sweep
+# box's interior points -- committed figures the document legitimately never
+# quotes -- from being demanded of a sentence that only claims to cover what is
+# written above it.
+EXCURSION_RECORDS = SWEEP_RECORDS
+
+# The column header both of this campaign's record writers emit, in two
+# otherwise different table layouts: `| corner-id | arm | gnd_die pp (mV) | ...`
+# for an arm comparison or corner grid, `| point | gnd_die pp (mV) | ...` for a
+# sweep or a ladder. The column is located BY HEADER NAME rather than by index,
+# which is the only parse that reads both.
+EXCURSION_COLUMN = "gnd_die pp (mV)"
+
+# The `ideal` arm's row value, dropped from the derived set: an ideal source
+# holds the die node at exactly 0 V, so this is a mechanical control rather
+# than a measured excursion, and a document is not made to qualify it as an
+# undecoupled upper bound.
+EXCURSION_CONTROL = "0.000"
+
+# ...and the third narrowing, which the word **undecoupled** itself requires.
+# DR-017 landed on-die decoupling, and this campaign's newest record runs the
+# decoupled netlist (a different DUT sha256 from every earlier record of the
+# same campaign). Its excursion figures are real and stated in the same item,
+# but they are NOT undecoupled upper bounds -- demanding they be qualified as
+# such would make the gate require the document to assert something false,
+# which is the fire-on-correct-prose failure in its most damaging form.
+#
+# The undecoupled DUT is identified from the records rather than pinned here:
+# a record that is the undecoupled case says so in its own Assumptions section,
+# and every record sharing that record's DUT sha256 is the same netlist. So the
+# set of undecoupled DUTs is read off the self-declaring records and applied to
+# the rest -- which means a future re-run with decoupling in the netlist drops
+# out of the required set on the day it lands, with nothing here to update.
+#
+# Matched on the ASSUMPTION BULLET and never on the word "decoupling" anywhere
+# in the record: every record of this campaign narrates "an undecoupled series
+# inductance ..." in its cost section, including the decoupled one, so a
+# word search would put the decoupled DUT in the undecoupled set. Check 33's
+# `DECOUPLING_LEAD_RE` made the same distinction for the same reason.
+EXCURSION_DUT_RE = re.compile(r"^- DUT netlist sha256: `(?P<sha>[0-9a-f]{64})`", re.M)
+EXCURSION_UNDECOUPLED_RE = re.compile(
+    r"^- \*\*No decoupling, on-die or on-board\*\*", re.M
+)
+
+# A figure atom: three decimals, which is what this campaign's renderer emits.
+# A figure at any other precision cannot be a row value, so it could never be
+# required -- and restricting the atom keeps a ratio (`1.74x`) or a
+# one-decimal difference (`+27.6 mV`) out of the chain grouping below.
+EXCURSION_ATOM_RE = re.compile(r"\d+\.\d{3}(?!\d)")
+
+# What makes an atom (or the chain it ends) unit-bearing. Applied at the atom's
+# own end offset, so `**37.333 mV**`, `` `0.059 mV` `` and `137.093 mV` all
+# read as mV while a bare `` `72.130` `` does not.
+EXCURSION_UNIT_RE = re.compile(r"[`*\s]*mV\b")
+
+# What joins two atoms into ONE chain, from which a single trailing unit is
+# read: the four separators the document actually uses between figures -- an
+# arrow (`->`, written as an en-arrow), a slash, a comma, and "and"/"or" --
+# plus the backticks and bold markers around them. Deliberately narrow: any
+# intervening WORD ends the chain, which is what keeps `**37.274 mV** of it to
+# the bond inductance alone (`0.059 mV` ...` from being read as one chain.
+EXCURSION_CHAIN_SEP_RE = re.compile(r"[`*\s]*(?:→|->|/|,\s*(?:and|or)?|and|or)[`*\s]*")
+
+# The claim the enumeration makes, and the anchor the sentence is found by. Not
+# a phrase this check invents: it is the document's own wording, and the word
+# `undecoupled` is the one check 33's gap is the owner of.
+EXCURSION_ENUM_CLAIM = "are each an **undecoupled** upper bound"
+
+# The enumeration sentence itself: a chain of backticked figures, at most one
+# of which carries the unit, immediately followed by that claim.
+EXCURSION_ENUM_RE = re.compile(
+    r"(?P<figures>(?:`\d+\.\d+(?: mV)?`[,\s]*(?:and[,\s]*)?)+)" + re.escape(EXCURSION_ENUM_CLAIM)
+)
+
+# The region the sentence's own word "above" resolves to: the top-level
+# numbered item of the document's own outline that contains it. Bounding the
+# scan to that item rather than to the whole section is what keeps a `mV`
+# figure in a NEIGHBOURING item -- there are several, at this same precision --
+# from being demanded of a sentence that does not claim to cover it.
+EXCURSION_ITEM_RE = re.compile(r"^\d+\. ", re.M)
+
+# What makes an ABSENT enumeration a finding rather than a silence, the shape
+# checks 31, 32 and 34 each use: the document citing this campaign at all.
+# Deleting the inconvenient sentence must not be a way to unqualify the figures
+# above it.
+EXCURSION_NARRATIVE_ANCHOR = ARM_CENSUS_ANCHOR
+
+# ...and how many of this campaign's excursion figures one numbered item must
+# state before it counts as *narrating* them rather than citing one. A document
+# that quotes a single figure in passing is making a citation, which checks 3,
+# 4, 22 and 23 already grade; the enumeration exists because ONE item
+# accumulates a list, and demanding the qualifier of a passing mention is the
+# fire-on-correct-prose failure this check was filed rather than rushed to
+# avoid.
+EXCURSION_NARRATIVE_MIN = 2
+
+# Check 36: the LVS mismatch count where it is stated in PROSE and in the
+# PRESENT TENSE -- the one figure class that is both.
+#
+# Section 4 introduces check 9's readout as "the document's single present-tense
+# statement" of the composed top level's DRC/LVS numbers, and gives the reason
+# it had to become one: the numbers move, and on each earlier move it was a
+# human re-read, not a check, that carried them forward. The claim was not true
+# of the document that made it. Six passages in Sections 3 and 7 restate the
+# mismatch count in present-tense prose, in three forms -- `N mismatches on the
+# current record`, `currently N mismatches`, and `the N-mismatch LVS gap` -- and
+# check 9 cannot see any of them: it matches the readout blockquote's own
+# sentence and nothing else.
+#
+# The drift, measured: issue #440 placed DR-017's two per-domain decoupling
+# capacitors (PR #466, 2026-09-26) and the composed compare moved from 88
+# mismatches to 89 -- both sides gained the two devices, and the one added
+# entry is a further `device.unmatched`. The readout moved with the record, the
+# Section 4 row that cites it moved, and all six prose passages still read 88.
+#
+# Why only these three forms, when `docs/citation-gate.md`'s "What the gate
+# deliberately does not cover" says Section 7's prose figures are NOT graded --
+# and gives a good reason (that section narrates superseded records paragraph by
+# paragraph, so grading its dated figures as present-tense claims would fail the
+# gate on correct prose, and the fix would be to rewrite the supersession trail
+# the gate exists to protect)? Because each of these three forms names the
+# CURRENT record in so many words. `88 mismatches at the 2026-09-24 hop` and `98
+# on every record through 2026-09-23` are dated historical statements and stay
+# ungraded; `88 mismatches on the current record` is a claim about whatever
+# `reports/LATEST` resolves to today, and there is exactly one true value for it.
+PRESENT_TENSE_MISMATCH_RE = re.compile(
+    r"(?:\*\*)?(?P<on_the_current_record>\d+)(?:\*\*)? mismatches on the current record"
+    r"|currently (?:\*\*)?(?P<currently>\d+)(?:\*\*)? mismatches"
+    r"|the (?:\*\*)?(?P<the_gap>\d+)(?:\*\*)?-mismatch LVS gap"
+)
+
+# The named groups above, in the order they are tried. One of them carries the
+# figure on any match; which one is what the finding quotes back, so a reader
+# fixing it knows which sentence form fired.
+PRESENT_TENSE_MISMATCH_FORMS = ("on_the_current_record", "currently", "the_gap")
 
 
 def _unwrap_backticked(span: str) -> str:
@@ -4425,6 +4994,988 @@ def check_absent_paths(doc: Path, text: str) -> list[str]:
     return misses
 
 
+def _renderer_entry_point(tree: Path) -> str:
+    """The repo-relative path that mints `record.md` under this record tree."""
+    flow = tree.parent.name
+    if tree.name == "erc-reports":
+        return RENDERER_ERC.format(flow=flow)
+    local = RENDERER_LOCAL.format(flow=flow)
+    return local if (REPO_ROOT / local).is_file() else RENDERER_SHARED
+
+
+def _without_hash_comments(text: str) -> str:
+    """`text` with every whole-line `#` comment blanked out (issue #424).
+
+    A comment describing an invocation (e.g. naming `resolve_pdk_commit` in
+    prose, or spelling out `klt pdk find`) must not itself satisfy
+    `RENDERER_PIN_RE` -- only real code should. Blanking rather than deleting
+    preserves line numbers, which nothing here depends on but costs nothing.
+    """
+    return _HASH_COMMENT_LINE_RE.sub("", text)
+
+
+def renderer_census() -> dict:
+    """How many of this tree's record-minting entry points resolve the PDK pin.
+
+    The leading indicator behind `provenance_census`'s lagging one. Counted
+    over entry points rather than over record trees, because that is the unit
+    a fix is made in: one renderer minting two trees is one place to change,
+    and would otherwise be double-counted on both sides of the census.
+    """
+    # Comments are stripped from every text before anything is matched
+    # against it (issue #424): both the pin spellings and the delegating call
+    # names above are real identifiers, so a comment that merely *names* one
+    # -- of the delegation, now, as well as of the pin -- must not count.
+    shared_texts = [
+        (
+            delegate_re,
+            _without_hash_comments(
+                (REPO_ROOT / module).read_text()
+                if (REPO_ROOT / module).is_file()
+                else ""
+            ),
+        )
+        for module, delegate_re in RENDERER_DELEGATIONS
+    ]
+
+    entry_points: dict[str, bool] = {}
+    trees = sorted(
+        path
+        for glob in (RENDERER_REPORT_GLOB, RENDERER_ERC_GLOB)
+        for path in REPO_ROOT.glob(glob)
+        if path.is_dir()
+    )
+    for tree in trees:
+        entry = _renderer_entry_point(tree)
+        if entry in entry_points:
+            continue
+        path = REPO_ROOT / entry
+        text = _without_hash_comments(path.read_text() if path.is_file() else "")
+        closure = text + "".join(
+            shared for delegate_re, shared in shared_texts if delegate_re.search(text)
+        )
+        entry_points[entry] = bool(RENDERER_PIN_RE.search(closure))
+
+    unpinned = sorted(entry for entry, pins in entry_points.items() if not pins)
+    return {
+        "entry_points": len(entry_points),
+        "pinning": len(entry_points) - len(unpinned),
+        "naming": len(unpinned),
+        "unpinned": unpinned,
+    }
+
+
+def renderer_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `RENDERER_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-30 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26 and 28.
+    """
+    offenders = (
+        RENDERER_CENSUS_NONE
+        if not census["unpinned"]
+        else ", ".join(f"`{entry}`" for entry in census["unpinned"])
+    )
+    return (
+        f"of the **{census['entry_points']}** record-minting entry points under "
+        f"`layout/`, **{census['pinning']}** resolve the `open_pdks` commit "
+        f"before writing a record and **{census['naming']}** do not: {offenders}"
+    )
+
+
+def check_renderer_census(doc: Path, text: str) -> list[str]:
+    """Check 30: the stated record-renderer census is this tree's own."""
+    if not (REPO_ROOT / "layout").is_dir():
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    if not PROVENANCE_CENSUS_RE.search(collapsed):
+        # A document that does not state check 26's record census states
+        # nothing this one qualifies, and is not made to.
+        return []
+    actual = renderer_census()
+    stated = list(RENDERER_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: states check 26's record census but not the "
+            f"renderer census that explains it -- records are append-only, so "
+            f"the record count alone cannot say whether a shortfall is live "
+            f"or already-fixed history awaiting a re-run. State it "
+            f"(`{renderer_sentence(actual)}` today), so the explanation is "
+            f"graded rather than asserted"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("entry_points", "pinning", "naming"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the renderer census says {field}={claimed}, but "
+                f"`layout/` reports {field}={actual[field]} -- restate it from "
+                f"`python3 docs/chipalooza/check_proposal_citations.py "
+                f"--stats`, and if an entry point now resolves the commit, say "
+                f"so rather than only moving the number"
+            )
+        listed = sorted(set(RENDERER_ENTRY_RE.findall(match.group("offenders"))))
+        if listed != actual["unpinned"]:
+            misses.append(
+                f"{where}: the renderer census names "
+                f"{', '.join(f'`{entry}`' for entry in listed) or 'no entry point'} "
+                f"as resolving no `open_pdks` commit, but `layout/` reports "
+                f"{', '.join(f'`{entry}`' for entry in actual['unpinned']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong entry "
+                f"point sends a reader to the wrong file to fix it"
+            )
+    return misses
+
+
+def runner_arms() -> list[str]:
+    """The supply-return arms `ARM_RUNNER` implements, in its own order.
+
+    Read out of the source text rather than by importing the module, for
+    `report_row_count`'s reason: this gate is a pure file reader, and the
+    runner imports the testbench fragment helpers. Empty when the runner is
+    absent or its arm table is not in the shape this parse recognises -- both
+    are "nothing to compare", which check 31 reports as an ungraded silence
+    rather than as a census of zero arms.
+    """
+    runner = REPO_ROOT / ARM_RUNNER
+    if not runner.is_file():
+        return []
+    source = runner.read_text()
+    opening = ARM_TABLE_RE.search(source)
+    if opening is None:
+        return []
+    end = source.find("\n)\n", opening.end())
+    block = source[opening.end() : end if end != -1 else len(source)]
+    return [match.group("arm") for match in ARM_NAME_RE.finditer(block)]
+
+
+def record_arms() -> list[str] | None:
+    """The arms the campaign's current record ran, in that record's order.
+
+    `None` covers the three "nothing to compare against" conditions this
+    module already treats alike -- no `records/LATEST`, a pointer naming a
+    record that is gone, and a record whose header carries no `**Arms**` line.
+    """
+    stamp = _read_pointer("sim", ARM_CAMPAIGN, "records")
+    if stamp is None:
+        return None
+    record = REPO_ROOT / "sim" / ARM_CAMPAIGN / "records" / stamp
+    if not record.is_file():
+        return None
+    stated = ARM_RECORD_RE.search(record.read_text())
+    if stated is None:
+        return None
+    return [match.group("arm") for match in ARM_TOKEN_RE.finditer(stated.group("arms"))]
+
+
+def arm_census() -> dict | None:
+    """How much of the runner's arm axis the campaign's current record covers.
+
+    Three numbers and the unrun arms by name. `unrun` is ordered by the
+    RUNNER's table rather than alphabetically, so the census reads in the same
+    order as the record's own "Arms this record does not contain" section and
+    a diff between the two is about content, not sort order.
+    """
+    offered = runner_arms()
+    ran = record_arms()
+    if not offered or ran is None:
+        return None
+    unrun = [arm for arm in offered if arm not in ran]
+    return {
+        "offered": len(offered),
+        "ran": len(offered) - len(unrun),
+        "unrun": len(unrun),
+        "unrun_arms": unrun,
+    }
+
+
+def arm_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `ARM_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-31 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26, 28 and 30.
+    """
+    arms = (
+        ARM_CENSUS_NONE
+        if not census["unrun_arms"]
+        else ", ".join(f"`{arm}`" for arm in census["unrun_arms"])
+    )
+    return (
+        f"of the **{census['offered']}** supply-return arms `{ARM_RUNNER}` "
+        f"implements, the record `{ARM_POINTER}` names runs "
+        f"**{census['ran']}** and leaves **{census['unrun']}** unrun: {arms}"
+    )
+
+
+def check_arm_census(doc: Path, text: str) -> list[str]:
+    """Check 31: the stated supply-return arm census is this tree's own."""
+    if ARM_CENSUS_ANCHOR not in text:
+        # A document that does not cite this campaign qualifies nothing about
+        # the arms its records leave unrun, and is not made to.
+        return []
+    actual = arm_census()
+    if actual is None:
+        # No runner, no current record, or a record this parse does not
+        # recognise: there is nothing to compare a census against, and
+        # inventing one would be a claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(ARM_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose records run a "
+            f"SUBSET of the arms `{ARM_RUNNER}` implements, but states no arm "
+            f"census -- state it (`{arm_sentence(actual)}` today), so what the "
+            f"cited record may not be read for is graded rather than asserted "
+            f"and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("offered", "ran", "unrun"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the arm census says {field}={claimed}, but "
+                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"an arm has now been run, say what its record prices rather "
+                f"than only moving the number"
+            )
+        listed = ARM_TOKEN_RE.findall(match.group("arms"))
+        if listed != actual["unrun_arms"]:
+            misses.append(
+                f"{where}: the arm census names "
+                f"{', '.join(f'`{arm}`' for arm in listed) or 'no arm'} as "
+                f"unrun, but `sim/{ARM_CAMPAIGN}/` reports "
+                f"{', '.join(f'`{arm}`' for arm in actual['unrun_arms']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong arm "
+                f"misstates which claim the cited record cannot support"
+            )
+    return misses
+
+
+def sweep_box() -> tuple[int, int] | None:
+    """The default `--sweep` box the runner defines: (L multipliers, R_SUBX).
+
+    Source-text read, `runner_arms`' reason. `None` covers "no runner" and
+    "the axes are not two tuple literals this parse recognises" -- both are
+    nothing to compare against, which check 32 reports as an ungraded silence
+    rather than as a box of zero points.
+    """
+    runner = REPO_ROOT / SWEEP_RUNNER
+    if not runner.is_file():
+        return None
+    source = runner.read_text()
+    axes = []
+    for pattern in (SWEEP_L_AXIS_RE, SWEEP_R_AXIS_RE):
+        match = pattern.search(source)
+        if match is None:
+            return None
+        values = SWEEP_VALUE_RE.findall(match.group("values"))
+        if not values:
+            return None
+        axes.append(len(values))
+    return axes[0], axes[1]
+
+
+def sweep_records() -> list[tuple[str, int]]:
+    """Every committed sweep record of this campaign: (stamp, swept points).
+
+    A record is a *sweep* record when it carries the `- **Grid**:` header line
+    only the sweep's own writer emits; the arm-comparison record in the same
+    tree carries `- **Arms**:` instead and is not counted here. Sorted by
+    stamp, which is the chronological order these ids already impose.
+    """
+    records = REPO_ROOT / SWEEP_RECORDS
+    if not records.is_dir():
+        return []
+    found = []
+    for record in sorted(records.glob("*.md")):
+        grid = SWEEP_RECORD_GRID_RE.search(record.read_text())
+        if grid is not None:
+            found.append((record.stem, int(grid.group("points"))))
+    return found
+
+
+def sweep_census() -> dict | None:
+    """How much of the runner's own default sweep box this tree has walked.
+
+    `covered` is the LARGEST box any single committed sweep record carries,
+    not a sum: two records of the same box are two runs of one experiment, and
+    adding them would report a coverage no record supports. Today, with no
+    sweep record at all, it is 0 -- which is the whole point of stating it.
+    """
+    box = sweep_box()
+    if box is None:
+        return None
+    found = sweep_records()
+    return {
+        "l_mults": box[0],
+        "rsubx": box[1],
+        "points": box[0] * box[1],
+        "covered": max((points for _, points in found), default=0),
+        "records": len(found),
+        "record_ids": [stamp for stamp, _ in found],
+    }
+
+
+def sweep_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `SWEEP_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-32 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26, 28, 30 and 31.
+    """
+    names = (
+        SWEEP_CENSUS_NONE
+        if not census["record_ids"]
+        else ", ".join(f"`{stamp}`" for stamp in census["record_ids"])
+    )
+    plural = "" if census["records"] == 1 else "s"
+    return (
+        f"of the **{census['points']}** grid points the default `--sweep` box "
+        f"in `{SWEEP_RUNNER}` defines (**{census['l_mults']}** bond-inductance "
+        f"multipliers × **{census['rsubx']}** substrate-link resistances), the "
+        f"records under `{SWEEP_RECORDS}/` carry **{census['covered']}**, in "
+        f"**{census['records']}** sweep record{plural}: {names}"
+    )
+
+
+def check_sweep_census(doc: Path, text: str) -> list[str]:
+    """Check 32: the stated `--sweep` box census is this tree's own."""
+    if SWEEP_CENSUS_ANCHOR not in text:
+        # A document that does not cite this campaign qualifies nothing about
+        # the magnitudes its records did not walk, and is not made to.
+        return []
+    actual = sweep_census()
+    if actual is None:
+        # No runner, or a sweep box this parse does not recognise: there is
+        # nothing to compare a census against, and inventing one would be a
+        # claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(SWEEP_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose records test "
+            f"DR-015's assumption at ONE magnitude while `{SWEEP_RUNNER}` "
+            f"defines a bounded sweep around it, but states no sweep census "
+            f"-- state it (`{sweep_sentence(actual)}` today), so the "
+            f"magnitudes the cited record cannot speak for are graded rather "
+            f"than asserted and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("points", "l_mults", "rsubx", "covered", "records"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the sweep census says {field}={claimed}, but "
+                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"the box has now been walked, say what its record measures "
+                f"rather than only moving the number"
+            )
+        listed = ARM_TOKEN_RE.findall(match.group("names"))
+        if listed != actual["record_ids"]:
+            misses.append(
+                f"{where}: the sweep census names "
+                f"{', '.join(f'`{stamp}`' for stamp in listed) or 'no record'} "
+                f"as carrying the box, but `sim/{ARM_CAMPAIGN}/records/` holds "
+                f"{', '.join(f'`{stamp}`' for stamp in actual['record_ids']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"record misstates which magnitudes have been walked"
+            )
+    return misses
+
+
+def _open_item_bullets(text: str) -> list[str]:
+    """The top-level bullets of a decision record's `## Open items` section.
+
+    Empty when the record has no such section, which is the honest answer for
+    a record that declares nothing open -- not a bullet list of zero that a
+    caller might read as "checked and found none".
+    """
+    opening = DECOUPLING_OPEN_ITEMS_RE.search(text)
+    if opening is None:
+        return []
+    rest = text[opening.end() :]
+    end = re.search(r"^##\s", rest, re.M)
+    section = rest[: end.start()] if end else rest
+    return [
+        bullet
+        for bullet in DECOUPLING_BULLET_SPLIT_RE.split(section)
+        if bullet.startswith("- ")
+    ]
+
+
+def decoupling_census() -> dict:
+    """Which decision records still carry the on-die-decoupling gap, and who owns it.
+
+    Read out of each record's own `## Open items` section rather than from a
+    list here, so a fourth record picking the item up is discovered rather
+    than remembered. A bullet already struck through (`~~`) has been closed at
+    a stated scope by this repo's own convention -- DR-015 carries two of them
+    -- so it no longer *carries* the gap and is not counted either way.
+    """
+    directory = REPO_ROOT.joinpath(*DECISION_RECORDS_DIR)
+    carrying: list[str] = []
+    untracked: list[str] = []
+    if not directory.is_dir():
+        return {"carrying": 0, "tracked": 0, "untracked": []}
+    for entry in sorted(directory.iterdir()):
+        if not (entry.is_file() and DECISION_RECORD_FILE_RE.fullmatch(entry.name)):
+            continue
+        for bullet in _open_item_bullets(entry.read_text()):
+            lead = DECOUPLING_LEAD_RE.match(bullet)
+            if lead is None or lead.group("struck"):
+                continue
+            if not DECOUPLING_LEAD_TERM_RE.search(lead.group("lead")):
+                continue
+            path = f"{'/'.join(DECISION_RECORDS_DIR)}/{entry.name}"
+            carrying.append(path)
+            if not DECOUPLING_TRACKER_RE.search(bullet):
+                untracked.append(path)
+            break
+    return {
+        "carrying": len(carrying),
+        "tracked": len(carrying) - len(untracked),
+        "untracked": untracked,
+    }
+
+
+def decoupling_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `DECOUPLING_CENSUS_RE` matches.
+
+    Used by `--stats`, so the fix for a check-33 finding is a paste rather
+    than a hand transcription -- the guard checks 9, 12--18, 24--26, 28 and
+    30--32 all carry.
+    """
+    offenders = (
+        DECOUPLING_CENSUS_NONE
+        if not census["untracked"]
+        else ", ".join(f"`{record}`" for record in census["untracked"])
+    )
+    return (
+        f"of the **{census['carrying']}** decision records under "
+        f"`spec/decision-records/` whose own *Open items* still carry the "
+        f"on-die-decoupling gap, **{census['tracked']}** name the issue that "
+        f"tracks it and **{len(census['untracked'])}** do not: {offenders}"
+    )
+
+
+def check_decoupling_census(doc: Path, text: str) -> list[str]:
+    """Check 33: the stated on-die-decoupling ownership census is this tree's own."""
+    actual = decoupling_census()
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(DECOUPLING_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        if not any(f"`{record}`" in collapsed for record in actual["untracked"]):
+            # A document that cites none of the records carrying the gap
+            # qualifies nothing about who owns it, and is not made to.
+            return []
+        return [
+            f"{doc.name}: cites a decision record whose own open items still "
+            f"carry the on-die-decoupling gap, but states no ownership census "
+            f"-- that gap is what makes every ground-excursion figure in this "
+            f"tree an *undecoupled* upper bound, and Section 7's rule is that "
+            f"an open item points at the issue that tracks it. State it "
+            f"(`{decoupling_sentence(actual)}` today), so the ownership is "
+            f"graded rather than asserted and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("carrying", "tracked"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the decoupling census says {field}={claimed}, but "
+                f"`spec/decision-records/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"a record has since struck the item or named its tracker, say "
+                f"which rather than only moving the number"
+            )
+        claimed_untracked = int(match.group("untracked"))
+        if claimed_untracked != len(actual["untracked"]):
+            misses.append(
+                f"{where}: the decoupling census says untracked="
+                f"{claimed_untracked}, but `spec/decision-records/` reports "
+                f"untracked={len(actual['untracked'])} -- restate it from "
+                f"`--stats`"
+            )
+        listed = DECOUPLING_RECORD_RE.findall(match.group("records"))
+        if listed != actual["untracked"]:
+            misses.append(
+                f"{where}: the decoupling census names "
+                f"{', '.join(f'`{record}`' for record in listed) or 'no record'} "
+                f"as naming no tracker, but `spec/decision-records/` reports "
+                f"{', '.join(f'`{record}`' for record in actual['untracked']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"record sends a reader to the wrong file to fix it"
+            )
+    return misses
+
+
+def null_sweep_ladder() -> int | None:
+    """How many substrate-return magnitudes the runner's default ladder walks.
+
+    Source-text read, `sweep_box`'s reason. `None` covers "no runner" and "the
+    ladder is not a tuple literal this parse recognises" -- both are nothing to
+    compare against, which check 34 reports as an ungraded silence rather than
+    as a ladder of zero rungs.
+    """
+    runner = REPO_ROOT / NULL_SWEEP_RUNNER
+    if not runner.is_file():
+        return None
+    match = NULL_SWEEP_AXIS_RE.search(runner.read_text())
+    if match is None:
+        return None
+    values = SWEEP_VALUE_RE.findall(match.group("values"))
+    return len(values) or None
+
+
+def null_sweep_records() -> list[tuple[str, int]]:
+    """Every committed ladder record of this campaign: (stamp, rungs walked).
+
+    A record is a *ladder* record when it carries the `- **Ladder**:` header
+    line only the null sweep's own writer emits; the arm-comparison record in
+    the same tree carries `- **Arms**:` and the 2-D sweep record carries
+    `- **Grid**:`, and neither is counted here. Sorted by stamp, which is the
+    chronological order these ids already impose.
+    """
+    records = REPO_ROOT / NULL_SWEEP_RECORDS
+    if not records.is_dir():
+        return []
+    found = []
+    for record in sorted(records.glob("*.md")):
+        ladder = NULL_SWEEP_RECORD_RE.search(record.read_text())
+        if ladder is not None:
+            found.append((record.stem, int(ladder.group("rungs"))))
+    return found
+
+
+def null_sweep_census() -> dict | None:
+    """How much of the runner's own default ladder this tree has walked.
+
+    `covered` is the LONGEST ladder any single committed record carries, not a
+    sum -- `sweep_census`'s reason: two records of the same ladder are two runs
+    of one experiment, and adding them would report a coverage no record
+    supports.
+    """
+    rungs = null_sweep_ladder()
+    if rungs is None:
+        return None
+    found = null_sweep_records()
+    return {
+        "rungs": rungs,
+        "covered": max((walked for _, walked in found), default=0),
+        "records": len(found),
+        "record_ids": [stamp for stamp, _ in found],
+    }
+
+
+def null_sweep_sentence(census: dict) -> str:
+    """That census in exactly the sentence form `NULL_SWEEP_CENSUS_RE` matches.
+
+    Used by `--stats` so the fix for a check-34 failure is a paste, as it is
+    for checks 6, 9, 12--18, 24, 25, 26, 28 and 30--33.
+    """
+    names = (
+        NULL_SWEEP_CENSUS_NONE
+        if not census["record_ids"]
+        else ", ".join(f"`{stamp}`" for stamp in census["record_ids"])
+    )
+    plural = "" if census["records"] == 1 else "s"
+    return (
+        f"of the **{census['rungs']}** substrate-return magnitudes the default "
+        f"`--null-sweep` ladder in `{NULL_SWEEP_RUNNER}` defines on DR-012's "
+        f"rejected `no-gnd-pad` topology, the records under "
+        f"`{NULL_SWEEP_RECORDS}/` carry **{census['covered']}**, in "
+        f"**{census['records']}** ladder record{plural}: {names}"
+    )
+
+
+def check_null_sweep_census(doc: Path, text: str) -> list[str]:
+    """Check 34: the stated `--null-sweep` ladder census is this tree's own."""
+    if NULL_SWEEP_CENSUS_ANCHOR not in text:
+        # A document that does not cite this campaign qualifies nothing about
+        # the topology its records did not move, and is not made to.
+        return []
+    actual = null_sweep_census()
+    if actual is None:
+        # No runner, or a ladder this parse does not recognise: there is
+        # nothing to compare a census against, and inventing one would be a
+        # claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(NULL_SWEEP_CENSUS_RE.finditer(collapsed))
+    if not stated:
+        return [
+            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose 2-D sweep moves "
+            f"the lumped substrate resistor only where `GND` is bonded and it "
+            f"is a secondary shunt, while `{NULL_SWEEP_RUNNER}` defines a "
+            f"ladder that moves it on DR-012's rejected topology where it "
+            f"carries the whole return -- but states no ladder census. State "
+            f"it (`{null_sweep_sentence(actual)}` today), so the topology the "
+            f"cited records cannot speak for is graded rather than asserted "
+            f"and cannot be quietly dropped"
+        ]
+    misses = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        for field in ("rungs", "covered", "records"):
+            claimed = int(match.group(field))
+            if claimed == actual[field]:
+                continue
+            misses.append(
+                f"{where}: the ladder census says {field}={claimed}, but "
+                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
+                f"restate it from `python3 "
+                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
+                f"the ladder has now been walked, say what its record measures "
+                f"rather than only moving the number"
+            )
+        listed = ARM_TOKEN_RE.findall(match.group("names"))
+        if listed != actual["record_ids"]:
+            misses.append(
+                f"{where}: the ladder census names "
+                f"{', '.join(f'`{stamp}`' for stamp in listed) or 'no record'} "
+                f"as carrying the ladder, but `sim/{ARM_CAMPAIGN}/records/` "
+                f"holds "
+                f"{', '.join(f'`{stamp}`' for stamp in actual['record_ids']) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"record misstates which topology has been swept"
+            )
+    return misses
+
+
+def excursion_chain_figures(span: str) -> list[str]:
+    """Every figure `span` states as an mV value, unit-eliding chains followed.
+
+    A chain is a maximal run of three-decimal atoms joined only by the
+    separators `EXCURSION_CHAIN_SEP_RE` recognises; it is an *mV* chain when any
+    of its atoms is followed by the unit. Every atom of an mV chain counts, which
+    is the whole point: the document writes `` `72.130` -> `67.307` ->
+    `137.093 mV` `` and a scan that required each figure to carry its own unit
+    would see one of those three.
+
+    Order-preserving and deduplicated, so a finding names figures in the order a
+    reader meets them rather than in set order.
+    """
+    figures: list[str] = []
+    chain: list[re.Match] = []
+
+    def flush() -> None:
+        if not chain:
+            return
+        if not any(EXCURSION_UNIT_RE.match(span, atom.end()) for atom in chain):
+            return
+        for atom in chain:
+            if atom.group(0) not in figures:
+                figures.append(atom.group(0))
+
+    for atom in EXCURSION_ATOM_RE.finditer(span):
+        joined = chain and EXCURSION_CHAIN_SEP_RE.fullmatch(span[chain[-1].end() : atom.start()])
+        if joined:
+            chain.append(atom)
+            continue
+        flush()
+        chain = [atom]
+    flush()
+    return figures
+
+
+def excursion_undecoupled_duts() -> set[str]:
+    """Every DUT netlist sha256 a record of this campaign declares undecoupled.
+
+    Read off the records that state it as an assumption of their own, then
+    applied by sha256 to every record sharing that netlist -- so a record that
+    does not repeat the declaration is still recognised, and one that runs a
+    netlist carrying decoupling is not swept in with it.
+    """
+    records = REPO_ROOT / EXCURSION_RECORDS
+    if not records.is_dir():
+        return set()
+    duts: set[str] = set()
+    for record in sorted(records.glob("*.md")):
+        text = record.read_text()
+        if EXCURSION_UNDECOUPLED_RE.search(text) is None:
+            continue
+        dut = EXCURSION_DUT_RE.search(text)
+        if dut is not None:
+            duts.add(dut.group("sha"))
+    return duts
+
+
+def excursion_row_figures() -> set[str] | None:
+    """Every `gnd_die pp (mV)` row value this campaign's UNDECOUPLED records carry.
+
+    Read out of each record's own table by COLUMN HEADER, because the campaign's
+    writers emit two different layouts around the same column. The `ideal`
+    control's `0.000` is dropped: it is mechanical, not a measured excursion.
+    Records whose DUT netlist is not one `excursion_undecoupled_duts` names are
+    skipped entirely: their figures are real, and are not upper bounds of the
+    undecoupled case.
+
+    `None` covers "no records tree", "no record declares an undecoupled DUT" and
+    "no such record carries that column" -- all three are nothing to compare an
+    enumeration against, which check 35 reports as a silence rather than as an
+    empty set of figures (checks 31, 32 and 34's rule).
+    """
+    records = REPO_ROOT / EXCURSION_RECORDS
+    if not records.is_dir():
+        return None
+    undecoupled = excursion_undecoupled_duts()
+    if not undecoupled:
+        return None
+    figures: set[str] = set()
+    seen_column = False
+    for record in sorted(records.glob("*.md")):
+        text = record.read_text()
+        dut = EXCURSION_DUT_RE.search(text)
+        if dut is None or dut.group("sha") not in undecoupled:
+            continue
+        column = None
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                column = None
+                continue
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            if EXCURSION_COLUMN in cells:
+                column = cells.index(EXCURSION_COLUMN)
+                seen_column = True
+                continue
+            if column is None or column >= len(cells):
+                continue
+            value = cells[column]
+            if EXCURSION_ATOM_RE.fullmatch(value) and value != EXCURSION_CONTROL:
+                figures.add(value)
+    return figures if seen_column else None
+
+
+def excursion_enumeration_figures(text: str) -> list[str] | None:
+    """The figures `text`'s supply-return narrative obliges its enumeration to name.
+
+    The intersection this check is built on: stated above the enumeration, as an
+    mV figure with chains followed, AND carried by a committed record's own
+    `gnd_die pp (mV)` column. `None` means there is nothing to compare against
+    at all -- no records column, or no enumeration sentence to bound a region
+    with -- which is a silence rather than a set of zero figures.
+    """
+    rows = excursion_row_figures()
+    if rows is None:
+        return None
+    region = _excursion_region(text)
+    if region is None:
+        return None
+    return [figure for figure in excursion_chain_figures(region) if figure in rows]
+
+
+def _excursion_region(text: str) -> str | None:
+    """The narrative the enumeration's own word "above" resolves to.
+
+    From the start of the top-level numbered item that contains the enumeration
+    sentence, up to the sentence itself. `None` when there is no enumeration
+    sentence to bound against (the region is only defined relative to it) or
+    when the sentence sits under no numbered item at all -- in which case the
+    document's outline is not the one this parse reads, and inventing a region
+    would make the gate the author of a claim.
+    """
+    collapsed, offsets = _collapse_quoted_prose(text)
+    match = EXCURSION_ENUM_RE.search(collapsed)
+    if match is None:
+        return None
+    end = offsets[match.start()]
+    items = [item.start() for item in EXCURSION_ITEM_RE.finditer(text) if item.start() < end]
+    if not items:
+        return None
+    return text[items[-1] : end]
+
+
+def _excursion_items(text: str) -> list[str]:
+    """The document's own top-level numbered items, each whole.
+
+    An item runs to the next one or to the end of the text. Empty when the
+    document has no numbered outline, which is the honest answer for a document
+    whose structure this parse does not read -- not a single item spanning
+    everything.
+    """
+    starts = [item.start() for item in EXCURSION_ITEM_RE.finditer(text)]
+    if not starts:
+        return []
+    bounds = starts + [len(text)]
+    return [text[bounds[index] : bounds[index + 1]] for index in range(len(starts))]
+
+
+def excursion_narrated_figures(text: str, rows: set[str]) -> list[str]:
+    """The record excursion figures the richest single numbered item of `text` states.
+
+    Used only to make an *absent* enumeration a finding, where there is no
+    sentence to bound a region against. Per item rather than per document, and
+    only for an item stating at least `EXCURSION_NARRATIVE_MIN` of them, so a
+    document that quotes one figure in passing is not asked to carry a
+    qualifier for a narrative it does not have.
+    """
+    narrated: list[str] = []
+    for item in _excursion_items(text):
+        figures = [figure for figure in excursion_chain_figures(item) if figure in rows]
+        if len(figures) >= EXCURSION_NARRATIVE_MIN and len(figures) > len(narrated):
+            narrated = figures
+    return narrated
+
+
+def check_excursion_enumeration(doc: Path, text: str) -> list[str]:
+    """Check 35: the *undecoupled* enumeration names every figure it must."""
+    rows = excursion_row_figures()
+    if rows is None:
+        # No records tree, or no record carrying the excursion column: there is
+        # nothing to re-derive an enumeration against, and inventing a required
+        # set would be a claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = EXCURSION_ENUM_RE.search(collapsed)
+    if stated is None:
+        if EXCURSION_NARRATIVE_ANCHOR not in text:
+            # A document that does not cite this campaign qualifies nothing
+            # about its figures, and is not made to -- checks 31, 32 and 34's
+            # anchor, for their reason.
+            return []
+        narrated = excursion_narrated_figures(text, rows)
+        if not narrated:
+            # A document with no numbered item narrating this campaign's
+            # excursion figures qualifies nothing about their decoupling. This
+            # is the guard that keeps the check off a document that quotes one
+            # figure in passing rather than firing on correct prose.
+            return []
+        return [
+            f"{doc.name}: states {len(narrated)} die-side ground-excursion "
+            f"figure(s) a committed record of `{EXCURSION_RECORDS}/` carries "
+            f"({', '.join(f'`{figure}`' for figure in narrated)}) and "
+            f"qualifies none of them -- every one is an **undecoupled** upper "
+            f"bound while the gap check 33 censuses is open, so state the "
+            f"sentence that says so (`... {EXCURSION_ENUM_CLAIM}`); deleting it "
+            f"does not make the figures decoupled"
+        ]
+    required = excursion_enumeration_figures(text)
+    where = f"{doc.name}:{_line_of(text, offsets[stated.start()])}"
+    if not required:
+        # The vacuity trap, made loud. A superset check whose required set is
+        # empty passes by grading nothing, so the one case it must report is
+        # its own region having resolved to nothing -- the item renumbered
+        # away, or the narrative moved out from under the sentence.
+        return [
+            f"{where}: this enumeration qualifies excursion figures as "
+            f"**undecoupled** upper bounds, but no figure above it in the same "
+            f"numbered item is one a committed record of `{EXCURSION_RECORDS}/` "
+            f"carries -- so the sentence grades nothing. Either the narrative it "
+            f"covers has moved out from under it, or it no longer belongs here"
+        ]
+    enumerated = set(excursion_chain_figures(stated.group("figures")))
+    missing = [figure for figure in required if figure not in enumerated]
+    if not missing:
+        return []
+    return [
+        f"{where}: the **undecoupled** enumeration omits "
+        f"{', '.join(f'`{figure}`' for figure in missing)}, which the narrative "
+        f"above it states and a committed record of `{EXCURSION_RECORDS}/` "
+        f"carries in its own `{EXCURSION_COLUMN}` column -- add each to the "
+        f"list (`python3 docs/chipalooza/check_proposal_citations.py --stats` "
+        f"prints the full derived set), because the qualifier is what bounds "
+        f"every one of those figures while the gap check 33 censuses is open"
+    ]
+
+
+def composed_mismatch_counts(text: str) -> dict[str, int]:
+    """`{flow: mismatch count}` for each COMPOSING flow the document reads out.
+
+    The present-tense forms check 36 grades are all about the composed top
+    level's device-match gap, and which flow that is comes from the tree rather
+    than being pinned here: it is the flow whose current composition takes in at
+    least one `blocks[]` entry whose `source` is a *cell* -- a stream that run
+    did not produce, i.e. another flow's record. Every other flow of this tree
+    composes only cells it generates in-flow (or composes nothing at all), so a
+    sub-block's own mismatch count can never become the basis a present-tense
+    claim is graded against: `layout/comparator/` and `layout/sampling-frontend/`
+    each report 1 mismatch, which would otherwise make "1 mismatches on the
+    current record" pass against the wrong flow.
+
+    Restricted further to flows the document actually states a check-9 readout
+    for: that readout is where the fix for a finding here is pasted from, so a
+    flow the document never reads out is one it could not be told to restate.
+    """
+    collapsed, _offsets = _collapse_quoted_prose(text)
+    counts: dict[str, int] = {}
+    for stated in READOUT_RE.finditer(collapsed):
+        block = stated.group("flow").split("/", 1)[1]
+        if not composition_inputs(block):
+            continue
+        readout = signoff_readout(block)
+        if readout is None:
+            continue
+        count = readout.get("mismatch_count")
+        if isinstance(count, int):
+            counts[block] = count
+    return counts
+
+
+def check_present_tense_mismatch(doc: Path, text: str) -> list[str]:
+    """Check 36: a present-tense prose mismatch count is the current record's."""
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(PRESENT_TENSE_MISMATCH_RE.finditer(collapsed))
+    if not stated:
+        # A document that states none of these forms makes no present-tense
+        # prose claim about the count, and is not made to: check 9's readout is
+        # where the figure belongs, and a prose passage may point at it instead
+        # of repeating it.
+        return []
+    counts = composed_mismatch_counts(text)
+    misses = []
+    for match in stated:
+        form = next(
+            name for name in PRESENT_TENSE_MISMATCH_FORMS if match.group(name) is not None
+        )
+        claimed = int(match.group(form))
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        if not counts:
+            # Nothing composing to grade against. Reported rather than passed
+            # over: the sentence claims a present-tense value for a record this
+            # document reads out, so the missing readout is the finding.
+            misses.append(
+                f"{where}: states `{match.group(0)}` in the present tense, but "
+                f"this document reads out no composing `layout/` flow whose "
+                f"current record could carry that count -- state the "
+                f"sign-off-bar readout check 9 grades, or write the figure as "
+                f"the dated historical one it is"
+            )
+            continue
+        if claimed in counts.values():
+            continue
+        misses.append(
+            f"{where}: states `{match.group(0)}` in the present tense, but "
+            + ", ".join(
+                f"`layout/{block}/reports/LATEST` reports {count} mismatches"
+                for block, count in sorted(counts.items())
+            )
+            + " -- restate it from check 9's own readout (`python3 "
+            "docs/chipalooza/check_proposal_citations.py --stats`), or, if the "
+            "figure is a dated historical one, say which record and pass it "
+            "carried it instead of calling it current"
+        )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -4456,6 +6007,13 @@ def check_document(doc: Path) -> list[str]:
         + check_label_claim_section(doc, text)
         + check_corner_grid_census(doc, text)
         + check_absent_paths(doc, text)
+        + check_renderer_census(doc, text)
+        + check_arm_census(doc, text)
+        + check_sweep_census(doc, text)
+        + check_decoupling_census(doc, text)
+        + check_null_sweep_census(doc, text)
+        + check_excursion_enumeration(doc, text)
+        + check_present_tense_mismatch(doc, text)
     )
 
 
@@ -4500,6 +6058,21 @@ def main(argv: list[str]) -> int:
             corner_grid = corner_grid_census(doc.read_text())
             if corner_grid is not None:
                 print(f"{doc.name}: {corner_grid_sentence(corner_grid)}")
+            # And the figures check 35 obliges this document's own *undecoupled*
+            # enumeration to name: printed as the derived list rather than as a
+            # replacement sentence, because the enumeration is legitimately a
+            # SUPERSET of it (a one-element ablation attribution is a figure the
+            # list should carry and no record row does), so pasting this over
+            # the sentence would drop figures rather than fix it.
+            excursions = excursion_enumeration_figures(doc.read_text())
+            if excursions is not None:
+                print(
+                    f"{doc.name}: the **undecoupled** enumeration must name at "
+                    f"least these {len(excursions)} figure(s), each stated above "
+                    f"it and carried by a committed record's own "
+                    f"`{EXCURSION_COLUMN}` column: "
+                    + ", ".join(f"`{figure}`" for figure in excursions)
+                )
             # And the Kickback row's own figures, which check 21 re-derives from
             # the record that row cites -- printed per document because the
             # bounds the multiples are taken against come from the row's own
@@ -4649,6 +6222,47 @@ def main(argv: list[str]) -> int:
                     f"sim/ + layout/:   {flow}/ mints records naming no "
                     f"`open_pdks` commit: {short} of {total} (issue #407)"
                 )
+        # And the leading indicator behind that lagging one, which check 30
+        # grades: not how many records name the commit, but how many of the
+        # entry points that mint them resolve it at all. The two move at
+        # different times -- this one on the day a renderer is fixed, the one
+        # above only as each flow re-runs -- which is why both are stated.
+        if (REPO_ROOT / "layout").is_dir():
+            print(f"layout/: {renderer_sentence(renderer_census())}")
+        # And the one campaign whose current record covers a subset of an axis
+        # its runner defines rather than of the PVT grid check 28 censuses:
+        # the supply-return arms, which bound what that record may be cited
+        # for. Printed whenever both halves are readable, including when every
+        # arm has been run -- that is a statement too, not a silence.
+        arms = arm_census()
+        if arms is not None:
+            print(f"sim/{ARM_CAMPAIGN}/: {arm_sentence(arms)}")
+        # And the second axis of that same campaign, which check 32 grades:
+        # not which NETWORKS a record ran, but how much of the bounded box
+        # around DR-015's single assumption point any record has walked. A
+        # sweep record deliberately never becomes `records/LATEST`, so no
+        # pointer- or stamp-based check can see one arrive.
+        sweep = sweep_census()
+        if sweep is not None:
+            print(f"sim/{ARM_CAMPAIGN}/: {sweep_sentence(sweep)}")
+        # And the third axis of that same campaign, which check 34 grades: the
+        # same lumped substrate constant swept over the same decade, but on
+        # DR-012's REJECTED `no-gnd-pad` topology, where it carries the whole
+        # analog-ground return instead of shunting a bond. A ladder record is
+        # invisible to checks 3/4/6/23 (it never becomes `records/LATEST`), to
+        # check 28 (one corner), to check 31 (no `- **Arms**:` line) and to
+        # check 32 (no `- **Grid**:` line) -- the union of their blind spots.
+        null_sweep = null_sweep_census()
+        if null_sweep is not None:
+            print(f"sim/{ARM_CAMPAIGN}/: {null_sweep_sentence(null_sweep)}")
+        # And the gap those excursion figures are an upper bound *because* of,
+        # which check 33 grades: not a property of any record under `sim/` or
+        # `layout/` but of the decision records that carry the open item, and
+        # of whether any of them yet names the issue that owns it. Printed
+        # whenever the decision-record tree is readable, including when every
+        # carrying record names its tracker -- that is a statement too.
+        if REPO_ROOT.joinpath(*DECISION_RECORDS_DIR).is_dir():
+            print(f"spec/decision-records/: {decoupling_sentence(decoupling_census())}")
         return 0
 
     misses: list[str] = []

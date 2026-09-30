@@ -300,18 +300,78 @@ enumerate:
   only prose: the ground return's impedance is real and its **inductance**,
   not its resistance, dominates the excursion it produces, but neither moves
   a captured code at this magnitude. **What this does not close**, and what
-  no reader may take from it: a worst-corner claim (the campaign ran the
-  ratified baseline corner only, deferring the nine-point grid for reasons its
-  own record states — a shared-host policy against local multi-corner runs, a
-  batch route that cannot mint this repo's record format, and cost), and a
+  no reader may take from it: a worst-corner claim (this record ran the
+  ratified baseline corner only; ~~the nine-point grid is open at 2 of 9 points
+  for the `ideal`/`package` pair as of issue #409 item 1~~ **the nine-point
+  grid has since been run for all five arms** —
+  `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`,
+  issue #409 item 1, on the netlist carrying DR-017's on-die decoupling, so a
+  different DUT from this record's: the as-built `package` return's worst
+  die-side ground excursion there is at the fast-process corner
+  `ff_27c_1.80v` (13.964 mV pp), ±0.25·V_REF codes move nowhere, and the
+  mid-scale input, which sits on the 511/512 code boundary, moves by at most
+  1 LSB in the bonded arms — see that campaign's "What the full grid found",
+  and #455 for the one mid-scale move the supply return does not explain.
+  **That mid-scale figure is now retired as a sensitivity number by
+  [DR-018](DR-018-midscale-code-metastable-msb.md)**: the `+0.00·V_REF` input
+  places the comparator's *first* (sign) decision ~1 µV from its threshold, so
+  its captured code is a coin flip with respect to every arm of that campaign
+  and is not monotone in the excursion. Nothing in *this* record's decision
+  rests on it — the argument above is the excursion, and the mid-scale code
+  entered only as corroboration — but a reader may no longer quote "at most
+  1 LSB" (or the 6 LSB) as a supply-return sensitivity. The `±0.25·V_REF`
+  null is unaffected and is what the code half of that campaign now carries),
+  and a
   priced measurement of this record's own *rejected* `no-gnd-pad` null option
   (implemented but not run, on cost — its own record estimates roughly an
-  order of magnitude more wall clock than the control arm). Both remain open,
-  tracked as **#409** and restated in
-  [DR-015](DR-015-package-parasitic-assumption.md)'s "Open items".
+  order of magnitude more wall clock than the control arm). Both were tracked
+  as **#409** and restated in
+  [DR-015](DR-015-package-parasitic-assumption.md)'s "Open items"; **the
+  second is now measured** (next bullet), the first is still open.
+- **The rejected null option now has a price, at one corner and one assumed
+  substrate magnitude** (issue #409 item 2, 2026-09-25,
+  `sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md`).
+  Deleting this record's pad and letting `GND` reach the board only through
+  the lumped substrate link — the `no-gnd-pad` arm, a strict one-element
+  ablation against the `package` arm it is run beside — costs **+27.6 mV** of
+  die-side `GND_DIE` excursion (**65.237 mV** against **37.590 mV**, 1.74×)
+  and **0 LSB** of captured code at `tt_27c_1.80v`. Read that as the shape of
+  the argument in "Decision" above rather than as a vindication of it: the
+  option this record rejected is measurably worse *on the comparator's own
+  reference* and indistinguishable *on the output* at this point, which is
+  exactly why the choice could not have been made on captured codes and was
+  not. Three limits travel with the number and none may be dropped when it is
+  quoted: it is **one corner**; it is at DR-015's **lumped** `R_SUB`/`R_SUBX`
+  = 30 Ω, a stand-in taken from this record's own "10s of ohms" prose rather
+  than an extraction, and the arm is above all a function of that value; and
+  the excursion figures are **undecoupled** upper bounds, since no decoupling
+  is designed anywhere in this block (see the last open item). The earlier
+  estimate that this arm would cost roughly an order of magnitude more wall
+  clock than the control was also wrong — it ran in 487 s, 1.67× the control
+  and less than the `package` arm — so "too expensive to run" is retired as a
+  reason, not merely postponed.
 - **The pad's position is provisional.** There is no pad ring; when one exists,
   the analog ground terminal's placement relative to the other supply pads (and
   whether it wants more than one bond point of its own) is a real question this
   record does not answer.
-- **On-die decoupling** for any domain is still not designed, budgeted, or
-  measured (carried over from DR-010).
+- ~~**On-die decoupling** for any domain is still not designed, budgeted, or
+  measured (carried over from DR-010).~~ **ADDRESSED, at the scope that record
+  states**, by [DR-017](DR-017-on-die-decoupling-budget.md) (issue #431): one
+  `cap_mim_m3_1` per supply domain, `MF = 2` → 8.870 pF each. **Read DR-017's
+  Amendment A for the sizing rationale**: the body sized from a met3/met4 area
+  budget on the argument that this die's `package`-arm excursion falls only as
+  ~1/√C, and the shipped value's own measurement has since refuted that law —
+  the response **saturates**, `MF = 2` captures 98 % of the reduction that 16×
+  more capacitance achieves, and **no on-die supply-pair capacitance reaches
+  1 LSB** because the excursion bottoms out near 2.6 LSB. The residual still
+  belongs to the bond inductance (a packaging decision, not a die decision).
+  On this record's own `GND_DIE` node the measured improvement is
+  37.333 → 9.709 mV at `tt_27c_1.80v`, with a worst-corner 13.964 mV
+  (3.972 LSB) at `ff_27c_1.80v` and at most 1 LSB of captured-code movement
+  anywhere on the ratified grid
+  (`sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`).
+  Two parts
+  of the item stay open there rather than here: the capacitors exist in
+  `design/` only and are not yet placed or DRC/LVS-verified in
+  `layout/sar-adc-top/`, and the reference network (`VREFP`/`VREFN`/`VCM`,
+  ideal at the die in every campaign here) is still undecoupled and unmeasured.

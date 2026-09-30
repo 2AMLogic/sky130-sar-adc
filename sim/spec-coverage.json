@@ -103,10 +103,13 @@
             "sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice",
             "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice"
           ],
-          "cold_start": "python3 sim/sampling-cdac-handoff/run_handoff.py --record",
+          "cold_start": "python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record",
           "documented_in": "sim/sampling-cdac-handoff/run_handoff.py",
-          "covers": "The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95).",
-          "records": ["sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md"]
+          "covers": "The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95), and -- at that same assembled top-plate load -- the acquisition residual at the DR-006 worst-case phase budget across the ratified PVT grid (issue #469).",
+          "records": [
+            "sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md",
+            "sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md"
+          ]
         },
         {
           "experiment": "cdac-array-transfer",
@@ -315,7 +318,7 @@
       "status": "DRAFT",
       "claim_class": "draft-informational",
       "note": "DRAFT row (<= 5 mV peak pin disturbance into a 1 kOhm series source impedance, single decision edge; stretch <= 2 mV), added by DR-011 via issue #361. The bound is adopted verbatim from the sibling 2AMLogic/sky130-comparator canary's own DR-002-ratified row as a stated interim choice -- NOT derived from this block's system-level budget -- so nothing here is graded pass/fail against it. Issue #346's single-corner (tt/27 C) probe is still the only corner covered: the record below reports 73.3673 mV worst-case peak pin disturbance INFORMATIONALLY and says so in its own Claim field, which cites spec/target-spec.md explicitly. That is ~14.7x the proposed target; the gap is recorded, not relaxed (CLAUDE.md). Issue #390 (DR-014's first gate) has since split that disturbance into its common-mode and differential components at the same corner: the differential part -- the part a differential top-plate CDAC does not reject, i.e. the part that lands on a decision -- is 10.9153 mV at Vindiff=+50 mV (~2.2x the proposed target) and 4.1918 mV at the half-LSB overdrive a marginal SAR decision actually presents (~0.84x the target, ~2.1x the stretch). So the row is missed on the quantity it bounds, and the decision-relevant component is a much smaller multiple of it than 14.7x -- but is not negligible either, which is what DR-014 Consequences §4 said would decide whether its 'no mitigation adopted' disposition weakens. Ratifying this row would oblige a full-corner campaign -- the bound is stated at the ratified corner set and the evidence covers one point of it (DR-011 Consequences §5).",
-      "tracking": "DR-014 (#349: static preamp not adopted, DR-004 Decision 1 stands, no mitigation adopted yet); #390 (common-mode/differential split of the kickback measurement, DR-014's first gate -- DELIVERED by the record below, which supersedes #346's baseline; what remains open on this track is DR-014 Consequences §4's disposition, i.e. measuring the headroom-neutral mitigation classes it names); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)",
+      "tracking": "DR-014 (#349: static preamp not adopted, DR-004 Decision 1 stands, no mitigation adopted yet); #390 (common-mode/differential split of the kickback measurement, DR-014's first gate -- DELIVERED by the record below, which supersedes #346's baseline; confirms a differential component above the bound at the large-overdrive point, DR-014 Consequences §4's condition); #434 (follow-on: measuring the headroom-neutral mitigation classes DR-014 Consequences §4 / Open items names, filed once #390's result met that condition -- DELIVERED for the cross-coupled-neutralization class by DR-016); DR-016 (#434: cross-coupled neutralization measured against an EXPERIMENTAL, informational-only DUT variant -- worst-case peak differential deviation moves -10.9153 -> -10.8355 mV at Vindiff=+50 mV, -0.7%, not enough to close the gap; DR-014's 'not adopted' call stands; the double-tail latch and complementary-clock compensation classes remain unmeasured); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)",
       "benches": [
         {
           "experiment": "comparator-decision",
@@ -358,6 +361,66 @@
           "documented_in": "sim/supply-impedance-sensitivity/README.md",
           "covers": "Same per-rail average current/power as the bench above, but with DR-015's package-style R+L (or a lumped substrate stand-in) driving the four supply terminals instead of ideal sources at the die -- DR-012's own open item, issue #378, 'the impedance argument is unmeasured'. Baseline corner only (see the record's own Subset-corner justification); reported informationally, same as the row above, and no power target is proposed here either.",
           "records": ["sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package,no-gnd-pad --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power again, on the one arm pair that prices DR-012's REJECTED null option (issue #409 item 2): `no-gnd-pad` -- `GND` with no bond of its own, reaching the board only through the lumped substrate link -- against the `package` arm it differs from in exactly one element, plus the `ideal` control, at the baseline corner. A separate bench entry from the two above because it is a separate invocation with its own documented cold start: the four-arm comparison omitted this arm on a cost projection, and this record is what replaces that projection with a measurement (487 s, 1.67x the control -- cheaper than the `package` arm, not the ~10x the projection assumed). Reported informationally, same as the rows above; no power target is proposed here either, and `I(GND)` is `n/a (no bond)` on the `no-gnd-pad` row by construction.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power again, over the bounded 2-D box DR-015's own 'Open items' asks for (issue #409 item 3): the as-built package topology re-run at bond inductance 0x/1x/10x of DR-015's 1.914 nH crossed with the lumped substrate link R_SUBX at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the one above because it is a separate invocation with its own documented cold start, not a re-run of it: the arm comparison ranks five NETWORKS at DR-015's assumption point, this walks a box around that point on one of them. Reported informationally, same as the rows above; no power target is proposed here either, and the box's total power spread (27.20-27.97 uW) is stated in the record rather than graded.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power once more, over the one-axis ladder that the 2-D box above could not reach (the residual of issue #409 item 3, and DR-015's own R_SUB open item): DR-012's REJECTED no-gnd-pad topology re-run with the lumped substrate RETURN at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the box above because it is a separate invocation with its own documented cold start and a structurally different experiment: the box moves a substrate resistance that sits BESIDE a bonded GND as a shunt, this moves the same constant where it is the analog ground's entire path to the board. Its 30 Ohm rung is card-for-card the no-gnd-pad arm of the ablation record, asserted in code before the run and again at record-write time. Reported informationally, same as the rows above; no power target is proposed here either, the ladder's total power spread (27.27-27.97 uW) is stated in the record rather than graded, and I(GND) is 'n/a (no bond)' on every swept row by construction.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power again, at the first NON-baseline point of the ratified corner set any record of this campaign contains (issue #409 item 1): the ideal control and the as-built package arm at tt_27c_1.80v and the slow-process corner ss_27c_1.80v. A separate bench entry from the ones above because a corner subset changes what was simulated and therefore reaches the record footer -- so every widening of the subset is its own indexed invocation rather than a re-run of an existing one. Two of nine ratified points and two of five arms: the record states its own Subset-corner justification, and the seven remaining points stay open on #409 -- including ff_27c_1.80v and tt_-40c_1.80v, where the fastest edges should make the largest excursion. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT power figures move with the corner (26.97 uW ideal / 26.81 uW package at ss, against 27.96 / 27.25 at tt), and the die-side ground excursion is SMALLER at the slow corner (28.472 mV against 37.590 mV), which is why ss may not be quoted as this campaign's worst corner.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md"]
+        },
+        {
+          "experiment": "supply-impedance-sensitivity",
+          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record",
+          "documented_in": "sim/supply-impedance-sensitivity/README.md",
+          "covers": "The same per-rail average current/power once more, over the WHOLE ratified corner set for every arm the runner implements (issue #409 item 1): all five supply-return networks x the nine ratified OAT points = 45 whole-ADC transients, on the as-committed DECOUPLED design/sar_adc_top.spice (DR-017's one MiM cap per supply domain), so it is compared with nothing minted on the undecoupled netlist -- the records above measure a different DUT sha256 on purpose. A separate bench entry because --corners changes what was simulated and reaches the record footer. No Subset-corner justification is owed: every ratified point is present. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT total power of the ideal control across the grid spans 21.60 uW (tt_27c_1.62v) to 34.24 uW (tt_27c_1.98v), with the supply corners bounding it rather than process or temperature; and the largest die-side analog-ground excursion of the as-built package arm is at the fast-process corner ff_27c_1.80v (13.964 mV), not at the baseline.",
+          "records": ["sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md"]
         }
       ]
     },

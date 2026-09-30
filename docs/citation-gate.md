@@ -1080,11 +1080,14 @@ sentence was false for **33 of the 67** records under `layout/*/reports/` and
 `layout/*/erc-reports/`, for two independent reasons:
 
 - **Renderer divergence.** Four of the eight `layout/` flows' record
-  renderers resolve the commit (`klt pdk find --pdk <variant> --format json`,
-  printing its `version`); the other four print `- PDK variant: <variant>` --
-  the variant *name*, which is not a pin. `layout/sar-adc-top/`, whose DRC
-  and LVS verdicts Section 4's sign-off-bar rows rest on, is one of the four
-  that do not.
+  renderers resolved the commit (`klt pdk find --pdk <variant> --format
+  json`, printing its `version`); the other four printed `- PDK variant:
+  <variant>` -- the variant *name*, which is not a pin. `layout/sar-adc-top/`,
+  whose DRC and LVS verdicts Section 4's sign-off-bar rows rest on, was one
+  of the four that did not. (Issue #407, closed by PR #420 on 2026-09-25;
+  every entry point resolves it now, which is what **check 30** below grades.
+  Stated in the past tense for that reason -- the 33-of-67 shortfall this
+  check was derived from is unchanged, because records are append-only.)
 - **`klt` stamps no PDK for these invocations.** `provenance.pdk` is `null`
   in a `--deck sky130`-invoked `drc.json` / `lvs.json` / `extract.json`, and
   `{"name": "sky130", "source": "built-in", "version": null}` in the ERC
@@ -1098,8 +1101,11 @@ this check landed and every record minted since -- because `sim/run_corners.py
 drift there is fatal by default. (Stated that way rather than as a bare live
 count on purpose: the count moves with every new record, and the number that
 *is* re-derived per run lives in the document's own census, not here.) That asymmetry is the finding, and stating
-it is the point: the gap itself is tracked as issue #407, which this check
-does not close and must not be read as closing.
+it is the point: the gap itself was tracked as issue #407, which this check
+did not close and must not be read as having closed. What PR #420 did close
+is the *renderer* half of it; this census is over records, and records are
+append-only, so it does not move until each flow re-runs. Check 30 exists to
+keep those two facts from being confused for one another.
 
 **What it grades.** Five numbers in one sentence -- the `sim/` records and
 how many name both an `ngspice` version and a 40-hex `open_pdks` commit, then
@@ -1107,7 +1113,7 @@ the `layout/` records and how many name a `klt` version and a commit -- each
 re-derived from the tree, in both directions like checks 8, 10, 14--18, 20,
 24 and 25. Both directions matter more here than usual: the failure mode this
 check exists for is a *widening* of the claim back to "every record", and the
-failure mode after #407 lands is a census that stays pessimistic while the
+failure mode after #407 landed is a census that stays pessimistic while the
 flows have started pinning. An absent census is a finding too, anchored on
 the document citing `sim/toolchain.json`, so deleting the inconvenient
 numbers is not a way to pass while still describing the flow as reproducible.
@@ -1286,6 +1292,17 @@ change re-pointing a Section 4 citation must restate the census from
 `--stats` in the same commit, and a change that merges onto a moved base must
 re-run the gate rather than trust its own branch's green.
 
+That last sentence was a convention with nothing enforcing it, which is why
+the firing happened at all -- and it is not check 28's to enforce, because a
+gate can only run where CI points it. What closes it is one required status
+check on `main`, which arms the merge-time base-freshness guard that already
+ships in `.loom/scripts/merge-pr.sh` and today has nothing to bind to. The
+decision, the live evidence that the guard is currently inert, and the one
+operator action it waits on are recorded in
+[`docs/merge-base-freshness.md`](merge-base-freshness.md) (issue #422). Until
+that lands, every census in this document -- not only check 28's -- is still
+detected on `main` rather than on the PR.
+
 **What this check deliberately does NOT cover.** It does not grade whether a
 subset-corner citation is *justified* -- only that the document counts it.
 Single-corner evidence is legitimate and this repository uses it on purpose
@@ -1348,6 +1365,525 @@ never filed); that is forge state, which check 27 already establishes this
 gate cannot read. What it guarantees is narrower and enough: a passage cannot
 keep describing an absence after the absence ends.
 
+### Check 30 -- record-renderer census (`check_renderer_census`)
+
+Check 26 counts **records**. This one counts the **entry points that mint
+them**, and it exists because the first number alone is ambiguous in a way
+that matters.
+
+`layout/` records are append-only evidence (`CLAUDE.md`): a record is never
+re-minted, so a shortfall in check 26's census is retired only as each flow
+next re-runs, not on the day the bug behind it is fixed. "**34** of the
+**67** records name the `open_pdks` commit" therefore reads *identically* in
+two opposite worlds -- one where the flows still mint records without the
+pin, and one where every renderer was fixed this morning and the 33 that
+fall short are history nothing is allowed to rewrite. A reader of the brief
+cannot tell those apart from the census, and the difference is the whole
+question they care about: *can I reproduce the next record you publish?*
+
+Section 8 answered it in prose -- "four of the eight `layout/` flows' record
+renderers resolve the commit ... and four print only the variant name" --
+and prose is what rots. **PR #420 (issue #407) fixed the other four and the
+ERC driver on 2026-09-25, and nothing in this gate could see that the
+explanation had gone false while every number beside it stayed true.** That
+is the same defect shape check 26 itself was added for, one level up: a
+sentence that speaks for the whole tree, backed by nothing.
+
+**What it grades.** Three numbers and an exception list, in one sentence,
+re-derived from the tree in both directions: how many record-minting entry
+points exist under `layout/`, how many resolve the `open_pdks` commit before
+writing a record, how many do not, and which ones. An entry point is
+resolved by the convention this repository follows uniformly -- a flow-local
+`layout/<flow>/bin/render-record.py` where the flow has one, the shared
+`layout/bin/render-record.py` otherwise (`layout/trivial-cell/` has no `bin/`
+of its own), and `layout/<flow>/bin/run-erc.sh` for an `erc-reports/` tree,
+whose `record.md` is hand-written from what that script prints. Counted over
+entry points rather than over record trees, because that is the unit a fix is
+made in: one renderer minting two trees is one place to change.
+
+"Resolves the commit" is a `klt pdk find` argv-list invocation (`["pdk",
+"find", ...]`) or a call to `layout/bin/_record_common.py`'s
+`resolve_pdk_commit`, in the entry point or -- for a renderer that is nothing
+but a title and a call to `render_pnr_drc_lvs_record` -- in the shared record
+builder it delegates to. The delegation is matched on that function name
+specifically, not on "mentions the shared module": a renderer importing only
+`build_argparser` delegates no provenance at all and must not inherit the
+shared module's pin. The test is deliberately **not** a search for the word
+"pdk" -- every one of these files names a PDK variant, and printing only the
+variant name is the defect -- and, since issue #424, deliberately not a
+search for the bare shell words `pdk find` either: an unanchored word-sequence
+match is satisfied by a comment that only *talks about* invoking `klt pdk
+find`, which is the same failure shape one word over. No entry point under
+`layout/` invokes `klt pdk find` from shell today, so nothing is lost by
+requiring the argv-list or `resolve_pdk_commit` spelling. Whole-line `#`
+comments are stripped from the entry point (and, when delegated to, the
+shared builder) before either alternative is matched, so a comment merely
+*naming* `resolve_pdk_commit` -- a real Python identifier, and so matchable
+in prose too -- cannot satisfy the predicate either; only a call in real code
+counts.
+
+An absent census is a finding, anchored on the document stating check 26's
+record census: the two are a pair, and stating the lagging number while
+dropping the leading one is exactly the ambiguity this check removes. A
+record tree whose entry point does not exist is counted as not resolving and
+named in the census rather than skipped -- an unattributable record tree is
+a gap of the same kind, not an exemption.
+
+**What this check deliberately does NOT cover.** It is a source-level test:
+it establishes that each entry point *asks* for the commit, not that any
+particular record *carries* one -- that is check 26's job, and the two are
+kept separate on purpose so neither can be read as the other. It does not
+run a renderer (this gate is PDK-free and network-free by design); the
+behavioural half lives in `sim/tests/test_layout_record_pdk_pin.py`, which
+exercises `resolve_pdk_commit`'s success and degradation paths and asserts
+the rendered Provenance line satisfies check 26's own `_names_pdk_commit`
+predicate. Nor does it check that the commit an entry point resolves is the
+one `sim/pdk.json` pins, for the reason recorded under check 26: cross-
+checking the pin belongs to the flow that mints a record, not to a reader of
+one.
+
+### Check 31 -- supply-return arm census (`check_arm_census`)
+
+Check 28 grades how much of the ratified **PVT grid** a cited record covers.
+One campaign in `sim/` publishes records that are a subset of a second,
+independent axis -- one its *runner* defines rather than `sim/pdk.json`:
+`sim/supply-impedance-sensitivity/`'s **arms**, the supply-return networks it
+drives the same DUT through (`ideal`, `package-r-only`, `package`,
+`substrate`, `no-gnd-pad`). A record that ran four of the five is bounded by
+the fifth in exactly the way a subset-corner record is bounded by the corners
+it skipped, and `sim/README.md`'s rule that a corner subset must be justified
+is what that campaign's renderer already applies to arms: every record it
+mints carries an "Arms this record does not contain" section, and since issue
+#409's first increment a standing omission note per arm.
+
+**What the document was leaning on.** Section 7 Item 11 retires DR-012's "the
+impedance argument is unmeasured" open item **by citation**, and the sentence
+that bounds the retirement is an arm claim: DR-012's *rejected* `no-gnd-pad`
+null option "is implemented but not run, on cost", therefore "no
+priced-rejected-option claim may be read from this record". Nothing graded
+it. The day issue #409's item 2 mints the several-hour record that prices the
+null option, the document would still say the claim cannot be read -- with
+every number beside it still true, because none of them is about arms. That
+is precisely check 30's defect shape (a prose explanation going false while
+its neighbouring census stays correct) on a different axis, and it is graded
+the same way rather than left to a re-read.
+
+**What it grades.** Three numbers and an exception list in one sentence, in
+both directions like checks 8, 10, 14--18, 25, 26, 28 and 30: how many arms
+`sim/supply-impedance-sensitivity/run_supply_impedance.py` implements, how
+many the campaign's current record ran, how many it left unrun, and which
+ones. Both halves are re-derived rather than asserted -- the offered arms
+from the runner's own `ARMS` table (read as source text, never imported, for
+the reason `report_row_count` records: this gate is a pure file reader), the
+run arms from the record's own `- **Arms**:` header line. The unrun list is
+ordered by the runner's table, not alphabetically, so it reads in the same
+order as the record's own omission section. An absent census is a finding,
+anchored on the document citing `sim/supply-impedance-sensitivity/` at all:
+deleting the inconvenient sentence must not be a way to widen what the
+citation may be read for.
+
+Reading the arms from the **list** rather than from the count printed in
+front of it is deliberate. The two come from the same renderer today, so they
+cannot disagree; if a future renderer ever let them, the names are what say
+what ran, and a census graded on the count would pass while naming the wrong
+arm as unrun.
+
+**What this check deliberately does NOT cover.** It does not grade *why* an
+arm was left unrun -- the omission is legitimate and cost-justified, and the
+record states its own reason, as `sim/README.md` requires. Nor does it read
+the prose around the census: a document stating the three numbers correctly
+while describing them backwards passes here, as it does under checks 15, 16,
+22, 25, 26 and 28. It says nothing about the *findings* an arm produced
+(those are check 12's and Section 4's business), and it is scoped to this one
+campaign on purpose: arms are not a general `sim/` concept, and generalising
+the parse to "any runner with a table" would invent an axis for campaigns
+that have none. Finally, when the runner is absent, the pointer is
+unresolvable, or the record's header is in a shape this parse does not
+recognise, the check reports **nothing** rather than a census of zero --
+there is no tree-side number to compare against, and inventing one would make
+the gate the author of a claim instead of its reader.
+
+### Check 32 -- `--sweep` box census (`check_sweep_census`)
+
+Check 31 grades which **arms** of `sim/supply-impedance-sensitivity/` a
+record ran. This one grades a *mode* of the same runner that has no record at
+all, and structurally cannot acquire one that any other check here would see.
+
+`--sweep` (landed 2026-09-25 in PR #432, issue #409's third item) walks a
+bounded 2-D box -- bond-inductance multiplier × the lumped substrate link
+`R_SUBX` -- around the single assumption point
+`spec/decision-records/DR-015-package-parasitic-assumption.md` fixes, anchored
+so that its `1× / 30 Ω` point is card-for-card the committed `package` arm and
+its `0× / 30 Ω` corner is `package-r-only`. By design it writes through its own
+record writer and **does not move `records/LATEST`**: it supersedes nothing, so
+the arm-comparison record stays the one DR-012 and Section 4's Power row cite.
+
+**Why nothing else can see it arrive.** That disposition defeats every check
+already in the chain. Checks 3, 4, 6 and 23 grade pointers and stamps -- and
+a sweep record is never the pointer. Check 28 grades the PVT grid; the sweep
+runs at one corner, so its grid census would not move. Check 31 grades the
+arm list of the record the pointer names; a sweep record is not that record
+and carries no `- **Arms**:` line at all. Section 7 Item 11 meanwhile bounds
+its DR-012 retirement on the box being unwalked -- "DR-015's assumption is
+tested at one magnitude rather than swept for the magnitude at which the
+mechanism starts to matter". Walk the box and that sentence goes false with
+every number beside it still true: check 30's defect shape, a second axis over
+from check 31, and the reason this one is graded rather than re-read.
+
+**What it grades.** Five numbers and a record list in one sentence, in both
+directions like checks 8, 10, 14--18, 25, 26, 28, 30 and 31: the two axis
+lengths of the runner's default box and their product, how many grid points
+the largest committed sweep record carries, how many sweep records exist, and
+which. The box is re-derived from the runner's own `SWEEP_L_MULTIPLIERS` /
+`SWEEP_RSUBX_OHM` tuples, read as source text and never imported (the
+pure-file-reader rule `report_row_count` records); a sweep record is
+identified by the `- **Grid**:` header line only the sweep's own writer emits,
+and its point count is read from that line's `=` total rather than multiplied
+out of the two factors in front of it, for `ARM_RECORD_RE`'s reason. An
+absent census is a finding, anchored -- like check 31 -- on the document
+citing `sim/supply-impedance-sensitivity/` at all.
+
+**Why `covered` is a maximum and not a sum.** Two records of the same box are
+two runs of one experiment; adding them would report a coverage no single
+record supports. The largest box any one record carries is the strongest claim
+the tree can actually back.
+
+**What this check deliberately does NOT cover.** It does not grade whether a
+sweep record's box is the runner's *current* default -- a record of a
+deliberately different box (`--sweep-l-mult` / `--sweep-rsubx`) is legitimate
+and says so in its own footer, and failing the gate on it would punish a wider
+experiment for being wider. It does not read the sweep's *findings* (Section
+4's and check 12's business), nor why the box has not been walked -- the cost
+is stated in the campaign's own README, as `sim/README.md` requires of any
+deferral. And when the runner is absent or its axes are not two tuple
+literals this parse recognises, it reports **nothing** rather than a box of
+zero points, check 31's reason: there is no tree-side number to compare
+against, and inventing one would make the gate the author of a claim.
+
+### Check 33 -- on-die-decoupling ownership census (`check_decoupling_census`)
+
+Checks 31 and 32 grade the two axes of one `sim/` campaign. This one grades
+the word every figure that campaign produces is *qualified* by, and where the
+qualifier's own open item is owned.
+
+Three decision records --
+`spec/decision-records/DR-010-digital-supply-domain-partition.md`,
+`spec/decision-records/DR-012-analog-ground-pad.md` and
+`spec/decision-records/DR-015-package-parasitic-assumption.md` -- carry the
+same open item in their own words: on-die decoupling is not designed,
+budgeted, or measured. DR-012 makes that item load-bearing on its numbers, by
+attaching **undecoupled** to its own `65.237 mV` figure and deferring for it to
+"the last open item". Section 7's standing rule is that an open item points at
+the issue that already tracks the work rather than inventing new tracking, and
+for this one there was no such issue to point at until #431 was filed on
+2026-09-25. Section 7 Item 11 now records that pointer, and the pointer lives
+only there -- none of the three records names it yet.
+
+**Why nothing else can see it move.** This is a claim about
+`spec/decision-records/`, not about any record under `sim/` or `layout/`, so
+checks 3, 4, 22 and 23 (evidence citations) cannot reach it. Check 15 reads a
+decision record's `Status` line and nothing else -- a record can strike an
+open item, or add a tracker to one, without its status word changing at all.
+Checks 31 and 32 grade the supply-impedance campaign's own axes, which do not
+move either. So the passage would keep saying the gap is carried by three
+records and owned by none long after a record fixed it: check 30's defect
+shape, one tree over.
+
+**What it grades.** Three numbers and a record list in one sentence, in both
+directions like checks 8, 10, 14--18, 25, 26, 28 and 30--32: how many decision
+records still carry the gap, how many of those name the issue that tracks it,
+how many do not, and which. Each record's own `## Open items` section is the
+basis rather than a list inside the checker, so a fourth record picking the
+item up is discovered automatically rather than when someone remembers it.
+
+**Two deliberately narrow predicates.** A bullet counts as carrying the gap
+only when its own **bold lead** names decoupling -- not when the word appears
+anywhere in it. DR-012's rejected-null-option item quotes "undecoupled upper
+bounds" while being about the `no-gnd-pad` arm, and an unanchored search would
+report four carriers where the tree has three. And a bullet already **struck
+through** (`~~`) has been closed at a stated scope by this repo's own
+convention -- DR-015 carries two such -- so it no longer carries the gap and is
+counted on neither side. "Names its tracker" is a bare `#<number>`, with a
+lookbehind that keeps an upstream reference (`klayout-tools#2400`) and a path
+fragment out of the match: those name somebody else's tracker, which is not
+ownership of this gap.
+
+**What this check deliberately does NOT cover.** It does not read the *content*
+of the decision #431 would land -- whether decoupling is added, and at what
+value, is a spec decision this document does not make and this gate does not
+grade. It does not check that the issue a bullet names is open, or is #431
+specifically: a forge state is exactly what this network-free gate cannot read
+(check 27's subject), so the predicate is "points at a tracker at all", which
+is the part a file read can settle. And an absent census is a finding only when
+the document cites one of the records that still carry the gap -- a document
+that cites none of them qualifies nothing about who owns it and is not made to
+invent a sentence about it.
+
+### Check 34 -- `--null-sweep` ladder census (`check_null_sweep_census`)
+
+The **third** axis of the one campaign checks 31 and 32 already grade, and the
+one whose record shape is invisible to the union of everything before it.
+
+`--null-sweep` (landed 2026-09-26 in PR #445, the residual of issue #409's
+third item) walks a bounded one-axis ladder -- the lumped substrate resistance
+at `3`/`30`/`300 Ω` -- on **DR-012's rejected `no-gnd-pad` topology**, where
+`GND` has no bond at all and that single resistor carries the analog ground's
+entire return current. That is not the 2-D box check 32 grades run again: the
+box moved a resistor of the same name over the same decade on the as-built
+`package` topology, where `GND` *is* bonded through ~102 mΩ and the resistor is
+a secondary shunt beside it. Same constant, same decade, structurally different
+experiment -- which is why the box's own record said an `R_SUB` *return* sweep
+was still owed, and why
+`spec/decision-records/DR-015-package-parasitic-assumption.md`'s claim that the
+rejected arm is "*entirely* a function of `R_SUB`" stayed prose until this
+ladder measured it (and falsified half of it: at `3 Ω` the excursion is
+**worse** than at the assumed `30 Ω`, so the dependence is real but not
+monotone). Like a sweep record, a ladder record **does not move
+`records/LATEST`** -- it supersedes nothing.
+
+**Why nothing else can see it arrive.** This record shape defeats every check
+before it, for the *union* of checks 31's and 32's reasons: checks 3, 4, 6 and
+23 grade pointers and stamps, and a ladder record is never the pointer; check
+28 grades the PVT grid, and the ladder runs at one corner; check 31 reads the
+`- **Arms**:` line, which a ladder record does not carry; and check 32 reads the
+`- **Grid**:` line, which it does not carry either. Section 7's DR-012 item
+bounds what this campaign may be read for on which magnitudes have been walked
+**and on which topology**, so a ladder arriving -- or a rung being added to the
+runner's default and left unwalked -- leaves those sentences false with every
+number beside them still true. Check 30's defect shape, a third axis over.
+
+**What it grades.** Three numbers and a record list in one sentence, in both
+directions like checks 8, 10, 14--18, 25, 26, 28 and 30--33: how many
+substrate-return magnitudes the runner's default ladder defines, how many the
+longest committed ladder record carries, how many ladder records exist, and
+which. The ladder is re-derived from the runner's own `NULL_SWEEP_RSUBX_OHM`
+tuple, read as source text and never imported (`report_row_count`'s
+pure-file-reader rule). A ladder record is identified by the `- **Ladder**:`
+header line only the null sweep's own writer emits -- the third and last record
+shape that single `records/` tree holds -- and its rung count is read from that
+line's **leading** number rather than from the `=` total beside it, because
+that total counts the `ideal` control and the control is not a swept magnitude.
+`covered` is a maximum and not a sum, check 32's reason. The census sentence
+names the topology explicitly: that is the half which distinguishes this axis
+from check 32's, and a census stating only the magnitudes would read as a
+duplicate of it. An absent census is a finding, anchored -- like checks 31 and
+32 -- on the document citing `sim/supply-impedance-sensitivity/` at all.
+
+**One parse hazard worth naming.** `SWEEP_RSUBX_OHM` and
+`NULL_SWEEP_RSUBX_OHM` share a suffix and live in the same file. Both patterns
+are `^`-anchored so neither captures the other's tuple, and a test carrying
+*both* constants at deliberately different lengths is what holds that apart --
+without it, the two checks could silently census one axis twice.
+
+**What this check deliberately does NOT cover.** It does not grade whether a
+ladder record's rungs are the runner's *current* default: a record of a
+deliberately different ladder (`--null-sweep-rsub`) is legitimate and says so
+in its own footer. It does not read the ladder's *findings* -- the non-monotone
+result above is Section 7's prose and check 12's business, not this check's.
+And a full rung count does **not** retire issue #409's fourth item: every rung
+is the same single lumped stand-in with no `klt extract` behind it, so a walked
+ladder bounds the *sensitivity* to the stand-in and says nothing about this
+die's substrate. When the runner is absent or its ladder is not a tuple literal
+this parse recognises, it reports **nothing** rather than a ladder of zero
+rungs -- checks 31 and 32's reason: there is no tree-side number to compare
+against, and inventing one would make the gate the author of a claim.
+
+### Check 35 -- the *undecoupled* excursion enumeration (`check_excursion_enumeration`)
+
+The sentence that sits *between* checks 33 and 34, and which neither can reach.
+
+Check 33 grades who **owns** the on-die-decoupling gap; checks 31, 32 and 34
+grade the three axes of the campaign that **produces** the die-side
+ground-excursion figures that gap makes upper bounds of. Between them, Section 7
+item 11 carries one hand-written sentence that applies the qualifier to a
+*list*: "`0.059`, `10.779`, ... and `137.093 mV`" are each an *undecoupled*
+upper bound. (Written with single-asterisk emphasis here on purpose: the
+double-asterisk form is the claim clause this check is anchored on, and this
+file quoting it verbatim beside a figure list would make the rationale document
+itself parse as an enumeration.) It was the only claim in that item still
+maintained by hand, and it went stale twice in one day:
+
+- **PR #446** wrote it with eight figures against a tree that did not yet carry
+  the substrate-return ladder. **PR #445** merged four minutes later with three
+  more undecoupled excursions in it (`67.307`, `72.130`, `137.093 mV`) — one
+  larger than anything in the list.
+- **PR #447** then narrated all three in the same item, publishing them three
+  paragraphs *above* the list, and added check 34 for the ladder **axis** while
+  leaving the list itself untouched. So the document under-counted its own
+  figures for one more merge, and PR #452 corrected the list by hand again.
+
+Check 34 catches the *event* that stales the list — a ladder record arriving, or
+the runner's ladder widening. It cannot catch the staleness, because it never
+reads the list. Check 30's defect shape, one sentence further down: the
+enumeration goes false while every number beside it stays true.
+
+**What it grades.** One direction only: the enumeration must be a **superset**
+of the figures re-derived from the tree. A figure is *required* iff both halves
+of an intersection hold —
+
+1. the narrative **above** the sentence, inside the same top-level numbered
+   item, states it as an `mV` figure with unit-eliding chains followed; **and**
+2. a committed record under `sim/supply-impedance-sensitivity/records/` carries
+   it in that record's own `gnd_die pp (mV)` column; **and**
+3. that record runs an **undecoupled** DUT netlist.
+
+The first two halves each kill one measured parse hazard, and the check was filed
+(issue #450) rather than rushed alongside check 34 because a gate that fires on
+correct prose is *worse* than the hand-maintained note — it teaches the next
+pass to reword around the check:
+
+- **Unit-eliding chains.** The document writes `` `72.130` → `67.307` →
+  `137.093 mV` ``, where only the last figure carries its unit. A
+  three-decimals-plus-`mV` scan finds one of those three and misses exactly the
+  figures that went stale. So figures are read as *chains*: a maximal run of
+  three-decimal atoms joined only by the separators the document actually uses
+  (arrow, slash, comma, "and"/"or", plus the backticks and bold markers around
+  them), and every atom of a chain counts when any atom carries the unit. Any
+  intervening **word** ends the chain, which is what keeps `**37.274 mV** of it
+  to the bond inductance alone (`0.059 mV` remains ...)` from being read as one.
+  The enumeration sentence is itself such a chain, so both sides of the
+  comparison are parsed with the same reader.
+- **Unrelated `mV` figures at the same precision.** The same section states
+  `0.001`, `0.380` and `67.190 mV`, none of which is a supply-return excursion —
+  and the narrative itself states a `2.070 mV` cross-record difference precisely
+  in order to say it is **not** a measurement (the cross-host `pp` reading rule).
+  Requiring any of those to be qualified as an undecoupled upper bound would fail
+  the gate on correct prose. Half (2) makes them mechanically out of scope: no
+  record row carries them.
+
+The excursion column is located **by header name**, not by index, because this
+campaign's writers emit two different table layouts around it
+(`| corner-id | arm | gnd_die pp (mV) | ...` for an arm comparison or corner
+grid, `| point | gnd_die pp (mV) | ...` for a sweep or a ladder). The `ideal`
+arm's `0.000` is dropped from the derived set: an ideal source holds the die node
+at exactly 0 V, so that row is a mechanical control rather than a measured
+excursion.
+
+**The third half is what the word *undecoupled* itself requires, and it is not
+hypothetical.** DR-017 landed on-die decoupling, and this campaign's newest
+record (`20260926-050045-8e62675`, the ratified nine-point grid across all five
+arms) runs the **decoupled** netlist — a different DUT sha256 from every earlier
+record of the same campaign. PR #457 narrated its figures in the same §7 item,
+and this check flagged them on its first run against the rebased tree: they are
+real, they are stated above the sentence, and they are **not** undecoupled upper
+bounds. Requiring them would make the gate demand the document assert something
+false — the fire-on-correct-prose failure in its most damaging form.
+
+The undecoupled DUT is re-derived from the records rather than pinned in the
+script: a record that *is* the undecoupled case says so in its own Assumptions
+section (`- **No decoupling, on-die or on-board** ...`), and every record sharing
+that record's `DUT netlist sha256` is the same netlist, so three of the five live
+undecoupled records inherit the declaration without repeating it. A future re-run
+with decoupling in the netlist drops out of the required set on the day it lands,
+with nothing here to update. The match is on the **assumption bullet** and never
+on the word "decoupling" anywhere in the record: every record of this campaign,
+the decoupled one included, narrates "an undecoupled series inductance ..." in
+its cost section, so a word search would put the decoupled DUT in the
+undecoupled set and silently re-admit its figures. Check 33's `DECOUPLING_LEAD_RE`
+draws the same distinction for the same reason.
+
+**Why one-directional.** The committed set is legitimately *larger* than what the
+document quotes — the 45-point corner grid and the 2-D sweep box carry interior
+points (`0.056`, `22.556`, `40.688`, `101.539 mV` and the grid's own 45 rows)
+that the document never states, and requiring them would be a different, much
+stronger claim than the sentence makes. The enumeration is also legitimately
+larger than the required set: `37.274 mV` is a one-element ablation *attribution*
+that no record row carries, and it belongs in the list. So the check demands
+coverage and never completeness in the other direction.
+
+**The vacuity guard, in both of its shapes.** A superset check whose derived set
+is empty passes by grading nothing — the trap checks 4, 6 and 30–34 each needed
+a guard for, and the one this shape is most exposed to. Two guards, pointing
+opposite ways:
+
+- An enumeration sentence **present** with no required figure above it in the
+  same numbered item is itself a **finding** ("the sentence grades nothing"):
+  that is what an item renumbered away, or a narrative moved out from under the
+  sentence, looks like, and it must be loud rather than silent.
+- An enumeration sentence **absent** is a finding only when the document cites
+  `sim/supply-impedance-sensitivity/` (checks 31, 32 and 34's anchor — deleting
+  the inconvenient sentence must not unqualify the figures above it) **and** one
+  numbered item states at least **two** of the campaign's record excursion
+  figures. One figure quoted in passing is a citation, which checks 3, 4, 22 and
+  23 already grade; the enumeration exists because a single item accumulates a
+  list. Measured, not assumed: the gate's own rationale document — this file —
+  quotes `65.237 mV` once, and without that bound the check would demand the
+  whole qualifier sentence of it.
+
+**What this check deliberately does NOT cover.** It does not grade the *wording*
+of the qualifier beyond the claim clause it is anchored on, and it does not grade
+whether each enumerated figure is still the figure its record carries — that is
+checks 3, 12 and 22's business. It does not read figures outside the numbered
+item the sentence sits in, so a future pass that states an excursion figure in a
+*neighbouring* item is not gated by this sentence (there are several
+same-precision `mV` figures in those items, which is the reason for the bound).
+And when no record under `sim/supply-impedance-sensitivity/records/` declares an
+undecoupled DUT, or no such record carries the `gnd_die pp (mV)` column at all,
+it reports **nothing** rather than an empty required set — checks 31, 32 and 34's
+rule: there is no tree-side figure to compare against, and inventing one would
+make the gate the author of a claim.
+
+### Check 36 -- the present-tense mismatch count in prose (`check_present_tense_mismatch`)
+
+The one figure in this document that is **both** stated in prose **and** stated
+in the present tense: the composed top level's `klt lvs` mismatch count.
+
+Section 4 introduces check 9's readout as "the document's single present-tense
+statement" of those numbers, and gives the reason it had to become one -- the
+numbers move, and on each earlier move it was a human re-read, not a check, that
+carried them forward. **The claim was not true of the document that made it.**
+Six passages in Sections 3 and 7 restated the mismatch count in prose, in three
+forms, and check 9 can see none of them: it matches the readout blockquote's own
+sentence and nothing else.
+
+- `N mismatches on the current record`
+- `currently N mismatches`
+- `the N-mismatch LVS gap`
+
+The drift, measured rather than imagined: issue #440 placed DR-017's two
+per-domain decoupling capacitors (PR #466, 2026-09-26), both sides of the compare
+gained the two devices, and the count moved 88 -> 89 with one further
+`device.unmatched` entry. Check 9's readout moved with the record and so did the
+Section 4 row citing it; **all six prose passages still read 88**, three of them
+inside paragraphs the same PR had just edited to name the new record.
+
+**Why three forms and not a figure scan.** The "What the gate deliberately does
+not cover" section below says Section 7's prose figures are not graded, and gives
+a good reason: that section narrates superseded records paragraph by paragraph,
+so grading its dated figures as present-tense claims would fail the gate on
+correct prose, and the fix would be to rewrite the supersession trail the gate
+exists to protect. That reason survives intact here, because each of these three
+forms names the **current** record in so many words. `88 mismatches at the
+2026-09-24 hop` and `98 on every record through 2026-09-23` are dated historical
+statements and stay ungraded; `88 mismatches on the current record` is a claim
+about whatever `reports/LATEST` resolves to today, for which there is exactly one
+true value. A finding's own message names both dispositions, so the fix is
+either restating the figure or dating it -- never deleting it.
+
+**Which flow it grades against, and why that is not pinned here.** The composing
+flow is the one whose current `compose.json` takes in at least one `blocks[]`
+entry whose `source` is a **cell** -- a stream that run did not produce, i.e.
+another flow's record. Every other flow in this tree composes only cells it
+generates in-flow, or composes nothing at all, so `layout/sar-adc-top/` is
+identified from the tree rather than by name. That distinction is load-bearing
+and was measured: `layout/comparator/` and `layout/sampling-frontend/` each
+report **1** mismatch on their own current records, so a check that graded
+against every flow carrying a `compose.json` would let `1 mismatches on the
+current record` pass against the wrong flow. The set is narrowed once more to
+flows the document states a check-9 readout for: that readout is where the fix
+for a finding here is pasted from, so a flow the document never reads out is one
+it could not be told to restate.
+
+**What this check deliberately does NOT cover.** It does not grade any other
+field of the compare (device, net or pin counts, or the category mix) in prose --
+only the mismatch count, which is the figure the document restates and the one
+that moved. It does not grade the *dated* forms, above. It does not fire on a
+document that states none of the three forms: pointing at the readout instead of
+repeating the figure is the preferred shape, not a hole. And it cannot stop a
+future pass from inventing a fourth present-tense phrasing -- what it can do, and
+does, is make the three the document actually uses mechanical, so the specific
+recurrence that has now happened once cannot happen silently again.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the
@@ -1386,6 +1922,12 @@ paragraph by paragraph, whereas a Section 4 row is a verdict that must stand
 on current evidence -- which is also how issue #121's own acceptance criteria
 and Test Plan frame it ("every spec-row verdict ... traces to ... a dated
 `sim/`/`layout/` record cited by path").
+
+Check 36 is the one narrow exception to that scoping, and it is an exception
+that does not weaken the reason: it grades three prose forms that each name the
+**current** record in so many words, and leaves every dated form of the same
+figure alone. See its entry above for why a general figure scan over Section 7
+would fail the gate on correct prose.
 
 ## Adding a check
 

@@ -101,7 +101,12 @@ ROWS: tuple[Row, ...] = (
             "sampling front end's own acquisition mechanism (the fourth) "
             "after it was found to fail the DR-006 phase budget at every "
             "ratified corner; re-measured against the full grid, it now "
-            "clears the budget at all 9."
+            "clears the budget at all 9. Mechanism (d) has additionally been "
+            "taken to the same 9-point grid at the ASSEMBLED top-plate load "
+            "(the sampling front end AND the real CDAC array on TOP_P/TOP_N, "
+            "as design/sar_adc_top.sch wires them -- roughly double the "
+            "capacitance the front-end-only grid above carries), which is "
+            "the load the top level actually presents (issue #469)."
         ),
         verdict=(
             "UNMEASURED as an end-to-end sample-rate figure (four "
@@ -113,7 +118,12 @@ ROWS: tuple[Row, ...] = (
             "control (9/9 corners HELD) and also clears the budget at "
             "every corner, and the sampling front end's own acquisition "
             "(the sole mechanism that previously failed at every corner) "
-            "now also clears it at all 9, after issue #236's circuit fix. "
+            "now also clears it at all 9, after issue #236's circuit fix, "
+            "AND clears it at all 9 again when re-measured at the assembled "
+            "front-end + CDAC top-plate load rather than the front end "
+            "alone (worst case 0.926 mV at `tt_27c_1.62v`, 0.53x the "
+            "provisional differential half-LSB reference scale, against the "
+            "front-end-only grid's 0.380 mV at the same corner). "
             "Separately (issue #254): the first WHOLE-ADC transient (not a "
             "per-mechanism probe) drove the committed `design/sar_adc_top."
             "spice` through complete conversions at the DR-006 worst-case "
@@ -217,7 +227,26 @@ ROWS: tuple[Row, ...] = (
             "`tt_27c_1.62v` at 0.380 mV (~0.2x the half-LSB) vs. that same "
             "corner's pre-fix 67.190 mV (~38.2x). This mechanism is no "
             "longer the standout bottleneck of the four -- all four now "
-            "clear the budget at every ratified corner. Three things this "
+            "clear the budget at every ratified corner. **That grid reads "
+            "the front-end fragment ALONE, and issue #469 re-ran it at the "
+            "load the top level actually presents**: `sim/sampling-cdac-"
+            "handoff/`'s combined circuit ties the same TOP_P/TOP_N to the "
+            "real CDAC array as well, adding the array's own ~4.43 pF/side "
+            "of bit capacitance to the front end's own ~4.43 pF/side. Same "
+            "stimulus, same probe instants, same 9 ratified points, only the "
+            "load differs: ALL 9/9 corners still clear the budget, binding "
+            "corner `tt_27c_1.62v` at 0.926 mV (0.53x the half-LSB "
+            "reference scale) against the front-end-only grid's 0.380 mV at "
+            "that same corner, every other corner at or below 0.053 mV. The "
+            "doubled load therefore costs a factor ~2.4 at the binding "
+            "corner and still lands inside the reference scale everywhere, "
+            "which is what makes mechanism (d)'s PVT-complete status a "
+            "statement about the assembled load rather than about the front "
+            "end in isolation. The one pre-existing combined-load figure in "
+            "the tree (5.33 mV single-ended at a single directional `ss` "
+            "point, pre-#236, and a different quantity -- the error at the "
+            "end of a 400 ns SAMPLE window, not the residual at the DR-006 "
+            "budget) is retired by that grid rather than by argument. Three things this "
             "fix touches are explicitly NOT yet re-derived: "
             "`sim/vcm-drive-budget/`'s R_source/C_decouple budget (a wider "
             "`Cmsw` draws more peak current from the shared `VCM` rail), "
@@ -372,6 +401,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
+            "sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
             "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
         ),
