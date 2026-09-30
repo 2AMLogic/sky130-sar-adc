@@ -50,7 +50,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -64,6 +63,7 @@ from _lvs_reference_common import (  # noqa: E402
     _extract_cdl_subckt,
     _resolve_pdk_root,
     parse_verilog_netlist,
+    top_level_subckt_body,
 )
 
 DEFAULT_SPICE = REPO_ROOT / "design" / "sar_adc_top.spice"
@@ -76,29 +76,17 @@ PIN_ORDER_CACHE = BLOCK_DIR / "netlist" / "sky130_fd_sc_hd-pin-order.json"
 #: only equivalent if these are the nets they resolve to.
 SUPPLY_DEFAULTS = {"VGND": "VGND", "VNB": "VGND", "VPB": "VPWR", "VPWR": "VPWR"}
 
-_TOP_SUBCKT_RE = re.compile(r"^\*\*\.subckt\s+sar_adc_top\b", re.M)
-_ENDS_RE = re.compile(r"^\*\*\.ends\b", re.M)
-
 
 def _top_level_body(spice_text: str) -> str:
     """The `sar_adc_top` subcircuit body only.
 
-    `design/regen_netlist.sh` writes xschem's own full-hierarchy dump: the
-    top-level subcircuit comes first, delimited by the commented-out
-    `**.subckt sar_adc_top ...` / `**.ends` pair xschem emits for the top
-    cell, followed by every sub-block's own real `.subckt`. Slicing to that
-    first region is what makes "the instances the top level adds, inside no
-    sub-block" a mechanical question rather than a judgement.
+    Delegates to `layout/bin/_lvs_reference_common.py`'s
+    `top_level_subckt_body()` since issue #495, which needed the same slice
+    for the half-LSB offset network's own parity gate. The regexes and the
+    two `SystemExit` messages moved there verbatim; this wrapper stays so the
+    rest of this module reads unchanged.
     """
-    start = _TOP_SUBCKT_RE.search(spice_text)
-    if start is None:
-        raise SystemExit(
-            "check-schematic-parity.py: no '**.subckt sar_adc_top' line found"
-        )
-    end = _ENDS_RE.search(spice_text, start.end())
-    if end is None:
-        raise SystemExit("check-schematic-parity.py: no '**.ends' line after sar_adc_top")
-    return spice_text[start.end() : end.start()]
+    return top_level_subckt_body(spice_text)
 
 
 def top_level_cell_types(spice_path: Path) -> list[str]:

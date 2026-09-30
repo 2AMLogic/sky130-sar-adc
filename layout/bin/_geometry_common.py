@@ -30,6 +30,25 @@ those two consumers; `comparator` does not use either check). Each consumer
 still owns its own `tap_shapes()` *wrapper*: `comparator`'s returns a `Pin`,
 the other two return `(shapes, cx, cy)` -- see `tap_shapes()`'s own
 docstring below for why the shared core stays shape-only.
+
+Since issue #495 it also houses the metal-stack layer table and
+`step_down_to_met1()` -- the "walk any generator port down to met1 before
+routing it" via-stack emitter `layout/sampling-frontend/bin/build_layout.py`
+worked out empirically (three layer cases, each with a DRC finding behind
+it) and `layout/halflsb-offset/bin/build_layout.py` needs verbatim, because
+both compose `klt gen cap_array` MiM units (met3 bottom-plate / met4
+top-plate ports) alongside `klt gen mos_array` devices (li1 S/G/D ports).
+The two copies are deliberately NOT yet folded into one: that function's
+output is the *drawn geometry* behind `layout/sampling-frontend/`'s
+committed DRC-clean / LVS-match record, and this repo's records are
+append-only, so re-pointing that flow at this copy is work that belongs with
+that flow's next re-run rather than with a sibling block's first one (the
+same staging `_pfet_devices.py`'s own header documents for issues
+#245--#248). What keeps the duplication honest meanwhile is mechanical, not
+a comment: `sim/tests/test_geometry_common_shared_helpers.py` drives both
+copies over every layer case and asserts the emitted shape lists are
+identical, so a divergence is a test failure and the eventual fold-in is a
+provable no-op.
 """
 from __future__ import annotations
 
@@ -85,6 +104,39 @@ L_LICON = (66, 44)
 L_LI1 = (67, 20)
 LICON_PITCH_UM = 0.60
 
+# --- metal stack: layers + cut/pad sizing, for `step_down_to_met1()` ---------
+# sky130A GDS numbers, as klt's own curated deck names them. Each consumer that
+# also uses these layers for its OWN wiring keeps its own module-level copy of
+# the names it needs (`layout/sampling-frontend/bin/build_layout.py` does),
+# byte-identical to these, exactly the way `WIRE_UM` above is already carried
+# twice -- this copy only fixes what the shared step-down emitter draws.
+L_MCON = (67, 44)
+L_MET1 = (68, 20)
+L_VIA1 = (68, 44)
+L_MET2 = (69, 20)
+L_VIA2 = (69, 44)
+L_MET3 = (70, 20)
+L_VIA3 = (70, 44)
+L_MET4 = (71, 20)
+
+MCON_UM = 0.17
+VIA1_UM = 0.15  # via1 square side (via1.width min 0.15), proven DRC-clean
+# against met1/met2.enclosing.via.1's 0.055um threshold with a 0.30um pad.
+VIA23_UM = 0.20  # via2/via3 square side (via2/via3.width min 0.20 -- a
+# DIFFERENT, larger minimum than via1's 0.15; found directly building
+# `layout/sampling-frontend/`, as via2.width.1 violations at 0.15).
+STACK_PAD_UM = 0.42  # landing pad for a stacked via cut (the same pad size
+# `klt gen`'s own gate_contact uses), so a 0.20um via2/via3 lands with
+# >= 0.11um enclosure on every side.
+MET3_ISLAND_PAD_UM = 0.50  # a met3 pad that is the ONLY met3 shape at its own
+# (x, y) has to satisfy sky130A's met3 MINIMUM-AREA rule (`m3.6`, 0.240um^2)
+# on its own; a STACK_PAD_UM square is 0.1764um^2, below it and invisible to
+# `klt drc`'s curated deck (issue #326). 0.50^2 = 0.25um^2 clears it.
+MET3_VIA_INSET_UM = 0.20  # a `cap_array` *_BOT port's reported x sits right AT
+# the bottom plate's own edge, so landing a via2 there pokes past met3's
+# boundary and fails met3.enclosing.via2. Step the landing this far INTO the
+# plate instead.
+
 
 def tap_shapes(spec: dict, licon_um: float) -> list[tuple[tuple[int, int], "Rect"]]:
     """Shared core of one tap/well-tie structure: tap+li1 strip, licon1 column.
@@ -121,11 +173,103 @@ def tap_shapes(spec: dict, licon_um: float) -> list[tuple[tuple[int, int], "Rect
 class BuildError(RuntimeError):
     """A `build_layout.py` script's own build-time invariant was violated.
 
-    Shared by `layout/sampling-frontend/bin/build_layout.py` and
+    Shared by `layout/sampling-frontend/bin/build_layout.py`,
     `layout/sampling-frontend-wells/bin/build_layout.py` (both raised this
-    same, byte-identical exception class locally before this extraction);
-    `layout/comparator/bin/build_layout.py` does not use it.
+    same, byte-identical exception class locally before this extraction) and
+    `layout/halflsb-offset/bin/build_layout.py`;
+    `layout/comparator/bin/build_layout.py` does not use it. Defined above
+    `step_down_to_met1()`, which raises it.
     """
+
+
+def step_down_to_met1(
+    shapes: list[tuple[tuple[int, int], "Rect"]],
+    x: float,
+    y: float,
+    layer: tuple[int, int],
+    direction: float,
+    met4_escape_y: float | None = None,
+) -> tuple[float, float]:
+    """Emit whatever via stack reaches met1 from ``layer``, and return the
+    **effective** (x, y) the caller should treat as the pin's location from
+    here on (usually the input point unchanged; see the ``L_MET3`` and
+    ``L_MET4`` cases).
+
+    Why every pin -- not just an li1 one -- ends up on met1: a net's met2
+    track is one long horizontal rectangle spanning every column x that net
+    touches. If a *different* net's riser also rode on met2 below its own
+    track (which every cap-originated pin would, absent this rule, since it
+    starts on met2 already), it would physically cross every lower-numbered
+    net's met2 track at whatever x it shares with them -- an unconditional
+    short between two unrelated nets, on the very layer that carries the whole
+    track scheme. Met1 has no such hazard: it carries nothing but per-pin
+    columns, so any column may freely underpass any net's met2 track.
+
+    Extracted verbatim (issue #495) from
+    `layout/sampling-frontend/bin/build_layout.py`'s own
+    `_step_down_to_met1`, which is still the live copy that flow's committed
+    record was drawn with -- see this module's header for why both exist and
+    for the test that holds them identical.
+    """
+    if layer == L_LI1:
+        shapes.append((L_MCON, Rect.centred(x, y, MCON_UM, MCON_UM)))
+        return x, y
+    if layer == L_MET3:
+        # A `cap_array` *_BOT port reports its position AT the bottom plate's
+        # own edge (direction 180 => the plate's left edge is x=0 in the
+        # block's local frame) -- landing a via2 exactly there would poke past
+        # met3's own boundary. Shift the via into the plate (direction 180
+        # faces -x, so "into the plate" is +x) by MET3_VIA_INSET_UM; the thin
+        # met3 strip between the reported edge and the via is already part of
+        # the same bottom-plate conductor, so no extra wire bridges it.
+        if direction == 180.0:
+            x = x + MET3_VIA_INSET_UM
+        shapes.append((L_MET2, Rect.centred(x, y, STACK_PAD_UM, STACK_PAD_UM)))
+        shapes.append((L_VIA2, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
+        # The FINAL met1 pad, unlike the via2/via3 landing pads above, only has
+        # to enclose via1 (0.15um) -- WIRE_UM (0.30) already clears that with
+        # margin, and matching it to the jog wire's own width avoids a corner
+        # notch a wider STACK_PAD_UM pad would leave between itself and the
+        # (narrower) hwire/riser, which read back as met1.space.1 when first
+        # built that way.
+        shapes.append((L_MET1, Rect.centred(x, y, WIRE_UM, WIRE_UM)))
+        shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
+        return x, y
+    if layer == L_MET4:
+        # A `cap_array` *_TOP port's own via3 + local met3 landing sit DIRECTLY
+        # ABOVE the bottom plate's own met3 sheet, which -- being a PLATE --
+        # covers the unit's ENTIRE footprint. Adding a second via3/met3 pad at
+        # the port's own (x, y) lands squarely inside that sheet and SHORTS the
+        # two plates together (measured while building
+        # `layout/sampling-frontend/`: `klt extract` reported the top- and
+        # bottom-plate nets merged into one). There is no offset inside the
+        # cell's footprint where a new met3 shape is safe.
+        #
+        # Fix: ride MET4 (which the bottom plate never touches) straight up and
+        # OUT of the cell's footprint first -- `met4_escape_y`, past the unit's
+        # own bbox top, supplied by the caller -- and only step down to
+        # met3/met2/met1 once clear of it.
+        if met4_escape_y is None:
+            raise BuildError("L_MET4 port requires met4_escape_y")
+        shapes.append((L_MET4, Rect.vwire(x, y, met4_escape_y)))
+        # An explicit landing pad at the escape point: the vertical wire alone
+        # only encloses via3 in x, not y (it ends exactly AT met4_escape_y, so
+        # via3's own half-width above that point would poke past the wire's own
+        # end -- a met4.enclosing.via3.1 violation found directly).
+        shapes.append((L_MET4, Rect.centred(x, met4_escape_y, STACK_PAD_UM, STACK_PAD_UM)))
+        y = met4_escape_y
+        # This met3 pad is the whole met3 shape at this point -- via3 lands on
+        # it from above, via2 leaves it from below, no met3 wire touches it --
+        # so it satisfies m3.6 on its own: MET3_ISLAND_PAD_UM, not
+        # STACK_PAD_UM (issue #326).
+        shapes.append((L_MET3, Rect.centred(x, y, MET3_ISLAND_PAD_UM, MET3_ISLAND_PAD_UM)))
+        shapes.append((L_VIA3, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
+        shapes.append((L_MET2, Rect.centred(x, y, STACK_PAD_UM, STACK_PAD_UM)))
+        shapes.append((L_VIA2, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
+        shapes.append((L_MET1, Rect.centred(x, y, WIRE_UM, WIRE_UM)))
+        shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
+        return x, y
+    raise BuildError(f"no met1 step-down rule for layer {layer!r}")
 
 
 def _assert_well_isolation(domains: list[dict], well_gap_um: float) -> None:

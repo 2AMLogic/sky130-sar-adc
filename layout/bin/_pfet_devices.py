@@ -1,5 +1,6 @@
 """Shared PFET device table for the sampling front end's two composition
-studies.
+studies, plus the shared `klt gen mos_array` parameter emitters every
+full-custom block in `layout/` draws its transistors with.
 
 Used by `layout/sampling-frontend-wells/bin/gen_blocks.py` (issue #122, the
 n-well/body-tie composition) and `layout/sampling-frontend/bin/gen_blocks.py`
@@ -31,6 +32,52 @@ reconciliation was still pending -- #248 folded that override back in here
 once both sub-blocks' flows were re-verified LVS-clean against the update.
 """
 from __future__ import annotations
+
+
+def mos_array_params(flavor: str, w_um: float, l_um: float) -> dict:
+    """The `klt gen mos_array` parameter dict this repo draws one unmatched,
+    single-finger `sky130_fd_pr__{n,p}fet_01v8` with.
+
+    `dummy: 0` because `klt gen mos_array`'s own dummy columns have no
+    schematic counterpart and would extract as real devices on a pin older
+    than 0.3.0 (see `layout/trivial-cell/reference.spice`'s header);
+    `gate_contact: true` because a 1x1 array's gate poly otherwise has no
+    licon1 landing for the router to reach.
+
+    Added as the shared spelling by issue #495 (the half-LSB offset network
+    draws six of these and had no business re-deriving the dict).
+    `layout/sampling-frontend/bin/gen_blocks.py`'s own `pfet_params`/
+    `nfet_params` are the byte-identical copy this was lifted from and are
+    deliberately left in place: their output is the drawn geometry behind
+    that flow's committed record, and `sim/tests/`'s own equivalence test
+    pins the two spellings together rather than a comment asserting it. See
+    `layout/bin/_geometry_common.py`'s header for the same staging applied to
+    `step_down_to_met1()`.
+    """
+    if flavor not in ("nfet", "pfet"):
+        raise ValueError(f"mos_array_params: unknown flavor {flavor!r}")
+    return {
+        "w_um": w_um,
+        "l_um": l_um,
+        "fingers": 1,
+        "rows": 1,
+        "cols": 1,
+        "dummy": 0,
+        "flavor": flavor,
+        "gate_contact": True,
+    }
+
+
+def pfet_params(w_um: float, l_um: float) -> dict:
+    """`mos_array_params("pfet", ...)` under the name the sampling front end's
+    own `gen_blocks.py` already uses."""
+    return mos_array_params("pfet", w_um, l_um)
+
+
+def nfet_params(w_um: float, l_um: float) -> dict:
+    """`mos_array_params("nfet", ...)`, ditto."""
+    return mos_array_params("nfet", w_um, l_um)
+
 
 #: The three n-well domains the PFETs partition into, in left-to-right
 #: floorplan order, mapped to the net each domain's well tap is routed to.
