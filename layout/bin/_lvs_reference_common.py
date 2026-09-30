@@ -22,6 +22,13 @@ scripts shared verbatim (issue #304): netlist/CDL existence checks,
 the output write + summary print. Each caller's own `main()` stays
 responsible only for its own per-block configuration (paths, `CELL_TYPES`,
 `top_ports`, comment header text) and calling this function.
+
+Since issue #495 it also houses `top_level_subckt_body()`, the
+`design/sar_adc_top.spice` slicer both schematic-parity gates need
+(`layout/top-glue/bin/check-schematic-parity.py`, whose copy it was lifted
+from, and `layout/halflsb-offset/bin/check-schematic-parity.py`). It is a
+pure text slice -- no PDK, no `klt` -- which is what keeps both gates
+runnable in CI's headless job.
 """
 from __future__ import annotations
 
@@ -32,6 +39,34 @@ from decimal import Decimal
 
 _MODULE_RE = re.compile(r"^module\s+(\w+)\s*\(", re.M)
 _PORT_CONN_RE = re.compile(r"\.\s*(\w+)\s*\(\s*([^()]*?)\s*\)")
+
+_TOP_SUBCKT_RE = re.compile(r"^\*\*\.subckt\s+sar_adc_top\b", re.M)
+_TOP_ENDS_RE = re.compile(r"^\*\*\.ends\b", re.M)
+
+
+def top_level_subckt_body(
+    spice_text: str, prog: str = "check-schematic-parity.py"
+) -> str:
+    """The `sar_adc_top` subcircuit body only, out of a full-hierarchy dump.
+
+    `design/regen_netlist.sh` writes xschem's own full-hierarchy dump: the
+    top-level subcircuit comes first, delimited by the commented-out
+    `**.subckt sar_adc_top ...` / `**.ends` pair xschem emits for the top
+    cell, followed by every sub-block's own real `.subckt`. Slicing to that
+    first region is what makes "the instances the top level adds, inside no
+    sub-block" a mechanical question rather than a judgement.
+
+    `prog` prefixes the `SystemExit` message so each caller keeps its own
+    name in its error output (issue #495 shares this between two gates that
+    happen to have the same filename).
+    """
+    start = _TOP_SUBCKT_RE.search(spice_text)
+    if start is None:
+        raise SystemExit(f"{prog}: no '**.subckt sar_adc_top' line found")
+    end = _TOP_ENDS_RE.search(spice_text, start.end())
+    if end is None:
+        raise SystemExit(f"{prog}: no '**.ends' line after sar_adc_top")
+    return spice_text[start.end() : end.start()]
 
 
 def parse_verilog_netlist(

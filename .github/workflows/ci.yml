@@ -112,6 +112,40 @@ name: CI
 #     later made unnecessary; what the gate requires is that nothing of that
 #     shape is what a verdict stands on TODAY. Finding no payload at all
 #     fails too, so a renamed directory cannot turn it into a silent pass.
+#   - The two **schematic-parity gates** are also part of `check:ci` ->
+#     `checks` below, and are likewise headless (pure text reads, no PDK, no
+#     `klt`): `layout/top-glue/bin/check-schematic-parity.py` (issue #387,
+#     `check:glue-parity`) for the 33 `sky130_fd_sc_hd` instances
+#     design/sar_adc_top.spice adds at its top level, and
+#     `layout/halflsb-offset/bin/check-schematic-parity.py` (issue #495,
+#     `check:halflsb-parity`) for the other 8, the `sky130_fd_pr` primitives of
+#     DR-009's half-LSB offset network -- device flavour, W, L, m/MF and every
+#     terminal net. Both exist because each block's LVS reference is GENERATED
+#     from that same netlist, so the LVS verdict is a flow agreeing with itself
+#     and cannot anchor the hand-transcribed layout-side device table. That is
+#     not a theoretical gap on the second one: `klt lvs` is measured to report
+#     a clean `match` against a reference whose HALF_LSB_EN/HALF_LSB_ENN gate
+#     connections are exchanged (NetlistComparer matches nets structurally, and
+#     both enables enter that network only as ports), i.e. DR-009's load-bearing
+#     enable polarity inverted is invisible to the verdict. Injected-defect
+#     negative controls for both live in
+#     sim/tests/test_top_glue_schematic_parity.py and
+#     sim/tests/test_halflsb_offset_schematic_parity.py -> `npm run test:unit`.
+#     These are always-on rather than PDK-gated for the same reason the two
+#     citation gates above are: the drift they catch is invisible to every
+#     verdict this repo records, so nothing else would turn a run red.
+#   - `sim/tests/test_halflsb_offset_side_congruence.py` (issue #495) reaches
+#     `checks` below through `check:ci` -> `npm run test` -> `test:unit`, and is
+#     likewise headless (stdlib only): it holds `layout/halflsb-offset/bin/
+#     build_layout.py`'s `_n`/`_p` congruence assertion -- DR-009's
+#     matching-dummy requirement, stated as a construction property -- able to
+#     FAIL. Every committed run is of a layout that IS congruent, so a
+#     vacuous assertion would look identical in the record; the tests drive it
+#     over a congruent positive control and six one-database-unit breaks and
+#     require each to raise, then read reports/LATEST's own
+#     layout.summary.json and fail if that run's verdict covered zero shapes.
+#     Neither DRC nor LVS can see this property at all: a layout that scattered
+#     the `_p` devices would be clean and would match.
 #   - `sim/tests/test_layout_entrypoint_imports.py` (issue #399) reaches
 #     `checks` below through `check:ci` -> `npm run test` -> `test:unit`, and is
 #     likewise headless (stdlib only, no PDK, no ngspice, no `klt`/KLayout): it

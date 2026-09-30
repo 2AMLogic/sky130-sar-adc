@@ -40,10 +40,17 @@ capacitor or a hand-sized analog switch, and the network's `BOT_OFF_N`/
 its placement is an analog-floorplan question rather than a row-placement one.
 It therefore needs a hand-drawn flow of its own, in the shape of
 `layout/sampling-frontend/` (device generators + `klt draw` + `klt
-gen-compose`), not an extra module in this bank. **Filed separately — see
-"Remaining work" below.** Until it lands, this block covers 33 of the 41
-top-level instances and the other 8 still have no drawn geometry anywhere
-under `layout/`.
+gen-compose`), not an extra module in this bank.
+
+**That flow now exists: `layout/halflsb-offset/` (issue #495), DRC-clean and
+LVS-clean.** Between the two directories, all 41 instances the integration
+schematic adds at the top level have drawn geometry. Read that block's README
+for one result this one should be read alongside: `klt lvs` reports a clean
+`match` against a reference whose `HALF_LSB_EN`/`HALF_LSB_ENN` gate connections
+are *exchanged*, because `NetlistComparer` matches nets structurally and both
+enables enter that network only as ports — the same "the compare has no
+independent anchor" lesson this directory was filed over, met again with a
+different mechanism.
 
 `DOUT9N` is deliberately **not** a port of this macro: nothing outside it
 consumes the sign-bit complement, so it stays internal and the top-level
@@ -240,8 +247,12 @@ recomposition that replaces it with this block, issue #401 — see below.
 This block is one of the three pieces issue #387 identified. The other two are
 filed separately and this directory does **not** claim them:
 
-- **DR-009's half-LSB offset network** (the 8 `sky130_fd_pr` primitives above)
-  still has no drawn geometry — issue #400.
+- **DR-009's half-LSB offset network** (the 8 `sky130_fd_pr` primitives above) —
+  **landed as `layout/halflsb-offset/` (issue #495**, refiled from #400), which
+  draws all eight, reaches `klt drc` CLEAN and `klt lvs` `match` against a
+  reference derived from `design/sar_adc_top.spice`, and carries a
+  schematic-parity gate of its own (`npm run check:halflsb-parity`) built in the
+  shape of `bin/check-schematic-parity.py` here.
 - **`layout/sar-adc-top/`'s composition and its LVS reference** still implement
   issue #56's superseded glue: `build_layout.py` still places
   `seln_inverters`, and `generate-lvs-reference.py`'s `TOP_SUBCKT` wrapper

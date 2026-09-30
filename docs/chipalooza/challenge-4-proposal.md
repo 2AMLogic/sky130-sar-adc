@@ -2738,25 +2738,36 @@ tracker already owns.
    a rebase read, not necessarily a conflict) without itself acting on it —
    a read that has since hardened into an actual conflict (see the
    2026-09-26 update at the end of this item).
-   None of this changes what #401 waits on: PR #402 still has to merge, by a
-   human, and this document still only reports that state rather than acting
-   on it, the same restraint it already states for #103. So `layout/top-glue/`
-   — present in PR #402's own diff, though not yet in `origin/main` until
-   that PR merges — and `layout/halflsb-offset/` (not in this tree), which no
-   open PR currently carries, are both still absent from `origin/main` —
-   `git ls-tree -r origin/main --name-only` returns neither — and §3 and §4
-   still cite no record from either flow, because there is none to cite
-   there yet.
+   None of this changed what #401 waited on: PR #402 still had to merge, by a
+   human, and this document only reported that state rather than acting on it,
+   the same restraint it already states for #103.
+
+   **Both of those absences have since ended** (2026-09-30). PR #402 was merged
+   by a human at 12:48Z, landing `layout/top-glue/`; `layout/halflsb-offset/`
+   followed as issue #495 (refiled from the closed #400), which draws DR-009's
+   eight-primitive half-LSB offset network and reaches `klt drc` CLEAN and `klt
+   lvs` `match` against a reference derived from `design/sar_adc_top.spice`.
+   Both paths are now ordinary citations that check 2 resolves, which is why the
+   "not in this tree" marker each carried is gone — check 29 (below) is what
+   forced this paragraph to be restated rather than rotting.
+   §3 and §4 still cite no record from either flow, and that part has **not**
+   changed: what is still missing is #401, the re-composition of
+   `layout/sar-adc-top/` that has to place both blocks and re-derive the
+   top-level LVS reference in one pass. Until that runs, the composed extent
+   §4's Area row quotes remains the extent of an assembly that omits both.
 
    **Nothing a number in this document depends on moves**, for the same
    reason the split itself moved none when it was recorded: the composed
    extent §4's Area row quotes is still the extent of an assembly that omits
    this glue (a floor on the real top-level area, not an estimate), the LVS
    mismatch count is the same category mix over the same nets, and both §4
-   sign-off-bar rows keep the verdicts they already carry. What does change
-   is that the two absent paths above are **named rather than gestured at,
-   and their absence is machine-checked**. Until this pass they could not be
-   named: the citation gate's own path check (check 2) fails on any backticked
+   sign-off-bar rows keep the verdicts they already carry — and that is still
+   true now that both blocks have landed, because #401's re-composition is
+   what would move them and it has not run. What changed at the pass that
+   recorded the split is that the two then-absent paths above were **named
+   rather than gestured at, and their absence machine-checked** — a check that
+   has since fired, which is what forced the restatement above. Until that
+   pass they could not be named: the citation gate's own path check (check 2) fails on any backticked
    path into this repo's trees that does not resolve, so the only sayable form
    was the vague "no such flow exists under [`layout/`](../../layout/)" the
    paragraph above uses — and a vague absence claim is exactly the kind that
@@ -4939,9 +4950,9 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **70** of the **70** records under `sim/*/records/` name both an
-  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **73**
-  > records under `layout/*/reports/` and `layout/*/erc-reports/` **72** name
-  > a `klt` version and **38** name the `open_pdks` commit.
+  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **74**
+  > records under `layout/*/reports/` and `layout/*/erc-reports/` **73** name
+  > a `klt` version and **39** name the `open_pdks` commit.
 
   The `sim/` half is uniform because `sim/run_corners.py --check-env`
   resolves and enforces the pin before any corner runs (`sim/toolchain.json`,
@@ -4957,7 +4968,7 @@ and is not claimed to be met.
   leaves the tree, graded in both directions by check 30 of the
   [citation gate](check_proposal_citations.py):
 
-  > of the **10** record-minting entry points under `layout/`, **10** resolve
+  > of the **11** record-minting entry points under `layout/`, **11** resolve
   > the `open_pdks` commit before writing a record and **0** do not:
   > **none** — every entry point resolves it.
 
@@ -4967,7 +4978,15 @@ and is not claimed to be met.
   without a change of its own. Its two committed records
   (`20260925-043546-0259924`, `20260925-045851-0259924`) were minted before
   #420 landed and name only the PDK variant. That is why the layout record
-  count rises by two while the `open_pdks`-commit count stays at 38.
+  count rose by two while the `open_pdks`-commit count stayed at 38.
+
+  The eleventh is `layout/halflsb-offset/`'s `bin/render-record.py` (issue
+  #495), which resolves it by calling `_record_common_strict`'s
+  `resolve_pdk_info_strict` — the strict-discipline counterpart #474 extracted —
+  so it too pins without a change of its own. Unlike top-glue's, its one
+  committed record was minted after that helper existed and *does* name the
+  commit, which is why this landing moves the record census in both columns
+  (73 → 74 records, 38 → 39 naming the commit) rather than only the first.
 
   The second reason is unchanged and is not #407's to close: **`klt`'s own
   provenance stamps no PDK at all** for the invocations these flows use —
@@ -4999,3 +5018,15 @@ and is not claimed to be met.
   mechanical reason, that campaign's own new `--decap-esr` record. So neither
   half's move is a claim about tooling; each is one more re-run's worth of the
   history the paragraph above says can only retire this way.
+
+  **Two new flows have since moved the same numbers a third way** — not by
+  re-running an existing flow but by adding one. PR #402's
+  `layout/top-glue/` took the record census 71 → 73 while leaving the
+  commit-naming count at 38 (both its records predate #420's helper), and issue
+  #495's `layout/halflsb-offset/` took it 73 → **74** and the commit-naming
+  count 38 → **39** (its one record postdates that helper and names the
+  commit). The renderer census moved 9 → 10 → **11 of 11** across the same two
+  landings, with no renderer change in either: both new flows pin by calling a
+  shared helper that already did. That is the leading indicator behaving as
+  intended — a new entry point inherits the pin instead of having to be
+  remembered.

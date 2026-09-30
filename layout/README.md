@@ -36,7 +36,18 @@ eighteen `and2_1` decision-directed `SELp<i>`/`SELn<i>` drivers and nine
 `xor2_1` readout recode, DR-009's dummy comparator load and half-LSB enable,
 and the `xinv_clkcap`/`xinv_dout9n` inverters — placed and routed via `klt
 place-and-route` like `sar-sequencer/`, and gated instance-for-instance against
-`design/sar_adc_top.spice` on every run and in CI. `seln-inverters/` is its
+`design/sar_adc_top.spice` on every run and in CI.
+`halflsb-offset/` is the **non-standard-cell other half of that same region**
+(issue #495, DRC-clean and LVS-clean): the 8 `sky130_fd_pr` primitives DR-009
+item 2's half-LSB quantizer offset and its matching dummy add — two
+`cap_mim_m3_1` plus six hand-sized `nfet_01v8`/`pfet_01v8` switches — drawn in
+`sampling-frontend/`'s shape (device generators + `klt draw` + `klt gen-compose`
+as a placer), because `klt place-and-route` has no notion of a MiM capacitor or
+an analog switch. It carries a schematic-parity gate of its own and two results
+worth reading beyond the verdicts: the `_n`/`_p` matching DR-009 requires is a
+build-time **geometric congruence assertion** rather than prose, and `klt lvs`
+is measured to report a clean `match` against a reference whose half-LSB enable
+polarity is inverted — see that directory's README. `seln-inverters/` is its
 **superseded predecessor** (nine `sky130_fd_sc_hd__inv_1` computing
 `SELn<i> = NOT(DOUT<i>)`, issue #56's wiring, which DR-008 retired on
 2026-09-11); it is kept only because `sar-adc-top/`'s composition still
@@ -125,8 +136,12 @@ layout/
   cdac-array/                      # differential CDAC array (issue #100)
   comparator/                      # dynamic comparator (issue #101)
   sampling-frontend-wells/         # sampling front end n-well isolation (issue #122)
+  sampling-frontend/               # full sampling front end (issue #99)
   sar-sequencer/                   # SAR logic/sequencer (issue #102)
   top-glue/                        # top-level standard-cell glue bank, 33 cells (issue #387)
+  halflsb-offset/                  # DR-009's half-LSB offset network, 8 sky130_fd_pr
+                                   # primitives -- the non-standard-cell other half of the
+                                   # same top-level region (issue #495)
   seln-inverters/                  # SUPERSEDED by top-glue/ -- SELn<i>=NOT(DOUT<i>) bank (issues #103, #387)
   sar-adc-top/                     # top-level assembly (issue #103, in progress; still composes
                                    # seln-inverters/ rather than top-glue/ -- issue #387)
