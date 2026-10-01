@@ -205,7 +205,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 
 - **Status**: RATIFIED
 - **Claim class**: `ratified-measured`
-- **Note**: C_u ~= 8.65 fF, 2^9 = 512 positions/side, RATIFIED (DR-003 via #27). Graded structurally (the deck's own device sizing and array population) plus functionally (monotonicity and polarity) at every point of the ratified corner set.
+- **Note**: C_u ~= 8.66 fF (1.9000 um square plate, 5 nm-grid-legal), 2^9 = 512 positions/side, RATIFIED (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496). UPDATE (2026-09-30, DR-019 via #496): the ratified unit-cap plate side moved from 1.8988 um to 1.9000 um -- the smallest 5 nm manufacturing-grid-legal side at or above this row's own matching floor -- so C_u moved 8.65 -> 8.66 fF (+0.116%); this note previously restated the pre-resize 8.65 fF figure as the current ratified value. Graded structurally (the deck's own device sizing and array population) plus functionally (monotonicity and polarity) at every point of the ratified corner set.
 
 **`sim/cdac-array-transfer`** — Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).
 
