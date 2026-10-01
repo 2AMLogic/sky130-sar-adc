@@ -530,7 +530,7 @@ than inferred from the resize's intent** (`20261001-211249-1ca34e6` vs. the
 - **The composed `bbox_um` does not move, field by field**: `x0` −30.25, `y0`
   −161.6, `x1` 260.25, `y1` 224.6 on both records, i.e. 290.500 × 386.200 µm =
   112191.100 µm². §4's **Area** row is therefore re-pointed, not restated — a
-  12 nm per-plate growth inside `cdac_array` does not reach the composition's
+  2 nm per-plate growth inside `cdac_array` does not reach the composition's
   extent, which had to be checked rather than assumed.
 - **Not one LVS field moves**: still `mismatch` at **67** mismatches / **66**
   errors, the same four categories (`device.unmatched` 49, `net.merged` 9,
