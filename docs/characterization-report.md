@@ -36,7 +36,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 - **Status**: RATIFIED
 - **Conditions**: Full ratified corner set: process {ff, fs, sf, ss, tt} x temperature {-40, 27, 125} C x supply {1.62, 1.8, 1.98} V, 9 one-at-a-time points (sim/README.md 'Corner-grid shape').
 - **Verdict**: PASS (9/9 corners)
-- **Notes**: Confirms MSB-first bit-by-bit capture of all 10 output bits, correct clock/phase sequencing, and the ring sequencer's auto-restart, at every bound corner. The CDAC array's own 9-bit sub-array realizes only 512 positions/side; the 10th (sign) bit comes from the top-level differential structure, per `sim/cdac-array-transfer/records/20260828-005006-0c70212.md`'s own 'UNITS / scope note' -- not independently re-verified by this row's own citation.
+- **Notes**: Confirms MSB-first bit-by-bit capture of all 10 output bits, correct clock/phase sequencing, and the ring sequencer's auto-restart, at every bound corner. The CDAC array's own 9-bit sub-array realizes only 512 positions/side; the 10th (sign) bit comes from the top-level differential structure, per `sim/cdac-array-transfer/records/20261001-124049-5207381.md`'s own 'UNITS / scope note' -- not independently re-verified by this row's own citation.
 
 **Evidence:**
 
@@ -57,7 +57,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 - `sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md` (Record ID `20260905-220919-bbf06dd`, Supersedes: (none))
   - Result: (no Overall/Statistical convention/Measured value(s) field found)
   - Claim: quantifies, for the first time in this repo, how long the CDAC array's own shared top-plate node (`design/cdac/cdac_array.sch`) takes to settle after a single bit's SEL toggles at the start of its own bit-trial phase, i…
-- `sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md` (Record ID `20260907-013225-5f176a6`, Supersedes: (none))
+- `sim/cdac-bit-trial-settling/records/20261001-121228-40468b2.md` (Record ID `20261001-121228-40468b2`, Supersedes: (none))
   - Result: (no Overall/Statistical convention/Measured value(s) field found)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: extends the single-corner (tt/27C/1.8V) finding in [`records/20260905-220919-bbf06dd.md`](20260905-220919-bbf06dd.md) -- that the CDAC array's own shared top-plate node (`design/cdac/cdac_array.sch`) settles well inside…
@@ -79,7 +79,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Result: (no Overall/Statistical convention/Measured value(s) field found)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: re-measures, at the FULL ratified PVT corner set (spec/target-spec.md's "Numeric rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130 process corners -- the same OAT grid sim/comparator-decision/'s ow…
-- `sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md` (Record ID `20260926-231457-ebf79e8`, Supersedes: (none))
+- `sim/sampling-cdac-handoff/records/20261001-111651-d3f190d.md` (Record ID `20261001-111651-d3f190d`, Supersedes: (none))
   - Result: (no Overall/Statistical convention/Measured value(s) field found)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: measures, for the first time in this repo, `docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2's fourth named sample-rate mechanism -- (d) the sampling front end's own acquisition of a NEW, worst-case (rail-to-ra…
@@ -87,7 +87,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Overall: FAIL (0/9 corners resolve every input to its ideal code +-1 LSB with a correct 12-period phase structure). This verdict is against this experiment's own informational criterion, NOT against a ratified spec row.
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#target-table` -- **Sample rate** and **Power**, both DRAFT rows, INFORMATIONAL only. This is the first end-to-end campaign that drives the whole transistor-level `design/sar_adc_top.spice` through c…
-- `sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md` (Record ID `20260912-002315-9aaf1ca`, Supersedes: 20260911-204111-a6df3bb)
+- `sim/full-conversion-transient/records/20261001-105439-c324f80.md` (Record ID `20261001-105439-c324f80`, Supersedes: 20260912-002315-9aaf1ca)
   - Overall: FAIL (0/9 corners resolve every input to its ideal code +-1 LSB with a correct 12-period phase structure). This verdict is against this experiment's own informational criterion, NOT against a ratified spec row.
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#target-table` -- **Sample rate** and **Power**, both DRAFT rows, INFORMATIONAL only. This is the first end-to-end campaign that drives the whole transistor-level `design/sar_adc_top.spice` through c…
@@ -114,13 +114,13 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20260828-005006-0c70212.md` (Record ID `20260828-005006-0c70212`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261001-124049-5207381.md` (Record ID `20261001-124049-5207381`, Supersedes: (none))
   - Overall: PASS (harness/negative-control validity; DNL/INL magnitude itself is reported informationally below against the DRAFT target, not gated as pass/fail -- the target row is not yet ratified)
   - Claim: `spec/target-spec.md#target-table` -- DNL/INL DRAFT target row (`<= +-1 LSB`, target value, NOT ratified: target-spec.md's own "Not ratified by this record" list names ENOB/INL-DNL target values as still open pending th…
-- `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md` (Record ID `20260827-213107-e13bc1e`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
-  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.65 fF`, `512` positions/side (all three RATIFIED, D…
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.66 fF`, `512` positions/side (all three RATIFIED, D…
 
 ### `V_REF`
 
@@ -131,10 +131,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md` (Record ID `20260827-213107-e13bc1e`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
-  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.65 fF`, `512` positions/side (all three RATIFIED, D…
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.66 fF`, `512` positions/side (all three RATIFIED, D…
 
 ### LSB (differential)
 
@@ -145,10 +145,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md` (Record ID `20260827-213107-e13bc1e`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
-  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.65 fF`, `512` positions/side (all three RATIFIED, D…
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.66 fF`, `512` positions/side (all three RATIFIED, D…
 
 ### Sampling cap (CDAC unit × array)
 
@@ -159,10 +159,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md` (Record ID `20260827-213107-e13bc1e`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
-  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.65 fF`, `512` positions/side (all three RATIFIED, D…
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.66 fF`, `512` positions/side (all three RATIFIED, D…
 - `layout/cdac-array/reports/20260905-220338-9fb9b04/record.md` (layout evidence -- see manifest.BLIND_SPOTS for the caveat on layout freshness)
   - CDAC array layout record: 20260905-220338-9fb9b04
 
@@ -198,7 +198,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 - **Status**: DRAFT
 - **Conditions**: Issue #254's `sim/full-conversion-transient/` campaign, full ratified OAT grid (9 one-at-a-time points): average supply/reference current over one steady-state conversion (12 CLK periods at the DR-006 worst-case 12 MHz clock), per rail (`VDD`, `VPWR`, `VREFP`, `VCM`, `VREFN`), `P = sum(V_source * |avg I_source|)`. ADC core only -- no reference buffer, clock generator, or output driver exists in this design yet, so a real system's reference/clock power is not included.
 - **Verdict**: UNMEASURED as a Power-row figure/target (informational first current/power evidence only, not a pass/fail against any target -- 'report, don't pre-commit')
-- **Notes**: First supply-current measurement of any kind on this block. Binding (highest-power) corner `tt_27c_1.98v`: 14.743 uW; lowest `tt_27c_1.62v`: 8.692 uW; tt/27C/1.80V baseline point: 11.101 uW. NOTE: this same campaign's own code-correctness check FAILS at all 9 ratified corners (see the Sample rate row above and issue #259), so these current/power numbers are measured on a conversion that is NOT resolving to the correct code -- they characterize the circuit's steady-state current draw under the DR-006 12 MHz clock schedule, not the current draw of a functionally-correct conversion. Re-measure once the code-correctness defect is fixed, before treating this figure as durable. One unrelated, non-gating data point also exists outside sim/'s evidence trail: `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md`'s OpenROAD PnR estimate for the digital SAR-sequencer sub-block ONLY (0.0155 mW) -- a static EDA-tool estimate, not a simulated/measured full-ADC number, and not tied to the ratified corner set. Cited for completeness, not as spec-row evidence. Re-measured unchanged after issue #258's netlist-scoping fix (`.GLOBAL VPWR`/`.GLOBAL VGND` now declared by `design/sar_adc_top.spice` itself): every per-corner figure above reproduced to the digit, so the caveat about these numbers being measured on a functionally-incorrect conversion was unchanged too. SUPERSEDED FIGURES (issue #257): the second record cited below re-measures the same campaign on the post-#257 DUT (`comparator.CLK` driven from `CLKN`, so the bit trials now capture live comparator decisions instead of the comparator's reset level), and the power roughly doubles because the CDAC and the SAR register are now actually switching every conversion instead of sitting in a stuck all-ones code: binding (highest-power) corner `tt_27c_1.98v` 26.760 uW, lowest `tt_27c_1.62v` 16.750 uW, tt/27C/1.80V baseline 21.874 uW. The caveat itself still stands and is the reason this row remains UNMEASURED: the conversion still does not resolve to the correct code (see the Sample rate row above and issue #263), so this is the steady-state current draw of a switching-but-not-converging conversion. UPDATE (issue #263): the third record cited below re-measures the same campaign after #263's trial-perturbation, per-conversion-clear, and decision-directed-switching fixes (see the Sample rate row's own (h) paragraph for the full writeup) -- binding (highest-power) corner `tt_27c_1.98v` 35.453 uW, lowest `tt_27c_1.62v` 22.361 uW, tt/27C/1.80V baseline 28.823 uW, a further increase consistent with more of the array now switching correctly per bit trial. The caveat still stands and this row still remains UNMEASURED: 4 of 5 inputs are now at or very near their ideal code, but the two near-full-scale inputs still fail badly (see Sample rate row (h) and DR-008's Open items), so this is still the current draw of a conversion that is not yet correct across its full input range. Re-measure again once the residual large-signal defect is fixed. UPDATE (issue #263, second pass): the newest record cited below (`20260912-002315-9aaf1ca`, which supersedes the `20260911-204111-a6df3bb` figures quoted just above and is cited in its place) re-measures the same campaign again after DR-009's comparator-output load balancing and half-LSB quantizer offset (Sample rate row paragraph (i)) -- binding (highest-power) corner `tt_27c_1.98v` 34.237 uW, lowest `tt_27c_1.62v` 21.600 uW, tt/27C/1.80V baseline 27.971 uW: within ~3% of the previous record at every corner, as expected for a change that adds 4 standard cells, 2 unit capacitors and 6 switch FETs and corrects WHICH way a few marginal bit decisions go rather than how many transitions the array makes. The caveat still stands and this row still remains UNMEASURED: the three mid-scale inputs are now all within +-1 LSB at 9/9 corners, but the two near-full-scale inputs are unchanged and still fail badly (issue #265), so this is still the current draw of a conversion that is not correct across its full input range.
+- **Notes**: First supply-current measurement of any kind on this block. Binding (highest-power) corner `tt_27c_1.98v`: 14.743 uW; lowest `tt_27c_1.62v`: 8.692 uW; tt/27C/1.80V baseline point: 11.101 uW. NOTE: this same campaign's own code-correctness check FAILS at all 9 ratified corners (see the Sample rate row above and issue #259), so these current/power numbers are measured on a conversion that is NOT resolving to the correct code -- they characterize the circuit's steady-state current draw under the DR-006 12 MHz clock schedule, not the current draw of a functionally-correct conversion. Re-measure once the code-correctness defect is fixed, before treating this figure as durable. One unrelated, non-gating data point also exists outside sim/'s evidence trail: `layout/sar-sequencer/reports/20260825-124031-1a2f7c1/record.md`'s OpenROAD PnR estimate for the digital SAR-sequencer sub-block ONLY (0.0155 mW) -- a static EDA-tool estimate, not a simulated/measured full-ADC number, and not tied to the ratified corner set. Cited for completeness, not as spec-row evidence. Re-measured unchanged after issue #258's netlist-scoping fix (`.GLOBAL VPWR`/`.GLOBAL VGND` now declared by `design/sar_adc_top.spice` itself): every per-corner figure above reproduced to the digit, so the caveat about these numbers being measured on a functionally-incorrect conversion was unchanged too. SUPERSEDED FIGURES (issue #257): the second record cited below re-measures the same campaign on the post-#257 DUT (`comparator.CLK` driven from `CLKN`, so the bit trials now capture live comparator decisions instead of the comparator's reset level), and the power roughly doubles because the CDAC and the SAR register are now actually switching every conversion instead of sitting in a stuck all-ones code: binding (highest-power) corner `tt_27c_1.98v` 26.760 uW, lowest `tt_27c_1.62v` 16.750 uW, tt/27C/1.80V baseline 21.874 uW. The caveat itself still stands and is the reason this row remains UNMEASURED: the conversion still does not resolve to the correct code (see the Sample rate row above and issue #263), so this is the steady-state current draw of a switching-but-not-converging conversion. UPDATE (issue #263): the third record cited below re-measures the same campaign after #263's trial-perturbation, per-conversion-clear, and decision-directed-switching fixes (see the Sample rate row's own (h) paragraph for the full writeup) -- binding (highest-power) corner `tt_27c_1.98v` 35.453 uW, lowest `tt_27c_1.62v` 22.361 uW, tt/27C/1.80V baseline 28.823 uW, a further increase consistent with more of the array now switching correctly per bit trial. The caveat still stands and this row still remains UNMEASURED: 4 of 5 inputs are now at or very near their ideal code, but the two near-full-scale inputs still fail badly (see Sample rate row (h) and DR-008's Open items), so this is still the current draw of a conversion that is not yet correct across its full input range. Re-measure again once the residual large-signal defect is fixed. UPDATE (issue #263, second pass): the newest record cited below (`20260912-002315-9aaf1ca`, which supersedes the `20260911-204111-a6df3bb` figures quoted just above and is cited in its place) re-measures the same campaign again after DR-009's comparator-output load balancing and half-LSB quantizer offset (Sample rate row paragraph (i)) -- binding (highest-power) corner `tt_27c_1.98v` 34.237 uW, lowest `tt_27c_1.62v` 21.600 uW, tt/27C/1.80V baseline 27.971 uW: within ~3% of the previous record at every corner, as expected for a change that adds 4 standard cells, 2 unit capacitors and 6 switch FETs and corrects WHICH way a few marginal bit decisions go rather than how many transitions the array makes. The caveat still stands and this row still remains UNMEASURED: the three mid-scale inputs are now all within +-1 LSB at 9/9 corners, but the two near-full-scale inputs are unchanged and still fail badly (issue #265), so this is still the current draw of a conversion that is not correct across its full input range. UPDATE (issue #498, DR-019's grid-legal C_u resize): the record cited below is now `20261001-105439-c324f80`, which supersedes `20260912-002315-9aaf1ca` after the CDAC unit cap and DR-009's half-LSB offset caps were resized W=L=1.8988 -> 1.9000 um (+0.116% capacitance). Binding (highest-power) corner `tt_27c_1.98v` 34.254 uW, lowest `tt_27c_1.62v` 21.612 uW, tt/27C/1.80V baseline 27.986 uW -- i.e. +0.05% at the baseline and under +0.15% at every corner but one (`tt_-40c_1.80v`, +1.2%, run variance rather than a resize effect: the mechanism is linear in C). Every captured code at every corner is bit-identical to the superseded record, so the two near-full-scale failures and this row's UNMEASURED status are unchanged by the resize -- which is what re-running it established rather than assumed.
 
 **Evidence:**
 
@@ -206,7 +206,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Overall: FAIL (0/9 corners resolve every input to its ideal code +-1 LSB with a correct 12-period phase structure). This verdict is against this experiment's own informational criterion, NOT against a ratified spec row.
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#target-table` -- **Sample rate** and **Power**, both DRAFT rows, INFORMATIONAL only. This is the first end-to-end campaign that drives the whole transistor-level `design/sar_adc_top.spice` through c…
-- `sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md` (Record ID `20260912-002315-9aaf1ca`, Supersedes: 20260911-204111-a6df3bb)
+- `sim/full-conversion-transient/records/20261001-105439-c324f80.md` (Record ID `20261001-105439-c324f80`, Supersedes: 20260912-002315-9aaf1ca)
   - Overall: FAIL (0/9 corners resolve every input to its ideal code +-1 LSB with a correct 12-period phase structure). This verdict is against this experiment's own informational criterion, NOT against a ratified spec row.
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#target-table` -- **Sample rate** and **Power**, both DRAFT rows, INFORMATIONAL only. This is the first end-to-end campaign that drives the whole transistor-level `design/sar_adc_top.spice` through c…
@@ -223,10 +223,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27, 125], supply_v=[1.62, 1.8, 1.98] (9 points)
   - Claim: None -- harness self-verification, not a spec claim. Proves the PVT plumbing (vdd_val substitution, the process-corner .lib section, .temp) actually takes effect on real sky130 devices, so later records against ratified…
-- `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md` (Record ID `20260827-213107-e13bc1e`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
-  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.65 fF`, `512` positions/side (all three RATIFIED, D…
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- `V_REF = V_DD = 1.8 V`, LSB (differential) `2*V_REF/2^N = 3.5156 mV`, and CDAC unit-cap/array size `C_u ~= 8.66 fF`, `512` positions/side (all three RATIFIED, D…
 - `sim/comparator-decision/records/20260906-065109-eedd532.md` (Record ID `20260906-065109-eedd532`, Supersedes: 20260827-212404-e13bc1e)
   - Overall: PASS vs. the ratified baseline threshold (1.0148 mV rms); does NOT meet the stretch threshold (0.5859 mV rms) at the binding corner.
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)

@@ -68,7 +68,7 @@ ROWS: tuple[Row, ...] = (
             "every bound corner. The CDAC array's own 9-bit sub-array realizes "
             "only 512 positions/side; the 10th (sign) bit comes from the "
             "top-level differential structure, per "
-            "`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`'s own "
+            "`sim/cdac-array-transfer/records/20261001-124049-5207381.md`'s own "
             "'UNITS / scope note' -- not independently re-verified by this row's "
             "own citation."
         ),
@@ -395,15 +395,15 @@ ROWS: tuple[Row, ...] = (
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
-            "sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md",
+            "sim/cdac-bit-trial-settling/records/20261001-121228-40468b2.md",
             "sim/comparator-decision/records/20260906-074451-7724af3.md",
             "sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md",
             "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
-            "sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md",
+            "sim/sampling-cdac-handoff/records/20261001-111651-d3f190d.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
+            "sim/full-conversion-transient/records/20261001-105439-c324f80.md",
         ),
     ),
     Row(
@@ -464,8 +464,8 @@ ROWS: tuple[Row, ...] = (
             "record's own UNITS/scope note, not the array's native step."
         ),
         sim_citations=(
-            "sim/cdac-array-transfer/records/20260828-005006-0c70212.md",
-            "sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",
+            "sim/cdac-array-transfer/records/20261001-124049-5207381.md",
+            "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
     ),
     Row(
@@ -483,7 +483,7 @@ ROWS: tuple[Row, ...] = (
         ),
         verdict="PASS (structural + functional/monotonicity check, 9/9 corners)",
         notes="See spec/decision-records/DR-003-numeric-spec-derivation.md for the full derivation.",
-        sim_citations=("sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",),
+        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
     ),
     Row(
         id="lsb",
@@ -496,7 +496,7 @@ ROWS: tuple[Row, ...] = (
             "3.5156 mV differential; used as the reporting unit for the INL/DNL "
             "row above and the ENOB row's quantization-noise term."
         ),
-        sim_citations=("sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",),
+        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
     ),
     Row(
         id="sampling-cap",
@@ -523,7 +523,7 @@ ROWS: tuple[Row, ...] = (
             "'match' verdict did not reproduce on its own committed "
             "artefacts -- see layout/cdac-array/README.md and issue #148."
         ),
-        sim_citations=("sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",),
+        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
         layout_citations=("layout/cdac-array/reports/20260905-220338-9fb9b04/record.md",),
     ),
     Row(
@@ -701,11 +701,25 @@ ROWS: tuple[Row, ...] = (
             "but the two near-full-scale inputs are unchanged and still "
             "fail badly (issue #265), so this is still the current draw "
             "of a conversion that is not correct across its full input "
-            "range."
+            "range. UPDATE (issue #498, DR-019's grid-legal C_u resize): "
+            "the record cited below is now "
+            "`20261001-105439-c324f80`, which supersedes "
+            "`20260912-002315-9aaf1ca` after the CDAC unit cap and "
+            "DR-009's half-LSB offset caps were resized W=L=1.8988 -> "
+            "1.9000 um (+0.116% capacitance). Binding (highest-power) "
+            "corner `tt_27c_1.98v` 34.254 uW, lowest `tt_27c_1.62v` "
+            "21.612 uW, tt/27C/1.80V baseline 27.986 uW -- i.e. +0.05% at "
+            "the baseline and under +0.15% at every corner but one "
+            "(`tt_-40c_1.80v`, +1.2%, run variance rather than a resize "
+            "effect: the mechanism is linear in C). Every captured code at "
+            "every corner is bit-identical to the superseded record, so "
+            "the two near-full-scale failures and this row's UNMEASURED "
+            "status are unchanged by the resize -- which is what re-running "
+            "it established rather than assumed."
         ),
         sim_citations=(
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
+            "sim/full-conversion-transient/records/20261001-105439-c324f80.md",
         ),
     ),
     Row(
@@ -727,7 +741,7 @@ ROWS: tuple[Row, ...] = (
         notes="",
         sim_citations=(
             "sim/harness-corner-smoke/records/20260814-020959-98d9186.md",
-            "sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",
+            "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
             "sim/comparator-decision/records/20260906-065109-eedd532.md",
             "sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md",
         ),

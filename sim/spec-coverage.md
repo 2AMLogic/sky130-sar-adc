@@ -27,18 +27,18 @@ followed by the per-bench command in the table below. Each of those commands is 
 
 | Spec row | Status | Coverage | Testbench(es) | Evidence record(s) |
 |---|---|---|---|---|
-| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20260926-231457-ebf79e8.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
+| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-111651-d3f190d.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
 | Resolution `N` | RATIFIED | benched (ratified, graded pass/fail) | `sim/sar-sequencer-behavioral` | `20260827-211956-e13bc1e.md` |
-| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20260907-013225-5f176a6.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20260912-002315-9aaf1ca.md` |
+| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20261001-121228-40468b2.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261001-105439-c324f80.md` |
 | ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate` | `20260828-005033-0c70212.md` |
-| INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20260828-005006-0c70212.md` |
-| `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
-| LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
-| Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
+| INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20261001-124049-5207381.md` |
+| `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
+| LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
+| Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
-| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20260912-002315-9aaf1ca.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md` |
-| Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20260827-213107-e13bc1e.md`<br>`20260827-212404-e13bc1e.md` |
+| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20261001-105439-c324f80.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md` |
+| Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20261001-120402-d24f700.md`<br>`20260827-212404-e13bc1e.md` |
 
 ## Per-row detail
 
@@ -63,7 +63,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record`
 - Documented in: `sim/sampling-cdac-handoff/run_handoff.py`
 - Evidence: `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`
-- Evidence: `sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md`
+- Evidence: `sim/sampling-cdac-handoff/records/20261001-111651-d3f190d.md`
 
 **`sim/cdac-array-transfer`** — Charge redistribution: the array's own code-to-output transfer characteristic (issue #53).
 
@@ -108,7 +108,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-bit-trial-settling/run_bit_trial_settling.py`
 - Cold start: `python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --corners --record`
 - Documented in: `sim/cdac-bit-trial-settling/run_bit_trial_settling.py`
-- Evidence: `sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md`
+- Evidence: `sim/cdac-bit-trial-settling/records/20261001-121228-40468b2.md`
 
 **`sim/sequencer-logic-delay`** — Mechanism (c) of Section 7 Item 2: the SAR sequencer's own CLK-to-phase-output logic delay across all 11 ring-sequencer phase transitions, over the full ratified corner set. Informational against this DRAFT row, on the same DR-006-downstream yardstick; proposes no sample rate.
 
@@ -142,7 +142,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/full-conversion-transient/run_conversion.py`
 - Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record`
 - Documented in: `sim/full-conversion-transient/README.md`
-- Evidence: `sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`
+- Evidence: `sim/full-conversion-transient/records/20261001-105439-c324f80.md`
 
 ### ENOB
 
@@ -171,7 +171,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_mc.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_mc.py --n 40 --seed 1 --record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260828-005006-0c70212.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-124049-5207381.md`
 
 ### `V_REF`
 
@@ -185,7 +185,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 ### LSB (differential)
 
@@ -199,7 +199,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 ### Sampling cap (CDAC unit × array)
 
@@ -213,7 +213,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 ### Comparator input-referred noise
 
@@ -257,7 +257,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/full-conversion-transient/run_conversion.py`
 - Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record`
 - Documented in: `sim/full-conversion-transient/README.md`
-- Evidence: `sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`
+- Evidence: `sim/full-conversion-transient/records/20261001-105439-c324f80.md`
 
 **`sim/supply-impedance-sensitivity`** — Same per-rail average current/power as the bench above, but with DR-015's package-style R+L (or a lumped substrate stand-in) driving the four supply terminals instead of ideal sources at the die -- DR-012's own open item, issue #378, 'the impedance argument is unmeasured'. Baseline corner only (see the record's own Subset-corner justification); reported informationally, same as the row above, and no power target is proposed here either.
 
@@ -327,7 +327,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 **`sim/comparator-decision`** — Ratified corner set executed end to end (issue #28).
 
