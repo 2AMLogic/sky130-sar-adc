@@ -190,6 +190,7 @@ def main() -> int:
     ap.add_argument("--cdac-mc-record", required=True, help="sim/cdac-array-transfer/ Monte Carlo record-id (run_mc.py) to draw the CDAC-mismatch contribution from")
     ap.add_argument("--record", action="store_true")
     ap.add_argument("--note", default="")
+    evidence.add_supersedes_argument(ap)
     ap.add_argument(
         "--target-baseline-bit", type=float, default=9.0,
         help="candidate ENOB baseline target in bits (default: the DRAFT spec row's 9.0; issue #129's DR-007 evaluates a candidate revised value here)",
@@ -413,7 +414,7 @@ def main() -> int:
         extra={"Composite-inputs manifest": f"`{inputs_manifest}`"},
     ))
     a("")
-    lines.extend(evidence.footer_lines("sim/enob-estimate/run_enob.py", ""))
+    lines.extend(evidence.footer_lines("sim/enob-estimate/run_enob.py", args.supersedes))
 
     if args.record:
         record_path.write_text("\n".join(lines))

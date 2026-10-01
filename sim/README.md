@@ -300,6 +300,31 @@ rest were omitted**. An unexplained subset is not a valid record.
 testing a *different* claim about the same DUT leaves `Supersedes` empty, even
 when the two are closely related.
 
+#### Every runner can set it, and that is checked (issue #502)
+
+Because `Supersedes` is the *only* machine-readable statement of replacement,
+a runner that writes a record but cannot populate it does not make the two
+citation gates below **fail** — it makes them **stay quiet**, which reads
+exactly like "the citation is fresh". That is how issue #498's re-runs went:
+four of six new records could not say what they displaced, and the stale
+citations had to be found by hand.
+
+So every record-writing runner accepts `--supersedes <record-id>`, declared
+from the one shared helper `harness.evidence.add_supersedes_argument()`, and
+threads it to `harness.evidence.footer_lines()` on **every** write path it has
+(a runner with a `--corners` or `--ratified-record` mode has more than one).
+`npm run check:supersedes` (`sim/check_supersedes_capability.py`, in
+`npm run check:ci`) enforces both halves and fails CI otherwise:
+
+- a runner whose usage advertises `--record` but not `--supersedes`;
+- a `footer_lines()` call site passing a bare literal `""`, which is
+  indistinguishable from a forgotten flag — issue #498's actual bug, where
+  `run_transfer.py` declared the flag and honoured it on only one of its two
+  writers. A path that supersedes nothing *by construction* (the
+  `diagnostics/` writers in `sim/full-conversion-transient/`) says so by name
+  with `evidence.NEVER_SUPERSEDES` — same bytes in the record, but a
+  deliberate and reviewable statement.
+
 ## Monte Carlo records
 
 `sim/monte_carlo.py` writes a record that additionally states:

@@ -134,6 +134,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--record", action="store_true", help="write a sim/README.md-style evidence record")
     ap.add_argument("--full", action="store_true", help="also run the worst-case point at the ss corner")
+    evidence.add_supersedes_argument(ap)
     args = ap.parse_args()
 
     check = toolchain.check_env()
@@ -167,11 +168,11 @@ def main() -> int:
               f"{hold_dv_p_mv:<13.3f} {hold_dv_n_mv:<13.3f} {vgs_p:<7.4f} {vgs_n:<7.4f}")
 
     if args.record:
-        write_record(results)
+        write_record(results, supersedes=args.supersedes)
     return 0
 
 
-def write_record(results: list[dict]) -> None:
+def write_record(results: list[dict], supersedes: str = "") -> None:
     # Snapshot the DUT fragment actually simulated (not a full corner netlist,
     # since each test point renders its own -- the fragment is what's common
     # and reproducible across all of them).
@@ -300,7 +301,7 @@ def write_record(results: list[dict]) -> None:
         )
     )
     a("")
-    lines.extend(evidence.footer_lines("sim/sampling-frontend/run_transient.py", ""))
+    lines.extend(evidence.footer_lines("sim/sampling-frontend/run_transient.py", supersedes))
 
     record_path.write_text("\n".join(lines) + "\n")
     print(f"\nWrote {record_path}")

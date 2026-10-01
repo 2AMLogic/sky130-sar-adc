@@ -591,12 +591,13 @@ def main() -> int:
     ap.add_argument(
         "--note", default="",
         help="free-text provenance note recorded as this record's `**Note**` "
-        "field -- the place a re-run says WHY it was re-run and which record "
-        "it displaces for the same claim. Added by #498: until then this "
-        "runner had no --note (and has no --supersedes, see #502), so a "
-        "re-run after a design/ change could not be traced back to what it "
-        "replaced from the record itself at all.",
+        "field -- the place a re-run says WHY it was re-run. Added by #498: "
+        "until then this runner had no --note at all, so a re-run after a "
+        "design/ change could not be traced back to what it replaced from the "
+        "record itself. Prose only: name the displaced record MACHINE-readably "
+        "via --supersedes, which both citation gates actually read.",
     )
+    evidence.add_supersedes_argument(ap)
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
@@ -620,7 +621,10 @@ def main() -> int:
             )
             incomplete = [p for p in points + control if not p["complete"]]
             if args.record:
-                write_corners_record(points, control, regen_note, note=args.note)
+                write_corners_record(
+                    points, control, regen_note,
+                    note=args.note, supersedes=args.supersedes,
+                )
             if incomplete:
                 print(
                     f"\nFAIL: {len(incomplete)}/{len(points) + len(control)} runs "
@@ -665,11 +669,11 @@ def main() -> int:
     print(f"\nmax |TOP_x - VINx| across all runs: {max_abs_err_mv:.4f} mV")
 
     if args.record:
-        write_record(results, note=args.note)
+        write_record(results, note=args.note, supersedes=args.supersedes)
     return 0
 
 
-def write_record(results: list[dict], note: str = "") -> None:
+def write_record(results: list[dict], note: str = "", supersedes: str = "") -> None:
     combined_netlist_text = FE_FRAG.read_text() + "\n\n" + CDAC_FRAG.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, combined_netlist_text)
     record_id = prov.record_id
@@ -839,7 +843,9 @@ def write_record(results: list[dict], note: str = "") -> None:
         )
     )
     a("")
-    lines.extend(evidence.footer_lines("sim/sampling-cdac-handoff/run_handoff.py", ""))
+    lines.extend(evidence.footer_lines(
+        "sim/sampling-cdac-handoff/run_handoff.py", supersedes
+    ))
 
     record_path.write_text("\n".join(lines) + "\n")
     print(f"\nWrote {record_path}")
@@ -867,7 +873,8 @@ PRE_236_SS_EXCURSION_MV = 5.33
 
 
 def write_corners_record(
-    points: list[dict], control: list[dict], regen_note: str, note: str = ""
+    points: list[dict], control: list[dict], regen_note: str, note: str = "",
+    supersedes: str = "",
 ) -> Path:
     """Evidence record for the combined-load mechanism-(d) PVT campaign
     (issue #469), using the shared `corners/<record-id>/` per-point-deck layout
@@ -1172,7 +1179,9 @@ def write_corners_record(
         )
     )
     a("")
-    lines.extend(evidence.footer_lines("sim/sampling-cdac-handoff/run_handoff.py", ""))
+    lines.extend(evidence.footer_lines(
+        "sim/sampling-cdac-handoff/run_handoff.py", supersedes
+    ))
 
     record_path.write_text("\n".join(lines) + "\n")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
