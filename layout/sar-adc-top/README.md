@@ -78,9 +78,27 @@ measurement it says which record carried it.
 
 ## Status (as of this record)
 
+**Update (2026-10-01, issue #501): the composition now embeds DR-019's resized
+unit capacitor, and nothing else about it moved.** Record
+`20261001-211249-1ca34e6` is the current `reports/LATEST` and
+`erc-reports/20261001-211722-1ca34e6/` the current ERC record. Both supersede
+issue #401's `20261001-022205-455b772` / `20261001-022622-455b772` by one
+change: `cdac_array.gds` and `halflsb_offset.gds` are re-copied from their own
+flows' current records, which draw
+[DR-019](../../spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)'s
+grid-legal plate (`W = L` 1.898 → **1.900 µm** as drawn), so this composition's
+`capm` grows **7.793 µm²** across 1026 unit plates and each unit capacitor
+extracts at **8.664 fF** instead of 8.647288 fF. Everything a verdict here
+grades is field-identical to #401's: DRC **clean, 0 violations**; LVS
+`mismatch` at **67** / **66** errors in the same four categories with the
+mismatch list identical entry-for-entry; **1095/1095/1046** devices,
+**554/555/519** nets, **21/22/22** pins; `klt erc` **`clean`, 0 findings**, four
+supplies at one island each; and the composed `bbox_um` unmoved field by field
+(**290.500 × 386.200 µm**, ≈ 0.112 mm²) — a 2 nm per-plate growth does not reach
+the extent, which was diffed rather than assumed.
+
 **Update (2026-10-01, issue #401): the composition is the schematic's own, and
-it is gated.** Record `20261001-022205-455b772` is the current `reports/LATEST`
-and `erc-reports/20261001-022622-455b772/` the current ERC record. The assembly
+it is gated.** The assembly
 places six sub-blocks — `layout/top-glue/`'s 33 `sky130_fd_sc_hd` cells and
 `layout/halflsb-offset/`'s 8 `sky130_fd_pr` primitives in place of the retired
 `seln_inverters` bank — and routes **46** top-level nets (36 of them through the
@@ -2182,7 +2200,7 @@ every sub-block at once — but the compare it applies to is now a different,
 larger, correctly-posed one, so the numbers are restated here rather than left
 to be inferred:
 
-| Quantity | Pre-#401 (`20260926-184816-e1176e3`) | Current (`20261001-022205-455b772`) |
+| Quantity | Pre-#401 (`20260926-184816-e1176e3`) | #401 (`20261001-022205-455b772`), field-identical on the current `20261001-211249-1ca34e6` |
 |---|---:|---:|
 | `klt drc` | clean, 0 violations / 52 rules | clean, 0 violations / 52 rules |
 | `klt lvs` verdict | `mismatch` | `mismatch` |
