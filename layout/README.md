@@ -50,11 +50,15 @@ is measured to report a clean `match` against a reference whose half-LSB enable
 polarity is inverted — see that directory's README. `seln-inverters/` is its
 **superseded predecessor** (nine `sky130_fd_sc_hd__inv_1` computing
 `SELn<i> = NOT(DOUT<i>)`, issue #56's wiring, which DR-008 retired on
-2026-09-11); it is kept only because `sar-adc-top/`'s composition still
-consumes its GDS. `sar-adc-top/` is the top-level assembly (issue #103) — see
-that directory's own README for the per-block pin geometry, net list, and
-composition status, **including the banner explaining that the composed GDS and
-its LVS reference still implement that superseded glue** (issue #387).
+2026-09-11); since issue #401 **nothing composes it** — it is kept as
+append-only history only, and its own README carries a RETIRED banner saying so.
+`sar-adc-top/` is the top-level assembly (issue #103) — see that directory's own
+README for the per-block pin geometry, net list, and composition status. **Since
+issue #401 that composition places `top-glue/` and `halflsb-offset/`, and is
+re-derived from `design/sar_adc_top.spice` on every run** rather than from a
+hand-maintained instance list — gated headless by
+`sar-adc-top/bin/check-composition-parity.py` (`npm run check:composition-parity`),
+which is what closes issue #387.
 
 ## Install
 
@@ -142,11 +146,15 @@ layout/
   halflsb-offset/                  # DR-009's half-LSB offset network, 8 sky130_fd_pr
                                    # primitives -- the non-standard-cell other half of the
                                    # same top-level region (issue #495)
-  seln-inverters/                  # SUPERSEDED by top-glue/ -- SELn<i>=NOT(DOUT<i>) bank (issues #103, #387)
-  sar-adc-top/                     # top-level assembly (issue #103, in progress; still composes
-                                   # seln-inverters/ rather than top-glue/ -- issue #387)
+  seln-inverters/                  # RETIRED (issue #401): SUPERSEDED by top-glue/ --
+                                   # SELn<i>=NOT(DOUT<i>) bank; records kept as
+                                   # append-only history, composed by nothing
+  sar-adc-top/                     # top-level assembly (issue #103, in progress; composes
+                                   # top-glue/ + halflsb-offset/ since issue #401)
     erc-supply-spec.json           # `klt erc` supply spec -- T1 item 11 (issue #344)
     bin/run-erc.sh                 # grades reports/LATEST's GDS against that spec
+    bin/check-composition-parity.py # HARD GATE: the composition is derived from
+                                   # design/sar_adc_top.spice, not hand-maintained (#387/#401)
     erc-reports/                   # append-only ERC records (erc.json + record.md),
                                    # separate from reports/ because an ERC record is a
                                    # verdict ABOUT one reports/ GDS, not a new layout

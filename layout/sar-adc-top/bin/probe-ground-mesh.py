@@ -3,7 +3,7 @@
 
 Answers one question, with a measurement rather than an argument:
 
-    **Is the drawn mesh what joins the three analog blocks' grounds, or is
+    **Is the drawn mesh what joins the analog blocks' grounds, or is
     the substrate?**
 
 Why the question needs a measurement at all
@@ -32,18 +32,18 @@ and cutting the mesh is a prediction this script can falsify:
 If the ablated run came back clean too, the mesh would be decorative and this
 script would say so.
 
-The third leg needs a second question
+The `VSS` leg needs a second question
 -------------------------------------
-That island count covers two of the mesh's three members and not the third,
-and the difference is a naming one, not a wiring one. `comparator` and
-`sampling_frontend` both label their ground terminal `GND`, so cutting the
-mesh leaves two islands *of a declared supply* and `klt erc` reports it.
-`cdac_array`'s terminal is labelled `VSS` -- that sub-block's own schematic
-port name -- and `VSS` is not a declared supply in the graded spec, so its
-orphaned island in the ablated run has no declared name for `klt erc` to
-complain about. Reading the 2-island finding as covering all three legs
-would be a smaller version of exactly the over-read this script exists to
-prevent.
+That island count covers three of the mesh's four members and not the fourth,
+and the difference is a naming one, not a wiring one. `comparator`,
+`sampling_frontend` and (since issue #401) `halflsb_offset` all label their
+ground terminal `GND`, so cutting the mesh leaves that many islands *of a
+declared supply* and `klt erc` reports it. `cdac_array`'s terminal is labelled
+`VSS` -- that sub-block's own schematic port name -- and `VSS` is not a declared
+supply in the graded spec, so its orphaned island in the ablated run has no
+declared name for `klt erc` to complain about. Reading the multi-island finding
+as covering every leg would be a smaller version of exactly the over-read this
+script exists to prevent.
 
 So the same two GDS are graded a second time against a DIAGNOSTIC spec --
 the graded one plus a `VSS` supply entry, built here in the work directory
@@ -75,7 +75,7 @@ Usage
 -----
 Run me with the pinned ERC venv's Python (`layout/bin/setup-erc-venv.sh`),
 pointing at a record directory `run-flow.sh` already produced -- this script
-re-uses that record's own copies of the five sub-block GDS files, so the
+re-uses that record's own copies of the six sub-block GDS files, so the
 ablated variant is composed from byte-identical inputs:
 
     layout/.venv-erc/bin/python layout/sar-adc-top/bin/probe-ground-mesh.py \
@@ -107,7 +107,7 @@ ROUTE_CELL_NAME = "SAR_ADC_TOP_ROUTE"
 #: Every input `build_layout.py`'s own compose request names, copied out of the
 #: graded record so both variants are composed from byte-identical inputs.
 #:
-#: The first five are `blocks[].cell` entries -- sub-block GDS files
+#: The first six are `blocks[].cell` entries -- sub-block GDS files
 #: `run-flow.sh` pulled in from each sub-block's own committed record. The last
 #: two are the decoupling unit cell of issue #440: `klt gen cap_array`'s own
 #: response (`decap.json`, which is how the compose request names it -- a
@@ -121,7 +121,8 @@ BLOCK_GDS = (
     "sampling_frontend.gds",
     "comparator.gds",
     "sar_sequencer.gds",
-    "seln_inverters.gds",
+    "top_glue.gds",
+    "halflsb_offset.gds",
     "decap.json",
     "decap_unit.gds",
 )
@@ -384,8 +385,8 @@ def main() -> int:
             "third_leg_shorted_to_supply_full": third_leg_shorted_full,
             "third_leg_shorted_to_supply_ablated": third_leg_shorted_ablated,
             "reading": (
-                "The mesh, not the substrate, is what joins the three analog "
-                "blocks' drawn grounds: removing it (and nothing else) splits "
+                "The mesh, not the substrate, is what joins this assembly's "
+                "analog blocks' drawn grounds: removing it (and nothing else) splits "
                 f"{SUPPLY} into more than one island, and stops "
                 f"`{THIRD_LEG_LABEL}` from being the same electrical net as "
                 f"{SUPPLY}, under a connectivity model that sees drawn "

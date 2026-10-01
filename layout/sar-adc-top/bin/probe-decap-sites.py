@@ -293,7 +293,7 @@ def free_corridors(gds_path: Path, keepout_um: float) -> dict:
 #: is itself part of the finding.
 CORRIDORS = {
     "analog (east of comparator, north of sampling_frontend)": (120.0, 139.5, 258.5, 219.5),
-    "digital (east of seln_inverters, south of cdac_array)": (193.0, -165.0, 260.2, -6.0),
+    "digital (east of top_glue, south of cdac_array)": (193.0, -165.0, 260.2, -6.0),
 }
 
 

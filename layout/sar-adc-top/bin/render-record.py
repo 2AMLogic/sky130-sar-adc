@@ -41,21 +41,54 @@ from _record_common import (  # noqa: E402
 #: intended net's own distinct, correctly-scoped device count) was done by
 #: hand against `extract.unfiltered.json`'s own `nets[]` list; see the PR
 #: description for the full net-by-net trace this table condenses.
+#: Re-derived for issue #401's recomposition. Three rows changed meaning, and
+#: the change IS the point of that issue:
+#:
+#: * `DOUT<i>` no longer lists `SELp<i>` as a member. Under issue #56 they were
+#:   literally the same net (`SELp<i> = DOUT<i>`, the pre-DR-008 unconditional
+#:   complementary drive); DR-008 derives `SELp<i> = DOUT9 AND DOUT<i>` from an
+#:   `and2_1`, so a run where this table still found them merged would be a run
+#:   on the superseded glue.
+#: * `SELp<i>` is a row of its own for the first time.
+#: * `CLKN`, `OUTN_NC`, `PH_B9`, `HALF_LSB_EN` and `HALF_LSB_ENN` are new rows:
+#:   nets that either did not exist (DR-008's clock inverter, DR-009's enable
+#:   pair) or dead-ended (`PH_B9_NC`, `OUTN_NC`) before this composition.
 EXPECTED_NET_MEMBERS = {
     "TOP_P": ["TOP_P", "VINP"],
     "TOP_N": ["TOP_N", "VINN"],
     "VDD (analog)": ["VDD"],
     "VREFP": ["VREFP"],
     "VREFN": ["VREFN"],
+    "VCM": ["VCM"],
     "CLK": ["CLK"],
+    "CLKN": ["CLKN"],
     "COMP_OUT": ["COMP_OUT", "OUTP"],
+    "OUTN_NC": ["OUTN_NC", "OUTN"],
     "SAMPLE_INT": ["PH_SAMPLE", "SAMPLE"],
     "RST_B": ["RST_B"],
     "BUSY": ["BUSY"],
-    **{f"DOUT{i}": [f"DOUT{i}", f"SELp{i}"] for i in range(9)},
-    "DOUT9": ["DOUT9"],
+    "PH_B9": ["PH_B9"],
+    **{f"DOUT{i}": [f"DOUT{i}"] for i in range(10)},
+    **{f"SELp{i}": [f"SELp{i}"] for i in range(9)},
     **{f"SELn{i}": [f"SELn{i}"] for i in range(9)},
+    "HALF_LSB_EN": ["HALF_LSB_EN"],
+    "HALF_LSB_ENN": ["HALF_LSB_ENN"],
+    "BOT_OFF_N": ["BOT_OFF_N"],
+    "BOT_OFF_P": ["BOT_OFF_P"],
 }
+
+#: Pairs of expected nets that MUST extract as different nets. The connectivity
+#: table above can only ever report that each expected net was found; it cannot
+#: report that two of them were not accidentally the same one, and that is
+#: exactly the defect issue #387 was filed about (`DOUT<i>` and `SELp<i>` were
+#: one net in the composed GDS long after the schematic separated them). A
+#: merge here is reported as a FAILING row, not as two successful ones.
+EXPECTED_DISTINCT_NETS = (
+    [(f"DOUT{i}", f"SELp{i}") for i in range(9)]
+    + [(f"DOUT{i}", f"SELn{i}") for i in range(9)]
+    + [(f"SELp{i}", f"SELn{i}") for i in range(9)]
+    + [("CLK", "CLKN"), ("COMP_OUT", "OUTN_NC"), ("HALF_LSB_EN", "HALF_LSB_ENN")]
+)
 
 
 #: Every supply-net label this composition draws, in whatever order
@@ -66,6 +99,130 @@ EXPECTED_NET_MEMBERS = {
 #: plate at the same value, and are correctly excluded because their terminals
 #: are signal nets).
 _SUPPLY_LABELS = ("GND", "VGND", "VSS", "VDD", "VPWR")
+
+
+def _distinctness_rows(resolved: dict[str, str]) -> list[str]:
+    """Report, pair by pair, that the nets issue #387 found merged are not.
+
+    The table above answers "was each expected net found?". That question was
+    answered `yes` for every row of the superseded composition too -- because
+    `DOUT<i>` and `SELp<i>` being ONE net satisfies both of their rows at once.
+    This answers the complementary question the old table could not, and it
+    answers it from the same extraction.
+    """
+    checked = [
+        (a, b) for a, b in EXPECTED_DISTINCT_NETS if a in resolved and b in resolved
+    ]
+    merged = [(a, b) for a, b in checked if resolved[a] == resolved[b]]
+    lines = [
+        "**Nets that must be distinct** (issue #387's own failure mode: the "
+        "pre-DR-008 composition satisfied every row above while `DOUT<i>` and "
+        "`SELp<i>` were literally one net):",
+        "",
+    ]
+    if merged:
+        lines.append(
+            f"- **{len(merged)} of {len(checked)} pairs are MERGED** -- "
+            + ", ".join(f"`{a}` == `{b}` (`{resolved[a]}`)" for a, b in merged)
+        )
+    else:
+        lines.append(
+            f"- all {len(checked)} pairs distinct: every `DOUT<i>`/`SELp<i>`, "
+            "`DOUT<i>`/`SELn<i>` and `SELp<i>`/`SELn<i>` pair, plus "
+            "`CLK`/`CLKN`, `COMP_OUT`/`OUTN_NC` and "
+            "`HALF_LSB_EN`/`HALF_LSB_ENN`, resolves to a different extracted "
+            "net. That is the direct, per-net evidence that this composition "
+            "implements DR-008's derived switching polarity rather than issue "
+            "#56's unconditional one."
+        )
+    lines.append("")
+    return lines
+
+
+def _read_text(path: str) -> str:
+    """A sibling artefact's text, or `""` if this run did not write one."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+    except OSError:
+        return ""
+
+
+def _composition_section(parity: str, composition: dict) -> list[str]:
+    """The composition's own two kinds of evidence (issue #401).
+
+    Both exist because no verdict further down this record can produce them:
+
+    * `bin/check-composition-parity.py`'s verdict -- the gate that asserts this
+      assembly composes the schematic's own blocks, wired to the schematic's own
+      nets, on BOTH sides of `klt lvs`. A generated-reference compare agrees
+      with itself whatever the schematic says (issue #387), so the independent
+      anchor has to be a separate check, and its result belongs in the record
+      rather than only in a CI log.
+    * `build_layout.py`'s own matched-pair measurements -- DR-009's two
+      offset-cap top-plate legs and its dummy comparator load. DRC sees shapes
+      and LVS sees devices and nets; both report identically for a matched pair
+      and a scattered one.
+    """
+    lines = ["## Composition parity and matched pairs (issue #401)"]
+    if parity:
+        failed = "FAIL" in parity
+        control_ok = "--self-test: OK" in parity
+        verdict = "FAIL" if failed else "OK"
+        lines.append(
+            f"- `bin/check-composition-parity.py`: **{verdict}** -- every placed "
+            "block, every net on every one of their pins, this assembly's own "
+            "top-level port set and the composition "
+            "`bin/generate-lvs-reference.py` emits are all derived from "
+            "`design/sar_adc_top.spice`'s own top-level cards and asserted "
+            "against it. Full output: `composition-parity.txt`."
+        )
+        lines.append(
+            "- negative control (`--self-test`, a moved `SELp0` binding -- "
+            f"issue #387's own drift shape): **{'caught' if control_ok else 'NOT CAUGHT'}**."
+        )
+        for raw in parity.splitlines():
+            line = raw.strip()
+            if line.startswith("blocks:") or line.startswith("generated LVS"):
+                lines.append(f"  - {line}")
+    else:
+        lines.append("- not run (no `composition-parity.txt` in this record)")
+
+    legs = (composition or {}).get("halflsb_top_leg_um") or {}
+    if legs:
+        delta = abs(legs.get("TOP_N", 0.0) - legs.get("TOP_P", 0.0))
+        lines.append(
+            f"- DR-009 offset-cap top-plate legs: `TOP_N` {legs['TOP_N']:.3f} um, "
+            f"`TOP_P` {legs['TOP_P']:.3f} um (delta {delta:.4f} um, tolerance "
+            f"{composition['halflsb_top_leg_tolerance_um']} um). The `_p` side "
+            "injects nothing -- its only job is that both comparator top plates "
+            "see the same capacitance and the same switch junction parasitics -- "
+            "so `HALFLSB_OFFSET`'s own dx is solved for this equality rather than "
+            "chosen."
+        )
+    load = (composition or {}).get("outn_dummy_load") or {}
+    if load:
+        lines.append(
+            "- DR-009 dummy comparator load, as drawn top-level conductor: "
+            f"`COMP_OUT` {load['comp_out_um2']:.3f} um^2, `OUTN_NC` "
+            f"{load['outn_nc_um2']:.3f} um^2 -- **imbalance "
+            f"{load['imbalance']:.1%}**, bound {load['tolerance']:.0%}. The GATE "
+            "half of DR-009's match is identical by construction (the same two "
+            "cell types on the same two input pins, asserted above); this is the "
+            "WIRE half, which is this composition's own doing. `OUTN_NC` carries "
+            "a solved matching extension of its own corridor column south to "
+            f"y = {load['match_stub_y_um']} um (its declared limit is "
+            f"{load['match_stub_y_min_um']} um, inside the existing extent) -- "
+            "deliberate matching metal on the dummy, not on the live net. The "
+            "residual cannot reach zero here: the two nets have different "
+            "destinations, so their paths are mirror-shaped, not congruent. "
+            "**DR-009's own Consequences section asks for a post-extraction "
+            "re-run of `sim/full-conversion-transient/` as the electrical check, "
+            "and that is not this flow's to run** -- this figure bounds the "
+            "geometry, it does not stand in for that simulation."
+        )
+    lines.append("")
+    return lines
 
 
 def _decap_terminal_evidence(netlist_path: str) -> list[str]:
@@ -389,10 +546,13 @@ def _decoupling_section(
     lines.extend(_decap_series_resistance(ties or {}))
     lines.append(
         "- **DR-017's Decision §3 area budget is confirmed placeable, and costs "
-        "no die area at all.** Its `capm` figure above is the 8798.44 um^2 / "
-        "8.14 % that record computed at schematic level; both sites fall inside "
-        "the *pre-existing* composed bounding box, which this record reports "
-        "unchanged, so the allocation displaced no routing and grew no die. See "
+        "no die area at all.** Its own schematic-level figure was 8798.44 um^2 of "
+        f"`capm` -- the same absolute area the table above reports, at "
+        f"{pct(capm_um2)} of THIS composition's die rather than the 8.14 % it was "
+        "of the pre-issue-#401 one (that denominator grew with the glue #401 "
+        "composed, not with this allocation). Both sites fall inside the "
+        "composed bounding box that assembly already had, so the allocation "
+        "displaced no routing and grew no die. See "
         "`layout/sar-adc-top/README.md`, \"On-die decoupling (DR-017)\", for the "
         "met3/met4 occupancy measurement the two placements were chosen from."
     )
@@ -411,6 +571,8 @@ def main() -> int:
     compose = load_json(os.path.join(args.out_dir, "compose.json"))
     decap = load_json(os.path.join(args.out_dir, "decap.json"))
     decap_ties = load_json(os.path.join(args.out_dir, "decap-ties.json"))
+    composition = load_json(os.path.join(args.out_dir, "composition.json"))
+    parity = _read_text(os.path.join(args.out_dir, "composition-parity.txt"))
 
     commit, dirty = git_commit_and_dirty(args.repo_root)
 
@@ -436,6 +598,8 @@ def main() -> int:
     else:
         lines.append("- not run")
     lines.append("")
+
+    lines.extend(_composition_section(parity, composition))
 
     lines.extend(
         _decoupling_section(
@@ -467,6 +631,7 @@ def main() -> int:
         lines.append("| Expected net | Found in (unfiltered) net name | OK? |")
         lines.append("| --- | --- | --- |")
         footnotes: list[str] = []
+        resolved: dict[str, str] = {}
         for expected, members in EXPECTED_NET_MEMBERS.items():
             hits = [
                 nm for nm in net_names if all(m in nm.split("|") for m in members)
@@ -498,10 +663,14 @@ def main() -> int:
                 else:
                     ok = f"NO ({len(hits)} matches)"
                     shown = ", ".join(hits) or "(none)"
+            if ok.startswith("yes"):
+                resolved[expected] = shown
             lines.append(f"| {expected} | `{shown}` | {ok} |")
         if footnotes:
             lines.append("")
             lines.extend(footnotes)
+        lines.append("")
+        lines.extend(_distinctness_rows(resolved))
     else:
         lines.append("- not run")
     lines.append("")
@@ -598,14 +767,16 @@ def main() -> int:
                 "regression is worked around locally, see the line above). "
                 "`klt lvs`'s `options.combine_devices` is a single flag "
                 "applied to the whole (flattened) compared netlist, with no "
-                "per-subcircuit scoping. Three of the five "
+                "per-subcircuit scoping. Three of the six "
                 "already-independently-verified sub-blocks (comparator, "
-                "sar_sequencer, seln_inverters) need it `true` to re-lump "
+                "sar_sequencer, top_glue) need it `true` to re-lump "
                 "their own genuinely split/interleaved layout legs against "
-                "their own lumped reference devices; the other two "
+                "their own lumped reference devices; two of the others "
                 "(cdac_array, sampling_frontend) need it `false` (cdac_array "
                 "to avoid klayout-tools#1497's parallel-capacitor combine "
-                "nondeterminism). klayout-tools#1552 (this repo's own report "
+                "nondeterminism), and the sixth (halflsb_offset, whose eight "
+                "cards are all `m = MF = 1`) has nothing to fold either way. "
+                "klayout-tools#1552 (this repo's own report "
                 "of exactly this gap) is closed upstream via #1556's new "
                 "`options.combine_devices_per_circuit`, but that option does "
                 "not actually help here: it can only scope a side that "
