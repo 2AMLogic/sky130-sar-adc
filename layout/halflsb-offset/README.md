@@ -191,11 +191,22 @@ off-grid shape is on a MiM-stack layer — i.e. that **no transistor-level geome
 census is 48 shapes, all on capm/met3/via3/met4 and the met1/via1/met2/via2 that
 lands on them.
 
-Whether a 1898 nm MiM plate is acceptable at all is a DR-005/DR-009 question
-about the unit cap, not a layout question — **filed as issue #496** rather than
-decided here. This block is required by DR-009 to size its cap *identical* to
-`C_u` (the half-LSB step is a ratio against one array bit), so rounding to a
-5 nm-legal plate here would be a ratio error, not a fix.
+Whether a 1898 nm MiM plate is acceptable at all was a DR-005/DR-009 question
+about the unit cap, not a layout question, and issue #496 decided it:
+[DR-019](../../spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)
+reads the PDK's own shipped signoff DRC deck directly, finds the 5 nm grid
+check is real (not a klt-only convention) and on by default for the
+metal/via layers that land on the plate, and resizes `C_u`'s plate to the
+smallest 5 nm-grid-legal side at or above DR-003 Item 3's matching floor
+(`1.9000 µm`, up from `1.8988 µm`). DR-019 does not redraw this block —
+that resize is tracked as its own follow-up issue, which this block's own
+`run-flow.sh` must be re-run against once it lands, and this census is
+expected to shrink sharply (though not necessarily to zero) once both
+`C_u` and this block's own offset cap move to the grid-legal side. Until
+then this section's analysis stands unchanged: this block was never the
+right place to decide the plate size, and rounding to a 5 nm-legal plate
+here alone (without moving `C_u` identically) would still be a ratio error,
+not a fix.
 
 ## Which `klt` flow, and why
 

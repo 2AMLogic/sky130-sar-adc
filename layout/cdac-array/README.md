@@ -374,6 +374,21 @@ dummy-marker layer added on top.
   are DRAFT pending issue #27; this layout consumes DR-003 Item 3's
   provisional 1.8988 µm plate and would be regenerated, not patched, if that
   changes.
+- **Grid legality — not checked here, and known to fail.** This flow does
+  not run `klt precheck`, so nothing in this block's own records measures
+  it, but `CAPM_SIDE = 1.898` (µm) is not a multiple of sky130's 5 nm
+  manufacturing grid, for the same reason
+  `layout/halflsb-offset/`'s `klt precheck --grid-um 0.005` census (#495)
+  measured it as a real defect there: neither the plate's own corners nor
+  any via/pad a router centres on them can land on-grid, across all 1024
+  instances this generator draws.
+  [DR-019](../../spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)
+  (#496) reads the PDK's own shipped signoff DRC deck directly, confirms the
+  grid check is real (not a klt-only convention), and resizes `C_u`'s plate
+  to a 5 nm-grid-legal side (`1.9000 µm`, up from `1.8988 µm`) rather than
+  waiving it. This block inherits that resize via its own follow-up issue
+  (`CAPM_SIDE` becomes `1.900`) and a full re-run of `run-flow.sh`, not done
+  here.
 
 ## Provenance
 
