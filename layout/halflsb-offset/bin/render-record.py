@@ -16,10 +16,17 @@ a record of the failure -- if any of the fourteen expected verdicts do not hold:
      two separately-tapped islands, so verdict 3 says nothing about the split
      unless the deck can see an illegal well spacing at all
   5. `klt precheck` passes outright on the layout's own 1 nm database grid
-  6. on sky130's 5 nm MANUFACTURING grid, `offgrid` is the only failing
-     precheck check, and every off-grid shape is on a MiM-stack layer -- i.e.
-     no transistor-level geometry is off-grid (see README, "Why `klt
-     precheck`'s 5 nm grid check cannot pass here")
+  6. `klt precheck` passes outright on sky130's 5 nm MANUFACTURING grid too.
+     **This verdict was INVERTED by issue #498** (see README, "The 5 nm
+     manufacturing grid"): it used to assert only that `offgrid` was the sole
+     failing check and that every off-grid shape sat on a MiM-stack layer,
+     because `C_u`'s 1898 nm plate made an outright pass unreachable. DR-019
+     resized `C_u` (and with it this block's own offset cap) to a
+     5 nm-grid-legal 1.9000 um, the census went 48 -> 0, and a verdict that
+     still tolerated off-grid shapes would now be permission to regress. Same
+     discipline as issue #149's inversion of
+     `layout/sampling-frontend-wells/`'s verdict 5 once the gap it measured
+     closed: invert, do not delete.
   7. extraction reports the schematic's exact device population
      (4 pfet + 2 nfet + 2 MiM caps, and nothing else)
   8. extraction reports NO single-terminal net
@@ -105,11 +112,17 @@ EXPECTED_DEVICE_COUNTS = {
 #: unlike `layout/sampling-frontend/`'s three-domain DR-007 partition.
 EXPECTED_PFET_BODY = "VDD"
 
-#: Layers a shape may legitimately be off the 5 nm manufacturing grid on: the
+#: Layers an off-grid shape used to be attributable to the plate size on: the
 #: MiM stack (capm/met3/via3/met4) and the metal this flow must land on its
-#: ports (met1/via1/met2/via2). Anything on a transistor-level layer
-#: (nwell/diff/tap/poly/licon1/li1) being off-grid is a defect in this flow, not
-#: a consequence of the 1.898 um plate.
+#: ports (met1/via1/met2/via2).
+#:
+#: Since DR-019/#498 resized the plate to a 5 nm-grid-legal 1.9000 um, NO
+#: layer may carry an off-grid shape -- verdict 6 requires an outright pass.
+#: This table survives only as a diagnostic classifier for a regression: an
+#: off-grid shape here says "the plate side or something derived from it moved
+#: back off-grid", one on a transistor-level layer
+#: (nwell/diff/tap/poly/licon1/li1) says "this flow's own placement is wrong".
+#: Neither is acceptable; they just point at different causes.
 MIM_STACK_LAYERS = (
     "68/20",  # met1
     "68/44",  # via1
@@ -242,10 +255,9 @@ def main() -> int:
             precheck.get("status") == "pass",
         ),
         (
-            "on sky130's 5 nm manufacturing grid, `offgrid` is the ONLY failing "
-            "precheck check and every off-grid shape is on a MiM-stack layer "
-            "(no transistor-level geometry off-grid)",
-            _failing_checks(precheck_grid5) == ["offgrid"] and not offgrid_bad_layers,
+            "`klt precheck` passes outright on sky130's 5 nm MANUFACTURING "
+            "grid too -- no off-grid shape on any layer, MiM stack included",
+            precheck_grid5.get("status") == "pass",
         ),
         (
             "extraction reports the schematic's exact device population "
@@ -602,14 +614,18 @@ def main() -> int:
     a("## Off-grid census (5 nm manufacturing grid)")
     a("")
     a(
-        "Recorded rather than hidden. The MiM plate DR-009 requires is 1898 nm "
-        "on a side, which is not a multiple of 5 nm, so neither the plate's own "
-        "edges nor the port coordinates derived from it can be on sky130's "
-        "manufacturing grid -- and every coordinate this flow *chooses* is "
-        "snapped to it (`build_layout.GRID_UM`), which is why the residual is "
-        "confined to the MiM stack and the wiring that has to land on its ports. "
-        "This is a property of the unit-cap size shared with "
-        "`layout/cdac-array/`'s own 1024 units, not of this flow."
+        "Recorded rather than hidden, and **empty since issue #498**. Every "
+        "coordinate this flow *chooses* was always snapped to the 5 nm grid "
+        "(`build_layout.GRID_UM`); what it could not choose was the MiM plate "
+        "side, which DR-009 requires to be identical to "
+        "`design/cdac/cdac_unit_cell.sch`'s `C_u`. That plate was 1898 nm on a "
+        "side -- not a multiple of 5 -- so neither its own edges nor the port "
+        "coordinates nor the vias and landing pads derived from them could sit "
+        "on the manufacturing grid, and the census stood at 48 shapes "
+        "(`reports/20260930-231954-70fdc06/`). DR-019 (#496) resized `C_u` to "
+        "a 5 nm-grid-legal 1.9000 um and #498 carried that through both this "
+        "block and `layout/cdac-array/`; the census went to 0. Verdict 6 was "
+        "inverted to require an outright pass rather than a confined residual."
     )
     a("")
     a("| Cell | Layer | Off-grid shapes |")

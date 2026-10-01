@@ -49,7 +49,7 @@ def gen_side(code: int, side: str, side_code: int) -> str:
         wt = WEIGHTS[i]
         cname = f"bot_{code}{side}{i}"
         top = f"top_{code}{side}"
-        cap = f"Xc_{code}{side}{i}  {cname} {top}   sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF={wt} m={wt}"
+        cap = f"Xc_{code}{side}{i}  {cname} {top}   sky130_fd_pr__cap_mim_m3_1 W=1.9000 L=1.9000 MF={wt} m={wt}"
         if bit == 0:
             lines.append(cap)
             lines.append(f"Xn_{code}{side}{i}  {cname} vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1")
@@ -60,7 +60,7 @@ def gen_side(code: int, side: str, side_code: int) -> str:
             lines.append(cap)
             lines.append(f"Xn_{code}{side}{i}  {cname} {selnode} vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1")
             lines.append(f"Xp_{code}{side}{i}  {cname} {selnode} vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1")
-    lines.append(f"Xterm_{code}{side} vrefn top_{code}{side} sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1")
+    lines.append(f"Xterm_{code}{side} vrefn top_{code}{side} sky130_fd_pr__cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 m=1")
     lines.append(f"Sreset_{code}{side} top_{code}{side} vcm nctrl_reset 0 SWMOD")
     lines.append(f"Rdc_{code}{side} top_{code}{side} vcm 1T")
     return "\n".join(lines)

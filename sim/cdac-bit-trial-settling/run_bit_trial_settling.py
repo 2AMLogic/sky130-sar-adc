@@ -162,6 +162,20 @@ BIT_WEIGHTS = {i: 2 ** i for i in range(9)}
 TERM_WEIGHT = 1
 C_TOTAL_WEIGHT = sum(BIT_WEIGHTS.values()) + TERM_WEIGHT  # 511 + 1 = 512
 
+#: The unit-cap plate side every `cap_mim_m3_1` card in this deck asks for,
+#: transcribed from `design/cdac/cdac_unit_cell.sch`'s own `C_u` -- kept as one
+#: named constant rather than repeated as a literal in the three places the
+#: deck emits a capacitor card, so a future resize cannot land in two of them.
+#:
+#: `1.9000` since `spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`
+#: (#496, carried through here by #498) resized the plate from `1.8988` to a
+#: 5 nm manufacturing-grid-legal side. This campaign's own measured quantity is
+#: a RATIO (tau_i = R_on * C_total * weight_i/C_total_weight -- see the module
+#: docstring), so C_u scales tau_i linearly and the +0.116% resize moves every
+#: settling time by the same +0.116%: far inside this measurement's own
+#: resolution, but the deck must still ask for the plate the design draws.
+UNIT_CAP_WL_UM = 1.9000
+
 TEST_BITS = [0, 4, 8]  # LSB, a mid bit, MSB -- brackets the tau_i(i) shape
 DIRECTIONS = ["fall", "rise"]  # fall: BOT 1.8->0V (NMOS); rise: BOT 0->1.8V (PMOS)
 
@@ -296,7 +310,8 @@ def build_transient(
         if i == test_bit:
             lines += [
                 f"Xc_bit{i} bot{i} TOP sky130_fd_pr__cap_mim_m3_1 "
-                f"W=1.8988 L=1.8988 MF={weight} m={weight}",
+                f"W={UNIT_CAP_WL_UM:.4f} L={UNIT_CAP_WL_UM:.4f} "
+                f"MF={weight} m={weight}",
                 f"Xn_bit{i} bot{i} SEL_TEST VREFN 0 sky130_fd_pr__nfet_01v8 "
                 "L=0.15 W=1 nf=1",
                 f"Xp_bit{i} bot{i} SEL_TEST VREFP VDD sky130_fd_pr__pfet_01v8 "
@@ -323,12 +338,14 @@ def build_transient(
             lines.append(f"Vbot{i} bot{i} 0 dc 0")
             lines.append(
                 f"Xc_bit{i} bot{i} TOP sky130_fd_pr__cap_mim_m3_1 "
-                f"W=1.8988 L=1.8988 MF={weight} m={weight}"
+                f"W={UNIT_CAP_WL_UM:.4f} L={UNIT_CAP_WL_UM:.4f} "
+                f"MF={weight} m={weight}"
             )
     # Termination unit: fixed weight-1 cap, bottom plate hardwired VREFN,
     # no switch device at all (design/cdac/cdac_array.sch's own convention).
     lines.append(
-        f"Xc_term VREFN TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 "
+        f"Xc_term VREFN TOP sky130_fd_pr__cap_mim_m3_1 "
+        f"W={UNIT_CAP_WL_UM:.4f} L={UNIT_CAP_WL_UM:.4f} "
         f"MF={TERM_WEIGHT} m={TERM_WEIGHT}"
     )
 

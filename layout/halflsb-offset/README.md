@@ -24,11 +24,11 @@ docs/chipalooza/check_proposal_citations.py --stats`):
 
 | Instance | Device | Size | Role |
 | --- | --- | --- | --- |
-| `Choff_n` | `cap_mim_m3_1` | `W = L = 1.8988` (drawn 1.898) | offset cap, `TOP_N` ↔ `BOT_OFF_N` |
+| `Choff_n` | `cap_mim_m3_1` | `W = L = 1.9000` (drawn 1.900) | offset cap, `TOP_N` ↔ `BOT_OFF_N` |
 | `Moff_n_refp` | `pfet_01v8` | `L=0.15 W=2` | `BOT_OFF_N` → `VREFP`, gate `HALF_LSB_EN` |
 | `Moff_n_cmn` | `nfet_01v8` | `L=0.15 W=1` | `BOT_OFF_N` → `VCM`, gate `HALF_LSB_EN` |
 | `Moff_n_cmp` | `pfet_01v8` | `L=0.15 W=2` | `BOT_OFF_N` → `VCM`, gate `HALF_LSB_ENN` |
-| `Choff_p` | `cap_mim_m3_1` | `W = L = 1.8988` (drawn 1.898) | matching dummy cap, `TOP_P` ↔ `BOT_OFF_P` |
+| `Choff_p` | `cap_mim_m3_1` | `W = L = 1.9000` (drawn 1.900) | matching dummy cap, `TOP_P` ↔ `BOT_OFF_P` |
 | `Moff_p_refp` | `pfet_01v8` | `L=0.15 W=2` | tied off (gate `VGND`) |
 | `Moff_p_cmn` | `nfet_01v8` | `L=0.15 W=1` | tied off (gate `VGND`) |
 | `Moff_p_cmp` | `pfet_01v8` | `L=0.15 W=2` | tied off (gate `VPWR`) |
@@ -52,6 +52,7 @@ implements it and does not re-derive it.
 | `klt drc --deck sky130` (7 blocks, then composed) | **CLEAN**, 0 violations |
 | `klt drc` on the illegal n-well fixture, same deck | **VIOLATIONS** naming `nwell.space.1` |
 | `klt precheck` (1 nm database grid) | **pass** |
+| `klt precheck` (5 nm manufacturing grid) | **pass** since #498 — 0 off-grid shapes, down from 48 (see "The 5 nm manufacturing grid") |
 | `klt extract --deck sky130` | 8 devices (4 pfet / 2 nfet / 2 MiM), 12 nets, 12 pins, no single-terminal net, no unbiased PMOS body |
 | `klt lvs` vs the schematic-derived reference | **match**, 8/8 devices, 12/12 nets, 12/12 pins |
 | `klt lvs` vs device-parameter / cap-top-plate controls | **mismatch** (both) |
@@ -163,50 +164,68 @@ routing asymmetry an incongruent floorplan produces is the larger and the more
 consideration either way (the composed cell is ≈ 31 × 19 µm, mostly empty
 channel).
 
-## Why `klt precheck`'s 5 nm grid check cannot pass here
+## The 5 nm manufacturing grid
 
-The flow runs `klt precheck` twice and records both:
+The flow runs `klt precheck` twice and **both runs are gating**:
 
-- `--grid-um 0.001` (the layout's own database unit) — **must pass outright**,
-  and does. That is the gating run.
-- `--grid-um 0.005` (sky130's manufacturing grid) — recorded, with a
-  per-cell/per-layer census of every off-grid shape in `record.md`.
+- `--grid-um 0.001` (the layout's own database unit) — must pass outright.
+- `--grid-um 0.005` (sky130's manufacturing grid) — must pass outright too,
+  since issue #498. `record.md` still prints a per-cell/per-layer census of
+  every off-grid shape; it is now empty.
 
-The 5 nm run cannot pass, and the reason is not this flow's: DR-009 sizes the
-offset cap identically to `design/cdac/cdac_unit_cell.sch`'s `C_u`, whose plate
-is **1898 nm** on a side. 1898 is not a multiple of 5, so neither the plate's own
-edges nor the port coordinates derived from it (a plate centre at 1449 nm, a
-bottom-plate port at the plate edge) can land on a 5 nm grid, and neither can any
-via or landing pad this flow must centre on those ports. It is a property of the
-unit-cap size, shared with `layout/cdac-array/`'s own 1024 units — that flow does
-not run `precheck` at all, so this block is the first place in the repo where the
-fact is measured.
+### It did not always pass, and why the fix was not this flow's to make
 
-What this flow *does* do is confine the residual. Every coordinate it chooses is
-snapped to the 5 nm grid (`build_layout.GRID_UM`, applied to the met4 escape
-height and the track band's floor), and `record.md`'s verdict 6 asserts
-mechanically that `offgrid` is the only failing precheck check **and** that every
-off-grid shape is on a MiM-stack layer — i.e. that **no transistor-level geometry
-(nwell / diff / tap / poly / licon1 / li1) is off-grid**. The current record's
-census is 48 shapes, all on capm/met3/via3/met4 and the met1/via1/met2/via2 that
-lands on them.
+This block was the first place in the repo to measure the 5 nm grid, and the
+first measurement failed: **48 off-grid shapes**
+(`reports/20260930-231954-70fdc06/`), spread over `capm`/met3/via3/met4 and the
+met1/via1/met2/via2 that lands on them.
 
-Whether a 1898 nm MiM plate is acceptable at all was a DR-005/DR-009 question
-about the unit cap, not a layout question, and issue #496 decided it:
+Every coordinate this flow *chooses* was already snapped to the 5 nm grid
+(`build_layout.GRID_UM`, applied to the met4 escape height and the track band's
+floor). The coordinate it does not choose is the MiM plate side: DR-009 sizes
+the offset cap identically to `design/cdac/cdac_unit_cell.sch`'s `C_u`, and that
+plate was **1898 nm** on a side. 1898 is not a multiple of 5, so neither the
+plate's own edges nor the port coordinates derived from it (a plate centre at
+1449 nm, a bottom-plate port at the plate edge) could land on a 5 nm grid, and
+neither could any via or landing pad centred on those ports. Rounding the plate
+to a 5 nm-legal value *here alone*, without moving `C_u` identically, would have
+been a ratio error rather than a fix — the half-LSB step is a ratio against one
+array bit.
+
+So the question went where it belonged, to the unit cap. Issue #496 decided it:
 [DR-019](../../spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)
-reads the PDK's own shipped signoff DRC deck directly, finds the 5 nm grid
-check is real (not a klt-only convention) and on by default for the
-metal/via layers that land on the plate, and resizes `C_u`'s plate to the
-smallest 5 nm-grid-legal side at or above DR-003 Item 3's matching floor
-(`1.9000 µm`, up from `1.8988 µm`). DR-019 does not redraw this block —
-that resize is tracked as its own follow-up issue, which this block's own
-`run-flow.sh` must be re-run against once it lands, and this census is
-expected to shrink sharply (though not necessarily to zero) once both
-`C_u` and this block's own offset cap move to the grid-legal side. Until
-then this section's analysis stands unchanged: this block was never the
-right place to decide the plate size, and rounding to a 5 nm-legal plate
-here alone (without moving `C_u` identically) would still be a ratio error,
-not a fix.
+reads the PDK's own shipped signoff DRC deck directly, finds the 5 nm grid check
+is real (not a klt-only convention) and on by default for the metal/via layers
+that land on the plate, and resizes `C_u`'s plate to the smallest
+5 nm-grid-legal side at or above DR-003 Item 3's matching floor — `1.9000 µm`,
+up from `1.8988 µm`, `C_u` `8.654 fF` → `8.664 fF`.
+
+### The measurement DR-019 deliberately did not make
+
+DR-019 declined to predict where the census would land, calling it "expected to
+shrink sharply (though not necessarily to zero)" and leaving the measurement to
+issue #498, which carried the resize through `design/`, `layout/cdac-array/` and
+this block. Measured, on the identical flow with only the plate side changed:
+
+| | before (1.898 µm plate) | after (1.900 µm plate) |
+| --- | ---: | ---: |
+| `halflsb_offset` off-grid shapes at 5 nm | 48 | **0** |
+| `cdac_unit_cell` off-grid shapes at 5 nm | 1 | **0** |
+| `cdac_array` off-grid shapes at 5 nm | 1024 | **0** |
+
+It reaches zero. Nothing else in either block was off-grid for any other
+reason — every one of the 48 shapes traced back to the plate side, directly or
+through a via centred on a port derived from it.
+
+Verdict 6 was therefore **inverted**, not deleted: it used to assert that
+`offgrid` was the only failing check and that every off-grid shape sat on a
+MiM-stack layer (i.e. that no transistor-level geometry was off-grid); it now
+requires an outright pass. The same discipline issue #149 applied when klt 0.4.0
+closed the n-well DRC gap `layout/sampling-frontend-wells/`'s verdict 5
+measured — a verdict that still tolerated a residual would now be permission to
+regress. `layout/cdac-array/` gained its own pair of precheck verdicts in the
+same pass, per DR-019's standing policy that this check is a gate for any block
+in this repo drawing a MiM cap, not an advisory metric.
 
 ## Which `klt` flow, and why
 
@@ -256,14 +275,18 @@ generalizing device classes to `klt extract --deck sky130`'s own flat vocabulary
 into the record directory; nothing is hand-written and nothing is committed
 outside a record.
 
-The one place the reference legitimately departs from the card is the capacitance:
-the cards ask for `W = L = 1.8988`, the drawn plate is 1.898, and an LVS reference
-has to state the capacitance of the plate that is *drawn* —
-`camimc·W·L + cpmimc·2(W+L)` on the drawn side, with the extraction deck's own
-published tt coefficients (area 2.0 fF/µm², perimeter 0.19 fF/µm),
-`8.647288000e-15 F`. Derived from geometry and coefficients, never read back out
-of an extraction result. `bin/check-schematic-parity.py` is what keeps that
-departure from widening: it asserts the drawn plate side equals
+The reference states a *capacitance* where the card states a `W`/`L`, because
+that is the only vocabulary the layout side reports:
+`camimc·W·L + cpmimc·2(W+L)` on the drawn plate, with the extraction deck's own
+published tt coefficients (area 2.0 fF/µm², perimeter 0.19 fF/µm). Derived from
+geometry and coefficients, never read back out of an extraction result.
+
+Since DR-019 (#496/#498) the drawn plate and the card agree exactly — both
+`1.9000 µm`, giving `8.664000e-15 F`. Before it, the card asked for `1.8988`
+(1898.8 nm, undrawable on the 1 nm database grid) and this block drew
+`layout/cdac-array/`'s own `1.898` instead, for `8.647288000e-15 F`; that
+departure is retired. `bin/check-schematic-parity.py` is what kept it from
+widening and still does: it asserts the drawn plate side equals
 `layout/cdac-array/bin/cdac_layout.py`'s own `CAPM_SIDE` (read out of that file's
 text) and is within one database unit of the schematic's own value.
 

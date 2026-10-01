@@ -267,8 +267,10 @@ def rewrite(top: str, netlist: str) -> str:
 * vocabulary. See that script's docstring for the three rewrites and why
 * each is a change of vocabulary rather than of topology.
 *
-* Unit capacitor: the schematic sizes the MiM plate W=L=1.8988 um; the
-* drawn plate is the nearest 1 nm-grid square, {CAPM_SIDE} um, whose
+* Unit capacitor: the schematic sizes the MiM plate W=L=1.9000 um (DR-019,
+* #496/#498 -- a side that is legal on both the 1 nm database grid and
+* sky130's 5 nm manufacturing grid), and the drawn plate is that exact
+* value, {CAPM_SIDE} um, with no rounding step between them. Its
 * capacitance under the extraction deck's own published coefficients
 * (area 2.0 fF/um^2, perimeter 0.19 fF/um) is
 * C_unit = {CAP_UNIT_F:.9e} F. A bit of weight w carries `MF=w` in the

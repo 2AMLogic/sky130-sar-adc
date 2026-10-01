@@ -279,7 +279,10 @@ v {xschem version=3.4.7 file_version=1.2
 *
 * Fix: the classic half-LSB offset capacitor, added here at the top level
 * rather than inside the array. Choff_n is a CDAC-unit-sized MiM cap
-* (W=L=1.8988, identical to design/cdac/cdac_unit_cell.sch's C_u) from
+* (W=L=1.9000, identical to design/cdac/cdac_unit_cell.sch's C_u -- both
+* resized from 1.8988 to the 5 nm-grid-legal 1.9000 by DR-019 via #496/#498,
+* and they must stay identical: it is the RATIO to C_u, not the absolute
+* value, that sets the half-LSB offset) from
 * TOP_N to its own bottom plate BOT_OFF_N, which is switched between VREFP
 * and VCM by Moff_n_refp / Moff_n_cmn / Moff_n_cmp. One unit cap over HALF
 * the reference swing (VREFP -> VCM = V_REF/2, since VCM = V_DD/2 = V_REF/2
@@ -790,7 +793,7 @@ C {devices/lab_pin.sym} 2240 1800 0 0 {name=l_hln_y lab=HALF_LSB_ENN}
 * VCM is mid-rail, so a single device would be a poor switch there).
 * Device flavours/sizes are copied from design/cdac/cdac_unit_cell.sch so
 * this cell's switch parasitics match a real array bit's.
-C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 1700 0 0 {name=Choff_n model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 1700 0 0 {name=Choff_n model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {devices/lab_pin.sym} 2600 1670 0 0 {name=l_offn_bot lab=BOT_OFF_N}
 C {devices/lab_pin.sym} 2600 1730 0 0 {name=l_offn_top lab=TOP_N}
 C {sky130_fd_pr/pfet_01v8.sym} 2800 1700 0 0 {name=Moff_n_refp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
@@ -815,7 +818,7 @@ C {devices/lab_pin.sym} 2820 2000 0 0 {name=l_offn_cp_b lab=VDD}
 * cell contributes NO offset. Its only job is to give TOP_P the same total
 * capacitance and the same switch junction parasitics as TOP_N, so the
 * DOUT9=1 and DOUT9=0 branches have the same gain.
-C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 2200 0 0 {name=Choff_p model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 2200 0 0 {name=Choff_p model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {devices/lab_pin.sym} 2600 2170 0 0 {name=l_offp_bot lab=BOT_OFF_P}
 C {devices/lab_pin.sym} 2600 2230 0 0 {name=l_offp_top lab=TOP_P}
 C {sky130_fd_pr/pfet_01v8.sym} 2800 2200 0 0 {name=Moff_p_refp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
