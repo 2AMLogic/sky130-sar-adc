@@ -178,9 +178,14 @@ SWITCH_DEVICES = [
 CAP_BLOCK_ID = "choff"
 
 #: The plate side `design/sar_adc_top.spice` asks for, verbatim from the
-#: `XChoff_*` cards (`W=1.8988 L=1.8988`). Not drawable: 1.8988 um is 1898.8
-#: nm, off the 1 nm database grid.
-CAP_SCHEMATIC_UM = 1.8988
+#: `XChoff_*` cards (`W=1.9000 L=1.9000`). Drawable exactly: 1.9000 um is
+#: 1900 nm, legal on the 1 nm database grid AND on sky130's 5 nm
+#: manufacturing grid.
+#:
+#: Was 1.8988 (1898.8 nm, off the 1 nm database grid) until
+#: spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md
+#: (#496) resized `C_u`, carried through here by #498.
+CAP_SCHEMATIC_UM = 1.9000
 
 #: The plate side actually drawn -- `layout/cdac-array/bin/cdac_layout.py`'s
 #: own `CAPM_SIDE`, byte-identical on purpose and asserted against that file
@@ -189,11 +194,13 @@ CAP_SCHEMATIC_UM = 1.8988
 #: DR-009 sizes this cap "identical to `design/cdac/cdac_unit_cell.sch`'s
 #: `C_u`", and the thing that has to be identical is the DRAWN plate, not the
 #: schematic string: the half-LSB step is a *ratio* against one array bit, so
-#: a 1 nm plate-side difference from the array's own units is a ratio error,
-#: while rounding 1898.8 nm to the nearer grid point (1899) instead of to the
-#: value the array already draws (1898) would introduce exactly that. Matching
-#: the sibling wins over rounding to the nearer grid point.
-CAP_DRAWN_UM = 1.898
+#: a 1 nm plate-side difference from the array's own units is a ratio error.
+#: Before DR-019 that forced a choice -- round 1898.8 nm to the nearer grid
+#: point (1899) or to the value the array already drew (1898)? -- and matching
+#: the sibling won. DR-019 removes the choice entirely: the schematic value is
+#: now itself grid-legal, so drawn == schematic == the array's own `CAPM_SIDE`,
+#: with no rounding step anywhere.
+CAP_DRAWN_UM = 1.900
 
 #: `klt extract --deck sky130`'s own two-term MiM law, C = camimc*W*L +
 #: cpmimc*2*(W+L) at the tt corner (area 2.0 fF/um^2, perimeter 0.19 fF/um),

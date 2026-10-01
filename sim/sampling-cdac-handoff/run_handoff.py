@@ -588,6 +588,15 @@ def main() -> int:
         f"{TRAN_STEP_NS}; see TRAN_STEP_NS's own comment for why this mode's "
         "default differs from the front-end-only campaign's 0.02 ns)",
     )
+    ap.add_argument(
+        "--note", default="",
+        help="free-text provenance note recorded as this record's `**Note**` "
+        "field -- the place a re-run says WHY it was re-run and which record "
+        "it displaces for the same claim. Added by #498: until then this "
+        "runner had no --note (and has no --supersedes, see #502), so a "
+        "re-run after a design/ change could not be traced back to what it "
+        "replaced from the record itself at all.",
+    )
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
@@ -611,7 +620,7 @@ def main() -> int:
             )
             incomplete = [p for p in points + control if not p["complete"]]
             if args.record:
-                write_corners_record(points, control, regen_note)
+                write_corners_record(points, control, regen_note, note=args.note)
             if incomplete:
                 print(
                     f"\nFAIL: {len(incomplete)}/{len(points) + len(control)} runs "
@@ -656,11 +665,11 @@ def main() -> int:
     print(f"\nmax |TOP_x - VINx| across all runs: {max_abs_err_mv:.4f} mV")
 
     if args.record:
-        write_record(results)
+        write_record(results, note=args.note)
     return 0
 
 
-def write_record(results: list[dict]) -> None:
+def write_record(results: list[dict], note: str = "") -> None:
     combined_netlist_text = FE_FRAG.read_text() + "\n\n" + CDAC_FRAG.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, combined_netlist_text)
     record_id = prov.record_id
@@ -708,6 +717,8 @@ def write_record(results: list[dict]) -> None:
         "the same subset-corner precedent sim/sampling-frontend/ already "
         "established for this sub-block."
     )
+    if note:
+        a(f"- **Note**: {note}")
     a("")
     a("## Test points")
     a("")
@@ -855,7 +866,9 @@ FRONTEND_ONLY_WORST_CORNER = "tt_27c_1.62v"
 PRE_236_SS_EXCURSION_MV = 5.33
 
 
-def write_corners_record(points: list[dict], control: list[dict], regen_note: str) -> Path:
+def write_corners_record(
+    points: list[dict], control: list[dict], regen_note: str, note: str = ""
+) -> Path:
     """Evidence record for the combined-load mechanism-(d) PVT campaign
     (issue #469), using the shared `corners/<record-id>/` per-point-deck layout
     every other --corners record in sim/ writes."""
@@ -949,6 +962,8 @@ def write_corners_record(points: list[dict], control: list[dict], regen_note: st
         "switches and never float, so the code sets their charge but not the "
         "capacitance `TOP_x` sees -- which is what this record measures."
     )
+    if note:
+        a(f"- **Note**: {note}")
     a("")
     a(
         "## Worst-node residual at the DR-006 worst-case phase budget, per corner"

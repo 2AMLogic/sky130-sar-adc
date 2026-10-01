@@ -156,8 +156,8 @@ class HalfLsbOffsetSchematicParityTest(unittest.TestCase):
         block draws one per card, so it is not an implementation of it."""
         result = run_on_mutated(
             self,
-            "XChoff_n BOT_OFF_N TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 m=1",
-            "XChoff_n BOT_OFF_N TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 m=2",
+            "XChoff_n BOT_OFF_N TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 m=1",
+            "XChoff_n BOT_OFF_N TOP_N sky130_fd_pr__cap_mim_m3_1 W=1.9000 L=1.9000 MF=2 m=2",
         )
         self.assertEqual(result.returncode, 1)
         self.assertIn("Choff_n", result.stderr)

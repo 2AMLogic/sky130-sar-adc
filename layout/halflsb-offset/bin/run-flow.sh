@@ -32,10 +32,14 @@
 #   6. `klt drc`          -- curated sky130 deck on the composed layout: CLEAN.
 #   7. `klt draw`+`drc`   -- the deliberately-illegal n-well fixture through the
 #                            SAME deck: VIOLATIONS naming nwell.space.1.
-#   8. `klt precheck` x2  -- once on the layout's own 1 nm database grid
-#                            (must pass outright) and once on sky130's 5 nm
-#                            manufacturing grid (recorded; see README for why
-#                            the 1.898 um MiM plate makes that one unreachable).
+#   8. `klt precheck` x2  -- once on the layout's own 1 nm database grid and
+#                            once on sky130's 5 nm manufacturing grid. BOTH
+#                            must now pass outright: DR-019/#498 resized the
+#                            MiM plate to a grid-legal 1.9000 um and the 5 nm
+#                            census went 48 -> 0, so verdict 6 was inverted
+#                            from "the residual is confined to the MiM stack"
+#                            to "there is no residual" (see README, "The 5 nm
+#                            manufacturing grid").
 #   9. `klt extract`      -- netlist, device population, PMOS body terminals.
 #  10. reference x4       -- bin/generate-lvs-reference.py, the schematic-derived
 #                            good reference plus three negative controls.

@@ -11,22 +11,27 @@ are generalized to `klt extract --deck sky130`'s own flat vocabulary
 `layout/sampling-frontend/reference.spice` both make and for the same reason:
 the layout side can only ever report the generic class.
 
-The ONE place the reference legitimately departs from the card
--------------------------------------------------------------
-A `cap_mim_m3_1` card carries `W=1.8988 L=1.8988`; the drawn plate is 1.898 um
-(1898 nm -- 1898.8 is not on the 1 nm database grid, and 1.898 is the value
-`layout/cdac-array/` already draws for the very unit cap DR-009 says this cap
-is identical to). An LVS reference has to state the capacitance of the plate
-that is *drawn*, so this script emits `gen_blocks.CAP_UNIT_F` --
-`camimc*W*L + cpmimc*2*(W+L)` on the DRAWN side, using the extraction deck's
-own published tt-corner coefficients. It is derived from geometry and
-coefficients, never read back out of an extraction result, so the reference
-stays an independent statement.
+Where the reference states a capacitance rather than a plate size
+----------------------------------------------------------------
+A `cap_mim_m3_1` card carries `W=1.9000 L=1.9000`, and since DR-019 (#496,
+carried through by #498) the drawn plate is that exact value -- 1900 nm is
+legal on the 1 nm database grid and on sky130's 5 nm manufacturing grid alike,
+and it is the value `layout/cdac-array/` draws for the very unit cap DR-009
+says this cap is identical to. (Before DR-019 the card asked for 1.8988 um =
+1898.8 nm, which no layout could draw, and this block drew the array's own
+1.898 um instead -- a real departure, now retired.)
 
-That departure is exactly why `bin/check-schematic-parity.py` exists and is a
-separate gate: it holds the drawn plate side to the schematic's own value AND
-to `layout/cdac-array/bin/cdac_layout.py`'s `CAPM_SIDE`, so "the reference
-states the drawn plate's capacitance" cannot drift into "the reference states
+An LVS reference still has to state the *capacitance* of the plate that is
+drawn rather than copy a `W`/`L` the layout side cannot report, so this script
+emits `gen_blocks.CAP_UNIT_F` -- `camimc*W*L + cpmimc*2*(W+L)` on the drawn
+side, using the extraction deck's own published tt-corner coefficients. It is
+derived from geometry and coefficients, never read back out of an extraction
+result, so the reference stays an independent statement.
+
+That is why `bin/check-schematic-parity.py` exists and is a separate gate: it
+holds the drawn plate side to the schematic's own value AND to
+`layout/cdac-array/bin/cdac_layout.py`'s `CAPM_SIDE`, so "the reference states
+the drawn plate's capacitance" cannot drift into "the reference states
 whatever the layout happens to draw".
 
 Negative controls

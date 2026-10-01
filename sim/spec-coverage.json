@@ -108,7 +108,7 @@
           "covers": "The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95), and -- at that same assembled top-plate load -- the acquisition residual at the DR-006 worst-case phase budget across the ratified PVT grid (issue #469).",
           "records": [
             "sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md",
-            "sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md"
+            "sim/sampling-cdac-handoff/records/20261001-135431-7487784.md"
           ]
         },
         {
@@ -163,7 +163,7 @@
           "cold_start": "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --corners --record",
           "documented_in": "sim/cdac-bit-trial-settling/run_bit_trial_settling.py",
           "covers": "Mechanism (a) of Section 7 Item 2: how long the CDAC array's own bottom-plate switch network takes to settle the shared top-plate node after one bit's SEL toggles, over the full ratified corner set. Informational against this DRAFT row -- it is compared to the DR-006-derived phase period, which is itself downstream of this row, and proposes no sample rate.",
-          "records": ["sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md"]
+          "records": ["sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md"]
         },
         {
           "experiment": "sequencer-logic-delay",
@@ -205,7 +205,7 @@
           "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record",
           "documented_in": "sim/full-conversion-transient/README.md",
           "covers": "The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record's own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB, though the 12-period phase structure is correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate.",
-          "records": ["sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md"]
+          "records": ["sim/full-conversion-transient/records/20261001-105439-c324f80.md"]
         }
       ]
     },
@@ -241,7 +241,7 @@
           "cold_start": "python3 sim/cdac-array-transfer/run_mc.py --n 40 --seed 1 --record",
           "documented_in": "sim/cdac-array-transfer/README.md",
           "covers": "max|DNL| / max|INL| distributions at tt_mm with a plain-tt negative control (issue #29).",
-          "records": ["sim/cdac-array-transfer/records/20260828-005006-0c70212.md"]
+          "records": ["sim/cdac-array-transfer/records/20261001-124049-5207381.md"]
         }
       ]
     },
@@ -258,7 +258,7 @@
           "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
           "documented_in": "sim/cdac-array-transfer/README.md",
           "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md"]
+          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
         }
       ]
     },
@@ -275,7 +275,7 @@
           "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
           "documented_in": "sim/cdac-array-transfer/README.md",
           "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md"]
+          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
         }
       ]
     },
@@ -292,7 +292,7 @@
           "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
           "documented_in": "sim/cdac-array-transfer/README.md",
           "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md"]
+          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
         }
       ]
     },
@@ -348,7 +348,7 @@
           "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record",
           "documented_in": "sim/full-conversion-transient/README.md",
           "covers": "Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target.",
-          "records": ["sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md"]
+          "records": ["sim/full-conversion-transient/records/20261001-105439-c324f80.md"]
         },
         {
           "experiment": "supply-impedance-sensitivity",
@@ -446,7 +446,7 @@
           "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
           "documented_in": "sim/cdac-array-transfer/README.md",
           "covers": "Ratified corner set executed end to end (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md"]
+          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
         },
         {
           "experiment": "comparator-decision",

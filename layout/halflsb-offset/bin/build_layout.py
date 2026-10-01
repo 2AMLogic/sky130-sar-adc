@@ -132,10 +132,12 @@ LICON_UM = 0.17
 
 #: sky130's manufacturing grid, the one `klt precheck --grid-um` grades against
 #: (`layout/sampling-frontend/bin/run-flow.sh` passes 0.005). Every coordinate
-#: this module *chooses* is snapped to it, so the only off-grid geometry in the
-#: composed layout is what the 1.898 um MiM plate forces -- see `../README.md`,
-#: "Why `klt precheck`'s 5 nm grid check cannot pass here", and `run-flow.sh`'s
-#: two precheck stages, which measure the residual rather than hide it.
+#: this module *chooses* is snapped to it. The one coordinate it does NOT
+#: choose -- the MiM plate side, which DR-009 ties to the CDAC unit cap -- used
+#: to be off-grid (1898 nm) and dragged 48 shapes off with it; DR-019/#498
+#: resized it to a grid-legal 1.9000 um, so the composed layout is now entirely
+#: on this grid. See `../README.md`, "The 5 nm manufacturing grid", and
+#: `run-flow.sh`'s two precheck stages, both of which must now pass outright.
 GRID_UM = 0.005
 
 #: A met2 track for a net with exactly ONE column would otherwise be a

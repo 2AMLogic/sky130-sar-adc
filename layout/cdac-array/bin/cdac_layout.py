@@ -183,18 +183,30 @@ SEL_PAD_DX = -0.60  # pad centre x offset from gate_x
 
 # --------------------------------------------------------------------------- #
 # The unit capacitor. `design/cdac/cdac_unit_cell.sch` sizes it
-# W=L=1.8988 um (bare-number sky130_fd_pr convention) -> C_u ~= 8.654 fF per
-# DR-003 Item 3. 1.8988 um is not on the 1 nm database grid, so the drawn
-# top plate is the nearest grid-legal square, 1.898 um. `CAP_UNIT_F` is the
-# capacitance that drawn plate has under the same area+perimeter formula
-# `klt extract`'s sky130 deck applies (area_cap_f_um2=2.0e-15,
-# perim_cap_f_um=1.9e-16, both transcribed by that deck from the PDK's own
-# tt-corner camimc/cpmimc) -- derived here from the drawn geometry and the
-# deck's published coefficients, never read back out of an extraction
-# result, so the LVS reference generated from cdac_array.sch stays an
-# independent statement about the schematic.
+# W=L=1.9000 um (bare-number sky130_fd_pr convention) -> C_u ~= 8.664 fF per
+# DR-003 Item 3 as amended by
+# spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md.
+#
+# The drawn plate is now EXACTLY the schematic value, with no rounding step
+# at all. Until DR-019 (#496, carried through by #498) the schematic asked
+# for 1.8988 um = 1898.8 nm, which is not on the 1 nm database grid, so this
+# constant had to be the nearest grid-legal square, 1.898 um -- and 1898 is
+# in turn not a multiple of 5, so neither the plate's edges nor anything
+# centred on them could land on sky130's 5 nm MANUFACTURING grid either (the
+# `x.1b` OFFGRID rule class the shipped sky130A signoff deck runs by default
+# on every metal/via layer that lands on this plate). DR-019 resized C_u to
+# 1.9000 um = 1900 nm, which is legal on both grids, so the two-step rounding
+# this comment used to document collapses into one value.
+#
+# `CAP_UNIT_F` is the capacitance that drawn plate has under the same
+# area+perimeter formula `klt extract`'s sky130 deck applies
+# (area_cap_f_um2=2.0e-15, perim_cap_f_um=1.9e-16, both transcribed by that
+# deck from the PDK's own tt-corner camimc/cpmimc) -- derived here from the
+# drawn geometry and the deck's published coefficients, never read back out
+# of an extraction result, so the LVS reference generated from
+# cdac_array.sch stays an independent statement about the schematic.
 # --------------------------------------------------------------------------- #
-CAPM_SIDE = 1.898
+CAPM_SIDE = 1.900
 CAP_AREA_F_UM2 = 2.0e-15
 CAP_PERIM_F_UM = 1.9e-16
 CAP_UNIT_F = CAPM_SIDE**2 * CAP_AREA_F_UM2 + 4.0 * CAPM_SIDE * CAP_PERIM_F_UM
