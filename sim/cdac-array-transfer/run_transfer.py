@@ -330,7 +330,9 @@ def check_structural_sizing() -> tuple[bool, list[str]]:
     return (not problems), problems
 
 
-def write_ratified_evidence(record_id, corners_out_dir, points, info, note: str = ""):
+def write_ratified_evidence(
+    record_id, corners_out_dir, points, info, note: str = "", supersedes: str = ""
+):
     """Grades the 9-point OAT sweep against spec/target-spec.md's ratified
     LSB (`2*V_REF/2^N = 3.5156 mV`) and CDAC unit-cap/array-size
     (`C_u ~= 8.66 fF`, `512` positions/side) rows: (1) a corner-invariant
@@ -459,7 +461,11 @@ def write_ratified_evidence(record_id, corners_out_dir, points, info, note: str 
         netlist_sha256=netlist_sha,
     ))
     a("")
-    lines.extend(evidence.footer_lines("sim/cdac-array-transfer/run_transfer.py --ratified-record", ""))
+    lines.extend(
+        evidence.footer_lines(
+            "sim/cdac-array-transfer/run_transfer.py --ratified-record", supersedes
+        )
+    )
 
     record_path.write_text("\n".join(lines))
     return record_path, overall_ok
@@ -473,7 +479,15 @@ def main():
         "--ratified-record", action="store_true",
         help="also write the ratified-spec-row campaign record (issue #28)",
     )
-    ap.add_argument("--supersedes", default="")
+    ap.add_argument(
+        "--supersedes", default="",
+        help="record-id of the prior record of THIS experiment that the new "
+             "record replaces for the same claim. Honoured by BOTH --record and "
+             "--ratified-record (until #498 the --ratified-record path silently "
+             "dropped it and always wrote `Supersedes: (none)`), so a re-run after "
+             "a design/ change -- e.g. DR-019's C_u resize -- can name what it "
+             "replaces instead of reading as a second, unrelated record.",
+    )
     ap.add_argument("--note", default="")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
@@ -508,7 +522,8 @@ def main():
         for p in points:
             (ratified_corners_out_dir / f"{p['corner_id']}.log").write_text(p["log_text"])
         record_path, ok = write_ratified_evidence(
-            ratified_record_id, ratified_corners_out_dir, points, info, note=args.note
+            ratified_record_id, ratified_corners_out_dir, points, info,
+            note=args.note, supersedes=args.supersedes,
         )
         print(f"wrote {record_path}")
         print("PASS" if ok else "FAIL")
