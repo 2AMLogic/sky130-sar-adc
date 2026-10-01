@@ -49,6 +49,19 @@ name: CI
 #     always-on gate against the silent regression that item 9 grades —
 #     adding one more claimed spec row without its bench, while every
 #     individual campaign still looks green.
+#   - `sim/check_supersedes_capability.py` (issue #502, `check:supersedes`) is
+#     also part of `check:ci` -> `checks` below, and is likewise headless (file
+#     reads plus one `--help` probe per runner: no PDK, no ngspice, no
+#     network): it checks that every evidence-writing runner can actually
+#     POPULATE the **Supersedes** field the two citation gates above read --
+#     the flag is declared, it is forwarded to footer_lines() on every write
+#     path, and every caller of those writers supplies it. This is the
+#     always-on gate against the one regression those two gates structurally
+#     cannot report themselves: an unpopulatable Supersedes does not make them
+#     fail, it makes them stay SILENT, which is indistinguishable from "the
+#     citation is fresh" (issue #498, where four of six re-run records could
+#     not say what they displaced and the stale citations had to be found by
+#     hand).
 #   - `docs/chipalooza/check_proposal_citations.py` (issue #121) is also part
 #     of `check:ci` -> `checks` below, and is likewise headless (pure file
 #     reads, no PDK, no ngspice, no network): it gates the evidence citations

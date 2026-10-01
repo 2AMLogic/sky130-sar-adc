@@ -912,7 +912,7 @@ def _isolated_baseline_droop(results: dict) -> tuple[float, float] | None:
     return mv / LSB_DIFF_MV_PROVISIONAL, mv
 
 
-def write_record(results: dict) -> None:
+def write_record(results: dict, supersedes: str = "") -> None:
     combined_netlist_text = (
         "* -- Experiments 1-5 (island root-cause/fix diagnostics): --\n"
         + DUT_FRAGMENT.read_text()
@@ -1289,7 +1289,7 @@ def write_record(results: dict) -> None:
         )
     )
     a("")
-    lines.extend(evidence.footer_lines("sim/sampling-frontend/run_hold_kick.py", ""))
+    lines.extend(evidence.footer_lines("sim/sampling-frontend/run_hold_kick.py", supersedes))
 
     record_path.write_text("\n".join(lines) + "\n")
     print(f"\nWrote {record_path}")
@@ -1307,6 +1307,7 @@ def main() -> int:
                     help="also run the fix verification over the OAT PVT grid")
     ap.add_argument("--record", action="store_true",
                     help="write an append-only evidence record")
+    evidence.add_supersedes_argument(ap)
     args = ap.parse_args()
 
     check = toolchain.check_env()
@@ -1344,7 +1345,7 @@ def main() -> int:
         results["corners"] = run_corner_grid(scratch)
 
     if args.record:
-        write_record(results)
+        write_record(results, supersedes=args.supersedes)
     return 0
 
 

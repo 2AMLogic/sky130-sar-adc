@@ -384,7 +384,9 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     return points
 
 
-def write_record(rows: list[dict], netlist_sample: str) -> None:
+def write_record(
+    rows: list[dict], netlist_sample: str, supersedes: str = ""
+) -> None:
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_sample)
     record_id = prov.record_id
     record_path = prov.record_path
@@ -517,7 +519,7 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
     ))
     a("")
     lines.extend(evidence.footer_lines(
-        "sim/sequencer-logic-delay/run_sequencer_logic_delay.py", ""
+        "sim/sequencer-logic-delay/run_sequencer_logic_delay.py", supersedes
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
@@ -525,7 +527,7 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
     print(f"\nWrote record: {record_path}")
 
 
-def write_corners_record(points: list[dict]) -> Path:
+def write_corners_record(points: list[dict], supersedes: str = "") -> Path:
     """Evidence record for the full ratified-PVT-grid --corners campaign,
     same `corners/<record_id>/` per-point-deck layout
     sim/comparator-decision/'s own regen-corners campaign and
@@ -715,7 +717,7 @@ def write_corners_record(points: list[dict]) -> Path:
     ))
     a("")
     lines.extend(evidence.footer_lines(
-        "sim/sequencer-logic-delay/run_sequencer_logic_delay.py", ""
+        "sim/sequencer-logic-delay/run_sequencer_logic_delay.py", supersedes
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
@@ -732,6 +734,7 @@ def main() -> int:
         help="run the full ratified PVT grid (9 OAT points) instead of the "
         "single tt/27C/1.8V corner",
     )
+    evidence.add_supersedes_argument(parser)
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -757,14 +760,14 @@ def main() -> int:
                     "produced incomplete measurements."
                 )
                 if args.record:
-                    write_corners_record(points)
+                    write_corners_record(points, supersedes=args.supersedes)
                 return 1
             print(
                 f"\nOVERALL: PASS (all {len(points)} corner points produced "
                 f"all {len(MEASURE_NAMES)} phase delays)"
             )
             if args.record:
-                write_corners_record(points)
+                write_corners_record(points, supersedes=args.supersedes)
             return 0
 
         rows, netlist_sample = run_all(scratch)
@@ -772,12 +775,12 @@ def main() -> int:
         if any(r["delay_ns"] is None for r in rows):
             print("FAIL: one or more phases produced no TRIG/TARG crossing.")
             if args.record:
-                write_record(rows, netlist_sample)
+                write_record(rows, netlist_sample, supersedes=args.supersedes)
             return 1
 
         print("\nOVERALL: PASS (all 11 phases produced a valid crossing)")
         if args.record:
-            write_record(rows, netlist_sample)
+            write_record(rows, netlist_sample, supersedes=args.supersedes)
 
     return 0
 

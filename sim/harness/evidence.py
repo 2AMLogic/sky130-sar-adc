@@ -9,6 +9,7 @@ seed + sample count. A re-run never edits a prior record; it mints a new
 
 from __future__ import annotations
 
+import argparse
 import datetime as _dt
 import hashlib
 import json
@@ -314,10 +315,69 @@ def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
         sample_path.unlink(missing_ok=True)
 
 
+#: The explicit, greppable way a record-writing path says "this record
+#: replaces nothing, by construction" -- a diagnostic/investigation record
+#: that extends prior evidence without invalidating it (see the three
+#: `diagnostics/` writers in sim/full-conversion-transient/run_conversion.py,
+#: whose own comments explain why naming a record here would make
+#: sim/report/generate.py's find_superseding_sibling() misread them).
+#:
+#: Its value is the same empty string footer_lines() renders as `(none)`, so
+#: using it changes no record's bytes. What it changes is auditability: a bare
+#: `""` at a call site is indistinguishable from a runner that FORGOT to
+#: thread its --supersedes flag (issue #498's bug shape, issue #502's gap), so
+#: sim/check_supersedes_capability.py rejects the bare literal and accepts this
+#: name. Every opt-out is therefore a deliberate, reviewable statement.
+NEVER_SUPERSEDES = ""
+
+SUPERSEDES_ARG_HELP = (
+    "record-id (or `records/<id>.md` link text) of the prior record of THIS "
+    "experiment that the new record replaces for the same claim. Written "
+    "verbatim into the record's machine-readable **Supersedes** footer field "
+    "-- the field sim/report/generate.py --check and "
+    "docs/chipalooza/check_proposal_citations.py read to detect a citation of "
+    "a record a later one has displaced. Omit it for a record that replaces "
+    "nothing (the footer then reads `(none)`, exactly as before this flag "
+    "existed)."
+)
+
+
+def add_supersedes_argument(parser: argparse.ArgumentParser) -> None:
+    """Declare the standard `--supersedes` flag on `parser`.
+
+    One declaration shared by every record-writing runner that does not need
+    campaign-specific help text, so the flag's name, default and documented
+    meaning cannot drift between runners (issue #502; same consolidation
+    motive as issue #299's `_run_ngspice()` retry loops). The older
+    declarations in sim/harness/cli.py, sim/harness/mc_cli.py,
+    sim/cdac-array-transfer/run_transfer.py,
+    sim/full-conversion-transient/run_conversion.py,
+    sim/comparator-decision/run.py and
+    sim/supply-impedance-sensitivity/run_supply_impedance.py keep their own
+    hand-written help strings (each says something campaign-specific); what
+    matters to the gates, and to sim/check_supersedes_capability.py, is that
+    the flag exists and reaches footer_lines() on EVERY write path.
+
+    Declaring the flag is only half the contract: issue #498 found
+    run_transfer.py declaring it once and threading it into only one of its
+    two record writers, so --ratified-record accepted the flag and silently
+    wrote `Supersedes: (none)`. sim/check_supersedes_capability.py now fails
+    CI on that shape -- a footer_lines() call site whose `supersedes`
+    argument is a literal empty string."""
+    parser.add_argument("--supersedes", default="", help=SUPERSEDES_ARG_HELP)
+
+
 def footer_lines(written_by: str, supersedes: str) -> list[str]:
     """The **Supersedes** + append-only boilerplate every evidence record
     ends with, parameterized by the calling script's path (e.g.
-    `sim/run_corners.py` or `sim/monte_carlo.py`)."""
+    `sim/run_corners.py` or `sim/monte_carlo.py`).
+
+    `supersedes` must reach here from the calling runner's own
+    `--supersedes` flag (see add_supersedes_argument()) on every record-
+    writing path that runner has, or be a non-empty literal the runner
+    hardcodes because the supersession is a fixed historical fact. A literal
+    `""` at a call site means that write path can never declare supersession
+    and is rejected by sim/check_supersedes_capability.py."""
     return [
         f"- **Supersedes**: {supersedes or '(none)'}",
         "",
