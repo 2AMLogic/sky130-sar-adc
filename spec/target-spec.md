@@ -97,6 +97,20 @@ ruling is DR-003's recommendation without modification:
 - **CDAC unit cap `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side** —
   matching-limited (sky130's own MIM local-mismatch model,
   `A_C = 2.8 %·µm`); the kT/C floor is `≈ 415×` looser and does not bind.
+
+  **Update (2026-09-30, DR-019 via #496):** the unit-cap plate side is
+  resized from `1.8988 µm` to `1.9000 µm` — the smallest 5 nm
+  manufacturing-grid-legal side at or above this item's own matching floor.
+  The old value could not satisfy sky130's 5 nm manufacturing grid (measured
+  by `layout/halflsb-offset/`'s `klt precheck --grid-um 0.005` census, #495);
+  [DR-019](decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)
+  reads the PDK's own shipped signoff DRC deck directly and finds the grid
+  check is real and on by default for the metal/via layers that land on the
+  plate, so the fix is a resize, not a waiver. `C_u` moves to `≈ 8.66 fF`
+  (was `≈ 8.65 fF`); the array size (`2^9 = 512`/side) and every other
+  DR-003 conclusion are unchanged. The re-derivation/re-layout this implies
+  for `design/cdac/`, `layout/cdac-array/`, and `layout/halflsb-offset/` is
+  tracked as its own follow-up issue, not done by DR-019 itself.
 - **Comparator input-referred noise `≤ 1.0148 mV rms` (baseline, ENOB > 9.0)
   / `≤ 0.5859 mV rms` (stretch, ENOB > 9.5)** — one-third of the total
   non-quantization budget (equal three-way split with kT/C sampling noise
@@ -172,7 +186,7 @@ and the device-level evidence each number is read from:
 | INL / DNL | ≤ ±2.0 LSB (target) | DRAFT (target value, DR-007 candidate) | statistical — MC evidence campaign complete (#29, `sim/cdac-array-transfer/`), combined with #28's process corners; revised candidate proposed (DR-007 via #129, was `≤ ±1 LSB`); ratification still open |
 | `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | derived from the ratified 1.8 V core rail (DR-001) |
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | derived |
-| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | matching-limited; kT/C floor is `≈ 415×` looser |
+| Sampling cap (CDAC unit × array) | `C_u ≈ 8.66 fF` (`1.9000 µm` square plate, 5 nm-grid-legal), `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496) | matching-limited; kT/C floor is `≈ 415×` looser |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | `28.86 %` / `16.67 %` of LSB; one-third of the total non-quant budget |
 | Kickback | `≤ 5 mV` peak pin disturbance into a `1 kΩ` series source impedance, single decision edge (target); stretch `≤ 2 mV` | DRAFT (new row, DR-011 candidate) | new row proposed (DR-011 via #361) against #346's baseline (`sim/comparator-decision/records/20260924-041815-afcb1b5.md`: `73.3673 mV`, `tt`/27 °C only — `≈ 14.7×` the target, `≈ 36.7×` the stretch); bound **adopted verbatim** from sibling `2AMLogic/sky130-comparator`'s DR-002-ratified row as a stated interim choice, not derived from this block's own budget; stated at the ratified corner set, evidenced at one point; ratification still open. Mitigation evaluated by [DR-014](decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) (#349): static preamp **not adopted** (DR-004 §1 stands) and no mitigation adopted yet. Row unchanged and still unmet, and the next gate is the common-mode / differential split (#390) |
 | Power | provisional, minimise at rate | DRAFT | report, don't pre-commit |

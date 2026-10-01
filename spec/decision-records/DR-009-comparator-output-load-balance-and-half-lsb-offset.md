@@ -310,3 +310,15 @@ whole input range (see "Open items").
   netlist and will not match by default; layout (#103) must treat the two
   comparator output nets as a matched pair, and a post-extraction re-run of
   `sim/full-conversion-transient/` is the check.
+
+**UPDATE (issue #496, `spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`):**
+this record's Decision item 2 sizes `Choff_n`/`Choff_p` (and their switch
+devices) "identical to `design/cdac/cdac_unit_cell.sch`'s `C_u`"
+(`W = L = 1.8988`). DR-019 resizes `C_u`'s plate to the smallest 5 nm
+manufacturing-grid-legal side at or above DR-003 Item 3's matching floor
+(`W = L = 1.9000`, `C_u ≈ 8.664 fF`) — `layout/halflsb-offset/`'s `klt
+precheck --grid-um 0.005` census (#495) is the measurement that surfaced the
+defect, and this record's own "ratio against one array bit" requirement
+(Context) is exactly why `Choff_n`/`Choff_p` must track `C_u`'s new value
+rather than round independently. The resize is carried through
+`design/sar_adc_top.sch` by DR-019's follow-up issue, not by this record.
