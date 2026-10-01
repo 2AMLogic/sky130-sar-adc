@@ -1,56 +1,111 @@
-# layout/sar-adc-top/ — top-level SAR ADC layout assembly (issue #103)
+# layout/sar-adc-top/ — top-level SAR ADC layout assembly (issues #103, #401)
 
 Top-level routing/assembly of the four sub-block layouts (`layout/sampling-frontend/`
 #99, `layout/cdac-array/` #100, `layout/comparator/` #101, `layout/sar-sequencer/`
-#102) plus a glue-logic macro into one GDS, per #103's scope: **placement
-and interconnect/supply routing only — no sub-block's internal layout is
-touched.**
+#102) plus the two glue macros the schematic's own top level specifies
+(`layout/top-glue/`, `layout/halflsb-offset/`) into one GDS, per #103's scope:
+**placement and interconnect/supply routing only — no sub-block's internal
+layout is touched.**
 
-## ⚠ The composed GDS implements superseded glue (issue #387)
+## The composition is derived from the schematic, and gated (issues #387, #401)
 
-**The glue macro this assembly currently places is `layout/seln-inverters/` —
-the nine `SELn<i> = NOT(DOUT<i>)` inverters issue #56 added and
-`spec/decision-records/DR-008-cdac-top-level-switching-polarity.md` superseded
-on 2026-09-11** (issue #263, PR #266). It is not the glue
-`design/sar_adc_top.spice` specifies. That netlist's top level instantiates 33
-`sky130_fd_sc_hd` cells across 6 types (`and2_1` ×18, `and2b_1` ×1, `inv_1` ×3,
-`mux2_1` ×1, `xnor2_1` ×1, `xor2_1` ×9) and 8 `sky130_fd_pr` primitives across
-3 types (`cap_mim_m3_1` ×2, `nfet_01v8` ×2, `pfet_01v8` ×4 — DR-009's half-LSB
-offset network), and contains **no `xinv_seln<i>` instance at all**.
+**Resolved 2026-10-01 by issue #401.** This banner used to say the opposite, and
+what it said is worth keeping in view because it is the failure mode the gate
+below exists to prevent.
 
-Two consequences, both load-bearing for anyone reading a verdict below:
+**What was wrong.** From 2026-09-11 (DR-008, issue #263 / PR #266) until
+2026-10-01, this assembly placed `layout/seln-inverters/` — the nine
+`SELn<i> = NOT(DOUT<i>)` inverters issue #56 added and
+`spec/decision-records/DR-008-cdac-top-level-switching-polarity.md` superseded —
+and `bin/generate-lvs-reference.py`'s wrapper was a **string literal** mirroring
+that same superseded instance list, wiring each `cdac_array.SELp<i>` pin straight
+to `DOUT<i>`. Both sides of `klt lvs` therefore carried the same error, so the
+compare agreed with itself for two weeks of DRC/LVS-clean runs while agreeing
+with nothing the schematic said. **A clean device-level match on that flow would
+not have established that the composed GDS implements the schematic this repo
+builds** — which is the whole of issue #387's point.
 
-1. **`bin/generate-lvs-reference.py`'s `TOP_SUBCKT` wrapper is built from the
-   same superseded instance list** — it wires each `cdac_array` `SELp<i>` pin
-   straight to `DOUT<i>`, the pre-DR-008 unconditional complementary drive —
-   so the reference and the layout agree *with each other* while agreeing with
-   nothing else. **`klt lvs` on this flow therefore cannot see the
-   divergence**, and a clean device-level match here (once klayout-tools#1878
-   is fixed) would **not** establish that the composed GDS implements the
-   schematic this repo builds. The 98 mismatches reported below are *not*
-   caused by this gap and fixing this gap will not reduce them; the two are
-   independent.
-2. **The 0.108 mm² composed extent quoted here and in
-   `docs/chipalooza/challenge-4-proposal.md` §4 is the extent of an assembly
-   that omits this glue** — a floor on the real top-level area, not an estimate
-   of it.
+**What is true now.** `bin/build_layout.py` places `top_glue` (all 33
+`sky130_fd_sc_hd` cells across 6 types: `and2_1` ×18, `and2b_1` ×1, `inv_1` ×3,
+`mux2_1` ×1, `xnor2_1` ×1, `xor2_1` ×9) and `halflsb_offset` (DR-009's 8
+`sky130_fd_pr` primitives across 3 types: `cap_mim_m3_1` ×2, `nfet_01v8` ×2,
+`pfet_01v8` ×4), and `bin/generate-lvs-reference.py` **derives** its
+`.SUBCKT sar_adc_top` wrapper — every instance, and every net on every one of its
+pins — from `design/sar_adc_top.spice` on every run. `seln_inverters` is retired
+from the composition; its records stay as append-only history and its own README
+carries a RETIRED banner.
 
-**Progress (2026-09-25):** the standard-cell half now exists as
-`layout/top-glue/` — all 33 cells, DRC-clean, `klt lvs` match 234/234 devices
-and 48/48 pins, and gated against `design/sar_adc_top.spice` instance-for-
-instance on every run *and* in CI (`npm run check:glue-parity`), which is the
-check whose absence let this drift persist. **This assembly has not been
-re-composed against it.** Two pieces remain: DR-009's 8-primitive half-LSB
-offset network (no drawn geometry anywhere under `layout/` yet, **issue
-#400**), and this directory's own recomposition (**issue #401**) — `bin/build_layout.py`
-placing `top_glue` (plus that offset network) instead of `seln_inverters`,
-`bin/generate-lvs-reference.py`'s wrapper re-derived from
-`design/sar_adc_top.spice` as it stands, and a fresh record minted from
-`bin/run-flow.sh`. Until #401 lands, **every LVS number below describes the
-pre-DR-008 top level**, and the floorplan/pin/routing tables further down
-document that assembly, not the intended one.
+**Why that is a gate rather than a correction.** A one-off fix decays exactly as
+the 2026-09-11 one did, so the derivation is asserted mechanically:
+
+- **`bin/check-composition-parity.py`** — the placed block set, the net on every
+  one of their pins, this assembly's own top-level port set (read from the labels
+  `build_layout.build()` actually draws) and the composition the LVS reference
+  emits are all re-derived from `design/sar_adc_top.spice` and diffed against it.
+  Any top-level card that belongs to no placed block is fatal, so a new instance
+  must be given an owner by a human rather than landing in nobody's layout.
+  Wired into `npm run check:ci` as `check:composition-parity` **and** run as a
+  **hard gate before `bin/run-flow.sh` mints a record at all** — a drifted
+  composition produces no record to cite.
+- **Its own negative control** (`--self-test`) re-runs every check against a
+  deliberately-corrupted netlist (one `SELp0` binding moved — #387's own drift
+  shape, and invisible to both sibling parity gates) and fails unless the
+  corruption is caught. A gate nobody has watched fail is a gate nobody knows
+  works.
+- `design/sar_adc_top.spice` is itself gated against the schematic sources by
+  `design/regen_netlist.sh --check` in CI, so the chain is
+  schematic → netlist → generator → reference, with no self-reference anywhere.
+
+**What #401 does NOT do.** It does not close the LVS blocker. `klt lvs` on the
+composed GDS still reports a **mismatch**, for the one open reason it already had
+— klayout-tools#1878, no per-subcircuit `combine_devices` scoping on a
+necessarily-flat extracted netlist (see "LVS device/topology blocker" below).
+The two are independent: the mismatch count *falls* from 89 to **67** while both
+sides grow from 871 to **1095** devices, which is the arithmetic of a bigger,
+better-posed compare, not of a cleared blocker. What #401 buys is that the
+verdict will mean something when #1878 clears.
+
+**Numbers that moved, and where they are now current.** The composed extent grows
+for the first time since issue #326 — **280.450 × 385.500 µm → 290.500 ×
+386.200 µm** (≈ 0.108 → ≈ **0.112 mm²**) — because the glue and its routing are
+new silicon rather than a re-draw. `docs/chipalooza/challenge-4-proposal.md` §4's
+Area row carries the current readout (machine-checked by that document's own
+citation gate), and its long-standing caveat — "the extent of an assembly that
+omits this glue, a floor rather than an estimate" — is **discharged**. Every
+LVS/DRC/ERC number in the sections below that is stated in the present tense
+describes `reports/LATEST`; where a section quotes a dated historical
+measurement it says which record carried it.
 
 ## Status (as of this record)
+
+**Update (2026-10-01, issue #401): the composition is the schematic's own, and
+it is gated.** Record `20261001-022205-455b772` is the current `reports/LATEST`
+and `erc-reports/20261001-022622-455b772/` the current ERC record. The assembly
+places six sub-blocks — `layout/top-glue/`'s 33 `sky130_fd_sc_hd` cells and
+`layout/halflsb-offset/`'s 8 `sky130_fd_pr` primitives in place of the retired
+`seln_inverters` bank — and routes **46** top-level nets (36 of them through the
+digital channel, against the pre-#401 channel's 19). DRC stays **clean
+(0 violations / 52 rules)**. `klt erc` stays **`clean`, 0 findings**, all four
+supplies at one island each, on geometry where every one of them gained a
+consumer in DR-009's offset network — and the mesh-ablation probe's prediction
+sharpens with it (cutting the mesh now splits `GND` into **3** islands, the new
+one being `halflsb_offset`'s own ground terminal, so the fourth mesh leg is
+load-bearing by the same measurement the other three are). LVS reaches **1095
+layout devices against a 1095-device reference** with **1046** matched and
+**519/554** nets matched, and the mismatch count **falls from 89 to 67** in the
+same four categories at unchanged 21/22/22 pins. The composed extent grows for
+the first time since issue #326 — **290.500 × 386.200 µm** (≈ 0.112 mm²), from
+280.450 × 385.500 µm (≈ 0.108 mm²) — which is the omitted glue and its routing,
+drawn. **The LVS blocker is unchanged and un-narrowed: still klayout-tools#1878
+alone.** What changed is that both sides of the compare are now derived from
+`design/sar_adc_top.spice` independently, asserted by
+`bin/check-composition-parity.py` (with its own negative control) in
+`npm run check:ci` and as a hard gate before any record is minted — so when
+#1878 clears, the verdict will mean what this flow has always claimed. Two
+matched-pair measurements no `klt` verdict can make are recorded beside it in
+`composition.json`: DR-009's two offset-cap top-plate legs agree to **0.0000 µm**,
+and its dummy comparator load sits **6.5 %** from the live one in drawn
+top-level conductor against a declared 10 % bound (see "DR-009's matched pairs").
 
 **Placement + interconnect routing complete and DRC-clean at the top level.
 The LVS *pin-declaration* blocker (klayout-tools#1513) is resolved.
@@ -165,7 +220,7 @@ report.
 T1 item 11's continuity half now passes.** Record `20260924-190817-f3622fc` was
 the `reports/LATEST` of that increment (superseded by #362's above).
 `bin/build_layout.py` ties `sar_sequencer`'s and
-`seln_inverters`' own met5 PDN straps together and out to two new top-level
+the digital glue macro's own met5 PDN straps together and out to two new top-level
 supply pins (`VPWR`/`VGND`, per
 [`DR-010`](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)),
 which is what `klt erc` had graded FAIL as two disconnected islands per rail.
@@ -381,19 +436,26 @@ output against the superseded 2026-09-18 record — is **pre-#363 output and its
 `layout/` evidence is append-only, and a record says what was measured at the
 time. Read it only through this section.
 
-`layout/sar-adc-top/bin/build_layout.py` places all five sub-blocks — plus,
-since issue #440, the four `DECAP_UNIT` cells DR-017's per-domain decoupling is
-drawn as — with `klt gen-compose` (explicit placement, each named as a
-`blocks[].cell` entry per #1189), and hand-routes every net
+`layout/sar-adc-top/bin/build_layout.py` places all **six** sub-blocks (since
+issue #401: `top_glue` and `halflsb_offset` in place of the retired
+`seln_inverters`) — plus, since issue #440, the four `DECAP_UNIT` cells DR-017's
+per-domain decoupling is drawn as — with `klt gen-compose` (explicit placement,
+each named as a `blocks[].cell` entry per #1189), and hand-routes every net
 `design/sar_adc_top.sch` calls for (`klt draw`), following the floorplan/routing plan this document works out below.
 `klt drc` on the composed layout is **clean (0 violations)**. A
-full-hierarchy, unfiltered `klt extract` was checked net-by-net by hand
+full-hierarchy, unfiltered `klt extract` is checked net-by-net
 against the intended interconnect (see the latest
 `reports/<record-id>/record.md`'s own "Connectivity verification" table) —
-every one of the ~30 top-level nets this assembly routes extracts as its own
-distinct, correctly-scoped net, with exactly the intended cross-sub-block
-membership and no unintended shorts. That table is the direct evidence
-backing this issue's own DRC/interconnect-correctness claims.
+every one of the **46** top-level nets this assembly routes (was ~30 before
+#401) extracts as its own distinct, correctly-scoped net, with exactly the
+intended cross-sub-block membership and no unintended shorts. **Since #401 that
+table also carries its own complement**: a per-pair distinctness check over all
+30 `DOUT<i>`/`SELp<i>`, `DOUT<i>`/`SELn<i>`, `SELp<i>`/`SELn<i>`, `CLK`/`CLKN`,
+`COMP_OUT`/`OUTN_NC` and `HALF_LSB_EN`/`HALF_LSB_ENN` pairs. That addition is not
+decoration: the pre-#401 table reported "found: yes" for every row of a
+composition in which `DOUT<i>` and `SELp<i>` were *literally one net*, because
+one merged net satisfies both rows at once. Together they are the direct evidence
+backing this flow's own DRC/interconnect-correctness claims.
 
 `klt extract --pin-source-cells` (klayout-tools#1515, merged 2026-09-06)
 now promotes exactly this design's own intended 19 top-level pins — 19/19/19
@@ -402,7 +464,7 @@ promoted/reference/matched, where none of `--top-cell-pins`/`--pins`/
 declaration: resolved" below for the fix and why it works). `klt lvs`
 itself still reports a **mismatch**, but for an unrelated reason discovered
 only once the pin blocker cleared: `options.combine_devices` has no
-per-subcircuit scoping, and this design's five already-independently-verified
+per-subcircuit scoping, and this design's already-independently-verified
 sub-blocks need *opposing* settings (see "LVS device/topology blocker"
 below). Neither blocker reflects a routing defect — the connectivity table
 above and the resolved pin counts are independent, positive evidence the
@@ -470,7 +532,7 @@ externally-reachable drawn conductor during this same investigation:
 nets with real diffusion contacts, unlike `cdac_array`'s body-only `VDD`),
 `cdac_array`'s own `TOP_P`/`TOP_N`/`VREFP`/`VREFN` (real met4/met1/met2
 conductor confirmed at each pin's exact declared position), and every
-`sar_sequencer`/`seln_inverters` digital I/O pin (ordinary `klt
+`sar_sequencer`/`top_glue` digital I/O pin (ordinary `klt
 place-and-route` output, always real metal by construction). So the
 composition/routing plan below is otherwise ready to execute once #165
 lands — this issue is blocked on that dependency for the `VDD` and
@@ -669,19 +731,88 @@ intentionally left unconnected at this integration level per
 Landing a connection on these means overlapping a drawn met5 rectangle
 somewhere inside that x range at that exact y — not a simple edge abutment.
 
-### `seln_inverters` (top cell `seln_inverters` in `layout/seln-inverters/reports/20260906-002022-a36e06f/seln_inverters.gds`)
+### `top_glue` (top cell `top_glue` in `layout/top-glue/reports/LATEST/top_glue.gds`) — placed since issue #401
 
-bbox: `(0.0, 0.0)` to `(86.195, 86.195)`. Signal pins on `met1`, all at
-`x = 0.297` (left-edge I/O column):
+bbox: `(0.0, 0.0)` to `(71.855, 71.855)`, read off `top_glue.def`'s own
+`DIEAREA` `(0 0) (71855 71855)` and cross-checked against the committed GDS's
+top-cell `dbbox()`.
 
-| Pin | y_um |
+**All 46 signal pins share one y and one layer**: `y = 71.612`, `met2`, on the
+macro's own **top** edge, on a 0.92 µm lattice. That is `klt place-and-route`'s
+own choice, not this flow's, and it is what makes the open band between this
+macro's top and `cdac_array`'s bottom the natural channel for every one of them
+(the pre-#401 channel was the ~24 µm sliver *between* the two standard-cell
+macros, because `seln_inverters` exposed its I/O on its left edge instead).
+
+The authoritative source is that macro's own routed DEF `PINS` section — its GDS
+labels also carry every internal std-cell pin name, so the DEF is the only
+unambiguous reader. `build_layout.TOP_GLUE_PIN_X` transcribes all 46 x values and
+`bin/check-composition-parity.py` asserts each one names a net
+`design/sar_adc_top.spice` actually puts on one of this macro's cards:
+
+| Pins | x_um (in DEF pin order within each group) |
 | --- | --- |
-| DOUT0..DOUT8 | 49.13, 43.01, 43.69, 44.37, 39.61, 38.25, 45.73, 42.33, 46.41 |
-| SELn0..SELn8 | 41.65, 47.77, 45.05, 38.93, 40.97, 48.45, 37.57, 47.09, 40.29 |
+| `DOUT0..DOUT9` | 23.23, 40.71, 45.31, 32.43, 18.63, 22.31, 48.07, 31.51, 48.99, 49.91 |
+| `SELp0..SELp8` | 25.07, 34.27, 26.91, 51.75, 56.35, 44.39, 25.99, 46.23, 43.47 |
+| `SELn0..SELn8` | 52.67, 47.15, 37.03, 28.75, 53.59, 54.51, 55.43, 27.83, 20.47 |
+| `ADCOUT0..ADCOUT8` | 14.95, 36.11, 15.87, 19.55, 37.95, 38.87, 39.79, 24.15, 16.79 |
+| `CLK`, `CLKN` | 42.55, 33.35 |
+| `PH_B9`, `BUSY` | 29.67, 41.63 |
+| `OUTN_NC` | 35.19 |
+| `HALF_LSB_EN`, `HALF_LSB_ENN` | 21.39, 17.71 |
+| `DUMLOAD_MUX_NC`, `DUMLOAD_XNOR_NC` | 50.83, 30.59 |
 
-`VPWR`/`VGND` are buried met5 straps (3 VGND stripes, 2 VPWR stripes,
-spanning roughly `x = 2.3 .. 84.3`) for the same PDN reason as
-`sar_sequencer` above.
+Nine of those are **deliberately unrouted at this level**: the nine `ADCOUT<i>`
+(DR-008's offset-binary readout recode, which has no top-level port yet) and the
+two `DUMLOAD_*_NC` dummy-load outputs (DR-009's matched load exists to present a
+load, not to drive anything). They dead-end at the macro boundary, and
+`check-composition-parity.py` establishes that this is correct rather than an
+omission: a net named only by this macro's own cards and by no `sar_adc_top` port
+is internal to it by derivation.
+
+`VPWR`/`VGND` are **buried met5 straps**, not edge pins — two stripes each,
+spanning `x = 2.30 .. 69.46`, at the same y bands `sar_sequencer` uses (which is
+why `digital_supply_rail()` reaches both macros with one colinear met5 rectangle
+per rail and no via; it asserts that coincidence rather than assuming it):
+
+| Net | x range (um) | y bands (um) |
+| --- | --- | --- |
+| VPWR | 2.30 .. 69.46 | 29.12 .. 30.72, 56.32 .. 57.92 |
+| VGND | 2.30 .. 69.46 | 15.52 .. 17.12, 42.72 .. 44.32 |
+
+### `halflsb_offset` (top cell `gen_compose_0` in `layout/halflsb-offset/reports/LATEST/halflsb_offset.gds`) — placed since issue #401
+
+bbox: `(-0.4, -2.4)` to `(30.63, 17.04)`. `x0`/`y0` are negative because that
+flow's own origin is the `_n`-side cap's plate edge, not its bbox corner.
+
+All twelve pins are `met2`, in one 0.5 µm-pitch track band at the top of the
+cell — read directly off layer 69/5 (met2.pin) text in the committed GDS and
+cross-checked against that record's own `layout.summary.json`:
+
+| Pin | x_um | y_um | Note |
+| --- | --- | --- | --- |
+| `VDD` | 8.89 | 11.33 | DR-009's three `pfet_01v8` bodies/sources |
+| `GND` | 3.70 | 11.83 | the **fourth** member of the analog ground mesh (issue #377) |
+| `VREFP` | 9.65 | 12.33 | the injected reference |
+| `VCM` | 4.96 | 12.83 | the idle/common-mode leg |
+| `HALF_LSB_EN` | 5.745 | 13.33 | DR-009's `BUSY AND NOT(PH_B9)` enable |
+| `VGND` | 21.745 | 13.83 | `XMoff_p_refp`'s gate — holds the matching dummy off |
+| `HALF_LSB_ENN` | 13.635 | 14.33 | the complement |
+| `VPWR` | 29.635 | 14.83 | `XMoff_p_cmp`'s gate — ditto |
+| `BOT_OFF_N` | −0.25 | 15.33 | **not routed**: all four of this net's terminals are inside the block |
+| `BOT_OFF_P` | 15.75 | 15.83 | ditto |
+| `TOP_N` | 1.449 | 16.33 | the `_n` offset cap's top plate — on `comparator.VINN`'s own node |
+| `TOP_P` | 17.449 | 16.83 | the `_p` dummy's top plate — on `comparator.VINP`'s own node |
+
+`BOT_OFF_N`/`BOT_OFF_P` are listed and deliberately not routed for the same
+derived reason the `ADCOUT<i>` are: DR-009 gives each exactly four terminals (one
+offset cap plus three switches) and all four are inside this block.
+`check-composition-parity.py` asserts that absence against the schematic rather
+than leaving it a silent omission.
+
+`TOP_N` and `TOP_P` are a **fixed 16.0 µm apart** (DR-009's matched-pair
+translation pitch), which is what makes `HALFLSB_OFFSET`'s own `dx` a solved
+quantity rather than a chosen one — see "DR-009's matched pairs" below.
 
 ### `DECAP_UNIT` (generated by this flow, not a committed sub-block — issue #440)
 
@@ -715,24 +846,30 @@ Beyond each block's own already-closed internal wiring, per
 | --- | --- |
 | `VINP` | external pin -> `sampling_frontend.VINP` |
 | `VINN` | external pin -> `sampling_frontend.VINN` |
-| `VDD` (analog) | external pin, `sampling_frontend.VDD`, `cdac_array.VDD`, `comparator.VDD` |
-| `VREFP` | external pin -> `cdac_array.VREFP` |
+| `VDD` (analog) | external pin, `sampling_frontend.VDD`, `cdac_array.VDD`, `comparator.VDD`, `halflsb_offset.VDD` (since issue #401) |
+| `VREFP` | external pin, `cdac_array.VREFP`, `halflsb_offset.VREFP` (since issue #401 — DR-009 injects the half-LSB step from this reference) |
 | `VREFN` | external pin -> `cdac_array.VREFN` |
-| `VCM` | external pin -> `sampling_frontend.VCM` |
-| `CLK` | external pin -> `comparator.CLK`, `sar_sequencer.CLK` |
+| `VCM` | external pin, `sampling_frontend.VCM`, `halflsb_offset.VCM` (since issue #401 — DR-009's idle leg) |
+| `CLK` | external pin -> `sar_sequencer.CLK`, `top_glue.CLK` (since issue #401 the comparator is reached through `CLKN`, not directly — DR-008's `xinv_clkcap` sits in between) |
+| `CLKN` | `top_glue.CLKN` -> `comparator.CLK` |
 | `RST_B` | external pin -> `sar_sequencer.RST_B` |
-| `TOP_P` | `sampling_frontend.TOP_P`, `cdac_array.TOP_P`, `comparator.VINP` |
-| `TOP_N` | `sampling_frontend.TOP_N`, `cdac_array.TOP_N`, `comparator.VINN` |
+| `TOP_P` | `sampling_frontend.TOP_P`, `cdac_array.TOP_P`, `comparator.VINP`, `halflsb_offset.TOP_P` (DR-009's matching dummy) |
+| `TOP_N` | `sampling_frontend.TOP_N`, `cdac_array.TOP_N`, `comparator.VINN`, `halflsb_offset.TOP_N` (DR-009's offset injection) |
 | `COMP_OUT` | `comparator.OUTP` -> `sar_sequencer.COMP_OUT` |
+| `OUTN_NC` | `comparator.OUTN` -> `top_glue.OUTN_NC` (DR-009's matched dummy load; **no longer a dead end** — and route length/parasitics on it are a design concern, see "DR-009's matched pairs") |
 | `SAMPLE_INT` | `sar_sequencer.PH_SAMPLE` -> `sampling_frontend.SAMPLE` |
-| `DOUT<i>` (i=0..8) | `sar_sequencer.DOUT<i>` -> `cdac_array.SELp<i>`, `seln_inverters.DOUT<i>`, **and** external output pin `DOUT<i>` (3-way fanout) |
-| `SELn<i>` (i=0..8) | `seln_inverters.SELn<i>` -> `cdac_array.SELn<i>` |
-| `DOUT9` | `sar_sequencer.DOUT9` -> external output pin only (no CDAC/SELn use) |
-| `BUSY` | `sar_sequencer.BUSY` -> external output pin |
-| `comparator.OUTN` | left dead-ended (`OUTN_NC`) — not needed by the sequencer |
-| `VPWR` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `VDD`; see DR-010) |
-| `VGND` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `seln_inverters`' met5 PDN strap (issue #355 — one net, **not** tied to analog `GND` *in metal*; see DR-010 and, for what the substrate does regardless, DR-012) |
-| `GND` (analog) | external pin, `comparator.GND`, `sampling_frontend.GND`, `cdac_array.VSS` (issue #362 drew the pad on the first of those, then the only drawn analog-ground conductor here; issue #377 added the other two inside their own sub-block layouts and the met3/met4 mesh that joins all three. The substrate joins them regardless — that is DR-012's point, not this route's; what the mesh adds is a drawn path `klt drc` grades. See DR-012 and DR-013) |
+| `DOUT<i>` (i=0..9) | `sar_sequencer.DOUT<i>` -> `top_glue.DOUT<i>` **and** external output pin `DOUT<i>`. `DOUT9` is in this row for the first time since issue #401: DR-008/DR-009 give it consumers (`xinv_dout9n`, the nine `xand_selp<i>`, `xdum_mux_n`, `xdum_xnor_n`) where under issue #56 it reached nothing but its own pad. **No `DOUT<i>` drives `cdac_array.SELp<i>` any more** — that was the pre-DR-008 unconditional drive |
+| `SELp<i>` (i=0..8) | `top_glue.SELp<i>` -> `cdac_array.SELp<i>` (DR-008: `SELp<i> = DOUT9 AND DOUT<i>`, an `and2_1` output) |
+| `SELn<i>` (i=0..8) | `top_glue.SELn<i>` -> `cdac_array.SELn<i>` (DR-008: `SELn<i> = DOUT9N AND DOUT<i>`) |
+| `PH_B9` | `sar_sequencer.PH_B9` -> `top_glue.PH_B9`. **Previously dead-ended as `PH_B9_NC`**; DR-009 makes it half the half-LSB enable (`HALF_LSB_EN = BUSY AND NOT(PH_B9)`). Its nine siblings `PH_B8..PH_B0` and `PH_EOC` are still real DEF pins and still deliberately unconnected |
+| `BUSY` | `sar_sequencer.BUSY` -> `top_glue.BUSY` **and** external output pin |
+| `HALF_LSB_EN` / `HALF_LSB_ENN` | `top_glue.HALF_LSB_EN`/`ENN` -> `halflsb_offset.HALF_LSB_EN`/`ENN` |
+| `DOUT9N` | **internal to `top_glue`** — `xinv_dout9n`'s output feeds the nine `xand_seln<i>` and nine `xxor_code<i>` inside that macro, so this level routes nothing |
+| `ADCOUT<i>` (i=0..8), `DUMLOAD_MUX_NC`, `DUMLOAD_XNOR_NC` | `top_glue` outputs with no top-level port and no second consumer — they dead-end at the macro boundary by derivation, not by omission (see that macro's pin table) |
+| `BOT_OFF_N` / `BOT_OFF_P` | **internal to `halflsb_offset`** — four terminals each, all inside the block |
+| `VPWR` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `top_glue`'s met5 PDN straps, **and** `halflsb_offset.VPWR` since issue #401 (`XMoff_p_cmp`'s gate) (issue #355 — one net, **not** tied to analog `VDD`; see DR-010) |
+| `VGND` (digital) | external pin, `sar_sequencer`'s met5 PDN strap, `top_glue`'s met5 PDN straps, **and** `halflsb_offset.VGND` since issue #401 (`XMoff_p_refp`'s gate) (issue #355 — one net, **not** tied to analog `GND` *in metal*; see DR-010 and, for what the substrate does regardless, DR-012) |
+| `GND` (analog) | external pin, `comparator.GND`, `sampling_frontend.GND`, `cdac_array.VSS`, `halflsb_offset.GND` (issue #362 drew the pad on the first of those, then the only drawn analog-ground conductor here; issue #377 added the next two inside their own sub-block layouts and the met3/met4 mesh that joins them; issue #401 added the fourth, teeing onto the same `cdac_array` corridor conductor that block's own `VSS` tap uses, and the mesh-ablation probe confirms it is load-bearing — cutting the mesh takes `GND` from one island to **three**, the new one being this terminal. The substrate joins them regardless — that is DR-012's point, not this route's; what the mesh adds is a drawn path `klt drc` grades. See DR-012 and DR-013) |
 | `Cdecap_a` (`VDD`/`GND`) | **two** placed `cap_mim_m3_1` unit cells across the analog pair — `MF = 2`, 8.870 pF, DR-017, placed by issue #440. The only devices this assembly's own top level instantiates; every other row here routes between sub-blocks. Bottom plates tap `comparator.GND`'s own met4 stub on met2; top plates tap `comparator.VDD`'s own met4 column on met4. See "On-die decoupling (DR-017)" |
 | `Cdecap_d` (`VPWR`/`VGND`) | **two** placed `cap_mim_m3_1` unit cells across the digital pair — same size and value, same record. Each reaches its own met5 rail through one via4. See "On-die decoupling (DR-017)" |
 
@@ -748,6 +885,82 @@ pin: `GND` and `VGND` are one extracted net (`GND|VGND|VSS` since issue #377
 joined `cdac_array`'s own `VSS` label to it — the shared p-substrate), so one
 promoted layout pin answers both reference ports, which the LVS `matched=22`
 count records. See DR-012 and DR-013.
+
+## DR-009's matched pairs: two things no verdict here can grade (issue #401)
+
+`klt drc` grades shapes. `klt lvs` grades devices and nets. `klt erc` grades
+connectivity. **All three report an identical result for a matched pair and a
+scattered one**, and DR-009 adds two matched pairs to this level. So each gets
+its own standing assertion in `bin/build_layout.py`, measured from the geometry
+that module actually draws and written into the record's own
+`composition.json` — not argued in prose, because prose is what decayed last
+time.
+
+### The two offset-cap top-plate legs (`TOP_N` / `TOP_P`)
+
+DR-009's `_p`-side network injects nothing: `XMoff_p_refp`'s gate is tied to
+`VGND` and `XMoff_p_cmp`'s to `VPWR`, so it is held off. Its only job is that
+**both** comparator top plates see the same capacitance and the same switch
+junction parasitics. A route that reaches one of them 10 µm sooner than the other
+re-introduces exactly the imbalance the dummy exists to remove.
+
+`halflsb_offset`'s own `TOP_N`/`TOP_P` pins are a fixed 16.0 µm apart (DR-009's
+matched-pair translation pitch), and the two nets' nearest existing conductors
+are `cdac_array`'s own `TOP_P` met4 escape at x = −2.4 and this module's own
+`TOP_N` met4 column at x = 260.0 — i.e. in opposite directions. So
+`HALFLSB_OFFSET`'s `dx` is **solved**, not chosen: it is the value that equalises
+the two legs' drawn length. `_check_halflsb_symmetry()` recomputes both from the
+drawn coordinates on every run and raises unless they agree to within
+`HALFLSB_TOP_LEG_TOLERANCE_UM` = 0.01 µm (ten database units). On the current
+record both are **165.430 µm**, delta **0.0000 µm**.
+
+`layout/halflsb-offset/README.md`'s own "Matching is a construction property, not
+a claim" argues the `_n`/`_p` congruence *inside* that block and explicitly stops
+at its boundary. This is the composition-level half of the same argument.
+
+### The dummy comparator load (`COMP_OUT` / `OUTN_NC`)
+
+DR-009's `xdum_mux_n` (`mux2_1`) and `xdum_xnor_n` (`xnor2_1`) exist so
+`comparator.OUTN` sees the same load as `comparator.OUTP`. The **gate** half of
+that match is identical by construction — the same two cell types on the same two
+input pins, which `bin/check-composition-parity.py` asserts against
+`design/sar_adc_top.spice` — so what is left to go wrong is the **wire** half,
+which is this composition's own doing and nothing else's. DR-009's Consequences
+section says exactly that: *"Routing parasitics on `COMP_OUT` and `OUTN_NC` are
+not in this netlist and will not match by default; layout (#103) must treat the
+two comparator output nets as a matched pair."*
+
+It is treated as one, and it cannot be driven to zero. `OUTN_NC` is routed as a
+deliberate near-mirror of `COMP_OUT` — its own exclusive west corridor
+(x = −18.0, beside `COMP_OUT`'s −12.0), its own jog row (224.4, beside
+`COMP_OUT`'s 223.7) — but the two have different destinations: `COMP_OUT` ends at
+`sar_sequencer`'s own right-edge I/O column 150 µm south of the comparator,
+`OUTN_NC` at a `top_glue` top-edge pin 56 µm further east and 81 µm north of it.
+Mirror-shaped is not congruent.
+
+So the shorter net carries a **solved matching extension**: its own met4 corridor
+column, continued south past its channel row into free field, of the length that
+equalises the pair's drawn conductor (`_outn_match_stub_y()`). That tail is
+dead-ended, so it costs this net no resistance; what it adds is the capacitance
+the two paths otherwise differ by. Its southern limit, `OUTN_MATCH_STUB_Y_MIN` =
+−155.0 µm, is bounded by three facts and no preferences: it is north of both
+`sar_cross_to_analog` basement legs (−160.7, −161.4, whose westward runs end at
+x = −12.0 and −14.0, so this column never meets either on any layer); it is
+inside the composition's own existing extent (y0 = −161.600), so the extension
+grows no die; and the nearest met4 in that y band is 10 µm away.
+
+On the current record the extension bottoms out at that limit and the residual is
+**6.5 %** of the larger net's drawn top-level conductor (`COMP_OUT` 258.271 µm²,
+`OUTN_NC` 241.379 µm², per-layer breakdown in `composition.json`), against a
+declared bound of **10 %**. The bound is set from the achieved residual with
+headroom, **not** from a specification: its only job is to make the next
+floorplan change that *widens* the imbalance fail loudly. Narrowing it further is
+a routing change, and would need a serpentine rather than a straight tail.
+
+**This figure bounds the geometry; it does not stand in for the electrical
+check.** DR-009 asks for a post-extraction re-run of
+`sim/full-conversion-transient/`, which is not this flow's to run and has not
+been run — see "Remaining work" below.
 
 ## GND / VPWR / VGND: not a routing job (mostly)
 
@@ -805,7 +1018,7 @@ declarations and its item-2 "known integration gap" note:
   They are **not** tied to the analog `VDD`/`GND` anywhere on-die; they are
   two distinct `.GLOBAL` nets (`design/sar_adc_top.spice` lines 323–324, since
   issue #258), each now also a formal top-level port of `sar_adc_top`, and the
-  layout ties `sar_sequencer`'s and `seln_inverters`' own met5 PDN straps
+  layout ties `sar_sequencer`'s and the digital glue macro's own met5 PDN straps
   together and out to a pin of that name. Both domains sit at the same 1.8 V
   supply point (DR-001); the partition is of *domains and pins*, not voltages,
   and the star point between them is off-die. Read DR-010 for the
@@ -820,7 +1033,7 @@ declarations and its item-2 "known integration gap" note:
   in `design/sar_adc_top.spice`, and neither is a formal port of the
   `sar_sequencer` subckt call at the top level — so by ordinary SPICE hierarchy
   scoping, `sar_sequencer`'s own internal `VPWR`/`VGND` is a different net from
-  `seln_inverters`'. **Do not tie them together.**"
+  the glue macro's. **Do not tie them together.**"
 
   Two things were wrong with it by the time #355 read it. The `.GLOBAL` half
   had been **false since issue #258** (which added the `lvpwr1`/`lvgnd1`
@@ -862,13 +1075,22 @@ turn a correct one into a false `erc.supply_short`), the state
 `bin/build_layout.py`'s `digital_supply_rail()` — **one met5 rectangle per
 rail, no via anywhere.** This is what open question 2 below had left untried.
 The two macros are placed at the same `dy` (`OFFSETS`), so `sar_sequencer`'s
-met5 strap for a rail and exactly one of `seln_inverters`' straps for the same
+met5 strap for a rail and at least one of `top_glue`'s straps for the same
 rail occupy the *same* global y band:
 
-| Rail | Global y band (µm) | `sar_sequencer` strap x | `seln_inverters` strap x | Rail rectangle x |
+| Rail | Global y band (µm) | `sar_sequencer` strap x | `top_glue` strap x | Rail rectangle x |
 |---|---|---|---|---|
-| `VPWR` | −120.88 … −119.28 | 23.4175 … 61.5975 | 89.9875 … 172.2075 | 15.0 … 91.9875 |
-| `VGND` | −134.48 … −132.88 | 23.4175 … 61.5975 | 89.9875 … 171.8675 | 15.0 … 91.9875 |
+| `VPWR` | −120.88 … −119.28 | 23.4175 … 61.5975 | 86.055 … 153.215 | 15.0 … 187.0 |
+| `VGND` | −134.48 … −132.88 | 23.4175 … 61.5975 | 86.055 … 153.215 | 15.0 … 192.0 |
+
+(Updated for issue #401's re-composition; the glue macro in the third column was
+`seln_inverters` at 89.9875 … 172.2075 / 171.8675 before it. `top_glue` carries
+**two** stripes per rail rather than one — its second pair sits at
+−93.68 … −92.08 (`VPWR`) and −107.28 … −105.68 (`VGND`), well inside this
+rectangle's own y band's clearance, and `_check_digital_rail_clearance()` grades
+every one of them. The rail rectangles reach further east than the macro straps
+because each also has to give its own decoupling pair's via4 a landing in open
+field — see "On-die decoupling (DR-017)".)
 
 A rectangle spanning that band is therefore *colinear* with both straps — same
 layer, same 1.6 µm width (`m5.1`'s own minimum, which is what both macros'
@@ -1075,7 +1297,7 @@ teach `bin/build_layout.py` to draw the met3/`capm`/via3/met4 stack by hand, or
 **Neither was chosen; a third was.** The cell is generated *inside this flow*
 (`run-flow.sh` step 2b, from `build_layout.py`'s own `DECAP_GEN_PARAMS` via
 `decap.request.json`) and placed as four more `blocks[]` entries in the same
-`klt gen-compose` request the five sub-blocks use. That buys (a)'s single flow
+`klt gen-compose` request the six sub-blocks use. That buys (a)'s single flow
 and single record without (a)'s hand-drawn MiM stack, and it buys (b)'s
 already-proven generator without a fifth directory whose only content would be
 one 47.9 µm cell. `--verify-decap` then asserts the generator's own reported
@@ -1118,7 +1340,7 @@ units with a 1.0 µm keep-out and **zero** clash against any of those layers:
 | corridor | rectangle | size | units that fit | clash |
 |---|---|---|---|---|
 | analog — east of `comparator`, north of `sampling_frontend` | (120.0, 139.5)–(258.5, 219.5) | 138.5 × 80.0 µm | 2 × 1 | 0 µm² |
-| digital — east of `seln_inverters`, south of `cdac_array` | (193.0, −165.0)–(260.2, −6.0) | 67.2 × 159.0 µm | 1 × 3 | 0 µm² |
+| digital — east of `top_glue`, south of `cdac_array` | (193.0, −165.0)–(260.2, −6.0) | 67.2 × 159.0 µm | 1 × 3 | 0 µm² |
 
 The digital pair is stacked in *y* rather than side by side because that
 corridor is 67.2 µm wide: one 47.9 µm unit fits across it, two do not. The four
@@ -1159,7 +1381,7 @@ short the two plates outright.
 Every conductor here is **2.0 µm wide — 5× this module's own `WIRE_W`** — and
 both digital ties leave their rail at the rail's own centre-line y, so neither
 adds a bend the rail does not already have. `DIG_RAIL_EAST_X` extends each met5
-rail east past `seln_inverters`' own strap to give the via4 a landing in open
+rail east past the glue macro's own strap to give the via4 a landing in open
 field; that is the same same-layer merge the rails' west stretch already is, so
 it creates no new met5 spacing relation and needs no via of its own.
 
@@ -1382,7 +1604,7 @@ Open questions this investigation worked through before that implementation
    a real tap-to-metal landing pad; there is no alternative landing point on
    the *same physically-connected net* to fall back to, because no metal
    touches that net anywhere in the block.
-2. `sar_sequencer.VPWR`/`VGND` and `seln_inverters.VPWR`/`VGND` are buried
+2. `sar_sequencer.VPWR`/`VGND` and the glue macro's own `VPWR`/`VGND` are buried
    met5 straps well inside each macro's own footprint, not edge-abutting
    pins — reaching them means a routed wire's own met5 geometry has to
    extend into (and overlap) that macro's own bounding box at the exact
@@ -1448,7 +1670,7 @@ were needed together, both in `layout/sar-adc-top/bin/run-flow.sh`:
 2. **The routing cell needed a globally-unique name first.** Every other
    `bin/build_layout.py` flow in this repo (`comparator/`,
    `sampling-frontend/`) also names its own internal routing cell `ROUTE`
-   by convention — so once all five sub-block GDS files are merged into one
+   by convention — so once every sub-block GDS file is merged into one
    composed layout, there are *three* distinct cells that could answer to
    that name (this flow's own top-level one, plus one buried inside each of
    `comparator`'s and `sampling_frontend`'s own internal composition).
@@ -1534,8 +1756,16 @@ merged 2026-09-06 — see above.
 **Historical measurement below is against `klayout-tools==0.4.0`
 (via the since-retired `SAR_ADC_TOP_KLT` override) — see "Update: re-run
 against the officially pinned `klayout-tools==0.5.0`" further down for the
-current numbers and the two upstream issues that replaced this section's
+intermediate numbers and the two upstream issues that replaced this section's
 original #1552.**
+
+**Everything in this section up to "Update (2026-10-01)" was also measured
+against the PRE-#401 composition** — the one that placed `seln_inverters` and
+compared against a hand-written wrapper — so its per-sub-block mismatch
+attributions name that assembly's blocks and its counts are that assembly's.
+The blocker itself is unchanged by #401 (it is a property of `klt lvs`'s request
+schema, not of this layout); the numbers are not. Read the 2026-10-01 update at
+the end of this section for the current ones.
 
 Reaching 19/19/19 pins was necessary but not sufficient for a
 `klt lvs` **match**. With `--pin-source-cells` wired in and
@@ -1553,7 +1783,7 @@ Reaching 19/19/19 pins was necessary but not sufficient for a
 `reports/<record-id>/lvs.json` for the full per-mismatch detail).
 
 **Root cause: `options.combine_devices` has no per-subcircuit scoping, and
-this design's five sub-blocks need opposing settings.** Each sub-block's own
+this design's sub-blocks need opposing settings.** Each sub-block's own
 already-closed, already-independently-verified LVS record was reached with
 its own deliberately-chosen `combine_devices` setting:
 
@@ -1563,12 +1793,13 @@ its own deliberately-chosen `combine_devices` setting:
 | `sampling_frontend` | `false` | No parallel devices to fold (each of its 24 devices is schematically distinct) — a deliberate no-op choice, not a requirement, per that flow's own `run-flow.sh` comment. |
 | `comparator` | `true` | Its own layout genuinely draws split/interleaved unit-width legs (e.g. the input pair's four common-centroid `W=2u` legs) that must be re-lumped to match the reference's lumped `W=4u` devices. |
 | `sar_sequencer` | `true` | Folded/multi-finger standard cells need re-lumping the same way. |
-| `seln_inverters` | `true` | Same as `sar_sequencer`. |
+| `top_glue` | `true` | Same as `sar_sequencer` — the glue macro this composition places since issue #401, in the row `seln_inverters` used to occupy. |
+| `halflsb_offset` | either | Nothing to fold: all eight of DR-009's cards are `m = MF = 1`, so this block is a no-op under both settings (added by issue #401). |
 
 `klt lvs`'s `options.combine_devices` is a single flag applied once to the
 *whole* (flattened) compared netlist — there is no way to apply `false` to
 the `cdac_array`/`sampling_frontend` region and `true` to the
-`comparator`/`sar_sequencer`/`seln_inverters` region of the same compare.
+`comparator`/`sar_sequencer`/`top_glue` region of the same compare.
 Both global settings were measured directly against this composition:
 
 - `combine_devices: true` (the setting `run-flow.sh` uses, since it is the
@@ -1942,10 +2173,79 @@ The unmodified-GDS `--abstract-cells` shape stays **not adopted**, for the
 same reason as before. `run-flow.sh`'s signoff attempt stays the whole-request
 compare.
 
+### Update (2026-10-01, issue #401): re-measured on the re-composed assembly
+
+Everything above was measured against the pre-#401 composition. The blocker is
+unchanged — `options.combine_devices` is still one flag over one flattened
+compare, and klayout-tools#1878 is still the reason no setting can be right for
+every sub-block at once — but the compare it applies to is now a different,
+larger, correctly-posed one, so the numbers are restated here rather than left
+to be inferred:
+
+| Quantity | Pre-#401 (`20260926-184816-e1176e3`) | Current (`20261001-022205-455b772`) |
+|---|---:|---:|
+| `klt drc` | clean, 0 violations / 52 rules | clean, 0 violations / 52 rules |
+| `klt lvs` verdict | `mismatch` | `mismatch` |
+| mismatches / errors | 89 / 88 | **67 / 66** |
+| devices layout / reference / matched | 871 / 871 / 804 | **1095 / 1095 / 1046** |
+| nets layout / reference / matched | 443 / 444 / 411 | **554 / 555 / 519** |
+| pins layout / reference / matched | 21 / 22 / 22 | 21 / 22 / 22 |
+| `device.unmatched` | 67 | **49** |
+| `net.merged` / `net.split` | 11 / 10 | **9 / 8** |
+| `topology.flattened` | 1 | 1 |
+
+Three readings, none of which should be over-claimed:
+
+- **The compare got bigger and the mismatch count got smaller.** Both sides gain
+  the 33 standard cells and 8 primitives the assembly had been omitting, and 242
+  more devices match than before while 18 fewer fail. A re-scoring would not do
+  that; a better-posed compare does.
+- **The nine `net.merged` / eight `net.split` entries are all `sampling_frontend`'s
+  own reference-port shape** (`BOOST_*`, `BPREF_*`, `FE_G_*`, `FE_BSBOT_*`, plus
+  the DR-012 `GND` merge) — the same pre-existing items the earlier records
+  carried, two fewer of each because the composition no longer carries
+  `seln_inverters`' own copies. Not introduced by #401 and not fixed by it.
+- **It is still a `mismatch`, and #401 was not scoped to change that.** What
+  changed is that the two sides are now independently derived — see this
+  document's own opening section — so this blocker's eventual clearance will
+  produce a verdict that means what this flow has always claimed it would. That
+  was issue #387's entire point, and it is what #401 delivers.
+
 ## Remaining work (tracked against #103)
 
-- [x] Place all five blocks via `klt gen-compose` `placement.strategy:
-      "explicit"`, each sourced as a `blocks[].cell` entry (#1189).
+- [x] Place all **six** blocks via `klt gen-compose` `placement.strategy:
+      "explicit"`, each sourced as a `blocks[].cell` entry (#1189). Five until
+      issue #401, which swapped the retired `seln_inverters` for `top_glue` +
+      `halflsb_offset`.
+- [x] **Re-compose against the current schematic and re-derive the LVS
+      reference from it (issue #401, the third and last piece of #387).**
+      `bin/build_layout.py` places `top_glue` and `halflsb_offset`;
+      `bin/generate-lvs-reference.py`'s `.SUBCKT sar_adc_top` wrapper is derived
+      from `design/sar_adc_top.spice` on every run instead of being a string
+      literal; `seln_inverters` is retired from the composition. DRC re-run clean
+      (0 / 52 rules), `klt erc` re-run clean (0 findings, four supplies at one
+      island each), LVS re-run against a regenerated **1095**-device reference
+      with **1046** matched and **67** mismatches in the same four categories
+      (`reports/20261001-022205-455b772/`,
+      `erc-reports/20261001-022622-455b772/`). The composed extent grows to
+      290.500 × 386.200 µm, which is the omitted glue drawn.
+- [x] **Gate the derivation, not just fix it (issue #401).**
+      `bin/check-composition-parity.py` asserts the placed block set, the net on
+      every one of their pins, this assembly's own top-level port set and the
+      composition the LVS reference emits are all re-derived from
+      `design/sar_adc_top.spice` — with a negative control (`--self-test`, a
+      moved `SELp0` binding) that must be caught. Wired into `npm run check:ci`
+      as `check:composition-parity` and run as a hard gate before `run-flow.sh`
+      mints any record.
+- [ ] **Re-run `sim/full-conversion-transient/` on an extracted netlist, which
+      is what DR-009 asks for and what no verdict in this directory can
+      substitute for.** Issue #401 bounds DR-009's dummy-load imbalance
+      geometrically (6.5 % of drawn top-level conductor, against a declared
+      10 %; see "DR-009's matched pairs") and makes the matching an asserted
+      construction property rather than prose — but DR-009's Consequences
+      section asks for a post-extraction re-simulation, and that is still owed.
+      Blocked in practice on the same thing T1 item 7 is: a usable `klt pex`
+      path on this composition (see the last item in this list).
 - [x] **Place DR-017's on-die decoupling (issue #440).** `Cdecap_a`/`Cdecap_d`
       are drawn as four `klt gen cap_array` unit cells (two per domain,
       `MF = 2`) and tied across their own domains' supply/return conductors;
@@ -2066,9 +2366,14 @@ remain tool-blocked, as of this record:
 ## Provenance
 
 Clean room: this document only records geometry already drawn by this
-repo's own sub-block flows (#99–#102) and this issue's own new
-`layout/seln-inverters/` macro — no third-party layout, floorplan, or netlist
-was consulted.
+repo's own sub-block flows (#99–#102, plus `layout/top-glue/`'s PR #402 and
+`layout/halflsb-offset/`'s PR #497, which replaced this flow's own earlier
+`layout/seln-inverters/` macro at issue #401) — no third-party layout,
+floorplan, or netlist was consulted. Every coordinate in the pin tables above
+was read directly off one of those committed artefacts (`klt cells`, a
+`klayout.db` shape/label dump, or a routed DEF's own `PINS` section), and
+`bin/check-composition-parity.py` re-derives the *composition* from this repo's
+own schematic netlist on every run.
 
 ### `klt` build required: resolved — pinned `klayout-tools` (0.5.0, now 0.6.0), no override needed
 

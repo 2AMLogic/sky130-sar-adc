@@ -1,7 +1,8 @@
-# layout/seln-inverters/ — SUPERSEDED (issue #387): the glue this block draws is not in the schematic any more
+# layout/seln-inverters/ — RETIRED (issues #387, #401): the glue this block draws is not in the schematic, and nothing composes it
 
-> **SUPERSEDED 2026-09-25 by `layout/top-glue/` (issue #387). Do not cite this
-> block's DRC/LVS verdicts as evidence about the top level.**
+> **SUPERSEDED 2026-09-25 by `layout/top-glue/` (issue #387), and RETIRED from
+> every composition on 2026-10-01 (issue #401). Do not cite this block's
+> DRC/LVS verdicts as evidence about the top level.**
 >
 > This directory lays out nine `sky130_fd_sc_hd__inv_1` cells implementing
 > `SELn<i> = NOT(DOUT<i>)` — issue #56's unconditional complementary CDAC
@@ -21,12 +22,19 @@
 > the schematic says, which is why this block stayed clean and wrong for two
 > weeks.
 >
-> **Why it is still in the tree:** `layout/sar-adc-top/`'s composition still
-> reads this block's GDS (`bin/build_layout.py` places `seln_inverters`;
-> `bin/generate-lvs-reference.py`'s `TOP_SUBCKT` still wires each `SELp<i>`
-> straight to `DOUT<i>`). Deleting it would break that flow without fixing it.
-> It is retired — records kept, as append-only history — by the top-level
-> recomposition tracked as issue #401. Everything below this banner is
+> **Why it is still in the tree:** only as append-only history. Until issue #401
+> landed (2026-10-01), `layout/sar-adc-top/`'s composition read this block's GDS
+> — `bin/build_layout.py` placed `seln_inverters` and
+> `bin/generate-lvs-reference.py`'s hand-written wrapper wired each `SELp<i>`
+> straight to `DOUT<i>` — so deleting the directory would have broken that flow
+> without fixing it. **That is no longer true**: that composition now places
+> `top_glue` and `halflsb_offset`, and
+> `layout/sar-adc-top/bin/check-composition-parity.py` fails CI if any
+> `seln_inverters` reference reappears in its placement tables. This
+> directory's `reports/` are kept because `sim/`- and `layout/`-style records are
+> append-only evidence (CLAUDE.md), not because anything consumes them; its
+> `bin/run-flow.sh` still runs and still produces a DRC/LVS-clean nine-inverter
+> macro, which is simply not a macro this design has. Everything below this banner is
 > preserved as the record of what was built and verified, and remains accurate
 > *about those nine inverters*; it is no longer accurate about the SAR ADC's
 > top-level glue.

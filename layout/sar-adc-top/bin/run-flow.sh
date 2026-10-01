@@ -10,9 +10,10 @@
 #   layout/sar-adc-top/bin/run-flow.sh   # ~1 minute
 #
 # Requires: layout/.venv (see setup-venv.sh), a resolvable sky130A PDK
-# install (same pin as sim/pdk.json), and each of the five sub-blocks'
+# install (same pin as sim/pdk.json), and each of the six sub-blocks'
 # reports/LATEST to point at a real, already-committed record (#99-#102,
-# #166) -- this flow *reads* those GDS files, it does not regenerate them.
+# PR #402's layout/top-glue/ and PR #497's layout/halflsb-offset/) -- this
+# flow *reads* those GDS files, it does not regenerate them.
 #
 # Runs entirely on the pinned `layout/.venv/bin/klt` (klayout-tools==0.6.0
 # since 2026-09-23, `layout/requirements.txt`) -- no env override needed. Step 7's `klt
@@ -26,13 +27,24 @@
 #
 # Flow (see layout/sar-adc-top/README.md for the full floorplan/routing
 # writeup this implements):
+#   0. check-composition-parity.py -- HARD GATE, and the reason issue #401
+#      exists. Asserts that the blocks build_layout.py places, the net on
+#      every one of their pins, this assembly's own top-level port set, and
+#      the composition generate-lvs-reference.py emits are all the ones
+#      design/sar_adc_top.spice's own top-level cards specify. `klt lvs`
+#      below CANNOT establish this: its reference is generated from the same
+#      composition the layout is built from, so the compare is
+#      self-consistent rather than checked against the schematic -- which is
+#      exactly how this flow spent two weeks DRC/LVS-clean on DR-008's
+#      superseded glue (issue #387). Run BEFORE the record directory is
+#      created, so a drifted composition mints no record at all.
 #   1. Copy each sub-block's own reports/LATEST top GDS in as this flow's
 #      own input (named <block>.gds -- what build_layout.py's own
 #      `blocks[].cell` request entries expect).
 #   2. build_layout.py    -- floorplan + route: emits the `klt draw` request
 #                            for every wire/via/label this assembly's own
 #                            interconnect needs, and the `klt gen-compose`
-#                            explicit-placement request naming all five
+#                            explicit-placement request naming all six
 #                            sub-blocks plus the FOUR decoupling-capacitor unit
 #                            cells of issue #440/DR-017 (as `blocks[].cell`
 #                            entries, #1189) plus this script's own new `route`
@@ -46,9 +58,9 @@
 #                            other `bin/build_layout.py` flow in this repo
 #                            uses) so it never collides with `comparator`'s
 #                            or `sampling_frontend`'s own internal ROUTE
-#                            cell once all five GDS files are merged -- see
+#                            cell once all six GDS files are merged -- see
 #                            "LVS pin declaration: resolved" in README.md.
-#   4. `klt gen-compose`   -- places the five sub-blocks + the four decap unit
+#   4. `klt gen-compose`   -- places the six sub-blocks + the four decap unit
 #                            cells + the routing cell into one composed cell.
 #                            No `routing` block:
 #                            this flow does its own routing (see
@@ -106,6 +118,16 @@ source "$LAYOUT_DIR/bin/_flow_common.sh"
 require_klt "$KLT"
 require_pdk "$KLT" "$PDK_VARIANT"
 
+# --- 0. Composition parity: HARD GATE ---------------------------------------
+# Deliberately BEFORE the record directory is created, for the same reason
+# layout/top-glue/bin/run-flow.sh runs its own parity gate there: a composition
+# that has drifted from design/sar_adc_top.spice must not mint a record at all,
+# so no future reader can cite a DRC/LVS verdict over an assembly wired to the
+# wrong nets. The negative control runs first -- a gate nobody has watched fail
+# is a gate nobody knows works.
+python3 "$TOP_DIR/bin/check-composition-parity.py" --self-test
+python3 "$TOP_DIR/bin/check-composition-parity.py"
+
 RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$TOP_DIR/reports/$RECORD_ID"
 # The record `reports/LATEST` names RIGHT NOW -- read before this run overwrites
@@ -121,13 +143,21 @@ PREV_RECORD="${DECAP_BASELINE_RECORD:-$(cat "$TOP_DIR/reports/LATEST" 2>/dev/nul
 mkdir -p "$OUT_DIR"
 echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
 
+# The gate's own output, kept beside the verdicts it licenses (same convention
+# as layout/top-glue/reports/<id>/schematic-parity.txt).
+{
+  python3 "$TOP_DIR/bin/check-composition-parity.py" --self-test
+  python3 "$TOP_DIR/bin/check-composition-parity.py"
+} > "$OUT_DIR/composition-parity.txt" 2>&1
+
 # --- 1. Pull in each sub-block's own reports/LATEST top GDS ----------------
 declare -A BLOCK_GDS=(
   [cdac_array]="cdac-array/cdac_array.gds"
   [sampling_frontend]="sampling-frontend/sampling_frontend.gds"
   [comparator]="comparator/comparator.gds"
   [sar_sequencer]="sar-sequencer/sar_sequencer.gds"
-  [seln_inverters]="seln-inverters/seln_inverters.gds"
+  [top_glue]="top-glue/top_glue.gds"
+  [halflsb_offset]="halflsb-offset/halflsb_offset.gds"
 )
 for block in "${!BLOCK_GDS[@]}"; do
   rel="${BLOCK_GDS[$block]}"
@@ -166,7 +196,7 @@ python3 "$TOP_DIR/bin/build_layout.py" --verify-decap "$OUT_DIR/decap.json"
 ( cd "$OUT_DIR" && "$KLT" draw --params draw.request.json --cell-name "$ROUTE_CELL_NAME" \
     -o route.gds --format json > draw.json )
 
-# --- 4. Place the five sub-blocks + the routing cell into one composed cell
+# --- 4. Place the six sub-blocks + the routing cell into one composed cell
 ( cd "$OUT_DIR" && "$KLT" gen-compose compose.request.json --format json > compose.json )
 if [[ ! -f "$OUT_DIR/${TOP}.gds" ]]; then
   echo "run-flow.sh: gen-compose did not write ${TOP}.gds -- see compose.json" >&2
@@ -237,16 +267,18 @@ python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
 
 python3 "$TOP_DIR/bin/generate-lvs-reference.py" \
   --sar-sequencer-report "$LAYOUT_DIR/sar-sequencer/reports/$(cat "$LAYOUT_DIR/sar-sequencer/reports/LATEST")" \
-  --seln-inverters-report "$LAYOUT_DIR/seln-inverters/reports/$(cat "$LAYOUT_DIR/seln-inverters/reports/LATEST")" \
+  --top-glue-report "$LAYOUT_DIR/top-glue/reports/$(cat "$LAYOUT_DIR/top-glue/reports/LATEST")" \
+  --halflsb-offset-report "$LAYOUT_DIR/halflsb-offset/reports/$(cat "$LAYOUT_DIR/halflsb-offset/reports/LATEST")" \
   -o "$OUT_DIR/sar_adc_top.lvs-reference.spice"
 
-# `combine_devices: true`: three of the five already-independently-verified
-# sub-blocks (comparator, sar_sequencer, seln_inverters) need it to re-lump
+# `combine_devices: true`: three of the six already-independently-verified
+# sub-blocks (comparator, sar_sequencer, top_glue) need it to re-lump
 # their own genuinely split/interleaved layout legs to match their own
-# reference's lumped devices; the other two (cdac_array, sampling_frontend)
-# need it FALSE (cdac_array to avoid klayout-tools#1497's parallel-cap
-# combine nondeterminism; sampling_frontend has nothing to fold, so it is a
-# no-op either way at that sub-block's own scope). `klt lvs`'s
+# reference's lumped devices; two of the others (cdac_array,
+# sampling_frontend) need it FALSE (cdac_array to avoid klayout-tools#1497's
+# parallel-cap combine nondeterminism; sampling_frontend has nothing to fold,
+# so it is a no-op either way at that sub-block's own scope, as is
+# halflsb_offset, whose eight cards are all `m = MF = 1`). `klt lvs`'s
 # `options.combine_devices` is a single flag over the whole (flattened)
 # compared netlist -- no per-subcircuit scoping exists -- so no single
 # top-level setting can satisfy every already-independently-verified
@@ -261,7 +293,7 @@ python3 "$TOP_DIR/bin/generate-lvs-reference.py" \
 #     (klayout-tools#1878, extraction has no hierarchical mode, #1085).
 #   - class-scoped `combine_devices: ["NFET","PFET"]` (klayout-tools#1370):
 #     126 mismatches, identical device matching (794) -- device class cannot
-#     separate the FET legs that need folding (seln_inverters) from the ones
+#     separate the FET legs that need folding (top_glue) from the ones
 #     that must not be folded (sampling_frontend), since both are FETs.
 #   - `klt lvs`'s inline-extraction shape (`layout.file`, which would sidestep
 #     klayout-tools#1876's SPICE round-trip entirely): 2199 mismatches and
