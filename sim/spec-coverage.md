@@ -27,9 +27,9 @@ followed by the per-bench command in the table below. Each of those commands is 
 
 | Spec row | Status | Coverage | Testbench(es) | Evidence record(s) |
 |---|---|---|---|---|
-| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-111651-d3f190d.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
+| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-135431-7487784.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
 | Resolution `N` | RATIFIED | benched (ratified, graded pass/fail) | `sim/sar-sequencer-behavioral` | `20260827-211956-e13bc1e.md` |
-| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20261001-121228-40468b2.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261001-105439-c324f80.md` |
+| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261001-105439-c324f80.md` |
 | ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate` | `20260828-005033-0c70212.md` |
 | INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20261001-124049-5207381.md` |
 | `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
@@ -63,7 +63,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record`
 - Documented in: `sim/sampling-cdac-handoff/run_handoff.py`
 - Evidence: `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`
-- Evidence: `sim/sampling-cdac-handoff/records/20261001-111651-d3f190d.md`
+- Evidence: `sim/sampling-cdac-handoff/records/20261001-135431-7487784.md`
 
 **`sim/cdac-array-transfer`** — Charge redistribution: the array's own code-to-output transfer characteristic (issue #53).
 
@@ -108,7 +108,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-bit-trial-settling/run_bit_trial_settling.py`
 - Cold start: `python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --corners --record`
 - Documented in: `sim/cdac-bit-trial-settling/run_bit_trial_settling.py`
-- Evidence: `sim/cdac-bit-trial-settling/records/20261001-121228-40468b2.md`
+- Evidence: `sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md`
 
 **`sim/sequencer-logic-delay`** — Mechanism (c) of Section 7 Item 2: the SAR sequencer's own CLK-to-phase-output logic delay across all 11 ring-sequencer phase transitions, over the full ratified corner set. Informational against this DRAFT row, on the same DR-006-downstream yardstick; proposes no sample rate.
 

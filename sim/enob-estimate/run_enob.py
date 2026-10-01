@@ -115,7 +115,17 @@ COMPARATOR_NOISE_DIFF_V = 0.8643e-3  # V rms, differential, worst-case (125C)
 # same formula, cited inline).
 K_B = 1.380649e-23  # J/K, exact SI
 T_HOT_K = 125 + 273.15
-C_U_F = 8.65e-15  # ratified CDAC unit cap (DR-003 via #27)
+# The ratified CDAC unit cap, DR-003 via #27 as amended by
+# spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md (#496,
+# carried through by #498): DR-019 resized the MiM plate to a 5 nm-grid-legal
+# 1.9000 um square, which moves `C_u` from 8.65 fF to exactly 8.664 fF under
+# `klt extract`'s own sky130 area+perimeter coefficients
+# (1.9^2 * 2.0e-15 + 4*1.9 * 1.9e-16). Leaving this literal at 8.65e-15 would
+# make the kT/C term below a measurement of a plate the design no longer
+# draws -- numerically negligible here (that term is ~2.5% of sigma_total and
+# moves by ~0.1%), but silently stale, which is exactly the failure mode
+# COMPARATOR_NOISE_SOURCE_RECORD's comment above exists to prevent.
+C_U_F = 8.664e-15
 ARRAY_SIDE = 512  # ratified positions/side (DR-003 via #27)
 
 
@@ -302,7 +312,7 @@ def main() -> int:
         f"  - Comparator input-referred noise: {sigma_cmp * 1000:.4f} mV rms -- worst-case "
         f"binding corner `{COMPARATOR_NOISE_BINDING_CORNER}` from `{COMPARATOR_NOISE_SOURCE_RECORD}` "
         "(issue #28's ratified full-PVT-corner campaign; NOT re-simulated here)\n"
-        f"  - kT/C sampling noise (analytic, 125C worst-case, ratified C_u={C_U_F * 1e15:.2f} fF, "
+        f"  - kT/C sampling noise (analytic, 125C worst-case, ratified C_u={C_U_F * 1e15:.3f} fF, "
         f"{ARRAY_SIDE}/side): {sigma_ktc * 1000:.4f} mV rms\n"
         f"  - CDAC mismatch-driven nonlinearity (from `{args.cdac_mc_record}`'s max\\|INL\\| "
         f"distribution, N={cdac['n']}): mean-case {inl_mean_v * 1000:.4f} mV rms "

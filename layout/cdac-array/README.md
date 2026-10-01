@@ -59,6 +59,16 @@ Verdicts 1–8 are numbered as they were before issue #498; 9–12 were added by
 it and appended rather than interleaved so the numbering this document's own
 prose uses did not shift under it.
 
+One committed record predates that decision and does not show it:
+`reports/20261001-084525-79abbf8/record.md`, the first post-resize record, was
+rendered by a pre-final `render-record.py` that interleaved the four precheck
+verdicts at 2/3/6/7, so it cannot be reproduced from its own committed JSON
+envelopes by the renderer in this tree. It is left in place — records here are
+append-only — and superseded by `reports/20261001-133221-7487784/`, a re-run of
+the same flow at the same geometry whose `record.md` re-renders byte-for-byte
+from its own envelopes. All twelve verdicts hold in both; only the numbering
+differs.
+
 Verdicts 6–8 exist because **1–4 have no opinion at all about placement**:
 DRC and LVS are topology-only, silent about where a matched device
 physically sits. Verdict 5 is independent confirmation of the same

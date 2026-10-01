@@ -121,7 +121,7 @@ ROWS: tuple[Row, ...] = (
             "now also clears it at all 9, after issue #236's circuit fix, "
             "AND clears it at all 9 again when re-measured at the assembled "
             "front-end + CDAC top-plate load rather than the front end "
-            "alone (worst case 0.926 mV at `tt_27c_1.62v`, 0.53x the "
+            "alone (worst case 0.928 mV at `tt_27c_1.62v`, 0.53x the "
             "provisional differential half-LSB reference scale, against the "
             "front-end-only grid's 0.380 mV at the same corner). "
             "Separately (issue #254): the first WHOLE-ADC transient (not a "
@@ -147,11 +147,13 @@ ROWS: tuple[Row, ...] = (
             "reports all four honestly rather than adding them up. (a) The "
             "CDAC array's own switch-R_on/top-plate settling is now "
             "PVT-complete: binding (slowest) corner `tt_27c_1.62v`, bit 8 "
-            "(rise) at 13.2312 ns, 6.3x inside the DR-006-derived "
+            "(rise) at 13.2466 ns, 6.3x inside the DR-006-derived "
             "83.333 ns worst-case phase budget; fastest corner "
-            "`tt_27c_1.98v` at 10.3019 ns (8.1x); worst-to-best spread "
+            "`tt_27c_1.98v` at 10.3138 ns (8.1x); worst-to-best spread "
             "across the whole grid only 1.28x, and the tt/27C/1.8V point "
-            "reproduces the single-corner record's own 11.3861 ns exactly. "
+            "reads 11.3994 ns -- the pre-DR-019 single-corner record's own "
+            "11.3861 ns plus the +0.117% the resize predicts (tau_i is "
+            "linear in C_u, and that record measured the 1.8988 um plate). "
             "All 9/9 corners clear the budget. A secondary, non-gating "
             "finding: the smallest-swing diagnostic row (bit 0, ~0.2% of "
             "VDD swing) failed to produce a 99%-settling crossing at 5/9 "
@@ -235,9 +237,9 @@ ROWS: tuple[Row, ...] = (
             "of bit capacitance to the front end's own ~4.43 pF/side. Same "
             "stimulus, same probe instants, same 9 ratified points, only the "
             "load differs: ALL 9/9 corners still clear the budget, binding "
-            "corner `tt_27c_1.62v` at 0.926 mV (0.53x the half-LSB "
+            "corner `tt_27c_1.62v` at 0.928 mV (0.53x the half-LSB "
             "reference scale) against the front-end-only grid's 0.380 mV at "
-            "that same corner, every other corner at or below 0.053 mV. The "
+            "that same corner, every other corner at or below 0.054 mV. The "
             "doubled load therefore costs a factor ~2.4 at the binding "
             "corner and still lands inside the reference scale everywhere, "
             "which is what makes mechanism (d)'s PVT-complete status a "
@@ -395,13 +397,13 @@ ROWS: tuple[Row, ...] = (
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
-            "sim/cdac-bit-trial-settling/records/20261001-121228-40468b2.md",
+            "sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md",
             "sim/comparator-decision/records/20260906-074451-7724af3.md",
             "sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md",
             "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
-            "sim/sampling-cdac-handoff/records/20261001-111651-d3f190d.md",
+            "sim/sampling-cdac-handoff/records/20261001-135431-7487784.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
             "sim/full-conversion-transient/records/20261001-105439-c324f80.md",
         ),
@@ -507,24 +509,34 @@ ROWS: tuple[Row, ...] = (
             "sim: structural check (unit-cap geometry + per-side weight totals) "
             "at every corner of the ratified sim record. layout: drawn/extracted "
             "physical geometry, DRC + LVS against design/cdac/cdac_array.sch, "
-            "single-point (no corner sweep -- DRC/LVS are corner-invariant "
-            "structural checks, not PVT-dependent measurements)."
+            "plus `klt precheck` on BOTH the 1 nm database grid and sky130's "
+            "5 nm manufacturing grid (gating since DR-019), single-point (no "
+            "corner sweep -- DRC/LVS/precheck are corner-invariant structural "
+            "checks, not PVT-dependent measurements)."
         ),
         verdict=(
             "PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, "
             "LVS match, unit-cap count 1024 = 512/side x 2, common-centroid "
-            "checks all pass). Drawn unit cap 8.6473 fF vs. ratified C_u ~= "
-            "8.65 fF."
+            "checks all pass, precheck passes on both the 1 nm database grid "
+            "and sky130's 5 nm manufacturing grid). Drawn unit cap 8.6640 fF "
+            "vs. ratified C_u ~= 8.66 fF."
         ),
         notes=(
             "Layout evidence is independent, physical confirmation of the "
             "sim-only structural check. Supersedes "
             "layout/cdac-array/reports/20260825-132454-51cbdd4/, whose LVS "
             "'match' verdict did not reproduce on its own committed "
-            "artefacts -- see layout/cdac-array/README.md and issue #148."
+            "artefacts -- see layout/cdac-array/README.md and issue #148. "
+            "The layout citation moved off "
+            "layout/cdac-array/reports/20260905-220338-9fb9b04/ at #498: that "
+            "record draws the pre-DR-019 1.898 um plate (8.6473 fF, off "
+            "sky130's 5 nm manufacturing grid), so it no longer evidences the "
+            "ratified row this table grades -- the cited record is the "
+            "post-resize re-run, whose 1.9000 um plate is exactly the "
+            "schematic value and passes the 5 nm grid check."
         ),
         sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
-        layout_citations=("layout/cdac-array/reports/20260905-220338-9fb9b04/record.md",),
+        layout_citations=("layout/cdac-array/reports/20261001-133221-7487784/record.md",),
     ),
     Row(
         id="comparator-noise",

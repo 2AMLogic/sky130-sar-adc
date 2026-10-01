@@ -539,7 +539,7 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     return points
 
 
-def write_record(rows: list[dict], netlist_sample: str) -> None:
+def write_record(rows: list[dict], netlist_sample: str, note: str = "") -> None:
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_sample)
     record_id = prov.record_id
     record_path = prov.record_path
@@ -606,6 +606,8 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
         "end, f_clk=1.2 MHz) -- quoted for comparison only, not a pass/"
         "fail gate against a ratified row."
     )
+    if note:
+        a(f"- **Note**: {note}")
     a("")
     a(
         "## Closed-form cross-check: simulated long-time V_top vs. the "
@@ -725,7 +727,7 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
     print(f"\nWrote record: {record_path}")
 
 
-def write_corners_record(points: list[dict]) -> Path:
+def write_corners_record(points: list[dict], note: str = "") -> Path:
     """Evidence record for the full ratified-PVT-grid --corners campaign,
     same `corners/<record_id>/` per-point-deck layout
     sim/sequencer-logic-delay/'s own --corners mode and
@@ -818,6 +820,8 @@ def write_corners_record(points: list[dict]) -> Path:
         "end, f_clk=1.2 MHz) -- quoted for comparison only, not a pass/"
         "fail gate against a ratified row."
     )
+    if note:
+        a(f"- **Note**: {note}")
     a("")
     a("## Worst-case (test_bit, direction) settling time, per corner")
     a("")
@@ -988,6 +992,15 @@ def main() -> int:
         help="run the full ratified PVT grid (9 OAT points) instead of the "
         "single tt/27C/1.8V corner",
     )
+    parser.add_argument(
+        "--note", default="",
+        help="free-text provenance note recorded as this record's `**Note**` "
+        "field -- the place a re-run says WHY it was re-run and which record "
+        "it displaces for the same claim. Added by #498: until then this "
+        "runner had no --note (and has no --supersedes, see #502), so a "
+        "re-run after a design/ change could not be traced back to what it "
+        "replaced from the record itself at all.",
+    )
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -1013,7 +1026,7 @@ def main() -> int:
                     "produced an incomplete (MSB-row-missing) measurement."
                 )
                 if args.record:
-                    write_corners_record(points)
+                    write_corners_record(points, note=args.note)
                 return 1
             missing_note = (
                 f" ({n_missing} smaller-bit row(s) missing a crossing -- "
@@ -1026,7 +1039,7 @@ def main() -> int:
                 f"{missing_note}"
             )
             if args.record:
-                write_corners_record(points)
+                write_corners_record(points, note=args.note)
             return 0
 
         rows = run_all(scratch)
@@ -1037,7 +1050,7 @@ def main() -> int:
         sample_netlist, _ = build_transient(test_bit=TEST_BITS[-1], direction="fall")
 
         if args.record:
-            write_record(rows, sample_netlist)
+            write_record(rows, sample_netlist, note=args.note)
 
     return 0
 

@@ -57,5 +57,5 @@ C {ipin.sym} -300 200 0 0 {name=p_vrefp lab=VREFP}
 C {ipin.sym} -300 250 0 0 {name=p_vrefn lab=VREFN}
 C {ipin.sym} -300 300 0 0 {name=p_vdd lab=VDD}
 C {ipin.sym} -300 350 0 0 {name=p_vss lab=VSS}
-T {cdac unit cell: C_u = 8.654 fF (provisional, DR-003), MF=1} -100 -350 0 0 0.2 0.2 {}
+T {cdac unit cell: C_u = 8.664 fF (ratified, DR-003 via #27 as resized by DR-019), MF=1} -100 -350 0 0 0.2 0.2 {}
 T {M1=nfet_01v8 (BOT->VREFN @ SEL=1), M2=pfet_01v8 (BOT->VREFP @ SEL=0)} -100 -300 0 0 0.2 0.2 {}
