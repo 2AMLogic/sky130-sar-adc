@@ -1,0 +1,6 @@
+check-composition-parity.py --self-test: OK -- the negative control was caught (8 problem(s)); first: build_layout.PIN has an entry for top_glue.SELp0, but no top-level card ../../../../../../../tmp/tmpeik1pifq/sar_adc_top.spice assigns to that block names a net 'SELp0' -- a stale pin table entry
+check-composition-parity.py: OK -- 6 placed blocks (+ 4 decoupling unit cells) carrying 47 top-level cards, 49 nets crossing a block boundary and 22 top-level ports, all derived from design/sar_adc_top.spice
+  blocks: cdac_array, comparator, halflsb_offset, sampling_frontend, sar_sequencer, top_glue
+  halflsb_offset: 12 nets named by its own cards
+  top_glue: 49 nets named by its own cards
+  generated LVS reference wrapper: 4 positional sub-blocks, 33 std cells via top_glue, 8 primitives via halflsb_offset, 4 decoupling unit cards -- every net re-derived from design/sar_adc_top.spice

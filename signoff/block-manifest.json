@@ -38,18 +38,22 @@
     "      enumerated in signoff/README.md, which is where the item's",
     "      claimant-enforced disclosure obligation is actually discharged.",
     "  4   (bare -- both partitions) layout/sar-adc-top/.../lvs.json. Cited even",
-    "      though it does NOT pass: `status: \"mismatch\"` (89 mismatches), so it",
+    "      though it does NOT pass: `status: \"mismatch\"` (67 mismatches), so it",
     "      renders unmet/check_failed. That is the point -- 'an LVS run exists",
     "      and did not match' is a materially different, and more useful,",
     "      machine-readable statement than 'no evidence'. NOT PINNED, and the",
-    "      omission is deliberate rather than an oversight: this envelope was",
-    "      produced by klt 0.5.0, whose `klt lvs` writes `provenance.input:",
-    "      null`, so there is no envelope-side hash for a manifest pin to match",
-    "      and a pin here would be decorative (and, because check_failed is",
-    "      evaluated first, never even consulted). The freshness axis is carried",
-    "      instead by the envelope's own environment.layout_sha256 /",
-    "      environment.reference_sha256, which check-evidence-hashes.py",
-    "      re-derives from the committed netlists on every push.",
+    "      omission is deliberate rather than an oversight. It was originally",
+    "      unpinnable: the envelope this item cited was produced by klt 0.5.0,",
+    "      whose `klt lvs` writes `provenance.input: null`, so there was no",
+    "      envelope-side hash for a manifest pin to match. The pinned klt build",
+    "      now writes one (`role: \"netlist\"`), but a pin here would still be",
+    "      decorative -- because check_failed is evaluated first, it would never",
+    "      be consulted -- and it would pin the EXTRACTED NETLIST rather than the",
+    "      GDS, which is the artifact items 3 and 11 already pin. The freshness",
+    "      axis is carried instead by the envelope's own environment.layout_sha256",
+    "      / environment.reference_sha256, which check_evidence_hashes.py",
+    "      re-derives from the committed netlists on every push -- leg 4 of that",
+    "      script, written for exactly this citation.",
     "  8.analog  signoff/evidence/characterization-report.generic.json, a generic",
     "      envelope (the only kind item 8 accepts) wrapping",
     "      docs/characterization-report.md. PARTITION-QUALIFIED on purpose: that",
@@ -144,19 +148,19 @@
   },
   "evidence": {
     "3": {
-      "file": "layout/sar-adc-top/reports/20261001-022205-455b772/drc.json",
-      "content_hash": "sha256:ea954d318110ee5d2a39da926857393f42d96d17582734a7b6930e5520ca3346"
+      "file": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/drc.json",
+      "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b"
     },
     "4": {
-      "file": "layout/sar-adc-top/reports/20261001-022205-455b772/lvs.json"
+      "file": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json"
     },
     "11": [
       {
-        "file": "layout/sar-adc-top/erc-reports/20261001-022622-455b772/erc.json",
-        "content_hash": "sha256:ea954d318110ee5d2a39da926857393f42d96d17582734a7b6930e5520ca3346"
+        "file": "layout/sar-adc-top/erc-reports/20261001-211722-1ca34e6/erc.json",
+        "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b"
       },
       {
-        "file": "layout/sar-adc-top/reports/20261001-022205-455b772/lvs.json"
+        "file": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json"
       }
     ],
     "8.analog": {
