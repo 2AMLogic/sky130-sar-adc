@@ -323,21 +323,22 @@ removed, or re-valued, and no ratified number moves. Specifically:
   subcommand's existing `rndseed` plumbing), deliberately not run here: at
   ~15 serial transient probes per *draw*, an `N = 16` campaign is two orders of
   magnitude more ngspice time than this record's two points and does not fit a
-  single session on a shared dispatch worker. Owner: a follow-up issue filed
-  from #515, or #29's offset campaign scale-up.
+  single session on a shared dispatch worker. Owner: **#524** (filed from
+  #515), or #29's offset campaign scale-up.
 - **A derived comparator-offset allocation from the ADC error budget** —
   DR-003 Item 4's three-way split covers noise only. Without an allocation
   there is no defensible number for an offset row even once σ is measured
-  precisely. Owner: a future decision record, alongside or inside the σ
-  campaign above.
+  precisely. Owner: a future decision record, alongside or inside **#524**'s σ
+  campaign. Both prerequisites are required before an offset row is
+  ratifiable; neither alone suffices.
 - **Post-layout (PEX) replication** — the sibling's finding is post-layout and
   this repo's comparator extraction carries no parasitics
   (`layout/comparator/reports/LATEST`). A `klt pex` pass on that sub-block, and
   an extracted netlist wired into `sim/comparator-decision/`, would let
   `offset-bisect` run the actual comparison. **This is the named trigger to
   supersede this record**: a systematic offset or band at half-LSB scale
-  post-layout would change the answer in Decision §1–2. Owner: a follow-up
-  issue once comparator PEX exists; explicitly out of scope of #515.
+  post-layout would change the answer in Decision §1–2. Owner: **#525** (filed
+  from #515, which scoped PEX replication out explicitly).
 - **A regeneration-time / decision-delay spec row** — the other half of
   DR-004's Open item, untouched here (Consequences §3).
 - **The `ss`/−40 °C comparator *headroom* margin** (DR-003 Item 1 / DR-004's
