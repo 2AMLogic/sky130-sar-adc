@@ -64,12 +64,21 @@ check must not give.
   this check from executing code it has no question about.
 
   Exempt: a runner every one of whose `footer_lines()` call sites passes a
-  non-empty literal (an f-string naming a specific displaced record, as in
-  sim/sampling-acquisition-settling/ and sim/vcm-drive-budget/). Those records
-  DO populate **Supersedes**, so both gates can already see a stale citation
-  of them -- the harm this check exists to prevent does not apply. Making that
-  hardcoded pointer CLI-settable so a *future* re-run need not edit source is a
-  separate improvement, not a silent gate.
+  non-empty literal (an f-string naming a specific displaced record). Those
+  records DO populate **Supersedes**, so both gates can already see a stale
+  citation of them -- the harm this check exists to prevent does not apply,
+  which is why making a hardcoded pointer CLI-settable was always a separate
+  improvement rather than a silent gate.
+
+  As of issue #513 that exemption is unexercised: its two users
+  (sim/sampling-acquisition-settling/ and sim/vcm-drive-budget/) now take
+  `--supersedes` too, with their old hardcoded narrative as the flag's
+  DEFAULT -- byte-identical records when the flag is omitted, re-aimable
+  without editing source when a re-run displaces something else. The branch
+  is kept (tested on synthetic fixtures in
+  sim/tests/test_supersedes_capability.py) because the shape it describes is
+  still a legitimate one for a brand-new runner; nothing in this repo relies
+  on it today.
 
 Pure file reads plus one `--help` subprocess per runner: no ngspice, no PDK, no
 network. Runs in the headless `checks` CI job (`npm run check:ci`) alongside

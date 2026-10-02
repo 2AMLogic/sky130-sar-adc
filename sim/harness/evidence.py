@@ -342,7 +342,9 @@ SUPERSEDES_ARG_HELP = (
 )
 
 
-def add_supersedes_argument(parser: argparse.ArgumentParser) -> None:
+def add_supersedes_argument(
+    parser: argparse.ArgumentParser, *, extra_help: str = ""
+) -> None:
     """Declare the standard `--supersedes` flag on `parser`.
 
     One declaration shared by every record-writing runner that does not need
@@ -363,8 +365,21 @@ def add_supersedes_argument(parser: argparse.ArgumentParser) -> None:
     two record writers, so --ratified-record accepted the flag and silently
     wrote `Supersedes: (none)`. sim/check_supersedes_capability.py now fails
     CI on that shape -- a footer_lines() call site whose `supersedes`
-    argument is a literal empty string."""
-    parser.add_argument("--supersedes", default="", help=SUPERSEDES_ARG_HELP)
+    argument is a literal empty string.
+
+    `extra_help` appends one campaign-specific sentence to the shared help
+    text, for the runner whose write paths fall back to a hardcoded
+    supersession narrative rather than to `(none)` when the flag is omitted
+    (sim/sampling-acquisition-settling/ and sim/vcm-drive-budget/ -- issue
+    #513). Those runners' omit-the-flag behaviour is NOT what the shared text's
+    last sentence describes, and saying so in `--help` is the whole point of
+    the flag there: the person re-running is the one who must know that
+    omitting it re-states a fixed historical pointer. It changes nothing for
+    the callers that omit it."""
+    help_text = SUPERSEDES_ARG_HELP
+    if extra_help:
+        help_text = f"{help_text} {extra_help}"
+    parser.add_argument("--supersedes", default="", help=help_text)
 
 
 def footer_lines(written_by: str, supersedes: str) -> list[str]:

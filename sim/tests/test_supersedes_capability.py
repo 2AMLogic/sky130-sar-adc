@@ -281,11 +281,16 @@ class TestFooterCallClassification(unittest.TestCase):
 
 
 class TestHardcodedSupersessionIsExempt(unittest.TestCase):
-    """sim/sampling-acquisition-settling/ and sim/vcm-drive-budget/ hardcode a
-    narrative naming the specific record they displace. Those records DO
-    populate **Supersedes**, so both citation gates can already see a stale
-    citation of them -- the harm this check exists to prevent does not apply,
-    and demanding a flag of them would be noise rather than a finding."""
+    """A runner that hardcodes a narrative naming the specific record it
+    displaces still populates **Supersedes**, so both citation gates can
+    already see a stale citation of it -- the harm this check exists to
+    prevent does not apply, and demanding a flag of it would be noise rather
+    than a finding.
+
+    Synthetic fixtures on purpose: the exemption's two original users
+    (sim/sampling-acquisition-settling/ and sim/vcm-drive-budget/) retired
+    from it in issue #513 by taking `--supersedes` with that narrative as the
+    flag's default, so no real runner exercises this branch today."""
 
     def test_all_literal_write_paths_exempt_the_runner_from_the_flag(self):
         src = runner_source(

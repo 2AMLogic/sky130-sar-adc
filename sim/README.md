@@ -325,6 +325,18 @@ threads it to `harness.evidence.footer_lines()` on **every** write path it has
   with `evidence.NEVER_SUPERSEDES` — same bytes in the record, but a
   deliberate and reviewable statement.
 
+A write path whose supersession is a *fixed historical fact* (it displaced one
+specific record once, and its record's **Supersedes** field narrates why) keeps
+that narrative as the **default** of its `supersedes` argument, never as the
+only value it can take — `supersedes = supersedes or <default narrative>` at
+the top of the writer, with `--supersedes` still declared and threaded
+(`sim/sampling-acquisition-settling/`, `sim/vcm-drive-budget/`; issue #513).
+Omitting the flag reproduces the earlier bytes exactly; a re-run that displaces
+a *different* record re-aims the pointer on the command line instead of editing
+the runner. Those runners pass `add_supersedes_argument(..., extra_help=…)` so
+`--help` says what omitting the flag actually writes there (a narrative, not
+`(none)`).
+
 ## Monte Carlo records
 
 `sim/monte_carlo.py` writes a record that additionally states:
