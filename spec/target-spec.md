@@ -145,7 +145,7 @@ guessed:**
   [DR-020](decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md)
   (2026-10-02, proposed via #515) decides **no row yet**, closing the offset
   half of DR-004's own open item. Its evidence
-  (`sim/comparator-decision/records/20261002-193338-75d9dc7.md`, a
+  (`sim/comparator-decision/records/20261002-203719-c898d06.md`, a
   decision-boundary bisection over `Vindiff` at `tt`/27 °C and `ss`/−40 °C)
   bounds the **systematic** decision offset below `0.028 mV` and the
   non-decision band below `0.055 mV` — both `>30×` inside the ratified

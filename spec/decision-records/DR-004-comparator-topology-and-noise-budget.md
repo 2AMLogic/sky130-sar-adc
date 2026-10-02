@@ -317,7 +317,7 @@ or by issue #54's PR.
   half is not.** DR-020 decides **no** offset row and **no**
   dead-band/non-decision row, on a new decision-referred boundary-bisection
   measurement (`sim/comparator-decision/run.py offset-bisect`,
-  `sim/comparator-decision/records/20261002-193338-75d9dc7.md`) that bounds the
+  `sim/comparator-decision/records/20261002-203719-c898d06.md`) that bounds the
   *systematic* decision offset below `0.028 mV` and the non-decision band below
   `0.055 mV` at both `tt`/27 °C and `ss`/−40 °C — `>30×` inside the
   `1.7578 mV` half-LSB, so a row bounding either would gate nothing. DR-020

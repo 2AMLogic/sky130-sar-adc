@@ -25,7 +25,7 @@
   for *adopting* a sibling canary's row verbatim as an interim choice — the
   path this record deliberately does **not** take, see "Alternatives
   considered"),
-  `sim/comparator-decision/records/20261002-193338-75d9dc7.md` (**this
+  `sim/comparator-decision/records/20261002-203719-c898d06.md` (**this
   record's evidence**: the new `offset-bisect` boundary-bisection campaign at
   `tt`/27 °C and `ss`/−40 °C),
   `sim/comparator-decision/records/20260821-071918-433a294.md` (the prior
@@ -75,7 +75,7 @@ all — and proposed a companion spec row for exactly that gap.
    question rather than by either path DR-004 named (narrowing `PICKOFF_NS`,
    or fitting the calibration curve nonlinearly).
 
-3. **The measured result** (`sim/comparator-decision/records/20261002-193338-75d9dc7.md`;
+3. **The measured result** (`sim/comparator-decision/records/20261002-203719-c898d06.md`;
    schematic-derived `comparator_core.spice`, mismatch **disabled**, 29
    transient probes, `20 ns` evaluate window, `0.1 mV` bisection floor):
 
