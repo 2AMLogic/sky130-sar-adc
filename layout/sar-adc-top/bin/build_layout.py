@@ -1857,10 +1857,11 @@ GND_PAD_Y = 170.0
 GND_MESH_Y = 165.0
 
 
-#: The three sub-block terminals the mesh joins, as `(block, pin)` -- each one
+#: The four sub-block terminals the mesh joins, as `(block, pin)` -- each one
 #: a conductor that block's OWN layout draws and labels, never a position this
 #: module invented. `comparator.GND` is the pin DR-012 built its pad on;
-#: the other two are what issue #377 added inside the two sub-blocks.
+#: issue #377 added the next two inside `sampling_frontend` and `cdac_array`,
+#: and issue #401 added `halflsb_offset` as the fourth.
 GND_MESH_MEMBERS = (
     ("comparator", "GND"),
     ("sampling_frontend", "GND"),
@@ -1876,7 +1877,7 @@ GND_MESH_MEMBERS = (
 
 
 def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]]:
-    """Tie all three sub-blocks' own drawn ground terminals into ONE drawn
+    """Tie all four sub-blocks' own drawn ground terminals into ONE drawn
     conductor and land it on the top-level `GND` pad.
 
     Returns the mesh's named segments (each an `(x0, y0, x1, y1)` box), for
@@ -1892,11 +1893,11 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
     `klt lvs` or `klt erc` grades it, and nothing in this repo measures it.
     This function is the mesh DR-012's "Open items" said was missing.
 
-    Shape: a met3 trunk with three met4 droppers
-    -------------------------------------------
+    Shape: a met3 trunk with three met4 droppers and a fourth, met3/met1 leg
+    ------------------------------------------------------------------------
     One horizontal met3 trunk at `GND_MESH_Y`, in the open channel between
     `sampling_frontend`'s top edge and `comparator`'s bottom edge, plus one
-    met4 dropper per member:
+    leg per member -- a met4 dropper for each of the first three:
 
     * `comparator` (x 101.5): the DR-012 stub itself, extended 5 um further
       south from `GND_PAD_Y` to the trunk. It still runs SOUTH rather than
@@ -1914,13 +1915,22 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
       its leg mirrors `VDD`'s exactly -- riser to met3 inside the array's
       confirmed-clear switch-row band, west out of the footprint, then north
       up an exclusive met4 corridor track to the trunk.
+    * `halflsb_offset` (issue #401): NOT a trunk dropper. Its leg is the
+      standard `halflsb_leg("GND")` shape -- a met3 column (segment
+      `halflsb_column`) down out of the block to that net's own met1 row at
+      `HALFLSB_ROW_Y["GND"]`, then west along that row (segment
+      `halflsb_row`) to land on the x = -16.0 `cdac_array` corridor column,
+      with a met1 -> met4 riser at the landing. It therefore joins the mesh
+      on the same corridor conductor `cdac_array`'s own `VSS` leg uses, and
+      reaches the trunk through it rather than by a dropper of its own.
 
     The trunk is met3 and every dropper is met4 for `analog_leg`'s own reason:
     four of `sampling_frontend`'s pins (TOP_P/TOP_N/VDD/SAMPLE) cross this
     channel northbound on met4, and a met4 trunk would short every one of
-    them. The two legs are literally `analog_leg()` calls, the same primitive
-    every other analog-region net here is built from, with the trunk as their
-    shared jog row -- including the `comparator` leg's degenerate
+    them. The two trunk legs (`cdac_array`'s corridor to `sampling_frontend`'s
+    dropper, and `comparator` teeing in) are literally `analog_leg()` calls,
+    the same primitive every other analog-region net here is built from, with
+    the trunk as their shared jog row -- including the `comparator` leg's degenerate
     `(x, y) -> (x, y)` form, which tees into the trunk exactly the way
     `TOP_P`'s `sampling_frontend` leg tees into its own.
 
@@ -1929,7 +1939,7 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
     The mesh does not isolate anything. In bulk sky130 the analog ground, the
     standard cells' substrate ties and the p-substrate are one node, and
     DR-012 says so in its own "Decision". What the mesh changes is the *path*:
-    the return current between these three blocks now has a drawn metal one,
+    the return current between these four blocks now has a drawn metal one,
     graded by `klt drc`, in parallel with the substrate it always had. No
     simulation in this repo measures either path's impedance (DR-012's second
     open item, #378), so no number here is claimed as measured.
