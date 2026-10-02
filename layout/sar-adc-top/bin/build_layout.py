@@ -1997,11 +1997,14 @@ def analog_ground_pad_without_mesh(c: Canvas) -> None:
 
     The variant is deliberately MINIMAL: it reproduces exactly the geometry
     issue #362 shipped -- the riser on `comparator`'s own `GND` pin, the met4
-    stub south to `GND_PAD_Y`, the pad label -- and omits only the three
-    droppers, the trunk and the two sub-block risers issue #377 added. So the
-    difference between the two ERC runs is the mesh and nothing else: same
-    pad, same label, same position, same sub-block GDS (which still draw their
-    own `GND`/`VSS` terminals; those are unchanged by this flag).
+    stub south to `GND_PAD_Y`, the pad label -- and omits only the mesh: the
+    three droppers, the trunk and the two sub-block risers issue #377 added,
+    plus the fourth leg issue #401 teed onto the same conductor
+    (`halflsb_leg("GND")`'s own met3 column and met1 row, which land on
+    `cdac_array`'s corridor track rather than on the trunk). So the difference
+    between the two ERC runs is the mesh and nothing else: same pad, same
+    label, same position, same sub-block GDS (which still draw their own
+    `GND`/`VSS` terminals; those are unchanged by this flag).
 
     Driven by `bin/probe-ground-mesh.py`, which runs both variants through the
     graded `klt erc` spec -- and then through a scratch copy of it that also

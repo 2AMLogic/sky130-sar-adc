@@ -1148,19 +1148,24 @@ against the pre-#355 GDS — are in `erc-reports/20260924-190825-f3622fc/`'s own
 ### The analog ground pad (issue #362) and mesh (issue #377)
 
 `bin/build_layout.py`'s `analog_ground_mesh()` — **one met3 trunk, three met4
-droppers, one pad label.** Issue #362 drew the pad alone (a via riser on
+droppers, one met3-column-plus-met1-row half-LSB leg, one pad label**, joining
+**four** members. Issue #362 drew the pad alone (a via riser on
 `comparator`'s own `GND` met1 pin, global `(101.5, 193.8)`, plus a met4 stub
 running **south** to `y = 170.0` where the top-level `GND` pin label sits);
-issue #377 added the mesh below it, joining the other two analog blocks' own
-drawn ground terminals to the same conductor. The pad's own coordinate did not
-move.
+issue #377 added the mesh below it, joining the two analog blocks whose own
+ground terminals that same issue drew inside their sub-block layouts
+(`sampling_frontend.GND`, `cdac_array.VSS`) to the same conductor; issue #401
+added a fourth member, `halflsb_offset`'s own `GND` terminal, which tees onto
+the `cdac_array` corridor column rather than onto the trunk. The pad's own
+coordinate did not move.
 
 | | |
 |---|---|
-| Members | `comparator.GND` met1 local `(1.3, 20.0)` → global `(101.5, 193.8)`; `sampling_frontend.GND` met2 local `(39.97, 52.32)` → global `(103.795, 140.57)`; `cdac_array.VSS` met1 local `(1.00, −31.60)` → global, same (that block is the floorplan's origin) |
+| Members | `comparator.GND` met1 local `(1.3, 20.0)` → global `(101.5, 193.8)`; `sampling_frontend.GND` met2 local `(39.97, 52.32)` → global `(103.795, 140.57)`; `cdac_array.VSS` met1 local `(1.00, −31.60)` → global, same (that block is the floorplan's origin); `halflsb_offset.GND` met2 local `(3.70, 11.83)` → global `(123.151, 78.83)` (issue #401) |
 | Trunk | met3 at `y = 165.0`, `x` −16.2 … 104.0 — in the open channel between `sampling_frontend`'s top edge (147.22) and `comparator`'s bottom edge (176.3) |
 | Droppers | met4 at `x` 101.5 (comparator, `y` 164.8 … 194.0), `x` 103.795 (sampling_frontend, `y` 140.37 … 165.2), `x` −16.0 (the cdac corridor, `y` −31.8 … 165.2) |
 | cdac escape | met3 at `y = −31.6`, `x` −16.2 … 1.2 — inside the array's confirmed-clear switch-row band |
+| half-LSB leg (issue #401) | **not** a trunk dropper: `halflsb_leg("GND")`'s own two-segment shape — met3 column at `x = 123.151`, `y` 58.9 … 79.03 (down out of that block's footprint), then met1 row at `y = 59.1`, `x` −16.2 … 123.351, running **west** onto the same `x = −16.0` cdac corridor column `cdac_array.VSS` already climbs, with a met1 → met4 riser at that landing. Recorded in `analog_ground_mesh()`'s own `segments` as `halflsb_column` / `halflsb_row` |
 | Pin label | met4.pin (`71/5`) at `(101.5, 170.0)`, unchanged from #362 |
 
 Five things about that shape are load-bearing:
@@ -1207,13 +1212,15 @@ Five things about that shape are load-bearing:
   and `comparator` — holds no block bbox. The same assertion checks the label
   lands in that channel rather than inside either macro.
 - **The pad still has no horizontal leg of its own.** The mesh trunk is not
-  one: it runs 5 µm *below* the label, joining the three blocks, and is not in
-  series with the pad. Grouping this pin with the other analog supply pins in
-  the west corridor would still cost ~130 µm of met3 on a new exclusive jog
-  row, crossing four met4 corridor columns, in series with the one net where
-  series metal buys nothing. There is no pad ring in this composition — every
-  pin label sits where its own net's conductor already is — so the grouping has
-  no consumer yet. DR-012 records the trade and marks the position provisional.
+  one: it runs 5 µm *below* the label, joining the three blocks whose legs land
+  on it (the fourth member's leg lands on the cdac corridor column instead),
+  and is not in series with the pad. Grouping this pin with the other analog
+  supply pins in the west corridor would still cost ~130 µm of met3 on a new
+  exclusive jog row, crossing four met4 corridor columns, in series with the
+  one net where series metal buys nothing. There is no pad ring in this
+  composition — every pin label sits where its own net's conductor already is
+  — so the grouping has no consumer yet. DR-012 records the trade and marks the
+  position provisional.
 
 `klt drc` grades this geometry rather than the README arguing it:
 `reports/20260924-234053-66dca3c/drc.json` is clean, 0 violations — and since
