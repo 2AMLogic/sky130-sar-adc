@@ -195,6 +195,45 @@ CORNERS_SUPERSEDES_RECORD = {
     ("decouple", "legacy"): "20260908-021006-f48a228",
 }
 
+# Per-`--sweep` description of what a --corners pass repeats at every corner,
+# spliced into the default supersession narrative below.
+CORNERS_SWEEP_DESCRIPTION = {
+    "rsource": "bare (undecoupled) R_source sweep at the {window} window",
+    "decouple": (
+        "C_decouple sweep at the {window} window (each corner at its own "
+        "marginal R_source)"
+    ),
+}
+
+
+def default_corners_supersedes(sweep: str, window: str) -> str:
+    """The DEFAULT **Supersedes** narrative for a `--corners --sweep <sweep>
+    --window <window>` record: the pre-issue-#236 record of that same
+    combination, from CORNERS_SUPERSEDES_RECORD above.
+
+    A default, not the only possible value (issue #513). What it names is a
+    fixed historical fact -- the record this combination displaced ONCE, in
+    September 2026 -- so the next re-run of the same combination would
+    otherwise claim to supersede the record BEFORE the one it actually
+    displaces. `--supersedes` overrides it; omitting the flag reproduces the
+    pre-#513 bytes exactly, so no committed record is affected."""
+    old_id = CORNERS_SUPERSEDES_RECORD[(sweep, window)]
+    swept = CORNERS_SWEEP_DESCRIPTION[sweep].format(window=window)
+    return (
+        f"[`records/{old_id}.md`]({old_id}.md) -- same full ratified "
+        f"PVT-grid {swept}, measured against the pre-issue-#236 "
+        "`design/sampling_frontend.sch` (`Sa_p`/`Sa_n`'s gate on `SAMPLE`, "
+        "`Cmswn`/`Cmswp` at `W=1um`). This record re-runs the identical "
+        "sweep against the post-#236 DUT fragment (`Sa_p`/`Sa_n`'s gate "
+        "moved to `G_P`/`G_N`; `Cmswn`/`Cmswp` widened to `W=16um` -- issue "
+        "#236, re-verified in layout as #245), closing the follow-up issue "
+        "#245 itself explicitly deferred (issue #248). This record's own DUT "
+        "netlist sha256 (below) differs from the superseded record's, "
+        "confirming the fix is actually reflected, not a no-op re-run "
+        "against a cached fragment."
+    )
+
+
 # --corners --window {worst,legacy}: (sample_width_ns, r_source_sweep_list)
 # per window. "worst" is the DR-006-derived worst-case (12 MHz) acquisition
 # window at the full R_SOURCE_SWEEP_OHM resolution; "legacy" is this repo's
@@ -218,6 +257,41 @@ SINGLE_CORNER_SEED_BUDGET_1LSB_OHM = {
     "worst": 10e3,
     "legacy": 0.0,
 }
+
+# The DEFAULT **Supersedes** narrative for the single-corner (default-path)
+# record -- same "default, not only value" contract as
+# default_corners_supersedes() above (issue #513), overridable with
+# --supersedes.
+#
+# The four --corners-mode records this narrative calls out are no longer
+# awaiting a re-derivation: issue #248 (the follow-up #245 deferred) closed
+# 2026-09-08, and each of the four is now superseded by its own post-#236
+# --corners re-run -- which is why this text states that rather than the
+# "not-yet-done" it said while #248 was open.
+SINGLE_CORNER_SUPERSEDES_DEFAULT = (
+    f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+    f"({SINGLE_CORNER_SEED_RECORD}.md) -- same single-corner "
+    "(tt/27C/1.8V) default-path measurement (worst-case/legacy "
+    "R_source sweeps + the marginal-R_source C_decouple sweep), "
+    "re-run against design/sampling_frontend.sch post-issue-#236 "
+    "(Sa_p/Sa_n's gate moved from SAMPLE to G_P/G_N; Cmswn/Cmswp "
+    "widened from W=1um to W=16um -- issue #245). That record's own "
+    "DUT netlist sha256 differs from this record's own (below), "
+    "confirming the DUT fragment actually changed between the two "
+    "runs, not just the record id. Issue #245 explicitly scoped "
+    "only this single-corner default path's re-run; the four "
+    "pre-#236 --corners-mode records "
+    "(20260907-052526-f589273, 20260907-090200-7768162, "
+    "20260907-104958-a546200, 20260908-021006-f48a228) were "
+    "measured against the SAME pre-#236 DUT netlist sha256 as "
+    f"{SINGLE_CORNER_SEED_RECORD} and were therefore also stale; "
+    "re-deriving them over the full PVT grid was the separate "
+    "follow-up issue #248, since done -- each is superseded by its "
+    "own post-#236 --corners re-run (respectively "
+    "20260908-100413-f3e2914, 20260908-101358-f3e2914, "
+    "20260908-113002-f3e2914, 20260908-115336-f3e2914), by those "
+    "records rather than by this one."
+)
 
 
 def build_transient(
@@ -485,10 +559,12 @@ def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
 
 
 def write_corners_decouple_record(points: list[dict], point: str,
-                                   window: str = "worst") -> Path:
+                                   window: str = "worst",
+                                   supersedes: str = "") -> Path:
     """Evidence record for `run_corners_decouple()` -- same provenance /
     scope / no-ratified-claim conventions as `write_corners_record()`, with
     the C_decouple axis in place of the R_source axis."""
+    supersedes = supersedes or default_corners_supersedes("decouple", window)
     netlist_text = DUT_FRAGMENT.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
     record_id = prov.record_id
@@ -694,24 +770,9 @@ def write_corners_decouple_record(points: list[dict], point: str,
         pdk_line, ng_version, netlist_sha,
         extra={"toolchain pin file": "sim/toolchain.json"},
     )
-    old_id = CORNERS_SUPERSEDES_RECORD[("decouple", window)]
     lines += evidence.footer_lines(
         written_by=WRITTEN_BY,
-        supersedes=(
-            f"[`records/{old_id}.md`]({old_id}.md) -- same full ratified "
-            f"PVT-grid C_decouple sweep at the {window} window (each corner "
-            "at its own marginal R_source), measured against the "
-            "pre-issue-#236 `design/sampling_frontend.sch` (`Sa_p`/`Sa_n`'s "
-            "gate on `SAMPLE`, `Cmswn`/`Cmswp` at `W=1um`). This record "
-            "re-runs the identical sweep against the post-#236 DUT fragment "
-            "(`Sa_p`/`Sa_n`'s gate moved to `G_P`/`G_N`; `Cmswn`/`Cmswp` "
-            "widened to `W=16um` -- issue #236, re-verified in layout as "
-            "#245), closing the follow-up issue #245 itself explicitly "
-            "deferred (issue #248). This record's own DUT netlist sha256 "
-            "(below) differs from the superseded record's, confirming the "
-            "fix is actually reflected, not a no-op re-run against a "
-            "cached fragment."
-        ),
+        supersedes=supersedes,
     )
     record_path.write_text("\n".join(lines) + "\n")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
@@ -720,7 +781,9 @@ def write_corners_decouple_record(points: list[dict], point: str,
 
 
 def write_corners_record(points: list[dict], point: str,
-                          window: str = "worst") -> Path:
+                          window: str = "worst",
+                          supersedes: str = "") -> Path:
+    supersedes = supersedes or default_corners_supersedes("rsource", window)
     netlist_text = DUT_FRAGMENT.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
     record_id = prov.record_id
@@ -950,24 +1013,9 @@ def write_corners_record(points: list[dict], point: str,
         pdk_line, ng_version, netlist_sha,
         extra={"toolchain pin file": "sim/toolchain.json"},
     )
-    old_id = CORNERS_SUPERSEDES_RECORD[("rsource", window)]
     lines += evidence.footer_lines(
         written_by=WRITTEN_BY,
-        supersedes=(
-            f"[`records/{old_id}.md`]({old_id}.md) -- same full ratified "
-            f"PVT-grid bare (undecoupled) R_source sweep at the {window} "
-            "window, measured against the pre-issue-#236 "
-            "`design/sampling_frontend.sch` (`Sa_p`/`Sa_n`'s gate on "
-            "`SAMPLE`, `Cmswn`/`Cmswp` at `W=1um`). This record re-runs the "
-            "identical sweep against the post-#236 DUT fragment "
-            "(`Sa_p`/`Sa_n`'s gate moved to `G_P`/`G_N`; `Cmswn`/`Cmswp` "
-            "widened to `W=16um` -- issue #236, re-verified in layout as "
-            "#245), closing the follow-up issue #245 itself explicitly "
-            "deferred (issue #248). This record's own DUT netlist sha256 "
-            "(below) differs from the superseded record's, confirming the "
-            "fix is actually reflected, not a no-op re-run against a "
-            "cached fragment."
-        ),
+        supersedes=supersedes,
     )
     record_path.write_text("\n".join(lines) + "\n")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
@@ -975,7 +1023,8 @@ def write_corners_record(points: list[dict], point: str,
     return record_path
 
 
-def write_record(all_results: dict) -> None:
+def write_record(all_results: dict, supersedes: str = "") -> None:
+    supersedes = supersedes or SINGLE_CORNER_SUPERSEDES_DEFAULT
     netlist_text = DUT_FRAGMENT.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
     record_id = prov.record_id
@@ -1094,26 +1143,7 @@ def write_record(all_results: dict) -> None:
     )
     lines += evidence.footer_lines(
         written_by=WRITTEN_BY,
-        supersedes=(
-            f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
-            f"({SINGLE_CORNER_SEED_RECORD}.md) -- same single-corner "
-            "(tt/27C/1.8V) default-path measurement (worst-case/legacy "
-            "R_source sweeps + the marginal-R_source C_decouple sweep), "
-            "re-run against design/sampling_frontend.sch post-issue-#236 "
-            "(Sa_p/Sa_n's gate moved from SAMPLE to G_P/G_N; Cmswn/Cmswp "
-            "widened from W=1um to W=16um -- issue #245). That record's own "
-            "DUT netlist sha256 differs from this record's own (below), "
-            "confirming the DUT fragment actually changed between the two "
-            "runs, not just the record id. Issue #245 explicitly scoped "
-            "only this single-corner default path's re-run; the four "
-            "existing --corners-mode records "
-            "(20260907-052526-f589273, 20260907-090200-7768162, "
-            "20260907-104958-a546200, 20260908-021006-f48a228) were "
-            "measured against the SAME pre-#236 DUT netlist sha256 as "
-            f"{SINGLE_CORNER_SEED_RECORD} and are therefore also stale, but "
-            "re-deriving the full PVT grid is a separate, not-yet-done "
-            "follow-up (issue #248), not superseded by this record."
-        ),
+        supersedes=supersedes,
     )
     record_path.write_text("\n".join(lines) + "\n")
     print(f"\nWrote record: {record_path}")
@@ -1146,6 +1176,19 @@ def main() -> int:
              "'decouple' (C_decouple sweep, each corner at its own marginal "
              "R_source). Ignored without --corners.",
     )
+    evidence.add_supersedes_argument(
+        ap,
+        extra_help=(
+            "Omitting it here does NOT write `(none)`: each of this runner's "
+            "three write paths falls back to the fixed historical narrative "
+            "naming the pre-issue-#236 record that path displaced once (the "
+            "single-corner default path: "
+            f"{SINGLE_CORNER_SEED_RECORD}; --corners: whichever of "
+            "CORNERS_SUPERSEDES_RECORD matches --sweep/--window). A re-run "
+            "that displaces a different record MUST pass this flag -- see "
+            "issue #513."
+        ),
+    )
     args = ap.parse_args()
 
     scratch = Path("/tmp") / "sim-vcm-drive-budget"
@@ -1161,11 +1204,13 @@ def main() -> int:
                                           window=args.window)
             if args.record:
                 write_corners_decouple_record(points, args.point,
-                                              window=args.window)
+                                              window=args.window,
+                                              supersedes=args.supersedes)
             return 0
         points = run_corners(scratch, point=args.point, window=args.window)
         if args.record:
-            write_corners_record(points, args.point, window=args.window)
+            write_corners_record(points, args.point, window=args.window,
+                                 supersedes=args.supersedes)
         return 0
 
     sweeps = []
@@ -1261,11 +1306,14 @@ def main() -> int:
         print(f"- {n}")
 
     if args.record:
-        write_record({
-            "sweeps": sweeps,
-            "decouple_sweeps": decouple_sweeps,
-            "notes": notes,
-        })
+        write_record(
+            {
+                "sweeps": sweeps,
+                "decouple_sweeps": decouple_sweeps,
+                "notes": notes,
+            },
+            supersedes=args.supersedes,
+        )
 
     return 0
 
