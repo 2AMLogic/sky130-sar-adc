@@ -1,0 +1,60 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * comparator-decision offset-bisect decision-boundary probe -- vindiff=-50.0mv corner=ss temp=-40.0c (issue #515)
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = -40.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+ Reference value :  0.00000e+00
+ Reference value :  6.26400e-10
+ Reference value :  2.16640e-09
+ Reference value :  2.49640e-09
+ Reference value :  3.54140e-09
+ Reference value :  4.13140e-09
+ Reference value :  4.27140e-09
+ Reference value :  5.32250e-09
+ Reference value :  5.89750e-09
+ Reference value :  6.17250e-09
+ Reference value :  7.33250e-09
+ Reference value :  8.70250e-09
+ Reference value :  9.09250e-09
+ Reference value :  9.11250e-09
+ Reference value :  1.03625e-08
+ Reference value :  1.10975e-08
+ Reference value :  1.13175e-08
+ Reference value :  1.14725e-08
+ Reference value :  1.35875e-08
+ Reference value :  1.44275e-08
+ Reference value :  1.52325e-08
+ Reference value :  1.52475e-08
+ Reference value :  1.52675e-08
+ Reference value :  1.52875e-08
+ Reference value :  1.53075e-08
+ Reference value :  1.55825e-08
+ Reference value :  1.60025e-08
+ Reference value :  1.68225e-08
+ Reference value :  1.71375e-08
+ Reference value :  1.71575e-08
+ Reference value :  1.74325e-08
+ Reference value :  1.78625e-08
+ Reference value :  1.78825e-08
+ Reference value :  1.79075e-08
+ Reference value :  1.80875e-08
+ Reference value :  1.81025e-08
+ Reference value :  1.83825e-08
+ Reference value :  1.83975e-08
+ Reference value :  1.86675e-08
+ Reference value :  1.92125e-08
+ Reference value :  2.00575e-08
+ Reference value :  2.03925e-08
+ Reference value :  2.13425e-08
+ Reference value :  2.32625e-08
+ Reference value :  2.44475e-08
+No. of Data Rows : 5034
+Note: Simulation executed from .control section 

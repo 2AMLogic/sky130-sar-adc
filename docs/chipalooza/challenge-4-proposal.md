@@ -1294,7 +1294,7 @@ pointer-claim census below:
 > therefore freshness-checked by check 3; the remaining **6** name a flow that
 > publishes none, whose current record nothing grades:
 > `sim/cdac-array-transfer` (**6** records), `sim/comparator-decision`
-> (**14** records).
+> (**15** records).
 
 `python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
 sentence live, to be pasted back in when it moves. It is graded in both
@@ -3766,6 +3766,9 @@ tracker already owns.
    > **DR-019**
    > (`spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`)
    > is **proposed**.
+   > **DR-020**
+   > (`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md`)
+   > is **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
@@ -4893,7 +4896,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **163** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **164** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      Read this census the way it already reads itself: **a floor on the gap,
@@ -5179,7 +5182,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **79** of the **79** records under `sim/*/records/` name both an
+  > **80** of the **80** records under `sim/*/records/` name both an
   > `ngspice` version and a 40-hex `open_pdks` commit, while of the **81**
   > records under `layout/*/reports/` and `layout/*/erc-reports/` **80** name
   > a `klt` version and **46** name the `open_pdks` commit.
