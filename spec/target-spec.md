@@ -140,6 +140,28 @@ guessed:**
   total-array gain error (`1.42 LSB` at 3σ) would exceed 1 LSB *if* this
   spec carried a gain-error target, but it does not today; this record
   flags the spec-completeness gap without inventing a row to close it.
+- **A comparator offset and/or dead-band (non-decision) spec row** — asked
+  and **answered**, not merely unaddressed:
+  [DR-020](decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md)
+  (2026-10-02, proposed via #515) decides **no row yet**, closing the offset
+  half of DR-004's own open item. Its evidence
+  (`sim/comparator-decision/records/20261002-193338-75d9dc7.md`, a
+  decision-boundary bisection over `Vindiff` at `tt`/27 °C and `ss`/−40 °C)
+  bounds the **systematic** decision offset below `0.028 mV` and the
+  non-decision band below `0.055 mV` — both `>30×` inside the ratified
+  `1.7578 mV` half-LSB — so a row bounding either would gate nothing. The term
+  that *would* need a row is the **random/mismatch** offset (stdev `97.08 mV`
+  at the current `W = 4 µm` input pair,
+  `sim/comparator-decision/records/20260821-071918-433a294.md`), and DR-020
+  declines to set a number for it because two prerequisites are missing: a
+  comparator-offset **allocation derived from DR-003 Item 4's error budget**
+  (which covers noise only), and a **precise σ** (the existing one comes from
+  the method DR-004 labels order-of-magnitude, at `N = 16`, at one corner).
+  Post-layout (PEX) replication is the named trigger to supersede DR-020. The
+  **regeneration-time** row DR-004 named alongside offset remains undecided by
+  anything. Like the gain-error bullet above, this is a flagged
+  spec-completeness gap with no invented row — recorded here so the question
+  is not silently re-opened.
 - **ENOB / INL-DNL target values** — unchanged by this ratification; they
   remain statistical rows gated on Monte-Carlo evidence (#29), per DR-003
   Item 6. **Evidence now exists** (issue #29: `sim/cdac-array-transfer/`

@@ -3766,6 +3766,9 @@ tracker already owns.
    > **DR-019**
    > (`spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`)
    > is **proposed**.
+   > **DR-020**
+   > (`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md`)
+   > is **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the

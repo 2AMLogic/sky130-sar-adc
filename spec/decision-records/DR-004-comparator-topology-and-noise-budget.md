@@ -311,12 +311,37 @@ or by issue #54's PR.
   neither today (Consequences §4); a future record should decide whether
   either belongs in the table, using this record's `sim/comparator-decision/`
   evidence as a starting data set if so.
+
+  **Update (2026-10-02, [DR-020](DR-020-comparator-offset-and-dead-band-spec-rows.md)
+  via #515): the OFFSET half of this item is closed; the regeneration-time
+  half is not.** DR-020 decides **no** offset row and **no**
+  dead-band/non-decision row, on a new decision-referred boundary-bisection
+  measurement (`sim/comparator-decision/run.py offset-bisect`,
+  `sim/comparator-decision/records/20261002-193338-75d9dc7.md`) that bounds the
+  *systematic* decision offset below `0.028 mV` and the non-decision band below
+  `0.055 mV` at both `tt`/27 °C and `ss`/−40 °C — `>30×` inside the
+  `1.7578 mV` half-LSB, so a row bounding either would gate nothing. DR-020
+  names the two prerequisites (a derived offset allocation from DR-003 Item 4's
+  budget, and a precise σ for the *random* term) that would make an offset row
+  ratifiable, and names post-layout (PEX) replication as the trigger to
+  supersede it. Nothing in this record's own findings is edited by that update.
 - **A precise (not order-of-magnitude) offset extraction methodology** —
   Decision §3's caveat: the current linearized pick-off calibration is only
   valid over the small `Vindiff` range it was fit against, and several
   mismatch draws fall outside it. Narrowing the pick-off time further or
   fitting a nonlinear calibration curve are the two escalation paths named
   there; neither is implemented in this record.
+
+  **Update (2026-10-02, [DR-020](DR-020-comparator-offset-and-dead-band-spec-rows.md)
+  via #515): NARROWED, not closed.** A precise extraction now exists for the
+  **systematic** term — bisecting the two decision boundaries over `Vindiff`
+  directly, which is decision-referred and so has no fitted gain and no
+  linear-regime validity range to fall outside of. It takes **neither** of the
+  two escalation paths named above; it changes the question instead. The
+  **random/mismatch** term still has no precise extraction: Decision §3's
+  caveat stands unmodified for `sim/comparator-decision/records/20260821-071918-433a294.md`,
+  which DR-020 does **not** supersede. Applying the same bisection per Monte
+  Carlo draw is the remaining step, named in DR-020's own Open items.
 - **PVT/Monte-Carlo campaign scale-up** — this record's `offset` evidence
   uses `N=16`, explicitly a first-pass plumbing-scale sample (matching
   `sim/mc-smoke/`'s own convention), not a sigma-adequate yield claim; #29
