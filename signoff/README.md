@@ -154,9 +154,21 @@ envelope asserts that and nothing more:
   and its currency is gated on every push by `sim/report/generate.py --check`.
 
 **It does not assert that the ADC meets its spec.** At the pinned revision that
-report records ENOB and INL/DNL as DOES-NOT-MEET against DR-007's (still
-unratified) candidate targets, and Sample rate and Power as UNMEASURED. Those
-are items 5 and 6's subject.
+report records ENOB and INL/DNL as DOES-NOT-MEET, and Sample rate and Power as
+UNMEASURED. Those are items 5 and 6's subject.
+
+Both DOES-NOT-MEET verdicts grade the **original pre-DR-007 DRAFT** values —
+ENOB against the DRAFT baseline `> 9.0 bit` (stretch `> 9.5`), INL/DNL against
+the DRAFT `≤ ±1 LSB` at `target_yield 0.99` — **not** DR-007's revised
+candidates (`> 7.5 bit` / `≤ ±2.0 LSB`). DR-007 (proposed via #129) is still
+unratified, and #505 / PR #508 deliberately left both rows grading their
+pre-DR-007 values rather than moving a verdict onto an unratified line, which
+is why these targets differ from the current `spec/target-spec.md` row text.
+`sim/report/manifest.py`'s `enob` and `inl-dnl` rows are the authority for what
+is actually graded; the long-form statement lives in
+`signoff/evidence/characterization-report.generic.json`'s `_comment`. (#509
+corrected this paragraph, which previously claimed the two verdicts graded
+DR-007's candidates.)
 
 `8.digital` is deliberately uncited: the checklist additionally requires Fmax,
 area and power across the corner set for a digital partition, and this repo has
