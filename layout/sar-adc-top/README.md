@@ -1240,34 +1240,58 @@ single 692-device `GND|VGND` net *before* the mesh was drawn
 difference being that `cdac_array`'s newly drawn `VSS` label joined the
 merge. `klt erc`'s "one island" verdict
 on `GND` likewise read `1` before and reads `1` after. Reading either as proof
-that the three blocks' grounds are joined *in metal* is exactly the reading
-error DR-012 exists to retire, one level down.
+that this assembly's analog blocks' grounds are joined *in metal* is exactly the
+reading error DR-012 exists to retire, one level down.
 
 `bin/probe-ground-mesh.py` is the measurement that separates the two claims.
 It rebuilds this assembly twice from the record's own committed sub-block GDS
 — once as shipped, once with `build_layout.py --ablate-ground-mesh`, which
-draws DR-012's pad exactly as #362 shipped it and omits *only* #377's mesh —
-and grades both against the byte-identical ERC supply spec:
+draws DR-012's pad exactly as #362 shipped it and omits *only* the mesh: #377's
+droppers, trunk and sub-block risers, and the fourth leg issue #401 teed onto it
+— and grades both against the byte-identical ERC supply spec:
 
 | Variant | `erc_status` | `GND` |
 |---|---|---|
 | full (as shipped) | `clean`, 0 findings | one island |
-| mesh ablated | `violations`, 1 finding | `erc.unconnected_net`: *"declared net 'GND' resolves to 2 disconnected electrical islands (expected exactly one)"* |
+| mesh ablated | `violations`, 1 finding | `erc.unconnected_net`: *"declared net 'GND' resolves to 3 disconnected electrical islands (expected exactly one)"* |
 
-The two islands the ablated run names are `sampling_frontend`'s own ground
-(met1, bbox 103.495 … 130.115 × 86.45 … 140.72) and the comparator's plus its
-pad (met4, 100.2 … 102.62 × 169.8 … 197.8). `VDD`, `VPWR` and `VGND` are
-unmoved between the variants, as controls, and the full variant's recomposed
-GDS is **byte-identical** (sha256) to the record's own — so the two runs
-differ by the mesh and nothing else.
+The ablated run names **three** islands. The record states each one's layer,
+bbox (in nm; converted to µm below) and shape count but not which block it
+belongs to — the attribution column is this composition's own placement
+arithmetic (`OFFSETS` / `BBOX` in `bin/build_layout.py`), not prose:
 
-**That island count covers two of the mesh's three legs, not three**, and the
-gap is a naming one rather than a wiring one: `comparator` and
-`sampling_frontend` both label their terminal `GND`, while `cdac_array`'s is
-labelled `VSS` (its own schematic port name), which the graded ERC spec does
-not declare — so that leg's orphaned island in the ablated run has no declared
-name for `klt erc` to report. Reading the 2-island finding as covering all
-three would be a smaller copy of exactly the over-read this whole section
+| # | Layer | bbox (µm) | shapes | The drawn terminal left stranded |
+|---|---|---|---|---|
+| 1 | `met1` | 122.851 … 139.451 × 65.2 … 78.98 | 5 | `halflsb_offset`'s own `GND` — the **fourth member, added by issue #401**; this bbox sits inside that block's placed footprint (x 119.051 … 150.081, y 64.6 … 84.04) |
+| 2 | `met1` | 103.495 … 130.115 × 86.45 … 140.72 | 13 | `sampling_frontend`'s own ground — the one island carried over unchanged from the #377-era readout |
+| 3 | `met3` | 100.2 … 227.9 × 150.0 … 197.9 | 10 | `comparator`'s ground with DR-012's pad, **plus the two analog decap bottom plates that tap it** (DR-017, placed by issue #440): `decap_a1`'s own met3 bottom plate is what carries this island's right, bottom and top edges (180.0 + 47.9 = 227.9; y 150.0 … 197.9), and `--ablate-ground-mesh` still draws the met4 stub those plates reach |
+
+`VDD`, `VPWR` and `VGND` are unmoved between the variants, as controls, and the
+full variant's recomposed GDS is **byte-identical** (sha256) to the record's own
+— so the two runs differ by the mesh and nothing else.
+
+**Only one of those three islands is one the earlier, 2-island readout named.**
+That superseded measurement is still committed, at
+`erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json` (issue #377's
+record — `erc-reports/` is append-only, so the pre-#401 reading stays readable
+rather than being overwritten), and it reported island 2 at exactly the bbox
+above plus one other: `met4`, 100.2 … 102.62 × 169.8 … 197.8, 6 shapes. The
+current 3 are **not** "those 2 plus a new one": island 1 did not exist then —
+#401's leg is what the ablation now also removes, stranding that block's own
+terminal — and island 3 is that met4 comparator island **grown**, onto met3 and
+across to x = 227.9, by #440's two decap cells joining it. Reading the new count
+as an unchanged pair with a third appended would get island 3's layer and extent
+both wrong.
+
+**That island count covers three of the mesh's four legs, not four**, and the
+gap is a naming one rather than a wiring one: `comparator`, `sampling_frontend`
+and — since #401 — `halflsb_offset` all label their terminal `GND`, while
+`cdac_array`'s is labelled `VSS` (its own schematic port name), which the graded
+ERC spec does not declare — so that leg's orphaned island in the ablated run has
+no declared name for `klt erc` to report. The mesh grew a fourth leg between the
+two readouts, but the mechanism did not change: the uncounted leg is still
+`cdac_array`'s, for the same reason. Reading the 3-island finding as covering all
+four would be a smaller copy of exactly the over-read this whole section
 exists to retire, so the probe asks a second question. It re-grades the same
 two GDS against a **scratch** spec — the graded one plus a `VSS` supply entry,
 written to the work directory and never committed:
@@ -1275,7 +1299,7 @@ written to the work directory and never committed:
 | Variant | graded spec | scratch spec (`+VSS`, diagnostic) |
 |---|---|---|
 | full (as shipped) | `clean` | `erc.supply_short`: *"declared nets 'GND' and 'VSS' are electrically the same net (shorted together)"* |
-| mesh ablated | `GND` splits into 2 islands | no `GND`/`VSS` short — `GND` splits instead |
+| mesh ablated | `GND` splits into 3 islands | no `GND`/`VSS` short — `GND` splits into the same 3 islands instead |
 
 A short between two declared supplies is normally a defect; here it is the
 measurement. `klt erc` sees drawn conductor and nothing else, so "these two
@@ -1286,10 +1310,11 @@ would turn this block's own T1 item 11 record red over a short that is the
 design.
 
 The summary of both passes is committed at
-`erc-reports/20260924-234116-66dca3c/ground-mesh-ablation.json`; the script
-exits 3 if **either** prediction fails, so a mesh that stopped mattering —
-in whole or in that one leg — would turn the check red rather than quietly
-passing.
+`erc-reports/LATEST/ground-mesh-ablation.json` — `20261001-211722-1ca34e6` as of
+this record, which is where every number stated in the present tense above comes
+from; the script exits 3 if **either** prediction fails, so a mesh that stopped
+mattering — in whole or in that one leg — would turn the check red rather than
+quietly passing.
 
 The earlier, narrower ablation from #362 — cut `via3` and the pad separates
 from `comparator`'s ground — is in the previous ERC record's own
