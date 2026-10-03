@@ -43,9 +43,15 @@ def _install_oracle(test: unittest.TestCase, outcome_of) -> list[float]:
     classified bracket endpoint was really simulated) rather than only on the
     extracted edges."""
     probed: list[float] = []
+    probe_fragments: list[Path] = []
+    test.probe_fragments = probe_fragments
 
-    def fake_probe(info, corner, temp_c, supply_v, vindiff_mv, scratch_dir):
+    def fake_probe(
+        info, corner, temp_c, supply_v, vindiff_mv, scratch_dir,
+        dut_fragment=cd.DUT_FRAGMENT,
+    ):
         probed.append(vindiff_mv)
+        probe_fragments.append(dut_fragment)
         outcome = outcome_of(vindiff_mv)
         decided = outcome in ("DECIDED-POS", "DECIDED-NEG")
         sign = 1.0 if outcome == "DECIDED-POS" else -1.0
@@ -421,6 +427,69 @@ class TestWindowAndFloorConstantsAreSelfConsistent(unittest.TestCase):
         import math
         needed = math.ceil(math.log2(2 * cd.BISECT_MAX_MV / cd.BISECT_TOL_MV))
         self.assertGreaterEqual(cd.BISECT_MAX_ITERS, needed)
+
+
+class TestDutFragmentSelector(unittest.TestCase):
+    """Issue #525: `offset-bisect --dut extracted` swaps in the post-layout
+    fragment without touching the schematic path. PDK-free, no ngspice."""
+
+    class _Info:
+        ngspice_lib = "/stub/sky130.lib.spice"
+
+    def _deck(self, **kw):
+        return cd._regen_deck(self._Info(), "tt", 27.0, 1.0, "x", **kw)
+
+    def test_default_deck_embeds_the_schematic_fragment_unchanged(self):
+        self.assertEqual(self._deck(), self._deck(dut_fragment=cd.DUT_FRAGMENT))
+        self.assertIn(cd.DUT_FRAGMENT.read_text(), self._deck())
+        self.assertNotIn("gen_compose_0", self._deck())
+
+    def test_extracted_deck_embeds_extracted_fragment_not_schematic(self):
+        deck = self._deck(dut_fragment=cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertIn(cd.DUT_FRAGMENT_EXTRACTED.read_text(), deck)
+        self.assertNotIn("XM_TAIL", deck)
+
+    def test_extracted_ports_match_schematic_ports_and_instantiation_order(self):
+        import re
+        want = {"VDD", "GND", "CLK", "VINP", "VINN", "OUTP", "OUTN"}
+        text = cd.DUT_FRAGMENT_EXTRACTED.read_text()
+        ports = re.search(r"^\.SUBCKT\s+\S+\s+(.+)$", text, re.M).group(1).split()
+        self.assertEqual(set(ports), want)
+        # the schematic fragment's own header names the same seven ports
+        self.assertIn("VDD, GND (auto-tied", cd.DUT_FRAGMENT.read_text())
+        inst = re.search(r"^Xdut\s+(.+)\s+(\S+)$", text, re.M)
+        self.assertEqual(inst.group(1).split(), ports)  # nets tied by name
+        self.assertEqual(inst.group(2), "gen_compose_0")
+        self.assertRegex(text, r"(?m)^\.ENDS\s+gen_compose_0")
+
+    def test_extracted_fragment_carries_parasitics(self):
+        import re
+        text = cd.DUT_FRAGMENT_EXTRACTED.read_text()
+        self.assertGreater(len(re.findall(r"(?m)^[RC]\S+ ", text)), 50)
+
+    def test_provenance_names_the_fragment_that_ran(self):
+        sch = cd._dut_provenance(cd.DUT_FRAGMENT)
+        ext = cd._dut_provenance(cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertTrue(sch.startswith("schematic"))
+        self.assertIn("comparator_core.spice", sch)
+        self.assertTrue(ext.startswith("post-layout extracted"))
+        self.assertIn("comparator_core_extracted.spice", ext)
+        self.assertNotIn("schematic", ext.split("(")[0])
+
+    def test_cli_choices_default_to_schematic(self):
+        self.assertIs(cd.DUT_CHOICES["schematic"], cd.DUT_FRAGMENT)
+        self.assertIs(cd.DUT_CHOICES["extracted"], cd.DUT_FRAGMENT_EXTRACTED)
+
+    def test_fragment_is_threaded_to_every_probe(self):
+        _install_oracle(self, _sign_flip_at(0.0))
+        cd.run_offset_bisect(quiet=True, dut_fragment=cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertTrue(self.probe_fragments)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
+
+    def test_default_run_uses_schematic_fragment(self):
+        _install_oracle(self, _sign_flip_at(0.0))
+        cd.run_offset_bisect(quiet=True)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
 
 
 if __name__ == "__main__":
