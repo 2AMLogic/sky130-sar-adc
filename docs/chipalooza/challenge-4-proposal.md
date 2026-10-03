@@ -3460,6 +3460,28 @@ tracker already owns.
    `signoff/block-manifest.json` still cites that record (item 10's readout
    reads **stale**). "Post-layout PVT simulation, full ADC" stays **UNMET**.
    This is again a layout record, not a simulation.
+
+   **Update (2026-10-03, still later): the upstream tracker for the flat
+   compare's blocker moved from klayout-tools#1878 to #2722; the verdicts do
+   not move.** `layout/sar-adc-top/README.md`'s "LVS device/topology blocker"
+   section now carries a 2026-10-03 tracking update (commit `26f1ae5`,
+   `Part of #103`). klayout-tools#1878 is closed, but as a documentation-accuracy
+   fix only (klayout-tools#1924, see the 2026-09-16 entries above), so the
+   capability gap it described (`klt extract` has no hierarchical, per-cell
+   subcircuit output, so `combine_devices_per_circuit` cannot scope the layout
+   side) was left with no open upstream issue. It is now tracked, filed
+   generically, as
+   [klayout-tools#2722](https://github.com/2AMLogic/klayout-tools/issues/2722)
+   (created 2026-10-03T11:50:58Z, open at the time of writing). Wherever this
+   document says the flat compare is blocked on "klayout-tools#1878", read
+   "the capability gap #1878 documented, now tracked at #2722, plus #1876's
+   locally neutralised workaround". The same README entry states that the
+   latest record, `reports/20261003-041400-571f036`, is unchanged: flat
+   `lvs.json` `mismatch`, `--abstract-cells` hollow compare `match`. Nothing
+   in §4 is re-graded: "DRC/LVS-clean GDS, full ADC" stays **PARTIAL (LVS
+   device match UNMET / BLOCKED)** and "Post-layout PVT simulation, full ADC"
+   stays **UNMET**. Issue #103 is still open, so acceptance criterion 3 of
+   issue #121 is still not met.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
