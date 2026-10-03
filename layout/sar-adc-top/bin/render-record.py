@@ -797,6 +797,29 @@ def main() -> int:
         lines.append("- not run")
     lines.append("")
 
+    # --- `--abstract-cells` black-boxed compare (run-flow.sh step 7c) ---
+    ac_path = os.path.join(args.out_dir, "abstract-cells.lvs-hollow.json")
+    if os.path.exists(ac_path):
+        ac = load_json(ac_path)
+        acc = ac.get("counts", {})
+        lines.append("## LVS, `--abstract-cells` black-boxed compare (macros hollowed)")
+        lines.append(f"- verdict: **{ac.get('status')}**")
+        lines.append(f"- `klt`: {ac.get('provenance', {}).get('klt_version')}")
+        for key in ("pins", "devices", "nets"):
+            c = acc.get(key, {})
+            lines.append(f"- {key}: layout={c.get('layout')} reference={c.get('reference')} "
+                         f"matched={c.get('matched')}")
+        lines.append(f"- mismatch_count: {ac.get('mismatch_count')}; "
+                     f"error_count: {ac.get('error_count')}; "
+                     f"categories: {ac.get('category_counts')}")
+        lines.append("- Macro internals (cdac_array, sar_sequencer, top_glue) are "
+                     "black boxes here and are verified by each sub-block's own LVS; "
+                     "this compare covers the top-level interconnect, the inlined "
+                     "comparator, sampling_frontend and halflsb_offset, the top-level "
+                     "decap cards, and every macro pin binding. "
+                     "Needs a `klt` build with klayout-tools#2396/#2398.")
+        lines.append("")
+
     print("\n".join(lines))
     return 0
 

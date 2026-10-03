@@ -614,7 +614,10 @@ OFFSETS = {
     "cdac_array": (0.0, 0.0),
     "sampling_frontend": (63.825, 88.25),
     "comparator": (100.2, 173.8),
-    "sar_sequencer": (21.1175, -150.0),
+    # x origin snapped onto the 0.005 um manufacturing grid (was 21.1175,
+    # i.e. 2.5 nm off-grid, which every placed std-cell vertex inherited) once
+    # klayout-tools' ongrid rules shipped -- issue #103.
+    "sar_sequencer": (21.12, -150.0),
     "top_glue": TOP_GLUE_OFFSET,
     "halflsb_offset": HALFLSB_OFFSET,
     **DECAP_OFFSETS,
@@ -1021,6 +1024,12 @@ def dig_escape(c: Canvas, block: str, pin: str) -> tuple[float, float]:
     assert native == MET1
     dx = DIG_ESCAPE_DX[block]
     ex = x + dx
+    # Snap the lead's far edge (ex +/- ESCAPE_W/2) onto the 0.005 um
+    # manufacturing grid; the landing x is not otherwise load-bearing (see
+    # DIG_ESCAPE_DX), so moving it by < 5 nm is free.
+    sign = 1.0 if dx > 0 else -1.0
+    far = round((ex + sign * ESCAPE_W / 2.0) / 0.005) * 0.005
+    ex = round(far - sign * ESCAPE_W / 2.0, 6)
     c.wire(MET1, x, y, ex, y, w=ESCAPE_W)
     return ex, y
 
@@ -1585,7 +1594,7 @@ def _check_outn_load_balance(
 
 
 #: Where each digital rail is tapped for its leg up to DR-009's offset
-#: network. Both sites are WEST of `sar_sequencer`'s own bbox (x0 = 21.1175)
+#: network. Both sites are WEST of `sar_sequencer`'s own bbox (x0 = 21.12)
 #: and EAST of the rails' own west end (`DIG_RAIL_PIN_X` = 15.0), so the
 #: westward run out of each tap crosses no macro at all; the two differ in x
 #: so the two via4 pads never come near each other even though the pads are
@@ -1689,7 +1698,7 @@ MET5_SPACE_UM = 1.6
 
 #: West end of each digital rail's own met5 rectangle, and the only stretch of
 #: it that lies outside BOTH standard-cell macros' own footprints: 15.0 um is
-#: 6.1 um west of `sar_sequencer`'s own placed bbox (x0 = 21.1175) and 1.0 um
+#: 6.12 um west of `sar_sequencer`'s own placed bbox (x0 = 21.12) and 1.0 um
 #: east of the westernmost thing this module draws anywhere near this y band
 #: (nothing: the west-corridor met4 tracks at -8/-10/-12/-14 are the closest,
 #: and they are 23 um further west still). The top-level supply-pin label sits
@@ -1702,8 +1711,9 @@ DIG_RAIL_LABEL_X = 18.0
 #: How far east the rail reaches past `top_glue`'s own strap's west end.
 #: Any positive overlap merges (same layer, exactly the same y band), so this
 #: only has to beat the half-nanometre placement rounding both macros' own
-#: x offsets carry (`OFFSETS`: 21.1175 / 83.755 are on a 0.0025 um grid, the
-#: composed stream's DBU is 0.001) -- 2.0 um does, by three orders of
+#: x offsets could carry (`OFFSETS`: 21.12 / 83.755 -- the former once
+#: 21.1175, on a 0.0025 um grid, until issue #103 snapped it to the 0.005 um
+#: manufacturing grid; the composed stream's DBU is 0.001) -- 2.0 um does, by three orders of
 #: magnitude, while still stopping well short of that macro's own first met4
 #: PDN column (local x 15.07).
 DIG_RAIL_REACH_UM = 2.0

@@ -1,0 +1,307 @@
+{
+  "schema": "sar-adc-top.abstract-cells-probe/1",
+  "klt_version": "klt 0.6.0+g3c0a6c3991f0",
+  "record": "20261003-000530-629f2e6",
+  "substrate_tie_variant": {
+    "at_um": [
+      200.5,
+      -30.0
+    ],
+    "cell": "cdac_array__cdac_array"
+  },
+  "no_well_tap_variant": {
+    "cleared": {
+      "64/20": 19,
+      "65/44": 1
+    },
+    "cell": "cdac_array__cdac_array"
+  },
+  "no_capm_via_variant": {
+    "cell": "cdac_array__cdac_array",
+    "capm_shapes": 1024,
+    "via3_shapes": 1024,
+    "via3_on_capm_removed": 1024
+  },
+  "variants": [
+    {
+      "variant": "abstract-probe.klt-0.6.0+g3c0a6c3.three",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array",
+        "sar_sequencer__sar_sequencer",
+        "seln_inverters__seln_inverters"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 61,
+      "device_count": 37,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        },
+        {
+          "cell": "sar_sequencer__sar_sequencer",
+          "pin_count": 28,
+          "resolution_source": "in_cell_labels"
+        },
+        {
+          "cell": "seln_inverters__seln_inverters",
+          "pin_count": 20,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "--abstract-cells cell type 'cdac_array__cdac_array' (1 instance(s)): 1 port(s) resolve only through the deck's synthesized global net 'vsubs' -- the cell draws a substrate-formed device body (an untapped NMOS) with no substrate tie of its own, so no in-cell well_label/poly_label/metal_labels text and no --abstract-cell-lef PORT can name that terminal. It is dropped from the black box's pin list (23 pin(s) resolved), so the abstracted instance carries no connection for that net. Draw and label a substrate tie in the cell, or declare the port via --abstract-cell-lef, if a downstream `klt lvs` compare needs it"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.6.0+g3c0a6c3.cdac-only",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 426,
+      "device_count": 833,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "--abstract-cells cell type 'cdac_array__cdac_array' (1 instance(s)): 1 port(s) resolve only through the deck's synthesized global net 'vsubs' -- the cell draws a substrate-formed device body (an untapped NMOS) with no substrate tie of its own, so no in-cell well_label/poly_label/metal_labels text and no --abstract-cell-lef PORT can name that terminal. It is dropped from the black box's pin list (23 pin(s) resolved), so the abstracted instance carries no connection for that net. Draw and label a substrate tie in the cell, or declare the port via --abstract-cell-lef, if a downstream `klt lvs` compare needs it"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.6.0+g3c0a6c3.cdac-no-pinsrc",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": null,
+      "status": "extracted",
+      "net_count": 426,
+      "device_count": 833,
+      "top_pin_count": 68,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "--abstract-cells cell type 'cdac_array__cdac_array' (1 instance(s)): 1 port(s) resolve only through the deck's synthesized global net 'vsubs' -- the cell draws a substrate-formed device body (an untapped NMOS) with no substrate tie of its own, so no in-cell well_label/poly_label/metal_labels text and no --abstract-cell-lef PORT can name that terminal. It is dropped from the black box's pin list (23 pin(s) resolved), so the abstracted instance carries no connection for that net. Draw and label a substrate tie in the cell, or declare the port via --abstract-cell-lef, if a downstream `klt lvs` compare needs it"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.6.0+g3c0a6c3.cdac-tied",
+      "gds": "variant-substrate-tie.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 427,
+      "device_count": 833,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 24,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": []
+    },
+    {
+      "variant": "abstract-probe.klt-0.6.0+g3c0a6c3.cdac-no-well",
+      "gds": "variant-no-well-tap.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 426,
+      "device_count": 833,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "--abstract-cells cell type 'cdac_array__cdac_array' (1 instance(s)): 1 port(s) resolve only through the deck's synthesized global net 'vsubs' -- the cell draws a substrate-formed device body (an untapped NMOS) with no substrate tie of its own, so no in-cell well_label/poly_label/metal_labels text and no --abstract-cell-lef PORT can name that terminal. It is dropped from the black box's pin list (23 pin(s) resolved), so the abstracted instance carries no connection for that net. Draw and label a substrate tie in the cell, or declare the port via --abstract-cell-lef, if a downstream `klt lvs` compare needs it"
+      ]
+    },
+    {
+      "variant": "abstract-probe.klt-0.6.0+g3c0a6c3.seq-seln",
+      "gds": "sar_adc_top.gds",
+      "abstract_cells": [
+        "sar_sequencer__sar_sequencer",
+        "seln_inverters__seln_inverters"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 79,
+      "device_count": 1097,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "sar_sequencer__sar_sequencer",
+          "pin_count": 28,
+          "resolution_source": "in_cell_labels"
+        },
+        {
+          "cell": "seln_inverters__seln_inverters",
+          "pin_count": 20,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": []
+    },
+    {
+      "variant": "abstract-probe.klt-0.6.0+g3c0a6c3.cdac-no-capm-via",
+      "gds": "variant-no-capm-via3.gds",
+      "abstract_cells": [
+        "cdac_array__cdac_array"
+      ],
+      "pin_source_cells": "route__SAR_ADC_TOP_ROUTE",
+      "status": "extracted",
+      "net_count": 426,
+      "device_count": 833,
+      "top_pin_count": 19,
+      "abstracted_cells": [
+        {
+          "cell": "cdac_array__cdac_array",
+          "pin_count": 23,
+          "resolution_source": "in_cell_labels"
+        }
+      ],
+      "watched_pin_merges": [
+        {
+          "net": "TOP_N|VINN",
+          "labels": [
+            "TOP_N",
+            "VINN"
+          ]
+        },
+        {
+          "net": "TOP_P|VINP",
+          "labels": [
+            "TOP_P",
+            "VINP"
+          ]
+        }
+      ],
+      "abstract_warnings": [
+        "--abstract-cells cell type 'cdac_array__cdac_array' (1 instance(s)): 1 port(s) resolve only through the deck's synthesized global net 'vsubs' -- the cell draws a substrate-formed device body (an untapped NMOS) with no substrate tie of its own, so no in-cell well_label/poly_label/metal_labels text and no --abstract-cell-lef PORT can name that terminal. It is dropped from the black box's pin list (23 pin(s) resolved), so the abstracted instance carries no connection for that net. Draw and label a substrate tie in the cell, or declare the port via --abstract-cell-lef, if a downstream `klt lvs` compare needs it"
+      ]
+    }
+  ]
+}
