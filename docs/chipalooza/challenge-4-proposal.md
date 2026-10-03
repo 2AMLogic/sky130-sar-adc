@@ -4441,6 +4441,27 @@ tracker already owns.
    correction; this issue's acceptance criterion 4 remains
    not-yet-triggerable.
 
+   **Re-checked 2026-10-03**: `https://opencircuitdesign.com/chipalooza/rules-4.html`
+   still returns HTTP 404 (`curl -s -o /dev/null -w '%{http_code}'`, this
+   pass), so no rules-4.html-derived correction exists and criterion 4 is
+   still not-yet-triggerable. Two things differ from the 2026-09-26
+   re-check. First, the parent `chipalooza/` index **was republished**:
+   `Last-Modified: Tue, 29 Sep 2026 19:32:33 GMT`, `ETag`
+   (`"1cac-65ca43e7fe776"`), `Content-Length` 7340 (was 7316 at the
+   2026-09-26 re-check). Its Challenge #4 row reads "Run through Chip Foundry. Expected
+   launch November 2026", schedule table "Nov 9, 2026 / Nov 23, 2026 /
+   Upcoming" — the same dates the epic's tracking table carries. It
+   states no rail, slot or pad budget. Second, a
+   stub page `challenge-4.html` exists (`Last-Modified: Sun, 23 Aug 2026`;
+   HTTP 200, 1464 bytes). It says only that rules, the milestone schedule
+   and the leaderboard "will be published here closer to launch", and
+   gives the expected launch as "November 9, **2027** (estimate)" —
+   inconsistent with the index's 2026 date, almost certainly a typo on the
+   stub, but not resolved here: this document keeps the index/epic date
+   (2026-11-09) and does not act on the stub's year. Neither page changes
+   any §2 slot-budget assumption. The epic's tracking table still lists
+   row 4 as "launches 2026-11-09" (submission 2026-11-23).
+
 8. **Whole-ADC (end-to-end) code correctness is not yet demonstrated — a
    campaign exists, found real defects, several are already fixed, and two
    remaining fixes are open architecture/sizing decisions (#267, #269) —
