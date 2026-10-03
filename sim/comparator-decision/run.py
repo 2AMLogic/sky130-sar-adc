@@ -2456,6 +2456,15 @@ def run_offset_bisect(
 # justification).
 BISECT_DEFAULT_POINTS = [("tt", 27.0), ("ss", -40.0)]
 
+# The schematic-level `offset-bisect` record an extracted-DUT run (issue #525)
+# is compared against, and the BOUNDS that record measured (both points:
+# |offset| < 0.0275 mV, band < 0.0549 mV -- neither resolved). Cited, not
+# re-derived: they are a committed record's numbers, quoted so the post-layout
+# record can state the comparison in one place without re-reading markdown.
+BISECT_SCHEMATIC_RECORD_ID = "20261002-203719-c898d06"
+BISECT_SCHEMATIC_OFFSET_BOUND_MV = 0.0275
+BISECT_SCHEMATIC_BAND_BOUND_MV = 0.0549
+
 
 def run_offset_bisect_points(
     points: list[tuple[str, float]] | None = None, supply_v: float = VDD,
@@ -2479,6 +2488,153 @@ def _bisect_edge_cell(edge_mv: float | None, unc_mv: float | None) -> str:
     return f"{edge_mv:+.4f} +-{unc_mv:.4f}"
 
 
+def _postlayout_half_lsb_verdict(
+    results: list[BisectCornerResult], half_lsb_mv: float,
+) -> tuple[str, list[str]]:
+    """DR-020's supersession test for an extracted-DUT run (issue #525).
+
+    Returns (verdict, reasons) where verdict is one of:
+
+    * ``"TRIGGERED"`` -- some corner point has a RESOLVED systematic offset
+      with |offset| >= half-LSB, or a RESOLVED dead band >= half-LSB. DR-020
+      Decision 1-2 must then be superseded by a NEW decision record.
+    * ``"UNDETERMINED"`` -- nothing is triggered, but at least one point
+      either yielded no boundary pair or has a bracket whose upper bound
+      reaches half-LSB, so half-LSB scale cannot be excluded.
+    * ``"NOT-TRIGGERED"`` -- every point is bounded and both quantities'
+      upper bounds (value + bracket uncertainty) are below half-LSB: DR-020 is
+      corroborated at this netlist class.
+
+    Kept a pure function of `results` so the record's verdict sentence and
+    the tests turn on the same rule.
+    """
+    triggered: list[str] = []
+    undetermined: list[str] = []
+    for r in results:
+        if not r.bounded:
+            undetermined.append(
+                f"`{r.corner_id}` yielded no boundary pair (status {r.status})"
+            )
+            continue
+        off_hi = abs(r.offset_mv) + r.offset_unc_mv
+        band_hi = r.dead_band_mv + r.dead_band_unc_mv
+        if r.offset_resolved and abs(r.offset_mv) >= half_lsb_mv:
+            triggered.append(
+                f"`{r.corner_id}` systematic offset {r.offset_mv:+.4f} "
+                f"+-{r.offset_unc_mv:.4f} mV"
+            )
+        elif off_hi >= half_lsb_mv:
+            undetermined.append(
+                f"`{r.corner_id}` offset upper bound {off_hi:.4f} mV reaches "
+                "half-LSB"
+            )
+        if r.dead_band_resolved and r.dead_band_mv >= half_lsb_mv:
+            triggered.append(
+                f"`{r.corner_id}` dead band {r.dead_band_mv:.4f} "
+                f"+-{r.dead_band_unc_mv:.4f} mV"
+            )
+        elif band_hi >= half_lsb_mv:
+            undetermined.append(
+                f"`{r.corner_id}` band upper bound {band_hi:.4f} mV reaches "
+                "half-LSB"
+            )
+    if triggered:
+        return "TRIGGERED", triggered
+    if undetermined:
+        return "UNDETERMINED", undetermined
+    return "NOT-TRIGGERED", []
+
+
+def _offset_bisect_postlayout_comparison(
+    a, results: list[BisectCornerResult], half_lsb_mv: float,
+) -> None:
+    """The 'Post-layout vs schematic' section of an extracted-DUT record:
+    side-by-side against `BISECT_SCHEMATIC_RECORD_ID`, plus DR-020's
+    half-LSB supersession verdict, stated explicitly either way."""
+    a("## Post-layout vs schematic (issue #525)")
+    a("")
+    a(
+        "Comparison point: `sim/comparator-decision/records/"
+        f"{BISECT_SCHEMATIC_RECORD_ID}.md` -- the same `offset-bisect` "
+        "stimulus, search, bisection floor, and PVT points on the "
+        "schematic-derived netlist, which bounded both quantities at both "
+        f"points: |offset| < {BISECT_SCHEMATIC_OFFSET_BOUND_MV} mV and band < "
+        f"{BISECT_SCHEMATIC_BAND_BOUND_MV} mV, neither resolved. Half-LSB "
+        f"(DR-003 Item 3) = {half_lsb_mv:.4f} mV."
+    )
+    a("")
+    a(
+        "| corner-id | schematic offset (mV) | post-layout offset (mV) | "
+        "offset resolved? | schematic band (mV) | post-layout band (mV) | "
+        "band resolved? | post-layout upper bound / half-LSB (offset, band) |"
+    )
+    a("|---|---|---|---|---|---|---|---|")
+    for r in results:
+        if r.bounded:
+            off = f"{r.offset_mv:+.4f} +-{r.offset_unc_mv:.4f}"
+            band = f"{r.dead_band_mv:.4f} +-{r.dead_band_unc_mv:.4f}"
+            off_res = "**yes**" if r.offset_resolved else "no"
+            band_res = "**yes**" if r.dead_band_resolved else "no"
+            ratio = (
+                f"{(abs(r.offset_mv) + r.offset_unc_mv) / half_lsb_mv:.3f}, "
+                f"{(r.dead_band_mv + r.dead_band_unc_mv) / half_lsb_mv:.3f}"
+            )
+        else:
+            off = band = off_res = band_res = ratio = f"n/a ({r.status})"
+        a(
+            f"| `{r.corner_id}` | < {BISECT_SCHEMATIC_OFFSET_BOUND_MV} | {off} "
+            f"| {off_res} | < {BISECT_SCHEMATIC_BAND_BOUND_MV} | {band} | "
+            f"{band_res} | {ratio} |"
+        )
+    a("")
+    appeared = [
+        r for r in results
+        if r.bounded and (r.offset_resolved or r.dead_band_resolved)
+    ]
+    if appeared:
+        a(
+            "**Does either shape appear post-layout? YES, at some magnitude**, "
+            "at "
+            + ", ".join(f"`{r.corner_id}`" for r in appeared)
+            + " (resolved above the bisection floor, where the schematic "
+            "netlist resolved neither). Whether that magnitude matters is the "
+            "half-LSB test below."
+        )
+    else:
+        a(
+            "**Does either shape appear post-layout? NO** -- at every bounded "
+            "point neither the systematic offset nor the dead band is resolved "
+            "above its bisection floor, the same answer the schematic netlist "
+            "gave."
+        )
+    a("")
+    verdict, reasons = _postlayout_half_lsb_verdict(results, half_lsb_mv)
+    if verdict == "TRIGGERED":
+        a(
+            f"**DR-020 supersession trigger: MET.** At half-LSB scale (>= "
+            f"{half_lsb_mv:.4f} mV): " + "; ".join(reasons) + ". Per DR-020's "
+            "own trigger and issue #525, DR-020 Decision 1-2 must be "
+            "SUPERSEDED BY A NEW DECISION RECORD (not patched)."
+        )
+    elif verdict == "UNDETERMINED":
+        a(
+            "**DR-020 supersession trigger: UNDETERMINED.** Nothing resolved "
+            f"at >= {half_lsb_mv:.4f} mV, but half-LSB scale cannot be "
+            "excluded: " + "; ".join(reasons) + ". This record neither "
+            "supersedes nor corroborates DR-020."
+        )
+    else:
+        a(
+            "**DR-020 supersession trigger: NOT MET.** At every point both "
+            "the offset's and the band's upper bound (value + bracket "
+            f"uncertainty) is below the {half_lsb_mv:.4f} mV half-LSB, so "
+            "DR-020's conclusion is CORROBORATED at the post-layout netlist "
+            "class this flow provides (quasi-static `klt pex` R/C), not "
+            "superseded."
+        )
+    a("")
+
+
 def write_offset_bisect_evidence(
     results: list[BisectCornerResult], note: str = "", supersedes: str = "",
     dut_fragment: Path = DUT_FRAGMENT,
@@ -2497,23 +2653,48 @@ def write_offset_bisect_evidence(
     bounded = [r for r in results if r.bounded]
     corner_ids = [r.corner_id for r in results]
     n_probes = sum(len(r.probes) for r in results)
+    # Issue #525: the extracted (post-layout) DUT is NOT symmetric by
+    # construction -- routing parasitics need not match between the two
+    # halves -- so the prose that leans on "mismatch-free and symmetric"
+    # (the negative-control reading of item 1, the netlist-scope caveat of
+    # item 5) must branch on which fragment actually ran.
+    extracted = dut_fragment == DUT_FRAGMENT_EXTRACTED
 
-    a(
-        "- **Claim**: none numeric -- INFORMATIONAL. `spec/target-spec.md` "
-        "carries no offset row and no dead-band/non-decision row, DRAFT or "
-        "ratified, so there is nothing here to grade against and nothing here "
-        "asserts a pass. This record measures two quantities a sigma-only "
-        "offset characterization cannot express -- the **systematic decision "
-        "offset** and the **non-decision (dead) band width** -- and exists to "
-        "settle the question "
-        "`spec/decision-records/DR-004-comparator-topology-and-noise-budget.md` "
-        "left open twice: *\"Offset and regeneration-time spec rows -- "
-        "spec/target-spec.md has neither today ... a future record should "
-        "decide whether either belongs in the table\"* and *\"A precise (not "
-        "order-of-magnitude) offset extraction methodology\"*. "
-        "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
-        "is the decision record that consumes it."
-    )
+    if extracted:
+        a(
+            "- **Claim**: none numeric -- INFORMATIONAL. `spec/target-spec.md` "
+            "carries no offset row and no dead-band/non-decision row, DRAFT or "
+            "ratified, so there is nothing here to grade against and nothing "
+            "here asserts a pass. This record is the POST-LAYOUT replication "
+            f"(issue #525) of `sim/comparator-decision/records/"
+            f"{BISECT_SCHEMATIC_RECORD_ID}.md`'s schematic-level `offset-bisect` "
+            "campaign -- same stimulus, same search, same two PVT points, on "
+            "the comparator sub-block's `klt pex` extracted netlist. It is the "
+            "trigger "
+            "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
+            "names for superseding itself: a systematic offset or a dead band "
+            f"at half-LSB scale (>= {DIFFERENTIAL_LSB_MV / 2:.4f} mV) here "
+            "would change DR-020 Decision 1-2 and require a NEW decision record; "
+            "anything smaller corroborates DR-020 at this netlist class. See "
+            "'Post-layout vs schematic' below for which."
+        )
+    else:
+        a(
+            "- **Claim**: none numeric -- INFORMATIONAL. `spec/target-spec.md` "
+            "carries no offset row and no dead-band/non-decision row, DRAFT or "
+            "ratified, so there is nothing here to grade against and nothing here "
+            "asserts a pass. This record measures two quantities a sigma-only "
+            "offset characterization cannot express -- the **systematic decision "
+            "offset** and the **non-decision (dead) band width** -- and exists to "
+            "settle the question "
+            "`spec/decision-records/DR-004-comparator-topology-and-noise-budget.md` "
+            "left open twice: *\"Offset and regeneration-time spec rows -- "
+            "spec/target-spec.md has neither today ... a future record should "
+            "decide whether either belongs in the table\"* and *\"A precise (not "
+            "order-of-magnitude) offset extraction methodology\"*. "
+            "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
+            "is the decision record that consumes it."
+        )
     a(f"- **Netlist provenance**: {_dut_provenance(dut_fragment)}")
     a(
         corners_mod.corner_matrix_summary_line(
@@ -2657,10 +2838,21 @@ def write_offset_bisect_evidence(
                 f"honest statement is a BOUND: |offset| < "
                 f"{worst_offset_unc:.4f} mV, which is "
                 f"{half_lsb_mv / worst_offset_unc:.0f}x smaller than the "
-                f"{half_lsb_mv:.4f} mV half-LSB a bit trial must resolve. That "
-                "is the expected answer for a mismatch-free DUT whose input "
-                "pair is symmetric by construction"
+                f"{half_lsb_mv:.4f} mV half-LSB a bit trial must resolve. "
                 + (
+                    "On this EXTRACTED DUT that is a measured result, not a "
+                    "control: routing parasitics need not be symmetric between "
+                    "the two halves, so nothing forced it to come out at ~0. "
+                    "The search itself was validated against the symmetric "
+                    "schematic netlist's negative control in "
+                    f"`{BISECT_SCHEMATIC_RECORD_ID}`."
+                    if extracted else
+                    "That is the expected answer for a mismatch-free DUT whose "
+                    "input pair is symmetric by construction"
+                )
+                + (
+                    ""
+                    if extracted else
                     ", and it is what makes the rest of this record credible: "
                     f"the {', '.join('`' + r.corner_id + '`' for r in controls)}"
                     " point is a NEGATIVE CONTROL, and it passed."
@@ -2682,6 +2874,16 @@ def write_offset_bisect_evidence(
                 )
                 + ". "
                 + (
+                    "This is an EXTRACTED DUT, which is not symmetric by "
+                    "construction (routing parasitics need not match between "
+                    "the two halves), so a resolved offset at `tt`/27 C here "
+                    "is a candidate circuit property, not an indictment of the "
+                    "measurement: the search was validated against the "
+                    "symmetric schematic netlist's negative control in "
+                    f"`{BISECT_SCHEMATIC_RECORD_ID}` (|offset| < "
+                    f"{BISECT_SCHEMATIC_OFFSET_BOUND_MV} mV at both points), "
+                    "using the same stimulus and search as this run."
+                    if extracted else
                     "The `tt`/27 C negative control is NOT among them, so the "
                     "search still reproduces ~0 on the DUT whose answer is "
                     "known by symmetry and the resolved offsets above are "
@@ -2803,30 +3005,45 @@ def write_offset_bisect_evidence(
             "sweep."
         )
         a("")
-        a(
-            "**5. What this does NOT say.** It does not bound the offset of a "
-            "manufactured part: mismatch is disabled here by design, and the "
-            "random term is large (see the pick-off record below). It does not "
-            "generalize past the two PVT points measured, or past the "
-            f"{BISECT_EVALUATE_NS} ns evaluate window. And it says nothing "
-            "about a post-layout DUT -- the cross-pollinated finding that "
-            "prompted this measurement (issue #515) was taken on an EXTRACTED "
-            "netlist and reported both a nonzero systematic offset at the "
-            "nominal corner and a wide non-decision band at slow/cold. "
-            + (
-                "**Neither shape appears at schematic level here**, which is "
-                "consistent with both being parasitic-driven."
-                if not offset_resolved and not resolved_bands else
-                "**At least one of those shapes DOES appear at schematic level "
-                "here** (see items 1-2 above), so it cannot be attributed to "
-                "parasitics in this block."
+        if extracted:
+            a(
+                "**5. What this does NOT say.** It does not bound the offset "
+                "of a manufactured part: mismatch is disabled here by design, "
+                "and the random term is large (see the pick-off record below). "
+                "It does not generalize past the two PVT points measured, or "
+                f"past the {BISECT_EVALUATE_NS} ns evaluate window. And the "
+                "extracted netlist is quasi-static lumped R/C from `klt pex` "
+                "(see 'Netlist scope' below) -- the post-layout netlist class "
+                "this flow provides, not silicon, and not a distributed or "
+                "substrate-coupled model."
             )
-            + " Either way this is a statement about netlist scope, not a "
-            "refutation or a confirmation: this repo cannot replicate a "
-            "post-layout result at all yet (see 'Methodology provenance' "
-            "below), so nothing here tests what a parasitic extraction of this "
-            "block would add."
-        )
+            a("")
+            _offset_bisect_postlayout_comparison(a, results, half_lsb_mv)
+        else:
+            a(
+                "**5. What this does NOT say.** It does not bound the offset of a "
+                "manufactured part: mismatch is disabled here by design, and the "
+                "random term is large (see the pick-off record below). It does not "
+                "generalize past the two PVT points measured, or past the "
+                f"{BISECT_EVALUATE_NS} ns evaluate window. And it says nothing "
+                "about a post-layout DUT -- the cross-pollinated finding that "
+                "prompted this measurement (issue #515) was taken on an EXTRACTED "
+                "netlist and reported both a nonzero systematic offset at the "
+                "nominal corner and a wide non-decision band at slow/cold. "
+                + (
+                    "**Neither shape appears at schematic level here**, which is "
+                    "consistent with both being parasitic-driven."
+                    if not offset_resolved and not resolved_bands else
+                    "**At least one of those shapes DOES appear at schematic level "
+                    "here** (see items 1-2 above), so it cannot be attributed to "
+                    "parasitics in this block."
+                )
+                + " Either way this is a statement about netlist scope, not a "
+                "refutation or a confirmation: this repo cannot replicate a "
+                "post-layout result at all yet (see 'Methodology provenance' "
+                "below), so nothing here tests what a parasitic extraction of this "
+                "block would add."
+            )
     else:
         a(
             "No corner point yielded a bounded pair of decision boundaries, so "
@@ -2834,6 +3051,9 @@ def write_offset_bisect_evidence(
             "The per-corner status column and notes above say why, and that is "
             "the finding."
         )
+        if extracted:
+            a("")
+            _offset_bisect_postlayout_comparison(a, results, half_lsb_mv)
     a("")
 
     for r in results:
@@ -3007,8 +3227,14 @@ def write_offset_bisect_evidence(
             "Compare against the schematic-level record "
             "`sim/comparator-decision/records/20261002-203719-c898d06.md`, "
             "taken with the same stimulus and search. The extraction is of "
-            "the DR-004 Amendment A layout (`eace0b6`); later commits under "
-            "`layout/comparator/` are refactors by subject. Quasi-static "
+            "the DR-004 Amendment A layout (`eace0b6`). Re-checked for issue "
+            "#525 by diffing `layout/comparator/bin/` from `eace0b6` to this "
+            "record's commit: the only generator changes move the tap/licon "
+            "drawing into `layout/bin/_geometry_common.tap_shapes()` with the "
+            "same layers and 0.60 um pitch, and dedup the `klt gen` "
+            "invocation -- no drawn-geometry change -- and "
+            "`design/comparator.sch` is unchanged over the same range. "
+            "Quasi-static "
             "lumped R/C does not model distributed or substrate-coupled "
             "effects, so this is the post-layout netlist class the flow "
             "provides, not silicon."

@@ -492,5 +492,70 @@ class TestDutFragmentSelector(unittest.TestCase):
         self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
 
 
+class TestPostLayoutHalfLsbVerdict(unittest.TestCase):
+    """Issue #525: an extracted-DUT record must state explicitly whether a
+    systematic offset or dead band appears at half-LSB scale -- DR-020's
+    supersession trigger. Synthetic DUTs again; nothing here is evidence."""
+
+    HALF = cd.DIFFERENTIAL_LSB_MV / 2.0
+
+    def _results(self, *oracles):
+        out = []
+        for oracle in oracles:
+            _install_oracle(self, oracle)
+            out.append(cd.run_offset_bisect(quiet=True))
+        return out
+
+    def _section(self, results) -> str:
+        lines: list[str] = []
+        cd._offset_bisect_postlayout_comparison(lines.append, results, self.HALF)
+        return "\n".join(lines)
+
+    def test_symmetric_dut_corroborates_dr020(self):
+        rs = self._results(_sign_flip_at(0.0), _sign_flip_at(0.0))
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "NOT-TRIGGERED")
+        self.assertEqual(reasons, [])
+        text = self._section(rs)
+        self.assertIn("NOT MET", text)
+        self.assertIn("CORROBORATED", text)
+        self.assertIn("appear post-layout? NO", text)
+        self.assertIn(cd.BISECT_SCHEMATIC_RECORD_ID, text)
+
+    def test_small_resolved_offset_appears_but_does_not_trigger(self):
+        # resolved (far above the 0.1 mV floor) but well under half-LSB
+        rs = self._results(_sign_flip_at(0.6))
+        self.assertTrue(rs[0].offset_resolved)
+        verdict, _ = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "NOT-TRIGGERED")
+        text = self._section(rs)
+        self.assertIn("appear post-layout? YES", text)
+        self.assertIn("NOT MET", text)
+
+    def test_half_lsb_offset_triggers_supersession(self):
+        rs = self._results(_sign_flip_at(0.0), _sign_flip_at(-2.5))
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "TRIGGERED")
+        self.assertTrue(any("systematic offset" in r for r in reasons))
+        self.assertIn("SUPERSEDED BY A NEW DECISION RECORD", self._section(rs))
+
+    def test_half_lsb_dead_band_triggers_supersession(self):
+        rs = self._results(_dead_band(-1.5, +1.5))  # 3 mV wide, centred
+        self.assertFalse(rs[0].offset_resolved)
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "TRIGGERED")
+        self.assertTrue(any("dead band" in r for r in reasons))
+
+    def test_unbounded_point_is_undetermined_not_corroborating(self):
+        _install_oracle(self, _dead_band(-1e9, +1e9))
+        rs = [cd.run_offset_bisect(quiet=True, max_mv=50.0)]
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "UNDETERMINED")
+        self.assertIn("UNDETERMINED", self._section(rs))
+
+    def test_half_lsb_constant_matches_dr020_figure(self):
+        self.assertAlmostEqual(self.HALF, 1.7578, places=4)
+
+
 if __name__ == "__main__":
     unittest.main()
