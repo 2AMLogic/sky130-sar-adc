@@ -2545,6 +2545,71 @@ def _postlayout_half_lsb_verdict(
     return "NOT-TRIGGERED", []
 
 
+def _signed_delay_asymmetry(r: BisectCornerResult) -> list[tuple[float, float]]:
+    """[(|V| mV, t(+V) - t(-V) ns)] over every |Vindiff| probed on both signs
+    with a decision delay, ascending in |V|."""
+    by_v = {
+        round(p.vindiff_mv, 6): p.decide_time_ns for p in r.probes
+        if p.decide_time_ns is not None
+    }
+    return sorted(
+        (v, by_v[v] - by_v[round(-v, 6)])
+        for v in by_v
+        if v > 0 and round(-v, 6) in by_v
+    )
+
+
+def _delay_asymmetry_agrees_with_offset(r: BisectCornerResult) -> bool | None:
+    """Item 4's falsifiability check for a DUT that is NOT symmetric by
+    construction (issue #525). A systematic offset Vos shifts the effective
+    overdrive to V - Vos, so a positive Vos makes every `+V` decision slower
+    than its `-V` mirror (t(+V) - t(-V) > 0) and a negative one the reverse.
+    Returns None when there is nothing to check (offset not resolved, or no
+    matched pair); otherwise whether EVERY matched pair's sign agrees."""
+    pairs = _signed_delay_asymmetry(r)
+    if not r.bounded or not r.offset_resolved or not pairs:
+        return None
+    want_pos = r.offset_mv > 0
+    return all(d != 0.0 and (d > 0) == want_pos for _, d in pairs)
+
+
+def _offset_bisect_postlayout_delay_check(
+    a, results: list[BisectCornerResult],
+) -> None:
+    """Item 4 for an extracted-DUT record: the symmetric-DUT check (+V and -V
+    delays must agree) does not apply to a layout that is not symmetric by
+    construction, so the falsifiable prediction becomes the SIGN of the
+    delay asymmetry, which the measured offset fixes independently."""
+    a(
+        "**4. Decision-delay asymmetry, the falsifiability check for an "
+        "asymmetric DUT.** The extracted netlist is not symmetric by "
+        "construction, so `+V` and `-V` delays need NOT agree. What a real "
+        "systematic offset Vos does predict is their ORDER: the effective "
+        "overdrive becomes V - Vos, so Vos > 0 makes every `+V` decision "
+        "slower than its `-V` mirror (t(+V) - t(-V) > 0) and Vos < 0 the "
+        "reverse. That sign is fixed by the boundary bisection, and the "
+        "delays are measured independently of it, so a classification sign "
+        "error or a spurious offset would not survive it. Measured, per corner "
+        "point (matched |Vindiff| pairs where both signs were probed):"
+    )
+    a("")
+    a(
+        "| corner-id | matched pairs | t(+V) - t(-V) per pair (ns) | "
+        "sign agrees with measured offset? |"
+    )
+    a("|---|---|---|---|")
+    for r in results:
+        pairs = _signed_delay_asymmetry(r)
+        cells = ", ".join(f"{v:g} mV: {d:+.4f}" for v, d in pairs) or "n/a"
+        agrees = _delay_asymmetry_agrees_with_offset(r)
+        verdict = (
+            "n/a (offset not resolved)" if agrees is None
+            else ("**yes**, every pair" if agrees else "**NO**")
+        )
+        a(f"| `{r.corner_id}` | {len(pairs)} | {cells} | {verdict} |")
+    a("")
+
+
 def _offset_bisect_postlayout_comparison(
     a, results: list[BisectCornerResult], half_lsb_mv: float,
 ) -> None:
@@ -2971,39 +3036,42 @@ def write_offset_bisect_evidence(
                 "decision about an input)."
             )
         a("")
-        # Symmetry falsifiability: the same |Vindiff| on both signs should give
-        # the same decision delay on a symmetric DUT. This is the check a sign
-        # bug in the classification could not survive.
-        a(
-            "**4. Decision-delay symmetry, the falsifiability check.** On a "
-            "symmetric mismatch-free DUT the decision delay at `+V` and `-V` "
-            "must agree. Measured, per corner point (matched |Vindiff| pairs "
-            "where both signs were probed):"
-        )
-        a("")
-        a("| corner-id | matched pairs | worst |t(+V) - t(-V)| (ns) |")
-        a("|---|---|---|")
-        for r in results:
-            by_v = {
-                round(p.vindiff_mv, 6): p.decide_time_ns for p in r.probes
-                if p.decide_time_ns is not None
-            }
-            deltas = [
-                abs(by_v[v] - by_v[round(-v, 6)])
-                for v in by_v
-                if v > 0 and round(-v, 6) in by_v
-            ]
-            if deltas:
-                a(f"| `{r.corner_id}` | {len(deltas)} | {max(deltas):.4f} |")
-            else:
-                a(f"| `{r.corner_id}` | 0 | n/a |")
-        a("")
-        a(
-            "A sign error in the polarity classification, or a one-sided "
-            "search, could not produce a matched ladder -- which is why the "
-            "coarse scan is a SYMMETRIC signed grid rather than a one-sided "
-            "sweep."
-        )
+        if extracted:
+            _offset_bisect_postlayout_delay_check(a, results)
+        else:
+            # Symmetry falsifiability: the same |Vindiff| on both signs should give
+            # the same decision delay on a symmetric DUT. This is the check a sign
+            # bug in the classification could not survive.
+            a(
+                "**4. Decision-delay symmetry, the falsifiability check.** On a "
+                "symmetric mismatch-free DUT the decision delay at `+V` and `-V` "
+                "must agree. Measured, per corner point (matched |Vindiff| pairs "
+                "where both signs were probed):"
+            )
+            a("")
+            a("| corner-id | matched pairs | worst |t(+V) - t(-V)| (ns) |")
+            a("|---|---|---|")
+            for r in results:
+                by_v = {
+                    round(p.vindiff_mv, 6): p.decide_time_ns for p in r.probes
+                    if p.decide_time_ns is not None
+                }
+                deltas = [
+                    abs(by_v[v] - by_v[round(-v, 6)])
+                    for v in by_v
+                    if v > 0 and round(-v, 6) in by_v
+                ]
+                if deltas:
+                    a(f"| `{r.corner_id}` | {len(deltas)} | {max(deltas):.4f} |")
+                else:
+                    a(f"| `{r.corner_id}` | 0 | n/a |")
+            a("")
+            a(
+                "A sign error in the polarity classification, or a one-sided "
+                "search, could not produce a matched ladder -- which is why the "
+                "coarse scan is a SYMMETRIC signed grid rather than a one-sided "
+                "sweep."
+            )
         a("")
         if extracted:
             a(
@@ -3112,6 +3180,13 @@ def write_offset_bisect_evidence(
         "here is therefore CONSISTENT with that record rather than in tension "
         "with it, and the comparison is a statement about sample size, not "
         "about a disagreement between two methods."
+        + (
+            " (This record's DUT is the EXTRACTED netlist and that record's "
+            "was schematic-level, so the comparison also crosses a netlist "
+            "class; a sub-mV systematic boundary is still far inside that "
+            "record's +-24.27 mV standard error either way.)"
+            if extracted else ""
+        )
     )
     a("")
     a(
@@ -3145,13 +3220,24 @@ def write_offset_bisect_evidence(
         "reason this record exists at these two points:"
     )
     a("")
-    a(
-        "- **`tt`/27 C is the negative control.** A mismatch-free DUT at the "
-        "nominal corner is symmetric in its input by construction, so its "
-        "systematic boundary must come out at ~0 mV. A non-zero answer there "
-        "would indict the measurement, not the comparator -- which is exactly "
-        "what makes the `ss`/-40 C number trustworthy or not."
-    )
+    if extracted:
+        a(
+            "- **`tt`/27 C is the nominal point, NOT a negative control on this "
+            "DUT.** On the schematic netlist it is one (symmetric by "
+            "construction, so ~0 mV is forced); the extracted netlist is not "
+            "symmetric by construction, so a non-zero answer here is a "
+            "candidate circuit property. The measurement's own negative "
+            "control is the same point on the schematic netlist, in "
+            f"`{BISECT_SCHEMATIC_RECORD_ID}`."
+        )
+    else:
+        a(
+            "- **`tt`/27 C is the negative control.** A mismatch-free DUT at the "
+            "nominal corner is symmetric in its input by construction, so its "
+            "systematic boundary must come out at ~0 mV. A non-zero answer there "
+            "would indict the measurement, not the comparator -- which is exactly "
+            "what makes the `ss`/-40 C number trustworthy or not."
+        )
     a(
         "- **`ss`/-40 C is the slow/cold stress point**, where regeneration is "
         "slowest and a finite evaluate window is most likely to produce a "
