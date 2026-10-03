@@ -1280,22 +1280,32 @@ the **Architecture** and **Corners** rows started citing records by path
 (check 37, below the census). For the first two that is **correct rather
 than an oversight**, and for the same underlying reason:
 
-- `sim/comparator-decision`'s fourteen records are not one supersession
+- `sim/comparator-decision`'s seventeen records are not one supersession
   chain but several independent ones, along different claim axes: input-referred
   noise (four records, two chains: the nominal-point `20260821-072003-433a294` ->
   `20260906-064530-eedd532` and the corner campaign `20260827-212404-e13bc1e` ->
   `20260906-065109-eedd532`), decision delay (four records, two chains:
   `20260821-065653-433a294` -> `20260906-075157-7724af3` and
   `20260906-052758-662a84d` -> `20260906-074451-7724af3`), mismatch offset
-  (three records: `20260821-071918-433a294` carries `Supersedes: (none)`, and
-  `20260828-004101-0c70212` -> `20260906-082728-7724af3`; no row cites any of
-  them), and kickback (three records: `20260924-041815-afcb1b5` ->
+  (six records in five chains: `20260821-071918-433a294` carries
+  `Supersedes: (none)`, and `20260828-004101-0c70212` ->
+  `20260906-082728-7724af3`; plus three `Supersedes: (none)` records from the
+  boundary-bisection `offset-bisect` family, all informational -- DR-020
+  declines an offset or dead-band row, so there is nothing for them to grade:
+  the schematic-netlist systematic-offset/dead-band record
+  `20261002-203719-c898d06` (issue #515), the random-offset smoke record
+  `20261003-051649-e123d0e` (issue #524, N=3 draws, no spec row, not a
+  converged sigma), and the post-layout extracted-DUT replication
+  `20261003-084648-c42c815` (issue #525, §4's post-layout row); no row cites
+  any of them as a verdict), and kickback (three records: `20260924-041815-afcb1b5` ->
   `20260925-050027-0259924`, plus `20260925-182138-23ad4d8`, a measurement of
   an experimental neutralized variant, not of the adopted comparator, with
   `Supersedes: (none)`). The rows above cite the noise, delay, and kickback
   records separately, so no single record of that campaign is "the current"
   one and minting a pointer would force a false answer. (Re-derived
-  2026-10-03 against the tree's 14 records; this bullet read "thirteen records
+  2026-10-03, again later that day against the tree's 17 records -- the three
+  `offset-bisect` records above landed in between; the first re-derivation was
+  against 14 records; this bullet read "thirteen records
   ... three distinct claims" until then, which undercounted both the records
   and the claim axes: it omitted the offset axis and the neutralized-variant
   kickback record.)
@@ -1368,7 +1378,7 @@ the list is the cheapest way to make this gate's coverage read better than it
 is. The record count is stated per flow because it is what says how large each
 hole is: `sim/cdac-array-transfer`'s six records narrow what either of its
 two rows' citations could have meant far less than a one-record campaign
-would, and `sim/comparator-decision`'s fourteen widen that same uncertainty
+would, and `sim/comparator-decision`'s seventeen widen that same uncertainty
 further still — a citation chosen out of a set nothing re-derives.
 
 `sim/enob-estimate` and `sim/sar-sequencer-behavioral` are the two campaigns
