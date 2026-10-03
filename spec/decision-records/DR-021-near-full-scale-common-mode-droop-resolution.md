@@ -10,9 +10,9 @@
   prior record is declared superseded).
 - **Date**: 2026-10-03
 - **Decided by**: Builder agent, issue #267
-- **Supersedes**: none. It closes the "Open items" entry of
+- **Supersedes**: none. It proposes a resolution to the "Open items" entry of
   [DR-008](DR-008-cdac-top-level-switching-polarity.md) for the large-input
-  defect, and discharges the "MCS/Vcm adoption" open item of
+  defect, and proposes a resolution to the "MCS/Vcm adoption" open item of
   [DR-005](DR-005-cdac-array-design.md). DR-004, DR-005 and DR-008 stand
   unedited here (they are superseded in part only if and when the follow-up
   implementation lands; see "Consequences").
@@ -53,7 +53,8 @@ These span the issue's "600-755 mV" figure and are roughly 26-33x DR-004's
 `PH_B8` with the common mode already `-402.1 mV` (`tt`) / `-446.7 mV` (`ff`)
 from `VCM`. The defect is corner-invariant: the 2026-10-01 campaign
 (`20261001-105439-c324f80.md`) still reads `+0.78·V_REF` as 1023 (+112 LSB)
-at 9/9 corners and `-0.78·V_REF` off by 101-124 LSB.
+at 9/9 corners and `-0.78·V_REF` off by +71 to +124 LSB across the 9
+corners.
 
 **Derived from those numbers (arithmetic, not a new measurement):** the
 frozen side sits at `VCM - |Vd|/2` (0.9 V - 0.702 V = 0.198 V for 0.78·V_REF,
