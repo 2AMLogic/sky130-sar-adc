@@ -492,5 +492,171 @@ class TestDutFragmentSelector(unittest.TestCase):
         self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
 
 
+class TestPostLayoutHalfLsbVerdict(unittest.TestCase):
+    """Issue #525: an extracted-DUT record must state explicitly whether a
+    systematic offset or dead band appears at half-LSB scale -- DR-020's
+    supersession trigger. Synthetic DUTs again; nothing here is evidence."""
+
+    HALF = cd.DIFFERENTIAL_LSB_MV / 2.0
+
+    def _results(self, *oracles):
+        out = []
+        for oracle in oracles:
+            _install_oracle(self, oracle)
+            out.append(cd.run_offset_bisect(quiet=True))
+        return out
+
+    def _section(self, results) -> str:
+        lines: list[str] = []
+        cd._offset_bisect_postlayout_comparison(lines.append, results, self.HALF)
+        return "\n".join(lines)
+
+    def test_symmetric_dut_corroborates_dr020(self):
+        rs = self._results(_sign_flip_at(0.0), _sign_flip_at(0.0))
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "NOT-TRIGGERED")
+        self.assertEqual(reasons, [])
+        text = self._section(rs)
+        self.assertIn("NOT MET", text)
+        self.assertIn("CORROBORATED", text)
+        self.assertIn("appear post-layout? NO", text)
+        self.assertIn(cd.BISECT_SCHEMATIC_RECORD_ID, text)
+
+    def test_small_resolved_offset_appears_but_does_not_trigger(self):
+        # resolved (far above the 0.1 mV floor) but well under half-LSB
+        rs = self._results(_sign_flip_at(0.6))
+        self.assertTrue(rs[0].offset_resolved)
+        verdict, _ = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "NOT-TRIGGERED")
+        text = self._section(rs)
+        self.assertIn("appear post-layout? YES", text)
+        self.assertIn("NOT MET", text)
+
+    def test_half_lsb_offset_triggers_supersession(self):
+        rs = self._results(_sign_flip_at(0.0), _sign_flip_at(-2.5))
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "TRIGGERED")
+        self.assertTrue(any("systematic offset" in r for r in reasons))
+        self.assertIn("SUPERSEDED BY A NEW DECISION RECORD", self._section(rs))
+
+    def test_half_lsb_dead_band_triggers_supersession(self):
+        rs = self._results(_dead_band(-1.5, +1.5))  # 3 mV wide, centred
+        self.assertFalse(rs[0].offset_resolved)
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "TRIGGERED")
+        self.assertTrue(any("dead band" in r for r in reasons))
+
+    def test_unbounded_point_is_undetermined_not_corroborating(self):
+        _install_oracle(self, _dead_band(-1e9, +1e9))
+        rs = [cd.run_offset_bisect(quiet=True, max_mv=50.0)]
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "UNDETERMINED")
+        self.assertIn("UNDETERMINED", self._section(rs))
+
+    def test_half_lsb_constant_matches_dr020_figure(self):
+        self.assertAlmostEqual(self.HALF, 1.7578, places=4)
+
+
+def _render_record(test: unittest.TestCase, results, dut_fragment) -> str:
+    """Render `write_offset_bisect_evidence()` to text with the record I/O
+    (git provenance, file writes) stubbed out."""
+    from types import SimpleNamespace
+
+    captured: list[str] = []
+    real_open = cd.evidence.open_record
+    real_final = cd._finalize_record
+    cd.evidence.open_record = lambda *a, **k: (
+        SimpleNamespace(
+            record_path=Path("/nonexistent/record.md"), pdk_line="",
+            ng_version="", netlist_sha="",
+        ),
+        ["# Record stub", ""],
+    )
+
+    def fake_final(lines, *a, **k):
+        captured.extend(lines)
+        return Path("/nonexistent/record.md")
+
+    cd._finalize_record = fake_final
+
+    def restore():
+        cd.evidence.open_record = real_open
+        cd._finalize_record = real_final
+
+    test.addCleanup(restore)
+    cd.write_offset_bisect_evidence(results, dut_fragment=dut_fragment)
+    return "\n".join(captured)
+
+
+class TestRecordProseFollowsTheFragment(unittest.TestCase):
+    """Issue #525: an extracted-DUT record must not reuse the schematic
+    record's symmetric-by-construction reasoning, and the schematic record's
+    text must not gain post-layout sections."""
+
+    def _results(self, oracle):
+        _install_oracle(self, oracle)
+        return [cd.run_offset_bisect(quiet=True)]
+
+    def test_schematic_record_keeps_its_original_framing(self):
+        text = _render_record(self, self._results(_sign_flip_at(0.0)), cd.DUT_FRAGMENT)
+        self.assertIn("- **Netlist provenance**: schematic (", text)
+        self.assertIn("this repo cannot replicate a post-layout result", text)
+        self.assertIn("Decision-delay symmetry, the falsifiability check", text)
+        self.assertIn("**`tt`/27 C is the negative control.**", text)
+        self.assertNotIn("Post-layout vs schematic", text)
+
+    def test_extracted_record_compares_and_drops_schematic_only_claims(self):
+        text = _render_record(
+            self, self._results(_sign_flip_at(0.7)), cd.DUT_FRAGMENT_EXTRACTED,
+        )
+        self.assertIn("- **Netlist provenance**: post-layout extracted", text)
+        self.assertIn("## Post-layout vs schematic (issue #525)", text)
+        self.assertIn(cd.BISECT_SCHEMATIC_RECORD_ID, text)
+        self.assertIn("DR-020 supersession trigger: NOT MET", text)
+        self.assertNotIn("this repo cannot replicate a post-layout result", text)
+        self.assertNotIn("indicts the MEASUREMENT", text)
+        self.assertNotIn("**`tt`/27 C is the negative control.**", text)
+        self.assertIn("Decision-delay asymmetry", text)
+
+
+class TestDelayAsymmetrySignCheck(unittest.TestCase):
+    """The extracted record's item 4: a positive systematic offset must make
+    +V decisions slower than -V ones, and the check must say NO when they
+    disagree."""
+
+    def _result(self, delays: dict[float, float], offset_mv: float):
+        probes = [
+            cd._BisectProbe(
+                vindiff_mv=v, outcome="DECIDED-POS" if v > offset_mv else "DECIDED-NEG",
+                final_diff_v=0.0, pre_edge_diff_v=0.0, decide_time_ns=t,
+                log_text="",
+            )
+            for v, t in delays.items()
+        ]
+        r = cd.BisectCornerResult(
+            corner="tt", temp_c=27.0, supply_v=cd.VDD,
+            evaluate_ns=cd.BISECT_EVALUATE_NS, tol_mv=cd.BISECT_TOL_MV,
+            probes=probes,
+        )
+        r.neg_lo_mv, r.neg_hi_mv = offset_mv - 0.02, offset_mv + 0.02
+        r.pos_lo_mv, r.pos_hi_mv = offset_mv - 0.02, offset_mv + 0.02
+        r.status = "BOUNDED"
+        return r
+
+    def test_positive_offset_with_slower_positive_side_agrees(self):
+        r = self._result({-10.0: 2.0, 10.0: 2.1, -50.0: 1.0, 50.0: 1.05}, 0.7)
+        self.assertTrue(r.offset_resolved)
+        self.assertEqual([v for v, _ in cd._signed_delay_asymmetry(r)], [10.0, 50.0])
+        self.assertTrue(cd._delay_asymmetry_agrees_with_offset(r))
+
+    def test_positive_offset_with_faster_positive_side_disagrees(self):
+        r = self._result({-10.0: 2.1, 10.0: 2.0}, 0.7)
+        self.assertFalse(cd._delay_asymmetry_agrees_with_offset(r))
+
+    def test_unresolved_offset_is_not_checked(self):
+        r = self._result({-10.0: 2.0, 10.0: 2.0}, 0.0)
+        self.assertIsNone(cd._delay_asymmetry_agrees_with_offset(r))
+
+
 if __name__ == "__main__":
     unittest.main()
