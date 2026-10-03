@@ -20,12 +20,26 @@
 #                          calling the pinned `klt gen mos_array` for the two
 #                          switch devices)
 #   klt drc             -> drc.json
+#   klt precheck x2     -> precheck.json (1 nm database grid) and
+#                          precheck.grid5.json (sky130's 5 nm manufacturing
+#                          grid). BOTH are gating, per
+#                          spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md:
+#                          `klt drc`'s curated sky130 deck implements no
+#                          manufacturing-grid/angle rule at all (no `*.ongrid`
+#                          in its rules_checked/rules_skipped lists), while the
+#                          PDK's own shipped signoff deck
+#                          (`sky130A.lydrc`, `OFFGRID = true`) runs
+#                          `<layer>.ongrid(0.005)` by default on every
+#                          metal/via layer this block draws -- so a "DRC clean"
+#                          verdict here says nothing about grid legality and
+#                          this check is the only thing in the flow that does.
 #   klt extract         -> extract.json + <top>.extract.spice
 #   klt lvs             -> lvs.json      (against the schematic-derived
 #                          reference regenerated in step 0)
 #
-# Verdicts: this script asserts DRC **clean** and LVS **match** for both top
-# cells and exits non-zero if either fails. Unlike layout/sar-sequencer's
+# Verdicts: this script asserts DRC **clean**, both precheck grids **pass**,
+# and LVS **match** for both top cells and exits non-zero if any fails. Unlike
+# layout/sar-sequencer's
 # flow it has no "expected blocker" carve-out -- this sub-block's acceptance
 # criteria (issue #100) require both verdicts outright, so a regression must
 # fail the run rather than be recorded as a known state.
@@ -86,6 +100,17 @@ for TOP in "${TOPS[@]}"; do
   set +e
   "$KLT" drc "$GDS" --deck sky130 --format json > "$OUT_DIR/drc${SUFFIX}.json"
   set -e
+
+  # --- 2b. Layout hygiene, on both grids ------------------------------------
+  # `|| true` for the same reason the `klt drc`/`klt lvs` calls above use
+  # `set +e`: a failing check is exit 3, a documented outcome this flow reads
+  # out of the JSON envelope (which names WHICH check failed and on which
+  # layer) rather than off the exit code. render-record.py makes both grids
+  # gating verdicts.
+  ( cd "$OUT_DIR" && "$KLT" precheck "${TOP}.gds" --deck sky130 \
+      --grid-um 0.001 --format json > "precheck${SUFFIX}.json" ) || true
+  ( cd "$OUT_DIR" && "$KLT" precheck "${TOP}.gds" --deck sky130 \
+      --grid-um 0.005 --format json > "precheck${SUFFIX}.grid5.json" ) || true
 
   # --- 3. Extract -----------------------------------------------------------
   set +e

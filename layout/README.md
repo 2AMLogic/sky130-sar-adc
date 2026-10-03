@@ -29,14 +29,36 @@ to tie their PFET body to `BOOST_P`/`BOOST_N` rather than VDD — see
 binding rule and that directory's own README for the recipe and its eight
 verdicts (klt 0.4.0 closed the n-well DRC gap this flow used to work around
 with a second, hand-written deck; see issue #149).
-`seln-inverters/` is new top-level glue logic the integration schematic adds
-directly (issue #103, DRC-clean and LVS-clean): nine `sky130_fd_sc_hd__inv_1`
-instances computing `SELn<i> = NOT(DOUT<i>)` for the CDAC array's N-side
-switch control, placed and routed via `klt place-and-route` like
-`sar-sequencer/`. `sar-adc-top/` is the top-level assembly of all five blocks
-into one GDS per `design/sar_adc_top.sch`'s hierarchy (issue #103) — see that
-directory's own README for the per-block pin geometry, net list, and
-composition status (in progress as of this record).
+`top-glue/` is the top-level standard-cell glue logic the integration
+schematic adds directly, inside no sub-block (issue #387, DRC-clean and
+LVS-clean): 33 `sky130_fd_sc_hd` instances across 6 cell types — DR-008's
+eighteen `and2_1` decision-directed `SELp<i>`/`SELn<i>` drivers and nine
+`xor2_1` readout recode, DR-009's dummy comparator load and half-LSB enable,
+and the `xinv_clkcap`/`xinv_dout9n` inverters — placed and routed via `klt
+place-and-route` like `sar-sequencer/`, and gated instance-for-instance against
+`design/sar_adc_top.spice` on every run and in CI.
+`halflsb-offset/` is the **non-standard-cell other half of that same region**
+(issue #495, DRC-clean and LVS-clean): the 8 `sky130_fd_pr` primitives DR-009
+item 2's half-LSB quantizer offset and its matching dummy add — two
+`cap_mim_m3_1` plus six hand-sized `nfet_01v8`/`pfet_01v8` switches — drawn in
+`sampling-frontend/`'s shape (device generators + `klt draw` + `klt gen-compose`
+as a placer), because `klt place-and-route` has no notion of a MiM capacitor or
+an analog switch. It carries a schematic-parity gate of its own and two results
+worth reading beyond the verdicts: the `_n`/`_p` matching DR-009 requires is a
+build-time **geometric congruence assertion** rather than prose, and `klt lvs`
+is measured to report a clean `match` against a reference whose half-LSB enable
+polarity is inverted — see that directory's README. `seln-inverters/` is its
+**superseded predecessor** (nine `sky130_fd_sc_hd__inv_1` computing
+`SELn<i> = NOT(DOUT<i>)`, issue #56's wiring, which DR-008 retired on
+2026-09-11); since issue #401 **nothing composes it** — it is kept as
+append-only history only, and its own README carries a RETIRED banner saying so.
+`sar-adc-top/` is the top-level assembly (issue #103) — see that directory's own
+README for the per-block pin geometry, net list, and composition status. **Since
+issue #401 that composition places `top-glue/` and `halflsb-offset/`, and is
+re-derived from `design/sar_adc_top.spice` on every run** rather than from a
+hand-maintained instance list — gated headless by
+`sar-adc-top/bin/check-composition-parity.py` (`npm run check:composition-parity`),
+which is what closes issue #387.
 
 ## Install
 
@@ -96,9 +118,13 @@ which is what verdict 6 has to prove.
 
 ```
 layout/
-  requirements.txt                 # pinned klt
+  requirements.txt                 # pinned klt (DRC/extract/LVS flows)
+  erc-requirements.txt             # SECOND, narrower klt pin -- the `klt erc`
+                                   # T1 item 11 supply run only (issue #344);
+                                   # see its header for why it is separate
   bin/
     setup-venv.sh                  # create/refresh layout/.venv
+    setup-erc-venv.sh              # create/refresh layout/.venv-erc
     run-trivial-cell-flow.sh       # the six-verdict flow
     render-record.py               # renders record.md, asserts the verdicts
     drc_violation_fixture.json     # `klt draw` params for the illegal fixture
@@ -114,9 +140,24 @@ layout/
   cdac-array/                      # differential CDAC array (issue #100)
   comparator/                      # dynamic comparator (issue #101)
   sampling-frontend-wells/         # sampling front end n-well isolation (issue #122)
+  sampling-frontend/               # full sampling front end (issue #99)
   sar-sequencer/                   # SAR logic/sequencer (issue #102)
-  seln-inverters/                  # SELn<i>=NOT(DOUT<i>) inverter bank, new top-level glue logic (issue #103)
-  sar-adc-top/                     # top-level assembly of all five blocks above (issue #103, in progress)
+  top-glue/                        # top-level standard-cell glue bank, 33 cells (issue #387)
+  halflsb-offset/                  # DR-009's half-LSB offset network, 8 sky130_fd_pr
+                                   # primitives -- the non-standard-cell other half of the
+                                   # same top-level region (issue #495)
+  seln-inverters/                  # RETIRED (issue #401): SUPERSEDED by top-glue/ --
+                                   # SELn<i>=NOT(DOUT<i>) bank; records kept as
+                                   # append-only history, composed by nothing
+  sar-adc-top/                     # top-level assembly (issue #103, in progress; composes
+                                   # top-glue/ + halflsb-offset/ since issue #401)
+    erc-supply-spec.json           # `klt erc` supply spec -- T1 item 11 (issue #344)
+    bin/run-erc.sh                 # grades reports/LATEST's GDS against that spec
+    bin/check-composition-parity.py # HARD GATE: the composition is derived from
+                                   # design/sar_adc_top.spice, not hand-maintained (#387/#401)
+    erc-reports/                   # append-only ERC records (erc.json + record.md),
+                                   # separate from reports/ because an ERC record is a
+                                   # verdict ABOUT one reports/ GDS, not a new layout
 ```
 
 ## Records are append-only

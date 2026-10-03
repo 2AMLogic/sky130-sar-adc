@@ -1,0 +1,328 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "cdac_array.gds",
+  "reference": "cdac_array.lvs-reference.spice",
+  "top": "cdac_array",
+  "reference_top": "CDAC_ARRAY",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
+  },
+  "hints_applied": null,
+  "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "verified",
+    "reason": null,
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
+  },
+  "mismatch_count": 1,
+  "error_count": 0,
+  "category_counts": {
+    "topology": 1
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 42,
+      "reference": 42,
+      "matched": 42
+    },
+    "devices": {
+      "layout": 1060,
+      "reference": 1060,
+      "matched": 1060
+    },
+    "pins": {
+      "layout": 24,
+      "reference": 24,
+      "matched": 24
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "40cd32fad1fd95c68e63031fd82e2fd37e7b6508d444f46236e63e5a92c29fec",
+    "reference_sha256": "63246c2b60660eedcb2961ac5b385f1442ca7edf3148b88a43a260db04177d60",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:40cd32fad1fd95c68e63031fd82e2fd37e7b6508d444f46236e63e5a92c29fec",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
+  },
+  "mismatches": [
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "\\$10",
+      "reference": "BOT_N0",
+      "pin": false
+    },
+    {
+      "layout": "\\$11",
+      "reference": "BOT_N1",
+      "pin": false
+    },
+    {
+      "layout": "\\$12",
+      "reference": "BOT_N2",
+      "pin": false
+    },
+    {
+      "layout": "\\$13",
+      "reference": "BOT_N3",
+      "pin": false
+    },
+    {
+      "layout": "\\$14",
+      "reference": "BOT_N4",
+      "pin": false
+    },
+    {
+      "layout": "\\$37",
+      "reference": "BOT_N5",
+      "pin": false
+    },
+    {
+      "layout": "\\$36",
+      "reference": "BOT_N6",
+      "pin": false
+    },
+    {
+      "layout": "\\$35",
+      "reference": "BOT_N7",
+      "pin": false
+    },
+    {
+      "layout": "\\$34",
+      "reference": "BOT_N8",
+      "pin": false
+    },
+    {
+      "layout": "\\$4",
+      "reference": "BOT_P0",
+      "pin": false
+    },
+    {
+      "layout": "\\$5",
+      "reference": "BOT_P1",
+      "pin": false
+    },
+    {
+      "layout": "\\$6",
+      "reference": "BOT_P2",
+      "pin": false
+    },
+    {
+      "layout": "\\$7",
+      "reference": "BOT_P3",
+      "pin": false
+    },
+    {
+      "layout": "\\$8",
+      "reference": "BOT_P4",
+      "pin": false
+    },
+    {
+      "layout": "\\$9",
+      "reference": "BOT_P5",
+      "pin": false
+    },
+    {
+      "layout": "\\$40",
+      "reference": "BOT_P6",
+      "pin": false
+    },
+    {
+      "layout": "\\$39",
+      "reference": "BOT_P7",
+      "pin": false
+    },
+    {
+      "layout": "\\$38",
+      "reference": "BOT_P8",
+      "pin": false
+    },
+    {
+      "layout": "SELn0",
+      "reference": "SELN0",
+      "pin": true
+    },
+    {
+      "layout": "SELn1",
+      "reference": "SELN1",
+      "pin": true
+    },
+    {
+      "layout": "SELn2",
+      "reference": "SELN2",
+      "pin": true
+    },
+    {
+      "layout": "SELn3",
+      "reference": "SELN3",
+      "pin": true
+    },
+    {
+      "layout": "SELn4",
+      "reference": "SELN4",
+      "pin": true
+    },
+    {
+      "layout": "SELn5",
+      "reference": "SELN5",
+      "pin": true
+    },
+    {
+      "layout": "SELn6",
+      "reference": "SELN6",
+      "pin": true
+    },
+    {
+      "layout": "SELn7",
+      "reference": "SELN7",
+      "pin": true
+    },
+    {
+      "layout": "SELn8",
+      "reference": "SELN8",
+      "pin": true
+    },
+    {
+      "layout": "SELp0",
+      "reference": "SELP0",
+      "pin": true
+    },
+    {
+      "layout": "SELp1",
+      "reference": "SELP1",
+      "pin": true
+    },
+    {
+      "layout": "SELp2",
+      "reference": "SELP2",
+      "pin": true
+    },
+    {
+      "layout": "SELp3",
+      "reference": "SELP3",
+      "pin": true
+    },
+    {
+      "layout": "SELp4",
+      "reference": "SELP4",
+      "pin": true
+    },
+    {
+      "layout": "SELp5",
+      "reference": "SELP5",
+      "pin": true
+    },
+    {
+      "layout": "SELp6",
+      "reference": "SELP6",
+      "pin": true
+    },
+    {
+      "layout": "SELp7",
+      "reference": "SELP7",
+      "pin": true
+    },
+    {
+      "layout": "SELp8",
+      "reference": "SELP8",
+      "pin": true
+    },
+    {
+      "layout": "TOP_N",
+      "reference": "TOP_N",
+      "pin": true
+    },
+    {
+      "layout": "TOP_P",
+      "reference": "TOP_P",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VREFN",
+      "reference": "VREFN",
+      "pin": true
+    },
+    {
+      "layout": "VREFP",
+      "reference": "VREFP",
+      "pin": true
+    },
+    {
+      "layout": "VSS",
+      "reference": "VSS",
+      "pin": true
+    }
+  ]
+}

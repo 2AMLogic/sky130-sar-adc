@@ -1,0 +1,258 @@
+{
+  "schema_version": 2,
+  "file": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/cdac-array/reports/20260924-233346-66dca3c/cdac_unit_cell.gds",
+  "deck": "sky130",
+  "dbu_um": 0.001,
+  "status": "clean",
+  "violation_count": 0,
+  "rule_counts": {},
+  "metrics": {
+    "drc__error__count": 0
+  },
+  "violations": [],
+  "coverage": {
+    "deck_layers": [
+      "64/20",
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "71/44",
+      "72/20",
+      "89/44",
+      "97/44"
+    ],
+    "layers_checked": [
+      "64/20",
+      "65/20",
+      "66/20",
+      "66/44",
+      "67/20",
+      "67/44",
+      "68/20",
+      "68/44",
+      "69/20",
+      "69/44",
+      "70/20",
+      "70/44",
+      "71/20",
+      "89/44"
+    ],
+    "layers_in_stream_without_rules": [
+      "64/5",
+      "66/5",
+      "68/5",
+      "71/5"
+    ],
+    "rules_checked": [
+      "capm.enclosing.via3.1",
+      "capm.separation.via3.1",
+      "capm.space.1",
+      "capm.width.1",
+      "diff.enclosing.licon.1",
+      "diff.width.1",
+      "li1.enclosing.licon1.1",
+      "li1.space.1",
+      "li1.width.1",
+      "mcon.space.1",
+      "met1.area.1",
+      "met1.enclosing.mcon.1",
+      "met1.enclosing.via.1",
+      "met1.holes_area.1",
+      "met1.space.1",
+      "met1.width.1",
+      "met2.area.1",
+      "met2.enclosing.via.1",
+      "met2.enclosing.via2.1",
+      "met2.holes_area.1",
+      "met2.space.1",
+      "met2.width.1",
+      "met3.area.1",
+      "met3.enclosing.capm.1",
+      "met3.enclosing.via2.1",
+      "met3.enclosing.via3.1",
+      "met3.holes_area.1",
+      "met3.space.1",
+      "met3.width.1",
+      "met4.area.1",
+      "met4.enclosing.via3.1",
+      "met4.holes_area.1",
+      "met4.space.1",
+      "met4.width.1",
+      "nwell.space.1",
+      "nwell.width.1",
+      "poly.enclosing.licon.1",
+      "poly.width.1",
+      "via.space.1",
+      "via.width.1",
+      "via2.space.1",
+      "via2.width.1",
+      "via3.space.1",
+      "via3.width.1"
+    ],
+    "rules_skipped": [
+      "capm2.enclosing.via4.1",
+      "capm2.separation.via4.1",
+      "capm2.space.1",
+      "capm2.width.1",
+      "met4.enclosing.capm2.1",
+      "met4.enclosing.via4.1",
+      "met5.area.1",
+      "met5.enclosing.via4.1",
+      "met5.holes_area.1",
+      "met5.space.1",
+      "met5.width.1",
+      "via4.space.1",
+      "via4.width.1"
+    ],
+    "voltage_domain_warnings": [],
+    "deck_scope": [
+      "cap2m",
+      "capm",
+      "ct",
+      "difftap",
+      "li",
+      "licon",
+      "m1",
+      "m2",
+      "m3",
+      "m4",
+      "m5",
+      "nwell",
+      "poly",
+      "via",
+      "via2",
+      "via3",
+      "via4"
+    ],
+    "schema_version": 1,
+    "known": true,
+    "checked": [
+      "capm.enclosing.via3.1",
+      "capm.separation.via3.1",
+      "capm.space.1",
+      "capm.width.1",
+      "diff.enclosing.licon.1",
+      "diff.width.1",
+      "li1.enclosing.licon1.1",
+      "li1.space.1",
+      "li1.width.1",
+      "mcon.space.1",
+      "met1.area.1",
+      "met1.enclosing.mcon.1",
+      "met1.enclosing.via.1",
+      "met1.holes_area.1",
+      "met1.space.1",
+      "met1.width.1",
+      "met2.area.1",
+      "met2.enclosing.via.1",
+      "met2.enclosing.via2.1",
+      "met2.holes_area.1",
+      "met2.space.1",
+      "met2.width.1",
+      "met3.area.1",
+      "met3.enclosing.capm.1",
+      "met3.enclosing.via2.1",
+      "met3.enclosing.via3.1",
+      "met3.holes_area.1",
+      "met3.space.1",
+      "met3.width.1",
+      "met4.area.1",
+      "met4.enclosing.via3.1",
+      "met4.holes_area.1",
+      "met4.space.1",
+      "met4.width.1",
+      "nwell.space.1",
+      "nwell.width.1",
+      "poly.enclosing.licon.1",
+      "poly.width.1",
+      "via.space.1",
+      "via.width.1",
+      "via2.space.1",
+      "via2.width.1",
+      "via3.space.1",
+      "via3.width.1"
+    ],
+    "skipped": [],
+    "inapplicable": [
+      {
+        "id": "capm2.enclosing.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm2.separation.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm2.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "capm2.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.enclosing.capm2.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met4.enclosing.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.enclosing.via4.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.holes_area.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "met5.width.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via4.space.1",
+        "reason": "no_applicable_geometry"
+      },
+      {
+        "id": "via4.width.1",
+        "reason": "no_applicable_geometry"
+      }
+    ],
+    "unknown": [],
+    "nothing_checked": false,
+    "nothing_checked_reasons": []
+  },
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:793b48a42ca7c5596d3a733294935e2db14c681a7a0a95f5b9933f07303fcc16",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
+  }
+}

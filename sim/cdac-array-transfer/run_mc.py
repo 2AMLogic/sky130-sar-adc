@@ -274,6 +274,7 @@ def write_evidence(
     note: str = "",
     target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
     target_yield: float = 0.99,
+    supersedes: str = "",
 ) -> tuple[Path, bool]:
     sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
@@ -509,7 +510,7 @@ def write_evidence(
         extra=extra_env,
     ))
     a("")
-    lines.extend(evidence.footer_lines("sim/cdac-array-transfer/run_mc.py", ""))
+    lines.extend(evidence.footer_lines("sim/cdac-array-transfer/run_mc.py", supersedes))
 
     record_path.write_text("\n".join(lines))
     return record_path, overall_ok
@@ -523,6 +524,7 @@ def main() -> int:
     ap.add_argument("--n", type=int, default=50)
     ap.add_argument("--corner", default=BASE_CORNER)
     ap.add_argument("--note", default="")
+    evidence.add_supersedes_argument(ap)
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument(
         "--reanalyze", metavar="RECORD_ID", default=None,
@@ -561,6 +563,7 @@ def main() -> int:
         record_path, ok = write_evidence(
             result, note=args.note,
             target_limit_lsb=args.target_limit_lsb, target_yield=args.target_yield,
+            supersedes=args.supersedes,
         )
         print(f"wrote {record_path}")
         print("PASS" if ok else "FAIL")

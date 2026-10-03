@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "generator": "gen-compose",
+  "cell_name": "gen_compose_0",
+  "gds_path": "gen_compose_0.gds",
+  "pdk": {
+    "name": "sky130A",
+    "variant": "sky130A",
+    "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+  },
+  "dbu_um": 0.001,
+  "bbox_um": {
+    "x0": -20.25,
+    "y0": -161.6,
+    "x1": 260.2,
+    "y1": 223.9
+  },
+  "ports": [],
+  "blocks": [
+    {
+      "id": "cdac_array",
+      "source": "cell",
+      "generator": null,
+      "cell_name": "cdac_array",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sar-adc-top/reports/20260924-234053-66dca3c/cdac_array.gds",
+      "source_digest": "sha256:ad49f2d3815abfbee817ebce9380bcd10b6fd9362964f186422688d096701c9b",
+      "offset_um": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": -4.5,
+        "y0": -35.0,
+        "x1": 218.70000000000002,
+        "y1": 55.85
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sampling_frontend",
+      "source": "cell",
+      "generator": null,
+      "cell_name": "gen_compose_0",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sar-adc-top/reports/20260924-234053-66dca3c/sampling_frontend.gds",
+      "source_digest": "sha256:cf3e1397898557038f12639f81b80361d6df86ce786a2698e0b43cd95666ae89",
+      "offset_um": {
+        "x": 63.825,
+        "y": 88.25
+      },
+      "bbox_um": {
+        "x0": 63.825,
+        "y0": 85.85,
+        "x1": 259.385,
+        "y1": 147.22
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "comparator",
+      "source": "cell",
+      "generator": null,
+      "cell_name": "gen_compose_0",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sar-adc-top/reports/20260924-234053-66dca3c/comparator.gds",
+      "source_digest": "sha256:fc486923e94bf9b57fd32882b01ccc29a800f447ed9f13093f527050a2b5de6b",
+      "offset_um": {
+        "x": 100.2,
+        "y": 173.8
+      },
+      "bbox_um": {
+        "x0": 100.2,
+        "y0": 176.3,
+        "x1": 126.80000000000001,
+        "y1": 212.45000000000002
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sar_sequencer",
+      "source": "cell",
+      "generator": null,
+      "cell_name": "sar_sequencer",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sar-adc-top/reports/20260924-234053-66dca3c/sar_sequencer.gds",
+      "source_digest": "sha256:3b29e60f05ecdf1897135acec79d68f1cdb3d5f93fa206caa2e3a80f6ed03def",
+      "offset_um": {
+        "x": 21.1175,
+        "y": -150.0
+      },
+      "bbox_um": {
+        "x0": 21.1175,
+        "y0": -150.0,
+        "x1": 63.6875,
+        "y1": -107.43
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "seln_inverters",
+      "source": "cell",
+      "generator": null,
+      "cell_name": "seln_inverters",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sar-adc-top/reports/20260924-234053-66dca3c/seln_inverters.gds",
+      "source_digest": "sha256:1d4fe8602717fff38222e938ab067efcb8c844fcdcfe11867e9ee22d175eedd0",
+      "offset_um": {
+        "x": 87.6875,
+        "y": -150.0
+      },
+      "bbox_um": {
+        "x0": 87.6875,
+        "y0": -150.0,
+        "x1": 173.8825,
+        "y1": -63.80499999999999
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "route",
+      "source": "generator_report",
+      "generator": "draw",
+      "cell_name": "SAR_ADC_TOP_ROUTE",
+      "source_path": "route.gds",
+      "source_digest": "sha256:1f56b66759742f954cbf721dcdbd9d1b63f8f4e0a40ee309a8f174c08cc54573",
+      "offset_um": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": -20.25,
+        "y0": -161.6,
+        "x1": 260.2,
+        "y1": 223.9
+      },
+      "orientation": "none"
+    }
+  ],
+  "nets": [],
+  "pins": [],
+  "unrouted_nets": [],
+  "drc_hints": {
+    "min_spacing_um": null,
+    "matched_groups": [],
+    "notes": []
+  },
+  "warnings": [],
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+    },
+    "deck": null,
+    "input": null
+  }
+}

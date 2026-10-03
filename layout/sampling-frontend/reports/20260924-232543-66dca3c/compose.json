@@ -1,0 +1,536 @@
+{
+  "schema_version": 1,
+  "generator": "gen-compose",
+  "cell_name": "gen_compose_0",
+  "gds_path": "gen_compose_0.gds",
+  "pdk": {
+    "name": "sky130A",
+    "variant": "sky130A",
+    "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+  },
+  "dbu_um": 0.001,
+  "bbox_um": {
+    "x0": 0.0,
+    "y0": -2.4,
+    "x1": 195.56,
+    "y1": 58.97
+  },
+  "ports": [],
+  "blocks": [
+    {
+      "id": "sa_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SA_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/sa_p.gds",
+      "source_digest": "sha256:e88d69c25268b009f88dd12c3c9b05553133ff60cce3faf713b8efc13a05388b",
+      "offset_um": {
+        "x": 2.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 1.85,
+        "y0": -0.15,
+        "x1": 3.49,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "se_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SE_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/se_p.gds",
+      "source_digest": "sha256:9c3a5175d527c5ea8cd629a8fcaf0e2ee05227bda5ab1659f60f28ca68822be7",
+      "offset_um": {
+        "x": 5.2,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 5.05,
+        "y0": -0.15,
+        "x1": 6.44,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scp_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCP_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/scp_p.gds",
+      "source_digest": "sha256:b991cfd4fc70149070e1f3e6b561d0dcd65b12a59a6249b70a11e4157b61e566",
+      "offset_um": {
+        "x": 10.34,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 10.19,
+        "y0": -0.15,
+        "x1": 11.58,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswp_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWP_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/cmswp_p.gds",
+      "source_digest": "sha256:2df17abdc1593e5b1a4e89968e1acfaeab754ff1da2ddd208b47602b819581bd",
+      "offset_um": {
+        "x": 13.54,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 13.389999999999999,
+        "y0": -0.15,
+        "x1": 14.78,
+        "y1": 16.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "invp",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "INVP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/invp.gds",
+      "source_digest": "sha256:c4fe21fcd5a3845c801f7c858d9439e1be10b66864d2339b60ae63c8fa1bb37c",
+      "offset_um": {
+        "x": 16.74,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 16.59,
+        "y0": -0.15,
+        "x1": 17.979999999999997,
+        "y1": 2.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswp_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWP_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/cmswp_n.gds",
+      "source_digest": "sha256:06498a1b400ea132b3103e451a0b11bc967a8e57acf1b90a0d2a8eb9742907d8",
+      "offset_um": {
+        "x": 19.939999999999998,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 19.79,
+        "y0": -0.15,
+        "x1": 21.179999999999996,
+        "y1": 16.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scp_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCP_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/scp_n.gds",
+      "source_digest": "sha256:63e2baa885a549bde0f599dbaaf1fa763b17ec088632f908a5ef6cda3bc2e17f",
+      "offset_um": {
+        "x": 23.139999999999997,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 22.99,
+        "y0": -0.15,
+        "x1": 24.379999999999995,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "se_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SE_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/se_n.gds",
+      "source_digest": "sha256:e7d2baf5a0d123265aca246da7df87d858cb53620a34dd3fc46263faeb6b969a",
+      "offset_um": {
+        "x": 28.279999999999998,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 28.13,
+        "y0": -0.15,
+        "x1": 29.519999999999996,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sa_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SA_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/sa_n.gds",
+      "source_digest": "sha256:6651aadea8834ea47e755c55190c9f41f39d481f67b0df0f46540e78bc9757c2",
+      "offset_um": {
+        "x": 31.479999999999997,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 31.33,
+        "y0": -0.15,
+        "x1": 32.97,
+        "y1": 1.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "msw_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MSW_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/msw_p.gds",
+      "source_digest": "sha256:84db330ed1fe32787316cf3e22f3e43a600f2f0ecac54d273de7a9e1d7cc8075",
+      "offset_um": {
+        "x": 42.47,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 42.47,
+        "y0": 0.0,
+        "x1": 43.56,
+        "y1": 2.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "msw_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MSW_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/msw_n.gds",
+      "source_digest": "sha256:d9ce2563c1ce6b8ac45edd28b7e2b7677ff145dd0c2037872576640b65bf2435",
+      "offset_um": {
+        "x": 44.76,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 44.76,
+        "y0": 0.0,
+        "x1": 45.85,
+        "y1": 2.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sb_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SB_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/sb_p.gds",
+      "source_digest": "sha256:e1048204ba71c62f1a06779d4f8e3a5405642540a70b1a494a83bcbae79769d4",
+      "offset_um": {
+        "x": 47.05,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 47.05,
+        "y0": 0.0,
+        "x1": 48.14,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scn_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCN_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/scn_p.gds",
+      "source_digest": "sha256:c505aba78b9e9fbe13b5d38bfe6ec17076c3ca81eb5ca38567058a3134b95831",
+      "offset_um": {
+        "x": 49.339999999999996,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 49.339999999999996,
+        "y0": 0.0,
+        "x1": 50.43,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sd_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SD_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/sd_p.gds",
+      "source_digest": "sha256:8054eec03e2a7e2c6b330114b54ae6dfe42c75480d1f9b7a4ca5e73badfc66d1",
+      "offset_um": {
+        "x": 51.629999999999995,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 51.629999999999995,
+        "y0": 0.0,
+        "x1": 52.97,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswn_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWN_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/cmswn_p.gds",
+      "source_digest": "sha256:eeabcedbb05eeebb29a6328e6eb952883176bad65cb4846e39b693d48a85e8e6",
+      "offset_um": {
+        "x": 54.169999999999995,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 54.169999999999995,
+        "y0": 0.0,
+        "x1": 55.26,
+        "y1": 16.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cmswn_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWN_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/cmswn_n.gds",
+      "source_digest": "sha256:e57b05388398415bfb9006087905f88863946d96f975a8d31472f64085caa908",
+      "offset_um": {
+        "x": 56.459999999999994,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 56.459999999999994,
+        "y0": 0.0,
+        "x1": 57.55,
+        "y1": 16.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sd_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SD_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/sd_n.gds",
+      "source_digest": "sha256:b219ee3063fc1c4030f4d01f09a7141f235d9417b5f38519768fe7100f6fb90a",
+      "offset_um": {
+        "x": 58.74999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 58.74999999999999,
+        "y0": 0.0,
+        "x1": 60.089999999999996,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "scn_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCN_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/scn_n.gds",
+      "source_digest": "sha256:a09c8878ac63ab043cb5b0caf0efd7d1939de352ef55fd548aa72f8f2b3df1c1",
+      "offset_um": {
+        "x": 61.28999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 61.28999999999999,
+        "y0": 0.0,
+        "x1": 62.379999999999995,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "sb_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SB_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/sb_n.gds",
+      "source_digest": "sha256:1023f32abf6072421d0453d2c75f3db4d738ef2e859b03e81ccb5a97a420f58d",
+      "offset_um": {
+        "x": 63.57999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 63.57999999999999,
+        "y0": 0.0,
+        "x1": 64.66999999999999,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "invn",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "INVN",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/invn.gds",
+      "source_digest": "sha256:a87033f19cd9cded712c5444111dc01e9bae1dd9e309d9a2c59d415fe35c131f",
+      "offset_um": {
+        "x": 65.86999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 65.86999999999999,
+        "y0": 0.0,
+        "x1": 66.96,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "cboot",
+      "source": "generator_report",
+      "generator": "cap_array",
+      "cell_name": "CBOOT",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/cboot.gds",
+      "source_digest": "sha256:2372967fd24b8a364bb17b18295fc20e2f1769061323593fd23a23dd0c65aca8",
+      "offset_um": {
+        "x": 74.16,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 74.16,
+        "y0": 0.0,
+        "x1": 96.25999999999999,
+        "y1": 11.72
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "csamp",
+      "source": "generator_report",
+      "generator": "cap_array",
+      "cell_name": "CSAMP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-377/layout/sampling-frontend/reports/20260924-232543-66dca3c/csamp.gds",
+      "source_digest": "sha256:02a9e272980265b90cc16f92ff6c16f67b6489a60378228e7163326cf5d0c776",
+      "offset_um": {
+        "x": 99.25999999999999,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 99.25999999999999,
+        "y0": 0.0,
+        "x1": 195.56,
+        "y1": 48.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "route",
+      "source": "generator_report",
+      "generator": "draw",
+      "cell_name": "ROUTE",
+      "source_path": "route.gds",
+      "source_digest": "sha256:51dbe9f589f406bcf64d3b9b8109bfb6e5e9455e00eac6fde818b4ffb652a06a",
+      "offset_um": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 0.0,
+        "y0": -2.4,
+        "x1": 171.86,
+        "y1": 58.97
+      },
+      "orientation": "none"
+    }
+  ],
+  "nets": [],
+  "pins": [],
+  "unrouted_nets": [],
+  "drc_hints": {
+    "min_spacing_um": null,
+    "matched_groups": [
+      {
+        "matched_group_id": "mos_array:1x1:common_centroid",
+        "blocks": [
+          "sa_p",
+          "se_p",
+          "scp_p",
+          "cmswp_p",
+          "invp",
+          "cmswp_n",
+          "scp_n",
+          "se_n",
+          "sa_n",
+          "msw_p",
+          "msw_n",
+          "sb_p",
+          "scn_p",
+          "sd_p",
+          "cmswn_p",
+          "cmswn_n",
+          "sd_n",
+          "scn_n",
+          "sb_n",
+          "invn"
+        ],
+        "placement_symmetric": null
+      },
+      {
+        "matched_group_id": "cap_array:2",
+        "blocks": [
+          "cboot",
+          "csamp"
+        ],
+        "placement_symmetric": null
+      }
+    ],
+    "notes": []
+  },
+  "warnings": [
+    "block 'route' is placed 0.00um from block 'sa_p' (strategy: explicit), closer than sa_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'se_p' (strategy: explicit), closer than se_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scp_p' (strategy: explicit), closer than scp_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswp_p' (strategy: explicit), closer than cmswp_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'invp' (strategy: explicit), closer than invp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswp_n' (strategy: explicit), closer than cmswp_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scp_n' (strategy: explicit), closer than scp_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'se_n' (strategy: explicit), closer than se_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sa_n' (strategy: explicit), closer than sa_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'msw_p' (strategy: explicit), closer than msw_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'msw_n' (strategy: explicit), closer than msw_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sb_p' (strategy: explicit), closer than sb_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scn_p' (strategy: explicit), closer than scn_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sd_p' (strategy: explicit), closer than sd_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswn_p' (strategy: explicit), closer than cmswn_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswn_n' (strategy: explicit), closer than cmswn_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sd_n' (strategy: explicit), closer than sd_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scn_n' (strategy: explicit), closer than scn_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sb_n' (strategy: explicit), closer than sb_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'invn' (strategy: explicit), closer than invn's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cboot' (strategy: explicit), closer than cboot's own declared drc_hints.min_spacing_um of 0.50um",
+    "block 'route' is placed 0.00um from block 'csamp' (strategy: explicit), closer than csamp's own declared drc_hints.min_spacing_um of 0.50um"
+  ],
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+    },
+    "deck": null,
+    "input": null
+  }
+}

@@ -208,6 +208,29 @@ CORNERS_SUPERSEDES_RECORD = "20260906-211700-00d26af"
 # The single-corner record's own superseded predecessor, for the same reason.
 SINGLE_CORNER_SUPERSEDES_RECORD = "20260906-202424-cb7e7aa"
 
+# The two narratives built from the two constants above are the DEFAULT value
+# of each write path's `supersedes` argument, not its only possible value
+# (issue #513). Each names one specific record this campaign displaced once, in
+# the past -- a fixed historical fact, which is exactly why the NEXT re-run
+# must be able to re-aim the pointer without editing this file: by then the
+# record actually being displaced is the one minted in between, not the one
+# named here. `--supersedes` (threaded below, same flag every other
+# evidence-writing runner takes -- issue #502) overrides either default.
+# Omitting it reproduces the pre-#513 bytes exactly, so no committed record is
+# affected.
+SINGLE_CORNER_SUPERSEDES_DEFAULT = (
+    f"[`records/{SINGLE_CORNER_SUPERSEDES_RECORD}.md`]"
+    f"({SINGLE_CORNER_SUPERSEDES_RECORD}.md) -- same stimulus, same "
+    "single tt/27C/1.8V point, measured against the pre-issue-#236 "
+    "`design/sampling_frontend.sch`"
+)
+CORNERS_SUPERSEDES_DEFAULT = (
+    f"[`records/{CORNERS_SUPERSEDES_RECORD}.md`]"
+    f"({CORNERS_SUPERSEDES_RECORD}.md) -- same stimulus and same 9-point "
+    "ratified OAT grid, measured against the pre-issue-#236 "
+    "`design/sampling_frontend.sch`"
+)
+
 EDGE_TR_NS = 0.2  # rise/fall time for every edge below -- same convention
 # sim/cdac-bit-trial-settling/'s own EDGE_TR_NS.
 
@@ -456,7 +479,13 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     return points
 
 
-def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sample: str) -> None:
+def write_record(
+    crossing_rows: list[dict],
+    budget_rows: list[dict],
+    netlist_sample: str,
+    supersedes: str = "",
+) -> None:
+    supersedes = supersedes or SINGLE_CORNER_SUPERSEDES_DEFAULT
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_sample)
     record_id = prov.record_id
     record_path = prov.record_path
@@ -717,22 +746,19 @@ def write_record(crossing_rows: list[dict], budget_rows: list[dict], netlist_sam
     a("")
     lines.extend(evidence.footer_lines(
         "sim/sampling-acquisition-settling/run_acquisition_settling.py",
-        f"[`records/{SINGLE_CORNER_SUPERSEDES_RECORD}.md`]"
-        f"({SINGLE_CORNER_SUPERSEDES_RECORD}.md) -- same stimulus, same "
-        "single tt/27C/1.8V point, measured against the pre-issue-#236 "
-        "`design/sampling_frontend.sch`",
+        supersedes,
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
-    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-    latest_path.write_text(f"{record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     print(f"\nWrote record: {record_path}")
 
 
-def write_corners_record(points: list[dict]) -> Path:
+def write_corners_record(points: list[dict], supersedes: str = "") -> Path:
     """Evidence record for the full ratified-PVT-grid --corners campaign,
     same `corners/<record_id>/` per-point-log layout
     sim/comparator-decision/'s own regen-corners campaign uses."""
+    supersedes = supersedes or CORNERS_SUPERSEDES_DEFAULT
     # Netlist snapshot: the tt/27C/1.8V baseline point's own deck, the same
     # single-point convention write_record() above uses, so a reader can
     # diff it directly against that single-corner record's own snapshot.
@@ -939,15 +965,11 @@ def write_corners_record(points: list[dict]) -> Path:
     a("")
     lines.extend(evidence.footer_lines(
         "sim/sampling-acquisition-settling/run_acquisition_settling.py",
-        f"[`records/{CORNERS_SUPERSEDES_RECORD}.md`]"
-        f"({CORNERS_SUPERSEDES_RECORD}.md) -- same stimulus and same 9-point "
-        "ratified OAT grid, measured against the pre-issue-#236 "
-        "`design/sampling_frontend.sch`",
+        supersedes,
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
-    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-    latest_path.write_text(f"{record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     print(f"\nWrote record: {record_path}")
     return record_path
 
@@ -959,6 +981,17 @@ def main() -> int:
         "--corners", action="store_true",
         help="run the full ratified PVT grid (9 OAT points) instead of the "
         "single tt/27C/1.8V corner",
+    )
+    evidence.add_supersedes_argument(
+        parser,
+        extra_help=(
+            "Omitting it here does NOT write `(none)`: each write path falls "
+            "back to the fixed historical narrative naming the pre-issue-#236 "
+            "record it displaced once (single-corner: "
+            f"{SINGLE_CORNER_SUPERSEDES_RECORD}; --corners: "
+            f"{CORNERS_SUPERSEDES_RECORD}). A re-run that displaces a "
+            "different record MUST pass this flag -- see issue #513."
+        ),
     )
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
@@ -985,11 +1018,11 @@ def main() -> int:
                     "produced incomplete measurements."
                 )
                 if args.record:
-                    write_corners_record(points)
+                    write_corners_record(points, supersedes=args.supersedes)
                 return 1
             print(f"\nOVERALL: PASS (all {len(points)} corner points produced values)")
             if args.record:
-                write_corners_record(points)
+                write_corners_record(points, supersedes=args.supersedes)
             return 0
 
         crossing_rows, budget_rows, netlist_sample = run_all(scratch)
@@ -1000,7 +1033,10 @@ def main() -> int:
         if incomplete:
             print("FAIL: one or more measurement points did not produce a value.")
             if args.record:
-                write_record(crossing_rows, budget_rows, netlist_sample)
+                write_record(
+                    crossing_rows, budget_rows, netlist_sample,
+                    supersedes=args.supersedes,
+                )
             return 1
 
         print(
@@ -1010,7 +1046,10 @@ def main() -> int:
             "fits the DR-006 phase budget)"
         )
         if args.record:
-            write_record(crossing_rows, budget_rows, netlist_sample)
+            write_record(
+                crossing_rows, budget_rows, netlist_sample,
+                supersedes=args.supersedes,
+            )
 
     return 0
 

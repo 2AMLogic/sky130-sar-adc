@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Measure sky130A's met1-met5 MINIMUM-AREA rules against this repo's own GDS.
 
-Why this script exists (issue #326)
------------------------------------
-`klt drc --deck sky130` is this repo's layout sign-off gate, and every
-`layout/**/reports/` record it has minted reports `status: "clean"`. That
-verdict is real but *narrow*: at the pinned `klayout-tools==0.5.0`
-(`layout/requirements.txt`) the curated sky130 deck authors 47 rules across
-five kinds (`width`, `space`, `enclosing`, `separation`, `isolated`) and **no
-`area`-kind rule at all**, so sky130A's own minimum-area rules --
+Why this script exists (issue #326), and what it is now (issue #363)
+--------------------------------------------------------------------
+`klt drc --deck sky130` is this repo's layout sign-off gate. It was written
+against a real gap: at the then-pinned `klayout-tools==0.5.0` the curated
+sky130 deck authored 47 rules across five kinds (`width`, `space`,
+`enclosing`, `separation`, `isolated`) and **no `area`-kind rule at all**, so
+sky130A's own minimum-area rules --
 
     m1.6    min. m1 area  0.083  um^2
     m2.6    min. m2 area  0.0676 um^2
@@ -16,15 +15,30 @@ five kinds (`width`, `space`, `enclosing`, `separation`, `isolated`) and **no
     m4.4a   min. m4 area  0.240  um^2
     m5.4    min. m5 area  4.0    um^2
 
--- have never looked at any layout in this repository. A shape below one of
-those thresholds is a real foundry-rule violation that `klt drc` structurally
-cannot see today; the gap is fixed upstream (2AMLogic/klayout-tools#1989,
-commit `50cc29c3`) but not yet released, and this repo does not relax a gate to
-match the tool it happens to have. This script is the stand-in measurement:
-it applies the *same* KLayout primitive the PDK's own deck rule text calls
+-- had never looked at any layout in this repository, and a `status: "clean"`
+verdict said nothing about them. This script was the stand-in: it applies the
+*same* KLayout primitive the PDK's own deck rule text calls
 (`Region#with_area`), against the *same* thresholds and layer numbers, read out
-of the pinned PDK install rather than transcribed here -- so it cannot drift
-from the PDK, and it retires cleanly once the released deck carries the rules.
+of the pinned PDK install rather than transcribed here, so it cannot drift from
+the PDK.
+
+**That gap is closed.** `layout/requirements.txt` has since been bumped to
+`klayout-tools==0.6.0` (issue #103, 2026-09-23), which contains commit
+`50cc29c3` (2AMLogic/klayout-tools#1989). The pinned deck now authors 52 rules
+including `met1.area.1` ... `met5.area.1` and `met1.holes_area.1` ...
+`met5.holes_area.1` -- see any current record's own `drc.json`
+`coverage.rules_checked`. `klt drc` is therefore the primary minimum-area
+measurement again, and this script is no longer a stand-in for a missing rule.
+
+It is kept as an **independent cross-check** rather than retired, because that
+is what caught its own defect: for four days the two measurements disagreed
+(this script claiming 145 residual sub-threshold shapes in the composed GDS,
+`klt drc`'s own `met*.area.1` rules reporting 0), and the disagreement is what
+exposed issue #363's under-merge bug *here*, not in the deck. Two independent
+measurements of the same rule that must agree is a stronger gate than either
+one alone; see `measure_gds()` for the property-aware-merge trap that made them
+disagree, and `sim/tests/test_measure_metal_min_area.py` for the regression
+fixture that now pins it.
 
 Clean room: every number this script uses comes from this repo's own pinned
 sky130A install (`sim/pdk.json`: open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b)
@@ -39,14 +53,20 @@ For each of the five metal layers, on each target GDS:
      PDK's own `libs.tech/klayout/drc/sky130A_mr.drc` (the `mN_wildcard =
      "L/D"` assignments and the `mN.with_area(0..T).output("<rule>", ...)`
      calls). Nothing about the rule set is hardcoded below.
-  2. Flatten the GDS's top cell onto that layer, MERGE it (the DRC deck's
-     `polygons(...)` input is merged-semantics, so two abutting drawn
-     rectangles are one polygon to the rule -- measuring unmerged shapes
-     would report violations the foundry rule does not see), and select the
+  2. Flatten the GDS's top cell onto that layer, drop the shapes' GDS user
+     properties, and MERGE it (the DRC deck's `polygons(...)` input is
+     merged-semantics *plain geometry*, so two abutting drawn rectangles are
+     one polygon to the rule no matter what net each carries -- measuring
+     under-merged shapes reports violations the foundry rule does not see,
+     which is precisely the defect issue #363 found here), then select the
      polygons whose area is below the threshold with `Region#with_area`.
   3. Report every selected polygon's bounding box and area.
 
-A non-empty selection is a real m1.6/m2.6/m3.6/m4.4a/m5.4 violation.
+A non-empty selection is a real m1.6/m2.6/m3.6/m4.4a/m5.4 violation, and --
+since the pinned deck now carries the same rules -- one `klt drc` should have
+reported too. A disagreement between the two is a bug in one of them; do not
+publish a count from this script without checking it against the same record's
+own `drc.json` `met*.area.1` result.
 
 USAGE
 -----
@@ -58,6 +78,8 @@ composition plus each of its five sub-block flows (each flow's own
 currently standing behind).
 
     --json          machine-readable output (per-target, per-layer, per-shape)
+    --self-test     negative control: measure a deliberately-illegal fixture
+                    and exit non-zero unless it is caught (see CI GATE below)
     --pdk-root DIR  PDK search root (default: $PDK_ROOT, else ~/.volare)
     --variant NAME  PDK variant (default: $PDK, else sky130A)
     --repo-root DIR repo root used to resolve the default targets
@@ -67,6 +89,34 @@ Exit status:
     0 - every measured layer is clear of its own minimum-area threshold
     1 - at least one shape is below threshold (each one listed)
     2 - usage/environment error (no PDK deck, no klayout module, bad path)
+
+CI GATE (issue #338)
+---------------------
+This measurement is the CI gate for the invariant issue #326 established --
+this repo's own generators draw no isolated sub-minimum-area metal -- and runs
+in `.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job, zero-tolerance: ANY
+shape below its metal's minimum area, on ANY measured target, fails.
+
+That is deliberately simpler than it could be. The composed top level and the
+two place-and-routed digital macros once carried shapes this script attributed
+to `klt`'s own place-and-route rather than to this repo's generators (issue
+#333, filed generically at 2AMLogic/klayout-tools#2072) -- a real, filed,
+not-ours residual that would have needed an explicit waiver to keep out of a
+zero-tolerance gate. Issue #363 found that residual was itself an artifact of
+this script's own region-construction bug (see `measure_gds()`), not of
+anything `klt` drew; the corrected measurement -- and the pinned deck's own
+native `met*.area.1` rules, in place since `klayout-tools==0.6.0` (issue #103)
+-- both report 0 shapes below threshold across every target today. #333 is
+closed. So there is nothing left to waive, and a waiver mechanism built anyway
+would be exactly the kind of carve-out that outlives its own finding: the gate
+is a plain "any shape below threshold fails" check instead.
+
+Run with `--self-test` first, as the CI step does: it measures a
+deliberately-illegal fixture (one isolated square, sized from the deck's own
+`m3.6` threshold) and exits non-zero unless `measure_gds()` still flags it --
+the same falsifiability discipline `layout/*/README.md`'s negative-control
+verdicts apply elsewhere in this repo, so a clean verdict from the real
+measurement is never vacuous.
 
 Requires the `klayout` Python module -- available in this repo's own
 `layout/.venv` (`layout/bin/setup-venv.sh`), which is why this script is NOT
@@ -192,9 +242,42 @@ def measure_gds(gds_path: Path, rules: list[dict]) -> dict:
     layers = []
     for rule in rules:
         li = layout.find_layer(rule["layer"], rule["datatype"])
-        region = kdb.Region()
-        if li is not None:
-            region.insert(top.begin_shapes_rec(li))
+        if li is None:
+            # Layer absent from this GDS entirely: nothing drawn, nothing to
+            # measure. (Kept as an explicit branch because `begin_shapes_rec`
+            # cannot be called with a null layer index.)
+            region = kdb.Region()
+        else:
+            # Build the region from the recursive iterator via the CONSTRUCTOR,
+            # then strip user properties, and only then merge (issue #363).
+            #
+            # The obvious-looking `kdb.Region(); region.insert(iter)` form is
+            # WRONG here and silently overstates every count this script
+            # reports. `Region#insert(RecursiveShapeIterator)` carries each
+            # shape's GDS user properties into the region, and KLayout's merge
+            # is property-AWARE: two polygons whose property sets differ are
+            # never merged with each other, and `Region#area` then counts the
+            # overlap twice. That is exactly the shape of this repo's routed
+            # GDS, where the DEF->GDS merge attaches a net-name property
+            # (`[[1, "VPWR"]]`, `[[1, "VGND"]]`) to each PDN strap while the
+            # generated via cells sitting *inside* those straps carry none --
+            # so a 1.42 x 1.60 um met5 via pad fully covered by a >130 um^2
+            # strap on the same layer was reported as a standalone `m5.4`
+            # violation. Measured on
+            # `layout/sar-adc-top/reports/20260924-190817-f3622fc/sar_adc_top.gds`,
+            # layer 72/20: the `insert()` form yields 24 polygons / 1058.75
+            # um^2, the constructor form 5 polygons / 896.09 um^2 -- and a
+            # correctly merged region's area IS its union area, so the larger
+            # number is the double count, not the smaller one the loss.
+            #
+            # A DRC deck's own `polygons(...)` input is plain drawn geometry
+            # with no property semantics, so dropping properties is what makes
+            # this measurement agree with the rule it stands in for. The
+            # `Region(iter)` constructor already drops them today; the explicit
+            # `remove_properties()` states the requirement rather than relying
+            # on that, and is a no-op when it already holds.
+            region = kdb.Region(top.begin_shapes_rec(li))
+            region.remove_properties()
         region.merge()
         # `Region#with_area` is the exact primitive the deck's own rule text
         # calls. Region coordinates are integer DBU, so the um^2 threshold is
@@ -246,9 +329,14 @@ def measure_gds(gds_path: Path, rules: list[dict]) -> dict:
 # --------------------------------------------------------------------------- #
 # Target resolution
 # --------------------------------------------------------------------------- #
-def resolve_default_targets(repo_root: Path) -> list[tuple[str, Path]]:
-    """Resolve each `DEFAULT_TARGETS` entry through its flow's `reports/LATEST`."""
-    targets: list[tuple[str, Path]] = []
+def resolve_default_targets(repo_root: Path) -> list[tuple[str, str, Path]]:
+    """Resolve each `DEFAULT_TARGETS` entry through its flow's `reports/LATEST`.
+
+    Returns `(target_key, display_label, gds_path)`. `target_key` is the
+    record-independent flow label; `display_label` carries the record id for
+    the human-readable report.
+    """
+    targets: list[tuple[str, str, Path]] = []
     for label, flow_dir, gds_name in DEFAULT_TARGETS:
         pointer = repo_root / flow_dir / "reports" / "LATEST"
         if not pointer.is_file():
@@ -257,8 +345,85 @@ def resolve_default_targets(repo_root: Path) -> list[tuple[str, Path]]:
         gds = repo_root / flow_dir / "reports" / record / gds_name
         if not gds.is_file():
             raise MeasurementError(f"{pointer} -> {record}, but no {gds_name} in that record")
-        targets.append((f"{label} [{record}]", gds))
+        targets.append((label, f"{label} [{record}]", gds))
     return targets
+
+
+#: The flow the `--self-test` negative control pretends its illegal fixture
+#: came from. It is one of the three whose geometry this repo hand-authors
+#: end to end and which measure 0 today, purely for a readable label -- the
+#: gate itself is zero-tolerance for every target, this one included.
+SELF_TEST_TARGET = "cdac-array"
+
+
+def self_test(rules: list[dict]) -> bool:
+    """Prove the gate is reachable: does one isolated sub-minimum pad fail it?
+
+    A clean verdict means nothing until "fails" is shown reachable on the same
+    rules in the same run -- the falsifiability discipline this repo applies to
+    every other layout verdict (see layout/*/README.md's negative-control
+    verdicts 3/6/10/11). So this builds a deliberately-illegal fixture -- ONE
+    isolated square on the met3 layer, sized from the deck's own `m3.6`
+    threshold rather than any transcribed number, so its area is below it --
+    and measures it with the same `measure_gds` the real targets go through.
+    That is, literally: a newly-introduced isolated sub-minimum-area shape in
+    one of this repo's own hand-authored flows must turn the gate red.
+
+    Returns True if the gate caught it.
+    """
+    import math
+    import tempfile
+
+    try:
+        import klayout.db as kdb
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise MeasurementError(
+            "the `klayout` python module is not importable -- run this from "
+            "this repo's own layout venv (layout/bin/setup-venv.sh)"
+        ) from exc
+
+    rule = next((r for r in rules if r["symbol"] == "m3"), None)
+    if rule is None:
+        raise MeasurementError("deck carries no m3 minimum-area rule to build a fixture against")
+
+    layout = kdb.Layout()
+    layout.dbu = 0.001
+    top = layout.create_cell("min_area_negative_control")
+    li = layout.layer(rule["layer"], rule["datatype"])
+    # Half the side of a square that would exactly meet the threshold, so the
+    # fixture's area is a quarter of it -- unambiguously below, on any deck.
+    side_um = math.sqrt(rule["min_area_um2"]) / 2.0
+    side_dbu = int(round(side_um / layout.dbu))
+    top.shapes(li).insert(kdb.Box(0, 0, side_dbu, side_dbu))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = Path(tmp) / "min_area_negative_control.gds"
+        layout.write(str(fixture))
+        result = measure_gds(fixture, rules)
+
+    caught = next(
+        (
+            layer
+            for layer in result["layers"]
+            if layer["rule"] == rule["rule"] and layer["below_min_area"] == 1
+        ),
+        None,
+    )
+
+    area_um2 = side_um * side_um
+    print("Negative control (issue #338): one isolated met3 square of")
+    print(
+        f"  {side_um:.3f} x {side_um:.3f} um = {area_um2:.4f} um2, below "
+        f"{rule['rule']}'s {rule['min_area_um2']} um2, attributed to {SELF_TEST_TARGET!r}"
+    )
+    if caught:
+        print(f"  GATE FAILS AS IT MUST: {caught['rule']} 1 shape below threshold")
+        return True
+    print(
+        "  GATE DID NOT FAIL -- the minimum-area measurement is vacuous as configured",
+        file=sys.stderr,
+    )
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -267,6 +432,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("gds", nargs="*", type=Path, help="GDS files to measure")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help=(
+            "negative control: measure a deliberately-illegal fixture and exit non-zero "
+            "unless the gate flags it (proves a clean verdict is not vacuous)"
+        ),
+    )
     parser.add_argument("--pdk-root", type=Path, default=None)
     parser.add_argument("--variant", default=None)
     parser.add_argument(
@@ -283,20 +456,27 @@ def main(argv: list[str] | None = None) -> int:
         deck = find_deck(Path(pdk_root).expanduser(), variant)
         rules = parse_min_area_rules(deck.read_text())
 
+        if args.self_test:
+            print(f"PDK deck: {deck}")
+            return 0 if self_test(rules) else 1
+
         if args.gds:
-            targets = [(str(p), p) for p in args.gds]
-            for _, path in targets:
+            targets = [(str(p), str(p), p) for p in args.gds]
+            for _, _, path in targets:
                 if not path.is_file():
                     raise MeasurementError(f"no such GDS: {path}")
         else:
             targets = resolve_default_targets(args.repo_root.resolve())
 
-        results = [dict(measure_gds(path, rules), label=label) for label, path in targets]
+        results = [
+            dict(measure_gds(path, rules), target=key, label=label) for key, label, path in targets
+        ]
     except MeasurementError as exc:
         print(f"measure_metal_min_area.py: {exc}", file=sys.stderr)
         return 2
 
     total = sum(r["total_below_min_area"] for r in results)
+    failed = total > 0
 
     if args.json:
         print(
@@ -310,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
-        return 0 if total == 0 else 1
+        return 1 if failed else 0
 
     print(f"PDK deck: {deck}")
     for result in results:
@@ -333,7 +513,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  subtotal: {result['total_below_min_area']} shape(s) below minimum area")
 
     print(f"\nTOTAL: {total} shape(s) below their metal's minimum area")
-    return 0 if total == 0 else 1
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

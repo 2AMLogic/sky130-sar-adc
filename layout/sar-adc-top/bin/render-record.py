@@ -19,11 +19,16 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
+# This flow's own `build_layout.py`, for the placement tables the decoupling
+# section reports against (issue #440) -- imported rather than transcribed, so
+# the record cannot describe a floorplan the build did not use.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _record_common import (  # noqa: E402
     build_argparser,
     git_commit_and_dirty,
     load_json,
+    resolve_pdk_commit,
     tool_version,
 )
 
@@ -36,21 +41,523 @@ from _record_common import (  # noqa: E402
 #: intended net's own distinct, correctly-scoped device count) was done by
 #: hand against `extract.unfiltered.json`'s own `nets[]` list; see the PR
 #: description for the full net-by-net trace this table condenses.
+#: Re-derived for issue #401's recomposition. Three rows changed meaning, and
+#: the change IS the point of that issue:
+#:
+#: * `DOUT<i>` no longer lists `SELp<i>` as a member. Under issue #56 they were
+#:   literally the same net (`SELp<i> = DOUT<i>`, the pre-DR-008 unconditional
+#:   complementary drive); DR-008 derives `SELp<i> = DOUT9 AND DOUT<i>` from an
+#:   `and2_1`, so a run where this table still found them merged would be a run
+#:   on the superseded glue.
+#: * `SELp<i>` is a row of its own for the first time.
+#: * `CLKN`, `OUTN_NC`, `PH_B9`, `HALF_LSB_EN` and `HALF_LSB_ENN` are new rows:
+#:   nets that either did not exist (DR-008's clock inverter, DR-009's enable
+#:   pair) or dead-ended (`PH_B9_NC`, `OUTN_NC`) before this composition.
 EXPECTED_NET_MEMBERS = {
     "TOP_P": ["TOP_P", "VINP"],
     "TOP_N": ["TOP_N", "VINN"],
     "VDD (analog)": ["VDD"],
     "VREFP": ["VREFP"],
     "VREFN": ["VREFN"],
+    "VCM": ["VCM"],
     "CLK": ["CLK"],
+    "CLKN": ["CLKN"],
     "COMP_OUT": ["COMP_OUT", "OUTP"],
+    "OUTN_NC": ["OUTN_NC", "OUTN"],
     "SAMPLE_INT": ["PH_SAMPLE", "SAMPLE"],
     "RST_B": ["RST_B"],
     "BUSY": ["BUSY"],
-    **{f"DOUT{i}": [f"DOUT{i}", f"SELp{i}"] for i in range(9)},
-    "DOUT9": ["DOUT9"],
+    "PH_B9": ["PH_B9"],
+    **{f"DOUT{i}": [f"DOUT{i}"] for i in range(10)},
+    **{f"SELp{i}": [f"SELp{i}"] for i in range(9)},
     **{f"SELn{i}": [f"SELn{i}"] for i in range(9)},
+    "HALF_LSB_EN": ["HALF_LSB_EN"],
+    "HALF_LSB_ENN": ["HALF_LSB_ENN"],
+    "BOT_OFF_N": ["BOT_OFF_N"],
+    "BOT_OFF_P": ["BOT_OFF_P"],
 }
+
+#: Pairs of expected nets that MUST extract as different nets. The connectivity
+#: table above can only ever report that each expected net was found; it cannot
+#: report that two of them were not accidentally the same one, and that is
+#: exactly the defect issue #387 was filed about (`DOUT<i>` and `SELp<i>` were
+#: one net in the composed GDS long after the schematic separated them). A
+#: merge here is reported as a FAILING row, not as two successful ones.
+EXPECTED_DISTINCT_NETS = (
+    [(f"DOUT{i}", f"SELp{i}") for i in range(9)]
+    + [(f"DOUT{i}", f"SELn{i}") for i in range(9)]
+    + [(f"SELp{i}", f"SELn{i}") for i in range(9)]
+    + [("CLK", "CLKN"), ("COMP_OUT", "OUTN_NC"), ("HALF_LSB_EN", "HALF_LSB_ENN")]
+)
+
+
+#: Every supply-net label this composition draws, in whatever order
+#: `klt extract` happens to '|'-join them into an extracted net name. A
+#: decoupling capacitor is exactly a device BOTH of whose terminals land on one
+#: of these -- which is what makes the check below a check and not a filter on
+#: capacitance (`sampling_frontend`'s own `Csamp_{p,n}` are the same 46.9 um
+#: plate at the same value, and are correctly excluded because their terminals
+#: are signal nets).
+_SUPPLY_LABELS = ("GND", "VGND", "VSS", "VDD", "VPWR")
+
+
+def _distinctness_rows(resolved: dict[str, str]) -> list[str]:
+    """Report, pair by pair, that the nets issue #387 found merged are not.
+
+    The table above answers "was each expected net found?". That question was
+    answered `yes` for every row of the superseded composition too -- because
+    `DOUT<i>` and `SELp<i>` being ONE net satisfies both of their rows at once.
+    This answers the complementary question the old table could not, and it
+    answers it from the same extraction.
+    """
+    checked = [
+        (a, b) for a, b in EXPECTED_DISTINCT_NETS if a in resolved and b in resolved
+    ]
+    merged = [(a, b) for a, b in checked if resolved[a] == resolved[b]]
+    lines = [
+        "**Nets that must be distinct** (issue #387's own failure mode: the "
+        "pre-DR-008 composition satisfied every row above while `DOUT<i>` and "
+        "`SELp<i>` were literally one net):",
+        "",
+    ]
+    if merged:
+        lines.append(
+            f"- **{len(merged)} of {len(checked)} pairs are MERGED** -- "
+            + ", ".join(f"`{a}` == `{b}` (`{resolved[a]}`)" for a, b in merged)
+        )
+    else:
+        lines.append(
+            f"- all {len(checked)} pairs distinct: every `DOUT<i>`/`SELp<i>`, "
+            "`DOUT<i>`/`SELn<i>` and `SELp<i>`/`SELn<i>` pair, plus "
+            "`CLK`/`CLKN`, `COMP_OUT`/`OUTN_NC` and "
+            "`HALF_LSB_EN`/`HALF_LSB_ENN`, resolves to a different extracted "
+            "net. That is the direct, per-net evidence that this composition "
+            "implements DR-008's derived switching polarity rather than issue "
+            "#56's unconditional one."
+        )
+    lines.append("")
+    return lines
+
+
+def _read_text(path: str) -> str:
+    """A sibling artefact's text, or `""` if this run did not write one."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+    except OSError:
+        return ""
+
+
+def _composition_section(parity: str, composition: dict) -> list[str]:
+    """The composition's own two kinds of evidence (issue #401).
+
+    Both exist because no verdict further down this record can produce them:
+
+    * `bin/check-composition-parity.py`'s verdict -- the gate that asserts this
+      assembly composes the schematic's own blocks, wired to the schematic's own
+      nets, on BOTH sides of `klt lvs`. A generated-reference compare agrees
+      with itself whatever the schematic says (issue #387), so the independent
+      anchor has to be a separate check, and its result belongs in the record
+      rather than only in a CI log.
+    * `build_layout.py`'s own matched-pair measurements -- DR-009's two
+      offset-cap top-plate legs and its dummy comparator load. DRC sees shapes
+      and LVS sees devices and nets; both report identically for a matched pair
+      and a scattered one.
+    """
+    lines = ["## Composition parity and matched pairs (issue #401)"]
+    if parity:
+        failed = "FAIL" in parity
+        control_ok = "--self-test: OK" in parity
+        verdict = "FAIL" if failed else "OK"
+        lines.append(
+            f"- `bin/check-composition-parity.py`: **{verdict}** -- every placed "
+            "block, every net on every one of their pins, this assembly's own "
+            "top-level port set and the composition "
+            "`bin/generate-lvs-reference.py` emits are all derived from "
+            "`design/sar_adc_top.spice`'s own top-level cards and asserted "
+            "against it. Full output: `composition-parity.txt`."
+        )
+        lines.append(
+            "- negative control (`--self-test`, a moved `SELp0` binding -- "
+            f"issue #387's own drift shape): **{'caught' if control_ok else 'NOT CAUGHT'}**."
+        )
+        for raw in parity.splitlines():
+            line = raw.strip()
+            if line.startswith("blocks:") or line.startswith("generated LVS"):
+                lines.append(f"  - {line}")
+    else:
+        lines.append("- not run (no `composition-parity.txt` in this record)")
+
+    legs = (composition or {}).get("halflsb_top_leg_um") or {}
+    if legs:
+        delta = abs(legs.get("TOP_N", 0.0) - legs.get("TOP_P", 0.0))
+        lines.append(
+            f"- DR-009 offset-cap top-plate legs: `TOP_N` {legs['TOP_N']:.3f} um, "
+            f"`TOP_P` {legs['TOP_P']:.3f} um (delta {delta:.4f} um, tolerance "
+            f"{composition['halflsb_top_leg_tolerance_um']} um). The `_p` side "
+            "injects nothing -- its only job is that both comparator top plates "
+            "see the same capacitance and the same switch junction parasitics -- "
+            "so `HALFLSB_OFFSET`'s own dx is solved for this equality rather than "
+            "chosen."
+        )
+    load = (composition or {}).get("outn_dummy_load") or {}
+    if load:
+        lines.append(
+            "- DR-009 dummy comparator load, as drawn top-level conductor: "
+            f"`COMP_OUT` {load['comp_out_um2']:.3f} um^2, `OUTN_NC` "
+            f"{load['outn_nc_um2']:.3f} um^2 -- **imbalance "
+            f"{load['imbalance']:.1%}**, bound {load['tolerance']:.0%}. The GATE "
+            "half of DR-009's match is identical by construction (the same two "
+            "cell types on the same two input pins, asserted above); this is the "
+            "WIRE half, which is this composition's own doing. `OUTN_NC` carries "
+            "a solved matching extension of its own corridor column south to "
+            f"y = {load['match_stub_y_um']} um (its declared limit is "
+            f"{load['match_stub_y_min_um']} um, inside the existing extent) -- "
+            "deliberate matching metal on the dummy, not on the live net. The "
+            "residual cannot reach zero here: the two nets have different "
+            "destinations, so their paths are mirror-shaped, not congruent. "
+            "**DR-009's own Consequences section asks for a post-extraction "
+            "re-run of `sim/full-conversion-transient/` as the electrical check, "
+            "and that is not this flow's to run** -- this figure bounds the "
+            "geometry, it does not stand in for that simulation."
+        )
+    lines.append("")
+    return lines
+
+
+def _decap_terminal_evidence(netlist_path: str) -> list[str]:
+    """Read the decoupling capacitors' own terminals back out of the netlist
+    `klt lvs` actually compared, and report them.
+
+    This is the direct per-device connectivity evidence for issue #440's ties:
+    a DRC-clean layout says nothing about *which* nets a capacitor bridges, and
+    this flow's LVS verdict is a pre-existing mismatch (klayout-tools#1878), so
+    neither can be read as "the caps are across the right pairs". Four cards,
+    both of whose terminals are supply nets, at the declared per-unit value, can.
+    """
+    try:
+        with open(netlist_path) as handle:
+            text = handle.read()
+    except OSError:
+        return []
+    found: dict[tuple[str, str], list[str]] = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 4 or not parts[0].startswith("C"):
+            continue
+        a, b = parts[1], parts[2]
+        if not all(
+            any(label in node.split("|") for label in _SUPPLY_LABELS) for node in (a, b)
+        ):
+            continue
+        found.setdefault((a, b), []).append(parts[3])
+    if not found:
+        return [
+            "- **No capacitor in the compared netlist has both terminals on a "
+            "supply net** -- the decoupling ties did not reach their domains."
+        ]
+    lines = [
+        "- Decoupling capacitors as the compared netlist actually carries them "
+        "(every `C` card both of whose terminals are supply nets):"
+    ]
+    for (a, b), values in sorted(found.items()):
+        lines.append(f"  - `{a}` <-> `{b}`: {len(values)} x {values[0]} F")
+    lines.append(
+        "  `GND`, `VGND` and `cdac_array`'s own `VSS` extract as ONE net -- the "
+        "shared p-substrate bulk sky130 offers no way to split, per "
+        "`spec/decision-records/DR-012-analog-ground-pad.md` -- so both domains' "
+        "return terminals land on that one name here. That is the same merge the "
+        "LVS section's `net.merged` entries already track, not a new finding, and "
+        "it is why the analog pair is the one that cannot correspond to a "
+        "reference device (see that section)."
+    )
+    return lines
+
+
+def _decap_lvs_delta(lvs: dict) -> list[str]:
+    """Name every LVS mismatch entry that is about a decoupling capacitor.
+
+    Issue #440's acceptance criterion is not "LVS still mismatches by the same
+    number" -- it is that whatever moved is *attributable* to the two new
+    capacitors and introduces no new mismatch CATEGORY. Listing the entries by
+    device name is how a reader checks that without diffing two records by hand.
+    """
+    hits = []
+    for entry in lvs.get("mismatches", []) or []:
+        device = entry.get("device") or {}
+        names = " ".join(str(device.get(side)) for side in ("reference", "layout"))
+        if "DECAP" in names.upper():
+            hits.append((entry.get("category"), entry.get("side"), device))
+    if not hits:
+        return [
+            "- No LVS mismatch entry names a decoupling capacitor: both domains' "
+            "pairs correspond to their reference devices."
+        ]
+    lines = [
+        f"- LVS mismatch entries naming a decoupling capacitor: {len(hits)}."
+    ]
+    for category, side, device in hits:
+        lines.append(
+            f"  - `{category}` ({side} side): reference "
+            f"`{device.get('reference')}` / layout `{device.get('layout')}`, class "
+            f"`{device.get('class')}`."
+        )
+    lines.append(
+        "  Each is the DR-012 substrate merge above reaching a device, not a new "
+        "mismatch class: `GND` is on the reference side of an already-tracked "
+        "`net.merged` entry, so no reference device with a `GND` terminal can "
+        "correspond, and the analog pair has one. The digital pair, whose return "
+        "port is `VGND` -- the name the comparer paired that merged layout net "
+        "with -- does correspond."
+    )
+    return lines
+
+
+def _decap_series_resistance(ties: dict) -> list[str]:
+    """The series resistance each tie adds, from `decap-ties.json`.
+
+    DR-017's measured benefit was obtained with an IDEAL capacitor, and its own
+    closing open item names this series resistance as the one thing that can
+    erode it. No verdict this flow produces sees resistance at all -- `klt drc`
+    grades shapes, `klt erc` is a connectivity model with none in it -- so
+    without this section the record would be silent on the one residual DR-017
+    asked to be told about (issue #440's own Test Plan edge case).
+    """
+    if not ties:
+        return []
+    if not ties.get("model_matches_drawn_geometry", True):
+        return [
+            "- **Series resistance NOT reported: `probe-decap-sites.py`'s ladder no "
+            "longer matches the drawn geometry.** See `decap-ties.json`'s "
+            "`model_problems`.",
+        ]
+    per = ties.get("per_domain") or {}
+    esr = per.get("esr_ohm") or {}
+    if not esr:
+        return []
+    lines = [
+        "- Series resistance of the ties, from `decap-ties.json` (lumped DC over "
+        "drawn conductor only, at the PDK's own `rm2`/`rm3`/`rm4`/`rcvia2`/"
+        "`rcvia3`/`rcvia4`; excludes each plate's own distributed resistance and "
+        "all inductance):"
+    ]
+    for tie, entry in (ties.get("ties") or {}).items():
+        lines.append(
+            f"  - `{tie}`: **{entry['tie_ohm']} ohm** "
+            f"(shared {entry['shared_ohm']}, branches "
+            + " / ".join(f"{v}" for v in entry["branch_ohm"].values())
+            + ")"
+        )
+    f_res = per.get("package_resonance_Hz")
+    for domain, value in esr.items():
+        lines.append(
+            f"  - **{domain} domain ESR: {value} ohm** at "
+            f"{per['capacitance_F'] * 1e12:.3f} pF -- Q = "
+            f"{per['q_at_resonance'][domain]} at the "
+            f"{f_res / 1e6:.1f} MHz resonance that capacitance forms with DR-015's "
+            f"own 1.914 nH per-terminal package inductance, and the ESR equals the "
+            f"pair's own reactance at {per['esr_equals_reactance_Hz'][domain] / 1e9:.3f} "
+            "GHz."
+        )
+    lines.extend(_decap_via_narrative())
+    return lines
+
+
+def _decap_via_array_sites() -> dict[str, int]:
+    """How many via sites the decoupling ties widen, per cut level -- counted
+    out of `probe-decap-sites.py`'s own tie ladders rather than written here.
+
+    Same reason `cuts` is read out of `build_layout` below: the number of via
+    STACKS that went from one cut to four is not the number of via2 sites. Each
+    met4->met2 riser passes through TWO cut levels (a via3 and a via2) and each
+    of the four bottom-plate entries is one via2, so a hand-typed count is
+    exactly the kind of number that drifts -- an earlier draft of this
+    paragraph said "six", which is the via2 tally, not the site tally. The
+    ladder read here is the same model `probe-decap-sites.py`'s
+    `verify_against_record()` checks cut-by-cut against the record's own
+    `draw.request.json`, so a count taken from it cannot describe a via grid
+    the composer did not draw.
+
+    Returns e.g. `{"via2": 6, "via3": 2}` -- only the sites this composer
+    draws AND widens (`Via.at is not None` at the full `DECAP_VIA_ARRAY` grid);
+    the via4 landings off the met5 rails and each `cap_array` unit cell's own
+    centre via3 stay single-cut and are deliberately excluded.
+    """
+    import importlib.util
+
+    import build_layout as bl  # noqa: E402  (same directory; see sys.path above)
+
+    probe_path = Path(__file__).resolve().parent / "probe-decap-sites.py"
+    spec = importlib.util.spec_from_file_location("probe_decap_sites", probe_path)
+    assert spec and spec.loader
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+
+    cuts = bl.DECAP_VIA_ARRAY**2
+    sites: dict[str, int] = {}
+    for ladder in probe.tie_ladders().values():
+        segments = list(ladder["shared"])
+        for branch in ladder["branches"].values():
+            segments.extend(branch)
+        for seg in segments:
+            if not isinstance(seg, probe.Via) or seg.cuts != cuts or seg.at is None:
+                continue
+            level = probe.RVIA_PARAM[(seg.lo, seg.hi)].replace("rc", "", 1)
+            sites[level] = sites.get(level, 0) + 1
+    return sites
+
+
+def _decap_via_narrative() -> list[str]:
+    """Why the vias, not the metal, are what these ties' resistance is made of
+    -- keyed off the cut count `build_layout` actually drew.
+
+    Derived rather than written, because this paragraph's whole point is a
+    comparison between the drawn cut count and `rcvia2`/`rcvia3`: a record that
+    kept asserting "SINGLE-CUT" after the arrays landed (issue #465) would be
+    describing a layout nobody built, which is the failure mode every other
+    number in this section is read back from an artefact to avoid.
+    """
+    import build_layout as bl  # noqa: E402  (same directory; see sys.path below)
+
+    cuts = bl.DECAP_VIA_ARRAY**2
+    head = (
+        "  **What these ties' resistance is made of is vias, not metal**, at "
+        "`rcvia2`/`rcvia3` = 3.41 ohm per cut against `rm2`/`rm4` = 0.125/0.047 "
+        "ohm/sq on 2.0 um conductor. Each return path crosses three of those "
+        "levels (the met4->met2 riser's two, plus the via2 into each plate) "
+        "against each supply path's one."
+    )
+    if cuts == 1:
+        return [
+            head
+            + " Every one of them is a SINGLE cut. Of the analog return's 8.601 ohm "
+            "shared leg, 6.82 ohm is those two riser cuts and only 1.781 ohm is "
+            "28.5 um of met2 -- so widening the straps further buys almost nothing, "
+            "while a via ARRAY at each riser and each plate entry would cut the ESR "
+            "~3x. Whether that is worth drawing was measured in "
+            "`sim/supply-impedance-sensitivity/` (issue #465); see README.md's "
+            "\"On-die decoupling (DR-017)\"."
+        ]
+    sites = _decap_via_array_sites()
+    total = sum(sites.values())
+    breakdown = " + ".join(f"{n} {level}" for level, n in sorted(sites.items()))
+    return [
+        head
+        + f" **Every via2/via3 the ties draw is a {bl.DECAP_VIA_ARRAY}x"
+        f"{bl.DECAP_VIA_ARRAY} array of {cuts} cuts** (issue #465), so each of "
+        f"those {total} sites ({breakdown} -- the two met4->met2 risers' two "
+        f"levels each, plus the four via2 plate entries) contributes "
+        f"3.41/{cuts} = {3.41 / cuts:.3f} ohm instead "
+        "of 3.41. That is drawn on measurement in both directions: issue #440 "
+        "measured the single-cut ties at 13.837 / 13.448 ohm per domain with ~80 % "
+        "of it in those cuts, and "
+        "`sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md` then "
+        "measured that the resistance COSTS die-side bounce (worst rail 12.135 -> "
+        "16.180 mV peak-to-peak, 1.333x, at `tt_27c_1.80v`) rather than usefully "
+        "damping the package resonance."
+        "\n\n"
+        "  Three cuts in these paths are deliberately still single, which is why "
+        "the reduction is ~1.95x rather than the ~3x issue #440 projected: each "
+        "domain's two via4 landings off the met5 rails (`rcvia4` = 0.38 ohm/cut, "
+        "and the 1.6 um rail cannot enclose a second cut across it) and -- the "
+        "binding one -- **each `klt gen cap_array` unit cell's own centre via3 "
+        "into `capm`**, 3.41 ohm, which this composer does not draw and cannot "
+        "widen. That single cut is now the largest term in both supply ties, and "
+        "moving it is a generator change. See README.md's \"On-die decoupling "
+        "(DR-017)\"."
+    ]
+
+
+def _decoupling_section(
+    decap: dict, compose: dict, extract: dict, netlist_path: str, lvs: dict,
+    ties: dict | None = None,
+) -> list[str]:
+    """The on-die decoupling summary (issue #440, DR-017).
+
+    Every number here is read back from an artefact in this same record --
+    `decap.json` (the generator's own report), `compose.json` (the composed
+    bounding box) and `extract.json` (what the extractor actually found) -- or
+    computed from `build_layout.py`'s own placement tables. None of it is
+    transcribed from DR-017's prose, which is the point: this section is what
+    grades DR-017's Decision §2/§3 area budget against a layout, rather than
+    repeating it.
+    """
+    if not decap:
+        return []
+    import build_layout as bl  # noqa: E402  (same directory; see sys.path below)
+
+    units = len(bl.DECAP_OFFSETS)
+    per_domain = units // 2
+    plate = bl.DECAP_GEN_PARAMS["plate_w_um"]
+    capm_um2 = plate * bl.DECAP_GEN_PARAMS["plate_h_um"] * units
+    bx0, by0, bx1, by1 = (
+        bl.BBOX[next(iter(bl.DECAP_OFFSETS))][i] for i in range(4)
+    )
+    cell_um2 = (bx1 - bx0) * (by1 - by0)
+    box = compose.get("bbox_um") or {}
+    die_um2 = None
+    if box:
+        die_um2 = (box["x1"] - box["x0"]) * (box["y1"] - box["y0"])
+    c_domain = bl.DECAP_UNIT_C_F * per_domain
+    mim = (extract.get("device_counts") or {}).get("sky130_fd_pr__model__cap_mim")
+
+    def pct(value: float) -> str:
+        return "n/a" if not die_um2 else f"{100.0 * value / die_um2:.2f} %"
+
+    lines = ["## On-die supply decoupling (DR-017, placed by issue #440)"]
+    lines.append(
+        f"`klt gen cap_array` unit cell: {plate} x {plate} um `capm` plate, "
+        f"{decap.get('device_count')} device, bbox "
+        f"{bx1 - bx0} x {by1 - by0} um. Placed {units} times -- {per_domain} per "
+        "supply domain, which is how DR-017's `MF = 2` is drawn -- at "
+        + ", ".join(f"`{b}` {tuple(o)}" for b, o in bl.DECAP_OFFSETS.items())
+        + "."
+    )
+    lines.append("")
+    lines.append("| quantity | value | share of the composed die |")
+    lines.append("| --- | --- | --- |")
+    lines.append(
+        f"| composed bounding box | {box.get('x1', 0) - box.get('x0', 0):.3f} x "
+        f"{box.get('y1', 0) - box.get('y0', 0):.3f} um = {die_um2:.3f} um^2 | 100 % |"
+        if die_um2
+        else "| composed bounding box | not reported | n/a |"
+    )
+    lines.append(
+        f"| `capm` plate area, both domains | {capm_um2:.2f} um^2 | {pct(capm_um2)} |"
+    )
+    lines.append(
+        f"| placed cell footprint, both domains | {cell_um2 * units:.2f} um^2 | "
+        f"{pct(cell_um2 * units)} |"
+    )
+    lines.append("")
+    lines.append(
+        f"- Capacitance per domain: **{c_domain * 1e12:.3f} pF** "
+        f"({per_domain} x {bl.DECAP_UNIT_C_F * 1e12:.3f} pF), from the PDK's own "
+        "`camimc`/`cpmimc` coefficients -- the same value `klt extract` reports "
+        "for each placed unit, and the same one the LVS reference declares."
+    )
+    lines.append(
+        f"- MiM devices in the filtered extraction: **{mim}** "
+        "(the composition's pre-existing 1028 CDAC/front-end unit caps, plus "
+        f"these {units})."
+    )
+    lines.extend(_decap_terminal_evidence(netlist_path))
+    lines.extend(_decap_lvs_delta(lvs))
+    lines.extend(_decap_series_resistance(ties or {}))
+    lines.append(
+        "- **DR-017's Decision §3 area budget is confirmed placeable, and costs "
+        "no die area at all.** Its own schematic-level figure was 8798.44 um^2 of "
+        f"`capm` -- the same absolute area the table above reports, at "
+        f"{pct(capm_um2)} of THIS composition's die rather than the 8.14 % it was "
+        "of the pre-issue-#401 one (that denominator grew with the glue #401 "
+        "composed, not with this allocation). Both sites fall inside the "
+        "composed bounding box that assembly already had, so the allocation "
+        "displaced no routing and grew no die. See "
+        "`layout/sar-adc-top/README.md`, \"On-die decoupling (DR-017)\", for the "
+        "met3/met4 occupancy measurement the two placements were chosen from."
+    )
+    lines.append("")
+    return lines
 
 
 def main() -> int:
@@ -61,6 +568,11 @@ def main() -> int:
     extract = load_json(os.path.join(args.out_dir, "extract.json"))
     lvs = load_json(os.path.join(args.out_dir, "lvs.json"))
     capclass = load_json(os.path.join(args.out_dir, "capclass.json"))
+    compose = load_json(os.path.join(args.out_dir, "compose.json"))
+    decap = load_json(os.path.join(args.out_dir, "decap.json"))
+    decap_ties = load_json(os.path.join(args.out_dir, "decap-ties.json"))
+    composition = load_json(os.path.join(args.out_dir, "composition.json"))
+    parity = _read_text(os.path.join(args.out_dir, "composition-parity.txt"))
 
     commit, dirty = git_commit_and_dirty(args.repo_root)
 
@@ -69,7 +581,9 @@ def main() -> int:
     lines.append("")
     lines.append("## Provenance")
     lines.append(f"- `klt` version: {tool_version(args.klt, '--version')}")
-    lines.append(f"- PDK variant: {args.pdk_variant}")
+    lines.append(
+        f"- PDK: {args.pdk_variant} ({resolve_pdk_commit(args.klt, args.pdk_variant)})"
+    )
     lines.append(f"- repo commit: `{commit}`{' (dirty)' if dirty else ''}")
     lines.append("")
 
@@ -84,6 +598,19 @@ def main() -> int:
     else:
         lines.append("- not run")
     lines.append("")
+
+    lines.extend(_composition_section(parity, composition))
+
+    lines.extend(
+        _decoupling_section(
+            decap,
+            compose,
+            extract,
+            os.path.join(args.out_dir, "sar_adc_top.extract.lvs.spice"),
+            lvs,
+            decap_ties,
+        )
+    )
 
     lines.append("## Connectivity verification (unfiltered extraction, by net)")
     lines.append(
@@ -104,6 +631,7 @@ def main() -> int:
         lines.append("| Expected net | Found in (unfiltered) net name | OK? |")
         lines.append("| --- | --- | --- |")
         footnotes: list[str] = []
+        resolved: dict[str, str] = {}
         for expected, members in EXPECTED_NET_MEMBERS.items():
             hits = [
                 nm for nm in net_names if all(m in nm.split("|") for m in members)
@@ -135,10 +663,14 @@ def main() -> int:
                 else:
                     ok = f"NO ({len(hits)} matches)"
                     shown = ", ".join(hits) or "(none)"
+            if ok.startswith("yes"):
+                resolved[expected] = shown
             lines.append(f"| {expected} | `{shown}` | {ok} |")
         if footnotes:
             lines.append("")
             lines.extend(footnotes)
+        lines.append("")
+        lines.extend(_distinctness_rows(resolved))
     else:
         lines.append("- not run")
     lines.append("")
@@ -149,13 +681,39 @@ def main() -> int:
         counts = lvs.get("counts", {})
         pins = counts.get("pins", {})
         lines.append(f"- verdict: **{status}**")
+        pin_note = (
+            "klayout-tools#1513 is resolved: every top-level pin label this "
+            "flow draws promotes correctly."
+        )
+        if pins.get("layout") != pins.get("reference"):
+            # Read the merged net's own name out of THIS record's extraction
+            # rather than hard-coding it. It is not a constant: issue #377's
+            # analog ground mesh joined `cdac_array`'s newly-drawn `VSS` pin
+            # to it, so the same net that read `GND|VGND` before the mesh
+            # reads `GND|VGND|VSS` after it. A record that quotes a stale
+            # name has stopped being evidence about its own artefacts.
+            merged = [
+                str(n.get("name"))
+                for n in extract.get("nets", [])
+                if n.get("pin") and "GND" in str(n.get("name", "")).split("|")
+            ]
+            merged_name = (
+                f"`{merged[0]}`" if len(merged) == 1 else "the merged `GND` net"
+            )
+            pin_note += (
+                " The layout count is BELOW the reference count by design, not "
+                "by defect: since issue #362 the reference carries `GND` and "
+                "`VGND` as two ports of what the layout extracts as ONE net "
+                f"({merged_name} -- the shared p-substrate, which bulk sky130 "
+                "offers no way to split), so a single promoted layout pin "
+                "answers both reference ports and `matched` counts both. See "
+                "`spec/decision-records/DR-012-analog-ground-pad.md`."
+            )
         lines.append(
             f"- pins promoted from `--pin-source-cells`: "
             f"layout={pins.get('layout', extract.get('pin_count', '?'))} "
             f"reference={pins.get('reference', '?')} "
-            f"matched={pins.get('matched', '?')} (expected 19/19/19) -- "
-            "klayout-tools#1513 is resolved: this is the first record where "
-            "every top-level pin promotes correctly."
+            f"matched={pins.get('matched', '?')} -- " + pin_note
         )
         lines.append(
             f"- devices: layout={counts.get('devices', {}).get('layout')} "
@@ -192,8 +750,14 @@ def main() -> int:
                     "`sar_adc_top.extract.spice` is kept unmodified alongside "
                     "it. Without this, the SPICE round-trip this LVS shape "
                     "depends on loses the capacitor class name and the same "
-                    "layout reports 26 extra mismatches (124 vs 98) and 19 "
-                    "fewer matched nets (393 vs 412)."
+                    "layout reports far more mismatches and far fewer matched "
+                    "nets -- measured on the pre-issue-#440 composition as 26 "
+                    "extra mismatches (124 vs 98) and 19 fewer matched nets "
+                    "(393 vs 412). Those two numbers are that one measurement, "
+                    "not a re-measurement of the layout in hand: this record's "
+                    "own verdict above is what describes THIS layout, and the "
+                    "point they make (the step is load-bearing, not a no-op) is "
+                    "unchanged by a composition that adds four more `C` cards."
                 )
         if status != "match":
             lines.append(
@@ -203,14 +767,16 @@ def main() -> int:
                 "regression is worked around locally, see the line above). "
                 "`klt lvs`'s `options.combine_devices` is a single flag "
                 "applied to the whole (flattened) compared netlist, with no "
-                "per-subcircuit scoping. Three of the five "
+                "per-subcircuit scoping. Three of the six "
                 "already-independently-verified sub-blocks (comparator, "
-                "sar_sequencer, seln_inverters) need it `true` to re-lump "
+                "sar_sequencer, top_glue) need it `true` to re-lump "
                 "their own genuinely split/interleaved layout legs against "
-                "their own lumped reference devices; the other two "
+                "their own lumped reference devices; two of the others "
                 "(cdac_array, sampling_frontend) need it `false` (cdac_array "
                 "to avoid klayout-tools#1497's parallel-capacitor combine "
-                "nondeterminism). klayout-tools#1552 (this repo's own report "
+                "nondeterminism), and the sixth (halflsb_offset, whose eight "
+                "cards are all `m = MF = 1`) has nothing to fold either way. "
+                "klayout-tools#1552 (this repo's own report "
                 "of exactly this gap) is closed upstream via #1556's new "
                 "`options.combine_devices_per_circuit`, but that option does "
                 "not actually help here: it can only scope a side that "
@@ -231,7 +797,7 @@ def main() -> int:
         lines.append("- not run")
     lines.append("")
 
-    # --- `--abstract-cells` black-boxed compare (run-flow.sh step 7b) ---
+    # --- `--abstract-cells` black-boxed compare (run-flow.sh step 7c) ---
     ac_path = os.path.join(args.out_dir, "abstract-cells.lvs-hollow.json")
     if os.path.exists(ac_path):
         ac = load_json(ac_path)
@@ -246,10 +812,11 @@ def main() -> int:
         lines.append(f"- mismatch_count: {ac.get('mismatch_count')}; "
                      f"error_count: {ac.get('error_count')}; "
                      f"categories: {ac.get('category_counts')}")
-        lines.append("- Macro internals (cdac_array, sar_sequencer, seln_inverters) are "
+        lines.append("- Macro internals (cdac_array, sar_sequencer, top_glue) are "
                      "black boxes here and are verified by each sub-block's own LVS; "
                      "this compare covers the top-level interconnect, the inlined "
-                     "comparator and sampling_frontend, and every macro pin binding. "
+                     "comparator, sampling_frontend and halflsb_offset, the top-level "
+                     "decap cards, and every macro pin binding. "
                      "Needs a `klt` build with klayout-tools#2396/#2398.")
         lines.append("")
 

@@ -10,40 +10,66 @@
 #   layout/sar-adc-top/bin/run-flow.sh   # ~1 minute
 #
 # Requires: layout/.venv (see setup-venv.sh), a resolvable sky130A PDK
-# install (same pin as sim/pdk.json), and each of the five sub-blocks'
+# install (same pin as sim/pdk.json), and each of the six sub-blocks'
 # reports/LATEST to point at a real, already-committed record (#99-#102,
-# #166) -- this flow *reads* those GDS files, it does not regenerate them.
+# PR #402's layout/top-glue/ and PR #497's layout/halflsb-offset/) -- this
+# flow *reads* those GDS files, it does not regenerate them.
 #
-# Runs on the pinned `layout/.venv/bin/klt` (or $SAR_ADC_TOP_KLT, needed for step 7b until a release carries klayout-tools#2396/#2398) (klayout-tools==0.6.0
-# since 2026-09-23, `layout/requirements.txt`) -- no env override needed. Step 7's `klt
-# extract --pin-source-cells` (klayout-tools#1515) previously required a
-# `klt` build newer than the then-pinned 0.4.0, reached only via a
-# `SAR_ADC_TOP_KLT` env-var override; that override is retired now that
-# klayout-tools v0.5.0 (published 2026-09-15) carries the fix in the
-# officially pinned build -- see layout/sar-adc-top/README.md's
+# Runs on the pinned `layout/.venv/bin/klt` (klayout-tools==0.6.0 since
+# 2026-09-23, `layout/requirements.txt`) by default, and every hard gate here
+# needs nothing newer. Step 7's `klt extract --pin-source-cells`
+# (klayout-tools#1515) once required a `klt` build newer than the
+# then-pinned 0.4.0, reached only via a `SAR_ADC_TOP_KLT` env-var override;
+# that need retired when klayout-tools v0.5.0 (published 2026-09-15) shipped
+# the fix in the officially pinned build. The override is back (issue #103)
+# for step 7c alone: its `--abstract-cells` compare only reaches `match` on a
+# `klt` carrying klayout-tools#2396/#2398 (merged upstream 2026-09-24,
+# unreleased as of 0.6.0), so a plain run on the pin records that step's
+# non-gating pre-fix verdict. Note the override swaps the `klt` for the
+# WHOLE run, not just 7c -- the record's own `klt` version line says which
+# build produced every verdict in it. Retire it again once a release carries
+# both fixes. See layout/sar-adc-top/README.md's
 # "Provenance" section and layout/requirements.txt's own header for the
 # full trace.
 #
 # Flow (see layout/sar-adc-top/README.md for the full floorplan/routing
 # writeup this implements):
+#   0. check-composition-parity.py -- HARD GATE, and the reason issue #401
+#      exists. Asserts that the blocks build_layout.py places, the net on
+#      every one of their pins, this assembly's own top-level port set, and
+#      the composition generate-lvs-reference.py emits are all the ones
+#      design/sar_adc_top.spice's own top-level cards specify. `klt lvs`
+#      below CANNOT establish this: its reference is generated from the same
+#      composition the layout is built from, so the compare is
+#      self-consistent rather than checked against the schematic -- which is
+#      exactly how this flow spent two weeks DRC/LVS-clean on DR-008's
+#      superseded glue (issue #387). Run BEFORE the record directory is
+#      created, so a drifted composition mints no record at all.
 #   1. Copy each sub-block's own reports/LATEST top GDS in as this flow's
 #      own input (named <block>.gds -- what build_layout.py's own
 #      `blocks[].cell` request entries expect).
 #   2. build_layout.py    -- floorplan + route: emits the `klt draw` request
 #                            for every wire/via/label this assembly's own
 #                            interconnect needs, and the `klt gen-compose`
-#                            explicit-placement request naming all five
-#                            sub-blocks (as `blocks[].cell` entries, #1189)
-#                            plus this script's own new `route` cell.
+#                            explicit-placement request naming all six
+#                            sub-blocks plus the FOUR decoupling-capacitor unit
+#                            cells of issue #440/DR-017 (as `blocks[].cell`
+#                            entries, #1189) plus this script's own new `route`
+#                            cell. Also emits `decap.request.json` for step 2b.
+#   2b. `klt gen cap_array` -- the one 46.9 um MiM unit cell those four
+#                            placements share, plus `--verify-decap`, which
+#                            asserts the generator's own reported bbox/ports
+#                            still match the placement tables.
 #   3. `klt draw`          -- writes the routing cell verbatim, named
 #                            SAR_ADC_TOP_ROUTE (not the generic ROUTE every
 #                            other `bin/build_layout.py` flow in this repo
 #                            uses) so it never collides with `comparator`'s
 #                            or `sampling_frontend`'s own internal ROUTE
-#                            cell once all five GDS files are merged -- see
+#                            cell once all six GDS files are merged -- see
 #                            "LVS pin declaration: resolved" in README.md.
-#   4. `klt gen-compose`   -- places the five sub-blocks + the routing cell
-#                            into one composed cell. No `routing` block:
+#   4. `klt gen-compose`   -- places the six sub-blocks + the four decap unit
+#                            cells + the routing cell into one composed cell.
+#                            No `routing` block:
 #                            this flow does its own routing (see
 #                            build_layout.py's docstring for why).
 #   5. `klt drc`           -- the composed layout must be CLEAN.
@@ -65,6 +91,19 @@
 #      `klt lvs` itself still reports a mismatch, but now for exactly one
 #      remaining reason (klayout-tools#1878): see record.md and README.md's
 #      "LVS device/topology blocker" section.
+#  7b. `probe-decap-sites.py` -- the two questions about DR-017's decoupling
+#      placement no verdict above can answer (issue #440): whether the
+#      met3/met4 field its area budget assumes was free, measured against the
+#      previous record's own GDS, and the lumped series resistance each of the
+#      four ties adds, from the PDK's own sheet/via resistances. Writes
+#      `decap-ties.json`, and HARD-FAILS if its resistance model no longer
+#      matches the rectangles build_layout.py drew.
+#  7c. `klt extract --abstract-cells` + `klt lvs` against a generated hollow
+#      reference (bin/generate-hollow-reference.py) -- issue #103's signoff
+#      shape: the three already-independently-verified digital/CDAC macros
+#      black-boxed, the top-level interconnect compared. Writes
+#      `abstract-cells.*`; never gates the exit code. Needs a `klt` carrying
+#      klayout-tools#2396/#2398 to mean anything (see SAR_ADC_TOP_KLT above).
 #
 # Exit codes: 0 if DRC is clean (this flow's own current hard gate -- LVS is
 # recorded whatever it reports, per the still-open LVS device/topology
@@ -97,10 +136,37 @@ source "$LAYOUT_DIR/bin/_flow_common.sh"
 require_klt "$KLT"
 require_pdk "$KLT" "$PDK_VARIANT"
 
+# --- 0. Composition parity: HARD GATE ---------------------------------------
+# Deliberately BEFORE the record directory is created, for the same reason
+# layout/top-glue/bin/run-flow.sh runs its own parity gate there: a composition
+# that has drifted from design/sar_adc_top.spice must not mint a record at all,
+# so no future reader can cite a DRC/LVS verdict over an assembly wired to the
+# wrong nets. The negative control runs first -- a gate nobody has watched fail
+# is a gate nobody knows works.
+python3 "$TOP_DIR/bin/check-composition-parity.py" --self-test
+python3 "$TOP_DIR/bin/check-composition-parity.py"
+
 RECORD_ID="$(new_record_id "$REPO_ROOT")"
 OUT_DIR="$TOP_DIR/reports/$RECORD_ID"
+# The record `reports/LATEST` names RIGHT NOW -- read before this run overwrites
+# it at the end. `probe-decap-sites.py` (step 7b) uses it as the baseline its
+# free-field arm measures against; that arm is only meaningful when the baseline
+# predates the decoupling placement, which the probe DETECTS (a `capm` plate
+# already inside one of the sites) rather than assumes, so a baseline that
+# already carries the pair reports an inconclusive arm instead of a false
+# verdict. Override with `DECAP_BASELINE_RECORD=<record-id>` to re-measure
+# against a specific earlier record -- which is what issue #440's own README
+# numbers do, against the last pre-placement record.
+PREV_RECORD="${DECAP_BASELINE_RECORD:-$(cat "$TOP_DIR/reports/LATEST" 2>/dev/null || true)}"
 mkdir -p "$OUT_DIR"
 echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
+
+# The gate's own output, kept beside the verdicts it licenses (same convention
+# as layout/top-glue/reports/<id>/schematic-parity.txt).
+{
+  python3 "$TOP_DIR/bin/check-composition-parity.py" --self-test
+  python3 "$TOP_DIR/bin/check-composition-parity.py"
+} > "$OUT_DIR/composition-parity.txt" 2>&1
 
 # --- 1. Pull in each sub-block's own reports/LATEST top GDS ----------------
 declare -A BLOCK_GDS=(
@@ -108,7 +174,8 @@ declare -A BLOCK_GDS=(
   [sampling_frontend]="sampling-frontend/sampling_frontend.gds"
   [comparator]="comparator/comparator.gds"
   [sar_sequencer]="sar-sequencer/sar_sequencer.gds"
-  [seln_inverters]="seln-inverters/seln_inverters.gds"
+  [top_glue]="top-glue/top_glue.gds"
+  [halflsb_offset]="halflsb-offset/halflsb_offset.gds"
 )
 for block in "${!BLOCK_GDS[@]}"; do
   rel="${BLOCK_GDS[$block]}"
@@ -121,11 +188,33 @@ done
 # --- 2. Floorplan + route ---------------------------------------------------
 python3 "$TOP_DIR/bin/build_layout.py" "$OUT_DIR"
 
+# --- 2b. Generate the on-die decoupling unit cell (issue #440, DR-017) ------
+# DR-017 sizes one sky130_fd_pr__cap_mim_m3_1 per supply domain at
+# W = L = 46.9 um, MF = 2. `MF = 2` is drawn here as what it is: TWO matched
+# 46.9 um unit cells per domain, i.e. FOUR placements of this one generated
+# cell, whose own placement offsets and ties live in build_layout.py's
+# DECAP_OFFSETS / decoupling_caps().
+#
+# The generator is `klt gen cap_array` at num=1 -- the same generator, at the
+# same plate size, that layout/sampling-frontend/ already ships DRC-clean for
+# its own Csamp_{p,n} (that block's bin/gen_blocks.py CAP_DEVICES), which is
+# why this composer draws no capm/via3 stack of its own. Params come from
+# build_layout.py's own DECAP_GEN_PARAMS via decap.request.json (step 2), so
+# the geometry that is placed and the geometry that is generated cannot be
+# sourced from two different numbers -- and `--verify-decap` then asserts the
+# generator's own reported bbox/ports against the placement tables, so a klt
+# bump that moves the cell fails HERE instead of silently mis-tieing four
+# capacitors.
+( cd "$OUT_DIR" && "$KLT" gen cap_array --pdk "$PDK_VARIANT" \
+    --params decap.request.json --cell-name DECAP_UNIT \
+    -o decap_unit.gds --format json > decap.json )
+python3 "$TOP_DIR/bin/build_layout.py" --verify-decap "$OUT_DIR/decap.json"
+
 # --- 3. Draw every wire, via and label --------------------------------------
 ( cd "$OUT_DIR" && "$KLT" draw --params draw.request.json --cell-name "$ROUTE_CELL_NAME" \
     -o route.gds --format json > draw.json )
 
-# --- 4. Place the five sub-blocks + the routing cell into one composed cell
+# --- 4. Place the six sub-blocks + the routing cell into one composed cell
 ( cd "$OUT_DIR" && "$KLT" gen-compose compose.request.json --format json > compose.json )
 if [[ ! -f "$OUT_DIR/${TOP}.gds" ]]; then
   echo "run-flow.sh: gen-compose did not write ${TOP}.gds -- see compose.json" >&2
@@ -135,13 +224,25 @@ if [[ ! -f "$OUT_DIR/${TOP}.gds" ]]; then
 fi
 mv "$OUT_DIR/${TOP}.gds" "$OUT_DIR/sar_adc_top.gds"
 GDS="$OUT_DIR/sar_adc_top.gds"
+# Every `klt` verb records the input path it was INVOKED with, verbatim, as its
+# envelope's own `file` field. Invoking with an absolute path therefore bakes
+# this machine's `.loom/worktrees/issue-N/...` into committed evidence, and a
+# grader on any other checkout (CI, a reviewer, this repo's own `main` after the
+# worktree is reaped) cannot resolve it -- `klt signoff` reports
+# `input_verified: null` for such a citation, and, worse, reports `true` on the
+# ONE machine where the path still happens to exist, so a report rendered there
+# drifts against CI's re-render of the same manifest (measured on issue #355).
+# Passing a REPO-RELATIVE path from the repo root fixes both: the recorded path
+# resolves from any checkout, and `input_verified` is `true` everywhere.
+REL_GDS="${GDS#"$REPO_ROOT"/}"
 
 # --- 5. DRC on the composed layout: must be CLEAN --------------------------
-"$KLT" drc "$GDS" --deck sky130 --format json > "$OUT_DIR/drc.json" || true
+( cd "$REPO_ROOT" && "$KLT" drc "$REL_GDS" --deck sky130 --format json ) \
+    > "$OUT_DIR/drc.json" || true
 
 # --- 6. Unfiltered extraction: connectivity verification, not an LVS input -
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
-    -o "$OUT_DIR/sar_adc_top.extract.unfiltered.spice" --format json \
+( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
+    -o "$OUT_DIR/sar_adc_top.extract.unfiltered.spice" --format json ) \
     > "$OUT_DIR/extract.unfiltered.json" || true
 
 # --- 7. Signoff attempt: `--pin-source-cells` declared pins + LVS ----------
@@ -155,9 +256,9 @@ GDS="$OUT_DIR/sar_adc_top.gds"
 # where none of `--top-cell-pins`/`--pins`/`--def-pins` could. Requires a
 # `klt` build with klayout-tools#1515 -- carried by every pinned release
 # since `klayout-tools==0.5.0` (layout/requirements.txt).
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
+( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
     --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
-    -o "$OUT_DIR/sar_adc_top.extract.spice" --format json \
+    -o "$OUT_DIR/sar_adc_top.extract.spice" --format json ) \
     > "$OUT_DIR/extract.json" || true
 
 # klayout-tools#1876 workaround: `klt extract`'s SPICE writer no longer emits
@@ -184,16 +285,18 @@ python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
 
 python3 "$TOP_DIR/bin/generate-lvs-reference.py" \
   --sar-sequencer-report "$LAYOUT_DIR/sar-sequencer/reports/$(cat "$LAYOUT_DIR/sar-sequencer/reports/LATEST")" \
-  --seln-inverters-report "$LAYOUT_DIR/seln-inverters/reports/$(cat "$LAYOUT_DIR/seln-inverters/reports/LATEST")" \
+  --top-glue-report "$LAYOUT_DIR/top-glue/reports/$(cat "$LAYOUT_DIR/top-glue/reports/LATEST")" \
+  --halflsb-offset-report "$LAYOUT_DIR/halflsb-offset/reports/$(cat "$LAYOUT_DIR/halflsb-offset/reports/LATEST")" \
   -o "$OUT_DIR/sar_adc_top.lvs-reference.spice"
 
-# `combine_devices: true`: three of the five already-independently-verified
-# sub-blocks (comparator, sar_sequencer, seln_inverters) need it to re-lump
+# `combine_devices: true`: three of the six already-independently-verified
+# sub-blocks (comparator, sar_sequencer, top_glue) need it to re-lump
 # their own genuinely split/interleaved layout legs to match their own
-# reference's lumped devices; the other two (cdac_array, sampling_frontend)
-# need it FALSE (cdac_array to avoid klayout-tools#1497's parallel-cap
-# combine nondeterminism; sampling_frontend has nothing to fold, so it is a
-# no-op either way at that sub-block's own scope). `klt lvs`'s
+# reference's lumped devices; two of the others (cdac_array,
+# sampling_frontend) need it FALSE (cdac_array to avoid klayout-tools#1497's
+# parallel-cap combine nondeterminism; sampling_frontend has nothing to fold,
+# so it is a no-op either way at that sub-block's own scope, as is
+# halflsb_offset, whose eight cards are all `m = MF = 1`). `klt lvs`'s
 # `options.combine_devices` is a single flag over the whole (flattened)
 # compared netlist -- no per-subcircuit scoping exists -- so no single
 # top-level setting can satisfy every already-independently-verified
@@ -208,7 +311,7 @@ python3 "$TOP_DIR/bin/generate-lvs-reference.py" \
 #     (klayout-tools#1878, extraction has no hierarchical mode, #1085).
 #   - class-scoped `combine_devices: ["NFET","PFET"]` (klayout-tools#1370):
 #     126 mismatches, identical device matching (794) -- device class cannot
-#     separate the FET legs that need folding (seln_inverters) from the ones
+#     separate the FET legs that need folding (top_glue) from the ones
 #     that must not be folded (sampling_frontend), since both are FETs.
 #   - `klt lvs`'s inline-extraction shape (`layout.file`, which would sidestep
 #     klayout-tools#1876's SPICE round-trip entirely): 2199 mismatches and
@@ -228,30 +331,52 @@ cat > "$OUT_DIR/lvs.request.json" <<EOF
 EOF
 ( cd "$OUT_DIR" && "$KLT" lvs lvs.request.json --format json > lvs.json ) || true
 
-# --- 7b. `--abstract-cells` black-boxed compare (issue #103's signoff shape) --
-# Black-boxes the three already-independently-verified macros on the layout
-# side and compares the remaining top-level interconnect against a reference
-# with the matching shape (macros hollowed, comparator/sampling_frontend
-# inlined; bin/generate-hollow-reference.py). Needs a `klt` carrying
+# --- 7b. Decoupling real estate + tie resistance (issue #440, DR-017) -------
+# Neither `klt drc` (shapes) nor `klt erc` (connectivity, no resistance model)
+# nor `klt lvs` (a pre-existing mismatch here) can answer either of DR-017's two
+# standing questions about the placement: was the met3/met4 field its area
+# budget assumes actually free, and how much series resistance does each tie add
+# between a capacitor and the rail it decouples. This probe answers both by
+# measurement, and FAILS THE FLOW if its resistance model no longer matches the
+# rectangles `build_layout.py` actually drew -- so the README's numbers cannot
+# quietly drift away from the layout they describe.
+DECAP_BASELINE_ARG=()
+if [ -n "$PREV_RECORD" ] && [ -f "$TOP_DIR/reports/$PREV_RECORD/sar_adc_top.gds" ]; then
+  DECAP_BASELINE_ARG=(--baseline "$TOP_DIR/reports/$PREV_RECORD")
+fi
+python3 "$TOP_DIR/bin/probe-decap-sites.py" \
+  --record "$OUT_DIR" "${DECAP_BASELINE_ARG[@]}" --format json \
+  > "$OUT_DIR/decap-ties.json"
+
+# --- 7c. `--abstract-cells` black-boxed compare (issue #103's signoff shape) --
+# Black-boxes the three already-independently-verified macros (cdac_array,
+# sar_sequencer, top_glue -- each with its own LVS record) on the layout side
+# and compares the remaining top-level interconnect against a reference with
+# the matching shape (macros hollowed; comparator, sampling_frontend and
+# halflsb_offset inlined; the top-level decap cards kept as-is --
+# bin/generate-hollow-reference.py). Needs a `klt` carrying
 # klayout-tools#2396 (MiM top-plate via short) and #2398 (macro well-tap
 # erasure), both merged 2026-09-24 but unreleased as of 0.6.0 -- hence the
 # SAR_ADC_TOP_KLT override above. Never gates the exit code (recorded
-# whatever it reports, like step 7).
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
-    --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
-    --abstract-cells cdac_array__cdac_array \
-    --abstract-cells sar_sequencer__sar_sequencer \
-    --abstract-cells seln_inverters__seln_inverters \
-    -o "$OUT_DIR/abstract-cells.extract.spice" --format json \
-    > "$OUT_DIR/abstract-cells.extract.json" || true
-python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
-  "$OUT_DIR/abstract-cells.extract.spice" \
-  -o "$OUT_DIR/abstract-cells.extract.lvs.spice" \
-  --format json > "$OUT_DIR/abstract-cells.capclass.json"
-python3 "$TOP_DIR/bin/generate-hollow-reference.py" \
-  "$OUT_DIR/sar_adc_top.lvs-reference.spice" \
-  -o "$OUT_DIR/abstract-cells.reference-hollow.spice"
-cat > "$OUT_DIR/abstract-cells.lvs-hollow.request.json" <<EOF
+# whatever it reports, like step 7), so it runs in its own subshell: a failure
+# anywhere in it is reported and the flow carries on to the record.
+(
+  set -e
+  ( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
+      --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
+      --abstract-cells cdac_array__cdac_array \
+      --abstract-cells sar_sequencer__sar_sequencer \
+      --abstract-cells top_glue__top_glue \
+      -o "$OUT_DIR/abstract-cells.extract.spice" --format json ) \
+      > "$OUT_DIR/abstract-cells.extract.json" || true
+  python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
+    "$OUT_DIR/abstract-cells.extract.spice" \
+    -o "$OUT_DIR/abstract-cells.extract.lvs.spice" \
+    --format json > "$OUT_DIR/abstract-cells.capclass.json"
+  python3 "$TOP_DIR/bin/generate-hollow-reference.py" \
+    "$OUT_DIR/sar_adc_top.lvs-reference.spice" \
+    -o "$OUT_DIR/abstract-cells.reference-hollow.spice"
+  cat > "$OUT_DIR/abstract-cells.lvs-hollow.request.json" <<EOF
 {
   "schema": "klt.lvs.request/1",
   "engine": "klayout",
@@ -260,8 +385,9 @@ cat > "$OUT_DIR/abstract-cells.lvs-hollow.request.json" <<EOF
   "options": { "combine_devices": true, "flatten_reference": false }
 }
 EOF
-( cd "$OUT_DIR" && "$KLT" lvs abstract-cells.lvs-hollow.request.json --format json \
-    > abstract-cells.lvs-hollow.json ) || true
+  ( cd "$OUT_DIR" && "$KLT" lvs abstract-cells.lvs-hollow.request.json --format json \
+      > abstract-cells.lvs-hollow.json ) || true
+) || echo "run-flow.sh: step 7c (--abstract-cells compare) did not complete; non-gating, recorded as absent" >&2
 
 # --- 8. Record summary -------------------------------------------------
 set +e

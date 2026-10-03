@@ -27,17 +27,18 @@ followed by the per-bench command in the table below. Each of those commands is 
 
 | Spec row | Status | Coverage | Testbench(es) | Evidence record(s) |
 |---|---|---|---|---|
-| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
+| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-135431-7487784.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
 | Resolution `N` | RATIFIED | benched (ratified, graded pass/fail) | `sim/sar-sequencer-behavioral` | `20260827-211956-e13bc1e.md` |
-| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20260907-013225-5f176a6.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20260912-002315-9aaf1ca.md` |
+| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261001-105439-c324f80.md` |
 | ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate` | `20260828-005033-0c70212.md` |
-| INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20260828-005006-0c70212.md` |
-| `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
-| LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
-| Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20260827-213107-e13bc1e.md` |
+| INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20261001-124049-5207381.md` |
+| `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
+| LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
+| Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
-| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient` | `20260912-002315-9aaf1ca.md` |
-| Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20260827-213107-e13bc1e.md`<br>`20260827-212404-e13bc1e.md` |
+| Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
+| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20261001-105439-c324f80.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md` |
+| Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20261001-120402-d24f700.md`<br>`20260827-212404-e13bc1e.md` |
 
 ## Per-row detail
 
@@ -55,13 +56,14 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Documented in: `sim/sampling-frontend/run_transient.py`
 - Evidence: `sim/sampling-frontend/records/20260821-072657-433a294.md`
 
-**`sim/sampling-cdac-handoff`** — The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95).
+**`sim/sampling-cdac-handoff`** — The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95), and -- at that same assembled top-plate load -- the acquisition residual at the DR-006 worst-case phase budget across the ratified PVT grid (issue #469).
 
 - Testbench: `sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice`, `sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice`
 - Runner: `sim/sampling-cdac-handoff/run_handoff.py`
-- Cold start: `python3 sim/sampling-cdac-handoff/run_handoff.py --record`
+- Cold start: `python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record`
 - Documented in: `sim/sampling-cdac-handoff/run_handoff.py`
 - Evidence: `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`
+- Evidence: `sim/sampling-cdac-handoff/records/20261001-135431-7487784.md`
 
 **`sim/cdac-array-transfer`** — Charge redistribution: the array's own code-to-output transfer characteristic (issue #53).
 
@@ -106,7 +108,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-bit-trial-settling/run_bit_trial_settling.py`
 - Cold start: `python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --corners --record`
 - Documented in: `sim/cdac-bit-trial-settling/run_bit_trial_settling.py`
-- Evidence: `sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md`
+- Evidence: `sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md`
 
 **`sim/sequencer-logic-delay`** — Mechanism (c) of Section 7 Item 2: the SAR sequencer's own CLK-to-phase-output logic delay across all 11 ring-sequencer phase transitions, over the full ratified corner set. Informational against this DRAFT row, on the same DR-006-downstream yardstick; proposes no sample rate.
 
@@ -140,7 +142,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/full-conversion-transient/run_conversion.py`
 - Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record`
 - Documented in: `sim/full-conversion-transient/README.md`
-- Evidence: `sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`
+- Evidence: `sim/full-conversion-transient/records/20261001-105439-c324f80.md`
 
 ### ENOB
 
@@ -169,7 +171,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_mc.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_mc.py --n 40 --seed 1 --record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260828-005006-0c70212.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-124049-5207381.md`
 
 ### `V_REF`
 
@@ -183,7 +185,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 ### LSB (differential)
 
@@ -197,13 +199,13 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 ### Sampling cap (CDAC unit × array)
 
 - **Status**: RATIFIED
 - **Claim class**: `ratified-measured`
-- **Note**: C_u ~= 8.65 fF, 2^9 = 512 positions/side, RATIFIED (DR-003 via #27). Graded structurally (the deck's own device sizing and array population) plus functionally (monotonicity and polarity) at every point of the ratified corner set.
+- **Note**: C_u ~= 8.66 fF (1.9000 um square plate, 5 nm-grid-legal), 2^9 = 512 positions/side, RATIFIED (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496). UPDATE (2026-09-30, DR-019 via #496): the ratified unit-cap plate side moved from 1.8988 um to 1.9000 um -- the smallest 5 nm manufacturing-grid-legal side at or above this row's own matching floor -- so C_u moved 8.65 -> 8.66 fF (+0.116%); this note previously restated the pre-resize 8.65 fF figure as the current ratified value. Graded structurally (the deck's own device sizing and array population) plus functionally (monotonicity and polarity) at every point of the ratified corner set.
 
 **`sim/cdac-array-transfer`** — Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).
 
@@ -211,7 +213,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 ### Comparator input-referred noise
 
@@ -227,6 +229,21 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Documented in: `sim/comparator-decision/run.py`
 - Evidence: `sim/comparator-decision/records/20260827-212404-e13bc1e.md`
 
+### Kickback
+
+- **Status**: DRAFT
+- **Claim class**: `draft-informational`
+- **Note**: DRAFT row (<= 5 mV peak pin disturbance into a 1 kOhm series source impedance, single decision edge; stretch <= 2 mV), added by DR-011 via issue #361. The bound is adopted verbatim from the sibling 2AMLogic/sky130-comparator canary's own DR-002-ratified row as a stated interim choice -- NOT derived from this block's system-level budget -- so nothing here is graded pass/fail against it. Issue #346's single-corner (tt/27 C) probe is still the only corner covered: the record below reports 73.3673 mV worst-case peak pin disturbance INFORMATIONALLY and says so in its own Claim field, which cites spec/target-spec.md explicitly. That is ~14.7x the proposed target; the gap is recorded, not relaxed (CLAUDE.md). Issue #390 (DR-014's first gate) has since split that disturbance into its common-mode and differential components at the same corner: the differential part -- the part a differential top-plate CDAC does not reject, i.e. the part that lands on a decision -- is 10.9153 mV at Vindiff=+50 mV (~2.2x the proposed target) and 4.1918 mV at the half-LSB overdrive a marginal SAR decision actually presents (~0.84x the target, ~2.1x the stretch). So the row is missed on the quantity it bounds, and the decision-relevant component is a much smaller multiple of it than 14.7x -- but is not negligible either, which is what DR-014 Consequences §4 said would decide whether its 'no mitigation adopted' disposition weakens. Ratifying this row would oblige a full-corner campaign -- the bound is stated at the ratified corner set and the evidence covers one point of it (DR-011 Consequences §5).
+- **Tracking**: DR-014 (#349: static preamp not adopted, DR-004 Decision 1 stands, no mitigation adopted yet); #390 (common-mode/differential split of the kickback measurement, DR-014's first gate -- DELIVERED by the record below, which supersedes #346's baseline; confirms a differential component above the bound at the large-overdrive point, DR-014 Consequences §4's condition); #434 (follow-on: measuring the headroom-neutral mitigation classes DR-014 Consequences §4 / Open items names, filed once #390's result met that condition -- DELIVERED for the cross-coupled-neutralization class by DR-016); DR-016 (#434: cross-coupled neutralization measured against an EXPERIMENTAL, informational-only DUT variant -- worst-case peak differential deviation moves -10.9153 -> -10.8355 mV at Vindiff=+50 mV, -0.7%, not enough to close the gap; DR-014's 'not adopted' call stands; the double-tail latch and complementary-clock compensation classes remain unmeasured); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)
+
+**`sim/comparator-decision`** — Peak pin disturbance on VINP/VINN across a single CLK reset->evaluate edge, into a 1 kOhm series source impedance, at tt/27 C (issue #346), plus -- since issue #390, DR-014's first gate -- the common-mode/differential decomposition of the same disturbance and later recovery pick-offs of both, over a Vindiff grid that now includes the half-LSB (1.7578 mV) point. The per-pin peak the row's bound is stated in is unchanged and reproduces exactly (73.3673 mV at Vindiff=+50 mV; -70.3419 mV at the Vindiff=0 control). The decomposition is what says how much of that lands on a decision: at Vindiff=0 the deck is symmetric so the disturbance is common-mode by construction, and the measured common-mode part barely moves with overdrive (-70.3419 -> -70.4415 mV), while the differential part is -10.9153 mV at Vindiff=+50 mV and +4.1918 mV at the half-LSB point. A subtraction between two per-pin rows is NOT that split and is no longer described as one.
+
+- Testbench: `sim/comparator-decision/testbench/comparator_core.spice`
+- Runner: `sim/comparator-decision/run.py`
+- Cold start: `python3 sim/comparator-decision/run.py kickback --record`
+- Documented in: `sim/comparator-decision/run.py`
+- Evidence: `sim/comparator-decision/records/20260925-050027-0259924.md`
+
 ### Power
 
 - **Status**: DRAFT
@@ -240,7 +257,55 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/full-conversion-transient/run_conversion.py`
 - Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record`
 - Documented in: `sim/full-conversion-transient/README.md`
-- Evidence: `sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md`
+- Evidence: `sim/full-conversion-transient/records/20261001-105439-c324f80.md`
+
+**`sim/supply-impedance-sensitivity`** — Same per-rail average current/power as the bench above, but with DR-015's package-style R+L (or a lumped substrate stand-in) driving the four supply terminals instead of ideal sources at the die -- DR-012's own open item, issue #378, 'the impedance argument is unmeasured'. Baseline corner only (see the record's own Subset-corner justification); reported informationally, same as the row above, and no power target is proposed here either.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power again, on the one arm pair that prices DR-012's REJECTED null option (issue #409 item 2): `no-gnd-pad` -- `GND` with no bond of its own, reaching the board only through the lumped substrate link -- against the `package` arm it differs from in exactly one element, plus the `ideal` control, at the baseline corner. A separate bench entry from the two above because it is a separate invocation with its own documented cold start: the four-arm comparison omitted this arm on a cost projection, and this record is what replaces that projection with a measurement (487 s, 1.67x the control -- cheaper than the `package` arm, not the ~10x the projection assumed). Reported informationally, same as the rows above; no power target is proposed here either, and `I(GND)` is `n/a (no bond)` on the `no-gnd-pad` row by construction.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package,no-gnd-pad --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power again, over the bounded 2-D box DR-015's own 'Open items' asks for (issue #409 item 3): the as-built package topology re-run at bond inductance 0x/1x/10x of DR-015's 1.914 nH crossed with the lumped substrate link R_SUBX at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the one above because it is a separate invocation with its own documented cold start, not a re-run of it: the arm comparison ranks five NETWORKS at DR-015's assumption point, this walks a box around that point on one of them. Reported informationally, same as the rows above; no power target is proposed here either, and the box's total power spread (27.20-27.97 uW) is stated in the record rather than graded.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power once more, over the one-axis ladder that the 2-D box above could not reach (the residual of issue #409 item 3, and DR-015's own R_SUB open item): DR-012's REJECTED no-gnd-pad topology re-run with the lumped substrate RETURN at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the box above because it is a separate invocation with its own documented cold start and a structurally different experiment: the box moves a substrate resistance that sits BESIDE a bonded GND as a shunt, this moves the same constant where it is the analog ground's entire path to the board. Its 30 Ohm rung is card-for-card the no-gnd-pad arm of the ablation record, asserted in code before the run and again at record-write time. Reported informationally, same as the rows above; no power target is proposed here either, the ladder's total power spread (27.27-27.97 uW) is stated in the record rather than graded, and I(GND) is 'n/a (no bond)' on every swept row by construction.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power again, at the first NON-baseline point of the ratified corner set any record of this campaign contains (issue #409 item 1): the ideal control and the as-built package arm at tt_27c_1.80v and the slow-process corner ss_27c_1.80v. A separate bench entry from the ones above because a corner subset changes what was simulated and therefore reaches the record footer -- so every widening of the subset is its own indexed invocation rather than a re-run of an existing one. Two of nine ratified points and two of five arms: the record states its own Subset-corner justification, and the seven remaining points stay open on #409 -- including ff_27c_1.80v and tt_-40c_1.80v, where the fastest edges should make the largest excursion. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT power figures move with the corner (26.97 uW ideal / 26.81 uW package at ss, against 27.96 / 27.25 at tt), and the die-side ground excursion is SMALLER at the slow corner (28.472 mV against 37.590 mV), which is why ss may not be quoted as this campaign's worst corner.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md`
+
+**`sim/supply-impedance-sensitivity`** — The same per-rail average current/power once more, over the WHOLE ratified corner set for every arm the runner implements (issue #409 item 1): all five supply-return networks x the nine ratified OAT points = 45 whole-ADC transients, on the as-committed DECOUPLED design/sar_adc_top.spice (DR-017's one MiM cap per supply domain), so it is compared with nothing minted on the undecoupled netlist -- the records above measure a different DUT sha256 on purpose. A separate bench entry because --corners changes what was simulated and reaches the record footer. No Subset-corner justification is owed: every ratified point is present. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT total power of the ideal control across the grid spans 21.60 uW (tt_27c_1.62v) to 34.24 uW (tt_27c_1.98v), with the supply corners bounding it rather than process or temperature; and the largest die-side analog-ground excursion of the as-built package arm is at the fast-process corner ff_27c_1.80v (13.964 mV), not at the baseline.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/supply-impedance-sensitivity/run_supply_impedance.py`
+- Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record`
+- Documented in: `sim/supply-impedance-sensitivity/README.md`
+- Evidence: `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`
 
 ### Corners
 
@@ -262,7 +327,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_transfer.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md`
+- Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
 
 **`sim/comparator-decision`** — Ratified corner set executed end to end (issue #28).
 

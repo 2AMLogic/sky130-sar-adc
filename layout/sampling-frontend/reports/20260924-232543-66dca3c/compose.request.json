@@ -1,0 +1,223 @@
+{
+  "schema": "klt.gen_compose.request/1",
+  "pdk": {
+    "variant": "sky130A"
+  },
+  "blocks": [
+    {
+      "id": "sa_p",
+      "generator_report": "sa_p.json"
+    },
+    {
+      "id": "se_p",
+      "generator_report": "se_p.json"
+    },
+    {
+      "id": "scp_p",
+      "generator_report": "scp_p.json"
+    },
+    {
+      "id": "cmswp_p",
+      "generator_report": "cmswp_p.json"
+    },
+    {
+      "id": "invp",
+      "generator_report": "invp.json"
+    },
+    {
+      "id": "cmswp_n",
+      "generator_report": "cmswp_n.json"
+    },
+    {
+      "id": "scp_n",
+      "generator_report": "scp_n.json"
+    },
+    {
+      "id": "se_n",
+      "generator_report": "se_n.json"
+    },
+    {
+      "id": "sa_n",
+      "generator_report": "sa_n.json"
+    },
+    {
+      "id": "msw_p",
+      "generator_report": "msw_p.json"
+    },
+    {
+      "id": "msw_n",
+      "generator_report": "msw_n.json"
+    },
+    {
+      "id": "sb_p",
+      "generator_report": "sb_p.json"
+    },
+    {
+      "id": "scn_p",
+      "generator_report": "scn_p.json"
+    },
+    {
+      "id": "sd_p",
+      "generator_report": "sd_p.json"
+    },
+    {
+      "id": "cmswn_p",
+      "generator_report": "cmswn_p.json"
+    },
+    {
+      "id": "cmswn_n",
+      "generator_report": "cmswn_n.json"
+    },
+    {
+      "id": "sd_n",
+      "generator_report": "sd_n.json"
+    },
+    {
+      "id": "scn_n",
+      "generator_report": "scn_n.json"
+    },
+    {
+      "id": "sb_n",
+      "generator_report": "sb_n.json"
+    },
+    {
+      "id": "invn",
+      "generator_report": "invn.json"
+    },
+    {
+      "id": "cboot",
+      "generator_report": "cboot.json"
+    },
+    {
+      "id": "csamp",
+      "generator_report": "csamp.json"
+    },
+    {
+      "id": "route",
+      "generator_report": "draw.json"
+    }
+  ],
+  "placement": {
+    "strategy": "explicit",
+    "order": [
+      "sa_p",
+      "se_p",
+      "scp_p",
+      "cmswp_p",
+      "invp",
+      "cmswp_n",
+      "scp_n",
+      "se_n",
+      "sa_n",
+      "msw_p",
+      "msw_n",
+      "sb_p",
+      "scn_p",
+      "sd_p",
+      "cmswn_p",
+      "cmswn_n",
+      "sd_n",
+      "scn_n",
+      "sb_n",
+      "invn",
+      "cboot",
+      "csamp",
+      "route"
+    ],
+    "origins_um": {
+      "sa_p": {
+        "x": 2.0,
+        "y": 0.0
+      },
+      "se_p": {
+        "x": 5.2,
+        "y": 0.0
+      },
+      "scp_p": {
+        "x": 10.34,
+        "y": 0.0
+      },
+      "cmswp_p": {
+        "x": 13.54,
+        "y": 0.0
+      },
+      "invp": {
+        "x": 16.74,
+        "y": 0.0
+      },
+      "cmswp_n": {
+        "x": 19.939999999999998,
+        "y": 0.0
+      },
+      "scp_n": {
+        "x": 23.139999999999997,
+        "y": 0.0
+      },
+      "se_n": {
+        "x": 28.279999999999998,
+        "y": 0.0
+      },
+      "sa_n": {
+        "x": 31.479999999999997,
+        "y": 0.0
+      },
+      "msw_p": {
+        "x": 42.47,
+        "y": 0.0
+      },
+      "msw_n": {
+        "x": 44.76,
+        "y": 0.0
+      },
+      "sb_p": {
+        "x": 47.05,
+        "y": 0.0
+      },
+      "scn_p": {
+        "x": 49.339999999999996,
+        "y": 0.0
+      },
+      "sd_p": {
+        "x": 51.629999999999995,
+        "y": 0.0
+      },
+      "cmswn_p": {
+        "x": 54.169999999999995,
+        "y": 0.0
+      },
+      "cmswn_n": {
+        "x": 56.459999999999994,
+        "y": 0.0
+      },
+      "sd_n": {
+        "x": 58.74999999999999,
+        "y": 0.0
+      },
+      "scn_n": {
+        "x": 61.28999999999999,
+        "y": 0.0
+      },
+      "sb_n": {
+        "x": 63.57999999999999,
+        "y": 0.0
+      },
+      "invn": {
+        "x": 65.86999999999999,
+        "y": 0.0
+      },
+      "cboot": {
+        "x": 74.16,
+        "y": 0.0
+      },
+      "csamp": {
+        "x": 99.25999999999999,
+        "y": 0.0
+      },
+      "route": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  },
+  "connectivity": []
+}

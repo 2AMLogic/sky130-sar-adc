@@ -7,7 +7,11 @@ rate and the statistical rows (ENOB, INL/DNL — target values only) remain
 DRAFT; the ENOB/INL-DNL target *values* now cite
 [DR-007](decision-records/DR-007-revised-enob-inl-dnl-targets.md)'s
 evidence-derived candidates (2026-08-28, proposed via #129) in place of the
-original, un-evidenced draft numbers, still pending operator ratification.**
+original, un-evidenced draft numbers, still pending operator ratification. A
+Kickback row is added DRAFT (2026-09-24, proposed via #361) citing
+[DR-011](decision-records/DR-011-comparator-kickback-target-row.md), whose
+bound is adopted from a sibling canary as an explicit interim choice rather
+than derived from this block's own budget — also pending ratification.**
 
 - **Binding:** the supply flavour — 1.8 V core (`nfet_01v8`/`pfet_01v8`), digital
   on `sky130_fd_sc_hd`. Design, sim and layout may lock to it. See
@@ -23,7 +27,15 @@ original, un-evidenced draft numbers, still pending operator ratification.**
   Monte-Carlo evidence campaign, superseding (as a target-spec.md *row*, not
   as evidence — #29's own records stand unedited) the original un-evidenced
   draft numbers. Each remains a starting point, to be confirmed, amended, or
-  replaced by a further decision record under `spec/decision-records/`.
+  replaced by a further decision record under `spec/decision-records/`. Also
+  not binding: the **Kickback** row, added DRAFT by
+  [DR-011](decision-records/DR-011-comparator-kickback-target-row.md) (issue
+  #361) — the first bound this block has had for its comparator's input-pin
+  disturbance, adopted verbatim from the sibling `2AMLogic/sky130-comparator`
+  canary's own ratified row as a stated interim choice, pending a bound
+  derived from this block's own system-level budget. The measured baseline
+  (`sim/comparator-decision/records/20260924-041815-afcb1b5.md`, 73.3673 mV
+  at `tt`/27 °C) misses it by `≈ 14.7×`; that gap is recorded, not relaxed.
 
 An agent must not treat the sample-rate row as settled, must not close a
 `TBD` by porting gf180-sar-adc's 3.3 V figure, and must not relax a ratified
@@ -85,6 +97,20 @@ ruling is DR-003's recommendation without modification:
 - **CDAC unit cap `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side** —
   matching-limited (sky130's own MIM local-mismatch model,
   `A_C = 2.8 %·µm`); the kT/C floor is `≈ 415×` looser and does not bind.
+
+  **Update (2026-09-30, DR-019 via #496):** the unit-cap plate side is
+  resized from `1.8988 µm` to `1.9000 µm` — the smallest 5 nm
+  manufacturing-grid-legal side at or above this item's own matching floor.
+  The old value could not satisfy sky130's 5 nm manufacturing grid (measured
+  by `layout/halflsb-offset/`'s `klt precheck --grid-um 0.005` census, #495);
+  [DR-019](decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)
+  reads the PDK's own shipped signoff DRC deck directly and finds the grid
+  check is real and on by default for the metal/via layers that land on the
+  plate, so the fix is a resize, not a waiver. `C_u` moves to `≈ 8.66 fF`
+  (was `≈ 8.65 fF`); the array size (`2^9 = 512`/side) and every other
+  DR-003 conclusion are unchanged. The re-derivation/re-layout this implies
+  for `design/cdac/`, `layout/cdac-array/`, and `layout/halflsb-offset/` is
+  tracked as its own follow-up issue, not done by DR-019 itself.
 - **Comparator input-referred noise `≤ 1.0148 mV rms` (baseline, ENOB > 9.0)
   / `≤ 0.5859 mV rms` (stretch, ENOB > 9.5)** — one-third of the total
   non-quantization budget (equal three-way split with kT/C sampling noise
@@ -114,6 +140,28 @@ guessed:**
   total-array gain error (`1.42 LSB` at 3σ) would exceed 1 LSB *if* this
   spec carried a gain-error target, but it does not today; this record
   flags the spec-completeness gap without inventing a row to close it.
+- **A comparator offset and/or dead-band (non-decision) spec row** — asked
+  and **answered**, not merely unaddressed:
+  [DR-020](decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md)
+  (2026-10-02, proposed via #515) decides **no row yet**, closing the offset
+  half of DR-004's own open item. Its evidence
+  (`sim/comparator-decision/records/20261002-203719-c898d06.md`, a
+  decision-boundary bisection over `Vindiff` at `tt`/27 °C and `ss`/−40 °C)
+  bounds the **systematic** decision offset below `0.028 mV` and the
+  non-decision band below `0.055 mV` — both `>30×` inside the ratified
+  `1.7578 mV` half-LSB — so a row bounding either would gate nothing. The term
+  that *would* need a row is the **random/mismatch** offset (stdev `97.08 mV`
+  at the current `W = 4 µm` input pair,
+  `sim/comparator-decision/records/20260821-071918-433a294.md`), and DR-020
+  declines to set a number for it because two prerequisites are missing: a
+  comparator-offset **allocation derived from DR-003 Item 4's error budget**
+  (which covers noise only), and a **precise σ** (the existing one comes from
+  the method DR-004 labels order-of-magnitude, at `N = 16`, at one corner).
+  Post-layout (PEX) replication is the named trigger to supersede DR-020. The
+  **regeneration-time** row DR-004 named alongside offset remains undecided by
+  anything. Like the gain-error bullet above, this is a flagged
+  spec-completeness gap with no invented row — recorded here so the question
+  is not silently re-opened.
 - **ENOB / INL-DNL target values** — unchanged by this ratification; they
   remain statistical rows gated on Monte-Carlo evidence (#29), per DR-003
   Item 6. **Evidence now exists** (issue #29: `sim/cdac-array-transfer/`
@@ -160,8 +208,9 @@ and the device-level evidence each number is read from:
 | INL / DNL | ≤ ±2.0 LSB (target) | DRAFT (target value, DR-007 candidate) | statistical — MC evidence campaign complete (#29, `sim/cdac-array-transfer/`), combined with #28's process corners; revised candidate proposed (DR-007 via #129, was `≤ ±1 LSB`); ratification still open |
 | `V_REF` | `1.8 V` (= `V_DD`, at the rail) | **RATIFIED** (DR-003 via #27) | derived from the ratified 1.8 V core rail (DR-001) |
 | LSB (differential) | `2·V_REF/2^N = 3.5156 mV` | **RATIFIED** (DR-003 via #27) | derived |
-| Sampling cap (CDAC unit × array) | `C_u ≈ 8.65 fF`, `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27) | matching-limited; kT/C floor is `≈ 415×` looser |
+| Sampling cap (CDAC unit × array) | `C_u ≈ 8.66 fF` (`1.9000 µm` square plate, 5 nm-grid-legal), `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496) | matching-limited; kT/C floor is `≈ 415×` looser |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | `28.86 %` / `16.67 %` of LSB; one-third of the total non-quant budget |
+| Kickback | `≤ 5 mV` peak pin disturbance into a `1 kΩ` series source impedance, single decision edge (target); stretch `≤ 2 mV` | DRAFT (new row, DR-011 candidate) | new row proposed (DR-011 via #361) against #346's baseline (`sim/comparator-decision/records/20260924-041815-afcb1b5.md`: `73.3673 mV`, `tt`/27 °C only — `≈ 14.7×` the target, `≈ 36.7×` the stretch); bound **adopted verbatim** from sibling `2AMLogic/sky130-comparator`'s DR-002-ratified row as a stated interim choice, not derived from this block's own budget; stated at the ratified corner set, evidenced at one point; ratification still open. Mitigation evaluated by [DR-014](decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) (#349): static preamp **not adopted** (DR-004 §1 stands) and no mitigation adopted yet. Row unchanged and still unmet, and the next gate is the common-mode / differential split (#390) |
 | Power | provisional, minimise at rate | DRAFT | report, don't pre-commit |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | held as drafted; see the Liberty/STA scope note above |
 
@@ -174,9 +223,11 @@ seed + sample count + negative control; post-layout (extracted) re-sim; a
 characterization report; testbenches shipped; repo hygiene. `V_REF`, LSB,
 `N`, the CDAC unit-cap/array size, the comparator noise budget, and the
 corner set are ratified (DR-003 via #27) and evidence may be recorded
-against them now; sample rate and the ENOB/INL-DNL *target values* remain
-DRAFT and nothing against those specific rows is claimable until a future
-record ratifies them.
+against them now; sample rate, the ENOB/INL-DNL *target values*, and the
+Kickback row (DR-011 via #361) remain DRAFT and nothing against those
+specific rows is claimable until a future record ratifies them. Ratifying
+Kickback additionally obliges a full-corner kickback campaign — today's
+evidence is a single `tt`/27 °C point (see DR-011's Consequences §5).
 
 ## Non-goals (draft)
 

@@ -198,3 +198,13 @@ exist to close the loop — was left implicit in `design/sar_adc_top.sch`
 closed-loop verification (2 LSB/bit native step, unreachable codes under
 the ratified `N=10` decode). DR-008 is that top-level decision: gate each
 side by the free sign bit (DOUT9) so only one plate moves per bit decision.
+
+**UPDATE (issue #496, `spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`):**
+this record's Decision item 2 cites `W=L=1.8988` (µm) as the unit-cap plate
+size. That value is not a multiple of sky130's 5 nm manufacturing grid;
+DR-019 resizes it to `W=L=1.9000` (the smallest 5 nm-grid-legal side at or
+above DR-003 Item 3's matching floor), updating `C_u` to `≈ 8.664 fF` (was
+`8.654 fF`). This record's switching-scheme, switch-sizing, termination, and
+matching-strategy decisions are otherwise unaffected — DR-019's follow-up
+issue carries the plate-size change through `design/cdac/cdac_unit_cell.sch`
+and `layout/cdac-array/bin/cdac_layout.py`, not this record.

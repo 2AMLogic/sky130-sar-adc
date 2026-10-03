@@ -43,8 +43,6 @@ a failure mode this sub-block can actually suffer:
 """
 from __future__ import annotations
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -55,6 +53,11 @@ from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
     git_field,
     load_json_strict,
+    render_lvs_findings,
+    render_net_correspondence,
+    render_provenance_header,
+    resolve_pdk_info_strict,
+    tool_version_strict,
 )
 from gen_blocks import (  # noqa: E402
     CAP_DEVICES,
@@ -182,17 +185,8 @@ def main() -> int:
     branch = _git(args.repo_root, "rev-parse", "--abbrev-ref", "HEAD")
     dirty = _git(args.repo_root, "status", "--porcelain") != ""
 
-    klt_version = subprocess.run(
-        [args.klt, "--version"], check=True, capture_output=True, text=True
-    ).stdout.strip()
-    pdk_info = json.loads(
-        subprocess.run(
-            [args.klt, "pdk", "find", "--pdk", args.pdk_variant, "--format", "json"],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-    )
+    klt_version = tool_version_strict(args.klt, "--version")
+    pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)
 
     dirty_blocks = sorted(
         block for block in BLOCKS if block_drc.get(block, {}).get("status") != "clean"
@@ -300,13 +294,8 @@ def main() -> int:
         a(f"Failed precheck checks: {', '.join(precheck_failed)}")
         a("")
 
-    a("## Provenance")
-    a("")
-    a(f"- `klt` version: {klt_version}")
-    a(f"- KLayout engine: {drc.get('provenance', {}).get('klayout_version')}")
-    a(f"- PDK: {pdk_info.get('variant')} ({pdk_info.get('version')})")
-    a(f"- PDK root: resolved via `{pdk_info.get('resolved_via')}`")
-    a(f"- repo commit: `{sha}` on `{branch}`{' (dirty working tree)' if dirty else ''}")
+    for line in render_provenance_header(klt_version, drc, pdk_info, sha, branch, dirty):
+        a(line)
     a(
         f"- DRC deck: `{drc.get('deck')}` "
         f"({drc.get('provenance', {}).get('deck', {}).get('content_hash')})"
@@ -372,13 +361,29 @@ def main() -> int:
     )
     a("")
     a(
-        "The eleven NFET bodies are **not** in this table on purpose: the "
-        "curated deck synthesizes one global substrate net (`vsubs`) for them "
-        "regardless of drawn geometry, so `klt lvs` reports "
-        "`device.body_unverified` for all eleven and no drawn tap can change "
-        "that. What the drawn p-substrate tap does do is merge this layout's "
-        "`GND` conductor into `vsubs`, without which `GND` would extract as a "
-        "separate net and LVS would not match at all."
+        "The eleven NFET bodies are **not** in this table on purpose, and the "
+        "reason is the deck's, not this layout's: `klt extract --deck sky130` "
+        "synthesizes ONE global NMOS body net for all of them via "
+        "`connect_global`, regardless of drawn geometry, so no drawn tap can "
+        "make this table a per-device measurement the way the PMOS rows above "
+        "are. What the drawn p-substrate tap does do is merge this layout's "
+        "`GND` conductor into that global net, without which `GND` would "
+        "extract as a separate net and LVS would not match at all."
+    )
+    a("")
+    a(
+        "Since issue #377 that global net is also NAMED here: promoting `GND` "
+        "to a drawn met2 pin label (`PIN_NETS`) gives the substrate net a real "
+        "name (`GND`, where it read as the deck's own `vsubs` before), and "
+        "`klt lvs` consequently stops reporting `device.body_unverified` for "
+        "the eleven NFETs -- the warning it raised while their body terminals "
+        "were being compared against a deck-synthesized net rather than a "
+        "schematic one. **Read that narrowly.** What changed is that the node "
+        "every NFET body sits on is now a named, drawn conductor; what did NOT "
+        "change is the deck's global tie itself, which still connects all "
+        "eleven bodies by construction rather than by any geometry this flow "
+        "could break. A per-device NMOS body-tie check remains outside what "
+        "this deck can grade."
     )
     a("")
 
@@ -488,31 +493,11 @@ def main() -> int:
     a(f"- rules skipped (layer absent from the stream): {coverage.get('rules_skipped')}")
     a("")
 
-    a("## Net correspondence (layout <-> reference)")
-    a("")
-    for entry in lvs.get("net_correspondence", []):
-        marker = "pin" if entry.get("pin") else "internal"
-        a(f"- `{entry.get('layout')}` <-> `{entry.get('reference')}` ({marker})")
-    a("")
+    for line in render_net_correspondence(lvs):
+        a(line)
 
-    a("## Reported LVS findings (good reference)")
-    a("")
-    findings = lvs.get("mismatches", [])
-    if not findings:
-        a("- none")
-    for finding in findings:
-        a(
-            f"- [{finding.get('severity')}] {finding.get('category')}: "
-            f"{finding.get('description')}"
-        )
-    if lvs.get("status") == "match":
-        a("")
-        a(
-            "Every finding above is reported at `severity: warning` with "
-            f"`error_count = {lvs.get('error_count')}`; `klt lvs`'s own overall "
-            f"verdict for this run is `{lvs.get('status')}`."
-        )
-    a("")
+    for line in render_lvs_findings(lvs, title="Reported LVS findings (good reference)"):
+        a(line)
 
     print("\n".join(lines))
     return 0 if all_pass else 1

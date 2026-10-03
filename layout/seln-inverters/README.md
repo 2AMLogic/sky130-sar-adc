@@ -1,20 +1,62 @@
-# layout/seln-inverters/ — SELn<i> = NOT(DOUT<i>) inverter bank (issue #103)
+# layout/seln-inverters/ — RETIRED (issues #387, #401): the glue this block draws is not in the schematic, and nothing composes it
+
+> **SUPERSEDED 2026-09-25 by `layout/top-glue/` (issue #387), and RETIRED from
+> every composition on 2026-10-01 (issue #401). Do not cite this block's
+> DRC/LVS verdicts as evidence about the top level.**
+>
+> This directory lays out nine `sky130_fd_sc_hd__inv_1` cells implementing
+> `SELn<i> = NOT(DOUT<i>)` — issue #56's unconditional complementary CDAC
+> bottom-plate drive. `spec/decision-records/DR-008-cdac-top-level-switching-polarity.md`
+> **superseded that wiring on 2026-09-11** (issue #263, PR #266): the drive is
+> now decision-directed, `SELp<i> = DOUT9 AND DOUT<i>` and
+> `SELn<i> = DOUT9N AND DOUT<i>`, built from eighteen `and2_1` gates plus an
+> `xinv_dout9n` complement. **`design/sar_adc_top.spice` contains no
+> `xinv_seln<i>` instance at all**, so the nine cells drawn here correspond to
+> nothing in the current schematic.
+>
+> The replacement is `layout/top-glue/`, whose netlist is gated against
+> `design/sar_adc_top.spice` on every run and in CI
+> (`layout/top-glue/bin/check-schematic-parity.py`) precisely so this cannot
+> happen again — a generated-reference LVS flow compares a layout against a
+> reference derived from the same netlist, so it agrees with itself whatever
+> the schematic says, which is why this block stayed clean and wrong for two
+> weeks.
+>
+> **Why it is still in the tree:** only as append-only history. Until issue #401
+> landed (2026-10-01), `layout/sar-adc-top/`'s composition read this block's GDS
+> — `bin/build_layout.py` placed `seln_inverters` and
+> `bin/generate-lvs-reference.py`'s hand-written wrapper wired each `SELp<i>`
+> straight to `DOUT<i>` — so deleting the directory would have broken that flow
+> without fixing it. **That is no longer true**: that composition now places
+> `top_glue` and `halflsb_offset`, and
+> `layout/sar-adc-top/bin/check-composition-parity.py` fails CI if any
+> `seln_inverters` reference reappears in its placement tables. This
+> directory's `reports/` are kept because `sim/`- and `layout/`-style records are
+> append-only evidence (CLAUDE.md), not because anything consumes them; its
+> `bin/run-flow.sh` still runs and still produces a DRC/LVS-clean nine-inverter
+> macro, which is simply not a macro this design has. Everything below this banner is
+> preserved as the record of what was built and verified, and remains accurate
+> *about those nine inverters*; it is no longer accurate about the SAR ADC's
+> top-level glue.
 
 Physical layout for the nine `sky130_fd_sc_hd__inv_1` instances
-`design/sar_adc_top.sch` (issue #56) adds directly at the top-level
+`design/sar_adc_top.sch` (issue #56) added directly at the top-level
 integration, not inside any sub-block: `DOUT<i>` (the SAR sequencer's own
-per-bit register output, #102) drives `SELn<i>` = `NOT(DOUT<i>)`, the CDAC
-array's (#100) N-side per-bit switch control. A differential DAC needs the
-two sides' `SEL` complementary (not equal) because
-`design/cdac/cdac_unit_cell.sch`'s single-control-line switch uses the
-identical truth table on both array sides — see `design/sar_adc_top.sch`'s
-own header for the full wiring rationale.
+per-bit register output, #102) drove `SELn<i>` = `NOT(DOUT<i>)`, the CDAC
+array's (#100) N-side per-bit switch control. That scheme's own rationale was
+that a differential DAC needs the two sides' `SEL` complementary (not equal)
+because `design/cdac/cdac_unit_cell.sch`'s single-control-line switch uses the
+identical truth table on both array sides. DR-008's closed-loop verification
+found the conclusion wrong (driving both sides unconditionally moves both
+bottom plates by a full reference swing on every bit trial); see that record,
+not `design/sar_adc_top.sch`'s superseded header, for the wiring that stands.
 
-**This is new top-level glue logic, not a sub-block re-layout.** None of
+**This was new top-level glue logic, not a sub-block re-layout.** None of
 #99 (sampling front end), #100 (CDAC array), #101 (comparator) or #102 (SAR
-sequencer)'s own schematics instantiate these nine cells; they exist only in
+sequencer)'s own schematics instantiate these nine cells; they existed only in
 the integration schematic issue #103 itself owns. That is why this directory
-lives next to `layout/sar-sequencer/` etc. rather than inside any of them.
+lives next to `layout/sar-sequencer/` etc. rather than inside any of them —
+and `layout/top-glue/` sits there now for the same reason.
 
 ## Status: DRC-clean, LVS-clean
 
@@ -26,91 +68,88 @@ lives next to `layout/sar-sequencer/` etc. rather than inside any of them.
 | `klt drc --deck sky130` | **CLEAN**, 0 violations |
 | `klt lvs` | **match**, 18/18 devices, 20/20 nets, 20/20 pins (9 informational "ambiguous pairing resolved structurally" warnings, one per symmetric `SELn<i>` net — expected for nine electrically-identical, independently-driven inverters, not a real defect) |
 
-## Known limitation: 33 metal minimum-area violations, waived 2026-09-19 (issue #333)
+## WITHDRAWN 2026-09-24 (issue #363): the "33 metal minimum-area violations" were a measurement artifact
 
-**The "DRC: CLEAN" verdict above is real but narrow, and this section states
-exactly how narrow.** `klt drc --deck sky130` at the pinned
-`klayout-tools==0.5.0` authors 47 rules across five kinds (`width`, `space`,
-`enclosing`, `separation`, `isolated`) and **no `area`-kind rule at all**, so
-sky130A's own metal minimum-area rules have never looked at this record.
-Measured independently — `docs/chipalooza/measure_metal_min_area.py`, which
-reads the layer numbers and thresholds out of the pinned PDK's own
-`sky130A_mr.drc` and applies the deck's own `Region#with_area` primitive to the
-merged top-cell flatten — this flow's `reports/LATEST` record carries:
+**This section used to be a dated waiver over 33 sub-minimum-area shapes,
+issued under issue #333 on 2026-09-19. It is withdrawn, not reaffirmed: there
+were never 33 violations, and there are none now.** The count came from
+`docs/chipalooza/measure_metal_min_area.py`, which issue #363 found
+**under-merges** the region it measures.
 
-| Rule | Threshold | Shapes below | Shape | Area | Drawn by |
-| --- | --- | --- | --- | --- | --- |
-| `m1.6` | 0.083 um² | 18 | 0.290 × 0.230 um (16), plus 2 router stubs | 0.0667 um² | `VIA_L1M1_PR_MR` |
-| `m5.4` | 4.0 um² | 15 | 1.420 × 1.600 um | 2.2720 um² | `VIA_via5_6_1600_1600_1_1_1600_1600` |
+The script built its region as `kdb.Region(); region.insert(iter);
+region.merge()`. `Region#insert(RecursiveShapeIterator)` carries each shape's
+GDS user properties across, and KLayout's merge is **property-aware**: two
+overlapping polygons whose property sets differ are never merged into one. The
+DEF→GDS merge attaches a net-name property (`[[1, "VPWR"]]`, `[[1, "VGND"]]`)
+to every PDN strap and none to the via cells sitting inside it, so a covered
+via pad stayed its own polygon and was counted as a standalone violation. The
+15 `m5.4` "violations" were the clearest case of all: each is a 1.42 × 1.60 um
+via5 patch lying wholly **inside** a 1.6 um-wide met5 PDN strap that is itself
+far above the 4.0 um² floor.
 
-33 shapes in total, re-measured 2026-09-19 against
-`reports/20260917-180644-527ec73/seln_inverters.gds` on the pinned toolchain
-(`klt 0.5.0`, `klayout 0.30.12`, open_pdks
-`c6d73a35f524070e85faff4a6a9eef49553ebc2b`). **No `sky130_fd_sc_hd__*` library
-cell contributes a single one** — every violating shape is in a generated via
-cell or a router-drawn stub. `met2`, `met3` and `met4` are clear at this
-block's size; `layout/sar-sequencer/` (the other `klt place-and-route` flow,
-denser and with more routing layers in play) additionally trips `m2.6` and
-`m3.6`, so the same waiver appears in its README with its own 112-shape table.
+Re-measured 2026-09-24 against the same
+`reports/20260917-180644-527ec73/seln_inverters.gds`, same pinned toolchain
+(`klayout 0.30.12`, open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b`),
+with the corrected construction:
 
-**Why this is not fixable from this repository.** Nothing in `layout/` draws
-any of this geometry. The flow's only in-repo inputs are
-`netlist/seln_inverters.v` and `requests/place-and-route.json`; everything
-above comes out of `klt place-and-route`'s OpenROAD run and the DEF→GDS merge:
+| Rule | Threshold | Merged polygons (pre-#363 → corrected) | Shapes below (pre-#363 → corrected) |
+| --- | --- | --- | --- |
+| `m1.6` | 0.083 um² | 130 → 60 | 18 → **0** |
+| `m2.6` | 0.0676 um² | 216 → 102 | 0 → **0** |
+| `m3.6` | 0.240 um² | 180 → 90 | 0 → **0** |
+| `m4.4a` | 0.240 um² | 111 → 6 | 0 → **0** |
+| `m5.4` | 4.0 um² | 20 → 5 | 15 → **0** |
 
-- The `m1.6` shapes are **the PDK's own tech-LEF via enclosure**, instantiated
-  verbatim. `sky130_fd_sc_hd__nom.tlef` defines `VIA L1M1_PR_MR`'s met1 rect as
-  `-0.145 -0.115 0.145 0.115` — 0.29 × 0.23 = 0.0667 um², below the *same*
-  PDK's own 0.083 um² `m1.6` threshold standing alone. That is legal in the
-  LEF, which expects the enclosure to merge with the wire it terminates; it
-  becomes a violation only where the router leaves too little attached metal.
-  Fixing it means a post-route minimum-area repair pass inside the router, not
-  a constant this repo owns.
-- The `m5.4` shapes are OpenROAD's PDN via5 patches. This one class is
-  *influenced* by a repo-owned parameter (`power.straps`' met5 width), since
-  sky130's 4.0 um² met5 floor needs ≥ 2.5 um of length on a 1.6 um strap — but
-  re-tuning the power grid to dodge a DRC rule is a power-delivery design
-  change, not a DRC fix (and this block's PDN is deliberately identical to
-  `layout/sar-sequencer/`'s, so the two would have to move together).
+**33 → 0.** `layout/sar-sequencer/`, the other `klt place-and-route` flow,
+carried the companion waiver over 112 shapes on the same premise; it corrects
+to 0 the same way, and 112 + 33 was exactly the composed top level's
+now-retracted 145.
 
-A post-route GDS patch step owned by this repo was considered and rejected:
-growing metal around a via inside already-routed, spacing-tight standard-cell
-metal risks shorts and spacing violations, and would desynchronise the
-committed GDS from the routed DEF that `klt extract --def-pins` and the LVS
-reference are both derived from. Trading a silent minimum-area gap for a
-possible connectivity defect is not an improvement.
+**Independent corroboration.** This flow's own record predates the
+`klayout-tools==0.6.0` bump, so its `drc.json` carries no `area`-kind rule. But
+this block's GDS is composed verbatim into `layout/sar-adc-top/`, whose current
+record `20260924-190817-f3622fc` was minted on the 0.6.0 pin and whose
+`drc.json` `coverage.rules_checked` **does** include `met1.area.1` …
+`met5.area.1` (52 rules, status `clean`, **0 violations**) over geometry that
+contains this block's. Two independent measurements of the same five foundry
+rules now agree at zero; before #363 they disagreed, and the hand-rolled one
+was wrong.
 
-**Upstream filings (generic, per CLAUDE.md's friction protocol).**
+The regression is pinned by `sim/tests/test_measure_metal_min_area.py` and run
+in CI's headless `checks` job, so this count cannot silently drift again.
 
-- `2AMLogic/klayout-tools#2139` — the live filing for this gap, with a
-  reproducing input (a generic 48-stage inverter chain, 99 shapes below
-  `m1.6`/`m5.4`, with `klt drc --deck sky130` reporting `status: "clean"` on
-  it), the per-class root cause, and the tech-LEF evidence above.
-- `2AMLogic/klayout-tools#2072` / `#2075` — the earlier filing. `#2075` fixed
-  the same class of defect in `klt gen-compose`'s landing pads but explicitly
-  did **not** reproduce the place-and-route half on its own corpus fixtures;
-  `#2139` supplies the reproducer that half was missing.
-- `2AMLogic/klayout-tools#1989` (merged, unreleased; `klt 0.5.0` is still the
-  newest PyPI release as of 2026-09-19) adds the `met*.area.1` rules that would
-  let `klt drc` see this itself — the same unreleased-fix gate issue #103 is
-  already tracking for its own upstream blockers.
-
-**What retires this waiver.** A `klayout-tools` release carrying a routed
-output free of sub-minimum-area metal (`#2139`), re-run through
-`bin/run-flow.sh` to mint a new record, with
-`docs/chipalooza/measure_metal_min_area.py` reporting zero shapes for this flow
-and `klt drc --deck sky130` — by then carrying `#1989`'s `met*.area.1` rules —
-still reporting clean. Until then this is a **stated** limitation, not an
-unmeasured one.
+**Upstream filings, now superseded.** `2AMLogic/klayout-tools#2139` was filed
+(generically, per CLAUDE.md's friction protocol) as the live tool gap for this
+"defect", with a generic 48-stage inverter-chain reproducer whose 99 sub-
+`m1.6`/`m5.4` shapes were counted with the same under-merging measurement; its
+premise does not survive #363, and it should be read as withdrawn on this
+repo's side. That withdrawal is now on the public record: under issue #373 the
+reproducer was re-run from its own quoted inputs and measured both ways on the
+identical output GDS — 76 shapes below threshold under the pre-#363
+construction, **0** under the corrected one — and a correction comment was
+posted on `#2139`, which had already been closed upstream (`COMPLETED`,
+2026-09-19) by merged PR `2AMLogic/klayout-tools#2144`. See
+`layout/sar-sequencer/README.md`'s copy of this block for the per-rule numbers
+and for why no revert of `#2144` was asked for. The earlier `#2072`/`#2075`
+pair is split: `#2075`'s `klt
+gen-compose` landing-pad fix addressed a real, separate defect (issue #326's 17
+shapes were genuinely isolated pads) and stands, while the place-and-route half
+does not. `#1989` — merged and, as of the 0.6.0 pin, **released** — is what
+gives `klt drc` its own `met*.area.1` rules and therefore the corroboration
+above.
 
 ## Which `klt` flow, and why
 
 `klt place-and-route` (OpenROAD), the same choice `layout/sar-sequencer/`
-makes and for the same reason: `netlist/seln_inverters.v` is a **hand-verified
+makes and for the same reason: `netlist/seln_inverters.v` was a **hand-verified
 1:1 structural transliteration** of `design/sar_adc_top.sch`'s own
-`xinv_seln0..xinv_seln8` instances (nine independent `sky130_fd_sc_hd__inv_1`
-cells, `DOUT<i>` -> `A`, `SELn<i>` -> `Y`), not RTL — there is nothing for
-`klt synthesize` to usefully do.
+`xinv_seln0..xinv_seln8` instances **as that schematic stood under issue #56**
+(nine independent `sky130_fd_sc_hd__inv_1` cells, `DOUT<i>` -> `A`,
+`SELn<i>` -> `Y`), not RTL — there is nothing for `klt synthesize` to usefully
+do. Those nine instances no longer exist: DR-008 removed them on 2026-09-11,
+and nothing re-derived this netlist afterwards (issue #387). "1:1 with the
+schematic" was true when written and is not true now — see the banner at the
+top of this file.
 
 **No clock, no state — but the request schema still requires
 `constraints.clock_port`/`clock_period_ns`.** This design has zero sequential
@@ -209,12 +248,21 @@ was filed for this re-run.
 
 ## Where this fits into #103's top-level assembly
 
-This macro is one of the five blocks the top-level assembly places and
-routes (the other four being #99/#100/#101/#102's own already-closed
-layouts). Its own ports (`DOUT8..DOUT0`, `SELn8..SELn0`, `VPWR`, `VGND`) are
-documented, with exact DEF-derived coordinates, in
+This macro is, **for now and wrongly**, one of the five blocks the top-level
+assembly places and routes (the other four being #99/#100/#101/#102's own
+already-closed layouts). Its own ports (`DOUT8..DOUT0`, `SELn8..SELn0`,
+`VPWR`, `VGND`) are documented, with exact DEF-derived coordinates, in
 `layout/sar-adc-top/README.md`'s floorplan notes, alongside the other four
 blocks' pin geometry — see that directory for the composition/routing status.
+
+That composition is the reason this directory has not been deleted, and it is
+itself the remaining half of issue #387: the assembly (issue #401) must place
+`layout/top-glue/` and DR-009's half-LSB offset network (issue #400) instead of
+this block, and `layout/sar-adc-top/bin/generate-lvs-reference.py`'s `TOP_SUBCKT`
+wrapper must be re-derived from `design/sar_adc_top.spice` as it stands. Until
+then the composed `sar_adc_top.gds` implements issue #56's superseded glue, and
+no LVS verdict on it — clean or otherwise — says anything about whether it
+implements this repo's schematic.
 
 ## Provenance
 

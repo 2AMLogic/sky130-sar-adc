@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Floorplan + route the top-level SAR ADC assembly (issue #103).
+"""Floorplan + route the top-level SAR ADC assembly (issues #103, #401).
 
 Composes the four already-closed sub-block layouts (`layout/sampling-frontend/`
 #99, `layout/cdac-array/` #100, `layout/comparator/` #101, `layout/sar-sequencer/`
-#102) plus this issue's own glue macro (`layout/seln-inverters/`, PR #166) into
-one GDS matching `design/sar_adc_top.sch`'s hierarchy, per #103's scope:
+#102) plus the two glue macros `design/sar_adc_top.spice`'s top level actually
+specifies -- `layout/top-glue/` (PR #402: its 33 `sky130_fd_sc_hd` cells) and
+`layout/halflsb-offset/` (PR #497: DR-009's 8 `sky130_fd_pr` primitives) --
+into one GDS matching `design/sar_adc_top.sch`'s hierarchy, per #103's scope:
 **placement and interconnect/supply routing only -- no sub-block's own internal
 layout is touched.** See `layout/sar-adc-top/README.md` for the full
 floorplan/routing-plan writeup this module implements, including the
@@ -12,24 +14,40 @@ direct-GDS-inspection findings (cdac_array's own internal metal occupancy,
 per-block pin geometry, the clear-layer corridors this router relies on) that
 make the plan below safe.
 
+Issue #401 replaced the glue this module used to place. Until then it placed
+`layout/seln-inverters/` -- the nine `SELn<i> = NOT(DOUT<i>)` inverters issue
+#56 added and `spec/decision-records/DR-008-cdac-top-level-switching-polarity.md`
+superseded on 2026-09-11 -- and routed `sar_sequencer.DOUT<i>` straight to
+`cdac_array.SELp<i>`, the pre-DR-008 unconditional complementary drive. That
+block is retired from this composition (its own records stay as append-only
+history). Nothing in `design/sar_adc_top.spice` has mentioned it since
+2026-09-11; what caught up with that is `bin/check-composition-parity.py`, which
+re-derives this module's own sub-block list, routed-net set and top-level port
+set from that netlist on every run and in CI (`npm run check:composition-parity`)
+rather than trusting the tables below to have been kept in sync by hand.
+
 Two verbs, same split `layout/comparator/bin/build_layout.py` established and
 this flow reuses verbatim for the same reason (`klt gen-compose`'s own bundle
 router is unproven for analog-quality nets, and here also has to reach ports on
-four different native metal layers across five heterogeneous blocks -- routing
+four different native metal layers across six heterogeneous blocks -- routing
 by hand against a router this repo controls is what makes a DRC/LVS-clean
 verdict reachable at all):
 
 * `compose.request.json` -- a `klt gen-compose` **explicit**-placement request
-  naming each of the five sub-blocks as a `blocks[].cell` entry (#1189 -- an
+  naming each of the six sub-blocks as a `blocks[].cell` entry (#1189 -- an
   *existing* GDS cell this command did not itself generate) plus this script's
   own new `route` cell, with **no** `routing` block.
 * `draw.request.json` -- every wire, via and top-level pin label this
   assembly's own interconnect needs, in the *composed* (global) coordinate
   system, fed to `klt draw`.
+* `composition.json` -- the two matching measurements this module makes that no
+  downstream `klt` verdict can re-derive (DR-009's two offset-cap top-plate leg
+  lengths, and DR-009's dummy comparator load against the live one), for
+  `bin/render-record.py`.
 
 Floorplan
 ---------
-Five blocks, explicitly placed, chosen so that **no two bounding boxes
+Six blocks, explicitly placed, chosen so that **no two bounding boxes
 overlap** (verified by `_check_no_overlap` below) and so that every net this
 module has to route either (a) never needs to cross through another block's
 own bounding box at all, or (b) crosses only through a region this module
@@ -49,10 +67,16 @@ geometry on the layer used to cross it (`layout/sar-adc-top/README.md`
   shared vertical corridor, so `TOP_P`/`TOP_N` each route as a simple chain
   (`cdac_array` -> `sampling_frontend` -> `comparator`) rather than a
   three-way star.
-* `sar_sequencer` and `seln_inverters` placed well below `cdac_array` (a
-  digital region entirely disjoint in y from the analog region above), side by
-  side with `sar_sequencer`'s own right-edge I/O column facing
-  `seln_inverters`' own left-edge I/O column across a shared channel.
+* `halflsb_offset` in the open band between `cdac_array`'s top edge and
+  `sampling_frontend`'s bottom one, in the `TOP_P`/`TOP_N` corridor and
+  symmetric across it: DR-009's offset caps hang off the comparator's own two
+  input nodes, so the floorplan has to put them where both legs can be the same
+  length (`_check_halflsb_symmetry` asserts that they are).
+* `sar_sequencer` and `top_glue` placed well below `cdac_array` (a digital
+  region entirely disjoint in y from the analog region above), side by side,
+  with `sar_sequencer`'s own right-edge I/O column and `top_glue`'s own
+  top-edge 46-pin interface both facing the open channel between both macros'
+  tops and `cdac_array`'s own bottom edge.
 
 Routing
 -------
@@ -63,8 +87,8 @@ Every net is one of:
   `TOP_P`/`TOP_N` are already met4, already routed almost to its own bbox
   edge) -- this module only extends the existing shape, on the same layer, no
   new via.
-* **Analog-region crossing** (`TOP_P`, `TOP_N`, `VDD`, `SAMPLE_INT`, `CLK`,
-  `COMP_OUT`): a per-net-exclusive `analog_leg()` Z-shape -- met4 vertical
+* **Analog-region crossing** (`TOP_P`, `TOP_N`, `VDD`, `SAMPLE_INT`, `CLKN`,
+  `COMP_OUT`, `OUTN_NC`): a per-net-exclusive `analog_leg()` Z-shape -- met4 vertical
   (at each endpoint's own x) up to a per-net `JOG_Y`, met3 horizontal at
   that `JOG_Y`, met4 vertical back down to the other endpoint. The met3/met4
   *layer* split (not just per-net y/x exclusivity) is load-bearing:
@@ -74,25 +98,84 @@ Every net is one of:
   `klt extract` (not `klt drc`, which cannot see a same-layer short two
   different nets agree to share) is what drove the met3/met4 split; see
   `analog_leg()`'s own docstring.
-* **Digital-channel fan-out** (`DOUT<i>`, `SELn<i>`): the same layer-split
-  idea, met1 horizontals / met2 verticals, applied to the dense
-  `sar_sequencer`<->`seln_inverters` I/O channel (19 nets sharing both
-  macros' own single-column edges) -- see the `DOUT<i>`/`SELn<i>` loop's own
-  comments for the two additional, non-obvious collisions found empirically
-  there (a wide via-stack pad landing on a neighbour's trunk; two unrelated
-  arithmetic sequences, `DROP_X` and `cdac_array`'s own per-pin `cx`,
-  coincidentally landing within one pad-width of each other).
-* **Basement crossing** (`sar_cross_to_analog`, used by `CLK`/`COMP_OUT`/
+* **Digital-channel fan-out** (`DOUT<i>`, `SELp<i>`, `SELn<i>`, `PH_B9`,
+  `BUSY`, `CLK`, `CLKN`, `OUTN_NC`, `HALF_LSB_EN`/`ENN`): the same layer-split
+  idea, met1 horizontals / met2 verticals, applied to the dense channel between
+  both standard-cell macros' own top edges and `cdac_array`'s own bottom one
+  (**36** nets since issue #401, against the pre-#401 channel's 19) -- see
+  `CHANNEL_NETS`' own section comment and `_check_channel_column_clearance()`
+  for the three unrelated arithmetic lattices that share this band (`DROP_X`'s
+  1.0 um ladder, `top_glue`'s own 0.92 um DEF pin lattice, `cdac_array`'s own
+  11.0 um landing columns) and the collisions their beating produces.
+* **Basement crossing** (`sar_cross_to_analog`, used by `COMP_OUT`/
   `SAMPLE_INT`'s own `sar_sequencer`-side leg): escape east off
   `sar_sequencer`'s own bbox, onto met2 immediately (never met1, to stay
   invisible to the digital channel's own met1 pin-to-`DROP_X` stubs, whose
   union covers the *entire* channel width), down to a shared "basement" y
   below every block's own bbox, then into its own `analog_leg`. See that
   function's own docstring for the two collisions this shape works around.
-* **Simple same-layer stub** (`VINP`, `VINN`, `VCM`, `RST_B`, `BUSY`,
-  `DOUT9`, the switch-row `SELp<i>`/`SELn<i>` cdac-side risers): a riser
-  (`Canvas.riser()`) at the pin's own position plus a short lead to an
-  external pin label, or vice versa -- no long-haul highway needed.
+* **Simple same-layer stub** (`VINP`, `VINN`, `RST_B`, the switch-row
+  `SELp<i>`/`SELn<i>` cdac-side risers): a riser (`Canvas.riser()`) at the
+  pin's own position plus a short lead to an external pin label, or vice
+  versa -- no long-haul highway needed.
+* **Half-LSB offset leg** (`halflsb_leg()`, used by all ten nets DR-009's
+  offset network needs): that block's twelve pins sit in one 0.5 um-pitch met2
+  track band on its own top edge, so each leg is a met3 (or, for the two
+  offset-cap top plates, met4) column down to the net's own met1 row in the
+  band below the block, the row itself, and a riser onto whatever conductor the
+  net already has. See `HALFLSB_ROW_Y`'s own section comment for why the column
+  layer is a deck fact rather than a preference.
+* **Digital supply rail** (`VPWR`, `VGND` -- issue #355): one met5 rectangle
+  per rail, *colinear* with (and therefore merging into) both standard-cell
+  macros' own met5 PDN straps, carrying a top-level supply-pin label on the
+  stretch that lies west of both macros. The only net class here that reaches a
+  sub-block conductor by same-layer merge rather than by a via riser onto a
+  declared pin -- because neither digital rail IS a declared pin on either
+  macro (`layout/sar-adc-top/README.md`, open question 2) -- and the only met5
+  geometry this module draws. Whether the digital rails tie to the analog
+  `VDD`/`GND` domain or stay independent with their own top-level pins is
+  decided in
+  `spec/decision-records/DR-010-digital-supply-domain-partition.md`, not here;
+  see `digital_supply_rail()`.
+* **On-die supply decoupling** (`Cdecap_a` on `VDD`/`GND`, `Cdecap_d` on
+  `VPWR`/`VGND` -- issue #440, DR-017): four placed `klt gen cap_array` unit
+  cells (two per domain, the `MF = 2` DR-017 sizes), each a met3 bottom plate
+  under a `capm` top plate with its own via3/met4 top-plate lead. The only net
+  class here whose *device* is a placed sub-block rather than drawn geometry,
+  and the only one whose two terminals are reached on DIFFERENT layers for a
+  deck reason rather than a floorplan one: the sky130 extraction deck removes
+  every met3 shape that touches a `capm` plate from generic met3<->met4 (via3)
+  connectivity -- that exclusion is what stops a MiM cap's own top-plate via
+  from reading as a plate-to-plate short -- so a bottom plate is reachable
+  only from BELOW, through via2 from met2, while a top plate is reachable only
+  from ABOVE, on met4. See `decoupling_caps()`.
+* **Analog ground mesh** (`GND` -- issues #362 and #377): one met3 trunk in
+  the open channel between `sampling_frontend` and `comparator`, with a met4
+  dropper onto each of the three analog sub-blocks' OWN drawn ground
+  terminals (`comparator.GND`, `sampling_frontend.GND`, `cdac_array.VSS` --
+  the latter two added by #377 inside those sub-blocks), and the top-level
+  `GND` pad label on the comparator dropper. The only net class here whose
+  members were ALREADY one node before any metal was drawn (the p-substrate
+  ties them), which is exactly why its correctness cannot be read off a clean
+  extraction and needs its own ablation check -- see `analog_ground_mesh()`.
+  What that pad is electrically (the p-substrate node's own drawn terminal,
+  not a second node beside it) is decided in
+  `spec/decision-records/DR-012-analog-ground-pad.md`; the mesh's own
+  topology in `spec/decision-records/DR-013-analog-ground-mesh.md`.
+
+Matching nets the verdicts cannot see
+-------------------------------------
+Two of the nets above are *matched-pair* nets, and no verdict this flow records
+can grade them: `klt drc` sees shapes, `klt lvs` sees devices and nets, and both
+report an identical result for a matched pair and a scattered one. So each gets
+its own standing assertion, measured from the geometry this module actually
+draws and written into `composition.json`:
+
+* DR-009's two offset-cap top-plate legs (`_check_halflsb_symmetry`) -- an
+  exact-equality check, because `HALFLSB_OFFSET`'s own dx is solved for it.
+* DR-009's dummy comparator load against the live one
+  (`_check_outn_load_balance`) -- a bounded check, because the two nets' own
+  destinations differ and no dx makes their paths congruent.
 
 Clean room: every number in this module was measured directly from this
 repo's own already-committed sub-block GDS/DEF artefacts (`klt cells`, a
@@ -103,6 +186,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
@@ -122,6 +206,22 @@ MET3 = (70, 20)
 VIA3 = (70, 44)
 MET4 = (71, 20)
 MET4_PIN = (71, 5)
+VIA4 = (71, 44)
+MET5 = (72, 20)
+MET5_PIN = (72, 5)
+CAPM = (89, 44)  # MiM-cap top plate -- drawn only by the placed `cap_array`
+#                  decap units, never by this module; listed so
+#                  `_check_decoupling_caps()` can reason about it.
+# MET5 is deliberately NOT part of `_METAL_CHAIN`/`_VIA_BETWEEN`/
+# `MIN_METAL_AREA_UM2` below: nothing this module draws rises *to* met5 through
+# a via stack. The only met5 geometry here is the two digital supply rails
+# (`digital_supply_rail()`), which reach both standard-cell macros' own met5
+# PDN straps by SAME-LAYER, colinear merge -- no via4, no riser, no pad. A
+# `riser(..., MET5)` call would therefore raise from `_layer_index`, which is
+# the intended failure: met5's own minimum-area rule (`m5.4`, 4.0 um^2) is 16x
+# `ISLAND_PAD_UM`'s area, so a met5 via pad cannot be sized by `_pad_side()`'s
+# single-constant scheme and would need its own design pass (see
+# `MIN_METAL_AREA_UM2`'s own note and the module-level assert under it).
 
 # Adjacency chain used by `riser()` to walk from one layer to another --
 # MET1 <-> MET2 <-> MET3 <-> MET4 (a poly/li1 pad walks one extra step,
@@ -149,13 +249,24 @@ PAD_UM = 0.36  # generic via/wire landing pad side. Bigger than
 #: (`libs.tech/klayout/drc/sky130A_mr.drc`, open_pdks
 #: c6d73a35f524070e85faff4a6a9eef49553ebc2b -- the `sim/pdk.json` pin):
 #: `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a` 0.240 um^2, plus li1's
-#: own (`0.0561 um^2`, the deck's `linotace.with_area`). These are NOT checked
-#: by `klt drc`: at the pinned klayout-tools==0.5.0 the curated sky130 deck
-#: authors no `area`-kind rule at all, so a sub-minimum-area shape reads back
-#: `status: "clean"` (issue #326; fixed upstream by klayout-tools#1989, not yet
-#: released). `docs/chipalooza/measure_metal_min_area.py` is this repo's own
-#: stand-in measurement until that release lands -- run it against this flow's
-#: composed GDS after any change to the geometry below.
+#: own (`0.0561 um^2`, the deck's `linotace.with_area`). At the klt pin this
+#: module was written against (klayout-tools==0.5.0), NONE of these were
+#: checked by `klt drc`: the curated sky130 deck authored no `area`-kind rule
+#: at all, so a sub-minimum-area shape read back `status: "clean"` (issue
+#: #326). That gap has since closed -- `layout/requirements.txt` now pins
+#: klayout-tools==0.6.0 (issue #103), whose deck carries `met1.area.1` ...
+#: `met5.area.1` natively -- but `docs/chipalooza/measure_metal_min_area.py`
+#: is kept as an independent cross-check rather than retired, and since issue
+#: #338 it is a CI gate rather than a manual habit: `.github/workflows/ci.yml`'s
+#: PDK-gated `pdk-smoke` job measures this flow's current `reports/LATEST` GDS
+#: and fails on ANY shape below threshold -- no baseline, no waiver (issue
+#: #333, the one tool-emitted residual this gate ever had to hold out, is
+#: closed; see `layout/sar-adc-top/README.md`'s "Minimum-area rules" section).
+#: So a new via riser or stacked-via pad added below at `PAD_UM` /
+#: `STACK_PAD_UM`, on a layer nothing else here merges with, fails CI -- but
+#: only on the nightly/`run-pdk-smoke` path, so run it yourself after changing
+#: the geometry below rather than waiting for the nightly:
+#:     layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
 MIN_METAL_AREA_UM2 = {
     LI1: 0.0561,
     MET1: 0.083,
@@ -184,7 +295,7 @@ VIA_UM = 0.20  # via2/via3 (met2<->met3, met3<->met4) square side --
 MCON_UM = 0.17  # li1<->met1 -- matches this repo's own MCON_S convention.
 WIRE_W = 0.40  # highway wire width -- generous; these runs are long and
 #                unconstrained, not density-critical
-ESCAPE_W = 0.14  # sar_sequencer/seln_inverters own routed-DEF pin box height
+ESCAPE_W = 0.14  # sar_sequencer/top_glue own routed-DEF pin box width
 #                  (0.14 um -- `met1.width`'s own minimum) -- an escape lead
 #                  at THIS block's own already-legal track width, used to
 #                  clear its bbox edge before this module's own,
@@ -227,6 +338,26 @@ assert all(
 ), "ISLAND_PAD_UM no longer clears sky130A's own metal minimum-area rules"
 
 
+def _via_array_pitch_um(cut: tuple[int, int]) -> float:
+    """Centre-to-centre pitch for a multi-cut via array on `cut`.
+
+    `cut side + that cut layer's own minimum space`, from the pinned deck's own
+    space rules -- so an array is legal by construction rather than by a
+    hand-checked number, and a deck bump that tightens a space rule moves the
+    pitch here instead of minting a violation. Deliberately the MINIMUM legal
+    pitch: every micron of pitch is a micron the enclosing pad has to grow, and
+    these arrays sit in measured-free but not unlimited back-end field.
+    """
+    space = {VIA2: VIA2_SPACE_UM, VIA3: VIA3_SPACE_UM, VIA4: VIA4_SPACE_UM}.get(cut)
+    if space is None:
+        raise ValueError(
+            f"no minimum-space rule recorded for cut layer {cut} -- a via array there "
+            "needs its own space rule read out of the pinned deck first"
+        )
+    cut_side = {MCON: MCON_UM, VIA1: VIA1_UM}.get(cut, VIA_UM)
+    return cut_side + space
+
+
 class Canvas:
     """Shape/label accumulator -- the same minimal drawing surface every
     other `bin/build_layout.py` in this repo uses, re-derived here (rather
@@ -264,6 +395,7 @@ class Canvas:
         y: float,
         pad_lo: float = PAD_UM,
         pad_hi: float = PAD_UM,
+        array: int = 1,
     ) -> None:
         """One via/mcon cut, with a landing pad on both adjoining metals.
 
@@ -272,12 +404,38 @@ class Canvas:
         caller whose pad stands alone on its own layer passes `_pad_side(...)`
         instead, so the pad clears that metal's own minimum-area rule unaided
         (see `_pad_side`).
+
+        `array = N` draws an `N x N` grid of cuts instead of one, centred on
+        the same (x, y), on `_via_array_pitch_um()`'s own cut+space pitch, and
+        grows BOTH pads by the grid's own extent so each keeps exactly the
+        enclosure the caller's single-cut pad size already gave it. `array = 1`
+        (the default for every other call site in this module) draws precisely
+        what this method drew before the parameter existed -- same three
+        rectangles, same sizes -- so no existing geometry moves.
+
+        Why a parameter and not a new method: a via stack's cut count is a
+        *resistance* choice, not a topology one. `rcvia2`/`rcvia3` are 3.41 ohm
+        per cut in this PDK -- three orders of magnitude above the metal either
+        side of them -- so N cuts in parallel is the only lever on a via's own
+        contribution, and it is measured as `R/N` by
+        `bin/probe-decap-sites.py`'s own ladder.
         """
+        if array < 1:
+            raise ValueError(f"via array must be at least 1x1, got {array}")
         cut = _VIA_BETWEEN[(at_layer_lo, at_layer_hi)]
         cut_side = {MCON: MCON_UM, VIA1: VIA1_UM}.get(cut, VIA_UM)
-        self.square(at_layer_lo, x, y, pad_lo)
-        self.square(at_layer_hi, x, y, pad_hi)
-        self.square(cut, x, y, cut_side)
+        # The grid's own extent, and how much the pads have to grow to keep the
+        # caller's enclosure on all four sides of it. `array == 1` never asks
+        # for a pitch: most cut layers in this flow have no space rule recorded
+        # here (they never needed one), and a single cut has no neighbour.
+        pitch = _via_array_pitch_um(cut) if array > 1 else 0.0
+        grow = (array - 1) * pitch
+        self.square(at_layer_lo, x, y, pad_lo + grow)
+        self.square(at_layer_hi, x, y, pad_hi + grow)
+        first = -(array - 1) * pitch / 2.0
+        for ix in range(array):
+            for iy in range(array):
+                self.square(cut, x + first + ix * pitch, y + first + iy * pitch, cut_side)
 
     def riser(
         self,
@@ -286,6 +444,7 @@ class Canvas:
         from_layer: tuple[int, int],
         to_layer: tuple[int, int],
         isolated_ends: bool = False,
+        array: int = 1,
     ) -> None:
         """Stack via cuts directly above/below (x, y) to walk from
         `from_layer` to `to_layer` (either direction) through every
@@ -302,13 +461,20 @@ class Canvas:
         caller attaches its own wire there and the merged polygon is what the
         rule measures -- unless the caller says otherwise with
         `isolated_ends=True` (a landing that only carries a pin label).
+
+        `array = N` widens EVERY level of the stack to an `N x N` grid of cuts
+        (see `via()`). It is passed, not defaulted, at exactly the call sites
+        whose series resistance has been measured to matter -- the decoupling
+        ties (issue #465) -- because this method's single-cut convention is
+        used by every supply riser in this flow and widening it globally is a
+        much larger DRC surface for paths whose resistance nothing has measured.
         """
         lo, hi = sorted((_layer_index(from_layer), _layer_index(to_layer)))
         for i in range(lo, hi):
             below, above = _METAL_CHAIN[i], _METAL_CHAIN[i + 1]
             pad_lo = PAD_UM if i == lo and not isolated_ends else _pad_side(below)
             pad_hi = PAD_UM if i + 1 == hi and not isolated_ends else _pad_side(above)
-            self.via(below, above, x, y, pad_lo=pad_lo, pad_hi=pad_hi)
+            self.via(below, above, x, y, pad_lo=pad_lo, pad_hi=pad_hi, array=array)
 
     def label(self, layer: tuple[int, int], x: float, y: float, text: str) -> None:
         self.labels.append((layer, text, x, y))
@@ -329,15 +495,132 @@ def _pin_layer_for(layer: tuple[int, int]) -> tuple[int, int]:
 # below) and so the analog TOP_P/TOP_N route lengths are (very nearly) equal
 # -- see the module docstring's "Floorplan" section.
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# On-die supply decoupling (issue #440, DR-017).
+#
+# DR-017 sizes one `sky130_fd_pr__cap_mim_m3_1` per supply domain at
+# `W = L = 46.9 um, MF = 2` -> 8.870 pF each, and explicitly leaves placement to
+# this issue. `MF = 2` is drawn here as what it is: TWO matched 46.9 um unit
+# cells per domain, in parallel across that domain's own supply/return pair.
+#
+# The unit cell is `klt gen cap_array` at `num = 1` -- the SAME generator, at
+# the SAME 46.9 um plate, that `layout/sampling-frontend/`'s own `Csamp_{p,n}`
+# already ships DRC-clean (`bin/gen_blocks.py`'s `CAP_DEVICES`), and the same
+# cell DR-017's own `C_u = 4434.86 fF` was computed for. Drawing the met3/`capm`
+# /via3/met4 stack by hand in this composer was the other option this issue
+# named; reusing the generator that is already proven on this PDK pin, in this
+# repo, at this exact plate size is strictly less risk for an identical device.
+# --------------------------------------------------------------------------- #
+DECAP_CELL_NAME = "DECAP_UNIT"
+
+#: The `klt gen cap_array` params the unit cell is generated from -- written out
+#: as `decap.request.json` by `main()` and consumed by `run-flow.sh`, so the
+#: geometry and the placement below can never be sourced from two different
+#: numbers. `spacing_um` is irrelevant at `num = 1` (there is no neighbour) and
+#: is left at the generator's own default for the same reason `gen_blocks.py`
+#: passes it: an explicit request is easier to diff than an implicit one.
+DECAP_GEN_PARAMS = {
+    "plate_w_um": 46.9,
+    "plate_h_um": 46.9,
+    "num": 1,
+    "spacing_um": 0.5,
+}
+
+#: Per-unit nominal capacitance, from the SAME two PDK coefficients DR-017's own
+#: Decision reads out of `libs.tech/ngspice/parameters/montecarlo.spice`
+#: (`camimc = 2.0000 fF/um^2` area, `cpmimc = 0.1900 fF/um` perimeter at
+#: nominal `mim = 0`): `2.0 * 46.9^2 + 0.19 * 4 * 46.9 = 4434.86 fF`. Quoted
+#: here (and asserted below) so this module's own arithmetic, the LVS
+#: reference's `C` cards and DR-017's table cannot drift apart silently. It is
+#: also exactly the value `layout/sampling-frontend/reference.spice` already
+#: carries for its own 46.9 um `C_CSAMP_{P,N}`.
+DECAP_UNIT_C_F = 4.434864e-12
+assert (
+    abs(
+        (
+            2.0 * DECAP_GEN_PARAMS["plate_w_um"] * DECAP_GEN_PARAMS["plate_h_um"]
+            + 0.19 * 2.0 * (DECAP_GEN_PARAMS["plate_w_um"] + DECAP_GEN_PARAMS["plate_h_um"])
+        )
+        * 1e-15
+        - DECAP_UNIT_C_F
+    )
+    < 1e-18
+), "DECAP_UNIT_C_F no longer matches the PDK's own MiM area/perimeter coefficients"
+
+#: The four placed decoupling-capacitor unit cells (issue #440, DR-017): two
+#: per supply domain, `MF = 2` each. Every offset here was chosen against a
+#: DIRECT MEASUREMENT of the already-composed die's own met3/met4/`capm`/via3/
+#: via4/met5 occupancy -- the layers a `cap_array` unit and its ties actually
+#: consume -- not against the block bounding boxes below: DR-017's Decision §3
+#: budget rests on a MiM cap being a back-end device, so what has to be free is
+#: those layers, and a bbox tells you nothing about them. Both sites are
+#: *inside* the pre-existing composed bounding box (280.450 x 385.500 um), so
+#: this allocation costs no die area at all, and neither site needs to overlay
+#: any sub-block (`_check_no_overlap` therefore still covers all nine blocks
+#: with no exemption). See `layout/sar-adc-top/README.md`, "On-die decoupling
+#: (DR-017)", for the measurement and the free-rectangle search behind these
+#: two numbers.
+DECAP_OFFSETS = {
+    # Analog pair, in the open met3/met4-free field east of `comparator` and
+    # north of `sampling_frontend` (measured free: x 120.0..258.5,
+    # y 139.5..219.5 with a 1.0 um keep-out).
+    "decap_a0": (128.0, 150.0),
+    "decap_a1": (180.0, 150.0),
+    # Digital pair, in the open field east of `top_glue` and south of
+    # `cdac_array` (measured free: x 193.0..265.0, y -165.0..-6.0, same
+    # keep-out). Stacked in y rather than side by side because that corridor is
+    # 72 um wide -- one 47.9 um unit fits, two do not.
+    "decap_d0": (196.0, -150.0),
+    "decap_d1": (196.0, -98.0),
+}
+
+#: `layout/top-glue/`'s own placement (issue #401). `dy` is deliberately
+#: IDENTICAL to `sar_sequencer`'s: both macros are `klt place-and-route` output
+#: on the same `unithd` row grid, so their met5 PDN straps occupy the same
+#: local y bands, and an equal `dy` is what lets `digital_supply_rail()` reach
+#: both with ONE colinear met5 rectangle per rail and no via (it asserts the
+#: coincidence rather than assuming it).
+#:
+#: `dx` is NOT free. Every one of this macro's 46 signal pins sits on its own
+#: TOP edge (`y = 71.612`, met2) on a 0.92 um lattice, and `cdac_array`'s own
+#: eighteen `SELp<i>`/`SELn<i>` landing columns sit on an 11.0 um lattice whose
+#: members are all congruent to 3.945 um. Those two lattices beat against each
+#: other: at the `87.6875` this slot used to hold (`seln_inverters`'), the
+#: closest pin/column pair is 0.1875 um apart, which is too close for a
+#: `PAD_UM` met2 riser pad beside a met2 trunk. `dx = 83.755` is one of the
+#: four placements (searched on the composed stream's own 2.5 nm grid) that
+#: maximise that minimum separation at **0.44 um** -- 0.19 um of met2 clearance
+#: once both shapes' half-widths are taken off, comfortably over `met2.space.1`
+#: (0.14). `_check_channel_column_clearance()` re-derives and asserts it.
+TOP_GLUE_OFFSET = (83.755, -150.0)
+
+#: `layout/halflsb-offset/`'s own placement (issue #401) -- DR-009's offset
+#: network, in the open band between `cdac_array`'s top edge (55.85) and
+#: `sampling_frontend`'s bottom edge (85.85). That band is the only free
+#: rectangle inside the pre-existing composed bounding box tall enough to hold
+#: this 31.03 x 19.44 um cell, so placing it here costs no die area at all.
+#:
+#: `dx` is solved, not chosen: this block's own `TOP_N` and `TOP_P` pins are a
+#: fixed 16.0 um apart (DR-009's matched-pair translation pitch), while the two
+#: nets' nearest existing conductors are `cdac_array`'s own `TOP_P` met4 escape
+#: at x = -2.4 and this module's own `TOP_N` met4 column at x = 260.0. The
+#: offset cap is only a *matched* dummy if both legs are the same length, so
+#: `dx` is the value that equalises them -- see `_check_halflsb_symmetry()`,
+#: which recomputes both path lengths from the drawn geometry and raises unless
+#: they agree to within one met3 track pitch.
+HALFLSB_OFFSET = (119.451, 67.0)
+
 OFFSETS = {
     "cdac_array": (0.0, 0.0),
     "sampling_frontend": (63.825, 88.25),
     "comparator": (100.2, 173.8),
-    # x origins snapped onto the 0.005 um manufacturing grid (were 21.1175 /
-    # 87.6875, i.e. +/-2.5 nm off-grid, which every placed std-cell vertex
-    # inherited) once klayout-tools' ongrid rules shipped -- issue #103.
+    # x origin snapped onto the 0.005 um manufacturing grid (was 21.1175,
+    # i.e. 2.5 nm off-grid, which every placed std-cell vertex inherited) once
+    # klayout-tools' ongrid rules shipped -- issue #103.
     "sar_sequencer": (21.12, -150.0),
-    "seln_inverters": (87.69, -150.0),
+    "top_glue": TOP_GLUE_OFFSET,
+    "halflsb_offset": HALFLSB_OFFSET,
+    **DECAP_OFFSETS,
 }
 
 # Each sub-block's own bbox, in ITS OWN local frame -- verified directly
@@ -355,7 +638,23 @@ BBOX = {
     "sampling_frontend": (0.0, -2.4, 195.56, 58.97),
     "comparator": (0.0, 2.5, 26.6, 38.65),
     "sar_sequencer": (0.0, 0.0, 42.57, 42.57),
-    "seln_inverters": (0.0, 0.0, 86.195, 86.195),
+    # `klt place-and-route` output, read off `top_glue.def`'s own `DIEAREA`
+    # (0 0) (71855 71855) and cross-checked against the committed GDS's own
+    # top-cell `dbbox()`.
+    "top_glue": (0.0, 0.0, 71.855, 71.855),
+    # `layout/halflsb-offset/reports/LATEST/halflsb_offset.gds`'s own top-cell
+    # `dbbox()` (`gen_compose_0`). x0/y0 are negative because that flow's own
+    # origin is the `_n`-side cap's plate edge, not its bbox corner.
+    "halflsb_offset": (-0.4, -2.4, 30.63, 17.04),
+    # Every decap unit is the SAME generated cell (`decap_unit.gds`), so all
+    # four share one local bbox. Read off `klt gen cap_array`'s own report for
+    # `plate_w_um = plate_h_um = 46.9, num = 1` (x1 = 47.9 is the met3 bottom
+    # plate, 0.5 um wider than the 46.9 um `capm` plate on each side per
+    # `capm.3`; y1 = 48.82 is the met4 top-plate lead escaping the top edge),
+    # and re-asserted against that report on every run by `--verify-decap`, so
+    # a klt bump that moves the cell fails the flow instead of silently
+    # mis-placing four capacitors.
+    **{block: (0.0, 0.0, 47.9, 48.82) for block in DECAP_OFFSETS},
 }
 
 # Each sub-block's own top GDS cell name (needed for the `blocks[].cell`
@@ -367,7 +666,83 @@ CELL_NAME = {
     "sampling_frontend": "gen_compose_0",
     "comparator": "gen_compose_0",
     "sar_sequencer": "sar_sequencer",
-    "seln_inverters": "seln_inverters",
+    "top_glue": "top_glue",
+    "halflsb_offset": "gen_compose_0",
+    **{block: DECAP_CELL_NAME for block in DECAP_OFFSETS},
+}
+
+#: The GDS file each block's own cell is read from, where it is NOT
+#: `<block-id>.gds`. The four decap units are four PLACEMENTS of one generated
+#: cell, which is the whole point of them being matched -- they are the same
+#: device, not four devices that happen to have the same parameters -- so all
+#: four name the same stream. Kept for `run-flow.sh` step 2b's `-o` target and
+#: for `bin/probe-ground-mesh.py`'s input list; the compose request itself
+#: reaches that stream through `DECAP_REPORT_JSON` instead (see `build()`).
+GDS_NAME = {block: f"{DECAP_CELL_NAME.lower()}.gds" for block in DECAP_OFFSETS}
+
+#: `klt gen cap_array`'s own response for the decap unit cell, written by
+#: `run-flow.sh` step 2b. All four `blocks[]` entries name it: a generator
+#: report is the accurate declaration for a cell this run produced, and it
+#: carries the cell name and bbox `gen-compose` would otherwise have to read
+#: back out of the stream.
+DECAP_REPORT_JSON = "decap.json"
+
+#: Every `layout/top-glue/` signal pin, as `name -> x_um` in that macro's own
+#: local frame, transcribed from `layout/top-glue/reports/LATEST/top_glue.def`'s
+#: own `PINS` section -- the authoritative top-level port declaration that
+#: macro's own LVS flow already relies on (its GDS labels also carry every
+#: internal std-cell pin name, so the DEF is the only unambiguous source).
+#:
+#: ALL 46 signal pins share one y (`TOP_GLUE_PIN_Y`) and one layer (met2):
+#: `klt place-and-route` put the whole interface on the macro's own TOP edge,
+#: which is what makes the channel between it and `cdac_array` the natural
+#: place to route all of them. The two supply pins (`VPWR`/`VGND`) are met5
+#: PDN straps, not edge pins, and live in `MET5_STRAP` below instead.
+TOP_GLUE_PIN_Y = 71.612
+TOP_GLUE_PIN_X = {
+    "ADCOUT0": 14.95, "ADCOUT1": 36.11, "ADCOUT2": 15.87, "ADCOUT3": 19.55,
+    "ADCOUT4": 37.95, "ADCOUT5": 38.87, "ADCOUT6": 39.79, "ADCOUT7": 24.15,
+    "ADCOUT8": 16.79,
+    "BUSY": 41.63, "CLK": 42.55, "CLKN": 33.35,
+    "DOUT0": 23.23, "DOUT1": 40.71, "DOUT2": 45.31, "DOUT3": 32.43,
+    "DOUT4": 18.63, "DOUT5": 22.31, "DOUT6": 48.07, "DOUT7": 31.51,
+    "DOUT8": 48.99, "DOUT9": 49.91,
+    "DUMLOAD_MUX_NC": 50.83, "DUMLOAD_XNOR_NC": 30.59,
+    "HALF_LSB_EN": 21.39, "HALF_LSB_ENN": 17.71,
+    "OUTN_NC": 35.19, "PH_B9": 29.67,
+    "SELn0": 52.67, "SELn1": 47.15, "SELn2": 37.03, "SELn3": 28.75,
+    "SELn4": 53.59, "SELn5": 54.51, "SELn6": 55.43, "SELn7": 27.83,
+    "SELn8": 20.47,
+    "SELp0": 25.07, "SELp1": 34.27, "SELp2": 26.91, "SELp3": 51.75,
+    "SELp4": 56.35, "SELp5": 44.39, "SELp6": 25.99, "SELp7": 46.23,
+    "SELp8": 43.47,
+}
+
+#: Every `layout/halflsb-offset/` pin, as `name -> (x_um, y_um)` in that
+#: block's own local frame, read directly off layer 69/5 (met2.pin) text in
+#: `layout/halflsb-offset/reports/LATEST/halflsb_offset.gds` and cross-checked
+#: against that record's own `layout.summary.json`
+#: (`nets.<net>.track_y_um` / `columns_um[0]`) -- the same direct-inspection
+#: discipline every other entry in `PIN` follows.
+#:
+#: `BOT_OFF_N`/`BOT_OFF_P` are listed but deliberately NOT routed: DR-009 gives
+#: each of them exactly four terminals (one offset cap plus three switches) and
+#: all four are inside this block, so they have no top-level member. They are
+#: here so `check-composition-parity.py` can assert that absence against the
+#: schematic rather than it being a silent omission.
+HALFLSB_PIN = {
+    "VDD": (8.89, 11.33),
+    "GND": (3.7, 11.83),
+    "VREFP": (9.65, 12.33),
+    "VCM": (4.96, 12.83),
+    "HALF_LSB_EN": (5.745, 13.33),
+    "VGND": (21.745, 13.83),
+    "HALF_LSB_ENN": (13.635, 14.33),
+    "VPWR": (29.635, 14.83),
+    "BOT_OFF_N": (-0.25, 15.33),
+    "BOT_OFF_P": (15.75, 15.83),
+    "TOP_N": (1.449, 16.33),
+    "TOP_P": (17.449, 16.83),
 }
 
 # Every pin this assembly's own interconnect touches: (block, name) ->
@@ -378,7 +753,7 @@ CELL_NAME = {
 # label position, which sits on bare, uncontactable nwell -- see the
 # README's "cdac_array.VDD: label position vs. real landing point" note);
 # sampling_frontend/comparator by the same direct inspection against their
-# own committed GDS; sar_sequencer/seln_inverters from their own routed
+# own committed GDS; sar_sequencer/top_glue from their own routed
 # DEF's `PINS` section (the authoritative top-level port declaration these
 # two macros' own LVS flow already relies on -- GDS labels there also carry
 # every internal std-cell pin name, not just top-level ports).
@@ -386,6 +761,16 @@ PIN = {
     ("cdac_array", "TOP_P"): (-2.4, 27.55, MET4),
     ("cdac_array", "TOP_N"): (216.8, 27.55, MET4),
     ("cdac_array", "VDD"): (1.00, -26.37, MET1),
+    # cdac_array's own p-substrate tie, drawn for issue #377: the met1 landing
+    # pad on top of the `tap`/li1/licon1 column its own `cdac_layout.py` now
+    # places at `VSS_TAP_CX`, directly below the VDD n-well tap above. Read
+    # off layer 68/5 (met1.pin) text in
+    # `layout/cdac-array/reports/LATEST/cdac_array.gds` and cross-checked
+    # against the 67/44 (mcon) cut and the 68/20 (met1) pad at the same
+    # position -- the same direct-inspection discipline every other entry in
+    # this table follows. The label text is `VSS`, that sub-block's own
+    # schematic port name; `design/sar_adc_top.sch` is what ties it to `GND`.
+    ("cdac_array", "VSS"): (1.00, -31.60, MET1),
     ("cdac_array", "VREFP"): (-2.0, -34.8, MET1),
     ("cdac_array", "VREFN"): (-2.0, -33.4, MET2),
     # --- sampling_frontend: every y below is +0.92 um vs. the klt-0.4.0 era
@@ -417,6 +802,14 @@ PIN = {
     # G_P/G_N, dropping the two devices that used to supply SAMPLE's old
     # leftmost column (2.67, Sa_p's own PFET-row position).
     ("sampling_frontend", "VDD"): (1.76, 51.82, MET2),
+    # sampling_frontend's own ground track, promoted to a met2.pin for issue
+    # #377 (that sub-block's `PIN_NETS` gained `"GND"`; the track, its columns
+    # and the p-substrate tap feeding it are all unchanged). Position read off
+    # layer 69/5 text in `layout/sampling-frontend/reports/LATEST/
+    # sampling_frontend.gds` exactly like its six siblings above: x = that
+    # net's own leftmost contributing column (39.97, the substrate tap's own
+    # column), y = track 3 of the shared band (50.82 + 3 * 0.50).
+    ("sampling_frontend", "GND"): (39.97, 52.32, MET2),
     ("sampling_frontend", "SAMPLE"): (17.285, 51.32, MET2),
     ("sampling_frontend", "VINP"): (10.10, 54.32, MET2),
     ("sampling_frontend", "VINN"): (22.90, 54.82, MET2),
@@ -435,6 +828,12 @@ PIN = {
     ("sar_sequencer", "RST_B"): (42.272, 22.61, MET1),
     ("sar_sequencer", "COMP_OUT"): (42.272, 26.01, MET1),
     ("sar_sequencer", "BUSY"): (42.272, 30.09, MET1),
+    # PH_B9 is routed for the first time by issue #401: DR-009's half-LSB
+    # enable is `BUSY AND NOT(PH_B9)`, so this phase output -- dead-ended as
+    # `PH_B9_NC` under issue #56 -- now has a consumer in `top_glue`. Its nine
+    # siblings (PH_B8..PH_B0) and PH_EOC are still real DEF pins at this same
+    # x and are still deliberately unconnected, per design/sar_adc_top.sch.
+    ("sar_sequencer", "PH_B9"): (42.272, 15.81, MET1),
     **{
         ("sar_sequencer", f"DOUT{i}"): (42.272, y, MET1)
         for i, y in enumerate(
@@ -442,22 +841,90 @@ PIN = {
         )
     },
     **{
-        ("seln_inverters", f"DOUT{i}"): (0.297, y, MET1)
-        for i, y in enumerate([49.13, 43.01, 43.69, 44.37, 39.61, 38.25, 45.73, 42.33, 46.41])
+        ("top_glue", name): (x, TOP_GLUE_PIN_Y, MET2)
+        for name, x in TOP_GLUE_PIN_X.items()
     },
     **{
-        ("seln_inverters", f"SELn{i}"): (0.297, y, MET1)
-        for i, y in enumerate([41.65, 47.77, 45.05, 38.93, 40.97, 48.45, 37.57, 47.09, 40.29])
+        ("halflsb_offset", name): (x, y, MET2)
+        for name, (x, y) in HALFLSB_PIN.items()
     },
     **{("cdac_array", f"SELp{i}"): (3.945 + 11 * i, -28.08, LI1) for i in range(9)},
     **{("cdac_array", f"SELn{i}"): (102.945 + 11 * i, -28.08, LI1) for i in range(9)},
+    # --- the four decap units (issue #440). Both ports come straight from
+    # `klt gen cap_array`'s own report for DECAP_GEN_PARAMS, and `--verify-decap`
+    # re-asserts them against that report on every run.
+    #
+    # `C0_BOT` is reported at the bottom plate's own LEFT EDGE (x = 0,
+    # direction 180) -- the plate is 47.9 um square and IS the terminal, so this
+    # coordinate is an edge, not a landing point. Every via2 into it is stepped
+    # `DECAP_VIA2_INSET_UM` inside the plate instead (see `decoupling_caps()`),
+    # exactly as `layout/sampling-frontend/bin/build_layout.py`'s own
+    # `MET3_VIA_INSET_UM` does for the same port of the same generator.
+    #
+    # `C0_TOP` is the 0.42 um met4 lead the generator runs from the plate's own
+    # centre via3 out through the cell's TOP edge, so a top-plate tie arrives
+    # from the north on met4 and needs no via at all. The reported y (48.61) is
+    # the port's own reference point -- half the lead's 0.42 um width inside the
+    # cell's own bbox top (48.82), which is where the met4 actually ends -- so a
+    # tie drawn TO this y still overlaps the lead by 0.21 um before
+    # `DECAP_TOP_OVERLAP_UM` is even applied.
+    **{(block, "C0_BOT"): (0.0, 23.95, MET3) for block in DECAP_OFFSETS},
+    **{(block, "C0_TOP"): (23.95, 48.61, MET4) for block in DECAP_OFFSETS},
 }
+
+
+# Every met5 power-distribution strap the two standard-cell macros expose, in
+# that macro's OWN LOCAL frame, as `(x0, y0, x1, y1)` -- read directly off
+# layer 72/20 (met5.drawing) in each macro's own committed
+# `reports/LATEST/<block>.gds` with a `klayout.db` merged-Region dump, and
+# cross-checked against the 72/5 (met5.label) text each macro's own
+# `klt place-and-route` wrote (`VPWR` at the centre of the y band listed for
+# VPWR, `VGND` likewise). NOT transcribed from prose: `layout/sar-adc-top/
+# README.md`'s own per-block table quotes only each strap's centre-line y and
+# x range, and this module needs the exact y BAND, because it draws a colinear
+# same-layer extension of the strap rather than a via landing on it.
+#
+# These are the only conductors on either macro's supply rails that a
+# top-level route can reach: the std-cell rows' own met1 VPWR/VGND rails are
+# buried under the macro's own routing, and neither rail is an edge-abutting
+# DEF pin (see README.md open question 2). Both macros sit at the SAME
+# placement dy (see OFFSETS), so each macro's VPWR (resp. VGND) strap shares
+# its exact y band with one of the other's -- which is what makes
+# `digital_supply_rail()` a single rectangle per rail with no via at all.
+# `digital_supply_rail()` asserts that coincidence rather than assuming it.
+MET5_STRAP = {
+    ("sar_sequencer", "VPWR"): [(2.30, 29.12, 40.48, 30.72)],
+    ("sar_sequencer", "VGND"): [(2.30, 15.52, 40.48, 17.12)],
+    ("top_glue", "VPWR"): [
+        (2.30, 29.12, 69.46, 30.72),
+        (2.30, 56.32, 69.46, 57.92),
+    ],
+    ("top_glue", "VGND"): [
+        (2.30, 15.52, 69.46, 17.12),
+        (2.30, 42.72, 69.46, 44.32),
+    ],
+}
+
+#: The two standard-cell macros this composition places -- the only blocks
+#: whose supply reaches a top-level rail by same-layer met5 merge rather than
+#: by a via riser onto a declared pin. Named once here (rather than spelled out
+#: at each of `digital_supply_rail()`'s / `_check_digital_rail_clearance()`'s /
+#: the record's own use sites) so retiring or adding a std-cell macro is one
+#: edit, not five.
+STD_CELL_MACROS = ("sar_sequencer", "top_glue")
 
 
 def global_pin(block: str, name: str) -> tuple[float, float, tuple[int, int]]:
     x, y, layer = PIN[(block, name)]
     dx, dy = OFFSETS[block]
     return x + dx, y + dy, layer
+
+
+def global_straps(block: str, net: str) -> list[tuple[float, float, float, float]]:
+    dx, dy = OFFSETS[block]
+    return [
+        (x0 + dx, y0 + dy, x1 + dx, y1 + dy) for x0, y0, x1, y1 in MET5_STRAP[(block, net)]
+    ]
 
 
 def global_bbox(block: str) -> tuple[float, float, float, float]:
@@ -488,8 +955,37 @@ WEST_CORRIDOR_X = {  # one exclusive met4 x-track per net that has to cross
     #                  from the digital region (y < -35) to the analog one
     #                  (y > 55.85), fully west of every block's own bbox
     "VDD": -8.0,
-    "CLK": -10.0,
+    # CLKN, not CLK, since issue #401: DR-008's `xinv_clkcap` now sits between
+    # the top-level `CLK` port and `comparator.CLK`, so the net that climbs
+    # this corridor into the analog region is the inverter's OUTPUT and its
+    # source is `top_glue`, not `sar_sequencer`. The track itself is unchanged.
+    "CLKN": -10.0,
     "COMP_OUT": -12.0,
+    "SAMPLE_INT": -14.0,
+    # GND's track carries the analog ground mesh's cdac_array leg (issue
+    # #377): from that macro's own `VSS` tap, west out of the array's
+    # confirmed-clear switch-row band, then north to the mesh trunk.
+    "GND": -16.0,
+    # --- added by issue #401, all on the same 2.0 um pitch, all west of the
+    # five above. x = -20.0 is deliberately SKIPPED: the external analog `VDD`
+    # pin's own met4 landing pad sits there (at y = 221.4), and leaving its
+    # column empty keeps "one net per corridor x" true without a y caveat.
+    #
+    # `OUTN_NC` (DR-009's dummy comparator load) gets a corridor of its own
+    # rather than sharing `COMP_OUT`'s, for the reason DR-009 exists: the two
+    # comparator outputs are supposed to see the SAME load, so `OUTN_NC` is
+    # routed as a deliberate near-mirror of `COMP_OUT` -- its own exclusive
+    # column, its own jog row, its own basement-free path north. What it
+    # cannot mirror is the destination (its consumer is in `top_glue`, 56 um
+    # east and 46 um north of `sar_sequencer`'s own `COMP_OUT` pin), so the
+    # residual length difference is measured and reported rather than claimed
+    # away -- see `_check_outn_load_balance()`.
+    "OUTN_NC": -18.0,
+    "VREFP": -22.0,
+    "HALF_LSB_EN": -24.0,
+    "HALF_LSB_ENN": -26.0,
+    "VPWR": -28.0,
+    "VGND": -30.0,
 }
 CDAC_CROSS_Y = -28.08  # met3 y this module crosses cdac_array's own bbox at
 #                        -- inside the confirmed-clear switch-row band
@@ -497,18 +993,24 @@ CDAC_CROSS_Y = -28.08  # met3 y this module crosses cdac_array's own bbox at
 #                        y in [-35, -25] across the full array width)
 
 
-#: Escape direction for each digital macro's own I/O column -- `sar_sequencer`
-#: exposes its column on its own right edge (bbox x1), `seln_inverters` on its
-#: own left edge (bbox x0) -- see the module docstring's "Floorplan". The
-#: distance (1.7 um) only has to clear each macro's own ~0.3 um pin inset
-#: from its bbox edge; every net using this escape then travels further
-#: still open channel/corridor space, so the exact landing x is not otherwise
-#: load-bearing.
-DIG_ESCAPE_DX = {"sar_sequencer": 1.7, "seln_inverters": -1.7}
+#: Escape direction for `sar_sequencer`'s own I/O column, which that macro
+#: exposes on its own right edge (bbox x1) -- see the module docstring's
+#: "Floorplan". The distance (1.7 um) only has to clear that macro's own
+#: ~0.3 um pin inset from its bbox edge; every net using this escape then
+#: travels further still open channel/corridor space, so the exact landing x
+#: is not otherwise load-bearing.
+DIG_ESCAPE_DX = {"sar_sequencer": 1.7}
+
+#: How far `glue_escape()` must clear `top_glue`'s own bbox top edge before
+#: anything wider than the macro's own track width is built on an escaping
+#: net. Same role (and the same empirically-found reason) as `DIG_ESCAPE_DX`
+#: above, in the other axis: `klt place-and-route` put this macro's whole
+#: 46-pin interface on its TOP edge, so every escape here is northward.
+GLUE_ESCAPE_DY = 1.7
 
 
 def dig_escape(c: Canvas, block: str, pin: str) -> tuple[float, float]:
-    """Extend `(block, pin)` (a `sar_sequencer`/`seln_inverters` met1 signal
+    """Extend `(block, pin)` (a `sar_sequencer` met1 signal
     pin) straight out past that macro's own bbox edge on a THIN
     (`ESCAPE_W`-wide) met1 lead, at the macro's own already-legal track
     width, before this module's own wider via risers touch anything -- see
@@ -532,21 +1034,62 @@ def dig_escape(c: Canvas, block: str, pin: str) -> tuple[float, float]:
     return ex, y
 
 
+def glue_escape(c: Canvas, pin: str, to_y: float) -> float:
+    """Walk a `top_glue` met2 pin NORTH out of that macro, up to `to_y`, and
+    return the pin's own global x -- that net's exclusive met2 column.
+
+    `top_glue`'s 46 signal pins all sit at the SAME y on the macro's own top
+    edge, each 0.14 um wide on a 0.92 um lattice, so every net's escape is a
+    met2 vertical at its own pin's x and no two can collide however far north
+    they run. The lead stays at `ESCAPE_W` (the DEF pin box's own width)
+    rather than widening to `WIRE_W`: these columns run shoulder to shoulder
+    up the channel, 0.92 um apart, and the macro's own adjacent *unrelated*
+    pins are at that same pitch.
+
+    Nothing wider is built at the macro's own edge on this path (the via up to
+    the net's met1 row happens at `to_y`, in the open channel), so
+    `GLUE_ESCAPE_DY` is asserted here rather than used as a staging stop: a
+    caller whose `to_y` has not cleared the macro's own bbox by that margin is
+    routing inside someone else's block.
+    """
+    x, y, native = global_pin("top_glue", pin)
+    assert native == MET2
+    _bx0, _by0, _bx1, by1 = global_bbox("top_glue")
+    if to_y < by1 + GLUE_ESCAPE_DY:
+        raise SystemExit(
+            f"build_layout.py: top_glue.{pin}'s escape stops at y={to_y}, which is "
+            f"not {GLUE_ESCAPE_DY} um clear of that macro's own bbox top ({by1})"
+        )
+    c.wire(MET2, x, y, x, to_y, w=ESCAPE_W)
+    return x
+
+
 #: Per-net basement y (safely below every placed block's own bbox -- the
-#: lowest is sar_sequencer/seln_inverters at -150.0), one for each net that
+#: lowest is sar_sequencer/top_glue at -150.0), one for each net that
 #: crosses via `sar_cross_to_analog`. Distinct per net (0.7 um pitch,
 #: comfortably clearing met4.space): see that function's own docstring for
 #: why sharing one y across multiple callers is a real short, not a
 #: harmless coincidence.
-BASEMENT_Y = {"CLK": -160.0, "COMP_OUT": -160.7, "PH_SAMPLE": -161.4}
+#:
+#: `CLK` no longer has an entry (issue #401): DR-008's `xinv_clkcap` sits
+#: between the top-level port and the comparator, so the net that crosses into
+#: the analog region is `CLKN` and its source is `top_glue`, whose own pins are
+#: on the channel's south edge and need no basement crossing at all.
+BASEMENT_Y = {"COMP_OUT": -160.7, "PH_SAMPLE": -161.4}
 
 
-#: A y safely below every DOUT<i>/SELn<i> met2 trunk's own bottom (the
-#: deepest is row_y for k=17, -42.0 - 0.7*17 = -53.9 -- see the DOUT<i>/
-#: SELn<i> loop below) -- used by `sar_cross_to_analog` so its own met1->
-#: met4 riser (a `PAD_UM`-wide pad on every intermediate metal, not just
-#: met1/met4) lands well clear of that channel instead of inside it.
-BELOW_CHANNEL_Y = -56.0
+#: Where `sar_cross_to_analog`'s own met2 drop turns into a met4 run: safely
+#: SOUTH of both standard-cell macros' own bbox bottom (-150.0), in the
+#: free field between `sar_sequencer`'s east edge and `top_glue`'s west one.
+#:
+#: Since issue #401 this is south of the macros rather than north of them. The
+#: channel every `DOUT<i>`/`SEL*<i>` trunk shares now sits ABOVE both macros
+#: (`top_glue`'s interface is on its own top edge, 71.855 um up), so a crossing
+#: net's own met2 drop runs *away* from that channel instead of through it --
+#: which is what the pre-#401 `BELOW_CHANNEL_Y = -56.0` had to be chosen to
+#: dodge. Both collisions that choice was made against (see this function's own
+#: docstring) are therefore structurally absent now, not merely avoided.
+BELOW_CHANNEL_Y = -152.0
 
 
 def sar_cross_to_analog(
@@ -566,29 +1109,27 @@ def sar_cross_to_analog(
     blind to same-layer shapes uniting on purpose vs. by accident -- see the
     PR description for both) drive this shape:
 
-    1. This net's own escape column runs right through the
-       `sar_sequencer`<->`seln_inverters` channel the DOUT<i>/SELn<i> loop
-       below packs with its own met1 pin-to-`DROP_X` stubs. Those stubs all
-       originate from the *same two shared points* (`sar_sequencer`'s own
-       single I/O-column x, `seln_inverters`' own single I/O-column x) and
-       fan out to eighteen different `DROP_X` columns, so their union
-       covers *the entire channel width* on met1 -- there is no met1 x in
-       this channel a crossing net's own vertical can occupy without
-       perpendicularly crossing at least one of them (a real short: two
-       different nets' shapes touching at a point merges them, regardless
-       of either one's width). This module's own vertical drop is on met2
-       instead -- a plain parallel-line clearance problem against
-       DOUT<i>/SELn<i>'s own met2 `DROP_X` trunks (a fixed, short list to
-       stay `>= 0.3 um` from), not the met1 stub-shadow's effectively
-       whole-channel reach.
+    1. This net's own escape column runs right through the band that
+       `sar_sequencer`'s own met1 pin-to-`DROP_X` stubs pack. Those stubs all
+       originate from the *same* shared point (that macro's own single
+       right-edge I/O-column x) and fan out to thirteen different `DROP_X`
+       columns, so their union covers the whole width of the sliver between
+       the two standard-cell macros on met1 -- there is no met1 x there a
+       crossing net's own vertical can occupy without perpendicularly
+       crossing at least one of them (a real short: two different nets'
+       shapes touching at a point merges them, regardless of either one's
+       width). This module's own vertical drop is on met2 instead -- a plain
+       parallel-line clearance problem against those nets' own met2 `DROP_X`
+       trunks (a fixed, short list to stay `>= 0.3 um` from), not the met1
+       stub-shadow's effectively whole-sliver reach.
     2. `Canvas.riser()` draws a `PAD_UM`-wide (0.36 um) pad on every
        intermediate metal it walks through. Landing the met1->met4 riser
-       (which walks met2 and met3) at the pin's own height, inside the
-       channel, put a stray met2 pad on top of a DOUT<i>/SELn<i> met2
-       trunk. Doing the whole met2 drop down to `BELOW_CHANNEL_Y` (below
-       every DOUT<i>/SELn<i> trunk's own bottom) before building the
-       met2->met4 riser keeps that riser's own pads in the clear
-       regardless of where `escape_x` falls.
+       (which walks met2 and met3) at the pin's own height, among those
+       trunks, put a stray met2 pad on top of one of them. Carrying the met2
+       drop all the way to `BELOW_CHANNEL_Y` -- since issue #401 that is
+       SOUTH of both macros, clear of every trunk rather than merely below
+       them -- before building the met2->met4 riser keeps that riser's own
+       pads in the clear regardless of where `escape_x` falls.
 
     `escape_x` is the caller's own choice of a per-net x for the eastward
     escape + southward drop (distinct from every `DROP_X` entry by more
@@ -638,7 +1179,481 @@ def _riser_and_highway(
 #: `comparator` then crossed a *different* net's shared horizontal trunk;
 #: found empirically via `klt extract`, not `klt drc` -- see the PR
 #: description).
-JOG_Y = {"TOP_P": 220.0, "TOP_N": 220.7, "VDD": 221.4, "SAMPLE_INT": 222.1}
+JOG_Y = {
+    "TOP_P": 220.0,
+    "TOP_N": 220.7,
+    "VDD": 221.4,
+    "SAMPLE_INT": 222.1,
+    # CLKN inherits the row CLK used before issue #401 -- DR-008's
+    # `xinv_clkcap` is now between the top-level port and `comparator.CLK`, so
+    # the net that reaches the comparator on this row is the inverter's output.
+    "CLKN": 223.0,
+    "COMP_OUT": 223.7,
+    # DR-009's dummy comparator load, routed for the first time by issue #401.
+    # Its own row, immediately above COMP_OUT's, is what lets `OUTN_NC` be a
+    # near-mirror of `COMP_OUT` rather than a shared-trunk afterthought.
+    "OUTN_NC": 224.4,
+}
+
+
+# --------------------------------------------------------------------------- #
+# The digital channel (issue #401).
+#
+# Before this issue the channel was the ~24 um sliver BETWEEN the two
+# standard-cell macros, because `seln_inverters` exposed its I/O on its own
+# LEFT edge facing `sar_sequencer`'s right one. `top_glue` does not: `klt
+# place-and-route` put all 46 of its signal pins on its own TOP edge. So the
+# channel is now the open band between both macros' tops and `cdac_array`'s
+# own bottom edge, which is both wider (41 um, enough for the 36 rows this
+# composition needs against the old one's 18) and better placed -- every
+# `SELp<i>`/`SELn<i>` row now ends directly under its own `cdac_array` landing
+# column instead of doubling back.
+#
+# Same two-layer discipline as before, and for the same reason: met1
+# horizontals, met2 verticals, so two different nets' shapes can only ever
+# meet on the ONE layer their own junction is built on.
+# --------------------------------------------------------------------------- #
+#: y of the channel's northernmost met1 row. `cdac_array`'s own bbox bottom is
+#: -35.0 and a row is `ESCAPE_W`/2 = 0.07 um tall either side of its centre, so
+#: -37.0 leaves 1.93 um of clearance -- six times `met1.space.1`.
+CHANNEL_ROW_Y0 = -37.0
+
+#: Row pitch. 1.0 um, not the 0.7 um met1/met2 minimum-legal pitch used in the
+#: analog region, for the reason the pre-#401 channel already documented: a
+#: `PAD_UM`-wide (0.36 um) riser pad landing midway between two rows clears a
+#: thin (0.14 um) neighbour by 0.5 - 0.18 - 0.07 = 0.25 um at this pitch and by
+#: only 0.10 um at 0.7 um, and `met1.space.1`/`met2.space.1` are 0.14 um.
+CHANNEL_ROW_PITCH = 1.0
+
+#: Every net that crosses the channel, in row order (north to south). Grouped
+#: so the two CDAC fan-outs sit nearest the array they drive and the four
+#: long-haul nets that leave the channel westward sit furthest from it.
+CHANNEL_NETS: tuple[str, ...] = (
+    tuple(f"SELp{i}" for i in range(9))
+    + tuple(f"SELn{i}" for i in range(9))
+    + tuple(f"DOUT{i}" for i in range(10))
+    + ("PH_B9", "BUSY", "CLK", "CLKN", "OUTN_NC", "HALF_LSB_EN", "HALF_LSB_ENN")
+)
+CHANNEL_ROW_Y = {
+    net: CHANNEL_ROW_Y0 - CHANNEL_ROW_PITCH * k for k, net in enumerate(CHANNEL_NETS)
+}
+
+#: The nets that reach the channel from `sar_sequencer`'s own right-edge I/O
+#: column, each with its own exclusive met2 drop column in the sliver between
+#: the two standard-cell macros (`sar_sequencer` ends at x = 63.6875,
+#: `top_glue` starts at 83.755).
+SEQ_CHANNEL_NETS: tuple[str, ...] = tuple(f"DOUT{i}" for i in range(10)) + (
+    "PH_B9",
+    "BUSY",
+    "CLK",
+)
+
+#: Phase of the `DROP_X` lattice. 68.45 (not 68.0) is load-bearing and is kept
+#: from the pre-#401 channel: `cdac_array`'s own `SELp<i>`/`SELn<i>` landing
+#: columns are a DIFFERENT arithmetic sequence (3.945 + 11 i, 102.945 + 11 i),
+#: and a 68.0 phase put `SELp6`'s own column (69.945) 0.055 um from a drop
+#: column -- close enough that `SELp6`'s own met1->met3 riser landed its
+#: intermediate met2 pad on top of an unrelated net's met2 trunk (found
+#: empirically via `klt extract`, not `klt drc`). 68.45 clears every one of
+#: those columns by >= 0.495 um; `_check_channel_column_clearance()` asserts it
+#: rather than leaving it to this comment.
+DROP_X0 = 68.45
+DROP_X = {net: DROP_X0 + 1.0 * k for k, net in enumerate(SEQ_CHANNEL_NETS)}
+
+
+# --------------------------------------------------------------------------- #
+# DR-009's half-LSB offset network: how `layout/halflsb-offset/` is reached
+# (issue #401).
+#
+# All twelve of that block's pins are met2, in one 0.5 um-pitch track band at
+# the top of its own 19.44 um-tall cell, so every top-level leg here is the
+# same three-segment shape: a vertical column at the pin's own x down to that
+# net's own met1 row in the open band below the block, the row itself, and a
+# riser at the far end onto whatever conductor the net already has.
+#
+# The column layer differs by net, and that difference is an extraction-deck
+# fact rather than a preference. `TOP_N`/`TOP_P` are the offset caps' own TOP
+# plates, and their pin x is the plate centre -- a met3 column there would run
+# straight down the middle of that cap's own met3 BOTTOM plate (`BOT_OFF_N` /
+# `BOT_OFF_P`) and short the device. Those two use met4, merging with the
+# generator's own met4 top-plate escape at the same x. The other eight sit in
+# clear field between the plates and use met3, which keeps their via stacks one
+# level shorter and (because `_pad_side(MET3)` would otherwise impose a 0.50 um
+# island pad on a met2->met4 riser) keeps every pin-side pad at `PAD_UM`, which
+# is what the block's own 0.5 um track pitch has room for.
+# --------------------------------------------------------------------------- #
+HALFLSB_ROW_Y0 = 57.0
+HALFLSB_ROW_PITCH = 0.7
+HALFLSB_NETS: tuple[str, ...] = (
+    "TOP_N",
+    "TOP_P",
+    "VDD",
+    "GND",
+    "VREFP",
+    "VCM",
+    "HALF_LSB_EN",
+    "HALF_LSB_ENN",
+    "VPWR",
+    "VGND",
+)
+HALFLSB_ROW_Y = {
+    net: HALFLSB_ROW_Y0 + HALFLSB_ROW_PITCH * k for k, net in enumerate(HALFLSB_NETS)
+}
+
+#: The two nets whose column must be met4 -- see this section's own note.
+HALFLSB_MET4_COLUMNS = ("TOP_N", "TOP_P")
+
+#: Where `sampling_frontend`'s own `VCM` met2 track is walked west to before it
+#: turns south. 62.0 is 1.825 um west of that block's own bbox (63.825), so the
+#: met4 column this net then drops never enters anyone's footprint -- and the
+#: whole run stays east of every west-corridor track, so `VCM` costs no new
+#: corridor at all.
+VCM_COLUMN_X = 62.0
+
+#: Where each half-LSB leg's own met1 row ends, and what it lands on there.
+#: Four of the ten need no new conductor at all -- they tee onto a met4 column
+#: this module already draws for the same net.
+HALFLSB_DEST_X = {
+    "TOP_N": 260.0,  # this module's own TOP_N met4 column (y 27.55 .. 220.7)
+    "TOP_P": -2.4,  # cdac_array's own TOP_P met4 escape (y 27.55 .. 220.0)
+    "VDD": WEST_CORRIDOR_X["VDD"],
+    "GND": WEST_CORRIDOR_X["GND"],
+    "VREFP": WEST_CORRIDOR_X["VREFP"],
+    "VCM": VCM_COLUMN_X,
+    "HALF_LSB_EN": WEST_CORRIDOR_X["HALF_LSB_EN"],
+    "HALF_LSB_ENN": WEST_CORRIDOR_X["HALF_LSB_ENN"],
+    "VPWR": WEST_CORRIDOR_X["VPWR"],
+    "VGND": WEST_CORRIDOR_X["VGND"],
+}
+
+
+#: Where `OUTN_NC` steps east on met3 before rising to met4 -- far enough from
+#: `COMP_OUT`'s own met4 column (110.3) to clear `m4.2` with margin, and far
+#: enough west of `decap_a0`'s footprint (128.0, less its 1.0 um keep-out) that
+#: the column it then runs north does not touch it.
+OUTN_JOG_X = 114.5
+
+#: Centre-to-centre separation every pair of met2 columns in the digital
+#: channel has to beat. A `PAD_UM` riser pad (half 0.18) beside an
+#: `ESCAPE_W` trunk (half 0.07) needs `met2.space.1` (0.14) between them, i.e.
+#: 0.39 um centre to centre. Asserted by `_check_channel_column_clearance()`
+#: against the ACTUAL placement rather than argued in a comment: the pairing
+#: that binds is between two unrelated lattices (`top_glue`'s own 0.92 um pin
+#: pitch and `cdac_array`'s own 11.0 um landing-column pitch), so it moves
+#: whenever either macro's placement does.
+CHANNEL_MIN_COLUMN_SEP_UM = 0.39
+
+
+def _channel_column_xs() -> dict[str, list[str]]:
+    """Every x in the digital channel that carries a met2 column or a met2
+    riser pad, as `"<x>" -> [owner, ...]`, so a clash names both owners."""
+    xs: dict[float, list[str]] = {}
+    for net in SEQ_CHANNEL_NETS:
+        xs.setdefault(DROP_X[net], []).append(f"{net} drop column")
+    for net in CHANNEL_NETS:
+        x, _y, _layer = global_pin("top_glue", net)
+        xs.setdefault(x, []).append(f"top_glue.{net}")
+    for i in range(9):
+        for net in (f"SELp{i}", f"SELn{i}"):
+            x, _y, _layer = global_pin("cdac_array", net)
+            xs.setdefault(x, []).append(f"cdac_array.{net} riser")
+    for net, x in (("COMP_OUT", 66.5), ("SAMPLE_INT", 67.4)):
+        xs.setdefault(x, []).append(f"{net} cross-to-analog escape")
+    return {f"{x:.4f}": owners for x, owners in sorted(xs.items())}
+
+
+def _check_channel_column_clearance() -> None:
+    """Standing assertion for the digital channel's own column lattice.
+
+    Three different arithmetic sequences share this band -- `DROP_X`'s 1.0 um
+    ladder, `top_glue`'s own 0.92 um DEF pin lattice and `cdac_array`'s own
+    11.0 um landing columns -- and none of them was chosen with the others in
+    mind. The pre-#401 composition hit exactly this: a 68.0 `DROP_X` phase put
+    `SELp6`'s landing column 0.055 um from an unrelated net's met2 trunk, and
+    `klt drc` did not see it (the two shapes merely merged, which is a
+    connectivity defect, not a spacing one). This check is what makes that
+    class fail at build time, on every run, for every pair -- including the
+    pairs a future placement change would create.
+    """
+    entries = sorted((float(k), v) for k, v in _channel_column_xs().items())
+    worst = None
+    for (xa, owners_a), (xb, owners_b) in zip(entries, entries[1:]):
+        gap = xb - xa
+        if worst is None or gap < worst[0]:
+            worst = (gap, owners_a, owners_b)
+        if gap < CHANNEL_MIN_COLUMN_SEP_UM - 1e-9:
+            raise SystemExit(
+                f"build_layout.py: digital-channel columns {owners_a} (x={xa}) and "
+                f"{owners_b} (x={xb}) are only {gap:.4f} um apart -- a met2 riser "
+                f"pad beside a met2 trunk needs {CHANNEL_MIN_COLUMN_SEP_UM} um. "
+                "Re-solve TOP_GLUE_OFFSET's dx (see its own note) or re-phase DROP_X0."
+            )
+    assert worst is not None
+    print(
+        f"build_layout.py: digital channel: {len(entries)} met2 columns, tightest "
+        f"pair {worst[1]} / {worst[2]} at {worst[0]:.4f} um"
+    )
+
+
+def _halflsb_leg_length_um(net: str) -> float:
+    """Drawn length of one half-LSB leg -- the column plus the row, in the
+    coordinates `halflsb_leg()` actually draws them at."""
+    hx, hy, _layer = global_pin("halflsb_offset", net)
+    return abs(hy - HALFLSB_ROW_Y[net]) + abs(HALFLSB_DEST_X[net] - hx)
+
+
+#: How far apart DR-009's two offset-cap top-plate routes may be. The `_p`
+#: side is a dummy that injects nothing; its ONLY job is that both comparator
+#: top plates see the same capacitance and the same switch junction
+#: parasitics, so a route that reaches one of them 10 um sooner than the other
+#: re-introduces exactly the imbalance the dummy exists to remove. 0.01 um is
+#: ten database units -- effectively "exactly equal", which is what
+#: `HALFLSB_OFFSET`'s own dx is solved for.
+HALFLSB_TOP_LEG_TOLERANCE_UM = 0.01
+
+
+def _check_halflsb_symmetry() -> None:
+    """Standing assertion that `TOP_N`'s and `TOP_P`'s top-level legs are the
+    same length.
+
+    `layout/halflsb-offset/README.md`'s "Matching is a construction property,
+    not a claim" argues the block's own `_n`/`_p` congruence; it explicitly
+    stops at that block's boundary. This is the composition-level half of the
+    same argument, and it needs its own assertion for the same reason: neither
+    DRC nor LVS can see the difference between a matched pair and a scattered
+    one, so an unasserted `dx` would silently decay into an unmatched network
+    the first time anything in this floorplan moved.
+    """
+    lengths = {net: _halflsb_leg_length_um(net) for net in ("TOP_N", "TOP_P")}
+    delta = abs(lengths["TOP_N"] - lengths["TOP_P"])
+    if delta > HALFLSB_TOP_LEG_TOLERANCE_UM:
+        raise SystemExit(
+            "build_layout.py: DR-009's two offset-cap top-plate legs are "
+            f"{delta:.4f} um apart in drawn length (TOP_N {lengths['TOP_N']:.4f}, "
+            f"TOP_P {lengths['TOP_P']:.4f}) -- re-solve HALFLSB_OFFSET's dx so the "
+            "matched pair stays matched at the composition level too"
+        )
+    print(
+        "build_layout.py: DR-009 offset network: TOP_N/TOP_P top-level legs "
+        f"{lengths['TOP_N']:.3f} / {lengths['TOP_P']:.3f} um "
+        f"(delta {delta:.4f} um)"
+    )
+
+
+#: How far apart the two comparator-output nets' own top-level drawn conductor
+#: may be, as a fraction of the larger. DR-009's `xdum_mux_n`/`xdum_xnor_n` pair
+#: exists so `comparator.OUTN` sees the same load as `comparator.OUTP`; the GATE
+#: half of that load is identical by construction (the same two cell types on
+#: the same two input pins -- `bin/check-composition-parity.py` asserts exactly
+#: that against `design/sar_adc_top.spice`), so what is left to go wrong is the
+#: WIRE half, which is this composition's own doing and nothing else's. DR-009's
+#: Consequences section is explicit that this is layout's job: "Routing
+#: parasitics on `COMP_OUT` and `OUTN_NC` are not in this netlist and will not
+#: match by default; layout (#103) must treat the two comparator output nets as
+#: a matched pair."
+#:
+#: It cannot be driven to zero here, and pretending otherwise would be the claim
+#: this bound exists to avoid making: the two nets have different destinations
+#: (`COMP_OUT` ends at `sar_sequencer`'s own right-edge I/O column 150 um south
+#: of the comparator, `OUTN_NC` at a `top_glue` top-edge pin 56 um further east
+#: and 81 um north of it), so their paths are mirror-shaped, not congruent --
+#: which is why the shorter one carries a solved matching extension
+#: (`OUTN_MATCH_STUB_Y`). 0.10 is set from the achieved residual with headroom,
+#: not from a specification: a tolerance whose only job is to make the next
+#: floorplan change that *widens* it fail loudly instead of silently. The
+#: electrical check DR-009 actually asks for is a post-extraction re-run of
+#: `sim/full-conversion-transient/`, which is not this flow's to run.
+OUTN_LOAD_TOLERANCE = 0.10
+
+#: The conductor layers either comparator-output net is drawn on. Summed over
+#: all four: the two nets are built from the same helpers on the same layers, so
+#: an aggregate is a like-for-like comparison here, and a layer swap on one of
+#: them would move `_slice_area_um2`'s own per-layer breakdown (reported in
+#: `composition.json`) even where it left the total alone.
+OUTN_LOAD_LAYERS = (MET1, MET2, MET3, MET4)
+
+#: How far south `OUTN_NC`'s own met4 corridor column may be extended past its
+#: channel row as a deliberate matching extension (see
+#: `_outn_match_stub_y()`). -155.0 is bounded by three facts, none of them a
+#: preference:
+#:
+#: * It is NORTH of both `sar_cross_to_analog` basement legs (-160.7, -161.4),
+#:   whose westward runs end at x = -12.0 and -14.0 -- so this column never
+#:   meets either, on any layer.
+#: * It is INSIDE the composition's own existing extent (y0 = -161.600, set by
+#:   `PH_SAMPLE`'s basement leg), so the extension grows no die.
+#: * Its own corridor x (-18.0) is exclusive to this net, and the nearest met4
+#:   in this y band is 10 um away (`VPWR`'s corridor at -28.0, and only north of
+#:   its own rail tap) -- the two adjacent corridor tracks (`GND` at -16.0,
+#:   `VREFP` at -22.0) carry nothing at all south of y = -35.
+OUTN_MATCH_STUB_Y_MIN = -155.0
+
+
+def _slice_area_um2(
+    c: Canvas, span: tuple[int, int]
+) -> dict[tuple[int, int], float]:
+    """Drawn conductor area, per layer, over `c.shapes[span[0]:span[1]]`.
+
+    Area rather than centre-line length: a via landing pad is conductor too,
+    the two nets compared below do not carry the same number of them, and area
+    is what a parallel-plate term actually scales with. Overlaps between two
+    rectangles of the same net on the same layer are double-counted, which is
+    deliberate -- both nets are built from the same helpers, so the same
+    construction is double-counted on both sides and the COMPARISON stays
+    sound even though neither figure is a merged-polygon area.
+    """
+    per_layer: dict[tuple[int, int], float] = {}
+    for layer, (x0, y0, x1, y1) in c.shapes[span[0] : span[1]]:
+        if layer not in OUTN_LOAD_LAYERS:
+            continue
+        per_layer[layer] = per_layer.get(layer, 0.0) + (x1 - x0) * (y1 - y0)
+    return per_layer
+
+
+def _outn_match_stub_y(
+    c: Canvas, comp_out: tuple[int, int], outn_nc: tuple[int, int], from_y: float
+) -> float:
+    """How far south `OUTN_NC`'s own corridor column is carried past its
+    channel row, solved so the two comparator-output nets carry the same drawn
+    top-level conductor -- clamped to `OUTN_MATCH_STUB_Y_MIN`.
+
+    This is deliberate matching metal: a dead-end tail on the *shorter* net, of
+    exactly the length that equalises the pair, drawn in free field inside the
+    composition's existing extent. It carries no current (nothing is connected
+    at its far end), so it costs this net no resistance; the only thing it adds
+    is the capacitance the mirror-shaped-but-not-congruent paths otherwise
+    differ by. `from_y` is the net's own channel row, where the column already
+    starts.
+
+    Solved rather than typed, for the reason `HALFLSB_OFFSET`'s dx is solved:
+    the deficit moves whenever either net's path does, and a literal here would
+    silently stop matching the first time one of them was re-routed.
+    """
+    deficit = sum(_slice_area_um2(c, comp_out).values()) - sum(
+        _slice_area_um2(c, outn_nc).values()
+    )
+    if deficit <= 0.0:
+        # `OUTN_NC` is already the longer net -- nothing to pad, and padding the
+        # live net instead is not on the table (its parasitics are in the
+        # decision path). Report by returning the row itself: a zero-length
+        # extension draws nothing (`Canvas.wire` short-circuits).
+        return from_y
+    return max(OUTN_MATCH_STUB_Y_MIN, from_y - deficit / WIRE_W)
+
+
+def _check_outn_load_balance(
+    c: Canvas, comp_out: tuple[int, int], outn_nc: tuple[int, int], stub_y: float
+) -> dict:
+    """Measure, report and bound DR-009's dummy-load imbalance.
+
+    Returned (and printed) so `bin/render-record.py` has one place to read the
+    figure from: a number this module computes and nothing records is a number
+    the next reader has to re-derive. Raises if the imbalance exceeds
+    `OUTN_LOAD_TOLERANCE`.
+    """
+    per_layer = {
+        "COMP_OUT": _slice_area_um2(c, comp_out),
+        "OUTN_NC": _slice_area_um2(c, outn_nc),
+    }
+    totals = {net: sum(per.values()) for net, per in per_layer.items()}
+    larger = max(totals.values())
+    imbalance = abs(totals["COMP_OUT"] - totals["OUTN_NC"]) / larger
+    if imbalance > OUTN_LOAD_TOLERANCE:
+        raise SystemExit(
+            "build_layout.py: DR-009's dummy comparator load is "
+            f"{imbalance:.1%} away from the live one in drawn top-level "
+            f"conductor (COMP_OUT {totals['COMP_OUT']:.3f} um^2, OUTN_NC "
+            f"{totals['OUTN_NC']:.3f} um^2), over the "
+            f"{OUTN_LOAD_TOLERANCE:.0%} this composition declares -- the "
+            "matching extension bottomed out at OUTN_MATCH_STUB_Y_MIN "
+            f"({OUTN_MATCH_STUB_Y_MIN}), so re-balance the two routes rather "
+            "than widening the bound"
+        )
+    print(
+        "build_layout.py: DR-009 dummy load: top-level conductor COMP_OUT "
+        f"{totals['COMP_OUT']:.3f} / OUTN_NC {totals['OUTN_NC']:.3f} um^2 "
+        f"(imbalance {imbalance:.1%}, bound {OUTN_LOAD_TOLERANCE:.0%}; "
+        f"matching extension to y = {stub_y})"
+    )
+    return {
+        "comp_out_um2": totals["COMP_OUT"],
+        "outn_nc_um2": totals["OUTN_NC"],
+        "comp_out_per_layer_um2": {
+            f"{layer[0]}/{layer[1]}": area
+            for layer, area in sorted(per_layer["COMP_OUT"].items())
+        },
+        "outn_nc_per_layer_um2": {
+            f"{layer[0]}/{layer[1]}": area
+            for layer, area in sorted(per_layer["OUTN_NC"].items())
+        },
+        "imbalance": imbalance,
+        "tolerance": OUTN_LOAD_TOLERANCE,
+        "match_stub_y_um": stub_y,
+        "match_stub_y_min_um": OUTN_MATCH_STUB_Y_MIN,
+    }
+
+
+#: Where each digital rail is tapped for its leg up to DR-009's offset
+#: network. Both sites are WEST of `sar_sequencer`'s own bbox (x0 = 21.12)
+#: and EAST of the rails' own west end (`DIG_RAIL_PIN_X` = 15.0), so the
+#: westward run out of each tap crosses no macro at all; the two differ in x
+#: so the two via4 pads never come near each other even though the pads are
+#: 1.2 um and the rails are the two nets it would be worst to short.
+HALFLSB_RAIL_TAP_X = {"VPWR": 17.0, "VGND": 18.6}
+
+
+def _check_halflsb_rail_taps(rails: dict[str, tuple[float, float, float, float]]) -> None:
+    """Standing assertions for section 7b's two via4 landings: each is inside
+    its own rail rectangle with `m5.3` of met5 on every side (the rail IS the
+    met5 side -- this module draws no met5 pad, see MET5's own note in the
+    layer table), and west of both standard-cell macros so the met3 run out of
+    it never enters a footprint."""
+    need = VIA4_UM / 2.0 + MET5_VIA4_ENC_UM
+    for net, x in HALFLSB_RAIL_TAP_X.items():
+        rx0, ry0, rx1, ry1 = rails[net]
+        if not (rx0 + need <= x <= rx1 - need):
+            raise SystemExit(
+                f"build_layout.py: the {net} half-LSB rail tap at x={x} is not "
+                f"enclosed by {MET5_VIA4_ENC_UM} um of its own met5 rail "
+                f"({rx0}..{rx1}) -- m5.3"
+            )
+        if (ry1 - ry0) / 2.0 < need:
+            raise SystemExit(
+                f"build_layout.py: the {net} rail is only {ry1 - ry0} um wide -- a "
+                f"centred {VIA4_UM} um via4 needs {2 * need} um for m5.3"
+            )
+        for block in STD_CELL_MACROS:
+            bx0, _by0, bx1, _by1 = global_bbox(block)
+            if bx0 - MET4_VIA4_PAD_UM / 2.0 <= x <= bx1 + MET4_VIA4_PAD_UM / 2.0:
+                raise SystemExit(
+                    f"build_layout.py: the {net} half-LSB rail tap at x={x} is over "
+                    f"{block}'s own footprint ({bx0}..{bx1}) -- the met3 run west "
+                    "out of it would cross that macro's own interior"
+                )
+
+
+def halflsb_leg(c: Canvas, net: str) -> tuple[float, float]:
+    """Drop `halflsb_offset`'s own `net` pin to that net's met1 row below the
+    block and run the row out to `HALFLSB_DEST_X[net]`, returning the landing
+    point so the caller can continue (or, for the four nets that tee onto an
+    existing met4 column, so it can assert the landing).
+
+    The riser at the far end is always met1 -> met4 even where the row's own
+    column is met3: every destination is a met4 corridor/escape column, and
+    going all the way up in one `riser()` call is what keeps each landing's
+    pad stack identical regardless of which layer the leg arrived on.
+    """
+    hx, hy, native = global_pin("halflsb_offset", net)
+    assert native == MET2
+    row = HALFLSB_ROW_Y[net]
+    column_layer = MET4 if net in HALFLSB_MET4_COLUMNS else MET3
+    c.riser(hx, hy, MET2, column_layer)
+    c.wire(column_layer, hx, hy, hx, row, w=WIRE_W)
+    c.riser(hx, row, MET1, column_layer)
+    dest = HALFLSB_DEST_X[net]
+    c.wire(MET1, hx, row, dest, row, w=ESCAPE_W)
+    c.riser(dest, row, MET1, MET4)
+    return dest, row
 
 
 def analog_leg(c: Canvas, x0: float, y0: float, x1: float, y1: float, jog_y: float) -> None:
@@ -667,7 +1682,1055 @@ def analog_leg(c: Canvas, x0: float, y0: float, x1: float, y1: float, jog_y: flo
     c.wire(MET4, x1, jog_y, x1, y1, w=WIRE_W)
 
 
-def build() -> tuple[dict, dict]:
+# --------------------------------------------------------------------------- #
+# Digital supply rails: VPWR / VGND (issue #355, DR-010).
+#
+# sky130A's own met5 rules, read out of the pinned PDK's own deck
+# (`libs.tech/klayout/drc/sky130A_mr.drc`, the `sim/pdk.json` pin): `m5.1` min
+# width 1.6, `m5.2` min space 1.6, `m5.4` min area 4.0 um^2. All three ARE
+# checked by the pinned `klt drc` deck (`met5.width.1`/`met5.space.1`/
+# `met5.area.1` appear in this flow's own `drc.json` `coverage.rules_checked`
+# since the klayout-tools==0.6.0 bump), so the geometry below is graded, not
+# merely argued.
+# --------------------------------------------------------------------------- #
+MET5_WIDTH_UM = 1.6
+MET5_SPACE_UM = 1.6
+
+#: West end of each digital rail's own met5 rectangle, and the only stretch of
+#: it that lies outside BOTH standard-cell macros' own footprints: 15.0 um is
+#: 6.12 um west of `sar_sequencer`'s own placed bbox (x0 = 21.12) and 1.0 um
+#: east of the westernmost thing this module draws anywhere near this y band
+#: (nothing: the west-corridor met4 tracks at -8/-10/-12/-14 are the closest,
+#: and they are 23 um further west still). The top-level supply-pin label sits
+#: on this stretch, so the promoted pin is unambiguously on conductor THIS
+#: module drew -- not on a macro's own internal strap, which
+#: `--pin-source-cells` would not promote anyway.
+DIG_RAIL_PIN_X = 15.0
+DIG_RAIL_LABEL_X = 18.0
+
+#: How far east the rail reaches past `top_glue`'s own strap's west end.
+#: Any positive overlap merges (same layer, exactly the same y band), so this
+#: only has to beat the half-nanometre placement rounding both macros' own
+#: x offsets could carry (`OFFSETS`: 21.12 / 83.755 -- the former once
+#: 21.1175, on a 0.0025 um grid, until issue #103 snapped it to the 0.005 um
+#: manufacturing grid; the composed stream's DBU is 0.001) -- 2.0 um does, by three orders of
+#: magnitude, while still stopping well short of that macro's own first met4
+#: PDN column (local x 15.07).
+DIG_RAIL_REACH_UM = 2.0
+
+#: The two rails, in the order their pins are appended to this design's own
+#: top-level interface (`design/sar_adc_top.sym`, and hence
+#: `bin/generate-lvs-reference.py`'s own `.SUBCKT sar_adc_top` port list).
+DIG_RAILS = ("VPWR", "VGND")
+
+#: East end of each digital rail's own met5 rectangle (issue #440). Before this
+#: issue each rail stopped `DIG_RAIL_REACH_UM` past the glue macro's own strap's
+#: WEST end and let the macro's own strap carry it east; the digital decoupling
+#: pair sits further east still (`DECAP_OFFSETS`), so each rail is now carried
+#: past that macro's own strap's EAST end (153.215 globally) to a
+#: landing where `decoupling_caps()` can drop a via4 onto it in open field.
+#: Still ONE rectangle per rail, still colinear with (and merging into) both
+#: macros' own straps -- the extension is the same same-layer merge the west
+#: stretch already is, just continued in the other direction, so it creates no
+#: new met5 spacing relation and needs no via of its own.
+#:
+#: Each value is 2.0 um east of that rail's own via4 site below, which is 0.31 um
+#: (`m5.3`) more than the via4 needs; `_check_decoupling_caps()` asserts the
+#: enclosure rather than trusting this comment, and asserts the extension stops
+#: clear of every decap unit's own footprint.
+DIG_RAIL_EAST_X = {"VPWR": 187.0, "VGND": 192.0}
+
+
+def digital_supply_rail(c: Canvas, net: str) -> tuple[float, float, float, float]:
+    """Tie `sar_sequencer`'s and `top_glue`'s own met5 PDN rail for `net`
+    (`VPWR` or `VGND`) into ONE electrical island, and land that island on a
+    top-level supply pin of the same name.
+
+    This is the fix for issue #355: before it, each macro's rail was a
+    self-contained island reaching no top-level supply at all, which `klt erc`
+    graded as two `erc.unconnected_net` findings (one per rail) against T1 item
+    11. The domain question that governs *what* to tie it to -- independent
+    digital supply pins, rather than a metal tie to the analog `VDD`/`GND` --
+    is decided in `spec/decision-records/DR-010-digital-supply-domain-partition.md`;
+    this function only implements it.
+
+    Shape: **one met5 rectangle per rail, no via anywhere.** Both macros are
+    placed at the same `dy` (`OFFSETS`), so `sar_sequencer`'s strap for this
+    net and exactly one of `top_glue`'s straps for it occupy the *same*
+    global y band. A rectangle spanning that band, from `DIG_RAIL_PIN_X` east
+    into the `top_glue` strap, is therefore colinear with both: same
+    layer, same width, merging into one polygon. That matters for three
+    separate reasons, none of them cosmetic:
+
+    * **No via4 riser is needed**, so nothing has to satisfy `m5.3` (0.31 um
+      met5 enclosure of via4) or `m5.4` (4.0 um^2, sixteen times
+      `ISLAND_PAD_UM`'s area) on a freestanding pad -- see MET5's own note in
+      the layer table for why this module has no met5 pad size at all.
+    * **No new spacing relation is created inside either macro.** Over each
+      macro's own footprint the rectangle is geometrically identical to the
+      strap it merges with (same y band, same 1.6 um width), so the merged
+      polygon's edges are the strap's own edges, already `m5.2`-legal against
+      that macro's own neighbouring straps (12.0 um away in y, 7.5x `m5.2`).
+    * **It crosses no other net.** The rectangle is horizontal, every strap in
+      `MET5_STRAP` is horizontal, and `_check_digital_rail_clearance()` asserts
+      every *other* strap's y band clears this one by at least `m5.2`. A
+      horizontal met5 wire cannot short a parallel horizontal met5 wire it
+      never comes within 1.6 um of. It passes OVER both macros' met4 PDN
+      columns and (further west) nothing at all; met5-over-met4 with no via4
+      between them is not a connection.
+
+    Returns the rectangle, for the caller's own record/assertions.
+    """
+    (seq,) = global_straps("sar_sequencer", net)
+    sx0, sy0, sx1, sy1 = seq
+    colinear = [
+        s
+        for s in global_straps("top_glue", net)
+        if abs(s[1] - sy0) < 1e-9 and abs(s[3] - sy1) < 1e-9
+    ]
+    if len(colinear) != 1:
+        raise SystemExit(
+            f"build_layout.py: {net}: expected exactly one top_glue met5 strap "
+            f"colinear with sar_sequencer's own (y {sy0}..{sy1}), found {len(colinear)}. "
+            "The two macros' placement dy must stay equal for the single-rectangle "
+            "rail below to reach both -- give this rail a real jog (a met5 vertical "
+            "in the channel between the two macros, which crosses NEITHER macro's "
+            "footprint) before changing OFFSETS."
+        )
+    ix0, _iy0, ix1, _iy1 = colinear[0]
+    if abs((sy1 - sy0) - MET5_WIDTH_UM) > 1e-9:
+        raise SystemExit(
+            f"build_layout.py: {net}: strap width {sy1 - sy0} um is not m5.1's own "
+            f"{MET5_WIDTH_UM} um -- re-read MET5_STRAP off the macro's own GDS"
+        )
+    east = max(ix0 + DIG_RAIL_REACH_UM, DIG_RAIL_EAST_X[net])
+    if east < ix1:
+        raise SystemExit(
+            f"build_layout.py: {net}: DIG_RAIL_EAST_X {DIG_RAIL_EAST_X[net]} is WEST "
+            f"of top_glue's own colinear strap's east end ({ix1}) -- the decap "
+            "via4 landing must be on the stretch THIS module draws, in open field, "
+            "not on the macro's own strap"
+        )
+    rect = (DIG_RAIL_PIN_X, sy0, east, sy1)
+    c.rect(MET5, *rect)
+    c.label(MET5_PIN, DIG_RAIL_LABEL_X, (sy0 + sy1) / 2.0, net)
+    return rect
+
+
+# --------------------------------------------------------------------------- #
+# Analog ground: the GND pad (issue #362, DR-012) and the mesh that now feeds
+# it (issue #377, DR-013).
+#
+# #362 built the pad on `comparator`'s own drawn `GND` pin because it was the
+# ONLY analog-ground conductor any sub-block in this composition exposed:
+# `sampling_frontend` and `cdac_array` drew no ground pin at all and reached
+# the same node through the p-substrate `klt extract`'s sky130 deck
+# synthesises. DR-012's own "Open items" named that residue rather than
+# absorbing it, and issue #377 is that residue: both sub-blocks now draw a
+# real ground terminal of their own (`layout/sampling-frontend/`'s `GND`
+# met2.pin, `layout/cdac-array/`'s `VSS` met1 pin over a new p-substrate tap),
+# and this module ties all three into one drawn conductor.
+#
+# Why this is worth metal rather than a shrug: the substrate ALREADY joins the
+# three blocks, so the mesh is not what makes them one node -- it is what makes
+# the path between them one this repo draws and `klt drc` grades, instead of
+# 10s of ohms of p-substrate under the comparator's own decision reference
+# (DR-012, "Substrate is a resistor, and the comparator is what pays for it").
+# That the substrate tie is real is exactly why the mesh needs its OWN
+# evidence: a clean extraction showing `GND` as one net proves nothing about
+# the mesh, because it read as one net before the mesh existed. The ablation
+# cross-check in `layout/sar-adc-top/README.md` ("Analog ground mesh") is what
+# separates the two claims -- cut the mesh, and the extraction splits.
+# --------------------------------------------------------------------------- #
+MET4_SPACE_UM = 0.30  # sky130A `m4.2`, the pinned deck's `met4.space.1`.
+MET3_SPACE_UM = 0.30  # sky130A `m3.2`, the pinned deck's `met3.space.1`.
+
+#: y the analog ground pad's own label sits at -- on the met4 stub's stretch
+#: BELOW `comparator`'s own bbox (y0 = 176.3 once placed) and above
+#: `sampling_frontend`'s own top edge (147.22), i.e. in the open channel
+#: between the two analog blocks. Asserted, not assumed, by
+#: `_check_analog_ground_mesh()`: a pad label sitting inside a macro's own
+#: footprint would be a label on someone else's conductor as far as a reader
+#: is concerned, even though `--pin-source-cells` resolves it by position.
+#: Unchanged by issue #377 -- the mesh is added BELOW it, so the pad this
+#: block presents to a package is at the same coordinate DR-012 recorded.
+GND_PAD_Y = 170.0
+
+#: y of the mesh's own met3 trunk -- the horizontal every leg tees into. In
+#: the SAME open channel as `GND_PAD_Y`, 5 um below it, so the pad label still
+#: sits on a plain met4 stretch rather than on a corner where three shapes
+#: meet. met3 (not met4) for the trunk, for the reason `analog_leg`'s own
+#: docstring gives: this module's long-haul verticals are met4, and four of
+#: them (`sampling_frontend`'s TOP_P/TOP_N/VDD/SAMPLE risers) cross this
+#: channel on their way north. A met3 horizontal passes under all four
+#: without touching any of them; a met4 one would short every column it met.
+GND_MESH_Y = 165.0
+
+
+#: The four sub-block terminals the mesh joins, as `(block, pin)` -- each one
+#: a conductor that block's OWN layout draws and labels, never a position this
+#: module invented. `comparator.GND` is the pin DR-012 built its pad on;
+#: issue #377 added the next two inside `sampling_frontend` and `cdac_array`,
+#: and issue #401 added `halflsb_offset` as the fourth.
+GND_MESH_MEMBERS = (
+    ("comparator", "GND"),
+    ("sampling_frontend", "GND"),
+    ("cdac_array", "VSS"),
+    # Added by issue #401: DR-009's offset network draws its own p-substrate
+    # taps and labels them `GND`, so it is a fourth member of this node rather
+    # than a separate route. Drawn HERE, inside the mesh, so that
+    # `--ablate-ground-mesh` removes it too: that flag's whole job is to be
+    # "the mesh and nothing else", and a leg drawn outside it would make the
+    # ablation's two arms differ by the mesh *plus* one block's ground.
+    ("halflsb_offset", "GND"),
+)
+
+
+def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]]:
+    """Tie all four sub-blocks' own drawn ground terminals into ONE drawn
+    conductor and land it on the top-level `GND` pad.
+
+    Returns the mesh's named segments (each an `(x0, y0, x1, y1)` box), for
+    `_check_analog_ground_mesh()` and for the record.
+
+    What #362 left and what this adds
+    ---------------------------------
+    #362/DR-012 gave this block a top-level `GND` pad, built on `comparator`'s
+    own drawn `GND` pin -- the only analog-ground conductor any sub-block then
+    exposed. `sampling_frontend` and `cdac_array` reached that pad only
+    through the p-substrate, which is real (the sky130 extraction deck's own
+    `connect_global`) but is resistance, not conductor: nothing in `klt drc`,
+    `klt lvs` or `klt erc` grades it, and nothing in this repo measures it.
+    This function is the mesh DR-012's "Open items" said was missing.
+
+    Shape: a met3 trunk with three met4 droppers and a fourth, met3/met1 leg
+    ------------------------------------------------------------------------
+    One horizontal met3 trunk at `GND_MESH_Y`, in the open channel between
+    `sampling_frontend`'s top edge and `comparator`'s bottom edge, plus one
+    leg per member -- a met4 dropper for each of the first three:
+
+    * `comparator` (x 101.5): the DR-012 stub itself, extended 5 um further
+      south from `GND_PAD_Y` to the trunk. It still runs SOUTH rather than
+      north with the rest of the analog nets, for #362's own measured reason:
+      `comparator`'s `CLK` pin rises to met4 at x = 102.1 and runs north from
+      y = 198.3, 0.6 um away in x -- two 0.4 um met4 wires cannot share that
+      without violating `m4.2`. Southward, the two columns' y spans never
+      face each other at all.
+    * `sampling_frontend` (x 103.795): a via riser on that block's own `GND`
+      met2 track, exactly where it labels it, then met4 north to the trunk --
+      the same `_riser_and_highway` shape every other pin of that block uses,
+      and the same 6.65 um crossing of its own footprint they all make.
+    * `cdac_array` (x -16.0, the mesh's west-corridor track): that block's
+      `VSS` tap is 200 um south, deep inside the array's own footprint, so
+      its leg mirrors `VDD`'s exactly -- riser to met3 inside the array's
+      confirmed-clear switch-row band, west out of the footprint, then north
+      up an exclusive met4 corridor track to the trunk.
+    * `halflsb_offset` (issue #401): NOT a trunk dropper. Its leg is the
+      standard `halflsb_leg("GND")` shape -- a met3 column (segment
+      `halflsb_column`) down out of the block to that net's own met1 row at
+      `HALFLSB_ROW_Y["GND"]`, then west along that row (segment
+      `halflsb_row`) to land on the x = -16.0 `cdac_array` corridor column,
+      with a met1 -> met4 riser at the landing. It therefore joins the mesh
+      on the same corridor conductor `cdac_array`'s own `VSS` leg uses, and
+      reaches the trunk through it rather than by a dropper of its own.
+
+    The trunk is met3 and every dropper is met4 for `analog_leg`'s own reason:
+    four of `sampling_frontend`'s pins (TOP_P/TOP_N/VDD/SAMPLE) cross this
+    channel northbound on met4, and a met4 trunk would short every one of
+    them. The two trunk legs (`cdac_array`'s corridor to `sampling_frontend`'s
+    dropper, and `comparator` teeing in) are literally `analog_leg()` calls,
+    the same primitive every other analog-region net here is built from, with
+    the trunk as their shared jog row -- including the `comparator` leg's degenerate
+    `(x, y) -> (x, y)` form, which tees into the trunk exactly the way
+    `TOP_P`'s `sampling_frontend` leg tees into its own.
+
+    What this does NOT claim
+    ------------------------
+    The mesh does not isolate anything. In bulk sky130 the analog ground, the
+    standard cells' substrate ties and the p-substrate are one node, and
+    DR-012 says so in its own "Decision". What the mesh changes is the *path*:
+    the return current between these four blocks now has a drawn metal one,
+    graded by `klt drc`, in parallel with the substrate it always had. No
+    simulation in this repo measures either path's impedance (DR-012's second
+    open item, #378), so no number here is claimed as measured.
+    """
+    segments: dict[str, tuple[float, float, float, float]] = {}
+    half = WIRE_W / 2.0
+
+    # --- comparator: DR-012's own riser + southward stub, unchanged except
+    #     that the stub now continues past the pad label to the trunk.
+    gx, gy, native = global_pin("comparator", "GND")
+    assert native == MET1
+    c.riser(gx, gy, MET1, MET4)
+    segments["comparator_stub"] = (gx - half, GND_MESH_Y - half, gx + half, gy + half)
+
+    # --- sampling_frontend: riser on its own drawn GND met2 track.
+    fx, fy = _riser_and_highway(c, "sampling_frontend", "GND", MET4)
+    segments["sampling_frontend_dropper"] = (fx - half, fy - half, fx + half, GND_MESH_Y + half)
+
+    # --- cdac_array: riser on its own drawn VSS tap, west out of the array's
+    #     confirmed-clear switch-row band, onto this mesh's corridor track.
+    vx, vy, vnative = global_pin("cdac_array", "VSS")
+    assert vnative == MET1
+    c.riser(vx, vy, MET1, MET3)
+    wx = WEST_CORRIDOR_X["GND"]
+    c.wire(MET3, vx, vy, wx, vy, w=WIRE_W)
+    c.riser(wx, vy, MET3, MET4)
+    segments["cdac_escape"] = (wx - half, vy - half, vx + half, vy + half)
+    segments["corridor"] = (wx - half, vy - half, wx + half, GND_MESH_Y + half)
+
+    # --- the two legs, sharing `GND_MESH_Y` as their jog row: cdac_array's
+    #     corridor to sampling_frontend's dropper, and comparator teeing in.
+    analog_leg(c, wx, vy, fx, fy, GND_MESH_Y)
+    analog_leg(c, gx, gy, gx, gy, GND_MESH_Y)
+    segments["trunk"] = (wx - half, GND_MESH_Y - half, fx + half, GND_MESH_Y + half)
+
+    # --- halflsb_offset (issue #401): the fourth member. Its own leg is the
+    #     standard `halflsb_leg()` shape -- a met3 column down out of the
+    #     block to that net's own met1 row, then west along the row onto the
+    #     cdac_array corridor track this mesh already runs at `wx`. So the
+    #     offset network's substrate taps join the mesh at the same conductor
+    #     `cdac_array`'s own `VSS` tap does, rather than at a second place.
+    hl_x, hl_y, _hl_layer = global_pin("halflsb_offset", "GND")
+    hl_row = HALFLSB_ROW_Y["GND"]
+    halflsb_leg(c, "GND")
+    segments["halflsb_column"] = (hl_x - half, hl_row - half, hl_x + half, hl_y + half)
+    segments["halflsb_row"] = (wx - half, hl_row - half, hl_x + half, hl_row + half)
+
+    # --- the top-level pad label, at DR-012's own coordinate.
+    c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
+    return segments
+
+
+def analog_ground_pad_without_mesh(c: Canvas) -> None:
+    """Draw DR-012's `GND` pad **and nothing else** -- the ABLATION variant of
+    `analog_ground_mesh()`, reached only via `--ablate-ground-mesh`.
+
+    This is not an alternative design; it is a measuring instrument. `GND`
+    extracts as ONE net whether or not the mesh exists, because the sky130
+    deck's `connect_global` ties every sub-block's substrate together
+    regardless of drawn geometry -- so a clean `klt extract`/`klt erc` verdict
+    on the full layout is *not* evidence that the mesh does anything. The only
+    way to show that it does is to build the same layout without it and watch
+    a geometric connectivity model (`klt erc`, which sees drawn conductor and
+    nothing else) split `GND` into more than one island.
+
+    The variant is deliberately MINIMAL: it reproduces exactly the geometry
+    issue #362 shipped -- the riser on `comparator`'s own `GND` pin, the met4
+    stub south to `GND_PAD_Y`, the pad label -- and omits only the mesh: the
+    three droppers, the trunk and the two sub-block risers issue #377 added,
+    plus the fourth leg issue #401 teed onto the same conductor
+    (`halflsb_leg("GND")`'s own met3 column and met1 row, which land on
+    `cdac_array`'s corridor track rather than on the trunk). So the difference
+    between the two ERC runs is the mesh and nothing else: same pad, same
+    label, same position, same sub-block GDS (which still draw their own
+    `GND`/`VSS` terminals; those are unchanged by this flag).
+
+    Driven by `bin/probe-ground-mesh.py`, which runs both variants through the
+    graded `klt erc` spec -- and then through a scratch copy of it that also
+    declares `cdac_array`'s own `VSS` label, so the third mesh leg (whose
+    terminal is not named `GND` and so cannot show up in `GND`'s island count)
+    is measured too -- and writes both comparisons into the ERC record.
+    """
+    gx, gy, native = global_pin("comparator", "GND")
+    assert native == MET1
+    c.riser(gx, gy, MET1, MET4)
+    c.wire(MET4, gx, gy, gx, GND_PAD_Y, w=WIRE_W)
+    c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
+
+
+#: Which placed block each mesh segment is ALLOWED to overlap. A dropper has
+#: to enter its own member's footprint -- that is what landing on a pin means
+#: -- and nothing else may enter anyone's.
+GND_MESH_ALLOWED_BBOX = {
+    "comparator_stub": {"comparator"},
+    "sampling_frontend_dropper": {"sampling_frontend"},
+    "cdac_escape": {"cdac_array"},
+    "corridor": set(),
+    "trunk": set(),
+    "halflsb_column": {"halflsb_offset"},
+    "halflsb_row": set(),
+}
+
+#: The y band inside `cdac_array`'s own footprint that this module is allowed
+#: to cross on met3/met4 -- verified free of that block's own met3/met4 across
+#: its full width by direct GDS inspection (`layout/sar-adc-top/README.md`,
+#: "Per-block internal-layer occupancy"; re-confirmed against the post-#377
+#: GDS, which adds only tap/li1/licon1/mcon/met1 shapes there).
+CDAC_CLEAR_BAND_Y = (-35.0, -25.0)
+
+
+def _boxes_separation(a: tuple[float, ...], b: tuple[float, ...]) -> float:
+    """Euclidean separation between two axis-aligned boxes (0.0 if they
+    touch or overlap) -- the quantity `met3.space`/`met4.space` grade."""
+    dx = max(0.0, b[0] - a[2], a[0] - b[2])
+    dy = max(0.0, b[1] - a[3], a[1] - b[3])
+    if dx > 0.0 and dy > 0.0:
+        return (dx * dx + dy * dy) ** 0.5
+    return max(dx, dy)
+
+
+def _check_analog_ground_mesh(
+    c: Canvas,
+    segments: dict[str, tuple[float, float, float, float]],
+    mesh_slice: tuple[int, int],
+) -> None:
+    """Standing assertions for `analog_ground_mesh()`'s own geometry.
+
+    The whole reason DR-012 exists is that a clean `klt erc` verdict on `GND`
+    was once read as proving more than it said. The mesh is exposed to the
+    same failure one layer down: `GND` extracts as one net whether or not the
+    mesh is drawn (the substrate joins it either way), so a clean DRC/LVS/ERC
+    pass is NOT evidence that the mesh is correct, or even present. These
+    assertions plus the ablation cross-check in README.md are what is.
+
+    1. Both the pad label and the trunk sit in the open channel between
+       `sampling_frontend`'s top edge and `comparator`'s bottom edge, with the
+       label above the trunk (so it lands on a plain met4 stretch).
+    2. Every mesh segment stays out of every placed block's bbox, except the
+       one footprint it must enter to reach its own member's pin -- and
+       `cdac_array`'s only inside the confirmed-clear switch-row band.
+    3. **No met3/met4 shape the mesh draws comes within `m3.2`/`m4.2` of any
+       met3/met4 shape the REST of this module draws.** Checked geometrically
+       against the drawn shapes themselves, not against a hand-listed set of
+       neighbours: it therefore also covers #362's original "the southward
+       stub never faces `comparator.CLK`'s northbound column" argument,
+       exactly, instead of re-deriving it from pin y-ordering. Zero separation
+       (touching) fails too -- two shapes that touch are one net, and no other
+       net in this module may join `GND`.
+
+       Scope, stated rather than implied: this checks the shapes THIS module
+       draws against each other. The mesh's clearance to each sub-block's own
+       internal geometry is graded by `klt drc` on the composed layout, which
+       is where a sub-block's own metal is visible at all.
+    """
+    _cx0, cy0, _cx1, _cy1 = global_bbox("comparator")
+    _fx0, _fy0, _fx1, fy1 = global_bbox("sampling_frontend")
+    for label, y in (("pad label", GND_PAD_Y), ("mesh trunk", GND_MESH_Y)):
+        if not (fy1 < y < cy0):
+            raise SystemExit(
+                f"build_layout.py: GND {label} y {y} is not in the open channel "
+                f"between sampling_frontend's own top edge ({fy1}) and "
+                f"comparator's own bottom edge ({cy0})"
+            )
+    if not GND_MESH_Y < GND_PAD_Y:
+        raise SystemExit(
+            f"build_layout.py: the GND mesh trunk ({GND_MESH_Y}) must stay "
+            f"BELOW the pad label ({GND_PAD_Y}), so the label sits on a plain "
+            "met4 stretch rather than on the trunk corner"
+        )
+
+    for name, seg in segments.items():
+        allowed = GND_MESH_ALLOWED_BBOX[name]
+        for block in BBOX:
+            bx0, by0, bx1, by1 = global_bbox(block)
+            if not (seg[0] < bx1 and bx0 < seg[2] and seg[1] < by1 and by0 < seg[3]):
+                continue
+            if block not in allowed:
+                raise SystemExit(
+                    f"build_layout.py: the GND mesh's {name} segment "
+                    f"{seg} enters {block}'s own bbox, which it may not"
+                )
+            if block == "cdac_array" and not (
+                CDAC_CLEAR_BAND_Y[0] <= seg[1] and seg[3] <= CDAC_CLEAR_BAND_Y[1]
+            ):
+                raise SystemExit(
+                    f"build_layout.py: the GND mesh's {name} segment {seg} "
+                    f"crosses cdac_array outside the confirmed-clear "
+                    f"switch-row band {CDAC_CLEAR_BAND_Y}"
+                )
+
+    lo, hi = mesh_slice
+    mesh = [(layer, rect) for layer, rect in c.shapes[lo:hi] if layer in (MET3, MET4)]
+    others = [
+        (i, layer, rect)
+        for i, (layer, rect) in enumerate(c.shapes)
+        if layer in (MET3, MET4) and not (lo <= i < hi)
+    ]
+    limit = {MET3: MET3_SPACE_UM, MET4: MET4_SPACE_UM}
+    for layer, rect in mesh:
+        for i, other_layer, other in others:
+            if other_layer != layer:
+                continue
+            gap = _boxes_separation(rect, other)
+            if gap < limit[layer] - 1e-9:
+                raise SystemExit(
+                    f"build_layout.py: a GND mesh shape on layer {layer} "
+                    f"({rect}) is {gap:.3f} um from this module's own shape "
+                    f"#{i} ({other}) -- "
+                    + (
+                        "they TOUCH, which merges GND with another net"
+                        if gap <= 0.0
+                        else f"space needs {limit[layer]} um"
+                    )
+                )
+
+
+def _check_digital_rail_clearance(rails: dict[str, tuple[float, float, float, float]]) -> None:
+    """Standing assertions for `digital_supply_rail()`'s own geometry -- so a
+    future placement/strap change fails here rather than silently drawing a
+    floating rail, a rail shorted to the other one, or a rail through a block
+    this module must not enter.
+
+    1. Each rail clears every met5 strap it must NOT touch (the other rail's,
+       and both macros' further straps) by at least `m5.2` in y. Checked in y
+       alone on purpose: every rail rectangle overlaps every strap in x by
+       construction, so y is the only separation there is.
+    2. Neither rail's own west stub (the part outside both macros) enters any
+       other placed block's bbox -- the digital region is disjoint in y from
+       the analog one, and this assertion is what keeps it that way.
+    """
+    for net, (rx0, ry0, rx1, ry1) in rails.items():
+        for (block, strap_net), straps in MET5_STRAP.items():
+            if strap_net == net:
+                continue
+            for gx0, gy0, gx1, gy1 in global_straps(block, strap_net):
+                gap = max(gy0 - ry1, ry0 - gy1)
+                if gap < MET5_SPACE_UM - 1e-9:
+                    raise SystemExit(
+                        f"build_layout.py: {net} rail is {gap} um from "
+                        f"{block}.{strap_net}'s own met5 strap -- m5.2 needs "
+                        f"{MET5_SPACE_UM} um"
+                    )
+        for block in BBOX:
+            if block in STD_CELL_MACROS:
+                continue
+            bx0, by0, bx1, by1 = global_bbox(block)
+            if rx0 < bx1 and bx0 < rx1 and ry0 < by1 and by0 < ry1:
+                raise SystemExit(
+                    f"build_layout.py: {net} rail overlaps {block}'s own bbox"
+                )
+
+
+# --------------------------------------------------------------------------- #
+# On-die supply decoupling: the ties (issue #440, DR-017).
+#
+# sky130A's own via4/met5 rules for the ONE via4 this module draws per digital
+# rail, read out of the pinned deck (`klayout_tools/decks/sky130.py`, which
+# transcribes `sky130A_mr.drc`): `via4.1_a` 0.8 um min size, `via4.2` 0.8 um
+# min space, `via4.4` (met4 enclosure) 0.19 um, `m5.3` (met5 enclosure)
+# 0.31 um. All four ARE in this flow's own `drc.json` `coverage.rules_checked`,
+# so the geometry below is graded, not merely argued.
+#
+# WHY THIS MODULE STILL HAS NO met5 PAD SIZE (see MET5's note in the layer
+# table): it still draws none. The via4's met5 side is the digital rail
+# RECTANGLE this module already draws -- 1.6 um wide, so a centred 0.8 um via4
+# is enclosed by 0.40 um > `m5.3`, and `m5.4`'s 4.0 um^2 minimum area is
+# answered by the rail polygon it merges into, not by a freestanding pad. That
+# is why `_METAL_CHAIN`/`_VIA_BETWEEN` are still met1-met4 only and
+# `riser(..., MET5)` still (correctly) raises: there is no general met5 riser
+# here, only this one deliberate, asserted landing.
+# --------------------------------------------------------------------------- #
+VIA4_UM = 0.80  # via4 (met4<->met5) square side -- the pinned deck's
+#                 `via4.width.1` minimum, drawn AT minimum because the rail it
+#                 lands on is only 1.6 um wide.
+MET4_VIA4_PAD_UM = 1.20  # >= VIA4_UM + 2 * 0.19 (`met4.enclosing.via4.1`) with
+#                          margin; 1.44 um^2 also clears `met4.area.1` (0.240)
+#                          unaided, so this pad is safe even where nothing
+#                          merges with it.
+MET4_VIA4_ENC_UM = 0.19  # `met4.enclosing.via4.1`
+MET5_VIA4_ENC_UM = 0.31  # `met5.enclosing.via4.1`
+VIA2_SPACE_UM = 0.20  # `via2.space.1`. 0.20, not the 0.17 `DECAP_SPACE_UM`
+#                       asserted against until issue #465: the pinned deck's own
+#                       rule is `threshold_dbu=200` (sky130A_mr.drc "via2.2",
+#                       `via2.space(0.2, euclidian)`) -- identical to
+#                       `via3.space.1` below, not tighter. The old 0.17 was an
+#                       UNDER-check: `_check_decoupling_caps()` assertion 2 would
+#                       have passed a 0.18 um via2 gap the deck rejects. Found by
+#                       pitching this flow's first via2 array from it and
+#                       reading `via2.space.1` off the resulting 24-violation
+#                       DRC report.
+VIA3_SPACE_UM = 0.20  # `via3.space.1`
+VIA4_SPACE_UM = 0.80  # `via4.space.1`
+CAPM_SPACE_UM = 0.84  # `capm.space.1`
+MET1_SPACE_UM = 0.14  # `met1.space.1`
+MET2_SPACE_UM = 0.14  # `met2.space.1`
+
+#: Width of every conductor `decoupling_caps()` draws. Deliberately 5x
+#: `WIRE_W`: a decoupling capacitor is only worth its area if the path between
+#: it and the switching devices it serves is low-impedance, and DR-017's own
+#: closing open item names exactly that series resistance as the thing that can
+#: erode its measured benefit. At met3/met4's ~0.047 ohm/sq this turns the
+#: longest tie here (~86 um) from ~10 ohm into ~2 ohm. It is NOT free of
+#: consequence and is asserted, not assumed: a 2.0 um conductor needs 2.0 um of
+#: clear field, which is why every tie corridor below was measured first.
+DECAP_STRAP_W = 2.0
+
+#: Cut-grid side for every via2/via3 the decoupling ties draw: `N x N` cuts in
+#: parallel instead of the single cut `Canvas.riser()`/`Canvas.via()` use
+#: everywhere else in this flow. `2` -> four cuts, so each of those levels
+#: contributes `rcvia2/4` = 0.853 ohm instead of 3.41 ohm.
+#:
+#: MEASURED, not assumed, in both directions:
+#:
+#: * Issue #440 measured the as-drawn ties at 13.837 ohm (analog) / 13.448 ohm
+#:   (digital) per domain and found **~80 % of it single-cut vias** -- widening
+#:   the already-2.0 um straps further would have bought under an ohm.
+#: * Issue #465 then measured whether cutting that resistance HELPS, because it
+#:   was not obvious: at 13.8 ohm the resonance the 8.870 pF pair forms with
+#:   DR-015's bond inductance has `Q ~ 1.06`, so the ties might have been
+#:   *damping* it. `sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md`
+#:   settles it -- adding the measured resistance to the committed netlist raises
+#:   every die-side rail's excursion (worst rail `VPWR_DIE` 12.135 -> 16.180 mV,
+#:   1.333x, at `tt_27c_1.80v`). The ties cost bounce; they do not buy damping.
+#:
+#: Scope, deliberately: `2`, and only at the decoupling ties' own call sites.
+#: NOT a global `riser()` change (every supply riser in this flow is single-cut
+#: by convention and none of their resistances has been measured), and not `3`
+#: or more -- the pad grows with the grid, these arrays sit in field measured
+#: free at a 1.0 um keep-out, and past the via the *metal* half of each ladder
+#: (which arrays cannot touch) is what remains.
+DECAP_VIA_ARRAY = 2
+
+#: How far inside a bottom plate's own edge a via2 lands. The `C0_BOT` port is
+#: reported AT the plate's left edge, and `met3.enclosing.via2.1` (0.065 um)
+#: fails for a via2 drawn there -- the same trap
+#: `layout/sampling-frontend/bin/build_layout.py`'s `MET3_VIA_INSET_UM` (0.20)
+#: documents. 2.0 um here rather than 0.20 because the via2's own met2 landing
+#: is `DECAP_STRAP_W` wide, so the *pad*, not the cut, is what has to stay
+#: inside the plate's footprint -- and because a tie that enters the plate
+#: 2 um in is easier to see in a layout viewer than one that grazes its edge.
+DECAP_VIA2_INSET_UM = 2.0
+
+#: How far a top-plate tie's own met4 column overlaps the unit cell's own met4
+#: top-plate lead. Any positive overlap merges (same layer), so this only has to
+#: beat DBU rounding -- 1.0 um does, and keeps the merge visible.
+DECAP_TOP_OVERLAP_UM = 1.0
+
+#: y of the analog pair's met2 return run, and the point on the analog ground
+#: where it taps. `comparator.GND`'s own met4 stub is the tap deliberately:
+#: it is the shortest path from this pair to the comparator, whose own decision
+#: reference is the node DR-012 and DR-017 both care about, AND it is the one
+#: piece of analog-ground conductor that `--ablate-ground-mesh` still draws --
+#: so the decoupling pair is identical in both build variants and
+#: `bin/probe-ground-mesh.py`'s two arms still differ by the mesh and nothing
+#: else. Asserted, not assumed, by `_check_decoupling_caps()`.
+DECAP_A_BOT_Y = 172.0
+
+#: y of the analog pair's met4 supply strap: above `comparator`'s own bbox top
+#: (212.45 once placed) and below the lowest `JOG_Y` (220.0), in a band measured
+#: free of met3/met4 east of the `comparator.VDD` column it merges into. Pure
+#: met4 from that column to both top plates -- no via anywhere on this net,
+#: because a top plate is a met4 terminal already.
+DECAP_A_TOP_Y = 216.0
+
+#: Where each digital rail's own via4 lands, on the met5 stretch this module
+#: draws east of `top_glue`'s own strap (`DIG_RAIL_EAST_X`). Two different
+#: x so the two rails' met4 landings cannot come near each other: they are
+#: 13.6 um apart in y anyway, but the pads are 1.2 um and the rails are the two
+#: nets it would be worst to short.
+DECAP_D_VIA4_X = {"VPWR": 185.0, "VGND": 190.0}
+
+
+def _decap_unit_boxes() -> dict[str, tuple[float, float, float, float]]:
+    """Each decap unit's own global bbox -- the footprint its met3 bottom plate
+    and `capm` top plate occupy (the met4 lead reaches the top edge)."""
+    return {block: global_bbox(block) for block in DECAP_OFFSETS}
+
+
+def decoupling_caps(c: Canvas) -> dict[str, tuple[int, int]]:
+    """Tie the four placed decap units across their own domains' supply/return
+    conductors, and return one canvas slice per net for
+    `_check_decoupling_caps()`.
+
+    Why the two terminals are reached on different layers
+    -----------------------------------------------------
+    Not a floorplan preference -- an extraction-deck fact. sky130's MiM cap is
+    recognised as `{P1 => met3_con, P2 => capm}`, and the deck removes every
+    met3 shape that *interacts with* a `capm` plate from generic met3<->met4
+    (via3) connectivity. That exclusion is what stops the cap's own centre via3
+    -- which the DRM requires to sit over the bottom plate -- from reading as a
+    plate-to-plate short (it is also the exact behaviour
+    `layout/requirements.txt`'s 0.3.0 -> 0.4.0 note describes being narrowed to
+    `bottom_region.interacting(top_region)`). Two consequences this function is
+    built around:
+
+    * **A bottom plate is reachable only from BELOW**, through via2 from met2.
+      A via3 onto it -- or onto any met3 wire merged into it -- is excluded
+      from connectivity and would leave the plate floating. This is why both
+      return ties here run on met2 and step up through via2, exactly as
+      `layout/sampling-frontend/bin/build_layout.py` routes the same
+      generator's own `*_BOT` port.
+    * **A top plate is reachable only from ABOVE**, on met4, and any *new* met3
+      shape inside the cell's footprint shorts the two plates (that sub-block's
+      own `_step_down_to_met1` records finding this directly). So every supply
+      tie here is met4, merging with the unit's own met4 lead, and no met3 is
+      drawn inside any unit's footprint at all.
+
+    Analog pair (`Cdecap_a`, `VDD` / `GND`)
+    ---------------------------------------
+    * return: a met4->met2 riser on `comparator.GND`'s own met4 stub at
+      `DECAP_A_BOT_Y`, then one met2 run east under both units, with a via2 up
+      into each bottom plate `DECAP_VIA2_INSET_UM` inside its west edge.
+    * supply: one met4 strap at `DECAP_A_TOP_Y` from `comparator.VDD`'s own
+      met4 column east to the second unit's top-plate lead, with a met4 column
+      down onto each lead. No via on this net.
+
+    Digital pair (`Cdecap_d`, `VPWR` / `VGND`)
+    ------------------------------------------
+    * supply: one via4 from the `VPWR` rail rectangle down to met4 at
+      `DECAP_D_VIA4_X["VPWR"]`, a met4 strap east to the units' shared
+      top-plate-lead x, then one met4 column north through both leads.
+    * return: one via4 from the `VGND` rail down to met4, a met4->met2 riser
+      there (its intermediate met3 island is well clear of either plate), then
+      an L of met2 -- east, then north -- with a via2 up into each bottom
+      plate.
+
+    Both digital ties leave the rails at the rails' own centre-line y, so
+    neither adds a bend to the supply path that the rail does not already have.
+
+    Why every via2/via3 here is a cut ARRAY (issue #465)
+    ---------------------------------------------------
+    Each of the eight via2/via3 sites these two functions draw -- the two
+    risers' two levels each, and the four via2 plate entries, i.e. six via2
+    sites and two via3 sites -- passes
+    `array=DECAP_VIA_ARRAY`, so it is four cuts in parallel rather than the one
+    cut this flow's `riser()`/`via()` convention draws everywhere else. That is
+    the only lever on these ties' resistance that exists: #440 measured them at
+    13.8 / 13.4 ohm per domain with **~80 % of it in single cuts**, and #465 then
+    measured that the resistance *costs* die-side bounce rather than damping the
+    package resonance (`sim/supply-impedance-sensitivity/records/20260926-183200-e8fa47c.md`).
+    See `DECAP_VIA_ARRAY` for the evidence and the scope.
+
+    Three vias in these paths are deliberately NOT widened, and each for its own
+    reason:
+
+    * **The two via4 landings off the met5 rails** -- `via4_onto_rail()`'s own
+      docstring: 0.38 ohm/cut, and the 1.6 um rail cannot enclose a second cut
+      across it.
+    * **Each unit cell's own centre via3 into `capm`** -- 3.41 ohm, and the
+      single largest remaining term in both supply ties. It is inside the
+      `klt gen cap_array` cell, not drawn here at all, so widening it is a
+      generator change and not this module's to make. It is why the analog
+      supply tie (2.980 ohm) barely moves: 3.41 ohm of each branch is that cut.
+    """
+    slices: dict[str, tuple[int, int]] = {}
+    boxes = _decap_unit_boxes()
+
+    def bot_via_point(block: str) -> float:
+        """x of the via2 that lands in `block`'s own bottom plate."""
+        return boxes[block][0] + DECAP_VIA2_INSET_UM
+
+    def top_lead_x(block: str) -> float:
+        x, _y, layer = global_pin(block, "C0_TOP")
+        assert layer == MET4
+        return x
+
+    def top_lead_y(block: str) -> float:
+        _x, y, _layer = global_pin(block, "C0_TOP")
+        return y
+
+    # --- Cdecap_a return (GND): comparator's own met4 GND stub -> met2 -> both
+    #     bottom plates.
+    lo = len(c.shapes)
+    tap_x, _gy, native = global_pin("comparator", "GND")
+    assert native == MET1
+    c.riser(tap_x, DECAP_A_BOT_Y, MET4, MET2, array=DECAP_VIA_ARRAY)
+    east = bot_via_point("decap_a1")
+    c.wire(MET2, tap_x, DECAP_A_BOT_Y, east, DECAP_A_BOT_Y, w=DECAP_STRAP_W)
+    for block in ("decap_a0", "decap_a1"):
+        c.via(MET2, MET3, bot_via_point(block), DECAP_A_BOT_Y, array=DECAP_VIA_ARRAY)
+    slices["GND"] = (lo, len(c.shapes))
+
+    # --- Cdecap_a supply (VDD): comparator's own met4 VDD column -> met4 strap
+    #     -> both top-plate leads.
+    lo = len(c.shapes)
+    vdd_x, _vy, _native = global_pin("comparator", "VDD")
+    c.wire(
+        MET4, vdd_x, DECAP_A_TOP_Y, top_lead_x("decap_a1"), DECAP_A_TOP_Y, w=DECAP_STRAP_W
+    )
+    for block in ("decap_a0", "decap_a1"):
+        lead_x = top_lead_x(block)
+        c.wire(
+            MET4,
+            lead_x,
+            DECAP_A_TOP_Y,
+            lead_x,
+            top_lead_y(block) - DECAP_TOP_OVERLAP_UM,
+            w=DECAP_STRAP_W,
+        )
+    slices["VDD"] = (lo, len(c.shapes))
+    return slices
+
+
+def decoupling_caps_digital(
+    c: Canvas, rails: dict[str, tuple[float, float, float, float]]
+) -> dict[str, tuple[int, int]]:
+    """The digital half of `decoupling_caps()` -- separate only because it needs
+    the two rail rectangles `digital_supply_rail()` returns."""
+    slices: dict[str, tuple[int, int]] = {}
+    boxes = _decap_unit_boxes()
+
+    def rail_centre_y(net: str) -> float:
+        _x0, y0, _x1, y1 = rails[net]
+        return (y0 + y1) / 2.0
+
+    def via4_onto_rail(net: str) -> tuple[float, float]:
+        """One via4 from `net`'s own met5 rail rectangle down to met4, with a
+        met4 pad sized to satisfy `via4.4` (and `m4.4a`) unaided. NO met5 pad:
+        the rail rectangle is the met5 side, so `m5.3`/`m5.4` are answered by a
+        polygon this module already draws -- asserted in
+        `_check_decoupling_caps()`.
+
+        **Deliberately still ONE cut, where the via2/via3 levels of these same
+        ties are now `DECAP_VIA_ARRAY x DECAP_VIA_ARRAY` (issue #465).** Two
+        independent reasons, both measured rather than preferred:
+
+        * **It has almost nothing to give.** `rcvia4` is **0.38 ohm** per cut in
+          this PDK -- 9x below `rcvia2`/`rcvia3`'s 3.41 ohm -- so this level is
+          2.8 % of the digital return tie's 9.843 ohm. Four cuts here would
+          recover 0.285 ohm.
+        * **The rail cannot hold the array.** `via4.space.1` is 0.80 um at a
+          0.80 um cut, so a 2x2 grid spans 2.40 um in *both* axes, and the met5
+          rail it lands on is `MET5_STRAP` wide -- 1.6 um. A second cut across
+          the rail cannot be enclosed by `m5.3` at all; assertion 4 of
+          `_check_decoupling_caps()` is what would catch it. A 1x2 grid *along*
+          the rail would fit, and is not drawn: it would trade the two bullets
+          above against a second geometry to maintain for a quarter of an ohm.
+        """
+        x, y = DECAP_D_VIA4_X[net], rail_centre_y(net)
+        c.square(MET4, x, y, MET4_VIA4_PAD_UM)
+        c.square(VIA4, x, y, VIA4_UM)
+        return x, y
+
+    lead_x = global_pin("decap_d0", "C0_TOP")[0]
+    assert abs(lead_x - global_pin("decap_d1", "C0_TOP")[0]) < 1e-9, (
+        "the two digital decap units must share one top-plate-lead x -- they are "
+        "stacked in y on purpose, so one met4 column reaches both"
+    )
+
+    # --- Cdecap_d supply (VPWR): rail -> via4 -> met4 strap east -> one met4
+    #     column north through both top-plate leads.
+    lo = len(c.shapes)
+    vx, vy = via4_onto_rail("VPWR")
+    c.wire(MET4, vx, vy, lead_x, vy, w=DECAP_STRAP_W)
+    c.wire(MET4, lead_x, vy, lead_x, global_pin("decap_d1", "C0_TOP")[1], w=DECAP_STRAP_W)
+    slices["VPWR"] = (lo, len(c.shapes))
+
+    # --- Cdecap_d return (VGND): rail -> via4 -> met4->met2 riser -> met2 L ->
+    #     a via2 up into each bottom plate.
+    lo = len(c.shapes)
+    gx, gy = via4_onto_rail("VGND")
+    c.riser(gx, gy, MET4, MET2, array=DECAP_VIA_ARRAY)
+    run_x = boxes["decap_d0"][0] + DECAP_VIA2_INSET_UM
+    c.wire(MET2, gx, gy, run_x, gy, w=DECAP_STRAP_W)
+    top_via_y = boxes["decap_d1"][1] + DECAP_VIA2_INSET_UM
+    c.wire(MET2, run_x, gy, run_x, top_via_y, w=DECAP_STRAP_W)
+    c.via(MET2, MET3, run_x, gy, array=DECAP_VIA_ARRAY)
+    c.via(MET2, MET3, run_x, top_via_y, array=DECAP_VIA_ARRAY)
+    slices["VGND"] = (lo, len(c.shapes))
+    return slices
+
+
+#: Every layer `_check_decoupling_caps()` grades a decap-drawn shape on, with
+#: that layer's own minimum-space threshold from the pinned deck.
+DECAP_SPACE_UM = {
+    MET1: MET1_SPACE_UM,
+    MET2: MET2_SPACE_UM,
+    MET3: MET3_SPACE_UM,
+    MET4: MET4_SPACE_UM,
+    MET5: MET5_SPACE_UM,
+    VIA2: VIA2_SPACE_UM,  # `via2.space.1`
+    VIA3: VIA3_SPACE_UM,
+    VIA4: VIA4_SPACE_UM,
+}
+
+#: Which net's conductor each decap tie reaches, and HOW.
+#:
+#: * `same_layer` -- the tie merges into that conductor as one polygon (the two
+#:   analog ties, which start on `comparator`'s own met4 GND stub and met4 VDD
+#:   column). Exactly one such merge per net is legitimate; any other zero
+#:   separation is a short, and the absence of this one is an open circuit.
+#: * `via4` -- the tie reaches a met5 rail through a via4 and draws no met5 at
+#:   all, so there is no same-layer contact to look for. What establishes THAT
+#:   connection is assertion 4 (the via4 is inside the rail rectangle with
+#:   `m5.3` of met5 on every side), and a `same_layer` contact on any layer
+#:   would be a defect, not the tie working.
+DECAP_MERGES_WITH = {
+    "GND": ("mesh", "same_layer"),
+    "VDD": ("vdd", "same_layer"),
+    "VPWR": ("rails", "via4"),
+    "VGND": ("rails", "via4"),
+}
+
+#: Layers a decap unit's own footprint must be CLEAR of, other than that unit's
+#: own ties -- the layers a `cap_array` unit and a MiM device rule can see.
+DECAP_KEEPOUT_LAYERS = (MET3, MET4, CAPM, VIA3, VIA4, MET5)
+
+#: Keep-out margin around each unit's footprint. Bigger than every space rule
+#: it has to satisfy (`capm.space.1` 0.84 is the tightest binding one), and the
+#: same margin the free-rectangle measurement behind `DECAP_OFFSETS` was run
+#: with, so the assertion and the measurement ask the same question.
+DECAP_KEEPOUT_UM = 1.0
+
+
+def _check_decoupling_caps(
+    c: Canvas,
+    decap_slices: dict[str, tuple[int, int]],
+    net_slices: dict[str, tuple[int, int]],
+    rails: dict[str, tuple[float, float, float, float]],
+) -> None:
+    """Standing assertions for `decoupling_caps()`/`decoupling_caps_digital()`.
+
+    These exist for the same reason `_check_analog_ground_mesh()`'s do: a clean
+    DRC verdict is not evidence that a capacitor is *connected to the right
+    thing*, and an LVS mismatch on this flow is pre-existing
+    (klayout-tools#1878), so "LVS went from 98 to 98 mismatches" cannot be read
+    as "the ties are right" either. What can be read that way is (a) these
+    assertions, (b) the per-net unfiltered-extraction table in the record, and
+    (c) `klt erc`'s one-island-per-supply verdict.
+
+    1. Every unit's footprint, grown by `DECAP_KEEPOUT_UM`, is free of every
+       met3/met4/`capm`/via3/via4/met5 shape this module draws other than its
+       own ties. (A sub-block's own internal geometry is not a canvas shape and
+       cannot be checked here -- that is what the direct free-rectangle
+       measurement behind `DECAP_OFFSETS` did, and what `klt drc` grades on the
+       composed layout.)
+    2. Every decap-drawn shape clears every shape this module draws for a
+       DIFFERENT net by that layer's own minimum space -- except the one
+       conductor its own net is supposed to merge with (`DECAP_MERGES_WITH`).
+       Zero separation there is the intended outcome; zero separation anywhere
+       else is a short.
+    3. Each net's intended merge actually HAPPENS: some shape of that net must
+       touch or overlap its named counterpart. An assertion that only forbids
+       shorts would pass a tie that reaches nothing at all.
+    4. Each via4 site is inside its own rail rectangle with at least `m5.3` of
+       met5 on every side, and the rail stops clear of every unit's footprint.
+    5. Each via2 into a bottom plate is at least `DECAP_VIA2_INSET_UM` inside
+       that plate on every side, and each top-plate tie's own met4 column
+       actually overlaps that unit's met4 lead.
+    """
+    boxes = _decap_unit_boxes()
+    decap_idx = {i for lo, hi in decap_slices.values() for i in range(lo, hi)}
+
+    # 1. footprint keep-out.
+    for block, box in boxes.items():
+        grown = (
+            box[0] - DECAP_KEEPOUT_UM,
+            box[1] - DECAP_KEEPOUT_UM,
+            box[2] + DECAP_KEEPOUT_UM,
+            box[3] + DECAP_KEEPOUT_UM,
+        )
+        for i, (layer, rect) in enumerate(c.shapes):
+            if i in decap_idx or layer not in DECAP_KEEPOUT_LAYERS:
+                continue
+            if rect[0] < grown[2] and grown[0] < rect[2] and rect[1] < grown[3] and grown[1] < rect[3]:
+                raise SystemExit(
+                    f"build_layout.py: {block}'s own decap footprint {box} (grown by "
+                    f"{DECAP_KEEPOUT_UM} um) contains this module's shape #{i} on layer "
+                    f"{layer} ({rect}), which is not one of that unit's own ties"
+                )
+
+    # 2/3. shorts, and the intended merges.
+    merged: dict[str, bool] = {
+        net: DECAP_MERGES_WITH[net][1] != "same_layer" for net in decap_slices
+    }
+    for net, (lo, hi) in decap_slices.items():
+        target, mechanism = DECAP_MERGES_WITH[net]
+        allow_lo, allow_hi = net_slices[target] if mechanism == "same_layer" else (0, 0)
+        for layer, rect in c.shapes[lo:hi]:
+            limit = DECAP_SPACE_UM.get(layer)
+            if limit is None:
+                continue
+            for i, (other_layer, other) in enumerate(c.shapes):
+                if other_layer != layer or lo <= i < hi:
+                    continue
+                gap = _boxes_separation(rect, other)
+                if gap >= limit - 1e-9:
+                    continue
+                if not (allow_lo <= i < allow_hi):
+                    raise SystemExit(
+                        f"build_layout.py: the {net} decap tie's shape on layer {layer} "
+                        f"({rect}) is {gap:.3f} um from this module's shape #{i} "
+                        f"({other}) -- space needs {limit} um, and {net} may only "
+                        f"merge with its own {DECAP_MERGES_WITH[net]} conductor"
+                    )
+                if gap <= 0.0:
+                    merged[net] = True
+    for net, ok in merged.items():
+        if not ok:
+            raise SystemExit(
+                f"build_layout.py: the {net} decap tie never TOUCHES this module's own "
+                f"{DECAP_MERGES_WITH[net][0]} conductor -- a tie that shorts nothing is "
+                "also a tie that connects nothing"
+            )
+
+    # 4. via4 landings, and the rail's own east end.
+    for net, x in DECAP_D_VIA4_X.items():
+        rx0, ry0, rx1, ry1 = rails[net]
+        need = VIA4_UM / 2.0 + MET5_VIA4_ENC_UM
+        if not (rx0 + need <= x <= rx1 - need):
+            raise SystemExit(
+                f"build_layout.py: the {net} decap via4 at x={x} is not enclosed by "
+                f"{MET5_VIA4_ENC_UM} um of its own met5 rail ({rx0}..{rx1}) -- m5.3"
+            )
+        if (ry1 - ry0) / 2.0 < need:
+            raise SystemExit(
+                f"build_layout.py: the {net} rail is only {ry1 - ry0} um wide -- a "
+                f"centred {VIA4_UM} um via4 needs {2 * need} um for m5.3"
+            )
+        for block, box in boxes.items():
+            if rx0 < box[2] and box[0] < rx1 and ry0 < box[3] and box[1] < ry1:
+                raise SystemExit(
+                    f"build_layout.py: the {net} met5 rail {rails[net]} overlaps "
+                    f"{block}'s own decap footprint {box} -- extend DIG_RAIL_EAST_X "
+                    "no further east than the via4 landing needs"
+                )
+
+    # 5. per-unit terminal geometry.
+    for block, box in boxes.items():
+        vx = box[0] + DECAP_VIA2_INSET_UM
+        if not (box[0] + DECAP_VIA2_INSET_UM - 1e-9 <= vx <= box[2] - DECAP_VIA2_INSET_UM):
+            raise SystemExit(
+                f"build_layout.py: {block}'s own bottom-plate via2 x={vx} is not "
+                f"{DECAP_VIA2_INSET_UM} um inside its plate ({box[0]}..{box[2]})"
+            )
+        lead_x, lead_y, lead_layer = global_pin(block, "C0_TOP")
+        assert lead_layer == MET4
+        if not (box[0] < lead_x < box[2]) or not (0.0 <= box[3] - lead_y <= 1.0):
+            raise SystemExit(
+                f"build_layout.py: {block}'s own C0_TOP lead ({lead_x}, {lead_y}) is "
+                f"not at its own footprint's top edge ({box}) -- re-read the port "
+                "table against klt gen cap_array's own report (--verify-decap)"
+            )
+
+    # The analog return tap must sit on the stretch of `comparator.GND`'s own
+    # met4 stub that BOTH build variants draw (`analog_ground_mesh()` runs it
+    # from the pin down to GND_MESH_Y; `analog_ground_pad_without_mesh()` only
+    # down to GND_PAD_Y), and south of `comparator`'s own bbox so neither the
+    # met2 run nor the riser's met3 island enters that footprint.
+    _gx, gy, _native = global_pin("comparator", "GND")
+    if not (GND_PAD_Y < DECAP_A_BOT_Y < gy):
+        raise SystemExit(
+            f"build_layout.py: DECAP_A_BOT_Y ({DECAP_A_BOT_Y}) is outside the stretch "
+            f"of comparator.GND's own met4 stub that BOTH build variants draw "
+            f"({GND_PAD_Y}..{gy}) -- --ablate-ground-mesh would leave the analog "
+            "decoupling pair's return floating, so the two arms of "
+            "bin/probe-ground-mesh.py would no longer differ by the mesh alone"
+        )
+    _cx0, cy0, _cx1, cy1 = global_bbox("comparator")
+    if DECAP_A_BOT_Y + DECAP_STRAP_W / 2.0 >= cy0:
+        raise SystemExit(
+            f"build_layout.py: the analog decap return run at y={DECAP_A_BOT_Y} enters "
+            f"comparator's own bbox (y0={cy0})"
+        )
+    # ...and the analog supply strap must sit above that bbox and below every
+    # jog row, in the band the free-rectangle measurement covered.
+    if not (cy1 < DECAP_A_TOP_Y < min(JOG_Y.values())):
+        raise SystemExit(
+            f"build_layout.py: DECAP_A_TOP_Y ({DECAP_A_TOP_Y}) is not between "
+            f"comparator's own bbox top ({cy1}) and the lowest analog jog row "
+            f"({min(JOG_Y.values())})"
+        )
+
+
+def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
+    """Build the whole assembly's draw + compose requests.
+
+    `ablate_ground_mesh=True` builds the measuring-instrument variant instead
+    of the design: DR-012's `GND` pad alone, with issue #377's mesh omitted.
+    See `analog_ground_pad_without_mesh()` -- it is never the shipped layout.
+    """
     _check_no_overlap()
     c = Canvas()
 
@@ -704,6 +2767,7 @@ def build() -> tuple[dict, dict]:
     #    direction with no block bbox anywhere along the whole vertical
     #    span), then climb the west corridor into its own `analog_leg`.
     # ------------------------------------------------------------------ #
+    vdd_lo = len(c.shapes)
     vx, vy, _ = global_pin("cdac_array", "VDD")
     c.riser(vx, vy, MET1, MET3)
     wx = WEST_CORRIDOR_X["VDD"]
@@ -731,6 +2795,11 @@ def build() -> tuple[dict, dict]:
     c.wire(MET3, wx, JOG_Y["VDD"], ext_x, JOG_Y["VDD"], w=WIRE_W)
     c.riser(ext_x, JOG_Y["VDD"], MET3, MET4, isolated_ends=True)
     c.label(MET4_PIN, ext_x, JOG_Y["VDD"], "VDD")
+    # Tracked as a canvas slice so `_check_decoupling_caps()` can tell the one
+    # conductor `Cdecap_a`'s supply tie is ALLOWED to merge with (this net) from
+    # every conductor it must not touch. Nothing above this point draws anything
+    # but analog `VDD`, which is what makes the slice meaningful.
+    vdd_slice = (vdd_lo, len(c.shapes))
 
     # ------------------------------------------------------------------ #
     # 3. VREFP / VREFN: cdac_array + one external pin each. Already on
@@ -744,128 +2813,293 @@ def build() -> tuple[dict, dict]:
         c.label(MET1_PIN if layer == MET1 else MET2_PIN, ext_x, y, net)
 
     # ------------------------------------------------------------------ #
-    # 4. CLK / COMP_OUT: comparator (analog) <-> sar_sequencer (digital).
-    #    Each crosses via `sar_cross_to_analog` (its own escape x, so the
-    #    two nets' met4 drops never collide) into its own exclusive west
-    #    corridor track, then up to the analog highway. CLK additionally
-    #    reaches an external pin, labelled directly on its own escape lead.
+    # 4. COMP_OUT and SAMPLE_INT: comparator/sar_sequencer (digital) ->
+    #    the analog region. Each crosses via `sar_cross_to_analog` (its own
+    #    escape x, so the two nets' met2 drops never collide) into its own
+    #    exclusive west corridor track, then up to the analog highway.
+    #
+    #    `CLK` no longer appears here (issue #401). DR-008's `xinv_clkcap`
+    #    now sits between the top-level `CLK` port and `comparator.CLK`, so
+    #    the net that climbs into the analog region is `CLKN` -- a `top_glue`
+    #    output, routed in section 5 with the rest of that macro's fan-out.
     # ------------------------------------------------------------------ #
-    for net, comp_pin, seq_pin, escape_x, jog_y in (
-        ("CLK", "CLK", "CLK", 65.6, 223.0),
-        ("COMP_OUT", "OUTP", "COMP_OUT", 66.5, 223.7),
-    ):
-        wx = WEST_CORRIDOR_X[net]
-        px, py = _riser_and_highway(c, "comparator", comp_pin, MET4)
-        cx0, cy0 = sar_cross_to_analog(c, seq_pin, escape_x, wx, BASEMENT_Y[net])
-        analog_leg(c, wx, cy0, px, py, jog_y)
-    sx, sy, _ = global_pin("sar_sequencer", "CLK")
-    c.label(MET1_PIN, sx + 0.8, sy, "CLK")
+    comp_out_lo = len(c.shapes)
+    wx = WEST_CORRIDOR_X["COMP_OUT"]
+    px, py = _riser_and_highway(c, "comparator", "OUTP", MET4)
+    _cx, cy = sar_cross_to_analog(c, "COMP_OUT", 66.5, wx, BASEMENT_Y["COMP_OUT"])
+    analog_leg(c, wx, cy, px, py, JOG_Y["COMP_OUT"])
+    # Tracked as a canvas slice so `_check_outn_load_balance()` can weigh
+    # DR-009's dummy load against the live net it is supposed to mirror. This
+    # span holds nothing but COMP_OUT, which is what makes it meaningful.
+    comp_out_slice = (comp_out_lo, len(c.shapes))
 
-    # ------------------------------------------------------------------ #
-    # 5. Digital region: SAMPLE_INT, RST_B, BUSY, DOUT<i>, SELn<i>.
-    # ------------------------------------------------------------------ #
-    # SAMPLE_INT: sar_sequencer.PH_SAMPLE -> sampling_frontend.SAMPLE, same
-    # west-corridor crossing pattern as CLK/COMP_OUT (its own escape x).
-    wx = -14.0
-    cx0, cy0 = sar_cross_to_analog(c, "PH_SAMPLE", 67.4, wx, BASEMENT_Y["PH_SAMPLE"])
+    wx = WEST_CORRIDOR_X["SAMPLE_INT"]
+    _cx, cy = sar_cross_to_analog(c, "PH_SAMPLE", 67.4, wx, BASEMENT_Y["PH_SAMPLE"])
     fx, fy = _riser_and_highway(c, "sampling_frontend", "SAMPLE", MET4)
-    analog_leg(c, wx, cy0, fx, fy, JOG_Y["SAMPLE_INT"])
+    analog_leg(c, wx, cy, fx, fy, JOG_Y["SAMPLE_INT"])
 
-    # RST_B, BUSY: sar_sequencer <-> one external pin each (thin escape +
-    # a short, still-thin extension -- no other net shares this exact
-    # (x, y), so width is not otherwise load-bearing here).
-    for net, pin in (("RST_B", "RST_B"), ("BUSY", "BUSY")):
-        ex, ey = dig_escape(c, "sar_sequencer", pin)
-        c.wire(MET1, ex, ey, ex + 3.0, ey, w=ESCAPE_W)
-        c.label(MET1_PIN, ex + 3.0, ey, net)
-
-    # DOUT<i> (i=0..9) / SELn<i> (i=0..8): the channel between sar_sequencer
-    # and seln_inverters is dense (19 nets share the same two macros' own
-    # single-column I/O edges), so every one of these gets its own
-    # exclusive (drop_x, row_y) pair -- see the module docstring's
-    # "Routing" section and `DROP_X`/`ROW_Y`'s own comment for why
-    # horizontals stay on met1 and verticals on met2 throughout: two
-    # different *layers* never collide regardless of geometric overlap,
-    # which is what makes 19 independent nets tractable through one shared
-    # open channel without a general channel-routing search.
-    # 1.0 um pitch (not the 0.7 um met1/met2 minimum-legal pitch used
-    # elsewhere in this module): `sar_cross_to_analog`'s own met2->met4
-    # riser lands a `PAD_UM`-wide (0.36 um) pad at its own escape x, roughly
-    # midway between two `DROP_X` entries -- clearing a thin (met2.width,
-    # 0.14 um) `DROP_X` trunk by met2.space (0.14 um) from a 0.36 um-wide
-    # pad needs 0.18 + 0.07 + 0.14 = 0.39 um from centre to centre, which a
-    # 0.7 um pitch's own midpoint (0.35 um either way) does not clear
-    # (found empirically via `klt drc`, not by hand-checking every
-    # clearance in advance; see the PR description). 1.0 um pitch gives a
-    # 0.5 um-clear midpoint instead.
-    # The 68.45 phase (not 68.0) is also load-bearing, not just the 1.0 um
-    # pitch: cdac_array's own SELp<i>/SELn<i> `cx` values (3.945 + 11*i,
-    # 102.945 + 11*i) are a *different* arithmetic sequence than `DROP_X`,
-    # and a 68.0 phase put SELp6's own cx (69.945) 0.055 um from DOUT2's own
-    # drop_x (70.0) -- close enough that SELp6's own met1->met3 riser (built
-    # while routing DOUT6, a completely unrelated net) landed its
-    # intermediate met2 pad on top of DOUT2's own met2 trunk (found
-    # empirically via `klt extract`, the same class of bug as
-    # `sar_cross_to_analog`'s own -- see the PR description). 68.45 clears
-    # every `cx` this loop uses by >= 0.495 um.
-    order: list[tuple[str, int]] = [("DOUT", i) for i in range(9)] + [("SELn", i) for i in range(9)]
-    DROP_X = {key: 68.45 + 1.0 * k for k, key in enumerate(order)}
-    ROW_Y = {key: -42.0 - 1.0 * k for k, key in enumerate(order)}
-
-    # DOUT9: sar_sequencer + external pin only (no seln_inverters/cdac_array
-    # member) -- a plain escape + label, no channel/drop_x needed.
-    ex, ey = dig_escape(c, "sar_sequencer", "DOUT9")
+    # RST_B: sar_sequencer <-> one external pin (thin escape + a short,
+    # still-thin extension -- no other net shares this exact (x, y), so width
+    # is not otherwise load-bearing here).
+    ex, ey = dig_escape(c, "sar_sequencer", "RST_B")
     c.wire(MET1, ex, ey, ex + 3.0, ey, w=ESCAPE_W)
-    c.label(MET1_PIN, ex + 3.0, ey, "DOUT9")
+    c.label(MET1_PIN, ex + 3.0, ey, "RST_B")
 
-    for i in range(9):
-        key = ("DOUT", i)
-        drop_x, row_y = DROP_X[key], ROW_Y[key]
-
-        sx, sy, _ = global_pin("sar_sequencer", f"DOUT{i}")
+    # ------------------------------------------------------------------ #
+    # 5. The digital channel: everything that crosses the open band between
+    #    the two standard-cell macros' own top edges and `cdac_array`'s own
+    #    bottom one -- 36 nets, one exclusive met1 row each (`CHANNEL_ROW_Y`)
+    #    and one exclusive met2 column per endpoint. See that table's own
+    #    section comment for the layer discipline and the pitch.
+    # ------------------------------------------------------------------ #
+    def seq_to_channel(net: str, pin: str) -> float:
+        """`sar_sequencer.<pin>` -> a thin met1 lead east -> that net's own
+        exclusive met2 drop column -> a via onto its own met1 row. Returns
+        the drop column's x."""
+        drop_x, row_y = DROP_X[net], CHANNEL_ROW_Y[net]
+        sx, sy, native = global_pin("sar_sequencer", pin)
+        assert native == MET1
         c.wire(MET1, sx, sy, drop_x, sy, w=ESCAPE_W)
         c.via(MET1, MET2, drop_x, sy)
-
-        ix, iy, _ = global_pin("seln_inverters", f"DOUT{i}")
-        c.wire(MET1, ix, iy, drop_x, iy, w=ESCAPE_W)
-        c.via(MET1, MET2, drop_x, iy)
-
         c.wire(MET2, drop_x, sy, drop_x, row_y, w=ESCAPE_W)
         c.via(MET1, MET2, drop_x, row_y)
-        c.label(MET2_PIN, drop_x, row_y, f"DOUT{i}")
+        return drop_x
 
-        cx, cy, _ = global_pin("cdac_array", f"SELp{i}")
-        c.wire(MET1, drop_x, row_y, cx, row_y, w=ESCAPE_W)
+    def glue_to_channel(net: str) -> float:
+        """`top_glue.<net>` -> north out of that macro on its own met2 pin
+        column -> a via onto that net's own met1 row. Returns the column x."""
+        row_y = CHANNEL_ROW_Y[net]
+        gx = glue_escape(c, net, row_y)
+        c.via(MET1, MET2, gx, row_y)
+        return gx
+
+    def cdac_landing(net: str) -> float:
+        """That net's own met1 row -> a riser up to met3 at `cdac_array`'s own
+        `SELp<i>`/`SELn<i>` landing column -> north across the array's
+        confirmed-clear switch-row band -> down onto the li1 pin itself."""
+        row_y = CHANNEL_ROW_Y[net]
+        cx, _cy, native = global_pin("cdac_array", net)
+        assert native == LI1
         c.riser(cx, row_y, MET1, MET3)
         c.wire(MET3, cx, row_y, cx, CDAC_CROSS_Y, w=WIRE_W)
         c.riser(cx, CDAC_CROSS_Y, MET3, LI1)
+        return cx
 
+    # --- SELp<i> / SELn<i> (18 nets): top_glue -> cdac_array. Both halves
+    #     come from `top_glue` now: DR-008 derives SELp<i> = DOUT9 AND DOUT<i>
+    #     and SELn<i> = DOUT9N AND DOUT<i> from eighteen `and2_1` gates, so
+    #     neither is `sar_sequencer.DOUT<i>` and neither is an inverter output.
     for i in range(9):
-        key = ("SELn", i)
-        drop_x, row_y = DROP_X[key], ROW_Y[key]
+        for net in (f"SELp{i}", f"SELn{i}"):
+            row_y = CHANNEL_ROW_Y[net]
+            gx = glue_to_channel(net)
+            cx = cdac_landing(net)
+            c.wire(MET1, gx, row_y, cx, row_y, w=ESCAPE_W)
 
-        ix, iy, _ = global_pin("seln_inverters", f"SELn{i}")
-        c.wire(MET1, ix, iy, drop_x, iy, w=ESCAPE_W)
-        c.via(MET1, MET2, drop_x, iy)
+    # --- DOUT<i> (10 nets): sar_sequencer -> top_glue, plus the external
+    #     output pin. DOUT9 is in this loop for the first time (issue #401):
+    #     DR-008/DR-009 gave it consumers (`xinv_dout9n`, the nine
+    #     `xand_selp<i>`, `xdum_mux_n`, `xdum_xnor_n`), where under issue #56
+    #     it reached nothing but its own pad.
+    for i in range(10):
+        net = f"DOUT{i}"
+        row_y = CHANNEL_ROW_Y[net]
+        drop_x = seq_to_channel(net, net)
+        gx = glue_to_channel(net)
+        c.wire(MET1, drop_x, row_y, gx, row_y, w=ESCAPE_W)
+        c.label(MET2_PIN, drop_x, row_y, net)
 
-        c.wire(MET2, drop_x, iy, drop_x, row_y, w=ESCAPE_W)
-        c.via(MET1, MET2, drop_x, row_y)
+    # --- PH_B9, BUSY, CLK: sar_sequencer -> top_glue. `PH_B9` is routed for
+    #     the first time here (DR-009's `HALF_LSB_EN = BUSY AND NOT(PH_B9)`);
+    #     it dead-ended as `PH_B9_NC` before. `BUSY` and `CLK` additionally
+    #     reach an external pin, labelled on their own escape lead.
+    for net in ("PH_B9", "BUSY", "CLK"):
+        row_y = CHANNEL_ROW_Y[net]
+        drop_x = seq_to_channel(net, net)
+        gx = glue_to_channel(net)
+        c.wire(MET1, drop_x, row_y, gx, row_y, w=ESCAPE_W)
+    for net in ("BUSY", "CLK"):
+        sx, sy, _ = global_pin("sar_sequencer", net)
+        c.label(MET1_PIN, sx + 0.8, sy, net)
 
-        cx, cy, _ = global_pin("cdac_array", f"SELn{i}")
-        c.wire(MET1, drop_x, row_y, cx, row_y, w=ESCAPE_W)
-        c.riser(cx, row_y, MET1, MET3)
-        c.wire(MET3, cx, row_y, cx, CDAC_CROSS_Y, w=WIRE_W)
-        c.riser(cx, CDAC_CROSS_Y, MET3, LI1)
+    # --- CLKN: top_glue -> comparator.CLK, up CLK's own former corridor.
+    row_y = CHANNEL_ROW_Y["CLKN"]
+    wx = WEST_CORRIDOR_X["CLKN"]
+    gx = glue_to_channel("CLKN")
+    c.wire(MET1, wx, row_y, gx, row_y, w=ESCAPE_W)
+    c.riser(wx, row_y, MET1, MET4)
+    px, py = _riser_and_highway(c, "comparator", "CLK", MET4)
+    analog_leg(c, wx, row_y, px, py, JOG_Y["CLKN"])
+
+    # --- OUTN_NC: comparator.OUTN -> top_glue's own dummy load (DR-009).
+    #     The comparator's two output pins are only 0.5 um apart in x
+    #     (`OUTP` 10.1, `OUTN` 10.6 in that block's own frame), so `OUTN`
+    #     cannot rise on met4 at its own x: `COMP_OUT`'s met4 column is
+    #     already there, and two 0.4 um met4 wires 0.5 um apart violate
+    #     `m4.2` over the whole 27 um they run in parallel. It steps east on
+    #     met3 first -- a layer this sub-block draws ZERO shapes on (verified
+    #     by direct inspection of its committed GDS), so the jog crosses only
+    #     empty field inside that footprint -- and rises to met4 there.
+    outn_lo = len(c.shapes)
+    row_y = CHANNEL_ROW_Y["OUTN_NC"]
+    wx = WEST_CORRIDOR_X["OUTN_NC"]
+    gx = glue_to_channel("OUTN_NC")
+    c.wire(MET1, wx, row_y, gx, row_y, w=ESCAPE_W)
+    c.riser(wx, row_y, MET1, MET4)
+    ox, oy, native = global_pin("comparator", "OUTN")
+    assert native == MET1
+    c.riser(ox, oy, MET1, MET3)
+    c.wire(MET3, ox, oy, OUTN_JOG_X, oy, w=WIRE_W)
+    c.riser(OUTN_JOG_X, oy, MET3, MET4)
+    analog_leg(c, wx, row_y, OUTN_JOG_X, oy, JOG_Y["OUTN_NC"])
+    #     DR-009's matched pair, finished: the two output nets' paths are
+    #     mirror-shaped but not congruent (different destinations), so the
+    #     shorter one carries a solved matching extension -- its own corridor
+    #     column, continued south past its channel row into free field inside
+    #     the existing extent, of exactly the length that equalises the drawn
+    #     conductor. See `_outn_match_stub_y()`.
+    stub_y = _outn_match_stub_y(c, comp_out_slice, (outn_lo, len(c.shapes)), row_y)
+    c.wire(MET4, wx, row_y, wx, stub_y, w=WIRE_W)
+    outn_load = _check_outn_load_balance(
+        c, comp_out_slice, (outn_lo, len(c.shapes)), stub_y
+    )
+
+    # --- HALF_LSB_EN / HALF_LSB_ENN: top_glue -> the half-LSB offset
+    #     network, west out of the channel and north up their own corridors.
+    for net in ("HALF_LSB_EN", "HALF_LSB_ENN"):
+        row_y = CHANNEL_ROW_Y[net]
+        wx = WEST_CORRIDOR_X[net]
+        gx = glue_to_channel(net)
+        c.wire(MET1, wx, row_y, gx, row_y, w=ESCAPE_W)
+        c.riser(wx, row_y, MET1, MET4)
+        c.wire(MET4, wx, row_y, wx, HALFLSB_ROW_Y[net], w=WIRE_W)
+
+    _check_channel_column_clearance()
 
     # ------------------------------------------------------------------ #
     # 6. Remaining top-level external pins with no other-block member:
-    #    VINP, VINN, VCM (sampling_frontend).
+    #    VINP, VINN (sampling_frontend). VCM is no longer one of them --
+    #    DR-009's offset network puts a second consumer on it (section 6b).
     # ------------------------------------------------------------------ #
-    for net in ("VINP", "VINN", "VCM"):
+    for net in ("VINP", "VINN"):
         x, y, _ = global_pin("sampling_frontend", net)
         ext_x = x - 10.0
         c.path(MET2, [(x, y), (ext_x, y)])
         c.label(MET2_PIN, ext_x, y, net)
+
+    # ------------------------------------------------------------------ #
+    # 6b. DR-009's half-LSB offset network (issue #401): the seven legs whose
+    #     far end is an analog conductor or a corridor this module owns
+    #     outright. `VPWR`/`VGND` wait for section 7 (they tap the met5 rails
+    #     that section draws) and `GND` for section 8 (it is a member of the
+    #     analog ground mesh, not a separate route) -- see those sections.
+    # ------------------------------------------------------------------ #
+    # VCM gains a second consumer, so its external stub is walked further west
+    # (past `sampling_frontend`'s own bbox) and turned south; the pin label
+    # stays at the coordinate it has always been at.
+    vcm_x, vcm_y, _ = global_pin("sampling_frontend", "VCM")
+    c.path(MET2, [(vcm_x, vcm_y), (VCM_COLUMN_X, vcm_y)])
+    c.label(MET2_PIN, vcm_x - 10.0, vcm_y, "VCM")
+    c.riser(VCM_COLUMN_X, vcm_y, MET2, MET4)
+    c.wire(MET4, VCM_COLUMN_X, vcm_y, VCM_COLUMN_X, HALFLSB_ROW_Y["VCM"], w=WIRE_W)
+
+    # VREFP: the cdac_array stub drawn in section 3 already reaches x = -15
+    # (where its pin label sits); carry the same met1 further west to its own
+    # corridor and climb.
+    vrefp_x, vrefp_y, _ = global_pin("cdac_array", "VREFP")
+    wx = WEST_CORRIDOR_X["VREFP"]
+    c.wire(MET1, -15.0, vrefp_y, wx, vrefp_y, w=WIRE_W)
+    c.riser(wx, vrefp_y, MET1, MET4)
+    c.wire(MET4, wx, vrefp_y, wx, HALFLSB_ROW_Y["VREFP"], w=WIRE_W)
+
+    for net in ("TOP_N", "TOP_P", "VDD", "VREFP", "VCM", "HALF_LSB_EN", "HALF_LSB_ENN"):
+        halflsb_leg(c, net)
+    _check_halflsb_symmetry()
+
+    # ------------------------------------------------------------------ #
+    # 7. Digital supply rails VPWR / VGND (issue #355, DR-010): one met5
+    #    rectangle each, tying both standard-cell macros' own met5 PDN
+    #    straps together and out to a top-level supply pin of the same
+    #    name. See `digital_supply_rail()` for the whole argument; this is
+    #    the only met5 geometry this module draws, and the only net here
+    #    that reaches a sub-block conductor by same-layer merge rather
+    #    than by a via riser onto a declared pin.
+    # ------------------------------------------------------------------ #
+    rail_lo = len(c.shapes)
+    rails = {net: digital_supply_rail(c, net) for net in DIG_RAILS}
+    _check_digital_rail_clearance(rails)
+
+    # ------------------------------------------------------------------ #
+    # 7b. The digital rails' own leg up to DR-009's offset network (issue
+    #     #401). `XMoff_p_refp`'s gate is tied to `VGND` and `XMoff_p_cmp`'s
+    #     to `VPWR` -- that is how DR-009 holds the matching dummy OFF while
+    #     giving it the same junction parasitics as the live `_n` side -- so
+    #     both digital rails have an analog-region member for the first time.
+    #
+    #     Each taps its own rail with one via4 WEST of `sar_sequencer`'s own
+    #     bbox (so the met run out of it never crosses that macro), steps
+    #     straight down to met3 for the westward leg, and climbs its own
+    #     corridor. met3, not met4, for that leg: `VGND`'s run has to cross
+    #     `VPWR`'s corridor column to reach its own, one track further west.
+    # ------------------------------------------------------------------ #
+    for net in DIG_RAILS:
+        _rx0, ry0, _rx1, ry1 = rails[net]
+        tap_y = (ry0 + ry1) / 2.0
+        tap_x = HALFLSB_RAIL_TAP_X[net]
+        c.square(MET4, tap_x, tap_y, MET4_VIA4_PAD_UM)
+        c.square(VIA4, tap_x, tap_y, VIA4_UM)
+        c.riser(tap_x, tap_y, MET4, MET3)
+        wx = WEST_CORRIDOR_X[net]
+        c.wire(MET3, tap_x, tap_y, wx, tap_y, w=WIRE_W)
+        c.riser(wx, tap_y, MET3, MET4)
+        c.wire(MET4, wx, tap_y, wx, HALFLSB_ROW_Y[net], w=WIRE_W)
+        halflsb_leg(c, net)
+    _check_halflsb_rail_taps(rails)
+    rail_slice = (rail_lo, len(c.shapes))
+
+    # ------------------------------------------------------------------ #
+    # 8. Analog ground: the GND pad (issue #362, DR-012) and the mesh that
+    #    feeds it (issue #377, DR-013). One met3 trunk in the open channel
+    #    between the two analog blocks, three met4 droppers -- one onto each
+    #    sub-block's OWN drawn ground terminal (`comparator.GND`,
+    #    `sampling_frontend.GND`, `cdac_array.VSS`) -- and the top-level pin
+    #    label at DR-012's own coordinate on the comparator stub. See
+    #    `analog_ground_mesh()` for the whole argument, DR-012 for what this
+    #    pad is and is not electrically, and DR-013 for the mesh topology.
+    #
+    #    The mesh's shapes are tracked as a slice of the canvas so
+    #    `_check_analog_ground_mesh()` can grade them against everything
+    #    else this module drew -- including the sections above, which is why
+    #    this stage is last.
+    # ------------------------------------------------------------------ #
+    mesh_lo = len(c.shapes)
+    if ablate_ground_mesh:
+        analog_ground_pad_without_mesh(c)
+    else:
+        mesh_segments = analog_ground_mesh(c)
+        _check_analog_ground_mesh(c, mesh_segments, (mesh_lo, len(c.shapes)))
+    mesh_slice = (mesh_lo, len(c.shapes))
+
+    # ------------------------------------------------------------------ #
+    # 9. On-die supply decoupling (issue #440, DR-017): the four placed
+    #    `cap_array` unit cells' own ties -- `Cdecap_a` across the analog
+    #    `VDD`/`GND` pair, `Cdecap_d` across the digital `VPWR`/`VGND` pair,
+    #    `MF = 2` (two matched 46.9 um units) per domain. Last, because
+    #    `_check_decoupling_caps()` grades every tie against everything else
+    #    this module drew, including sections 7 and 8.
+    #
+    #    Identical in both build variants on purpose: the analog return taps
+    #    `comparator.GND`'s own met4 stub, which `--ablate-ground-mesh` still
+    #    draws, so that flag still removes the mesh AND NOTHING ELSE.
+    # ------------------------------------------------------------------ #
+    decap_slices = decoupling_caps(c)
+    decap_slices.update(decoupling_caps_digital(c, rails))
+    _check_decoupling_caps(
+        c,
+        decap_slices,
+        {"mesh": mesh_slice, "vdd": vdd_slice, "rails": rail_slice},
+        rails,
+    )
 
     draw_params = {
         "shapes": [
@@ -880,13 +3114,33 @@ def build() -> tuple[dict, dict]:
 
     blocks = []
     for block in OFFSETS:
-        x0, y0, _x1, _y1 = BBOX[block]
-        dx, dy = OFFSETS[block]
+        if block in DECAP_OFFSETS:
+            # A decap unit is `blocks[].generator_report`, NOT `blocks[].cell`,
+            # even though all four placements share one stream. That is not a
+            # style choice -- it is what the block actually is. `blocks[].cell`
+            # means "an existing library cell in a stream this run did not
+            # produce", which is exactly true of the five sub-blocks (each one
+            # copied in from its own committed `reports/LATEST`) and exactly
+            # false of these: `run-flow.sh` step 2b GENERATES `decap_unit.gds`
+            # during the run, from this module's own `DECAP_GEN_PARAMS`, the
+            # same way step 3 generates `route.gds`.
+            #
+            # The distinction is load-bearing downstream, not cosmetic.
+            # `klt gen-compose` stamps `source: "cell"` vs
+            # `source: "generator_report"` on each entry of `compose.json`, and
+            # `docs/chipalooza/check_proposal_citations.py`'s check 14 uses
+            # exactly that field to decide which composed inputs must be traced
+            # back to a record of their own upstream flow. A decap unit has no
+            # upstream flow to trace to, and declaring it as a `cell` would
+            # assert that it does -- which that check correctly reports as an
+            # input "composed from something this repository does not keep".
+            blocks.append({"id": block, "generator_report": DECAP_REPORT_JSON})
+            continue
         blocks.append(
             {
                 "id": block,
                 "cell": {
-                    "gds_path": f"{block}.gds",
+                    "gds_path": GDS_NAME.get(block, f"{block}.gds"),
                     "cell_name": CELL_NAME[block],
                 },
             }
@@ -908,18 +3162,129 @@ def build() -> tuple[dict, dict]:
         "connectivity": [],
     }
 
-    return draw_params, compose_request
+    # The two matching measurements this module makes that no `klt` verdict
+    # downstream can re-derive (DRC sees shapes, LVS sees devices and nets --
+    # neither can see a matched pair come apart). Written out rather than only
+    # printed so `bin/render-record.py` reports the same numbers the build
+    # asserted on, from the build's own output, instead of recomputing them.
+    measurements = {
+        "halflsb_top_leg_um": {
+            net: _halflsb_leg_length_um(net) for net in ("TOP_N", "TOP_P")
+        },
+        "halflsb_top_leg_tolerance_um": HALFLSB_TOP_LEG_TOLERANCE_UM,
+        "outn_dummy_load": outn_load,
+    }
+
+    return draw_params, compose_request, measurements
+
+
+def verify_decap(report_path: Path) -> int:
+    """Assert `klt gen cap_array`'s own report for the decap unit cell matches
+    every number this module placed four copies of it against.
+
+    The placement tables above carry the unit's bbox and both its port
+    positions as literals, because that is what a floorplan is. This check is
+    what stops those literals from becoming folklore: a `klt` bump that moves
+    the cell by a micron -- exactly what the 0.4.0 -> 0.5.0 bump did to this
+    flow's `sampling_frontend` pin table -- fails the flow here instead of
+    silently mis-tieing four capacitors.
+    """
+    report = json.loads(report_path.read_text())
+    problems: list[str] = []
+
+    if report.get("device_count") != 1:
+        problems.append(
+            f"device_count is {report.get('device_count')}, expected exactly 1 "
+            "(DR-017's MF = 2 is drawn as two PLACEMENTS of a one-unit cell)"
+        )
+    bbox = report.get("bbox_um") or {}
+    want = BBOX[next(iter(DECAP_OFFSETS))]
+    got = (bbox.get("x0"), bbox.get("y0"), bbox.get("x1"), bbox.get("y1"))
+    if any(g is None or abs(g - w) > 1e-6 for g, w in zip(got, want)):
+        problems.append(f"bbox_um is {got}, BBOX says {want}")
+
+    ports = {p["name"]: p for p in report.get("ports", [])}
+    for name in ("C0_BOT", "C0_TOP"):
+        port = ports.get(name)
+        if port is None:
+            problems.append(f"no {name} port in the report")
+            continue
+        wx, wy, wlayer = PIN[(next(iter(DECAP_OFFSETS)), name)]
+        layer = (port["layer"]["layer"], port["layer"]["datatype"])
+        if layer != wlayer:
+            problems.append(f"{name} is on layer {layer}, PIN says {wlayer}")
+        # C0_TOP's reported y is the met4 lead's own end; the table carries the
+        # cell's top edge, which is the same point and is what the tie needs.
+        if abs(port["x_um"] - wx) > 1e-6 or abs(port["y_um"] - wy) > 1e-6:
+            problems.append(
+                f"{name} is at ({port['x_um']}, {port['y_um']}), PIN says ({wx}, {wy})"
+            )
+
+    if problems:
+        print(
+            "build_layout.py --verify-decap: the generated decap unit cell no longer "
+            f"matches this module's own placement tables ({report_path}):",
+            file=sys.stderr,
+        )
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        return 1
+    print(
+        "build_layout.py --verify-decap: OK -- "
+        f"1 device, bbox {want}, C0_BOT/C0_TOP as placed"
+    )
+    return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("out_dir", type=Path)
+    parser.add_argument("out_dir", type=Path, nargs="?")
+    parser.add_argument(
+        "--ablate-ground-mesh",
+        action="store_true",
+        help=(
+            "MEASUREMENT VARIANT, never the shipped layout: draw DR-012's GND "
+            "pad alone and omit issue #377's analog ground mesh, so a "
+            "connectivity model can be asked whether the mesh is what joins "
+            "the three analog blocks' grounds (see "
+            "analog_ground_pad_without_mesh() and bin/probe-ground-mesh.py)"
+        ),
+    )
+    parser.add_argument(
+        "--verify-decap",
+        type=Path,
+        metavar="DECAP_JSON",
+        help=(
+            "instead of emitting requests, assert that `klt gen cap_array`'s own "
+            "report for the decoupling unit cell matches the bbox and port "
+            "positions this module's placement tables carry (issue #440)"
+        ),
+    )
     args = parser.parse_args()
 
-    draw_params, compose_request = build()
+    if args.verify_decap is not None:
+        return verify_decap(args.verify_decap)
+    if args.out_dir is None:
+        parser.error("out_dir is required unless --verify-decap is given")
+
+    draw_params, compose_request, measurements = build(
+        ablate_ground_mesh=args.ablate_ground_mesh
+    )
     (args.out_dir / "draw.request.json").write_text(json.dumps(draw_params, indent=2) + "\n")
     (args.out_dir / "compose.request.json").write_text(
         json.dumps(compose_request, indent=2) + "\n"
+    )
+    # The composition's own matching measurements (issue #401), for
+    # `bin/render-record.py`. See `build()`'s own `measurements` block.
+    (args.out_dir / "composition.json").write_text(
+        json.dumps(measurements, indent=2) + "\n"
+    )
+    # The `klt gen cap_array` params the decoupling unit cell is generated from
+    # (issue #440), written out rather than duplicated in run-flow.sh so the
+    # geometry this module places and the geometry the generator draws can never
+    # come from two different numbers.
+    (args.out_dir / "decap.request.json").write_text(
+        json.dumps(DECAP_GEN_PARAMS, indent=2) + "\n"
     )
     print(
         f"build_layout.py: {len(draw_params['shapes'])} shapes, "

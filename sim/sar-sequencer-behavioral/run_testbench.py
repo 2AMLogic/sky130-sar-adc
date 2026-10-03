@@ -139,7 +139,7 @@ def assemble_deck(
     return "\n".join(lines) + "\n"
 
 
-def run(record: bool) -> int:
+def run(record: bool, supersedes: str = "") -> int:
     check = toolchain.check_env()
     if check.status == 3:
         print("SKIP: ngspice or the pinned PDK is not installed on this machine.")
@@ -241,14 +241,19 @@ def run(record: bool) -> int:
                 )
             )
             lines.append("")
-            lines.extend(evidence.footer_lines("sim/sar-sequencer-behavioral/run_testbench.py", ""))
+            lines.extend(evidence.footer_lines(
+                "sim/sar-sequencer-behavioral/run_testbench.py", supersedes
+            ))
             record_path.write_text("\n".join(lines))
+            evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
             print(f"\nRecord written: {record_path.relative_to(REPO_ROOT)}")
 
         return 0 if all_pass else 1
 
 
-def run_corner_campaign(record: bool, quiet: bool = False) -> int:
+def run_corner_campaign(
+    record: bool, quiet: bool = False, supersedes: str = ""
+) -> int:
     """Full ratified-corner-set sweep (issue #28): re-runs the exact same
     behavioral sequencing check `run()` performs, but across the OAT PVT
     grid built from the ratified corner set (spec/target-spec.md's
@@ -421,8 +426,11 @@ def run_corner_campaign(record: bool, quiet: bool = False) -> int:
             )
         )
         lines.append("")
-        lines.extend(evidence.footer_lines("sim/sar-sequencer-behavioral/run_testbench.py --corners", ""))
+        lines.extend(evidence.footer_lines(
+            "sim/sar-sequencer-behavioral/run_testbench.py --corners", supersedes
+        ))
         record_path.write_text("\n".join(lines))
+        evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
         print(f"\nRecord written: {record_path.relative_to(REPO_ROOT)}")
 
     print("OVERALL (all corners): PASS" if overall_ok else "OVERALL (all corners): FAIL")
@@ -437,6 +445,7 @@ def main() -> int:
         "--corners", action="store_true",
         help="run the full ratified PVT corner sweep (issue #28) instead of the single nominal point",
     )
+    evidence.add_supersedes_argument(ap)
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
@@ -451,9 +460,11 @@ def main() -> int:
         return check.status
 
     if args.corners:
-        return run_corner_campaign(record=args.record, quiet=args.quiet)
+        return run_corner_campaign(
+            record=args.record, quiet=args.quiet, supersedes=args.supersedes
+        )
 
-    return run(record=args.record)
+    return run(record=args.record, supersedes=args.supersedes)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+check-schematic-parity.py: OK -- 8 instances, 3 device types, 12 nets, every terminal net identical to design/sar_adc_top.spice
+  cap_mim: 2
+  nfet: 2
+  pfet: 4
+  drawn MiM plate side 1.898 um == layout/cdac-array/bin/cdac_layout.py's CAPM_SIDE
+  not this block's: XCdecap_a -> layout/sar-adc-top/ -- DR-017's analog-domain on-die decoupling cap (GND/VDD), drawn by that block's own build_layout.py
+  not this block's: XCdecap_d -> layout/sar-adc-top/ -- DR-017's digital-domain on-die decoupling cap (VGND/VPWR), ditto

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "imports": [],
+  "in_tree": [
+    {
+      "block": "comparator",
+      "sibling": "2AMLogic/sky130-comparator",
+      "status": "evaluate"
+    }
+  ]
+}

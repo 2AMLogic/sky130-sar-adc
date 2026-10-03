@@ -68,7 +68,7 @@ ROWS: tuple[Row, ...] = (
             "every bound corner. The CDAC array's own 9-bit sub-array realizes "
             "only 512 positions/side; the 10th (sign) bit comes from the "
             "top-level differential structure, per "
-            "`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`'s own "
+            "`sim/cdac-array-transfer/records/20261001-124049-5207381.md`'s own "
             "'UNITS / scope note' -- not independently re-verified by this row's "
             "own citation."
         ),
@@ -101,7 +101,12 @@ ROWS: tuple[Row, ...] = (
             "sampling front end's own acquisition mechanism (the fourth) "
             "after it was found to fail the DR-006 phase budget at every "
             "ratified corner; re-measured against the full grid, it now "
-            "clears the budget at all 9."
+            "clears the budget at all 9. Mechanism (d) has additionally been "
+            "taken to the same 9-point grid at the ASSEMBLED top-plate load "
+            "(the sampling front end AND the real CDAC array on TOP_P/TOP_N, "
+            "as design/sar_adc_top.sch wires them -- roughly double the "
+            "capacitance the front-end-only grid above carries), which is "
+            "the load the top level actually presents (issue #469)."
         ),
         verdict=(
             "UNMEASURED as an end-to-end sample-rate figure (four "
@@ -113,7 +118,12 @@ ROWS: tuple[Row, ...] = (
             "control (9/9 corners HELD) and also clears the budget at "
             "every corner, and the sampling front end's own acquisition "
             "(the sole mechanism that previously failed at every corner) "
-            "now also clears it at all 9, after issue #236's circuit fix. "
+            "now also clears it at all 9, after issue #236's circuit fix, "
+            "AND clears it at all 9 again when re-measured at the assembled "
+            "front-end + CDAC top-plate load rather than the front end "
+            "alone (worst case 0.928 mV at `tt_27c_1.62v`, 0.53x the "
+            "provisional differential half-LSB reference scale, against the "
+            "front-end-only grid's 0.380 mV at the same corner). "
             "Separately (issue #254): the first WHOLE-ADC transient (not a "
             "per-mechanism probe) drove the committed `design/sar_adc_top."
             "spice` through complete conversions at the DR-006 worst-case "
@@ -137,11 +147,13 @@ ROWS: tuple[Row, ...] = (
             "reports all four honestly rather than adding them up. (a) The "
             "CDAC array's own switch-R_on/top-plate settling is now "
             "PVT-complete: binding (slowest) corner `tt_27c_1.62v`, bit 8 "
-            "(rise) at 13.2312 ns, 6.3x inside the DR-006-derived "
+            "(rise) at 13.2466 ns, 6.3x inside the DR-006-derived "
             "83.333 ns worst-case phase budget; fastest corner "
-            "`tt_27c_1.98v` at 10.3019 ns (8.1x); worst-to-best spread "
+            "`tt_27c_1.98v` at 10.3138 ns (8.1x); worst-to-best spread "
             "across the whole grid only 1.28x, and the tt/27C/1.8V point "
-            "reproduces the single-corner record's own 11.3861 ns exactly. "
+            "reads 11.3994 ns -- the pre-DR-019 single-corner record's own "
+            "11.3861 ns plus the +0.117% the resize predicts (tau_i is "
+            "linear in C_u, and that record measured the 1.8988 um plate). "
             "All 9/9 corners clear the budget. A secondary, non-gating "
             "finding: the smallest-swing diagnostic row (bit 0, ~0.2% of "
             "VDD swing) failed to produce a 99%-settling crossing at 5/9 "
@@ -217,7 +229,26 @@ ROWS: tuple[Row, ...] = (
             "`tt_27c_1.62v` at 0.380 mV (~0.2x the half-LSB) vs. that same "
             "corner's pre-fix 67.190 mV (~38.2x). This mechanism is no "
             "longer the standout bottleneck of the four -- all four now "
-            "clear the budget at every ratified corner. Three things this "
+            "clear the budget at every ratified corner. **That grid reads "
+            "the front-end fragment ALONE, and issue #469 re-ran it at the "
+            "load the top level actually presents**: `sim/sampling-cdac-"
+            "handoff/`'s combined circuit ties the same TOP_P/TOP_N to the "
+            "real CDAC array as well, adding the array's own ~4.43 pF/side "
+            "of bit capacitance to the front end's own ~4.43 pF/side. Same "
+            "stimulus, same probe instants, same 9 ratified points, only the "
+            "load differs: ALL 9/9 corners still clear the budget, binding "
+            "corner `tt_27c_1.62v` at 0.928 mV (0.53x the half-LSB "
+            "reference scale) against the front-end-only grid's 0.380 mV at "
+            "that same corner, every other corner at or below 0.054 mV. The "
+            "doubled load therefore costs a factor ~2.4 at the binding "
+            "corner and still lands inside the reference scale everywhere, "
+            "which is what makes mechanism (d)'s PVT-complete status a "
+            "statement about the assembled load rather than about the front "
+            "end in isolation. The one pre-existing combined-load figure in "
+            "the tree (5.33 mV single-ended at a single directional `ss` "
+            "point, pre-#236, and a different quantity -- the error at the "
+            "end of a 400 ns SAMPLE window, not the residual at the DR-006 "
+            "budget) is retired by that grid rather than by argument. Three things this "
             "fix touches are explicitly NOT yet re-derived: "
             "`sim/vcm-drive-budget/`'s R_source/C_decouple budget (a wider "
             "`Cmsw` draws more peak current from the shared `VCM` rail), "
@@ -366,14 +397,15 @@ ROWS: tuple[Row, ...] = (
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
-            "sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md",
+            "sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md",
             "sim/comparator-decision/records/20260906-074451-7724af3.md",
             "sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md",
             "sim/sequencer-logic-delay/records/20260906-230516-0904419.md",
             "sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md",
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
+            "sim/sampling-cdac-handoff/records/20261001-135431-7487784.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
+            "sim/full-conversion-transient/records/20261001-105439-c324f80.md",
         ),
     ),
     Row(
@@ -405,7 +437,35 @@ ROWS: tuple[Row, ...] = (
             "figure (0.8643 mV rms, down from 0.9591 mV rms) -- achieved ENOB "
             "moved from 8.491/7.749 to 8.506/7.755 bit; the pass/fail outcome is "
             "unchanged. See the cited record's own LIMITATIONS field for the "
-            "full list."
+            "full list. "
+            "CITATION DELIBERATELY NOT RE-POINTED PAST DR-019 (issue #505): the "
+            "cited record composes the PRE-DR-019 unit cap. A post-resize "
+            "re-composition of this same campaign exists -- "
+            "sim/enob-estimate/records/20261001-141249-7487784.md, this "
+            "campaign's current records/LATEST, minted by issue #498 -- reading "
+            "8.507 bit mean-case / 7.755 bit worst-case on the ratified "
+            "post-DR-019 C_u = 8.664 fF, i.e. +0.001 bit mean-case and no "
+            "change worst-case. It is NOT cited here because it grades DR-007's "
+            "CANDIDATE REVISED target row (`> 7.5` bit baseline / `> 8.0` bit "
+            "stretch, proposed via issue #129, ratification still open) while "
+            "this row's verdict grades the original un-evidenced DRAFT `> 9.0` / "
+            "`> 9.5` row, as the cited record does. Re-pointing would therefore "
+            "move which target line this table grades the ENOB row against, onto "
+            "an unratified candidate -- a decision record's job, not a "
+            "citation's (CLAUDE.md: agents do not relax a spec line to make a "
+            "result pass). Note that spec/target-spec.md's Target table already "
+            "carries DR-007's candidate numbers as the ENOB row's value, so the "
+            "`> 9.0` figure this verdict reports now survives there only as that "
+            "row's own was-`> 9.0`/`> 9.5` history; the inl-dnl row below "
+            "likewise still grades its own pre-DR-007 `<= +-1 LSB` value, so "
+            "re-pointing this row alone would leave the report's two statistical "
+            "rows graded against two different revisions of the same table. Both "
+            "move together when DR-007 is ratified or superseded; until then this "
+            "drift is recorded here rather than closed. generate.py's mechanical "
+            "freshness check cannot flag it on its own, because run_enob.py has "
+            "no --supersedes flag -- the newer record's displacement of the cited "
+            "one lives in that record's prose Note field instead of its "
+            "Supersedes field (issue #502)."
         ),
         sim_citations=("sim/enob-estimate/records/20260906-082749-7724af3.md",),
     ),
@@ -434,8 +494,8 @@ ROWS: tuple[Row, ...] = (
             "record's own UNITS/scope note, not the array's native step."
         ),
         sim_citations=(
-            "sim/cdac-array-transfer/records/20260828-005006-0c70212.md",
-            "sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",
+            "sim/cdac-array-transfer/records/20261001-124049-5207381.md",
+            "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
     ),
     Row(
@@ -453,7 +513,7 @@ ROWS: tuple[Row, ...] = (
         ),
         verdict="PASS (structural + functional/monotonicity check, 9/9 corners)",
         notes="See spec/decision-records/DR-003-numeric-spec-derivation.md for the full derivation.",
-        sim_citations=("sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",),
+        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
     ),
     Row(
         id="lsb",
@@ -466,7 +526,7 @@ ROWS: tuple[Row, ...] = (
             "3.5156 mV differential; used as the reporting unit for the INL/DNL "
             "row above and the ENOB row's quantization-noise term."
         ),
-        sim_citations=("sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",),
+        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
     ),
     Row(
         id="sampling-cap",
@@ -477,24 +537,34 @@ ROWS: tuple[Row, ...] = (
             "sim: structural check (unit-cap geometry + per-side weight totals) "
             "at every corner of the ratified sim record. layout: drawn/extracted "
             "physical geometry, DRC + LVS against design/cdac/cdac_array.sch, "
-            "single-point (no corner sweep -- DRC/LVS are corner-invariant "
-            "structural checks, not PVT-dependent measurements)."
+            "plus `klt precheck` on BOTH the 1 nm database grid and sky130's "
+            "5 nm manufacturing grid (gating since DR-019), single-point (no "
+            "corner sweep -- DRC/LVS/precheck are corner-invariant structural "
+            "checks, not PVT-dependent measurements)."
         ),
         verdict=(
             "PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, "
             "LVS match, unit-cap count 1024 = 512/side x 2, common-centroid "
-            "checks all pass). Drawn unit cap 8.6473 fF vs. ratified C_u ~= "
-            "8.65 fF."
+            "checks all pass, precheck passes on both the 1 nm database grid "
+            "and sky130's 5 nm manufacturing grid). Drawn unit cap 8.6640 fF "
+            "vs. ratified C_u ~= 8.66 fF."
         ),
         notes=(
             "Layout evidence is independent, physical confirmation of the "
             "sim-only structural check. Supersedes "
             "layout/cdac-array/reports/20260825-132454-51cbdd4/, whose LVS "
             "'match' verdict did not reproduce on its own committed "
-            "artefacts -- see layout/cdac-array/README.md and issue #148."
+            "artefacts -- see layout/cdac-array/README.md and issue #148. "
+            "The layout citation moved off "
+            "layout/cdac-array/reports/20260905-220338-9fb9b04/ at #498: that "
+            "record draws the pre-DR-019 1.898 um plate (8.6473 fF, off "
+            "sky130's 5 nm manufacturing grid), so it no longer evidences the "
+            "ratified row this table grades -- the cited record is the "
+            "post-resize re-run, whose 1.9000 um plate is exactly the "
+            "schematic value and passes the 5 nm grid check."
         ),
-        sim_citations=("sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",),
-        layout_citations=("layout/cdac-array/reports/20260905-220338-9fb9b04/record.md",),
+        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
+        layout_citations=("layout/cdac-array/reports/20261001-133221-7487784/record.md",),
     ),
     Row(
         id="comparator-noise",
@@ -518,6 +588,69 @@ ROWS: tuple[Row, ...] = (
         ),
         notes="",
         sim_citations=("sim/comparator-decision/records/20260906-065109-eedd532.md",),
+    ),
+    Row(
+        id="kickback",
+        spec_row="Kickback",
+        status="DRAFT",
+        spec_anchor="spec/target-spec.md#target-table",
+        conditions=(
+            "SINGLE CORNER ONLY: process {tt} x temperature {27} C x supply "
+            "{1.8} V, 1 PVT point -- a first-pass, nominal-corner-only probe, "
+            "not the ratified corner set the DRAFT row's bound is stated at. "
+            "1 kOhm series source impedance on each of VINP/VINN (ideal DC "
+            "source -> resistor -> DUT pin), Vcm = 0.9 V, one reset(5.0 ns, "
+            "CLK=0) -> evaluate(CLK=1.8 V) edge per run over a 40 ns evaluate "
+            "window; the measured quantity is the peak pin disturbance across "
+            "that transition, now also decomposed into its common-mode and "
+            "differential components with later recovery pick-offs of both "
+            "(issue #390), over a Vindiff grid of 0 (symmetry control), "
+            "1.7578 mV (half a differential LSB) and 50 mV."
+        ),
+        verdict=(
+            "INFORMATIONAL (DRAFT row, no ratified line to grade against). "
+            "Worst-case peak pin disturbance 73.3673 mV on VINP at "
+            "Vindiff = +50 mV -- approx. 14.7x the DRAFT <=5 mV target and "
+            "approx. 36.7x the <=2 mV stretch, at the one corner measured. "
+            "The differential component of that disturbance -- the part a "
+            "differential top-plate CDAC does not reject, and therefore the "
+            "part that lands on a decision -- is 10.9153 mV at the same "
+            "point (approx. 2.2x the target) and 4.1918 mV at the half-LSB "
+            "overdrive a marginal SAR decision actually presents "
+            "(approx. 0.84x the target, approx. 2.1x the stretch)."
+        ),
+        notes=(
+            "The Kickback row itself is new as of 2026-09-24 "
+            "(spec/decision-records/DR-011-comparator-kickback-target-row.md, "
+            "issue #361): before it, this measurement had no spec row of any "
+            "status to be reported against. DR-011 adopts the sibling "
+            "2AMLogic/sky130-comparator canary's own DR-002-ratified bound "
+            "(<=5 mV / <=2 mV, 1 kOhm source, single decision edge) verbatim, "
+            "as a stated interim choice rather than a bound derived from this "
+            "block's system-level budget -- so the multipliers above are "
+            "informational against an adopted candidate, not a verdict against "
+            "a ratified line, and CLAUDE.md's 'do not relax a spec line to make "
+            "a result pass' rule is why the gap is recorded rather than the "
+            "bound widened. The decomposition above is issue #390's, the "
+            "first gate DR-014 named, and it replaces an earlier reading of "
+            "this row that this manifest carried until 2026-09-25: that "
+            "subtracting the cited record's Vindiff = 0 mV control peak from "
+            "its worst case split the disturbance into a "
+            "'CLK-gated reset/precharge/tail switching' share and a "
+            "'decision transient' share (approx. 95.9 % / approx. 4.1 %). "
+            "Both of those figures are extrema over EITHER pin "
+            "independently, so their difference was never a common-mode / "
+            "differential split; the superseding record measures the two "
+            "components directly instead. What that measurement shows: the "
+            "common-mode part barely moves with overdrive (-70.3419 mV at "
+            "the symmetry control, -70.4415 mV at +50 mV), and the "
+            "differential part is the smaller but non-negligible one. "
+            "Mitigation selection was answered by DR-014 (no preamp, no "
+            "mitigation adopted); DR-014 Consequences section 4 is the open "
+            "follow-on, and a full-corner campaign is still owed before this "
+            "row could be ratified (DR-011 Consequences section 5)."
+        ),
+        sim_citations=("sim/comparator-decision/records/20260925-050027-0259924.md",),
     ),
     Row(
         id="power",
@@ -608,11 +741,25 @@ ROWS: tuple[Row, ...] = (
             "but the two near-full-scale inputs are unchanged and still "
             "fail badly (issue #265), so this is still the current draw "
             "of a conversion that is not correct across its full input "
-            "range."
+            "range. UPDATE (issue #498, DR-019's grid-legal C_u resize): "
+            "the record cited below is now "
+            "`20261001-105439-c324f80`, which supersedes "
+            "`20260912-002315-9aaf1ca` after the CDAC unit cap and "
+            "DR-009's half-LSB offset caps were resized W=L=1.8988 -> "
+            "1.9000 um (+0.116% capacitance). Binding (highest-power) "
+            "corner `tt_27c_1.98v` 34.254 uW, lowest `tt_27c_1.62v` "
+            "21.612 uW, tt/27C/1.80V baseline 27.986 uW -- i.e. +0.05% at "
+            "the baseline and under +0.15% at every corner but one "
+            "(`tt_-40c_1.80v`, +1.2%, run variance rather than a resize "
+            "effect: the mechanism is linear in C). Every captured code at "
+            "every corner is bit-identical to the superseded record, so "
+            "the two near-full-scale failures and this row's UNMEASURED "
+            "status are unchanged by the resize -- which is what re-running "
+            "it established rather than assumed."
         ),
         sim_citations=(
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20260912-002315-9aaf1ca.md",
+            "sim/full-conversion-transient/records/20261001-105439-c324f80.md",
         ),
     ),
     Row(
@@ -634,7 +781,7 @@ ROWS: tuple[Row, ...] = (
         notes="",
         sim_citations=(
             "sim/harness-corner-smoke/records/20260814-020959-98d9186.md",
-            "sim/cdac-array-transfer/records/20260827-213107-e13bc1e.md",
+            "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
             "sim/comparator-decision/records/20260906-065109-eedd532.md",
             "sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md",
         ),

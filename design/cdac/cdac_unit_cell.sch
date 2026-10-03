@@ -4,7 +4,7 @@ v {xschem version=3.4.7 file_version=1.2
 * One binary-weighted-array bit position's storage element: a single
 * sky130_fd_pr__cap_mim_m3_1 unit capacitor (sized per
 * spec/decision-records/DR-003-numeric-spec-derivation.md Item 3,
-* W=L=1.8988 (um, bare-number sky130_fd_pr xschem convention) -> C_u ~= 8.654 fF, provisional pending #27) whose bottom
+* W=L=1.9000 (um, bare-number sky130_fd_pr xschem convention) -> C_u ~= 8.664 fF, ratified via #27 and resized to a 5 nm-grid-legal plate by DR-019 via #496/#498) whose bottom
 * plate (BOT) is switched between the two supply-referenced DAC
 * references (VREFP, VREFN) by a single-control-line CMOS pull-up/
 * pull-down pair -- NOT a conventional transmission gate. Both M1 (NMOS,
@@ -37,7 +37,7 @@ K {}
 V {}
 S {}
 E {}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 0 0 0 {name=C1 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 0 0 0 {name=C1 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 -100 0 0 {name=M1 W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 200 100 0 0 {name=M2 W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 30 0 0 {name=l1 lab=TOP}
@@ -57,5 +57,5 @@ C {ipin.sym} -300 200 0 0 {name=p_vrefp lab=VREFP}
 C {ipin.sym} -300 250 0 0 {name=p_vrefn lab=VREFN}
 C {ipin.sym} -300 300 0 0 {name=p_vdd lab=VDD}
 C {ipin.sym} -300 350 0 0 {name=p_vss lab=VSS}
-T {cdac unit cell: C_u = 8.654 fF (provisional, DR-003), MF=1} -100 -350 0 0 0.2 0.2 {}
+T {cdac unit cell: C_u = 8.664 fF (ratified, DR-003 via #27 as resized by DR-019), MF=1} -100 -350 0 0 0.2 0.2 {}
 T {M1=nfet_01v8 (BOT->VREFN @ SEL=1), M2=pfet_01v8 (BOT->VREFP @ SEL=0)} -100 -300 0 0 0.2 0.2 {}

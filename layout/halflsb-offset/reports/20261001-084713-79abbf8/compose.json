@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "generator": "gen-compose",
+  "cell_name": "gen_compose_0",
+  "gds_path": "gen_compose_0.gds",
+  "pdk": {
+    "name": "sky130A",
+    "variant": "sky130A",
+    "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+  },
+  "dbu_um": 0.001,
+  "bbox_um": {
+    "x0": -0.4,
+    "y0": -2.4,
+    "x1": 30.63,
+    "y1": 17.04
+  },
+  "ports": [],
+  "blocks": [
+    {
+      "id": "moff_n_cmn",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MOFF_N_CMN",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-498/layout/halflsb-offset/reports/20261001-084713-79abbf8/moff_n_cmn.gds",
+      "source_digest": "sha256:2ad5ffbbdc7b7dda2c21d98459cda18f21691c3ead5ff04ec45ea561c66b8911",
+      "offset_um": {
+        "x": 5.2,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 5.2,
+        "y0": 0.0,
+        "x1": 6.29,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "moff_n_refp",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MOFF_N_REFP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-498/layout/halflsb-offset/reports/20261001-084713-79abbf8/moff_n_refp.gds",
+      "source_digest": "sha256:f6893101f7f016cb4cf2feb8bb8c23733c942f34d30735ae14f8d8954e4f2ec8",
+      "offset_um": {
+        "x": 9.89,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 9.74,
+        "y0": -0.15,
+        "x1": 11.13,
+        "y1": 2.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "moff_n_cmp",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MOFF_N_CMP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-498/layout/halflsb-offset/reports/20261001-084713-79abbf8/moff_n_cmp.gds",
+      "source_digest": "sha256:e911c5ef64ab18e70b0abd9869e7598f62505cad081f54d91c1da7f3becd72eb",
+      "offset_um": {
+        "x": 13.09,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 12.94,
+        "y0": -0.15,
+        "x1": 14.33,
+        "y1": 2.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "moff_p_cmn",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MOFF_P_CMN",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-498/layout/halflsb-offset/reports/20261001-084713-79abbf8/moff_p_cmn.gds",
+      "source_digest": "sha256:0fda20ab3b0e00c6c304180dcfb0c53fd972adaeebc79bcba6b4ab73191434f9",
+      "offset_um": {
+        "x": 21.2,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 21.2,
+        "y0": 0.0,
+        "x1": 22.29,
+        "y1": 1.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "moff_p_refp",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MOFF_P_REFP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-498/layout/halflsb-offset/reports/20261001-084713-79abbf8/moff_p_refp.gds",
+      "source_digest": "sha256:989c65b7d86506e397928c57cbd9e60e4094f56075ff9d9b2b6ca86bbda4d9b5",
+      "offset_um": {
+        "x": 25.89,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 25.740000000000002,
+        "y0": -0.15,
+        "x1": 27.13,
+        "y1": 2.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "moff_p_cmp",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "MOFF_P_CMP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-498/layout/halflsb-offset/reports/20261001-084713-79abbf8/moff_p_cmp.gds",
+      "source_digest": "sha256:ae82c2fd526a73eb269978d839a17cdb9de28c87b89a43abc555d8b137968bdb",
+      "offset_um": {
+        "x": 29.09,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 28.94,
+        "y0": -0.15,
+        "x1": 30.33,
+        "y1": 2.97
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "choff",
+      "source": "generator_report",
+      "generator": "cap_array",
+      "cell_name": "CHOFF",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-498/layout/halflsb-offset/reports/20261001-084713-79abbf8/choff.gds",
+      "source_digest": "sha256:cefadfff5e97f799fae660102d04784c1dc2202d4719f79976734c3bf8d30d53",
+      "offset_um": {
+        "x": 0.0,
+        "y": 5.0
+      },
+      "bbox_um": {
+        "x0": 0.0,
+        "y0": 5.0,
+        "x1": 18.900000000000002,
+        "y1": 8.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "route",
+      "source": "generator_report",
+      "generator": "draw",
+      "cell_name": "ROUTE",
+      "source_path": "route.gds",
+      "source_digest": "sha256:5590e9d1c885a584094e662a53c57070685ec9306b086485318f7f45ea8c96af",
+      "offset_um": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": -0.4,
+        "y0": -2.4,
+        "x1": 30.63,
+        "y1": 17.04
+      },
+      "orientation": "none"
+    }
+  ],
+  "nets": [],
+  "pins": [],
+  "unrouted_nets": [],
+  "drc_hints": {
+    "min_spacing_um": null,
+    "matched_groups": [
+      {
+        "matched_group_id": "mos_array:1x1:common_centroid",
+        "blocks": [
+          "moff_n_cmn",
+          "moff_n_refp",
+          "moff_n_cmp",
+          "moff_p_cmn",
+          "moff_p_refp",
+          "moff_p_cmp"
+        ],
+        "placement_symmetric": null
+      },
+      {
+        "matched_group_id": "cap_array:2",
+        "blocks": [
+          "choff"
+        ],
+        "placement_symmetric": null
+      }
+    ],
+    "notes": []
+  },
+  "warnings": [
+    "block 'route' is placed 0.00um from block 'moff_n_cmn' (strategy: explicit), closer than moff_n_cmn's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'moff_n_refp' (strategy: explicit), closer than moff_n_refp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'moff_n_cmp' (strategy: explicit), closer than moff_n_cmp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'moff_p_cmn' (strategy: explicit), closer than moff_p_cmn's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'moff_p_refp' (strategy: explicit), closer than moff_p_refp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'moff_p_cmp' (strategy: explicit), closer than moff_p_cmp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'moff_n_cmn' is placed 3.18um from block 'choff' (strategy: explicit), closer than choff's own declared drc_hints.min_spacing_um of 13.10um",
+    "block 'moff_n_refp' is placed 2.03um from block 'choff' (strategy: explicit), closer than choff's own declared drc_hints.min_spacing_um of 13.10um",
+    "block 'moff_n_cmp' is placed 2.03um from block 'choff' (strategy: explicit), closer than choff's own declared drc_hints.min_spacing_um of 13.10um",
+    "block 'moff_p_cmn' is placed 3.92um from block 'choff' (strategy: explicit), closer than choff's own declared drc_hints.min_spacing_um of 13.10um",
+    "block 'moff_p_refp' is placed 7.13um from block 'choff' (strategy: explicit), closer than choff's own declared drc_hints.min_spacing_um of 13.10um",
+    "block 'moff_p_cmp' is placed 10.24um from block 'choff' (strategy: explicit), closer than choff's own declared drc_hints.min_spacing_um of 13.10um",
+    "block 'route' is placed 0.00um from block 'choff' (strategy: explicit), closer than choff's own declared drc_hints.min_spacing_um of 13.10um"
+  ],
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+    },
+    "deck": null,
+    "input": null
+  }
+}

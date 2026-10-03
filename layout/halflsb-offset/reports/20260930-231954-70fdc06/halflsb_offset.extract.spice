@@ -1,0 +1,38 @@
+* extracted by klt extract --deck sky130
+
+* cell gen_compose_0
+* pin BOT_OFF_N
+* pin BOT_OFF_P
+* pin GND
+* pin HALF_LSB_EN
+* pin HALF_LSB_ENN
+* pin TOP_N
+* pin TOP_P
+* pin VCM
+* pin VDD
+* pin VGND
+* pin VPWR
+* pin VREFP
+.SUBCKT gen_compose_0 BOT_OFF_N BOT_OFF_P GND HALF_LSB_EN HALF_LSB_ENN TOP_N
++ TOP_P VCM VDD VGND VPWR VREFP
+* device instance $1 r0 *1 5.745,0.5 nfet
+M$1 BOT_OFF_N HALF_LSB_EN VCM GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $2 r0 *1 21.745,0.5 nfet
+M$2 BOT_OFF_P VGND VCM GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $3 r0 *1 10.435,1 pfet
+M$3 BOT_OFF_N HALF_LSB_EN VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P
++ PS=4.94U PD=4.94U
+* device instance $4 r0 *1 13.635,1 pfet
+M$4 BOT_OFF_N HALF_LSB_ENN VCM VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U
++ PD=4.94U
+* device instance $5 r0 *1 26.435,1 pfet
+M$5 BOT_OFF_P VGND VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U
++ PD=4.94U
+* device instance $6 r0 *1 29.635,1 pfet
+M$6 BOT_OFF_P VPWR VCM VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $7 r0 *1 1.449,6.449 sky130_fd_pr__model__cap_mim
+C$7 BOT_OFF_N TOP_N 8.647288e-15
+* device instance $8 r0 *1 17.449,6.449 sky130_fd_pr__model__cap_mim
+C$8 BOT_OFF_P TOP_P 8.647288e-15
+.ENDS gen_compose_0

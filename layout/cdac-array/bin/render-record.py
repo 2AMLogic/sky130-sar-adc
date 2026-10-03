@@ -29,6 +29,19 @@ run-flow.sh can fail the run on a regression:
      coincide. This is the only verdict here that says anything at all about
      *matching*; DRC and LVS are silent about it, which is exactly why a
      wrong-but-plausible placement would otherwise pass unnoticed.
+  7. `klt precheck` passes outright on BOTH grids, for both top cells: the
+     layout's own 1 nm database grid AND sky130's 5 nm manufacturing grid.
+     The 5 nm run is gating here, not advisory, per
+     spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md:
+     `klt drc`'s curated sky130 deck carries no `*.ongrid` rule on any layer,
+     while the PDK's own shipped signoff deck runs `<layer>.ongrid(0.005)` by
+     default on every metal/via layer this block draws -- so verdicts 1/3
+     above are silent about grid legality and this one is the only thing that
+     is not. It became passable only with DR-019's resize of `C_u` to a
+     5 nm-legal 1.9000 um plate: on the previous 1.898 um plate this check
+     reported 1 off-grid `capm` shape in `cdac_unit_cell` and 1024 in
+     `cdac_array` (one per drawn unit), which is why the flow did not run it
+     before #498.
 """
 from __future__ import annotations
 
@@ -42,6 +55,7 @@ from _record_common import (  # noqa: E402
     build_argparser,
     git_commit_and_dirty,
     load_json,
+    resolve_pdk_commit,
     tool_version,
 )
 
@@ -50,6 +64,33 @@ EXPECTED_ARRAY_DEVICES = {
     "nfet": 18,
     "pfet": 18,
 }
+
+
+def _failing_checks(precheck: dict) -> list[str]:
+    """Names of every `klt precheck` check that reported `fail`."""
+    return sorted(
+        str(check.get("name"))
+        for check in precheck.get("checks", [])
+        if check.get("status") == "fail"
+    )
+
+
+def _offgrid_census(precheck: dict) -> dict[tuple[str, str], int]:
+    """`{(cell, layer): count}` for the `offgrid` check's own violations.
+
+    Empty on a passing run. Kept (rather than reporting a bare count) so a
+    future regression names the layer it is on, which is what decides whether
+    it is a MiM-plate consequence or a routing defect -- the same census shape
+    `layout/halflsb-offset/bin/render-record.py` renders.
+    """
+    census: dict[tuple[str, str], int] = {}
+    for check in precheck.get("checks", []):
+        if check.get("name") != "offgrid":
+            continue
+        for violation in check.get("violations", []):
+            key = (str(violation.get("cell")), str(violation.get("layer")))
+            census[key] = census.get(key, 0) + 1
+    return census
 
 
 def main() -> int:
@@ -70,20 +111,48 @@ def main() -> int:
         }
         for top in ("cdac_unit_cell", "cdac_array")
     }
+    # The two precheck envelopes follow the same flat/suffixed naming, with
+    # the 5 nm run carrying an extra `.grid5` segment before `.json` (same
+    # file names layout/halflsb-offset/ uses).
+    precheck = {
+        top: {
+            grid: load_json(
+                os.path.join(
+                    args.out_dir,
+                    (
+                        f"precheck{grid_part}.json"
+                        if top == "cdac_array"
+                        else f"precheck.{top}{grid_part}.json"
+                    ),
+                )
+            )
+            for grid, grid_part in (("0.001", ""), ("0.005", ".grid5"))
+        }
+        for top in ("cdac_unit_cell", "cdac_array")
+    }
 
     commit, dirty = git_commit_and_dirty(args.repo_root)
 
     verdicts: list[tuple[str, bool, str]] = []
+    precheck_verdicts: list[tuple[str, bool, str]] = []
     lines: list[str] = []
     lines.append(f"# CDAC array layout record: {args.record_id}")
     lines.append("")
     lines.append("## Provenance")
     lines.append(f"- `klt` version: {tool_version(args.klt, '--version')}")
     lines.append(f"- xschem version: {tool_version('xschem', '--version')}")
-    lines.append(f"- PDK variant: {args.pdk_variant}")
+    lines.append(
+        f"- PDK: {args.pdk_variant} ({resolve_pdk_commit(args.klt, args.pdk_variant)})"
+    )
+    # `klt drc`/`klt extract`/`klt lvs` above are all invoked `--deck`-only (no
+    # `--pdk`), so their own JSON envelopes stamp `provenance.pdk: null` --
+    # this flow's `open_pdks` commit pin comes only from the independent
+    # `resolve_pdk_commit()` line above (issue #407). Still print
+    # `provenance.pdk` when a future `klt` build (or a flow change) populates
+    # it, as a cheap cross-check against the resolution above.
     array_pdk = (per_top["cdac_array"]["extract"].get("provenance") or {}).get("pdk")
-    if array_pdk:
-        lines.append(f"- resolved PDK: {array_pdk.get('name')} {array_pdk.get('version')}")
+    if array_pdk and array_pdk.get("version"):
+        lines.append(f"- extraction's own provenance.pdk: {array_pdk.get('name')} {array_pdk.get('version')}")
     lines.append(f"- repo commit: `{commit}`{' (dirty)' if dirty else ''}")
     lines.append("")
 
@@ -113,6 +182,32 @@ def main() -> int:
                 f"- DRC (sky130 deck): **{str(drc.get('status', 'not run')).upper()}** -- "
                 f"{drc.get('violation_count', '?')} violations: {drc.get('rule_counts')}"
             )
+
+        for grid, label in (
+            ("0.001", "1 nm database grid"),
+            ("0.005", "5 nm manufacturing grid"),
+        ):
+            env = precheck[top][grid]
+            passed = env.get("status") == "pass"
+            failing = _failing_checks(env)
+            census = _offgrid_census(env)
+            # Appended to `verdicts` only at the end of main(), so the
+            # numbering README.md's own verdict table uses (1..8, predating
+            # #498) stays stable and these land as 9..12.
+            precheck_verdicts.append(
+                (
+                    f"{top}: precheck passes on the {label}",
+                    passed,
+                    f"failing checks {failing}" if failing else "all checks pass",
+                )
+            )
+            lines.append(
+                f"- precheck (--grid-um {grid}, {label}): "
+                f"**{str(env.get('status', 'not run')).upper()}** -- "
+                f"{len(env.get('checks', []))} checks, {len(failing)} failed"
+            )
+            for (cell, layer), count in sorted(census.items()):
+                lines.append(f"  - off-grid: {count} shape(s) in `{cell}` on layer `{layer}`")
 
         lines.append(
             f"- extraction: {extract.get('device_count')} devices "
@@ -199,6 +294,34 @@ def main() -> int:
         "(equal and opposite, so the *side total* is still centred); and "
         "bit0 and the termination unit are single units per side, so their "
         "P/N pair is one row pitch apart in Y rather than coincident."
+    )
+    lines.append("")
+
+    verdicts.extend(precheck_verdicts)
+
+    lines.append("## Manufacturing-grid check")
+    lines.append(
+        "`klt precheck --grid-um 0.005` is a **gating** verdict for this "
+        "block, not an advisory metric, per "
+        "`spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`. "
+        "The reason it has to be is that nothing else in this flow checks it: "
+        "`klt drc`'s curated `sky130` deck carries no `*.ongrid` rule on any "
+        "layer (its own `rules_checked`/`rules_skipped` lists have no OFFGRID "
+        "entry), while the PDK's own shipped signoff deck "
+        "(`$PDK_ROOT/sky130A/libs.tech/klayout/drc/sky130A.lydrc`, "
+        "`OFFGRID = true`) runs `<layer>.ongrid(0.005)` by default on every "
+        "metal/via layer this block draws. A DRC-clean verdict above is "
+        "therefore silent about grid legality; this one is not."
+    )
+    lines.append("")
+    lines.append(
+        "This check only became passable with DR-019. On the pre-#498 "
+        "`CAPM_SIDE = 1.898` plate (1898 nm, not a multiple of 5) the same "
+        "command reported 1 off-grid `capm` (89/44) shape in `cdac_unit_cell` "
+        "and 1024 in `cdac_array` -- one per drawn unit, every one of them the "
+        "plate itself. DR-019's resize to 1.9000 um puts every plate edge on "
+        "both grids, and with it every coordinate this flow derives from a "
+        "plate edge."
     )
     lines.append("")
 

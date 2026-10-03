@@ -1,0 +1,456 @@
+{
+  "schema_version": 3,
+  "file": "halflsb_offset.gds",
+  "deck": "sky130",
+  "top": "gen_compose_0",
+  "dbu_um": 0.001,
+  "netlist_path": "halflsb_offset.extract.spice",
+  "netlist_sha256": "04e29487af4af7f3b3df881b7a9ea03af701ad2b577e313af00a399dd7f318f5",
+  "status": "extracted",
+  "device_count": 8,
+  "net_count": 12,
+  "pin_count": 12,
+  "device_counts": {
+    "nfet": 2,
+    "pfet": 4,
+    "sky130_fd_pr__model__cap_mim": 2
+  },
+  "dummy_devices_dropped": 0,
+  "ignored_layers": [],
+  "device_recognition_only_layers": [
+    {
+      "layer": 89,
+      "datatype": 44,
+      "shapes": 2
+    }
+  ],
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "VCM",
+        "g": "HALF_LSB_EN",
+        "d": "BOT_OFF_N",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "moff_n_cmn__MOFF_N_CMN",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$2",
+      "class": "nfet",
+      "nets": {
+        "s": "VCM",
+        "g": "VGND",
+        "d": "BOT_OFF_P",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "moff_p_cmn__MOFF_P_CMN",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$3",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$3",
+      "class": "pfet",
+      "nets": {
+        "s": "VREFP",
+        "g": "HALF_LSB_EN",
+        "d": "BOT_OFF_N",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      },
+      "instance_path": [
+        {
+          "cell": "moff_n_refp__MOFF_N_REFP",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$1",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$4",
+      "class": "pfet",
+      "nets": {
+        "s": "VCM",
+        "g": "HALF_LSB_ENN",
+        "d": "BOT_OFF_N",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      },
+      "instance_path": [
+        {
+          "cell": "moff_n_cmp__MOFF_N_CMP",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$2",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$5",
+      "class": "pfet",
+      "nets": {
+        "s": "VREFP",
+        "g": "VGND",
+        "d": "BOT_OFF_P",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      },
+      "instance_path": [
+        {
+          "cell": "moff_p_refp__MOFF_P_REFP",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$4",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$6",
+      "class": "pfet",
+      "nets": {
+        "s": "VCM",
+        "g": "VPWR",
+        "d": "BOT_OFF_P",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      },
+      "instance_path": [
+        {
+          "cell": "moff_p_cmp__MOFF_P_CMP",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$5",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$7",
+      "class": "sky130_fd_pr__model__cap_mim",
+      "nets": {
+        "a": "BOT_OFF_N",
+        "b": "TOP_N"
+      },
+      "params": {
+        "c_f": 8.647288e-15,
+        "area_um2": 3.602404,
+        "perimeter_um": 7.592
+      },
+      "instance_path": [
+        {
+          "cell": "choff__CHOFF",
+          "array_index": null
+        },
+        {
+          "cell": "cap_array",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$8",
+      "class": "sky130_fd_pr__model__cap_mim",
+      "nets": {
+        "a": "BOT_OFF_P",
+        "b": "TOP_P"
+      },
+      "params": {
+        "c_f": 8.647288e-15,
+        "area_um2": 3.602404,
+        "perimeter_um": 7.592
+      },
+      "instance_path": [
+        {
+          "cell": "choff__CHOFF",
+          "array_index": null
+        },
+        {
+          "cell": "cap_array",
+          "array_index": null
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "BOT_OFF_N",
+      "pin": true,
+      "device_count": 4,
+      "net_id": 5,
+      "pin_index": 0,
+      "label_positions_um": [
+        {
+          "text": "BOT_OFF_N",
+          "x_um": -0.25,
+          "y_um": 15.33
+        }
+      ]
+    },
+    {
+      "name": "BOT_OFF_P",
+      "pin": true,
+      "device_count": 4,
+      "net_id": 9,
+      "pin_index": 1,
+      "label_positions_um": [
+        {
+          "text": "BOT_OFF_P",
+          "x_um": 15.75,
+          "y_um": 15.83
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "pin": true,
+      "device_count": 2,
+      "net_id": 13,
+      "pin_index": 2,
+      "label_positions_um": [
+        {
+          "text": "GND",
+          "x_um": 3.7,
+          "y_um": 11.83
+        }
+      ]
+    },
+    {
+      "name": "HALF_LSB_EN",
+      "pin": true,
+      "device_count": 2,
+      "net_id": 7,
+      "pin_index": 3,
+      "label_positions_um": [
+        {
+          "text": "HALF_LSB_EN",
+          "x_um": 5.745,
+          "y_um": 13.33
+        }
+      ]
+    },
+    {
+      "name": "HALF_LSB_ENN",
+      "pin": true,
+      "device_count": 1,
+      "net_id": 8,
+      "pin_index": 4,
+      "label_positions_um": [
+        {
+          "text": "HALF_LSB_ENN",
+          "x_um": 13.635,
+          "y_um": 14.33
+        }
+      ]
+    },
+    {
+      "name": "TOP_N",
+      "pin": true,
+      "device_count": 1,
+      "net_id": 6,
+      "pin_index": 5,
+      "label_positions_um": [
+        {
+          "text": "TOP_N",
+          "x_um": 1.449,
+          "y_um": 16.33
+        }
+      ]
+    },
+    {
+      "name": "TOP_P",
+      "pin": true,
+      "device_count": 1,
+      "net_id": 10,
+      "pin_index": 6,
+      "label_positions_um": [
+        {
+          "text": "TOP_P",
+          "x_um": 17.449,
+          "y_um": 16.83
+        }
+      ]
+    },
+    {
+      "name": "VCM",
+      "pin": true,
+      "device_count": 4,
+      "net_id": 3,
+      "pin_index": 7,
+      "label_positions_um": [
+        {
+          "text": "VCM",
+          "x_um": 4.96,
+          "y_um": 12.83
+        }
+      ]
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 4,
+      "net_id": 1,
+      "pin_index": 8,
+      "label_positions_um": [
+        {
+          "text": "VDD",
+          "x_um": 8.89,
+          "y_um": 11.33
+        }
+      ]
+    },
+    {
+      "name": "VGND",
+      "pin": true,
+      "device_count": 2,
+      "net_id": 11,
+      "pin_index": 9,
+      "label_positions_um": [
+        {
+          "text": "VGND",
+          "x_um": 21.745,
+          "y_um": 13.83
+        }
+      ]
+    },
+    {
+      "name": "VPWR",
+      "pin": true,
+      "device_count": 1,
+      "net_id": 12,
+      "pin_index": 10,
+      "label_positions_um": [
+        {
+          "text": "VPWR",
+          "x_um": 29.635,
+          "y_um": 14.83
+        }
+      ]
+    },
+    {
+      "name": "VREFP",
+      "pin": true,
+      "device_count": 2,
+      "net_id": 4,
+      "pin_index": 11,
+      "label_positions_um": [
+        {
+          "text": "VREFP",
+          "x_um": 9.65,
+          "y_um": 12.33
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "promoted 12 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BOT_OFF_N, BOT_OFF_P, GND, HALF_LSB_EN, HALF_LSB_ENN, TOP_N, TOP_P, VCM, VDD, VGND, VPWR, VREFP -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
+  ],
+  "black_box_regions": [],
+  "abstracted_cells": [],
+  "unmodelled_poly": [],
+  "merged_net_labels": [],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
+  "dead_metal": [],
+  "matched_device_groups": [],
+  "pdk": null,
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:9b9c01ea97fb44adcd5288dc8ebe2f3f577a26bea1828577ef3831789f033bb5",
+      "role": "layout"
+    }
+  },
+  "parasitics": null,
+  "spef_path": null,
+  "subcircuit": null,
+  "metrics": {
+    "extract__device__count": 8,
+    "extract__net__count": 12,
+    "extract__pin__count": 12
+  }
+}

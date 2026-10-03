@@ -1,9 +1,25 @@
+// SUPERSEDED 2026-09-25 (issue #387). REPLACED BY layout/top-glue/netlist/
+// top_glue.v. Do not re-derive, re-run or cite this netlist as current.
+//
+// The nine xinv_seln<i> instances below were removed from the schematic on
+// 2026-09-11 by spec/decision-records/
+// DR-008-cdac-top-level-switching-polarity.md (issue #263, PR #266), which
+// replaced the unconditional complementary drive with a decision-directed
+// one: SELp<i> = DOUT9 AND DOUT<i>, SELn<i> = DOUT9N AND DOUT<i>, eighteen
+// and2_1 gates plus an xinv_dout9n complement. design/sar_adc_top.spice
+// contains no xinv_seln instance at all -- grep it. Nothing re-derived this
+// file when that landed, and the flow's own klt lvs verdict could not
+// notice, because its reference is generated from this same netlist (see
+// layout/top-glue/README.md, "The parity gate is the point of this
+// directory"). It is kept only because layout/sar-adc-top/'s composition
+// still consumes the GDS built from it.
+//
 // Structural gate-level netlist for the SELn<i> = NOT(DOUT<i>) inverter
 // bank -- nine independent sky130_fd_sc_hd__inv_1 instances, hand-derived
 // 1:1 from design/sar_adc_top.sch's own xinv_seln0..xinv_seln8 instances
-// (issue #56's top-level integration schematic; see that file's header,
-// "SAR sequencer double-duty" section, for why the CDAC array needs a
-// complementary SELn per bit rather than reusing DOUT directly).
+// AS THAT SCHEMATIC STOOD UNDER ISSUE #56 (see that file's header,
+// "SAR sequencer double-duty" section, for the wiring rationale DR-008
+// went on to overturn).
 //
 // This is new top-level glue logic, not a sub-block: none of #99/#100/#101/
 // #102's own schematics instantiate these cells -- design/sar_adc_top.sch

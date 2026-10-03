@@ -279,7 +279,10 @@ v {xschem version=3.4.7 file_version=1.2
 *
 * Fix: the classic half-LSB offset capacitor, added here at the top level
 * rather than inside the array. Choff_n is a CDAC-unit-sized MiM cap
-* (W=L=1.8988, identical to design/cdac/cdac_unit_cell.sch's C_u) from
+* (W=L=1.9000, identical to design/cdac/cdac_unit_cell.sch's C_u -- both
+* resized from 1.8988 to the 5 nm-grid-legal 1.9000 by DR-019 via #496/#498,
+* and they must stay identical: it is the RATIO to C_u, not the absolute
+* value, that sets the half-LSB offset) from
 * TOP_N to its own bottom plate BOT_OFF_N, which is switched between VREFP
 * and VCM by Moff_n_refp / Moff_n_cmn / Moff_n_cmp. One unit cap over HALF
 * the reference swing (VREFP -> VCM = V_REF/2, since VCM = V_DD/2 = V_REF/2
@@ -467,6 +470,36 @@ C {devices/opin.sym} -1200 160 0 0 {name=p16 lab=DOUT2}
 C {devices/opin.sym} -1200 200 0 0 {name=p17 lab=DOUT1}
 C {devices/opin.sym} -1200 240 0 0 {name=p18 lab=DOUT0}
 C {devices/opin.sym} -1200 280 0 0 {name=p19 lab=BUSY}
+* The two DIGITAL supply pins (issue #355, DR-010). They are ports for the
+* same reason VDD is: a rail that is only `.GLOBAL` is powerable by an
+* enclosing testbench but has no place on the block's own interface for a
+* pad to land on -- and `layout/sar-adc-top/`'s own `klt erc` run graded
+* exactly that as a structural power-delivery failure (T1 item 11): both
+* standard-cell macros' rails reached no top-level supply at all. Declaring
+* them here does NOT merge them into VDD/GND (see the item-2 note in the
+* header): VPWR/VGND stay their own domain, with their own pins, per
+* spec/decision-records/DR-010-digital-supply-domain-partition.md.
+C {devices/ipin.sym} -1200 320 0 0 {name=p20 lab=VPWR}
+C {devices/ipin.sym} -1200 360 0 0 {name=p21 lab=VGND}
+* The ANALOG ground pin (issue #362, DR-012). VDD has been a port since this
+* file was written; its return never was, so the block declared `.GLOBAL GND`
+* (via lgnd1 below) and drew ground inside comparator without ever exposing a
+* terminal a package could bond to -- the same structural gap #355 closed for
+* VPWR/VGND, one domain over. `klt erc` does not catch it: T1 item 11 grades
+* "does this declared supply resolve to exactly one electrical island", which
+* GND always did, pin or no pin.
+*
+* Declaring it here does NOT make GND and VGND one schematic net -- they stay
+* the two distinct `.GLOBAL` cards DR-010 partitioned, and nothing on this
+* sheet wires them together. It does NOT claim they are two distinct
+* ELECTRICAL nodes either: in bulk sky130 the analog ground, the digital
+* substrate ties and the p-substrate are one node, which
+* layout/sar-adc-top/'s own extraction reports directly (one `GND|VGND` net).
+* Two ports on one physical node is the intended shape -- two bond points, so
+* the digital return travels off-die rather than through the die's substrate
+* on its way back to the source. See
+* spec/decision-records/DR-012-analog-ground-pad.md.
+C {devices/ipin.sym} -1200 400 0 0 {name=p22 lab=GND}
 
 * --- Sub-block instances ---
 C {design/sampling_frontend.sym} 0 0 0 0 {name=xfe}
@@ -760,7 +793,7 @@ C {devices/lab_pin.sym} 2240 1800 0 0 {name=l_hln_y lab=HALF_LSB_ENN}
 * VCM is mid-rail, so a single device would be a poor switch there).
 * Device flavours/sizes are copied from design/cdac/cdac_unit_cell.sch so
 * this cell's switch parasitics match a real array bit's.
-C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 1700 0 0 {name=Choff_n model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 1700 0 0 {name=Choff_n model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {devices/lab_pin.sym} 2600 1670 0 0 {name=l_offn_bot lab=BOT_OFF_N}
 C {devices/lab_pin.sym} 2600 1730 0 0 {name=l_offn_top lab=TOP_N}
 C {sky130_fd_pr/pfet_01v8.sym} 2800 1700 0 0 {name=Moff_n_refp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
@@ -785,7 +818,7 @@ C {devices/lab_pin.sym} 2820 2000 0 0 {name=l_offn_cp_b lab=VDD}
 * cell contributes NO offset. Its only job is to give TOP_P the same total
 * capacitance and the same switch junction parasitics as TOP_N, so the
 * DOUT9=1 and DOUT9=0 branches have the same gain.
-C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 2200 0 0 {name=Choff_p model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 2200 0 0 {name=Choff_p model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {devices/lab_pin.sym} 2600 2170 0 0 {name=l_offp_bot lab=BOT_OFF_P}
 C {devices/lab_pin.sym} 2600 2230 0 0 {name=l_offp_top lab=TOP_P}
 C {sky130_fd_pr/pfet_01v8.sym} 2800 2200 0 0 {name=Moff_p_refp W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
@@ -803,5 +836,29 @@ C {devices/lab_pin.sym} 2820 2530 0 0 {name=l_offp_cp_d lab=BOT_OFF_P}
 C {devices/lab_pin.sym} 2780 2500 0 0 {name=l_offp_cp_g lab=VPWR}
 C {devices/lab_pin.sym} 2820 2470 0 0 {name=l_offp_cp_s lab=VCM}
 C {devices/lab_pin.sym} 2820 2500 0 0 {name=l_offp_cp_b lab=VDD}
+
+* --- On-die decoupling (issue #431, spec/decision-records/DR-017-on-die-
+* decoupling-budget.md): one MiM cap per supply domain, tied directly
+* across that domain's own supply/return pair at the top level -- the
+* shortest path from each rail's own switching devices to its own return,
+* so that domain's high-frequency switching current recirculates on-die
+* instead of through the bond inductance sim/supply-impedance-sensitivity/
+* models. `Cdecap_a` sits on the analog domain (VDD/GND, the comparator's
+* own decision reference); `Cdecap_d` sits on the digital domain
+* (VPWR/VGND, the standard-cell bank). Both reuse the W=L=46.9 um
+* `Csamp` footprint already proven DRC-clean in design/sampling_frontend.sch
+* (4.435 pF per unit at the PDK's own 2.0 fF/um^2 area + 0.19 fF/um
+* perimeter coefficients), at MF=2 -> 8.870 pF per domain. DR-017 fixes
+* MF from an AREA budget, not from a bounce target: that record's own
+* measurements show the die-side excursion falls only as ~1/sqrt(C), so no
+* affordable on-die capacitance reaches 1 LSB and the value is chosen at
+* the largest allocation the composed die's met3/met4 real estate can
+* plausibly carry. Read DR-017 before changing MF.
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2600 2700 0 0 {name=Cdecap_a model=cap_mim_m3_1 W=46.9 L=46.9 MF=2 spiceprefix=X}
+C {devices/lab_pin.sym} 2600 2670 0 0 {name=l_decapa_bot lab=GND}
+C {devices/lab_pin.sym} 2600 2730 0 0 {name=l_decapa_top lab=VDD}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 2850 2700 0 0 {name=Cdecap_d model=cap_mim_m3_1 W=46.9 L=46.9 MF=2 spiceprefix=X}
+C {devices/lab_pin.sym} 2850 2670 0 0 {name=l_decapd_bot lab=VGND}
+C {devices/lab_pin.sym} 2850 2730 0 0 {name=l_decapd_top lab=VPWR}
 
 T {sar_adc_top: SAR ADC top-level integration (issue #56) -- see header for architecture, pin-convention normalization, and known integration gaps} -1300 -600 0 0 0.2 0.2 {}

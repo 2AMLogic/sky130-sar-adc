@@ -22,6 +22,40 @@ every PFET body extracting on the n-well island DR-004 requires. The record
 referenced by `reports/LATEST` carries all eleven verdicts, seven positive and
 four negative:
 
+**`GND` is now a promoted pin (issue #377, record
+`20260924-232823-66dca3c`).** This cell always drew a p-substrate tap and a
+`GND` met2 track; what it did not do was *label* them, on the reasoning
+`PIN_NETS` carried in its own comment — "nothing at a higher level of
+hierarchy will ever connect to it by name." Issue #362 / DR-012 gave the
+top-level assembly a drawn analog `GND` pad and issue #377 routes a ground
+mesh to it, so that reasoning expired: `layout/sar-adc-top/` now lands a via
+riser on this label's own position (39.97, 52.32). **The change is one entry
+in `PIN_NETS` — no geometry moved**, the composed bbox is unchanged at
+`(0, -2.4; 195.56, 58.97)`, and DRC stays clean with 0 violations.
+
+One verdict got *better*, and it should be read narrowly. `klt lvs` went from
+2 findings to 1: `device.body_unverified` — raised while the eleven NFETs'
+body terminals were being compared against the deck's synthesized `vsubs`
+global rather than a schematic net — no longer fires, because the substrate
+net now carries this cell's own drawn `GND` label and extracts under that
+name. What changed is that the node every NFET body sits on is a **named,
+drawn conductor**; what did *not* change is the deck's `connect_global` tie
+itself, which still joins all eleven bodies by construction rather than by
+geometry this flow could break. A per-device NMOS body-tie check remains
+outside what this deck can grade. Every other count is identical to the
+superseded `20260918-191227-935ce76`: 24/24 devices, 17/17 nets, 12/12 pins.
+
+That record is also this flow's **first run on `klayout-tools==0.6.0`** (the
+pin moved for issue #103 on 2026-09-23 without re-running the sub-block
+flows). A same-source baseline was run first on the new pin to keep the two
+changes apart, and it reproduced the superseded record's verdicts exactly
+(DRC clean, LVS match at 2 findings, same device/net/pin counts) — so
+everything above is attributable to the pin promotion, not to the tool bump.
+The visible difference from the bump is coverage, not verdict: the 0.6.0 deck
+authors 44 rules here where the record format previously listed none, and
+`met1.area.1` … `met4.area.1` are now among them, which is what made issue
+#326's separate `minimum-area.json` measurement redundant for this flow.
+
 **Re-verified against `design/sampling_frontend.sch` post-issue-#236 (issue
 #245, record `20260908-070934-80df05e`)**: `Sa_p`/`Sa_n`'s gate moved from
 `SAMPLE` to the switch's own gate node `G_P`/`G_N` (net reconnection only,
@@ -53,10 +87,32 @@ over met3.space. Everything else is unchanged: the record's `drc.json` and
 (all eleven verdicts, 24/24 devices, 17/17 nets, 12/12 pins), and the composed
 cell's own bbox is unchanged at `(0, -2.4; 195.56, 58.97)`. Verified with
 `docs/chipalooza/measure_metal_min_area.py`, which now reports **0** shapes
-below any metal minimum-area threshold for this flow — `klt drc` cannot
-replace that measurement until a `klayout-tools` release carries #1989. That
-script's own `--json` output against this record is committed beside it, as
+below any metal minimum-area threshold for this flow. That script's own
+`--json` output against this record is committed beside it, as
 `reports/20260918-191227-935ce76/minimum-area.json`.
+
+**Two later updates to that paragraph, neither of which moves this flow's
+0-shape result.** (1) The sentence it used to end on — "`klt drc` cannot
+replace that measurement until a `klayout-tools` release carries #1989" — is
+stale: `layout/requirements.txt` moved to `klayout-tools==0.6.0` (issue #103,
+2026-09-23), which carries #1989's `met1.area.1` … `met5.area.1` rules, so a
+re-run of this flow on the current pin would grade minimum area in-deck. (2)
+Issue #363 found the script **under-merged** its region and overstated
+sub-threshold counts elsewhere in `layout/`; this flow measured 0 before and
+after that fix, so the committed `minimum-area.json` above is unaffected.
+
+**That zero is now enforced, not just recorded** (issue #338). The same
+measurement runs in `.github/workflows/ci.yml`'s PDK-gated `pdk-smoke` job —
+nightly, on `workflow_dispatch`, and on any PR labelled `run-pdk-smoke` —
+against each flow's current `reports/LATEST` GDS, with a negative control
+(`--self-test`) proving on every run that the gate can still fail. The gate
+is zero-tolerance, with no per-flow allowance: **this** flow draws its own
+metal, so the first sub-minimum `STACK_PAD_UM`-class pad reintroduced here —
+the defect #326 found above — turns CI red instead of waiting for someone to
+run the script by hand. See `layout/sar-adc-top/README.md` → "Minimum-area
+rules" for the gate's full mechanics, including why no waiver exists (issue
+#333, the one tool-emitted residual this gate ever had to hold out, is
+closed).
 
 | # | Verdict | Why it is here |
 | --- | --- | --- |
@@ -215,10 +271,16 @@ What this sub-block adds beyond that PFET-only study: a fourth tap — a
 p-substrate tie in the NFET row's own margin, routed to GND. Read
 `bin/build_layout.py`'s docstring for what it does and does not do; the short
 version is that it merges the drawn `GND` conductor into the deck's
-globally-synthesized `vsubs` net (without which LVS cannot match at all), and
-that it does **not** make any NFET body a schematic-named net (no drawn
-geometry can, on this deck — `klt lvs` reports `device.body_unverified` for all
-eleven NFETs, expected).
+globally-synthesized substrate net (without which LVS cannot match at all),
+and that it does **not** make any NFET body tie something drawn geometry could
+break: the deck's `connect_global` joins all eleven bodies by construction
+whatever this layout draws.
+
+Since issue #377 that substrate net is also *named* here — `GND`, from the
+promoted met2 pin label, where it read as the deck's own `vsubs` before — and
+`klt lvs` consequently stops reporting `device.body_unverified` for the eleven
+NFETs. Read that as what it is: the body net is now a named drawn conductor,
+not a per-device tie this flow verified. See the status note at the top.
 
 ---
 

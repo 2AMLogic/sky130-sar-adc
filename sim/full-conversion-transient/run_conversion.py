@@ -600,7 +600,7 @@ def write_record(
     )
 
     path = evidence.close_record(prov, lines, "Record")
-    (EXPERIMENT_DIR / "records" / "LATEST").write_text(f"{prov.record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
     return path
 
 
@@ -1348,7 +1348,10 @@ def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
             # sim/report/generate.py's find_superseding_sibling() (a plain
             # substring match against this field) misread this record as
             # superseding the corner-campaign evidence, which it does not.
-            "",
+            # Spelled as the named sentinel, not a bare "", so
+            # sim/check_supersedes_capability.py can tell this deliberate
+            # opt-out apart from a forgotten --supersedes (issue #502).
+            evidence.NEVER_SUPERSEDES,
         )
     )
 
@@ -1674,7 +1677,12 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
     lines.extend(
         evidence.footer_lines(
             "sim/full-conversion-transient/run_conversion.py --cm-trace",
-            "",
+            # Diagnostic/investigation record (see the "Claim" bullet above):
+            # it extends the corner campaigns' evidence without invalidating
+            # any of it, so it supersedes nothing by construction -- the same
+            # reasoning as --node-trace above, spelled the same explicit way
+            # (issue #502). --supersedes is deliberately NOT threaded here.
+            evidence.NEVER_SUPERSEDES,
         )
     )
 
@@ -2145,7 +2153,10 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
     lines.extend(
         evidence.footer_lines(
             "sim/full-conversion-transient/run_conversion.py --decision-margin-trace",
-            "",
+            # Diagnostic/mechanism record, NOT a corner campaign (see the
+            # "Claim" bullet above) -- supersedes nothing by construction, same
+            # as the two trace writers above (issue #502).
+            evidence.NEVER_SUPERSEDES,
         )
     )
     return evidence.close_record(prov, lines, "Record")

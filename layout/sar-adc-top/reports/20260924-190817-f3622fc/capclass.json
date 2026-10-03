@@ -1,0 +1,12 @@
+{
+  "schema": "sar-adc-top.cap-device-class/1",
+  "workaround_for": "2AMLogic/klayout-tools#1876",
+  "c_cards": 1028,
+  "restored": 1028,
+  "restored_classes": {
+    "sky130_fd_pr__model__cap_mim": 1028
+  },
+  "noop": false,
+  "input": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-355/layout/sar-adc-top/reports/20260924-190817-f3622fc/sar_adc_top.extract.spice",
+  "output": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-355/layout/sar-adc-top/reports/20260924-190817-f3622fc/sar_adc_top.extract.lvs.spice"
+}

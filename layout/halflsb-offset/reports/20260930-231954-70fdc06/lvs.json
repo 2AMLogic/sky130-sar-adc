@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "halflsb_offset.gds",
+  "reference": "reference.spice",
+  "top": "gen_compose_0",
+  "reference_top": "HALFLSB_OFFSET",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
+  },
+  "hints_applied": null,
+  "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "verified",
+    "reason": null,
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
+  },
+  "mismatch_count": 1,
+  "error_count": 0,
+  "category_counts": {
+    "topology": 1
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 12,
+      "reference": 12,
+      "matched": 12
+    },
+    "devices": {
+      "layout": 8,
+      "reference": 8,
+      "matched": 8
+    },
+    "pins": {
+      "layout": 12,
+      "reference": 12,
+      "matched": 12
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "9b9c01ea97fb44adcd5288dc8ebe2f3f577a26bea1828577ef3831789f033bb5",
+    "reference_sha256": "8f8103adbc705c09f9fd302c17ee01b82430d535052c09fe43e71e20a67ca10d",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:9b9c01ea97fb44adcd5288dc8ebe2f3f577a26bea1828577ef3831789f033bb5",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
+  },
+  "mismatches": [
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BOT_OFF_N",
+      "reference": "BOT_OFF_N",
+      "pin": true
+    },
+    {
+      "layout": "BOT_OFF_P",
+      "reference": "BOT_OFF_P",
+      "pin": true
+    },
+    {
+      "layout": "GND",
+      "reference": "GND",
+      "pin": true
+    },
+    {
+      "layout": "HALF_LSB_EN",
+      "reference": "HALF_LSB_EN",
+      "pin": true
+    },
+    {
+      "layout": "HALF_LSB_ENN",
+      "reference": "HALF_LSB_ENN",
+      "pin": true
+    },
+    {
+      "layout": "TOP_N",
+      "reference": "TOP_N",
+      "pin": true
+    },
+    {
+      "layout": "TOP_P",
+      "reference": "TOP_P",
+      "pin": true
+    },
+    {
+      "layout": "VCM",
+      "reference": "VCM",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VGND",
+      "reference": "VGND",
+      "pin": true
+    },
+    {
+      "layout": "VPWR",
+      "reference": "VPWR",
+      "pin": true
+    },
+    {
+      "layout": "VREFP",
+      "reference": "VREFP",
+      "pin": true
+    }
+  ]
+}

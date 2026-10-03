@@ -8,7 +8,7 @@ draw → DRC → extract → LVS flow.
 ```sh
 layout/bin/setup-venv.sh              # once, or after bumping requirements.txt
 source sim/env.sh                      # exports PDK_ROOT/PDK for xschem
-layout/cdac-array/bin/run-flow.sh      # ~6 seconds; exit 0 iff all eight verdicts hold
+layout/cdac-array/bin/run-flow.sh      # ~8 seconds; exit 0 iff all twelve verdicts hold
 cat layout/cdac-array/reports/$(cat layout/cdac-array/reports/LATEST)/record.md
 ```
 
@@ -19,8 +19,9 @@ layout/cdac-array/
   bin/
     cdac_layout.py             # the generator: emits both top cells' GDS
     generate-lvs-reference.py  # xschem-netlists design/cdac/*.sch -> LVS reference
-    render-record.py           # renders record.md, asserts the eight verdicts
-    run-flow.sh                # draw -> DRC -> extract -> LVS, one record per run
+    render-record.py           # renders record.md, asserts the twelve verdicts
+    run-flow.sh                # draw -> DRC -> precheck x2 -> extract -> LVS,
+                               #   one record per run
   reference/
     cdac_array.lvs-reference.spice      # GENERATED from the schematic
     cdac_unit_cell.lvs-reference.spice  # GENERATED from the schematic
@@ -36,7 +37,7 @@ edits an existing one.
 
 ## What the flow asserts
 
-`run-flow.sh` exits non-zero unless **all eight** of these hold, every one
+`run-flow.sh` exits non-zero unless **all twelve** of these hold, every one
 read out of `klt`'s own JSON envelope rather than off a process exit code:
 
 | # | Verdict |
@@ -49,6 +50,24 @@ read out of `klt`'s own JSON envelope rather than off a process exit code:
 | 6 | Every bit 8..1 has its unit-cap centroid exactly on the array's centre in Y |
 | 7 | Bits 8..4 additionally have it exactly on the centre in X |
 | 8 | Every bit's P-side and N-side X centroids coincide |
+| 9 | `klt precheck --grid-um 0.001` **pass** on `cdac_unit_cell` (its own database grid) |
+| 10 | `klt precheck --grid-um 0.005` **pass** on `cdac_unit_cell` (sky130's manufacturing grid) |
+| 11 | `klt precheck --grid-um 0.001` **pass** on `cdac_array` |
+| 12 | `klt precheck --grid-um 0.005` **pass** on `cdac_array`, all 1024 units |
+
+Verdicts 1–8 are numbered as they were before issue #498; 9–12 were added by
+it and appended rather than interleaved so the numbering this document's own
+prose uses did not shift under it.
+
+One committed record predates that decision and does not show it:
+`reports/20261001-084525-79abbf8/record.md`, the first post-resize record, was
+rendered by a pre-final `render-record.py` that interleaved the four precheck
+verdicts at 2/3/6/7, so it cannot be reproduced from its own committed JSON
+envelopes by the renderer in this tree. It is left in place — records here are
+append-only — and superseded by `reports/20261001-133221-7487784/`, a re-run of
+the same flow at the same geometry whose `record.md` re-renders byte-for-byte
+from its own envelopes. All twelve verdicts hold in both; only the numbering
+differs.
 
 Verdicts 6–8 exist because **1–4 have no opinion at all about placement**:
 DRC and LVS are topology-only, silent about where a matched device
@@ -60,6 +79,27 @@ to the LVS pairing. Verdicts 6–8 pin the placement using centroids computed
 from the same placement functions the geometry is drawn from. Without
 them, a matching-poor rewrite of this generator that still drew exactly
 1024 unit elements in the wrong places would sail through 1–5.
+
+Verdicts 9–12 exist because **1 and 3 are silent about manufacturing-grid
+legality**, and that silence is not obvious: `klt drc`'s curated `sky130` deck
+carries no `*.ongrid` rule on any layer (grep its own
+`rules_checked`/`rules_skipped` lists in any `drc.json` here — there is no
+OFFGRID entry), while the PDK's own shipped signoff deck
+(`$PDK_ROOT/sky130A/libs.tech/klayout/drc/sky130A.lydrc`, `OFFGRID = true`) runs
+`<layer>.ongrid(0.005)` by default on every metal/via layer this block draws. A
+"DRC clean" record here therefore said nothing either way about the 5 nm grid
+until these verdicts existed. They are a **gate, not an advisory metric**, per
+[DR-019](../../spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)'s
+standing policy for any block in this repo that draws a MiM cap.
+
+They were added with DR-019's resize (#498) because before it they could not
+have passed: on the old `CAPM_SIDE = 1.898` µm plate (1898 nm, not a multiple of
+5) the same command reports **1** off-grid `capm` (89/44) shape in
+`cdac_unit_cell` and **1024** in `cdac_array` — one per drawn unit, every one of
+them the plate itself, measured directly against
+`reports/20260924-233346-66dca3c/`'s committed GDS. On the 1.9000 µm plate both
+are **0**, on both grids. `layout/halflsb-offset/`, which inherits this plate
+size through DR-009, went 48 → 0 in the same pass.
 
 The LVS reference is **regenerated from the schematic on every run**
 (step 0 of `run-flow.sh`), never trusted from the committed copy: a match
@@ -164,6 +204,64 @@ Verified directly against `klt extract`'s per-device report: every one of
 the 18 switch transistors' `L=0.15U` is byte-identical before and after (see
 the PR for issue #165), and DRC/LVS both stay clean.
 
+## `VSS` landing geometry — issue #377
+
+Issue #165's parenthesis above — *"`GND` connects for free chip-wide"* — is
+true of the **extraction deck** and false of the **layout**, and that gap is
+what issue #377 closes here. `cdac_array`'s fourth schematic port (`VSS`,
+every switch NFET's bulk) had no drawn conductor of its own at all. Unlike
+`VDD` it was not even visible as an uncontactable bare layer: sky130's deck
+synthesises one global p-substrate net by construction, so the port resolved
+to that global and both `klt extract` and `klt lvs` were satisfied while this
+block drew *no ground conductor whatsoever*. The composed assembly's analog
+return therefore reached this block through substrate resistance — real, but
+not something `klt drc` grades or this repo draws. That is the residue
+[DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md)'s own "Open
+items" named.
+
+Fixed with the p-substrate counterpart of the `VDD` tie above, by the same
+`body_tap()` helper (in sky130 a tap is an n-tap or a p-tap purely by which
+tub it sits in, so the drawn shapes are identical and only the placement
+differs):
+
+- **`VSS`**: `tap.drawing` + li1 + a licon1 column on **bare substrate**,
+  directly below the `VDD` n-well tap and sharing its x, in the empty stripe
+  between the switch row's own NFET diffusion (bottom edge y = −30.00) and
+  the VREFN met2 rail — contacted up through mcon to a met1 landing pad
+  carrying a `VSS` met1.pin label at (1.00, −31.60). That pad is what
+  `layout/sar-adc-top/`'s analog ground mesh
+  ([DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md)) lands
+  a via riser on.
+
+Clearances, and which of them this flow's DRC verdict actually backs: 0.60 µm
+to the NFET block above (sky130's `difftap.3` tap-to-diffusion spacing is
+0.27 µm) and 2.59 µm to the n-well's own bottom edge (`nwell.5a`, 0.34 µm)
+are **not graded** — the pinned curated deck authors no rule on
+`tap.drawing` (65/44) and none on n-well-to-tap spacing at all — so
+`cdac_layout.py`'s `_assert_vss_tap_clearances()` asserts them in the
+generator instead, where a future switch-row move fails loudly rather than
+silently. The met1 landing pad's 2.84 µm to the VREFP rail and 1.79 µm to
+the nearest switch riser *are* graded (`met1.space.1`), by every DRC run.
+
+The reference side moved with the layout, not ahead of it:
+`generate-lvs-reference.py` used to rename the schematic's `VSS` to `vsubs`
+"for a block with no substrate tap of its own", which this block no longer
+is, so the rename is retired for `cdac_array` and the reference now says what
+the schematic says. `cdac_unit_cell` draws no tap of its own and keeps it.
+Record `20260924-233346-66dca3c`: DRC clean on both cells, LVS match on both,
+1060/1060 devices, 42/42 nets, 24/24 pins — all unchanged. One finding fewer
+than the superseded record, and narrowly: `device.body_unverified` stops
+firing on `cdac_array` because its substrate net is now a *named drawn
+conductor* (`VSS`) rather than the deck's anonymous global. The deck's
+`connect_global` still ties the eighteen NFET bodies together by
+construction; nothing here verifies a per-device body tie, and
+`cdac_unit_cell` still reports the warning, correctly.
+
+That record is also this flow's first run on `klayout-tools==0.6.0`. A
+same-source baseline on the new pin was run first and reproduced the
+superseded `20260917-180543-527ec73` exactly (clean/match, 2 findings,
+1060/42/24), so the delta above is this change's, not the bump's.
+
 ---
 
 # The matching strategy
@@ -180,7 +278,7 @@ argued with — and, where it is measurable, measured in each record.
 netlist shorthand for `2**i` *parallel unit cells*, "**NOT** a claim about
 physical placement". This layout takes that literally: **1024 physically
 identical unit capacitors**, 512 per side, one drawn unit per unit of
-weight. Every one of them is the same shape — same 1.898 µm capm plate,
+weight. Every one of them is the same shape — same 1.900 µm capm plate,
 same met3 bottom plate, same via2 position, same via1/met1 stub geometry —
 so that whatever the process does to one unit, it does to all of them.
 
@@ -312,10 +410,25 @@ dummy-marker layer added on top.
   the bottom plate, which is driven hard to VREFP/VREFN by the switch, so it
   costs settling time rather than charge accuracy — but it is unbalanced and
   unquantified, and a future revision that cares should say so with numbers.
-- **No spec ratification.** `C_u`, `V_REF` and everything derived from them
-  are DRAFT pending issue #27; this layout consumes DR-003 Item 3's
-  provisional 1.8988 µm plate and would be regenerated, not patched, if that
-  changes.
+- **Spec ratification.** `C_u` and `V_REF` were ratified by DR-003 via issue
+  #27; this layout consumes DR-003 Item 3's plate size, as amended by DR-019
+  (`1.9000 µm`, `C_u ≈ 8.664 fF`), and would be regenerated, not patched, if
+  that changes again.
+- **Grid legality — now checked here, and clean** (verdicts 9–12, added by
+  issue #498). This was a known, measured failure until DR-019: on the old
+  `CAPM_SIDE = 1.898` µm plate, `klt precheck --grid-um 0.005` reports 1024
+  off-grid `capm` shapes in `cdac_array` and 1 in `cdac_unit_cell`, because
+  1898 is not a multiple of sky130's 5 nm manufacturing grid and neither the
+  plate's corners nor any via/pad a router centres on them can land on-grid.
+  `layout/halflsb-offset/`'s own census (#495) is what surfaced the question,
+  and
+  [DR-019](../../spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md)
+  (#496) answered it: it reads the PDK's own shipped signoff DRC deck
+  directly, confirms the grid check is real (not a klt-only convention), and
+  resizes `C_u`'s plate to a 5 nm-grid-legal `1.9000 µm` rather than waiving
+  it. Issue #498 carried that through here (`CAPM_SIDE = 1.900`), re-ran the
+  flow, and added the two precheck stages as gating verdicts; the census is
+  now 0 across all 1024 instances.
 
 ## Provenance
 

@@ -45,17 +45,29 @@ fourth tap: a p-substrate tie in Row 2's own margin, routed to GND.
 
 What that substrate tap does -- and does NOT do -- stated precisely, because
 it is easy to overclaim: `klt extract --deck sky130` synthesizes **one
-global** NMOS body net (`vsubs`) via `connect_global`, regardless of drawn
-geometry, so the tap does not turn any NFET's body terminal into a
-schematic-named net. `klt lvs` still reports `device.body_unverified` for
-all eleven NFETs, and that warning is an expected property of this deck, not
-a defect this flow could route its way out of. What the tap *does* do is
-merge this layout's drawn `GND` conductor into that same `vsubs` net, so
-every NFET source the schematic ties to GND lands on the one net its own
-body already sits on. Without it, `GND` would extract as an ordinary signal
-net distinct from `vsubs` and LVS would not match at all. Same idiom, and
-the same limit, as `layout/comparator/bin/build_layout.py`'s own NFET
-substrate tie.
+global** NMOS body net via `connect_global`, regardless of drawn geometry,
+so no drawn tap makes the eleven NFET bodies eleven separately-checkable
+terminals; they are one node by construction of the deck, not by anything
+this flow routes. What the tap *does* do is merge this layout's drawn `GND`
+conductor into that same global net, so every NFET source the schematic ties
+to GND lands on the one net its own body already sits on. Without it, `GND`
+would extract as an ordinary signal net distinct from the substrate and LVS
+would not match at all. Same idiom as
+`layout/comparator/bin/build_layout.py`'s own NFET substrate tie.
+
+Since issue #377 that node is also NAMED here, and one `klt lvs` finding
+moves as a result: promoting `GND` to a drawn met2 pin label (`PIN_NETS`)
+gives the tap's conductor a real name, so the deck reports the net as `GND`
+where it reported its own synthesized `vsubs` before, and `klt lvs` stops
+raising `device.body_unverified` for the eleven NFETs -- the warning it
+raised while their body terminals were being compared against a
+deck-synthesized net rather than a schematic one. Measured on the same
+`klt` pin, one change apart: `reports/20260924-232543-66dca3c/lvs.json`
+(before, `device.body_unverified: 1`) vs
+`reports/20260924-232823-66dca3c/lvs.json` (after, absent; the `klt 0.6.0`
+`body_verification` block goes `unverified` -> `verified`). **Read that
+narrowly**: the deck's global tie is unchanged, so a per-device NMOS
+body-tie check remains outside what this flow can grade.
 
 Routing style: one met2 track per net, met1 the rest of the way
 -----------------------------------------------------------------
@@ -240,17 +252,35 @@ TRACK_ORDER = (
     "TOP_N",
 )
 
-#: Nets promoted to top-level pins (labelled on met2.pin) -- exactly
-#: `design/sampling_frontend.sym`'s drawn pin list. GND is deliberately absent
-#: (`devices/gnd.sym` is `global=true` in the schematic, so it needs no pin at
-#: this level of hierarchy either) even though it gets a track here like every
-#: other net: `layout/sampling-frontend-wells/` labels GND-equivalent nets the
-#: same way its own PIN_NETS omits nothing GND-like because that cell has no
-#: NFETs; this cell's GND *does* need a track (the p-substrate tap and every
-#: NFET source route through it) but not a promoted pin, since nothing at a
-#: higher level of hierarchy will ever connect to it by name.
+#: Nets promoted to top-level pins (labelled on met2.pin): `design/
+#: sampling_frontend.sym`'s drawn pin list, **plus `GND`** (issue #377).
+#:
+#: `GND` is not a drawn port of that symbol -- `devices/gnd.sym` is
+#: `global=true` in the schematic, so the schematic needs no port for it at
+#: this level of hierarchy -- and until issue #377 this list omitted it for a
+#: reason that has since expired: *"nothing at a higher level of hierarchy
+#: will ever connect to it by name."* Issue #362 / DR-012 gave the top-level
+#: assembly a drawn analog `GND` pad, and issue #377 routes an analog ground
+#: mesh to it; `layout/sar-adc-top/bin/build_layout.py` now lands a via riser
+#: on THIS label's own position, so a higher level of hierarchy does connect
+#: to it -- by position, which is what `klt extract --pin-source-cells`
+#: resolves, and which needs a drawn pin here to land on.
+#:
+#: What the label changes and what it does not: the met2 track, the columns
+#: feeding it and the p-substrate tap under them are all unchanged -- this is
+#: a *labelling* change, not new geometry. `klt extract`'s sky130 deck still
+#: synthesises one global NMOS body net regardless of drawn geometry, so the
+#: eleven NFET bodies are still one node by construction and a per-device
+#: body-tie check is still outside what this flow grades. What the label buys
+#: is that the conductor this cell draws for that node is now nameable, and
+#: reachable, from outside the cell -- and, as a measured side effect, that
+#: the node extracts under a schematic name instead of the deck's own
+#: `vsubs`, which retires this flow's one `device.body_unverified` finding
+#: (see this module's own docstring, "What that substrate tap does -- and
+#: does NOT do", for the before/after records).
 PIN_NETS = (
     "VDD",
+    "GND",
     "SAMPLE",
     "VCM",
     "VINP",

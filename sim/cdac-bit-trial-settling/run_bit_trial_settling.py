@@ -162,6 +162,20 @@ BIT_WEIGHTS = {i: 2 ** i for i in range(9)}
 TERM_WEIGHT = 1
 C_TOTAL_WEIGHT = sum(BIT_WEIGHTS.values()) + TERM_WEIGHT  # 511 + 1 = 512
 
+#: The unit-cap plate side every `cap_mim_m3_1` card in this deck asks for,
+#: transcribed from `design/cdac/cdac_unit_cell.sch`'s own `C_u` -- kept as one
+#: named constant rather than repeated as a literal in the three places the
+#: deck emits a capacitor card, so a future resize cannot land in two of them.
+#:
+#: `1.9000` since `spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`
+#: (#496, carried through here by #498) resized the plate from `1.8988` to a
+#: 5 nm manufacturing-grid-legal side. This campaign's own measured quantity is
+#: a RATIO (tau_i = R_on * C_total * weight_i/C_total_weight -- see the module
+#: docstring), so C_u scales tau_i linearly and the +0.116% resize moves every
+#: settling time by the same +0.116%: far inside this measurement's own
+#: resolution, but the deck must still ask for the plate the design draws.
+UNIT_CAP_WL_UM = 1.9000
+
 TEST_BITS = [0, 4, 8]  # LSB, a mid bit, MSB -- brackets the tau_i(i) shape
 DIRECTIONS = ["fall", "rise"]  # fall: BOT 1.8->0V (NMOS); rise: BOT 0->1.8V (PMOS)
 
@@ -296,7 +310,8 @@ def build_transient(
         if i == test_bit:
             lines += [
                 f"Xc_bit{i} bot{i} TOP sky130_fd_pr__cap_mim_m3_1 "
-                f"W=1.8988 L=1.8988 MF={weight} m={weight}",
+                f"W={UNIT_CAP_WL_UM:.4f} L={UNIT_CAP_WL_UM:.4f} "
+                f"MF={weight} m={weight}",
                 f"Xn_bit{i} bot{i} SEL_TEST VREFN 0 sky130_fd_pr__nfet_01v8 "
                 "L=0.15 W=1 nf=1",
                 f"Xp_bit{i} bot{i} SEL_TEST VREFP VDD sky130_fd_pr__pfet_01v8 "
@@ -323,12 +338,14 @@ def build_transient(
             lines.append(f"Vbot{i} bot{i} 0 dc 0")
             lines.append(
                 f"Xc_bit{i} bot{i} TOP sky130_fd_pr__cap_mim_m3_1 "
-                f"W=1.8988 L=1.8988 MF={weight} m={weight}"
+                f"W={UNIT_CAP_WL_UM:.4f} L={UNIT_CAP_WL_UM:.4f} "
+                f"MF={weight} m={weight}"
             )
     # Termination unit: fixed weight-1 cap, bottom plate hardwired VREFN,
     # no switch device at all (design/cdac/cdac_array.sch's own convention).
     lines.append(
-        f"Xc_term VREFN TOP sky130_fd_pr__cap_mim_m3_1 W=1.8988 L=1.8988 "
+        f"Xc_term VREFN TOP sky130_fd_pr__cap_mim_m3_1 "
+        f"W={UNIT_CAP_WL_UM:.4f} L={UNIT_CAP_WL_UM:.4f} "
         f"MF={TERM_WEIGHT} m={TERM_WEIGHT}"
     )
 
@@ -522,7 +539,9 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     return points
 
 
-def write_record(rows: list[dict], netlist_sample: str) -> None:
+def write_record(
+    rows: list[dict], netlist_sample: str, note: str = "", supersedes: str = ""
+) -> None:
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_sample)
     record_id = prov.record_id
     record_path = prov.record_path
@@ -589,6 +608,8 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
         "end, f_clk=1.2 MHz) -- quoted for comparison only, not a pass/"
         "fail gate against a ratified row."
     )
+    if note:
+        a(f"- **Note**: {note}")
     a("")
     a(
         "## Closed-form cross-check: simulated long-time V_top vs. the "
@@ -700,16 +721,17 @@ def write_record(rows: list[dict], netlist_sample: str) -> None:
     ))
     a("")
     lines.extend(evidence.footer_lines(
-        "sim/cdac-bit-trial-settling/run_bit_trial_settling.py", ""
+        "sim/cdac-bit-trial-settling/run_bit_trial_settling.py", supersedes
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
-    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-    latest_path.write_text(f"{record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     print(f"\nWrote record: {record_path}")
 
 
-def write_corners_record(points: list[dict]) -> Path:
+def write_corners_record(
+    points: list[dict], note: str = "", supersedes: str = ""
+) -> Path:
     """Evidence record for the full ratified-PVT-grid --corners campaign,
     same `corners/<record_id>/` per-point-deck layout
     sim/sequencer-logic-delay/'s own --corners mode and
@@ -802,6 +824,8 @@ def write_corners_record(points: list[dict]) -> Path:
         "end, f_clk=1.2 MHz) -- quoted for comparison only, not a pass/"
         "fail gate against a ratified row."
     )
+    if note:
+        a(f"- **Note**: {note}")
     a("")
     a("## Worst-case (test_bit, direction) settling time, per corner")
     a("")
@@ -955,12 +979,11 @@ def write_corners_record(points: list[dict]) -> Path:
     ))
     a("")
     lines.extend(evidence.footer_lines(
-        "sim/cdac-bit-trial-settling/run_bit_trial_settling.py", ""
+        "sim/cdac-bit-trial-settling/run_bit_trial_settling.py", supersedes
     ))
 
     record_path.write_text("\n".join(lines) + "\n")
-    latest_path = EXPERIMENT_DIR / "records" / "LATEST"
-    latest_path.write_text(f"{record_id}.md\n")
+    evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     print(f"\nWrote record: {record_path}")
     return record_path
 
@@ -973,6 +996,16 @@ def main() -> int:
         help="run the full ratified PVT grid (9 OAT points) instead of the "
         "single tt/27C/1.8V corner",
     )
+    parser.add_argument(
+        "--note", default="",
+        help="free-text provenance note recorded as this record's `**Note**` "
+        "field -- the place a re-run says WHY it was re-run. Added by #498: "
+        "until then this runner had no --note at all, so a re-run after a "
+        "design/ change could not be traced back to what it replaced from the "
+        "record itself. Prose only: name the displaced record MACHINE-readably "
+        "via --supersedes, which both citation gates actually read.",
+    )
+    evidence.add_supersedes_argument(parser)
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -998,7 +1031,9 @@ def main() -> int:
                     "produced an incomplete (MSB-row-missing) measurement."
                 )
                 if args.record:
-                    write_corners_record(points)
+                    write_corners_record(
+                        points, note=args.note, supersedes=args.supersedes
+                    )
                 return 1
             missing_note = (
                 f" ({n_missing} smaller-bit row(s) missing a crossing -- "
@@ -1011,7 +1046,9 @@ def main() -> int:
                 f"{missing_note}"
             )
             if args.record:
-                write_corners_record(points)
+                write_corners_record(
+                    points, note=args.note, supersedes=args.supersedes
+                )
             return 0
 
         rows = run_all(scratch)
@@ -1022,7 +1059,9 @@ def main() -> int:
         sample_netlist, _ = build_transient(test_bit=TEST_BITS[-1], direction="fall")
 
         if args.record:
-            write_record(rows, sample_netlist)
+            write_record(
+                rows, sample_netlist, note=args.note, supersedes=args.supersedes
+            )
 
     return 0
 

@@ -13,7 +13,10 @@
   relaxed, invented, or negotiated to close #27; every recommendation
   stands exactly as drafted in #26.
 - **Supersedes**: none
-- **Superseded by**: (none while this record stands)
+- **Superseded by**: (none while this record stands as a whole; Item 3's
+  unit-cap plate side specifically is amended by
+  `spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`
+  via #496 — see the UPDATE note at the end of this record)
 - **Related**: #26 (this derivation), #27 (operator ratification request this
   record feeds), #23 (T1-gap tracker), #16 (T1 checklist re-read that opened
   #23), #24 (design-sources gap this record's V_REF/LSB numbers unblock),
@@ -532,3 +535,19 @@ campaign) to target unambiguously:
   resolving #27 was the ratification act (2AMLogic/2am#357), per
   `CLAUDE.md`'s "the spec is a gate" rule; this record's Decision section
   is binding as of that approval.
+
+**UPDATE (issue #496, `spec/decision-records/DR-019-cdac-unit-cap-grid-legal-plate-resize.md`):**
+Item 3's unit-cap plate side (`s = 1.8988 µm`, chosen as the exact
+matching-floor value) is not a multiple of sky130's 5 nm manufacturing grid,
+which #495's `klt precheck --grid-um 0.005` measured as a real defect (not
+merely a klt-bundled-deck quirk — DR-019 reads the PDK's own shipped signoff
+DRC deck directly and confirms the grid check is real and on by default for
+the metal/via layers that land on the plate). DR-019 resizes the plate to
+the smallest 5 nm-grid-legal side at or above this item's own floor
+(`s = 1.9000 µm`, `C_u ≈ 8.664 fF`, was `8.654 fF`) — every other number
+and conclusion in this item (the `≈ 415×` kT/C margin, the matching-vs-kT/C
+dominance ordering, the flagged gain-error finding) is unchanged in kind,
+moving by a fraction of a percent in the favorable direction only. This
+record's own Item 3 arithmetic above is left as originally drafted (the
+matching floor derivation, `A_unit = (A_C/sigma_u)^2`, is unaffected); read
+DR-019 for the current `C_u`/plate-side values.

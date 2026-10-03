@@ -42,7 +42,7 @@ K {}
 V {}
 S {}
 E {}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 0 0 0 {name=Cp0 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 0 0 0 {name=Cp0 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 -50 0 0 {name=Mp0n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 50 0 0 {name=Mp0p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 30 0 0 {name=l_p0_t lab=TOP_P}
@@ -57,7 +57,7 @@ C {lab_pin.sym} 420 20 0 0 {name=l_p0_ps lab=VREFP}
 C {lab_pin.sym} 420 50 0 0 {name=l_p0_pb lab=VDD}
 T {weight=1} 520 0 0 0 0.15 0.15 {}
 C {ipin.sym} -300 0 0 0 {name=p_selp0 lab=SELp0}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 150 0 0 {name=Cp1 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 150 0 0 {name=Cp1 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=2 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 100 0 0 {name=Mp1n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 200 0 0 {name=Mp1p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 180 0 0 {name=l_p1_t lab=TOP_P}
@@ -72,7 +72,7 @@ C {lab_pin.sym} 420 170 0 0 {name=l_p1_ps lab=VREFP}
 C {lab_pin.sym} 420 200 0 0 {name=l_p1_pb lab=VDD}
 T {weight=2} 520 150 0 0 0.15 0.15 {}
 C {ipin.sym} -300 150 0 0 {name=p_selp1 lab=SELp1}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 300 0 0 {name=Cp2 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 300 0 0 {name=Cp2 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=4 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 250 0 0 {name=Mp2n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 350 0 0 {name=Mp2p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 330 0 0 {name=l_p2_t lab=TOP_P}
@@ -87,7 +87,7 @@ C {lab_pin.sym} 420 320 0 0 {name=l_p2_ps lab=VREFP}
 C {lab_pin.sym} 420 350 0 0 {name=l_p2_pb lab=VDD}
 T {weight=4} 520 300 0 0 0.15 0.15 {}
 C {ipin.sym} -300 300 0 0 {name=p_selp2 lab=SELp2}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 450 0 0 {name=Cp3 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 450 0 0 {name=Cp3 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=8 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 400 0 0 {name=Mp3n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 500 0 0 {name=Mp3p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 480 0 0 {name=l_p3_t lab=TOP_P}
@@ -102,7 +102,7 @@ C {lab_pin.sym} 420 470 0 0 {name=l_p3_ps lab=VREFP}
 C {lab_pin.sym} 420 500 0 0 {name=l_p3_pb lab=VDD}
 T {weight=8} 520 450 0 0 0.15 0.15 {}
 C {ipin.sym} -300 450 0 0 {name=p_selp3 lab=SELp3}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 600 0 0 {name=Cp4 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 600 0 0 {name=Cp4 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=16 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 550 0 0 {name=Mp4n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 650 0 0 {name=Mp4p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 630 0 0 {name=l_p4_t lab=TOP_P}
@@ -117,7 +117,7 @@ C {lab_pin.sym} 420 620 0 0 {name=l_p4_ps lab=VREFP}
 C {lab_pin.sym} 420 650 0 0 {name=l_p4_pb lab=VDD}
 T {weight=16} 520 600 0 0 0.15 0.15 {}
 C {ipin.sym} -300 600 0 0 {name=p_selp4 lab=SELp4}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 750 0 0 {name=Cp5 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 750 0 0 {name=Cp5 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=32 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 700 0 0 {name=Mp5n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 800 0 0 {name=Mp5p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 780 0 0 {name=l_p5_t lab=TOP_P}
@@ -132,7 +132,7 @@ C {lab_pin.sym} 420 770 0 0 {name=l_p5_ps lab=VREFP}
 C {lab_pin.sym} 420 800 0 0 {name=l_p5_pb lab=VDD}
 T {weight=32} 520 750 0 0 0.15 0.15 {}
 C {ipin.sym} -300 750 0 0 {name=p_selp5 lab=SELp5}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 900 0 0 {name=Cp6 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 900 0 0 {name=Cp6 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=64 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 850 0 0 {name=Mp6n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 950 0 0 {name=Mp6p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 930 0 0 {name=l_p6_t lab=TOP_P}
@@ -147,7 +147,7 @@ C {lab_pin.sym} 420 920 0 0 {name=l_p6_ps lab=VREFP}
 C {lab_pin.sym} 420 950 0 0 {name=l_p6_pb lab=VDD}
 T {weight=64} 520 900 0 0 0.15 0.15 {}
 C {ipin.sym} -300 900 0 0 {name=p_selp6 lab=SELp6}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 1050 0 0 {name=Cp7 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 1050 0 0 {name=Cp7 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=128 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 1000 0 0 {name=Mp7n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 1100 0 0 {name=Mp7p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 1080 0 0 {name=l_p7_t lab=TOP_P}
@@ -162,7 +162,7 @@ C {lab_pin.sym} 420 1070 0 0 {name=l_p7_ps lab=VREFP}
 C {lab_pin.sym} 420 1100 0 0 {name=l_p7_pb lab=VDD}
 T {weight=128} 520 1050 0 0 0.15 0.15 {}
 C {ipin.sym} -300 1050 0 0 {name=p_selp7 lab=SELp7}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 1200 0 0 {name=Cp8 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 1200 0 0 {name=Cp8 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=256 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 200 1150 0 0 {name=Mp8n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 400 1250 0 0 {name=Mp8p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 0 1230 0 0 {name=l_p8_t lab=TOP_P}
@@ -177,12 +177,12 @@ C {lab_pin.sym} 420 1220 0 0 {name=l_p8_ps lab=VREFP}
 C {lab_pin.sym} 420 1250 0 0 {name=l_p8_pb lab=VDD}
 T {weight=256} 520 1200 0 0 0.15 0.15 {}
 C {ipin.sym} -300 1200 0 0 {name=p_selp8 lab=SELp8}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 0 1350 0 0 {name=Cp_term model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 0 1350 0 0 {name=Cp_term model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {lab_pin.sym} 0 1380 0 0 {name=l_p_term_t lab=TOP_P}
 C {lab_pin.sym} 0 1320 0 0 {name=l_p_term_b lab=VREFN}
 T {termination, weight=1, fixed to VREFN} 520 1350 0 0 0.15 0.15 {}
 C {opin.sym} -300 600 0 0 {name=p_top_p lab=TOP_P}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 0 0 0 {name=Cn0 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 0 0 0 {name=Cn0 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 -50 0 0 {name=Mn0n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 50 0 0 {name=Mn0p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 30 0 0 {name=l_n0_t lab=TOP_N}
@@ -197,7 +197,7 @@ C {lab_pin.sym} 2020 20 0 0 {name=l_n0_ps lab=VREFP}
 C {lab_pin.sym} 2020 50 0 0 {name=l_n0_pb lab=VDD}
 T {weight=1} 2120 0 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 0 0 0 {name=p_seln0 lab=SELn0}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 150 0 0 {name=Cn1 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=2 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 150 0 0 {name=Cn1 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=2 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 100 0 0 {name=Mn1n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 200 0 0 {name=Mn1p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 180 0 0 {name=l_n1_t lab=TOP_N}
@@ -212,7 +212,7 @@ C {lab_pin.sym} 2020 170 0 0 {name=l_n1_ps lab=VREFP}
 C {lab_pin.sym} 2020 200 0 0 {name=l_n1_pb lab=VDD}
 T {weight=2} 2120 150 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 150 0 0 {name=p_seln1 lab=SELn1}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 300 0 0 {name=Cn2 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=4 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 300 0 0 {name=Cn2 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=4 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 250 0 0 {name=Mn2n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 350 0 0 {name=Mn2p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 330 0 0 {name=l_n2_t lab=TOP_N}
@@ -227,7 +227,7 @@ C {lab_pin.sym} 2020 320 0 0 {name=l_n2_ps lab=VREFP}
 C {lab_pin.sym} 2020 350 0 0 {name=l_n2_pb lab=VDD}
 T {weight=4} 2120 300 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 300 0 0 {name=p_seln2 lab=SELn2}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 450 0 0 {name=Cn3 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=8 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 450 0 0 {name=Cn3 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=8 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 400 0 0 {name=Mn3n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 500 0 0 {name=Mn3p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 480 0 0 {name=l_n3_t lab=TOP_N}
@@ -242,7 +242,7 @@ C {lab_pin.sym} 2020 470 0 0 {name=l_n3_ps lab=VREFP}
 C {lab_pin.sym} 2020 500 0 0 {name=l_n3_pb lab=VDD}
 T {weight=8} 2120 450 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 450 0 0 {name=p_seln3 lab=SELn3}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 600 0 0 {name=Cn4 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=16 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 600 0 0 {name=Cn4 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=16 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 550 0 0 {name=Mn4n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 650 0 0 {name=Mn4p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 630 0 0 {name=l_n4_t lab=TOP_N}
@@ -257,7 +257,7 @@ C {lab_pin.sym} 2020 620 0 0 {name=l_n4_ps lab=VREFP}
 C {lab_pin.sym} 2020 650 0 0 {name=l_n4_pb lab=VDD}
 T {weight=16} 2120 600 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 600 0 0 {name=p_seln4 lab=SELn4}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 750 0 0 {name=Cn5 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=32 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 750 0 0 {name=Cn5 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=32 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 700 0 0 {name=Mn5n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 800 0 0 {name=Mn5p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 780 0 0 {name=l_n5_t lab=TOP_N}
@@ -272,7 +272,7 @@ C {lab_pin.sym} 2020 770 0 0 {name=l_n5_ps lab=VREFP}
 C {lab_pin.sym} 2020 800 0 0 {name=l_n5_pb lab=VDD}
 T {weight=32} 2120 750 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 750 0 0 {name=p_seln5 lab=SELn5}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 900 0 0 {name=Cn6 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=64 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 900 0 0 {name=Cn6 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=64 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 850 0 0 {name=Mn6n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 950 0 0 {name=Mn6p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 930 0 0 {name=l_n6_t lab=TOP_N}
@@ -287,7 +287,7 @@ C {lab_pin.sym} 2020 920 0 0 {name=l_n6_ps lab=VREFP}
 C {lab_pin.sym} 2020 950 0 0 {name=l_n6_pb lab=VDD}
 T {weight=64} 2120 900 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 900 0 0 {name=p_seln6 lab=SELn6}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 1050 0 0 {name=Cn7 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=128 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 1050 0 0 {name=Cn7 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=128 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 1000 0 0 {name=Mn7n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 1100 0 0 {name=Mn7p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 1080 0 0 {name=l_n7_t lab=TOP_N}
@@ -302,7 +302,7 @@ C {lab_pin.sym} 2020 1070 0 0 {name=l_n7_ps lab=VREFP}
 C {lab_pin.sym} 2020 1100 0 0 {name=l_n7_pb lab=VDD}
 T {weight=128} 2120 1050 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 1050 0 0 {name=p_seln7 lab=SELn7}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 1200 0 0 {name=Cn8 model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=256 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 1200 0 0 {name=Cn8 model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=256 spiceprefix=X}
 C {sky130_fd_pr/nfet_01v8.sym} 1800 1150 0 0 {name=Mn8n W=1 L=0.15 nf=1 mult=1 model=nfet_01v8 spiceprefix=X}
 C {sky130_fd_pr/pfet_01v8.sym} 2000 1250 0 0 {name=Mn8p W=2 L=0.15 nf=1 mult=1 model=pfet_01v8 spiceprefix=X}
 C {lab_pin.sym} 1600 1230 0 0 {name=l_n8_t lab=TOP_N}
@@ -317,7 +317,7 @@ C {lab_pin.sym} 2020 1220 0 0 {name=l_n8_ps lab=VREFP}
 C {lab_pin.sym} 2020 1250 0 0 {name=l_n8_pb lab=VDD}
 T {weight=256} 2120 1200 0 0 0.15 0.15 {}
 C {ipin.sym} 1300 1200 0 0 {name=p_seln8 lab=SELn8}
-C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 1350 0 0 {name=Cn_term model=cap_mim_m3_1 W=1.8988 L=1.8988 MF=1 spiceprefix=X}
+C {sky130_fd_pr/cap_mim_m3_1.sym} 1600 1350 0 0 {name=Cn_term model=cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 spiceprefix=X}
 C {lab_pin.sym} 1600 1380 0 0 {name=l_n_term_t lab=TOP_N}
 C {lab_pin.sym} 1600 1320 0 0 {name=l_n_term_b lab=VREFN}
 T {termination, weight=1, fixed to VREFN} 2120 1350 0 0 0.15 0.15 {}

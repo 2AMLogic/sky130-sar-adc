@@ -1,0 +1,121 @@
+{
+  "schema": "klt.gen_compose.request/1",
+  "pdk": {
+    "variant": "sky130A"
+  },
+  "blocks": [
+    {
+      "id": "cdac_array",
+      "cell": {
+        "gds_path": "cdac_array.gds",
+        "cell_name": "cdac_array"
+      }
+    },
+    {
+      "id": "sampling_frontend",
+      "cell": {
+        "gds_path": "sampling_frontend.gds",
+        "cell_name": "gen_compose_0"
+      }
+    },
+    {
+      "id": "comparator",
+      "cell": {
+        "gds_path": "comparator.gds",
+        "cell_name": "gen_compose_0"
+      }
+    },
+    {
+      "id": "sar_sequencer",
+      "cell": {
+        "gds_path": "sar_sequencer.gds",
+        "cell_name": "sar_sequencer"
+      }
+    },
+    {
+      "id": "seln_inverters",
+      "cell": {
+        "gds_path": "seln_inverters.gds",
+        "cell_name": "seln_inverters"
+      }
+    },
+    {
+      "id": "decap_a0",
+      "generator_report": "decap.json"
+    },
+    {
+      "id": "decap_a1",
+      "generator_report": "decap.json"
+    },
+    {
+      "id": "decap_d0",
+      "generator_report": "decap.json"
+    },
+    {
+      "id": "decap_d1",
+      "generator_report": "decap.json"
+    },
+    {
+      "id": "route",
+      "generator_report": "draw.json"
+    }
+  ],
+  "placement": {
+    "strategy": "explicit",
+    "order": [
+      "cdac_array",
+      "sampling_frontend",
+      "comparator",
+      "sar_sequencer",
+      "seln_inverters",
+      "decap_a0",
+      "decap_a1",
+      "decap_d0",
+      "decap_d1",
+      "route"
+    ],
+    "origins_um": {
+      "cdac_array": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "sampling_frontend": {
+        "x": 63.825,
+        "y": 88.25
+      },
+      "comparator": {
+        "x": 100.2,
+        "y": 173.8
+      },
+      "sar_sequencer": {
+        "x": 21.1175,
+        "y": -150.0
+      },
+      "seln_inverters": {
+        "x": 87.6875,
+        "y": -150.0
+      },
+      "decap_a0": {
+        "x": 128.0,
+        "y": 150.0
+      },
+      "decap_a1": {
+        "x": 180.0,
+        "y": 150.0
+      },
+      "decap_d0": {
+        "x": 196.0,
+        "y": -150.0
+      },
+      "decap_d1": {
+        "x": 196.0,
+        "y": -98.0
+      },
+      "route": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  },
+  "connectivity": []
+}

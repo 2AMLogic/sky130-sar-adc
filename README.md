@@ -65,9 +65,14 @@ future per-row/Monte-Carlo testbenches (#28/#29/#31). Layout has not started.
   PVT/Monte-Carlo campaign against the full `design/sar_adc_top.sch`
   hierarchy, #28/#29/#31) and layout. `measurements/` stays empty until there
   is silicon.
-- **The gap, itemized** — [`docs/t1-gap.md`](docs/t1-gap.md) maps the ten-item
-  T1 (bronze) evidence checklist to this block's current verdict and to the
-  issue tracking each failing item, as of the 2026-08-15 re-read.
+- **The gap, graded** — [`signoff/t1-report.json`](signoff/t1-report.json) is
+  the verdict of record: the eleven-item T1 (bronze) evidence checklist rendered
+  mechanically by `klt signoff --manifest`, per partition, with a `reason` on
+  every unmet row. CI re-grades it on every push, so it cannot go stale
+  unnoticed. [`signoff/README.md`](signoff/README.md) is the claim written
+  around it — including what is deliberately *not* cited and why —
+  and [`docs/t1-gap.md`](docs/t1-gap.md) is the short in-repo map pointing at
+  both. Current state: **3 of 22 rows met**, tier `null`.
 
 ## Private for now
 

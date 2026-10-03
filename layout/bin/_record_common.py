@@ -1,15 +1,19 @@
 """Shared helpers for the layout sub-block `render-record.py` scripts.
 
 Used by `layout/sar-sequencer/bin/render-record.py`,
-`layout/seln-inverters/bin/render-record.py`, and
-`layout/cdac-array/bin/render-record.py`, which import this module via a
+`layout/seln-inverters/bin/render-record.py`,
+`layout/cdac-array/bin/render-record.py`, and
+`layout/sar-adc-top/bin/render-record.py`, which import this module via a
 `sys.path` insert (see each script's own header) rather than a package
 install, matching sim/harness/'s no-extra-runtime-dependency convention.
 `render_pnr_drc_lvs_record` below is shared only by the sar-sequencer and
 seln-inverters flows, which have identical place-and-route/DRC/LVS report
-shapes and differ only in their H1 title string; cdac-array's own flow
-asserts a different set of verdicts (see that script's own docstring) and
-uses only the smaller helpers below.
+shapes and differ only in their H1 title string; cdac-array's and
+sar-adc-top's own flows each assert their own different set of verdicts (see
+each script's own docstring) and use only the smaller helpers below --
+including `resolve_pdk_commit` (issue #407), which every flow importing this
+module shares regardless of which of the two report-rendering disciplines
+above it otherwise follows.
 
 Deliberately **not** used by `layout/bin/render-record.py` itself (the
 original trivial-cell flow, issue #2): that flow requires every stage to have
@@ -60,6 +64,42 @@ def tool_version(*args: str) -> str:
     try:
         completed = subprocess.run(args, capture_output=True, text=True, timeout=30)
         return (completed.stdout or completed.stderr or "").strip().splitlines()[0]
+    except Exception:  # noqa: BLE001 -- best-effort provenance line, never fatal
+        return "(unresolvable)"
+
+
+def resolve_pdk_commit(klt: str, pdk_variant: str) -> str:
+    """Best-effort `open_pdks` commit `klt pdk find --pdk <pdk_variant>
+    --format json` resolves for *pdk_variant*, e.g.
+    `"open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"`.
+
+    This is the pin issue #407 is about: printing only the PDK *variant name*
+    (e.g. `sky130A`) is not a pin -- it names which corner of the PDK a flow
+    asked for, not which install (i.e. which upstream commit) answered that
+    ask. `klt drc`/`klt extract`/`klt lvs` invoked `--deck`-only (every flow
+    using this helper) stamp no PDK into their own JSON envelopes'
+    `provenance.pdk` (it is `null`) -- passing `--pdk` alongside `--deck`
+    would populate it (confirmed via `klt drc --help`, issue #1901), but that
+    changes the flow's own invocation, not just its record; resolving it here
+    independently, the same way `layout/comparator/bin/render-record.py` and
+    `layout/sampling-frontend/bin/render-record.py` already do, gets the pin
+    without touching run-flow.sh.
+
+    Never raises: mirrors `tool_version`'s best-effort discipline -- a
+    resolution failure (no PDK install, `klt` missing, timeout, malformed
+    JSON) degrades to `"(unresolvable)"` rather than aborting record
+    generation over a provenance nicety.
+    """
+    try:
+        completed = subprocess.run(
+            [klt, "pdk", "find", "--pdk", pdk_variant, "--format", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        data = json.loads(completed.stdout)
+        version = data.get("version")
+        return version if version else "(unresolvable)"
     except Exception:  # noqa: BLE001 -- best-effort provenance line, never fatal
         return "(unresolvable)"
 
@@ -116,7 +156,9 @@ def render_pnr_drc_lvs_record(title: str, args: argparse.Namespace) -> str:
     lines.append("## Provenance")
     lines.append(f"- `klt` version: {tool_version(args.klt, '--version')}")
     lines.append(f"- OpenROAD version: {tool_version('openroad', '-version')}")
-    lines.append(f"- PDK variant: {args.pdk_variant}")
+    lines.append(
+        f"- PDK: {args.pdk_variant} ({resolve_pdk_commit(args.klt, args.pdk_variant)})"
+    )
     lines.append(f"- repo commit: `{commit}`{' (dirty)' if dirty else ''}")
     lines.append("")
 

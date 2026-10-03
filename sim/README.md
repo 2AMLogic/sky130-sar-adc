@@ -300,6 +300,43 @@ rest were omitted**. An unexplained subset is not a valid record.
 testing a *different* claim about the same DUT leaves `Supersedes` empty, even
 when the two are closely related.
 
+#### Every runner can set it, and that is checked (issue #502)
+
+Because `Supersedes` is the *only* machine-readable statement of replacement,
+a runner that writes a record but cannot populate it does not make the two
+citation gates below **fail** — it makes them **stay quiet**, which reads
+exactly like "the citation is fresh". That is how issue #498's re-runs went:
+four of six new records could not say what they displaced, and the stale
+citations had to be found by hand.
+
+So every record-writing runner accepts `--supersedes <record-id>`, declared
+from the one shared helper `harness.evidence.add_supersedes_argument()`, and
+threads it to `harness.evidence.footer_lines()` on **every** write path it has
+(a runner with a `--corners` or `--ratified-record` mode has more than one).
+`npm run check:supersedes` (`sim/check_supersedes_capability.py`, in
+`npm run check:ci`) enforces both halves and fails CI otherwise:
+
+- a runner whose usage advertises `--record` but not `--supersedes`;
+- a `footer_lines()` call site passing a bare literal `""`, which is
+  indistinguishable from a forgotten flag — issue #498's actual bug, where
+  `run_transfer.py` declared the flag and honoured it on only one of its two
+  writers. A path that supersedes nothing *by construction* (the
+  `diagnostics/` writers in `sim/full-conversion-transient/`) says so by name
+  with `evidence.NEVER_SUPERSEDES` — same bytes in the record, but a
+  deliberate and reviewable statement.
+
+A write path whose supersession is a *fixed historical fact* (it displaced one
+specific record once, and its record's **Supersedes** field narrates why) keeps
+that narrative as the **default** of its `supersedes` argument, never as the
+only value it can take — `supersedes = supersedes or <default narrative>` at
+the top of the writer, with `--supersedes` still declared and threaded
+(`sim/sampling-acquisition-settling/`, `sim/vcm-drive-budget/`; issue #513).
+Omitting the flag reproduces the earlier bytes exactly; a re-run that displaces
+a *different* record re-aims the pointer on the command line instead of editing
+the runner. Those runners pass `add_supersedes_argument(..., extra_help=…)` so
+`--help` says what omitting the flag actually writes there (a narrative, not
+`(none)`).
+
 ## Monte Carlo records
 
 `sim/monte_carlo.py` writes a record that additionally states:
@@ -447,6 +484,97 @@ guarantee is what makes `sim/` usable as an evidence trail, and "just fixing"
 a record in place defeats it. Note that `.gitignore` carves `*.log` exceptions
 for `sim/*/corners/**` and `sim/*/mc-draws/**` precisely so this raw evidence
 is committed rather than swept up by the generic log-ignore rule.
+
+## The `records/LATEST` pointer (issue #405)
+
+Some experiment directories publish a `records/LATEST` file: one line naming
+`<record-id>.md`, the record that flow's own runner script most recently
+wrote. `docs/chipalooza/check_proposal_citations.py` (this repo's citation
+gate) resolves "the current record" of a `sim/` flow from this pointer: any
+Section 4 table row of `docs/chipalooza/challenge-4-proposal.md` that cites
+only a *stale* stamp of a pointer-publishing flow fails the gate (check 3),
+and a flow that publishes no pointer is silently excluded from that check
+instead — a smaller, honestly-stated gap rather than a false pass, gated in
+turn by that document's own check 18/25 coverage census.
+
+**Convention, identical for every publishing campaign** — do not invent a
+per-campaign variant:
+
+- The pointer is written by the runner's own record-writing code, in the same
+  function and at the same moment it writes `records/<record-id>.md`, through
+  the one shared harness helper — never a hand-rolled `LATEST` write (issue
+  #482), e.g. `sim/sequencer-logic-delay/run_sequencer_logic_delay.py`:
+  ```python
+  record_path.write_text("\n".join(lines) + "\n")
+  evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
+  ```
+  `evidence.write_latest_pointer()` owns the pointer's path and its exact
+  one-line `<record-id>.md` payload, so a new campaign bootstrapped by copying
+  a sibling runner cannot drift from this convention. It deliberately does not
+  create a missing `records/` — every caller writes its record there first.
+- A flow whose runner mints records through more than one code path (e.g. a
+  single-corner mode and a `--corners` full-grid mode) writes `LATEST`
+  unconditionally at **every** successful record-write site, so the pointer
+  always names whichever record that flow's runner most recently produced —
+  it is never hand-maintained.
+- Like `records/*.md` itself, `LATEST` is a build artifact of a real run, not
+  authored by an agent; a freshly-added `LATEST` for a flow with pre-existing
+  records is backfilled by literally re-running that flow's own runner where
+  that is cheap (as `sim/enob-estimate/run_enob.py` is — no ngspice), or, when
+  a live re-run is genuinely infeasible on the host at hand (as a `--corners`
+  9-point PVT sweep can be — see `sim/selftest.sh`'s own note on issue #133's
+  slow-host timeout), by naming the flow's actual most-recently-written
+  *existing* record, i.e. exactly the value the runner's own selection rule
+  above already implies. Either way the value is never an arbitrary or
+  invented stamp.
+
+**Which campaigns publish a pointer, and why two `sim/` campaigns
+deliberately do not.** As of issue #405, every `layout/` flow and every
+`sim/` campaign publishes `records/LATEST` **except** `sim/comparator-decision`
+and `sim/cdac-array-transfer`. A pointer means "this tree has exactly one
+record that is *the* current one for whatever it's cited for" — true for a
+campaign whose records form a single supersession lineage (each later record
+either replaces an earlier one via **Supersedes**, or is a distinct-but-
+unambiguous re-run cited from exactly one place), and **false** for a
+campaign whose records are genuinely several *distinct, non-superseding*
+claims about the same DUT (`Supersedes: (none)` on each, per "Correction-
+supersession vs distinct-claim" above) that different document rows cite
+*separately*. Minting a single tree-wide pointer for the second kind forces a
+false "superseded" reading on whichever row's citation the pointer does not
+happen to land on — not a freshness bug the citation gate should report, but
+a modeling mismatch between "one pointer per tree" and "more than one current
+claim per tree". Two `sim/` campaigns are in that second class, for two
+different reasons, both discovered/confirmed empirically rather than assumed:
+
+- **`sim/comparator-decision`** mints records in several distinct modes
+  (`noise`, `kickback`, common-mode trace, node trace — see `run.py`'s own
+  mode dispatch) that measure different quantities. Section 4's comparator
+  input-referred-noise row and Kickback row correctly cite different current
+  records of this flow; a `kickback` record does not supersede a `noise`
+  record, so no single `LATEST` could serve both rows.
+- **`sim/cdac-array-transfer`** looks single-mode at first glance (one
+  `run_transfer.py` plus one Monte Carlo companion, `run_mc.py`, sharing one
+  `records/` tree) but is not: its four committed records are a ratified
+  V_REF/LSB structural-and-functional check (cited alone by the `V_REF` row)
+  and two INL/DNL Monte Carlo scorings against two different DRAFT target
+  candidates (cited together by the `INL / DNL` row) — three distinct claims,
+  none superseding another. Issue #405 set out to mint this flow's pointer
+  alongside `sim/enob-estimate`'s and `sim/sar-sequencer-behavioral`'s (all
+  three were filed as "single-mode, unambiguous"); implementing it showed
+  `sim/cdac-array-transfer` shares `sim/comparator-decision`'s ambiguity
+  along a different axis (per-claim rather than per-mode), so it stays
+  pointerless too rather than being forced into a shape it does not have.
+  `sim/enob-estimate` and `sim/sar-sequencer-behavioral` really are
+  single-current-record (each cited from exactly one Section 4 row) and now
+  publish `records/LATEST`.
+
+Resolving either exception the "clean" way — a per-mode/per-claim pointer
+convention (e.g. `records/LATEST-kickback`), or splitting the tree into one
+experiment directory per measured quantity — is a deliberate change to this
+convention and to the citation gate's own resolution rule, not a documentation
+fix; it is out of scope for issue #405 and any future issue doing it should
+say so explicitly rather than mint a pointer that silences one of these two
+flows' rows by accident.
 
 ## The aggregated characterization report (issue #30)
 

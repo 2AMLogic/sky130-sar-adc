@@ -15,9 +15,34 @@ required; every source here is an ideal differential DC/pulse stimulus.
         # (issue #121 -- the comparator half of the bit-trial timing budget
         # docs/chipalooza/challenge-4-proposal.md Section 7 Item 2 names)
     python3 sim/comparator-decision/run.py offset --record --n 16 --seed 1
+    python3 sim/comparator-decision/run.py offset-bisect --record
+        # decision-boundary bisection over Vindiff (issue #515): separates a
+        # SYSTEMATIC decision offset (the Vindiff where resolved polarity
+        # turns over) from a genuine NON-DECISION / dead band (a Vindiff
+        # range resolving on neither polarity), which the single linearized
+        # pick-off number of `offset` above conflates into one figure. Runs
+        # tt/27C (the symmetry negative control) and ss/-40C (slow/cold) by
+        # default; --points picks others. Mismatch-free by construction, so
+        # it measures the systematic term only -- the random/mismatch sigma
+        # stays `offset`'s job. Consumed by
+        # spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md
     python3 sim/comparator-decision/run.py noise --record
     python3 sim/comparator-decision/run.py noise-corners --record
         # full ratified PVT corner sweep of the noise measurement (issue #28)
+    python3 sim/comparator-decision/run.py kickback --record
+        # single-corner (tt/27C) kickback probe: 1kOhm series source
+        # impedance into VINP/VINN, measuring the peak pin disturbance
+        # across the CLK reset->evaluate transition (issue #346), plus its
+        # common-mode / differential decomposition and later recovery
+        # pick-offs (issue #390, DR-014's first gate) -- informational:
+        # spec/target-spec.md's Kickback row is DRAFT (DR-011 via #361) and
+        # spec/README.md forbids grading against a DRAFT value
+    python3 sim/comparator-decision/run.py kickback-neutralized --record
+        # identical probe, against the EXPERIMENTAL cross-coupled-
+        # neutralization DUT variant (testbench/comparator_core_neutralized.
+        # spice) instead of the adopted design -- issue #434, DR-014
+        # Consequences Sec.4 / Open items' headroom-neutral mitigation-class
+        # follow-on. Also informational; does not touch design/comparator.sch
 
 Why this is a bespoke driver, not sim/run_corners.py or sim/monte_carlo.py:
 those two runners are deliberately built around a single ngspice analysis
@@ -57,6 +82,13 @@ from harness import corners as corners_mod, evidence, measure, pdk, toolchain  #
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 TESTBENCH_DIR = EXPERIMENT_DIR / "testbench"
 DUT_FRAGMENT = TESTBENCH_DIR / "comparator_core.spice"
+# EXPERIMENTAL mitigation-class variant (issue #434, DR-014 Consequences
+# Sec.4 / Open items): the same 11-device latch plus two cross-coupled
+# neutralization capacitors on the input pair. NOT the adopted design --
+# see the file's own header for why a hand-authored (non-xschem-derived)
+# fragment is appropriate here, same as sim/harness-corner-smoke's own
+# testbenches. Used only by the `kickback-neutralized` subcommand below.
+DUT_FRAGMENT_NEUTRALIZED = TESTBENCH_DIR / "comparator_core_neutralized.spice"
 
 # --- Fixed testbench constants (all provisional -- see
 # spec/decision-records/DR-004-comparator-topology-and-noise-budget.md) ---
@@ -98,8 +130,8 @@ NOISE_BUDGET_BASELINE_V = 1.0148e-3
 NOISE_BUDGET_STRETCH_V = 0.5859e-3
 
 
-def _dut_lines() -> str:
-    return DUT_FRAGMENT.read_text()
+def _dut_lines(fragment: Path = DUT_FRAGMENT) -> str:
+    return fragment.read_text()
 
 
 def _run(deck_text: str, scratch_dir: Path, log_name: str) -> str:
@@ -113,6 +145,58 @@ def _run(deck_text: str, scratch_dir: Path, log_name: str) -> str:
 DEFAULT_VINDIFF_SWEEP_MV = [0.5, 1, 2, 5, 10, 20, 50, -10]
 EVALUATE_NS = 40.0
 
+# kickback probe stimulus (issue #346). The 1 kOhm series source impedance
+# and the "worst-case overdrive edge" framing are the STIMULUS SHAPE named
+# by the 2AMLogic/sky130-comparator prior-art finding (issue #346's Finding
+# section, its own DR-003) -- a same-PDK, same-topology-class sibling canary
+# whose cross-pollination is sanctioned by CLAUDE.md. Only the methodology
+# (series-impedance probe + peak-pin-disturbance measurement across the CLK
+# reset->evaluate transition) is reused; the deck below is re-derived from
+# scratch against THIS repo's own design/comparator.sch (DR-004 Amendment A,
+# the 11-device topology) -- no netlist, sizing, or measured VALUE from that
+# other repo is introduced here, per CLAUDE.md's clean-room policy.
+KICKBACK_RSRC_OHM = 1000.0  # 1 kOhm, matching the prior-art stimulus shape
+KICKBACK_VINDIFF_SWEEP_MV = [0.0, 1.7578, 50.0]
+#  * 0 mV is the SYMMETRY CONTROL. With no differential input the testbench
+#    is symmetric by construction, so whatever pin disturbance is measured
+#    there is common-mode: VINP and VINN move together (the same Vindiff=0
+#    control idea `regen-corners` already uses, CORNERS_VINDIFF_SWEEP_MV
+#    below). It is NOT a clock/reset-coupled-vs-decision-coupled split --
+#    see the common-mode/differential decomposition columns below, which
+#    measure that separation directly instead of inferring it from a
+#    subtraction of two per-pin extrema (issue #390, DR-014 Decision (a)).
+#  * 1.7578 mV is HALF A DIFFERENTIAL LSB (DR-003 Item 3's
+#    2*V_REF/2^N = 3.5156 mV at V_REF = 1.8 V, N = 10 -- the same half-LSB
+#    point CORNERS_VINDIFF_SWEEP_MV below sweeps, and for the same reason).
+#    It is the SAR-relevant overdrive: the decisions whose accuracy a
+#    differential kickback actually costs are the marginal ones near the
+#    quantization band, not the large-overdrive ones that resolve fast.
+#  * 50 mV is this experiment's OWN largest/worst-case overdrive point
+#    (DEFAULT_VINDIFF_SWEEP_MV's top value above) -- a clean, fast decision
+#    edge, the "worst-case overdrive edge" issue #346 called for.
+# None of the three values is taken from the other repo's own sweep.
+KICKBACK_EVALUATE_NS = EVALUATE_NS  # reuse the same 40ns evaluate window as
+# `regen` -- the disturbance must be tracked THROUGH the full evaluate/
+# regeneration transient, not just the ~100ps CLK ramp itself: the Finding
+# this issue was filed from reports that the dominant kickback charge on a
+# same-PDK sibling topology kept flowing PAST THE END of the clock ramp, so
+# truncating the measurement window at the ramp alone would risk clipping
+# the true peak on this design too.
+KICKBACK_RECOVERY_PICKOFF_NS = [6.0, 10.0, 20.0]  # intermediate pick-off(s),
+# in ns of absolute transient time, at which the common-mode and
+# differential deviations are ALSO reported (issue #390). The end of the
+# evaluate window is always appended to this list by run_kickback_sweep(),
+# so the recovery table always closes on it. The evaluate edge starts at
+# RESET_NS = 5 ns and the CLK ramp ends at 5.1 ns, so these three sit ~0.9,
+# ~4.9 and ~14.9 ns past it: far enough out to say whether the disturbance
+# is a transient that settles or a level that persists into the next bit
+# trial, and spread widely enough to straddle the latch's own resolution
+# instant, which moves by ~10 ns across this Vindiff grid. A pick-off is a
+# RECOVERY INDICATOR, not a settling-time measurement -- the in-loop
+# residual-at-next-decision quantity DR-011's Open items name needs a
+# different (floating-top-plate) testbench and is deliberately out of
+# scope here.
+
 
 def _regen_deck(
     info: pdk.PdkInfo,
@@ -123,6 +207,8 @@ def _regen_deck(
     supply_v: float = VDD,
     evaluate_ns: float = EVALUATE_NS,
     probe_supply_current: bool = False,
+    title: str = "regen-time sweep",
+    issue_ref: str = "(issue #54)",
 ) -> str:
     """Single reset->evaluate transient deck for one (corner, temp, supply,
     Vindiff) point.
@@ -143,14 +229,23 @@ def _regen_deck(
     `probe_supply_current` appends `i(Vdd)` to the `wrdata` vector list so
     the caller can read the supply current drawn during the CLK=0 reset
     phase. It is off by default so that the `regen` subcommand's deck text
-    stays byte-identical to what produced its already-committed records."""
+    stays byte-identical to what produced its already-committed records.
+
+    `title`/`issue_ref` name the campaign in the deck's own leading comment
+    line, which is what a reader of a raw log under `corners/<record-id>/`
+    sees first. Both default to the original strings, so an unspecified call
+    still produces byte-identical deck text; `offset-bisect` below passes its
+    own so its probe logs are not mislabelled as regen-time runs. The STIMULUS is
+    deliberately identical either way -- that is what makes an `offset-bisect`
+    boundary directly comparable with a `regen`/`regen-corners` delay taken at
+    the same Vindiff."""
     vindiff_v = vindiff_mv / 1000.0
     vcm = supply_v / 2.0
     period_ns = RESET_NS + RESET_TR_NS + evaluate_ns + 10.0
     tstop_ns = RESET_NS + RESET_TR_NS + evaluate_ns
     lines = [
-        f"* comparator-decision regen-time sweep -- vindiff={vindiff_mv}mV "
-        f"corner={corner} temp={temp_c}C (issue #54)",
+        f"* comparator-decision {title} -- vindiff={vindiff_mv}mV "
+        f"corner={corner} temp={temp_c}C {issue_ref}",
         f".lib {info.ngspice_lib} {corner}",
         f".temp {temp_c}",
         f".param vdd_val = {supply_v}",
@@ -324,20 +419,13 @@ def write_regen_evidence(
     points: list[RegenPoint], corner: str, temp_c: float,
     note: str = "", supersedes: str = "",
 ) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for p in points:
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
-        (corners_dir / f"vindiff_{safe}.log").write_text(p.log_text)
-
-    lines: list[str] = []
+        raw_logs[f"vindiff_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    record_path = prov.record_path
     a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: pending #1/#27 -- characterizes design/comparator.sch's "
         "regeneration time vs. differential input at one PVT point. Not a "
@@ -386,6 +474,833 @@ def write_regen_evidence(
     return _finalize_record(
         lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
         "regen", supersedes=supersedes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# kickback: peak pin disturbance on VINP/VINN into a 1 kOhm series source
+# impedance, across the CLK reset->evaluate transition (issue #346)
+#
+# WHY THIS EXISTS. Issue #346 is a cross-pollinated prior-art Finding from
+# the sky130-comparator canary (2AMLogic/sky130-comparator): a same-PDK
+# (sky130A, 1.8V), same-topology-class (StrongARM/dynamic-latch) sibling
+# measured a real kickback decomposition + mitigation option table for ITS
+# OWN comparator, and flagged that THIS repo's embedded comparator
+# (design/comparator.sch, DR-004) had never been given a dedicated kickback
+# measurement of its own. This subcommand closes exactly that gap: an
+# ORIGINAL kickback probe against this repo's own 11-device (DR-004
+# Amendment A) netlist, using the sibling's STIMULUS SHAPE (1 kOhm series
+# source impedance, worst-case overdrive edge) as reusable methodology --
+# no netlist, sizing, or measured value crosses the repo boundary, per
+# CLAUDE.md's clean-room / no-reverse-engineering rule.
+#
+# INFORMATIONAL, NOT GRADED. spec/target-spec.md's Kickback row is DRAFT
+# (added by DR-011 via issue #361, after this subcommand's first record), and
+# spec/README.md forbids encoding any value from that DRAFT table as a
+# pass/fail threshold in sim/ -- so this subcommand still grades nothing, and
+# it neither adds nor edits a spec row (CLAUDE.md: "the spec is a gate"; spec
+# rows are a ratification act, not a Builder decision). The measurement below
+# is reported exactly as-is, the same "exercised, not budgeted" treatment
+# DR-004 Decision Sec.3 already gives `regen`/`offset`.
+#
+# WHAT ISSUE #390 ADDED. The per-pin peak the first record reported is the
+# quantity DR-011's row bounds, and it is unchanged here. But it says nothing
+# about how much of the disturbance is COMMON-MODE (which a differential
+# top-plate CDAC rejects to first order) versus DIFFERENTIAL (which lands on
+# the decision). DR-014 -- which decided NOT to adopt a static preamp and
+# left DR-004 Decision Sec.1 standing -- names that split as the first gate
+# on revisiting the call, because the mitigation class worth evaluating
+# depends on which component dominates. This subcommand therefore also
+# reports, per Vindiff point, the peak common-mode and peak differential
+# deviation with their instants, plus later recovery pick-offs of both, and
+# sweeps a half-LSB Vindiff point so the split is measured at the marginal
+# decisions it actually costs rather than only at a large overdrive.
+#
+# METHOD. Each input pin is driven by an ideal DC source in series with a
+# KICKBACK_RSRC_OHM resistor landing on the DUT's own VINP/VINN pin -- the
+# standard "bench source impedance" kickback-probe topology: any charge the
+# switching latch pushes back onto that pin through the input pair's own
+# Cgd/Cgs shows up as an I*R voltage drop across the resistor, i.e. exactly
+# the "pin disturbance" a real (non-ideal) driving source would see. The
+# transient covers the full reset->evaluate->regeneration window (not just
+# the CLK ramp) -- see KICKBACK_EVALUATE_NS's comment above for why.
+# ---------------------------------------------------------------------------
+
+
+def _kickback_deck(
+    info: pdk.PdkInfo,
+    corner: str,
+    temp_c: float,
+    vindiff_mv: float,
+    log_name: str,
+    supply_v: float = VDD,
+    evaluate_ns: float = KICKBACK_EVALUATE_NS,
+    rsrc_ohm: float = KICKBACK_RSRC_OHM,
+    dut_text: str | None = None,
+) -> str:
+    """Single reset->evaluate transient deck for one (corner, temp, supply,
+    Vindiff) kickback point: identical stimulus shape to `_regen_deck`
+    except VINP/VINN are driven through a `rsrc_ohm` series resistor from an
+    ideal DC source rather than directly, so the DUT pin's own voltage can
+    depart from the ideal source's target under switching-induced current.
+
+    `dut_text` lets a caller swap in a different DUT fragment (e.g. issue
+    #434's `DUT_FRAGMENT_NEUTRALIZED` mitigation-class variant) without
+    touching this deck's stimulus shape at all -- defaults to `_dut_lines()`
+    (the adopted `DUT_FRAGMENT`), byte-identical to this function's behavior
+    before `dut_text` existed."""
+    vindiff_v = vindiff_mv / 1000.0
+    vcm = supply_v / 2.0
+    period_ns = RESET_NS + RESET_TR_NS + evaluate_ns + 10.0
+    tstop_ns = RESET_NS + RESET_TR_NS + evaluate_ns
+    lines = [
+        f"* comparator-decision kickback probe -- vindiff={vindiff_mv}mV "
+        f"corner={corner} temp={temp_c}C rsrc={rsrc_ohm}ohm (issue #346)",
+        f".lib {info.ngspice_lib} {corner}",
+        f".temp {temp_c}",
+        f".param vdd_val = {supply_v}",
+        "",
+        "Vdd VDD 0 dc {vdd_val}",
+        f"Vclk CLK 0 PULSE(0 {{vdd_val}} {RESET_NS}n {RESET_TR_NS}n {RESET_TR_NS}n "
+        f"{evaluate_ns}n {period_ns}n)",
+        f"Vinp_ideal VINP_IDEAL 0 dc {vcm + vindiff_v / 2}",
+        f"Vinn_ideal VINN_IDEAL 0 dc {vcm - vindiff_v / 2}",
+        f"Rsrc_p VINP_IDEAL VINP {rsrc_ohm}",
+        f"Rsrc_n VINN_IDEAL VINN {rsrc_ohm}",
+        "",
+        dut_text if dut_text is not None else _dut_lines(),
+        "",
+        ".control",
+        f"tran 0.005n {tstop_ns}n",
+        f"wrdata {log_name}.csv v(CLK) v(VINP) v(VINN) v(OUTP) v(OUTN)",
+        ".endc",
+        ".end",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+@dataclass
+class KickbackRecoveryPoint:
+    """One later pick-off of the common-mode / differential deviations.
+
+    `requested_ns` is the pick-off the caller asked for; `time_ns` is the
+    actual transient sample used (the nearest one, since ngspice's adaptive
+    timestep does not land exactly on a requested instant). `label` is what
+    the record's recovery table prints in its first column."""
+
+    label: str
+    requested_ns: float
+    time_ns: float
+    cm_dev_v: float
+    diff_dev_v: float
+
+
+@dataclass
+class KickbackPoint:
+    vindiff_mv: float
+    target_p_v: float
+    target_n_v: float
+    # Peak signed deviation of EITHER pin's actual voltage from its own
+    # ideal-source target, over the full transient -- `peak_pos_*` is the
+    # largest positive excursion, `peak_neg_*` the largest negative one
+    # (most negative, i.e. minimum), each independently tracking which pin
+    # (VINP or VINN) and what time it occurred at.
+    #
+    # These two are UNCHANGED by issue #390 and stay the record's primary
+    # figures: they are the quantity DR-011's DRAFT Kickback row bounds
+    # ("peak pin disturbance"), and the quantity the 20260924-041815-afcb1b5
+    # baseline reported, so they are what a superseding record has to
+    # reproduce.
+    peak_pos_dev_v: float
+    peak_pos_time_ns: float | None
+    peak_pos_pin: str
+    peak_neg_dev_v: float
+    peak_neg_time_ns: float | None
+    peak_neg_pin: str
+    # The common-mode / differential DECOMPOSITION of the same disturbance
+    # (issue #390, DR-014's first gate). Per sample:
+    #
+    #     cm(t)   = ((v(VINP) - target_p) + (v(VINN) - target_n)) / 2
+    #     diff(t) =  (v(VINP) - target_p) - (v(VINN) - target_n)
+    #
+    # Each series gets its largest POSITIVE and largest NEGATIVE excursion
+    # with the instant it occurred at, the same both-signs convention the
+    # per-pin peaks above already use -- and for a stronger reason here:
+    # diff(t) is not single-lobed. It carries an early excursion during the
+    # CLK ramp, which grows with overdrive, and a later one as the latch
+    # resolves, which is what dominates at small overdrive. A single
+    # largest-magnitude figure would silently report a different lobe at
+    # different points of the Vindiff grid and read as one trend.
+    #
+    # These do not replace the per-pin peaks: a differential top-plate CDAC
+    # rejects cm(t) to first order, so diff(t) is the component that lands on
+    # a SAR decision, while the per-pin peaks are an extremum over either pin
+    # independently and therefore bound neither component on their own.
+    peak_cm_pos_dev_v: float
+    peak_cm_pos_time_ns: float | None
+    peak_cm_neg_dev_v: float
+    peak_cm_neg_time_ns: float | None
+    peak_diff_pos_dev_v: float
+    peak_diff_pos_time_ns: float | None
+    peak_diff_neg_dev_v: float
+    peak_diff_neg_time_ns: float | None
+    # Later pick-offs of the same two series -- a first recovery indicator
+    # (see KICKBACK_RECOVERY_PICKOFF_NS).
+    recovery: list[KickbackRecoveryPoint]
+    log_text: str
+
+    @property
+    def peak_cm_dev_v(self) -> float:
+        """The larger-magnitude of the two common-mode excursions, signed."""
+        return max(
+            (self.peak_cm_pos_dev_v, self.peak_cm_neg_dev_v), key=abs
+        )
+
+    @property
+    def peak_cm_time_ns(self) -> float | None:
+        return (
+            self.peak_cm_pos_time_ns
+            if self.peak_cm_dev_v == self.peak_cm_pos_dev_v
+            else self.peak_cm_neg_time_ns
+        )
+
+    @property
+    def peak_diff_dev_v(self) -> float:
+        """The larger-magnitude of the two differential excursions, signed."""
+        return max(
+            (self.peak_diff_pos_dev_v, self.peak_diff_neg_dev_v), key=abs
+        )
+
+    @property
+    def peak_diff_time_ns(self) -> float | None:
+        return (
+            self.peak_diff_pos_time_ns
+            if self.peak_diff_dev_v == self.peak_diff_pos_dev_v
+            else self.peak_diff_neg_time_ns
+        )
+
+
+def _nearest_sample(t: list[float], target_ns: float) -> int:
+    """Index of the transient sample nearest `target_ns` (absolute ns).
+
+    ngspice's adaptive timestep does not land on a requested instant, so a
+    pick-off names the nearest sample rather than interpolating -- the
+    record then prints the instant actually read, not the one asked for."""
+    return min(range(len(t)), key=lambda i: abs(t[i] * 1e9 - target_ns))
+
+
+def run_kickback_sweep(
+    corner: str = "tt", temp_c: float = 27.0,
+    vindiff_sweep_mv: list[float] | None = None, quiet: bool = False,
+    supply_v: float = VDD, evaluate_ns: float = KICKBACK_EVALUATE_NS,
+    rsrc_ohm: float = KICKBACK_RSRC_OHM,
+    recovery_pickoff_ns: list[float] | None = None,
+    dut_fragment: Path = DUT_FRAGMENT,
+) -> list[KickbackPoint]:
+    """`dut_fragment` lets a caller run this exact sweep against a different
+    DUT netlist fragment (issue #434's mitigation-class variants) without
+    touching the stimulus shape, decomposition, or recovery pick-off logic
+    below at all -- defaults to the adopted `DUT_FRAGMENT`, so this
+    function's behavior is unchanged for every existing caller."""
+    info = pdk.resolve_or_raise()
+    vindiff_sweep_mv = vindiff_sweep_mv or KICKBACK_VINDIFF_SWEEP_MV
+    if recovery_pickoff_ns is None:
+        recovery_pickoff_ns = list(KICKBACK_RECOVERY_PICKOFF_NS)
+    vcm = supply_v / 2.0
+    dut_text = _dut_lines(dut_fragment)
+    points: list[KickbackPoint] = []
+    with tempfile.TemporaryDirectory(prefix="comparator-decision-kickback-") as scratch:
+        scratch_dir = Path(scratch)
+        for vindiff_mv in vindiff_sweep_mv:
+            log_name = f"kickback_{vindiff_mv}mV".replace("-", "neg").replace(".", "p")
+            deck = _kickback_deck(
+                info, corner, temp_c, vindiff_mv, log_name,
+                supply_v=supply_v, evaluate_ns=evaluate_ns, rsrc_ohm=rsrc_ohm,
+                dut_text=dut_text,
+            )
+            log_text = _run(deck, scratch_dir, log_name)
+            csv_path = scratch_dir / f"{log_name}.csv"
+            t, clk, vinp, vinn, outp, outn = toolchain.read_wrdata_csv(csv_path, 5)
+            vindiff_v = vindiff_mv / 1000.0
+            target_p = vcm + vindiff_v / 2
+            target_n = vcm - vindiff_v / 2
+
+            best_pos_dev, best_pos_ns, best_pos_pin = float("-inf"), None, ""
+            best_neg_dev, best_neg_ns, best_neg_pin = float("inf"), None, ""
+            for i, tt in enumerate(t):
+                for dev, pin in (
+                    (vinp[i] - target_p, "VINP"),
+                    (vinn[i] - target_n, "VINN"),
+                ):
+                    if dev > best_pos_dev:
+                        best_pos_dev, best_pos_ns, best_pos_pin = dev, tt * 1e9, pin
+                    if dev < best_neg_dev:
+                        best_neg_dev, best_neg_ns, best_neg_pin = dev, tt * 1e9, pin
+
+            # Common-mode / differential decomposition of the SAME two
+            # deviation series the per-pin peaks above are taken from
+            # (issue #390) -- see KickbackPoint's field comment for the
+            # definitions and for why both are needed.
+            cm_series = [
+                ((vinp[i] - target_p) + (vinn[i] - target_n)) / 2.0
+                for i in range(len(t))
+            ]
+            diff_series = [
+                (vinp[i] - target_p) - (vinn[i] - target_n)
+                for i in range(len(t))
+            ]
+            cm_pos_i = max(range(len(t)), key=lambda i: cm_series[i])
+            cm_neg_i = min(range(len(t)), key=lambda i: cm_series[i])
+            diff_pos_i = max(range(len(t)), key=lambda i: diff_series[i])
+            diff_neg_i = min(range(len(t)), key=lambda i: diff_series[i])
+
+            recovery: list[KickbackRecoveryPoint] = []
+            end_ns = t[-1] * 1e9
+            pickoffs: list[tuple[str, float]] = [
+                (f"{req:g} ns", req)
+                for req in recovery_pickoff_ns
+                if req < end_ns
+            ]
+            pickoffs.append(("end of window", end_ns))
+            for label, req_ns in pickoffs:
+                i = _nearest_sample(t, req_ns)
+                recovery.append(KickbackRecoveryPoint(
+                    label=label, requested_ns=req_ns, time_ns=t[i] * 1e9,
+                    cm_dev_v=cm_series[i], diff_dev_v=diff_series[i],
+                ))
+
+            points.append(KickbackPoint(
+                vindiff_mv=vindiff_mv, target_p_v=target_p, target_n_v=target_n,
+                peak_pos_dev_v=best_pos_dev, peak_pos_time_ns=best_pos_ns,
+                peak_pos_pin=best_pos_pin,
+                peak_neg_dev_v=best_neg_dev, peak_neg_time_ns=best_neg_ns,
+                peak_neg_pin=best_neg_pin,
+                peak_cm_pos_dev_v=cm_series[cm_pos_i],
+                peak_cm_pos_time_ns=t[cm_pos_i] * 1e9,
+                peak_cm_neg_dev_v=cm_series[cm_neg_i],
+                peak_cm_neg_time_ns=t[cm_neg_i] * 1e9,
+                peak_diff_pos_dev_v=diff_series[diff_pos_i],
+                peak_diff_pos_time_ns=t[diff_pos_i] * 1e9,
+                peak_diff_neg_dev_v=diff_series[diff_neg_i],
+                peak_diff_neg_time_ns=t[diff_neg_i] * 1e9,
+                recovery=recovery,
+                log_text=log_text,
+            ))
+            if not quiet:
+                print(
+                    f"  vindiff={vindiff_mv:+.4f}mV -> "
+                    f"peak+={best_pos_dev * 1000:+.4f}mV ({best_pos_pin}@{best_pos_ns:.3f}ns)  "
+                    f"peak-={best_neg_dev * 1000:+.4f}mV ({best_neg_pin}@{best_neg_ns:.3f}ns)"
+                )
+                print(
+                    f"      CM  += {cm_series[cm_pos_i] * 1000:+.4f}mV "
+                    f"(@{t[cm_pos_i] * 1e9:.3f}ns)  "
+                    f"-= {cm_series[cm_neg_i] * 1000:+.4f}mV "
+                    f"(@{t[cm_neg_i] * 1e9:.3f}ns)"
+                )
+                print(
+                    f"      diff+= {diff_series[diff_pos_i] * 1000:+.4f}mV "
+                    f"(@{t[diff_pos_i] * 1e9:.3f}ns)  "
+                    f"-= {diff_series[diff_neg_i] * 1000:+.4f}mV "
+                    f"(@{t[diff_neg_i] * 1e9:.3f}ns)"
+                )
+                print(
+                    "      recovery: "
+                    + "  ".join(
+                        f"[{r.label} @{r.time_ns:.3f}ns: "
+                        f"CM={r.cm_dev_v * 1000:+.4f}mV "
+                        f"diff={r.diff_dev_v * 1000:+.4f}mV]"
+                        for r in recovery
+                    )
+                )
+    return points
+
+
+def write_kickback_evidence(
+    points: list[KickbackPoint], corner: str, temp_c: float,
+    note: str = "", supersedes: str = "",
+) -> Path:
+    raw_logs: dict[str, str] = {}
+    for p in points:
+        safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
+        raw_logs[f"kickback_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
+
+    worst = max(points, key=lambda p: max(abs(p.peak_pos_dev_v), abs(p.peak_neg_dev_v)))
+    worst_abs_v = max(abs(worst.peak_pos_dev_v), abs(worst.peak_neg_dev_v))
+    worst_cm = max(points, key=lambda p: abs(p.peak_cm_dev_v))
+    # The Vindiff=0 symmetry control is excluded from the DIFFERENTIAL worst
+    # case on purpose: at exactly zero input the latch resolves on solver
+    # asymmetry alone, so its differential columns report a metastable-
+    # resolution artifact rather than a disturbance any bit trial pays. The
+    # prose under the table says so; this keeps the Overall line from
+    # quoting it as the headline number. Falls back to the full set if the
+    # grid happens to hold nothing but the control.
+    _diff_candidates = [p for p in points if p.vindiff_mv != 0.0] or list(points)
+    worst_diff = max(_diff_candidates, key=lambda p: abs(p.peak_diff_dev_v))
+
+    a(
+        "- **Claim**: none -- INFORMATIONAL. spec/target-spec.md's Kickback "
+        "row is DRAFT (added by DR-011 via issue #361, with its bound adopted "
+        "verbatim from a sibling canary rather than derived from this block's "
+        "own budget), and spec/README.md forbids encoding any value from that "
+        "DRAFT table as a pass/fail threshold in sim/ -- so nothing below is "
+        "graded against it. This record measures design/comparator.sch's own "
+        f"peak pin disturbance into a {KICKBACK_RSRC_OHM:g}Ohm series source "
+        "impedance, and -- new here, per issue #390 -- the common-mode / "
+        "differential decomposition of that disturbance, for a future "
+        "mitigation/ratification decision to weigh, per DR-004 Decision "
+        "Sec.3's 'exercised, not budgeted' treatment of regen/offset -- this "
+        "record gives kickback the same status. The per-pin peaks originate "
+        "in issue #346, a cross-pollinated prior-art report from the "
+        "sky130-comparator canary (2AMLogic/sky130-comparator); the "
+        "decomposition is DR-014's own first gate (issue #390), the "
+        "measurement that record names as the input a kickback-mitigation "
+        "choice must be re-taken on. See Methodology below for what was and "
+        "was not reused from the sibling canary."
+    )
+    a(f"- **Netlist provenance**: schematic (`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}`)")
+    a(
+        f"- **Corner matrix run**: process=['{corner}'], temperature_c=[{temp_c}], "
+        f"supply_v=[{VDD}] (1 PVT point -- **subset-corner justification**: "
+        "first-pass, nominal-corner-only characterization, consistent with "
+        "how DR-004's own `regen`/`offset`/`noise` records each landed "
+        "single-corner first; a PVT sweep is deferred to future work, see "
+        "the record's closing note)"
+    )
+    a(
+        f"- **Stimulus**: {KICKBACK_RSRC_OHM:g}Ohm series source impedance on each of "
+        f"VINP/VINN (ideal DC source -> resistor -> DUT pin); single "
+        f"reset({RESET_NS}ns, CLK=0)->evaluate(CLK={VDD}V) edge per run "
+        f"over a {KICKBACK_EVALUATE_NS:g}ns evaluate window; Vcm={VCM}V. "
+        "Methodology (series-impedance probe + peak-pin-disturbance-over-"
+        "the-transition measurement) follows the stimulus shape named by "
+        "2AMLogic/sky130-comparator's DR-003 kickback probe -- a same-PDK, "
+        "same-topology-class sibling canary, cross-pollination sanctioned "
+        "by CLAUDE.md. This record's netlist, device sizing, Vindiff grid, "
+        "and every measured number below are re-derived from scratch "
+        "against THIS repo's own design/comparator.sch; no value from the "
+        "other repo is introduced, cited, or reconstructed here, per "
+        "CLAUDE.md's clean-room policy."
+    )
+    if note:
+        a(f"- **Note**: {note}")
+    a(
+        f"- **Overall**: measured (informational, see Claim above) -- worst-case "
+        f"peak pin disturbance across the {len(points)} Vindiff point(s) run: "
+        f"{worst_abs_v * 1000:.4f} mV (at Vindiff={worst.vindiff_mv:+.4f}mV). "
+        f"Decomposed (issue #390, DR-014's first gate): worst-case peak "
+        f"COMMON-MODE deviation {worst_cm.peak_cm_dev_v * 1000:+.4f} mV "
+        f"(at Vindiff={worst_cm.vindiff_mv:+.4f}mV, "
+        f"t={worst_cm.peak_cm_time_ns:.3f}ns); worst-case peak DIFFERENTIAL "
+        f"deviation {worst_diff.peak_diff_dev_v * 1000:+.4f} mV "
+        f"(at Vindiff={worst_diff.vindiff_mv:+.4f}mV, "
+        f"t={worst_diff.peak_diff_time_ns:.3f}ns), excluding the "
+        f"Vindiff=0mV symmetry-control row, whose differential columns are a "
+        f"metastable-resolution artifact rather than a kickback (see below)"
+    )
+    a("")
+    a("## Measured value(s)")
+    a("")
+    a(
+        "| Vindiff (mV) | peak+ (mV) | pin / time (ns) | peak- (mV) | "
+        "pin / time (ns) | CM+ (mV) @ t (ns) | CM- (mV) @ t (ns) | "
+        "diff+ (mV) @ t (ns) | diff- (mV) @ t (ns) |"
+    )
+    a("|---|---|---|---|---|---|---|---|---|")
+
+    def _at(dev_v: float | None, time_ns: float | None) -> str:
+        if dev_v is None:
+            return "n/a"
+        when = f"{time_ns:.3f}" if time_ns is not None else "n/a"
+        return f"{dev_v * 1000:+.4f} @ {when}"
+
+    for p in sorted(points, key=lambda p: p.vindiff_mv):
+        pos_ns = f"{p.peak_pos_time_ns:.3f}" if p.peak_pos_time_ns is not None else "n/a"
+        neg_ns = f"{p.peak_neg_time_ns:.3f}" if p.peak_neg_time_ns is not None else "n/a"
+        a(
+            f"| {p.vindiff_mv:+.4f} | {p.peak_pos_dev_v * 1000:+.4f} | "
+            f"{p.peak_pos_pin} @ {pos_ns} | {p.peak_neg_dev_v * 1000:+.4f} | "
+            f"{p.peak_neg_pin} @ {neg_ns} | "
+            f"{_at(p.peak_cm_pos_dev_v, p.peak_cm_pos_time_ns)} | "
+            f"{_at(p.peak_cm_neg_dev_v, p.peak_cm_neg_time_ns)} | "
+            f"{_at(p.peak_diff_pos_dev_v, p.peak_diff_pos_time_ns)} | "
+            f"{_at(p.peak_diff_neg_dev_v, p.peak_diff_neg_time_ns)} |"
+        )
+    a("")
+    a(
+        "`peak+`/`peak-` are the largest positive and largest negative "
+        "deviation of EITHER pin from its own ideal-source target, taken over "
+        "VINP and VINN independently -- unchanged from this measurement's "
+        "baseline record, because that per-pin extremum is the quantity "
+        "spec/target-spec.md's DRAFT Kickback row bounds and therefore what a "
+        "superseding record has to reproduce. The `CM`/`diff` columns are the "
+        "largest positive and largest negative excursion, each with the "
+        "instant it occurred at, of the two DECOMPOSED series taken over the "
+        "same transient:"
+    )
+    a("")
+    a("```")
+    a("cm(t)   = ((v(VINP) - target_p) + (v(VINN) - target_n)) / 2")
+    a("diff(t) =  (v(VINP) - target_p) -  (v(VINN) - target_n)")
+    a("```")
+    a("")
+    a(
+        "Why the decomposition and not the per-pin peaks alone: a "
+        "differential top-plate CDAC rejects a common-mode pin disturbance to "
+        "first order, so `cm(t)` is largely not paid for by the conversion, "
+        "while `diff(t)` lands directly on the decision the comparator is "
+        "about to make. The per-pin peaks bound neither component on their "
+        "own -- they are an extremum over either pin independently -- so a "
+        "subtraction between two per-pin rows is NOT a common-mode / "
+        "differential split, and this record does not read it as one "
+        "(issue #390, DR-014 Decision (a))."
+    )
+    a("")
+    a(
+        "Why both signs of each decomposed series rather than one "
+        "largest-magnitude figure: `diff(t)` is not single-lobed. It carries "
+        "an early excursion while the CLK ramp is still moving, and a later "
+        "one as the latch resolves; which of the two is larger changes across "
+        "the Vindiff grid, so a single magnitude-extremum column would report "
+        "a different physical event at different rows and read as one trend. "
+        "Reading the two lobes separately is the point of the split."
+    )
+    a("")
+    a(
+        "The Vindiff=0mV row (if present) is the SYMMETRY CONTROL: with no "
+        "differential input the deck is symmetric by construction, so its "
+        "common-mode column IS its whole per-pin disturbance. Its "
+        "differential columns are NOT a zero reference, and this record does "
+        "not present them as one: at exactly zero input the latch has no "
+        "correct answer to resolve to, so it resolves on solver asymmetry "
+        "alone, and once the outputs diverge they couple back differentially "
+        "onto the input pins through the input pair's own Cgd. That is a "
+        "metastable-resolution artifact of a zero-input transient, not a "
+        "kickback this converter ever pays -- a real bit trial always "
+        "presents a nonzero residual. The nonzero Vindiff rows are the ones "
+        "to read a differential component off."
+    )
+    a("")
+    a(
+        f"The half-LSB row (Vindiff=+{0.5 * DIFFERENTIAL_LSB_MV:.4f}mV, half of "
+        f"DR-003 Item 3's {DIFFERENTIAL_LSB_MV:.4f} mV differential LSB) is "
+        "the SAR-relevant overdrive: it is the scale of the marginal "
+        "decisions whose accuracy a differential kickback actually costs. "
+        "The large-overdrive row resolves fast and is the worst case for the "
+        "per-pin peak, not necessarily for the decision."
+    )
+    a("")
+    a("### Recovery pick-offs")
+    a("")
+    a(
+        "Both decomposed series, re-read at one or more later instants -- a "
+        "first indicator of whether the disturbance is a transient that "
+        "settles inside the evaluate window or a level that persists. The "
+        "instant printed is the nearest transient sample to the pick-off "
+        "asked for (ngspice's adaptive timestep does not land exactly on a "
+        "requested time). This is NOT the in-loop residual-at-next-decision "
+        "measurable DR-011's Open items name: that quantity needs a floating "
+        "top plate and a following bit trial, neither of which this "
+        "ideal-source bench has."
+    )
+    a("")
+    a("| Vindiff (mV) | pick-off | t (ns) | CM deviation (mV) | differential deviation (mV) |")
+    a("|---|---|---|---|---|")
+    for p in sorted(points, key=lambda p: p.vindiff_mv):
+        for r in p.recovery:
+            a(
+                f"| {p.vindiff_mv:+.4f} | {r.label} | {r.time_ns:.3f} | "
+                f"{r.cm_dev_v * 1000:+.4f} | {r.diff_dev_v * 1000:+.4f} |"
+            )
+    a("")
+    a(
+        "No spec/target-spec.md line is added, edited, relaxed, or graded "
+        "against by this record -- see Claim above. The Kickback row's bound "
+        "and DRAFT status are DR-011's and are untouched here; weighing this "
+        "measurement (and any mitigation option) against a ratification act "
+        "is a decision record's job, not this testbench's. DR-014 is the "
+        "record that asked for the decomposition above, and its Consequences "
+        "Sec.4 states what a differential component above the row's bound "
+        "obliges: the headroom-neutral mitigation classes it names must be "
+        "measured before a static preamp is reconsidered. This record "
+        "supplies the input; it does not make that call."
+    )
+    a("")
+    a(
+        "- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 "
+        "compact device models via ngspice transient analysis; no "
+        "literature/foundry-doc figure used, and no measured value from "
+        "`2AMLogic/sky130-comparator` transferred, per CLAUDE.md's "
+        "clean-room policy)"
+    )
+    a("")
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "kickback", supersedes=supersedes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# kickback-neutralized: the same kickback probe against the EXPERIMENTAL
+# cross-coupled-neutralization DUT variant (issue #434, DR-014 Consequences
+# Sec.4 / Open items)
+#
+# WHY THIS EXISTS. DR-014 kept DR-004 Decision Sec.1 (no static preamp) and
+# named its own "first gate" on revisiting that call: issue #390's
+# common-mode/differential split of the kickback measurement. #390 has since
+# closed and measured a differential component above DR-011's DRAFT bound at
+# the large-overdrive point (record 20260925-050027-0259924, cited by
+# write_kickback_evidence() above) -- the condition DR-014 Consequences
+# Sec.4 named as the trigger for measuring its (c) "headroom-neutral"
+# mitigation classes before a preamp is reconsidered again. This subcommand
+# measures the first of those classes named as unevaluated anywhere in this
+# program: cross-coupled neutralization, which DR-014 (c) says targets the
+# differential component specifically. It is NOT a topology change to
+# design/comparator.sch -- see DUT_FRAGMENT_NEUTRALIZED's own header for
+# what was added and why, and why a hand-authored (non-xschem) fragment is
+# appropriate for a mitigation-class scoping measurement that has not been
+# adopted.
+#
+# METHOD. Byte-identical stimulus, decomposition, and recovery pick-off
+# machinery to `kickback` above (this reuses `_kickback_deck()` and
+# `run_kickback_sweep()` unchanged, just pointed at
+# `DUT_FRAGMENT_NEUTRALIZED` via the `dut_fragment` parameter both gained
+# for this purpose) -- so this record's numbers are directly comparable to
+# #390's, which is the whole point: same stimulus, same decomposition, only
+# the DUT differs by the two added neutralization capacitors.
+# ---------------------------------------------------------------------------
+
+# Baseline figures this record compares itself against, cited from
+# sim/comparator-decision/records/20260925-050027-0259924.md (issue #390's
+# closing measurement, DR-014's first gate) -- NOT re-derived here, quoted
+# so the comparison in the record text below is traceable to that record
+# without re-opening it. If a later baseline record supersedes that one,
+# this module constant is what needs updating, not the prose below.
+BASELINE_RECORD_390 = "20260925-050027-0259924"
+BASELINE_390_PEAK_NEG_MV = -73.3673  # Vindiff=+50mV, VINP@5.108ns
+BASELINE_390_DIFF_NEG_50MV_MV = -10.9153  # Vindiff=+50mV, t=5.083ns
+BASELINE_390_DIFF_POS_HALFLSB_MV = 4.1918  # Vindiff=+1.7578mV, t=7.077ns
+
+
+def write_kickback_neutralized_evidence(
+    points: list[KickbackPoint], corner: str, temp_c: float,
+    note: str = "", supersedes: str = "",
+) -> Path:
+    """Evidence record for the cross-coupled-neutralization mitigation-class
+    measurement (issue #434). Structured like write_kickback_evidence()
+    above (same table shape, same recovery-pickoff section) but a distinct
+    function rather than a parameterized shared one: this record's Claim,
+    netlist provenance, and comparison prose are specific to a mitigation
+    CLASS measurement against an unadopted DUT variant, not to
+    design/comparator.sch's own baseline -- keeping them separate avoids
+    quietly repurposing the baseline record's own carefully-scoped Claim
+    text for a different claim (sim/README's distinct-claim-vs-correction
+    distinction)."""
+    dut_text = _dut_lines(DUT_FRAGMENT_NEUTRALIZED)
+    raw_logs: dict[str, str] = {}
+    for p in points:
+        safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
+        raw_logs[f"kickback_neutralized_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, dut_text, "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
+
+    worst = max(points, key=lambda p: max(abs(p.peak_pos_dev_v), abs(p.peak_neg_dev_v)))
+    worst_abs_v = max(abs(worst.peak_pos_dev_v), abs(worst.peak_neg_dev_v))
+    worst_cm = max(points, key=lambda p: abs(p.peak_cm_dev_v))
+    _diff_candidates = [p for p in points if p.vindiff_mv != 0.0] or list(points)
+    worst_diff = max(_diff_candidates, key=lambda p: abs(p.peak_diff_dev_v))
+    # Tolerance widened from 1e-6 to 1e-3 mV: KICKBACK_VINDIFF_SWEEP_MV's
+    # half-LSB point is the rounded literal 1.7578 (see that constant's own
+    # comment), while 0.5 * DIFFERENTIAL_LSB_MV computes to 1.7578125 -- an
+    # exact-match tolerance of 1e-6 mV silently matched nothing and dropped
+    # the "Half-LSB point" comparison paragraph below without erroring.
+    half_lsb_candidates = [p for p in points if abs(p.vindiff_mv - 0.5 * DIFFERENTIAL_LSB_MV) < 1e-3]
+    half_lsb = half_lsb_candidates[0] if half_lsb_candidates else None
+
+    diff_delta_pct = (
+        (abs(worst_diff.peak_diff_dev_v) * 1000.0 - abs(BASELINE_390_DIFF_NEG_50MV_MV))
+        / abs(BASELINE_390_DIFF_NEG_50MV_MV) * 100.0
+    )
+    peak_delta_pct = (
+        (worst_abs_v * 1000.0 - abs(BASELINE_390_PEAK_NEG_MV))
+        / abs(BASELINE_390_PEAK_NEG_MV) * 100.0
+    )
+
+    a(
+        "- **Claim**: none -- INFORMATIONAL, and NOT a measurement of "
+        "design/comparator.sch (the adopted design). This record measures "
+        "the SAME kickback probe as "
+        f"`sim/comparator-decision/records/{BASELINE_RECORD_390}.md` "
+        "(issue #390's baseline, DR-014's first gate) run instead against "
+        "`sim/comparator-decision/testbench/comparator_core_neutralized.spice`, "
+        "an EXPERIMENTAL variant that adds two cross-coupled neutralization "
+        "capacitors to the same 11-device StrongARM-class latch. This is "
+        "issue #434's mitigation-class measurement, per DR-014 Consequences "
+        "Sec.4 / Open items ('cross-coupled neutralization ... targets the "
+        "differential component ... unmeasured anywhere in this program'). "
+        "spec/target-spec.md's Kickback row remains DRAFT and nothing here "
+        "is graded against it (spec/README.md), and no design/*.sch file is "
+        "touched by this measurement -- adopting this or any mitigation "
+        "class is a future decision record's job, not this testbench's. See "
+        "the DUT fragment's own header for the neutralization technique, "
+        "sizing rationale, and what was NOT attempted (a PDK-realistic MiM "
+        "capacitor, a full PVT sweep, or a hand-tuned cap value)."
+    )
+    a(
+        f"- **Netlist provenance**: hand-authored EXPERIMENTAL variant "
+        f"(`{DUT_FRAGMENT_NEUTRALIZED.relative_to(evidence.REPO_ROOT)}`), "
+        "not netlisted from any design/*.sch schematic -- see that file's "
+        "own header for why a hand-authored fragment is appropriate here "
+        "(same convention as sim/harness-corner-smoke/testbench/*.spice)."
+    )
+    a(
+        f"- **Corner matrix run**: process=['{corner}'], temperature_c=[{temp_c}], "
+        f"supply_v=[{VDD}] (1 PVT point -- **subset-corner justification**: "
+        "first-pass, nominal-corner-only mitigation-class scoping "
+        "measurement, matching #390's own single-corner scope so the two "
+        "are directly comparable; a PVT sweep is out of scope here and "
+        "would only be warranted if this class were adopted)"
+    )
+    a(
+        f"- **Stimulus**: identical to "
+        f"`sim/comparator-decision/records/{BASELINE_RECORD_390}.md` -- "
+        f"{KICKBACK_RSRC_OHM:g}Ohm series source impedance on each of "
+        f"VINP/VINN (ideal DC source -> resistor -> DUT pin); single "
+        f"reset({RESET_NS}ns, CLK=0)->evaluate(CLK={VDD}V) edge per run "
+        f"over a {KICKBACK_EVALUATE_NS:g}ns evaluate window; Vcm={VCM}V; "
+        "same Vindiff grid (0mV symmetry control, half-LSB, and +50mV "
+        "large-overdrive), same common-mode/differential decomposition "
+        "method. Only the DUT netlist differs."
+    )
+    if note:
+        a(f"- **Note**: {note}")
+    a(
+        f"- **Overall**: measured (informational, see Claim above) -- "
+        f"worst-case peak pin disturbance across the {len(points)} Vindiff "
+        f"point(s) run: {worst_abs_v * 1000:.4f} mV (at "
+        f"Vindiff={worst.vindiff_mv:+.4f}mV), vs. "
+        f"{abs(BASELINE_390_PEAK_NEG_MV):.4f} mV in the unmitigated baseline "
+        f"({peak_delta_pct:+.1f}% -- a positive number is WORSE, since this "
+        "is a peak-magnitude comparison). Decomposed (same method as #390): "
+        f"worst-case peak COMMON-MODE deviation {worst_cm.peak_cm_dev_v * 1000:+.4f} mV "
+        f"(at Vindiff={worst_cm.vindiff_mv:+.4f}mV, "
+        f"t={worst_cm.peak_cm_time_ns:.3f}ns) -- this mitigation class targets "
+        "the differential component (DR-014 (c)), not the common-mode one, so "
+        "little change here is expected. Worst-case peak DIFFERENTIAL "
+        f"deviation (excluding the Vindiff=0mV symmetry control, same "
+        f"caveat as the baseline): {worst_diff.peak_diff_dev_v * 1000:+.4f} mV "
+        f"(at Vindiff={worst_diff.vindiff_mv:+.4f}mV, "
+        f"t={worst_diff.peak_diff_time_ns:.3f}ns), vs. "
+        f"{BASELINE_390_DIFF_NEG_50MV_MV:.4f} mV in the baseline at the "
+        f"same Vindiff=+50mV point ({diff_delta_pct:+.1f}%)."
+    )
+    a("")
+    a("## Measured value(s)")
+    a("")
+    a(
+        "| Vindiff (mV) | peak+ (mV) | pin / time (ns) | peak- (mV) | "
+        "pin / time (ns) | CM+ (mV) @ t (ns) | CM- (mV) @ t (ns) | "
+        "diff+ (mV) @ t (ns) | diff- (mV) @ t (ns) |"
+    )
+    a("|---|---|---|---|---|---|---|---|---|")
+
+    def _at(dev_v: float | None, time_ns: float | None) -> str:
+        if dev_v is None:
+            return "n/a"
+        when = f"{time_ns:.3f}" if time_ns is not None else "n/a"
+        return f"{dev_v * 1000:+.4f} @ {when}"
+
+    for p in sorted(points, key=lambda p: p.vindiff_mv):
+        pos_ns = f"{p.peak_pos_time_ns:.3f}" if p.peak_pos_time_ns is not None else "n/a"
+        neg_ns = f"{p.peak_neg_time_ns:.3f}" if p.peak_neg_time_ns is not None else "n/a"
+        a(
+            f"| {p.vindiff_mv:+.4f} | {p.peak_pos_dev_v * 1000:+.4f} | "
+            f"{p.peak_pos_pin} @ {pos_ns} | {p.peak_neg_dev_v * 1000:+.4f} | "
+            f"{p.peak_neg_pin} @ {neg_ns} | "
+            f"{_at(p.peak_cm_pos_dev_v, p.peak_cm_pos_time_ns)} | "
+            f"{_at(p.peak_cm_neg_dev_v, p.peak_cm_neg_time_ns)} | "
+            f"{_at(p.peak_diff_pos_dev_v, p.peak_diff_pos_time_ns)} | "
+            f"{_at(p.peak_diff_neg_dev_v, p.peak_diff_neg_time_ns)} |"
+        )
+    a("")
+    a(
+        "Column definitions are unchanged from #390's baseline record -- see "
+        f"`sim/comparator-decision/records/{BASELINE_RECORD_390}.md` for the "
+        "full derivation and rationale of the peak+/peak-/CM/diff columns "
+        "and the both-signs convention. Repeated verbatim here only where "
+        "the comparison below depends on it."
+    )
+    a("")
+    if half_lsb is not None:
+        a(
+            f"**Half-LSB point (Vindiff=+{0.5 * DIFFERENTIAL_LSB_MV:.4f}mV), "
+            "the SAR-relevant overdrive the baseline record singles out**: "
+            f"measured differential deviations here are "
+            f"{half_lsb.peak_diff_pos_dev_v * 1000:+.4f} mV / "
+            f"{half_lsb.peak_diff_neg_dev_v * 1000:+.4f} mV, vs. "
+            f"{BASELINE_390_DIFF_POS_HALFLSB_MV:+.4f} mV in the unmitigated "
+            "baseline at the same point."
+        )
+        a("")
+    a(
+        "**What this comparison does and does not show.** Both this "
+        "record's DUT and the baseline's run the identical stimulus and "
+        "decomposition, so a like-for-like reading of the table above "
+        "against the baseline record's own table is valid without further "
+        "normalization. It does NOT by itself establish that neutralization "
+        "is (or is not) a viable mitigation class in general -- only that "
+        "THIS sizing, at THIS one PVT point, produces the comparison stated "
+        "in Overall above. A decision record weighing whether this class "
+        "closes DR-014's gap is the next step (see DR-014's Open items and "
+        "this record's own citation trail), not a conclusion this testbench "
+        "draws for itself."
+    )
+    a("")
+    a("### Recovery pick-offs")
+    a("")
+    a(
+        "Same method as the baseline record: both decomposed series, "
+        "re-read at one or more later instants. NOT the in-loop "
+        "residual-at-next-decision measurable DR-011's Open items name."
+    )
+    a("")
+    a("| Vindiff (mV) | pick-off | t (ns) | CM deviation (mV) | differential deviation (mV) |")
+    a("|---|---|---|---|---|")
+    for p in sorted(points, key=lambda p: p.vindiff_mv):
+        for r in p.recovery:
+            a(
+                f"| {p.vindiff_mv:+.4f} | {r.label} | {r.time_ns:.3f} | "
+                f"{r.cm_dev_v * 1000:+.4f} | {r.diff_dev_v * 1000:+.4f} |"
+            )
+    a("")
+    a(
+        "No spec/target-spec.md line is added, edited, relaxed, or graded "
+        "against by this record -- see Claim above. This record measures an "
+        "EXPERIMENTAL, unadopted DUT variant; it does not itself decide "
+        "whether cross-coupled neutralization is worth adopting -- that "
+        "weighing, against this measurement and any sibling measurements of "
+        "the other headroom-neutral classes DR-014 (c) names, belongs in a "
+        "follow-on decision record (issue #434)."
+    )
+    a("")
+    a(
+        "- **Data provenance**: model-card-monte-carlo (sky130A BSIM4 "
+        "compact device models via ngspice transient analysis for the 11 "
+        "sky130_fd_pr__{n,p}fet_01v8 devices; the two added neutralization "
+        "capacitors are IDEALIZED SPICE capacitor primitives, not a PDK "
+        "device model -- see the DUT fragment's header. No literature/"
+        "foundry-doc figure used, and no measured value from "
+        "`2AMLogic/sky130-comparator` transferred, per CLAUDE.md's "
+        "clean-room policy)"
+    )
+    a("")
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "kickback-neutralized", supersedes=supersedes,
     )
 
 
@@ -549,15 +1464,14 @@ def write_regen_corners_evidence(
     points: list[RegenCornerPoint], note: str = "",
     supersedes: str = "",
 ) -> Path:
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for p in points:
         cid = corners_mod.corner_id(p.corner, p.temp_c, p.supply_v)
         safe = f"{p.vindiff_mv}mV".replace("-", "neg").replace(".", "p")
-        (corners_dir / f"{cid}__vindiff_{safe}.log").write_text(p.log_text)
+        raw_logs[f"{cid}__vindiff_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
 
     controls = [p for p in points if p.vindiff_mv == 0.0]
     measured = [p for p in points if p.vindiff_mv != 0.0]
@@ -572,11 +1486,6 @@ def write_regen_corners_evidence(
     n_corners = len(controls)
     clean_corner_ids = sorted({p.corner_id for p in controls if p.classify() == "CONTROL-OK"})
 
-    lines: list[str] = []
-    a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: pending #1/#27 -- attempts to characterize "
         "design/comparator.sch's decision (regeneration) delay vs. differential "
@@ -899,6 +1808,1183 @@ def write_regen_corners_evidence(
 
 
 # ---------------------------------------------------------------------------
+# offset-bisect: decision-boundary bisection over Vindiff -- separates a
+# SYSTEMATIC DECISION OFFSET from a genuine NON-DECISION (dead) BAND
+# (issue #515)
+#
+# WHY THIS EXISTS, AND WHAT IT IS NOT.
+#
+# `offset` above reports ONE number per draw: a linearized pick-off statistic
+# at t = evaluate_start + PICKOFF_NS, divided by a gain fitted over ideal
+# Vindiff in [1, 10] mV. DR-004 Decision Sec.3 already names that method's own
+# limit -- several `tt_mm` draws extrapolate to ~225 mV, far outside the range
+# the calibration validates, where the pick-off relationship is compressive
+# rather than linear -- and DR-004's Open items name two escalations
+# ("narrow PICKOFF_NS further" / "fit the calibration curve nonlinearly").
+# This subcommand takes NEITHER of those. It changes the question instead:
+# rather than inferring an input-referred voltage from an early-time output
+# amplitude, it measures WHERE THE DECISION ITSELF CHANGES ANSWER, by
+# bisecting the two boundaries of the Vindiff axis directly. A boundary in
+# Vindiff is a decision-referred quantity with no calibration curve in it at
+# all, so it has no linear-regime validity range to fall outside of.
+#
+# It does NOT replace `offset`, and nothing here supersedes
+# `records/20260821-071918-433a294`. The two measure different things:
+#
+#   * `offset` measures the RANDOM / mismatch-driven spread (corner `tt_mm`,
+#     N draws at Vindiff = 0, one rndseed each). Its stdev is the sigma this
+#     repo already characterizes.
+#   * `offset-bisect` measures the SYSTEMATIC / deterministic term (plain
+#     corner, mismatch DISABLED, Vindiff swept): the per-corner boundary a
+#     mismatch-free DUT already has before any per-device draw is applied,
+#     plus whether a Vindiff interval exists that resolves on NEITHER
+#     polarity. A sigma-only characterization cannot express either.
+#
+# THE CONFLATION THIS CLOSES (issue #515's methodology half). Everywhere else
+# in this driver a decision is tested SIGN-CORRECTED against the applied
+# input: `run_regen_sweep()` computes `sign * (outp - outn) > threshold` with
+# `sign` taken from the input's own polarity. That test cannot distinguish
+# "the latch resolved the WRONG way" from "the latch did not resolve at all"
+# -- both fail it identically, and both read `UNRESOLVED`.
+# `RegenCornerPoint.classify()` already fixed that for the TIMING sweep by
+# re-examining `final_diff_v` and splitting out `WRONG-POLARITY`; the
+# `offset` subcommand has no equivalent because it never classifies a
+# decision at all. `_BisectProbe` below classifies each probe by its ABSOLUTE
+# resolved polarity (`DECIDED-POS` / `DECIDED-NEG`), never relative to the
+# input, and exposes `relative_outcome()` to render the same probe in
+# classify()'s input-relative taxonomy -- so a record can show both views
+# side by side and the reader can see which input-relative "no decision"
+# cells are really wrong-polarity decisions.
+#
+# ALGORITHM (three phases; the shape is cross-pollinated methodology from the
+# sibling canary 2AMLogic/sky130-comparator -- its issue #66 / PR #119 --
+# re-derived here against THIS repo's own `_regen_deck()` stimulus and
+# RESET_HOLD_TOLERANCE_FRAC primitives. No netlist, sizing, or measured value
+# from that repo is introduced, per CLAUDE.md's clean-room rule; their own
+# implementation was described secondhand in #515 and was not inspected.)
+#
+#  A. COARSE SCAN over a fixed symmetric signed grid (BISECT_SCAN_MV),
+#     including Vindiff = 0 and both signs of the half-LSB point. Symmetry is
+#     deliberate: it makes the polarity classification falsifiable (a sign
+#     bug would show as a one-sided ladder), and the zero point is the
+#     metastability control.
+#  B. OUTWARD EXPANSION, doubling the outermost probe on whichever side has
+#     not yet produced a resolved decision, capped at BISECT_MAX_MV. Needed
+#     because a dead band can be wider than the scan grid; an uncapped search
+#     is not allowed to run forever.
+#  C. TWO INDEPENDENT BISECTIONS, one per edge:
+#       - the POSITIVE edge, between the nearest probed non-`DECIDED-POS`
+#         point and the smallest `DECIDED-POS` point;
+#       - the NEGATIVE edge, between the largest `DECIDED-NEG` point and the
+#         nearest probed non-`DECIDED-NEG` point above it.
+#     Each halves its own bracket to BISECT_TOL_MV. From the two converged
+#     brackets:
+#       systematic offset = midpoint of (negative edge, positive edge)
+#       dead-band width   = positive edge - negative edge
+#     and each carries the explicit +-uncertainty its bracket leaves.
+#
+# WHY TWO EDGES RATHER THAN ONE CROSSING. A single sign-crossing bisection
+# assumes the answer flips directly from one polarity to the other, which is
+# exactly the assumption a dead band violates: with a band present there is
+# no Vindiff at which the sign flips, and a one-edge search either converges
+# on an arbitrary interior point or never terminates. Two edges also handle
+# the Vindiff = 0 metastability the sibling flagged without needing it
+# resolved: an ideally symmetric mismatch-free DUT at exactly zero input is
+# metastable by construction, and no amount of extra evaluate window fixes
+# that -- but both bisections approach their edge from OUTSIDE, so neither
+# depends on classifying the zero point at all. It is reported as data, not
+# consumed as a bracket.
+#
+# WHAT A "NON-DECISION" MEANS HERE -- WINDOW-RELATIVE, STATED NOT ASSUMED. A
+# regenerative latch's decision time grows as ln(1/Vindiff), so for a FINITE
+# evaluate window there is always some small-enough input that does not
+# finish. "Dead band" here therefore means "does not resolve within
+# BISECT_EVALUATE_NS", and that window is named in every record this writes.
+# BISECT_EVALUATE_NS is longer than `regen-corners`' own 15 ns and ~14x the
+# slowest decision delay any committed record measured, and it sits well
+# inside DR-006's worst-case 83.333 ns bit-trial phase -- so a band measured
+# here is a band the SAR would actually see, not a window artifact. It is not
+# a property of the circuit alone, and this driver does not claim it is.
+#
+# SOLVER FLOOR, NOT A CIRCUIT OUTCOME. A probe landing within a few tens of
+# microvolts of a boundary drives ngspice's adaptive step control into a
+# crawl (the sibling reported the same effect around ~100 uV). That is a
+# numerical budget limit, so it is classified `SOLVER-FLOOR` and ends the
+# refinement with the bracket reported as-is -- it is never recorded as
+# "the circuit did not decide". BISECT_TOL_MV is the stated floor on every
+# number this produces. Distinguishing a genuine crawl from ordinary host
+# contention is a real hazard rather than a theoretical one: the identical
+# probe deck has been measured on this host at both ~18 s and >5 min of CPU
+# with no change to its text, which is the same effect
+# run_ngspice_with_retry()'s own docstring documents. So each probe gets that
+# helper's full four attempts, and the per-attempt budget is meant to be
+# raised via SIM_NGSPICE_TIMEOUT_S for this campaign -- only a probe that
+# exhausts all four at a budget sized for a fine-step transient is called a
+# solver floor.
+# ---------------------------------------------------------------------------
+
+BISECT_EVALUATE_NS = 20.0
+#  * Longer than `regen-corners`' CORNERS_EVALUATE_NS = 15 ns, because a
+#    non-decision claim must not be a short-window artifact; shorter than
+#    `regen`'s 40 ns, because every committed decision delay in this
+#    experiment resolves inside 1.4 ns and each probe here is a full
+#    0.005 ns-step transient paid ~25-50 times per corner.
+#  * Both bounds are inside DR-006's 83.333 ns worst-case bit-trial phase
+#    (BIT_TRIAL_PHASE_BUDGET_NS), so the window is SAR-relevant either way.
+
+# Symmetric signed coarse grid. The half-LSB point is DERIVED from
+# DIFFERENTIAL_LSB_MV / 2 (DR-003 Item 3) rather than written out as a literal,
+# so it cannot drift from the resolution constant it is supposed to track -- it
+# is the smallest differential a correct bit trial must resolve, and the
+# overdrive at which a systematic offset or a dead band first costs a real
+# conversion. +-50 mV is this experiment's own largest overdrive
+# (DEFAULT_VINDIFF_SWEEP_MV's top value). 0.0 is the metastability control
+# described above.
+BISECT_HALF_LSB_MV = DIFFERENTIAL_LSB_MV / 2.0
+BISECT_SCAN_MV = [
+    -50.0, -10.0, -BISECT_HALF_LSB_MV, 0.0, BISECT_HALF_LSB_MV, 10.0, 50.0,
+]
+BISECT_MAX_MV = 400.0  # hard cap on phase B's outward expansion. 400 mV is
+# ~114x the differential LSB and ~4x the largest extrapolated `offset` draw
+# (~225 mV): a boundary beyond it would not be a marginal-decision finding at
+# all, it would be a broken comparator, and the record says so rather than
+# spending unbounded transients to pin it down.
+BISECT_TOL_MV = 0.1  # 100 uV bracket floor -- see SOLVER FLOOR above. Also
+# ~1/35 of the differential LSB, so it resolves the quantities that matter
+# (half-LSB-scale offsets, dead bands) with ~17x margin.
+BISECT_MAX_ITERS = 14  # per edge. log2(BISECT_MAX_MV / BISECT_TOL_MV) = 12,
+# so 14 covers the widest bracket phase B can hand over, with slack.
+
+
+@dataclass
+class _BisectProbe:
+    """One (corner, temp, supply, Vindiff) transient, classified by ABSOLUTE
+    resolved polarity rather than relative to the applied input."""
+
+    vindiff_mv: float
+    outcome: str
+    final_diff_v: float | None
+    pre_edge_diff_v: float | None
+    decide_time_ns: float | None
+    log_text: str
+
+    def relative_outcome(self) -> str:
+        """The same probe rendered in `RegenCornerPoint.classify()`'s
+        INPUT-RELATIVE taxonomy, so one table can show both views.
+
+        This is the conflation issue #515 is about, made visible: a probe
+        whose `relative_outcome()` is `WRONG-POLARITY` and one whose is
+        `NO-DECISION` are indistinguishable to a sign-corrected crossing
+        test, and only the first is a boundary this subcommand can bisect."""
+        if self.outcome in ("NO-DATA", "RESET-NOT-HELD", "SOLVER-FLOOR",
+                            "NON-MONOTONIC"):
+            return self.outcome
+        if self.vindiff_mv == 0.0:
+            # No correct answer exists at zero input, so neither polarity is
+            # "wrong" -- same treatment classify() gives its own 0 mV column.
+            return "CONTROL-OK" if self.outcome == "NO-DECISION" else "CONTROL-RESOLVED"
+        if self.outcome == "NO-DECISION":
+            return "NO-DECISION"
+        want_pos = self.vindiff_mv > 0.0
+        got_pos = self.outcome == "DECIDED-POS"
+        return "DECIDED" if want_pos == got_pos else "WRONG-POLARITY"
+
+
+def _bisect_probe(
+    info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float,
+    vindiff_mv: float, scratch_dir: Path,
+) -> _BisectProbe:
+    """Run one probe and classify it. Reuses `_regen_deck()` unchanged (only
+    its comment-line `title`/`issue_ref` differ), so a boundary measured here
+    and a decision delay measured by `regen`/`regen-corners` at the same
+    Vindiff come from the same stimulus."""
+    log_name = (
+        "bisect_" + f"{vindiff_mv:.6f}mV".replace("-", "neg").replace(".", "p")
+    )
+    deck = _regen_deck(
+        info, corner, temp_c, vindiff_mv, log_name,
+        supply_v=supply_v, evaluate_ns=BISECT_EVALUATE_NS,
+        title="offset-bisect decision-boundary probe", issue_ref="(issue #515)",
+    )
+    try:
+        # run_ngspice_with_retry()'s default four attempts, deliberately: its
+        # own docstring records that an unchanged netlist on a contended host
+        # can blow the per-invocation budget and then finish quickly once the
+        # machine is quieter, and that is reproducible here (the same 25.1 ns
+        # probe deck has been measured at both ~18 s and >5 min of CPU on this
+        # host with no change to its text). A single retry would therefore
+        # mislabel ordinary contention as a near-boundary solver crawl, which
+        # is exactly the misattribution SOLVER FLOOR above exists to avoid.
+        # Raise the per-attempt budget itself with SIM_NGSPICE_TIMEOUT_S
+        # (toolchain.TIMEOUT_ENV_VAR) when running this campaign -- the
+        # default 120 s is sized for the `op`-based runners, not for tens of
+        # fine-step transients; every record this writes names the value used.
+        log_text = toolchain.run_ngspice_with_retry(
+            deck, scratch_dir, log_name, attempts=4
+        )
+    except RuntimeError as exc:
+        if "timed out" not in str(exc):
+            raise
+        return _BisectProbe(
+            vindiff_mv=vindiff_mv, outcome="SOLVER-FLOOR", final_diff_v=None,
+            pre_edge_diff_v=None, decide_time_ns=None, log_text=str(exc),
+        )
+
+    t, _clk, outp, outn = toolchain.read_wrdata_csv(
+        scratch_dir / f"{log_name}.csv", 3
+    )
+    if not t:
+        return _BisectProbe(
+            vindiff_mv=vindiff_mv, outcome="NO-DATA", final_diff_v=None,
+            pre_edge_diff_v=None, decide_time_ns=None, log_text=log_text,
+        )
+
+    decide_threshold_v = 0.5 * supply_v
+    reset_hold_tol_v = RESET_HOLD_TOLERANCE_FRAC * supply_v
+    evaluate_start_s = (RESET_NS + RESET_TR_NS) * 1e-9
+
+    # Reset-phase integrity, identical rule to run_regen_sweep(): the last
+    # sample strictly before the CLK edge STARTS rising (RESET_NS, not
+    # evaluate_start -- the 100 ps edge already belongs to the evaluate
+    # transition).
+    pre_edge_diff_v = None
+    reset_idx = [i for i, tt in enumerate(t) if tt < RESET_NS * 1e-9]
+    if reset_idx:
+        last = reset_idx[-1]
+        pre_edge_diff_v = outp[last] - outn[last]
+
+    final_diff_v = outp[-1] - outn[-1]
+
+    # ABSOLUTE polarity: the first post-edge sample whose |differential|
+    # exceeds the threshold, and the sign it had THERE -- never sign-corrected
+    # against the applied input.
+    decide_time_ns = None
+    crossing_sign = 0.0
+    for i, tt in enumerate(t):
+        if tt < evaluate_start_s:
+            continue
+        diff = outp[i] - outn[i]
+        if abs(diff) > decide_threshold_v:
+            decide_time_ns = (tt - evaluate_start_s) * 1e9
+            crossing_sign = 1.0 if diff > 0 else -1.0
+            break
+
+    if pre_edge_diff_v is not None and abs(pre_edge_diff_v) > reset_hold_tol_v:
+        outcome = "RESET-NOT-HELD"
+    elif decide_time_ns is None:
+        outcome = "NO-DECISION"
+    elif crossing_sign * final_diff_v <= 0:
+        # Crossed the threshold one way and ended up the other: not a
+        # decision in any usable sense. Reported, never silently signed.
+        outcome = "NON-MONOTONIC"
+    else:
+        outcome = "DECIDED-POS" if crossing_sign > 0 else "DECIDED-NEG"
+
+    return _BisectProbe(
+        vindiff_mv=vindiff_mv, outcome=outcome, final_diff_v=final_diff_v,
+        pre_edge_diff_v=pre_edge_diff_v, decide_time_ns=decide_time_ns,
+        log_text=log_text,
+    )
+
+
+@dataclass
+class BisectCornerResult:
+    """The two boundaries (and everything that prevented finding them) at one
+    PVT point."""
+
+    corner: str
+    temp_c: float
+    supply_v: float
+    evaluate_ns: float
+    tol_mv: float
+    probes: list[_BisectProbe]  # in the order they were run
+    # Converged brackets. `*_lo`/`*_hi` are the final bracket ENDPOINTS, both
+    # of them actually probed, so every number below is traceable to a row of
+    # the probe ladder rather than to an interpolation.
+    neg_lo_mv: float | None = None  # largest Vindiff observed DECIDED-NEG
+    neg_hi_mv: float | None = None  # nearest probed point above it that is not
+    pos_lo_mv: float | None = None  # nearest probed point below pos_hi that is not POS
+    pos_hi_mv: float | None = None  # smallest Vindiff observed DECIDED-POS
+    status: str = "NOT-RUN"
+    notes: list[str] = field(default_factory=list)
+
+    @property
+    def corner_id(self) -> str:
+        return corners_mod.corner_id(self.corner, self.temp_c, self.supply_v)
+
+    @property
+    def bounded(self) -> bool:
+        return self.status == "BOUNDED"
+
+    @property
+    def neg_edge_mv(self) -> float | None:
+        if self.neg_lo_mv is None or self.neg_hi_mv is None:
+            return None
+        return 0.5 * (self.neg_lo_mv + self.neg_hi_mv)
+
+    @property
+    def neg_edge_unc_mv(self) -> float | None:
+        if self.neg_lo_mv is None or self.neg_hi_mv is None:
+            return None
+        return 0.5 * (self.neg_hi_mv - self.neg_lo_mv)
+
+    @property
+    def pos_edge_mv(self) -> float | None:
+        if self.pos_lo_mv is None or self.pos_hi_mv is None:
+            return None
+        return 0.5 * (self.pos_lo_mv + self.pos_hi_mv)
+
+    @property
+    def pos_edge_unc_mv(self) -> float | None:
+        if self.pos_lo_mv is None or self.pos_hi_mv is None:
+            return None
+        return 0.5 * (self.pos_hi_mv - self.pos_lo_mv)
+
+    @property
+    def offset_mv(self) -> float | None:
+        """SYSTEMATIC DECISION OFFSET: the Vindiff about which the resolved
+        polarity turns over, i.e. the midpoint of the two edges. Zero for a
+        DUT whose decision is symmetric in its input."""
+        if self.neg_edge_mv is None or self.pos_edge_mv is None:
+            return None
+        return 0.5 * (self.neg_edge_mv + self.pos_edge_mv)
+
+    @property
+    def offset_unc_mv(self) -> float | None:
+        if self.neg_edge_unc_mv is None or self.pos_edge_unc_mv is None:
+            return None
+        return 0.5 * (self.neg_edge_unc_mv + self.pos_edge_unc_mv)
+
+    @property
+    def offset_resolved(self) -> bool:
+        """True only when |offset| exceeds the uncertainty the two brackets
+        leave. False means "indistinguishable from zero at this bisection
+        floor", which is the CORRECT answer for a symmetric mismatch-free DUT
+        and must be reported as a BOUND, never as a measured displacement.
+
+        This exists as a property rather than as a comparison inlined in the
+        record writer on purpose: the writer's headline sentence turns on it,
+        and a headline that asserted "indistinguishable from zero"
+        unconditionally would state a conclusion the data need not support --
+        the exact plausible-looking-but-wrong failure mode issue #515 flags.
+        A property is testable (sim/tests/test_offset_bisect.py); a literal in
+        a long f-string is not."""
+        o = self.offset_mv
+        u = self.offset_unc_mv
+        return o is not None and u is not None and abs(o) > u
+
+    @property
+    def dead_band_mv(self) -> float | None:
+        """NON-DECISION (DEAD) BAND WIDTH: the Vindiff interval that resolves
+        on NEITHER polarity within `evaluate_ns`. Compare against
+        `dead_band_unc_mv` before calling it nonzero -- see
+        `dead_band_resolved`."""
+        if self.neg_edge_mv is None or self.pos_edge_mv is None:
+            return None
+        return self.pos_edge_mv - self.neg_edge_mv
+
+    @property
+    def dead_band_unc_mv(self) -> float | None:
+        if self.neg_edge_unc_mv is None or self.pos_edge_unc_mv is None:
+            return None
+        return self.neg_edge_unc_mv + self.pos_edge_unc_mv
+
+    @property
+    def dead_band_resolved(self) -> bool:
+        """True only when the measured band exceeds the uncertainty the two
+        brackets leave. False is the CORRECT, non-crashing answer for a DUT
+        that resolves at every tested Vindiff -- issue #515's edge case: the
+        band is then reported as "below the floor", not as a misleading
+        number and not as an error."""
+        w = self.dead_band_mv
+        u = self.dead_band_unc_mv
+        return w is not None and u is not None and w > u
+
+    @property
+    def no_decision_probes_in_band(self) -> list[_BisectProbe]:
+        """Probes that actually landed inside the measured band and resolved
+        on neither polarity -- direct corroboration of a band wider than the
+        bisection floor, independent of the arithmetic above.
+
+        The Vindiff = 0 probe is DELIBERATELY EXCLUDED even when it lands
+        inside the band. An ideally symmetric mismatch-free DUT at exactly zero
+        input is metastable by construction (see this section's header), so a
+        `NO-DECISION` there is expected whether or not a band exists and is
+        therefore not evidence of one. Counting it would make even a
+        zero-width band look like it had one corroborating probe -- a
+        plausible-looking number that means nothing, which is the exact failure
+        mode this subcommand exists to avoid. It is still reported in the probe
+        ladder, as `CONTROL-OK`, the same treatment
+        `RegenCornerPoint.classify()` gives its own 0 mV column."""
+        if self.neg_edge_mv is None or self.pos_edge_mv is None:
+            return []
+        return [
+            p for p in self.probes
+            if p.outcome == "NO-DECISION"
+            and p.vindiff_mv != 0.0
+            and self.neg_edge_mv <= p.vindiff_mv <= self.pos_edge_mv
+        ]
+
+
+def run_offset_bisect(
+    corner: str = "tt", temp_c: float = 27.0, supply_v: float = VDD,
+    scan_mv: list[float] | None = None, tol_mv: float = BISECT_TOL_MV,
+    max_mv: float = BISECT_MAX_MV, max_iters: int = BISECT_MAX_ITERS,
+    quiet: bool = False,
+) -> BisectCornerResult:
+    """Phases A-C of this section's header, at one PVT point."""
+    info = pdk.resolve_or_raise()
+    scan = sorted(scan_mv if scan_mv is not None else BISECT_SCAN_MV)
+    result = BisectCornerResult(
+        corner=corner, temp_c=temp_c, supply_v=supply_v,
+        evaluate_ns=BISECT_EVALUATE_NS, tol_mv=tol_mv, probes=[],
+    )
+    seen: dict[float, _BisectProbe] = {}
+
+    with tempfile.TemporaryDirectory(prefix="comparator-decision-bisect-") as scratch:
+        scratch_dir = Path(scratch)
+
+        def probe(v_mv: float) -> _BisectProbe:
+            key = round(v_mv, 6)
+            if key in seen:
+                return seen[key]
+            p = _bisect_probe(info, corner, temp_c, supply_v, key, scratch_dir)
+            seen[key] = p
+            result.probes.append(p)
+            if not quiet:
+                extra = ""
+                if p.final_diff_v is not None:
+                    extra = f"  final_diff={p.final_diff_v:+.4f}V"
+                if p.decide_time_ns is not None:
+                    extra += f"  t_decide={p.decide_time_ns:.4f}ns"
+                print(f"  vindiff={key:+.6f}mV -> {p.outcome}{extra}")
+            return p
+
+        # --- Phase A: coarse symmetric scan -------------------------------
+        for v in scan:
+            probe(v)
+
+        zero = seen.get(0.0)
+        if zero is not None and zero.outcome == "RESET-NOT-HELD":
+            # Same rule RegenCornerPoint.classify() applies: a latch that
+            # separated before its own clock edge with no input applied has
+            # not been reset, so nothing after the edge is a response to the
+            # input and no boundary is extractable here.
+            result.status = "RESET-NOT-HELD"
+            result.notes.append(
+                "the Vindiff = 0 mV reset-integrity control did not hold "
+                f"(pre-edge v(OUTP)-v(OUTN) = {zero.pre_edge_diff_v:+.4f} V, "
+                f"tolerance {RESET_HOLD_TOLERANCE_FRAC:.0%} of the rail), so "
+                "no decision boundary is extractable at this corner"
+            )
+            return result
+        not_held = [p for p in result.probes if p.outcome == "RESET-NOT-HELD"]
+        if not_held:
+            result.notes.append(
+                f"{len(not_held)} probe(s) show RESET-NOT-HELD and are excluded "
+                "from edge determination (the zero-input control itself held)"
+            )
+
+        # --- Phase B: outward expansion -----------------------------------
+        def have(outcome: str) -> bool:
+            return any(p.outcome == outcome for p in result.probes)
+
+        hi = max(scan)
+        while not have("DECIDED-POS") and hi < max_mv:
+            hi = min(hi * 2.0, max_mv) if hi > 0 else 1.0
+            probe(hi)
+        lo = min(scan)
+        while not have("DECIDED-NEG") and lo > -max_mv:
+            lo = max(lo * 2.0, -max_mv) if lo < 0 else -1.0
+            probe(lo)
+
+        pos_vals = sorted(v for v, p in seen.items() if p.outcome == "DECIDED-POS")
+        neg_vals = sorted(v for v, p in seen.items() if p.outcome == "DECIDED-NEG")
+        if not pos_vals or not neg_vals:
+            missing = []
+            if not pos_vals:
+                missing.append("positive")
+            if not neg_vals:
+                missing.append("negative")
+            result.status = "UNBOUNDED"
+            result.notes.append(
+                f"no {' or '.join(missing)}-polarity decision anywhere out to "
+                f"+-{max_mv:g} mV, so that edge does not exist within the "
+                f"searched range: the non-decision band is WIDER than the "
+                f"search, and this record reports the search bound rather than "
+                "a width"
+            )
+            return result
+        if max(neg_vals) > min(pos_vals):
+            result.status = "NON-MONOTONIC"
+            result.notes.append(
+                f"resolved polarity is not monotonic in Vindiff: a DECIDED-NEG "
+                f"probe at {max(neg_vals):+.6f} mV sits ABOVE a DECIDED-POS "
+                f"probe at {min(pos_vals):+.6f} mV. A single pair of boundaries "
+                "does not describe this corner and none is reported"
+            )
+            return result
+
+        # --- Phase C: two independent bisections --------------------------
+        # An initial bracket endpoint must itself be a CIRCUIT outcome, never a
+        # measurement-limit one: the whole claim "the boundary lies inside
+        # [lo, hi]" rests on both endpoints having been classified, and a
+        # SOLVER-FLOOR / NO-DATA / RESET-NOT-HELD / NON-MONOTONIC probe has
+        # not been. (`refine()` below already refuses to ACCEPT such a probe as
+        # a bracket; this is the same rule applied to the bracket it starts
+        # from, which the Phase-A/B ladder could otherwise supply.) Both
+        # comprehensions are non-empty by construction: the monotonicity test
+        # just above guarantees at least one DECIDED-NEG strictly below
+        # min(pos_vals) and at least one DECIDED-POS strictly above
+        # max(neg_vals).
+        _CIRCUIT_OUTCOMES = ("DECIDED-POS", "DECIDED-NEG", "NO-DECISION")
+        pos_hi = min(pos_vals)
+        pos_lo = max(
+            v for v, p in seen.items()
+            if v < pos_hi and p.outcome in _CIRCUIT_OUTCOMES
+        )
+        neg_lo = max(neg_vals)
+        neg_hi = min(
+            v for v, p in seen.items()
+            if v > neg_lo and p.outcome in _CIRCUIT_OUTCOMES
+        )
+
+        def refine(
+            lo_v: float, hi_v: float, hold_outcome: str, label: str,
+        ) -> tuple[float, float]:
+            """Halve (lo_v, hi_v) until narrower than tol_mv, keeping the
+            invariant `probe(lo_v)`/`probe(hi_v)` on the `hold_outcome` side.
+
+            `hold_outcome` is the outcome that must stay attached to the
+            endpoint being pushed INWARD -- `DECIDED-POS` for the positive
+            edge (pushing hi down) and `DECIDED-NEG` for the negative edge
+            (pushing lo up)."""
+            for _ in range(max_iters):
+                if hi_v - lo_v <= tol_mv:
+                    break
+                mid = 0.5 * (lo_v + hi_v)
+                p = probe(mid)
+                if p.outcome in ("SOLVER-FLOOR", "RESET-NOT-HELD", "NO-DATA",
+                                 "NON-MONOTONIC"):
+                    result.notes.append(
+                        f"{label}-edge refinement stopped at bracket width "
+                        f"{hi_v - lo_v:.6f} mV: the probe at {mid:+.6f} mV "
+                        f"returned {p.outcome}, which is a measurement limit, "
+                        "not a circuit outcome, so it is not used as a bracket"
+                    )
+                    break
+                if hold_outcome == "DECIDED-POS":
+                    if p.outcome == "DECIDED-POS":
+                        hi_v = mid
+                    else:
+                        lo_v = mid
+                else:
+                    if p.outcome == "DECIDED-NEG":
+                        lo_v = mid
+                    else:
+                        hi_v = mid
+            else:
+                result.notes.append(
+                    f"{label}-edge refinement hit the {max_iters}-iteration cap "
+                    f"at bracket width {hi_v - lo_v:.6f} mV"
+                )
+            return lo_v, hi_v
+
+        pos_lo, pos_hi = refine(pos_lo, pos_hi, "DECIDED-POS", "positive")
+        neg_lo, neg_hi = refine(neg_lo, neg_hi, "DECIDED-NEG", "negative")
+
+        # Re-check monotonicity over the FULL probe ladder, refinement probes
+        # included. The Phase-B test above only saw the coarse ladder; each
+        # refinement adds up to BISECT_MAX_ITERS new classified points, any of
+        # which could in principle place a DECIDED-NEG above a DECIDED-POS and
+        # falsify the single-boundary-pair model the edges assume. Cheap to
+        # verify (no extra transients) and the only check that covers the points
+        # the bisection itself introduced.
+        pos_vals = sorted(v for v, p in seen.items() if p.outcome == "DECIDED-POS")
+        neg_vals = sorted(v for v, p in seen.items() if p.outcome == "DECIDED-NEG")
+        if max(neg_vals) > min(pos_vals):
+            result.status = "NON-MONOTONIC"
+            result.notes.append(
+                f"resolved polarity is not monotonic in Vindiff once the "
+                f"refinement probes are included: a DECIDED-NEG probe at "
+                f"{max(neg_vals):+.6f} mV sits ABOVE a DECIDED-POS probe at "
+                f"{min(pos_vals):+.6f} mV. A single pair of boundaries does not "
+                "describe this corner and none is reported"
+            )
+            return result
+
+        result.pos_lo_mv, result.pos_hi_mv = pos_lo, pos_hi
+        result.neg_lo_mv, result.neg_hi_mv = neg_lo, neg_hi
+        result.status = "BOUNDED"
+
+    return result
+
+
+# Default PVT points for `offset-bisect` (issue #515's acceptance criteria):
+# the nominal corner and the slow/cold one. Nominal supply at both -- the
+# supply axis is deliberately NOT swept here (see the record's subset-corner
+# justification).
+BISECT_DEFAULT_POINTS = [("tt", 27.0), ("ss", -40.0)]
+
+
+def run_offset_bisect_points(
+    points: list[tuple[str, float]] | None = None, supply_v: float = VDD,
+    quiet: bool = False,
+) -> list[BisectCornerResult]:
+    pdk.resolve_or_raise()  # fail fast before spending the grid's runtime
+    out: list[BisectCornerResult] = []
+    for process_corner, temp_c in (points or BISECT_DEFAULT_POINTS):
+        if not quiet:
+            print(f"{corners_mod.corner_id(process_corner, temp_c, supply_v)}:")
+        out.append(run_offset_bisect(
+            corner=process_corner, temp_c=temp_c, supply_v=supply_v, quiet=quiet,
+        ))
+    return out
+
+
+def _bisect_edge_cell(edge_mv: float | None, unc_mv: float | None) -> str:
+    if edge_mv is None:
+        return "n/a"
+    return f"{edge_mv:+.4f} +-{unc_mv:.4f}"
+
+
+def write_offset_bisect_evidence(
+    results: list[BisectCornerResult], note: str = "", supersedes: str = "",
+) -> Path:
+    raw_logs: dict[str, str] = {}
+    for r in results:
+        for p in r.probes:
+            safe = f"{p.vindiff_mv:.6f}mV".replace("-", "neg").replace(".", "p")
+            raw_logs[f"{r.corner_id}__vindiff_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
+
+    bounded = [r for r in results if r.bounded]
+    corner_ids = [r.corner_id for r in results]
+    n_probes = sum(len(r.probes) for r in results)
+
+    a(
+        "- **Claim**: none numeric -- INFORMATIONAL. `spec/target-spec.md` "
+        "carries no offset row and no dead-band/non-decision row, DRAFT or "
+        "ratified, so there is nothing here to grade against and nothing here "
+        "asserts a pass. This record measures two quantities a sigma-only "
+        "offset characterization cannot express -- the **systematic decision "
+        "offset** and the **non-decision (dead) band width** -- and exists to "
+        "settle the question "
+        "`spec/decision-records/DR-004-comparator-topology-and-noise-budget.md` "
+        "left open twice: *\"Offset and regeneration-time spec rows -- "
+        "spec/target-spec.md has neither today ... a future record should "
+        "decide whether either belongs in the table\"* and *\"A precise (not "
+        "order-of-magnitude) offset extraction methodology\"*. "
+        "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
+        "is the decision record that consumes it."
+    )
+    a(f"- **Netlist provenance**: schematic (`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}`)")
+    a(
+        corners_mod.corner_matrix_summary_line(
+            sorted({r.corner for r in results}),
+            sorted({r.temp_c for r in results}),
+            sorted({r.supply_v for r in results}),
+            len(results),
+        )
+    )
+    a(
+        f"- **Mismatch**: DISABLED. Every probe below runs the plain process "
+        "corner (`tt` / `ss`), not a `*_mm` mismatch corner, and applies no "
+        "`rndseed`. That is deliberate and is what makes the measured offset "
+        "**systematic**: it is the boundary a mismatch-free DUT already has "
+        "from topology and corner models alone, before any per-device draw. "
+        "The random/mismatch term is the separate quantity "
+        "`sim/comparator-decision/records/20260821-071918-433a294.md` measures "
+        "(`tt_mm`, N=16) -- see 'Relationship to the pick-off record' below."
+    )
+    a(
+        f"- **Stimulus**: single reset({RESET_NS}ns, CLK=0)->evaluate(CLK=supply) "
+        "edge per probe, from `_regen_deck()` unchanged -- the same deck "
+        "`regen`/`regen-corners` use, so a boundary here and a decision delay "
+        "there are directly comparable. Decision test |v(OUTP)-v(OUTN)| > "
+        "0.5*supply with the sign taken AT THE CROSSING (absolute polarity, "
+        "never sign-corrected against the input); Vcm = supply/2; evaluate "
+        f"window {BISECT_EVALUATE_NS}ns"
+    )
+    a(
+        f"- **Search**: coarse scan {BISECT_SCAN_MV} mV, outward expansion "
+        f"capped at +-{BISECT_MAX_MV:g} mV, then two independent bisections to "
+        f"a {BISECT_TOL_MV} mV (100 uV) bracket floor -- {n_probes} transient "
+        "probes total across the corner points. Every +- figure below is the "
+        "half-width of a converged bracket whose BOTH endpoints were actually "
+        "simulated; none is interpolated."
+    )
+    a(
+        f"- **Solver budget**: {toolchain.toolchain_timeout_s():g} s per ngspice "
+        f"attempt (`{toolchain.TIMEOUT_ENV_VAR}`; the harness default is "
+        f"{toolchain.DEFAULT_TOOLCHAIN_TIMEOUT_S} s), 4 attempts per probe. "
+        "Recorded because it is the only thing separating a near-boundary "
+        "solver crawl from ordinary contention on a shared host, where the "
+        "same probe deck has been measured at both ~18 s and >5 min of CPU "
+        "with no change to its text. A probe that exhausts all four attempts "
+        "is classified `SOLVER-FLOOR` and ends its refinement with the bracket "
+        "reported as-is; it is never counted as the circuit failing to decide. "
+        + (
+            "No probe below hit that limit."
+            if not any(
+                p.outcome == "SOLVER-FLOOR" for r in results for p in r.probes
+            )
+            else "Probes that did hit it are shown as `SOLVER-FLOOR` in the "
+            "ladders below."
+        )
+    )
+    if note:
+        a(f"- **Note**: {note}")
+    a(
+        f"- **Overall**: {len(bounded)}/{len(results)} corner point(s) yielded a "
+        "bounded pair of decision boundaries"
+        + (
+            ""
+            if len(bounded) == len(results)
+            else " -- see the per-corner status column and notes for why the "
+            "others did not"
+        )
+    )
+    a("")
+
+    a("## Measured boundaries, systematic offset, and dead band")
+    a("")
+    a(
+        "`negative edge` is the largest Vindiff that still resolved to the "
+        "NEGATIVE polarity; `positive edge` is the smallest that resolved to "
+        "the POSITIVE one. The systematic offset is their midpoint; the "
+        "dead-band width is their separation. A band is called RESOLVED only "
+        "when it exceeds the uncertainty the two brackets leave -- otherwise "
+        f"it is below the {BISECT_TOL_MV} mV bisection floor and is reported as "
+        "such rather than as a number the measurement cannot support."
+    )
+    a("")
+    a(
+        "| corner-id | status | negative edge (mV) | positive edge (mV) | "
+        "systematic offset (mV) | dead band (mV) | band resolved? | "
+        "NO-DECISION probes inside band |"
+    )
+    a("|---|---|---|---|---|---|---|---|")
+    for r in results:
+        if r.bounded:
+            offset_cell = f"{r.offset_mv:+.4f} +-{r.offset_unc_mv:.4f}"
+            band_cell = f"{r.dead_band_mv:.4f} +-{r.dead_band_unc_mv:.4f}"
+            resolved_cell = (
+                "**yes**" if r.dead_band_resolved
+                else f"no (< {r.dead_band_unc_mv:.4f} mV floor)"
+            )
+            in_band = str(len(r.no_decision_probes_in_band))
+        else:
+            offset_cell = band_cell = resolved_cell = in_band = "n/a"
+        a(
+            f"| `{r.corner_id}` | {r.status} | "
+            f"{_bisect_edge_cell(r.neg_edge_mv, r.neg_edge_unc_mv)} | "
+            f"{_bisect_edge_cell(r.pos_edge_mv, r.pos_edge_unc_mv)} | "
+            f"{offset_cell} | {band_cell} | {resolved_cell} | {in_band} |"
+        )
+    a("")
+    a(
+        f"Reference scales: the differential LSB is {DIFFERENTIAL_LSB_MV:.4f} mV "
+        f"(DR-003 Item 3), so half an LSB -- the smallest differential a correct "
+        f"bit trial must resolve -- is {DIFFERENTIAL_LSB_MV / 2:.4f} mV, and the "
+        f"bisection floor ({BISECT_TOL_MV} mV) is "
+        f"{DIFFERENTIAL_LSB_MV / 2 / BISECT_TOL_MV:.0f}x finer than that."
+    )
+    a("")
+
+    # --- What this means ---------------------------------------------------
+    # Every number in this section is DERIVED from `results`, never typed in,
+    # so the prose cannot drift from the table above it on a re-run.
+    a("## What this means")
+    a("")
+    half_lsb_mv = DIFFERENTIAL_LSB_MV / 2.0
+    if bounded:
+        worst_offset = max(abs(r.offset_mv) for r in bounded)
+        worst_offset_unc = max(r.offset_unc_mv for r in bounded)
+        # "Resolved" has exactly one meaning throughout this record: larger than
+        # the uncertainty the converged bracket leaves. NOTHING below may assert
+        # a direction ("is zero" / "is nonzero") that this test does not support
+        # -- the whole point of the +- columns is that a bracket half-width is a
+        # measurement floor, not decoration.
+        offset_resolved = [r for r in bounded if r.offset_resolved]
+        # The symmetric mismatch-free nominal point is the negative control: it
+        # is the one corner where a RESOLVED offset would indict the
+        # measurement rather than describe the circuit.
+        controls = [r for r in bounded if r.corner == "tt" and r.temp_c == 27.0]
+        control_clean = all(not r.offset_resolved for r in controls)
+        if not offset_resolved:
+            a(
+                f"**1. The systematic decision offset is NOT RESOLVED at any "
+                f"corner point measured -- i.e. it is indistinguishable from "
+                f"zero.** The largest |offset| is {worst_offset:.4f} mV against "
+                f"a bracket uncertainty of +-{worst_offset_unc:.4f} mV, so the "
+                f"honest statement is a BOUND: |offset| < "
+                f"{worst_offset_unc:.4f} mV, which is "
+                f"{half_lsb_mv / worst_offset_unc:.0f}x smaller than the "
+                f"{half_lsb_mv:.4f} mV half-LSB a bit trial must resolve. That "
+                "is the expected answer for a mismatch-free DUT whose input "
+                "pair is symmetric by construction"
+                + (
+                    ", and it is what makes the rest of this record credible: "
+                    f"the {', '.join('`' + r.corner_id + '`' for r in controls)}"
+                    " point is a NEGATIVE CONTROL, and it passed."
+                    if controls else
+                    ". NOTE: this campaign did not include the `tt`/27 C "
+                    "negative-control point, so nothing here independently "
+                    "validates the search against a DUT whose answer is known "
+                    "by symmetry."
+                )
+            )
+        else:
+            a(
+                "**1. A systematic decision offset IS RESOLVED** (|offset| "
+                "exceeds the bracket uncertainty) at "
+                + "; ".join(
+                    f"`{r.corner_id}`: {r.offset_mv:+.4f} +-{r.offset_unc_mv:.4f}"
+                    f" mV ({abs(r.offset_mv) / half_lsb_mv:.3f} half-LSB)"
+                    for r in offset_resolved
+                )
+                + ". "
+                + (
+                    "The `tt`/27 C negative control is NOT among them, so the "
+                    "search still reproduces ~0 on the DUT whose answer is "
+                    "known by symmetry and the resolved offsets above are "
+                    "corner effects rather than a measurement artifact."
+                    if control_clean and controls else
+                    "**WARNING: the `tt`/27 C NEGATIVE CONTROL itself shows a "
+                    "resolved offset.** A mismatch-free symmetric DUT at the "
+                    "nominal corner must come out at ~0, so this indicts the "
+                    "MEASUREMENT before it describes the circuit, and no "
+                    "number in this record should be consumed as a circuit "
+                    "property until that is explained."
+                    if controls else
+                    "This campaign did not include the `tt`/27 C negative "
+                    "control, so nothing here independently validates the "
+                    "search against a DUT whose answer is known by symmetry: "
+                    "treat the resolved offsets above as unvalidated."
+                )
+            )
+        a("")
+        resolved_bands = [r for r in bounded if r.dead_band_resolved]
+        worst_band_floor = max(r.dead_band_unc_mv for r in bounded)
+        if resolved_bands:
+            a(
+                "**2. A non-decision (dead) band IS resolved at "
+                + ", ".join(f"`{r.corner_id}`" for r in resolved_bands)
+                + ".** "
+                + "; ".join(
+                    f"`{r.corner_id}`: {r.dead_band_mv:.4f} "
+                    f"+-{r.dead_band_unc_mv:.4f} mV, corroborated by "
+                    f"{len(r.no_decision_probes_in_band)} probe(s) inside it "
+                    "that resolved on neither polarity"
+                    for r in resolved_bands
+                )
+                + f". Window-relative, within the {BISECT_EVALUATE_NS} ns "
+                "evaluate window stated above."
+            )
+        else:
+            a(
+                f"**2. No non-decision (dead) band is resolved at any corner "
+                f"point measured.** Every band comes out at or below its own "
+                f"bracket uncertainty (worst: +-{worst_band_floor:.4f} mV), so "
+                f"the honest statement is a BOUND -- the band is narrower than "
+                f"{worst_band_floor:.4f} mV -- not a width. This is issue "
+                "#515's named edge case and it is reported as a bound rather "
+                "than as a number the bisection cannot support."
+            )
+        a("")
+        # The only genuinely-undecided probes anywhere, named individually: a
+        # reader should not have to scan three ladders to find them.
+        undecided = [
+            (r, p) for r in results for p in r.probes
+            if p.outcome == "NO-DECISION"
+        ]
+        if undecided:
+            a(
+                f"**3. {len(undecided)} probe(s) in the whole campaign failed to "
+                f"resolve within the {BISECT_EVALUATE_NS} ns window**: "
+                + "; ".join(
+                    f"`{r.corner_id}` at {p.vindiff_mv:+.6f} mV "
+                    f"(ended {p.final_diff_v:+.4f} V differential, "
+                    f"{p.relative_outcome()})"
+                    for r, p in undecided
+                )
+                + ". "
+                + (
+                    "Every one of them is the Vindiff = 0 metastability "
+                    "control, which has NO correct answer to get right -- an "
+                    "ideally symmetric mismatch-free DUT at exactly zero input "
+                    "is metastable by construction. A non-decision there is "
+                    "therefore not a dead band; it is the control behaving as "
+                    "predicted, and it is excluded from the band corroboration "
+                    "count above for exactly that reason."
+                    if all(p.vindiff_mv == 0.0 for _, p in undecided)
+                    else "At least one is at a NONZERO Vindiff, which is a "
+                    "genuine non-decision at a real overdrive -- see the "
+                    "ladders."
+                )
+            )
+        else:
+            a(
+                f"**3. Every probe in the campaign resolved within the "
+                f"{BISECT_EVALUATE_NS} ns window**, including the Vindiff = 0 "
+                "metastability control (which has no correct answer to get "
+                "right; its resolved sign is numerical tie-breaking, not a "
+                "decision about an input)."
+            )
+        a("")
+        # Symmetry falsifiability: the same |Vindiff| on both signs should give
+        # the same decision delay on a symmetric DUT. This is the check a sign
+        # bug in the classification could not survive.
+        a(
+            "**4. Decision-delay symmetry, the falsifiability check.** On a "
+            "symmetric mismatch-free DUT the decision delay at `+V` and `-V` "
+            "must agree. Measured, per corner point (matched |Vindiff| pairs "
+            "where both signs were probed):"
+        )
+        a("")
+        a("| corner-id | matched pairs | worst |t(+V) - t(-V)| (ns) |")
+        a("|---|---|---|")
+        for r in results:
+            by_v = {
+                round(p.vindiff_mv, 6): p.decide_time_ns for p in r.probes
+                if p.decide_time_ns is not None
+            }
+            deltas = [
+                abs(by_v[v] - by_v[round(-v, 6)])
+                for v in by_v
+                if v > 0 and round(-v, 6) in by_v
+            ]
+            if deltas:
+                a(f"| `{r.corner_id}` | {len(deltas)} | {max(deltas):.4f} |")
+            else:
+                a(f"| `{r.corner_id}` | 0 | n/a |")
+        a("")
+        a(
+            "A sign error in the polarity classification, or a one-sided "
+            "search, could not produce a matched ladder -- which is why the "
+            "coarse scan is a SYMMETRIC signed grid rather than a one-sided "
+            "sweep."
+        )
+        a("")
+        a(
+            "**5. What this does NOT say.** It does not bound the offset of a "
+            "manufactured part: mismatch is disabled here by design, and the "
+            "random term is large (see the pick-off record below). It does not "
+            "generalize past the two PVT points measured, or past the "
+            f"{BISECT_EVALUATE_NS} ns evaluate window. And it says nothing "
+            "about a post-layout DUT -- the cross-pollinated finding that "
+            "prompted this measurement (issue #515) was taken on an EXTRACTED "
+            "netlist and reported both a nonzero systematic offset at the "
+            "nominal corner and a wide non-decision band at slow/cold. "
+            + (
+                "**Neither shape appears at schematic level here**, which is "
+                "consistent with both being parasitic-driven."
+                if not offset_resolved and not resolved_bands else
+                "**At least one of those shapes DOES appear at schematic level "
+                "here** (see items 1-2 above), so it cannot be attributed to "
+                "parasitics in this block."
+            )
+            + " Either way this is a statement about netlist scope, not a "
+            "refutation or a confirmation: this repo cannot replicate a "
+            "post-layout result at all yet (see 'Methodology provenance' "
+            "below), so nothing here tests what a parasitic extraction of this "
+            "block would add."
+        )
+    else:
+        a(
+            "No corner point yielded a bounded pair of decision boundaries, so "
+            "this record reports no systematic offset and no dead-band width. "
+            "The per-corner status column and notes above say why, and that is "
+            "the finding."
+        )
+    a("")
+
+    for r in results:
+        a(f"## Probe ladder -- `{r.corner_id}`")
+        a("")
+        a(
+            "Every transient run at this corner point, in Vindiff order. The "
+            "two outcome columns are the point of this record: `absolute "
+            "outcome` is the resolved polarity on its own terms, `input-relative"
+            "` renders the SAME probe in "
+            "`RegenCornerPoint.classify()`'s taxonomy. A sign-corrected "
+            "crossing test sees only the second column and cannot tell "
+            "`WRONG-POLARITY` from `NO-DECISION` -- that conflation is what "
+            "this subcommand exists to remove."
+        )
+        a("")
+        a(
+            "| Vindiff (mV) | absolute outcome | input-relative | "
+            "t_decide (ns) | final v(OUTP)-v(OUTN) (V) | pre-edge diff (V) |"
+        )
+        a("|---|---|---|---|---|---|")
+        for p in sorted(r.probes, key=lambda p: p.vindiff_mv):
+            td = f"{p.decide_time_ns:.4f}" if p.decide_time_ns is not None else "--"
+            fd = f"{p.final_diff_v:+.4f}" if p.final_diff_v is not None else "n/a"
+            pe = f"{p.pre_edge_diff_v:+.4f}" if p.pre_edge_diff_v is not None else "n/a"
+            a(
+                f"| {p.vindiff_mv:+.6f} | {p.outcome} | {p.relative_outcome()} | "
+                f"{td} | {fd} | {pe} |"
+            )
+        a("")
+        if r.notes:
+            for n in r.notes:
+                a(f"- **Note (`{r.corner_id}`)**: {n}")
+            a("")
+
+    a("## Relationship to the pick-off record (`20260821-071918-433a294`)")
+    a("")
+    a(
+        "That record measured a DIFFERENT quantity and is NOT superseded by "
+        "this one: `tt_mm` mismatch corner, N=16 draws at Vindiff = 0, offset "
+        "mean **35.2441 mV**, stdev **97.0825 mV**, range "
+        "`[-136.4332, +224.9353] mV`, via the linearized pick-off statistic "
+        f"(gain 4.2083 V/V fitted over ideal Vindiff in [1, 10] mV, pick-off at "
+        f"evaluate_start + {PICKOFF_NS} ns). Its mean mixes the systematic term "
+        "measured here with mismatch sampling noise; this record's probes have "
+        "no mismatch in them at all."
+    )
+    a("")
+    a(
+        "The consistency check the two admit is on that mean. For N = 16 draws "
+        "with sample stdev 97.0825 mV, the standard error of the sample mean is "
+        "97.0825 / sqrt(16) = **24.2706 mV**, so the pick-off record's own "
+        "estimate of the systematic (mean) term is 35.2441 +- 24.2706 mV -- "
+        "i.e. **1.45 standard errors from zero**, which is not a detection of a "
+        "systematic offset at all. A near-zero systematic boundary measured "
+        "here is therefore CONSISTENT with that record rather than in tension "
+        "with it, and the comparison is a statement about sample size, not "
+        "about a disagreement between two methods."
+    )
+    a("")
+    a(
+        "Where they genuinely diverge is in what they CAN say. DR-004 Decision "
+        "Sec.3 already flags that the pick-off magnitudes are an upper-bound / "
+        "order-of-magnitude statistic for the larger draws, because the gain "
+        "calibration is only validated for ideal Vindiff in [1, 10] mV and the "
+        "largest draws extrapolate to ~225 mV where the relationship is "
+        "compressive. The boundary measurement here has no calibration curve to "
+        "fall outside of -- a boundary in Vindiff is decision-referred -- so it "
+        "is the precise-extraction path DR-004's Open items asked for, taken by "
+        "changing the question rather than by narrowing `PICKOFF_NS` or fitting "
+        "a nonlinear curve (the two escalations DR-004 named). What it does NOT "
+        "do is replace the sigma: it measures one DUT per corner, so it reports "
+        "no spread. Bisecting the boundary per Monte Carlo draw -- a "
+        "distribution of boundaries rather than a distribution of pick-off "
+        "values -- is the natural next escalation and is named in DR-020's Open "
+        "items, not attempted here."
+    )
+    a("")
+
+    a("## Subset-corner justification (`sim/README.md`)")
+    a("")
+    a(
+        f"This record runs {len(results)} PVT point(s) "
+        f"({', '.join('`' + c + '`' for c in corner_ids)}), not the nine-point "
+        "ratified one-at-a-time grid, and `ss`/-40 C is not even a point OF "
+        "that grid: the ratified OAT star varies one axis at a time from "
+        "`tt`/27 C/nominal, so it contains `ss`/27 C and `tt`/-40 C but never "
+        "their combination. That combination is deliberate here and is the "
+        "reason this record exists at these two points:"
+    )
+    a("")
+    a(
+        "- **`tt`/27 C is the negative control.** A mismatch-free DUT at the "
+        "nominal corner is symmetric in its input by construction, so its "
+        "systematic boundary must come out at ~0 mV. A non-zero answer there "
+        "would indict the measurement, not the comparator -- which is exactly "
+        "what makes the `ss`/-40 C number trustworthy or not."
+    )
+    a(
+        "- **`ss`/-40 C is the slow/cold stress point**, where regeneration is "
+        "slowest and a finite evaluate window is most likely to produce a "
+        "genuine non-decision band. It is the combination "
+        "`2AMLogic/sky130-comparator`'s cross-pollinated finding reported "
+        "(issue #515), and DR-004's Alternatives section names the slow/cold "
+        "headroom margin as still-open for this block. Measuring the two axes "
+        "separately would not have exercised it."
+    )
+    a(
+        "- **The supply axis is not swept.** Both points run nominal "
+        f"{VDD} V. A +-10% supply excursion moves the input common mode with "
+        "the rail in this design (V_REF = V_DD, DR-003 Item 1), which is a "
+        "different mechanism from the process/temperature one under test; "
+        "adding it would double the cost without separating anything this "
+        "record claims."
+    )
+    a(
+        "- **Cost, against a session that must end.** Each probe is a full "
+        f"{BISECT_EVALUATE_NS} ns transient at a 0.005 ns step, and a bisection "
+        "to a 100 uV floor costs tens of them per corner point; the "
+        f"{n_probes} probes here were run locally, ONE AT A TIME, in a single "
+        "session on a shared dispatch worker where no process may outlive the "
+        "session that started it (`.loom/docs/long-running-compute.md`). The "
+        "sanctioned answer there is to scope the run to the session and land "
+        "the increment, which is what this is. `offset-bisect --corner/--temp` "
+        "runs any other point of the grid by accumulation."
+    )
+    a("")
+    a(
+        "So this is **not** a PVT-complete offset or dead-band figure and must "
+        "not be quoted as one. It is a two-point measurement with its control "
+        "point stated, sufficient for DR-020's spec-row question (does a row "
+        "belong in the table at all?) and insufficient for a numeric bound on "
+        "that row -- which is precisely why DR-020 does not set one."
+    )
+    a("")
+
+    a("## Methodology provenance and clean-room note")
+    a("")
+    a(
+        "The ALGORITHM SHAPE -- classify both polarities instead of a "
+        "sign-corrected crossing test; bisect two boundaries over the input "
+        "axis to separate a systematic offset from a non-decision band; treat "
+        "near-boundary solver crawl as a budget floor rather than a circuit "
+        "outcome -- is cross-pollinated methodology from the sibling canary "
+        "`2AMLogic/sky130-comparator` "
+        "([issue #66](https://github.com/2AMLogic/sky130-comparator/issues/66), "
+        "[PR #119](https://github.com/2AMLogic/sky130-comparator/pull/119)), "
+        "reported into this repo as `2AMLogic/sky130-sar-adc` issue #515."
+    )
+    a("")
+    a(
+        "Only that shape crosses the boundary. The implementation here is "
+        "re-derived against THIS repo's own primitives -- `_regen_deck()`'s "
+        "stimulus, `RESET_HOLD_TOLERANCE_FRAC`'s reset-integrity rule, "
+        "`RegenCornerPoint.classify()`'s outcome taxonomy, DR-003 Item 3's "
+        "differential LSB -- and no netlist, sizing, device, corner choice, or "
+        "measured VALUE from that repo is introduced or reconstructed, per "
+        "`CLAUDE.md`'s clean-room / no-reverse-engineering rule. Issue #515 "
+        "records that the sibling's own `offset-bisect` implementation was "
+        "described secondhand and never inspected; nothing above depends on "
+        "what it does."
+    )
+    a("")
+    a(
+        "**Netlist scope, stated because the cross-pollinated finding was "
+        "post-layout and this is not.** Every probe runs the "
+        "schematic-derived fragment "
+        f"`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}` (netlisted from "
+        "`design/comparator.sch` via xschem), NOT an extracted netlist. The "
+        "comparator's own layout extraction is DRC/LVS-clean but device-level "
+        "only -- `layout/comparator/reports/LATEST`'s record states it is not a "
+        "parasitic extraction -- so a post-layout replication of the sibling's "
+        "specific result is not possible in this repo yet and is not attempted. "
+        "That is a scope statement, not a null result: a systematic offset and "
+        "a dead band are both quantities the schematic-level DUT has in its own "
+        "right, and DR-004's Open items asked for them at this level."
+    )
+    a("")
+    return _finalize_record(
+        lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "offset-bisect", supersedes=supersedes,
+    )
+
+
+# ---------------------------------------------------------------------------
 # offset: Monte Carlo mismatch-induced offset, via a linearized pick-off
 # statistic calibrated against an ideal-device Vindiff sweep
 # ---------------------------------------------------------------------------
@@ -1056,6 +3142,13 @@ def run_offset_mc(
 def write_offset_evidence(
     result: OffsetResult, note: str = "", supersedes: str = "",
 ) -> Path:
+    # Left on the manual resolve_provenance() path rather than
+    # evidence.open_record() (issue #476): this is a Monte Carlo record, and
+    # its `# Monte Carlo record {record_id}` title line matches the
+    # repo-wide convention every other Monte Carlo writer uses
+    # (sim/harness/mc_runner.py:292, sim/cdac-array-transfer/run_mc.py:336) --
+    # open_record() hardcodes `# Record {record_id}`, so migrating would
+    # trade that convention for a cosmetic mismatch rather than remove any.
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, _dut_lines())
     record_id = prov.record_id
     record_path = prov.record_path
@@ -1369,14 +3462,13 @@ def write_noise_campaign_evidence(
 ) -> Path:
     info = pdk.resolve()
     netlist_text = _noise_deck(info, "tt", 27.0, VDD)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    record_id = prov.record_id
-    record_path = prov.record_path
-    corners_dir = EXPERIMENT_DIR / "corners" / record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
+    raw_logs: dict[str, str] = {}
     for r in results:
         cid = corners_mod.corner_id(r.corner, r.temp_c, r.supply_v)
-        (corners_dir / f"{cid}.log").write_text(r.log_text)
+        raw_logs[f"{cid}.log"] = r.log_text
+    prov, lines = evidence.open_record(EXPERIMENT_DIR, netlist_text, "corners", raw_logs)
+    record_path = prov.record_path
+    a = lines.append
 
     binding = max(results, key=lambda r: r.differential_rms_v)
     binding_cid = corners_mod.corner_id(binding.corner, binding.temp_c, binding.supply_v)
@@ -1387,11 +3479,6 @@ def write_noise_campaign_evidence(
     temps_run = sorted({r.temp_c for r in results})
     supplies_run = sorted({r.supply_v for r in results})
 
-    lines: list[str] = []
-    a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- "
         "Comparator input-referred noise `<=1.0148 mV rms` (baseline, ENOB>9.0) / "
@@ -1476,18 +3563,11 @@ def write_noise_evidence(
 ) -> Path:
     info = pdk.resolve()
     netlist_text = _noise_deck(info, result.corner, result.temp_c)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
-    record_id = prov.record_id
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "corners", {"noise.log": result.log_text}
+    )
     record_path = prov.record_path
-    runs_dir = EXPERIMENT_DIR / "corners" / record_id
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    (runs_dir / "noise.log").write_text(result.log_text)
-
-    lines: list[str] = []
     a = lines.append
-    a(f"# Record {record_id}")
-    a("")
-    a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: pending #1/#27 -- measures design/comparator.sch's "
         "(reduced sub-model, see below) input-referred noise, compared "
@@ -1556,12 +3636,26 @@ def write_noise_evidence(
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="comparator-decision standalone testbench driver (issue #54)")
     ap.add_argument(
-        "mode", nargs="?", choices=["regen", "regen-corners", "offset", "noise", "noise-corners"],
+        "mode", nargs="?",
+        choices=[
+            "regen", "regen-corners", "offset", "offset-bisect", "noise",
+            "noise-corners", "kickback", "kickback-neutralized",
+        ],
         help="which characterization to run",
     )
     ap.add_argument("--check-env", action="store_true", help="check toolchain + PDK, print summary, exit")
     ap.add_argument("--corner", default="tt")
     ap.add_argument("--temp", type=float, default=27.0)
+    ap.add_argument(
+        "--points", default="",
+        help=(
+            "offset-bisect: comma-separated <process-corner>:<temp_c> PVT "
+            "points to measure, e.g. 'tt:27,ss:-40'. Default is "
+            + ",".join(f"{c}:{t:g}" for c, t in BISECT_DEFAULT_POINTS)
+            + " (issue #515's two acceptance-criteria points). Ignored by "
+            "every other mode, which take --corner/--temp."
+        ),
+    )
     ap.add_argument("--seed", type=int, default=1, help="offset: MC base seed")
     ap.add_argument("--n", type=int, default=16, help="offset: MC sample count")
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
@@ -1634,6 +3728,46 @@ def main(argv: list[str] | None = None) -> int:
         draws_stdev = statistics.pstdev(result.draws_offset_v) if len(result.draws_offset_v) > 1 else 0.0
         return 0 if (negctrl_stdev == 0.0 and draws_stdev > 0) else 1
 
+    if args.mode == "offset-bisect":
+        points = None
+        if args.points:
+            points = []
+            for spec in args.points.split(","):
+                spec = spec.strip()
+                if not spec:
+                    continue
+                if ":" not in spec:
+                    print(
+                        f"--points entry {spec!r} is not <process-corner>:<temp_c>",
+                        file=sys.stderr,
+                    )
+                    return 2
+                process_corner, temp_str = spec.split(":", 1)
+                points.append((process_corner.strip(), float(temp_str)))
+        results = run_offset_bisect_points(points=points, quiet=args.quiet)
+        if args.record:
+            path = write_offset_bisect_evidence(
+                results, note=args.note, supersedes=args.supersedes,
+            )
+            print(f"wrote {path}")
+        for r in results:
+            if r.bounded:
+                print(
+                    f"{r.corner_id}: systematic offset "
+                    f"{r.offset_mv:+.4f} +-{r.offset_unc_mv:.4f} mV, dead band "
+                    f"{r.dead_band_mv:.4f} +-{r.dead_band_unc_mv:.4f} mV "
+                    f"({'RESOLVED' if r.dead_band_resolved else 'below floor'})"
+                )
+            else:
+                print(f"{r.corner_id}: {r.status} -- no boundary pair extracted")
+                for n in r.notes:
+                    print(f"  - {n}")
+        # Informational only, same as `kickback`: spec/target-spec.md has no
+        # offset or dead-band row (DRAFT or ratified) to grade against, so the
+        # exit status reports whether the MEASUREMENT completed, never a
+        # verdict on the circuit.
+        return 0 if all(r.bounded for r in results) else 1
+
     if args.mode == "noise":
         result = run_noise(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
         if args.record:
@@ -1652,6 +3786,34 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote {path}")
         binding = max(results, key=lambda r: r.differential_rms_v)
         return 0 if binding.differential_rms_v <= NOISE_BUDGET_BASELINE_V else 1
+
+    if args.mode == "kickback":
+        points = run_kickback_sweep(corner=args.corner, temp_c=args.temp, quiet=args.quiet)
+        if args.record:
+            path = write_kickback_evidence(
+                points, args.corner, args.temp, note=args.note,
+                supersedes=args.supersedes,
+            )
+            print(f"wrote {path}")
+        # Informational only (no ratified/DRAFT spec/target-spec.md Kickback
+        # row to grade against -- see write_kickback_evidence()'s Claim
+        # field) -- always succeeds if the sweep itself completed.
+        return 0
+
+    if args.mode == "kickback-neutralized":
+        points = run_kickback_sweep(
+            corner=args.corner, temp_c=args.temp, quiet=args.quiet,
+            dut_fragment=DUT_FRAGMENT_NEUTRALIZED,
+        )
+        if args.record:
+            path = write_kickback_neutralized_evidence(
+                points, args.corner, args.temp, note=args.note,
+                supersedes=args.supersedes,
+            )
+            print(f"wrote {path}")
+        # Informational only, same as `kickback` -- see
+        # write_kickback_neutralized_evidence()'s Claim field.
+        return 0
 
     return 2
 

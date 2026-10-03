@@ -1,0 +1,51 @@
+* halflsb_offset.lvs-reference.spice -- GENERATED, do not edit by hand.
+*
+* Regenerate with:
+*   layout/halflsb-offset/bin/generate-lvs-reference.py OUT.spice --variant broken-device
+*
+* Source of truth: design/sar_adc_top.spice's own top-level XChoff_*/XMoff_* cards --
+* DR-009 item 2's half-LSB quantizer offset (the _n side) plus its
+* matching dummy (the _p side, every gate tied off). Device flavours,
+* W and L are transcribed from those cards; device classes are
+* generalized to klt extract --deck sky130's own flat vocabulary
+* (nfet/pfet/sky130_fd_pr__model__cap_mim), which is the only
+* vocabulary the layout side can report.
+*
+* THE CAPACITANCE IS THE DRAWN PLATE'S, NOT THE CARD'S W/L.
+* The cards ask for W = L = 1.9 um; that is 1900.0 nm,
+* off the 1 nm database grid. The drawn plate is 1.9 um -- the same
+* value layout/cdac-array/bin/cdac_layout.py draws for the unit cap
+* DR-009 says this one is identical to. The value below is that drawn
+* plate under the extraction deck's own published tt coefficients
+* (area 2.0e-15 F/um^2, perimeter 1.9e-16 F/um):
+*   C = 2.0e-15*1.9^2 + 4*1.9*1.9e-16 = 8.664000000e-15 F
+* Derived from geometry and coefficients, never read back out of an
+* extraction result. bin/check-schematic-parity.py is what holds the
+* drawn plate side to both the schematic value and the cdac-array
+* sibling, so this departure cannot widen on its own.
+*
+* Bottom plate first (P1), top plate second (P2) -- the order
+* klt extract reports a MiM cap's terminals in (a = met3 bottom,
+* b = capm top) and the order bin/gen_blocks.py's CAP_LEGS declares.
+*
+* Clean room: every device and every net below is this repo's own
+* schematic, and the extraction coefficients are the pinned sky130A
+* PDK's own -- nothing is transcribed from any third-party layout.
+*
+* *** NEGATIVE CONTROL: broken-device ***
+* Deliberately WRONG. klt lvs must report this as a MISMATCH; a
+* match means the comparison is not looking at what this variant
+* corrupts. See this script's docstring for the defect class.
+.SUBCKT halflsb_offset VDD GND VPWR VGND VREFP VCM HALF_LSB_EN HALF_LSB_ENN
++ TOP_N TOP_P BOT_OFF_N BOT_OFF_P
+* --- the working side (_n): one unit cap switched VREFP -> VCM ------------
+M_MOFF_N_REFP  BOT_OFF_N   HALF_LSB_EN   VREFP  VDD    pfet L=0.15U W=1.0U
+M_MOFF_N_CMN   BOT_OFF_N   HALF_LSB_EN   VCM    GND    nfet L=0.15U W=1.0U
+M_MOFF_N_CMP   BOT_OFF_N   HALF_LSB_ENN  VCM    VDD    pfet L=0.15U W=2.0U
+C_CHOFF_N      BOT_OFF_N   TOP_N         8.664000000e-15 sky130_fd_pr__model__cap_mim
+* --- the matching dummy (_p): identical devices, every gate tied off ------
+M_MOFF_P_REFP  BOT_OFF_P   VGND          VREFP  VDD    pfet L=0.15U W=2.0U
+M_MOFF_P_CMN   BOT_OFF_P   VGND          VCM    GND    nfet L=0.15U W=1.0U
+M_MOFF_P_CMP   BOT_OFF_P   VPWR          VCM    VDD    pfet L=0.15U W=2.0U
+C_CHOFF_P      BOT_OFF_P   TOP_P         8.664000000e-15 sky130_fd_pr__model__cap_mim
+.ENDS halflsb_offset

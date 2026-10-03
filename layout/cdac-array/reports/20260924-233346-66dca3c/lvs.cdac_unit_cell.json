@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "cdac_unit_cell.gds",
+  "reference": "cdac_unit_cell.lvs-reference.spice",
+  "top": "cdac_unit_cell",
+  "reference_top": "CDAC_UNIT_CELL",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
+  },
+  "hints_applied": null,
+  "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unverified",
+    "reason": null,
+    "device_classes": [
+      "nfet"
+    ],
+    "device_count": 1,
+    "findings": [
+      {
+        "class": "nfet",
+        "device_count": 1
+      }
+    ],
+    "finding_count": 1
+  },
+  "mismatch_count": 2,
+  "error_count": 0,
+  "category_counts": {
+    "device.body_unverified": 1,
+    "topology": 1
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 7,
+      "reference": 7,
+      "matched": 7
+    },
+    "devices": {
+      "layout": 3,
+      "reference": 3,
+      "matched": 3
+    },
+    "pins": {
+      "layout": 7,
+      "reference": 7,
+      "matched": 7
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "793b48a42ca7c5596d3a733294935e2db14c681a7a0a95f5b9933f07303fcc16",
+    "reference_sha256": "4b58d36c3dfb0b9699e559c2ca4eccf4a2c4e0df665caec8904bbdfc134ac802",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:793b48a42ca7c5596d3a733294935e2db14c681a7a0a95f5b9933f07303fcc16",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
+  },
+  "mismatches": [
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "1 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "nfet"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BOT",
+      "reference": "BOT",
+      "pin": true
+    },
+    {
+      "layout": "SEL",
+      "reference": "SEL",
+      "pin": true
+    },
+    {
+      "layout": "TOP",
+      "reference": "TOP",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VREFN",
+      "reference": "VREFN",
+      "pin": true
+    },
+    {
+      "layout": "VREFP",
+      "reference": "VREFP",
+      "pin": true
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
+    }
+  ]
+}
