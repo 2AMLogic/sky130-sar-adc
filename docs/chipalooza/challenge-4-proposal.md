@@ -1265,22 +1265,52 @@ the **Architecture** and **Corners** rows started citing records by path
 (check 37, below the census). For the first two that is **correct rather
 than an oversight**, and for the same underlying reason:
 
-- `sim/comparator-decision`'s thirteen records are not a supersession chain
-  but three distinct claims — input-referred noise, decision delay, and
-  kickback — which three different rows above cite separately, so no single
-  record of that campaign is "the current" one and minting a pointer would
-  force a false answer.
-- `sim/cdac-array-transfer`'s four records are likewise not a supersession
-  chain, just along a different axis: a ratified V_REF/LSB
-  structural-and-functional check (cited alone by the `V_REF` row) and two
-  INL/DNL Monte Carlo scorings against two different DRAFT target candidates
-  (cited together by the `INL / DNL` row) are three distinct claims about the
-  same DUT — every one of the four records carries `Supersedes: (none)`.
+- `sim/comparator-decision`'s fourteen records are not one supersession
+  chain but several independent ones, along different claim axes: input-referred
+  noise (four records, two chains: the nominal-point `20260821-072003-433a294` ->
+  `20260906-064530-eedd532` and the corner campaign `20260827-212404-e13bc1e` ->
+  `20260906-065109-eedd532`), decision delay (four records, two chains:
+  `20260821-065653-433a294` -> `20260906-075157-7724af3` and
+  `20260906-052758-662a84d` -> `20260906-074451-7724af3`), mismatch offset
+  (three records: `20260821-071918-433a294` carries `Supersedes: (none)`, and
+  `20260828-004101-0c70212` -> `20260906-082728-7724af3`; no row cites any of
+  them), and kickback (three records: `20260924-041815-afcb1b5` ->
+  `20260925-050027-0259924`, plus `20260925-182138-23ad4d8`, a measurement of
+  an experimental neutralized variant, not of the adopted comparator, with
+  `Supersedes: (none)`). The rows above cite the noise, delay, and kickback
+  records separately, so no single record of that campaign is "the current"
+  one and minting a pointer would force a false answer. (Re-derived
+  2026-10-03 against the tree's 14 records; this bullet read "thirteen records
+  ... three distinct claims" until then, which undercounted both the records
+  and the claim axes: it omitted the offset axis and the neutralized-variant
+  kickback record.)
+- `sim/cdac-array-transfer`'s six records are likewise not a single
+  supersession chain, just along a different axis: a pre-ratification
+  functional spot-check (`20260821-062504-433a294`, cited by no row), a
+  ratified V_REF/LSB structural-and-functional check (cited alone by the
+  `V_REF` row; `20260827-213107-e13bc1e` and its DR-019 re-run
+  `20261001-120402-d24f700`, the only record of the six whose `Supersedes`
+  field is not `(none)`), and the INL/DNL Monte Carlo scorings -- against the
+  original DRAFT target (`20260828-005006-0c70212`), against DR-007's candidate
+  (`20260828-022618-f36913e`, a re-parse of the same draws), and a DR-019
+  re-run of the first (`20261001-124049-5207381`) -- are distinct claims
+  about the same DUT. The other five records carry `Supersedes: (none)`.
+  One of those five is a real replacement not expressed in the field:
+  `20261001-124049-5207381` re-runs `20260828-005006-0c70212` against the
+  DR-019-resized unit cap and says so in its **Note** only (`run_mc.py` has
+  no `--supersedes` flag). The `INL / DNL` row still cites the pre-resize
+  `20260828-005006-0c70212` and its re-parse; that moves no verdict, because
+  the re-run's empirical yields are identical (DNL 0.825, INL 0.925, N=40,
+  same seeds), its worst single draws are identical (max|DNL| 1.9716 LSB,
+  max|INL| 1.3147 LSB), and the means differ only in the fourth digit
+  (max|DNL| 0.7833 -> 0.7828, max|INL| 0.7191 -> 0.7184 LSB); re-pointing the
+  row at the re-run is a follow-up, since the re-parse record
+  `20260828-022618-f36913e` derives from the pre-resize draws.
   Issue #405 set out to mint `records/LATEST` for this flow alongside
   `sim/enob-estimate` and `sim/sar-sequencer-behavioral` (its own filing
   named all three as "unambiguous, single-mode" campaigns) and found, while
   implementing it, that `sim/cdac-array-transfer` is not: whichever of the
-  four records a single tree-wide pointer named, its stamp would be disjoint
+  records a single tree-wide pointer named, its stamp would be disjoint
   from at least one of the two rows citing this flow, forcing a false
   "superseded" reading of a citation that is not stale, merely about a
   different claim. So this flow joins `sim/comparator-decision` in staying
@@ -1321,9 +1351,9 @@ directions: a campaign that starts publishing a pointer must leave the list,
 and a row that starts citing a pointerless campaign must join it — shrinking
 the list is the cheapest way to make this gate's coverage read better than it
 is. The record count is stated per flow because it is what says how large each
-hole is: `sim/cdac-array-transfer`'s four records narrow what either of its
+hole is: `sim/cdac-array-transfer`'s six records narrow what either of its
 two rows' citations could have meant far less than a one-record campaign
-would, and `sim/comparator-decision`'s thirteen widen that same uncertainty
+would, and `sim/comparator-decision`'s fourteen widen that same uncertainty
 further still — a citation chosen out of a set nothing re-derives.
 
 `sim/enob-estimate` and `sim/sar-sequencer-behavioral` are the two campaigns
