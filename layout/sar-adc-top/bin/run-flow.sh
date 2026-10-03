@@ -77,7 +77,12 @@ set -euo pipefail
 TOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$TOP_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="$LAYOUT_DIR/.venv/bin/klt"
+# Optional override (operator-approved 2026-09-09, re-instated for #103's
+# post-klayout-tools#2396/#2398 re-measurement): point at an unreleased
+# `klt` build, e.g. a throwaway venv built from a klayout-tools git SHA.
+# Leaves the PyPI pin in layout/requirements.txt untouched; the record's
+# own `klt` version line shows which build ran.
+KLT="${SAR_ADC_TOP_KLT:-$LAYOUT_DIR/.venv/bin/klt}"
 PDK_VARIANT=sky130A
 TOP=gen_compose_0
 ROUTE_CELL_NAME=SAR_ADC_TOP_ROUTE
