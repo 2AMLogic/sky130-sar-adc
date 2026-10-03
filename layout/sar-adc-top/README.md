@@ -1805,6 +1805,17 @@ merged 2026-09-06 — see above.
 
 ## LVS device/topology blocker (klayout-tools#1552, now #1878 + #1876)
 
+**Tracking update (2026-10-03):** klayout-tools#1878 is CLOSED, but it was
+closed as a documentation-accuracy fix only -- the underlying gap (`klt extract`
+has no hierarchical, per-cell subcircuit output, so `combine_devices_per_circuit`
+cannot scope the layout side) was not changed, and no open upstream issue tracked
+it. It is now tracked, filed generically, as
+[klayout-tools#2722](https://github.com/2AMLogic/klayout-tools/issues/2722).
+The blocker described in this section is therefore still live and now maps to
+#2722 (plus #1876's workaround). The latest record
+(`reports/20261003-041400-571f036`) is unchanged: whole-request LVS `mismatch`,
+`--abstract-cells` compare `match`.
+
 **Historical measurement below is against `klayout-tools==0.4.0`
 (via the since-retired `SAR_ADC_TOP_KLT` override) — see "Update: re-run
 against the officially pinned `klayout-tools==0.5.0`" further down for the
