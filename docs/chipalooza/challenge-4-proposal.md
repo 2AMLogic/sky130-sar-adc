@@ -3492,6 +3492,18 @@ tracker already owns.
    device match UNMET / BLOCKED)** and "Post-layout PVT simulation, full ADC"
    stays **UNMET**. Issue #103 is still open, so acceptance criterion 3 of
    issue #121 is still not met.
+
+   **Update (2026-10-03, last): #103 is `loom:blocked` again, on the
+   upstream tracker.** Re-read live this pass: at 2026-10-03T16:54Z, after
+   the `loom:building` reading in the 2026-10-03 update above, a sweep
+   found nothing buildable and parked #103 `loom:blocked` (upstream
+   blocker). Its only unchecked acceptance criterion, top-level LVS clean,
+   waits on a `klt` release that carries the fix for
+   [klayout-tools#2722](https://github.com/2AMLogic/klayout-tools/issues/2722),
+   which is still open; the latest `klayout-tools` release is v0.5.0
+   (2026-09-15), which predates that issue. A daemon quarantine was applied
+   to #103 minutes later; it is a dispatch pause, not a design finding. No
+   §4 verdict moves: acceptance criterion 3 of issue #121 stays unmet.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
