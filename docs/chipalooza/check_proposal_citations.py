@@ -6047,11 +6047,12 @@ def campaign_census(text: str) -> dict:
     "Cited by path" is `EVIDENCE_PATH_RE` -- the same shape checks 1--5 and 23
     grade a citation in -- and deliberately NOT a mention of the campaign
     directory. This document names `sim/vcm-drive-budget/` and
-    `sim/full-conversion-transient/` in prose in a dozen places each; saying a
-    campaign exists is not saying which of its records a claim rests on, and a
-    gate that accepted the directory mention would have passed the document
-    this check was written against (it names `sim/sampling-frontend/`'s
-    testbench path repeatedly while citing none of its records).
+    `sim/full-conversion-transient/` in prose without a record stamp in several
+    places; saying a campaign exists is not saying which of its records a claim
+    rests on, and a gate that accepted the directory mention would have passed
+    two of the three campaigns this check was written against (the Corners row
+    named `sim/harness-corner-smoke/records/` and `sim/mc-smoke/records/` with
+    no stamp; `sim/sampling-frontend/` was not mentioned at all).
     """
     flows = sim_campaigns_with_records()
     cited = {
