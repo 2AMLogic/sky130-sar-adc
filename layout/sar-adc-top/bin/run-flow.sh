@@ -277,7 +277,9 @@ REL_GDS="${GDS#"$REPO_ROOT"/}"
 # recovery on the `.SUBCKT` name case-sensitively while KLayout upper-cases
 # it, so it recovers 0 of this netlist's 1028 caps (klayout-tools#2397).
 # Measured: dropping this step takes the verdict from 98 back to 124
-# mismatches. Retire it once #2397 is fixed and that measurement is re-run.
+# mismatches on 0.6.0. On a klt main build with #2397 fixed (65b1b4d,
+# re-measured issue #103) dropping it changes nothing, so retire it with the
+# pin bump that carries that fix.
 python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
   "$OUT_DIR/sar_adc_top.extract.spice" \
   -o "$OUT_DIR/sar_adc_top.extract.lvs.spice" \

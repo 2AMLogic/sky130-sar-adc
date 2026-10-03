@@ -608,7 +608,12 @@ TOP_GLUE_OFFSET = (83.755, -150.0)
 #: `dx` is the value that equalises them -- see `_check_halflsb_symmetry()`,
 #: which recomputes both path lengths from the drawn geometry and raises unless
 #: they agree to within one met3 track pitch.
-HALFLSB_OFFSET = (119.451, 67.0)
+#: dx is on the 0.005 um manufacturing grid (was 119.451, i.e. 1 nm off it, which
+#: every vertex of `halflsb_offset` and of the routes landing on it inherited --
+#: 988 `*.ongrid.1` vertices once klayout-tools' ongrid rules shipped, issue #103).
+#: Both legs move together, so the DR-009 equality `_check_halflsb_symmetry()`
+#: asserts is unchanged.
+HALFLSB_OFFSET = (119.45, 67.0)
 
 OFFSETS = {
     "cdac_array": (0.0, 0.0),
@@ -730,6 +735,8 @@ TOP_GLUE_PIN_X = {
 #: all four are inside this block, so they have no top-level member. They are
 #: here so `check-composition-parity.py` can assert that absence against the
 #: schematic rather than it being a silent omission.
+#: `TOP_N`/`TOP_P` x are the pin met2 shapes' own centres (1.24..1.66 -> 1.45),
+#: previously transcribed 1 nm off (1.449/17.449) -- issue #103's ongrid fix.
 HALFLSB_PIN = {
     "VDD": (8.89, 11.33),
     "GND": (3.7, 11.83),
@@ -741,8 +748,8 @@ HALFLSB_PIN = {
     "VPWR": (29.635, 14.83),
     "BOT_OFF_N": (-0.25, 15.33),
     "BOT_OFF_P": (15.75, 15.83),
-    "TOP_N": (1.449, 16.33),
-    "TOP_P": (17.449, 16.83),
+    "TOP_N": (1.45, 16.33),
+    "TOP_P": (17.45, 16.83),
 }
 
 # Every pin this assembly's own interconnect touches: (block, name) ->
