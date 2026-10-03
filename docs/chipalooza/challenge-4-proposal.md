@@ -1357,7 +1357,7 @@ pointer-claim census below:
 > therefore freshness-checked by check 3; the remaining **9** name a flow
 > that publishes none, whose current record nothing grades:
 > `sim/cdac-array-transfer` (**6** records), `sim/comparator-decision`
-> (**16** records), `sim/harness-corner-smoke` (**1** record),
+> (**17** records), `sim/harness-corner-smoke` (**1** record),
 > `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**2** records).
 
 `python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
@@ -5259,7 +5259,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **166** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **167** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5567,7 +5567,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **81** of the **81** records under `sim/*/records/` name both an
+  > **82** of the **82** records under `sim/*/records/` name both an
   > `ngspice` version and a 40-hex `open_pdks` commit, while of the **85**
   > records under `layout/*/reports/` and `layout/*/erc-reports/` **84** name
   > a `klt` version and **47** name the `open_pdks` commit.
