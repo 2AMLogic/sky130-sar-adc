@@ -5233,8 +5233,8 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **80** of the **80** records under `sim/*/records/` name both an
-  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **81**
-  > records under `layout/*/reports/` and `layout/*/erc-reports/` **80** name
+  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **84**
+  > records under `layout/*/reports/` and `layout/*/erc-reports/` **83** name
   > a `klt` version and **46** name the `open_pdks` commit.
 
   **Both columns moved together at the 2026-10-01 re-composition (issue
@@ -5244,6 +5244,14 @@ and is not claimed to be met.
   `open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b` because the flow
   renderer and `bin/run-erc.sh` each resolve it before writing — so neither
   widened the gap the way a pre-#420 record would have.
+
+  Issue #103's three 2026-10-03 `layout/sar-adc-top/reports/` records
+  (`20261003-000530-629f2e6`, `20261003-000742-5b86886`,
+  `20261003-000826-5b86886`) moved the count again: 81 → **84** records and
+  80 → **83** naming a `klt` version, with the `open_pdks`-commit count still
+  at **46**. They were minted on that issue's branch. The branch forked before
+  #420, so its renderer still printed only the PDK variant. They are kept
+  append-only as written and are not re-rendered.
 
   The `sim/` half is uniform because `sim/run_corners.py --check-env`
   resolves and enforces the pin before any corner runs (`sim/toolchain.json`,
