@@ -104,7 +104,7 @@ bias on the junctions. Per side:
 | `Choff_x` (DR-009 half-LSB cell, and its matched dummy on the other side) | one unit cap, exact by design | **`1.00`** |
 | `Csamp_x` in series with node `BPREF_x` | `BPREF_x` floats after sampling. The `4.43 pF` `Csamp_x` couples it to `TOP_x`, so `TOP_x` sees `BPREF_x`'s own load: junction and overlap capacitance of the two `W = 16 um` `Cmswn`/`Cmswp` devices (`~18–24 fF`) | **`~2.1–2.8`** |
 | sampling switch `Msw_x` (`W = 2 um`) | junction + overlap | `~0.2` |
-| comparator input device (`W = 4 um`, `L = 0.5 um`) | overlap (`~1 fF`) up to full-inversion gate (`~18 fF`). The measured total puts it near the low end | `~0.1–2.2` (inferred `~0.2–0.9`) |
+| comparator input device (`W = 4 um`, `L = 0.5 um`) | overlap (`~1 fF`) up to full-inversion gate (`~18 fF`). The measured total puts it near the low end | `~0.1–2.2` (inferred `~0.13–0.83`) |
 | **measured total** | | **`4.13`** |
 
 The estimate overturns two earlier attributions:
@@ -116,7 +116,7 @@ The estimate overturns two earlier attributions:
 
 **One number does not depend on that estimate.** `Choff_x` is one unit cap,
 and DR-009 requires it to track `C_u`. It contributes
-`eps = 1/516 = 0.19 % = 2.0 LSB` span-referred. That holds at any `C_u` and
+`eps = 1/513 = 0.19 % = 2.0 LSB` span-referred. That holds at any `C_u` and
 for any comparator size.
 
 ## Decision
@@ -181,7 +181,7 @@ separate decision (see "Open items").
     written down.
 - **Option 2: shrink the comparator input pair.** Rejected:
   - Its share is the smallest and least certain line in the table (inferred
-    `~0.2–0.9 C_u`). Removing it completely still leaves
+    `~0.13–0.83 C_u`). Removing it completely still leaves
     `eps >= ~0.6 %` (`~6 LSB`).
   - The cost is concrete. Random offset `sigma` already measures `97 mV` at
     `W = 4 um` (DR-020). Pelgrom scaling doubles it if the area shrinks 4x.
@@ -271,7 +271,7 @@ ruling:
    - (d) digital gain correction;
    - or a superseding DR that ratifies a looser value as a recorded departure.
 
-   (a) and (b) together leave about `0.4–1.1 C_u` (`~0.8–2.2 LSB`). So the
+   (a) and (b) together leave about `0.3–1.0 C_u` (`~0.7–2.1 LSB`). So the
    row may be reachable *without* an architecture change, but only item 1's
    measurement can say so.
 3. **Gain error, mismatch** (the other half of gf180's split). DR-003 Item 3's
