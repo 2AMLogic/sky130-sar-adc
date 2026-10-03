@@ -333,8 +333,11 @@ OFFSETS = {
     "cdac_array": (0.0, 0.0),
     "sampling_frontend": (63.825, 88.25),
     "comparator": (100.2, 173.8),
-    "sar_sequencer": (21.1175, -150.0),
-    "seln_inverters": (87.6875, -150.0),
+    # x origins snapped onto the 0.005 um manufacturing grid (were 21.1175 /
+    # 87.6875, i.e. +/-2.5 nm off-grid, which every placed std-cell vertex
+    # inherited) once klayout-tools' ongrid rules shipped -- issue #103.
+    "sar_sequencer": (21.12, -150.0),
+    "seln_inverters": (87.69, -150.0),
 }
 
 # Each sub-block's own bbox, in ITS OWN local frame -- verified directly
@@ -519,6 +522,12 @@ def dig_escape(c: Canvas, block: str, pin: str) -> tuple[float, float]:
     assert native == MET1
     dx = DIG_ESCAPE_DX[block]
     ex = x + dx
+    # Snap the lead's far edge (ex +/- ESCAPE_W/2) onto the 0.005 um
+    # manufacturing grid; the landing x is not otherwise load-bearing (see
+    # DIG_ESCAPE_DX), so moving it by < 5 nm is free.
+    sign = 1.0 if dx > 0 else -1.0
+    far = round((ex + sign * ESCAPE_W / 2.0) / 0.005) * 0.005
+    ex = round(far - sign * ESCAPE_W / 2.0, 6)
     c.wire(MET1, x, y, ex, y, w=ESCAPE_W)
     return ex, y
 

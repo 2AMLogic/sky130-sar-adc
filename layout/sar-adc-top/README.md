@@ -1105,9 +1105,44 @@ the same reason), so that is not a route to a match either. `vsubs`
 still needs `--abstract-cell-lef` or a reference-side decision. None of these
 modified-GDS numbers is signoff evidence: this repo does not edit
 already-verified sub-block geometry to pass a compare.
-The unmodified-GDS `--abstract-cells` shape stays **not adopted**, for the
-same reason as before. `run-flow.sh`'s signoff attempt stays the whole-request
-compare.
+~~The unmodified-GDS `--abstract-cells` shape stays **not adopted**.~~
+Superseded by "Update (2026-10-03)" below.
+
+#### Update (2026-10-03): unreleased klt with the #2396/#2398 fixes -> `match`
+
+Measured with `klt 0.6.0+g3c0a6c3991f0` (klayout-tools `main` at `3c0a6c3`,
+which contains the #2396 fix, PR #2433, and the #2398 fix, PR #2434), built
+into a throwaway `layout/.venv-klt-head` and reached through the restored
+`SAR_ADC_TOP_KLT` override (operator-approved 2026-09-09; the PyPI pin in
+`layout/requirements.txt` is untouched). Record
+`reports/20261003-000826-5b86886/`, **unmodified GDS**:
+
+- `--abstract-cells` on the three macros (`abstract-cells.*` artifacts): the
+  watched-pin collapse is gone (`TOP_N|VINN` and `TOP_P|VINP` stay separate),
+  and the hollow-reference `klt lvs` is **`match`**: devices 35/35/35, nets
+  61/61, pins 19/19, no error-severity mismatch. The one remaining entry is a
+  `device.geometry_not_compared` *warning* (MiM `A`/`P` are secondary
+  parameters in KLayout's comparer; only `C` is compared).
+- Probe ablations all agree: every variant keeps the legitimate dual-label
+  pair; `cdac_array.VDD` binds to the routed net.
+- The whole-request flat compare (no abstraction) is unchanged at 98
+  mismatches (klayout-tools#1878), so the black-boxed shape is the signoff
+  shape, with macro internals covered by each sub-block's own LVS record.
+- The hollow reference is now generated (`bin/generate-hollow-reference.py`,
+  byte-equivalent modulo ordering to the 2026-09-15 hand-built one) and the
+  compare is `run-flow.sh` step 7b.
+- New upstream DRC rules (`*.ongrid.1`, 0.005 um manufacturing grid) flagged
+  63,814 vertices on the first run: the two digital macros' placement x
+  origins were 2.5 nm off-grid, and six escape-lead edges followed. Both are
+  this repo's defects and are fixed in `bin/build_layout.py` (origins snapped
+  to 21.12 / 87.69 um; escape-lead far edge snapped). Record
+  `20261003-000530-629f2e6` keeps the pre-fix measurement,
+  `20261003-000742-5b86886` the intermediate 6-violation one, and
+  `20261003-000826-5b86886` is DRC clean.
+
+Caveat: this needs an unreleased `klt`. A plain `run-flow.sh` on the pinned
+0.6.0 will not reproduce the `match` (nor will it have the ongrid rules)
+until a release carries #2396/#2398.
 
 ## Remaining work (tracked against #103)
 
@@ -1151,7 +1186,12 @@ compare.
       the first release carrying #2147/`3cc085c`). Re-measured: whole-request
       compare unchanged (98), `--abstract-cells` collapse unchanged, mechanism
       located (see "Update (2026-09-23)" above).
-- [ ] **Blocked on klayout-tools#2396** (MiM top-plate short inside an
+- [x] **#2396 and #2398 are fixed upstream (merged 2026-09-24, unreleased)**;
+      re-measured on `main` @ `3c0a6c3` via `SAR_ADC_TOP_KLT`: the
+      `--abstract-cells` compare is `match` and is promoted into
+      `run-flow.sh` as step 7b (see "Update (2026-10-03)" above). Remaining:
+      a release carrying the fixes, then bump the pin. Original text:
+      **Blocked on klayout-tools#2396** (MiM top-plate short inside an
       `--abstract-cells` black box) **and klayout-tools#2398** (well-tap
       erasure cutting off `cdac_array.VDD`) for the `--abstract-cells` path.
       Once both ship in a release, re-run `bin/probe-abstract-cells.py`

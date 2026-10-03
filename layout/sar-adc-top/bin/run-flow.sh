@@ -14,7 +14,7 @@
 # reports/LATEST to point at a real, already-committed record (#99-#102,
 # #166) -- this flow *reads* those GDS files, it does not regenerate them.
 #
-# Runs entirely on the pinned `layout/.venv/bin/klt` (klayout-tools==0.6.0
+# Runs on the pinned `layout/.venv/bin/klt` (or $SAR_ADC_TOP_KLT, needed for step 7b until a release carries klayout-tools#2396/#2398) (klayout-tools==0.6.0
 # since 2026-09-23, `layout/requirements.txt`) -- no env override needed. Step 7's `klt
 # extract --pin-source-cells` (klayout-tools#1515) previously required a
 # `klt` build newer than the then-pinned 0.4.0, reached only via a
