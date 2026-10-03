@@ -5433,6 +5433,17 @@ tracker already owns.
      record is restated, this clause fails CI until it is re-derived from what
      the tree then holds.
 
+     Update (2026-10-03): DR-017 *was* restated that day, by an appended
+     erratum for issue #448 (PR #548,
+     [`DR-017`](../../spec/decision-records/DR-017-on-die-decoupling-budget.md)
+     "Erratum (issue #448 ...)"). It retires the remaining "#448's" pending
+     pointers in that record — the `package`-arm measurement and grading are
+     done (#409's `20260926-050045-8e62675` record; Amendment A), and
+     `records/LATEST` intentionally stays on the undecoupled record — and
+     changes no record, `records/LATEST`, coverage file or spec line. So the
+     `(#448)` reference above is historical, not open work; the layout-placement
+     carrier (#440) is unaffected.
+
      **That second part is now closed, and it cost DR-017 its central model.**
      #409's nine-point grid
      ([`20260926-050045-8e62675`](../../sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md))
