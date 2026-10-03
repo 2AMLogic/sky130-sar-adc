@@ -4535,6 +4535,13 @@ tracker already owns.
      `spec/target-spec.md`". It is also conditional on a follow-up
      simulation that shows the chosen scheme holds the common mode near
      `VCM`. No such implementation or simulation is on `main`.
+     Update (2026-10-03, commit `b456acb`, PR #540): DR-021's Status
+     was amended to name the later PR that closes #267 as the
+     ratification vehicle, since PR #526 carried the record as
+     `Part of #267`. The Status stays `proposed`, the recommendation is
+     unchanged, no spec row or number moves, and the implementation and
+     verification gate are tracked in the record's Open items until a
+     follow-up issue exists.
    - **#269** — still **open**. Its decision-record PR, #530 ("DR-022
      proposes a systematic gain-error spec row instead of resizing the CDAC
      or comparator"), is **open and unmerged**, labelled
