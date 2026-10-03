@@ -8,6 +8,17 @@
   on one verification step named under "Open items"** (the follow-up must show
   the chosen scheme keeps the common mode near `VCM` in simulation before any
   prior record is declared superseded).
+  *Ratification vehicle (amended 2026-10-03, #267):* the PR that first
+  carried this record (#526) referenced #267 as `Part of`, so it did not
+  resolve #267, and "the PR resolving #267" named above did not exist. The
+  ratification vehicle is the later PR that closes #267 (it carries this
+  amendment and no change to the recommendation). Per the operator ruling
+  recorded on #267 (2026-10-02), that PR is evaluated by the two-key
+  mechanism (2AMLogic/2am#372; new or amended DR ratifications go through
+  the two-key ceremony per 2AMLogic/2am#1056), with escalation to the operator
+  only on a relax-after-measured-FAIL finding. This record relaxes no row.
+  The Status stays `proposed` here; flipping it is the ratification act's
+  job, not this amendment's.
 - **Date**: 2026-10-03
 - **Decided by**: Builder agent, issue #267
 - **Supersedes**: none. It proposes a resolution to the "Open items" entry of
@@ -203,4 +214,9 @@ top plate and this record does not change that.
   between 0.25 and 0.78·V_REF): not run, needs a `klt sim` batch request,
   not local SPICE. Needed only if option 3 is ever invoked as a fallback.
 - Follow-up implementation issue to be filed on ratification; coordinate with
-  #269.
+  #269. #267 closes with the decision record (its 2026-09-14 operator-lane
+  revision scoped it to "draft the DR as a PR, do not implement"), so this
+  Open item, not #267, is where the implementation work and the
+  verification gate above are tracked until that issue exists. #267's
+  acceptance criteria for implementation and the 9-corner re-run carry over
+  to it unchanged.
