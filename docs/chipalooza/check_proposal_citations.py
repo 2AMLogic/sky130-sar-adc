@@ -6169,6 +6169,47 @@ def check_campaign_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+EXTRACTED_DUT_RE = re.compile(
+    r"\*\*(?P<n>\d+)\*\* post-layout-extracted-DUT offset-bisect records?"
+)
+
+# The provenance line `sim/comparator-decision/run.py` writes when
+# `offset-bisect --dut extracted` ran (issue #525).
+EXTRACTED_DUT_PROVENANCE = "post-layout extracted"
+
+
+def extracted_dut_record_count() -> int:
+    records = REPO_ROOT / "sim" / "comparator-decision" / "records"
+    if not records.is_dir():
+        return 0
+    return sum(
+        1
+        for rec in records.glob("*.md")
+        if any(
+            line.startswith("- **Netlist provenance**:")
+            and EXTRACTED_DUT_PROVENANCE in line
+            for line in rec.read_text().splitlines()
+        )
+    )
+
+
+def check_extracted_dut_records(doc: Path, text: str) -> list[str]:
+    """Check 38: the stated count of extracted-DUT offset-bisect records is the tree's."""
+    actual = extracted_dut_record_count()
+    misses = []
+    for match in EXTRACTED_DUT_RE.finditer(text):
+        claimed = int(match.group("n"))
+        if claimed != actual:
+            misses.append(
+                f"{doc.name}:{_line_of(text, match.start())}: says **{claimed}** "
+                f"post-layout-extracted-DUT offset-bisect records, but "
+                f"`sim/comparator-decision/records/` holds {actual} whose "
+                f"`Netlist provenance` line names the extracted fragment -- "
+                f"restate the claim, and if a record now exists say what it measures"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -6208,6 +6249,7 @@ def check_document(doc: Path) -> list[str]:
         + check_excursion_enumeration(doc, text)
         + check_present_tense_mismatch(doc, text)
         + check_campaign_census(doc, text)
+        + check_extracted_dut_records(doc, text)
     )
 
 
