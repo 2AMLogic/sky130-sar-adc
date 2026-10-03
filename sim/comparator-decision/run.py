@@ -89,6 +89,31 @@ DUT_FRAGMENT = TESTBENCH_DIR / "comparator_core.spice"
 # fragment is appropriate here, same as sim/harness-corner-smoke's own
 # testbenches. Used only by the `kickback-neutralized` subcommand below.
 DUT_FRAGMENT_NEUTRALIZED = TESTBENCH_DIR / "comparator_core_neutralized.spice"
+# POST-LAYOUT variant (issue #525): the comparator sub-block's committed
+# `klt pex` extraction (layout/comparator/reports/20260906-152000-eace0b6/
+# comparator.pex-extract.spice), `.SUBCKT`-wrapped with its R/C parasitics,
+# plus one instantiation line so it drops into the same flat-deck slot the
+# schematic fragment fills. Selected with `offset-bisect --dut extracted`;
+# never the default, and `DUT_FRAGMENT` itself is untouched.
+DUT_FRAGMENT_EXTRACTED = TESTBENCH_DIR / "comparator_core_extracted.spice"
+DUT_CHOICES = {
+    "schematic": DUT_FRAGMENT,
+    "extracted": DUT_FRAGMENT_EXTRACTED,
+}
+
+
+def _dut_provenance(fragment: Path) -> str:
+    """The `- **Netlist provenance**:` line body naming which fragment ran."""
+    rel = f"`{fragment.relative_to(evidence.REPO_ROOT)}`"
+    if fragment == DUT_FRAGMENT_EXTRACTED:
+        return (
+            f"post-layout extracted, `klt pex` parasitics ({rel}, from "
+            "`layout/comparator/reports/20260906-152000-eace0b6/"
+            "comparator.pex-extract.spice`)"
+        )
+    if fragment == DUT_FRAGMENT:
+        return f"schematic ({rel})"
+    return f"other ({rel})"
 
 # --- Fixed testbench constants (all provisional -- see
 # spec/decision-records/DR-004-comparator-topology-and-noise-budget.md) ---
@@ -209,6 +234,7 @@ def _regen_deck(
     probe_supply_current: bool = False,
     title: str = "regen-time sweep",
     issue_ref: str = "(issue #54)",
+    dut_fragment: Path = DUT_FRAGMENT,
 ) -> str:
     """Single reset->evaluate transient deck for one (corner, temp, supply,
     Vindiff) point.
@@ -256,7 +282,7 @@ def _regen_deck(
         f"Vinp VINP 0 dc {vcm + vindiff_v / 2}",
         f"Vinn VINN 0 dc {vcm - vindiff_v / 2}",
         "",
-        _dut_lines(),
+        _dut_lines(dut_fragment),
         "",
         ".control",
         f"tran 0.005n {tstop_ns}n",
@@ -1992,7 +2018,7 @@ class _BisectProbe:
 
 def _bisect_probe(
     info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float,
-    vindiff_mv: float, scratch_dir: Path,
+    vindiff_mv: float, scratch_dir: Path, dut_fragment: Path = DUT_FRAGMENT,
 ) -> _BisectProbe:
     """Run one probe and classify it. Reuses `_regen_deck()` unchanged (only
     its comment-line `title`/`issue_ref` differ), so a boundary measured here
@@ -2005,6 +2031,7 @@ def _bisect_probe(
         info, corner, temp_c, vindiff_mv, log_name,
         supply_v=supply_v, evaluate_ns=BISECT_EVALUATE_NS,
         title="offset-bisect decision-boundary probe", issue_ref="(issue #515)",
+        dut_fragment=dut_fragment,
     )
     try:
         # run_ngspice_with_retry()'s default four attempts, deliberately: its
@@ -2230,7 +2257,7 @@ def run_offset_bisect(
     corner: str = "tt", temp_c: float = 27.0, supply_v: float = VDD,
     scan_mv: list[float] | None = None, tol_mv: float = BISECT_TOL_MV,
     max_mv: float = BISECT_MAX_MV, max_iters: int = BISECT_MAX_ITERS,
-    quiet: bool = False,
+    quiet: bool = False, dut_fragment: Path = DUT_FRAGMENT,
 ) -> BisectCornerResult:
     """Phases A-C of this section's header, at one PVT point."""
     info = pdk.resolve_or_raise()
@@ -2248,7 +2275,10 @@ def run_offset_bisect(
             key = round(v_mv, 6)
             if key in seen:
                 return seen[key]
-            p = _bisect_probe(info, corner, temp_c, supply_v, key, scratch_dir)
+            p = _bisect_probe(
+                info, corner, temp_c, supply_v, key, scratch_dir,
+                dut_fragment=dut_fragment,
+            )
             seen[key] = p
             result.probes.append(p)
             if not quiet:
@@ -2429,7 +2459,7 @@ BISECT_DEFAULT_POINTS = [("tt", 27.0), ("ss", -40.0)]
 
 def run_offset_bisect_points(
     points: list[tuple[str, float]] | None = None, supply_v: float = VDD,
-    quiet: bool = False,
+    quiet: bool = False, dut_fragment: Path = DUT_FRAGMENT,
 ) -> list[BisectCornerResult]:
     pdk.resolve_or_raise()  # fail fast before spending the grid's runtime
     out: list[BisectCornerResult] = []
@@ -2438,6 +2468,7 @@ def run_offset_bisect_points(
             print(f"{corners_mod.corner_id(process_corner, temp_c, supply_v)}:")
         out.append(run_offset_bisect(
             corner=process_corner, temp_c=temp_c, supply_v=supply_v, quiet=quiet,
+            dut_fragment=dut_fragment,
         ))
     return out
 
@@ -2450,13 +2481,16 @@ def _bisect_edge_cell(edge_mv: float | None, unc_mv: float | None) -> str:
 
 def write_offset_bisect_evidence(
     results: list[BisectCornerResult], note: str = "", supersedes: str = "",
+    dut_fragment: Path = DUT_FRAGMENT,
 ) -> Path:
     raw_logs: dict[str, str] = {}
     for r in results:
         for p in r.probes:
             safe = f"{p.vindiff_mv:.6f}mV".replace("-", "neg").replace(".", "p")
             raw_logs[f"{r.corner_id}__vindiff_{safe}.log"] = p.log_text
-    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, _dut_lines(dut_fragment), "corners", raw_logs
+    )
     record_path = prov.record_path
     a = lines.append
 
@@ -2480,7 +2514,7 @@ def write_offset_bisect_evidence(
         "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
         "is the decision record that consumes it."
     )
-    a(f"- **Netlist provenance**: schematic (`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}`)")
+    a(f"- **Netlist provenance**: {_dut_provenance(dut_fragment)}")
     a(
         corners_mod.corner_matrix_summary_line(
             sorted({r.corner for r in results}),
@@ -2963,20 +2997,38 @@ def write_offset_bisect_evidence(
         "what it does."
     )
     a("")
-    a(
-        "**Netlist scope, stated because the cross-pollinated finding was "
-        "post-layout and this is not.** Every probe runs the "
-        "schematic-derived fragment "
-        f"`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}` (netlisted from "
-        "`design/comparator.sch` via xschem), NOT an extracted netlist. The "
-        "comparator's own layout extraction is DRC/LVS-clean but device-level "
-        "only -- `layout/comparator/reports/LATEST`'s record states it is not a "
-        "parasitic extraction -- so a post-layout replication of the sibling's "
-        "specific result is not possible in this repo yet and is not attempted. "
-        "That is a scope statement, not a null result: a systematic offset and "
-        "a dead band are both quantities the schematic-level DUT has in its own "
-        "right, and DR-004's Open items asked for them at this level."
-    )
+    if dut_fragment == DUT_FRAGMENT_EXTRACTED:
+        a(
+            "**Netlist scope.** Every probe runs the post-layout extracted "
+            f"fragment `{dut_fragment.relative_to(evidence.REPO_ROOT)}` -- the "
+            "comparator sub-block's `klt pex` extraction (82 R/C elements, "
+            "star-model per-net R, net-to-ground and vertical-overlap "
+            "coupling C; quasi-static) wrapped in one instantiation line. "
+            "Compare against the schematic-level record "
+            "`sim/comparator-decision/records/20261002-203719-c898d06.md`, "
+            "taken with the same stimulus and search. The extraction is of "
+            "the DR-004 Amendment A layout (`eace0b6`); later commits under "
+            "`layout/comparator/` are refactors by subject. Quasi-static "
+            "lumped R/C does not model distributed or substrate-coupled "
+            "effects, so this is the post-layout netlist class the flow "
+            "provides, not silicon."
+        )
+    else:
+        a(
+            "**Netlist scope, stated because the cross-pollinated finding was "
+            "post-layout and this is not.** Every probe runs the "
+            "schematic-derived fragment "
+            f"`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}` (netlisted from "
+            "`design/comparator.sch` via xschem), NOT an extracted netlist. The "
+            "comparator's own layout extraction is DRC/LVS-clean but device-level "
+            "only -- `layout/comparator/reports/LATEST`'s record states it is not a "
+            "parasitic extraction -- so a post-layout replication of the sibling's "
+            "specific result is not possible in this repo yet and is not attempted. "
+            "That is a scope statement, not a null result: a systematic offset and "
+            "a dead band are both quantities the schematic-level DUT has in its own "
+            "right, and DR-004's Open items asked for them at this level."
+        )
+
     a("")
     return _finalize_record(
         lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
@@ -3656,6 +3708,15 @@ def main(argv: list[str] | None = None) -> int:
             "every other mode, which take --corner/--temp."
         ),
     )
+    ap.add_argument(
+        "--dut", choices=sorted(DUT_CHOICES), default="schematic",
+        help=(
+            "offset-bisect: which DUT fragment to run -- 'schematic' (default, "
+            "xschem-derived comparator_core.spice) or 'extracted' (the "
+            "comparator sub-block's klt pex post-layout netlist, issue #525). "
+            "Ignored by every other mode."
+        ),
+    )
     ap.add_argument("--seed", type=int, default=1, help="offset: MC base seed")
     ap.add_argument("--n", type=int, default=16, help="offset: MC sample count")
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
@@ -3744,10 +3805,14 @@ def main(argv: list[str] | None = None) -> int:
                     return 2
                 process_corner, temp_str = spec.split(":", 1)
                 points.append((process_corner.strip(), float(temp_str)))
-        results = run_offset_bisect_points(points=points, quiet=args.quiet)
+        dut_fragment = DUT_CHOICES[args.dut]
+        results = run_offset_bisect_points(
+            points=points, quiet=args.quiet, dut_fragment=dut_fragment,
+        )
         if args.record:
             path = write_offset_bisect_evidence(
                 results, note=args.note, supersedes=args.supersedes,
+                dut_fragment=dut_fragment,
             )
             print(f"wrote {path}")
         for r in results:
