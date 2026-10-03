@@ -1884,6 +1884,78 @@ future pass from inventing a fourth present-tense phrasing -- what it can do, an
 does, is make the three the document actually uses mechanical, so the specific
 recurrence that has now happened once cannot happen silently again.
 
+### Check 37 -- the `sim/` campaign-citation census (`check_campaign_census`)
+
+Every other check here grades a citation that **exists**. This one grades the
+question they all presuppose: which campaigns holding committed evidence does
+this document cite *at all*?
+
+Check 11 is the gate closest to this question, and its rule is exactly right
+-- no Section 4 row may be graded while ignoring a campaign
+`sim/spec-coverage.json` indexes under it. But it skips any row whose
+`claim_class` is outside `MEASURED_CLAIM_CLASSES`
+(`ratified-measured`/`draft-informational`), and the index has one `structural`
+row, **Architecture**, which is the home of four benches. That row cited none of
+them. One of the four, `sim/sampling-frontend/`, is indexed under no other row,
+so its records were cited **nowhere in the document**. The index's two
+`harness_proofs` (`sim/harness-corner-smoke/`, `sim/mc-smoke/`) sit outside
+every row altogether, and the **Corners** row named them only as `records/`
+directories. Nothing could see any of it: checks 3/4/5/23 grade citations that
+exist, check 6 counts pointer claims, check 28 censuses the grids of *cited*
+records. An omission is invisible to all of them, and the more carefully the
+other checks are written, the more it looks like coverage.
+
+**Why an omission matters even where no verdict moves.** When the check landed
+(2026-10-03) citing those three campaigns by path changed no verdict -- the
+**Architecture** row is a topology claim against the schematics, and **Corners**
+already rested on the two harness self-tests. That is the easy case. The case
+the census exists for is the other one: a campaign holding evidence that bears
+on a graded row, cited nowhere, so the row reads as if that evidence did not
+exist. The pass that wrote this check's first draft (PR #470, closed unmerged)
+found exactly that shape -- the campaign that ran the sampling front end
+against its assembled CDAC load went uncited while the Sample rate row graded
+that mechanism from a front-end-only bench -- and the gap was closed by
+measurement (issue #469, PR #481), not by a gate. This check makes the next
+instance a finding instead of a reviewer's catch.
+
+**Graded as a census, not as "everything must be cited."** A campaign this
+document genuinely has no use for is legitimate -- but it must be **named** as
+uncited, with its record count, so the size of the hole is stated rather than
+absent. Same shape as checks 6, 18, 26 and 31--34, and `--stats` prints the
+sentence so the fix is a paste.
+
+**"Cited by path" means a record path, not a directory mention.** This document
+names `sim/vcm-drive-budget/` and `sim/full-conversion-transient/` in prose
+without a record stamp in several places; saying a campaign exists is not saying
+which of its records a claim rests on. A gate that accepted the directory
+mention would have **passed two of the three campaigns this check was written
+against** -- the **Corners** row cited `sim/harness-corner-smoke/records/` and
+`sim/mc-smoke/records/` with no stamp. So the match is `EVIDENCE_PATH_RE`, the
+same shape checks 1--5 and 23 grade a citation in.
+
+**How it stays inert, and why the anchor is the tree rather than a sentence.**
+The check returns nothing unless `sim/spec-coverage.json` exists **and** the
+document has a Section 4 spec table. Anchoring on a phrase in the document -- the
+way checks 26, 32, 33 and 34 do -- would have been wrong here specifically:
+this check exists to report an *absence*, so an anchor a pass could delete would
+be an escape hatch for the exact failure mode. The escape hatch left is deleting
+Section 4's spec table, which checks 7, 8, 11 and 28 all report. Additionally,
+when the document states no census and every campaign **is** cited, the check is
+silent: there is no hole to size, which is the same disposition check 33 takes
+when nothing carries its gap.
+
+**What it deliberately does NOT cover.** It does not grade `layout/` flows -- the
+composition checks (13, 14, 24) already tie every sub-block record into the
+composed top level, so a `layout/` flow cannot go unmentioned the way a `sim/`
+campaign can. It does not say a citation is *well placed* (that a campaign is
+cited from the row it is evidence for is check 11's job, within check 11's own
+scope). It does not grade `sim/spec-coverage.json` against the tree -- a campaign
+missing from the index **and** from this document is reported here, but an index
+entry naming a superseded record is not this check's finding. And it cannot make
+`structural` rows citable by check 11; widening check 11's claim classes is a
+separate change with its own consequences, and this census covers the gap
+document-wide in the meantime.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

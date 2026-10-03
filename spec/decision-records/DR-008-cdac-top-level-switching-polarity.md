@@ -250,6 +250,12 @@ offset-binary output converter plays in many real SAR ADCs.
   unmeetable is superseded by a new decision record, never silently
   loosened"). Choosing among these is filed as issue #267 rather than
   attempted in issue #265's own diagnostic-only scope.
+
+  **Resolution recommended by `spec/decision-records/DR-021-near-full-scale-common-mode-droop-resolution.md`**
+  (issue #267): option (1), a common-mode-neutral MCS/`Vcm` CDAC switching
+  scheme; options (2) and (3) rejected there. DR-021 is a proposed
+  recommendation only; the defect stays open on main until its follow-up
+  implementation lands and passes DR-021's verification gate.
 - **A smaller, secondary residual**: the two moderate/mid-scale inputs that
   do NOT hit the large-signal defect (`+0.00·V_REF`, `+0.25·V_REF`) still
   read back consistently 2–3 LSB high (not within the ±1 LSB tolerance
