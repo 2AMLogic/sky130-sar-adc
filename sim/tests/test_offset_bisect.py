@@ -35,7 +35,7 @@ sys.path.insert(0, str(COMPARATOR_DIR))
 import run as cd  # noqa: E402
 
 
-def _install_oracle(test: unittest.TestCase, outcome_of) -> list[float]:
+def _install_oracle(test: unittest.TestCase, outcome_of, seeded: bool = False) -> list[float]:
     """Point `run._bisect_probe` at a synthetic `outcome_of(vindiff_mv) -> str`
     oracle and `run.pdk.resolve_or_raise` at a stub, restoring both on
     teardown. Returns the (mutable) list of probed Vindiff values, so a test
@@ -48,11 +48,11 @@ def _install_oracle(test: unittest.TestCase, outcome_of) -> list[float]:
 
     def fake_probe(
         info, corner, temp_c, supply_v, vindiff_mv, scratch_dir,
-        dut_fragment=cd.DUT_FRAGMENT,
+        dut_fragment=cd.DUT_FRAGMENT, rndseed=None,
     ):
         probed.append(vindiff_mv)
         probe_fragments.append(dut_fragment)
-        outcome = outcome_of(vindiff_mv)
+        outcome = outcome_of(vindiff_mv, corner, rndseed) if seeded else outcome_of(vindiff_mv)
         decided = outcome in ("DECIDED-POS", "DECIDED-NEG")
         sign = 1.0 if outcome == "DECIDED-POS" else -1.0
         return cd._BisectProbe(
@@ -656,6 +656,143 @@ class TestDelayAsymmetrySignCheck(unittest.TestCase):
     def test_unresolved_offset_is_not_checked(self):
         r = self._result({-10.0: 2.0, 10.0: 2.0}, 0.0)
         self.assertIsNone(cd._delay_asymmetry_agrees_with_offset(r))
+
+
+# --- issue #524: per-draw Monte Carlo bisection --------------------------
+
+def _true_boundary_mv(corner: str, seed: int | None) -> float:
+    """Synthetic per-draw truth: zero on a plain corner (mismatch disabled, the
+    seed is inert), a seed-determined spread on a `*_mm` corner. Deliberately
+    includes values beyond the +-50 mV mismatch-free grid so Phase B / the
+    wider MC scan are exercised. Fixture numbers, not measurements."""
+    if not corner.endswith("_mm"):
+        return 0.0
+    import random
+    return random.Random(seed).uniform(-150.0, 150.0)
+
+
+def _per_draw_oracle(v_mv: float, corner: str, seed: int | None) -> str:
+    return _sign_flip_at(_true_boundary_mv(corner, seed))(v_mv)
+
+
+class TestPerDrawMonteCarlo(unittest.TestCase):
+    N = 6
+
+    def setUp(self):
+        self.probed = _install_oracle(self, _per_draw_oracle, seeded=True)
+        self.res = cd.run_offset_bisect_mc(corner="tt", seed=100, n=self.N, quiet=True)
+
+    def test_each_draw_recovers_its_own_boundary(self):
+        for i, r in enumerate(self.res.draws):
+            truth = _true_boundary_mv(self.res.mismatch_corner, 100 + i)
+            self.assertTrue(r.bounded, f"draw {i}")
+            self.assertLessEqual(abs(r.offset_mv - truth), cd.BISECT_TOL_MV, f"draw {i}")
+
+    def test_draws_actually_differ(self):
+        offs = [r.offset_mv for r in self.res.draws]
+        self.assertGreater(len(set(offs)), 1)
+
+    def test_stats_match_independent_computation(self):
+        import statistics
+        truths = [_true_boundary_mv("tt_mm", 100 + i) for i in range(self.N)]
+        st = cd.bisect_mc_stats(self.res.draws)
+        self.assertEqual(st["n_bounded"], self.N)
+        self.assertAlmostEqual(st["stdev"], statistics.pstdev(truths), delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["mean"], statistics.fmean(truths), delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["min"], min(truths), delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["max"], max(truths), delta=cd.BISECT_TOL_MV)
+
+    def test_negative_control_is_exactly_zero_spread(self):
+        self.assertEqual(len(self.res.negctrl), self.N)
+        self.assertTrue(cd.bisect_negctrl_ok(self.res.negctrl))
+        self.assertEqual(cd.bisect_mc_stats(self.res.negctrl)["stdev"], 0.0)
+
+    def test_negctrl_n_override(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        self.assertEqual((len(res.draws), len(res.negctrl), res.negctrl_n), (2, 1, 1))
+
+
+class TestNegativeControlDetectsSeedLeak(unittest.TestCase):
+    """If the control's boundary moved with the seed (mismatch not actually
+    disabled), bisect_negctrl_ok must say FAIL -- not vacuously pass."""
+
+    def test_leaky_control_fails(self):
+        _install_oracle(
+            self, lambda v, c, seed: _sign_flip_at(float(seed))(v), seeded=True,
+        )
+        res = cd.run_offset_bisect_mc(corner="tt", seed=3, n=2, quiet=True)
+        self.assertFalse(cd.bisect_negctrl_ok(res.negctrl))
+
+    def test_unbounded_control_fails(self):
+        self.assertFalse(cd.bisect_negctrl_ok([]))
+        self.assertEqual(cd.bisect_negctrl_status([]), "FAIL")
+
+
+class TestSingleDrawControlNotExercised(unittest.TestCase):
+    """A one-draw control compares one boundary with itself, so it cannot
+    show seed-invariance: it must be NOT-EXERCISED, never PASS (#536 review)."""
+
+    def setUp(self):
+        _install_oracle(self, _per_draw_oracle, seeded=True)
+
+    def test_n1_control_is_not_exercised(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "NOT-EXERCISED")
+        self.assertFalse(cd.bisect_negctrl_ok(res.negctrl))
+
+    def test_n2_control_is_exercised_and_passes(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
+        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "PASS")
+        self.assertTrue(cd.bisect_negctrl_ok(res.negctrl))
+
+    def test_n1_unbounded_control_is_still_fail(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        res.negctrl[0].status = "UNBOUNDED"
+        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "FAIL")
+
+
+class TestMcDutFragmentThreaded(unittest.TestCase):
+    def test_extracted_fragment_reaches_every_draw_and_control_probe(self):
+        _install_oracle(self, _per_draw_oracle, seeded=True)
+        res = cd.run_offset_bisect_mc(
+            corner="tt", seed=1, n=2, negctrl_n=2, quiet=True,
+            dut_fragment=cd.DUT_FRAGMENT_EXTRACTED,
+        )
+        self.assertIs(res.dut_fragment, cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertTrue(self.probe_fragments)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
+
+    def test_default_is_schematic(self):
+        _install_oracle(self, _per_draw_oracle, seeded=True)
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
+        self.assertIs(res.dut_fragment, cd.DUT_FRAGMENT)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
+
+
+class TestSeedPlumbing(unittest.TestCase):
+    def test_one_seed_per_search_and_none_by_default(self):
+        seeds: list = []
+        def spy(info, corner, temp_c, supply_v, v, scratch,
+                dut_fragment=cd.DUT_FRAGMENT, rndseed=None):
+            seeds.append(rndseed)
+            return cd._BisectProbe(v, "DECIDED-POS" if v > 0 else "DECIDED-NEG",
+                                   cd.VDD if v > 0 else -cd.VDD, 0.0, 1.0, "")
+        real, real_r = cd._bisect_probe, cd.pdk.resolve_or_raise
+        cd._bisect_probe, cd.pdk.resolve_or_raise = spy, lambda: None
+        self.addCleanup(lambda: (setattr(cd, "_bisect_probe", real),
+                                 setattr(cd.pdk, "resolve_or_raise", real_r)))
+        cd.run_offset_bisect(quiet=True, rndseed=7)
+        self.assertEqual(set(seeds), {7})
+        seeds.clear()
+        cd.run_offset_bisect(quiet=True)
+        self.assertEqual(set(seeds), {None})
+
+    def test_deck_rndseed_option_only_when_given(self):
+        info = type("I", (), {"ngspice_lib": "x.lib"})()
+        with_seed = cd._regen_deck(info, "tt_mm", 27.0, 1.0, "l", rndseed=5)
+        without = cd._regen_deck(info, "tt_mm", 27.0, 1.0, "l")
+        self.assertIn(".option rndseed=5", with_seed)
+        self.assertNotIn("rndseed", without)
 
 
 if __name__ == "__main__":
