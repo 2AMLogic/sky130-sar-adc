@@ -819,8 +819,8 @@ cross-checked against that record's own `layout.summary.json`:
 | `VPWR` | 29.635 | 14.83 | `XMoff_p_cmp`'s gate — ditto |
 | `BOT_OFF_N` | −0.25 | 15.33 | **not routed**: all four of this net's terminals are inside the block |
 | `BOT_OFF_P` | 15.75 | 15.83 | ditto |
-| `TOP_N` | 1.449 | 16.33 | the `_n` offset cap's top plate — on `comparator.VINN`'s own node |
-| `TOP_P` | 17.449 | 16.83 | the `_p` dummy's top plate — on `comparator.VINP`'s own node |
+| `TOP_N` | 1.45 | 16.33 | the `_n` offset cap's top plate — on `comparator.VINN`'s own node |
+| `TOP_P` | 17.45 | 16.83 | the `_p` dummy's top plate — on `comparator.VINP`'s own node |
 
 `BOT_OFF_N`/`BOT_OFF_P` are listed and deliberately not routed for the same
 derived reason the `ADCOUT<i>` are: DR-009 gives each exactly four terminals (one
@@ -2340,17 +2340,60 @@ is a merge, not a measurement. That run gave the following:
   errors.
 - The flat compare is unchanged from LATEST in every error field (66 errors;
   1095/1095/1046 devices).
-- No DRC rule other than `*.ongrid.1` fired. The ongrid rules report 988
-  vertices. All 988 are in `halflsb_offset` (828) and the route cell (160), and
-  none are in either digital macro. They come from `HALFLSB_OFFSET`'s x =
-  119.451, which is 1 nm off the 0.005 um grid, and from the route geometry
-  that lands on it. This is a pre-existing #401/#501 placement and is
-  invisible to the pinned 0.6.0 deck. It is left for the record that next
-  re-measures the merged tree, not fixed in this merge.
+- No DRC rule other than `*.ongrid.1` fired; the 988 flagged vertices were
+  fixed and re-measured, see the 2026-10-03 re-measurement below.
 
 Caveat: this needs an unreleased `klt`. A plain `run-flow.sh` on the pinned
 0.6.0 will not reproduce the `match`, and it does not carry the ongrid rules
 either. That holds until a release carries #2396/#2398.
+
+### Update (2026-10-03, issue #103): re-measured on the post-#401 composition; DRC clean with the ongrid rules, `--abstract-cells` `match`
+
+Record `reports/20261003-041400-571f036/` (now `reports/LATEST`) is the first
+record of the **post-#401 composition** (six blocks, four decap cells) measured
+on a `klt` carrying the #2396/#2398 fixes: `klt 0.6.0+g65b1b4d9b6e6`, klayout-tools
+`main` at `65b1b4d` (a superset of the `3c0a6c3` the earlier records used). It
+was built in a throwaway, gitignored `layout/.venv-klt-head` and reached through
+`SAR_ADC_TOP_KLT`. The PyPI pin in `layout/requirements.txt` is unchanged.
+
+- **DRC: clean, 0 violations**, on that build, whose deck includes the
+  `*.ongrid.1` rules. The 988 ongrid vertices the previous section left open were
+  one defect: `HALFLSB_OFFSET`'s dx was 119.451, 1 nm off the 0.005 um grid, so
+  every vertex of `halflsb_offset` (all of its own geometry is on-grid in its
+  local frame) and of the routes landing on it was off-grid. dx is now 119.45.
+  `HALFLSB_PIN`'s `TOP_N`/`TOP_P` x had been transcribed 1 nm off the pin met2
+  shapes' real centres (1.449/17.449 against 1.24..1.66 and 17.24..17.66, i.e.
+  1.45/17.45), which is what the old dx had been compensating; both are corrected.
+  Both legs move together, so DR-009's equality is unchanged (165.430 / 165.430 um,
+  delta 0.0000) and the dummy-load figures are unchanged. A `klt 0.5.0` build (the
+  one in the main checkout's `layout/.venv`; no ongrid rules) also reports clean on
+  the new GDS. 0.6.0 itself was not re-run on it.
+- **`--abstract-cells` compare (step 7c): `match`**, devices 45/45/45, nets 84/84,
+  0 error-severity entries; one `device.geometry_not_compared` warning (KLayout
+  compares only `C` on MiM).
+- **Whole-netlist flat compare (step 7): still `mismatch`** -- 66 error-severity
+  entries (49 `device.unmatched`, 9 `net.merged`, 8 `net.split`) plus 2 warnings,
+  1095/1095/1046 devices, nets 554/555/519. Same blocker as before
+  (klayout-tools#1878). The #2396/#2398 fixes concern the abstracted shape and do
+  not change it. **Top-level LVS against the full flattened netlist is therefore
+  not clean on any klt build tried.**
+- **The `restore-cap-device-class.py` workaround is no longer needed on this
+  build.** Ablation (scratch, not recorded; the extractor's raw
+  `sar_adc_top.extract.spice` and `abstract-cells.extract.spice` fed straight to
+  `klt lvs` with the same requests): flat 68 entries / 1046 devices matched, hollow
+  `match` 45/45/45 -- identical to the restored netlists. It is still needed on the
+  pinned 0.6.0 (#2397's fix is not in a release), so it stays in the flow and
+  retires with the pin bump. `capclass.json` still reports `restored: 1034`
+  because the extractor still writes bare `C` cards.
+- `probe-abstract-cells.py` is a one-off ablation harness for the pre-fix gap; it
+  is not run by `run-flow.sh` and is not needed for this measurement.
+
+`20261003-041400-571f036/record.md` reads `repo commit 571f036... (dirty)`: the
+uncommitted tree was the `build_layout.py` grid fix plus this text, committed
+right after, so the record's GDS is `571f036` + that commit's `build_layout.py`.
+
+Records `20261003-000530-629f2e6`, `-000742-5b86886` and `-000826-5b86886` are
+the retired pre-#401 composition and are kept unchanged as evidence.
 
 ## Remaining work (tracked against #103)
 
@@ -2456,13 +2499,13 @@ either. That holds until a release carries #2396/#2398.
       compare unchanged (98), `--abstract-cells` collapse unchanged, mechanism
       located (see "Update (2026-09-23)" above).
 - [ ] **klayout-tools#2396 and #2398 are fixed upstream (merged 2026-09-24,
-      not yet released).** Re-measured on `main` @ `3c0a6c3` via
-      `SAR_ADC_TOP_KLT`, the `--abstract-cells` compare returns `match`
-      (see "Update (2026-10-03)" above). It now runs as `run-flow.sh` step 7c
-      and is adapted to the post-#401 composition. Still open: a release
-      that carries both fixes, then a pin bump, then a recorded re-run of the
-      merged tree. That re-run should also snap `HALFLSB_OFFSET` onto the
-      0.005 um grid, which the unreleased deck flags.
+      not yet released).** Re-measured on the post-#401 composition on `main`
+      @ `65b1b4d` via `SAR_ADC_TOP_KLT` (record `20261003-041400-571f036`): the
+      `--abstract-cells` compare returns `match` and DRC is clean with the
+      ongrid rules (the `HALFLSB_OFFSET` grid snap is done). Still open: a
+      release that carries both fixes, then a pin bump, then a re-run on that
+      release. #2397 is also fixed in that build; the cap-class workaround
+      measured as a no-op there and retires with the pin bump.
       Original text: **Blocked on klayout-tools#2396** (MiM top-plate short inside an
       `--abstract-cells` black box) **and klayout-tools#2398** (well-tap
       erasure cutting off `cdac_array.VDD`) for the `--abstract-cells` path.

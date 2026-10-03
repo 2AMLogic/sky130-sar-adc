@@ -1,0 +1,280 @@
+* extracted by klt extract --deck sky130
+
+* cell gen_compose_0
+* pin BUSY
+* pin CLK
+* pin CLK
+* pin DOUT0
+* pin DOUT1
+* pin DOUT2
+* pin DOUT3
+* pin DOUT4
+* pin DOUT5
+* pin DOUT6
+* pin DOUT7
+* pin DOUT8
+* pin DOUT9
+* pin GND
+* pin RST_B
+* pin VCM
+* pin VDD
+* pin VGND
+* pin VINN
+* pin VINP
+* pin VPWR
+* pin VREFN
+* pin VREFP
+.SUBCKT gen_compose_0 BUSY CLK CLK$1 DOUT0 DOUT1 DOUT2 DOUT3 DOUT4 DOUT5 DOUT6
++ DOUT7 DOUT8 DOUT9 GND RST_B VCM VDD VGND VINN VINP VPWR VREFN VREFP
+* cell instance cdac_array__cdac_array_0 r0 *1 0,0
+Xcdac_array__cdac_array_0 \$311 \$243 \$286 \$280 \$313 \$295 \$272 \$263 \$297
++ \$278 \$265 \$299 \$293 \$251 \$308 \$246 \$270 \$291 TOP_N|VINN TOP_P|VINP
++ VDD VREFN VREFP GND cdac_array__cdac_array
+* cell instance sar_sequencer__sar_sequencer_0 r0 *1 0,0
+Xsar_sequencer__sar_sequencer_0 BUSY CLK OUTP DOUT0 DOUT1 DOUT2 DOUT3 DOUT4
++ DOUT5 DOUT6 DOUT7 DOUT8 DOUT9 \$175 \$172 \$111 \$69 \$130 \$54 \$58 \$44 \$3
++ \$80 \$180 SAMPLE RST_B VGND VPWR sar_sequencer__sar_sequencer
+* cell instance top_glue__top_glue_0 r0 *1 0,0
+Xtop_glue__top_glue_0 \$275 \$304 \$255 \$258 \$268 \$289 \$307 \$261 \$241
++ BUSY CLK CLK$1 DOUT0 DOUT1 DOUT2 DOUT3 DOUT4 DOUT5 DOUT6 DOUT7 DOUT8 DOUT9
++ \$247 \$282 HALF_LSB_EN HALF_LSB_ENN OUTN \$80 \$311 \$243 \$286 \$280 \$313
++ \$295 \$272 \$263 \$297 \$278 \$265 \$299 \$293 \$251 \$308 \$246 \$270 \$291
++ VGND VPWR top_glue__top_glue
+* device instance $1 r0 *1 125.195,67.5 nfet
+M$1 BOT_OFF_N HALF_LSB_EN VCM GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $2 r0 *1 141.195,67.5 nfet
+M$2 BOT_OFF_P VGND VCM GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $3 r0 *1 111.42,88.75 nfet
+M$3 \$347 \$345 GND GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $4 r0 *1 113.71,88.75 nfet
+M$4 \$347 SAMPLE VINP GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $5 r0 *1 116.125,88.75 nfet
+M$5 \$344 \$345 GND GND nfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U PD=2.84U
+* device instance $6 r0 *1 123.245,88.75 nfet
+M$6 \$350 \$345 GND GND nfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U PD=2.84U
+* device instance $7 r0 *1 125.66,88.75 nfet
+M$7 \$349 SAMPLE VINN GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $8 r0 *1 127.95,88.75 nfet
+M$8 \$349 \$345 GND GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $9 r0 *1 130.24,88.75 nfet
+M$9 \$345 SAMPLE GND GND nfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $10 r0 *1 106.84,89.25 nfet
+M$10 VINP \$344 TOP_P|VINP GND nfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U
++ PD=4.94U
+* device instance $11 r0 *1 109.13,89.25 nfet
+M$11 VINN \$350 TOP_N|VINN GND nfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U
++ PD=4.94U
+* device instance $12 r0 *1 118.54,96.25 nfet
+M$12 BPREF_P SAMPLE VCM GND nfet L=0.15U W=16U AS=7.52P AD=7.52P PS=32.94U
++ PD=32.94U
+* device instance $13 r0 *1 120.83,96.25 nfet
+M$13 BPREF_N SAMPLE VCM GND nfet L=0.15U W=16U AS=7.52P AD=7.52P PS=32.94U
++ PD=32.94U
+* device instance $14 r0 *1 106.37,192.19 nfet
+M$14 \$354 TOP_N|VINN \$356 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U
++ PD=4.84U
+* device instance $15 r0 *1 108.11,192.19 nfet
+M$15 \$355 TOP_P|VINP \$356 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U
++ PD=4.84U
+* device instance $16 r0 *1 111.57,191.19 nfet
+M$16 OUTP OUTN \$354 GND nfet L=0.5U W=4U AS=1.68P AD=1.68P PS=8.84U PD=8.84U
+* device instance $17 r0 *1 106.37,195.41 nfet
+M$17 \$355 TOP_P|VINP \$356 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U
++ PD=4.84U
+* device instance $18 r0 *1 108.11,195.41 nfet
+M$18 \$354 TOP_N|VINN \$356 GND nfet L=0.5U W=2U AS=0.84P AD=0.84P PS=4.84U
++ PD=4.84U
+* device instance $19 r0 *1 102.87,193.8 nfet
+M$19 \$356 CLK$1 GND GND nfet L=0.5U W=8U AS=3.36P AD=3.36P PS=16.84U PD=16.84U
+* device instance $20 r0 *1 111.57,196.41 nfet
+M$20 OUTN OUTP \$355 GND nfet L=0.5U W=4U AS=1.68P AD=1.68P PS=8.84U PD=8.84U
+* device instance $21 r0 *1 129.885,68 pfet
+M$21 BOT_OFF_N HALF_LSB_EN VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P
++ PS=4.94U PD=4.94U
+* device instance $22 r0 *1 133.085,68 pfet
+M$22 BOT_OFF_N HALF_LSB_ENN VCM VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P
++ PS=4.94U PD=4.94U
+* device instance $23 r0 *1 145.885,68 pfet
+M$23 BOT_OFF_P VGND VREFP VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U
++ PD=4.94U
+* device instance $24 r0 *1 149.085,68 pfet
+M$24 BOT_OFF_P VPWR VCM VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U
++ PD=4.94U
+* device instance $25 r0 *1 66.495,88.75 pfet
+M$25 BOOST_P \$344 VDD BOOST_P pfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U
++ PD=2.84U
+* device instance $26 r0 *1 69.57,88.75 pfet
+M$26 \$344 \$345 BOOST_P BOOST_P pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $27 r0 *1 74.71,88.75 pfet
+M$27 \$347 \$345 VINP VDD pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $28 r0 *1 87.51,88.75 pfet
+M$28 \$349 \$345 VINN VDD pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U PD=2.94U
+* device instance $29 r0 *1 92.65,88.75 pfet
+M$29 \$350 \$345 BOOST_N BOOST_N pfet L=0.15U W=1U AS=0.47P AD=0.47P PS=2.94U
++ PD=2.94U
+* device instance $30 r0 *1 95.975,88.75 pfet
+M$30 BOOST_N \$350 VDD BOOST_N pfet L=0.5U W=1U AS=0.42P AD=0.42P PS=2.84U
++ PD=2.84U
+* device instance $31 r0 *1 81.11,89.25 pfet
+M$31 \$345 SAMPLE VDD VDD pfet L=0.15U W=2U AS=0.94P AD=0.94P PS=4.94U PD=4.94U
+* device instance $32 r0 *1 77.91,96.25 pfet
+M$32 BPREF_P \$345 VCM VDD pfet L=0.15U W=16U AS=7.52P AD=7.52P PS=32.94U
++ PD=32.94U
+* device instance $33 r0 *1 84.31,96.25 pfet
+M$33 BPREF_N \$345 VCM VDD pfet L=0.15U W=16U AS=7.52P AD=7.52P PS=32.94U
++ PD=32.94U
+* device instance $34 r0 *1 115.07,189.19 pfet
+M$34 OUTP OUTN VDD VDD pfet L=0.5U W=8U AS=3.36P AD=3.36P PS=16.84U PD=16.84U
+* device instance $35 r0 *1 118.87,185.19 pfet
+M$35 OUTP CLK$1 VDD VDD pfet L=0.5U W=16U AS=6.72P AD=6.72P PS=32.84U PD=32.84U
+* device instance $36 r0 *1 123.87,191.19 pfet
+M$36 \$354 CLK$1 VDD VDD pfet L=0.5U W=4U AS=1.68P AD=1.68P PS=8.84U PD=8.84U
+* device instance $37 r0 *1 123.87,196.41 pfet
+M$37 \$355 CLK$1 VDD VDD pfet L=0.5U W=4U AS=1.68P AD=1.68P PS=8.84U PD=8.84U
+* device instance $38 r0 *1 115.07,198.41 pfet
+M$38 OUTN OUTP VDD VDD pfet L=0.5U W=8U AS=3.36P AD=3.36P PS=16.84U PD=16.84U
+* device instance $39 r0 *1 118.87,202.41 pfet
+M$39 OUTN CLK$1 VDD VDD pfet L=0.5U W=16U AS=6.72P AD=6.72P PS=32.84U PD=32.84U
+* device instance $40 r0 *1 219.95,-126.05 sky130_fd_pr__model__cap_mim
+C$40 VGND VPWR 4.434864e-12
+* device instance $41 r0 *1 219.95,-74.05 sky130_fd_pr__model__cap_mim
+C$41 VGND VPWR 4.434864e-12
+* device instance $42 r0 *1 120.9,73.45 sky130_fd_pr__model__cap_mim
+C$42 BOT_OFF_N TOP_N|VINN 8.664e-15
+* device instance $43 r0 *1 136.9,73.45 sky130_fd_pr__model__cap_mim
+C$43 BOT_OFF_P TOP_P|VINP 8.664e-15
+* device instance $44 r0 *1 143.385,93.65 sky130_fd_pr__model__cap_mim
+C$44 \$347 BOOST_P 1.99528e-13
+* device instance $45 r0 *1 154.685,93.65 sky130_fd_pr__model__cap_mim
+C$45 \$349 BOOST_N 1.99528e-13
+* device instance $46 r0 *1 187.035,112.2 sky130_fd_pr__model__cap_mim
+C$46 BPREF_P TOP_P|VINP 4.434864e-12
+* device instance $47 r0 *1 235.435,112.2 sky130_fd_pr__model__cap_mim
+C$47 BPREF_N TOP_N|VINN 4.434864e-12
+* device instance $48 r0 *1 151.95,173.95 sky130_fd_pr__model__cap_mim
+C$48 GND VDD 4.434864e-12
+* device instance $49 r0 *1 203.95,173.95 sky130_fd_pr__model__cap_mim
+C$49 GND VDD 4.434864e-12
+.ENDS gen_compose_0
+
+* cell top_glue__top_glue
+* pin ADCOUT0
+* pin ADCOUT1
+* pin ADCOUT2
+* pin ADCOUT3
+* pin ADCOUT4
+* pin ADCOUT5
+* pin ADCOUT6
+* pin ADCOUT7
+* pin ADCOUT8
+* pin BUSY
+* pin CLK
+* pin CLKN
+* pin DOUT0
+* pin DOUT1
+* pin DOUT2
+* pin DOUT3
+* pin DOUT4
+* pin DOUT5
+* pin DOUT6
+* pin DOUT7
+* pin DOUT8
+* pin DOUT9
+* pin DUMLOAD_MUX_NC
+* pin DUMLOAD_XNOR_NC
+* pin HALF_LSB_EN
+* pin HALF_LSB_ENN
+* pin OUTN_NC
+* pin PH_B9
+* pin SELn0
+* pin SELn1
+* pin SELn2
+* pin SELn3
+* pin SELn4
+* pin SELn5
+* pin SELn6
+* pin SELn7
+* pin SELn8
+* pin SELp0
+* pin SELp1
+* pin SELp2
+* pin SELp3
+* pin SELp4
+* pin SELp5
+* pin SELp6
+* pin SELp7
+* pin SELp8
+* pin VGND
+* pin VPWR
+.SUBCKT top_glue__top_glue ADCOUT0 ADCOUT1 ADCOUT2 ADCOUT3 ADCOUT4 ADCOUT5
++ ADCOUT6 ADCOUT7 ADCOUT8 BUSY CLK CLKN DOUT0 DOUT1 DOUT2 DOUT3 DOUT4 DOUT5
++ DOUT6 DOUT7 DOUT8 DOUT9 DUMLOAD_MUX_NC DUMLOAD_XNOR_NC HALF_LSB_EN
++ HALF_LSB_ENN OUTN_NC PH_B9 SELn0 SELn1 SELn2 SELn3 SELn4 SELn5 SELn6 SELn7
++ SELn8 SELp0 SELp1 SELp2 SELp3 SELp4 SELp5 SELp6 SELp7 SELp8 VGND VPWR
+.ENDS top_glue__top_glue
+
+* cell sar_sequencer__sar_sequencer
+* pin BUSY
+* pin CLK
+* pin COMP_OUT
+* pin DOUT0
+* pin DOUT1
+* pin DOUT2
+* pin DOUT3
+* pin DOUT4
+* pin DOUT5
+* pin DOUT6
+* pin DOUT7
+* pin DOUT8
+* pin DOUT9
+* pin PH_B0
+* pin PH_B1
+* pin PH_B2
+* pin PH_B3
+* pin PH_B4
+* pin PH_B5
+* pin PH_B6
+* pin PH_B7
+* pin PH_B8
+* pin PH_B9
+* pin PH_EOC
+* pin PH_SAMPLE
+* pin RST_B
+* pin VGND
+* pin VPWR
+.SUBCKT sar_sequencer__sar_sequencer BUSY CLK COMP_OUT DOUT0 DOUT1 DOUT2 DOUT3
++ DOUT4 DOUT5 DOUT6 DOUT7 DOUT8 DOUT9 PH_B0 PH_B1 PH_B2 PH_B3 PH_B4 PH_B5 PH_B6
++ PH_B7 PH_B8 PH_B9 PH_EOC PH_SAMPLE RST_B VGND VPWR
+.ENDS sar_sequencer__sar_sequencer
+
+* cell cdac_array__cdac_array
+* pin SELn0
+* pin SELn1
+* pin SELn2
+* pin SELn3
+* pin SELn4
+* pin SELn5
+* pin SELn6
+* pin SELn7
+* pin SELn8
+* pin SELp0
+* pin SELp1
+* pin SELp2
+* pin SELp3
+* pin SELp4
+* pin SELp5
+* pin SELp6
+* pin SELp7
+* pin SELp8
+* pin TOP_N
+* pin TOP_P
+* pin VDD
+* pin VREFN
+* pin VREFP
+* pin VSS
+.SUBCKT cdac_array__cdac_array SELn0 SELn1 SELn2 SELn3 SELn4 SELn5 SELn6 SELn7
++ SELn8 SELp0 SELp1 SELp2 SELp3 SELp4 SELp5 SELp6 SELp7 SELp8 TOP_N TOP_P VDD
++ VREFN VREFP VSS
+.ENDS cdac_array__cdac_array
