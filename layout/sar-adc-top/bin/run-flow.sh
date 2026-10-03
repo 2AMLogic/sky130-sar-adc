@@ -228,6 +228,41 @@ cat > "$OUT_DIR/lvs.request.json" <<EOF
 EOF
 ( cd "$OUT_DIR" && "$KLT" lvs lvs.request.json --format json > lvs.json ) || true
 
+# --- 7b. `--abstract-cells` black-boxed compare (issue #103's signoff shape) --
+# Black-boxes the three already-independently-verified macros on the layout
+# side and compares the remaining top-level interconnect against a reference
+# with the matching shape (macros hollowed, comparator/sampling_frontend
+# inlined; bin/generate-hollow-reference.py). Needs a `klt` carrying
+# klayout-tools#2396 (MiM top-plate via short) and #2398 (macro well-tap
+# erasure), both merged 2026-09-24 but unreleased as of 0.6.0 -- hence the
+# SAR_ADC_TOP_KLT override above. Never gates the exit code (recorded
+# whatever it reports, like step 7).
+"$KLT" extract "$GDS" --deck sky130 --top "$TOP" \
+    --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
+    --abstract-cells cdac_array__cdac_array \
+    --abstract-cells sar_sequencer__sar_sequencer \
+    --abstract-cells seln_inverters__seln_inverters \
+    -o "$OUT_DIR/abstract-cells.extract.spice" --format json \
+    > "$OUT_DIR/abstract-cells.extract.json" || true
+python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
+  "$OUT_DIR/abstract-cells.extract.spice" \
+  -o "$OUT_DIR/abstract-cells.extract.lvs.spice" \
+  --format json > "$OUT_DIR/abstract-cells.capclass.json"
+python3 "$TOP_DIR/bin/generate-hollow-reference.py" \
+  "$OUT_DIR/sar_adc_top.lvs-reference.spice" \
+  -o "$OUT_DIR/abstract-cells.reference-hollow.spice"
+cat > "$OUT_DIR/abstract-cells.lvs-hollow.request.json" <<EOF
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": { "netlist": "abstract-cells.extract.lvs.spice", "top": "$TOP" },
+  "reference": { "netlist": "abstract-cells.reference-hollow.spice", "top": "sar_adc_top" },
+  "options": { "combine_devices": true, "flatten_reference": false }
+}
+EOF
+( cd "$OUT_DIR" && "$KLT" lvs abstract-cells.lvs-hollow.request.json --format json \
+    > abstract-cells.lvs-hollow.json ) || true
+
 # --- 8. Record summary -------------------------------------------------
 set +e
 python3 "$TOP_DIR/bin/render-record.py" \
