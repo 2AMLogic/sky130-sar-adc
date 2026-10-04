@@ -1641,7 +1641,8 @@ one citation was current, its bounds matched, its status word agreed. The
 defect was an *absence*, and an absence cites nothing that can go stale.
 
 Check 11 compares the row set against `sim/spec-coverage.json`, this repo's
-own spec-row → bench → evidence-record index (T1 item 9, issue #31), whose own
+own spec-row → bench → evidence-record index (T1 item 9, issue #31, closed
+2026-09-14), whose own
 completeness and pinning are already gated by `sim/check_spec_coverage.py`:
 for every indexed row whose claim rests on committed evidence
 (`ratified-measured` / `draft-informational`), the §4 row of the same
@@ -1981,7 +1982,9 @@ tracker already owns.
    `layout/sar-adc-top/`'s `klt lvs` with `--pin-source-cells` naming the two
    placed-and-routed macro sub-cells (`sar_sequencer`, `seln_inverters`) to
    confirm it actually clears the mismatch. All four original sub-block
-   issues, #165, #103, and PR #174 roll up under epic #25 / tracker #23.
+   issues, #165, #103, and PR #174 roll up under epic #25 / tracker #23. (Epic #25
+   itself closed 2026-09-15 as superseded -- its work landed under #99-#103,
+   and #103's residual scope stays open; tracker #23 remains open.)
    **#103 is still the blocker for the brief's "post-layout PVT simulation
    and DRC/LVS-clean GDS in-repo" acceptance criterion** — DRC-clean is now
    met, LVS-clean is not, and no post-layout PVT re-simulation of the
