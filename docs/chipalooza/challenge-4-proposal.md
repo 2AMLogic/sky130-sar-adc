@@ -4073,8 +4073,8 @@ tracker already owns.
    > **DR-021**
    > (`spec/decision-records/DR-021-near-full-scale-common-mode-droop-resolution.md`)
    > is **proposed**.
-   > **DR-021**
-   > (`spec/decision-records/DR-021-cdac-gain-error-specified-not-sized.md`)
+   > **DR-022**
+   > (`spec/decision-records/DR-022-cdac-gain-error-specified-not-sized.md`)
    > is **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
