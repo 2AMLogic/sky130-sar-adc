@@ -1956,6 +1956,19 @@ entry naming a superseded record is not this check's finding. And it cannot make
 separate change with its own consequences, and this census covers the gap
 document-wide in the meantime.
 
+### Check 38 -- the extracted-DUT offset-bisect record count (`check_extracted_dut_records`)
+
+Issue #525's PR #533 gave `sim/comparator-decision/run.py` an
+`offset-bisect --dut extracted` path, so the post-layout row's "no
+extraction-based re-sim" claim needed a sharper statement than a blanket one:
+a harness exists, a result does not. The document states that result count as
+`**N** post-layout-extracted-DUT offset-bisect records`; this check re-derives N
+from `sim/comparator-decision/records/` (records whose `Netlist provenance`
+line names the extracted fragment). The day a campaign is run and recorded,
+the "0" fails loudly and the row must say what the record measures instead of
+silently staying "unrun". It does not grade the *verdict* of any row, and it
+checks no record's numbers -- only that the document's count of them is true.
+
 ## What the gate deliberately does not cover
 
 Checks 4 and 5 fire only on an *attached* claim: the phrase must follow the

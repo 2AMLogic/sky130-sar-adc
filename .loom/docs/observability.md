@@ -457,6 +457,14 @@ and review requested → merged. It reads ETag-cached stage listings every 5
 minutes plus at most 8 per-item reads per sample, never per tick. Details are
 in [`telemetry-schema.md`](telemetry-schema.md#metricpoints).
 
+**Merge-chain re-date pressure (#10163).** Three gauges track the #8508
+re-date remedy over a trailing 24 h: `loom.merge.redate_prs{state}`
+(`landed`, `pending`, `stuck`), `loom.merge.redates_max{state}` and
+`loom.merge.time_to_land_max`. They are read from local `git log` on the
+`host.health` cadence, with no forge call. A non-zero `stuck` series is a
+merge-chain head that `main` keeps moving under. Details are in
+[`telemetry-schema.md`](telemetry-schema.md#metricpoints).
+
 **Per-issue dispatch disposition (#9222).** `loom.dispatch.admission` only
 covers candidates that reached a `dispatch()` attempt — a candidate filtered
 out earlier (`workspace_halted`, `parked`, `deferred_saturation`,
@@ -519,6 +527,62 @@ from a slash-command argument (and its `loom.repo` from the workspace's git
 remote, as an `owner/name` slug or not at all). Details are in
 [`telemetry-schema.md`](telemetry-schema.md#metricpoints).
 
+**GitHub rate limit (#10022).** Each rate-limit breaker trip emits one
+`loom.ratelimit.trip` span (never one per re-trip while cooling), carrying the
+job that tripped it (`loom.ratelimit.source`), the cooldown end and, per pool,
+the probe's `used` split into this host's own share and the external share
+(`github.ratelimit.{core,graphql}.{used,own,external}`) — the `attribution:`
+line from `daemon.log`, now queryable fleet-wide. Every 60 s the collector
+probes `gh api rate_limit` (free: it does not count against the quota) and
+exports `github.ratelimit.{remaining,used,reset}` gauges labelled `resource`
+(`core`|`graphql`) and `account` (`app-<app id>` for the daemon's GitHub App,
+the `gh` login for an ambient credential, else `unknown` — never a token or
+path), and flushes `github.ratelimit.breaker_skips{reason=<job>}`: one per
+pass a job skipped while the breaker suppressed. A host that never enables an
+OTLP exporter exports none of this; its evidence stays in `daemon.log`.
+
+**Per-bucket rate limits and `loom.forge.calls` (W1).** GitHub bills each App
+installation separately, so the daemon also keeps a *bucket book*: the newest
+reading of every `(account, owner, resource)` pool it spends, from the free
+`x-ratelimit-*` headers of `gh api --include` calls and from one free
+`gh api rate_limit` probe per published credential directory after every
+reader-refresh pass. Each believed reading is exported as the same
+`github.ratelimit.{remaining,used,reset}` gauges with an extra `owner` label.
+`loom.forge.calls` is a delta counter of the requests the `gh` facade sent,
+labelled by caller, inventoried operation, identity role, credential bucket
+(`account`, `cred_owner`, `resource`), `target_owner` and `outcome`; the free
+`rate_limit` probe appears under `resource="other"` and is never charged to a
+bucket. On a host
+without an exporter, `loom-daemon forge calls --by bucket` shows the same
+picture from the local forge-call sink.
+
+**Long-running task liveness and self-update decisions (#10414).** Each
+long-running daemon loop beats a process-global liveness registry
+(`crate::task_liveness`) once per finished iteration. The loops are the
+self-update loop (`auto_update`), the ETA fleet refresh
+(`eta_fleet_refresh`), the 5-minute ETA pass (`eta_pass`) and each role-runner
+loop (`role_runner.<role>`). Every 60 s, on its own ticker independent of the
+collector pass, the daemon exports `loom.daemon.task_alive{task}`. The value
+is `1` while the loop has beaten within its staleness window. That window is
+two intervals plus 60 s, and the self-update loop adds its 35-minute tick
+bound. The value is `0` once the loop has gone quiet past that window or has
+marked itself dead. So a loop that exited, or whose blocking cycle never
+returns, reads `0` within one window. Before #10414 it simply went silent.
+`loom.daemon.task_faults{task,reason}` counts `panic` (an iteration panicked
+and the loop caught it), `overrun` (an iteration ran past the loop's own
+bound), `exit` (the loop stopped for good) and, on `task=eta_pass` only,
+`eta_non_authority_emit` (a host that is not the fleet's ETA authority reached
+the ETA sink; the records were dropped, #10498). The same entries are listed
+under `Task liveness:` in `loom-daemon status`, and as `task_liveness` in
+`status --json`. Alert on `task_alive == 0`, and also on the series going
+silent: that means the sampler or the whole daemon stopped. The self-update
+loop also emits one `auto_update.tick` log per tick. It records the decision
+(`skip`, `defer`, `stale_repo`, `fetch`, `rebuild`, `drain_wait`,
+`roll_stall`, `panic`), the installed and target versions, the defer reason,
+the drain state and the deciding build's version and revision. A host that
+stops converging now says why on every tick. See
+[`telemetry-schema.md` → `auto_update.tick`](telemetry-schema.md#auto_updatetick).
+
 To add a signal, add a `MetricName` or `SpanName` variant. If it needs a new
 label or attribute key, extend `OPS_METRIC_LABEL_KEYS` or
 `OPS_SPAN_ATTRIBUTE_KEYS` and the gateway collector's `keep_keys` in
@@ -550,7 +614,7 @@ Both are derived from the same rows as `loom-daemon queue`. See
 **Phase 3** renders the record on the fleet dashboard: per-host backlog /
 running / ready / blocked counts with a freshness badge (`idle` = recent tick,
 empty queue; `stale` = no new tick for 15 minutes; `no queue data` = the host
-never sent one), and a `#/queue` page listing every issue across the fleet
+never sent one), and a fleet-wide work queue listing every issue
 with its host, phase, waiting time, blocking reason and issue / PR links.
 
 ## 4. The backend: deploy your own Cloudflare Worker

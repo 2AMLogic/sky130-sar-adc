@@ -91,7 +91,7 @@ hop is specified:
 |---|---|---|---|
 | 1 | `loom-daemon ci-telemetry` poller: `ci.run`/`ci.job` records, duration histograms, run→job traces, dedup ledger, local journal, `status` | [#8824](https://github.com/rjwalters/loom/issues/8824) | Landed — see [Phase 1 reference](#phase-1-reference-runs-and-jobs-8824) |
 | 2 | Full completed-job logs as chunked `ci.job.log` records, with secret redaction enforced at the gateway | [#8825](https://github.com/rjwalters/loom/issues/8825) | Landed — see [Phase 2 reference](#phase-2-reference-completed-job-logs-8825) |
-| 3 | SigNoz retro surfaces (`ci-queries.sql`, six saved views) and the metrics ≥30d retention split | [#8826](https://github.com/rjwalters/loom/issues/8826) | Queries, drift guard and retention policy landed — see [Standing queries](#standing-queries) and [Retention](#retention). Creating the saved views in the trial org and the logs/traces 7-day API step need the org login: [#8946](https://github.com/rjwalters/loom/issues/8946) |
+| 3 | SigNoz retro surfaces (`ci-queries.sql`, six saved views) and the trial's metrics ≥30d retention split | [#8826](https://github.com/rjwalters/loom/issues/8826) | Queries, drift guard and trial retention policy landed — see [Standing queries](#standing-queries) and [Retention](#retention). Creating the saved views in the trial org and the logs/traces 7-day API step need the org login: [#8946](https://github.com/rjwalters/loom/issues/8946) |
 | 4 | This policy doc and its wiring | [#8827](https://github.com/rjwalters/loom/issues/8827) | This doc |
 
 Each phase adds its own reference section (config keys, dedup contract,
@@ -139,12 +139,19 @@ scheduled.
 
 ## Retention
 
+> **Trial-only policy.** The 7-day / 30-day split below describes the SigNoz
+> **trial** deployment ([#8826](https://github.com/rjwalters/loom/issues/8826),
+> `defaults/observability/signoz/`), not the live harness-ops store Loom exports
+> to, which keeps logs 3650 days and traces/metrics 10 years
+> ([#10195](https://github.com/rjwalters/loom/issues/10195)). Native-HTTPS-only
+> kinds are governed by the loom-ui telemetry store's own retention issues.
+
 | Signal | Retention | Why |
 |---|---|---|
 | Metrics (`loom.ci.*.duration_ms`, outcome counts) | **≥ 30 days** | Trends are the retro asset — "is CI getting slower" needs weeks of history, and metrics are cheap relative to logs |
 | Logs (`ci.job.log`) and traces | **7 days** | Raw detail is for recent investigation; a regression is found by trend, then read in a recent run |
 
-This 7-day / 30-day split is the **standing policy** (#8826). Trends outlive
+This 7-day / 30-day split is the **trial's** policy (#8826). Trends outlive
 raw data by design: a regression is *found* in the metrics (weeks of
 P50/P95 history per job, and the outcome mix per workflow), then *read* in a
 recent run's `ci.run` / `ci.job` records and job log. Keeping raw logs for 30
@@ -562,9 +569,9 @@ spans](#suite-spans-9089)):
 
 | `record.kind` | Fields | OTLP signal |
 |---|---|---|
-| `ci.run` | `repo`, `visibility`, `run_id`, `run_attempt`, `workflow`, `ref`, `head_sha`, `event`, `status`, `conclusion`, `triggered_by`, `started_at`, `completed_at`, `duration_ms`, `queued_ms` (`run_started_at − created_at`, #9007 follow-up; absent when GitHub reported no start), `trigger_reason` (#9337, see [Trigger attribution](#trigger-attribution-9337)) | log record `ci.run`, timestamped at `completed_at` |
-| `ci.job` | `repo`, `visibility`, `run_id`, `job_id`, `workflow`, `job`, `runner` (first runner label), `attempts` (the job's run attempt), `status`, `conclusion`, `timed_out`, `started_at`, `completed_at`, `duration_ms`, `queued_ms` (`started_at − created_at`, #9089; absent when GitHub reported no `created_at` for the job), `dependency_wait_ms` (`created_at` − the run attempt's earliest job creation, #9089, see [Dependency wait](#dependency-wait-9089)), `shard_index` / `shard_total` / `shard_kind` (#9089, see [Per-job queue wait and shard attributes](#per-job-queue-wait-and-shard-attributes-9089)) | log record `ci.job` |
-| `ci.duration` | `metric` (`run`\|`job`), `repo`, `visibility`, `run_id`, `run_attempt`, `job_id`, `workflow`, `job`, `runner`, `conclusion`, `started_at`, `completed_at`, `duration_ms` | one data point of the `loom.ci.run.duration_ms` / `loom.ci.job.duration_ms` delta histogram |
+| `ci.run` | `repo`, `visibility`, `run_id`, `run_attempt`, `workflow`, `ref`, `head_sha`, `event`, `status`, `conclusion`, `triggered_by`, `started_at`, `completed_at`, `duration_ms`, `queued_ms` (`run_started_at − created_at`, #9007 follow-up; absent when GitHub reported no start), `trigger_reason` (#9337, see [Trigger attribution](#trigger-attribution-9337)), `observed_at` (#10511: when this daemon observed the record — its knowable-at instant for point-in-time readers, distinct from GitHub's `completed_at`; absent on older records) | log record `ci.run`, timestamped at `completed_at` |
+| `ci.job` | `repo`, `visibility`, `run_id`, `job_id`, `workflow`, `job`, `runner` (first runner label), `attempts` (the job's run attempt), `status`, `conclusion`, `timed_out`, `started_at`, `completed_at`, `duration_ms`, `queued_ms` (`started_at − created_at`, #9089; absent when GitHub reported no `created_at` for the job), `dependency_wait_ms` (`created_at` − the run attempt's earliest job creation, #9089, see [Dependency wait](#dependency-wait-9089)), `shard_index` / `shard_total` / `shard_kind` (#9089, see [Per-job queue wait and shard attributes](#per-job-queue-wait-and-shard-attributes-9089)), `observed_at` (#10511, as on `ci.run`) | log record `ci.job` |
+| `ci.duration` | `metric` (`run`\|`job`), `repo`, `visibility`, `run_id`, `run_attempt`, `job_id`, `workflow`, `job`, `runner`, `conclusion`, `started_at`, `completed_at`, `duration_ms`, `observed_at` (#10511; on the record only, never a metric label) | one data point of the `loom.ci.run.duration_ms` / `loom.ci.job.duration_ms` delta histogram |
 | `trace.span` | `loom.ci.run` (root), `loom.ci.job` (child of its run span), `loom.ci.step` (#9089, child of its job span), or `loom.ci.suite` (#9089, also a child of its job span) | trace: one per run attempt, one span per job, one span per executed step, one span per executed suite of a sharded shell-suite leg |
 
 Why `ci.duration` is a separate record: each envelope maps to exactly one

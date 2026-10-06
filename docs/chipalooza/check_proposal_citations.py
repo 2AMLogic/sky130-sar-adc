@@ -84,6 +84,7 @@ import json
 import re
 import struct
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -4618,6 +4619,40 @@ def provenance_sentence(census: dict) -> str:
     )
 
 
+def _census_field_misses(
+    where: str,
+    match: re.Match[str],
+    actual: dict,
+    fields: tuple[str, ...],
+    label: str,
+    source: str,
+    tail: str,
+    detail: Callable[[str], str] | None = None,
+) -> list[str]:
+    """One miss per numeric `fields` group of `match` that differs from `actual`.
+
+    The comparison mechanics the `*_census` checks share: each stated count is
+    read from its named regex group and compared with the live census, in
+    `fields` order. `label` names the census in the message, `source` is where
+    the live figure comes from, `tail` is the check-specific advice after
+    "restate it from `--stats`, and ", and `detail(field)` (optional) is text
+    appended after the live figure.
+    """
+    misses = []
+    for field in fields:
+        claimed = int(match.group(field))
+        if claimed == actual[field]:
+            continue
+        misses.append(
+            f"{where}: the {label} census says {field}={claimed}, but "
+            f"{source} reports {field}={actual[field]}"
+            f"{detail(field) if detail else ''} -- restate it from `python3 "
+            f"docs/chipalooza/check_proposal_citations.py --stats`, and "
+            f"{tail}"
+        )
+    return misses
+
+
 def check_provenance_census(doc: Path, text: str) -> list[str]:
     """Check 26: the stated toolchain/PDK provenance census is this tree's own."""
     if not any((REPO_ROOT / top).is_dir() for top in ("sim", "layout")):
@@ -4640,23 +4675,22 @@ def check_provenance_census(doc: Path, text: str) -> list[str]:
     misses = []
     for match in stated:
         where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        for field in ("sim_pinned", "sim_records", "layout_records", "layout_klt", "layout_pdk"):
-            claimed = int(match.group(field))
-            if claimed == actual[field]:
-                continue
-            detail = ""
+
+        def detail(field: str) -> str:
             if field == "layout_pdk" and actual["unpinned"]:
-                detail = " (" + ", ".join(
+                return " (" + ", ".join(
                     f"{flow}: {short} of {total}" for flow, (short, total) in actual["unpinned"].items()
                 ) + " mint records naming none)"
-            misses.append(
-                f"{where}: the provenance census says {field}={claimed}, but "
-                f"the evidence tree reports {field}={actual[field]}{detail} -- "
-                f"restate it from `python3 "
-                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
-                f"a flow now pins the commit, say so rather than only moving "
-                f"the number (issue #407)"
-            )
+            return ""
+
+        misses += _census_field_misses(
+            where, match, actual,
+            ("sim_pinned", "sim_records", "layout_records", "layout_klt", "layout_pdk"),
+            "provenance", "the evidence tree",
+            "if a flow now pins the commit, say so rather than only moving "
+            "the number (issue #407)",
+            detail,
+        )
     return misses
 
 
@@ -5143,17 +5177,12 @@ def check_renderer_census(doc: Path, text: str) -> list[str]:
     misses = []
     for match in stated:
         where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        for field in ("entry_points", "pinning", "naming"):
-            claimed = int(match.group(field))
-            if claimed == actual[field]:
-                continue
-            misses.append(
-                f"{where}: the renderer census says {field}={claimed}, but "
-                f"`layout/` reports {field}={actual[field]} -- restate it from "
-                f"`python3 docs/chipalooza/check_proposal_citations.py "
-                f"--stats`, and if an entry point now resolves the commit, say "
-                f"so rather than only moving the number"
-            )
+        misses += _census_field_misses(
+            where, match, actual, ("entry_points", "pinning", "naming"),
+            "renderer", "`layout/`",
+            "if an entry point now resolves the commit, say so rather than "
+            "only moving the number",
+        )
         listed = sorted(set(RENDERER_ENTRY_RE.findall(match.group("offenders"))))
         if listed != actual["unpinned"]:
             misses.append(
@@ -5272,18 +5301,12 @@ def check_arm_census(doc: Path, text: str) -> list[str]:
     misses = []
     for match in stated:
         where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        for field in ("offered", "ran", "unrun"):
-            claimed = int(match.group(field))
-            if claimed == actual[field]:
-                continue
-            misses.append(
-                f"{where}: the arm census says {field}={claimed}, but "
-                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
-                f"restate it from `python3 "
-                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
-                f"an arm has now been run, say what its record prices rather "
-                f"than only moving the number"
-            )
+        misses += _census_field_misses(
+            where, match, actual, ("offered", "ran", "unrun"),
+            "arm", f"`sim/{ARM_CAMPAIGN}/`",
+            "if an arm has now been run, say what its record prices rather "
+            "than only moving the number",
+        )
         listed = ARM_TOKEN_RE.findall(match.group("arms"))
         if listed != actual["unrun_arms"]:
             misses.append(
@@ -5409,18 +5432,12 @@ def check_sweep_census(doc: Path, text: str) -> list[str]:
     misses = []
     for match in stated:
         where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        for field in ("points", "l_mults", "rsubx", "covered", "records"):
-            claimed = int(match.group(field))
-            if claimed == actual[field]:
-                continue
-            misses.append(
-                f"{where}: the sweep census says {field}={claimed}, but "
-                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
-                f"restate it from `python3 "
-                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
-                f"the box has now been walked, say what its record measures "
-                f"rather than only moving the number"
-            )
+        misses += _census_field_misses(
+            where, match, actual, ("points", "l_mults", "rsubx", "covered", "records"),
+            "sweep", f"`sim/{ARM_CAMPAIGN}/`",
+            "if the box has now been walked, say what its record measures "
+            "rather than only moving the number",
+        )
         listed = ARM_TOKEN_RE.findall(match.group("names"))
         if listed != actual["record_ids"]:
             misses.append(
@@ -5531,18 +5548,12 @@ def check_decoupling_census(doc: Path, text: str) -> list[str]:
     misses = []
     for match in stated:
         where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        for field in ("carrying", "tracked"):
-            claimed = int(match.group(field))
-            if claimed == actual[field]:
-                continue
-            misses.append(
-                f"{where}: the decoupling census says {field}={claimed}, but "
-                f"`spec/decision-records/` reports {field}={actual[field]} -- "
-                f"restate it from `python3 "
-                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
-                f"a record has since struck the item or named its tracker, say "
-                f"which rather than only moving the number"
-            )
+        misses += _census_field_misses(
+            where, match, actual, ("carrying", "tracked"),
+            "decoupling", "`spec/decision-records/`",
+            "if a record has since struck the item or named its tracker, say "
+            "which rather than only moving the number",
+        )
         claimed_untracked = int(match.group("untracked"))
         if claimed_untracked != len(actual["untracked"]):
             misses.append(
@@ -5671,18 +5682,12 @@ def check_null_sweep_census(doc: Path, text: str) -> list[str]:
     misses = []
     for match in stated:
         where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        for field in ("rungs", "covered", "records"):
-            claimed = int(match.group(field))
-            if claimed == actual[field]:
-                continue
-            misses.append(
-                f"{where}: the ladder census says {field}={claimed}, but "
-                f"`sim/{ARM_CAMPAIGN}/` reports {field}={actual[field]} -- "
-                f"restate it from `python3 "
-                f"docs/chipalooza/check_proposal_citations.py --stats`, and if "
-                f"the ladder has now been walked, say what its record measures "
-                f"rather than only moving the number"
-            )
+        misses += _census_field_misses(
+            where, match, actual, ("rungs", "covered", "records"),
+            "ladder", f"`sim/{ARM_CAMPAIGN}/`",
+            "if the ladder has now been walked, say what its record measures "
+            "rather than only moving the number",
+        )
         listed = ARM_TOKEN_RE.findall(match.group("names"))
         if listed != actual["record_ids"]:
             misses.append(
@@ -6169,6 +6174,47 @@ def check_campaign_census(doc: Path, text: str) -> list[str]:
     return misses
 
 
+EXTRACTED_DUT_RE = re.compile(
+    r"\*\*(?P<n>\d+)\*\* post-layout-extracted-DUT offset-bisect records?"
+)
+
+# The provenance line `sim/comparator-decision/run.py` writes when
+# `offset-bisect --dut extracted` ran (issue #525).
+EXTRACTED_DUT_PROVENANCE = "post-layout extracted"
+
+
+def extracted_dut_record_count() -> int:
+    records = REPO_ROOT / "sim" / "comparator-decision" / "records"
+    if not records.is_dir():
+        return 0
+    return sum(
+        1
+        for rec in records.glob("*.md")
+        if any(
+            line.startswith("- **Netlist provenance**:")
+            and EXTRACTED_DUT_PROVENANCE in line
+            for line in rec.read_text().splitlines()
+        )
+    )
+
+
+def check_extracted_dut_records(doc: Path, text: str) -> list[str]:
+    """Check 38: the stated count of extracted-DUT offset-bisect records is the tree's."""
+    actual = extracted_dut_record_count()
+    misses = []
+    for match in EXTRACTED_DUT_RE.finditer(text):
+        claimed = int(match.group("n"))
+        if claimed != actual:
+            misses.append(
+                f"{doc.name}:{_line_of(text, match.start())}: says **{claimed}** "
+                f"post-layout-extracted-DUT offset-bisect records, but "
+                f"`sim/comparator-decision/records/` holds {actual} whose "
+                f"`Netlist provenance` line names the extracted fragment -- "
+                f"restate the claim, and if a record now exists say what it measures"
+            )
+    return misses
+
+
 def check_document(doc: Path) -> list[str]:
     text = doc.read_text()
     return (
@@ -6208,6 +6254,7 @@ def check_document(doc: Path) -> list[str]:
         + check_excursion_enumeration(doc, text)
         + check_present_tense_mismatch(doc, text)
         + check_campaign_census(doc, text)
+        + check_extracted_dut_records(doc, text)
     )
 
 

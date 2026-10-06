@@ -89,6 +89,31 @@ DUT_FRAGMENT = TESTBENCH_DIR / "comparator_core.spice"
 # fragment is appropriate here, same as sim/harness-corner-smoke's own
 # testbenches. Used only by the `kickback-neutralized` subcommand below.
 DUT_FRAGMENT_NEUTRALIZED = TESTBENCH_DIR / "comparator_core_neutralized.spice"
+# POST-LAYOUT variant (issue #525): the comparator sub-block's committed
+# `klt pex` extraction (layout/comparator/reports/20260906-152000-eace0b6/
+# comparator.pex-extract.spice), `.SUBCKT`-wrapped with its R/C parasitics,
+# plus one instantiation line so it drops into the same flat-deck slot the
+# schematic fragment fills. Selected with `offset-bisect --dut extracted`;
+# never the default, and `DUT_FRAGMENT` itself is untouched.
+DUT_FRAGMENT_EXTRACTED = TESTBENCH_DIR / "comparator_core_extracted.spice"
+DUT_CHOICES = {
+    "schematic": DUT_FRAGMENT,
+    "extracted": DUT_FRAGMENT_EXTRACTED,
+}
+
+
+def _dut_provenance(fragment: Path) -> str:
+    """The `- **Netlist provenance**:` line body naming which fragment ran."""
+    rel = f"`{fragment.relative_to(evidence.REPO_ROOT)}`"
+    if fragment == DUT_FRAGMENT_EXTRACTED:
+        return (
+            f"post-layout extracted, `klt pex` parasitics ({rel}, from "
+            "`layout/comparator/reports/20260906-152000-eace0b6/"
+            "comparator.pex-extract.spice`)"
+        )
+    if fragment == DUT_FRAGMENT:
+        return f"schematic ({rel})"
+    return f"other ({rel})"
 
 # --- Fixed testbench constants (all provisional -- see
 # spec/decision-records/DR-004-comparator-topology-and-noise-budget.md) ---
@@ -209,6 +234,8 @@ def _regen_deck(
     probe_supply_current: bool = False,
     title: str = "regen-time sweep",
     issue_ref: str = "(issue #54)",
+    dut_fragment: Path = DUT_FRAGMENT,
+    rndseed: int | None = None,
 ) -> str:
     """Single reset->evaluate transient deck for one (corner, temp, supply,
     Vindiff) point.
@@ -238,7 +265,12 @@ def _regen_deck(
     own so its probe logs are not mislabelled as regen-time runs. The STIMULUS is
     deliberately identical either way -- that is what makes an `offset-bisect`
     boundary directly comparable with a `regen`/`regen-corners` delay taken at
-    the same Vindiff."""
+    the same Vindiff.
+
+    `rndseed` (issue #524) emits `.option rndseed=N` right after `.temp`, the
+    same placement `_pickoff_deck()` uses, so a per-draw Monte Carlo probe on
+    a `*_mm` corner is reproducible. None (the default) emits nothing, keeping
+    every pre-existing caller's deck text byte-identical."""
     vindiff_v = vindiff_mv / 1000.0
     vcm = supply_v / 2.0
     period_ns = RESET_NS + RESET_TR_NS + evaluate_ns + 10.0
@@ -249,6 +281,7 @@ def _regen_deck(
         f".lib {info.ngspice_lib} {corner}",
         f".temp {temp_c}",
         f".param vdd_val = {supply_v}",
+        *([f".option rndseed={rndseed}"] if rndseed is not None else []),
         "",
         "Vdd VDD 0 dc {vdd_val}",
         f"Vclk CLK 0 PULSE(0 {{vdd_val}} {RESET_NS}n {RESET_TR_NS}n {RESET_TR_NS}n "
@@ -256,7 +289,7 @@ def _regen_deck(
         f"Vinp VINP 0 dc {vcm + vindiff_v / 2}",
         f"Vinn VINN 0 dc {vcm - vindiff_v / 2}",
         "",
-        _dut_lines(),
+        _dut_lines(dut_fragment),
         "",
         ".control",
         f"tran 0.005n {tstop_ns}n",
@@ -1992,7 +2025,8 @@ class _BisectProbe:
 
 def _bisect_probe(
     info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float,
-    vindiff_mv: float, scratch_dir: Path,
+    vindiff_mv: float, scratch_dir: Path, dut_fragment: Path = DUT_FRAGMENT,
+    rndseed: int | None = None,
 ) -> _BisectProbe:
     """Run one probe and classify it. Reuses `_regen_deck()` unchanged (only
     its comment-line `title`/`issue_ref` differ), so a boundary measured here
@@ -2005,6 +2039,8 @@ def _bisect_probe(
         info, corner, temp_c, vindiff_mv, log_name,
         supply_v=supply_v, evaluate_ns=BISECT_EVALUATE_NS,
         title="offset-bisect decision-boundary probe", issue_ref="(issue #515)",
+        dut_fragment=dut_fragment,
+        rndseed=rndseed,
     )
     try:
         # run_ngspice_with_retry()'s default four attempts, deliberately: its
@@ -2230,9 +2266,16 @@ def run_offset_bisect(
     corner: str = "tt", temp_c: float = 27.0, supply_v: float = VDD,
     scan_mv: list[float] | None = None, tol_mv: float = BISECT_TOL_MV,
     max_mv: float = BISECT_MAX_MV, max_iters: int = BISECT_MAX_ITERS,
-    quiet: bool = False,
+    quiet: bool = False, dut_fragment: Path = DUT_FRAGMENT,
+    rndseed: int | None = None,
 ) -> BisectCornerResult:
-    """Phases A-C of this section's header, at one PVT point."""
+    """Phases A-C of this section's header, at one PVT point.
+
+    `rndseed` (issue #524): when given, every probe of this one search carries
+    the SAME `.option rndseed`, so on a `*_mm` corner the search sees ONE fixed
+    mismatch draw throughout (the boundary of that draw is a well-defined
+    quantity only if the device instance does not change between probes).
+    On a plain corner the seed has no effect -- that is the negative control."""
     info = pdk.resolve_or_raise()
     scan = sorted(scan_mv if scan_mv is not None else BISECT_SCAN_MV)
     result = BisectCornerResult(
@@ -2248,7 +2291,10 @@ def run_offset_bisect(
             key = round(v_mv, 6)
             if key in seen:
                 return seen[key]
-            p = _bisect_probe(info, corner, temp_c, supply_v, key, scratch_dir)
+            p = _bisect_probe(
+                info, corner, temp_c, supply_v, key, scratch_dir,
+                dut_fragment=dut_fragment, rndseed=rndseed,
+            )
             seen[key] = p
             result.probes.append(p)
             if not quiet:
@@ -2426,10 +2472,19 @@ def run_offset_bisect(
 # justification).
 BISECT_DEFAULT_POINTS = [("tt", 27.0), ("ss", -40.0)]
 
+# The schematic-level `offset-bisect` record an extracted-DUT run (issue #525)
+# is compared against, and the BOUNDS that record measured (both points:
+# |offset| < 0.0275 mV, band < 0.0549 mV -- neither resolved). Cited, not
+# re-derived: they are a committed record's numbers, quoted so the post-layout
+# record can state the comparison in one place without re-reading markdown.
+BISECT_SCHEMATIC_RECORD_ID = "20261002-203719-c898d06"
+BISECT_SCHEMATIC_OFFSET_BOUND_MV = 0.0275
+BISECT_SCHEMATIC_BAND_BOUND_MV = 0.0549
+
 
 def run_offset_bisect_points(
     points: list[tuple[str, float]] | None = None, supply_v: float = VDD,
-    quiet: bool = False,
+    quiet: bool = False, dut_fragment: Path = DUT_FRAGMENT,
 ) -> list[BisectCornerResult]:
     pdk.resolve_or_raise()  # fail fast before spending the grid's runtime
     out: list[BisectCornerResult] = []
@@ -2438,8 +2493,304 @@ def run_offset_bisect_points(
             print(f"{corners_mod.corner_id(process_corner, temp_c, supply_v)}:")
         out.append(run_offset_bisect(
             corner=process_corner, temp_c=temp_c, supply_v=supply_v, quiet=quiet,
+            dut_fragment=dut_fragment,
         ))
     return out
+
+
+# ---------------------------------------------------------------------------
+# offset-bisect-mc: the decision boundary bisected PER Monte Carlo draw
+# (issue #524). Composes run_offset_bisect() with the rndseed-per-draw scheme
+# run_offset_mc() uses; nothing in the search itself is new.
+# ---------------------------------------------------------------------------
+#
+# Why: the `offset` pick-off statistic is a fitted-gain linearization valid on
+# Vindiff in [1, 10] mV and extrapolates to ~225 mV (DR-004 Decision 3 calls
+# its magnitudes an upper bound / order of magnitude). The boundary is
+# decision-referred, so it needs no gain and has no validity range.
+#
+# Coarse scan: the mismatch-free grid +-{50, 10, half-LSB} is sized for a
+# boundary near zero. A mismatch draw can sit at tens of mV, so the MC scan
+# adds +-200 mV: a draw whose boundary lies between 50 and 200 mV then starts
+# its bisection from a bracket of at most 150 mV, instead of triggering
+# Phase B's doubling expansion. It costs 2 more coarse probes per draw and
+# saves the expansion (and a long first bracket) for the draws that need it.
+BISECT_MC_SCAN_MV = [-200.0] + BISECT_SCAN_MV + [200.0]
+
+
+@dataclass
+class BisectMcResult:
+    corner: str
+    mismatch_corner: str
+    temp_c: float
+    seed: int
+    n: int
+    negctrl_n: int
+    draws: list[BisectCornerResult]
+    negctrl: list[BisectCornerResult]
+    dut_fragment: Path = DUT_FRAGMENT
+
+    @property
+    def draw_seeds(self) -> list[int]:
+        return [self.seed + i for i in range(self.n)]
+
+
+def _bounded_offsets(results: list[BisectCornerResult]) -> list[float]:
+    return [r.offset_mv for r in results if r.bounded and r.offset_mv is not None]
+
+
+def bisect_mc_stats(results: list[BisectCornerResult]) -> dict[str, float | int]:
+    """Distribution of the per-draw boundary-derived offset (mV) over the draws
+    that BOUNDED. pstdev, to match the population convention
+    `write_offset_evidence()` uses for the 97.0825 mV it is compared with. A
+    draw that did not bound is counted in `n_total` but contributes no value;
+    it is never imputed."""
+    vals = _bounded_offsets(results)
+    out: dict[str, float | int] = {"n_total": len(results), "n_bounded": len(vals)}
+    if vals:
+        out.update(
+            mean=statistics.fmean(vals),
+            stdev=statistics.pstdev(vals) if len(vals) > 1 else 0.0,
+            min=min(vals), max=max(vals),
+        )
+    return out
+
+
+NEGCTRL_MIN_N = 2  # one control draw compares its edges with themselves
+
+
+def bisect_negctrl_status(negctrl: list[BisectCornerResult]) -> str:
+    """The repo-wide negative-control contract: mismatch DISABLED, same seed
+    sequence => the identical boundary on every draw, stdev exactly 0.
+
+    Returns "PASS", "FAIL" or "NOT-EXERCISED". All draws must have bounded
+    (an unbounded control proves nothing -> FAIL), and BOTH edges, not only
+    their midpoint, must be identical (a midpoint can agree while the edges
+    move). Seed-invariance needs at least two seeds to compare: a control
+    with fewer than NEGCTRL_MIN_N draws is NOT-EXERCISED, never PASS -- it
+    would only compare one boundary with itself."""
+    if not negctrl or not all(r.bounded for r in negctrl):
+        return "FAIL"
+    if len(negctrl) < NEGCTRL_MIN_N:
+        return "NOT-EXERCISED"
+    edges = [(r.neg_lo_mv, r.neg_hi_mv, r.pos_lo_mv, r.pos_hi_mv) for r in negctrl]
+    if any(e != edges[0] for e in edges):
+        return "FAIL"
+    return "PASS" if statistics.pstdev(_bounded_offsets(negctrl)) == 0.0 else "FAIL"
+
+
+def bisect_negctrl_ok(negctrl: list[BisectCornerResult]) -> bool:
+    """True only when the control was exercised (>= NEGCTRL_MIN_N draws) and
+    passed; see bisect_negctrl_status()."""
+    return bisect_negctrl_status(negctrl) == "PASS"
+
+
+def run_offset_bisect_mc(
+    corner: str = "tt", temp_c: float = 27.0, seed: int = 1, n: int = 16,
+    negctrl_n: int | None = None, supply_v: float = VDD,
+    scan_mv: list[float] | None = None, quiet: bool = False,
+    dut_fragment: Path = DUT_FRAGMENT,
+) -> BisectMcResult:
+    """Bisect the boundary once per draw at `<corner>_mm` (rndseed seed+i), then
+    run the negative control at the plain corner over the same seed sequence.
+    `negctrl_n` defaults to `n`; set it lower only to save probes, and the
+    record then states the control's smaller N (below NEGCTRL_MIN_N the
+    control is reported NOT-EXERCISED). `dut_fragment` (issue #525's
+    selector) is threaded to every probe of every draw and control search."""
+    pdk.resolve_or_raise()
+    mismatch_corner = corners_mod.mismatch_corner_for(corner)
+    ncn = n if negctrl_n is None else negctrl_n
+    scan = scan_mv if scan_mv is not None else BISECT_MC_SCAN_MV
+    draws: list[BisectCornerResult] = []
+    for i in range(n):
+        if not quiet:
+            print(f"draw {i} (seed={seed + i}, {mismatch_corner}):")
+        draws.append(run_offset_bisect(
+            corner=mismatch_corner, temp_c=temp_c, supply_v=supply_v,
+            scan_mv=scan, quiet=quiet, rndseed=seed + i,
+            dut_fragment=dut_fragment,
+        ))
+    negctrl: list[BisectCornerResult] = []
+    for i in range(ncn):
+        if not quiet:
+            print(f"negctrl {i} (seed={seed + i}, {corner}):")
+        negctrl.append(run_offset_bisect(
+            corner=corner, temp_c=temp_c, supply_v=supply_v,
+            scan_mv=scan, quiet=quiet, rndseed=seed + i,
+            dut_fragment=dut_fragment,
+        ))
+    return BisectMcResult(
+        corner=corner, mismatch_corner=mismatch_corner, temp_c=temp_c, seed=seed,
+        n=n, negctrl_n=ncn, draws=draws, negctrl=negctrl,
+        dut_fragment=dut_fragment,
+    )
+
+
+PICKOFF_REF_STDEV_MV = 97.0825  # record 20260821-071918-433a294
+PICKOFF_REF_N = 16
+
+
+def _bisect_mc_comparison_lines(st: dict[str, float | int]) -> list[str]:
+    """Data-driven agreement statement against the pick-off record. The verdict
+    sentence is computed from the numbers, never asserted: with N draws the
+    relative standard error of a stdev is ~1/sqrt(2(N-1)). The reference is
+    itself a sampled stdev (N=PICKOFF_REF_N), so 'agrees' means the difference
+    lies inside +-2 combined SE, sqrt(SE_bisect^2 + SE_ref^2)."""
+    out = ["## Agreement with the pick-off sigma", ""]
+    n = int(st["n_bounded"])
+    if n < 2:
+        out.append("Fewer than 2 bounded draws: no sigma to compare.")
+        return out
+    s = float(st["stdev"])
+    se = s / (2 * (n - 1)) ** 0.5
+    se_ref = PICKOFF_REF_STDEV_MV / (2 * (PICKOFF_REF_N - 1)) ** 0.5
+    se_comb = (se ** 2 + se_ref ** 2) ** 0.5
+    ratio = PICKOFF_REF_STDEV_MV / s if s > 0 else float("inf")
+    agrees = abs(PICKOFF_REF_STDEV_MV - s) <= 2 * se_comb
+    out.append(
+        f"Boundary-derived stdev {s:.4f} mV (N={n}, SE ~{se:.2f} mV) vs the "
+        f"pick-off statistic's {PICKOFF_REF_STDEV_MV} mV (N={PICKOFF_REF_N}, "
+        f"SE ~{se_ref:.2f} mV): ratio {ratio:.1f}x, difference "
+        f"{abs(PICKOFF_REF_STDEV_MV - s):.2f} mV vs 2 x combined SE "
+        f"{2 * se_comb:.2f} mV. **{'AGREES' if agrees else 'DISAGREES'}** at "
+        "+-2 combined SE."
+    )
+    if not agrees:
+        out += [
+            "",
+            "Divergence: the pick-off statistic divides a fixed-time output "
+            "difference by a gain fitted over Vindiff in [1, 10] mV. A "
+            "regenerative latch's output at a fixed time is compressive in "
+            "its input, so draws whose pick-off lands outside the fitted range "
+            "(DR-004 Decision 3's caveat) are overstated by the constant-gain "
+            "division. That is the expected source and is directionally "
+            "consistent with this result (bisected spread much smaller than "
+            "pick-off spread), but this record does not isolate it: N is "
+            "small, and it did not re-evaluate the pick-off on the same seeds. "
+            "The boundary figure is decision-referred with no fitted gain, so "
+            "it is the better-founded of the two; the 97.0825 mV figure should "
+            "not be used as a random-offset sigma pending a converged-N "
+            "boundary record.",
+        ]
+    return out
+
+
+def write_offset_bisect_mc_evidence(
+    result: BisectMcResult, note: str = "", supersedes: str = "",
+) -> Path:
+    raw_logs: dict[str, str] = {}
+    for tag, group in (("draw", result.draws), ("negctrl", result.negctrl)):
+        for i, r in enumerate(group):
+            for p in r.probes:
+                safe = f"{p.vindiff_mv:.6f}mV".replace("-", "neg").replace(".", "p")
+                raw_logs[f"{tag}{i}__{r.corner_id}__vindiff_{safe}.log"] = p.log_text
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, _dut_lines(result.dut_fragment), "mc-draws", raw_logs,
+    )
+    a = lines.append
+    st = bisect_mc_stats(result.draws)
+    ctl_status = bisect_negctrl_status(result.negctrl)
+    ctl_stats = bisect_mc_stats(result.negctrl)
+    nb = st["n_bounded"]
+    supplies = sorted({r.supply_v for r in result.draws + result.negctrl}) or [VDD]
+    a("- **Claim**: None numeric -- boundary-bisected random-offset distribution "
+      "(issue #524). No spec row (DR-020 declines one; its second prerequisite, "
+      "a derived offset allocation, is separate).")
+    a(f"- **Netlist provenance**: {_dut_provenance(result.dut_fragment)}")
+    a(corners_mod.corner_matrix_summary_line(
+        [result.mismatch_corner, result.corner], [result.temp_c], supplies,
+        len(result.draws) + len(result.negctrl),
+    ) + f" -- {len(result.draws)} `{result.mismatch_corner}` draw searches + "
+        f"{len(result.negctrl)} `{result.corner}` negative-control searches, "
+        "each a serial boundary bisection at one (corner, temp, supply) point")
+    a(f"- **Statistical convention**: mismatch corner `{result.mismatch_corner}`, "
+      f"temp={result.temp_c:g}C supply={supplies[0]}V, N={result.n} draws, seed={result.seed} "
+      f"(draw i uses rndseed seed+i). N is set by probe cost, not by a "
+      f"precision target: SE(s)/s ~= 1/sqrt(2(N-1)) = "
+      f"{100.0 / (2 * (result.n - 1)) ** 0.5 if result.n > 1 else float('inf'):.0f}% "
+      "for an approximately Gaussian statistic. Each draw is a ~15-30 probe "
+      "serial bisection of 20 ns transients; this is an increment, not a "
+      "converged sigma.")
+    a("- **Reference**: `20260821-071918-433a294` pick-off statistic: N=16, "
+      "mean +35.2441 mV, stdev 97.0825 mV, range [-136.4332, +224.9353] mV "
+      "(fitted gain 4.2083 V/V, valid over 1-10 mV).")
+    ctl_verdict = {
+        "PASS": "PASS (identical boundary edges on every seed, stdev == 0)",
+        "FAIL": "FAIL (edges differ or a control draw did not bound)",
+        "NOT-EXERCISED": (
+            f"NOT EXERCISED (fewer than {NEGCTRL_MIN_N} control draws: one "
+            "boundary compared with itself cannot show seed-invariance)"
+        ),
+    }[ctl_status]
+    a(f"- **Negative control**: {result.negctrl_n} "
+      f"draw{'s' if result.negctrl_n != 1 else ''} at plain "
+      f"`{result.corner}` (mismatch disabled), same seed sequence -- {ctl_verdict}")
+    a("- **Batch path**: none. A sequential bisection (each probe's Vindiff "
+      "depends on the previous outcome) is not expressible as one `klt sim` "
+      "request, so this ran as one serial local process; the tool gap is "
+      "2AMLogic/klayout-tools#2716.")
+    if note:
+        a(f"- **Note**: {note}")
+    if ctl_status == "PASS" and nb > 1:
+        overall = "PASS"
+    elif ctl_status == "NOT-EXERCISED" and nb > 1:
+        overall = "NOT GRADED (negative control not exercised)"
+    else:
+        overall = "FAIL"
+    a(f"- **Overall**: {overall}")
+    a("")
+    a("## Boundary-derived offset distribution (mV)")
+    a("")
+    a("| N drawn | N bounded | mean | stdev (population) | min | max |")
+    a("|---|---|---|---|---|---|")
+    if nb:
+        a(f"| {st['n_total']} | {nb} | {st['mean']:.4f} | {st['stdev']:.4f} | "
+          f"{st['min']:.4f} | {st['max']:.4f} |")
+    else:
+        a(f"| {st['n_total']} | 0 | n/a | n/a | n/a | n/a |")
+    a("")
+    a("## Per-draw boundaries")
+    a("")
+    a("| draw | seed | status | neg edge (mV) | pos edge (mV) | offset (mV) | dead band (mV) | probes |")
+    a("|---|---|---|---|---|---|---|---|")
+    for i, r in enumerate(result.draws):
+        if r.bounded:
+            a(f"| {i} | {result.seed + i} | {r.status} | "
+              f"{_bisect_edge_cell(r.neg_edge_mv, r.neg_edge_unc_mv)} | "
+              f"{_bisect_edge_cell(r.pos_edge_mv, r.pos_edge_unc_mv)} | "
+              f"{r.offset_mv:+.4f} +-{r.offset_unc_mv:.4f} | "
+              f"{r.dead_band_mv:.4f} +-{r.dead_band_unc_mv:.4f} | {len(r.probes)} |")
+        else:
+            a(f"| {i} | {result.seed + i} | {r.status} | n/a | n/a | n/a | n/a | {len(r.probes)} |")
+    a("")
+    a("## Negative control (mismatch disabled, same seed sequence)")
+    a("")
+    a("| draw | seed | status | neg edge (mV) | pos edge (mV) | offset (mV) |")
+    a("|---|---|---|---|---|---|")
+    for i, r in enumerate(result.negctrl):
+        if r.bounded:
+            a(f"| {i} | {result.seed + i} | {r.status} | "
+              f"{_bisect_edge_cell(r.neg_edge_mv, r.neg_edge_unc_mv)} | "
+              f"{_bisect_edge_cell(r.pos_edge_mv, r.pos_edge_unc_mv)} | {r.offset_mv:+.4f} |")
+        else:
+            a(f"| {i} | {result.seed + i} | {r.status} | n/a | n/a | n/a |")
+    a("")
+    lines.extend(_bisect_mc_comparison_lines(st))
+    if ctl_stats["n_bounded"]:
+        a("")
+        a(f"Control offset stdev: {ctl_stats['stdev']:.6g} mV (must be exactly 0).")
+    a("")
+    for tag, group in (("draw", result.draws), ("negctrl", result.negctrl)):
+        for i, r in enumerate(group):
+            for note_text in r.notes:
+                a(f"- {tag} {i}: {note_text}")
+    a("")
+    return _finalize_record(
+        lines, prov.record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
+        "offset-bisect-mc",
+        extra={"MC seed": str(result.seed), "MC N": str(result.n)},
+        supersedes=supersedes,
+    )
 
 
 def _bisect_edge_cell(edge_mv: float | None, unc_mv: float | None) -> str:
@@ -2448,39 +2799,279 @@ def _bisect_edge_cell(edge_mv: float | None, unc_mv: float | None) -> str:
     return f"{edge_mv:+.4f} +-{unc_mv:.4f}"
 
 
+def _postlayout_half_lsb_verdict(
+    results: list[BisectCornerResult], half_lsb_mv: float,
+) -> tuple[str, list[str]]:
+    """DR-020's supersession test for an extracted-DUT run (issue #525).
+
+    Returns (verdict, reasons) where verdict is one of:
+
+    * ``"TRIGGERED"`` -- some corner point has a RESOLVED systematic offset
+      with |offset| >= half-LSB, or a RESOLVED dead band >= half-LSB. DR-020
+      Decision 1-2 must then be superseded by a NEW decision record.
+    * ``"UNDETERMINED"`` -- nothing is triggered, but at least one point
+      either yielded no boundary pair or has a bracket whose upper bound
+      reaches half-LSB, so half-LSB scale cannot be excluded.
+    * ``"NOT-TRIGGERED"`` -- every point is bounded and both quantities'
+      upper bounds (value + bracket uncertainty) are below half-LSB: DR-020 is
+      corroborated at this netlist class.
+
+    Kept a pure function of `results` so the record's verdict sentence and
+    the tests turn on the same rule.
+    """
+    triggered: list[str] = []
+    undetermined: list[str] = []
+    for r in results:
+        if not r.bounded:
+            undetermined.append(
+                f"`{r.corner_id}` yielded no boundary pair (status {r.status})"
+            )
+            continue
+        off_hi = abs(r.offset_mv) + r.offset_unc_mv
+        band_hi = r.dead_band_mv + r.dead_band_unc_mv
+        if r.offset_resolved and abs(r.offset_mv) >= half_lsb_mv:
+            triggered.append(
+                f"`{r.corner_id}` systematic offset {r.offset_mv:+.4f} "
+                f"+-{r.offset_unc_mv:.4f} mV"
+            )
+        elif off_hi >= half_lsb_mv:
+            undetermined.append(
+                f"`{r.corner_id}` offset upper bound {off_hi:.4f} mV reaches "
+                "half-LSB"
+            )
+        if r.dead_band_resolved and r.dead_band_mv >= half_lsb_mv:
+            triggered.append(
+                f"`{r.corner_id}` dead band {r.dead_band_mv:.4f} "
+                f"+-{r.dead_band_unc_mv:.4f} mV"
+            )
+        elif band_hi >= half_lsb_mv:
+            undetermined.append(
+                f"`{r.corner_id}` band upper bound {band_hi:.4f} mV reaches "
+                "half-LSB"
+            )
+    if triggered:
+        return "TRIGGERED", triggered
+    if undetermined:
+        return "UNDETERMINED", undetermined
+    return "NOT-TRIGGERED", []
+
+
+def _signed_delay_asymmetry(r: BisectCornerResult) -> list[tuple[float, float]]:
+    """[(|V| mV, t(+V) - t(-V) ns)] over every |Vindiff| probed on both signs
+    with a decision delay, ascending in |V|."""
+    by_v = {
+        round(p.vindiff_mv, 6): p.decide_time_ns for p in r.probes
+        if p.decide_time_ns is not None
+    }
+    return sorted(
+        (v, by_v[v] - by_v[round(-v, 6)])
+        for v in by_v
+        if v > 0 and round(-v, 6) in by_v
+    )
+
+
+def _delay_asymmetry_agrees_with_offset(r: BisectCornerResult) -> bool | None:
+    """Item 4's falsifiability check for a DUT that is NOT symmetric by
+    construction (issue #525). A systematic offset Vos shifts the effective
+    overdrive to V - Vos, so a positive Vos makes every `+V` decision slower
+    than its `-V` mirror (t(+V) - t(-V) > 0) and a negative one the reverse.
+    Returns None when there is nothing to check (offset not resolved, or no
+    matched pair); otherwise whether EVERY matched pair's sign agrees."""
+    pairs = _signed_delay_asymmetry(r)
+    if not r.bounded or not r.offset_resolved or not pairs:
+        return None
+    want_pos = r.offset_mv > 0
+    return all(d != 0.0 and (d > 0) == want_pos for _, d in pairs)
+
+
+def _offset_bisect_postlayout_delay_check(
+    a, results: list[BisectCornerResult],
+) -> None:
+    """Item 4 for an extracted-DUT record: the symmetric-DUT check (+V and -V
+    delays must agree) does not apply to a layout that is not symmetric by
+    construction, so the falsifiable prediction becomes the SIGN of the
+    delay asymmetry, which the measured offset fixes independently."""
+    a(
+        "**4. Decision-delay asymmetry, the falsifiability check for an "
+        "asymmetric DUT.** The extracted netlist is not symmetric by "
+        "construction, so `+V` and `-V` delays need NOT agree. What a real "
+        "systematic offset Vos does predict is their ORDER: the effective "
+        "overdrive becomes V - Vos, so Vos > 0 makes every `+V` decision "
+        "slower than its `-V` mirror (t(+V) - t(-V) > 0) and Vos < 0 the "
+        "reverse. That sign is fixed by the boundary bisection, and the "
+        "delays are measured independently of it, so a classification sign "
+        "error or a spurious offset would not survive it. Measured, per corner "
+        "point (matched |Vindiff| pairs where both signs were probed):"
+    )
+    a("")
+    a(
+        "| corner-id | matched pairs | t(+V) - t(-V) per pair (ns) | "
+        "sign agrees with measured offset? |"
+    )
+    a("|---|---|---|---|")
+    for r in results:
+        pairs = _signed_delay_asymmetry(r)
+        cells = ", ".join(f"{v:g} mV: {d:+.4f}" for v, d in pairs) or "n/a"
+        agrees = _delay_asymmetry_agrees_with_offset(r)
+        verdict = (
+            "n/a (offset not resolved)" if agrees is None
+            else ("**yes**, every pair" if agrees else "**NO**")
+        )
+        a(f"| `{r.corner_id}` | {len(pairs)} | {cells} | {verdict} |")
+    a("")
+
+
+def _offset_bisect_postlayout_comparison(
+    a, results: list[BisectCornerResult], half_lsb_mv: float,
+) -> None:
+    """The 'Post-layout vs schematic' section of an extracted-DUT record:
+    side-by-side against `BISECT_SCHEMATIC_RECORD_ID`, plus DR-020's
+    half-LSB supersession verdict, stated explicitly either way."""
+    a("## Post-layout vs schematic (issue #525)")
+    a("")
+    a(
+        "Comparison point: `sim/comparator-decision/records/"
+        f"{BISECT_SCHEMATIC_RECORD_ID}.md` -- the same `offset-bisect` "
+        "stimulus, search, bisection floor, and PVT points on the "
+        "schematic-derived netlist, which bounded both quantities at both "
+        f"points: |offset| < {BISECT_SCHEMATIC_OFFSET_BOUND_MV} mV and band < "
+        f"{BISECT_SCHEMATIC_BAND_BOUND_MV} mV, neither resolved. Half-LSB "
+        f"(DR-003 Item 3) = {half_lsb_mv:.4f} mV."
+    )
+    a("")
+    a(
+        "| corner-id | schematic offset (mV) | post-layout offset (mV) | "
+        "offset resolved? | schematic band (mV) | post-layout band (mV) | "
+        "band resolved? | post-layout upper bound / half-LSB (offset, band) |"
+    )
+    a("|---|---|---|---|---|---|---|---|")
+    for r in results:
+        if r.bounded:
+            off = f"{r.offset_mv:+.4f} +-{r.offset_unc_mv:.4f}"
+            band = f"{r.dead_band_mv:.4f} +-{r.dead_band_unc_mv:.4f}"
+            off_res = "**yes**" if r.offset_resolved else "no"
+            band_res = "**yes**" if r.dead_band_resolved else "no"
+            ratio = (
+                f"{(abs(r.offset_mv) + r.offset_unc_mv) / half_lsb_mv:.3f}, "
+                f"{(r.dead_band_mv + r.dead_band_unc_mv) / half_lsb_mv:.3f}"
+            )
+        else:
+            off = band = off_res = band_res = ratio = f"n/a ({r.status})"
+        a(
+            f"| `{r.corner_id}` | < {BISECT_SCHEMATIC_OFFSET_BOUND_MV} | {off} "
+            f"| {off_res} | < {BISECT_SCHEMATIC_BAND_BOUND_MV} | {band} | "
+            f"{band_res} | {ratio} |"
+        )
+    a("")
+    appeared = [
+        r for r in results
+        if r.bounded and (r.offset_resolved or r.dead_band_resolved)
+    ]
+    if appeared:
+        a(
+            "**Does either shape appear post-layout? YES, at some magnitude**, "
+            "at "
+            + ", ".join(f"`{r.corner_id}`" for r in appeared)
+            + " (resolved above the bisection floor, where the schematic "
+            "netlist resolved neither). Whether that magnitude matters is the "
+            "half-LSB test below."
+        )
+    else:
+        a(
+            "**Does either shape appear post-layout? NO** -- at every bounded "
+            "point neither the systematic offset nor the dead band is resolved "
+            "above its bisection floor, the same answer the schematic netlist "
+            "gave."
+        )
+    a("")
+    verdict, reasons = _postlayout_half_lsb_verdict(results, half_lsb_mv)
+    if verdict == "TRIGGERED":
+        a(
+            f"**DR-020 supersession trigger: MET.** At half-LSB scale (>= "
+            f"{half_lsb_mv:.4f} mV): " + "; ".join(reasons) + ". Per DR-020's "
+            "own trigger and issue #525, DR-020 Decision 1-2 must be "
+            "SUPERSEDED BY A NEW DECISION RECORD (not patched)."
+        )
+    elif verdict == "UNDETERMINED":
+        a(
+            "**DR-020 supersession trigger: UNDETERMINED.** Nothing resolved "
+            f"at >= {half_lsb_mv:.4f} mV, but half-LSB scale cannot be "
+            "excluded: " + "; ".join(reasons) + ". This record neither "
+            "supersedes nor corroborates DR-020."
+        )
+    else:
+        a(
+            "**DR-020 supersession trigger: NOT MET.** At every point both "
+            "the offset's and the band's upper bound (value + bracket "
+            f"uncertainty) is below the {half_lsb_mv:.4f} mV half-LSB, so "
+            "DR-020's conclusion is CORROBORATED at the post-layout netlist "
+            "class this flow provides (quasi-static `klt pex` R/C), not "
+            "superseded."
+        )
+    a("")
+
+
 def write_offset_bisect_evidence(
     results: list[BisectCornerResult], note: str = "", supersedes: str = "",
+    dut_fragment: Path = DUT_FRAGMENT,
 ) -> Path:
     raw_logs: dict[str, str] = {}
     for r in results:
         for p in r.probes:
             safe = f"{p.vindiff_mv:.6f}mV".replace("-", "neg").replace(".", "p")
             raw_logs[f"{r.corner_id}__vindiff_{safe}.log"] = p.log_text
-    prov, lines = evidence.open_record(EXPERIMENT_DIR, _dut_lines(), "corners", raw_logs)
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, _dut_lines(dut_fragment), "corners", raw_logs
+    )
     record_path = prov.record_path
     a = lines.append
 
     bounded = [r for r in results if r.bounded]
     corner_ids = [r.corner_id for r in results]
     n_probes = sum(len(r.probes) for r in results)
+    # Issue #525: the extracted (post-layout) DUT is NOT symmetric by
+    # construction -- routing parasitics need not match between the two
+    # halves -- so the prose that leans on "mismatch-free and symmetric"
+    # (the negative-control reading of item 1, the netlist-scope caveat of
+    # item 5) must branch on which fragment actually ran.
+    extracted = dut_fragment == DUT_FRAGMENT_EXTRACTED
 
-    a(
-        "- **Claim**: none numeric -- INFORMATIONAL. `spec/target-spec.md` "
-        "carries no offset row and no dead-band/non-decision row, DRAFT or "
-        "ratified, so there is nothing here to grade against and nothing here "
-        "asserts a pass. This record measures two quantities a sigma-only "
-        "offset characterization cannot express -- the **systematic decision "
-        "offset** and the **non-decision (dead) band width** -- and exists to "
-        "settle the question "
-        "`spec/decision-records/DR-004-comparator-topology-and-noise-budget.md` "
-        "left open twice: *\"Offset and regeneration-time spec rows -- "
-        "spec/target-spec.md has neither today ... a future record should "
-        "decide whether either belongs in the table\"* and *\"A precise (not "
-        "order-of-magnitude) offset extraction methodology\"*. "
-        "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
-        "is the decision record that consumes it."
-    )
-    a(f"- **Netlist provenance**: schematic (`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}`)")
+    if extracted:
+        a(
+            "- **Claim**: none numeric -- INFORMATIONAL. `spec/target-spec.md` "
+            "carries no offset row and no dead-band/non-decision row, DRAFT or "
+            "ratified, so there is nothing here to grade against and nothing "
+            "here asserts a pass. This record is the POST-LAYOUT replication "
+            f"(issue #525) of `sim/comparator-decision/records/"
+            f"{BISECT_SCHEMATIC_RECORD_ID}.md`'s schematic-level `offset-bisect` "
+            "campaign -- same stimulus, same search, same two PVT points, on "
+            "the comparator sub-block's `klt pex` extracted netlist. It is the "
+            "trigger "
+            "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
+            "names for superseding itself: a systematic offset or a dead band "
+            f"at half-LSB scale (>= {DIFFERENTIAL_LSB_MV / 2:.4f} mV) here "
+            "would change DR-020 Decision 1-2 and require a NEW decision record; "
+            "anything smaller corroborates DR-020 at this netlist class. See "
+            "'Post-layout vs schematic' below for which."
+        )
+    else:
+        a(
+            "- **Claim**: none numeric -- INFORMATIONAL. `spec/target-spec.md` "
+            "carries no offset row and no dead-band/non-decision row, DRAFT or "
+            "ratified, so there is nothing here to grade against and nothing here "
+            "asserts a pass. This record measures two quantities a sigma-only "
+            "offset characterization cannot express -- the **systematic decision "
+            "offset** and the **non-decision (dead) band width** -- and exists to "
+            "settle the question "
+            "`spec/decision-records/DR-004-comparator-topology-and-noise-budget.md` "
+            "left open twice: *\"Offset and regeneration-time spec rows -- "
+            "spec/target-spec.md has neither today ... a future record should "
+            "decide whether either belongs in the table\"* and *\"A precise (not "
+            "order-of-magnitude) offset extraction methodology\"*. "
+            "`spec/decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md` "
+            "is the decision record that consumes it."
+        )
+    a(f"- **Netlist provenance**: {_dut_provenance(dut_fragment)}")
     a(
         corners_mod.corner_matrix_summary_line(
             sorted({r.corner for r in results}),
@@ -2490,7 +3081,7 @@ def write_offset_bisect_evidence(
         )
     )
     a(
-        f"- **Mismatch**: DISABLED. Every probe below runs the plain process "
+        "- **Mismatch**: DISABLED. Every probe below runs the plain process "
         "corner (`tt` / `ss`), not a `*_mm` mismatch corner, and applies no "
         "`rndseed`. That is deliberate and is what makes the measured offset "
         "**systematic**: it is the boundary a mismatch-free DUT already has "
@@ -2623,10 +3214,21 @@ def write_offset_bisect_evidence(
                 f"honest statement is a BOUND: |offset| < "
                 f"{worst_offset_unc:.4f} mV, which is "
                 f"{half_lsb_mv / worst_offset_unc:.0f}x smaller than the "
-                f"{half_lsb_mv:.4f} mV half-LSB a bit trial must resolve. That "
-                "is the expected answer for a mismatch-free DUT whose input "
-                "pair is symmetric by construction"
+                f"{half_lsb_mv:.4f} mV half-LSB a bit trial must resolve. "
                 + (
+                    "On this EXTRACTED DUT that is a measured result, not a "
+                    "control: routing parasitics need not be symmetric between "
+                    "the two halves, so nothing forced it to come out at ~0. "
+                    "The search itself was validated against the symmetric "
+                    "schematic netlist's negative control in "
+                    f"`{BISECT_SCHEMATIC_RECORD_ID}`."
+                    if extracted else
+                    "That is the expected answer for a mismatch-free DUT whose "
+                    "input pair is symmetric by construction"
+                )
+                + (
+                    ""
+                    if extracted else
                     ", and it is what makes the rest of this record credible: "
                     f"the {', '.join('`' + r.corner_id + '`' for r in controls)}"
                     " point is a NEGATIVE CONTROL, and it passed."
@@ -2648,6 +3250,16 @@ def write_offset_bisect_evidence(
                 )
                 + ". "
                 + (
+                    "This is an EXTRACTED DUT, which is not symmetric by "
+                    "construction (routing parasitics need not match between "
+                    "the two halves), so a resolved offset at `tt`/27 C here "
+                    "is a candidate circuit property, not an indictment of the "
+                    "measurement: the search was validated against the "
+                    "symmetric schematic netlist's negative control in "
+                    f"`{BISECT_SCHEMATIC_RECORD_ID}` (|offset| < "
+                    f"{BISECT_SCHEMATIC_OFFSET_BOUND_MV} mV at both points), "
+                    "using the same stimulus and search as this run."
+                    if extracted else
                     "The `tt`/27 C negative control is NOT among them, so the "
                     "search still reproduces ~0 on the DUT whose answer is "
                     "known by symmetry and the resolved offsets above are "
@@ -2735,64 +3347,82 @@ def write_offset_bisect_evidence(
                 "decision about an input)."
             )
         a("")
-        # Symmetry falsifiability: the same |Vindiff| on both signs should give
-        # the same decision delay on a symmetric DUT. This is the check a sign
-        # bug in the classification could not survive.
-        a(
-            "**4. Decision-delay symmetry, the falsifiability check.** On a "
-            "symmetric mismatch-free DUT the decision delay at `+V` and `-V` "
-            "must agree. Measured, per corner point (matched |Vindiff| pairs "
-            "where both signs were probed):"
-        )
-        a("")
-        a("| corner-id | matched pairs | worst |t(+V) - t(-V)| (ns) |")
-        a("|---|---|---|")
-        for r in results:
-            by_v = {
-                round(p.vindiff_mv, 6): p.decide_time_ns for p in r.probes
-                if p.decide_time_ns is not None
-            }
-            deltas = [
-                abs(by_v[v] - by_v[round(-v, 6)])
-                for v in by_v
-                if v > 0 and round(-v, 6) in by_v
-            ]
-            if deltas:
-                a(f"| `{r.corner_id}` | {len(deltas)} | {max(deltas):.4f} |")
-            else:
-                a(f"| `{r.corner_id}` | 0 | n/a |")
-        a("")
-        a(
-            "A sign error in the polarity classification, or a one-sided "
-            "search, could not produce a matched ladder -- which is why the "
-            "coarse scan is a SYMMETRIC signed grid rather than a one-sided "
-            "sweep."
-        )
-        a("")
-        a(
-            "**5. What this does NOT say.** It does not bound the offset of a "
-            "manufactured part: mismatch is disabled here by design, and the "
-            "random term is large (see the pick-off record below). It does not "
-            "generalize past the two PVT points measured, or past the "
-            f"{BISECT_EVALUATE_NS} ns evaluate window. And it says nothing "
-            "about a post-layout DUT -- the cross-pollinated finding that "
-            "prompted this measurement (issue #515) was taken on an EXTRACTED "
-            "netlist and reported both a nonzero systematic offset at the "
-            "nominal corner and a wide non-decision band at slow/cold. "
-            + (
-                "**Neither shape appears at schematic level here**, which is "
-                "consistent with both being parasitic-driven."
-                if not offset_resolved and not resolved_bands else
-                "**At least one of those shapes DOES appear at schematic level "
-                "here** (see items 1-2 above), so it cannot be attributed to "
-                "parasitics in this block."
+        if extracted:
+            _offset_bisect_postlayout_delay_check(a, results)
+        else:
+            # Symmetry falsifiability: the same |Vindiff| on both signs should give
+            # the same decision delay on a symmetric DUT. This is the check a sign
+            # bug in the classification could not survive.
+            a(
+                "**4. Decision-delay symmetry, the falsifiability check.** On a "
+                "symmetric mismatch-free DUT the decision delay at `+V` and `-V` "
+                "must agree. Measured, per corner point (matched |Vindiff| pairs "
+                "where both signs were probed):"
             )
-            + " Either way this is a statement about netlist scope, not a "
-            "refutation or a confirmation: this repo cannot replicate a "
-            "post-layout result at all yet (see 'Methodology provenance' "
-            "below), so nothing here tests what a parasitic extraction of this "
-            "block would add."
-        )
+            a("")
+            a("| corner-id | matched pairs | worst |t(+V) - t(-V)| (ns) |")
+            a("|---|---|---|")
+            for r in results:
+                by_v = {
+                    round(p.vindiff_mv, 6): p.decide_time_ns for p in r.probes
+                    if p.decide_time_ns is not None
+                }
+                deltas = [
+                    abs(by_v[v] - by_v[round(-v, 6)])
+                    for v in by_v
+                    if v > 0 and round(-v, 6) in by_v
+                ]
+                if deltas:
+                    a(f"| `{r.corner_id}` | {len(deltas)} | {max(deltas):.4f} |")
+                else:
+                    a(f"| `{r.corner_id}` | 0 | n/a |")
+            a("")
+            a(
+                "A sign error in the polarity classification, or a one-sided "
+                "search, could not produce a matched ladder -- which is why the "
+                "coarse scan is a SYMMETRIC signed grid rather than a one-sided "
+                "sweep."
+            )
+        a("")
+        if extracted:
+            a(
+                "**5. What this does NOT say.** It does not bound the offset "
+                "of a manufactured part: mismatch is disabled here by design, "
+                "and the random term is large (see the pick-off record below). "
+                "It does not generalize past the two PVT points measured, or "
+                f"past the {BISECT_EVALUATE_NS} ns evaluate window. And the "
+                "extracted netlist is quasi-static lumped R/C from `klt pex` "
+                "(see 'Netlist scope' below) -- the post-layout netlist class "
+                "this flow provides, not silicon, and not a distributed or "
+                "substrate-coupled model."
+            )
+            a("")
+            _offset_bisect_postlayout_comparison(a, results, half_lsb_mv)
+        else:
+            a(
+                "**5. What this does NOT say.** It does not bound the offset of a "
+                "manufactured part: mismatch is disabled here by design, and the "
+                "random term is large (see the pick-off record below). It does not "
+                "generalize past the two PVT points measured, or past the "
+                f"{BISECT_EVALUATE_NS} ns evaluate window. And it says nothing "
+                "about a post-layout DUT -- the cross-pollinated finding that "
+                "prompted this measurement (issue #515) was taken on an EXTRACTED "
+                "netlist and reported both a nonzero systematic offset at the "
+                "nominal corner and a wide non-decision band at slow/cold. "
+                + (
+                    "**Neither shape appears at schematic level here**, which is "
+                    "consistent with both being parasitic-driven."
+                    if not offset_resolved and not resolved_bands else
+                    "**At least one of those shapes DOES appear at schematic level "
+                    "here** (see items 1-2 above), so it cannot be attributed to "
+                    "parasitics in this block."
+                )
+                + " Either way this is a statement about netlist scope, not a "
+                "refutation or a confirmation: this repo cannot replicate a "
+                "post-layout result at all yet (see 'Methodology provenance' "
+                "below), so nothing here tests what a parasitic extraction of this "
+                "block would add."
+            )
     else:
         a(
             "No corner point yielded a bounded pair of decision boundaries, so "
@@ -2800,6 +3430,9 @@ def write_offset_bisect_evidence(
             "The per-corner status column and notes above say why, and that is "
             "the finding."
         )
+        if extracted:
+            a("")
+            _offset_bisect_postlayout_comparison(a, results, half_lsb_mv)
     a("")
 
     for r in results:
@@ -2858,6 +3491,13 @@ def write_offset_bisect_evidence(
         "here is therefore CONSISTENT with that record rather than in tension "
         "with it, and the comparison is a statement about sample size, not "
         "about a disagreement between two methods."
+        + (
+            " (This record's DUT is the EXTRACTED netlist and that record's "
+            "was schematic-level, so the comparison also crosses a netlist "
+            "class; a sub-mV systematic boundary is still far inside that "
+            "record's +-24.27 mV standard error either way.)"
+            if extracted else ""
+        )
     )
     a("")
     a(
@@ -2891,13 +3531,24 @@ def write_offset_bisect_evidence(
         "reason this record exists at these two points:"
     )
     a("")
-    a(
-        "- **`tt`/27 C is the negative control.** A mismatch-free DUT at the "
-        "nominal corner is symmetric in its input by construction, so its "
-        "systematic boundary must come out at ~0 mV. A non-zero answer there "
-        "would indict the measurement, not the comparator -- which is exactly "
-        "what makes the `ss`/-40 C number trustworthy or not."
-    )
+    if extracted:
+        a(
+            "- **`tt`/27 C is the nominal point, NOT a negative control on this "
+            "DUT.** On the schematic netlist it is one (symmetric by "
+            "construction, so ~0 mV is forced); the extracted netlist is not "
+            "symmetric by construction, so a non-zero answer here is a "
+            "candidate circuit property. The measurement's own negative "
+            "control is the same point on the schematic netlist, in "
+            f"`{BISECT_SCHEMATIC_RECORD_ID}`."
+        )
+    else:
+        a(
+            "- **`tt`/27 C is the negative control.** A mismatch-free DUT at the "
+            "nominal corner is symmetric in its input by construction, so its "
+            "systematic boundary must come out at ~0 mV. A non-zero answer there "
+            "would indict the measurement, not the comparator -- which is exactly "
+            "what makes the `ss`/-40 C number trustworthy or not."
+        )
     a(
         "- **`ss`/-40 C is the slow/cold stress point**, where regeneration is "
         "slowest and a finite evaluate window is most likely to produce a "
@@ -2963,20 +3614,44 @@ def write_offset_bisect_evidence(
         "what it does."
     )
     a("")
-    a(
-        "**Netlist scope, stated because the cross-pollinated finding was "
-        "post-layout and this is not.** Every probe runs the "
-        "schematic-derived fragment "
-        f"`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}` (netlisted from "
-        "`design/comparator.sch` via xschem), NOT an extracted netlist. The "
-        "comparator's own layout extraction is DRC/LVS-clean but device-level "
-        "only -- `layout/comparator/reports/LATEST`'s record states it is not a "
-        "parasitic extraction -- so a post-layout replication of the sibling's "
-        "specific result is not possible in this repo yet and is not attempted. "
-        "That is a scope statement, not a null result: a systematic offset and "
-        "a dead band are both quantities the schematic-level DUT has in its own "
-        "right, and DR-004's Open items asked for them at this level."
-    )
+    if dut_fragment == DUT_FRAGMENT_EXTRACTED:
+        a(
+            "**Netlist scope.** Every probe runs the post-layout extracted "
+            f"fragment `{dut_fragment.relative_to(evidence.REPO_ROOT)}` -- the "
+            "comparator sub-block's `klt pex` extraction (82 R/C elements, "
+            "star-model per-net R, net-to-ground and vertical-overlap "
+            "coupling C; quasi-static) wrapped in one instantiation line. "
+            "Compare against the schematic-level record "
+            "`sim/comparator-decision/records/20261002-203719-c898d06.md`, "
+            "taken with the same stimulus and search. The extraction is of "
+            "the DR-004 Amendment A layout (`eace0b6`). Re-checked for issue "
+            "#525 by diffing `layout/comparator/bin/` from `eace0b6` to this "
+            "record's commit: the only generator changes move the tap/licon "
+            "drawing into `layout/bin/_geometry_common.tap_shapes()` with the "
+            "same layers and 0.60 um pitch, and dedup the `klt gen` "
+            "invocation -- no drawn-geometry change -- and "
+            "`design/comparator.sch` is unchanged over the same range. "
+            "Quasi-static "
+            "lumped R/C does not model distributed or substrate-coupled "
+            "effects, so this is the post-layout netlist class the flow "
+            "provides, not silicon."
+        )
+    else:
+        a(
+            "**Netlist scope, stated because the cross-pollinated finding was "
+            "post-layout and this is not.** Every probe runs the "
+            "schematic-derived fragment "
+            f"`{DUT_FRAGMENT.relative_to(evidence.REPO_ROOT)}` (netlisted from "
+            "`design/comparator.sch` via xschem), NOT an extracted netlist. The "
+            "comparator's own layout extraction is DRC/LVS-clean but device-level "
+            "only -- `layout/comparator/reports/LATEST`'s record states it is not a "
+            "parasitic extraction -- so a post-layout replication of the sibling's "
+            "specific result is not possible in this repo yet and is not attempted. "
+            "That is a scope statement, not a null result: a systematic offset and "
+            "a dead band are both quantities the schematic-level DUT has in its own "
+            "right, and DR-004's Open items asked for them at this level."
+        )
+
     a("")
     return _finalize_record(
         lines, record_path, prov.pdk_line, prov.ng_version, prov.netlist_sha,
@@ -3638,7 +4313,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "mode", nargs="?",
         choices=[
-            "regen", "regen-corners", "offset", "offset-bisect", "noise",
+            "regen", "regen-corners", "offset", "offset-bisect", "offset-bisect-mc", "noise",
             "noise-corners", "kickback", "kickback-neutralized",
         ],
         help="which characterization to run",
@@ -3656,8 +4331,21 @@ def main(argv: list[str] | None = None) -> int:
             "every other mode, which take --corner/--temp."
         ),
     )
+    ap.add_argument(
+        "--dut", choices=sorted(DUT_CHOICES), default="schematic",
+        help=(
+            "offset-bisect / offset-bisect-mc: which DUT fragment to run -- 'schematic' (default, "
+            "xschem-derived comparator_core.spice) or 'extracted' (the "
+            "comparator sub-block's klt pex post-layout netlist, issue #525). "
+            "Ignored by every other mode."
+        ),
+    )
     ap.add_argument("--seed", type=int, default=1, help="offset: MC base seed")
-    ap.add_argument("--n", type=int, default=16, help="offset: MC sample count")
+    ap.add_argument("--n", type=int, default=16, help="offset/offset-bisect-mc: MC sample count")
+    ap.add_argument(
+        "--negctrl-n", type=int, default=None,
+        help="offset-bisect-mc: negative-control draws (default: --n)",
+    )
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
     ap.add_argument("--note", default="")
     ap.add_argument(
@@ -3728,6 +4416,23 @@ def main(argv: list[str] | None = None) -> int:
         draws_stdev = statistics.pstdev(result.draws_offset_v) if len(result.draws_offset_v) > 1 else 0.0
         return 0 if (negctrl_stdev == 0.0 and draws_stdev > 0) else 1
 
+    if args.mode == "offset-bisect-mc":
+        res = run_offset_bisect_mc(
+            corner=args.corner, temp_c=args.temp, seed=args.seed, n=args.n,
+            negctrl_n=args.negctrl_n, quiet=args.quiet,
+            dut_fragment=DUT_CHOICES[args.dut],
+        )
+        if args.record:
+            path = write_offset_bisect_mc_evidence(
+                res, note=args.note, supersedes=args.supersedes,
+            )
+            print(f"wrote {path}")
+        st = bisect_mc_stats(res.draws)
+        ctl = bisect_negctrl_status(res.negctrl)
+        ok = ctl == "PASS"
+        print(f"{st}; negative control {ctl}")
+        return 0 if (ok and st["n_bounded"] > 1) else 1
+
     if args.mode == "offset-bisect":
         points = None
         if args.points:
@@ -3744,10 +4449,14 @@ def main(argv: list[str] | None = None) -> int:
                     return 2
                 process_corner, temp_str = spec.split(":", 1)
                 points.append((process_corner.strip(), float(temp_str)))
-        results = run_offset_bisect_points(points=points, quiet=args.quiet)
+        dut_fragment = DUT_CHOICES[args.dut]
+        results = run_offset_bisect_points(
+            points=points, quiet=args.quiet, dut_fragment=dut_fragment,
+        )
         if args.record:
             path = write_offset_bisect_evidence(
                 results, note=args.note, supersedes=args.supersedes,
+                dut_fragment=dut_fragment,
             )
             print(f"wrote {path}")
         for r in results:

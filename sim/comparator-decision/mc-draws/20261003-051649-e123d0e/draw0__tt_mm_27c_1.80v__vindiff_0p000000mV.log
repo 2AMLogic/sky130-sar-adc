@@ -1,0 +1,23 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * comparator-decision offset-bisect decision-boundary probe -- vindiff=0.0mv corner=tt_mm temp=27.0c (issue #515)
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+ Reference value :  0.00000e+00
+ Reference value :  3.66140e-09
+ Reference value :  6.61250e-09
+ Reference value :  1.01075e-08
+ Reference value :  1.35075e-08
+ Reference value :  1.77175e-08
+ Reference value :  2.08825e-08
+ Reference value :  2.38875e-08
+No. of Data Rows : 5034
+Note: Simulation executed from .control section 

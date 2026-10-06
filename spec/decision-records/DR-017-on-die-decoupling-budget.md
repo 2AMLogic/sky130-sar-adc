@@ -964,3 +964,37 @@ netlist. That file is not a decision record, so all three are corrected in
 place there rather than annotated here; see its own "Which decoupling is in
 the deck changed on 2026-09-25" and "What the decoupled netlist has and has
 not shown" sections, which now agree with each other.
+
+## Erratum (issue #448, 2026-10-03): the remaining "#448" pending pointers are retired
+
+Earlier text in this record (the "What was measured" and "Open items" text, the
+"Spec lines affected" note on `records/LATEST`, and the closing bullets of
+Amendment A) still says that work is "#448's": measuring the `MF = 2`
+`package`-arm point, grading it against the `1/√C` model, and re-pointing
+`records/LATEST`. None of that is pending. This entry is appended; the earlier
+text is left as written and is superseded here where it conflicts.
+
+1. **The decoupled record is
+   `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`**
+   (issue #409's full ratified grid, landed via PR #456). No further simulation
+   is owed under #448.
+2. **The grading is done.** Amendment A (PR #458) graded the 26.64 mV two-point
+   prediction against the 9.709 mV measurement and refuted it. Every "grading
+   ... is #448's" or "remains #448's" sentence above is retired by that
+   amendment.
+3. **`records/LATEST` intentionally stays on the undecoupled record**
+   (`20260925-204633-7339971.md`), and "re-pointing it is #448's call" (Spec
+   lines affected, and Amendment A's closing bullet) is retired. Two reasons:
+   the campaign writer moves `LATEST` only for a record whose corner set is
+   exactly the single baseline corner, and `…8e62675` spans nine; and
+   `check_proposal_citations.py` check 31 (arm census, "current
+   `records/LATEST`"), DR-012's retirement paragraph and the chipalooza
+   proposal's Power row all rest on the undecoupled record on purpose.
+   Hand-editing the writer-managed pointer would change what check 31 asserts.
+4. The wall-clock cells and compute-budget remarks that cite #448 (the
+   ~63-minute per-process budget) are historical observations about the attempts
+   that preceded #409's per-corner dispatch, not open work.
+
+No record, `records/LATEST`, `sim/spec-coverage.json` or spec line changes with
+this erratum. `sim/supply-impedance-sensitivity/README.md` does not name #448 as
+owning anything outstanding and is untouched.

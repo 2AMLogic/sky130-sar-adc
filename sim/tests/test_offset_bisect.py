@@ -35,7 +35,7 @@ sys.path.insert(0, str(COMPARATOR_DIR))
 import run as cd  # noqa: E402
 
 
-def _install_oracle(test: unittest.TestCase, outcome_of) -> list[float]:
+def _install_oracle(test: unittest.TestCase, outcome_of, seeded: bool = False) -> list[float]:
     """Point `run._bisect_probe` at a synthetic `outcome_of(vindiff_mv) -> str`
     oracle and `run.pdk.resolve_or_raise` at a stub, restoring both on
     teardown. Returns the (mutable) list of probed Vindiff values, so a test
@@ -43,10 +43,16 @@ def _install_oracle(test: unittest.TestCase, outcome_of) -> list[float]:
     classified bracket endpoint was really simulated) rather than only on the
     extracted edges."""
     probed: list[float] = []
+    probe_fragments: list[Path] = []
+    test.probe_fragments = probe_fragments
 
-    def fake_probe(info, corner, temp_c, supply_v, vindiff_mv, scratch_dir):
+    def fake_probe(
+        info, corner, temp_c, supply_v, vindiff_mv, scratch_dir,
+        dut_fragment=cd.DUT_FRAGMENT, rndseed=None,
+    ):
         probed.append(vindiff_mv)
-        outcome = outcome_of(vindiff_mv)
+        probe_fragments.append(dut_fragment)
+        outcome = outcome_of(vindiff_mv, corner, rndseed) if seeded else outcome_of(vindiff_mv)
         decided = outcome in ("DECIDED-POS", "DECIDED-NEG")
         sign = 1.0 if outcome == "DECIDED-POS" else -1.0
         return cd._BisectProbe(
@@ -421,6 +427,372 @@ class TestWindowAndFloorConstantsAreSelfConsistent(unittest.TestCase):
         import math
         needed = math.ceil(math.log2(2 * cd.BISECT_MAX_MV / cd.BISECT_TOL_MV))
         self.assertGreaterEqual(cd.BISECT_MAX_ITERS, needed)
+
+
+class TestDutFragmentSelector(unittest.TestCase):
+    """Issue #525: `offset-bisect --dut extracted` swaps in the post-layout
+    fragment without touching the schematic path. PDK-free, no ngspice."""
+
+    class _Info:
+        ngspice_lib = "/stub/sky130.lib.spice"
+
+    def _deck(self, **kw):
+        return cd._regen_deck(self._Info(), "tt", 27.0, 1.0, "x", **kw)
+
+    def test_default_deck_embeds_the_schematic_fragment_unchanged(self):
+        self.assertEqual(self._deck(), self._deck(dut_fragment=cd.DUT_FRAGMENT))
+        self.assertIn(cd.DUT_FRAGMENT.read_text(), self._deck())
+        self.assertNotIn("gen_compose_0", self._deck())
+
+    def test_extracted_deck_embeds_extracted_fragment_not_schematic(self):
+        deck = self._deck(dut_fragment=cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertIn(cd.DUT_FRAGMENT_EXTRACTED.read_text(), deck)
+        self.assertNotIn("XM_TAIL", deck)
+
+    def test_extracted_ports_match_schematic_ports_and_instantiation_order(self):
+        import re
+        want = {"VDD", "GND", "CLK", "VINP", "VINN", "OUTP", "OUTN"}
+        text = cd.DUT_FRAGMENT_EXTRACTED.read_text()
+        ports = re.search(r"^\.SUBCKT\s+\S+\s+(.+)$", text, re.M).group(1).split()
+        self.assertEqual(set(ports), want)
+        # the schematic fragment's own header names the same seven ports
+        self.assertIn("VDD, GND (auto-tied", cd.DUT_FRAGMENT.read_text())
+        inst = re.search(r"^Xdut\s+(.+)\s+(\S+)$", text, re.M)
+        self.assertEqual(inst.group(1).split(), ports)  # nets tied by name
+        self.assertEqual(inst.group(2), "gen_compose_0")
+        self.assertRegex(text, r"(?m)^\.ENDS\s+gen_compose_0")
+
+    def test_extracted_fragment_carries_parasitics(self):
+        import re
+        text = cd.DUT_FRAGMENT_EXTRACTED.read_text()
+        self.assertGreater(len(re.findall(r"(?m)^[RC]\S+ ", text)), 50)
+
+    def test_provenance_names_the_fragment_that_ran(self):
+        sch = cd._dut_provenance(cd.DUT_FRAGMENT)
+        ext = cd._dut_provenance(cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertTrue(sch.startswith("schematic"))
+        self.assertIn("comparator_core.spice", sch)
+        self.assertTrue(ext.startswith("post-layout extracted"))
+        self.assertIn("comparator_core_extracted.spice", ext)
+        self.assertNotIn("schematic", ext.split("(")[0])
+
+    def test_cli_choices_default_to_schematic(self):
+        self.assertIs(cd.DUT_CHOICES["schematic"], cd.DUT_FRAGMENT)
+        self.assertIs(cd.DUT_CHOICES["extracted"], cd.DUT_FRAGMENT_EXTRACTED)
+
+    def test_fragment_is_threaded_to_every_probe(self):
+        _install_oracle(self, _sign_flip_at(0.0))
+        cd.run_offset_bisect(quiet=True, dut_fragment=cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertTrue(self.probe_fragments)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
+
+    def test_default_run_uses_schematic_fragment(self):
+        _install_oracle(self, _sign_flip_at(0.0))
+        cd.run_offset_bisect(quiet=True)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
+
+
+class TestPostLayoutHalfLsbVerdict(unittest.TestCase):
+    """Issue #525: an extracted-DUT record must state explicitly whether a
+    systematic offset or dead band appears at half-LSB scale -- DR-020's
+    supersession trigger. Synthetic DUTs again; nothing here is evidence."""
+
+    HALF = cd.DIFFERENTIAL_LSB_MV / 2.0
+
+    def _results(self, *oracles):
+        out = []
+        for oracle in oracles:
+            _install_oracle(self, oracle)
+            out.append(cd.run_offset_bisect(quiet=True))
+        return out
+
+    def _section(self, results) -> str:
+        lines: list[str] = []
+        cd._offset_bisect_postlayout_comparison(lines.append, results, self.HALF)
+        return "\n".join(lines)
+
+    def test_symmetric_dut_corroborates_dr020(self):
+        rs = self._results(_sign_flip_at(0.0), _sign_flip_at(0.0))
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "NOT-TRIGGERED")
+        self.assertEqual(reasons, [])
+        text = self._section(rs)
+        self.assertIn("NOT MET", text)
+        self.assertIn("CORROBORATED", text)
+        self.assertIn("appear post-layout? NO", text)
+        self.assertIn(cd.BISECT_SCHEMATIC_RECORD_ID, text)
+
+    def test_small_resolved_offset_appears_but_does_not_trigger(self):
+        # resolved (far above the 0.1 mV floor) but well under half-LSB
+        rs = self._results(_sign_flip_at(0.6))
+        self.assertTrue(rs[0].offset_resolved)
+        verdict, _ = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "NOT-TRIGGERED")
+        text = self._section(rs)
+        self.assertIn("appear post-layout? YES", text)
+        self.assertIn("NOT MET", text)
+
+    def test_half_lsb_offset_triggers_supersession(self):
+        rs = self._results(_sign_flip_at(0.0), _sign_flip_at(-2.5))
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "TRIGGERED")
+        self.assertTrue(any("systematic offset" in r for r in reasons))
+        self.assertIn("SUPERSEDED BY A NEW DECISION RECORD", self._section(rs))
+
+    def test_half_lsb_dead_band_triggers_supersession(self):
+        rs = self._results(_dead_band(-1.5, +1.5))  # 3 mV wide, centred
+        self.assertFalse(rs[0].offset_resolved)
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "TRIGGERED")
+        self.assertTrue(any("dead band" in r for r in reasons))
+
+    def test_unbounded_point_is_undetermined_not_corroborating(self):
+        _install_oracle(self, _dead_band(-1e9, +1e9))
+        rs = [cd.run_offset_bisect(quiet=True, max_mv=50.0)]
+        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        self.assertEqual(verdict, "UNDETERMINED")
+        self.assertIn("UNDETERMINED", self._section(rs))
+
+    def test_half_lsb_constant_matches_dr020_figure(self):
+        self.assertAlmostEqual(self.HALF, 1.7578, places=4)
+
+
+def _render_record(test: unittest.TestCase, results, dut_fragment) -> str:
+    """Render `write_offset_bisect_evidence()` to text with the record I/O
+    (git provenance, file writes) stubbed out."""
+    from types import SimpleNamespace
+
+    captured: list[str] = []
+    real_open = cd.evidence.open_record
+    real_final = cd._finalize_record
+    cd.evidence.open_record = lambda *a, **k: (
+        SimpleNamespace(
+            record_path=Path("/nonexistent/record.md"), pdk_line="",
+            ng_version="", netlist_sha="",
+        ),
+        ["# Record stub", ""],
+    )
+
+    def fake_final(lines, *a, **k):
+        captured.extend(lines)
+        return Path("/nonexistent/record.md")
+
+    cd._finalize_record = fake_final
+
+    def restore():
+        cd.evidence.open_record = real_open
+        cd._finalize_record = real_final
+
+    test.addCleanup(restore)
+    cd.write_offset_bisect_evidence(results, dut_fragment=dut_fragment)
+    return "\n".join(captured)
+
+
+class TestRecordProseFollowsTheFragment(unittest.TestCase):
+    """Issue #525: an extracted-DUT record must not reuse the schematic
+    record's symmetric-by-construction reasoning, and the schematic record's
+    text must not gain post-layout sections."""
+
+    def _results(self, oracle):
+        _install_oracle(self, oracle)
+        return [cd.run_offset_bisect(quiet=True)]
+
+    def test_schematic_record_keeps_its_original_framing(self):
+        text = _render_record(self, self._results(_sign_flip_at(0.0)), cd.DUT_FRAGMENT)
+        self.assertIn("- **Netlist provenance**: schematic (", text)
+        self.assertIn("this repo cannot replicate a post-layout result", text)
+        self.assertIn("Decision-delay symmetry, the falsifiability check", text)
+        self.assertIn("**`tt`/27 C is the negative control.**", text)
+        self.assertNotIn("Post-layout vs schematic", text)
+
+    def test_extracted_record_compares_and_drops_schematic_only_claims(self):
+        text = _render_record(
+            self, self._results(_sign_flip_at(0.7)), cd.DUT_FRAGMENT_EXTRACTED,
+        )
+        self.assertIn("- **Netlist provenance**: post-layout extracted", text)
+        self.assertIn("## Post-layout vs schematic (issue #525)", text)
+        self.assertIn(cd.BISECT_SCHEMATIC_RECORD_ID, text)
+        self.assertIn("DR-020 supersession trigger: NOT MET", text)
+        self.assertNotIn("this repo cannot replicate a post-layout result", text)
+        self.assertNotIn("indicts the MEASUREMENT", text)
+        self.assertNotIn("**`tt`/27 C is the negative control.**", text)
+        self.assertIn("Decision-delay asymmetry", text)
+
+
+class TestDelayAsymmetrySignCheck(unittest.TestCase):
+    """The extracted record's item 4: a positive systematic offset must make
+    +V decisions slower than -V ones, and the check must say NO when they
+    disagree."""
+
+    def _result(self, delays: dict[float, float], offset_mv: float):
+        probes = [
+            cd._BisectProbe(
+                vindiff_mv=v, outcome="DECIDED-POS" if v > offset_mv else "DECIDED-NEG",
+                final_diff_v=0.0, pre_edge_diff_v=0.0, decide_time_ns=t,
+                log_text="",
+            )
+            for v, t in delays.items()
+        ]
+        r = cd.BisectCornerResult(
+            corner="tt", temp_c=27.0, supply_v=cd.VDD,
+            evaluate_ns=cd.BISECT_EVALUATE_NS, tol_mv=cd.BISECT_TOL_MV,
+            probes=probes,
+        )
+        r.neg_lo_mv, r.neg_hi_mv = offset_mv - 0.02, offset_mv + 0.02
+        r.pos_lo_mv, r.pos_hi_mv = offset_mv - 0.02, offset_mv + 0.02
+        r.status = "BOUNDED"
+        return r
+
+    def test_positive_offset_with_slower_positive_side_agrees(self):
+        r = self._result({-10.0: 2.0, 10.0: 2.1, -50.0: 1.0, 50.0: 1.05}, 0.7)
+        self.assertTrue(r.offset_resolved)
+        self.assertEqual([v for v, _ in cd._signed_delay_asymmetry(r)], [10.0, 50.0])
+        self.assertTrue(cd._delay_asymmetry_agrees_with_offset(r))
+
+    def test_positive_offset_with_faster_positive_side_disagrees(self):
+        r = self._result({-10.0: 2.1, 10.0: 2.0}, 0.7)
+        self.assertFalse(cd._delay_asymmetry_agrees_with_offset(r))
+
+    def test_unresolved_offset_is_not_checked(self):
+        r = self._result({-10.0: 2.0, 10.0: 2.0}, 0.0)
+        self.assertIsNone(cd._delay_asymmetry_agrees_with_offset(r))
+
+
+# --- issue #524: per-draw Monte Carlo bisection --------------------------
+
+def _true_boundary_mv(corner: str, seed: int | None) -> float:
+    """Synthetic per-draw truth: zero on a plain corner (mismatch disabled, the
+    seed is inert), a seed-determined spread on a `*_mm` corner. Deliberately
+    includes values beyond the +-50 mV mismatch-free grid so Phase B / the
+    wider MC scan are exercised. Fixture numbers, not measurements."""
+    if not corner.endswith("_mm"):
+        return 0.0
+    import random
+    return random.Random(seed).uniform(-150.0, 150.0)
+
+
+def _per_draw_oracle(v_mv: float, corner: str, seed: int | None) -> str:
+    return _sign_flip_at(_true_boundary_mv(corner, seed))(v_mv)
+
+
+class TestPerDrawMonteCarlo(unittest.TestCase):
+    N = 6
+
+    def setUp(self):
+        self.probed = _install_oracle(self, _per_draw_oracle, seeded=True)
+        self.res = cd.run_offset_bisect_mc(corner="tt", seed=100, n=self.N, quiet=True)
+
+    def test_each_draw_recovers_its_own_boundary(self):
+        for i, r in enumerate(self.res.draws):
+            truth = _true_boundary_mv(self.res.mismatch_corner, 100 + i)
+            self.assertTrue(r.bounded, f"draw {i}")
+            self.assertLessEqual(abs(r.offset_mv - truth), cd.BISECT_TOL_MV, f"draw {i}")
+
+    def test_draws_actually_differ(self):
+        offs = [r.offset_mv for r in self.res.draws]
+        self.assertGreater(len(set(offs)), 1)
+
+    def test_stats_match_independent_computation(self):
+        import statistics
+        truths = [_true_boundary_mv("tt_mm", 100 + i) for i in range(self.N)]
+        st = cd.bisect_mc_stats(self.res.draws)
+        self.assertEqual(st["n_bounded"], self.N)
+        self.assertAlmostEqual(st["stdev"], statistics.pstdev(truths), delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["mean"], statistics.fmean(truths), delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["min"], min(truths), delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["max"], max(truths), delta=cd.BISECT_TOL_MV)
+
+    def test_negative_control_is_exactly_zero_spread(self):
+        self.assertEqual(len(self.res.negctrl), self.N)
+        self.assertTrue(cd.bisect_negctrl_ok(self.res.negctrl))
+        self.assertEqual(cd.bisect_mc_stats(self.res.negctrl)["stdev"], 0.0)
+
+    def test_negctrl_n_override(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        self.assertEqual((len(res.draws), len(res.negctrl), res.negctrl_n), (2, 1, 1))
+
+
+class TestNegativeControlDetectsSeedLeak(unittest.TestCase):
+    """If the control's boundary moved with the seed (mismatch not actually
+    disabled), bisect_negctrl_ok must say FAIL -- not vacuously pass."""
+
+    def test_leaky_control_fails(self):
+        _install_oracle(
+            self, lambda v, c, seed: _sign_flip_at(float(seed))(v), seeded=True,
+        )
+        res = cd.run_offset_bisect_mc(corner="tt", seed=3, n=2, quiet=True)
+        self.assertFalse(cd.bisect_negctrl_ok(res.negctrl))
+
+    def test_unbounded_control_fails(self):
+        self.assertFalse(cd.bisect_negctrl_ok([]))
+        self.assertEqual(cd.bisect_negctrl_status([]), "FAIL")
+
+
+class TestSingleDrawControlNotExercised(unittest.TestCase):
+    """A one-draw control compares one boundary with itself, so it cannot
+    show seed-invariance: it must be NOT-EXERCISED, never PASS (#536 review)."""
+
+    def setUp(self):
+        _install_oracle(self, _per_draw_oracle, seeded=True)
+
+    def test_n1_control_is_not_exercised(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "NOT-EXERCISED")
+        self.assertFalse(cd.bisect_negctrl_ok(res.negctrl))
+
+    def test_n2_control_is_exercised_and_passes(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
+        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "PASS")
+        self.assertTrue(cd.bisect_negctrl_ok(res.negctrl))
+
+    def test_n1_unbounded_control_is_still_fail(self):
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        res.negctrl[0].status = "UNBOUNDED"
+        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "FAIL")
+
+
+class TestMcDutFragmentThreaded(unittest.TestCase):
+    def test_extracted_fragment_reaches_every_draw_and_control_probe(self):
+        _install_oracle(self, _per_draw_oracle, seeded=True)
+        res = cd.run_offset_bisect_mc(
+            corner="tt", seed=1, n=2, negctrl_n=2, quiet=True,
+            dut_fragment=cd.DUT_FRAGMENT_EXTRACTED,
+        )
+        self.assertIs(res.dut_fragment, cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertTrue(self.probe_fragments)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
+
+    def test_default_is_schematic(self):
+        _install_oracle(self, _per_draw_oracle, seeded=True)
+        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
+        self.assertIs(res.dut_fragment, cd.DUT_FRAGMENT)
+        self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
+
+
+class TestSeedPlumbing(unittest.TestCase):
+    def test_one_seed_per_search_and_none_by_default(self):
+        seeds: list = []
+        def spy(info, corner, temp_c, supply_v, v, scratch,
+                dut_fragment=cd.DUT_FRAGMENT, rndseed=None):
+            seeds.append(rndseed)
+            return cd._BisectProbe(v, "DECIDED-POS" if v > 0 else "DECIDED-NEG",
+                                   cd.VDD if v > 0 else -cd.VDD, 0.0, 1.0, "")
+        real, real_r = cd._bisect_probe, cd.pdk.resolve_or_raise
+        cd._bisect_probe, cd.pdk.resolve_or_raise = spy, lambda: None
+        self.addCleanup(lambda: (setattr(cd, "_bisect_probe", real),
+                                 setattr(cd.pdk, "resolve_or_raise", real_r)))
+        cd.run_offset_bisect(quiet=True, rndseed=7)
+        self.assertEqual(set(seeds), {7})
+        seeds.clear()
+        cd.run_offset_bisect(quiet=True)
+        self.assertEqual(set(seeds), {None})
+
+    def test_deck_rndseed_option_only_when_given(self):
+        info = type("I", (), {"ngspice_lib": "x.lib"})()
+        with_seed = cd._regen_deck(info, "tt_mm", 27.0, 1.0, "l", rndseed=5)
+        without = cd._regen_deck(info, "tt_mm", 27.0, 1.0, "l")
+        self.assertIn(".option rndseed=5", with_seed)
+        self.assertNotIn("rndseed", without)
 
 
 if __name__ == "__main__":

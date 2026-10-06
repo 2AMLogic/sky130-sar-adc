@@ -7361,6 +7361,37 @@ class TestCampaignCensus(unittest.TestCase):
         self.assertEqual(self.check(body), [])
 
 
+class TestExtractedDutRecords(unittest.TestCase):
+    """Check 38: the stated extracted-DUT offset-bisect record count (issue #121)."""
+
+    CLAIM = "there are **0** post-layout-extracted-DUT offset-bisect records"
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+
+    def check(self, body: str) -> list[str]:
+        return checker.check_extracted_dut_records(self.tree.document(body), body)
+
+    def add(self, stamp: str, provenance: str):
+        records = self.tree.root / "sim" / "comparator-decision" / "records"
+        records.mkdir(parents=True, exist_ok=True)
+        (records / f"{stamp}.md").write_text(f"- **Netlist provenance**: {provenance}\n")
+
+    def test_zero_claimed_and_none_present_is_clean(self):
+        self.add("20261003-000000-aaaaaaa", "schematic (`x.spice`)")
+        self.assertEqual(self.check(self.CLAIM), [])
+
+    def test_zero_claimed_but_an_extracted_record_exists_is_reported(self):
+        self.add("20261004-000000-bbbbbbb", "post-layout extracted, `klt pex` parasitics (x)")
+        misses = self.check(self.CLAIM)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("holds 1", misses[0])
+
+    def test_a_document_making_no_claim_is_not_made_to(self):
+        self.add("20261004-000000-bbbbbbb", "post-layout extracted, `klt pex` parasitics (x)")
+        self.assertEqual(self.check("nothing here"), [])
+
+
 class TestCampaignCensusAgainstTheRealTree(unittest.TestCase):
     """Check 37 on the live document and the live `sim/` tree.
 

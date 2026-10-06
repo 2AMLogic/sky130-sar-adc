@@ -15,13 +15,20 @@
 # PR #402's layout/top-glue/ and PR #497's layout/halflsb-offset/) -- this
 # flow *reads* those GDS files, it does not regenerate them.
 #
-# Runs entirely on the pinned `layout/.venv/bin/klt` (klayout-tools==0.6.0
-# since 2026-09-23, `layout/requirements.txt`) -- no env override needed. Step 7's `klt
-# extract --pin-source-cells` (klayout-tools#1515) previously required a
-# `klt` build newer than the then-pinned 0.4.0, reached only via a
-# `SAR_ADC_TOP_KLT` env-var override; that override is retired now that
-# klayout-tools v0.5.0 (published 2026-09-15) carries the fix in the
-# officially pinned build -- see layout/sar-adc-top/README.md's
+# Runs on the pinned `layout/.venv/bin/klt` (klayout-tools==0.6.0 since
+# 2026-09-23, `layout/requirements.txt`) by default, and every hard gate here
+# needs nothing newer. Step 7's `klt extract --pin-source-cells`
+# (klayout-tools#1515) once required a `klt` build newer than the
+# then-pinned 0.4.0, reached only via a `SAR_ADC_TOP_KLT` env-var override;
+# that need retired when klayout-tools v0.5.0 (published 2026-09-15) shipped
+# the fix in the officially pinned build. The override is back (issue #103)
+# for step 7c alone: its `--abstract-cells` compare only reaches `match` on a
+# `klt` carrying klayout-tools#2396/#2398 (merged upstream 2026-09-24,
+# unreleased as of 0.6.0), so a plain run on the pin records that step's
+# non-gating pre-fix verdict. Note the override swaps the `klt` for the
+# WHOLE run, not just 7c -- the record's own `klt` version line says which
+# build produced every verdict in it. Retire it again once a release carries
+# both fixes. See layout/sar-adc-top/README.md's
 # "Provenance" section and layout/requirements.txt's own header for the
 # full trace.
 #
@@ -91,6 +98,12 @@
 #      four ties adds, from the PDK's own sheet/via resistances. Writes
 #      `decap-ties.json`, and HARD-FAILS if its resistance model no longer
 #      matches the rectangles build_layout.py drew.
+#  7c. `klt extract --abstract-cells` + `klt lvs` against a generated hollow
+#      reference (bin/generate-hollow-reference.py) -- issue #103's signoff
+#      shape: the three already-independently-verified digital/CDAC macros
+#      black-boxed, the top-level interconnect compared. Writes
+#      `abstract-cells.*`; never gates the exit code. Needs a `klt` carrying
+#      klayout-tools#2396/#2398 to mean anything (see SAR_ADC_TOP_KLT above).
 #
 # Exit codes: 0 if DRC is clean (this flow's own current hard gate -- LVS is
 # recorded whatever it reports, per the still-open LVS device/topology
@@ -103,7 +116,12 @@ set -euo pipefail
 TOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$TOP_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="$LAYOUT_DIR/.venv/bin/klt"
+# Optional override (operator-approved 2026-09-09, re-instated for #103's
+# post-klayout-tools#2396/#2398 re-measurement): point at an unreleased
+# `klt` build, e.g. a throwaway venv built from a klayout-tools git SHA.
+# Leaves the PyPI pin in layout/requirements.txt untouched; the record's
+# own `klt` version line shows which build ran.
+KLT="${SAR_ADC_TOP_KLT:-$LAYOUT_DIR/.venv/bin/klt}"
 PDK_VARIANT=sky130A
 TOP=gen_compose_0
 ROUTE_CELL_NAME=SAR_ADC_TOP_ROUTE
@@ -259,7 +277,9 @@ REL_GDS="${GDS#"$REPO_ROOT"/}"
 # recovery on the `.SUBCKT` name case-sensitively while KLayout upper-cases
 # it, so it recovers 0 of this netlist's 1028 caps (klayout-tools#2397).
 # Measured: dropping this step takes the verdict from 98 back to 124
-# mismatches. Retire it once #2397 is fixed and that measurement is re-run.
+# mismatches on 0.6.0. On a klt main build with #2397 fixed (65b1b4d,
+# re-measured issue #103) dropping it changes nothing, so retire it with the
+# pin bump that carries that fix.
 python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
   "$OUT_DIR/sar_adc_top.extract.spice" \
   -o "$OUT_DIR/sar_adc_top.extract.lvs.spice" \
@@ -329,6 +349,47 @@ fi
 python3 "$TOP_DIR/bin/probe-decap-sites.py" \
   --record "$OUT_DIR" "${DECAP_BASELINE_ARG[@]}" --format json \
   > "$OUT_DIR/decap-ties.json"
+
+# --- 7c. `--abstract-cells` black-boxed compare (issue #103's signoff shape) --
+# Black-boxes the three already-independently-verified macros (cdac_array,
+# sar_sequencer, top_glue -- each with its own LVS record) on the layout side
+# and compares the remaining top-level interconnect against a reference with
+# the matching shape (macros hollowed; comparator, sampling_frontend and
+# halflsb_offset inlined; the top-level decap cards kept as-is --
+# bin/generate-hollow-reference.py). Needs a `klt` carrying
+# klayout-tools#2396 (MiM top-plate via short) and #2398 (macro well-tap
+# erasure), both merged 2026-09-24 but unreleased as of 0.6.0 -- hence the
+# SAR_ADC_TOP_KLT override above. Never gates the exit code (recorded
+# whatever it reports, like step 7), so it runs in its own subshell: a failure
+# anywhere in it is reported and the flow carries on to the record.
+(
+  set -e
+  ( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
+      --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
+      --abstract-cells cdac_array__cdac_array \
+      --abstract-cells sar_sequencer__sar_sequencer \
+      --abstract-cells top_glue__top_glue \
+      -o "$OUT_DIR/abstract-cells.extract.spice" --format json ) \
+      > "$OUT_DIR/abstract-cells.extract.json" || true
+  python3 "$TOP_DIR/bin/restore-cap-device-class.py" \
+    "$OUT_DIR/abstract-cells.extract.spice" \
+    -o "$OUT_DIR/abstract-cells.extract.lvs.spice" \
+    --format json > "$OUT_DIR/abstract-cells.capclass.json"
+  python3 "$TOP_DIR/bin/generate-hollow-reference.py" \
+    "$OUT_DIR/sar_adc_top.lvs-reference.spice" \
+    -o "$OUT_DIR/abstract-cells.reference-hollow.spice"
+  cat > "$OUT_DIR/abstract-cells.lvs-hollow.request.json" <<EOF
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": { "netlist": "abstract-cells.extract.lvs.spice", "top": "$TOP" },
+  "reference": { "netlist": "abstract-cells.reference-hollow.spice", "top": "sar_adc_top" },
+  "options": { "combine_devices": true, "flatten_reference": false }
+}
+EOF
+  ( cd "$OUT_DIR" && "$KLT" lvs abstract-cells.lvs-hollow.request.json --format json \
+      > abstract-cells.lvs-hollow.json ) || true
+) || echo "run-flow.sh: step 7c (--abstract-cells compare) did not complete; non-gating, recorded as absent" >&2
 
 # --- 8. Record summary -------------------------------------------------
 set +e
