@@ -3507,6 +3507,25 @@ tracker already owns.
    (2026-09-15), which predates that issue. A daemon quarantine was applied
    to #103 minutes later; it is a dispatch pause, not a design finding. No
    §4 verdict moves: acceptance criterion 3 of issue #121 stays unmet.
+
+   **Update (2026-10-07): no upstream fix is in flight yet; the verdicts do
+   not move.** Re-read live this pass. #103 is still open and
+   `loom:blocked`: two sweep passes on 2026-10-07 (02:34Z and 04:33Z) found
+   nothing buildable and released their claims, and a Curator dependency
+   re-check at 04:51Z left the label in place. On the upstream side,
+   [klayout-tools#2722](https://github.com/2AMLogic/klayout-tools/issues/2722)
+   is still open and has not been approved for implementation. It was
+   curated on 2026-10-05. On 2026-10-06 the Champion review returned it
+   **NEEDS REVISION**, asking for it to be split into smaller increments or
+   designed first, so it is not `loom:issue` and no fix PR exists. One
+   clarification to the 2026-10-03 entry above: v0.5.0 is the latest GitHub
+   *Release*, but the latest *tag* is `v0.6.0` (tagged 2026-09-22). That is
+   the version `layout/requirements.txt` pins (`klayout-tools==0.6.0`). Both
+   predate #2722, so neither one contains its fix. `layout/sar-adc-top/reports/LATEST`
+   still names `20261003-041400-571f036`. "DRC/LVS-clean GDS, full ADC"
+   stays **PARTIAL (LVS device match UNMET / BLOCKED)**, "Post-layout PVT
+   simulation, full ADC" stays **UNMET**, and acceptance criterion 3 of
+   issue #121 is still not met.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
