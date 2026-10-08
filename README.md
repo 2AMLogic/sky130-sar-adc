@@ -25,54 +25,66 @@ work. The repo is **dogfood for [klayout-tools](https://github.com/2AMLogic/klay
 the tool; every friction is filed generically upstream) and **catalog inventory**
 (one block, one PDK, in the 2AM Logic canary catalog).
 
-## Status: harness up, schematic sources exist. Pre-spec (ratification), pre-layout, pre-silicon.
+## Status: pre-silicon; layout composed, conversion and signoff unresolved
 
-The toolchain is standing, and schematic sources now exist: the four
-sub-blocks (sampling front end #52, CDAC array #53, comparator #54, SAR
-logic/sequencer #55) plus a top-level integration schematic wiring them
-together (#56, `design/sar_adc_top.sch`, with an instantiable symbol and a
-mechanically regenerated, CI-checked full-hierarchy netlist,
-`design/sar_adc_top.spice`). This is schematic capture and per-sub-block
-standalone verification, not a closed-loop ADC conversion result — the
-top-level integration's own polarity/wiring decisions (documented in
-`design/sar_adc_top.sch`'s header) are explicitly unverified pending the
-future per-row/Monte-Carlo testbenches (#28/#29/#31). Layout has not started.
+This is a pre-silicon design with no tier grant. Schematic sources, a composed
+layout and a closed-loop conversion campaign all exist, but the block does not
+yet convert correctly across its full input range and its layout does not yet
+pass LVS. Nothing here is T1 (bronze). The sections below say what the
+committed evidence supports; each links to it, and the linked records, not this
+summary, are authoritative.
 
-- **Done** — the xschem + ngspice sim harness and the `klt` DRC/LVS layout flow
-  (issue #2), seeded from gf180-sar-adc and
+- **Harness** — the xschem + ngspice sim harness and the `klt` DRC/LVS layout
+  flow (issue #2), seeded from gf180-sar-adc and
   [sky130-bandgap](https://github.com/2AMLogic/sky130-bandgap):
-  `sim/run_corners.py` (PVT), `sim/monte_carlo.py` (distributions with a
-  recorded seed, N, and a deterministic negative control), the append-only
-  evidence-record convention in [`sim/README.md`](sim/README.md), and
-  [`layout/README.md`](layout/README.md)'s trivial-cell proof — which asserts
-  not just that DRC comes back clean and LVS matches, but that an injected DRC
-  violation and two corrupted LVS references all come back *flagged*.
-  `docs/environment-setup.md` is the reproducible bootstrap.
-- **Partly settled** — the **supply flavor** is **RATIFIED** (2026-08-13, via
-  [DR-001](spec/decision-records/DR-001-supply-flavor-scope.md) and issue #1):
-  the analog signal path, comparator, and SAR logic are built on the 1.8 V
-  core (`pfet_01v8`/`nfet_01v8`), with the higher-voltage arrangements
-  deferred by name. That deferral reopens — and a follow-on DR-002 must settle
-  the pass-device flavor before any switch is drawn — **if a ratified input
-  full-scale ever exceeds the core rail**; DR-001 pre-approves nothing wider.
-- **Not done** — every numeric row of the target spec is still **DRAFT and
-  unratified** (see `spec/target-spec.md` and issue #1). `V_REF`, the LSB, the
-  kT/C noise budget, and the ENOB/INL/DNL targets are all starting points
-  carried from gf180-sar-adc or a published sky130 reference, not settled
-  sky130 results — ratifying the flavor settles what they are *derived on*,
-  not what they are. No harness threshold encodes a draft spec value.
-- **Not started** — closed-loop ADC conversion verification (a real per-row
-  PVT/Monte-Carlo campaign against the full `design/sar_adc_top.sch`
-  hierarchy, #28/#29/#31) and layout. `measurements/` stays empty until there
-  is silicon.
+  `sim/run_corners.py` (PVT), `sim/monte_carlo.py` (recorded seed, N, and a
+  deterministic negative control), the append-only evidence-record convention
+  in [`sim/README.md`](sim/README.md), and
+  [`layout/README.md`](layout/README.md)'s trivial-cell proof, which also checks
+  that injected DRC and LVS faults come back *flagged*.
+  [`docs/environment-setup.md`](docs/environment-setup.md) is the reproducible
+  bootstrap.
+- **Design sources** — the four sub-blocks (sampling front end, CDAC array,
+  comparator, SAR logic/sequencer) and a top-level integration schematic,
+  [`design/sar_adc_top.sch`](design/sar_adc_top.sch), with a mechanically
+  regenerated, CI-checked full-hierarchy netlist,
+  [`design/sar_adc_top.spice`](design/sar_adc_top.spice). The supply flavor is
+  ratified on the 1.8 V core by
+  [DR-001](spec/decision-records/DR-001-supply-flavor-scope.md); that reopens
+  (a follow-on DR-002 would settle the pass-device flavor) if a ratified input
+  full-scale ever exceeds the core rail.
+- **Spec: partly ratified** — [`spec/target-spec.md`](spec/target-spec.md) is
+  the authority. Resolution, `V_REF`, the LSB, the CDAC unit-cap/array size,
+  the comparator noise budget and the corner set are **RATIFIED**
+  ([DR-003](spec/decision-records/DR-003-numeric-spec-derivation.md)). Other
+  rows (sample rate, the ENOB and INL/DNL target values, kickback, power,
+  architecture) are still **DRAFT**, and no harness threshold may treat a draft
+  value as settled.
+- **Layout: exists, LVS failing** — each sub-block under [`layout/`](layout/)
+  has a reproducible flow and committed reports, and a composed top level is in
+  [`layout/sar-adc-top/`](layout/sar-adc-top/README.md). DRC on the composed
+  stream is clean within the transcribed deck scope, with disclosed coverage
+  gaps. **LVS does not match**, and there is no post-layout (extracted)
+  verification of the full block. Details and numbers are in
+  [`signoff/README.md`](signoff/README.md).
+- **Conversion: partial, overall FAIL** — the full-conversion transient
+  campaign ([`sim/full-conversion-transient/`](sim/full-conversion-transient/README.md);
+  newest record named in `records/LATEST`) resolves the three mid-scale inputs
+  to within ±1 LSB at all nine ratified corners. It is still recorded as an
+  overall **FAIL**: the two near-full-scale inputs do not converge
+  ([#265](https://github.com/2AMLogic/sky130-sar-adc/issues/265)), and a
+  smaller array gain-error contributor is also open. That verdict is against
+  the experiment's own informational criterion, not a ratified spec row. The
+  statistical (Monte-Carlo) rows are not signed off either; see item 6 in the
+  signoff report. This is not a demonstration of full ADC conversion.
+- **Measurements** — `measurements/` stays empty until there is silicon.
 - **The gap, graded** — [`signoff/t1-report.json`](signoff/t1-report.json) is
   the verdict of record: the eleven-item T1 (bronze) evidence checklist rendered
   mechanically by `klt signoff --manifest`, per partition, with a `reason` on
   every unmet row. CI re-grades it on every push, so it cannot go stale
   unnoticed. [`signoff/README.md`](signoff/README.md) is the claim written
-  around it — including what is deliberately *not* cited and why —
-  and [`docs/t1-gap.md`](docs/t1-gap.md) is the short in-repo map pointing at
-  both. Current state: **3 of 22 rows met**, tier `null`.
+  around it, and [`docs/t1-gap.md`](docs/t1-gap.md) is the short in-repo map
+  pointing at both. Current state: **3 of 22 rows met**, tier `null`.
 
 ## Private for now
 
