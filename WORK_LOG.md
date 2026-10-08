@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-08
 
+- **PR #581**: docs(signoff): align layout/LVS/ERC narrative with manifest-selected October evidence
+- **Issue #579** (closed): Align signoff layout, LVS and ERC narrative with manifest-selected October evidence
 - **PR #578**: refactor(sim): shared corner-sweep iterator in harness.corners (#576)
 - **Issue #576** (closed): Extract the shared corner-sweep loop from five sim drivers into harness.corners
 - **PR #574**: fix(sim): reject non-finite SPICE measurements before conversion verdicts
