@@ -203,6 +203,37 @@ class TestCorners(unittest.TestCase):
         actual = corners.ratified_oat_grid(nominal_v, tolerance, process_corners, temps_c)
         self.assertEqual(actual, expected)
 
+    def test_sweep_matches_ratified_grid_and_ids(self):
+        pcs, temps = ["tt", "ss", "ff"], [-40, 27, 125]
+        got = list(corners.sweep(1.8, 0.10, pcs, temps, quiet=True))
+        grid = corners.ratified_oat_grid(1.8, 0.10, pcs, temps)
+        self.assertEqual([g[:3] for g in got], grid)
+        self.assertEqual(
+            [g[3] for g in got], [corners.corner_id(*p) for p in grid]
+        )
+        self.assertEqual(got[0][3], "tt_27c_1.80v")
+
+    def test_sweep_nondefault_nominal_and_collapsed_supply(self):
+        got = list(corners.sweep(1.2, 0.0, ["tt", "ss"], [27], quiet=True))
+        self.assertEqual(
+            [g[:3] for g in got], [("tt", 27.0, 1.2), ("ss", 27.0, 1.2)]
+        )
+
+    def test_sweep_progress_and_quiet_modes(self):
+        import contextlib
+        import io
+
+        def run(**kw):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ids = [g[3] for g in corners.sweep(1.8, 0.10, ["tt"], [27], **kw)]
+            return ids, buf.getvalue()
+
+        ids, out = run()
+        self.assertEqual(out, "".join(f"{c}:\n" for c in ids))
+        self.assertEqual(run(quiet=True)[1], "")
+        self.assertEqual(run(announce=False)[1], "")
+
 
 class TestEvidence(unittest.TestCase):
     def test_sha256_is_deterministic(self):
