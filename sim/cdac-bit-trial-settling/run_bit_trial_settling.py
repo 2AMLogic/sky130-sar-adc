@@ -185,9 +185,9 @@ DIRECTIONS = ["fall", "rise"]  # fall: BOT 1.8->0V (NMOS); rise: BOT 0->1.8V (PM
 # sim/sampling-acquisition-settling/, and sim/sequencer-logic-delay/ each
 # already sweep. Used only by the optional --corners mode below; the
 # single-corner (tt/27C/1.8V) default behavior above is unchanged.
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 
 # The single-corner (tt/27C/1.8V) record --corners's own evidence record
 # cross-references as "the finding this campaign extends" -- the record
