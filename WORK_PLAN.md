@@ -11,15 +11,13 @@ _None._
 
 Issues the operator starred (`loom:operator-priority`); land these first.
 
-- **#543**: Freeze or trim the proposal-citation gate: ~16k lines guarding one document
-- **#546**: Dedup SUPPLY_TOLERANCE/TEMPS_C/PROCESS_CORNERS constants copied across 9 sim drivers
+_None._
 
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
-- **#557**: test: add PDK-free unit tests for sar-sequencer-behavioral runner
 
 ## In Progress
 
@@ -46,13 +44,12 @@ Issues carrying `loom:curated`.
 - **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly *(curated)*
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(curated)*
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives *(curated)*
-- **#557**: test: add PDK-free unit tests for sar-sequencer-behavioral runner *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
-- **#543**: Freeze or trim the proposal-citation gate: ~16k lines guarding one document *(hermit)*
-- **#546**: Dedup SUPPLY_TOLERANCE/TEMPS_C/PROCESS_CORNERS constants copied across 9 sim drivers *(hermit)*
+- **#564**: Pilot: express one PVT corner campaign as a klt sim request (first klt sim envelope) *(architect)*
+- **#576**: Extract the shared corner-sweep loop from five sim drivers into harness.corners *(architect)*
 
 ## Epics
 
@@ -63,12 +60,12 @@ Issues carrying `loom:curated`.
 | Tier | Count |
 |------|-------|
 | Operator merge-risk holds | 0 |
-| Operator priority | 2 |
-| Ready (`loom:issue`) | 2 |
+| Operator priority | 0 |
+| Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 4 |
+| Curated | 3 |
 | Architect / Hermit proposals | 3 |
 | Active epics | 1 |
 

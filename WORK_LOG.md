@@ -4,6 +4,18 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-08
 
+- **PR #574**: fix(sim): reject non-finite SPICE measurements before conversion verdicts
+- **PR #575**: docs(report): refresh superseded layout and whole-ADC limitations (#572)
+- **PR #571**: refactor(sim): centralize ratified corner-set constants (#546)
+- **PR #570**: docs: freeze citation gate at 38 checks
+- **PR #567**: Persist klt yield samples document beside report
+- **Issue #573** (closed): Render unavailable power (power_w=None) as n/a in supply-impedance records
+- **Issue #569** (closed): Reject non-finite SPICE measurements before conversion verdicts
+- **Issue #572** (closed): Refresh superseded layout and whole-ADC limitations in characterization narrative
+- **Issue #546** (closed): Dedup SUPPLY_TOLERANCE/TEMPS_C/PROCESS_CORNERS constants copied across 9 sim drivers
+- **Issue #543** (closed): Freeze or trim the proposal-citation gate: ~16k lines guarding one document
+- **Issue #561** (closed): Refine S3 download-to-stdout classification
+- **Issue #563** (closed): Persist klt yield samples document so item-6 yield envelopes are freshness-pinnable
 - **PR #565**: docs: refresh README status against current evidence
 - **Issue #560** (closed): docs: refresh README status against existing layout, conversion and ratified spec evidence
 
