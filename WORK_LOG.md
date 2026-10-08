@@ -4,6 +4,12 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-08
 
+- **PR #589**: ENOB yield: per-draw conditional estimates from real CDAC draws (#587)
+- **Issue #587** (closed): ENOB yield: derive conditional estimates per real CDAC draw instead of grading two summaries
+- **PR #586**: docs(t1-gap): reduce item-11 row to a pointer
+- **Issue #583** (closed): docs/t1-gap.md: item-11 row is a 3 KB hand-kept status cell the file's own preamble disclaims
+- **PR #585**: lint: discover shell scripts for bash -n (4 unchecked)
+- **Issue #582** (closed): lint: discover shell scripts for bash -n instead of a hand-maintained list (4 scripts unchecked)
 - **PR #581**: docs(signoff): align layout/LVS/ERC narrative with manifest-selected October evidence
 - **Issue #579** (closed): Align signoff layout, LVS and ERC narrative with manifest-selected October evidence
 - **PR #578**: refactor(sim): shared corner-sweep iterator in harness.corners (#576)
