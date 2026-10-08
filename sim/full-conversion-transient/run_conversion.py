@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import math
 import os
 import sys
 import tempfile
@@ -202,12 +203,25 @@ def _run_ngspice(deck: str, scratch: Path, tag: str) -> str:
 
 def decode(parsed: dict[str, float], supply_v: float) -> dict:
     """Turn one run's parsed `.meas` values into per-conversion code results,
-    phase-structure verdicts, and supply-current/power numbers."""
+    phase-structure verdicts, and supply-current/power numbers.
+
+    A measurement that is absent OR non-finite (NaN / +-inf -- issue #569)
+    is unavailable: it decodes to no bit, contributes no digital margin and
+    no current. `measure.parse()` already rejects non-finite values from a
+    log; this is the same rule at the decoder boundary for any caller that
+    hands in a dict directly. If any required supply current is unavailable
+    the result fails (`all_ok=False`) and, when that current carries a power
+    term (nonzero potential), `power_w` is `None` rather than the partial
+    sum of the currents that remain."""
     threshold = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
     lsb_v = 2.0 * supply_v / (2**tb.N_BITS)
 
-    def bit(name: str) -> int | None:
+    def value(name: str) -> float | None:
         v = parsed.get(name)
+        return v if v is not None and math.isfinite(v) else None
+
+    def bit(name: str) -> int | None:
+        v = value(name)
         return None if v is None else (1 if v > threshold else 0)
 
     margins: list[float] = []
@@ -216,8 +230,9 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         bit_names = tb.code_measure_names(c)
         bits = [bit(n) for n in bit_names]
         for n in bit_names:
-            if parsed.get(n) is not None:
-                margins.append(abs(parsed[n] - threshold))
+            v = value(n)
+            if v is not None:
+                margins.append(abs(v - threshold))
         code = None
         if all(b is not None for b in bits):
             code = int("".join(str(b) for b in bits), 2)
@@ -227,8 +242,9 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         busy = [bit(n) for n in tb.busy_measure_names(c)]
         smpl = [bit(n) for n in tb.sample_measure_names(c)]
         for n in tb.busy_measure_names(c) + tb.sample_measure_names(c):
-            if parsed.get(n) is not None:
-                margins.append(abs(parsed[n] - threshold))
+            v = value(n)
+            if v is not None:
+                margins.append(abs(v - threshold))
         expected_busy = [1] * (tb.PHASES_PER_CONVERSION - 1) + [0]
         expected_smpl = [0] * (tb.PHASES_PER_CONVERSION - 1) + [1]
         phase_ok = busy == expected_busy and smpl == expected_smpl
@@ -250,14 +266,22 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         )
 
     currents: dict[str, float] = {}
-    power_w = 0.0
+    power_w: float | None = 0.0
+    currents_ok = True
     for name, _source, potential in tb.SUPPLY_SOURCES:
-        raw = parsed.get(name)
+        raw = value(name)
         if raw is None:
+            # Unavailable required current: omit it, fail the point, and do
+            # not pass the remaining sources off as complete power. A source
+            # at 0 V contributes no power term either way (convention below).
+            currents_ok = False
+            if potential != 0.0:
+                power_w = None
             continue
         amps = abs(raw)
         currents[name] = amps
-        power_w += potential * supply_v * amps
+        if power_w is not None:
+            power_w += potential * supply_v * amps
 
     errors = [abs(cv["error_lsb"]) for cv in conversions if cv["error_lsb"] is not None]
     return dict(
@@ -270,8 +294,13 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         n_phase_ok=sum(1 for cv in conversions if cv["phase_ok"]),
         n_conversions=len(conversions),
         worst_margin_v=min(margins) if margins else float("nan"),
-        all_ok=all(cv["code_ok"] and cv["phase_ok"] for cv in conversions),
+        all_ok=currents_ok and all(cv["code_ok"] and cv["phase_ok"] for cv in conversions),
     )
+
+
+def _power_uw_str(power_w: float | None) -> str:
+    """`power_w` in uW, or `n/a` when decode() marked it unavailable."""
+    return "n/a" if power_w is None else f"{power_w * 1e6:.3f}"
 
 
 def run_point(
@@ -317,13 +346,17 @@ def format_point(point: dict) -> str:
         for cv in point["conversions"]
     )
     worst = point["worst_error_lsb"]
-    idd_ua = 1e6 * sum(point["currents"].get(n, 0.0) for n in ("i_vdd", "i_vpwr", "i_vrefp"))
+    idd_names = ("i_vdd", "i_vpwr", "i_vrefp")
+    if all(n in point["currents"] for n in idd_names):
+        idd_str = f"{1e6 * sum(point['currents'][n] for n in idd_names):.3f}"
+    else:
+        idd_str = "n/a"  # an unavailable current is not summed as zero (#569)
     return (
         f"{point['corner_id']}: {'PASS' if point['all_ok'] else 'FAIL'} "
         f"codes(captured/ideal) {code_str} "
         f"worst|err|={'n/a' if worst is None else worst} LSB "
         f"phases_ok={point['n_phase_ok']}/{point['n_conversions']} "
-        f"IDD={idd_ua:.3f}uA P={point['power_w'] * 1e6:.3f}uW "
+        f"IDD={idd_str}uA P={_power_uw_str(point['power_w'])}uW "
         f"({point['wall_s']:.0f}s)"
     )
 
@@ -533,9 +566,16 @@ def write_record(
         a(
             f"| `{p['corner_id']}` | {ua('i_vdd')} | {ua('i_vpwr')} | "
             f"{ua('i_vrefp')} | {ua('i_vcm')} | {ua('i_vrefn')} | "
-            f"{p['power_w'] * 1e6:.3f} |"
+            f"{_power_uw_str(p['power_w'])} |"
         )
     a("")
+    if any(p["power_w"] is None for p in points):
+        a(
+            "`n/a` total power: at least one supply current at a nonzero "
+            "potential was missing or non-finite at that corner, so no total "
+            "is reported (a partial sum would understate it)."
+        )
+        a("")
     a(
         "Power is `sum(V_source * |avg I_source|)` over the sources at a nonzero "
         "potential (`VDD`, `VPWR`, `VREFP` at `V_DD`; `VCM` at `V_DD/2`; `VREFN` "
