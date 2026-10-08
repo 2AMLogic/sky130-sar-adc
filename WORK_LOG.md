@@ -4,6 +4,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-07
 
+- **PR #559**: test: PDK-free unit tests for sar-sequencer-behavioral runner
+- **Issue #557** (closed): test: add PDK-free unit tests for sar-sequencer-behavioral runner
+
+### 2026-10-07
+
 - **PR #553**: ci: run on GitHub-hosted runners; the shared self-hosted runner is retired
 - **PR #554**: docs(chipalooza): record #103/klayout-tools#2722 state as of 2026-10-07 in §7 Item 1 (Part of #121)
 
