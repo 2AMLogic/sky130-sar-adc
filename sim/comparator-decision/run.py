@@ -145,9 +145,9 @@ NOISE_FSTOP_HZ = 1e9  # ~1/regeneration-time-constant order of magnitude
 # "Numeric rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply,
 # sky130 process corners. VDD above (1.8V) is now also the ratified V_REF/
 # V_DD value (DR-003 Item 1), not only a provisional planning constant.
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 # Ratified comparator input-referred noise budget (DR-003 Item 4 /
 # spec/target-spec.md's ratified row): baseline (ENOB>9.0) and stretch
 # (ENOB>9.5) thresholds, in V rms (differential, input-referred).
