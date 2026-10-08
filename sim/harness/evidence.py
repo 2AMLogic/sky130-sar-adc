@@ -15,7 +15,6 @@ import hashlib
 import json
 import os
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -280,8 +279,9 @@ def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
     """Invoke `klt yield` against an already-built `measurements` list (each
     caller constructs its own `"name"`/`"unit"`/`"samples"`/`"limits"`
     entries -- see sim/cdac-array-transfer/run_mc.py and
-    sim/enob-estimate/run_enob.py for the two current callers), writing the
-    scratch sample file to a tempfile and the parsed report to
+    sim/enob-estimate/run_enob.py for the two current callers), persisting the
+    samples document as `<out_json_path stem>.samples.json` beside the
+    report (cited repo-relative by the report) and the parsed report to
     `out_json_path`. Returns the parsed JSON report, or None if `klt` / its
     native yield extension is unavailable, its output isn't valid JSON, or
     the report itself carries an `"error"` key (recorded as an honest gap
@@ -292,27 +292,35 @@ def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
     this tempfile/subprocess/parse/cleanup plumbing was shared; each
     caller's own `measurements`-list construction stays at its call site."""
     doc = {"measurements": measurements}
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-        json.dump(doc, f)
-        sample_path = Path(f.name)
+    # Persist the samples document beside the report (issue #563) so the
+    # report's `"samples"` field cites a committed, hashable file instead of a
+    # deleted /tmp path. Repo-relative when under REPO_ROOT.
+    sample_path = out_json_path.with_name(out_json_path.stem + ".samples.json")
+    try:
+        cite = str(sample_path.resolve().relative_to(REPO_ROOT))
+        cwd = REPO_ROOT
+    except ValueError:
+        cite = str(sample_path.resolve())
+        cwd = None
+    sample_path.parent.mkdir(parents=True, exist_ok=True)
+    sample_path.write_text(json.dumps(doc, indent=2))
     try:
         proc = subprocess.run(
-            ["klt", "yield", str(sample_path), "--format", "json"],
-            capture_output=True, text=True, timeout=60,
+            ["klt", "yield", cite, "--format", "json"],
+            capture_output=True, text=True, timeout=60, cwd=cwd,
         )
         try:
             report = json.loads(proc.stdout)
         except json.JSONDecodeError:
+            sample_path.unlink(missing_ok=True)
             return None
-        out_json_path.parent.mkdir(parents=True, exist_ok=True)
         out_json_path.write_text(json.dumps(report, indent=2))
         if "error" in report:
             return None
         return report
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-    finally:
         sample_path.unlink(missing_ok=True)
+        return None
 
 
 #: The explicit, greppable way a record-writing path says "this record
