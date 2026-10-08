@@ -62,6 +62,61 @@ class TestMeasureParse(unittest.TestCase):
         parsed = measure.parse("vgs_nfet = 1.0", ["vgs_nfet"], anchored=False)
         self.assertAlmostEqual(parsed["vgs_nfet"], 1.0)
 
+    # -- issue #569: non-finite values are rejected at the parser boundary --
+    def test_exponent_overflow_is_rejected_in_plain_lines(self):
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                log = "pos = 1e999\nneg = -1e999\nok = 2.5e-03\n"
+                names = ["pos", "neg", "ok"]
+                parsed = measure.parse(log, names, anchored=anchored)
+                self.assertNotIn("pos", parsed)
+                self.assertNotIn("neg", parsed)
+                self.assertAlmostEqual(parsed["ok"], 2.5e-03)
+                self.assertEqual(measure.missing(parsed, names), ["pos", "neg"])
+
+    def test_exponent_overflow_is_rejected_in_trig_targ_lines(self):
+        log = (
+            "t_pos = 1e999 targ= 1.2345e-09 trig=0\n"
+            "t_neg = -1e999 targ= 1.2345e-09 trig=0\n"
+            "t_ok = 1.234500e-09 targ= 1.2345e-09 trig=0\n"
+        )
+        names = ["t_pos", "t_neg", "t_ok"]
+        parsed = measure.parse(log, names, anchored=False)
+        self.assertEqual(measure.missing(parsed, names), ["t_pos", "t_neg"])
+        self.assertAlmostEqual(parsed["t_ok"], 1.2345e-09)
+
+    def test_finite_exponent_tokens_keep_their_values(self):
+        log = "a = 1e300\nb = -1e-300\nc = 1.8E+00\nd = -3.0e-6\n"
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                parsed = measure.parse(log, ["a", "b", "c", "d"], anchored=anchored)
+                self.assertEqual(parsed["a"], 1e300)
+                self.assertEqual(parsed["b"], -1e-300)
+                self.assertEqual(parsed["c"], 1.8)
+                self.assertEqual(parsed["d"], -3.0e-6)
+
+    def test_nan_and_inf_tokens_never_parse(self):
+        log = "a = nan\nb = inf\nc = -inf\n"
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                parsed = measure.parse(log, ["a", "b", "c"], anchored=anchored)
+                self.assertEqual(parsed, {})
+
+    def test_non_finite_first_occurrence_falls_through_to_a_later_finite_one(self):
+        # first-*successful*-value rule: a rejected value does not claim the name
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                parsed = measure.parse("x = 1e999\nx = 2.0\nx = 3.0\n", ["x"], anchored=anchored)
+                self.assertEqual(parsed["x"], 2.0)
+
+    def test_finite_first_occurrence_still_wins_over_a_later_overflow(self):
+        parsed = measure.parse("x = 1.0\nx = 1e999\n", ["x"])
+        self.assertEqual(parsed["x"], 1.0)
+
+    def test_repeated_overflow_only_stays_missing(self):
+        parsed = measure.parse("x = 1e999\nx = -1e999\n", ["x"], anchored=False)
+        self.assertEqual(measure.missing(parsed, ["x"]), ["x"])
+
 
 class TestCorners(unittest.TestCase):
     def test_mismatch_corner_for(self):
