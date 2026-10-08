@@ -2,6 +2,11 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-08
+
+- **PR #565**: docs: refresh README status against current evidence
+- **Issue #560** (closed): docs: refresh README status against existing layout, conversion and ratified spec evidence
+
 ### 2026-10-07
 
 - **PR #559**: test: PDK-free unit tests for sar-sequencer-behavioral runner
