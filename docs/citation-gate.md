@@ -44,6 +44,18 @@ It is deliberately PDK-free and network-free (pure file reads), like
 `sim/check_spec_coverage.py` and `layout/bin/check-klt-pin-evidence.sh`, so it
 runs in the always-on headless `checks` CI job rather than the PDK-gated one.
 
+## Scope freeze
+
+The gate is frozen at its current 38 `check_*` functions in
+[`check_proposal_citations.py`](chipalooza/check_proposal_citations.py)
+(`grep -cE '^def check_' docs/chipalooza/check_proposal_citations.py` prints
+`38`; check 38 landed in PR #535). No new check is added without a written
+justification, recorded in the PR that adds it and in this document, naming a
+specific stale citation that the existing checks missed. A narrower census of
+a sentence the gate already covers is not a justification. Existing checks stay
+as they are; retiring any of them is a separate, evidence-backed proposal
+(decision on issue #543).
+
 ## What it checks
 
 ### Check 1 -- link resolution (`check_links`)
