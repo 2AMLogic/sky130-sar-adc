@@ -282,6 +282,34 @@ class TestRunKltYield(unittest.TestCase):
             self.assertEqual(called_args[3], "--format")
             self.assertTrue(called_args[2].endswith(".json"))
 
+    def test_samples_document_persisted_and_cited(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "yield-reports" / "rec.json"
+            captured = {}
+
+            def fake_run(cmd, **kw):
+                sp = Path(cmd[2])
+                if not sp.is_absolute():
+                    sp = Path(kw["cwd"]) / sp
+                captured["bytes"] = sp.read_bytes()
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=0, stdout=json.dumps({"samples": cmd[2]}), stderr="",
+                )
+
+            with mock.patch.object(evidence.subprocess, "run", side_effect=fake_run):
+                report = evidence.run_klt_yield(self._measurements(), out_path)
+            cited = Path(report["samples"])
+            self.assertTrue(cited.is_absolute())  # tmp is outside the repo
+            self.assertTrue(cited.is_file())
+            self.assertEqual(cited.parent, out_path.parent.resolve())
+            self.assertEqual(
+                hashlib.sha256(cited.read_bytes()).hexdigest(),
+                hashlib.sha256(captured["bytes"]).hexdigest(),
+            )
+            self.assertEqual(json.loads(cited.read_text()), {"measurements": self._measurements()})
+
 
 class TestResolveCornersProvenance(unittest.TestCase):
     """evidence.resolve_corners_provenance() -- the corners-campaign layer
