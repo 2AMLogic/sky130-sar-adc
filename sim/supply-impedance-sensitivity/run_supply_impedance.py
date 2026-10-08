@@ -1844,6 +1844,30 @@ def _ua(value: float | None) -> str:
     return "n/a" if value is None else f"{value * 1e6:.3f}"
 
 
+def _uw(power_w: float | None) -> str:
+    """Total power in uW, or `n/a` when `fc.decode()` marked it unavailable
+    (a missing or non-finite supply current at a nonzero potential, #569/#573)
+    -- the same convention as `run_conversion.format_point()`/`write_record()`.
+    An unavailable power is never rendered as a partial sum or as zero."""
+    return "n/a" if power_w is None else f"{power_w * 1e6:.3f}"
+
+
+def _avg_current_cells(p: dict) -> str:
+    """The `I(VDD) | I(VPWR) | I(GND) | I(VREFP) | I(VCM) | total power` cells
+    of an average-rail-current row, shared by `write_record()` and
+    `write_decap_esr_record()`. Every value may be unavailable and renders as
+    `n/a`; `I(GND)` reads `n/a (no bond)` where the arm has no ground bond."""
+    i_gnda = p["extras"].get("i_gnda")
+    return (
+        f"{_ua(p['currents'].get('i_vdd'))} | "
+        f"{_ua(p['currents'].get('i_vpwr'))} | "
+        f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
+        f"{_ua(p['currents'].get('i_vrefp'))} | "
+        f"{_ua(p['currents'].get('i_vcm'))} | "
+        f"{_uw(p['power_w'])} |"
+    )
+
+
 def _assumption_lines() -> list[str]:
     return [
         "| element | value | where it comes from |",
@@ -2182,15 +2206,7 @@ def write_record(
             p = next((q for q in points if q["corner_id"] == cid and q["arm"] == name), None)
             if p is None:
                 continue
-            i_gnda = p["extras"].get("i_gnda")
-            a(
-                f"| `{cid}` | `{name}` | {_ua(p['currents'].get('i_vdd'))} | "
-                f"{_ua(p['currents'].get('i_vpwr'))} | "
-                f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
-                f"{_ua(p['currents'].get('i_vrefp'))} | "
-                f"{_ua(p['currents'].get('i_vcm'))} | "
-                f"{p['power_w'] * 1e6:.3f} |"
-            )
+            a(f"| `{cid}` | `{name}` | {_avg_current_cells(p)}")
     a("")
 
     a("## Findings")
@@ -2834,7 +2850,7 @@ def _rail_current_table_lines(
             + " | ".join(cells)
             + f" | {_ua(p['currents'].get('i_vdd'))} | {_ua(p['currents'].get('i_vpwr'))} | "
             + f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
-            + f"{p['power_w'] * 1e6:.3f} |"
+            + f"{_uw(p['power_w'])} |"
         )
     out.append("")
     if extra_note:
@@ -4992,14 +5008,7 @@ def write_decap_esr_record(
     )
     a("|---|---|---|---|---|---|---|")
     for p in points:
-        i_gnda = p["extras"].get("i_gnda")
-        a(
-            f"| `{p['arm']}` | {_ua(p['currents'].get('i_vdd'))} | "
-            f"{_ua(p['currents'].get('i_vpwr'))} | "
-            f"{'n/a (no bond)' if i_gnda is None else _ua(abs(i_gnda))} | "
-            f"{_ua(p['currents'].get('i_vrefp'))} | {_ua(p['currents'].get('i_vcm'))} | "
-            f"{p['power_w'] * 1e6:.3f} |"
-        )
+        a(f"| `{p['arm']}` | {_avg_current_cells(p)}")
     a("")
 
     a("## Findings")
