@@ -140,3 +140,30 @@ def ratified_oat_grid(
     return oat_grid(
         "tt", 27.0, nominal_v, process_corners, temps_c, supply_points(nominal_v, tolerance)
     )
+
+
+def sweep(
+    nominal_v: float,
+    tolerance: float,
+    process_corners: list[str],
+    temps_c: list[float],
+    *,
+    quiet: bool = False,
+    announce: bool = True,
+):
+    """Iterate the ratified OAT grid as (process_corner, temp_c, supply_v, cid).
+
+    Pure iterator over ratified_oat_grid() + corner_id(): grid order is the
+    OAT order, cid is the corner_id() string. The caller keeps PDK
+    resolution, per-point simulation, and its own reduction. When `announce`
+    is true and `quiet` is false, prints "<cid>:" as each point is yielded
+    (the progress line the --corners drivers used to print by hand); drivers
+    that own their own progress output pass announce=False. This is the
+    single seam for the corner loop (issue #576)."""
+    for process_corner, temp_c, supply_v in ratified_oat_grid(
+        nominal_v, tolerance, process_corners, temps_c
+    ):
+        cid = corner_id(process_corner, temp_c, supply_v)
+        if announce and not quiet:
+            print(f"{cid}:")
+        yield process_corner, temp_c, supply_v, cid

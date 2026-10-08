@@ -441,13 +441,11 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     across process/temperature/supply.
     """
     pdk.resolve_or_raise()
-    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
 
     points: list[dict] = []
-    for process_corner, temp_c, supply_v in grid:
-        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
-        if not quiet:
-            print(f"{cid}:")
+    for process_corner, temp_c, supply_v, cid in corners_mod.sweep(
+        VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, quiet=quiet
+    ):
         crossing_rows, budget_rows, netlist = run_all(
             scratch, corner=process_corner, temp_c=temp_c, vdd=supply_v,
             quiet=quiet, tag=f"acquisition_settling_{cid}",

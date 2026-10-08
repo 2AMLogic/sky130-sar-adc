@@ -482,11 +482,10 @@ def run_corners(scratch: Path, point: str = DEFAULT_POINT,
     path -- only the `.lib` corner, `.temp`, and supply voltage vary per
     point."""
     sample_ns, r_source_list = WINDOW_CONFIG[window]
-    grid = corners_mod.ratified_oat_grid(VDD_NOM, SUPPLY_TOLERANCE,
-                                          PROCESS_CORNERS, TEMPS_C)
     points: list[dict] = []
-    for process_corner, temp_c, supply_v in grid:
-        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+    for process_corner, temp_c, supply_v, cid in corners_mod.sweep(
+        VDD_NOM, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, announce=False
+    ):
         rows = run_sweep(point, sample_ns, window, scratch,
                           r_source_list=r_source_list,
                           corner=process_corner, temp_c=temp_c, vdd=supply_v,
@@ -525,11 +524,10 @@ def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
     `.lib` corner, `.temp`, supply voltage, and the per-corner marginal
     R_source vary."""
     sample_ns, r_source_list = WINDOW_CONFIG[window]
-    grid = corners_mod.ratified_oat_grid(VDD_NOM, SUPPLY_TOLERANCE,
-                                          PROCESS_CORNERS, TEMPS_C)
     points: list[dict] = []
-    for process_corner, temp_c, supply_v in grid:
-        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+    for process_corner, temp_c, supply_v, cid in corners_mod.sweep(
+        VDD_NOM, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, announce=False
+    ):
         bare_rows = run_sweep(point, sample_ns, window, scratch,
                               r_source_list=r_source_list,
                               corner=process_corner, temp_c=temp_c,

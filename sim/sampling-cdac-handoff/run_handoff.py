@@ -526,14 +526,14 @@ def run_corners(
     the baseline corner as a code-state-independence control.
     """
     pdk.resolve_or_raise()
-    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
-
     points = [
         run_acquisition_point(
             CORNERS_CODE_STATE, pc, tc, sv, scratch, quiet=quiet,
             tran_step_ns=tran_step_ns,
         )
-        for pc, tc, sv in grid
+        for pc, tc, sv, _cid in corners_mod.sweep(
+            VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, announce=False
+        )
     ]
     control = [
         run_acquisition_point(
