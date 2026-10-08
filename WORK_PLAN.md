@@ -49,7 +49,7 @@ Issues carrying `loom:curated`.
 
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
 - **#564**: Pilot: express one PVT corner campaign as a klt sim request (first klt sim envelope) *(architect)*
-- **#576**: Extract the shared corner-sweep loop from five sim drivers into harness.corners *(architect)*
+- **#579**: Align signoff layout, LVS and ERC narrative with manifest-selected October evidence *(architect)*
 
 ## Epics
 
