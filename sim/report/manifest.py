@@ -790,8 +790,10 @@ ROWS: tuple[Row, ...] = (
 
 
 POST_LAYOUT_NOTE = """\
-**post-layout: not yet available, because** full-ADC layout is not complete
-(#25, open, `loom:epic`) and `klt pex` is not implemented end-to-end upstream
+**post-layout: not yet available, because** the composed top-level layout
+(`layout/sar-adc-top/README.md`; #25 closed) is not LVS-clean at the full-block
+level (its LVS mismatch is unresolved), so no full-block extracted/post-layout
+campaign exists, and `klt pex` is not implemented end-to-end upstream
 (a `2AMLogic/klayout-tools` tool gap, filed generically per `CLAUDE.md`'s
 friction protocol; see `layout/comparator/pex/README.md` for the two
 specific bugs hit and worked around by hand for the one sub-block below).
@@ -829,12 +831,14 @@ BLIND_SPOTS = (
         "mechanism: the re-run campaign "
         "(`sim/comparator-decision/records/20260906-074451-7724af3.md`) shows "
         "9/9 reset-integrity controls HELD and 0.00 uA reset-phase static "
-        "current at every corner. No ADC-level transient has ever exercised "
-        "the real comparator inside the full hierarchy (the sequencer "
-        "campaign is behavioural; the ENOB estimate composes a noise term "
-        "rather than simulating the latch) -- still true post-fix, and still "
-        "why a defect of this kind could recur undetected by those two "
-        "campaigns alone."
+        "current at every corner. A whole-ADC transistor-level transient now "
+        "exists (`sim/full-conversion-transient/README.md`: the real "
+        "comparator inside the full hierarchy), but it is recorded as a FAIL "
+        "with unresolved near-full-scale conversion failures, so it does not "
+        "establish conversion success. The sequencer campaign remains "
+        "behavioural and the ENOB estimate composes a noise term rather than "
+        "simulating the latch, so those two campaigns alone still would not "
+        "catch a defect of this kind."
     ),
     (
         "Comparator noise methodology is a REDUCED SUB-MODEL (the input "
@@ -887,18 +891,17 @@ BLIND_SPOTS = (
         "for one of five layout sub-blocks -- not a warning-level nit."
     ),
     (
-        "Comparator layout LVS is now a MISMATCH against the current "
-        "schematic (as of issue #175 / DR-004 Amendment A's topology "
-        "change) -- `reports/LATEST` still records a genuine match, but that "
-        "was against the pre-amendment 9-device topology. The drawn "
-        "geometry has not been updated: it still implements 9 devices "
-        "where the schematic now has 11 (the two DIP/DIN precharge PMOS "
-        "are not drawn), confirmed via a falsifiability control that "
-        "reproduces the old match against the superseded reference and a "
-        "genuine mismatch (8 unmatched devices) against the amended one -- "
-        "`layout/comparator/reports/20260906-064104-eedd532/`. Re-drawing "
-        "the block is tracked as issue #180, not bundled into #175's "
-        "topology fix. See `layout/comparator/README.md`'s status section."
+        "Comparator sub-block layout history (superseded): after issue #175 / "
+        "DR-004 Amendment A changed the schematic to 11 devices, the then-"
+        "current 9-device geometry was a genuine LVS MISMATCH against it "
+        "(8 unmatched devices, "
+        "`layout/comparator/reports/20260906-064104-eedd532/`). That state is "
+        "superseded: issue #180 (closed) re-drew the layout with the two "
+        "DIP/DIN precharge PMOS, and `layout/comparator/README.md` records it "
+        "as DRC-clean and LVS-clean against the 11-device topology "
+        "(`reports/20260915-120705-1e90b14/`, with negative controls). This "
+        "is sub-block LVS only: full-block LVS of the composed top level "
+        "(`layout/sar-adc-top/README.md`) is NOT clean."
     ),
     (
         "Uncombined evidence legs: `sim/sampling-frontend/` and "
