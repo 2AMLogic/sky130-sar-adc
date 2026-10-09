@@ -4,6 +4,10 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-09
 
+- **PR #601**: test: PDK-free unit tests for _lvs_reference_common.py
+- **Issue #598** (closed): test: PDK-free unit tests for layout/bin/_lvs_reference_common.py (shared by five LVS-reference and parity callers, zero tests)
+- **PR #597**: CI: pin volare in the pdk-smoke job
+- **Issue #596** (closed): CI: pin volare in the pdk-smoke job (the one unpinned link in the toolchain chain)
 - **PR #594**: test: PDK-free deck-builder tests for three more sim runners (#593)
 - **Issue #593** (closed): test: PDK-free deck-builder tests for cdac-array-transfer, sampling-acquisition-settling and comparator-decision kickback/pickoff/noise decks (follow-on to #591)
 - **PR #592**: test: PDK-free deck-builder tests for four sim runners
