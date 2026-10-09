@@ -30,7 +30,12 @@ copied — the mechanism is what's ported, not the numbers.
 `sim/toolchain.json` is the machine-checked pin (floors, not exact matches
 except where noted) — `sim/harness/toolchain.py` / `sim/run_corners.py
 --check-env` verify the installed toolchain against it before any PVT point
-is simulated. Verify by hand first:
+is simulated. Verify by hand first.
+
+volare is **not** machine-checked by `sim/toolchain.json`. The pin that is
+authoritative for CI is `pip install "volare==0.20.6"` in the `pdk-smoke` job of
+`.github/workflows/ci.yml`; the table above records the local version, and the
+two agree on 0.20.6. Bump both together.
 
 ```sh
 xschem -v         # expect: XSCHEM V3.4.7 ...
@@ -39,7 +44,7 @@ volare --version   # expect: Volare v0.20.6 ...
 ```
 
 If any are absent, install via Homebrew (`brew install xschem ngspice`) or
-pip/pipx (`pipx install volare`) — this repo does not pin a from-scratch
+pip/pipx (`pipx install volare==0.20.6`) — this repo does not pin a from-scratch
 install recipe beyond that; see the sibling repos'
 (`2AMLogic/sky130-bandgap`, `2AMLogic/gf180-bandgap#18`) bootstrap notes if
 a from-scratch build is needed on a machine with no Homebrew formula

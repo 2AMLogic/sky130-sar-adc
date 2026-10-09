@@ -410,7 +410,7 @@ jobs:
           echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
 
       - name: Install volare
-        run: pip install volare
+        run: pip install "volare==0.20.6"
 
       - name: Fetch + enable the pinned sky130 PDK
         # The pin lives in sim/pdk.json (open_pdks_commit) so CI and
