@@ -5319,7 +5319,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **167** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **168** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5330,7 +5330,11 @@ tracker already owns.
      #525's follow-up run of that testbench committed its DUT netlist snapshot
      `sim/comparator-decision/netlist-snapshots/20261003-084648-c42c815.spice`
      -- the same extracted fragment plus its instantiation, again with no
-     inductor card.)
+     inductor card. 167 → **168** on 2026-10-09: issue #603's PR #606
+     added `sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice`,
+     a coherent-sine stimulus fragment whose supplies are the same ideal DC
+     sources as the DC-input fragment -- no inductor card, no ground-return
+     model.)
 
      Read this census the way it already reads itself: **a floor on the gap,
      not a proof of it, and it never claimed to be the thing that retires
