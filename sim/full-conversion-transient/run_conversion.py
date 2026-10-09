@@ -7,6 +7,7 @@
     python3 sim/full-conversion-transient/run_conversion.py            # tt/27C/1.8V only
     python3 sim/full-conversion-transient/run_conversion.py --corners --record
     python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
+    python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record
 
 WHAT THIS IS. Every prior `sim/` experiment drives one sub-block, or the
 sequencer against an *ideal* comparator-decision stimulus
@@ -59,6 +60,13 @@ re-pointed from `CLK` to a separate `CLK_CMP` node driven half a period
 later. It exists to isolate *which* mechanism a wrong code comes from; it
 NEVER contributes to a corner record, and the modified netlist is never
 written back to `design/`. See this experiment's README.md.
+
+COHERENT-SINE DYNAMIC TEST (`--coherent-sine`, issue #603). Opt-in: the
+same DUT driven by a coherent antiphase sine instead of the DC schedule
+(`gen_full_conversion_tb.sine_fragment_text()`), one captured code per
+conversion, SNDR/ENOB by the stdlib-only FFT in `dynamic_enob.py`. Baseline
+corner only; an informational cross-check of `sim/enob-estimate/`'s
+behavioral-accelerated composite, never a grade of the DRAFT ENOB row.
 """
 
 from __future__ import annotations
@@ -67,6 +75,7 @@ import argparse
 import concurrent.futures
 import math
 import os
+import re
 import sys
 import tempfile
 import time
@@ -79,6 +88,7 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 
 from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
 
+import dynamic_enob  # noqa: E402  (issue #603's stdlib-only FFT/ENOB analyzer)
 import gen_full_conversion_tb as tb  # noqa: E402  (this experiment's own testbench constants)
 
 REPO_ROOT = evidence.REPO_ROOT
@@ -112,9 +122,16 @@ def assemble_deck(
     supply_v: float = NOMINAL_SUPPLY_V,
     delayed_comparator_strobe: bool = False,
     extra_meas: list[str] | None = None,
+    fragment: str | None = None,
 ) -> str:
     """Assemble the runnable deck: per-corner preamble + DUT body + the
     committed stimulus/measurement fragment.
+
+    `fragment` (issue #603's `--coherent-sine`) replaces the committed DC
+    fragment with another stimulus/measurement fragment text -- the
+    coherent-sine one from `gen_full_conversion_tb.sine_fragment_text()`.
+    Default `None` keeps the DC fragment, so every existing mode is
+    unchanged.
 
     `delayed_comparator_strobe` is the `--mechanism-probe` modification
     only (see the module docstring): it re-points the comparator instance's
@@ -180,7 +197,7 @@ def assemble_deck(
         *dut_lines,
         "",
         *extra_sources,
-        tb.FRAGMENT_PATH.read_text(),
+        tb.FRAGMENT_PATH.read_text() if fragment is None else fragment,
         *(extra_meas or []),
         ".end",
     ]
@@ -190,15 +207,17 @@ def assemble_deck(
 # --------------------------------------------------------------------------
 # Running and decoding
 # --------------------------------------------------------------------------
-def _run_ngspice(deck: str, scratch: Path, tag: str) -> str:
+def _run_ngspice(deck: str, scratch: Path, tag: str, attempts: int = 3) -> str:
     """Retry policy documented once in toolchain.run_ngspice_with_retry().
     One full-ADC transient here is ~6.3 us of simulated time over ~2000
     devices and takes minutes, so raise SIM_NGSPICE_TIMEOUT_S well above
     the 120 s harness default before running (the README names the value
     used for the record); attempts=3 (not the shared helper's default 4)
     keeps a fully-exhausted retry budget from blowing past that already-
-    long per-attempt wall-clock cost."""
-    return toolchain.run_ngspice_with_retry(deck, scratch, tag, attempts=3)
+    long per-attempt wall-clock cost. `--coherent-sine` passes attempts=1:
+    its single transient is several times longer again, and a retry after a
+    timeout would only repeat the same cost."""
+    return toolchain.run_ngspice_with_retry(deck, scratch, tag, attempts=attempts)
 
 
 def decode(parsed: dict[str, float], supply_v: float) -> dict:
@@ -2202,6 +2221,421 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
     return evidence.close_record(prov, lines, "Record")
 
 
+# --------------------------------------------------------------------------
+# Coherent-sine dynamic test (issue #603): SNDR/ENOB by FFT, single corner
+# --------------------------------------------------------------------------
+#
+# An informational CROSS-CHECK of sim/enob-estimate/'s behavioral-accelerated
+# composite ENOB, not a grade of the DRAFT ENOB row. Runs ONE corner (the
+# baseline tt/27C/1.8V) -- a multi-corner or Monte Carlo extension is a
+# `klt sim` request (#564), never a loop over this function.
+
+ENOB_ESTIMATE_RECORDS = SIM_DIR / "enob-estimate" / "records"
+# The figure spec/target-spec.md quotes for the behavioral estimate
+# (mean-case) when issue #603 was filed. Quoted for the delta only -- the
+# record also reads the CURRENT behavioral record (records/LATEST) and
+# reports the delta against that, so a later behavioral re-run is not
+# silently compared against a stale number.
+SPEC_QUOTED_BEHAVIORAL_ENOB_BIT = 8.491
+_BEHAVIORAL_ENOB_RE = re.compile(
+    r"achieved ENOB \(mean-case CDAC mismatch\) = \*\*(?P<v>[0-9.]+) bit\*\*"
+)
+
+
+def behavioral_enob_reference(records_dir: Path = ENOB_ESTIMATE_RECORDS) -> dict | None:
+    """The current behavioral-accelerated mean-case ENOB: `records/LATEST`'s
+    record id and its parsed value, or None if either is unavailable."""
+    latest = records_dir / "LATEST"
+    if not latest.is_file():
+        return None
+    name = latest.read_text().strip()
+    path = records_dir / name
+    if not path.is_file():
+        return None
+    m = _BEHAVIORAL_ENOB_RE.search(path.read_text())
+    if not m:
+        return None
+    return dict(record=os.path.relpath(path, REPO_ROOT), enob_bit=float(m.group("v")))
+
+
+def decode_code_stream(
+    parsed: dict[str, float], supply_v: float, conversions: list[int]
+) -> dict:
+    """Per-conversion codes (None where any bit is missing/non-finite) and
+    phase-structure verdicts for `conversions`, with the same 1/0 threshold
+    and MSB-first bit order `decode()` uses."""
+    threshold = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
+
+    def bit(name: str) -> int | None:
+        v = parsed.get(name)
+        if v is None or not math.isfinite(v):
+            return None
+        return 1 if v > threshold else 0
+
+    codes: list[int | None] = []
+    phase_ok: list[bool] = []
+    expected_busy = [1] * (tb.PHASES_PER_CONVERSION - 1) + [0]
+    expected_smpl = [0] * (tb.PHASES_PER_CONVERSION - 1) + [1]
+    for c in conversions:
+        bits = [bit(n) for n in tb.code_measure_names(c)]
+        codes.append(
+            int("".join(str(b) for b in bits), 2) if all(b is not None for b in bits) else None
+        )
+        busy = [bit(n) for n in tb.busy_measure_names(c)]
+        smpl = [bit(n) for n in tb.sample_measure_names(c)]
+        phase_ok.append(busy == expected_busy and smpl == expected_smpl)
+    return dict(codes=codes, phase_ok=phase_ok)
+
+
+def analyze_sine_capture(
+    codes: list[int | None],
+    n: int,
+    tone_bin: int,
+    amplitude_fraction: float,
+) -> dict:
+    """FFT analysis of a captured stream plus the ideal-quantizer reference
+    on the identical plan (same N, bin, amplitude and input phase).
+    `analysis` is None (with `analysis_error` set) if the stream cannot be
+    analysed -- e.g. a missing code -- rather than raising, so the record can
+    still be written and say why."""
+    ideal_codes = [
+        tb.ideal_code(tb.sine_input_fraction(c, n, tone_bin, amplitude_fraction))
+        for c in tb.sine_measured_conversions(n)
+    ]
+    ideal = dynamic_enob.analyze(ideal_codes, tone_bin, tb.N_BITS)
+    try:
+        analysis = dynamic_enob.analyze(codes, tone_bin, tb.N_BITS)
+        error = None
+    except ValueError as exc:
+        analysis, error = None, str(exc)
+    return dict(ideal_codes=ideal_codes, ideal=ideal, analysis=analysis, analysis_error=error)
+
+
+def run_sine_point(
+    netlist_text: str,
+    pdk_info: pdk.PdkInfo,
+    scratch: Path,
+    n: int,
+    tone_bin: int,
+    amplitude_fraction: float,
+    corner: tuple[str, float, float] = BASELINE_CORNER,
+) -> dict:
+    process_corner, temp_c, supply_v = corner
+    cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+    fragment = tb.sine_fragment_text(n, tone_bin, amplitude_fraction)
+    deck = assemble_deck(
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, fragment=fragment
+    )
+    t0 = time.time()
+    log_text = _run_ngspice(deck, scratch, f"coherent_sine_{cid}", attempts=1)
+    wall_s = time.time() - t0
+
+    names = tb.sine_measure_names(n)
+    parsed = measure.parse(log_text, names, anchored=False)
+    missing = measure.missing(parsed, names)
+    conversions = tb.sine_measured_conversions(n)
+    stream = decode_code_stream(parsed, supply_v, conversions)
+    result = analyze_sine_capture(stream["codes"], n, tone_bin, amplitude_fraction)
+    result.update(
+        stream,
+        conversions=conversions,
+        n=n,
+        tone_bin=tone_bin,
+        amplitude_fraction=amplitude_fraction,
+        process_corner=process_corner,
+        temp_c=temp_c,
+        supply_v=supply_v,
+        corner_id=cid,
+        missing=missing,
+        log_text=log_text,
+        fragment=fragment,
+        wall_s=wall_s,
+    )
+    return result
+
+
+def sine_point_problems(point: dict) -> list[str]:
+    """Why a coherent-sine capture is NOT a valid measurement of the
+    converter (empty list = valid). An FFT will happily turn any code stream
+    into an SNDR, so the run's own sanity evidence gates it: every
+    measurement present, every conversion with the correct 12-period
+    BUSY/SAMPLE structure (a converter that is not cycling through its
+    phases is not converting the sampled tone, whatever codes come out), and
+    the largest non-DC bin on the drive bin."""
+    problems: list[str] = []
+    if point["missing"]:
+        problems.append(f"{len(point['missing'])} measurement(s) missing")
+    n_bad = sum(1 for ok in point["phase_ok"] if not ok)
+    if n_bad:
+        problems.append(
+            f"phase structure wrong at {n_bad}/{len(point['phase_ok'])} conversions"
+        )
+    a = point["analysis"]
+    if a is None:
+        problems.append(f"not analysable: {point['analysis_error']}")
+    elif a["peak_bin"] != point["tone_bin"]:
+        problems.append(
+            f"largest non-DC bin is {a['peak_bin']}, not the drive bin {point['tone_bin']}"
+        )
+    return problems
+
+
+def format_sine_point(point: dict) -> str:
+    a = point["analysis"]
+    ideal = point["ideal"]
+    problems = sine_point_problems(point)
+    if a is None:
+        body = f"NOT ANALYSABLE ({point['analysis_error']})"
+    else:
+        body = ("INVALID (" + "; ".join(problems) + ") " if problems else "") + (
+            f"SNDR={a['sndr_db']:.2f} dB ENOB={a['enob_bit']:.3f} bit "
+            f"(FS-normalised {a['enob_fs_bit']:.3f}); ideal quantizer at the same "
+            f"plan: SNDR={ideal['sndr_db']:.2f} dB ENOB={ideal['enob_bit']:.3f} bit"
+        )
+    return (
+        f"{point['corner_id']}: N={point['n']} bin={point['tone_bin']} "
+        f"A={point['amplitude_fraction']:g}*V_REF -- {body} "
+        f"phases_ok={sum(point['phase_ok'])}/{len(point['phase_ok'])} "
+        f"({point['wall_s']:.0f}s)"
+    )
+
+
+def write_sine_record(
+    point: dict,
+    netlist_text: str,
+    supersedes: str,
+    written_by: str,
+    behavioral: dict | None,
+) -> Path:
+    """Mint a NEW coherent-sine record (append-only; never touches
+    records/LATEST, which names the corner campaign)."""
+    cid = point["corner_id"]
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "corners",
+        {
+            f"coherent-sine-{cid}.log": point["log_text"],
+            "coherent_sine_tb_fragment.spice": point["fragment"],
+        },
+    )
+    n, k, amp = point["n"], point["tone_bin"], point["amplitude_fraction"]
+    a = point["analysis"]
+    ideal = point["ideal"]
+    f_in = tb.sine_tone_hz(n, k)
+    span_ns = tb.sine_t_stop_ns(n)
+    n_phase_ok = sum(point["phase_ok"])
+
+    add = lines.append
+    add(
+        "- **Claim**: `spec/target-spec.md#target-table` -- **ENOB**, DRAFT row, "
+        "INFORMATIONAL CROSS-CHECK ONLY (issue #603). The first dynamic-test "
+        "(coherent-sine FFT) SNDR/ENOB measurement on the whole transistor-level "
+        "`design/sar_adc_top.spice`, reported against the behavioral-accelerated "
+        "composite estimate (`sim/enob-estimate/`). It does NOT grade the DRAFT "
+        "row: one corner, a short record, no noise sources in the transient, and "
+        "an amplitude below full scale (see LIMITATIONS). No spec row is edited."
+    )
+    add("- **Netlist provenance**: schematic (`design/sar_adc_top.spice`, unmodified)")
+    add(corners_mod.corner_matrix_summary_line(
+        [point["process_corner"]], [point["temp_c"]], [point["supply_v"]], 1
+    ).replace("one-at-a-time per sim/README.md", "single-corner pilot, NOT the ratified grid"))
+    add(
+        f"- **Dynamic-test (FFT) metadata**: N = {n} samples (one code per "
+        f"conversion); f_s = {tb.F_SAMPLE_HZ / 1e6:g} MS/s (`f_clk = "
+        f"{tb.F_CLK_HZ / 1e6:g} MHz` / {tb.PHASES_PER_CONVERSION} CLK periods per "
+        f"conversion, DR-006); coherent bin = {k} (coprime to N); "
+        f"f_in = {k} * f_s / {n} = {f_in:.10g} Hz; window = none (coherent sampling)."
+    )
+    add(
+        f"- **Stimulus**: antiphase sine on VINP/VINN about `VCM = V_DD/2`, peak "
+        f"differential amplitude `{amp:g}*V_REF` "
+        f"({20 * math.log10(amp):.2f} dBFS against the +-V_REF differential full "
+        "scale) -- the largest magnitude the DC corner campaign "
+        "(`records/20261001-105439-c324f80.md`) resolves within 1 LSB; a larger "
+        "tone would sweep into the known near-full-scale saturation DR-021 "
+        "addresses and measure that recorded defect instead. "
+        f"{tb.SINE_STARTUP_CONVERSIONS} start-up conversion(s) discarded before the "
+        f"N-sample record (conversions {point['conversions'][0]}.."
+        f"{point['conversions'][-1]}); codes read mid-PH_EOC exactly as the DC "
+        "bench does -- see `sim/full-conversion-transient/testbench/"
+        "coherent_sine_tb_fragment.spice` (the exact fragment run is also stored "
+        f"under `corners/{prov.record_id}/`)."
+    )
+    add(
+        f"- **Runtime (the pilot's first deliverable)**: {span_ns / 1000:.1f} us "
+        f"simulated in {point['wall_s']:.0f} s wall-clock "
+        f"({point['wall_s'] / (span_ns / 1000):.1f} s per simulated us) on a shared "
+        "dispatch host -- see the record-length table below."
+    )
+    if a is None:
+        add(
+            f"- **Measured value(s)**: NONE -- the captured stream could not be "
+            f"analysed: {point['analysis_error']}. Missing measurements: "
+            f"{len(point['missing'])}."
+        )
+    else:
+        add(
+            f"- **Measured value(s)** (`{cid}`): SNDR = **{a['sndr_db']:.2f} dB**, "
+            f"ENOB = **{a['enob_bit']:.3f} bit** at the tone's own amplitude "
+            f"({a['amplitude_dbfs']:.2f} dBFS measured); full-scale-normalised "
+            f"ENOB = **{a['enob_fs_bit']:.3f} bit** (extrapolation, see "
+            f"LIMITATIONS); SFDR = {a['sfdr_db']:.2f} dB (largest spur bin "
+            f"{a['spur_bin']}). Ideal 10-bit quantizer on the identical plan: SNDR = "
+            f"{ideal['sndr_db']:.2f} dB, ENOB = {ideal['enob_bit']:.3f} bit "
+            f"(FS-normalised {ideal['enob_fs_bit']:.3f} bit)."
+        )
+    problems = sine_point_problems(point)
+    if problems:
+        add(
+            "- **VALIDITY: NOT A VALID MEASUREMENT OF THE CONVERTER** -- "
+            + "; ".join(problems)
+            + ". The figures above are what the FFT returns for the captured "
+            "stream, recorded as-is (append-only evidence), but they are not an "
+            "SNDR/ENOB of the design and no delta below may be read as one."
+        )
+    add(
+        "- **Data provenance**: transient simulation of the schematic netlist at a "
+        "single PVT corner; ngspice `.tran` injects no device noise, so the "
+        "measured spectrum holds quantization plus deterministic errors only."
+    )
+    add("")
+
+    add("## Cross-check against the behavioral-accelerated estimate")
+    add("")
+    if a is None:
+        add("No delta: the dynamic measurement did not produce an analysable stream.")
+    else:
+        add(
+            "| reference | behavioral ENOB (bit) | dynamic ENOB, FS-normalised (bit) | "
+            "delta, dynamic - behavioral (bit) |"
+        )
+        add("|---|---|---|---|")
+        refs = [("spec/target-spec.md quoted value (when #603 was filed)",
+                 SPEC_QUOTED_BEHAVIORAL_ENOB_BIT)]
+        if behavioral is not None:
+            refs.append((f"`{behavioral['record']}` (current LATEST)", behavioral["enob_bit"]))
+        for label, value in refs:
+            add(
+                f"| {label} | {value:.3f} | {a['enob_fs_bit']:.3f} | "
+                f"{a['enob_fs_bit'] - value:+.3f} |"
+            )
+        add("")
+        add(
+            "The comparison uses the FULL-SCALE-NORMALISED dynamic ENOB because the "
+            "behavioral estimate is full-scale-referred (it composes noise against "
+            "`LSB/sqrt(12)`, i.e. a full-scale sine's SNR relationship). The two "
+            "do NOT measure the same things: the behavioral estimate includes "
+            "125C comparator thermal noise and CDAC mismatch, which this "
+            "noise-free, mismatch-free tt transient cannot see; this measurement "
+            "includes the dynamic, deterministic error mechanisms of the real "
+            "circuit (settling, kickback, CDAC gain error, mid-scale MSB behaviour) "
+            "that the behavioral estimate does not model. The measured-vs-ideal "
+            "gap below is the cleaner statement of what the circuit itself costs "
+            "at this plan."
+        )
+        add("")
+        add(
+            f"- Measured vs ideal quantizer, same plan: SNDR "
+            f"{a['sndr_db'] - ideal['sndr_db']:+.2f} dB, ENOB "
+            f"{a['enob_bit'] - ideal['enob_bit']:+.3f} bit."
+        )
+        add(
+            f"- Tone bin check: largest non-DC bin = {a['peak_bin']} "
+            f"({'matches' if a['peak_bin'] == k else 'DOES NOT match'} the drive bin {k})."
+        )
+        add(
+            f"- Clipping: {a['n_at_rails']}/{n} codes at a rail (0 or "
+            f"{2 ** tb.N_BITS - 1})."
+        )
+        add(
+            f"- Measured tone amplitude: {a['amplitude_codes']:.2f} codes peak "
+            f"(driven: {amp * 2 ** (tb.N_BITS - 1):.2f}); DC: "
+            f"{a['dc_codes']:.2f} codes (mid-scale = {2 ** (tb.N_BITS - 1)})."
+        )
+    add(
+        f"- Convergence / phase structure: {len(point['missing'])} missing "
+        f"measurement(s); {n_phase_ok}/{len(point['phase_ok'])} conversions with "
+        "the correct 12-period BUSY/SAMPLE structure."
+    )
+    add("")
+
+    add("## Captured code stream")
+    add("")
+    add("| sample | conversion | sampled Vd (x V_REF) | ideal code | captured code | error (LSB) | phases |")
+    add("|---|---|---|---|---|---|---|")
+    for i, c in enumerate(point["conversions"]):
+        code = point["codes"][i]
+        ideal_c = point["ideal_codes"][i]
+        err = "n/a" if code is None else f"{code - ideal_c:+d}"
+        add(
+            f"| {i} | {c} | {tb.sine_input_fraction(c, n, k, amp):+.5f} | {ideal_c} | "
+            f"{'MISSING' if code is None else code} | {err} | "
+            f"{'OK' if point['phase_ok'][i] else 'WRONG'} |"
+        )
+    add("")
+
+    add("## Record length vs runtime")
+    add("")
+    per_us = point["wall_s"] / (span_ns / 1000)
+    add("| N | simulated span (us) | wall-clock (measured / projected at this rate) |")
+    add("|---|---|---|")
+    for n_alt in sorted({n, 64, 128, 256, 1024}):
+        span_alt = tb.sine_t_stop_ns(n_alt) / 1000
+        tag = "measured" if n_alt == n else "projected"
+        add(f"| {n_alt} | {span_alt:.1f} | {span_alt * per_us / 60:.0f} min ({tag}) |")
+    add("")
+    add(
+        "Projections assume runtime linear in simulated time at this pilot's own "
+        "rate on the same host. Longer records -- and any multi-corner or Monte "
+        "Carlo extension -- belong on the batch fleet as a `klt sim` request "
+        "(#564), not a local loop."
+    )
+    add("")
+
+    add("## LIMITATIONS (named, flagged -- not relaxed to force a result)")
+    add("")
+    add(
+        f"1. **Short record.** N = {n}: the noise floor is spread over only "
+        f"{n // 2 - 1} non-DC, non-tone bins, so the SNDR estimate itself has "
+        "sizeable variance (even the ideal quantizer's ENOB on this plan deviates "
+        "from the textbook value). Read the measured-vs-ideal gap, not the "
+        "absolute ENOB."
+    )
+    add(
+        "2. **No noise.** `.tran` injects no thermal/flicker noise; the behavioral "
+        "estimate's dominant comparator-noise term is absent here by construction."
+    )
+    add(
+        "3. **One corner, no mismatch.** tt/27C/1.8V only; no Monte Carlo. Not a "
+        "statistical (yield) statement."
+    )
+    add(
+        f"4. **Below full scale.** {20 * math.log10(amp):.2f} dBFS. The "
+        "full-scale-normalised ENOB assumes the noise+distortion floor is "
+        "amplitude-independent, which is false for distortion that grows with "
+        "amplitude (and the large-signal saturation recorded by the DC campaign "
+        "is the opposite of amplitude-independent)."
+    )
+    add("")
+
+    lines.extend(
+        evidence.environment_block(
+            pdk_line=prov.pdk_line,
+            ngspice_line=prov.ng_version,
+            netlist_sha256=prov.netlist_sha,
+            extra={
+                "tran step": f"{tb.TRAN_STEP_NS} ns",
+                "simulated span": f"{span_ns:.1f} ns",
+                "wall-clock": f"{point['wall_s']:.0f} s",
+                "coherent-sine fragment sha256": f"`{evidence.sha256_text(point['fragment'])}`",
+                "SIM_NGSPICE_TIMEOUT_S": os.environ.get("SIM_NGSPICE_TIMEOUT_S", "(default)"),
+            },
+        )
+    )
+    add("")
+    lines.extend(evidence.footer_lines(written_by, supersedes))
+    return evidence.close_record(prov, lines, "Coherent-sine record")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check-env", action="store_true", help="only check toolchain/PDK pin")
@@ -2250,6 +2684,31 @@ def main() -> int:
         "--node-trace/--cm-trace.",
     )
     ap.add_argument(
+        "--coherent-sine",
+        action="store_true",
+        help="dynamic test (issue #603): drive a coherent antiphase sine, capture "
+        "DOUT9..DOUT0 per conversion and compute SNDR/ENOB by FFT, at the baseline "
+        "corner (tt/27C/1.8V) ONLY. Informational cross-check of sim/enob-estimate/, "
+        "never a grade of the DRAFT ENOB row. With --record, mints a new record "
+        "under records/ (never records/LATEST). Mutually exclusive with --corners/"
+        "--mechanism-probe/--node-trace/--cm-trace/--decision-margin-trace; a "
+        "multi-corner/Monte Carlo extension is a `klt sim` request (#564), not a "
+        "flag here.",
+    )
+    ap.add_argument(
+        "--sine-n", type=int, default=tb.SINE_RECORD_N,
+        help=f"--coherent-sine record length N, a power of two (default {tb.SINE_RECORD_N})",
+    )
+    ap.add_argument(
+        "--sine-bin", type=int, default=tb.SINE_TONE_BIN,
+        help=f"--coherent-sine tone bin, coprime to N (default {tb.SINE_TONE_BIN})",
+    )
+    ap.add_argument(
+        "--sine-amplitude", type=float, default=tb.SINE_AMPLITUDE_FRACTION,
+        help="--coherent-sine peak differential amplitude as a fraction of V_REF "
+        f"(default {tb.SINE_AMPLITUDE_FRACTION:g})",
+    )
+    ap.add_argument(
         "--jobs", type=int, default=1,
         help="run this many ngspice corner points concurrently (default 1; results "
         "are independent processes, so this changes runtime only)",
@@ -2277,6 +2736,27 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+
+    if args.coherent_sine:
+        others = [
+            flag for flag, on in (
+                ("--corners", args.corners),
+                ("--mechanism-probe", args.mechanism_probe),
+                ("--node-trace", args.node_trace),
+                ("--cm-trace", args.cm_trace),
+                ("--decision-margin-trace", args.decision_margin_trace),
+            ) if on
+        ]
+        if others:
+            print(f"FAIL: --coherent-sine cannot be combined with {', '.join(others)}",
+                  file=sys.stderr)
+            return 2
+        try:
+            dynamic_enob.check_coherent(args.sine_n, args.sine_bin)
+            tb.sine_fragment_text(args.sine_n, args.sine_bin, args.sine_amplitude)
+        except ValueError as exc:
+            print(f"FAIL: --coherent-sine plan: {exc}", file=sys.stderr)
+            return 2
 
     check = toolchain.check_env()
     if args.check_env:
@@ -2309,6 +2789,35 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="full-conversion-") as scratch_name:
         scratch = Path(scratch_name)
+
+        if args.coherent_sine:
+            print(
+                f"Coherent-sine dynamic test (issue #603) at "
+                f"{corners_mod.corner_id(*BASELINE_CORNER)}: N={args.sine_n}, "
+                f"bin={args.sine_bin}, A={args.sine_amplitude:g}*V_REF, "
+                f"{tb.sine_t_stop_ns(args.sine_n) / 1000:.1f} us simulated:"
+            )
+            sine_netlist_text = dut_text()
+            point = run_sine_point(
+                sine_netlist_text, pdk.resolve(), scratch,
+                args.sine_n, args.sine_bin, args.sine_amplitude,
+            )
+            if not args.quiet:
+                print("  " + format_sine_point(point), flush=True)
+            if args.record:
+                written_by = "sim/full-conversion-transient/run_conversion.py --coherent-sine --record"
+                for flag, value, default in (
+                    ("--sine-n", args.sine_n, tb.SINE_RECORD_N),
+                    ("--sine-bin", args.sine_bin, tb.SINE_TONE_BIN),
+                    ("--sine-amplitude", args.sine_amplitude, tb.SINE_AMPLITUDE_FRACTION),
+                ):
+                    if value != default:
+                        written_by += f" {flag} {value:g}"
+                write_sine_record(
+                    point, sine_netlist_text, args.supersedes, written_by,
+                    behavioral_enob_reference(),
+                )
+            return 1 if sine_point_problems(point) else 0
 
         if args.node_trace:
             corner_names = ", ".join(
