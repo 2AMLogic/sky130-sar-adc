@@ -62,6 +62,17 @@ name: CI
 #     citation is fresh" (issue #498, where four of six re-run records could
 #     not say what they displaced and the stale citations had to be found by
 #     hand).
+#   - `sim/check_append_only.py` (issue #599, `check:append-only`) is also
+#     part of `check:ci` -> `checks` below, and is likewise headless (git
+#     plumbing only: no PDK, no ngspice, no network, never fetches): it fails
+#     if any EXISTING simulation evidence -- `sim/<experiment>/records/*.md`
+#     or anything under that experiment's corners/, mc-draws/,
+#     netlist-snapshots/, diagnostics/, runs/ or yield-reports/ -- was
+#     modified, deleted, renamed away or type-changed between two committed
+#     trees. `records/LATEST` stays mutable, and layout/ and signoff/
+#     evidence are outside it. It is the only gate here that needs history,
+#     which is why `checks` checks out with `fetch-depth: 0`; the per-event
+#     base/head contract is documented on the step that resolves it.
 #   - `docs/chipalooza/check_proposal_citations.py` (issue #121) is also part
 #     of `check:ci` -> `checks` below, and is likewise headless (pure file
 #     reads, no PDK, no ngspice, no network): it gates the evidence citations
@@ -218,11 +229,63 @@ jobs:
     # so hosted minutes are free, and the shared self-hosted runner is retired.
     runs-on: ubuntu-latest
     steps:
+      # Full history: sim/check_append_only.py (`check:append-only`, part of
+      # `check:ci`) compares committed trees and never fetches, so the base
+      # revisions chosen below must already be in the clone. A missing one is a
+      # hard failure there, never a pass.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # Event-specific comparison revisions for the append-only gate (issue
+      # #599), forwarded to `check:ci` through the environment so the checker
+      # is invoked exactly once. Revisions arrive as quoted env vars, not as
+      # `${{ }}` text spliced into the script, and are validated as bare object
+      # ids before being written to $GITHUB_ENV.
+      #   pull_request: merge-base(PR base SHA, PR head SHA) vs the PR HEAD
+      #     SHA, NOT the synthetic merge commit actions/checkout checks out.
+      #   push (main): github.event.before vs github.sha, directly (no
+      #     merge-base), so a multi-commit push is covered in full and evidence
+      #     dropped by a history rewrite is still seen. An all-zero `before`
+      #     fails in the checker.
+      #   schedule / workflow_dispatch: the checker's local default
+      #     (merge-base with origin/main). On main that is a zero diff and
+      #     checks no history; the PR and push runs are the history guard.
+      - name: Resolve append-only comparison revisions
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          is_oid() { [[ "$1" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; }
+          export_oid() {
+            if ! is_oid "$2"; then
+              echo "::error::$1 is not a full object id: '$2'" >&2
+              exit 1
+            fi
+            echo "$1=$2" >> "$GITHUB_ENV"
+            echo "$1=$2"
+          }
+          case "$EVENT_NAME" in
+            pull_request)
+              export_oid APPEND_ONLY_MERGE_BASE_OF "$PR_BASE_SHA"
+              export_oid APPEND_ONLY_HEAD "$PR_HEAD_SHA"
+              ;;
+            push)
+              export_oid APPEND_ONLY_BASE "$PUSH_BEFORE"
+              export_oid APPEND_ONLY_HEAD "$PUSH_AFTER"
+              ;;
+            *)
+              echo "$EVENT_NAME: using the checker's local default (merge-base with origin/main)"
+              ;;
+          esac
 
       - name: npm run check:ci
         run: npm run check:ci

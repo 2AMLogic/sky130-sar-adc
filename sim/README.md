@@ -491,6 +491,76 @@ a record in place defeats it. Note that `.gitignore` carves `*.log` exceptions
 for `sim/*/corners/**` and `sim/*/mc-draws/**` precisely so this raw evidence
 is committed rather than swept up by the generic log-ignore rule.
 
+### The mechanical gate (`npm run check:append-only`, issue #599)
+
+`sim/check_append_only.py` enforces this rule in CI. It compares two committed
+trees with `git diff --name-status -z --find-renames=100%` and fails if any path
+that already existed in the base tree, and is protected, was modified (`M`),
+deleted (`D`), renamed (`R`) or type-changed (`T`). A rename fails on its
+source path even when the destination is outside the protected set. A rename
+that also edits the file shows up as `D` + `A` and fails on the `D`.
+
+**Protected** (path components, and an experiment is exactly one directory
+below `sim/`):
+
+| Class | Path |
+|---|---|
+| Summary records | `sim/<experiment>/records/*.md` (direct children only) |
+| Raw corner logs | `sim/<experiment>/corners/**` |
+| Monte Carlo draws | `sim/<experiment>/mc-draws/**` |
+| Frozen netlists | `sim/<experiment>/netlist-snapshots/**` |
+| Diagnostics | `sim/<experiment>/diagnostics/**` |
+| Run logs | `sim/<experiment>/runs/**` |
+| Yield envelopes and samples | `sim/<experiment>/yield-reports/**` |
+
+The six artifact directories are protected recursively, with no extension
+filter. The policy is kept as data at the top of the script
+(`PROTECTED_ARTIFACT_DIRS`, `RECORDS_DIR`, `MUTABLE_POINTERS`), so a change to
+it shows up in review.
+
+**Not protected:** `records/LATEST`, which is meant to move (see the next
+section). There is no `LATEST` exemption inside the artifact directories.
+Experiment READMEs, `testbench/`, runner and harness sources, `sim/pdk.json`,
+the spec-coverage files, `sim/tests/` and `docs/characterization-report.md`
+are also outside the gate. This gate covers **simulation evidence only**.
+`layout/<flow>/reports/` and `erc-reports/` follow their own append-only
+convention, and `signoff/` is deliberately regenerated, but this gate does not
+check either of them.
+
+**Allowed:** additions, including a record that a branch adds and then edits
+again before merge (it is absent from the base tree), `records/LATEST` moves,
+and renaming an unprotected file into a new protected path.
+
+**Correcting a result:** mint a new record whose **Supersedes** field names the
+record it replaces (`--supersedes` on every runner, see
+`sim/check_supersedes_capability.py`). The gate has no override flag.
+
+**Which trees are compared.** Only committed trees are checked. Staged and
+unstaged changes are not, so commit before running it, or compare them some
+other way.
+
+| Invocation | Base | Head |
+|---|---|---|
+| Local, no flags (`npm run check:append-only`) | `git merge-base origin/main HEAD` | `HEAD` |
+| `--base REV` / `$APPEND_ONLY_BASE` | `REV`, compared directly | `--head` / `$APPEND_ONLY_HEAD` / `HEAD` |
+| `--merge-base-of REV` / `$APPEND_ONLY_MERGE_BASE_OF` | `git merge-base REV <head>` | same |
+| CI `pull_request` | merge-base of the PR base SHA and the PR head SHA | PR head SHA (not the synthetic merge commit) |
+| CI `push` to main | `github.event.before`, directly | `github.sha` |
+| CI `schedule` / `workflow_dispatch` | local default | `HEAD` |
+
+CLI flags take precedence over the environment variables. The CI workflow sets
+the variables per event, so `check:ci` invokes the checker once. On main
+itself, the local default compares a commit to itself, and the script prints
+that this checks no history. The PR and push runs provide the history guard.
+
+The script never fetches. A revision that does not resolve, an all-zero base
+(a branch-creation push), a missing merge-base, a merge-base request in a
+shallow clone, an empty `APPEND_ONLY_*` variable, or any git failure exits
+nonzero (exit 2) with a diagnostic. It never falls back to a passing
+comparison. A violation exits 1. CI checks out with `fetch-depth: 0` for this
+reason. Tests: `sim/tests/test_append_only.py` builds temporary git
+repositories and needs no PDK.
+
 ## The `records/LATEST` pointer (issue #405)
 
 Some experiment directories publish a `records/LATEST` file: one line naming
