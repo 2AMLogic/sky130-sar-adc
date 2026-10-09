@@ -2,6 +2,13 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-09
+
+- **PR #594**: test: PDK-free deck-builder tests for three more sim runners (#593)
+- **Issue #593** (closed): test: PDK-free deck-builder tests for cdac-array-transfer, sampling-acquisition-settling and comparator-decision kickback/pickoff/noise decks (follow-on to #591)
+- **PR #592**: test: PDK-free deck-builder tests for four sim runners
+- **Issue #591** (closed): test: PDK-free deck-builder tests for four untested sim runners (bit-trial, sequencer-delay, vcm-drive, sampling-frontend transient)
+
 ### 2026-10-08
 
 - **PR #589**: ENOB yield: per-draw conditional estimates from real CDAC draws (#587)
