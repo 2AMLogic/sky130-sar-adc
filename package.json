@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "worktree:return": "./.loom/scripts/worktree-return.sh",
-    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:supersedes && npm run check:report",
+    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:supersedes && npm run check:append-only && npm run check:report",
     "check:all": "npm run check:ci && npm run check:layout",
     "check:harness": "./sim/selftest.sh",
     "check:harness:quick": "./sim/selftest.sh --quick",
@@ -18,6 +18,7 @@
     "check:proposal-citations": "python3 docs/chipalooza/check_proposal_citations.py",
     "check:report": "python3 sim/report/generate.py --check",
     "check:supersedes": "python3 sim/check_supersedes_capability.py",
+    "check:append-only": "python3 sim/check_append_only.py",
     "check:signoff-hashes": "python3 signoff/check_evidence_hashes.py",
     "check:spec-coverage": "python3 sim/check_spec_coverage.py",
     "render:spec-coverage": "python3 sim/check_spec_coverage.py --render",
