@@ -451,7 +451,13 @@ verbatim in intent from the ported source so the two ports read alike.
   SFDR, THD): N samples (FFT record length); input frequency and the integer
   coherent bin (`f_in = bin · f_s / N`, `bin` coprime to `N`); window (`none`
   for coherent sampling — the preferred method — otherwise the window name and
-  why coherent sampling was not used); sampling rate `f_s`.
+  why coherent sampling was not used); sampling rate `f_s`. The repo's
+  dynamic-test bench is `sim/full-conversion-transient/run_conversion.py
+  --coherent-sine`. Its stdlib-only analyzer
+  (`sim/full-conversion-transient/dynamic_enob.py`) excludes DC and uses
+  the same `SNR = 6.02·ENOB + 1.76 dB` relationship as the
+  `behavioral-accelerated` ENOB estimate, so the two can be compared
+  directly.
 - **Linearity methodology** — on any INL/DNL record, one of
   `full-<n>-code-ramp`, `reduced-code-set-major-carry`, `code-density`,
   `behavioral-accelerated`, followed by the exact code count / transition list
