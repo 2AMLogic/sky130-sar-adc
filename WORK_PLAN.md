@@ -17,8 +17,6 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly
-- **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
 
 ## In Progress
@@ -51,8 +49,8 @@ Issues carrying `loom:curated`.
 
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
 - **#564**: Pilot: express one PVT corner campaign as a klt sim request (first klt sim envelope) *(architect)*
-- **#582**: lint: discover shell scripts for bash -n instead of a hand-maintained list (4 scripts unchecked) *(architect)*
-- **#583**: docs/t1-gap.md: item-11 row is a 3 KB hand-kept status cell the file's own preamble disclaims *(architect)*
+- **#599**: CI gate: mechanically enforce the append-only rule for sim/ evidence records *(architect)*
+- **#588**: Simplify the Chipalooza proposal citation gate: ~16k lines of checker, tests and rationale guard one prose document *(hermit)*
 
 ## Epics
 
@@ -64,7 +62,7 @@ Issues carrying `loom:curated`.
 |------|-------|
 | Operator merge-risk holds | 0 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 3 |
+| Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 0 |
