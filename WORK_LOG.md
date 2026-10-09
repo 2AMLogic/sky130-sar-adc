@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-09
 
+- **PR #606**: Coherent-sine FFT SNDR/ENOB mode for the full-conversion transient (#603)
+- **Issue #603** (closed): Dynamic coherent-tone ENOB from the full-conversion transient (replace the behavioral-only estimate)
 - **PR #601**: test: PDK-free unit tests for _lvs_reference_common.py
 - **Issue #598** (closed): test: PDK-free unit tests for layout/bin/_lvs_reference_common.py (shared by five LVS-reference and parity callers, zero tests)
 - **PR #597**: CI: pin volare in the pdk-smoke job
