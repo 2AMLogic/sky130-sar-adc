@@ -49,7 +49,7 @@ Issues carrying `loom:curated`.
 
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
 - **#564**: Pilot: express one PVT corner campaign as a klt sim request (first klt sim envelope) *(architect)*
-- **#599**: CI gate: mechanically enforce the append-only rule for sim/ evidence records *(architect)*
+- **#604**: test: PDK-free exit-code tests for sim/harness/cli.py and mc_cli.py (entry points with zero tests) *(architect)*
 - **#588**: Simplify the Chipalooza proposal citation gate: ~16k lines of checker, tests and rationale guard one prose document *(hermit)*
 
 ## Epics
