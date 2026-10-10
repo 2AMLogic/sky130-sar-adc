@@ -74,8 +74,21 @@ def _default_runner(argv: list[str]) -> tuple[int, str, str]:
     return done.returncode, done.stdout, done.stderr
 
 
+#: A shared fleet refuses a launch while it is at its concurrency cap
+#: (`klt sim` does not wait this out itself in every client/runner pairing).
+#: That refusal means "no capacity right now", not "the design failed", and
+#: re-submitting to the SAME batch backend is the correct response. Any other
+#: submit error stops the campaign.
+CAPACITY_MARKERS = ("BATCH_MAX_CONCURRENT_INSTANCES", "batch_no_capacity", "no capacity")
+
+
+def is_capacity_refusal(message: str) -> bool:
+    return any(m.lower() in message.lower() for m in CAPACITY_MARKERS)
+
+
 def make_submitter(workdir: Path, dut: dict, backend: str, runner=_default_runner,
-                   timeout_s: float = 900.0, batch: dict | None = None):
+                   timeout_s: float = 1800.0, batch: dict | None = None,
+                   capacity_retries: int = 40, retry_wait_s: float = 120.0, sleep=None):
     """`submit(f_mhz, corner_ids)` -> (UnitResults, run info). Reports are
     cached in `workdir` keyed by (frequency, corner set), so a campaign that
     died partway resumes without re-spending completed fleet jobs."""
@@ -93,15 +106,25 @@ def make_submitter(workdir: Path, dut: dict, backend: str, runner=_default_runne
         else:
             argv = ["klt", "sim", str(d / "request.json"), "--backend", backend,
                     "--format", "json", "-o", str(d / "out")]
-            rc, out, err = runner(argv)
-            try:
-                report = json.loads(out)
-            except json.JSONDecodeError as exc:
-                raise SubmitError(
-                    f"klt sim ({backend}) at {f_mhz:.3f} MHz returned no JSON report "
-                    f"(rc={rc}): {(err or out)[:600]}") from exc
-            if "error" in report and "corners" not in report:
-                raise SubmitError(f"klt sim ({backend}) at {f_mhz:.3f} MHz: {report['error']}")
+            import time
+            nap = sleep or time.sleep
+            for attempt in range(capacity_retries + 1):
+                rc, out, err = runner(argv)
+                try:
+                    report = json.loads(out)
+                except json.JSONDecodeError as exc:
+                    raise SubmitError(
+                        f"klt sim ({backend}) at {f_mhz:.3f} MHz returned no JSON report "
+                        f"(rc={rc}): {(err or out)[:600]}") from exc
+                if "error" in report and "corners" not in report:
+                    msg = json.dumps(report["error"])
+                    if is_capacity_refusal(msg) and attempt < capacity_retries:
+                        print(f"fleet at capacity; retrying {f_mhz:.3f} MHz in {retry_wait_s:.0f}s "
+                              f"({attempt + 1}/{capacity_retries})", file=sys.stderr, flush=True)
+                        nap(retry_wait_s)
+                        continue
+                    raise SubmitError(f"klt sim ({backend}) at {f_mhz:.3f} MHz: {msg}")
+                break
             rep_path.write_text(json.dumps(report, indent=1) + "\n")
         results, info = dc.read_report(report)
         info = dict(info, backend=backend, request=str(d.name))

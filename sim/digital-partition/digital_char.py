@@ -220,8 +220,8 @@ def period_s(f_mhz: float) -> float:
 
 
 def rise_time_s(f_mhz: float) -> float:
-    """Input edge time: 5 % of the period, clamped to [50 ps, 1 ns]."""
-    return min(1e-9, max(50e-12, 0.05 * period_s(f_mhz)))
+    """Input edge time: 5 % of the period, clamped to [10 ps, 1 ns]."""
+    return min(1e-9, max(10e-12, 0.05 * period_s(f_mhz)))
 
 
 def edge_start_s(k: int, f_mhz: float) -> float:
@@ -549,9 +549,21 @@ def measurement_cards(f_mhz: float, checks: Sequence[Check] | None = None) -> li
     return out
 
 
+def max_step_s(f_mhz: float) -> float:
+    """Transient max / print step: one tenth of the input edge time.
+
+    A coarser cap (T/100 at 12 MHz, i.e. ~0.8 ns against a 1 ns edge) was
+    found to be NUMERICALLY UNSAFE: at one corner the same deck captured the
+    wrong sign bit with a T/100 cap and the right one with T/800, and with
+    the output loads removed. The step is therefore tied to the edge time,
+    the quantity that sets how finely the register capture instant must be
+    resolved, not to the period."""
+    return rise_time_s(f_mhz) / 10.0
+
+
 def analysis_args(f_mhz: float, n_conv: int = len(CODES)) -> str:
-    T = period_s(f_mhz)
-    return f"{T / 200:.6e} {t_stop_s(f_mhz, n_conv):.6e} 0 {T / 100:.6e}"
+    h = max_step_s(f_mhz)
+    return f"{h:.6e} {t_stop_s(f_mhz, n_conv):.6e} 0 {h:.6e}"
 
 
 # --------------------------------------------------------------------------

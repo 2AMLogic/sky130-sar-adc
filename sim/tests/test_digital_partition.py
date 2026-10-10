@@ -370,6 +370,16 @@ class TestDeckAndRequest(unittest.TestCase):
         req = dc.build_request("tb.spice", 12.0, ["tt_27c_1.80v"], batch={"capacity_wait_s": 5})
         self.assertEqual(req["batch"], {"capacity_wait_s": 5})
 
+    def test_time_step_is_tied_to_the_edge_not_the_period(self):
+        # a T/100 cap (0.83 ns at 12 MHz) against a 1 ns edge mis-captured a register
+        # at one corner; the step must resolve the edge finely at every frequency
+        for f in (12.0, 100.0, 1536.0, 6000.0):
+            self.assertLessEqual(dc.max_step_s(f), dc.rise_time_s(f) / 10.0 + 1e-18)
+            self.assertLessEqual(dc.max_step_s(f), dc.period_s(f) / 100.0 + 1e-18)
+        self.assertAlmostEqual(dc.max_step_s(12.0), 0.1e-9)
+        args = dc.analysis_args(12.0).split()
+        self.assertEqual(float(args[0]), float(args[3]))
+
     def test_corner_id_round_trip(self):
         for cid in CORNERS:
             self.assertEqual(dc.make_corner_id(*dc.parse_corner_id(cid)), cid)
@@ -421,6 +431,32 @@ class TestReportReading(unittest.TestCase):
 
 
 class TestSubmitter(unittest.TestCase):
+    def test_capacity_refusal_is_retried_on_the_same_backend_only(self):
+        dut = dc.extract_dut((REPO / "design/sar_adc_top.spice").read_text())
+        rep = klt_report({"tt_27c_1.80v": ("pass", perfect_values(), [])})
+        refusal = json.dumps({"error": {"message": "launch failed: 8 instance(s) already running + 1 "
+                                        "requested exceeds BATCH_MAX_CONCURRENT_INSTANCES=8"}})
+        outs = [refusal, refusal, json.dumps(rep)]
+        calls, naps = [], []
+
+        def runner(argv):
+            calls.append(argv)
+            return 0, outs.pop(0), ""
+
+        with tempfile.TemporaryDirectory() as td:
+            sub = rdp.make_submitter(Path(td), dut, "batch", runner, retry_wait_s=7, sleep=naps.append)
+            res, _ = sub(12.0, ["tt_27c_1.80v"])
+            self.assertTrue(dc.grade_unit(res["tt_27c_1.80v"]).passed)
+            self.assertEqual(naps, [7, 7])
+            self.assertTrue(all(c[c.index("--backend") + 1] == "batch" for c in calls))
+            # retries are bounded, then the campaign stops with the fleet's own message
+            bad = rdp.make_submitter(Path(td) / "x", dut, "batch", lambda a: (1, refusal, ""),
+                                     capacity_retries=2, sleep=lambda s: None)
+            with self.assertRaises(rdp.SubmitError) as ctx:
+                bad(12.0, ["tt_27c_1.80v"])
+            self.assertIn("BATCH_MAX_CONCURRENT_INSTANCES", str(ctx.exception))
+
+
     def test_runs_caches_and_reports_errors(self):
         dut = dc.extract_dut((REPO / "design/sar_adc_top.spice").read_text())
         rep = klt_report({"tt_27c_1.80v": ("pass", perfect_values(), [])})
