@@ -30,7 +30,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 | Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-135431-7487784.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
 | Resolution `N` | RATIFIED | benched (ratified, graded pass/fail) | `sim/sar-sequencer-behavioral` | `20260827-211956-e13bc1e.md` |
 | Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261001-105439-c324f80.md` |
-| ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate`<br>`sim/full-conversion-transient` | `20260828-005033-0c70212.md`<br>`20261010-070734-f968286.md` |
+| ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate`<br>`sim/full-conversion-transient` | `20260828-005033-0c70212.md`<br>`20261010-070734-f968286.md`<br>`20261010-204225-57a55c1.md` |
 | INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20261001-124049-5207381.md` |
 | `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
@@ -158,13 +158,14 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Documented in: `sim/enob-estimate/run_enob.py`
 - Evidence: `sim/enob-estimate/records/20260828-005033-0c70212.md`
 
-**`sim/full-conversion-transient`** — First dynamic (coherent-sine FFT) SNDR/ENOB on the whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, on the pinned ngspice-47 + pinned PDK (issue #605). INFORMATIONAL only: the VALIDITY gate is clean (32/32 phase structure, no missing measurements, peak bin = drive bin) and 31 of 32 captured codes are within +/-2 LSB of ideal, but one conversion (conversion 9, near the zero crossing) returned 960 against an ideal 522 (+438 LSB) and dominates the reported SNDR 2.17 dB (ENOB 0.068 bit; ideal quantizer on the same plan 50.89 dB). Those headline figures are a single-outlier artifact, not a clean converter measurement; the outlier is tracked in issue #621 (the runner now reports a per-code outlier diagnostic for new records; the conversion-9 mechanism is not yet root-caused and this record is not replaced). It grades nothing and no target value changes.
+**`sim/full-conversion-transient`** — First dynamic (coherent-sine FFT) SNDR/ENOB on the whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, on the pinned ngspice-47 + pinned PDK (issue #605). INFORMATIONAL only: the VALIDITY gate is clean (32/32 phase structure, no missing measurements, peak bin = drive bin) and 31 of 32 captured codes are within +/-2 LSB of ideal, but one conversion (conversion 9, near the zero crossing) returned 960 against an ideal 522 (+438 LSB) and dominates the reported SNDR 2.17 dB (ENOB 0.068 bit; ideal quantizer on the same plan 50.89 dB). Those headline figures are a single-outlier artifact, not a clean converter measurement; the outlier is tracked in issue #621 (the runner now reports a per-code outlier diagnostic for new records; the re-run `20261010-204225-57a55c1.md` (same capture, bit-identical codes, ngspice-46 at the pin floor) supersedes this record for reporting and adds a read-only conversion-9 trace: conversion 9's comparator-input top plate TOP_P is driven to -0.505 V at the bit-4 trial (a staircase step of ~1.31 V where ~0.056 V is expected) and stays below ground for the rest of the conversion; the mechanism behind that step is NOT yet identified). It grades nothing and no target value changes.
 
 - Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice`
 - Runner: `sim/full-conversion-transient/run_conversion.py`
-- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10`
 - Documented in: `sim/full-conversion-transient/README.md`
 - Evidence: `sim/full-conversion-transient/records/20261010-070734-f968286.md`
+- Evidence: `sim/full-conversion-transient/records/20261010-204225-57a55c1.md`
 
 ### INL / DNL
 

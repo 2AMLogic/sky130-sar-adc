@@ -318,15 +318,28 @@ and deltas recomputed. Existing validity failures (missing measurement, phase
 structure, wrong tone bin) are unchanged. Covered PDK-free by
 `TestOutlierDiagnostic` in `sim/tests/test_dynamic_enob_fft.py`.
 
-**Conversion 9 root cause: still OPEN.** Checked while implementing #621: the
-existing `--node-trace` / `--decision-margin-trace` modes probe conversions
-using the *DC* campaign's stimulus (`tb.input_fraction`, DC fragment), so they
-do **not** cover the coherent-sine conversion-9 input and timing context and
-cannot be reused as-is; a sine-fragment trace is needed. The pinned toolchain
-(`sim/toolchain.json`: ngspice >= 46) was unavailable on the implementing host
-(ngspice-42), where results are not valid evidence, so no trace was run, no
-mechanism is claimed, and no new record was minted. The first record and its
-corrections above stand.
+**Conversion 9: trace run, mechanism still OPEN.** `--coherent-sine
+--sine-trace CONV` (repeatable) appends read-only `.meas` probes for those
+conversions to the same coherent-sine transient (DUT and stimulus untouched,
+single corner, no grid; cold start `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10`) and the record gains a "Conversion trace" section.
+It was run on the pinned toolchain (ngspice-46, the pin floor; PDK pin
+`sim/pdk.json`) as `records/20261010-204225-57a55c1.md`, tracing conversions 8, 9 and 10. That
+record re-captures the same stream bit-for-bit (sample 8 / conversion 9:
+960 vs ideal 522, +438 LSB; headline SNDR 2.17 dB), so it **Supersedes**
+`20261010-070734-f968286` for reporting purposes (the older record is
+unchanged). Observed, from the raw probes: conversion 9's comparator-input
+top plate `TOP_P` follows a normal binary staircase through the bit-8..bit-5
+trials, then at the bit-4 trial (phase 5) sits at **-0.505 V** (a step of
+about -1.31 V where roughly -0.056 V is expected) and stays below ground
+(-0.40..-0.45 V) through the last trial; `TOP_N` is unchanged; no top plate in
+conversions 8 or 10 leaves [0, V_DD]. Comparator decisions after that point
+are therefore taken with an input far outside the rails. Not established: why
+the step is that large (arithmetic on the observed values is consistent with
+more than one CDAC bit-group switching in one trial, but that is inference and
+was not verified), nor how the final code 1111000000 arises. The per-trial
+captured-bit probe is taken 2 ns after each capturing edge and is not the
+final readout, so it is reported but not used as a divergence criterion. The
+root cause is therefore narrowed to a specific analog event, not closed.
 
 ## Findings
 
