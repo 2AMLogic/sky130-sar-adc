@@ -4,6 +4,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-10
 
+- **PR #627**: Characterize the digital partition: Fmax bracket, rail power, routed area (#619)
+- **Issue #619** (closed): Characterize the digital partition: measured frequency limit, rail power and routed area
+- **PR #626**: Pin klt yield toolchain; refresh Item 6 narrative (#625)
+- **Issue #625** (closed): Mint klt yield envelopes from the persisted item-6 samples and pin the yield toolchain
+- **PR #623**: Coherent-sine per-code outlier diagnostic (#621, partial)
 - **PR #620**: Mint first pinned-toolchain coherent-sine ENOB record via manual CI dispatch (#605)
 - **Issue #605** (closed): Mint the first --coherent-sine ENOB record on a pinned (ngspice >= 46) toolchain
 - **PR #618**: test: pin sweep-checkpoint write confinement as intended behavior (#615)
