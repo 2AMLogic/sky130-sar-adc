@@ -32,7 +32,7 @@ Every simulation unit is a `klt sim` request (default backend `$KLT_SIM_BACKEND`
 the Spot batch fleet); the controller never runs ngspice. The clock search is
 adaptive per corner but quantised to one grid (12 MHz × 2^(i/8), ceiling
 1536 MHz), so corners that need the same frequency share one request. Each
-probe runs six back-to-back conversions with a deterministic COMP_OUT pattern
+probe runs four back-to-back conversions (codes 811, 212, 682, 341) with a deterministic COMP_OUT pattern
 and checks, via high-impedance behavioural monitor nodes, the one-hot phase
 after every clock edge, the BUSY/HALF_LSB control outputs, reset and
 auto-restart, and at end-of-conversion the captured code, ADCOUT recode and

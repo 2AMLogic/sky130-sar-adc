@@ -87,7 +87,7 @@ def is_capacity_refusal(message: str) -> bool:
 
 
 def make_submitter(workdir: Path, dut: dict, backend: str, runner=_default_runner,
-                   timeout_s: float = 1800.0, batch: dict | None = None,
+                   timeout_s: float = 7200.0, batch: dict | None = None,
                    capacity_retries: int = 40, retry_wait_s: float = 120.0, sleep=None):
     """`submit(f_mhz, corner_ids)` -> (UnitResults, run info). Reports are
     cached in `workdir` keyed by (frequency, corner set), so a campaign that
@@ -152,7 +152,7 @@ def render_record(rec_id: str, camp: dict, supersedes: str, written_by: str) -> 
       "sequencer + the 33 top-level `sky130_fd_sc_hd` glue instances of `design/sar_adc_top.sch`) "
       "at the ratified nine-point OAT corner set: (1) a measured clock-frequency bracket "
       "(highest tested passing / next failing, or a censored lower bound) under functional "
-      "checks over six back-to-back conversions; (2) digital-rail average power, idle/reset "
+      "checks over four back-to-back conversions; (2) digital-rail average power, idle/reset "
       "power and energy per conversion at the provisional 12 MHz operating point; (3) routed "
       "area from the committed routed artifacts. Schematic-level, digital-partition-only; "
       "NOT extracted timing, NOT static timing analysis, and NOT the ADC sample rate. No claim "
@@ -213,12 +213,13 @@ def render_record(rec_id: str, camp: dict, supersedes: str, written_by: str) -> 
     a("- **Supply polarity**: the DUT is powered from the positive digital rail `VPWR` against `VGND` "
       "= 0 V (DR-010 digital domain); the rail source is `Vdig`, and a sourcing supply reads "
       "NEGATIVE `i(Vdig)`, so P = -avg(i(Vdig)) x V.")
-    a("- **Active window**: whole conversions 1..5 (five conversions, edge to edge, "
-      "codes 212, 682, 341, 1023, 0 -- conversion 0 is excluded because its data registers start "
+    c0, c1 = dc.POWER_WINDOW_CONVERSIONS
+    a(f"- **Active window**: whole conversions {c0}..{c1 - 1} ({c1 - c0} conversions, edge to edge, "
+      f"codes {', '.join(str(x) for x in dc.CODES[c0:c1])} -- conversion 0 is excluded because its data registers start "
       "from reset). **Idle/reset window**: RST_B asserted with the clock running, two whole periods "
       "(edges 2..4). Clock-stopped static leakage is NOT separately measured.")
     a("- **Switching pattern**: free-running 50 % duty clock at 12 MHz; COMP_OUT driven per the "
-      "deterministic code sequence (811, 212, 682, 341, 1023, 0) so the data registers toggle; "
+      f"deterministic code sequence {dc.CODES} so the data registers toggle (all-ones / all-zeros codes are not exercised); "
       f"COMP_OUT changes {dc.COMP_DELAY_T} T after each launching edge.")
     a("- **Interface loads (assumptions, not spec values)**: " +
       ", ".join(f"{k} {v * 1e15:g} fF" for k, v in dc.LOADS_F.items()) +

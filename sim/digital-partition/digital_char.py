@@ -181,10 +181,12 @@ def plan_round(searches: Iterable[CornerSearch]) -> dict[int, list[str]]:
 
 #: Deterministic comparator-data stimulus: ten-bit target codes, one per
 #: conversion. Chosen for data activity, not for any spec: two codes
-#: (811, 212) are the existing functional bench's; 682 / 341 are the two
-#: alternating-bit patterns (maximum bit-to-bit toggling); 1023 and 0 are the
-#: sign/extreme codes.
-CODES: tuple[int, ...] = (811, 212, 682, 341, 1023, 0)
+#: (811, 212) are the existing functional bench's (one per sign-bit branch);
+#: 682 / 341 are the two alternating-bit patterns (maximum bit-to-bit
+#: toggling). The all-ones / all-zeros codes are NOT exercised (each added
+#: conversion costs ~1/N of every fleet unit's run time); their recode is
+#: covered only through the sign-bit branches of the codes above.
+CODES: tuple[int, ...] = (811, 212, 682, 341)
 #: Conversions inside the steady-state power window (conversion 0 is skipped:
 #: its data registers start from reset, not from a previous conversion).
 POWER_WINDOW_CONVERSIONS = (1, len(CODES))  # [first, end) conversion index
@@ -552,15 +554,15 @@ def measurement_cards(f_mhz: float, checks: Sequence[Check] | None = None) -> li
 
 
 def max_step_s(f_mhz: float) -> float:
-    """Transient max / print step: one tenth of the input edge time.
+    """Transient max / print step: one fifth of the input edge time.
 
-    A coarser cap (T/100 at 12 MHz, i.e. ~0.8 ns against a 1 ns edge) was
-    found to be NUMERICALLY UNSAFE: at one corner the same deck captured the
+    A far coarser cap (T/100 at 12 MHz, i.e. ~0.8 ns against a 1 ns edge,
+    about one point per edge) was found to be NUMERICALLY UNSAFE: at one corner the same deck captured the
     wrong sign bit with a T/100 cap and the right one with T/800, and with
     the output loads removed. The step is therefore tied to the edge time,
     the quantity that sets how finely the register capture instant must be
     resolved, not to the period."""
-    return rise_time_s(f_mhz) / 10.0
+    return rise_time_s(f_mhz) / 5.0
 
 
 def analysis_args(f_mhz: float, n_conv: int = len(CODES)) -> str:

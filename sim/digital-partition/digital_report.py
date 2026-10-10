@@ -153,7 +153,7 @@ def render(repo: Path) -> str:
         a(f"| `{cid}` | {fo} | {pa} | {pr} | {en} |")
     a("")
     a("Digital rail `VPWR` (positive) against `VGND`; declared interface loads and a deterministic "
-      "six-conversion COMP_OUT pattern; input-driver energy is outside the boundary. Full "
+      "four-conversion COMP_OUT pattern; input-driver energy is outside the boundary. Full "
       "statement of loads, windows and switching pattern is in the record.")
     a("")
     ar = s.get("area")
@@ -175,7 +175,7 @@ def render(repo: Path) -> str:
     a("- Loads and COMP_OUT arrival are experiment assumptions, not ratified spec values; the "
       "12 MHz point is the provisional DR-006-derived planning figure and the sample-rate target "
       "remains DRAFT.")
-    a("- Pass means every sampled check held 0.9 T after each launching edge for six conversions.")
+    a("- Pass means every sampled check held 0.9 T after each launching edge for every one of the four conversions.")
     a("")
     a("## Pins")
     a("")
