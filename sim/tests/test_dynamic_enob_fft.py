@@ -364,6 +364,36 @@ class TestOutlierDiagnostic(unittest.TestCase):
         self.assertTrue(any("not the drive bin" in p for p in rc.sine_point_problems(bad)))
 
 
+class TestSineTrace(unittest.TestCase):
+    def _trace(self, ideal: int, got: int) -> dict:
+        conv = 9
+        lines = []
+        for entry in rc.node_trace_plan(conv):
+            for k, name in entry["names"].items():
+                val = 0.0
+                if k == "dout_post":
+                    val = 1.8 if (got >> entry["bit"]) & 1 else 0.0
+                lines.append(f"{name} = {val:.6e}")
+        parsed = rc.measure.parse("\n".join(lines), [n.split(" = ")[0] for n in lines], anchored=False)
+        return rc.decode_sine_trace(parsed, conv, ideal, 1.8)
+
+    def test_probes_use_sine_fragment_node_names(self):
+        text = "\n".join(rc.sine_trace_measure_lines(9))
+        self.assertIn("v(dout9)", text)
+        self.assertIn("v(adcout0)", text)
+        self.assertNotIn("v(dout0)", text)
+        self.assertIn("nt_c9_samp_top_p", text)
+
+    def test_matching_code_has_no_divergence(self):
+        self.assertIsNone(self._trace(522, 522)["first_divergent"])
+
+    def test_first_divergent_bit_is_msb_first(self):
+        tr = self._trace(522, 960)  # 0b1000001010 vs 0b1111000000
+        fd = tr["first_divergent"]
+        self.assertEqual(fd["bit"], 8)  # first (MSB-first) bit that differs
+        self.assertEqual((fd["ideal_bit"], fd["captured_bit"]), (0, 1))
+
+
 class TestBehavioralReference(unittest.TestCase):
     def test_parses_latest_record(self):
         with tempfile.TemporaryDirectory() as tmp:
