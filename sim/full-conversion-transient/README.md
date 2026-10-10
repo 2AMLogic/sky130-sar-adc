@@ -49,8 +49,9 @@ python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
 python3 sim/full-conversion-transient/run_conversion.py --node-trace      # issue #259 node-level trace
 python3 sim/full-conversion-transient/run_conversion.py --cm-trace        # issue #265 common-mode trace
 python3 sim/full-conversion-transient/run_conversion.py --decision-margin-trace  # issue #263 / DR-009
-SIM_NGSPICE_TIMEOUT_S=7200 python3 sim/full-conversion-transient/run_conversion.py \
-    --coherent-sine --record   # issue #603 coherent-sine SNDR/ENOB, baseline corner only
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record
+# ^ issue #603/#605 coherent-sine SNDR/ENOB, baseline corner only (set
+#   SIM_NGSPICE_TIMEOUT_S=5400 on a slow host; the 120 s default is too short)
 python3 sim/full-conversion-transient/run_conversion.py --corners --record \
     --supersedes <record-id>   # name the prior record this one replaces (e.g. after a design/ fix)
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
@@ -263,34 +264,42 @@ full-chip transient. This mode is that transient. It is an informational
   corners or Monte Carlo is a `klt sim` request (#564), not a local loop.
   Records never update `records/LATEST`.
 
-**Pilot status (issue #603): no record minted yet.** This dispatch host's
-ngspice is **ngspice-42**, below `sim/toolchain.json`'s floor of 46. The
-runner refuses to mint evidence on it, and the batch fleet ships the same
-ngspice-42 (see the supply-impedance records). So the one permitted
-single-corner run went to a flow/runtime probe that drives
-`run_sine_point()` directly. Nothing from it is committed as evidence:
+**Pilot status (issue #605): first record minted.** The earlier ngspice-42
+probe (issue #603) is not evidence and is superseded. The default plan
+(`tt/27C/1.8V`, N=32, bin 7, 0.25*V_REF) was run on the pinned toolchain
+(ngspice-47, PDK `c6d73a35...`) through the opt-in manual-dispatch job
+`coherent-sine-evidence` in `.github/workflows/ci.yml` (dispatch CI with
+`coherent_sine_evidence=true`; it uploads the new append-only files as an
+artifact and never commits or pushes). Record:
+`records/20261010-070734-f968286.md` (239 s wall-clock for 33.3 us).
 
-| N | simulated span (µs) | wall-clock at the probe's rate (12.6 s per simulated µs) |
-| --- | --- | --- |
-| 32 | 33.3 | 7.0 min (**measured**: 418 s, ~0.8 GB peak RSS) |
-| 64 | 65.3 | ~14 min (projected) |
-| 128 | 129.3 | ~27 min (projected) |
-| 256 | 257.3 | ~54 min (projected) |
-| 1024 | 1025.3 | ~3.6 h (projected) |
-
-The probe ran to completion with no missing measurements. It did **not**
-reproduce the DC bench's phase structure, though: BUSY read high in all 12
-periods of all 32 conversions, and the codes collapsed onto two values (383
-and 640) that track only the input's sign. Its SNDR therefore says nothing
-about the design, and the validity gate above is the guard against reading it
-as if it did.
-
-The cause has not been isolated. The BUSY ring is driven only by CLK and
-RST_B, and both are byte-identical to the DC fragment's sources, which points
-at the below-floor simulator rather than the sine stimulus. That needs one
-run on a pinned (≥ 46) toolchain to confirm. **The first `--coherent-sine`
-record must come from such a toolchain, and its validity line must be clean
-before its SNDR is read.**
+* **VALIDITY is clean:** 0 missing measurements, 32/32 conversions with the
+  correct 12-period BUSY/SAMPLE structure, largest non-DC bin = drive bin 7.
+  This confirms the #603 probe's all-BUSY / two-code collapse was an artefact
+  of the below-floor ngspice-42, not of the sine stimulus.
+* **The headline figures are dominated by a single outlier conversion.**
+  The record reports SNDR = 2.17 dB (ENOB 0.068 bit at the tone's amplitude;
+  2.001 bit full-scale-normalised) and SFDR 13.77 dB, against 50.89 dB /
+  8.161 bit for an ideal quantizer on the same plan. The record's own
+  captured-code table shows where that comes from: **31 of the 32 codes are
+  within +/-2 LSB of ideal**, and one conversion (sample 8, conversion 9,
+  sampled Vd = +0.0196 x V_REF, just above the zero crossing) returned code
+  **960 against an ideal 522 (+438 LSB)**. That one conversion carries nearly
+  all of the error power. A back-of-envelope recompute from the table (not
+  recorded evidence) puts SNDR at roughly 47 dB with conversion 9 replaced
+  by a typical +1 LSB code. The SFDR is very likely set by the same
+  outlier. So 2.17 dB / 0.068 bit should **not** be read as a clean
+  measurement of the converter's dynamic performance, and it does not show
+  the code is wrong across the inputs. What it shows is one unexplained
+  near-mid-scale conversion error that the VALIDITY gate does not check for:
+  the gate checks phase structure, missing measurements and the tone bin,
+  not per-code error. The minted record is append-only, and its LIMITATIONS
+  section does not mention the outlier. This paragraph is the correction.
+  Root-causing conversion 9 and adding an outlier check are tracked in
+  [issue #621](https://github.com/2AMLogic/sky130-sar-adc/issues/621). The result is informational only (one corner, N=32, no
+  noise, below full scale). The DRAFT ENOB row and every target value are
+  unchanged.
+* Indexed under the ENOB row of `sim/spec-coverage.json`.
 
 ## Findings
 

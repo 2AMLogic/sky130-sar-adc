@@ -224,6 +224,15 @@
           "documented_in": "sim/enob-estimate/run_enob.py",
           "covers": "Composed ENOB estimate against the DRAFT ENOB row (issue #29).",
           "records": ["sim/enob-estimate/records/20260828-005033-0c70212.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "First dynamic (coherent-sine FFT) SNDR/ENOB on the whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, on the pinned ngspice-47 + pinned PDK (issue #605). INFORMATIONAL only: the VALIDITY gate is clean (32/32 phase structure, no missing measurements, peak bin = drive bin) and 31 of 32 captured codes are within +/-2 LSB of ideal, but one conversion (conversion 9, near the zero crossing) returned 960 against an ideal 522 (+438 LSB) and dominates the reported SNDR 2.17 dB (ENOB 0.068 bit; ideal quantizer on the same plan 50.89 dB). Those headline figures are a single-outlier artifact, not a clean converter measurement; the outlier is tracked in issue #621. It grades nothing and no target value changes.",
+          "records": ["sim/full-conversion-transient/records/20261010-070734-f968286.md"]
         }
       ]
     },
