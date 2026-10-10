@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-09
 
+- **PR #608**: CI gate: mechanically enforce the append-only rule for sim/ evidence (#599)
+- **Issue #599** (closed): CI gate: mechanically enforce the append-only rule for sim/ evidence records
 - **PR #606**: Coherent-sine FFT SNDR/ENOB mode for the full-conversion transient (#603)
 - **Issue #603** (closed): Dynamic coherent-tone ENOB from the full-conversion transient (replace the behavioral-only estimate)
 - **PR #601**: test: PDK-free unit tests for _lvs_reference_common.py
