@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -275,6 +276,14 @@ def resolve_corners_provenance(
     )
 
 
+#: What environment is expected to mint `klt yield` envelopes (checked
+#: statement, issue #625); the pin lives in sim/yield-requirements.txt.
+YIELD_PIN_HINT = (
+    "expected pin is klayout-tools[yield]==0.7.0 per sim/yield-requirements.txt "
+    "(native yield extension required; no verdict recorded)"
+)
+
+
 def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
     """Invoke `klt yield` against an already-built `measurements` list (each
     caller constructs its own `"name"`/`"unit"`/`"samples"`/`"limits"`
@@ -313,13 +322,19 @@ def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
             report = json.loads(proc.stdout)
         except json.JSONDecodeError:
             sample_path.unlink(missing_ok=True)
+            print(f"warning: klt yield produced no JSON; {YIELD_PIN_HINT}",
+                  file=sys.stderr)
             return None
         out_json_path.write_text(json.dumps(report, indent=2))
         if "error" in report:
+            print(f"warning: klt yield error: {report['error']}; {YIELD_PIN_HINT}",
+                  file=sys.stderr)
             return None
         return report
     except (FileNotFoundError, subprocess.TimeoutExpired):
         sample_path.unlink(missing_ok=True)
+        print(f"warning: klt yield unavailable or timed out; {YIELD_PIN_HINT}",
+              file=sys.stderr)
         return None
 
 

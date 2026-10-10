@@ -1,0 +1,21 @@
+# Pinned klayout-tools (`klt`) build + extra expected to MINT `klt yield`
+# envelopes (issue #625). Third pin, deliberately separate from
+# layout/requirements.txt (mints layout evidence) and signoff/requirements.txt
+# (grades the manifest): it only runs the statistical yield step over the
+# persisted samples documents under sim/*/yield-reports/*.samples.json.
+#
+#   python3 -m venv .venv-yield
+#   .venv-yield/bin/pip install -r sim/yield-requirements.txt
+#   .venv-yield/bin/klt yield <samples.json> --format json
+#
+# STATUS AS OF 2026-10-10: THIS PIN DOES NOT YET RESOLVE. klayout-tools 0.7.0
+# (the newest published release) declares extra `yield` ->
+# `klt-yield-native>=0.1.0,<0.2`, and that distribution is not on PyPI, so the
+# install above fails ("No matching distribution found for klt-yield-native").
+# 0.6.0 and earlier have no `yield` extra at all. Without the native extension
+# `klt yield` returns "the klt_yield_native extension is not installed", and
+# sim/harness/evidence.py:run_klt_yield() records no verdict. Upstream tracker:
+# 2AMLogic/klayout-tools#2900 (and #2466/#2531, closed). When a wheel is
+# published, this file is the checked statement of what to install; re-mint the
+# missing envelopes from the persisted samples then and update this header.
+klayout-tools[yield]==0.7.0
