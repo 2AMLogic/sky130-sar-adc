@@ -4,6 +4,12 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-10
 
+- **PR #620**: Mint first pinned-toolchain coherent-sine ENOB record via manual CI dispatch (#605)
+- **Issue #605** (closed): Mint the first --coherent-sine ENOB record on a pinned (ngspice >= 46) toolchain
+- **PR #618**: test: pin sweep-checkpoint write confinement as intended behavior (#615)
+- **Issue #615** (closed): Guard telemetry: routine sweep checkpoint writes blocked by worktree-write-confinement
+- **PR #617**: test: unit tests for _record_common_strict and _gen_common (#612)
+- **Issue #612** (closed): Add PDK-free unit tests for strict layout record and generator helpers
 - **PR #614**: refactor: split comparator-decision run.py into per-campaign modules (#613)
 - **Issue #613** (closed): Split the 4.5k-line sim/comparator-decision/run.py into per-campaign modules behind a thin CLI
 - **PR #611**: test: PDK-free exit-code tests for harness cli and mc_cli

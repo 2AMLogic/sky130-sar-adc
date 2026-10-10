@@ -23,7 +23,7 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-- **#605**: Mint the first --coherent-sine ENOB record on a pinned (ngspice >= 46) toolchain
+- **#619**: Characterize the digital partition: measured frequency limit, rail power and routed area
 
 ## PRs Awaiting Review
 
@@ -44,8 +44,6 @@ Issues carrying `loom:curated`.
 - **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly *(curated)*
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(curated)*
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives *(curated)*
-- **#605**: Mint the first --coherent-sine ENOB record on a pinned (ngspice >= 46) toolchain *(curated)*
-- **#612**: Add PDK-free unit tests for strict layout record and generator helpers *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -68,8 +66,8 @@ Issues carrying `loom:curated`.
 | In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 5 |
-| Architect / Hermit proposals | 4 |
+| Curated | 3 |
+| Architect / Hermit proposals | 3 |
 | Active epics | 1 |
 
 <!-- guide:plan-body:end -->
