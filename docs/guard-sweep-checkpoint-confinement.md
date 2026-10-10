@@ -37,9 +37,14 @@ real `guard-destructive.sh` dispatcher from the main-checkout `cwd`, no
 ## Correct coordinator path
 
 Do not issue a raw `mkdir -p .loom/sweep-checkpoint`. Both helpers create the
-directory themselves (verified: `check-main-clean.sh --snapshot` runs `mkdir -p`
-on the parent of the snapshot file; `sweep-checkpoint.sh write` creates
-`.loom/sweep-checkpoint/` before its atomic write). The lifecycle doc
+directory themselves. The suite executes them for real in the fixture (copies
+of the repo's `check-main-clean.sh` and `sweep-checkpoint.sh`, run from the main
+checkout with no pre-existing `.loom/sweep-checkpoint/` and a scrubbed
+environment) and asserts that `main-clean-baseline-<RUN>.txt` and
+`issue-615.json` (phase/task_id) are written, that `phase` reads the checkpoint
+back, and that HEAD, index, tracked content and the non-ignored tree are
+unchanged. `sweep-checkpoint.sh` needs a resolvable `loom-daemon`; without one
+those assertions FAIL rather than pass. The lifecycle doc
 (`.claude/commands/loom/sweep-wave-lifecycle.md`, step 0) already prescribes only
 the two script calls and contains no `mkdir`; the denied command was an
 improvised addition. That file is Loom-managed, so no local edit was made.
