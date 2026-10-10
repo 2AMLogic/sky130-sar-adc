@@ -2364,6 +2364,65 @@ def sine_outlier_diagnostic(
     )
 
 
+def sine_trace_measure_lines(conversion: int) -> list[str]:
+    """Read-only `.meas` probes (issue #621) for ONE coherent-sine conversion:
+    the --node-trace per-phase probes (CLK / COMP_OUT / OUTN_NC / TOP_P / TOP_N
+    mid-evaluate and pre-capture, captured bit after the capturing edge) plus
+    VINP/VINN/TOP_P/TOP_N at the sampling instant. Unlike the DC --node-trace
+    these are placed at the coherent-sine run's own conversion timing (same
+    clock grid, `tb.t_edge_ns`), and the captured-bit node follows the sine
+    fragment's naming (`dout9`, `adcout8..adcout0`). Adds probes only; the
+    DUT netlist and the stimulus are untouched."""
+    lines = node_trace_measure_lines(node_trace_plan(conversion), conversion=conversion)
+    fixed = []
+    for ln in lines:
+        for b in range(tb.N_BITS - 1):
+            ln = ln.replace(f"find v(dout{b}) ", f"find v(adcout{b}) ")
+        fixed.append(ln)
+    t_s = tb.t_sample_ns(conversion)
+    fixed.append(f"* conversion {conversion}: sampling-instant input / top-plate nodes")
+    for tag, node in (("vinp", "VINP"), ("vinn", "VINN"), ("top_p", "TOP_P"), ("top_n", "TOP_N")):
+        fixed.append(f".meas tran nt_c{conversion}_samp_{tag} find v({node}) at={t_s - 1.0:.4f}n")
+    return fixed
+
+
+def decode_sine_trace(
+    parsed: dict, conversion: int, ideal_code: int, supply_v: float,
+    final_code: int | None = None,
+) -> dict:
+    """Decode one conversion's trace probes into per-phase rows and name the
+    FIRST phase whose captured bit differs from the ideal code's bit (the
+    observation). Which mechanism produced it is inference, left to the
+    record's prose."""
+    threshold = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
+    phases = []
+    for entry in node_trace_plan(conversion):
+        v = {k: parsed.get(name) for k, name in entry["names"].items()}
+        dout = v["dout_post"]
+        got = None if dout is None else int(dout > threshold)
+        phases.append(dict(
+            phase=entry["phase"], bit=entry["bit"],
+            ideal_bit=(ideal_code >> entry["bit"]) & 1, captured_bit=got, v=v,
+        ))
+    first = next((ph for ph in phases if ph["captured_bit"] != ph["ideal_bit"]), None)
+    samp = {t: parsed.get(f"nt_c{conversion}_samp_{t}") for t in ("vinp", "vinn", "top_p", "top_n")}
+    # Observation, not inference: a comparator-input top plate driven outside
+    # [0, V_DD] (by more than the probe's own noise) at a pre-capture instant.
+    # "Outside" means beyond a fixed +/-0.05 V tolerance on each rail, i.e.
+    # below -0.05 V or above V_DD + 0.05 V. Only the pre-capture top-plate
+    # probes are tested, so this catches rail excursions only: an anomalous
+    # staircase step that stays within the rails is not flagged here.
+    excursions = [
+        (ph["phase"], ph["bit"], node, ph["v"][key])
+        for ph in phases
+        for node, key in (("TOP_P", "top_p_pre"), ("TOP_N", "top_n_pre"))
+        if ph["v"][key] is not None and not (-0.05 <= ph["v"][key] <= supply_v + 0.05)
+    ]
+    return dict(conversion=conversion, ideal_code=ideal_code, final_code=final_code,
+                phases=phases, first_divergent=first, sampling=samp,
+                rail_excursions=excursions)
+
+
 def run_sine_point(
     netlist_text: str,
     pdk_info: pdk.PdkInfo,
@@ -2372,19 +2431,30 @@ def run_sine_point(
     tone_bin: int,
     amplitude_fraction: float,
     corner: tuple[str, float, float] = BASELINE_CORNER,
+    trace_conversions: tuple[int, ...] = (),
 ) -> dict:
     process_corner, temp_c, supply_v = corner
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
     fragment = tb.sine_fragment_text(n, tone_bin, amplitude_fraction)
+    extra_meas: list[str] = []
+    for c in trace_conversions:
+        extra_meas += sine_trace_measure_lines(c)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, fragment=fragment
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, fragment=fragment,
+        extra_meas=extra_meas or None,
     )
     t0 = time.time()
     log_text = _run_ngspice(deck, scratch, f"coherent_sine_{cid}", attempts=1)
     wall_s = time.time() - t0
 
     names = tb.sine_measure_names(n)
-    parsed = measure.parse(log_text, names, anchored=False)
+    trace_names: list[str] = []
+    for c in trace_conversions:
+        trace_names += _node_trace_names(node_trace_plan(c))
+        trace_names += [f"nt_c{c}_samp_{t}" for t in ("vinp", "vinn", "top_p", "top_n")]
+    parsed = measure.parse(log_text, names + trace_names, anchored=False)
+    # trace probes are read-only extras: their absence never makes the
+    # capture invalid, so `missing` stays the code/phase measurements only.
     missing = measure.missing(parsed, names)
     conversions = tb.sine_measured_conversions(n)
     stream = decode_code_stream(parsed, supply_v, conversions)
@@ -2392,6 +2462,11 @@ def run_sine_point(
     result["outlier_diag"] = sine_outlier_diagnostic(
         stream["codes"], result["ideal_codes"], conversions, n, tone_bin
     )
+    result["traces"] = [
+        decode_sine_trace(parsed, c, result["ideal_codes"][conversions.index(c)], supply_v,
+                          stream["codes"][conversions.index(c)])
+        for c in trace_conversions
+    ]
     result.update(
         stream,
         conversions=conversions,
@@ -2683,6 +2758,74 @@ def write_sine_record(
         )
     add("")
 
+    if point.get("traces"):
+        add("## Conversion trace (issue #621; read-only probes on the same run)")
+        add("")
+        add(
+            "Raw `.meas` values from the SAME transient that produced the code "
+            "stream above (probes appended after the stimulus; DUT and stimulus "
+            "unmodified), at the coherent-sine run's own conversion timing. "
+            "OBSERVED = the voltages/bits below. INFERRED = anything in the prose "
+            "after the tables."
+        )
+        add("")
+        for tr in point["traces"]:
+            c = tr["conversion"]
+            sm = tr["sampling"]
+            fmt = lambda x: "n/a" if x is None else f"{x:.4f}"
+            add(
+                f"### Conversion {c} (ideal code {tr['ideal_code']} = "
+                f"`{tr['ideal_code']:010b}`)"
+            )
+            add("")
+            add(
+                f"Just before the sampling edge: VINP={fmt(sm['vinp'])} V, "
+                f"VINN={fmt(sm['vinn'])} V, TOP_P={fmt(sm['top_p'])} V, "
+                f"TOP_N={fmt(sm['top_n'])} V."
+            )
+            add("")
+            add("| phase | bit | ideal bit | captured bit | CLK mid | COMP_OUT mid | OUTN_NC mid | COMP_OUT pre | OUTN_NC pre | TOP_P pre | TOP_N pre |")
+            add("|---|---|---|---|---|---|---|---|---|---|---|")
+            for ph in tr["phases"]:
+                v = ph["v"]
+                add(
+                    f"| {ph['phase']} | {ph['bit']} | {ph['ideal_bit']} | "
+                    f"{'n/a' if ph['captured_bit'] is None else ph['captured_bit']}"
+                    f"{'' if ph['captured_bit'] == ph['ideal_bit'] else ' **(differs)**'} | "
+                    f"{fmt(v['clk_mid'])} | {fmt(v['compout_mid'])} | {fmt(v['compoutn_mid'])} | "
+                    f"{fmt(v['compout_pre'])} | {fmt(v['compoutn_pre'])} | "
+                    f"{fmt(v['top_p_pre'])} | {fmt(v['top_n_pre'])} |"
+                )
+            add("")
+            fd = tr["first_divergent"]
+            fc = tr["final_code"]
+            add(
+                f"- **Final captured code (mid-PH_EOC readout, the authoritative "
+                f"code)**: {'MISSING' if fc is None else f'{fc} = `{fc:010b}`'} "
+                f"(ideal {tr['ideal_code']}). The `captured bit` column above is a "
+                "probe 2 ns after each trial's capturing edge, NOT the final "
+                "readout: it can differ from the ideal bit in a conversion whose "
+                "final code is correct, so by itself it is not a divergence "
+                "criterion; compare it with the final code."
+            )
+            add(
+                "- **First post-edge probe differing from the ideal bit (observed)**: "
+                + ("none."
+                   if fd is None else
+                   f"phase {fd['phase']} (bit {fd['bit']}): ideal {fd['ideal_bit']}, "
+                   f"probe {fd['captured_bit']}.")
+            )
+            ex = tr["rail_excursions"]
+            add(
+                "- **Comparator-input top plate outside [0, V_DD] at a pre-capture "
+                "instant (observed)**: "
+                + ("none." if not ex else "; ".join(
+                    f"phase {p} (bit {b}) {node} = {v:.4f} V" for p, b, node, v in ex)
+                ) + (" The first such phase is the earliest analog event outside the "
+                     "normal staircase in this trace." if ex else "")
+            )
+            add("")
+
     add("## Record length vs runtime")
     add("")
     per_us = point["wall_s"] / (span_ns / 1000)
@@ -2819,6 +2962,12 @@ def main() -> int:
         f"(default {tb.SINE_AMPLITUDE_FRACTION:g})",
     )
     ap.add_argument(
+        "--sine-trace", type=int, action="append", default=[], metavar="CONV",
+        help="--coherent-sine only (issue #621): also record a read-only node/control "
+        "trace of this conversion number (repeatable) from the SAME transient. "
+        "Single run, single corner; adds .meas probes only.",
+    )
+    ap.add_argument(
         "--jobs", type=int, default=1,
         help="run this many ngspice corner points concurrently (default 1; results "
         "are independent processes, so this changes runtime only)",
@@ -2859,6 +3008,12 @@ def main() -> int:
         ]
         if others:
             print(f"FAIL: --coherent-sine cannot be combined with {', '.join(others)}",
+                  file=sys.stderr)
+            return 2
+        bad_trace = [c for c in args.sine_trace
+                     if c not in tb.sine_measured_conversions(args.sine_n)]
+        if bad_trace:
+            print(f"FAIL: --sine-trace {bad_trace}: not a measured conversion of this record",
                   file=sys.stderr)
             return 2
         try:
@@ -2911,6 +3066,7 @@ def main() -> int:
             point = run_sine_point(
                 sine_netlist_text, pdk.resolve(), scratch,
                 args.sine_n, args.sine_bin, args.sine_amplitude,
+                trace_conversions=tuple(args.sine_trace),
             )
             if not args.quiet:
                 print("  " + format_sine_point(point), flush=True)
@@ -2924,6 +3080,8 @@ def main() -> int:
                 ):
                     if value != default:
                         written_by += f" {flag} {value:g}"
+                for c in args.sine_trace:
+                    written_by += f" --sine-trace {c}"
                 write_sine_record(
                     point, sine_netlist_text, args.supersedes, written_by,
                     behavioral_enob_reference(),
