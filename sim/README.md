@@ -679,6 +679,19 @@ pass) to the specific record(s) its verdict rests on, per
   --write`, then re-run `--check` before committing.
 - This report records no operator grant; see its own "No-grant statement"
   section.
+- **Digital partition (issue #619)**: the digital half of T1 item 8 (Fmax,
+  power and area across the corner set) is rendered by the same generator into
+  its own document, `docs/characterization-report-digital.md`, from
+  `sim/digital-partition/runs/<record>/campaign.json` (the record `records/
+  LATEST` names). `--check` additionally fails if the partition's netlist text
+  (the `sar_sequencer` subcircuit + top-level standard-cell glue in
+  `design/sar_adc_top.spice`) or the routed DEF/GDS / composed placement the
+  area was derived from changed without a regenerated campaign. With no record
+  minted the document says the characterization is absent. The generic
+  envelope `signoff/evidence/digital-characterization.generic.json` is written
+  only by `python3 sim/report/generate.py --write-envelope`, which refuses
+  unless the campaign meets the checklist. See
+  [`sim/digital-partition/README.md`](digital-partition/README.md).
 
 ## The harness acceptance test (`sim/selftest.sh`)
 

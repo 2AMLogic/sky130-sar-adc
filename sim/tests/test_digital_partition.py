@@ -333,6 +333,7 @@ class TestDeckAndRequest(unittest.TestCase):
         self.assertNotIn(".end", low)
         self.assertFalse(any(ln.startswith(".control") for ln in low))
         self.assertIn(".global vpwr vgnd", low)
+        self.assertIn(".options num_threads=1", low)
         self.assertTrue(any(ln.startswith("vdig vpwr 0 dc") for ln in low))
         self.assertTrue(any(ln.startswith("xseq ") for ln in low))
         for pin in self.dut["sequencer_pins"]:
@@ -376,7 +377,7 @@ class TestDeckAndRequest(unittest.TestCase):
         for f in (12.0, 100.0, 1536.0, 6000.0):
             self.assertLessEqual(dc.max_step_s(f), dc.rise_time_s(f) / 10.0 + 1e-18)
             self.assertLessEqual(dc.max_step_s(f), dc.period_s(f) / 100.0 + 1e-18)
-        self.assertAlmostEqual(dc.max_step_s(12.0), 0.1e-9)
+        self.assertAlmostEqual(dc.max_step_s(12.0), 0.2e-9)
         args = dc.analysis_args(12.0).split()
         self.assertEqual(float(args[0]), float(args[3]))
 

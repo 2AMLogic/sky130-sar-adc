@@ -220,8 +220,8 @@ def period_s(f_mhz: float) -> float:
 
 
 def rise_time_s(f_mhz: float) -> float:
-    """Input edge time: 5 % of the period, clamped to [10 ps, 1 ns]."""
-    return min(1e-9, max(10e-12, 0.05 * period_s(f_mhz)))
+    """Input edge time: 5 % of the period, clamped to [10 ps, 2 ns]."""
+    return min(2e-9, max(10e-12, 0.05 * period_s(f_mhz)))
 
 
 def edge_start_s(k: int, f_mhz: float) -> float:
@@ -476,6 +476,8 @@ def build_netlist(f_mhz: float, dut: dict, *, codes: Sequence[int] = CODES,
     a(f"* digital-partition characterization deck body, f_clk = {f_mhz:.4f} MHz (issue #619)")
     a("* DUT = design/sar_sequencer subckt + the top-level sky130_fd_sc_hd glue,")
     a("* both copied verbatim from the committed design/sar_adc_top.spice.")
+    a("* one solver thread per unit: concurrent units on a shared runner must not oversubscribe it")
+    a(".options num_threads=1")
     a(".global VPWR VGND")
     a(f".include {stdcell_include}")
     a("")

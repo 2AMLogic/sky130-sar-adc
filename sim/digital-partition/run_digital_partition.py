@@ -369,11 +369,21 @@ def run_campaign(backend: str, probe_dir: Path, max_workers: int, runner=_defaul
     if len(dut["glue"]) != dc.GLUE_EXPECTED_INSTANCES:
         raise SystemExit(f"expected {dc.GLUE_EXPECTED_INSTANCES} glue instances, found {len(dut['glue'])}")
     cids = ratified_corner_ids()
-    submit = make_submitter(probe_dir, dut, backend, runner, batch=batch)
-    searches, log, units = dc.run_search(cids, submit, max_workers=max_workers)
-    # negative control: one job, every corner
-    nc_idx_freq = dc.NEGATIVE_CONTROL_MHZ
-    nc_results, nc_info = submit(nc_idx_freq, cids)
+    import threading
+    raw_submit = make_submitter(probe_dir, dut, backend, runner, batch=batch)
+    gate = threading.BoundedSemaphore(max_workers)  # host cap on concurrent submits, search + control combined
+
+    def submit(f_mhz, cs):
+        with gate:
+            return raw_submit(f_mhz, cs)
+
+    # The too-fast negative control does not depend on the search, so it
+    # runs concurrently with it (one extra fleet job, no extra round).
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        nc_future = pool.submit(submit, dc.NEGATIVE_CONTROL_MHZ, cids)
+        searches, log, units = dc.run_search(cids, submit, max_workers=max_workers)
+        nc_results, nc_info = nc_future.result()
     neg = {c: dc.grade_unit(nc_results.get(c)) for c in cids}
     area = digital_area.derive(
         REPO_ROOT, lef_path=pdk.resolve().variant_dir / "libs.ref" / "sky130_fd_sc_hd" / "lef" / "sky130_fd_sc_hd.lef")
