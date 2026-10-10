@@ -11,12 +11,10 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
-from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import pdk  # noqa: E402
 
 RUNNER = SIM_DIR / "vcm-drive-budget/run_vcm_drive_budget.py"
 _spec = importlib.util.spec_from_file_location("run_vcm_drive_budget_under_test", RUNNER)
