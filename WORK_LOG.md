@@ -2,6 +2,14 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-10
+
+- **PR #614**: refactor: split comparator-decision run.py into per-campaign modules (#613)
+- **Issue #613** (closed): Split the 4.5k-line sim/comparator-decision/run.py into per-campaign modules behind a thin CLI
+- **PR #611**: test: PDK-free exit-code tests for harness cli and mc_cli
+- **Issue #604** (closed): test: PDK-free exit-code tests for sim/harness/cli.py and mc_cli.py (entry points with zero tests)
+- **Issue #600** (closed): Guard telemetry: investigate scoped path resolution for worktree-write-confinement-unresolved-var
+
 ### 2026-10-09
 
 - **PR #608**: CI gate: mechanically enforce the append-only rule for sim/ evidence (#599)
