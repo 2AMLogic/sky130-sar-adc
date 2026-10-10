@@ -35,6 +35,14 @@ If one is found, the citation is stale -- the report is citing a record a
 newer one has explicitly superseded, and `--check` (and `main()`'s default
 "write" path) exits non-zero rather than rendering a stale claim silently.
 
+Digital partition (issue #619): the same generator also renders
+`docs/characterization-report-digital.md` from the campaign the
+`sim/digital-partition/records/LATEST` record names (`--write`/`--check` cover
+both documents), `--check` rejects a changed digital-partition netlist or routed
+layout without a regenerated campaign, and `--write-envelope` (re)writes
+`signoff/evidence/digital-characterization.generic.json` -- refusing unless the
+campaign meets the item-8 digital checklist.
+
 Layout citations (`manifest.Row.layout_citations`) are pinned paths, not
 resolved against a supersession scheme -- `layout/` has none (see
 `manifest.BLIND_SPOTS`, which says so explicitly rather than pretending

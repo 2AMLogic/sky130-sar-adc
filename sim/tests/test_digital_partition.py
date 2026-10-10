@@ -625,6 +625,16 @@ class TestChecklist(unittest.TestCase):
         self.assertTrue(v.meets)
 
 
+class TestRunnerSkew(unittest.TestCase):
+    def test_reports_only_mismatching_runs(self):
+        log = [{"run": {"remote": {"runner_klt_version": "0.5.0", "client_klt_version": "0.7.0",
+                                   "runner_compatibility": "mismatch"}}},
+               {"run": {"remote": {"runner_klt_version": "0.7.0", "client_klt_version": "0.7.0"}}},
+               {"run": {"remote": None}}, {"run": {}}]
+        self.assertEqual(dc.runner_skew(log), ["fleet runner klt 0.5.0 vs submitting client klt 0.7.0"])
+        self.assertEqual(dc.runner_skew(log[1:]), [])
+
+
 class TestRecordRendering(unittest.TestCase):
     def test_record_has_required_fields_and_disclosures(self):
         summ = synthetic_campaign()

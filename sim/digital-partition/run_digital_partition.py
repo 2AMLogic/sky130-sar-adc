@@ -287,6 +287,18 @@ def render_record(rec_id: str, camp: dict, supersedes: str, written_by: str) -> 
     for k, v in camp["pins"].items():
         a(f"- {k}: `{v}`" if not isinstance(v, (dict, list)) else f"- {k}: `{json.dumps(v, sort_keys=True)}`")
     a("")
+    skew = dc.runner_skew(camp["probe_log"], [camp.get("negative_control_run") or {}])
+    if skew:
+        a("### Runner / client version skew (disclosed)")
+        a("")
+        for m in skew:
+            a(f"- {m}; the campaign ran with `batch.runner_version_check: warn` "
+              "(`--allow-runner-skew`) because the fleet image lags the client. The request uses only "
+              "features present in both (circuit-body netlist, `.meas` cards, supply `alter`, `exclude`); "
+              "every probe is graded by this repository's own checks rather than by the runner's status, "
+              "and a local single-corner cross-check of the tt/27C/1.8V bracket edges agreed "
+              "(see the PR description; that cross-check is not part of this record's data).")
+        a("")
     a("### Submissions")
     a("")
     for e in camp["probe_log"]:

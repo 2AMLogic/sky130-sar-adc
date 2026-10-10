@@ -175,6 +175,9 @@ def render(repo: Path) -> str:
     a("- Loads and COMP_OUT arrival are experiment assumptions, not ratified spec values; the "
       "12 MHz point is the provisional DR-006-derived planning figure and the sample-rate target "
       "remains DRAFT.")
+    for m in dc.runner_skew(camp.get("probe_log", []), [camp.get("negative_control_run") or {}]):
+        a(f"- Execution: {m} (run with `batch.runner_version_check: warn`); see the record's "
+          "version-skew section.")
     a("- Pass means every sampled check held 0.9 T after each launching edge for every one of the four conversions.")
     a("")
     a("## Pins")

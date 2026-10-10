@@ -843,3 +843,21 @@ def summarize(searches: dict[str, CornerSearch], units: dict[str, dict[int, Unit
         },
         "checklist": {"meets": verdict.meets, "reasons": verdict.reasons},
     }
+
+
+def runner_skew(probe_log: Sequence[dict], extra_runs: Sequence[dict] = ()) -> list[str]:
+    """Distinct 'runner klt X vs client klt Y' statements from the submissions'
+    `environment.remote` blocks, for every run whose runner and client
+    versions differ (empty when none do)."""
+    seen: list[str] = []
+    runs = [e.get("run") or {} for e in probe_log] + list(extra_runs)
+    for run in runs:
+        rem = run.get("remote") or {}
+        if not isinstance(rem, dict):
+            continue
+        r, c = rem.get("runner_klt_version"), rem.get("client_klt_version")
+        if r and c and (rem.get("runner_compatibility") == "mismatch" or r != c):
+            msg = f"fleet runner klt {r} vs submitting client klt {c}"
+            if msg not in seen:
+                seen.append(msg)
+    return seen

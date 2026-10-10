@@ -58,10 +58,24 @@
     "      envelope (the only kind item 8 accepts) wrapping",
     "      docs/characterization-report.md. PARTITION-QUALIFIED on purpose: that",
     "      report covers spec/target-spec.md's Target table, which is the ADC's",
-    "      analog/system-level spec. The doc's item 8 additionally requires Fmax,",
-    "      area and power across the corner set for a digital partition, and this",
-    "      repo has none of those, so `8.digital` is left uncited and renders",
-    "      unmet/no_evidence rather than borrowing the analog row's pass.",
+    "      analog/system-level spec. It does NOT borrow its pass for the digital",
+    "      partition: the doc's item 8 additionally requires Fmax, area and power",
+    "      across the corner set for a digital partition, which is `8.digital`'s",
+    "      own, separate citation below.",
+    "  8.digital  signoff/evidence/digital-characterization.generic.json, a generic",
+    "      envelope wrapping docs/characterization-report-digital.md, which",
+    "      sim/report/generate.py renders from the immutable campaign",
+    "      sim/digital-partition/runs/<record>/campaign.json (issue #619): a",
+    "      frequency bracket per ratified corner (highest tested passing / next",
+    "      failing, or a declared lower bound), rail power and energy per",
+    "      conversion at the 12 MHz provisional operating point, routed area, and",
+    "      a too-fast-clock negative control that fails everywhere. The envelope",
+    "      is written only by `generate.py --write-envelope`, which refuses unless",
+    "      the campaign meets that checklist. SCHEMATIC-LEVEL: no extracted",
+    "      timing; a digital clock bracket is not the ADC sample rate. Freshness:",
+    "      the pin below hashes the document; `generate.py --check` additionally",
+    "      rejects a changed digital-partition netlist or routed layout without a",
+    "      regenerated campaign.",
     "",
     "WHAT IS DELIBERATELY NOT CITED (against this tree, 2026-09-23)",
     "  1, 2, 9, 10  no `klt` verb backs these; `klt signoff` grades them on",
@@ -166,6 +180,10 @@
     "8.analog": {
       "file": "signoff/evidence/characterization-report.generic.json",
       "content_hash": "sha256:2cf0c5656043db5da39ef8072736bc94250783212aa96447a63dcb818f6a7496"
+    },
+    "8.digital": {
+      "file": "signoff/evidence/digital-characterization.generic.json",
+      "content_hash": "sha256:041dccd2b3b2d92d6ccfc44f44ff91bfc997077241418d2b8c02a4cd5d1886a9"
     }
   }
 }

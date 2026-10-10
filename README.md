@@ -84,7 +84,7 @@ summary, are authoritative.
   every unmet row. CI re-grades it on every push, so it cannot go stale
   unnoticed. [`signoff/README.md`](signoff/README.md) is the claim written
   around it, and [`docs/t1-gap.md`](docs/t1-gap.md) is the short in-repo map
-  pointing at both. Current state: **3 of 22 rows met**, tier `null`.
+  pointing at both. Current state: **4 of 22 rows met**, tier `null`.
 
 ## Private for now
 

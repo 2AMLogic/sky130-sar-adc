@@ -17,12 +17,12 @@ Current verdict, at the committed report:
 | block | `sky130-sar-adc` |
 | kind | `mixed-signal` (22 rows: 11 items × 2 partitions) |
 | tier | `null` — not T1 |
-| T1 items met | **3 / 22** (item 3 on both partitions, item 8 on the analog partition) |
+| T1 items met | **4 / 22** (item 3 on both partitions, item 8 on both partitions) |
 | checklist graded against | `design-evidence-tiers.md` @ `sha256:63eeec72…` (the copy `klayout-tools==0.6.0` bundles) |
 | grading build | `klt 0.6.0` (`git_tag v0.6.0`, `grading_ruleset_id sha256:0d8cc27c…`) |
 
 **An almost-entirely-`unmet` report is the correct result, not a failure of this
-file.** 19 of 22 rows are `unmet` with a machine-readable `reason`, and that is
+file.** 18 of 22 rows are `unmet` with a machine-readable `reason`, and that is
 exactly the honest statement of the gap. Nothing here should be "improved" by
 citing an envelope that does not actually support the item it is filed under.
 
@@ -72,7 +72,7 @@ saying, because the grader cannot.
 | 5 | Full corner verification | `unmet` / `no_evidence` (both) | Two independent reasons. (a) No `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown evidence records. (b) The spec half is not met either: `spec/target-spec.md`'s sample-rate row and the ENOB / INL-DNL **target values** are still DRAFT, and item 5 requires a ratified spec table. |
 | 6 | Statistical claims | `unmet` / `no_evidence` (both) | Five `klt yield` envelopes **do** exist and all report `status: "fail"` — see "Item 6" below for what they say and why none is cited. |
 | 7 | Post-layout verification | `unmet` / `no_evidence` (both) | No `klt pex` report exists in this repo. Item 7 accepts nothing else, by design: a clean DRC or a pre-layout sim renders `wrong_kind`, because neither proves anything about post-layout behaviour. Nothing to disclose about `body_bias` yet — that field is reported on a `pex` citation, and there is none. |
-| 8 | Characterization report | **`met`** (analog only) | `docs/characterization-report.md`, wrapped in a `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** `8.digital` is uncited on purpose. |
+| 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
 | 9 | Testbenches shipped | `unmet` / `no_evidence` (both) | Again, real and uncitable: `sim/spec-coverage.json` indexes a committed bench and evidence record per claimed spec row, `sim/check_spec_coverage.py` gates completeness / cold-start invocation / PDK pinning on every push, and `sim/pdk.json` pins the open_pdks commit. Not a `klt` envelope. |
 | 10 | Repo hygiene | `unmet` / `no_evidence` (both) | README, LICENSE and a CI suite all exist. Not a `klt` envelope. |
 | 11 | Power delivery (structural) | `unmet` / `check_failed` (both) | Now **cited**, as a compound entry (`klt erc` run + the LVS report item 4 grades) — see "Item 11" below. Its supply-continuity half **passes**: `erc_status: clean`, 0 findings, all four declared supplies at one electrical island each. It is `unmet` for two stated reasons, neither hidden: `erc.missing_tie` is not computed at all (no `ties[]`, disclosed as `tool_limitation` — klayout-tools#2169), and item 4's own LVS does not match. |
@@ -195,9 +195,31 @@ is actually graded; the long-form statement lives in
 corrected this paragraph, which previously claimed the two verdicts graded
 DR-007's candidates.)
 
-`8.digital` is deliberately uncited: the checklist additionally requires Fmax,
-area and power across the corner set for a digital partition, and this repo has
-none of those. The analog row does not get to cover for it.
+**`8.digital` (issue #619)** is a separate citation, `signoff/evidence/
+digital-characterization.generic.json`, wrapping `docs/characterization-report-
+digital.md`. `python3 sim/report/generate.py` renders that document from the
+immutable campaign `sim/digital-partition/runs/<record>/campaign.json` and
+writes the envelope only when the campaign meets the item's digital
+requirement (Fmax bracket or declared lower bound, rail power and energy per
+conversion, and routed area, at every ratified corner, plus a too-fast-clock
+negative control that must fail everywhere). What it asserts, and what it does
+not:
+
+- It asserts: all nine ratified corners have a measured clock-frequency bracket
+  for the **digital partition alone** under stated interface loads and a
+  deterministic comparator-data pattern; rail power / energy per conversion at
+  the provisional 12 MHz operating point; routed area derived from the
+  committed routed artifacts (cell, macro and composed-footprint figures
+  labelled as such, never summed across overlapping boxes).
+- It does **not** assert extracted or post-layout timing (this is schematic-
+  level transistor SPICE), static timing, any spec row, or the ADC's sample
+  rate: a digital clock bracket is not the conversion capability of the ADC.
+- Freshness is two-layered: `signoff/check_evidence_hashes.py` re-hashes the
+  document the envelope wraps, and `sim/report/generate.py --check` fails if
+  the digital-partition netlist text or the routed DEF/GDS / composed placement
+  the campaign pinned changes without a regenerated campaign.
+- The campaign ran on the batch fleet; the record discloses the runner/client
+  `klt` version skew it was run under.
 
 ### Item 11: what the ERC run proves, and the two reasons it is still `unmet`
 

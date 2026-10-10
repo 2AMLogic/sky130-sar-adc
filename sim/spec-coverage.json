@@ -430,6 +430,16 @@
           "documented_in": "sim/supply-impedance-sensitivity/README.md",
           "covers": "The same per-rail average current/power once more, over the WHOLE ratified corner set for every arm the runner implements (issue #409 item 1): all five supply-return networks x the nine ratified OAT points = 45 whole-ADC transients, on the as-committed DECOUPLED design/sar_adc_top.spice (DR-017's one MiM cap per supply domain), so it is compared with nothing minted on the undecoupled netlist -- the records above measure a different DUT sha256 on purpose. A separate bench entry because --corners changes what was simulated and reaches the record footer. No Subset-corner justification is owed: every ratified point is present. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT total power of the ideal control across the grid spans 21.60 uW (tt_27c_1.62v) to 34.24 uW (tt_27c_1.98v), with the supply corners bounding it rather than process or temperature; and the largest die-side analog-ground excursion of the as-built package arm is at the fast-process corner ff_27c_1.80v (13.964 mV), not at the baseline.",
           "records": ["sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md"]
+        },
+        {
+          "experiment": "digital-partition",
+          "runner": "sim/digital-partition/run_digital_partition.py",
+          "testbench": ["design/sar_adc_top.spice"],
+          "testbench_note": "No committed deck of its own: digital_char.build_netlist() assembles the deck from design/sar_adc_top.spice's sar_sequencer subcircuit and its 33 top-level sky130_fd_sc_hd glue instances; every probe's deck, request and report is committed under sim/digital-partition/corners/<record>/.",
+          "cold_start": "python3 sim/digital-partition/run_digital_partition.py --record",
+          "documented_in": "sim/digital-partition/run_digital_partition.py",
+          "covers": "Digital-rail power (idle/reset and active) and energy per conversion at the provisional 12 MHz operating point across the ratified corner set, with the digital partition's clock-frequency bracket and routed area (issue #619). The digital rail only, schematic level; reported informationally against this DRAFT row, and not an ADC power figure.",
+          "records": ["sim/digital-partition/records/20261010-132019-f757b0e.md"]
         }
       ]
     },
