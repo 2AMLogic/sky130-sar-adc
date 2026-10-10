@@ -2408,6 +2408,10 @@ def decode_sine_trace(
     samp = {t: parsed.get(f"nt_c{conversion}_samp_{t}") for t in ("vinp", "vinn", "top_p", "top_n")}
     # Observation, not inference: a comparator-input top plate driven outside
     # [0, V_DD] (by more than the probe's own noise) at a pre-capture instant.
+    # "Outside" means beyond a fixed +/-0.05 V tolerance on each rail, i.e.
+    # below -0.05 V or above V_DD + 0.05 V. Only the pre-capture top-plate
+    # probes are tested, so this catches rail excursions only: an anomalous
+    # staircase step that stays within the rails is not flagged here.
     excursions = [
         (ph["phase"], ph["bit"], node, ph["v"][key])
         for ph in phases
@@ -2793,7 +2797,6 @@ def write_sine_record(
                     f"{fmt(v['top_p_pre'])} | {fmt(v['top_n_pre'])} |"
                 )
             add("")
-            fd = tr["first_divergent"]
             fd = tr["first_divergent"]
             fc = tr["final_code"]
             add(
