@@ -2386,7 +2386,10 @@ def sine_trace_measure_lines(conversion: int) -> list[str]:
     return fixed
 
 
-def decode_sine_trace(parsed: dict, conversion: int, ideal_code: int, supply_v: float) -> dict:
+def decode_sine_trace(
+    parsed: dict, conversion: int, ideal_code: int, supply_v: float,
+    final_code: int | None = None,
+) -> dict:
     """Decode one conversion's trace probes into per-phase rows and name the
     FIRST phase whose captured bit differs from the ideal code's bit (the
     observation). Which mechanism produced it is inference, left to the
@@ -2403,8 +2406,17 @@ def decode_sine_trace(parsed: dict, conversion: int, ideal_code: int, supply_v: 
         ))
     first = next((ph for ph in phases if ph["captured_bit"] != ph["ideal_bit"]), None)
     samp = {t: parsed.get(f"nt_c{conversion}_samp_{t}") for t in ("vinp", "vinn", "top_p", "top_n")}
-    return dict(conversion=conversion, ideal_code=ideal_code, phases=phases,
-                first_divergent=first, sampling=samp)
+    # Observation, not inference: a comparator-input top plate driven outside
+    # [0, V_DD] (by more than the probe's own noise) at a pre-capture instant.
+    excursions = [
+        (ph["phase"], ph["bit"], node, ph["v"][key])
+        for ph in phases
+        for node, key in (("TOP_P", "top_p_pre"), ("TOP_N", "top_n_pre"))
+        if ph["v"][key] is not None and not (-0.05 <= ph["v"][key] <= supply_v + 0.05)
+    ]
+    return dict(conversion=conversion, ideal_code=ideal_code, final_code=final_code,
+                phases=phases, first_divergent=first, sampling=samp,
+                rail_excursions=excursions)
 
 
 def run_sine_point(
@@ -2447,7 +2459,8 @@ def run_sine_point(
         stream["codes"], result["ideal_codes"], conversions, n, tone_bin
     )
     result["traces"] = [
-        decode_sine_trace(parsed, c, result["ideal_codes"][conversions.index(c)], supply_v)
+        decode_sine_trace(parsed, c, result["ideal_codes"][conversions.index(c)], supply_v,
+                          stream["codes"][conversions.index(c)])
         for c in trace_conversions
     ]
     result.update(
@@ -2781,13 +2794,32 @@ def write_sine_record(
                 )
             add("")
             fd = tr["first_divergent"]
+            fd = tr["first_divergent"]
+            fc = tr["final_code"]
             add(
-                "- **First bit trial whose captured bit differs from the ideal bit "
-                "(observed)**: "
-                + ("none -- every traced bit matches the ideal code."
+                f"- **Final captured code (mid-PH_EOC readout, the authoritative "
+                f"code)**: {'MISSING' if fc is None else f'{fc} = `{fc:010b}`'} "
+                f"(ideal {tr['ideal_code']}). The `captured bit` column above is a "
+                "probe 2 ns after each trial's capturing edge, NOT the final "
+                "readout: it can differ from the ideal bit in a conversion whose "
+                "final code is correct, so by itself it is not a divergence "
+                "criterion; compare it with the final code."
+            )
+            add(
+                "- **First post-edge probe differing from the ideal bit (observed)**: "
+                + ("none."
                    if fd is None else
                    f"phase {fd['phase']} (bit {fd['bit']}): ideal {fd['ideal_bit']}, "
-                   f"captured {fd['captured_bit']}.")
+                   f"probe {fd['captured_bit']}.")
+            )
+            ex = tr["rail_excursions"]
+            add(
+                "- **Comparator-input top plate outside [0, V_DD] at a pre-capture "
+                "instant (observed)**: "
+                + ("none." if not ex else "; ".join(
+                    f"phase {p} (bit {b}) {node} = {v:.4f} V" for p, b, node, v in ex)
+                ) + (" The first such phase is the earliest analog event outside the "
+                     "normal staircase in this trace." if ex else "")
             )
             add("")
 

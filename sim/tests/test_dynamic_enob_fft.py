@@ -384,6 +384,18 @@ class TestSineTrace(unittest.TestCase):
         self.assertNotIn("v(dout0)", text)
         self.assertIn("nt_c9_samp_top_p", text)
 
+    def test_record_renders_trace_and_rail_excursion(self):
+        tr = self._trace(522, 960)
+        tr["final_code"] = 960
+        tr["rail_excursions"] = [(5, 4, "TOP_P", -0.5053)]
+        point = TestOutlierDiagnostic()._point(_ideal_capture())
+        point["traces"] = [tr]
+        with tempfile.TemporaryDirectory() as tmp:
+            text = TestSineRecord()._write(point, Path(tmp)).read_text()
+        self.assertIn("### Conversion 9", text)
+        self.assertIn("TOP_P = -0.5053 V", text)
+        self.assertIn("NOT the final", text)
+
     def test_matching_code_has_no_divergence(self):
         self.assertIsNone(self._trace(522, 522)["first_divergent"])
 
