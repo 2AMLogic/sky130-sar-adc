@@ -115,26 +115,51 @@ both.
 
 ### Item 6: what the Monte Carlo evidence says, and why it is not cited
 
-Both `klt yield` envelopes in the repo report `status: "fail"`:
+Status as of 2026-10-10 (issue #625). Four `klt yield` envelopes exist, all
+`status: "fail"`:
 
-- `sim/cdac-array-transfer/yield-reports/20260828-005006-0c70212.json` — DNL/INL.
-  `dnl_max_lsb` over n=40: empirical yield 0.825 (Clopper–Pearson 95% CI
-  0.672–0.927) against a `±1 LSB`, `target_yield 0.99` limit. Fails.
-- `sim/enob-estimate/yield-reports/20260828-005033-0c70212.json` — ENOB.
-  `enob_bit` over n=2 (far below the campaign's own `min_samples` intent):
-  mean 8.12 bit against a `≥9.0 bit` limit. Fails, and is under-sampled.
+- `sim/cdac-array-transfer/yield-reports/20260828-005006-0c70212.json` and
+  `20261001-124049-5207381.json` — DNL/INL. The first: `dnl_max_lsb` over
+  n=40, empirical yield 0.825 (Clopper–Pearson 95% CI 0.672–0.927) against a
+  `±1 LSB`, `target_yield 0.99` limit. The second (n=40 for both
+  `dnl_max_lsb` and `inl_max_lsb`) also fails.
+- `sim/enob-estimate/yield-reports/20260828-005033-0c70212.json`,
+  `20261001-124717-ba6875d.json`, `20261001-141249-7487784.json` — ENOB, each
+  n=2 (far below the campaign's own `min_samples` intent), all fail and are
+  under-sampled.
 
-Neither is cited, for reasons about the **citation**, not about the campaign:
+There is also a newer, adequately sized ENOB sample set with **no envelope**:
+`sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.samples.json`
+(`enob_bit`, n=40 per-draw, limit `min 7.5`, `target_yield 0.99`; DR-007's
+unratified candidate value). Its record states the per-draw ENOB spans
+7.755–9.101 bit, mean 8.531, but no `klt yield` verdict exists for it.
 
-1. **Neither can be freshness-pinned.** `klt yield`'s report carries no
+**Why no new envelope was minted (2026-10-10).** `klt yield` needs the
+`klt_yield_native` extension. The newest published `klayout-tools` (0.7.0)
+exposes it only as extra `yield`, which requires `klt-yield-native>=0.1.0,<0.2`;
+that distribution is not on PyPI, so `pip install "klayout-tools[yield]==0.7.0"`
+fails to resolve (0.6.0 and earlier have no such extra). The host `klt` fails
+with "the klt_yield_native extension is not installed". The expected minting
+environment is now a checked statement in `sim/yield-requirements.txt`, and
+`sim/harness/evidence.py:run_klt_yield()` names that pin on stderr when the
+extension is missing. Upstream: 2AMLogic/klayout-tools#2900. Once a wheel is
+published, re-mint the ENOB envelope from the persisted samples file and the
+CDAC envelope from `mc-draws/` as new derived records.
+
+None is cited, for reasons about the **citation**, not about the campaign:
+
+1. **None can be freshness-pinned.** `klt yield`'s report carries no
    `provenance` block, so `klt signoff` hashes the samples document the report
-   names instead. Both of these name a `/tmp/tmp*.json` path that no longer
-   exists and was never committed. A pinned entry would render
+   names instead. Every envelope above names a `/tmp/tmp*.json` path that no
+   longer exists and was never committed (the persisted `.samples.json`
+   convention post-dates them). A pinned entry would render
    `unverifiable_provenance`; an unpinned one would be a citation with no
    freshness claim at all, which is what this manifest exists to avoid.
 2. **One entry cannot represent two rows.** Item 6 accepts a single evidence
-   entry, and this block has two statistical spec rows split across two reports.
-   Citing either alone would misstate the coverage.
+   entry, and this block has two statistical spec rows split across separate
+   reports. Citing either alone would misstate the coverage. (Upstream
+   klayout-tools#2467 additionally concerns graders rendering undersized yield
+   as met.)
 
 So item 6 renders `no_evidence` and the actual verdicts are recorded here. The
 underlying campaign is issue #29's; its Markdown records stand unedited.
