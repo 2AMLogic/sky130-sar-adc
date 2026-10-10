@@ -23,7 +23,11 @@ sys.path.insert(0, str(SIM_DIR))
 for _d in ("cdac-array-transfer", "sampling-acquisition-settling", "comparator-decision"):
     sys.path.insert(0, str(SIM_DIR / _d))
 
-import run as cd  # noqa: E402
+from comparator_campaigns import common as cd_common  # noqa: E402
+from comparator_campaigns import kickback as cd_kickback  # noqa: E402
+from comparator_campaigns import noise as cd_noise  # noqa: E402
+from comparator_campaigns import pickoff_offset as cd_pickoff_offset  # noqa: E402
+from comparator_campaigns import regen_corners as cd_regen_corners  # noqa: E402
 import run_acquisition_settling as acq  # noqa: E402
 import run_mc  # noqa: E402
 import run_transfer  # noqa: E402
@@ -80,27 +84,27 @@ class TestAcquisitionSettling(unittest.TestCase):
 
 class TestComparatorDecks(unittest.TestCase):
     def test_kickback_deck(self):
-        deck = cd._kickback_deck(_Info(), "tt", 27.0, 5.0, "kb")
+        deck = cd_kickback._kickback_deck(_Info(), "tt", 27.0, 5.0, "kb")
         _assert_tran_deck(self, deck, "tt")
         self.assertIn("Rsrc_p VINP_IDEAL VINP", deck)
         self.assertIn("wrdata kb.csv", deck)
-        self.assertIn(cd._dut_lines(), deck)
+        self.assertIn(cd_common._dut_lines(), deck)
 
     def test_kickback_deck_dut_text_override(self):
-        deck = cd._kickback_deck(_Info(), "tt", 27.0, 5.0, "kb", dut_text="* MARKER_DUT")
+        deck = cd_kickback._kickback_deck(_Info(), "tt", 27.0, 5.0, "kb", dut_text="* MARKER_DUT")
         self.assertIn("* MARKER_DUT", deck)
 
     def test_pickoff_deck(self):
-        deck = cd._pickoff_deck(_Info(), "tt", 27.0, 1.0, "po")
+        deck = cd_pickoff_offset._pickoff_deck(_Info(), "tt", 27.0, 1.0, "po")
         _assert_tran_deck(self, deck, "tt")
-        self.assertIn(f"tran 0.002n {cd.PICKOFF_TSTOP_NS}n", deck)
+        self.assertIn(f"tran 0.002n {cd_pickoff_offset.PICKOFF_TSTOP_NS}n", deck)
         self.assertIn("wrdata po.csv", deck)
         self.assertNotIn(".option rndseed", deck)
-        seeded = cd._pickoff_deck(_Info(), "tt", 27.0, 0.0, "po", rndseed=3)
+        seeded = cd_pickoff_offset._pickoff_deck(_Info(), "tt", 27.0, 0.0, "po", rndseed=3)
         self.assertIn(".option rndseed=3", seeded)
 
     def test_noise_deck(self):
-        deck = cd._noise_deck(_Info(), "tt", 27.0)
+        deck = cd_noise._noise_deck(_Info(), "tt", 27.0)
         _assert_tran_deck(self, deck, "tt")
         self.assertIn("option sparse", deck)
         self.assertIn("noise v(dip,din) Vinp dec", deck)
@@ -111,7 +115,7 @@ class TestRegenCornerPointClassify(unittest.TestCase):
     SUPPLY = 1.8
 
     def _pt(self, vindiff_mv=1.0, regen=None, pre=0.0, final=None):
-        return cd.RegenCornerPoint(
+        return cd_regen_corners.RegenCornerPoint(
             corner="tt", temp_c=27.0, supply_v=self.SUPPLY, vindiff_mv=vindiff_mv,
             regen_time_ns=regen, log_text="", pre_edge_diff_v=pre, final_diff_v=final,
         )

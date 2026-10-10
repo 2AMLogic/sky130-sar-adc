@@ -32,7 +32,13 @@ COMPARATOR_DIR = SIM_DIR / "comparator-decision"
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(COMPARATOR_DIR))
 
-import run as cd  # noqa: E402
+from comparator_campaigns import common as cd_common  # noqa: E402
+from comparator_campaigns import offset_bisect as cd_offset_bisect  # noqa: E402
+from comparator_campaigns import offset_bisect_evidence as cd_offset_bisect_evidence  # noqa: E402
+from comparator_campaigns import offset_bisect_mc as cd_offset_bisect_mc  # noqa: E402
+from comparator_campaigns import regen as cd_regen  # noqa: E402
+from comparator_campaigns import regen_corners as cd_regen_corners  # noqa: E402
+from harness import evidence, pdk  # noqa: E402
 
 
 def _install_oracle(test: unittest.TestCase, outcome_of, seeded: bool = False) -> list[float]:
@@ -48,33 +54,33 @@ def _install_oracle(test: unittest.TestCase, outcome_of, seeded: bool = False) -
 
     def fake_probe(
         info, corner, temp_c, supply_v, vindiff_mv, scratch_dir,
-        dut_fragment=cd.DUT_FRAGMENT, rndseed=None,
+        dut_fragment=cd_common.DUT_FRAGMENT, rndseed=None,
     ):
         probed.append(vindiff_mv)
         probe_fragments.append(dut_fragment)
         outcome = outcome_of(vindiff_mv, corner, rndseed) if seeded else outcome_of(vindiff_mv)
         decided = outcome in ("DECIDED-POS", "DECIDED-NEG")
         sign = 1.0 if outcome == "DECIDED-POS" else -1.0
-        return cd._BisectProbe(
+        return cd_offset_bisect._BisectProbe(
             vindiff_mv=vindiff_mv,
             outcome=outcome,
             # A decided probe ends saturated at the rail it chose; an
             # undecided one ends near zero differential. Only the sign and
             # magnitude pattern matter to anything downstream.
-            final_diff_v=(sign * cd.VDD) if decided else (0.0 if outcome == "NO-DECISION" else None),
+            final_diff_v=(sign * cd_common.VDD) if decided else (0.0 if outcome == "NO-DECISION" else None),
             pre_edge_diff_v=0.0 if outcome != "NO-DATA" else None,
             decide_time_ns=1.0 if decided else None,
             log_text=f"synthetic oracle probe at {vindiff_mv:+.6f} mV -> {outcome}",
         )
 
-    real_probe = cd._bisect_probe
-    real_resolve = cd.pdk.resolve_or_raise
-    cd._bisect_probe = fake_probe
-    cd.pdk.resolve_or_raise = lambda: None
+    real_probe = cd_offset_bisect._bisect_probe
+    real_resolve = pdk.resolve_or_raise
+    cd_offset_bisect._bisect_probe = fake_probe
+    pdk.resolve_or_raise = lambda: None
 
     def restore():
-        cd._bisect_probe = real_probe
-        cd.pdk.resolve_or_raise = real_resolve
+        cd_offset_bisect._bisect_probe = real_probe
+        pdk.resolve_or_raise = real_resolve
 
     test.addCleanup(restore)
     return probed
@@ -116,14 +122,14 @@ class TestSymmetricDutIsTheNegativeControl(unittest.TestCase):
 
     def setUp(self):
         self.probed = _install_oracle(self, _sign_flip_at(0.0))
-        self.result = cd.run_offset_bisect(quiet=True)
+        self.result = cd_offset_bisect.run_offset_bisect(quiet=True)
 
     def test_status_is_bounded(self):
         self.assertEqual(self.result.status, "BOUNDED")
 
     def test_offset_is_zero_within_the_bisection_floor(self):
         self.assertIsNotNone(self.result.offset_mv)
-        self.assertLessEqual(abs(self.result.offset_mv), cd.BISECT_TOL_MV)
+        self.assertLessEqual(abs(self.result.offset_mv), cd_offset_bisect.BISECT_TOL_MV)
 
     def test_dead_band_is_not_resolved_and_is_not_a_crash(self):
         """Issue #515's named edge case: a DUT that resolves at (almost) every
@@ -149,24 +155,24 @@ class TestSymmetricDutIsTheNegativeControl(unittest.TestCase):
         boundary from above and the negative edge's from below. A flipped
         comparison in `refine()` would converge to the wrong side and this is
         what catches it."""
-        self.assertLess(self.result.neg_lo_mv, 0.0 + cd.BISECT_TOL_MV)
-        self.assertGreater(self.result.pos_hi_mv, 0.0 - cd.BISECT_TOL_MV)
-        self.assertLessEqual(self.result.pos_hi_mv - self.result.pos_lo_mv, cd.BISECT_TOL_MV)
-        self.assertLessEqual(self.result.neg_hi_mv - self.result.neg_lo_mv, cd.BISECT_TOL_MV)
+        self.assertLess(self.result.neg_lo_mv, 0.0 + cd_offset_bisect.BISECT_TOL_MV)
+        self.assertGreater(self.result.pos_hi_mv, 0.0 - cd_offset_bisect.BISECT_TOL_MV)
+        self.assertLessEqual(self.result.pos_hi_mv - self.result.pos_lo_mv, cd_offset_bisect.BISECT_TOL_MV)
+        self.assertLessEqual(self.result.neg_hi_mv - self.result.neg_lo_mv, cd_offset_bisect.BISECT_TOL_MV)
 
     def test_coarse_scan_was_symmetric_and_included_the_zero_control(self):
         """A one-sided ladder is the tell for a sign bug in the search setup,
         so assert the symmetry the algorithm's Phase A claims."""
-        for v in cd.BISECT_SCAN_MV:
+        for v in cd_offset_bisect.BISECT_SCAN_MV:
             self.assertIn(round(v, 6), [round(p, 6) for p in self.probed])
         self.assertIn(0.0, [round(p, 6) for p in self.probed])
 
     def test_half_lsb_scan_point_tracks_the_resolution_constant(self):
         self.assertAlmostEqual(
-            cd.BISECT_HALF_LSB_MV, cd.DIFFERENTIAL_LSB_MV / 2.0, places=12
+            cd_offset_bisect.BISECT_HALF_LSB_MV, cd_regen_corners.DIFFERENTIAL_LSB_MV / 2.0, places=12
         )
-        self.assertIn(cd.BISECT_HALF_LSB_MV, cd.BISECT_SCAN_MV)
-        self.assertIn(-cd.BISECT_HALF_LSB_MV, cd.BISECT_SCAN_MV)
+        self.assertIn(cd_offset_bisect.BISECT_HALF_LSB_MV, cd_offset_bisect.BISECT_SCAN_MV)
+        self.assertIn(-cd_offset_bisect.BISECT_HALF_LSB_MV, cd_offset_bisect.BISECT_SCAN_MV)
 
 
 class TestSystematicOffsetIsRecoveredWithTheRightSign(unittest.TestCase):
@@ -175,26 +181,26 @@ class TestSystematicOffsetIsRecoveredWithTheRightSign(unittest.TestCase):
     tested -- a sign error that happens to cancel on a symmetric DUT cannot
     survive both of these."""
 
-    def _measure(self, boundary_mv: float) -> cd.BisectCornerResult:
+    def _measure(self, boundary_mv: float) -> cd_offset_bisect.BisectCornerResult:
         _install_oracle(self, _sign_flip_at(boundary_mv))
-        return cd.run_offset_bisect(quiet=True)
+        return cd_offset_bisect.run_offset_bisect(quiet=True)
 
     def test_positive_offset(self):
         r = self._measure(+1.84)
         self.assertEqual(r.status, "BOUNDED")
-        self.assertAlmostEqual(r.offset_mv, +1.84, delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(r.offset_mv, +1.84, delta=cd_offset_bisect.BISECT_TOL_MV)
         self.assertFalse(r.dead_band_resolved)
 
     def test_negative_offset(self):
         r = self._measure(-7.25)
         self.assertEqual(r.status, "BOUNDED")
-        self.assertAlmostEqual(r.offset_mv, -7.25, delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(r.offset_mv, -7.25, delta=cd_offset_bisect.BISECT_TOL_MV)
         self.assertFalse(r.dead_band_resolved)
 
     def test_offset_uncertainty_is_the_bracket_half_width_not_zero(self):
         r = self._measure(+1.84)
         self.assertGreater(r.offset_unc_mv, 0.0)
-        self.assertLessEqual(r.offset_unc_mv, cd.BISECT_TOL_MV)
+        self.assertLessEqual(r.offset_unc_mv, cd_offset_bisect.BISECT_TOL_MV)
 
     def test_a_real_displacement_is_reported_as_resolved(self):
         """`offset_resolved` is what the record's headline sentence turns on, so
@@ -205,13 +211,13 @@ class TestSystematicOffsetIsRecoveredWithTheRightSign(unittest.TestCase):
 
     def test_a_symmetric_dut_is_not_reported_as_having_a_resolved_offset(self):
         _install_oracle(self, _sign_flip_at(0.0))
-        r = cd.run_offset_bisect(quiet=True)
+        r = cd_offset_bisect.run_offset_bisect(quiet=True)
         self.assertFalse(r.offset_resolved)
         self.assertLessEqual(abs(r.offset_mv), r.offset_unc_mv)
 
     def test_offset_resolved_is_false_when_no_boundary_pair_exists(self):
         _install_oracle(self, _dead_band(-1e9, +1e9))
-        r = cd.run_offset_bisect(quiet=True, max_mv=50.0)
+        r = cd_offset_bisect.run_offset_bisect(quiet=True, max_mv=50.0)
         self.assertIsNone(r.offset_mv)
         self.assertFalse(r.offset_resolved)
 
@@ -225,18 +231,18 @@ class TestDeadBandIsMeasuredSeparatelyFromOffset(unittest.TestCase):
         # Asymmetric on purpose, so a bug that reports the width as the offset
         # (or vice versa) cannot pass: midpoint +6, width 28.
         _install_oracle(self, _dead_band(-8.0, +20.0))
-        self.result = cd.run_offset_bisect(quiet=True)
+        self.result = cd_offset_bisect.run_offset_bisect(quiet=True)
 
     def test_status_is_bounded(self):
         self.assertEqual(self.result.status, "BOUNDED")
 
     def test_both_edges_are_recovered(self):
-        self.assertAlmostEqual(self.result.neg_edge_mv, -8.0, delta=cd.BISECT_TOL_MV)
-        self.assertAlmostEqual(self.result.pos_edge_mv, +20.0, delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(self.result.neg_edge_mv, -8.0, delta=cd_offset_bisect.BISECT_TOL_MV)
+        self.assertAlmostEqual(self.result.pos_edge_mv, +20.0, delta=cd_offset_bisect.BISECT_TOL_MV)
 
     def test_offset_is_the_midpoint_and_band_is_the_separation(self):
-        self.assertAlmostEqual(self.result.offset_mv, +6.0, delta=cd.BISECT_TOL_MV)
-        self.assertAlmostEqual(self.result.dead_band_mv, 28.0, delta=2 * cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(self.result.offset_mv, +6.0, delta=cd_offset_bisect.BISECT_TOL_MV)
+        self.assertAlmostEqual(self.result.dead_band_mv, 28.0, delta=2 * cd_offset_bisect.BISECT_TOL_MV)
 
     def test_band_is_reported_resolved_and_corroborated_by_probes_inside_it(self):
         self.assertTrue(self.result.dead_band_resolved)
@@ -254,22 +260,22 @@ class TestWrongPolarityIsNotConflatedWithNonDecision(unittest.TestCase):
     test cannot, and that conflation is the methodology half of issue #515."""
 
     def test_a_decision_on_the_wrong_side_reads_wrong_polarity(self):
-        p = cd._BisectProbe(
-            vindiff_mv=+10.0, outcome="DECIDED-NEG", final_diff_v=-cd.VDD,
+        p = cd_offset_bisect._BisectProbe(
+            vindiff_mv=+10.0, outcome="DECIDED-NEG", final_diff_v=-cd_common.VDD,
             pre_edge_diff_v=0.0, decide_time_ns=1.0, log_text="",
         )
         self.assertEqual(p.relative_outcome(), "WRONG-POLARITY")
 
     def test_a_decision_on_the_right_side_reads_decided(self):
         for v, outcome in ((+10.0, "DECIDED-POS"), (-10.0, "DECIDED-NEG")):
-            p = cd._BisectProbe(
-                vindiff_mv=v, outcome=outcome, final_diff_v=cd.VDD,
+            p = cd_offset_bisect._BisectProbe(
+                vindiff_mv=v, outcome=outcome, final_diff_v=cd_common.VDD,
                 pre_edge_diff_v=0.0, decide_time_ns=1.0, log_text="",
             )
             self.assertEqual(p.relative_outcome(), "DECIDED")
 
     def test_no_decision_stays_no_decision(self):
-        p = cd._BisectProbe(
+        p = cd_offset_bisect._BisectProbe(
             vindiff_mv=+10.0, outcome="NO-DECISION", final_diff_v=0.0,
             pre_edge_diff_v=0.0, decide_time_ns=None, log_text="",
         )
@@ -280,21 +286,21 @@ class TestWrongPolarityIsNotConflatedWithNonDecision(unittest.TestCase):
         metastable), so neither resolved sign may be reported as an error --
         the same treatment `RegenCornerPoint.classify()` gives its own 0 mV
         column."""
-        undecided = cd._BisectProbe(
+        undecided = cd_offset_bisect._BisectProbe(
             vindiff_mv=0.0, outcome="NO-DECISION", final_diff_v=0.0,
             pre_edge_diff_v=0.0, decide_time_ns=None, log_text="",
         )
         self.assertEqual(undecided.relative_outcome(), "CONTROL-OK")
         for outcome in ("DECIDED-POS", "DECIDED-NEG"):
-            resolved = cd._BisectProbe(
-                vindiff_mv=0.0, outcome=outcome, final_diff_v=cd.VDD,
+            resolved = cd_offset_bisect._BisectProbe(
+                vindiff_mv=0.0, outcome=outcome, final_diff_v=cd_common.VDD,
                 pre_edge_diff_v=0.0, decide_time_ns=1.0, log_text="",
             )
             self.assertEqual(resolved.relative_outcome(), "CONTROL-RESOLVED")
 
     def test_measurement_limits_pass_through_unchanged(self):
         for outcome in ("NO-DATA", "RESET-NOT-HELD", "SOLVER-FLOOR", "NON-MONOTONIC"):
-            p = cd._BisectProbe(
+            p = cd_offset_bisect._BisectProbe(
                 vindiff_mv=+10.0, outcome=outcome, final_diff_v=None,
                 pre_edge_diff_v=None, decide_time_ns=None, log_text="",
             )
@@ -308,7 +314,7 @@ class TestSearchFailuresAreReportedNotGuessed(unittest.TestCase):
 
     def test_a_band_wider_than_the_search_is_unbounded(self):
         _install_oracle(self, _dead_band(-1e9, +1e9))  # never resolves
-        r = cd.run_offset_bisect(quiet=True, max_mv=50.0)
+        r = cd_offset_bisect.run_offset_bisect(quiet=True, max_mv=50.0)
         self.assertEqual(r.status, "UNBOUNDED")
         self.assertIsNone(r.offset_mv)
         self.assertIsNone(r.dead_band_mv)
@@ -320,7 +326,7 @@ class TestSearchFailuresAreReportedNotGuessed(unittest.TestCase):
         cross-pollinated slow/cold finding described) must not be silently
         collapsed into a symmetric answer."""
         _install_oracle(self, _dead_band(-8.0, +1e9))
-        r = cd.run_offset_bisect(quiet=True, max_mv=50.0)
+        r = cd_offset_bisect.run_offset_bisect(quiet=True, max_mv=50.0)
         self.assertEqual(r.status, "UNBOUNDED")
         self.assertIsNone(r.offset_mv)
         self.assertTrue(any("positive" in n for n in r.notes))
@@ -337,14 +343,14 @@ class TestSearchFailuresAreReportedNotGuessed(unittest.TestCase):
             return "NO-DECISION"
 
         _install_oracle(self, inverted)
-        r = cd.run_offset_bisect(quiet=True)
+        r = cd_offset_bisect.run_offset_bisect(quiet=True)
         self.assertEqual(r.status, "NON-MONOTONIC")
         self.assertIsNone(r.offset_mv)
         self.assertIsNone(r.dead_band_mv)
 
     def test_a_failed_zero_input_reset_control_aborts_the_corner(self):
         _install_oracle(self, lambda v_mv: "RESET-NOT-HELD")
-        r = cd.run_offset_bisect(quiet=True)
+        r = cd_offset_bisect.run_offset_bisect(quiet=True)
         self.assertEqual(r.status, "RESET-NOT-HELD")
         self.assertIsNone(r.offset_mv)
 
@@ -364,7 +370,7 @@ class TestSearchFailuresAreReportedNotGuessed(unittest.TestCase):
             return "NO-DECISION"
 
         _install_oracle(self, crawls_near_zero)
-        r = cd.run_offset_bisect(quiet=True)
+        r = cd_offset_bisect.run_offset_bisect(quiet=True)
         self.assertEqual(r.status, "BOUNDED")
         self.assertTrue(any("measurement limit" in n for n in r.notes))
         # The reported bracket endpoints must each be a probe that was
@@ -390,21 +396,21 @@ class TestSearchIsBounded(unittest.TestCase):
 
     def test_expansion_never_probes_beyond_the_cap(self):
         probed = _install_oracle(self, _dead_band(-1e9, +1e9))
-        cd.run_offset_bisect(quiet=True, max_mv=100.0)
+        cd_offset_bisect.run_offset_bisect(quiet=True, max_mv=100.0)
         for v in probed:
             self.assertLessEqual(abs(v), 100.0)
 
     def test_probe_count_is_bounded_by_scan_plus_expansion_plus_two_bisections(self):
         probed = _install_oracle(self, _sign_flip_at(0.0))
-        cd.run_offset_bisect(quiet=True)
-        cap = len(cd.BISECT_SCAN_MV) + 2 * cd.BISECT_MAX_ITERS + 2 * 16
+        cd_offset_bisect.run_offset_bisect(quiet=True)
+        cap = len(cd_offset_bisect.BISECT_SCAN_MV) + 2 * cd_offset_bisect.BISECT_MAX_ITERS + 2 * 16
         self.assertLessEqual(len(probed), cap)
 
     def test_repeated_vindiff_values_are_not_re_simulated(self):
         """Probes are memoized by Vindiff: a bisection that re-probes a point
         it already has would double the campaign's ngspice cost for nothing."""
         probed = _install_oracle(self, _sign_flip_at(0.0))
-        cd.run_offset_bisect(quiet=True)
+        cd_offset_bisect.run_offset_bisect(quiet=True)
         rounded = [round(v, 6) for v in probed]
         self.assertEqual(len(rounded), len(set(rounded)))
 
@@ -415,18 +421,18 @@ class TestWindowAndFloorConstantsAreSelfConsistent(unittest.TestCase):
     retune cannot quietly invalidate the record's own justification."""
 
     def test_evaluate_window_is_longer_than_the_corner_sweeps(self):
-        self.assertGreater(cd.BISECT_EVALUATE_NS, cd.CORNERS_EVALUATE_NS)
+        self.assertGreater(cd_offset_bisect.BISECT_EVALUATE_NS, cd_regen_corners.CORNERS_EVALUATE_NS)
 
     def test_evaluate_window_fits_inside_the_bit_trial_phase_budget(self):
-        self.assertLess(cd.BISECT_EVALUATE_NS, cd.BIT_TRIAL_PHASE_BUDGET_NS)
+        self.assertLess(cd_offset_bisect.BISECT_EVALUATE_NS, cd_regen_corners.BIT_TRIAL_PHASE_BUDGET_NS)
 
     def test_bisection_floor_is_well_below_half_an_lsb(self):
-        self.assertLess(cd.BISECT_TOL_MV, cd.DIFFERENTIAL_LSB_MV / 2.0)
+        self.assertLess(cd_offset_bisect.BISECT_TOL_MV, cd_regen_corners.DIFFERENTIAL_LSB_MV / 2.0)
 
     def test_iteration_cap_covers_the_widest_bracket_expansion_can_hand_over(self):
         import math
-        needed = math.ceil(math.log2(2 * cd.BISECT_MAX_MV / cd.BISECT_TOL_MV))
-        self.assertGreaterEqual(cd.BISECT_MAX_ITERS, needed)
+        needed = math.ceil(math.log2(2 * cd_offset_bisect.BISECT_MAX_MV / cd_offset_bisect.BISECT_TOL_MV))
+        self.assertGreaterEqual(cd_offset_bisect.BISECT_MAX_ITERS, needed)
 
 
 class TestDutFragmentSelector(unittest.TestCase):
@@ -437,26 +443,26 @@ class TestDutFragmentSelector(unittest.TestCase):
         ngspice_lib = "/stub/sky130.lib.spice"
 
     def _deck(self, **kw):
-        return cd._regen_deck(self._Info(), "tt", 27.0, 1.0, "x", **kw)
+        return cd_regen._regen_deck(self._Info(), "tt", 27.0, 1.0, "x", **kw)
 
     def test_default_deck_embeds_the_schematic_fragment_unchanged(self):
-        self.assertEqual(self._deck(), self._deck(dut_fragment=cd.DUT_FRAGMENT))
-        self.assertIn(cd.DUT_FRAGMENT.read_text(), self._deck())
+        self.assertEqual(self._deck(), self._deck(dut_fragment=cd_common.DUT_FRAGMENT))
+        self.assertIn(cd_common.DUT_FRAGMENT.read_text(), self._deck())
         self.assertNotIn("gen_compose_0", self._deck())
 
     def test_extracted_deck_embeds_extracted_fragment_not_schematic(self):
-        deck = self._deck(dut_fragment=cd.DUT_FRAGMENT_EXTRACTED)
-        self.assertIn(cd.DUT_FRAGMENT_EXTRACTED.read_text(), deck)
+        deck = self._deck(dut_fragment=cd_common.DUT_FRAGMENT_EXTRACTED)
+        self.assertIn(cd_common.DUT_FRAGMENT_EXTRACTED.read_text(), deck)
         self.assertNotIn("XM_TAIL", deck)
 
     def test_extracted_ports_match_schematic_ports_and_instantiation_order(self):
         import re
         want = {"VDD", "GND", "CLK", "VINP", "VINN", "OUTP", "OUTN"}
-        text = cd.DUT_FRAGMENT_EXTRACTED.read_text()
+        text = cd_common.DUT_FRAGMENT_EXTRACTED.read_text()
         ports = re.search(r"^\.SUBCKT\s+\S+\s+(.+)$", text, re.M).group(1).split()
         self.assertEqual(set(ports), want)
         # the schematic fragment's own header names the same seven ports
-        self.assertIn("VDD, GND (auto-tied", cd.DUT_FRAGMENT.read_text())
+        self.assertIn("VDD, GND (auto-tied", cd_common.DUT_FRAGMENT.read_text())
         inst = re.search(r"^Xdut\s+(.+)\s+(\S+)$", text, re.M)
         self.assertEqual(inst.group(1).split(), ports)  # nets tied by name
         self.assertEqual(inst.group(2), "gen_compose_0")
@@ -464,12 +470,12 @@ class TestDutFragmentSelector(unittest.TestCase):
 
     def test_extracted_fragment_carries_parasitics(self):
         import re
-        text = cd.DUT_FRAGMENT_EXTRACTED.read_text()
+        text = cd_common.DUT_FRAGMENT_EXTRACTED.read_text()
         self.assertGreater(len(re.findall(r"(?m)^[RC]\S+ ", text)), 50)
 
     def test_provenance_names_the_fragment_that_ran(self):
-        sch = cd._dut_provenance(cd.DUT_FRAGMENT)
-        ext = cd._dut_provenance(cd.DUT_FRAGMENT_EXTRACTED)
+        sch = cd_common._dut_provenance(cd_common.DUT_FRAGMENT)
+        ext = cd_common._dut_provenance(cd_common.DUT_FRAGMENT_EXTRACTED)
         self.assertTrue(sch.startswith("schematic"))
         self.assertIn("comparator_core.spice", sch)
         self.assertTrue(ext.startswith("post-layout extracted"))
@@ -477,19 +483,19 @@ class TestDutFragmentSelector(unittest.TestCase):
         self.assertNotIn("schematic", ext.split("(")[0])
 
     def test_cli_choices_default_to_schematic(self):
-        self.assertIs(cd.DUT_CHOICES["schematic"], cd.DUT_FRAGMENT)
-        self.assertIs(cd.DUT_CHOICES["extracted"], cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertIs(cd_common.DUT_CHOICES["schematic"], cd_common.DUT_FRAGMENT)
+        self.assertIs(cd_common.DUT_CHOICES["extracted"], cd_common.DUT_FRAGMENT_EXTRACTED)
 
     def test_fragment_is_threaded_to_every_probe(self):
         _install_oracle(self, _sign_flip_at(0.0))
-        cd.run_offset_bisect(quiet=True, dut_fragment=cd.DUT_FRAGMENT_EXTRACTED)
+        cd_offset_bisect.run_offset_bisect(quiet=True, dut_fragment=cd_common.DUT_FRAGMENT_EXTRACTED)
         self.assertTrue(self.probe_fragments)
-        self.assertTrue(all(f == cd.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
+        self.assertTrue(all(f == cd_common.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
 
     def test_default_run_uses_schematic_fragment(self):
         _install_oracle(self, _sign_flip_at(0.0))
-        cd.run_offset_bisect(quiet=True)
-        self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
+        cd_offset_bisect.run_offset_bisect(quiet=True)
+        self.assertTrue(all(f == cd_common.DUT_FRAGMENT for f in self.probe_fragments))
 
 
 class TestPostLayoutHalfLsbVerdict(unittest.TestCase):
@@ -497,36 +503,36 @@ class TestPostLayoutHalfLsbVerdict(unittest.TestCase):
     systematic offset or dead band appears at half-LSB scale -- DR-020's
     supersession trigger. Synthetic DUTs again; nothing here is evidence."""
 
-    HALF = cd.DIFFERENTIAL_LSB_MV / 2.0
+    HALF = cd_regen_corners.DIFFERENTIAL_LSB_MV / 2.0
 
     def _results(self, *oracles):
         out = []
         for oracle in oracles:
             _install_oracle(self, oracle)
-            out.append(cd.run_offset_bisect(quiet=True))
+            out.append(cd_offset_bisect.run_offset_bisect(quiet=True))
         return out
 
     def _section(self, results) -> str:
         lines: list[str] = []
-        cd._offset_bisect_postlayout_comparison(lines.append, results, self.HALF)
+        cd_offset_bisect_evidence._offset_bisect_postlayout_comparison(lines.append, results, self.HALF)
         return "\n".join(lines)
 
     def test_symmetric_dut_corroborates_dr020(self):
         rs = self._results(_sign_flip_at(0.0), _sign_flip_at(0.0))
-        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        verdict, reasons = cd_offset_bisect_evidence._postlayout_half_lsb_verdict(rs, self.HALF)
         self.assertEqual(verdict, "NOT-TRIGGERED")
         self.assertEqual(reasons, [])
         text = self._section(rs)
         self.assertIn("NOT MET", text)
         self.assertIn("CORROBORATED", text)
         self.assertIn("appear post-layout? NO", text)
-        self.assertIn(cd.BISECT_SCHEMATIC_RECORD_ID, text)
+        self.assertIn(cd_offset_bisect.BISECT_SCHEMATIC_RECORD_ID, text)
 
     def test_small_resolved_offset_appears_but_does_not_trigger(self):
         # resolved (far above the 0.1 mV floor) but well under half-LSB
         rs = self._results(_sign_flip_at(0.6))
         self.assertTrue(rs[0].offset_resolved)
-        verdict, _ = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        verdict, _ = cd_offset_bisect_evidence._postlayout_half_lsb_verdict(rs, self.HALF)
         self.assertEqual(verdict, "NOT-TRIGGERED")
         text = self._section(rs)
         self.assertIn("appear post-layout? YES", text)
@@ -534,7 +540,7 @@ class TestPostLayoutHalfLsbVerdict(unittest.TestCase):
 
     def test_half_lsb_offset_triggers_supersession(self):
         rs = self._results(_sign_flip_at(0.0), _sign_flip_at(-2.5))
-        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        verdict, reasons = cd_offset_bisect_evidence._postlayout_half_lsb_verdict(rs, self.HALF)
         self.assertEqual(verdict, "TRIGGERED")
         self.assertTrue(any("systematic offset" in r for r in reasons))
         self.assertIn("SUPERSEDED BY A NEW DECISION RECORD", self._section(rs))
@@ -542,14 +548,14 @@ class TestPostLayoutHalfLsbVerdict(unittest.TestCase):
     def test_half_lsb_dead_band_triggers_supersession(self):
         rs = self._results(_dead_band(-1.5, +1.5))  # 3 mV wide, centred
         self.assertFalse(rs[0].offset_resolved)
-        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        verdict, reasons = cd_offset_bisect_evidence._postlayout_half_lsb_verdict(rs, self.HALF)
         self.assertEqual(verdict, "TRIGGERED")
         self.assertTrue(any("dead band" in r for r in reasons))
 
     def test_unbounded_point_is_undetermined_not_corroborating(self):
         _install_oracle(self, _dead_band(-1e9, +1e9))
-        rs = [cd.run_offset_bisect(quiet=True, max_mv=50.0)]
-        verdict, reasons = cd._postlayout_half_lsb_verdict(rs, self.HALF)
+        rs = [cd_offset_bisect.run_offset_bisect(quiet=True, max_mv=50.0)]
+        verdict, reasons = cd_offset_bisect_evidence._postlayout_half_lsb_verdict(rs, self.HALF)
         self.assertEqual(verdict, "UNDETERMINED")
         self.assertIn("UNDETERMINED", self._section(rs))
 
@@ -563,9 +569,9 @@ def _render_record(test: unittest.TestCase, results, dut_fragment) -> str:
     from types import SimpleNamespace
 
     captured: list[str] = []
-    real_open = cd.evidence.open_record
-    real_final = cd._finalize_record
-    cd.evidence.open_record = lambda *a, **k: (
+    real_open = evidence.open_record
+    real_final = cd_offset_bisect_evidence._finalize_record
+    evidence.open_record = lambda *a, **k: (
         SimpleNamespace(
             record_path=Path("/nonexistent/record.md"), pdk_line="",
             ng_version="", netlist_sha="",
@@ -577,14 +583,14 @@ def _render_record(test: unittest.TestCase, results, dut_fragment) -> str:
         captured.extend(lines)
         return Path("/nonexistent/record.md")
 
-    cd._finalize_record = fake_final
+    cd_offset_bisect_evidence._finalize_record = fake_final
 
     def restore():
-        cd.evidence.open_record = real_open
-        cd._finalize_record = real_final
+        evidence.open_record = real_open
+        cd_offset_bisect_evidence._finalize_record = real_final
 
     test.addCleanup(restore)
-    cd.write_offset_bisect_evidence(results, dut_fragment=dut_fragment)
+    cd_offset_bisect_evidence.write_offset_bisect_evidence(results, dut_fragment=dut_fragment)
     return "\n".join(captured)
 
 
@@ -595,10 +601,10 @@ class TestRecordProseFollowsTheFragment(unittest.TestCase):
 
     def _results(self, oracle):
         _install_oracle(self, oracle)
-        return [cd.run_offset_bisect(quiet=True)]
+        return [cd_offset_bisect.run_offset_bisect(quiet=True)]
 
     def test_schematic_record_keeps_its_original_framing(self):
-        text = _render_record(self, self._results(_sign_flip_at(0.0)), cd.DUT_FRAGMENT)
+        text = _render_record(self, self._results(_sign_flip_at(0.0)), cd_common.DUT_FRAGMENT)
         self.assertIn("- **Netlist provenance**: schematic (", text)
         self.assertIn("this repo cannot replicate a post-layout result", text)
         self.assertIn("Decision-delay symmetry, the falsifiability check", text)
@@ -607,11 +613,11 @@ class TestRecordProseFollowsTheFragment(unittest.TestCase):
 
     def test_extracted_record_compares_and_drops_schematic_only_claims(self):
         text = _render_record(
-            self, self._results(_sign_flip_at(0.7)), cd.DUT_FRAGMENT_EXTRACTED,
+            self, self._results(_sign_flip_at(0.7)), cd_common.DUT_FRAGMENT_EXTRACTED,
         )
         self.assertIn("- **Netlist provenance**: post-layout extracted", text)
         self.assertIn("## Post-layout vs schematic (issue #525)", text)
-        self.assertIn(cd.BISECT_SCHEMATIC_RECORD_ID, text)
+        self.assertIn(cd_offset_bisect.BISECT_SCHEMATIC_RECORD_ID, text)
         self.assertIn("DR-020 supersession trigger: NOT MET", text)
         self.assertNotIn("this repo cannot replicate a post-layout result", text)
         self.assertNotIn("indicts the MEASUREMENT", text)
@@ -626,16 +632,16 @@ class TestDelayAsymmetrySignCheck(unittest.TestCase):
 
     def _result(self, delays: dict[float, float], offset_mv: float):
         probes = [
-            cd._BisectProbe(
+            cd_offset_bisect._BisectProbe(
                 vindiff_mv=v, outcome="DECIDED-POS" if v > offset_mv else "DECIDED-NEG",
                 final_diff_v=0.0, pre_edge_diff_v=0.0, decide_time_ns=t,
                 log_text="",
             )
             for v, t in delays.items()
         ]
-        r = cd.BisectCornerResult(
-            corner="tt", temp_c=27.0, supply_v=cd.VDD,
-            evaluate_ns=cd.BISECT_EVALUATE_NS, tol_mv=cd.BISECT_TOL_MV,
+        r = cd_offset_bisect.BisectCornerResult(
+            corner="tt", temp_c=27.0, supply_v=cd_common.VDD,
+            evaluate_ns=cd_offset_bisect.BISECT_EVALUATE_NS, tol_mv=cd_offset_bisect.BISECT_TOL_MV,
             probes=probes,
         )
         r.neg_lo_mv, r.neg_hi_mv = offset_mv - 0.02, offset_mv + 0.02
@@ -646,16 +652,16 @@ class TestDelayAsymmetrySignCheck(unittest.TestCase):
     def test_positive_offset_with_slower_positive_side_agrees(self):
         r = self._result({-10.0: 2.0, 10.0: 2.1, -50.0: 1.0, 50.0: 1.05}, 0.7)
         self.assertTrue(r.offset_resolved)
-        self.assertEqual([v for v, _ in cd._signed_delay_asymmetry(r)], [10.0, 50.0])
-        self.assertTrue(cd._delay_asymmetry_agrees_with_offset(r))
+        self.assertEqual([v for v, _ in cd_offset_bisect_evidence._signed_delay_asymmetry(r)], [10.0, 50.0])
+        self.assertTrue(cd_offset_bisect_evidence._delay_asymmetry_agrees_with_offset(r))
 
     def test_positive_offset_with_faster_positive_side_disagrees(self):
         r = self._result({-10.0: 2.1, 10.0: 2.0}, 0.7)
-        self.assertFalse(cd._delay_asymmetry_agrees_with_offset(r))
+        self.assertFalse(cd_offset_bisect_evidence._delay_asymmetry_agrees_with_offset(r))
 
     def test_unresolved_offset_is_not_checked(self):
         r = self._result({-10.0: 2.0, 10.0: 2.0}, 0.0)
-        self.assertIsNone(cd._delay_asymmetry_agrees_with_offset(r))
+        self.assertIsNone(cd_offset_bisect_evidence._delay_asymmetry_agrees_with_offset(r))
 
 
 # --- issue #524: per-draw Monte Carlo bisection --------------------------
@@ -680,13 +686,13 @@ class TestPerDrawMonteCarlo(unittest.TestCase):
 
     def setUp(self):
         self.probed = _install_oracle(self, _per_draw_oracle, seeded=True)
-        self.res = cd.run_offset_bisect_mc(corner="tt", seed=100, n=self.N, quiet=True)
+        self.res = cd_offset_bisect_mc.run_offset_bisect_mc(corner="tt", seed=100, n=self.N, quiet=True)
 
     def test_each_draw_recovers_its_own_boundary(self):
         for i, r in enumerate(self.res.draws):
             truth = _true_boundary_mv(self.res.mismatch_corner, 100 + i)
             self.assertTrue(r.bounded, f"draw {i}")
-            self.assertLessEqual(abs(r.offset_mv - truth), cd.BISECT_TOL_MV, f"draw {i}")
+            self.assertLessEqual(abs(r.offset_mv - truth), cd_offset_bisect.BISECT_TOL_MV, f"draw {i}")
 
     def test_draws_actually_differ(self):
         offs = [r.offset_mv for r in self.res.draws]
@@ -695,20 +701,20 @@ class TestPerDrawMonteCarlo(unittest.TestCase):
     def test_stats_match_independent_computation(self):
         import statistics
         truths = [_true_boundary_mv("tt_mm", 100 + i) for i in range(self.N)]
-        st = cd.bisect_mc_stats(self.res.draws)
+        st = cd_offset_bisect_mc.bisect_mc_stats(self.res.draws)
         self.assertEqual(st["n_bounded"], self.N)
-        self.assertAlmostEqual(st["stdev"], statistics.pstdev(truths), delta=cd.BISECT_TOL_MV)
-        self.assertAlmostEqual(st["mean"], statistics.fmean(truths), delta=cd.BISECT_TOL_MV)
-        self.assertAlmostEqual(st["min"], min(truths), delta=cd.BISECT_TOL_MV)
-        self.assertAlmostEqual(st["max"], max(truths), delta=cd.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["stdev"], statistics.pstdev(truths), delta=cd_offset_bisect.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["mean"], statistics.fmean(truths), delta=cd_offset_bisect.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["min"], min(truths), delta=cd_offset_bisect.BISECT_TOL_MV)
+        self.assertAlmostEqual(st["max"], max(truths), delta=cd_offset_bisect.BISECT_TOL_MV)
 
     def test_negative_control_is_exactly_zero_spread(self):
         self.assertEqual(len(self.res.negctrl), self.N)
-        self.assertTrue(cd.bisect_negctrl_ok(self.res.negctrl))
-        self.assertEqual(cd.bisect_mc_stats(self.res.negctrl)["stdev"], 0.0)
+        self.assertTrue(cd_offset_bisect_mc.bisect_negctrl_ok(self.res.negctrl))
+        self.assertEqual(cd_offset_bisect_mc.bisect_mc_stats(self.res.negctrl)["stdev"], 0.0)
 
     def test_negctrl_n_override(self):
-        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        res = cd_offset_bisect_mc.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
         self.assertEqual((len(res.draws), len(res.negctrl), res.negctrl_n), (2, 1, 1))
 
 
@@ -720,12 +726,12 @@ class TestNegativeControlDetectsSeedLeak(unittest.TestCase):
         _install_oracle(
             self, lambda v, c, seed: _sign_flip_at(float(seed))(v), seeded=True,
         )
-        res = cd.run_offset_bisect_mc(corner="tt", seed=3, n=2, quiet=True)
-        self.assertFalse(cd.bisect_negctrl_ok(res.negctrl))
+        res = cd_offset_bisect_mc.run_offset_bisect_mc(corner="tt", seed=3, n=2, quiet=True)
+        self.assertFalse(cd_offset_bisect_mc.bisect_negctrl_ok(res.negctrl))
 
     def test_unbounded_control_fails(self):
-        self.assertFalse(cd.bisect_negctrl_ok([]))
-        self.assertEqual(cd.bisect_negctrl_status([]), "FAIL")
+        self.assertFalse(cd_offset_bisect_mc.bisect_negctrl_ok([]))
+        self.assertEqual(cd_offset_bisect_mc.bisect_negctrl_status([]), "FAIL")
 
 
 class TestSingleDrawControlNotExercised(unittest.TestCase):
@@ -736,61 +742,61 @@ class TestSingleDrawControlNotExercised(unittest.TestCase):
         _install_oracle(self, _per_draw_oracle, seeded=True)
 
     def test_n1_control_is_not_exercised(self):
-        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
-        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "NOT-EXERCISED")
-        self.assertFalse(cd.bisect_negctrl_ok(res.negctrl))
+        res = cd_offset_bisect_mc.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        self.assertEqual(cd_offset_bisect_mc.bisect_negctrl_status(res.negctrl), "NOT-EXERCISED")
+        self.assertFalse(cd_offset_bisect_mc.bisect_negctrl_ok(res.negctrl))
 
     def test_n2_control_is_exercised_and_passes(self):
-        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
-        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "PASS")
-        self.assertTrue(cd.bisect_negctrl_ok(res.negctrl))
+        res = cd_offset_bisect_mc.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
+        self.assertEqual(cd_offset_bisect_mc.bisect_negctrl_status(res.negctrl), "PASS")
+        self.assertTrue(cd_offset_bisect_mc.bisect_negctrl_ok(res.negctrl))
 
     def test_n1_unbounded_control_is_still_fail(self):
-        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
+        res = cd_offset_bisect_mc.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=1, quiet=True)
         res.negctrl[0].status = "UNBOUNDED"
-        self.assertEqual(cd.bisect_negctrl_status(res.negctrl), "FAIL")
+        self.assertEqual(cd_offset_bisect_mc.bisect_negctrl_status(res.negctrl), "FAIL")
 
 
 class TestMcDutFragmentThreaded(unittest.TestCase):
     def test_extracted_fragment_reaches_every_draw_and_control_probe(self):
         _install_oracle(self, _per_draw_oracle, seeded=True)
-        res = cd.run_offset_bisect_mc(
+        res = cd_offset_bisect_mc.run_offset_bisect_mc(
             corner="tt", seed=1, n=2, negctrl_n=2, quiet=True,
-            dut_fragment=cd.DUT_FRAGMENT_EXTRACTED,
+            dut_fragment=cd_common.DUT_FRAGMENT_EXTRACTED,
         )
-        self.assertIs(res.dut_fragment, cd.DUT_FRAGMENT_EXTRACTED)
+        self.assertIs(res.dut_fragment, cd_common.DUT_FRAGMENT_EXTRACTED)
         self.assertTrue(self.probe_fragments)
-        self.assertTrue(all(f == cd.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
+        self.assertTrue(all(f == cd_common.DUT_FRAGMENT_EXTRACTED for f in self.probe_fragments))
 
     def test_default_is_schematic(self):
         _install_oracle(self, _per_draw_oracle, seeded=True)
-        res = cd.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
-        self.assertIs(res.dut_fragment, cd.DUT_FRAGMENT)
-        self.assertTrue(all(f == cd.DUT_FRAGMENT for f in self.probe_fragments))
+        res = cd_offset_bisect_mc.run_offset_bisect_mc(corner="tt", seed=1, n=2, negctrl_n=2, quiet=True)
+        self.assertIs(res.dut_fragment, cd_common.DUT_FRAGMENT)
+        self.assertTrue(all(f == cd_common.DUT_FRAGMENT for f in self.probe_fragments))
 
 
 class TestSeedPlumbing(unittest.TestCase):
     def test_one_seed_per_search_and_none_by_default(self):
         seeds: list = []
         def spy(info, corner, temp_c, supply_v, v, scratch,
-                dut_fragment=cd.DUT_FRAGMENT, rndseed=None):
+                dut_fragment=cd_common.DUT_FRAGMENT, rndseed=None):
             seeds.append(rndseed)
-            return cd._BisectProbe(v, "DECIDED-POS" if v > 0 else "DECIDED-NEG",
-                                   cd.VDD if v > 0 else -cd.VDD, 0.0, 1.0, "")
-        real, real_r = cd._bisect_probe, cd.pdk.resolve_or_raise
-        cd._bisect_probe, cd.pdk.resolve_or_raise = spy, lambda: None
-        self.addCleanup(lambda: (setattr(cd, "_bisect_probe", real),
-                                 setattr(cd.pdk, "resolve_or_raise", real_r)))
-        cd.run_offset_bisect(quiet=True, rndseed=7)
+            return cd_offset_bisect._BisectProbe(v, "DECIDED-POS" if v > 0 else "DECIDED-NEG",
+                                   cd_common.VDD if v > 0 else -cd_common.VDD, 0.0, 1.0, "")
+        real, real_r = cd_offset_bisect._bisect_probe, pdk.resolve_or_raise
+        cd_offset_bisect._bisect_probe, pdk.resolve_or_raise = spy, lambda: None
+        self.addCleanup(lambda: (setattr(cd_offset_bisect, "_bisect_probe", real),
+                                 setattr(pdk, "resolve_or_raise", real_r)))
+        cd_offset_bisect.run_offset_bisect(quiet=True, rndseed=7)
         self.assertEqual(set(seeds), {7})
         seeds.clear()
-        cd.run_offset_bisect(quiet=True)
+        cd_offset_bisect.run_offset_bisect(quiet=True)
         self.assertEqual(set(seeds), {None})
 
     def test_deck_rndseed_option_only_when_given(self):
         info = type("I", (), {"ngspice_lib": "x.lib"})()
-        with_seed = cd._regen_deck(info, "tt_mm", 27.0, 1.0, "l", rndseed=5)
-        without = cd._regen_deck(info, "tt_mm", 27.0, 1.0, "l")
+        with_seed = cd_regen._regen_deck(info, "tt_mm", 27.0, 1.0, "l", rndseed=5)
+        without = cd_regen._regen_deck(info, "tt_mm", 27.0, 1.0, "l")
         self.assertIn(".option rndseed=5", with_seed)
         self.assertNotIn("rndseed", without)
 
