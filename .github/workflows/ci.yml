@@ -574,6 +574,7 @@ jobs:
     # or pushes.
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && inputs.coherent_sine_evidence
+    timeout-minutes: 120
     permissions:
       contents: read
     steps:
@@ -634,6 +635,12 @@ jobs:
         # --allow-toolchain-drift, no plan overrides. Exit 1 = the validity
         # gate rejected the capture; the record is still minted and is still
         # uploaded below as the observed finding, so do not fail-fast here.
+        # SIM_NGSPICE_TIMEOUT_S is the harness's documented wall-clock knob
+        # (sim/harness/toolchain.py); the 120 s default timed out the first
+        # dispatch of this job while ngspice was still progressing (the ~33 us
+        # transient takes several minutes). It changes no validity gate.
+        env:
+          SIM_NGSPICE_TIMEOUT_S: "5400"
         run: |
           set +e
           python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record 2>&1 | tee /tmp/coherent-sine-run.log
