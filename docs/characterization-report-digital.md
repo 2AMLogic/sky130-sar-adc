@@ -52,6 +52,11 @@ Digital rail `VPWR` (positive) against `VGND`; declared interface loads and a de
 
 - Schematic-level transistor SPICE; no extracted parasitics, no routing RC. Not extracted timing and not static timing analysis; full-block post-layout verification remains separate.
 - Loads and COMP_OUT arrival are experiment assumptions, not ratified spec values; the 12 MHz point is the provisional DR-006-derived planning figure and the sample-rate target remains DRAFT.
+- Interface loads (experiment assumptions, not spec values): PH_SAMPLE 20 fF, PH_PHASE 5 fF, BUSY 5 fF, DOUT 5 fF, SEL 20 fF, CLKN 50 fF, HALF_LSB 20 fF, ADCOUT 10 fF. Their switching energy is inside the power figures; the bracket holds only under these loads.
+- COMP_OUT is an ideal source that changes 0.25 T after each launching edge; the comparator decision time is not included, so the bracket is not valid for a later COMP_OUT arrival.
+- Code coverage: only the codes 811, 212, 682, 341 are exercised; the all-ones and all-zeros codes are NOT exercised.
+- Reset coverage: the power-up reset state, its release and the automatic restart after each conversion. No mid-conversion asynchronous reset is injected, so reset behaviour during a conversion is NOT characterized.
+- Idle/reset power is measured with RST_B asserted and the clock running; clock-stopped static leakage is NOT measured.
 - Execution: fleet runner klt 0.5.0 vs submitting client klt 0.7.0+g8eec069c7576 (run with `batch.runner_version_check: warn`); see the record's version-skew section.
 - Pass means every sampled check held 0.9 T after each launching edge for every one of the four conversions.
 

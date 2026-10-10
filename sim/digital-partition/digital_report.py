@@ -175,6 +175,19 @@ def render(repo: Path) -> str:
     a("- Loads and COMP_OUT arrival are experiment assumptions, not ratified spec values; the "
       "12 MHz point is the provisional DR-006-derived planning figure and the sample-rate target "
       "remains DRAFT.")
+    a("- Interface loads (experiment assumptions, not spec values): " +
+      ", ".join(f"{k} {v * 1e15:g} fF" for k, v in dc.LOADS_F.items()) +
+      ". Their switching energy is inside the power figures; the bracket holds only under these loads.")
+    a(f"- COMP_OUT is an ideal source that changes {dc.COMP_DELAY_T:g} T after each launching edge; "
+      "the comparator decision time is not included, so the bracket is not valid for a later "
+      "COMP_OUT arrival.")
+    a(f"- Code coverage: only the codes {', '.join(str(c) for c in dc.CODES)} are exercised; the "
+      "all-ones and all-zeros codes are NOT exercised.")
+    a("- Reset coverage: the power-up reset state, its release and the automatic restart after "
+      "each conversion. No mid-conversion asynchronous reset is injected, so reset behaviour "
+      "during a conversion is NOT characterized.")
+    a("- Idle/reset power is measured with RST_B asserted and the clock running; clock-stopped "
+      "static leakage is NOT measured.")
     for m in dc.runner_skew(camp.get("probe_log", []), [camp.get("negative_control_run") or {}]):
         a(f"- Execution: {m} (run with `batch.runner_version_check: warn`); see the record's "
           "version-skew section.")

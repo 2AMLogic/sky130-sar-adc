@@ -214,6 +214,13 @@ not:
 - It does **not** assert extracted or post-layout timing (this is schematic-
   level transistor SPICE), static timing, any spec row, or the ADC's sample
   rate: a digital clock bracket is not the conversion capability of the ADC.
+  Nor does it assert coverage the campaign did not exercise: only four
+  conversion codes are driven (no all-ones or all-zeros code), no
+  mid-conversion asynchronous reset is injected, and clock-stopped static
+  leakage is not measured (idle/reset power is taken with the clock running).
+  The bracket holds only under the stated interface loads and an ideal
+  COMP_OUT arriving 0.25 T after the launching edge; the document lists the
+  numeric loads and these limits under "Declared limitations".
 - Freshness is two-layered: `signoff/check_evidence_hashes.py` re-hashes the
   document the envelope wraps, and `sim/report/generate.py --check` fails if
   the digital-partition netlist text or the routed DEF/GDS / composed placement
