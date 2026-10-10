@@ -277,13 +277,28 @@ artifact and never commits or pushes). Record:
   correct 12-period BUSY/SAMPLE structure, largest non-DC bin = drive bin 7.
   This confirms the #603 probe's all-BUSY / two-code collapse was an artefact
   of the below-floor ngspice-42, not of the sine stimulus.
-* **The design result is poor:** SNDR = 2.17 dB (ENOB 0.068 bit at the tone's
-  amplitude; 2.001 bit full-scale-normalised) against 50.89 dB / 8.161 bit
-  for an ideal quantizer on the same plan, SFDR 13.77 dB. Consistent with the
-  DC campaign's FAIL at every corner (`records/LATEST`): the converter code
-  is wrong for the inputs, so the dynamic test reports it. It is
-  informational only: one corner, N=32, no noise, below full scale. The DRAFT
-  ENOB row and every target value are unchanged.
+* **The headline figures are dominated by a single outlier conversion.**
+  The record reports SNDR = 2.17 dB (ENOB 0.068 bit at the tone's amplitude;
+  2.001 bit full-scale-normalised) and SFDR 13.77 dB, against 50.89 dB /
+  8.161 bit for an ideal quantizer on the same plan. The record's own
+  captured-code table shows where that comes from: **31 of the 32 codes are
+  within +/-2 LSB of ideal**, and one conversion (sample 8, conversion 9,
+  sampled Vd = +0.0196 x V_REF, just above the zero crossing) returned code
+  **960 against an ideal 522 (+438 LSB)**. That one conversion carries nearly
+  all of the error power. A back-of-envelope recompute from the table (not
+  recorded evidence) puts SNDR at roughly 47 dB with conversion 9 replaced
+  by a typical +1 LSB code. The SFDR is very likely set by the same
+  outlier. So 2.17 dB / 0.068 bit should **not** be read as a clean
+  measurement of the converter's dynamic performance, and it does not show
+  the code is wrong across the inputs. What it shows is one unexplained
+  near-mid-scale conversion error that the VALIDITY gate does not check for:
+  the gate checks phase structure, missing measurements and the tone bin,
+  not per-code error. The minted record is append-only, and its LIMITATIONS
+  section does not mention the outlier. This paragraph is the correction.
+  Root-causing conversion 9 and adding an outlier check are tracked in
+  [issue #621](https://github.com/2AMLogic/sky130-sar-adc/issues/621). The result is informational only (one corner, N=32, no
+  noise, below full scale). The DRAFT ENOB row and every target value are
+  unchanged.
 * Indexed under the ENOB row of `sim/spec-coverage.json`.
 
 ## Findings
