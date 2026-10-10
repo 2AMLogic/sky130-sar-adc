@@ -271,6 +271,10 @@ def render_record(rec_id: str, camp: dict, supersedes: str, written_by: str) -> 
       "decision time is not included). It is NOT the reciprocal of any one propagation delay, "
       "and digital Fmax does not set the ADC sample rate (which also depends on the sampling "
       "front end, the CDAC and the comparator).")
+    a(f"- Input edges (CLK, RST_B, COMP_OUT): 5 % of the period, clamped to [{dc.RISE_MIN_S * 1e12:g} ps, "
+      f"{dc.RISE_MAX_S * 1e9:g} ns]; solver max step = edge time / {dc.STEP_DIVISOR:g}. Slower (1-2 ns) edges were found "
+      "to corrupt cold-corner register captures in this deck and are not used; RST_B is released 0.3 T "
+      "before the first advancing clock edge (clock-low phase).")
     a("- Checks sample at 0.9 T after each launching edge, so 'passing' means settled one tenth of "
       "a period before the next edge.")
     a("- No mid-conversion asynchronous reset is injected: reset coverage is the power-up reset "
