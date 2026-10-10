@@ -1,4 +1,4 @@
-# DR-021: Specify the CDAC's systematic gain error as its own spec row. Neither sizing lever can remove it
+# DR-022: Specify the CDAC's systematic gain error as its own spec row. Neither sizing lever can remove it
 
 - **Status**: proposed. Ratification is via the operator's approval of the PR
   that resolves #269's decision step, under the canary spec/DR
@@ -130,7 +130,7 @@ comparator input pair (option 2).** Specifically:
 
    | Parameter | Target | Status | Binding condition / note |
    |---|---|---|---|
-   | Gain error, systematic | `<= 1.42 LSB` span-referred (`<= 0.139 %` of full scale), untrimmed, excluding `V_REF` error | DRAFT (DR-021 candidate) | full ratified PVT corner set **plus the MiM r+c corners**, zero mismatch. Measured `8.2–8.3 LSB` at the two traced corners (schematic), about `5.8x` over. Recorded, not relaxed. |
+   | Gain error, systematic | `<= 1.42 LSB` span-referred (`<= 0.139 %` of full scale), untrimmed, excluding `V_REF` error | DRAFT (DR-022 candidate) | full ratified PVT corner set **plus the MiM r+c corners**, zero mismatch. Measured `8.2–8.3 LSB` at the two traced corners (schematic), about `5.8x` over. Recorded, not relaxed. |
 
 2. **The candidate value is derived, not invented and not fitted to the
    measurement.** It uses gf180 DR-0012's own method:
