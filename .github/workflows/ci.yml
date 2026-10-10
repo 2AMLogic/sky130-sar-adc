@@ -220,7 +220,15 @@ on:
   schedule:
     # 06:00 UTC daily
     - cron: "0 6 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      coherent_sine_evidence:
+        description: >-
+          Opt-in (issue #605): run the default coherent-sine --record
+          evidence capture on the pinned ngspice/PDK and upload the new
+          append-only files as an artifact. Never commits or pushes.
+        type: boolean
+        default: false
 
 jobs:
   checks:
@@ -358,7 +366,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.coherent_sine_evidence) ||
       (github.event_name == 'pull_request' &&
        contains(github.event.pull_request.labels.*.name, 'run-pdk-smoke'))
     steps:
@@ -553,3 +561,101 @@ jobs:
         run: |
           ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py --self-test
           ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
+
+  coherent-sine-evidence:
+    name: Coherent-sine evidence capture (manual dispatch only, issue #605)
+    # Opt-in: only a manual workflow_dispatch with coherent_sine_evidence=true.
+    # Never runs on push / pull_request / schedule. Uses the SAME pinned
+    # provisioning as `pdk-smoke` (ngspice at sim/toolchain.json's
+    # `ngspice_reference`, sky130 PDK at sim/pdk.json's open_pdks_commit; same
+    # cache keys) but skips xschem, which this runner does not need: it
+    # consumes the committed design/sar_adc_top.spice. READ-ONLY on the repo:
+    # it uploads the new append-only files as an artifact and never commits
+    # or pushes.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.coherent_sine_evidence
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ngspice build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex \
+            libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
+            libxrender-dev gawk automake libtool
+
+      - name: Resolve the pinned ngspice version
+        id: ngspice-pin
+        run: |
+          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache ngspice build
+        id: cache-ngspice
+        uses: actions/cache@v4
+        with:
+          path: /opt/ngspice
+          key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
+
+      - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
+        if: steps.cache-ngspice.outputs.cache-hit != 'true'
+        run: |
+          V="${{ steps.ngspice-pin.outputs.version }}"
+          curl -fsSL -o /tmp/ngspice.tar.gz \
+            "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
+          mkdir -p /tmp/ngspice-src
+          tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
+          cd /tmp/ngspice-src
+          ./configure --prefix=/opt/ngspice --without-x --disable-debug \
+            --enable-xspice
+          make -j"$(nproc)"
+          make install
+
+      - name: Put the built ngspice on PATH
+        run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
+
+      - name: Install volare
+        run: pip install "volare==0.20.6"
+
+      - name: Fetch + enable the pinned sky130 PDK
+        run: |
+          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
+          volare enable --pdk sky130 "$PDK_COMMIT"
+
+      - name: Run the default coherent-sine capture and record it
+        id: run
+        # Default plan only (tt/27C/1.8V, N=32, bin 7, 0.25*V_REF). No
+        # --allow-toolchain-drift, no plan overrides. Exit 1 = the validity
+        # gate rejected the capture; the record is still minted and is still
+        # uploaded below as the observed finding, so do not fail-fast here.
+        run: |
+          set +e
+          python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record 2>&1 | tee /tmp/coherent-sine-run.log
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=${rc}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Collect the new append-only evidence files
+        if: always()
+        run: |
+          mkdir -p /tmp/evidence
+          git status --porcelain --untracked-files=all -- sim | tee /tmp/evidence/git-status.txt
+          git ls-files --others --exclude-standard -- sim \
+            | while read -r f; do install -D -m 644 "$f" "/tmp/evidence/files/$f"; done
+          cp /tmp/coherent-sine-run.log /tmp/evidence/ 2>/dev/null || true
+          echo "runner exit code: ${{ steps.run.outputs.exit_code }}" > /tmp/evidence/exit-code.txt
+          ngspice --version | head -3 > /tmp/evidence/ngspice-version.txt 2>&1 || true
+
+      - name: Upload the evidence artifact (even on an invalid capture)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coherent-sine-evidence
+          path: /tmp/evidence
+          if-no-files-found: error
