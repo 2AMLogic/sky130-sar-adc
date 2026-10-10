@@ -1,0 +1,564 @@
+{
+  "analysis": {
+    "args": "2.737293e-11 5.852332e-08 0 2.737293e-11",
+    "kind": "tran"
+  },
+  "backend": "batch",
+  "batch": {
+    "capacity_wait_s": 3600.0,
+    "runner_version_check": "warn"
+  },
+  "corners": {
+    "process": [
+      "ff",
+      "fs",
+      "tt"
+    ],
+    "supply_v": {
+      "vdig": [
+        1.8,
+        1.98
+      ]
+    },
+    "temperature_c": [
+      27.0,
+      125.0
+    ]
+  },
+  "engine": "ngspice",
+  "exclude": [
+    {
+      "process": "ff",
+      "supply_v": {
+        "vdig": 1.98
+      },
+      "temperature_c": 27.0
+    },
+    {
+      "process": "ff",
+      "supply_v": {
+        "vdig": 1.8
+      },
+      "temperature_c": 125.0
+    },
+    {
+      "process": "ff",
+      "supply_v": {
+        "vdig": 1.98
+      },
+      "temperature_c": 125.0
+    },
+    {
+      "process": "fs",
+      "supply_v": {
+        "vdig": 1.98
+      },
+      "temperature_c": 27.0
+    },
+    {
+      "process": "fs",
+      "supply_v": {
+        "vdig": 1.8
+      },
+      "temperature_c": 125.0
+    },
+    {
+      "process": "fs",
+      "supply_v": {
+        "vdig": 1.98
+      },
+      "temperature_c": 125.0
+    },
+    {
+      "process": "tt",
+      "supply_v": {
+        "vdig": 1.8
+      },
+      "temperature_c": 27.0
+    },
+    {
+      "process": "tt",
+      "supply_v": {
+        "vdig": 1.98
+      },
+      "temperature_c": 125.0
+    }
+  ],
+  "measurements": [
+    {
+      "name": "pc_rst",
+      "spice": ".meas tran pc_rst FIND v(pcode) AT=4.489161e-09"
+    },
+    {
+      "name": "ctl_rst",
+      "spice": ".meas tran ctl_rst FIND v(ctlcode) AT=4.489161e-09"
+    },
+    {
+      "name": "pc_c0_j0",
+      "spice": ".meas tran pc_c0_j0 FIND v(pcode) AT=5.912553e-09"
+    },
+    {
+      "name": "ctl_c0_j0",
+      "spice": ".meas tran ctl_c0_j0 FIND v(ctlcode) AT=5.912553e-09"
+    },
+    {
+      "name": "pc_c0_j1",
+      "spice": ".meas tran pc_c0_j1 FIND v(pcode) AT=7.007470e-09"
+    },
+    {
+      "name": "ctl_c0_j1",
+      "spice": ".meas tran ctl_c0_j1 FIND v(ctlcode) AT=7.007470e-09"
+    },
+    {
+      "name": "pc_c0_j2",
+      "spice": ".meas tran pc_c0_j2 FIND v(pcode) AT=8.102387e-09"
+    },
+    {
+      "name": "ctl_c0_j2",
+      "spice": ".meas tran ctl_c0_j2 FIND v(ctlcode) AT=8.102387e-09"
+    },
+    {
+      "name": "pc_c0_j3",
+      "spice": ".meas tran pc_c0_j3 FIND v(pcode) AT=9.197305e-09"
+    },
+    {
+      "name": "ctl_c0_j3",
+      "spice": ".meas tran ctl_c0_j3 FIND v(ctlcode) AT=9.197305e-09"
+    },
+    {
+      "name": "pc_c0_j4",
+      "spice": ".meas tran pc_c0_j4 FIND v(pcode) AT=1.029222e-08"
+    },
+    {
+      "name": "ctl_c0_j4",
+      "spice": ".meas tran ctl_c0_j4 FIND v(ctlcode) AT=1.029222e-08"
+    },
+    {
+      "name": "pc_c0_j5",
+      "spice": ".meas tran pc_c0_j5 FIND v(pcode) AT=1.138714e-08"
+    },
+    {
+      "name": "ctl_c0_j5",
+      "spice": ".meas tran ctl_c0_j5 FIND v(ctlcode) AT=1.138714e-08"
+    },
+    {
+      "name": "pc_c0_j6",
+      "spice": ".meas tran pc_c0_j6 FIND v(pcode) AT=1.248206e-08"
+    },
+    {
+      "name": "ctl_c0_j6",
+      "spice": ".meas tran ctl_c0_j6 FIND v(ctlcode) AT=1.248206e-08"
+    },
+    {
+      "name": "pc_c0_j7",
+      "spice": ".meas tran pc_c0_j7 FIND v(pcode) AT=1.357697e-08"
+    },
+    {
+      "name": "ctl_c0_j7",
+      "spice": ".meas tran ctl_c0_j7 FIND v(ctlcode) AT=1.357697e-08"
+    },
+    {
+      "name": "pc_c0_j8",
+      "spice": ".meas tran pc_c0_j8 FIND v(pcode) AT=1.467189e-08"
+    },
+    {
+      "name": "ctl_c0_j8",
+      "spice": ".meas tran ctl_c0_j8 FIND v(ctlcode) AT=1.467189e-08"
+    },
+    {
+      "name": "pc_c0_j9",
+      "spice": ".meas tran pc_c0_j9 FIND v(pcode) AT=1.576681e-08"
+    },
+    {
+      "name": "ctl_c0_j9",
+      "spice": ".meas tran ctl_c0_j9 FIND v(ctlcode) AT=1.576681e-08"
+    },
+    {
+      "name": "pc_c0_j10",
+      "spice": ".meas tran pc_c0_j10 FIND v(pcode) AT=1.686172e-08"
+    },
+    {
+      "name": "ctl_c0_j10",
+      "spice": ".meas tran ctl_c0_j10 FIND v(ctlcode) AT=1.686172e-08"
+    },
+    {
+      "name": "pc_c0_j11",
+      "spice": ".meas tran pc_c0_j11 FIND v(pcode) AT=1.795664e-08"
+    },
+    {
+      "name": "ctl_c0_j11",
+      "spice": ".meas tran ctl_c0_j11 FIND v(ctlcode) AT=1.795664e-08"
+    },
+    {
+      "name": "dout_c0",
+      "spice": ".meas tran dout_c0 FIND v(dcode) AT=1.686172e-08"
+    },
+    {
+      "name": "adc_c0",
+      "spice": ".meas tran adc_c0 FIND v(adccode) AT=1.686172e-08"
+    },
+    {
+      "name": "seln_c0",
+      "spice": ".meas tran seln_c0 FIND v(selncode) AT=1.686172e-08"
+    },
+    {
+      "name": "selp_c0",
+      "spice": ".meas tran selp_c0 FIND v(selpcode) AT=1.686172e-08"
+    },
+    {
+      "name": "pc_c1_j0",
+      "spice": ".meas tran pc_c1_j0 FIND v(pcode) AT=1.905156e-08"
+    },
+    {
+      "name": "ctl_c1_j0",
+      "spice": ".meas tran ctl_c1_j0 FIND v(ctlcode) AT=1.905156e-08"
+    },
+    {
+      "name": "pc_c1_j1",
+      "spice": ".meas tran pc_c1_j1 FIND v(pcode) AT=2.014648e-08"
+    },
+    {
+      "name": "ctl_c1_j1",
+      "spice": ".meas tran ctl_c1_j1 FIND v(ctlcode) AT=2.014648e-08"
+    },
+    {
+      "name": "pc_c1_j2",
+      "spice": ".meas tran pc_c1_j2 FIND v(pcode) AT=2.124139e-08"
+    },
+    {
+      "name": "ctl_c1_j2",
+      "spice": ".meas tran ctl_c1_j2 FIND v(ctlcode) AT=2.124139e-08"
+    },
+    {
+      "name": "pc_c1_j3",
+      "spice": ".meas tran pc_c1_j3 FIND v(pcode) AT=2.233631e-08"
+    },
+    {
+      "name": "ctl_c1_j3",
+      "spice": ".meas tran ctl_c1_j3 FIND v(ctlcode) AT=2.233631e-08"
+    },
+    {
+      "name": "pc_c1_j4",
+      "spice": ".meas tran pc_c1_j4 FIND v(pcode) AT=2.343123e-08"
+    },
+    {
+      "name": "ctl_c1_j4",
+      "spice": ".meas tran ctl_c1_j4 FIND v(ctlcode) AT=2.343123e-08"
+    },
+    {
+      "name": "pc_c1_j5",
+      "spice": ".meas tran pc_c1_j5 FIND v(pcode) AT=2.452615e-08"
+    },
+    {
+      "name": "ctl_c1_j5",
+      "spice": ".meas tran ctl_c1_j5 FIND v(ctlcode) AT=2.452615e-08"
+    },
+    {
+      "name": "pc_c1_j6",
+      "spice": ".meas tran pc_c1_j6 FIND v(pcode) AT=2.562106e-08"
+    },
+    {
+      "name": "ctl_c1_j6",
+      "spice": ".meas tran ctl_c1_j6 FIND v(ctlcode) AT=2.562106e-08"
+    },
+    {
+      "name": "pc_c1_j7",
+      "spice": ".meas tran pc_c1_j7 FIND v(pcode) AT=2.671598e-08"
+    },
+    {
+      "name": "ctl_c1_j7",
+      "spice": ".meas tran ctl_c1_j7 FIND v(ctlcode) AT=2.671598e-08"
+    },
+    {
+      "name": "pc_c1_j8",
+      "spice": ".meas tran pc_c1_j8 FIND v(pcode) AT=2.781090e-08"
+    },
+    {
+      "name": "ctl_c1_j8",
+      "spice": ".meas tran ctl_c1_j8 FIND v(ctlcode) AT=2.781090e-08"
+    },
+    {
+      "name": "pc_c1_j9",
+      "spice": ".meas tran pc_c1_j9 FIND v(pcode) AT=2.890581e-08"
+    },
+    {
+      "name": "ctl_c1_j9",
+      "spice": ".meas tran ctl_c1_j9 FIND v(ctlcode) AT=2.890581e-08"
+    },
+    {
+      "name": "pc_c1_j10",
+      "spice": ".meas tran pc_c1_j10 FIND v(pcode) AT=3.000073e-08"
+    },
+    {
+      "name": "ctl_c1_j10",
+      "spice": ".meas tran ctl_c1_j10 FIND v(ctlcode) AT=3.000073e-08"
+    },
+    {
+      "name": "pc_c1_j11",
+      "spice": ".meas tran pc_c1_j11 FIND v(pcode) AT=3.109565e-08"
+    },
+    {
+      "name": "ctl_c1_j11",
+      "spice": ".meas tran ctl_c1_j11 FIND v(ctlcode) AT=3.109565e-08"
+    },
+    {
+      "name": "dout_c1",
+      "spice": ".meas tran dout_c1 FIND v(dcode) AT=3.000073e-08"
+    },
+    {
+      "name": "adc_c1",
+      "spice": ".meas tran adc_c1 FIND v(adccode) AT=3.000073e-08"
+    },
+    {
+      "name": "seln_c1",
+      "spice": ".meas tran seln_c1 FIND v(selncode) AT=3.000073e-08"
+    },
+    {
+      "name": "selp_c1",
+      "spice": ".meas tran selp_c1 FIND v(selpcode) AT=3.000073e-08"
+    },
+    {
+      "name": "pc_c2_j0",
+      "spice": ".meas tran pc_c2_j0 FIND v(pcode) AT=3.219057e-08"
+    },
+    {
+      "name": "ctl_c2_j0",
+      "spice": ".meas tran ctl_c2_j0 FIND v(ctlcode) AT=3.219057e-08"
+    },
+    {
+      "name": "pc_c2_j1",
+      "spice": ".meas tran pc_c2_j1 FIND v(pcode) AT=3.328548e-08"
+    },
+    {
+      "name": "ctl_c2_j1",
+      "spice": ".meas tran ctl_c2_j1 FIND v(ctlcode) AT=3.328548e-08"
+    },
+    {
+      "name": "pc_c2_j2",
+      "spice": ".meas tran pc_c2_j2 FIND v(pcode) AT=3.438040e-08"
+    },
+    {
+      "name": "ctl_c2_j2",
+      "spice": ".meas tran ctl_c2_j2 FIND v(ctlcode) AT=3.438040e-08"
+    },
+    {
+      "name": "pc_c2_j3",
+      "spice": ".meas tran pc_c2_j3 FIND v(pcode) AT=3.547532e-08"
+    },
+    {
+      "name": "ctl_c2_j3",
+      "spice": ".meas tran ctl_c2_j3 FIND v(ctlcode) AT=3.547532e-08"
+    },
+    {
+      "name": "pc_c2_j4",
+      "spice": ".meas tran pc_c2_j4 FIND v(pcode) AT=3.657023e-08"
+    },
+    {
+      "name": "ctl_c2_j4",
+      "spice": ".meas tran ctl_c2_j4 FIND v(ctlcode) AT=3.657023e-08"
+    },
+    {
+      "name": "pc_c2_j5",
+      "spice": ".meas tran pc_c2_j5 FIND v(pcode) AT=3.766515e-08"
+    },
+    {
+      "name": "ctl_c2_j5",
+      "spice": ".meas tran ctl_c2_j5 FIND v(ctlcode) AT=3.766515e-08"
+    },
+    {
+      "name": "pc_c2_j6",
+      "spice": ".meas tran pc_c2_j6 FIND v(pcode) AT=3.876007e-08"
+    },
+    {
+      "name": "ctl_c2_j6",
+      "spice": ".meas tran ctl_c2_j6 FIND v(ctlcode) AT=3.876007e-08"
+    },
+    {
+      "name": "pc_c2_j7",
+      "spice": ".meas tran pc_c2_j7 FIND v(pcode) AT=3.985499e-08"
+    },
+    {
+      "name": "ctl_c2_j7",
+      "spice": ".meas tran ctl_c2_j7 FIND v(ctlcode) AT=3.985499e-08"
+    },
+    {
+      "name": "pc_c2_j8",
+      "spice": ".meas tran pc_c2_j8 FIND v(pcode) AT=4.094990e-08"
+    },
+    {
+      "name": "ctl_c2_j8",
+      "spice": ".meas tran ctl_c2_j8 FIND v(ctlcode) AT=4.094990e-08"
+    },
+    {
+      "name": "pc_c2_j9",
+      "spice": ".meas tran pc_c2_j9 FIND v(pcode) AT=4.204482e-08"
+    },
+    {
+      "name": "ctl_c2_j9",
+      "spice": ".meas tran ctl_c2_j9 FIND v(ctlcode) AT=4.204482e-08"
+    },
+    {
+      "name": "pc_c2_j10",
+      "spice": ".meas tran pc_c2_j10 FIND v(pcode) AT=4.313974e-08"
+    },
+    {
+      "name": "ctl_c2_j10",
+      "spice": ".meas tran ctl_c2_j10 FIND v(ctlcode) AT=4.313974e-08"
+    },
+    {
+      "name": "pc_c2_j11",
+      "spice": ".meas tran pc_c2_j11 FIND v(pcode) AT=4.423466e-08"
+    },
+    {
+      "name": "ctl_c2_j11",
+      "spice": ".meas tran ctl_c2_j11 FIND v(ctlcode) AT=4.423466e-08"
+    },
+    {
+      "name": "dout_c2",
+      "spice": ".meas tran dout_c2 FIND v(dcode) AT=4.313974e-08"
+    },
+    {
+      "name": "adc_c2",
+      "spice": ".meas tran adc_c2 FIND v(adccode) AT=4.313974e-08"
+    },
+    {
+      "name": "seln_c2",
+      "spice": ".meas tran seln_c2 FIND v(selncode) AT=4.313974e-08"
+    },
+    {
+      "name": "selp_c2",
+      "spice": ".meas tran selp_c2 FIND v(selpcode) AT=4.313974e-08"
+    },
+    {
+      "name": "pc_c3_j0",
+      "spice": ".meas tran pc_c3_j0 FIND v(pcode) AT=4.532957e-08"
+    },
+    {
+      "name": "ctl_c3_j0",
+      "spice": ".meas tran ctl_c3_j0 FIND v(ctlcode) AT=4.532957e-08"
+    },
+    {
+      "name": "pc_c3_j1",
+      "spice": ".meas tran pc_c3_j1 FIND v(pcode) AT=4.642449e-08"
+    },
+    {
+      "name": "ctl_c3_j1",
+      "spice": ".meas tran ctl_c3_j1 FIND v(ctlcode) AT=4.642449e-08"
+    },
+    {
+      "name": "pc_c3_j2",
+      "spice": ".meas tran pc_c3_j2 FIND v(pcode) AT=4.751941e-08"
+    },
+    {
+      "name": "ctl_c3_j2",
+      "spice": ".meas tran ctl_c3_j2 FIND v(ctlcode) AT=4.751941e-08"
+    },
+    {
+      "name": "pc_c3_j3",
+      "spice": ".meas tran pc_c3_j3 FIND v(pcode) AT=4.861432e-08"
+    },
+    {
+      "name": "ctl_c3_j3",
+      "spice": ".meas tran ctl_c3_j3 FIND v(ctlcode) AT=4.861432e-08"
+    },
+    {
+      "name": "pc_c3_j4",
+      "spice": ".meas tran pc_c3_j4 FIND v(pcode) AT=4.970924e-08"
+    },
+    {
+      "name": "ctl_c3_j4",
+      "spice": ".meas tran ctl_c3_j4 FIND v(ctlcode) AT=4.970924e-08"
+    },
+    {
+      "name": "pc_c3_j5",
+      "spice": ".meas tran pc_c3_j5 FIND v(pcode) AT=5.080416e-08"
+    },
+    {
+      "name": "ctl_c3_j5",
+      "spice": ".meas tran ctl_c3_j5 FIND v(ctlcode) AT=5.080416e-08"
+    },
+    {
+      "name": "pc_c3_j6",
+      "spice": ".meas tran pc_c3_j6 FIND v(pcode) AT=5.189908e-08"
+    },
+    {
+      "name": "ctl_c3_j6",
+      "spice": ".meas tran ctl_c3_j6 FIND v(ctlcode) AT=5.189908e-08"
+    },
+    {
+      "name": "pc_c3_j7",
+      "spice": ".meas tran pc_c3_j7 FIND v(pcode) AT=5.299399e-08"
+    },
+    {
+      "name": "ctl_c3_j7",
+      "spice": ".meas tran ctl_c3_j7 FIND v(ctlcode) AT=5.299399e-08"
+    },
+    {
+      "name": "pc_c3_j8",
+      "spice": ".meas tran pc_c3_j8 FIND v(pcode) AT=5.408891e-08"
+    },
+    {
+      "name": "ctl_c3_j8",
+      "spice": ".meas tran ctl_c3_j8 FIND v(ctlcode) AT=5.408891e-08"
+    },
+    {
+      "name": "pc_c3_j9",
+      "spice": ".meas tran pc_c3_j9 FIND v(pcode) AT=5.518383e-08"
+    },
+    {
+      "name": "ctl_c3_j9",
+      "spice": ".meas tran ctl_c3_j9 FIND v(ctlcode) AT=5.518383e-08"
+    },
+    {
+      "name": "pc_c3_j10",
+      "spice": ".meas tran pc_c3_j10 FIND v(pcode) AT=5.627874e-08"
+    },
+    {
+      "name": "ctl_c3_j10",
+      "spice": ".meas tran ctl_c3_j10 FIND v(ctlcode) AT=5.627874e-08"
+    },
+    {
+      "name": "pc_c3_j11",
+      "spice": ".meas tran pc_c3_j11 FIND v(pcode) AT=5.737366e-08"
+    },
+    {
+      "name": "ctl_c3_j11",
+      "spice": ".meas tran ctl_c3_j11 FIND v(ctlcode) AT=5.737366e-08"
+    },
+    {
+      "name": "dout_c3",
+      "spice": ".meas tran dout_c3 FIND v(dcode) AT=5.627874e-08"
+    },
+    {
+      "name": "adc_c3",
+      "spice": ".meas tran adc_c3 FIND v(adccode) AT=5.627874e-08"
+    },
+    {
+      "name": "seln_c3",
+      "spice": ".meas tran seln_c3 FIND v(selncode) AT=5.627874e-08"
+    },
+    {
+      "name": "selp_c3",
+      "spice": ".meas tran selp_c3 FIND v(selpcode) AT=5.627874e-08"
+    },
+    {
+      "name": "iavg_reset",
+      "spice": ".meas tran iavg_reset AVG i(Vdig) FROM=1.642376e-09 TO=3.832210e-09",
+      "unit": "A"
+    },
+    {
+      "name": "iavg_active",
+      "spice": ".meas tran iavg_active AVG i(Vdig) FROM=1.806613e-08 TO=5.748315e-08",
+      "unit": "A"
+    }
+  ],
+  "models": {
+    "lib": "libs.tech/combined/sky130.lib.spice",
+    "pdk": "sky130A"
+  },
+  "netlist": "tb.spice",
+  "options": {
+    "keep_artifacts": true,
+    "timeout_s": 7200.0
+  }
+}

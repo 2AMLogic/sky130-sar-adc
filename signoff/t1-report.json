@@ -9,7 +9,7 @@
   "tier": null,
   "t1_item_count": 22,
   "build_t1_item_count": 22,
-  "t1_met_count": 3,
+  "t1_met_count": 4,
   "source_doc": "docs/design-evidence-tiers.md",
   "source_doc_content_hash": "sha256:63eeec72e3d849761cf32dcf091af5728b069b1515e32bb3138e9454303671e5",
   "build": {
@@ -363,10 +363,18 @@
       "partition_boundary": "The sky130_fd_sc_hd standard-cell logic, placed and routed by OpenROAD via `klt place-and-route`: the (N+1)-stage walking-one ring sequencer and 10-bit SAR register (xseq, .subckt sar_sequencer) and the top-level standard-cell glue bank laid out as top_glue (the xand_seln*/xand_selp* SELn/SELp drivers of DR-008, xinv_clkcap, xinv_dout9n, the xxor_code* offset-binary recoding stage of DR-008, the xdum_mux_n/xdum_xnor_n matched comparator-output load and the xand_halflsb/xinv_halflsb enable pair of DR-009 -- 33 instances across 6 cell types, gated instance-for-instance against design/sar_adc_top.spice by layout/top-glue/bin/check-schematic-parity.py). Nets: CLK, RST_B, COMP_OUT, DOUT9..DOUT0, PH_B9..PH_B0, PH_EOC, PH_SAMPLE/SAMPLE_INT, BUSY, SELp8..SELp0, SELn8..SELn0, ADCOUT8..ADCOUT0, DOUT9N, HALF_LSB_EN, HALF_LSB_ENN, VPWR, VGND. Layout cells: sar_sequencer, top_glue (layout/sar-sequencer/, layout/top-glue/). COMPOSED since issue #401: layout/sar-adc-top/ places top_glue and halflsb_offset themselves -- the DR-008-superseded seln_inverters bank is retired from the composition (its records stay as append-only history), and the composition is re-derived from design/sar_adc_top.spice on every run and gated against it by layout/sar-adc-top/bin/check-composition-parity.py (npm run check:composition-parity), which also asserts that the LVS reference's own wrapper is derived rather than hand-maintained -- the gap issue #387 was filed for. Crossings (a boundary is only reviewable if its crossings are named) -- analog to digital: comparator.OUTP drives COMP_OUT into xseq. Digital to analog: SELn8..0/SELp8..0 drive the CDAC bottom plates, HALF_LSB_EN/HALF_LSB_ENN drive the DR-009 offset network, SAMPLE_INT (the sequencer's PH_SAMPLE) drives the sampling front end, and CLKN (xinv_clkcap) drives the comparator clock. The supplies are NOT shared across the boundary in the netlist -- the analog side is on VDD/GND and the standard cells on VPWR/VGND -- which is an item-11 question (issue #344), not an item-4 one.",
       "text": "one aggregated, current artifact summarizing per-spec-row performance across conditions, with the evidence record each verdict rests on (#309 tracks the aggregation tool). For a digital or mixed-signal digital partition this includes Fmax, area, and power across the corner set, not just functional pass/fail. Unlike every other T1 item, this one names no specific `klt` verb \u2014 there is no dedicated aggregation command, and its evidence may be a hand-assembled record (e.g. a committed Markdown characterization report) rather than one `klt` verb's own JSON output. `klt signoff --manifest` grades it via an opt-in **generic evidence envelope** (`\"kind\": \"generic\"`, issue #1152) \u2014 a minimal, hand-rolled JSON wrapper asserting `status: \"pass\"|\"fail\"` for whatever record backs it \u2014 and, unlike every other item, item 8 is the *only* T1 item this generic kind may satisfy: see `docs/cli/signoff.md`'s \"Generic evidence (opt-in, non-`klt`-native)\" section for the envelope shape and why items 3\u20137 keep rejecting it.",
       "notes": [],
-      "status": "unmet",
-      "reason": "no_evidence",
+      "status": "met",
+      "reason": null,
       "graded_by_build": true,
-      "citation": null
+      "citation": {
+        "file": "signoff/evidence/digital-characterization.generic.json",
+        "command": null,
+        "kind": "generic",
+        "check_status": "pass",
+        "content_hash": "sha256:84321265f40157da1ca3d03228d3e01e3816a91215d395293c6bd80be7a15e2b",
+        "input_verified": null,
+        "exit_status": 0
+      }
     },
     {
       "tier": "T1",

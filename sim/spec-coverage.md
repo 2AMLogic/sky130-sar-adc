@@ -37,7 +37,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 | Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
-| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20261001-105439-c324f80.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md` |
+| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/digital-partition` | `20261001-105439-c324f80.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md`<br>`20261010-132019-f757b0e.md` |
 | Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20261001-120402-d24f700.md`<br>`20260827-212404-e13bc1e.md` |
 
 ## Per-row detail
@@ -314,6 +314,15 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record`
 - Documented in: `sim/supply-impedance-sensitivity/README.md`
 - Evidence: `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`
+
+**`sim/digital-partition`** — Digital-rail power (idle/reset and active) and energy per conversion at the provisional 12 MHz operating point across the ratified corner set, with the digital partition's clock-frequency bracket and routed area (issue #619). The digital rail only, schematic level; reported informationally against this DRAFT row, and not an ADC power figure.
+
+- Testbench: `design/sar_adc_top.spice`
+- Deck note: No committed deck of its own: digital_char.build_netlist() assembles the deck from design/sar_adc_top.spice's sar_sequencer subcircuit and its 33 top-level sky130_fd_sc_hd glue instances; every probe's deck, request and report is committed under sim/digital-partition/corners/<record>/.
+- Runner: `sim/digital-partition/run_digital_partition.py`
+- Cold start: `python3 sim/digital-partition/run_digital_partition.py --record`
+- Documented in: `sim/digital-partition/run_digital_partition.py`
+- Evidence: `sim/digital-partition/records/20261010-132019-f757b0e.md`
 
 ### Corners
 
