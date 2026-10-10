@@ -221,9 +221,22 @@ def period_s(f_mhz: float) -> float:
     return 1e-6 / f_mhz
 
 
+#: Input edges must stay inside the standard-cell library's own transition
+#: limit (sky130_fd_sc_hd characterizes inputs up to ~1.5 ns) AND be realistic
+#: for an on-chip clock. 1-2 ns edges were tried to save solver steps and were
+#: found to corrupt cold-corner register captures (the ring skipped edges at
+#: tt / -40 C / 12 MHz; a sign-bit register mis-captured at fs / 27 C), and the
+#: same decks pass with 0.3 ns edges -- so a slow-edge failure is a stimulus
+#: artifact, not a design result, and edges are capped well below the library
+#: limit.
+RISE_MAX_S = 0.3e-9
+RISE_MIN_S = 10e-12
+STEP_DIVISOR = 2.0  # solver max step = edge time / STEP_DIVISOR
+
+
 def rise_time_s(f_mhz: float) -> float:
-    """Input edge time: 5 % of the period, clamped to [10 ps, 2 ns]."""
-    return min(2e-9, max(10e-12, 0.05 * period_s(f_mhz)))
+    """Input edge time: 5 % of the period, clamped to [RISE_MIN_S, RISE_MAX_S]."""
+    return min(RISE_MAX_S, max(RISE_MIN_S, 0.05 * period_s(f_mhz)))
 
 
 def edge_start_s(k: int, f_mhz: float) -> float:
@@ -554,15 +567,13 @@ def measurement_cards(f_mhz: float, checks: Sequence[Check] | None = None) -> li
 
 
 def max_step_s(f_mhz: float) -> float:
-    """Transient max / print step: one fifth of the input edge time.
-
-    A far coarser cap (T/100 at 12 MHz, i.e. ~0.8 ns against a 1 ns edge,
-    about one point per edge) was found to be NUMERICALLY UNSAFE: at one corner the same deck captured the
-    wrong sign bit with a T/100 cap and the right one with T/800, and with
-    the output loads removed. The step is therefore tied to the edge time,
-    the quantity that sets how finely the register capture instant must be
-    resolved, not to the period."""
-    return rise_time_s(f_mhz) / 5.0
+    """Transient max / print step: edge time / STEP_DIVISOR (about two points
+    per edge or finer). A cap of ~one point per 1 ns edge was the original
+    suspect for the slow-edge failures described at RISE_MAX_S; with fast edges
+    the corners that failed pass at 0.83 ns and at 0.06 ns steps alike, so the
+    step is a cost/accuracy trade, not a correctness knob, and is tied to the
+    edge time rather than the period."""
+    return rise_time_s(f_mhz) / STEP_DIVISOR
 
 
 def analysis_args(f_mhz: float, n_conv: int = len(CODES)) -> str:

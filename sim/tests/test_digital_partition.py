@@ -369,13 +369,17 @@ class TestDeckAndRequest(unittest.TestCase):
         req = dc.build_request("tb.spice", 12.0, ["tt_27c_1.80v"], batch={"capacity_wait_s": 5})
         self.assertEqual(req["batch"], {"capacity_wait_s": 5})
 
+    def test_edges_stay_within_the_library_transition_limit(self):
+        for f in (12.0, 24.0, 96.0, 1536.0, 6000.0):
+            self.assertLessEqual(dc.rise_time_s(f), 0.3e-9 + 1e-18)
+            self.assertGreaterEqual(dc.rise_time_s(f), 10e-12 - 1e-18)
+
     def test_time_step_is_tied_to_the_edge_not_the_period(self):
-        # a T/100 cap (0.83 ns at 12 MHz) against a 1 ns edge mis-captured a register
-        # at one corner; the step must resolve the edge finely at every frequency
+        # the solver step follows the (capped) edge time at every frequency
         for f in (12.0, 100.0, 1536.0, 6000.0):
-            self.assertLessEqual(dc.max_step_s(f), dc.rise_time_s(f) / 5.0 + 1e-18)
-            self.assertLessEqual(dc.max_step_s(f), dc.period_s(f) / 50.0 + 1e-18)
-        self.assertAlmostEqual(dc.max_step_s(12.0), 0.4e-9)
+            self.assertLessEqual(dc.max_step_s(f), dc.rise_time_s(f) / dc.STEP_DIVISOR + 1e-18)
+            self.assertLessEqual(dc.max_step_s(f), dc.period_s(f) / 30.0 + 1e-18)
+        self.assertAlmostEqual(dc.max_step_s(12.0), 0.15e-9, delta=1e-12)
         args = dc.analysis_args(12.0).split()
         self.assertEqual(float(args[0]), float(args[3]))
 
