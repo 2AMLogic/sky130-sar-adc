@@ -111,7 +111,10 @@ def make_submitter(workdir: Path, dut: dict, backend: str, runner=_default_runne
             for attempt in range(capacity_retries + 1):
                 rc, out, err = runner(argv)
                 try:
-                    report = json.loads(out)
+                    try:
+                        report = json.loads(out)
+                    except json.JSONDecodeError:
+                        report = json.loads(err)  # `klt` writes its error envelope to stderr (rc 1)
                 except json.JSONDecodeError as exc:
                     raise SubmitError(
                         f"klt sim ({backend}) at {f_mhz:.3f} MHz returned no JSON report "

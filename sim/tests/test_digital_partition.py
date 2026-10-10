@@ -440,7 +440,9 @@ class TestSubmitter(unittest.TestCase):
 
         def runner(argv):
             calls.append(argv)
-            return 0, outs.pop(0), ""
+            o = outs.pop(0)
+            # the real client writes its error envelope to STDERR with rc 1
+            return (1, "", o) if o is refusal else (0, o, "")
 
         with tempfile.TemporaryDirectory() as td:
             sub = rdp.make_submitter(Path(td), dut, "batch", runner, retry_wait_s=7, sleep=naps.append)
@@ -449,7 +451,7 @@ class TestSubmitter(unittest.TestCase):
             self.assertEqual(naps, [7, 7])
             self.assertTrue(all(c[c.index("--backend") + 1] == "batch" for c in calls))
             # retries are bounded, then the campaign stops with the fleet's own message
-            bad = rdp.make_submitter(Path(td) / "x", dut, "batch", lambda a: (1, refusal, ""),
+            bad = rdp.make_submitter(Path(td) / "x", dut, "batch", lambda a: (1, "", refusal),
                                      capacity_retries=2, sleep=lambda s: None)
             with self.assertRaises(rdp.SubmitError) as ctx:
                 bad(12.0, ["tt_27c_1.80v"])
