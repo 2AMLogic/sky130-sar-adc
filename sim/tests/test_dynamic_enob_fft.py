@@ -284,6 +284,86 @@ class TestRunSinePoint(unittest.TestCase):
         self.assertIn("INVALID", rc.format_sine_point(point))
 
 
+class TestOutlierDiagnostic(unittest.TestCase):
+    def _point(self, capture: dict) -> dict:
+        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n"), \
+                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(capture)):
+            return rc.run_sine_point(
+                "* netlist\n", None, Path("/nonexistent"),
+                tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
+            )
+
+    def _with_errors(self, errs: dict[int, int]) -> dict:
+        cap = _ideal_capture()
+        convs = tb.sine_measured_conversions()
+        for k, e in errs.items():
+            cap[convs[k]] += e
+        return self._point(cap)
+
+    def test_no_outlier(self):
+        d = self._point(_ideal_capture())["outlier_diag"]
+        self.assertEqual(d["outliers"], [])
+        self.assertEqual(d["max_abs_error"], 0)
+        self.assertIsNone(d["leave_out"])
+
+    def test_exactly_at_boundary_is_not_an_outlier(self):
+        b = rc.SINE_OUTLIER_BOUND_LSB
+        d = self._with_errors({3: b, 5: -b})["outlier_diag"]
+        self.assertEqual(d["outliers"], [])
+        self.assertEqual(d["max_abs_error"], b)
+
+    def test_beyond_boundary(self):
+        b = rc.SINE_OUTLIER_BOUND_LSB
+        point = self._with_errors({3: b + 1})
+        d = point["outlier_diag"]
+        self.assertEqual([o["sample"] for o in d["outliers"]], [3])
+        o = d["outliers"][0]
+        self.assertEqual(o["error"], b + 1)
+        self.assertEqual(o["captured"] - o["ideal"], b + 1)
+        self.assertEqual(o["conversion"], tb.sine_measured_conversions()[3])
+        # a validity-clean capture stays valid
+        self.assertEqual(rc.sine_point_problems(point), [])
+
+    def test_multiple_outliers_signed(self):
+        d = self._with_errors({2: -20, 9: 15, 11: 3})["outlier_diag"]
+        self.assertEqual([(o["sample"], o["error"]) for o in d["outliers"]], [(2, -20), (9, 15)])
+        self.assertEqual(d["max_abs_error"], 20)
+
+    def test_conversion_9_shaped(self):
+        point = self._with_errors({8: 438})
+        d = point["outlier_diag"]
+        self.assertEqual(len(d["outliers"]), 1)
+        self.assertEqual(d["outliers"][0]["conversion"], tb.sine_measured_conversions()[8])
+        self.assertEqual(d["max_abs_error"], 438)
+        # headline is the unmodified stream and far worse than the leave-out
+        self.assertEqual(point["codes"][8], point["ideal_codes"][8] + 438)
+        self.assertLess(point["analysis"]["sndr_db"], d["leave_out"]["sndr_db"] - 10)
+        self.assertAlmostEqual(d["leave_out"]["sndr_db"], point["ideal"]["sndr_db"], places=6)
+        self.assertIn("OUTLIER", rc.format_outlier_summary(point))
+
+    def test_record_labels_diagnostic_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = TestSineRecord()._write(self._with_errors({8: 438}), Path(tmp)).read_text()
+        self.assertIn("Per-code outlier diagnostic", text)
+        self.assertIn("DIAGNOSTIC-ONLY, NOT REPLACEMENT EVIDENCE", text)
+        self.assertIn("signed error +438 LSB", text)
+        self.assertNotIn("NOT A VALID MEASUREMENT", text)
+
+    def test_validity_failures_unchanged(self):
+        capture = _ideal_capture()
+        capture[tb.sine_measured_conversions()[3]] = None
+        point = self._point(capture)
+        self.assertIsNone(point["analysis"])
+        self.assertTrue(any("missing" in p for p in rc.sine_point_problems(point)))
+        self.assertEqual(point["outlier_diag"]["outliers"], [])
+        # wrong tone bin
+        bad = self._point({
+            c: 512 + round(300 * math.cos(2 * math.pi * 3 * i / tb.SINE_RECORD_N))
+            for i, c in enumerate(tb.sine_measured_conversions())
+        })
+        self.assertTrue(any("not the drive bin" in p for p in rc.sine_point_problems(bad)))
+
+
 class TestBehavioralReference(unittest.TestCase):
     def test_parses_latest_record(self):
         with tempfile.TemporaryDirectory() as tmp:

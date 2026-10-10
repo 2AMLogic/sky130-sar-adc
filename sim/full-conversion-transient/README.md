@@ -301,6 +301,33 @@ artifact and never commits or pushes). Record:
   unchanged.
 * Indexed under the ENOB row of `sim/spec-coverage.json`.
 
+**Per-code outlier diagnostic (issue #621).** `--coherent-sine` now reports,
+on the console and in every new record, a named *diagnostic* (not a validity
+criterion -- a large code error can be a real DUT result): the signed error
+`captured - ideal` per sample, the bound, the maximum |error|, and every
+outlier (sample, conversion, ideal, captured, signed error). The default bound
+is `SINE_OUTLIER_BOUND_LSB = 8` LSB, flagged when |error| is strictly greater:
+4x the +-2 LSB spread of the in-family codes in the first record and 8x the
+DC campaign's 1 LSB resolution, yet far below a glitch like conversion 9
+(+438). Headline SNDR/ENOB/SFDR always come from the complete, unmodified
+captured stream. Beside them the record gives a clearly labelled
+**DIAGNOSTIC-ONLY, NOT REPLACEMENT EVIDENCE** sensitivity: because an FFT needs
+the whole coherent record, the outlier samples are not deleted but have their
+error zeroed (ideal code substituted at those samples only) and the metrics
+and deltas recomputed. Existing validity failures (missing measurement, phase
+structure, wrong tone bin) are unchanged. Covered PDK-free by
+`TestOutlierDiagnostic` in `sim/tests/test_dynamic_enob_fft.py`.
+
+**Conversion 9 root cause: still OPEN.** Checked while implementing #621: the
+existing `--node-trace` / `--decision-margin-trace` modes probe conversions
+using the *DC* campaign's stimulus (`tb.input_fraction`, DC fragment), so they
+do **not** cover the coherent-sine conversion-9 input and timing context and
+cannot be reused as-is; a sine-fragment trace is needed. The pinned toolchain
+(`sim/toolchain.json`: ngspice >= 46) was unavailable on the implementing host
+(ngspice-42), where results are not valid evidence, so no trace was run, no
+mechanism is claimed, and no new record was minted. The first record and its
+corrections above stand.
+
 ## Findings
 
 The first recorded campaign (`records/LATEST`) is a **FAIL** at every ratified

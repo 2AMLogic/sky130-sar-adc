@@ -2311,6 +2311,59 @@ def analyze_sine_capture(
     return dict(ideal_codes=ideal_codes, ideal=ideal, analysis=analysis, analysis_error=error)
 
 
+# Per-code outlier bound (issue #621), in LSB of |captured - ideal|. A named
+# DIAGNOSTIC threshold, not a spec value and not a validity criterion. The
+# first pinned-toolchain capture (records/20261010-070734-f968286.md) has 31
+# of 32 codes within +-2 LSB of the ideal quantizer, and the DC corner
+# campaign resolves within 1 LSB; 8 LSB (4x the observed in-family spread, 8x
+# the DC bound) leaves a wide margin so ordinary settling/INL error never
+# trips it, while still catching anything of the order of a 3-bit-weight
+# decision error, well below the +438 LSB conversion-9 glitch.
+SINE_OUTLIER_BOUND_LSB = 8
+
+
+def sine_outlier_diagnostic(
+    codes: list[int | None],
+    ideal_codes: list[int],
+    conversions: list[int],
+    n: int,
+    tone_bin: int,
+    bound_lsb: int = SINE_OUTLIER_BOUND_LSB,
+) -> dict:
+    """Per-code error diagnostic. Signed error = captured - ideal; an outlier
+    is a sample with |error| STRICTLY greater than `bound_lsb`. Missing codes
+    are not outliers (they already make the capture unanalysable).
+
+    The sensitivity metrics are DIAGNOSTIC-ONLY: an FFT needs the full
+    coherent record, so "leaving the outliers out" is done by substituting the
+    ideal code at just the outlier samples (zeroing their error) and
+    re-analysing; every other sample is untouched. The captured stream itself
+    is never modified and the headline metrics always come from it."""
+    errors = [None if c is None else c - i for c, i in zip(codes, ideal_codes)]
+    present = [abs(e) for e in errors if e is not None]
+    outliers = [
+        dict(sample=k, conversion=conversions[k], ideal=ideal_codes[k],
+             captured=codes[k], error=e)
+        for k, e in enumerate(errors)
+        if e is not None and abs(e) > bound_lsb
+    ]
+    leave_out = None
+    if outliers:
+        idx = {o["sample"] for o in outliers}
+        patched = [ideal_codes[k] if k in idx else codes[k] for k in range(len(codes))]
+        try:
+            leave_out = dynamic_enob.analyze(patched, tone_bin, tb.N_BITS)
+        except ValueError:
+            leave_out = None
+    return dict(
+        bound_lsb=bound_lsb,
+        max_abs_error=max(present) if present else None,
+        errors=errors,
+        outliers=outliers,
+        leave_out=leave_out,
+    )
+
+
 def run_sine_point(
     netlist_text: str,
     pdk_info: pdk.PdkInfo,
@@ -2336,6 +2389,9 @@ def run_sine_point(
     conversions = tb.sine_measured_conversions(n)
     stream = decode_code_stream(parsed, supply_v, conversions)
     result = analyze_sine_capture(stream["codes"], n, tone_bin, amplitude_fraction)
+    result["outlier_diag"] = sine_outlier_diagnostic(
+        stream["codes"], result["ideal_codes"], conversions, n, tone_bin
+    )
     result.update(
         stream,
         conversions=conversions,
@@ -2378,6 +2434,32 @@ def sine_point_problems(point: dict) -> list[str]:
             f"largest non-DC bin is {a['peak_bin']}, not the drive bin {point['tone_bin']}"
         )
     return problems
+
+
+def format_outlier_summary(point: dict) -> str:
+    """Console lines for the per-code outlier diagnostic (never a validity
+    verdict)."""
+    d = point["outlier_diag"]
+    head = (
+        f"per-code outlier diagnostic: bound |error| > {d['bound_lsb']} LSB, "
+        f"max |error| = {d['max_abs_error']} LSB, {len(d['outliers'])} outlier(s)"
+    )
+    out = [head]
+    for o in d["outliers"]:
+        out.append(
+            f"  OUTLIER sample {o['sample']} conversion {o['conversion']}: ideal "
+            f"{o['ideal']}, captured {o['captured']}, error {o['error']:+d} LSB"
+        )
+    lo, a = d["leave_out"], point["analysis"]
+    if lo is not None and a is not None:
+        out.append(
+            f"  DIAGNOSTIC-ONLY (outlier error zeroed; headline above is the "
+            f"unmodified stream): SNDR={lo['sndr_db']:.2f} dB "
+            f"({lo['sndr_db'] - a['sndr_db']:+.2f}) ENOB={lo['enob_bit']:.3f} bit "
+            f"({lo['enob_bit'] - a['enob_bit']:+.3f}) SFDR={lo['sfdr_db']:.2f} dB "
+            f"({lo['sfdr_db'] - a['sfdr_db']:+.2f})"
+        )
+    return "\n".join(out)
 
 
 def format_sine_point(point: dict) -> str:
@@ -2491,6 +2573,34 @@ def write_sine_record(
             + ". The figures above are what the FFT returns for the captured "
             "stream, recorded as-is (append-only evidence), but they are not an "
             "SNDR/ENOB of the design and no delta below may be read as one."
+        )
+    d = point["outlier_diag"]
+    add(
+        f"- **Per-code outlier diagnostic (issue #621; a named DIAGNOSTIC, not a "
+        f"validity criterion)**: bound |captured - ideal| > {d['bound_lsb']} LSB; "
+        f"max |error| = {d['max_abs_error']} LSB; outliers = **{len(d['outliers'])}** "
+        f"of {n}. "
+        + ("OUTLIER PRESENT -- the headline figures above are set by these "
+           "conversions, not by the converter's general dynamic performance. "
+           if d["outliers"] else "")
+        + "The headline SNDR/ENOB/SFDR above are computed from the complete, "
+        "unmodified captured stream."
+    )
+    for o in d["outliers"]:
+        add(
+            f"  - outlier: sample {o['sample']}, conversion {o['conversion']}, ideal "
+            f"{o['ideal']}, captured {o['captured']}, signed error {o['error']:+d} LSB"
+        )
+    if d["outliers"] and d["leave_out"] is not None and a is not None:
+        lo = d["leave_out"]
+        add(
+            "  - **DIAGNOSTIC-ONLY, NOT REPLACEMENT EVIDENCE** -- sensitivity with the "
+            "outlier samples' error zeroed (ideal code substituted at those samples "
+            "only, to keep the coherent record whole): "
+            f"SNDR {lo['sndr_db']:.2f} dB ({lo['sndr_db'] - a['sndr_db']:+.2f} dB vs "
+            f"headline), ENOB {lo['enob_bit']:.3f} bit "
+            f"({lo['enob_bit'] - a['enob_bit']:+.3f}), SFDR {lo['sfdr_db']:.2f} dB "
+            f"({lo['sfdr_db'] - a['sfdr_db']:+.2f}). The captured stream is unchanged."
         )
     add(
         "- **Data provenance**: transient simulation of the schematic netlist at a "
@@ -2804,6 +2914,7 @@ def main() -> int:
             )
             if not args.quiet:
                 print("  " + format_sine_point(point), flush=True)
+                print("  " + format_outlier_summary(point).replace("\n", "\n  "), flush=True)
             if args.record:
                 written_by = "sim/full-conversion-transient/run_conversion.py --coherent-sine --record"
                 for flag, value, default in (
