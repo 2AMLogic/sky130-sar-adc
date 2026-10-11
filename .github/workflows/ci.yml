@@ -249,6 +249,13 @@ on:
           tolerance + Gear integration; DUT and stimulus unmodified).
         type: boolean
         default: false
+      coherent_sine_solver_profile:
+        description: >-
+          Optional (issue #637), coherent_sine_evidence only: a named solver
+          profile for --solver-profile (e.g. reltol-only, gear-only). Any
+          profile but ngspice-default is a labelled SOLVER CONTROL.
+        type: string
+        default: ""
       coherent_sine_supersedes:
         description: >-
           Optional, coherent_sine_evidence only: record-id for --supersedes
@@ -691,6 +698,7 @@ jobs:
           SINE_SWITCH_TRACE: ${{ inputs.coherent_sine_switch_trace }}
           SINE_SUPERSEDES: ${{ inputs.coherent_sine_supersedes }}
           SINE_SOLVER_CONTROL: ${{ inputs.coherent_sine_solver_control }}
+          SINE_SOLVER_PROFILE: ${{ inputs.coherent_sine_solver_profile }}
         run: |
           set +e
           extra=()
@@ -709,6 +717,12 @@ jobs:
           fi
           if [[ "$SINE_SOLVER_CONTROL" == "true" ]]; then
             extra+=(--sine-solver-control)
+          fi
+          if [[ -n "$SINE_SOLVER_PROFILE" ]]; then
+            if [[ ! "$SINE_SOLVER_PROFILE" =~ ^[a-z-]+$ ]]; then
+              echo "::error::SINE_SOLVER_PROFILE must be one profile name"; exit 1
+            fi
+            extra+=(--solver-profile "$SINE_SOLVER_PROFILE")
           fi
           python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record "${extra[@]}" 2>&1 | tee /tmp/coherent-sine-run.log
           rc=${PIPESTATUS[0]}

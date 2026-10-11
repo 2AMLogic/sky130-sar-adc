@@ -1,6 +1,6 @@
 """PDK-free unit tests for the full-conversion transient solver policy and the
 DC baseline solver-sensitivity audit (issue #637,
-spec/decision-records/DR-022-full-conversion-transient-solver-policy.md).
+spec/decision-records/DR-023-full-conversion-transient-solver-policy.md).
 
 What is pinned here, because a five-minute-per-run simulation is the wrong
 place to discover it:

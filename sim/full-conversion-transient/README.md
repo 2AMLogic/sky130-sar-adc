@@ -54,6 +54,12 @@ python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record
 #   SIM_NGSPICE_TIMEOUT_S=5400 on a slow host; the 120 s default is too short)
 python3 sim/full-conversion-transient/run_conversion.py --corners --record \
     --supersedes <record-id>   # name the prior record this one replaces (e.g. after a design/ fix)
+python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record
+# ^ issue #637 solver-sensitivity audit of the baseline corner (4 sequential
+#   transients; set SIM_NGSPICE_TIMEOUT_S=5400). Off-host on the pinned
+#   toolchain: dispatch CI with full_conversion_solver_audit=true.
+python3 sim/full-conversion-transient/run_conversion.py --record --solver-profile reltol-gear
+# ^ a single labelled SOLVER-CONTROL baseline run (never moves records/LATEST)
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
@@ -103,7 +109,8 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | `diagnostics/<record-id>/node-trace-<corner-id>.log` | `--node-trace` raw output (issue #259, see below) — on the **unmodified** DUT, unlike the mechanism probe. |
 | `diagnostics/<record-id>/cm-trace-<corner-id>.log` | `--cm-trace` raw output (issue #265, see below) — on the **unmodified** DUT. |
 | `diagnostics/<record-id>/decision-margin-<variant>-<corner-id>.log` | `--decision-margin-trace` raw output (issue #263 / DR-009, see below). Two variants per corner: `as-committed` (unmodified DUT) and `unbalanced-control` (testbench-only modification — never a corner result). |
-| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace`/`--decision-margin-trace` records are separate, targeted diagnostics and never update `LATEST`; neither do `--coherent-sine` records. |
+| `diagnostics/<record-id>/solver-audit-<profile>-<corner-id>.log` | `--solver-audit` raw output, one per solver profile (issue #637, see "Transient solver policy" below). |
+| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace`/`--decision-margin-trace` records are separate, targeted diagnostics and never update `LATEST`; neither do `--coherent-sine` records, `--solver-audit` records, or any SOLVER-CONTROL (`--solver-profile` other than `ngspice-default`) record. |
 
 ## Deck assembly: the two load-bearing details
 
@@ -438,8 +445,8 @@ part is arithmetic, not a finding. Consequences:
   are unchanged.
 * Every other transient record in this repo uses the same default solver
   settings. Whether any of them carries a similar artefact is outside this
-  issue's scope and is tracked as a follow-up; no other record is
-  reinterpreted here.
+  issue's scope and is tracked as a follow-up (issue #637; see "Transient
+  solver policy" below); no other record is reinterpreted here.
 
 `20261011-021527-8d0c19a` **Supersedes** `20261010-204225-57a55c1`, and
 `20261011-022915-877794b` **Supersedes** `20261011-021527-8d0c19a`. Each is

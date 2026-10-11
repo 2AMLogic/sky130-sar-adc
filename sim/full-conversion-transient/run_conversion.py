@@ -68,7 +68,7 @@ conversion, SNDR/ENOB by the stdlib-only FFT in `dynamic_enob.py`. Baseline
 corner only; an informational cross-check of `sim/enob-estimate/`'s
 behavioral-accelerated composite, never a grade of the DRAFT ENOB row.
 
-SOLVER POLICY (issue #637, DR-022). Transient solver settings are a named
+SOLVER POLICY (issue #637, DR-023). Transient solver settings are a named
 profile resolved at deck assembly (SOLVER_PROFILES / `--solver-profile`).
 The reference profile `ngspice-default` adds no `.options` card; any other
 profile is a labelled SOLVER CONTROL that never moves records/LATEST and may
@@ -117,7 +117,7 @@ CODE_TOLERANCE_LSB = 1
 
 
 # --------------------------------------------------------------------------
-# Transient solver policy (issue #637; spec/decision-records/DR-022-...)
+# Transient solver policy (issue #637; spec/decision-records/DR-023-full-conversion-transient-solver-policy.md)
 # --------------------------------------------------------------------------
 # Solver settings are a NAMED POLICY resolved once at deck assembly
 # (`assemble_deck(solver_profile=...)`), never an `.options` string spliced
@@ -4219,7 +4219,7 @@ def main() -> int:
     )
     ap.add_argument(
         "--solver-profile", choices=tuple(SOLVER_PROFILES), default=None,
-        help="transient solver policy (issue #637; DR-022). Default "
+        help="transient solver policy (issue #637; DR-023). Default "
         f"`{REFERENCE_SOLVER_PROFILE}` (the reference policy: ngspice defaults, no "
         "`.options` card). Any other profile is a labelled SOLVER CONTROL: allowed "
         "for the baseline-corner DC run and --coherent-sine only, never with "
