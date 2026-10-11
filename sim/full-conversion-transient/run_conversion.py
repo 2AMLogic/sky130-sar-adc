@@ -2423,6 +2423,400 @@ def decode_sine_trace(
                 rail_excursions=excursions)
 
 
+# --- issue #621: switching-event trace of one coherent-sine conversion ------
+#
+# The per-phase `--sine-trace` above samples TOP_P/TOP_N at two instants per
+# phase. That localised conversion 9's anomaly to one analog event (TOP_P
+# leaving the rails inside phase 5) but cannot say WHICH plate or control
+# moved. This trace answers that with read-only `.meas` probes on the SAME
+# transient:
+#   1. WHEN-crossing times of every digital node that steers the DAC or the
+#      sequencer (DOUT9..0, SELp/SELn8..0, the PH_B ring, PH_EOC, BUSY,
+#      BUSY_BITS, SAMPLE_INT): the first SWITCH_TRACE_MAX_EDGES rises and
+#      falls inside the conversion window. Each is classified against the
+#      SAR's own edge schedule (below) as scheduled or UNSCHEDULED -- an
+#      observation about timing, not a mechanism.
+#   2. The instant a comparator-input top plate first leaves the rails
+#      (WHEN v(TOP_x) = -SWITCH_TRACE_RAIL_V), and every probed node's value
+#      at that instant (FIND ... WHEN).
+#   3. Per-phase snapshots of the same nodes plus the P/N DAC bottom plates,
+#      the sampling front-end's floating plates and boosted gates.
+# Node names are the DUT's own (top-level) or `<instance>.<node>` for the
+# sequencer/CDAC/front-end internals -- the netlist's top level is flat
+# (`**.subckt sar_adc_top` is commented out), so `xseq`, `xcdac` and `xfe`
+# are top-level instances.
+
+SWITCH_TRACE_MAX_EDGES = 3
+# An edge-triggered transition (clk-to-q + one or two gates) lands within a
+# few ns of the CLK rising edge's 50% point; 8 ns is ~10% of the 83.3 ns
+# period, generous for these standard cells yet far from mid-period.
+SWITCH_TRACE_EDGE_WINDOW_NS = (-1.0, 8.0)
+# Top-plate "left the rails" threshold for the WHEN probe: well outside the
+# +/-0.05 V rail tolerance of decode_sine_trace(), and never reached by a
+# normal staircase (which stays inside [0, V_DD]).
+SWITCH_TRACE_RAIL_V = 0.2
+# Snapshot instants within each phase, as offsets from that phase's CLK
+# rising edge: after the register update, mid CLK-high, just after the CLK
+# falling edge (comparator strobe), mid CLK-low, and 1 ns before the next
+# capturing edge.
+SWITCH_TRACE_SNAPSHOT_OFFSETS_NS = (
+    ("post", 4.0),
+    ("mid", tb.T_CLK_NS * 0.25),
+    ("strobe", tb.T_CLK_NS * 0.5 + 3.0),
+    ("late", tb.T_CLK_NS * 0.75),
+    ("pre", tb.T_CLK_NS - 1.0),
+)
+
+
+def _switch_trace_digital_nodes() -> list[str]:
+    nodes = [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+    nodes += [f"SELp{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"SELn{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"xseq.PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+    nodes += ["xseq.PH_EOC", "BUSY", "xseq.BUSY_BITS", "SAMPLE_INT"]
+    return nodes
+
+
+def _switch_trace_analog_nodes() -> list[str]:
+    nodes = ["CLK", "CLKN", "COMP_OUT", "OUTN_NC", "xseq.COMP_EFF", "TOP_P", "TOP_N",
+             "BPREF_P_NC", "BPREF_N_NC", "xfe.G_P", "xfe.G_N", "VINP", "VINN"]
+    nodes += [f"xcdac.BOT_p{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"xcdac.BOT_n{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    return nodes
+
+
+def _meas_tag(node: str) -> str:
+    """A `.meas`-name-safe, lower-case tag for a (possibly hierarchical) node."""
+    return node.lower().replace(".", "_")
+
+
+def switch_trace_window_ns(conversion: int) -> tuple[float, float]:
+    """[from, to] of the event probes: from just before the sampling edge
+    (12c) to just after edge 12c+11, where the code registers are cleared."""
+    base = tb.PHASES_PER_CONVERSION * conversion
+    return tb.t_edge_ns(base) - 2.0, tb.t_edge_ns(base + tb.PHASES_PER_CONVERSION - 1) + 10.0
+
+
+def switch_trace_expected_edges(conversion: int) -> dict[str, set[tuple[int, str]]]:
+    """For each digital node, the (edge index, direction) pairs at which the
+    SAR's OWN schedule (design/sar_adc_top.spice's sequencer, read from the
+    netlist, not from any other design) can move it during conversion c.
+    Edge 12c+p starts phase p (p=0 is PH_B9, p=10 PH_EOC, p=11 PH_SAMPLE):
+
+    * PH_B(9-p) rises at 12c+p and falls at 12c+p+1; PH_EOC rises at 12c+10
+      and falls at 12c+11. BUSY and SAMPLE_INT switch at 12c and 12c+11;
+      BUSY_BITS rises at 12c and falls at 12c+10.
+    * DOUT_k (k <= 8) is preset (rises) at 12c+9-k for its trial, falls at
+      12c+10-k if the trial is rejected, and is cleared (falls) at 12c+11.
+    * DOUT9 can change (either way) only at 12c+1 (the MSB capture).
+    * SELp_k = DOUT9 & DOUT_k, SELn_k = !DOUT9 & DOUT_k: either direction at
+      any edge where DOUT_k or DOUT9 may change.
+
+    A transition at any other edge, or more than SWITCH_TRACE_EDGE_WINDOW_NS
+    after a CLK rising edge, is UNSCHEDULED (observation)."""
+    base = tb.PHASES_PER_CONVERSION * conversion
+    last = tb.PHASES_PER_CONVERSION - 1  # 11: PH_SAMPLE
+    exp: dict[str, set[tuple[int, str]]] = {}
+    for p in range(tb.N_BITS):
+        b = tb.N_BITS - 1 - p
+        exp[f"xseq.PH_B{b}"] = {(base + p, "rise"), (base + p + 1, "fall")}
+    exp["xseq.PH_EOC"] = {(base + tb.N_BITS, "rise"), (base + last, "fall")}
+    exp["BUSY"] = {(base, "rise"), (base + last, "fall")}
+    exp["SAMPLE_INT"] = {(base, "fall"), (base + last, "rise")}
+    exp["xseq.BUSY_BITS"] = {(base, "rise"), (base + tb.N_BITS, "fall")}
+    msb = {(base + 1, "rise"), (base + 1, "fall")}
+    exp[f"DOUT{tb.N_BITS - 1}"] = set(msb)
+    for k in range(tb.N_BITS - 1):
+        dk = {(base + 9 - k, "rise"), (base + 10 - k, "fall"), (base + last, "fall")}
+        exp[f"DOUT{k}"] = dk
+        either = {(e, d) for e, _ in dk | msb for d in ("rise", "fall")}
+        exp[f"SELp{k}"] = set(either)
+        exp[f"SELn{k}"] = set(either)
+    return exp
+
+
+def _switch_prefix(conversion: int) -> str:
+    return f"sw_c{conversion}"
+
+
+def switch_trace_names(conversion: int) -> dict:
+    """Every `.meas` name this trace emits, grouped for decoding."""
+    pre = _switch_prefix(conversion)
+    events = {
+        node: {
+            (d, i): f"{pre}_{_meas_tag(node)}_{d}{i}"
+            for d in ("rise", "fall") for i in range(1, SWITCH_TRACE_MAX_EDGES + 1)
+        }
+        for node in _switch_trace_digital_nodes()
+    }
+    all_nodes = _switch_trace_digital_nodes() + _switch_trace_analog_nodes()
+    excursion = {
+        top: dict(
+            t=f"{pre}_{_meas_tag(top)}_off_t",
+            at={node: f"{pre}_{_meas_tag(top)}_off_{_meas_tag(node)}" for node in all_nodes},
+        )
+        for top in ("TOP_P", "TOP_N")
+    }
+    snapshots = {
+        (p, tag): {node: f"{pre}_p{p}_{tag}_{_meas_tag(node)}" for node in all_nodes}
+        for p in range(tb.PHASES_PER_CONVERSION - 1)
+        for tag, _ in SWITCH_TRACE_SNAPSHOT_OFFSETS_NS
+    }
+    return dict(events=events, excursion=excursion, snapshots=snapshots)
+
+
+def switch_trace_flat_names(conversion: int) -> list[str]:
+    names = switch_trace_names(conversion)
+    out = [n for per in names["events"].values() for n in per.values()]
+    for ex in names["excursion"].values():
+        out.append(ex["t"])
+        out += list(ex["at"].values())
+    for per in names["snapshots"].values():
+        out += list(per.values())
+    return out
+
+
+def switch_trace_measure_lines(conversion: int, supply_v: float) -> list[str]:
+    """Read-only `.meas` cards for the switching-event trace of one
+    coherent-sine conversion. Adds probes only; DUT and stimulus untouched."""
+    names = switch_trace_names(conversion)
+    t_from, t_to = switch_trace_window_ns(conversion)
+    thr = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
+    base = tb.PHASES_PER_CONVERSION * conversion
+    lines = [
+        f"* --- issue #621 switching-event trace, conversion {conversion} "
+        "(read-only probes; DUT and stimulus unmodified) ---",
+    ]
+    for node, per in names["events"].items():
+        for (d, i), name in per.items():
+            lines.append(
+                f".meas tran {name} when v({node})={thr:.4f} {d}={i} "
+                f"from={t_from:.4f}n to={t_to:.4f}n"
+            )
+    for top, ex in names["excursion"].items():
+        cond = f"v({top})={-SWITCH_TRACE_RAIL_V:.4f} fall=1 from={t_from:.4f}n to={t_to:.4f}n"
+        lines.append(f".meas tran {ex['t']} when {cond}")
+        for node, name in ex["at"].items():
+            lines.append(f".meas tran {name} find v({node}) when {cond}")
+    for (p, tag), per in names["snapshots"].items():
+        offset = dict(SWITCH_TRACE_SNAPSHOT_OFFSETS_NS)[tag]
+        t = tb.t_edge_ns(base + p) + offset
+        for node, name in per.items():
+            lines.append(f".meas tran {name} find v({node}) at={t:.4f}n")
+    return lines
+
+
+def classify_switch_event(
+    node: str, t_ns: float, expected: dict[str, set[tuple[int, str]]], direction: str
+) -> dict:
+    """Place one transition on the CLK grid: the nearest preceding rising
+    edge index, the offset after it, the phase within the conversion grid,
+    and whether the SAR's own schedule allows it there (observation)."""
+    # 1e-9 period guard: a transition exactly at the window's early bound
+    # must not round onto the previous edge.
+    k = math.floor((t_ns - tb.T_FIRST_EDGE_NS - SWITCH_TRACE_EDGE_WINDOW_NS[0]) / tb.T_CLK_NS + 1e-9)
+    offset = t_ns - tb.t_edge_ns(k)
+    lo, hi = SWITCH_TRACE_EDGE_WINDOW_NS
+    on_edge = lo <= offset <= hi
+    scheduled = on_edge and (k, direction) in expected.get(node, set())
+    return dict(node=node, direction=direction, t_ns=t_ns, edge=k, offset_ns=offset,
+                on_edge=on_edge, scheduled=scheduled)
+
+
+def decode_switch_trace(parsed: dict, conversion: int, supply_v: float) -> dict:
+    """Decode the switching-event trace into a time-ordered event list
+    (each classified scheduled / UNSCHEDULED), the first top-plate rail
+    excursion with every node's value at that instant, and the snapshots.
+    Observations only; the mechanism is the record prose's job."""
+    names = switch_trace_names(conversion)
+    expected = switch_trace_expected_edges(conversion)
+    base = tb.PHASES_PER_CONVERSION * conversion
+    events = []
+    saturated = []
+    for node, per in names["events"].items():
+        for d in ("rise", "fall"):
+            for i in range(1, SWITCH_TRACE_MAX_EDGES + 1):
+                v = parsed.get(per[(d, i)])
+                if v is None:
+                    break
+                ev = classify_switch_event(node, v * 1e9, expected, d)
+                ev["phase"] = ev["edge"] - base
+                events.append(ev)
+                if i == SWITCH_TRACE_MAX_EDGES:
+                    saturated.append((node, d))
+    events.sort(key=lambda e: (e["t_ns"], e["node"]))
+    unscheduled = [e for e in events if not e["scheduled"]]
+    excursions = {}
+    for top, ex in names["excursion"].items():
+        t = parsed.get(ex["t"])
+        if t is None:
+            excursions[top] = None
+            continue
+        t_ns = t * 1e9
+        k = math.floor((t_ns - tb.T_FIRST_EDGE_NS) / tb.T_CLK_NS)
+        excursions[top] = dict(
+            t_ns=t_ns, edge=k, phase=k - base, offset_ns=t_ns - tb.t_edge_ns(k),
+            values={node: parsed.get(name) for node, name in ex["at"].items()},
+        )
+    snapshots = {
+        key: {node: parsed.get(name) for node, name in per.items()}
+        for key, per in names["snapshots"].items()
+    }
+    return dict(conversion=conversion, supply_v=supply_v, events=events,
+                unscheduled=unscheduled, first_unscheduled=(unscheduled[0] if unscheduled else None),
+                saturated=saturated, excursions=excursions, snapshots=snapshots)
+
+
+def _logic_char(v: float | None, supply_v: float) -> str:
+    """'1'/'0' against 50% V_DD, 'x' inside the 20..80% V_DD band (a node
+    mid-transition or not driven to a rail), '?' if the probe is missing."""
+    if v is None:
+        return "?"
+    if 0.2 * supply_v < v < 0.8 * supply_v:
+        return "x"
+    return "1" if v > tb.DIGITAL_THRESHOLD_FRACTION * supply_v else "0"
+
+
+def _logic_word(values: dict, nodes: list[str], supply_v: float) -> str:
+    return "".join(_logic_char(values.get(n), supply_v) for n in nodes)
+
+
+_SW_DOUT = [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+_SW_SELP = [f"SELp{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_SELN = [f"SELn{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_RING = [f"xseq.PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)] + ["xseq.PH_EOC"]
+_SW_BOTP = [f"xcdac.BOT_p{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_BOTN = [f"xcdac.BOT_n{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+
+
+def switch_trace_record_lines(switch_traces: list[dict]) -> list[str]:
+    out: list[str] = []
+    add = out.append
+    lo, hi = SWITCH_TRACE_EDGE_WINDOW_NS
+    add("## Switching-event trace (issue #621; read-only probes on the same run)")
+    add("")
+    add(
+        "Raw `.meas` values from the SAME transient as the code stream above "
+        "(probes appended after the stimulus; DUT and stimulus unmodified). "
+        "OBSERVED = the times, words and voltages below. A transition is "
+        f"*scheduled* when it lands {lo:g}..+{hi:g} ns from a CLK rising edge at "
+        "which the SAR's own sequencer can move that node "
+        "(`switch_trace_expected_edges()` documents the schedule, derived from "
+        "`design/sar_adc_top.spice`); anything else is **UNSCHEDULED**. That is a "
+        "timing observation, not a mechanism. Digital words are MSB first; "
+        "`1`/`0` against 50% V_DD, `x` = inside the 20..80% V_DD band, `?` = "
+        "probe missing. The ring word is PH_B9..PH_B0 then PH_EOC. Every value "
+        "here is also in the retained ngspice log."
+    )
+    add("")
+    for st in switch_traces:
+        c, vdd = st["conversion"], st["supply_v"]
+        add(f"### Conversion {c}")
+        add("")
+        fu = st["first_unscheduled"]
+        add(
+            "- **First UNSCHEDULED transition (observed)**: "
+            + ("none." if fu is None else
+               f"`{fu['node']}` {fu['direction']} at {fu['t_ns']:.3f} ns = phase "
+               f"{fu['phase']}, {fu['offset_ns']:+.2f} ns from its CLK rising edge.")
+        )
+        add(f"- **UNSCHEDULED transitions in the window (observed)**: {len(st['unscheduled'])}.")
+        if st["saturated"]:
+            add(
+                "- **Edge-count limit reached** (more transitions may exist past "
+                f"the {SWITCH_TRACE_MAX_EDGES} probed per direction): "
+                + ", ".join(f"`{n}` {d}" for n, d in st["saturated"]) + "."
+            )
+        for top in ("TOP_P", "TOP_N"):
+            ex = st["excursions"].get(top)
+            add(
+                f"- **{top} first below -{SWITCH_TRACE_RAIL_V:g} V (observed)**: "
+                + ("never in the window." if ex is None else
+                   f"{ex['t_ns']:.3f} ns = phase {ex['phase']}, "
+                   f"{ex['offset_ns']:+.2f} ns from its CLK rising edge.")
+            )
+        add("")
+        add("#### Transitions (time-ordered)")
+        add("")
+        add("| t (ns) | phase | from CLK rise (ns) | node | direction | schedule |")
+        add("|---|---|---|---|---|---|")
+        for e in st["events"]:
+            add(
+                f"| {e['t_ns']:.3f} | {e['phase']} | {e['offset_ns']:+.2f} | `{e['node']}` | "
+                f"{e['direction']} | {'scheduled' if e['scheduled'] else '**UNSCHEDULED**'} |"
+            )
+        add("")
+        for top in ("TOP_P", "TOP_N"):
+            ex = st["excursions"].get(top)
+            if ex is None:
+                continue
+            v = ex["values"]
+            fmt = lambda x: "n/a" if x is None else f"{x:.4f}"
+            add(f"#### Node values at the instant {top} crosses -{SWITCH_TRACE_RAIL_V:g} V")
+            add("")
+            add(
+                f"DOUT9..0 `{_logic_word(v, _SW_DOUT, vdd)}`, SELp8..0 "
+                f"`{_logic_word(v, _SW_SELP, vdd)}`, SELn8..0 `{_logic_word(v, _SW_SELN, vdd)}`, "
+                f"ring `{_logic_word(v, _SW_RING, vdd)}`, BUSY/BUSY_BITS/SAMPLE_INT "
+                f"`{_logic_word(v, ['BUSY', 'xseq.BUSY_BITS', 'SAMPLE_INT'], vdd)}`."
+            )
+            add("")
+            add("| node | V |")
+            add("|---|---|")
+            for node in _switch_trace_analog_nodes():
+                add(f"| `{node}` | {fmt(v.get(node))} |")
+            add("")
+        add("#### Per-phase snapshots")
+        add("")
+        add(
+            "Instants are offsets from each phase's CLK rising edge: "
+            + ", ".join(f"`{t}` = +{o:.1f} ns" for t, o in SWITCH_TRACE_SNAPSHOT_OFFSETS_NS)
+            + "."
+        )
+        add("")
+        add("| phase | instant | DOUT9..0 | SELp8..0 | SELn8..0 | ring | BUSY/BB/SMP | "
+            "CLK | COMP_OUT | OUTN_NC | TOP_P | TOP_N | BPREF_P | BPREF_N | G_P | G_N | "
+            "BOT_p8..0 (V) | BOT_n8..0 (V) |")
+        add("|" + "---|" * 18)
+        fmt = lambda x: "n/a" if x is None else f"{x:.3f}"
+        for (p, tag), v in st["snapshots"].items():
+            add(
+                f"| {p} | {tag} | `{_logic_word(v, _SW_DOUT, vdd)}` | "
+                f"`{_logic_word(v, _SW_SELP, vdd)}` | `{_logic_word(v, _SW_SELN, vdd)}` | "
+                f"`{_logic_word(v, _SW_RING, vdd)}` | "
+                f"`{_logic_word(v, ['BUSY', 'xseq.BUSY_BITS', 'SAMPLE_INT'], vdd)}` | "
+                f"{fmt(v.get('CLK'))} | {fmt(v.get('COMP_OUT'))} | {fmt(v.get('OUTN_NC'))} | "
+                f"{fmt(v.get('TOP_P'))} | {fmt(v.get('TOP_N'))} | "
+                f"{fmt(v.get('BPREF_P_NC'))} | {fmt(v.get('BPREF_N_NC'))} | "
+                f"{fmt(v.get('xfe.G_P'))} | {fmt(v.get('xfe.G_N'))} | "
+                + " ".join(fmt(v.get(n)) for n in _SW_BOTP) + " | "
+                + " ".join(fmt(v.get(n)) for n in _SW_BOTN) + " |"
+            )
+        add("")
+    return out
+
+
+def format_switch_trace_summary(st: dict) -> str:
+    c = st["conversion"]
+    out = [f"Switching-event trace, conversion {c} (observed):"]
+    fu = st["first_unscheduled"]
+    out.append(
+        "  first UNSCHEDULED transition: "
+        + ("none" if fu is None else
+           f"{fu['node']} {fu['direction']} at {fu['t_ns']:.3f} ns = phase {fu['phase']} "
+           f"+{fu['offset_ns']:.2f} ns after its CLK rising edge")
+    )
+    out.append(f"  unscheduled transitions: {len(st['unscheduled'])}")
+    for top in ("TOP_P", "TOP_N"):
+        ex = st["excursions"].get(top)
+        out.append(
+            f"  {top} below -{SWITCH_TRACE_RAIL_V:g} V: "
+            + ("never" if ex is None else
+               f"at {ex['t_ns']:.3f} ns = phase {ex['phase']} +{ex['offset_ns']:.2f} ns")
+        )
+    return "\n".join(out)
+
+
 def run_sine_point(
     netlist_text: str,
     pdk_info: pdk.PdkInfo,
@@ -2432,6 +2826,7 @@ def run_sine_point(
     amplitude_fraction: float,
     corner: tuple[str, float, float] = BASELINE_CORNER,
     trace_conversions: tuple[int, ...] = (),
+    switch_trace_conversions: tuple[int, ...] = (),
 ) -> dict:
     process_corner, temp_c, supply_v = corner
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
@@ -2439,6 +2834,8 @@ def run_sine_point(
     extra_meas: list[str] = []
     for c in trace_conversions:
         extra_meas += sine_trace_measure_lines(c)
+    for c in switch_trace_conversions:
+        extra_meas += switch_trace_measure_lines(c, supply_v)
     deck = assemble_deck(
         netlist_text, pdk_info, process_corner, temp_c, supply_v, fragment=fragment,
         extra_meas=extra_meas or None,
@@ -2452,6 +2849,8 @@ def run_sine_point(
     for c in trace_conversions:
         trace_names += _node_trace_names(node_trace_plan(c))
         trace_names += [f"nt_c{c}_samp_{t}" for t in ("vinp", "vinn", "top_p", "top_n")]
+    for c in switch_trace_conversions:
+        trace_names += switch_trace_flat_names(c)
     parsed = measure.parse(log_text, names + trace_names, anchored=False)
     # trace probes are read-only extras: their absence never makes the
     # capture invalid, so `missing` stays the code/phase measurements only.
@@ -2466,6 +2865,9 @@ def run_sine_point(
         decode_sine_trace(parsed, c, result["ideal_codes"][conversions.index(c)], supply_v,
                           stream["codes"][conversions.index(c)])
         for c in trace_conversions
+    ]
+    result["switch_traces"] = [
+        decode_switch_trace(parsed, c, supply_v) for c in switch_trace_conversions
     ]
     result.update(
         stream,
@@ -2826,6 +3228,9 @@ def write_sine_record(
             )
             add("")
 
+    if point.get("switch_traces"):
+        lines.extend(switch_trace_record_lines(point["switch_traces"]))
+
     add("## Record length vs runtime")
     add("")
     per_us = point["wall_s"] / (span_ns / 1000)
@@ -2968,6 +3373,16 @@ def main() -> int:
         "Single run, single corner; adds .meas probes only.",
     )
     ap.add_argument(
+        "--sine-switch-trace", type=int, action="append", default=[], metavar="CONV",
+        help="--coherent-sine only (issue #621): also record a read-only "
+        "switching-event trace of this conversion (repeatable) from the SAME "
+        "transient -- WHEN-crossing times of every DAC-steering and sequencer "
+        "node classified against the SAR's own edge schedule, node values at the "
+        "first top-plate rail excursion, and per-phase snapshots of the DAC "
+        "bottom plates and front-end nodes. Single run, single corner; adds "
+        ".meas probes only.",
+    )
+    ap.add_argument(
         "--jobs", type=int, default=1,
         help="run this many ngspice corner points concurrently (default 1; results "
         "are independent processes, so this changes runtime only)",
@@ -3010,18 +3425,24 @@ def main() -> int:
             print(f"FAIL: --coherent-sine cannot be combined with {', '.join(others)}",
                   file=sys.stderr)
             return 2
-        bad_trace = [c for c in args.sine_trace
-                     if c not in tb.sine_measured_conversions(args.sine_n)]
-        if bad_trace:
-            print(f"FAIL: --sine-trace {bad_trace}: not a measured conversion of this record",
-                  file=sys.stderr)
-            return 2
+        for flag, convs in (("--sine-trace", args.sine_trace),
+                            ("--sine-switch-trace", args.sine_switch_trace)):
+            bad_trace = [c for c in convs
+                         if c not in tb.sine_measured_conversions(args.sine_n)]
+            if bad_trace:
+                print(f"FAIL: {flag} {bad_trace}: not a measured conversion of this record",
+                      file=sys.stderr)
+                return 2
         try:
             dynamic_enob.check_coherent(args.sine_n, args.sine_bin)
             tb.sine_fragment_text(args.sine_n, args.sine_bin, args.sine_amplitude)
         except ValueError as exc:
             print(f"FAIL: --coherent-sine plan: {exc}", file=sys.stderr)
             return 2
+    elif args.sine_trace or args.sine_switch_trace:
+        print("FAIL: --sine-trace/--sine-switch-trace require --coherent-sine",
+              file=sys.stderr)
+        return 2
 
     check = toolchain.check_env()
     if args.check_env:
@@ -3067,10 +3488,14 @@ def main() -> int:
                 sine_netlist_text, pdk.resolve(), scratch,
                 args.sine_n, args.sine_bin, args.sine_amplitude,
                 trace_conversions=tuple(args.sine_trace),
+                switch_trace_conversions=tuple(args.sine_switch_trace),
             )
             if not args.quiet:
                 print("  " + format_sine_point(point), flush=True)
                 print("  " + format_outlier_summary(point).replace("\n", "\n  "), flush=True)
+                for st in point["switch_traces"]:
+                    print("  " + format_switch_trace_summary(st).replace("\n", "\n  "),
+                          flush=True)
             if args.record:
                 written_by = "sim/full-conversion-transient/run_conversion.py --coherent-sine --record"
                 for flag, value, default in (
@@ -3082,6 +3507,8 @@ def main() -> int:
                         written_by += f" {flag} {value:g}"
                 for c in args.sine_trace:
                     written_by += f" --sine-trace {c}"
+                for c in args.sine_switch_trace:
+                    written_by += f" --sine-switch-trace {c}"
                 write_sine_record(
                     point, sine_netlist_text, args.supersedes, written_by,
                     behavioral_enob_reference(),
