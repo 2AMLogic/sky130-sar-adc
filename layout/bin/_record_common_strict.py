@@ -177,3 +177,33 @@ def render_lvs_findings(lvs: dict, title: str = "Reported LVS findings") -> list
         )
     lines.append("")
     return lines
+
+
+def failing_checks(precheck: dict) -> list[str]:
+    """Sorted names of every `klt precheck` check that reported `fail`.
+
+    The envelope's per-check key is `name` (not `check`).
+    """
+    return sorted(
+        str(check.get("name"))
+        for check in precheck.get("checks", [])
+        if check.get("status") == "fail"
+    )
+
+
+def offgrid_census(precheck: dict) -> dict[tuple[str, str], int]:
+    """`{(cell, layer): count}` for the `offgrid` check's own violations.
+
+    Empty on a passing run. Kept (rather than reporting a bare count) so a
+    future regression names the layer it is on, which is what decides whether
+    it is a MiM-plate consequence or a routing defect -- the same census shape
+    `layout/halflsb-offset/bin/render-record.py` renders.
+    """
+    census: dict[tuple[str, str], int] = {}
+    for check in precheck.get("checks", []):
+        if check.get("name") != "offgrid":
+            continue
+        for violation in check.get("violations", []):
+            key = (str(violation.get("cell")), str(violation.get("layer")))
+            census[key] = census.get(key, 0) + 1
+    return census

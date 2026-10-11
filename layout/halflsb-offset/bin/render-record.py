@@ -73,8 +73,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
+    failing_checks,
     git_field,
     load_json_strict,
+    offgrid_census,
     render_lvs_findings,
     render_net_correspondence,
     render_provenance_header,
@@ -136,26 +138,6 @@ MIM_STACK_LAYERS = (
 
 _load = load_json_strict
 _git = git_field
-
-
-def _failing_checks(precheck: dict) -> list[str]:
-    return sorted(
-        str(check.get("name"))
-        for check in precheck.get("checks", [])
-        if check.get("status") == "fail"
-    )
-
-
-def _offgrid_census(precheck: dict) -> dict[tuple[str, str], int]:
-    """`{(cell, layer): count}` for the `offgrid` check's own violations."""
-    census: dict[tuple[str, str], int] = {}
-    for check in precheck.get("checks", []):
-        if check.get("name") != "offgrid":
-            continue
-        for violation in check.get("violations", []):
-            key = (str(violation.get("cell")), str(violation.get("layer")))
-            census[key] = census.get(key, 0) + 1
-    return census
 
 
 def _name_identical_correspondence(lvs: dict) -> list[str]:
@@ -226,7 +208,7 @@ def main() -> int:
     pfet_bodies = _extracted_pfet_bodies(extract)
     wrong_bodies = [body for body in pfet_bodies if body != EXPECTED_PFET_BODY]
     fixture_rules = drc_fixture.get("rule_counts") or {}
-    offgrid = _offgrid_census(precheck_grid5)
+    offgrid = offgrid_census(precheck_grid5)
     offgrid_bad_layers = sorted(
         {layer for (_cell, layer) in offgrid if layer not in MIM_STACK_LAYERS}
     )
@@ -575,11 +557,11 @@ def main() -> int:
     a(
         f"| precheck, 1 nm database grid | {precheck.get('status')} | "
         f"{len(precheck.get('checks', []))} checks, "
-        f"{len(_failing_checks(precheck))} failed |"
+        f"{len(failing_checks(precheck))} failed |"
     )
     a(
         f"| precheck, 5 nm manufacturing grid | {precheck_grid5.get('status')} | "
-        f"failing checks {_failing_checks(precheck_grid5)}, "
+        f"failing checks {failing_checks(precheck_grid5)}, "
         f"{sum(offgrid.values())} off-grid shapes |"
     )
     a(
