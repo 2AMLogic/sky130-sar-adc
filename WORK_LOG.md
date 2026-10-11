@@ -4,6 +4,15 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-11
 
+- **PR #644**: docs(claude): check interpretations against raw results before review
+- **PR #643**: Consolidate klt-precheck helpers in render-record scripts
+- **PR #641**: Re-mint full-conversion reference campaign and coherent-sine capture under the DR-023 solver policy
+- **PR #639**: sim: named full-conversion solver policy, DC solver audit, and DR-023
+- **PR #636**: sim: root-cause coherent-sine conversion 9 (solver artefact) + switching diagnostics
+- **Issue #640** (closed): Auditor process pattern: verify evidence interpretations against raw results before review
+- **Issue #642** (closed): Consolidate klt-precheck helpers in render-record scripts; two copies read the wrong key
+- **Issue #638** (closed): Re-mint the full-conversion reference campaign and coherent-sine capture under the DR-023 solver policy
+- **Issue #637** (closed): Harness: default ngspice solver settings produced a spurious register flip; audit transient evidence
 - **Issue #632** (closed): Auditor guard decision: keep stash-scope:create-redirect; use worktree stash wrappers
 
 ### 2026-10-10
