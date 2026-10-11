@@ -40,8 +40,9 @@ python3 sim/full-conversion-transient/run_conversion.py --check-env  # toolchain
 SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
     --corners --record --mechanism-probe --jobs 3
 
-# reproduce the recorded pre-DR-023 campaign (records/LATEST) on the settings it
-# ran under -- a labelled SOLVER-CONTROL record that never moves LATEST:
+# reproduce the superseded pre-DR-023 campaign (20261001-105439-c324f80, the
+# LATEST before issue #638) on the settings it ran under -- a labelled
+# SOLVER-CONTROL record that never moves LATEST:
 SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
     --corners --record --mechanism-probe --jobs 3 --solver-profile ngspice-default
 ```
@@ -68,8 +69,20 @@ python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record
 # ^ issue #637 solver-sensitivity audit of the baseline corner (4 sequential
 #   transients; set SIM_NGSPICE_TIMEOUT_S=5400). Off-host on the pinned
 #   toolchain: dispatch CI with full_conversion_solver_audit=true.
+python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear
+# ^ the current reference campaign (records/LATEST = 20261011-112119-188e94c,
+#   issue #638), profile named explicitly; set SIM_NGSPICE_TIMEOUT_S=3600.
+#   Off-host on the pinned toolchain: dispatch CI with
+#   full_conversion_reference_campaign=true (job
+#   full-conversion-reference-campaign; optional
+#   full_conversion_reference_supersedes=<record-id>)
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --solver-profile reltol-gear
+# ^ the current reference coherent-sine capture (20261011-110009-320dbc6,
+#   issue #638); set SIM_NGSPICE_TIMEOUT_S=5400. Off-host: dispatch CI with
+#   coherent_sine_evidence=true, coherent_sine_solver_profile=reltol-gear
 python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default
-# ^ the 9 corners of records/LATEST on its own pre-DR-023 settings (SOLVER CONTROL)
+# ^ the 9 corners of 20261001-105439-c324f80 (superseded) on its own
+#   pre-DR-023 settings (SOLVER CONTROL)
 python3 sim/full-conversion-transient/run_conversion.py --record --solver-profile ngspice-default
 # ^ a single labelled SOLVER-CONTROL baseline run on the pre-DR-023 settings
 #   (never moves records/LATEST, may not --supersedes); add --corners or a
@@ -554,12 +567,96 @@ regenerating latch. The like-for-like cost is 1.66x. DR-023 records the
 rejected alternatives and the full runtime comparison.
 
 **What this means for existing records.** They stay as they are. Each is
-evidence under `ngspice-default`. `records/LATEST` (`20261001-105439-c324f80`)
-is confirmed unchanged in codes and verdicts at the baseline corner, but its
-power is about 2.8 % above the new policy's figure there, and its other eight
-corners are unaudited. A fresh reference campaign and coherent-sine capture
-under `reltol-gear` are tracked in
-[issue #638](https://github.com/2AMLogic/sky130-sar-adc/issues/638).
+evidence under `ngspice-default`. When DR-023 landed, `records/LATEST`
+(`20261001-105439-c324f80`) had been confirmed unchanged in codes and verdicts
+at the baseline corner only, with power about 2.8 % above the new policy's
+figure there and the other eight corners unaudited. Issue #638 has since
+re-minted both reference records under `reltol-gear`; see the next section.
+
+## Reference re-mint under DR-023 (issue #638)
+
+Both reference records were re-minted under the reference profile
+`reltol-gear` (`.options reltol=1e-4 method=gear`). The runs were off-host on
+GitHub-hosted runners with ngspice-47 built from source at
+`sim/toolchain.json`'s pin and sky130A at `sim/pdk.json`'s pin
+(`c6d73a35f524070e85faff4a6a9eef49553ebc2b`), with no toolchain-drift
+override. The records were imported byte-for-byte from the run artifacts.
+
+| record | what | run | commit | runner exit | Supersedes |
+|---|---|---|---|---|---|
+| `records/20261011-112119-188e94c.md` | 9-corner DC reference campaign (`--corners --record --solver-profile reltol-gear`); moves `records/LATEST` | [38134032661](https://github.com/2AMLogic/sky130-sar-adc/actions/runs/38134032661) (`full-conversion-reference-campaign`) | `188e94c` | 1, classified `complete-informational-fail`: all 9 corners measured, OVERALL FAIL against the informational code criterion | `20261001-105439-c324f80` |
+| `records/20261011-110009-320dbc6.md` | coherent-sine reference capture (`--coherent-sine --record --solver-profile reltol-gear`, N=32, bin 7, 0.25*V_REF); `records/LATEST` left unchanged | [38133222055](https://github.com/2AMLogic/sky130-sar-adc/actions/runs/38133222055) (`coherent-sine-evidence`) | `320dbc6` | 0 (validity gate clean) | `20261011-022915-877794b` |
+
+An earlier dispatch of the DC job,
+[38133220856](https://github.com/2AMLogic/sky130-sar-adc/actions/runs/38133220856)
+at `320dbc6`, completed all nine corners. Its codes, phase checks and per-rail
+currents were identical to the imported run at every corner. The job's own
+outcome classifier rejected it because it matched the wrong role label in the
+record's `simulator options` line. That was a workflow bug, fixed at `188e94c`.
+The run was not imported, because a second record would fork the
+**Supersedes** chain.
+
+**DC campaign, per corner, against `20261001-105439-c324f80`** (codes are
+captured codes for `-0.78 / -0.25 / +0.00 / +0.25 / +0.78 * V_REF`; ideal
+113 / 384 / 512 / 640 / 911):
+
+| corner | old codes | new codes | moved | +-1 LSB (old / new) | phases (old / new) | worst \|err\| LSB (old / new) | verdict (old / new) | total power uW (old / new) | change |
+|---|---|---|---|---|---|---|---|---|---|
+| `tt_27c_1.80v` | 214/383/511/641/1023 | 214/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 27.986 / 27.197 | -2.82 % |
+| `ss_27c_1.80v` | 223/383/511/641/1023 | 223/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 26.980 / 26.682 | -1.10 % |
+| `ff_27c_1.80v` | 205/383/511/641/1023 | 204/383/511/641/1023 | -0.78: 205 -> 204 | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 28.395 / 28.194 | -0.71 % |
+| `sf_27c_1.80v` | 201/383/512/641/1023 | 200/383/511/641/1023 | -0.78: 201 -> 200; +0.00: 512 -> 511 | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 28.957 / 27.094 | -6.43 % |
+| `fs_27c_1.80v` | 225/383/511/641/1023 | 225/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 28.016 / 27.291 | -2.59 % |
+| `tt_-40c_1.80v` | 234/383/512/641/1023 | 234/383/511/641/1023 | +0.00: 512 -> 511 | 3/5 / 3/5 | 5/5 / 5/5 | 121 / 121 | FAIL / FAIL | 28.111 / 26.336 | -6.31 % |
+| `tt_125c_1.80v` | 184/383/512/641/1023 | 184/383/511/641/1023 | +0.00: 512 -> 511 | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 31.211 / 29.401 | -5.80 % |
+| `tt_27c_1.62v` | 237/383/511/641/1023 | 237/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 124 / 124 | FAIL / FAIL | 21.612 / 21.389 | -1.03 % |
+| `tt_27c_1.98v` | 194/383/511/641/1023 | 194/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 34.254 / 34.136 | -0.34 % |
+
+* **Unchanged failure modes.** These hold at all nine corners: the three
+  mid-scale inputs within +-1 LSB, `+0.78*V_REF` saturated at 1023
+  (+112 LSB), `-0.78*V_REF` failing by +71 to +124 LSB, 5/5 phase structure,
+  and binding corner `tt_27c_1.62v` (124 LSB). Overall FAIL, 0/9, against
+  the experiment's informational criterion. No per-input or per-corner
+  verdict moves.
+* **Solver-sensitive observations of the old policy.** Five captured codes
+  move by 1 LSB: `-0.78*V_REF` at `ff` and `sf`, and `+0.00*V_REF` 512 -> 511
+  at `sf`, `tt_-40c` and `tt_125c` (still within +-1 LSB). The baseline-corner
+  audit (`20261011-064547-a6dcdd7`) could not see these, because none of
+  them is at `tt_27c_1.80v`. Under the old policy they were a property of
+  the integration settings, not of the converter.
+* **Power.** Total power is 0.3-6.4 % lower at every corner. The shift is
+  mostly in I(VPWR), the digital supply (-0.4 to -11.5 %); I(VDD) and the
+  reference currents move by under 3 %. The ngspice-default power figures
+  therefore carried an integration-setting uncertainty of up to about 6 %,
+  about twice what the baseline-only audit measured (2.8 %). Power remains
+  an informational DRAFT-row figure.
+
+**Coherent-sine capture, against `20261011-022915-877794b`.** VALIDITY is
+clean: 32/32 conversions with the correct 12-period structure, 0 missing
+measurements, peak bin = drive bin 7, and 0/32 codes at a rail. Per-code
+diagnostic: 0 outliers above 8 LSB, max |error| 2 LSB (20 codes at +-1,
+6 at +-2, 6 exact). On the complete, unmodified stream: SNDR **52.00 dB**,
+ENOB **8.345 bit**, SFDR **54.98 dB**, tone -11.95 dBFS. The ideal quantizer
+on the same plan gives 50.89 dB / 8.161 bit, and the excess is the short
+record's estimator variance. The superseded default-settings capture gave
+2.17 dB / 0.068 bit / 13.77 dB, set entirely by conversion 9 (960 vs ideal
+522). The new stream differs from it **only** at conversion 9 (521). It
+matches the #621 combined-profile control `20261011-023419-877794b` (minted
+with `--sine-solver-control`, labelled a SOLVER CONTROL at the time) code
+for code. That control keeps its historical label. The new record is the
+reference capture, with the same settings, minted as reference evidence.
+This is still one corner, N=32, no noise sources and -12 dBFS, so the DRAFT
+ENOB row is informational only and is not graded, and no target changes.
+
+**Provenance notes.** Both records are pre-formatted by the runner, so two
+of their own phrases are generic and not run-specific. The sine record's
+runtime line says "on a shared dispatch host" (it ran on a 4-vCPU
+GitHub-hosted runner), and its stimulus line names `20261001-105439-c324f80`
+as the DC campaign that resolves 0.25*V_REF within 1 LSB (the new campaign
+does too). Both records stay as minted (append-only). Each record reads
+`(dirty)` on its git line, as earlier records of this experiment do,
+because the runner writes the netlist snapshot before it reads the
+tree state.
 
 ## Findings
 
