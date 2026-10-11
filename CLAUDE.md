@@ -25,7 +25,12 @@ of verified open-PDK analog blocks.
   is not.
 - **Verification is the product**: no claim without a testbench. PVT corners on
   every recorded result. `sim/` results are append-only evidence — a later run
-  mints a new record rather than overwriting an earlier one.
+  mints a new record rather than overwriting an earlier one. Before requesting
+  review, compare every interpretation sentence and cold-start command you wrote
+  against the cited raw results and the current CLI defaults: check
+  counts/population, sign, timing, reference/control roles, and uncontrolled
+  differences between compared runs (e.g. tool version), and state no more than
+  the observations support.
 - **The spec is a gate**: spec changes go through `spec/` with a decision record;
   agents do not relax a spec line to make a result pass. A row that proves
   unmeetable is superseded by a new decision record, never silently loosened.
