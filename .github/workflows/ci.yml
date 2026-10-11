@@ -1017,7 +1017,10 @@ jobs:
           [[ "$n_logs" == "9" ]] || reasons+=("expected 9 corner logs, found ${n_logs}")
           [[ -f "$d/netlist-snapshots/${id}.spice" ]] || reasons+=("netlist snapshot missing")
           if [[ -n "$rec" ]] && grep -q "MISSING" "$rec"; then reasons+=("record has MISSING measurements"); fi
-          if [[ -n "$rec" ]] && ! grep -qF 'simulator options: profile `reltol-gear` (reference): `.options reltol=1e-4 method=gear`' "$rec"; then
+          # The runner writes e.g. "- simulator options: profile `reltol-gear`
+          # (reference policy, DR-023): `.options reltol=1e-4 method=gear`; ..."
+          # -- require the reference role AND the card, never "SOLVER CONTROL".
+          if [[ -n "$rec" ]] && ! grep -qE '^- simulator options: profile `reltol-gear` \(reference[^)]*\): `\.options reltol=1e-4 method=gear`' "$rec"; then
             reasons+=("record does not name the reltol-gear reference profile")
           fi
           overall="$(grep -oE '^OVERALL: (PASS|FAIL)' /tmp/reference-campaign-run.log 2>/dev/null | tail -1)"
