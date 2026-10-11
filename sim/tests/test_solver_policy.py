@@ -51,16 +51,16 @@ def _options_lines(deck: str) -> list[str]:
 
 
 class TestSolverProfiles(unittest.TestCase):
-    def test_profile_table_is_the_issue_637_set(self):
-        self.assertEqual(rc.REFERENCE_SOLVER_PROFILE, "ngspice-default")
+    def test_profile_table_and_dr023_reference(self):
+        self.assertEqual(rc.REFERENCE_SOLVER_PROFILE, "reltol-gear")  # DR-023
         self.assertEqual(rc.SOLVER_PROFILES, {
             "ngspice-default": (),
             "reltol-gear": ("reltol=1e-4", "method=gear"),
             "reltol-only": ("reltol=1e-4",),
             "gear-only": ("method=gear",),
         })
-        self.assertFalse(rc.is_solver_control("ngspice-default"))
-        for p in ("reltol-gear", "reltol-only", "gear-only"):
+        self.assertFalse(rc.is_solver_control("reltol-gear"))
+        for p in ("ngspice-default", "reltol-only", "gear-only"):
             self.assertTrue(rc.is_solver_control(p))
 
     def test_each_profile_adds_exactly_its_intended_options(self):
@@ -72,24 +72,36 @@ class TestSolverProfiles(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as tmp:
             pdk_info = _fake_pdk(Path(tmp))
-            ref = rc.assemble_deck("* dut\nR1 a b 1\n", pdk_info)
+            # the no-card profile is the pre-#637 deck; every other profile
+            # differs from it by its own labelled card and nothing else
+            base = rc.assemble_deck("* dut\nR1 a b 1\n", pdk_info, solver_profile="ngspice-default")
             for profile, cards in expected.items():
                 with self.subTest(profile=profile):
                     deck = rc.assemble_deck("* dut\nR1 a b 1\n", pdk_info, solver_profile=profile)
                     self.assertEqual(_options_lines(deck), cards)
-                    # nothing but the profile's own lines differs from the reference deck
-                    extra = [ln for ln in deck.splitlines() if ln not in ref.splitlines()]
+                    extra = [ln for ln in deck.splitlines() if ln not in base.splitlines()]
                     self.assertEqual(extra, rc.solver_profile_deck_lines(profile))
-                    if profile == rc.REFERENCE_SOLVER_PROFILE:
-                        self.assertEqual(deck, ref)
+                    self.assertEqual(len(deck.splitlines()) - len(base.splitlines()), len(extra))
 
-    def test_reference_deck_carries_no_options_card_for_the_dc_or_sine_fragment(self):
+    def test_default_deck_is_the_reference_policy_for_the_dc_and_sine_fragment(self):
         with tempfile.TemporaryDirectory() as tmp:
             pdk_info = _fake_pdk(Path(tmp))
             for fragment in (None, tb.sine_fragment_text(
                     tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION)):
                 deck = rc.assemble_deck("* dut\n", pdk_info, fragment=fragment)
-                self.assertEqual(_options_lines(deck), [])
+                self.assertEqual(_options_lines(deck), [".options reltol=1e-4 method=gear"])
+                self.assertIn("reference policy, DR-023", deck)
+                legacy = rc.assemble_deck("* dut\n", pdk_info, fragment=fragment,
+                                          solver_profile="ngspice-default")
+                self.assertEqual(_options_lines(legacy), [])
+
+    def test_diagnostic_modes_inherit_the_reference_policy(self):
+        # node/cm/decision-margin traces and the mechanism probe call
+        # assemble_deck without a solver_profile: they run the reference policy
+        with tempfile.TemporaryDirectory() as tmp:
+            deck = rc.assemble_deck("xcmp VDD CLK a b c\n", _fake_pdk(Path(tmp)),
+                                    delayed_comparator_strobe=True)
+        self.assertEqual(_options_lines(deck), [".options reltol=1e-4 method=gear"])
 
     def test_card_sits_after_the_fragment_and_before_extra_probes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,7 +110,6 @@ class TestSolverProfiles(unittest.TestCase):
                                     solver_profile="gear-only")
         lines = deck.splitlines()
         card = lines.index(".options method=gear")
-        self.assertLess(lines.index(".meas tran probe find v(x) at=1n"), len(lines))
         self.assertGreater(lines.index(".meas tran probe find v(x) at=1n"), card)
         self.assertGreater(card, max(i for i, ln in enumerate(lines) if ln.startswith(".tran")))
 
@@ -107,10 +118,21 @@ class TestSolverProfiles(unittest.TestCase):
             rc.assemble_deck("* dut\n", SimpleNamespace(variant_dir=Path("/nonexistent")),
                              solver_profile="reltol-1e-5")
 
-    def test_settings_text_names_the_resolved_options(self):
-        self.assertIn("reltol=1e-3, method=trapezoidal", rc.solver_settings_text("ngspice-default"))
+    def test_settings_text_names_the_resolved_options_and_role(self):
+        self.assertEqual(
+            rc.solver_settings_text("reltol-gear"),
+            "profile `reltol-gear` (reference policy, DR-023): `.options reltol=1e-4 "
+            "method=gear`; all other settings ngspice defaults")
+        self.assertIn("(SOLVER CONTROL): no `.options` card -- reltol=1e-3, method=trapezoidal",
+                      rc.solver_settings_text("ngspice-default"))
         self.assertIn("`.options reltol=1e-4`", rc.solver_settings_text("reltol-only"))
         self.assertIn("SOLVER CONTROL", rc.solver_settings_text("gear-only"))
+
+
+# A check_env stand-in reporting "toolchain not installed" (status 3): a
+# combination the runner wrongly ACCEPTS then returns 0 and fails the test,
+# instead of going on to launch a real ngspice transient.
+_NO_TOOLCHAIN = mock.Mock(status=3, messages=[], warnings=[])
 
 
 class TestCliRefusesControlAsReference(unittest.TestCase):
@@ -118,13 +140,13 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
     anything could be simulated or written."""
 
     REFUSED = (
-        ["--solver-profile", "reltol-gear", "--supersedes", "20261001-105439-c324f80"],
-        ["--solver-profile", "reltol-gear", "--corners"],
+        ["--solver-profile", "ngspice-default", "--supersedes", "20261001-105439-c324f80"],
+        ["--solver-profile", "ngspice-default", "--corners"],
         ["--solver-profile", "gear-only", "--mechanism-probe"],
         ["--solver-profile", "gear-only", "--node-trace"],
         ["--solver-profile", "reltol-only", "--cm-trace"],
         ["--solver-profile", "reltol-only", "--decision-margin-trace"],
-        ["--coherent-sine", "--solver-profile", "gear-only",
+        ["--coherent-sine", "--solver-profile", "ngspice-default",
          "--supersedes", "20261011-022915-877794b"],
         ["--solver-audit", "--corners"],
         ["--solver-audit", "--coherent-sine"],
@@ -140,37 +162,40 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
             with self.subTest(argv=extra):
                 argv = ["run_conversion.py", *extra]
                 with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
-                        mock.patch.object(rc.toolchain, "check_env") as check:
+                        mock.patch.object(rc.toolchain, "check_env",
+                                          return_value=_NO_TOOLCHAIN) as check:
                     self.assertEqual(rc.main(), 2)
                 check.assert_not_called()
 
     def test_reference_profile_cannot_be_an_audit_profile(self):
-        argv = ["run_conversion.py", "--solver-audit", "--audit-profile", "ngspice-default"]
+        argv = ["run_conversion.py", "--solver-audit", "--audit-profile", "reltol-gear"]
         with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
-                mock.patch.object(rc.toolchain, "check_env") as check:
+                mock.patch.object(rc.toolchain, "check_env", return_value=_NO_TOOLCHAIN) as check:
             with self.assertRaises(SystemExit) as cm:
                 rc.main()
         self.assertEqual(cm.exception.code, 2)
         check.assert_not_called()
 
-    def test_reference_profile_may_still_supersede(self):
+    def test_reference_profile_may_still_supersede_and_run_the_grid(self):
         args = SimpleNamespace(
-            solver_profile="ngspice-default", sine_solver_control=False, corners=True,
+            solver_profile=None, sine_solver_control=False, corners=True,
             mechanism_probe=False, node_trace=False, cm_trace=False,
             decision_margin_trace=False, solver_audit=False, coherent_sine=False,
             supersedes="20261001-105439-c324f80", jobs=3, audit_profile=[],
         )
-        self.assertEqual(rc.resolve_solver_cli(args), ("ngspice-default", ""))
+        self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
+        args.solver_profile = "reltol-gear"
+        self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
 
     def test_audit_profiles_default_and_dedupe(self):
         self.assertEqual(rc.audit_profiles(SimpleNamespace(audit_profile=[])),
-                         ("reltol-gear", "reltol-only", "gear-only"))
+                         ("ngspice-default", "reltol-only", "gear-only"))
         self.assertEqual(
             rc.audit_profiles(SimpleNamespace(audit_profile=["gear-only", "gear-only", "reltol-only"])),
             ("gear-only", "reltol-only"))
 
 
-def _point(offset: int = 0, profile: str = "ngspice-default", guards=None) -> dict:
+def _point(offset: int = 0, profile: str = rc.REFERENCE_SOLVER_PROFILE, guards=None) -> dict:
     codes = {c: v + offset for c, v in _ideal_codes().items()}
     point = rc.decode(_synthetic_parsed(codes), 1.8)
     point.update(process_corner="tt", temp_c=27.0, supply_v=1.8, corner_id="tt_27c_1.80v",
@@ -216,15 +241,16 @@ class _TmpExperiment:
 class TestControlRecordNeverReplacesReference(unittest.TestCase):
     def test_control_record_is_labelled_and_leaves_latest_alone(self):
         with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
-            path = rc.write_record([_point(profile="reltol-gear")], "* n\n",
-                                   solver_profile="reltol-gear")
+            path = rc.write_record([_point(profile="ngspice-default")], "* n\n",
+                                   solver_profile="ngspice-default")
             text = path.read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
         self.assertIn("SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE", text)
-        self.assertIn("simulator options: profile `reltol-gear` (SOLVER CONTROL): "
-                      "`.options reltol=1e-4 method=gear`", text)
+        self.assertIn("simulator options: profile `ngspice-default` (SOLVER CONTROL): no "
+                      "`.options` card -- reltol=1e-3, method=trapezoidal", text)
+        self.assertIn("instead of the reference policy `reltol-gear`", text)
         self.assertEqual(report_generate.extract_field(text, "Supersedes"), "(none)")
-        self.assertIn("--record --solver-profile reltol-gear", text)
+        self.assertIn("--record --solver-profile ngspice-default", text)
 
     def test_control_record_refuses_supersedes_in_the_writer(self):
         with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
@@ -239,7 +265,7 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
             text = rc.write_record([_point()], "* n\n").read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text().strip(), "REC.md")
         self.assertNotIn("SOLVER-CONTROL RUN", text)
-        self.assertIn("simulator options: profile `ngspice-default` (reference)", text)
+        self.assertIn("simulator options: profile `reltol-gear` (reference policy, DR-023)", text)
 
 
 class TestTransitionGuard(unittest.TestCase):
@@ -267,7 +293,7 @@ class TestAuditRunPoint(unittest.TestCase):
     def test_audit_instrumentation_is_identical_under_every_profile(self):
         log = _as_log(_synthetic_parsed(_ideal_codes())) + "Transient timepoints = 4242\n"
         decks = {}
-        for profile in ("ngspice-default", "reltol-gear"):
+        for profile in ("reltol-gear", "ngspice-default"):
             with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
                     mock.patch.object(rc, "_run_ngspice", return_value=log):
                 point = rc.run_point("* n\n", None, Path("/nonexistent"), "tt", 27.0, 1.8,
@@ -279,7 +305,7 @@ class TestAuditRunPoint(unittest.TestCase):
             self.assertEqual(len(point["guards"]), len(tb.measured_conversions()))
             self.assertEqual(point["solver_stats"]["stats"]["Transient timepoints"], 4242)
         self.assertEqual(decks["ngspice-default"]["extra_meas"], decks["reltol-gear"]["extra_meas"])
-        extra = decks["reltol-gear"]["extra_meas"]
+        extra = decks["ngspice-default"]["extra_meas"]
         self.assertEqual(extra[0], rc.SOLVER_AUDIT_STATS_CARD)
         # the only `.options` the instrumentation adds is the print-only acct card
         self.assertEqual([ln for ln in extra if ln.startswith(".options")], [".options acct"])
@@ -320,7 +346,7 @@ class TestCompareAuditRuns(unittest.TestCase):
         self.assertTrue(any("captured code" in m["observation"] for m in moved))
 
     def test_code_verdict_flip_is_a_failure_mode(self):
-        moved = rc.compare_audit_runs(_point(0), _point(5, "reltol-gear"))
+        moved = rc.compare_audit_runs(_point(0), _point(5, "ngspice-default"))
         fm = [m for m in moved if m["failure_mode"]]
         self.assertTrue(any("within +-1 LSB" in m["observation"] for m in fm))
         self.assertTrue(any("point verdict" in m["observation"] for m in fm))
@@ -355,6 +381,8 @@ class TestLatestBaselineRow(unittest.TestCase):
         self.assertTrue(all(isinstance(c, int) for c in row["codes"]))
         self.assertIsNotNone(row["power_w"])
         self.assertRegex(row["netlist_sha"], r"^[0-9a-f]{64}$")
+        # the committed LATEST predates the solver policy: its settings are named, not blank
+        self.assertIn("pre-#637 record", row["simulator_options"])
 
     def test_missing_latest_is_none(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -364,7 +392,8 @@ class TestLatestBaselineRow(unittest.TestCase):
 class TestSolverAuditRecord(unittest.TestCase):
     LATEST = dict(record_id="PRIOR", corner_id="tt_27c_1.80v",
                   codes=[cv for cv in _ideal_codes().values()], power_w=27.0e-6,
-                  ngspice="ngspice-46", netlist_sha="0" * 64, fragment_sha=None)
+                  ngspice="ngspice-46", netlist_sha="0" * 64, fragment_sha=None,
+                  simulator_options="not stated (pre-#637 record: ngspice defaults)")
 
     def _write(self, runs, tmp: Path) -> str:
         with _TmpExperiment(tmp):
@@ -378,26 +407,27 @@ class TestSolverAuditRecord(unittest.TestCase):
             return path.read_text()
 
     def test_clean_audit(self):
-        runs = [_point(), _point(profile="reltol-gear"), _point(profile="gear-only")]
+        runs = [_point(), _point(profile="ngspice-default"), _point(profile="gear-only")]
         with tempfile.TemporaryDirectory() as tmp:
             text = self._write(runs, Path(tmp))
         self.assertIn("NO OBSERVATION MOVED", text)
         self.assertEqual(report_generate.extract_field(text, "Supersedes"), "(none)")
         self.assertIn("codes IDENTICAL", text)
-        self.assertIn("simulator options [reltol-gear]: profile `reltol-gear` (SOLVER CONTROL)", text)
-        self.assertIn("simulator options [ngspice-default]: profile `ngspice-default` (reference)", text)
+        self.assertIn("simulator options [ngspice-default]: profile `ngspice-default` (SOLVER CONTROL)", text)
+        self.assertIn("simulator options [reltol-gear]: profile `reltol-gear` (reference policy, DR-023)", text)
+        self.assertIn("this run: profile `reltol-gear`", text)
         self.assertIn("excludes host/CI queueing and toolchain setup", text)
 
     def test_moved_failure_mode_is_named_solver_sensitive(self):
-        runs = [_point(), _point(6, "reltol-gear")]
+        runs = [_point(), _point(6, "ngspice-default")]
         with tempfile.TemporaryDirectory() as tmp:
             text = self._write(runs, Path(tmp))
-        self.assertIn("SOLVER-SENSITIVE -- at least one observation moved under `reltol-gear`", text)
+        self.assertIn("SOLVER-SENSITIVE -- at least one observation moved under `ngspice-default`", text)
         self.assertIn("**yes -- SOLVER-SENSITIVE**", text)
 
     def test_audit_must_start_with_the_reference_profile(self):
         with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
-            for runs in ([_point(profile="gear-only"), _point(profile="reltol-gear")], [_point()]):
+            for runs in ([_point(profile="gear-only"), _point(profile="ngspice-default")], [_point()]):
                 with self.assertRaises(ValueError):
                     rc.write_solver_audit_record(runs, "* n\n", 1.0, None, "x")
 

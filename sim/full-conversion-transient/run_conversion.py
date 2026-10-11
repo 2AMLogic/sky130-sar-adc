@@ -70,9 +70,10 @@ behavioral-accelerated composite, never a grade of the DRAFT ENOB row.
 
 SOLVER POLICY (issue #637, DR-023). Transient solver settings are a named
 profile resolved at deck assembly (SOLVER_PROFILES / `--solver-profile`).
-The reference profile `ngspice-default` adds no `.options` card; any other
-profile is a labelled SOLVER CONTROL that never moves records/LATEST and may
-not --supersedes. `--solver-audit` runs the DC baseline corner under the
+The reference profile is `reltol-gear` (`.options reltol=1e-4 method=gear`)
+for every transient this runner assembles; any other profile -- including
+`ngspice-default`, the settings of every pre-DR-023 record -- is a labelled
+SOLVER CONTROL that never moves records/LATEST and may not --supersedes. `--solver-audit` runs the DC baseline corner under the
 reference profile and each control profile, sequentially, and records which
 observations (if any) move -- the guard against presenting a
 solver-sensitive anomaly as converter behaviour.
@@ -122,34 +123,47 @@ CODE_TOLERANCE_LSB = 1
 # Solver settings are a NAMED POLICY resolved once at deck assembly
 # (`assemble_deck(solver_profile=...)`), never an `.options` string spliced
 # into one execution branch. Each profile is the exact list of `.options`
-# assignments it adds to the deck; the reference profile adds none, so a
-# reference deck is byte-identical to the pre-#637 deck. Every record this
+# assignments it adds to the deck (one card, or none). Every record this
 # runner writes names the resolved profile and its options card, so a
 # workflow label is never the only provenance of how a transient was
 # integrated.
+#
+# REFERENCE POLICY (DR-023): `reltol-gear` -- ngspice's reltol tightened 10x
+# (1e-3 -> 1e-4) and Gear instead of trapezoidal integration -- for EVERY
+# transient this runner assembles (DC corner campaign, coherent-sine, and the
+# diagnostic modes). It is scoped to sim/full-conversion-transient/ only; no
+# other experiment's deck changes. Every record minted before DR-023 ran on
+# `ngspice-default` (no card); that profile stays available as a labelled
+# control so those records can be reproduced, and is the comparison point of
+# `--solver-audit`.
 #
 # Only REFERENCE_SOLVER_PROFILE may produce reference evidence (the corner
 # campaign, `records/LATEST`, a `--supersedes` chain). Every other profile is
 # a labelled SOLVER CONTROL: it may not --supersedes, never moves LATEST, and
 # is refused by the diagnostic modes and by --corners (a control is a check
-# on reference evidence, not a second campaign). Promoting a control profile
-# to the reference policy is a decision-record change to
-# REFERENCE_SOLVER_PROFILE, followed by a fresh reference campaign under it.
+# on reference evidence, not a second campaign). Changing the reference
+# policy again is a new decision record, followed by a fresh reference
+# campaign under it.
 SOLVER_PROFILES: dict[str, tuple[str, ...]] = {
     # ngspice's own transient defaults (reltol=1e-3, trapezoidal): no card.
+    # The reference policy of every record minted before DR-023.
     "ngspice-default": (),
-    # issue #621's combined control: 10x tighter reltol AND Gear integration.
+    # DR-023's reference policy (issue #621's combined control): 10x tighter
+    # reltol AND Gear integration.
     "reltol-gear": ("reltol=1e-4", "method=gear"),
-    # issue #637's single-setting controls, to attribute the #621 effect.
+    # issue #637's single-setting controls, which attribute the #621 effect.
     "reltol-only": ("reltol=1e-4",),
     "gear-only": ("method=gear",),
 }
-REFERENCE_SOLVER_PROFILE = "ngspice-default"
-# What the reference profile leaves in force (ngspice manual, `.options`):
+REFERENCE_SOLVER_PROFILE = "reltol-gear"
+# What a profile with no card leaves in force (ngspice manual, `.options`):
 # stated in every record so "defaults" is never an unstated assumption.
 NGSPICE_DEFAULT_SOLVER_SETTINGS = "reltol=1e-3, method=trapezoidal (ngspice defaults)"
-# The profiles `--solver-audit` compares against the reference by default.
-SOLVER_AUDIT_DEFAULT_PROFILES = ("reltol-gear", "reltol-only", "gear-only")
+# The profiles `--solver-audit` compares against the reference by default:
+# every other named profile, legacy default first.
+SOLVER_AUDIT_DEFAULT_PROFILES = tuple(
+    p for p in SOLVER_PROFILES if p != REFERENCE_SOLVER_PROFILE
+)
 
 
 def check_solver_profile(profile: str) -> None:
@@ -166,21 +180,27 @@ def is_solver_control(profile: str) -> bool:
 
 
 def solver_options_card(profile: str) -> str | None:
-    """The single `.options` card a profile adds, or None (reference)."""
+    """The single `.options` card a profile adds, or None (`ngspice-default`)."""
     check_solver_profile(profile)
     opts = SOLVER_PROFILES[profile]
     return ".options " + " ".join(opts) if opts else None
 
 
+def _solver_role(profile: str) -> str:
+    return ("SOLVER CONTROL" if is_solver_control(profile)
+            else "reference policy, DR-023")
+
+
 def solver_profile_deck_lines(profile: str) -> list[str]:
-    """Deck lines for a profile: nothing for the reference profile, else a
-    labelling comment plus exactly one `.options` card."""
+    """Deck lines for a profile: a labelling comment plus exactly one
+    `.options` card, or nothing at all for a profile with no card (so an
+    `ngspice-default` deck is byte-identical to a pre-#637 deck)."""
     card = solver_options_card(profile)
     if card is None:
         return []
     return [
-        f"* --- SOLVER CONTROL profile '{profile}' (issue #637 solver policy; "
-        "simulator options only, DUT and stimulus unmodified) ---",
+        f"* --- solver profile '{profile}' ({_solver_role(profile)}; issue #637 "
+        "solver policy; simulator options only, DUT and stimulus unmodified) ---",
         card,
     ]
 
@@ -189,8 +209,21 @@ def solver_settings_text(profile: str) -> str:
     """Human-readable resolved settings for a record's Environment block."""
     card = solver_options_card(profile)
     if card is None:
-        return f"profile `{profile}` (reference): no `.options` card -- {NGSPICE_DEFAULT_SOLVER_SETTINGS}"
-    return f"profile `{profile}` (SOLVER CONTROL): `{card}`; all other settings ngspice defaults"
+        return (f"profile `{profile}` ({_solver_role(profile)}): no `.options` card -- "
+                f"{NGSPICE_DEFAULT_SOLVER_SETTINGS}")
+    return (f"profile `{profile}` ({_solver_role(profile)}): `{card}`; all other "
+            "settings ngspice defaults")
+
+
+def solver_control_note(profile: str) -> str:
+    """What a control run changes relative to the reference policy, for the
+    record's up-front SOLVER-CONTROL bullet."""
+    card = solver_options_card(profile)
+    ref_card = solver_options_card(REFERENCE_SOLVER_PROFILE)
+    ref = f"`{ref_card}`" if ref_card else NGSPICE_DEFAULT_SOLVER_SETTINGS
+    this = f"`{card}`" if card else f"no `.options` card ({NGSPICE_DEFAULT_SOLVER_SETTINGS})"
+    return (f"this transient runs solver profile `{profile}`: {this}, instead of the "
+            f"reference policy `{REFERENCE_SOLVER_PROFILE}` ({ref}, DR-023)")
 
 
 # --------------------------------------------------------------------------
@@ -236,10 +269,11 @@ def assemble_deck(
     netlist.
 
     `solver_profile` (issue #637) names the transient solver policy (see
-    SOLVER_PROFILES). The reference profile adds nothing; a control profile
-    adds exactly one labelled `.options` card, placed after the fragment and
-    before `extra_meas` (the same position issue #621's coherent-sine
-    control used, so that control's deck is reproduced unchanged).
+    SOLVER_PROFILES); the default is the DR-023 reference policy. A profile
+    adds exactly one labelled `.options` card (or nothing, for
+    `ngspice-default`), placed after the fragment and before `extra_meas` --
+    the same position issue #621's coherent-sine control used, so that
+    control's deck is reproduced unchanged.
     """
     solver_lines = solver_profile_deck_lines(solver_profile)  # validates the name first
     stdcell_spice = (
@@ -606,13 +640,11 @@ def write_record(
     a = lines.append
     if control:
         a(
-            f"- **SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE**: this "
-            f"transient adds `{solver_options_card(solver_profile)}` (profile "
-            f"`{solver_profile}`; the reference policy is `{REFERENCE_SOLVER_PROFILE}`, "
-            f"{NGSPICE_DEFAULT_SOLVER_SETTINGS}). DUT and stimulus are unmodified; only "
-            "the integration settings differ. It exists to test whether a recorded "
-            "observation is a numerical artefact of the reference settings. It does "
-            "not update `records/LATEST` and supersedes nothing."
+            "- **SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE**: "
+            + solver_control_note(solver_profile)
+            + ". DUT and stimulus are unmodified; only the integration settings "
+            "differ. It exists to test whether a recorded observation depends on the "
+            "solver settings. It does not update `records/LATEST` and supersedes nothing."
         )
     a(
         "- **Claim**: `spec/target-spec.md#target-table` -- **Sample rate** and "
@@ -3282,9 +3314,13 @@ def latest_baseline_row(records_dir: Path | None = None) -> dict | None:
     env = {}
     for key, pat in (("ngspice", r"^- ngspice: (.+)$"),
                      ("netlist_sha", r"^- DUT netlist sha256: `([0-9a-f]+)`"),
-                     ("fragment_sha", r"^- testbench fragment sha256: `([0-9a-f]+)`")):
+                     ("fragment_sha", r"^- testbench fragment sha256: `([0-9a-f]+)`"),
+                     ("simulator_options", r"^- simulator options: (.+)$")):
         m = re.search(pat, text, re.M)
         env[key] = m.group(1) if m else None
+    if env["simulator_options"] is None:
+        # every record minted before issue #637 ran on ngspice's defaults
+        env["simulator_options"] = f"not stated (pre-#637 record: {NGSPICE_DEFAULT_SOLVER_SETTINGS})"
     return dict(record_id=path.stem, corner_id=cid, codes=codes, power_w=power, **env)
 
 
@@ -3440,7 +3476,8 @@ def write_solver_audit_record(
             + ("IDENTICAL" if same else "DIFFER")
             + f" ({latest['ngspice'] or 'unknown ngspice'} there, {prov.ng_version} here; "
             + ("same" if same_dut else "DIFFERENT")
-            + " DUT netlist sha256). "
+            + " DUT netlist sha256; LATEST's simulator options: "
+            + f"{latest['simulator_options']}; this run: profile `{reference['solver_profile']}`). "
             + ("The recorded failure modes at this corner are reproduced by this audit's "
                "reference run, so the comparison below speaks to them directly."
                if same else
@@ -3563,11 +3600,13 @@ def write_solver_audit_record(
 # stimulus are untouched; only how the same circuit is integrated changes.
 # Its purpose is to separate a circuit behaviour from a numerical artefact:
 # an event that persists under both is not an artefact of the default
-# settings. A control run is never the reference capture -- the record says
-# so up front and it must not supersede one. Since issue #637 this is the
-# named solver profile `reltol-gear` (SOLVER_PROFILES); `--sine-solver-control`
-# is kept as the spelling of `--solver-profile reltol-gear` the committed
-# #621 records' Written-by lines use.
+# settings. Since issue #637 this is the named solver profile `reltol-gear`
+# (SOLVER_PROFILES), and DR-023 made that profile the REFERENCE policy, so
+# `--sine-solver-control` no longer selects a control: it is kept only as the
+# spelling of `--solver-profile reltol-gear` that the committed #621 record's
+# Written-by line uses (sim/spec-coverage.json cites it as a cold start).
+# A run with it is now a reference capture. The pre-DR-023 settings are
+# `--solver-profile ngspice-default`, which is the control.
 SINE_SOLVER_CONTROL_PROFILE = "reltol-gear"
 SINE_SOLVER_CONTROL_OPTIONS = solver_options_card(SINE_SOLVER_CONTROL_PROFILE)
 
@@ -3755,12 +3794,12 @@ def write_sine_record(
     profile = point.get("solver_profile", REFERENCE_SOLVER_PROFILE)
     if is_solver_control(profile):
         add(
-            "- **SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE**: this "
-            f"transient adds `{solver_options_card(profile)}` (profile `{profile}`; ngspice defaults: "
-            "reltol=1e-3, trapezoidal). DUT and stimulus are unmodified; only the "
-            "integration settings differ. It exists to test whether an observed event "
-            "is a numerical artefact of the default settings; its figures are a "
-            "control, not the converter's headline evidence."
+            "- **SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE**: "
+            + solver_control_note(profile)
+            + ". DUT and stimulus are unmodified; only the integration settings "
+            "differ. It exists to test whether an observed event depends on the "
+            "solver settings; its figures are a control, not the converter's "
+            "headline evidence."
         )
     add(corners_mod.corner_matrix_summary_line(
         [point["process_corner"]], [point["temp_c"]], [point["supply_v"]], 1
@@ -4211,17 +4250,19 @@ def main() -> int:
     )
     ap.add_argument(
         "--sine-solver-control", action="store_true",
-        help="--coherent-sine only (issue #621): SOLVER CONTROL run -- add "
+        help="--coherent-sine only (issue #621): add "
         f"`{SINE_SOLVER_CONTROL_OPTIONS}` to the same deck (DUT and stimulus "
-        "unmodified) to test whether an event is a numerical artefact of the "
-        "default settings. The record is labelled a control and may not use "
-        f"--supersedes. Same as --solver-profile {SINE_SOLVER_CONTROL_PROFILE}.",
+        "unmodified). Kept for the committed #621 record's cold start; it is "
+        f"exactly --solver-profile {SINE_SOLVER_CONTROL_PROFILE}, which DR-023 made "
+        "the reference policy, so the run is no longer a control. The pre-DR-023 "
+        "control is --solver-profile ngspice-default.",
     )
     ap.add_argument(
         "--solver-profile", choices=tuple(SOLVER_PROFILES), default=None,
         help="transient solver policy (issue #637; DR-023). Default "
-        f"`{REFERENCE_SOLVER_PROFILE}` (the reference policy: ngspice defaults, no "
-        "`.options` card). Any other profile is a labelled SOLVER CONTROL: allowed "
+        f"`{REFERENCE_SOLVER_PROFILE}` (the reference policy). Any other profile -- "
+        "including `ngspice-default`, every pre-DR-023 record's settings -- is a "
+        "labelled SOLVER CONTROL: allowed "
         "for the baseline-corner DC run and --coherent-sine only, never with "
         "--corners or a diagnostic mode, never with --supersedes, and its record "
         "never updates records/LATEST. Profiles: "

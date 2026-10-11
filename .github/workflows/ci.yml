@@ -244,16 +244,19 @@ on:
         default: ""
       coherent_sine_solver_control:
         description: >-
-          Optional (issue #621), coherent_sine_evidence only: run the capture
-          as a labelled SOLVER CONTROL (--sine-solver-control: tighter
-          tolerance + Gear integration; DUT and stimulus unmodified).
+          Optional (issue #621), coherent_sine_evidence only: pass
+          --sine-solver-control (tighter tolerance + Gear integration). Since
+          DR-023 (issue #637) that IS the reference solver policy, so it no
+          longer selects a control; the pre-DR-023 settings are
+          coherent_sine_solver_profile=ngspice-default.
         type: boolean
         default: false
       coherent_sine_solver_profile:
         description: >-
           Optional (issue #637), coherent_sine_evidence only: a named solver
-          profile for --solver-profile (e.g. reltol-only, gear-only). Any
-          profile but ngspice-default is a labelled SOLVER CONTROL.
+          profile for --solver-profile (e.g. ngspice-default, reltol-only,
+          gear-only). Any profile but the reference policy (reltol-gear,
+          DR-023) is a labelled SOLVER CONTROL.
         type: string
         default: ""
       coherent_sine_supersedes:

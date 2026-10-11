@@ -204,8 +204,20 @@
           ],
           "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record",
           "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record's own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB, though the 12-period phase structure is correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate.",
+          "covers": "The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record's own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB, though the 12-period phase structure is correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate. The cited record ran on ngspice's default solver settings, before DR-023 made `.options reltol=1e-4 method=gear` the reference policy for this experiment. The issue #637 audit below confirms its baseline-corner codes and verdicts unchanged under the new policy. A re-minted campaign under DR-023 is tracked in issue #638.",
           "records": ["sim/full-conversion-transient/records/20261001-105439-c324f80.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
+          "records": ["sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"]
         }
       ]
     },
@@ -240,8 +252,26 @@
           "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
           "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --sine-solver-control",
           "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "SOLVER CONTROL for the coherent-sine capture above (issue #621): the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4 method=gear` added. Conversion 9 converts to 521 (ideal 522), no transition is unscheduled, TOP_P stays inside the rails, 0 outliers above the 8 LSB bound; SNDR 52.00 dB / ENOB 8.345 bit against the ideal quantizer's 50.89 dB / 8.161 bit on the same N=32 plan (the excess is short-record estimator variance). A CONTROL, not replacement evidence: it supports the inference that the default-settings +438 LSB outlier is a numerical artefact. One corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.",
+          "covers": "SOLVER CONTROL for the coherent-sine capture above (issue #621): the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4 method=gear` added. Conversion 9 converts to 521 (ideal 522), no transition is unscheduled, TOP_P stays inside the rails, 0 outliers above the 8 LSB bound; SNDR 52.00 dB / ENOB 8.345 bit against the ideal quantizer's 50.89 dB / 8.161 bit on the same N=32 plan (the excess is short-record estimator variance). A CONTROL, not replacement evidence: it supports the inference that the default-settings +438 LSB outlier is a numerical artefact. One corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes. Since DR-023 (issue #637) these settings are this experiment's reference solver policy; the record itself predates that and is labelled a control.",
           "records": ["sim/full-conversion-transient/records/20261011-023419-877794b.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile reltol-only",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 522 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.",
+          "records": ["sim/full-conversion-transient/records/20261011-064924-ad4bfff.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile gear-only",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options method=gear` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 217 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.",
+          "records": ["sim/full-conversion-transient/records/20261011-064408-ad4bfff.md"]
         }
       ]
     },
@@ -365,8 +395,20 @@
           ],
           "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record",
           "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target.",
+          "covers": "Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target. It ran on ngspice's default solver settings (pre-DR-023). The issue #637 audit below measures that figure about 2.8 % high at tt_27c_1.80v relative to the DR-023 reference policy.",
           "records": ["sim/full-conversion-transient/records/20261001-105439-c324f80.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
+          "records": ["sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"]
         },
         {
           "experiment": "supply-impedance-sensitivity",
