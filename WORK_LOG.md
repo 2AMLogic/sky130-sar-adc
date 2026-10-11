@@ -2,8 +2,17 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-11
+
+- **Issue #632** (closed): Auditor guard decision: keep stash-scope:create-redirect; use worktree stash wrappers
+
 ### 2026-10-10
 
+- **PR #634**: docs(signoff): scope item 7 no-pex claim (#633)
+- **Issue #633** (closed): signoff/README: item 7 says no klt pex report exists, but three comparator pex envelopes do
+- **PR #631**: sim: conversion-9 trace in the coherent-sine run + new record (Part of #621)
+- **PR #630**: chore: remove unused imports (ruff F401)
+- **Issue #624** (closed): Remove 10 unused imports flagged by ruff F401 (L_MET3/L_MET4 regression, test files)
 - **PR #627**: Characterize the digital partition: Fmax bracket, rail power, routed area (#619)
 - **Issue #619** (closed): Characterize the digital partition: measured frequency limit, rail power and routed area
 - **PR #626**: Pin klt yield toolchain; refresh Item 6 narrative (#625)
