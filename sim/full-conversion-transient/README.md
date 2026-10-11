@@ -318,7 +318,8 @@ and deltas recomputed. Existing validity failures (missing measurement, phase
 structure, wrong tone bin) are unchanged. Covered PDK-free by
 `TestOutlierDiagnostic` in `sim/tests/test_dynamic_enob_fft.py`.
 
-**Conversion 9: trace run, mechanism still OPEN.** `--coherent-sine
+**Conversion 9: first trace run (narrowed, not closed; see the root-cause
+paragraph below).** `--coherent-sine
 --sine-trace CONV` (repeatable) appends read-only `.meas` probes for those
 conversions to the same coherent-sine transient (DUT and stimulus untouched,
 single corner, no grid; cold start `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10`) and the record gains a "Conversion trace" section.
@@ -352,6 +353,100 @@ a finding. The per-trial
 captured-bit probe is taken 2 ns after each capturing edge and is not the
 final readout, so it is reported but not used as a divergence criterion. The
 root cause is therefore narrowed to a specific analog event, not closed.
+
+**Conversion 9: root cause (issue #621) -- a solver artefact of the default
+ngspice settings, not a converter decision.** Three pinned-toolchain runs
+(ngspice-47, PDK pin `sim/pdk.json`), each a single coherent-sine transient at
+tt/27C/1.8V on the off-host opt-in CI job `coherent-sine-evidence` (inputs
+`coherent_sine_switch_trace`, `coherent_sine_trace`,
+`coherent_sine_solver_control`, `coherent_sine_supersedes`):
+
+| record | settings | conversion 9 | outliers (> 8 LSB) | headline SNDR |
+|---|---|---|---|---|
+| `records/20261011-021527-8d0c19a.md` | ngspice defaults | 960 vs 522 (+438) | 1 | 2.17 dB |
+| `records/20261011-022915-877794b.md` | ngspice defaults | 960 vs 522 (+438) | 1 | 2.17 dB |
+| `records/20261011-023419-877794b.md` | **solver control** `.options reltol=1e-4 method=gear` | 521 vs 522 (-1) | 0 (max \|error\| 2 LSB) | 52.00 dB |
+
+The probe is `--sine-switch-trace CONV`. It adds read-only `.meas` cards to
+the same transient: WHEN-crossing times of every DAC-steering and sequencer
+node, each classified against the SAR's own edge schedule
+(`switch_trace_expected_edges()`, derived from `design/sar_adc_top.spice`) as
+scheduled or **UNSCHEDULED**; node values at the instant a top plate first
+leaves the rails; per-phase snapshots incl. the DAC bottom plates; and 0.5 ns
+samples across every comparator strobe of the registers' D-path
+(MUXOUT/PRESET/DFEED). `--sine-solver-control` reruns the same deck with
+only the simulator options changed, and is labelled a control in its record
+(it may not `--supersedes`). Cold start, reference settings (all trace
+probes; each record's own **Written by** line names the subset it used):
+
+```
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10 --sine-switch-trace 9
+```
+
+and the solver control:
+
+```
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --sine-solver-control
+```
+
+*Observed* (defaults; `20261011-022915-877794b`, which also probes the ring
+correctly -- `20261011-021527-8d0c19a`'s ring probes are missing, because a
+subckt port is not addressable as `xseq.<port>` in ngspice; its DOUT/SEL/
+plate data are unaffected): the ring is correct (only PH_B4 high in phase
+5), and the bit-4 trial proceeds normally up to the strobe. Then, between
++43.67 and +44.67 ns after phase 5's CLK rising edge, i.e. ~2-3 ns after the
+CLK falling edge (+41.67 ns) and coincident with the comparator's
+regeneration (in the 0.5 ns strobe samples COMP_OUT is 0.894 V at +44.17 ns,
+and COMP_EFF falls from 1.381 V at +44.17 ns to 0.037 V at +44.67 ns), the
+**already-rejected** registers DOUT8, DOUT7, DOUT6 and the
+untouched DOUT2 switch 0 -> 1 together with their own D-paths (MUXOUT/
+PRESET/DFEED cross at +44.27 ns, DOUT at +44.32 ns). No CLK rising edge
+occurs, and RST_B and every supply are ideal sources. SELp8/7/6/2 follow,
+the corresponding P bottom plates swing from VREFP toward VREFN, and TOP_P
+leaves the rails at +44.59 ns (-0.2 V crossing) while TOP_N is undisturbed.
+The bit-4 decision itself (0) is correct; later trials decide on a top
+plate below ground. That gives the final code 1111000000 (DOUT2 is cleared
+by its own rejected trial). The switch trace reports exactly 8 UNSCHEDULED
+transitions in conversion 9 (SELp8/7/6/2 and DOUT8/7/6/2 rising), all
+between +44.28 and +44.32 ns of phase 5.
+
+*Observed* (solver control, `20261011-023419-877794b`): with DUT, stimulus,
+ngspice and PDK unchanged and only `reltol=1e-4 method=gear` added, conversion
+9 converts to 521 (ideal 522), there are **no** UNSCHEDULED transitions and
+TOP_P stays inside the rails (0.86 V through phase 5). The capture has no
+outlier above the 8 LSB bound.
+
+*Inferred* (not established by a further control): four static registers
+flipping together without a clock edge, under ideal supplies, at a sharp
+regenerative event, and vanishing when only the integration settings are
+tightened, is a **numerical artefact of the default solver settings**
+(reltol=1e-3, trapezoidal) rather than a circuit behaviour. The control
+changes two settings at once, so it does not say which one matters. The
+~1.37 V top-plate drop is consistent with the observed plate switching:
+bit-8+7+6+2 steps sum to about 1.57 V, and the shortfall to the observed
+about -0.53 V minimum is consistent with a forward-biased junction clamping
+TOP_P/BPREF_P below ground. No junction current was probed, so that last
+part is arithmetic, not a finding. Consequences:
+
+* The 2.17 dB / 0.068 bit headline of the default-settings records is a
+  simulator artefact in one conversion, which the outlier diagnostic flags.
+  It is not the converter's dynamic performance.
+* The control's 52.00 dB SNDR / 8.345 bit ENOB (ideal quantizer on the same
+  N=32 plan: 50.89 dB / 8.161 bit; the excess is the short record's
+  estimator variance) is a **control, not replacement evidence**. It is one
+  corner, N=32, no noise, -12 dBFS, so the DRAFT ENOB row and every target
+  are unchanged.
+* Every other transient record in this repo uses the same default solver
+  settings. Whether any of them carries a similar artefact is outside this
+  issue's scope and is tracked as a follow-up; no other record is
+  reinterpreted here.
+
+`20261011-021527-8d0c19a` **Supersedes** `20261010-204225-57a55c1`, and
+`20261011-022915-877794b` **Supersedes** `20261011-021527-8d0c19a`. Each is
+the same default-settings capture, re-run with deeper probes, and the stream
+is bit-for-bit identical. The solver-control record supersedes nothing. It
+makes a different claim, a control, and is not a replacement capture.
+`20261010-070734-f968286` remains superseded via `57a55c1`, as before.
 
 ## Findings
 

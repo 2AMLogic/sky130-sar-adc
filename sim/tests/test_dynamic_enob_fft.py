@@ -406,6 +406,168 @@ class TestSineTrace(unittest.TestCase):
         self.assertEqual((fd["ideal_bit"], fd["captured_bit"]), (0, 1))
 
 
+class TestSwitchTrace(unittest.TestCase):
+    """issue #621: the read-only switching-event trace of one conversion."""
+
+    CONV = 9
+
+    def _event_lines(self, code: int, extra: list[tuple[str, str, float]] = ()) -> list[str]:
+        """A synthetic log for a conversion that follows the SAR's own
+        schedule for `code` (DOUT9 unchanged from the previous conversion),
+        plus `extra` (node, direction, t_ns) transitions."""
+        c = self.CONV
+        base = tb.PHASES_PER_CONVERSION * c
+        names = rc.switch_trace_names(c)["events"]
+        ev: dict[tuple[str, str], list[float]] = {}
+
+        def at(node, d, edge, delay=1.5):
+            ev.setdefault((node, d), []).append(tb.t_edge_ns(edge) + delay)
+
+        for p in range(tb.N_BITS):
+            at(f"PH_B{tb.N_BITS - 1 - p}", "rise", base + p)
+            at(f"PH_B{tb.N_BITS - 1 - p}", "fall", base + p + 1)
+        at("PH_EOC", "rise", base + 10)
+        at("PH_EOC", "fall", base + 11)
+        at("BUSY", "rise", base)
+        at("BUSY", "fall", base + 11)
+        at("SAMPLE_INT", "fall", base)
+        at("SAMPLE_INT", "rise", base + 11)
+        at("xseq.BUSY_BITS", "rise", base)
+        at("xseq.BUSY_BITS", "fall", base + 10)
+        for k in range(tb.N_BITS - 1):
+            at(f"DOUT{k}", "rise", base + 9 - k)
+            at(f"DOUT{k}", "fall", base + (11 if (code >> k) & 1 else 10 - k))
+        for node, d, t in extra:
+            ev.setdefault((node, d), []).append(t)
+        lines = []
+        for (node, d), times in ev.items():
+            for i, t in enumerate(sorted(times)[: rc.SWITCH_TRACE_MAX_EDGES], start=1):
+                lines.append(f"{names[node][(d, i)]} = {t * 1e-9:.9e}")
+        return lines
+
+    def _decode(self, lines: list[str]) -> dict:
+        parsed = rc.measure.parse("\n".join(lines), rc.switch_trace_flat_names(self.CONV))
+        return rc.decode_switch_trace(parsed, self.CONV, 1.8)
+
+    def test_schedule_following_conversion_has_no_unscheduled_event(self):
+        st = self._decode(self._event_lines(522))
+        self.assertTrue(st["events"])
+        self.assertEqual(st["unscheduled"], [])
+        self.assertIsNone(st["first_unscheduled"])
+        self.assertEqual(st["excursions"], {"TOP_P": None, "TOP_N": None})
+
+    def test_mid_phase_transition_is_unscheduled(self):
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        t = tb.t_edge_ns(base + 5) + 43.0  # phase 5, CLK-low half
+        st = self._decode(self._event_lines(522, [("DOUT8", "rise", t)]))
+        fu = st["first_unscheduled"]
+        self.assertEqual((fu["node"], fu["direction"], fu["phase"]), ("DOUT8", "rise", 5))
+        self.assertAlmostEqual(fu["offset_ns"], 43.0, places=3)
+        self.assertFalse(fu["on_edge"])
+
+    def test_on_edge_but_off_schedule_is_unscheduled(self):
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        t = tb.t_edge_ns(base + 5) + 1.0  # an edge, but not DOUT7's own edges
+        st = self._decode(self._event_lines(522, [("DOUT7", "rise", t)]))
+        fu = st["first_unscheduled"]
+        self.assertEqual(fu["node"], "DOUT7")
+        self.assertTrue(fu["on_edge"])
+        self.assertFalse(fu["scheduled"])
+
+    def test_edge_window_bounds(self):
+        exp = rc.switch_trace_expected_edges(self.CONV)
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        lo, hi = rc.SWITCH_TRACE_EDGE_WINDOW_NS
+        edge = tb.t_edge_ns(base + 1)
+        self.assertTrue(rc.classify_switch_event("DOUT8", edge + hi, exp, "rise")["scheduled"])
+        self.assertTrue(rc.classify_switch_event("DOUT8", edge + lo, exp, "rise")["scheduled"])
+        self.assertFalse(rc.classify_switch_event("DOUT8", edge + hi + 0.5, exp, "rise")["scheduled"])
+
+    def test_measure_lines_are_read_only_and_named_uniquely(self):
+        lines = rc.switch_trace_measure_lines(self.CONV, 1.8)
+        text = "\n".join(lines)
+        self.assertTrue(all(ln.startswith((".meas tran ", "*")) for ln in lines))
+        self.assertIn("when v(DOUT8)=0.9000 rise=1 from=", text)
+        self.assertIn("find v(xcdac.BOT_p8) when v(TOP_P)=-0.2000 fall=1", text)
+        # ring PORTS are probed on the nets the netlist wires them to
+        # (`xseq.<port>` does not exist in ngspice); internal nets keep xseq.
+        ports = rc.sequencer_port_nets()
+        self.assertIn(f"v({ports['PH_B4']})", text)
+        self.assertNotIn("v(xseq.PH_B4)", text)
+        self.assertIn("v(xseq.DFEED8)", text)
+        self.assertIn("v(xseq.MUXOUT9)", text)
+        names = rc.switch_trace_flat_names(self.CONV)
+        self.assertEqual(len(names), len(set(names)))
+        self.assertEqual(len(names), sum(1 for ln in lines if ln.startswith(".meas")))
+        for n in names:
+            self.assertRegex(n, r"^[a-z_][a-z0-9_]*$")
+
+    def test_excursion_and_snapshot_decode_and_render(self):
+        names = rc.switch_trace_names(self.CONV)
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        t_off = tb.t_edge_ns(base + 5) + 44.0
+        lines = self._event_lines(522, [("DOUT8", "rise", t_off - 1.0)])
+        ex = names["excursion"]["TOP_P"]
+        lines.append(f"{ex['t']} = {t_off * 1e-9:.9e}")
+        lines.append(f"{ex['at']['SELp8']} = 1.8")
+        lines.append(f"{ex['at']['xcdac.BOT_p8']} = 0.0")
+        lines.append(f"{names['snapshots'][(5, 'pre')]['TOP_P']} = -0.505")
+        st = self._decode(lines)
+        self.assertEqual(st["excursions"]["TOP_P"]["phase"], 5)
+        self.assertEqual(st["excursions"]["TOP_P"]["values"]["SELp8"], 1.8)
+        self.assertEqual(st["snapshots"][(5, "pre")]["TOP_P"], -0.505)
+        point = TestOutlierDiagnostic()._point(_ideal_capture())
+        point["switch_traces"] = [st]
+        with tempfile.TemporaryDirectory() as tmp:
+            text = TestSineRecord()._write(point, Path(tmp)).read_text()
+        self.assertIn("## Switching-event trace", text)
+        self.assertIn("**First UNSCHEDULED transition (observed)**: `DOUT8` rise", text)
+        self.assertIn("**UNSCHEDULED**", text)
+        self.assertIn("Node values at the instant TOP_P crosses -0.2 V", text)
+        self.assertIn("SELp8..0 `1????????`", text)
+        self.assertIn("-0.505", text)
+        self.assertIn("first UNSCHEDULED transition: DOUT8 rise",
+                      rc.format_switch_trace_summary(st))
+
+    def test_sequencer_port_map_comes_from_the_netlist(self):
+        ports = rc.sequencer_port_nets()
+        self.assertEqual(ports["PH_B9"], "PH_B9")
+        self.assertEqual(ports["CLK"], "CLK")
+        self.assertEqual(ports["PH_SAMPLE"], "SAMPLE_INT")
+        for b in range(tb.N_BITS):
+            self.assertIn(f"PH_B{b}", ports)
+        with self.assertRaises(ValueError):
+            rc.sequencer_port_nets("* no sequencer here\n")
+
+    def test_context_nets_are_recorded_but_not_classified(self):
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        t = tb.t_edge_ns(base + 5) + 43.0
+        st = self._decode(self._event_lines(522, [("xseq.DFEED8", "rise", t)]))
+        ctx = [e for e in st["events"] if e["node"] == "xseq.DFEED8"]
+        self.assertEqual(len(ctx), 1)
+        self.assertIsNone(ctx[0]["scheduled"])
+        self.assertEqual(st["unscheduled"], [])
+
+    def test_strobe_window_rendered_for_first_unscheduled_phase(self):
+        names = rc.switch_trace_names(self.CONV)
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        lines = self._event_lines(522, [("DOUT8", "rise", tb.t_edge_ns(base + 5) + 44.3)])
+        lines.append(f"{names['strobe'][(5, 3)]['xseq.DFEED8']} = 1.8")
+        lines.append(f"{names['strobe'][(5, 3)]['COMP_OUT']} = 0.48")
+        st = self._decode(lines)
+        self.assertEqual(st["strobe"][(5, 3)]["xseq.DFEED8"], 1.8)
+        text = "\n".join(rc.switch_trace_record_lines([st]))
+        self.assertIn("#### Strobe window, phase 5", text)
+        self.assertIn("| 0.480 |", text)
+        self.assertIn("`1????????` |", text)
+
+    def test_logic_char_bands(self):
+        self.assertEqual(rc._logic_char(None, 1.8), "?")
+        self.assertEqual(rc._logic_char(0.9, 1.8), "x")
+        self.assertEqual(rc._logic_char(1.7, 1.8), "1")
+        self.assertEqual(rc._logic_char(0.1, 1.8), "0")
+
+
 class TestBehavioralReference(unittest.TestCase):
     def test_parses_latest_record(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -530,6 +692,43 @@ class TestCli(unittest.TestCase):
                 mock.patch.object(rc.toolchain, "check_env") as check:
             self.assertEqual(rc.main(), 2)
         check.assert_not_called()
+
+    def test_solver_control_cannot_supersede_or_run_alone(self):
+        for argv in (
+            ["run_conversion.py", "--sine-solver-control"],
+            ["run_conversion.py", "--coherent-sine", "--sine-solver-control",
+             "--supersedes", "20261010-070734-f968286"],
+        ):
+            with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
+                    mock.patch.object(rc.toolchain, "check_env") as check:
+                self.assertEqual(rc.main(), 2)
+            check.assert_not_called()
+
+    def test_solver_control_adds_options_only_and_is_labelled(self):
+        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
+                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
+            point = rc.run_sine_point(
+                "* netlist\n", None, Path("/nonexistent"),
+                tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
+                solver_control=True,
+            )
+        extra = deck.call_args.kwargs["extra_meas"]
+        self.assertIn(rc.SINE_SOLVER_CONTROL_OPTIONS, extra)
+        self.assertEqual(deck.call_args.args[0], "* netlist\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            text = TestSineRecord()._write(point, Path(tmp)).read_text()
+        self.assertIn("SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE", text)
+        self.assertIn("(solver control)", text)
+
+    def test_switch_trace_requires_coherent_sine_and_a_measured_conversion(self):
+        for argv in (
+            ["run_conversion.py", "--sine-switch-trace", "9"],
+            ["run_conversion.py", "--coherent-sine", "--sine-switch-trace", "9999"],
+        ):
+            with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
+                    mock.patch.object(rc.toolchain, "check_env") as check:
+                self.assertEqual(rc.main(), 2)
+            check.assert_not_called()
 
 
 if __name__ == "__main__":

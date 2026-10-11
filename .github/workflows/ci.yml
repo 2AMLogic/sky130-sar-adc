@@ -229,6 +229,32 @@ on:
           append-only files as an artifact. Never commits or pushes.
         type: boolean
         default: false
+      coherent_sine_trace:
+        description: >-
+          Optional (issue #621), coherent_sine_evidence only: space-separated
+          conversion numbers for --sine-trace (read-only per-phase probes).
+        type: string
+        default: ""
+      coherent_sine_switch_trace:
+        description: >-
+          Optional (issue #621), coherent_sine_evidence only: space-separated
+          conversion numbers for --sine-switch-trace (read-only switching-event
+          probes).
+        type: string
+        default: ""
+      coherent_sine_solver_control:
+        description: >-
+          Optional (issue #621), coherent_sine_evidence only: run the capture
+          as a labelled SOLVER CONTROL (--sine-solver-control: tighter
+          tolerance + Gear integration; DUT and stimulus unmodified).
+        type: boolean
+        default: false
+      coherent_sine_supersedes:
+        description: >-
+          Optional, coherent_sine_evidence only: record-id for --supersedes
+          (must already exist under sim/full-conversion-transient/records/).
+        type: string
+        default: ""
 
 jobs:
   checks:
@@ -639,11 +665,36 @@ jobs:
         # (sim/harness/toolchain.py); the 120 s default timed out the first
         # dispatch of this job while ngspice was still progressing (the ~33 us
         # transient takes several minutes). It changes no validity gate.
+        #
+        # Optional read-only trace probes (issue #621) and --supersedes come in
+        # through env (never interpolated into the script) and are validated
+        # against a strict shape before use; they add .meas probes only.
         env:
           SIM_NGSPICE_TIMEOUT_S: "5400"
+          SINE_TRACE: ${{ inputs.coherent_sine_trace }}
+          SINE_SWITCH_TRACE: ${{ inputs.coherent_sine_switch_trace }}
+          SINE_SUPERSEDES: ${{ inputs.coherent_sine_supersedes }}
+          SINE_SOLVER_CONTROL: ${{ inputs.coherent_sine_solver_control }}
         run: |
           set +e
-          python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record 2>&1 | tee /tmp/coherent-sine-run.log
+          extra=()
+          for spec in "SINE_TRACE:--sine-trace" "SINE_SWITCH_TRACE:--sine-switch-trace"; do
+            var="${spec%%:*}"; flag="${spec#*:}"; val="${!var}"
+            if [[ -n "$val" && ! "$val" =~ ^[0-9]+( [0-9]+)*$ ]]; then
+              echo "::error::${var} must be space-separated conversion numbers"; exit 1
+            fi
+            for c in $val; do extra+=("$flag" "$c"); done
+          done
+          if [[ -n "$SINE_SUPERSEDES" ]]; then
+            if [[ ! "$SINE_SUPERSEDES" =~ ^[0-9]{8}-[0-9]{6}-[0-9a-f]{7}$ ]]; then
+              echo "::error::SINE_SUPERSEDES must be a record-id"; exit 1
+            fi
+            extra+=(--supersedes "$SINE_SUPERSEDES")
+          fi
+          if [[ "$SINE_SOLVER_CONTROL" == "true" ]]; then
+            extra+=(--sine-solver-control)
+          fi
+          python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record "${extra[@]}" 2>&1 | tee /tmp/coherent-sine-run.log
           rc=${PIPESTATUS[0]}
           echo "exit_code=${rc}" >> "$GITHUB_OUTPUT"
           exit 0
