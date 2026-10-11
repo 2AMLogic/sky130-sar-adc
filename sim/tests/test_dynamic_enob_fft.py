@@ -705,20 +705,47 @@ class TestCli(unittest.TestCase):
             check.assert_not_called()
 
     def test_solver_control_adds_options_only_and_is_labelled(self):
+        # issue #621's control is now the named solver profile `reltol-gear`
+        # (issue #637): run_sine_point hands the profile to deck assembly,
+        # which is the one place an `.options` card is emitted.
+        self.assertEqual(rc.SINE_SOLVER_CONTROL_OPTIONS, ".options reltol=1e-4 method=gear")
         with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
                 mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
             point = rc.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
-                solver_control=True,
+                solver_profile=rc.SINE_SOLVER_CONTROL_PROFILE,
             )
-        extra = deck.call_args.kwargs["extra_meas"]
-        self.assertIn(rc.SINE_SOLVER_CONTROL_OPTIONS, extra)
+        self.assertEqual(deck.call_args.kwargs["solver_profile"], "reltol-gear")
+        self.assertIsNone(deck.call_args.kwargs["extra_meas"])  # no probes, no stray card
         self.assertEqual(deck.call_args.args[0], "* netlist\n")
         with tempfile.TemporaryDirectory() as tmp:
             text = TestSineRecord()._write(point, Path(tmp)).read_text()
         self.assertIn("SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE", text)
-        self.assertIn("(solver control)", text)
+        self.assertIn("simulator options: profile `reltol-gear` (SOLVER CONTROL): "
+                      "`.options reltol=1e-4 method=gear`", text)
+
+    def test_reference_sine_record_states_the_resolved_default_settings(self):
+        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
+                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
+            point = rc.run_sine_point(
+                "* netlist\n", None, Path("/nonexistent"),
+                tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
+            )
+        self.assertEqual(deck.call_args.kwargs["solver_profile"], rc.REFERENCE_SOLVER_PROFILE)
+        with tempfile.TemporaryDirectory() as tmp:
+            text = TestSineRecord()._write(point, Path(tmp)).read_text()
+        self.assertNotIn("SOLVER-CONTROL RUN", text)
+        self.assertIn("profile `ngspice-default` (reference): no `.options` card -- "
+                      "reltol=1e-3, method=trapezoidal", text)
+
+    def test_sine_solver_control_flag_conflicts_with_another_profile(self):
+        argv = ["run_conversion.py", "--coherent-sine", "--sine-solver-control",
+                "--solver-profile", "gear-only"]
+        with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
+                mock.patch.object(rc.toolchain, "check_env") as check:
+            self.assertEqual(rc.main(), 2)
+        check.assert_not_called()
 
     def test_switch_trace_requires_coherent_sine_and_a_measured_conversion(self):
         for argv in (
