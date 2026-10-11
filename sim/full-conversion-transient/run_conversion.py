@@ -2459,6 +2459,10 @@ SWITCH_TRACE_RAIL_V = 0.2
 # rising edge: after the register update, mid CLK-high, just after the CLK
 # falling edge (comparator strobe), mid CLK-low, and 1 ns before the next
 # capturing edge.
+# Dense samples across each bit phase's comparator strobe: 0.5 ns apart from
+# 0.5 ns before to 5 ns after the CLK falling edge (T/2 after the rising
+# edge). Fine enough to order a D-path glitch against a register change.
+SWITCH_TRACE_STROBE_OFFSETS_NS = tuple(tb.T_CLK_NS * 0.5 + 0.5 * i for i in range(-1, 11))
 SWITCH_TRACE_SNAPSHOT_OFFSETS_NS = (
     ("post", 4.0),
     ("mid", tb.T_CLK_NS * 0.25),
@@ -2469,11 +2473,26 @@ SWITCH_TRACE_SNAPSHOT_OFFSETS_NS = (
 
 
 def _switch_trace_digital_nodes() -> list[str]:
+    """Nodes whose transitions are classified against the SAR's schedule.
+    Names are LOGICAL (the sequencer's own port names for the ring);
+    `switch_trace_probe_node()` maps them onto the deck's nets."""
     nodes = [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
     nodes += [f"SELp{b}" for b in range(tb.N_BITS - 2, -1, -1)]
     nodes += [f"SELn{b}" for b in range(tb.N_BITS - 2, -1, -1)]
-    nodes += [f"xseq.PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)]
-    nodes += ["xseq.PH_EOC", "BUSY", "xseq.BUSY_BITS", "SAMPLE_INT"]
+    nodes += [f"PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+    nodes += ["PH_EOC", "BUSY", "xseq.BUSY_BITS", "SAMPLE_INT"]
+    return nodes
+
+
+def _switch_trace_context_nodes() -> list[str]:
+    """The bit registers' own D-path inside the sequencer (internal nets of
+    `sar_sequencer`): MUXOUTk = PH_Bk ? COMP_EFF : DOUTk, PRESETk = MUXOUTk |
+    PH_B(k+1), DFEEDk = PRESETk & BUSY_BITS (DOUT9's D is MUXOUT9). Their
+    transitions are recorded but not schedule-classified: MUXOUTk follows
+    the comparator during its own trial, so it legitimately moves mid-phase."""
+    nodes = [f"xseq.MUXOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+    nodes += [f"xseq.PRESET{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"xseq.DFEED{b}" for b in range(tb.N_BITS - 2, -1, -1)]
     return nodes
 
 
@@ -2483,6 +2502,50 @@ def _switch_trace_analog_nodes() -> list[str]:
     nodes += [f"xcdac.BOT_p{b}" for b in range(tb.N_BITS - 2, -1, -1)]
     nodes += [f"xcdac.BOT_n{b}" for b in range(tb.N_BITS - 2, -1, -1)]
     return nodes
+
+
+def _switch_trace_strobe_nodes() -> list[str]:
+    """Nodes sampled densely across each phase's comparator strobe (the CLK
+    falling edge): the comparator outputs, the shared COMP_EFF, every bit
+    register's output and D-path."""
+    return (["CLK", "CLKN", "COMP_OUT", "OUTN_NC", "xseq.COMP_EFF"]
+            + [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+            + _switch_trace_context_nodes())
+
+
+_SEQUENCER_INSTANCE = "xseq"
+_SEQUENCER_SUBCKT = "sar_sequencer"
+
+
+def sequencer_port_nets(netlist_text: str | None = None) -> dict[str, str]:
+    """{sequencer port name: top-level net} read from the DUT netlist's own
+    `xseq` instance line and `.subckt sar_sequencer` port list. Subckt PORTS
+    are not addressable as `xseq.<port>` in ngspice (only internal nets
+    are), so a ring probe must name the net the port is wired to."""
+    text = dut_text() if netlist_text is None else netlist_text
+    inst = sub = None
+    for ln in text.splitlines():
+        tok = ln.split()
+        if not tok:
+            continue
+        if tok[0].lower() == _SEQUENCER_INSTANCE and tok[-1].lower() == _SEQUENCER_SUBCKT:
+            inst = tok[1:-1]
+        elif tok[0].lower() == ".subckt" and len(tok) > 1 and tok[1].lower() == _SEQUENCER_SUBCKT:
+            sub = tok[2:]
+    if inst is None or sub is None or len(inst) != len(sub):
+        raise ValueError(
+            f"{DUT_NETLIST.name}: cannot map {_SEQUENCER_SUBCKT} ports onto "
+            f"{_SEQUENCER_INSTANCE}'s nets -- the netlist changed shape; re-derive the probe."
+        )
+    return dict(zip(sub, inst))
+
+
+def switch_trace_probe_node(node: str, ports: dict[str, str] | None = None) -> str:
+    """The deck-level name to put inside v(...) for a logical node: ring
+    ports (PH_B9..PH_B0, PH_EOC) resolve to their top-level nets."""
+    if node.startswith("PH_"):
+        return (sequencer_port_nets() if ports is None else ports)[node]
+    return node
 
 
 def _meas_tag(node: str) -> str:
@@ -2519,8 +2582,8 @@ def switch_trace_expected_edges(conversion: int) -> dict[str, set[tuple[int, str
     exp: dict[str, set[tuple[int, str]]] = {}
     for p in range(tb.N_BITS):
         b = tb.N_BITS - 1 - p
-        exp[f"xseq.PH_B{b}"] = {(base + p, "rise"), (base + p + 1, "fall")}
-    exp["xseq.PH_EOC"] = {(base + tb.N_BITS, "rise"), (base + last, "fall")}
+        exp[f"PH_B{b}"] = {(base + p, "rise"), (base + p + 1, "fall")}
+    exp["PH_EOC"] = {(base + tb.N_BITS, "rise"), (base + last, "fall")}
     exp["BUSY"] = {(base, "rise"), (base + last, "fall")}
     exp["SAMPLE_INT"] = {(base, "fall"), (base + last, "rise")}
     exp["xseq.BUSY_BITS"] = {(base, "rise"), (base + tb.N_BITS, "fall")}
@@ -2547,9 +2610,10 @@ def switch_trace_names(conversion: int) -> dict:
             (d, i): f"{pre}_{_meas_tag(node)}_{d}{i}"
             for d in ("rise", "fall") for i in range(1, SWITCH_TRACE_MAX_EDGES + 1)
         }
-        for node in _switch_trace_digital_nodes()
+        for node in _switch_trace_digital_nodes() + _switch_trace_context_nodes()
     }
-    all_nodes = _switch_trace_digital_nodes() + _switch_trace_analog_nodes()
+    all_nodes = (_switch_trace_digital_nodes() + _switch_trace_context_nodes()
+                 + _switch_trace_analog_nodes())
     excursion = {
         top: dict(
             t=f"{pre}_{_meas_tag(top)}_off_t",
@@ -2562,7 +2626,12 @@ def switch_trace_names(conversion: int) -> dict:
         for p in range(tb.PHASES_PER_CONVERSION - 1)
         for tag, _ in SWITCH_TRACE_SNAPSHOT_OFFSETS_NS
     }
-    return dict(events=events, excursion=excursion, snapshots=snapshots)
+    strobe = {
+        (p, i): {node: f"{pre}_p{p}_s{i}_{_meas_tag(node)}" for node in _switch_trace_strobe_nodes()}
+        for p in range(tb.N_BITS)
+        for i in range(len(SWITCH_TRACE_STROBE_OFFSETS_NS))
+    }
+    return dict(events=events, excursion=excursion, snapshots=snapshots, strobe=strobe)
 
 
 def switch_trace_flat_names(conversion: int) -> list[str]:
@@ -2572,6 +2641,8 @@ def switch_trace_flat_names(conversion: int) -> list[str]:
         out.append(ex["t"])
         out += list(ex["at"].values())
     for per in names["snapshots"].values():
+        out += list(per.values())
+    for per in names["strobe"].values():
         out += list(per.values())
     return out
 
@@ -2583,6 +2654,11 @@ def switch_trace_measure_lines(conversion: int, supply_v: float) -> list[str]:
     t_from, t_to = switch_trace_window_ns(conversion)
     thr = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
     base = tb.PHASES_PER_CONVERSION * conversion
+    ports = sequencer_port_nets()
+
+    def v(node: str) -> str:
+        return f"v({switch_trace_probe_node(node, ports)})"
+
     lines = [
         f"* --- issue #621 switching-event trace, conversion {conversion} "
         "(read-only probes; DUT and stimulus unmodified) ---",
@@ -2590,19 +2666,23 @@ def switch_trace_measure_lines(conversion: int, supply_v: float) -> list[str]:
     for node, per in names["events"].items():
         for (d, i), name in per.items():
             lines.append(
-                f".meas tran {name} when v({node})={thr:.4f} {d}={i} "
+                f".meas tran {name} when {v(node)}={thr:.4f} {d}={i} "
                 f"from={t_from:.4f}n to={t_to:.4f}n"
             )
     for top, ex in names["excursion"].items():
         cond = f"v({top})={-SWITCH_TRACE_RAIL_V:.4f} fall=1 from={t_from:.4f}n to={t_to:.4f}n"
         lines.append(f".meas tran {ex['t']} when {cond}")
         for node, name in ex["at"].items():
-            lines.append(f".meas tran {name} find v({node}) when {cond}")
+            lines.append(f".meas tran {name} find {v(node)} when {cond}")
     for (p, tag), per in names["snapshots"].items():
         offset = dict(SWITCH_TRACE_SNAPSHOT_OFFSETS_NS)[tag]
         t = tb.t_edge_ns(base + p) + offset
         for node, name in per.items():
-            lines.append(f".meas tran {name} find v({node}) at={t:.4f}n")
+            lines.append(f".meas tran {name} find {v(node)} at={t:.4f}n")
+    for (p, i), per in names["strobe"].items():
+        t = tb.t_edge_ns(base + p) + SWITCH_TRACE_STROBE_OFFSETS_NS[i]
+        for node, name in per.items():
+            lines.append(f".meas tran {name} find {v(node)} at={t:.4f}n")
     return lines
 
 
@@ -2631,6 +2711,7 @@ def decode_switch_trace(parsed: dict, conversion: int, supply_v: float) -> dict:
     names = switch_trace_names(conversion)
     expected = switch_trace_expected_edges(conversion)
     base = tb.PHASES_PER_CONVERSION * conversion
+    context = set(_switch_trace_context_nodes())
     events = []
     saturated = []
     for node, per in names["events"].items():
@@ -2641,11 +2722,13 @@ def decode_switch_trace(parsed: dict, conversion: int, supply_v: float) -> dict:
                     break
                 ev = classify_switch_event(node, v * 1e9, expected, d)
                 ev["phase"] = ev["edge"] - base
+                if node in context:
+                    ev["scheduled"] = None  # recorded, not schedule-classified
                 events.append(ev)
                 if i == SWITCH_TRACE_MAX_EDGES:
                     saturated.append((node, d))
     events.sort(key=lambda e: (e["t_ns"], e["node"]))
-    unscheduled = [e for e in events if not e["scheduled"]]
+    unscheduled = [e for e in events if e["scheduled"] is False]
     excursions = {}
     for top, ex in names["excursion"].items():
         t = parsed.get(ex["t"])
@@ -2662,7 +2745,11 @@ def decode_switch_trace(parsed: dict, conversion: int, supply_v: float) -> dict:
         key: {node: parsed.get(name) for node, name in per.items()}
         for key, per in names["snapshots"].items()
     }
-    return dict(conversion=conversion, supply_v=supply_v, events=events,
+    strobe = {
+        key: {node: parsed.get(name) for node, name in per.items()}
+        for key, per in names["strobe"].items()
+    }
+    return dict(conversion=conversion, supply_v=supply_v, events=events, strobe=strobe,
                 unscheduled=unscheduled, first_unscheduled=(unscheduled[0] if unscheduled else None),
                 saturated=saturated, excursions=excursions, snapshots=snapshots)
 
@@ -2684,7 +2771,10 @@ def _logic_word(values: dict, nodes: list[str], supply_v: float) -> str:
 _SW_DOUT = [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
 _SW_SELP = [f"SELp{b}" for b in range(tb.N_BITS - 2, -1, -1)]
 _SW_SELN = [f"SELn{b}" for b in range(tb.N_BITS - 2, -1, -1)]
-_SW_RING = [f"xseq.PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)] + ["xseq.PH_EOC"]
+_SW_RING = [f"PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)] + ["PH_EOC"]
+_SW_MUXOUT = [f"xseq.MUXOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+_SW_PRESET = [f"xseq.PRESET{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_DFEED = [f"xseq.DFEED{b}" for b in range(tb.N_BITS - 2, -1, -1)]
 _SW_BOTP = [f"xcdac.BOT_p{b}" for b in range(tb.N_BITS - 2, -1, -1)]
 _SW_BOTN = [f"xcdac.BOT_n{b}" for b in range(tb.N_BITS - 2, -1, -1)]
 
@@ -2743,7 +2833,10 @@ def switch_trace_record_lines(switch_traces: list[dict]) -> list[str]:
         for e in st["events"]:
             add(
                 f"| {e['t_ns']:.3f} | {e['phase']} | {e['offset_ns']:+.2f} | `{e['node']}` | "
-                f"{e['direction']} | {'scheduled' if e['scheduled'] else '**UNSCHEDULED**'} |"
+                f"{e['direction']} | "
+                + ("context (D-path, not classified)" if e["scheduled"] is None else
+                   "scheduled" if e["scheduled"] else "**UNSCHEDULED**")
+                + " |"
             )
         add("")
         for top in ("TOP_P", "TOP_N"):
@@ -2758,7 +2851,9 @@ def switch_trace_record_lines(switch_traces: list[dict]) -> list[str]:
                 f"DOUT9..0 `{_logic_word(v, _SW_DOUT, vdd)}`, SELp8..0 "
                 f"`{_logic_word(v, _SW_SELP, vdd)}`, SELn8..0 `{_logic_word(v, _SW_SELN, vdd)}`, "
                 f"ring `{_logic_word(v, _SW_RING, vdd)}`, BUSY/BUSY_BITS/SAMPLE_INT "
-                f"`{_logic_word(v, ['BUSY', 'xseq.BUSY_BITS', 'SAMPLE_INT'], vdd)}`."
+                f"`{_logic_word(v, ['BUSY', 'xseq.BUSY_BITS', 'SAMPLE_INT'], vdd)}`, "
+                f"MUXOUT9..0 `{_logic_word(v, _SW_MUXOUT, vdd)}`, PRESET8..0 "
+                f"`{_logic_word(v, _SW_PRESET, vdd)}`, DFEED8..0 `{_logic_word(v, _SW_DFEED, vdd)}`."
             )
             add("")
             add("| node | V |")
@@ -2775,9 +2870,10 @@ def switch_trace_record_lines(switch_traces: list[dict]) -> list[str]:
         )
         add("")
         add("| phase | instant | DOUT9..0 | SELp8..0 | SELn8..0 | ring | BUSY/BB/SMP | "
+            "MUXOUT9..0 | DFEED8..0 | "
             "CLK | COMP_OUT | OUTN_NC | TOP_P | TOP_N | BPREF_P | BPREF_N | G_P | G_N | "
             "BOT_p8..0 (V) | BOT_n8..0 (V) |")
-        add("|" + "---|" * 18)
+        add("|" + "---|" * 20)
         fmt = lambda x: "n/a" if x is None else f"{x:.3f}"
         for (p, tag), v in st["snapshots"].items():
             add(
@@ -2785,6 +2881,7 @@ def switch_trace_record_lines(switch_traces: list[dict]) -> list[str]:
                 f"`{_logic_word(v, _SW_SELP, vdd)}` | `{_logic_word(v, _SW_SELN, vdd)}` | "
                 f"`{_logic_word(v, _SW_RING, vdd)}` | "
                 f"`{_logic_word(v, ['BUSY', 'xseq.BUSY_BITS', 'SAMPLE_INT'], vdd)}` | "
+                f"`{_logic_word(v, _SW_MUXOUT, vdd)}` | `{_logic_word(v, _SW_DFEED, vdd)}` | "
                 f"{fmt(v.get('CLK'))} | {fmt(v.get('COMP_OUT'))} | {fmt(v.get('OUTN_NC'))} | "
                 f"{fmt(v.get('TOP_P'))} | {fmt(v.get('TOP_N'))} | "
                 f"{fmt(v.get('BPREF_P_NC'))} | {fmt(v.get('BPREF_N_NC'))} | "
@@ -2793,6 +2890,30 @@ def switch_trace_record_lines(switch_traces: list[dict]) -> list[str]:
                 + " ".join(fmt(v.get(n)) for n in _SW_BOTN) + " |"
             )
         add("")
+        fu = st["first_unscheduled"]
+        strobe = st.get("strobe") or {}
+        if fu is not None and 0 <= fu["phase"] < tb.N_BITS and strobe:
+            add(f"#### Strobe window, phase {fu['phase']} (the first UNSCHEDULED transition's phase)")
+            add("")
+            add(
+                "Samples 0.5 ns apart across this phase's CLK falling edge (comparator "
+                f"strobe, +{tb.T_CLK_NS * 0.5:.2f} ns after the rising edge). DOUT and the "
+                "registers' D-path as logic words; the comparator nodes in volts."
+            )
+            add("")
+            add("| from CLK rise (ns) | CLK | CLKN | COMP_OUT | OUTN_NC | COMP_EFF | "
+                "DOUT9..0 | MUXOUT9..0 | PRESET8..0 | DFEED8..0 |")
+            add("|" + "---|" * 10)
+            for i, off in enumerate(SWITCH_TRACE_STROBE_OFFSETS_NS):
+                v = strobe.get((fu["phase"], i), {})
+                add(
+                    f"| {off:+.2f} | {fmt(v.get('CLK'))} | {fmt(v.get('CLKN'))} | "
+                    f"{fmt(v.get('COMP_OUT'))} | {fmt(v.get('OUTN_NC'))} | "
+                    f"{fmt(v.get('xseq.COMP_EFF'))} | `{_logic_word(v, _SW_DOUT, vdd)}` | "
+                    f"`{_logic_word(v, _SW_MUXOUT, vdd)}` | `{_logic_word(v, _SW_PRESET, vdd)}` | "
+                    f"`{_logic_word(v, _SW_DFEED, vdd)}` |"
+                )
+            add("")
     return out
 
 
@@ -2817,6 +2938,17 @@ def format_switch_trace_summary(st: dict) -> str:
     return "\n".join(out)
 
 
+# issue #621: an opt-in SOLVER CONTROL for the coherent-sine run. It tightens
+# ngspice's relative tolerance 10x (default 1e-3) and swaps the default
+# trapezoidal integration for Gear, which damps trapezoidal ringing. DUT and
+# stimulus are untouched; only how the same circuit is integrated changes.
+# Its purpose is to separate a circuit behaviour from a numerical artefact:
+# an event that persists under both is not an artefact of the default
+# settings. A control run is never the reference capture -- the record says
+# so up front and it must not supersede one.
+SINE_SOLVER_CONTROL_OPTIONS = ".options reltol=1e-4 method=gear"
+
+
 def run_sine_point(
     netlist_text: str,
     pdk_info: pdk.PdkInfo,
@@ -2827,11 +2959,17 @@ def run_sine_point(
     corner: tuple[str, float, float] = BASELINE_CORNER,
     trace_conversions: tuple[int, ...] = (),
     switch_trace_conversions: tuple[int, ...] = (),
+    solver_control: bool = False,
 ) -> dict:
     process_corner, temp_c, supply_v = corner
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
     fragment = tb.sine_fragment_text(n, tone_bin, amplitude_fraction)
     extra_meas: list[str] = []
+    if solver_control:
+        extra_meas += [
+            "* --- issue #621 SOLVER CONTROL (simulator options only; DUT and stimulus unmodified) ---",
+            SINE_SOLVER_CONTROL_OPTIONS,
+        ]
     for c in trace_conversions:
         extra_meas += sine_trace_measure_lines(c)
     for c in switch_trace_conversions:
@@ -2883,6 +3021,7 @@ def run_sine_point(
         log_text=log_text,
         fragment=fragment,
         wall_s=wall_s,
+        solver_control=solver_control,
     )
     return result
 
@@ -2994,6 +3133,15 @@ def write_sine_record(
         "an amplitude below full scale (see LIMITATIONS). No spec row is edited."
     )
     add("- **Netlist provenance**: schematic (`design/sar_adc_top.spice`, unmodified)")
+    if point.get("solver_control"):
+        add(
+            "- **SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE**: this "
+            f"transient adds `{SINE_SOLVER_CONTROL_OPTIONS}` (ngspice defaults: "
+            "reltol=1e-3, trapezoidal). DUT and stimulus are unmodified; only the "
+            "integration settings differ. It exists to test whether an observed event "
+            "is a numerical artefact of the default settings; its figures are a "
+            "control, not the converter's headline evidence."
+        )
     add(corners_mod.corner_matrix_summary_line(
         [point["process_corner"]], [point["temp_c"]], [point["supply_v"]], 1
     ).replace("one-at-a-time per sim/README.md", "single-corner pilot, NOT the ratified grid"))
@@ -3286,6 +3434,8 @@ def write_sine_record(
                 "wall-clock": f"{point['wall_s']:.0f} s",
                 "coherent-sine fragment sha256": f"`{evidence.sha256_text(point['fragment'])}`",
                 "SIM_NGSPICE_TIMEOUT_S": os.environ.get("SIM_NGSPICE_TIMEOUT_S", "(default)"),
+                "simulator options": (f"`{SINE_SOLVER_CONTROL_OPTIONS}` (solver control)"
+                                      if point.get("solver_control") else "ngspice defaults"),
             },
         )
     )
@@ -3383,6 +3533,14 @@ def main() -> int:
         ".meas probes only.",
     )
     ap.add_argument(
+        "--sine-solver-control", action="store_true",
+        help="--coherent-sine only (issue #621): SOLVER CONTROL run -- add "
+        f"`{SINE_SOLVER_CONTROL_OPTIONS}` to the same deck (DUT and stimulus "
+        "unmodified) to test whether an event is a numerical artefact of the "
+        "default settings. The record is labelled a control and may not use "
+        "--supersedes.",
+    )
+    ap.add_argument(
         "--jobs", type=int, default=1,
         help="run this many ngspice corner points concurrently (default 1; results "
         "are independent processes, so this changes runtime only)",
@@ -3439,9 +3597,13 @@ def main() -> int:
         except ValueError as exc:
             print(f"FAIL: --coherent-sine plan: {exc}", file=sys.stderr)
             return 2
-    elif args.sine_trace or args.sine_switch_trace:
-        print("FAIL: --sine-trace/--sine-switch-trace require --coherent-sine",
-              file=sys.stderr)
+        if args.sine_solver_control and args.supersedes:
+            print("FAIL: a --sine-solver-control record is a control, not a "
+                  "replacement capture; it may not use --supersedes", file=sys.stderr)
+            return 2
+    elif args.sine_trace or args.sine_switch_trace or args.sine_solver_control:
+        print("FAIL: --sine-trace/--sine-switch-trace/--sine-solver-control require "
+              "--coherent-sine", file=sys.stderr)
         return 2
 
     check = toolchain.check_env()
@@ -3483,12 +3645,15 @@ def main() -> int:
                 f"bin={args.sine_bin}, A={args.sine_amplitude:g}*V_REF, "
                 f"{tb.sine_t_stop_ns(args.sine_n) / 1000:.1f} us simulated:"
             )
+            if args.sine_solver_control:
+                print(f"  SOLVER CONTROL (not the reference capture): {SINE_SOLVER_CONTROL_OPTIONS}")
             sine_netlist_text = dut_text()
             point = run_sine_point(
                 sine_netlist_text, pdk.resolve(), scratch,
                 args.sine_n, args.sine_bin, args.sine_amplitude,
                 trace_conversions=tuple(args.sine_trace),
                 switch_trace_conversions=tuple(args.sine_switch_trace),
+                solver_control=args.sine_solver_control,
             )
             if not args.quiet:
                 print("  " + format_sine_point(point), flush=True)
@@ -3509,6 +3674,8 @@ def main() -> int:
                     written_by += f" --sine-trace {c}"
                 for c in args.sine_switch_trace:
                     written_by += f" --sine-switch-trace {c}"
+                if args.sine_solver_control:
+                    written_by += " --sine-solver-control"
                 write_sine_record(
                     point, sine_netlist_text, args.supersedes, written_by,
                     behavioral_enob_reference(),

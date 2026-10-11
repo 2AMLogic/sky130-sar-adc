@@ -424,10 +424,10 @@ class TestSwitchTrace(unittest.TestCase):
             ev.setdefault((node, d), []).append(tb.t_edge_ns(edge) + delay)
 
         for p in range(tb.N_BITS):
-            at(f"xseq.PH_B{tb.N_BITS - 1 - p}", "rise", base + p)
-            at(f"xseq.PH_B{tb.N_BITS - 1 - p}", "fall", base + p + 1)
-        at("xseq.PH_EOC", "rise", base + 10)
-        at("xseq.PH_EOC", "fall", base + 11)
+            at(f"PH_B{tb.N_BITS - 1 - p}", "rise", base + p)
+            at(f"PH_B{tb.N_BITS - 1 - p}", "fall", base + p + 1)
+        at("PH_EOC", "rise", base + 10)
+        at("PH_EOC", "fall", base + 11)
         at("BUSY", "rise", base)
         at("BUSY", "fall", base + 11)
         at("SAMPLE_INT", "fall", base)
@@ -489,7 +489,13 @@ class TestSwitchTrace(unittest.TestCase):
         self.assertTrue(all(ln.startswith((".meas tran ", "*")) for ln in lines))
         self.assertIn("when v(DOUT8)=0.9000 rise=1 from=", text)
         self.assertIn("find v(xcdac.BOT_p8) when v(TOP_P)=-0.2000 fall=1", text)
-        self.assertIn("v(xseq.PH_B4)", text)
+        # ring PORTS are probed on the nets the netlist wires them to
+        # (`xseq.<port>` does not exist in ngspice); internal nets keep xseq.
+        ports = rc.sequencer_port_nets()
+        self.assertIn(f"v({ports['PH_B4']})", text)
+        self.assertNotIn("v(xseq.PH_B4)", text)
+        self.assertIn("v(xseq.DFEED8)", text)
+        self.assertIn("v(xseq.MUXOUT9)", text)
         names = rc.switch_trace_flat_names(self.CONV)
         self.assertEqual(len(names), len(set(names)))
         self.assertEqual(len(names), sum(1 for ln in lines if ln.startswith(".meas")))
@@ -522,6 +528,38 @@ class TestSwitchTrace(unittest.TestCase):
         self.assertIn("-0.505", text)
         self.assertIn("first UNSCHEDULED transition: DOUT8 rise",
                       rc.format_switch_trace_summary(st))
+
+    def test_sequencer_port_map_comes_from_the_netlist(self):
+        ports = rc.sequencer_port_nets()
+        self.assertEqual(ports["PH_B9"], "PH_B9")
+        self.assertEqual(ports["CLK"], "CLK")
+        self.assertEqual(ports["PH_SAMPLE"], "SAMPLE_INT")
+        for b in range(tb.N_BITS):
+            self.assertIn(f"PH_B{b}", ports)
+        with self.assertRaises(ValueError):
+            rc.sequencer_port_nets("* no sequencer here\n")
+
+    def test_context_nets_are_recorded_but_not_classified(self):
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        t = tb.t_edge_ns(base + 5) + 43.0
+        st = self._decode(self._event_lines(522, [("xseq.DFEED8", "rise", t)]))
+        ctx = [e for e in st["events"] if e["node"] == "xseq.DFEED8"]
+        self.assertEqual(len(ctx), 1)
+        self.assertIsNone(ctx[0]["scheduled"])
+        self.assertEqual(st["unscheduled"], [])
+
+    def test_strobe_window_rendered_for_first_unscheduled_phase(self):
+        names = rc.switch_trace_names(self.CONV)
+        base = tb.PHASES_PER_CONVERSION * self.CONV
+        lines = self._event_lines(522, [("DOUT8", "rise", tb.t_edge_ns(base + 5) + 44.3)])
+        lines.append(f"{names['strobe'][(5, 3)]['xseq.DFEED8']} = 1.8")
+        lines.append(f"{names['strobe'][(5, 3)]['COMP_OUT']} = 0.48")
+        st = self._decode(lines)
+        self.assertEqual(st["strobe"][(5, 3)]["xseq.DFEED8"], 1.8)
+        text = "\n".join(rc.switch_trace_record_lines([st]))
+        self.assertIn("#### Strobe window, phase 5", text)
+        self.assertIn("| 0.480 |", text)
+        self.assertIn("`1????????` |", text)
 
     def test_logic_char_bands(self):
         self.assertEqual(rc._logic_char(None, 1.8), "?")
@@ -654,6 +692,33 @@ class TestCli(unittest.TestCase):
                 mock.patch.object(rc.toolchain, "check_env") as check:
             self.assertEqual(rc.main(), 2)
         check.assert_not_called()
+
+    def test_solver_control_cannot_supersede_or_run_alone(self):
+        for argv in (
+            ["run_conversion.py", "--sine-solver-control"],
+            ["run_conversion.py", "--coherent-sine", "--sine-solver-control",
+             "--supersedes", "20261010-070734-f968286"],
+        ):
+            with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
+                    mock.patch.object(rc.toolchain, "check_env") as check:
+                self.assertEqual(rc.main(), 2)
+            check.assert_not_called()
+
+    def test_solver_control_adds_options_only_and_is_labelled(self):
+        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
+                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
+            point = rc.run_sine_point(
+                "* netlist\n", None, Path("/nonexistent"),
+                tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
+                solver_control=True,
+            )
+        extra = deck.call_args.kwargs["extra_meas"]
+        self.assertIn(rc.SINE_SOLVER_CONTROL_OPTIONS, extra)
+        self.assertEqual(deck.call_args.args[0], "* netlist\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            text = TestSineRecord()._write(point, Path(tmp)).read_text()
+        self.assertIn("SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE", text)
+        self.assertIn("(solver control)", text)
 
     def test_switch_trace_requires_coherent_sine_and_a_measured_conversion(self):
         for argv in (

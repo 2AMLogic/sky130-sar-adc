@@ -242,6 +242,13 @@ on:
           probes).
         type: string
         default: ""
+      coherent_sine_solver_control:
+        description: >-
+          Optional (issue #621), coherent_sine_evidence only: run the capture
+          as a labelled SOLVER CONTROL (--sine-solver-control: tighter
+          tolerance + Gear integration; DUT and stimulus unmodified).
+        type: boolean
+        default: false
       coherent_sine_supersedes:
         description: >-
           Optional, coherent_sine_evidence only: record-id for --supersedes
@@ -667,6 +674,7 @@ jobs:
           SINE_TRACE: ${{ inputs.coherent_sine_trace }}
           SINE_SWITCH_TRACE: ${{ inputs.coherent_sine_switch_trace }}
           SINE_SUPERSEDES: ${{ inputs.coherent_sine_supersedes }}
+          SINE_SOLVER_CONTROL: ${{ inputs.coherent_sine_solver_control }}
         run: |
           set +e
           extra=()
@@ -682,6 +690,9 @@ jobs:
               echo "::error::SINE_SUPERSEDES must be a record-id"; exit 1
             fi
             extra+=(--supersedes "$SINE_SUPERSEDES")
+          fi
+          if [[ "$SINE_SOLVER_CONTROL" == "true" ]]; then
+            extra+=(--sine-solver-control)
           fi
           python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record "${extra[@]}" 2>&1 | tee /tmp/coherent-sine-run.log
           rc=${PIPESTATUS[0]}
