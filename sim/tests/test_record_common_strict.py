@@ -252,5 +252,32 @@ class TestRenderLvsFindings(unittest.TestCase):
         self.assertEqual(lines[0], "## Reported LVS findings (good reference)")
 
 
+class TestPrecheckEnvelopeHelpers(unittest.TestCase):
+    ENVELOPE = {
+        "checks": [
+            {"name": "offgrid", "status": "fail", "violations": [
+                {"cell": "a", "layer": "capm"},
+                {"cell": "a", "layer": "capm"},
+                {"cell": "b", "layer": "met1"},
+            ]},
+            {"name": "antenna", "status": "pass", "violations": []},
+            {"name": "floating", "status": "fail", "violations": []},
+        ]
+    }
+
+    def test_failing_checks_names_sorted(self):
+        self.assertEqual(rcs.failing_checks(self.ENVELOPE), ["floating", "offgrid"])
+
+    def test_failing_checks_all_pass_and_empty(self):
+        self.assertEqual(rcs.failing_checks({"checks": [{"name": "x", "status": "pass"}]}), [])
+        self.assertEqual(rcs.failing_checks({}), [])
+
+    def test_offgrid_census(self):
+        self.assertEqual(
+            rcs.offgrid_census(self.ENVELOPE), {("a", "capm"): 2, ("b", "met1"): 1}
+        )
+        self.assertEqual(rcs.offgrid_census({}), {})
+
+
 if __name__ == "__main__":
     unittest.main()
