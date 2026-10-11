@@ -693,32 +693,71 @@ class TestCli(unittest.TestCase):
             self.assertEqual(rc.main(), 2)
         check.assert_not_called()
 
+    # A check_env stand-in that reports "toolchain not installed" (status 3),
+    # so a combination the runner wrongly ACCEPTS returns 0 and fails the
+    # test, instead of going on to launch a real ngspice transient.
+    _NO_TOOLCHAIN = mock.Mock(status=3, messages=[], warnings=[])
+
     def test_solver_control_cannot_supersede_or_run_alone(self):
         for argv in (
             ["run_conversion.py", "--sine-solver-control"],
-            ["run_conversion.py", "--coherent-sine", "--sine-solver-control",
+            # since DR-023 the control is the pre-DR-023 `ngspice-default`
+            ["run_conversion.py", "--coherent-sine", "--solver-profile", "ngspice-default",
              "--supersedes", "20261010-070734-f968286"],
         ):
             with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
-                    mock.patch.object(rc.toolchain, "check_env") as check:
+                    mock.patch.object(rc.toolchain, "check_env",
+                                      return_value=self._NO_TOOLCHAIN) as check:
                 self.assertEqual(rc.main(), 2)
             check.assert_not_called()
 
-    def test_solver_control_adds_options_only_and_is_labelled(self):
+    def test_legacy_sine_solver_control_flag_is_now_the_reference_policy(self):
+        # issue #621's control settings are DR-023's reference policy, so the
+        # kept flag resolves to the reference profile and is no longer a control
+        self.assertEqual(rc.SINE_SOLVER_CONTROL_PROFILE, rc.REFERENCE_SOLVER_PROFILE)
+        self.assertEqual(rc.SINE_SOLVER_CONTROL_OPTIONS, ".options reltol=1e-4 method=gear")
+        self.assertFalse(rc.is_solver_control(rc.SINE_SOLVER_CONTROL_PROFILE))
+
+    def test_control_profile_is_passed_to_deck_assembly_and_labelled(self):
         with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
                 mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
             point = rc.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
-                solver_control=True,
+                solver_profile="ngspice-default",
             )
-        extra = deck.call_args.kwargs["extra_meas"]
-        self.assertIn(rc.SINE_SOLVER_CONTROL_OPTIONS, extra)
+        self.assertEqual(deck.call_args.kwargs["solver_profile"], "ngspice-default")
+        self.assertIsNone(deck.call_args.kwargs["extra_meas"])  # no probes, no stray card
         self.assertEqual(deck.call_args.args[0], "* netlist\n")
         with tempfile.TemporaryDirectory() as tmp:
             text = TestSineRecord()._write(point, Path(tmp)).read_text()
         self.assertIn("SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE", text)
-        self.assertIn("(solver control)", text)
+        self.assertIn("instead of the reference policy `reltol-gear`", text)
+        self.assertIn("simulator options: profile `ngspice-default` (SOLVER CONTROL): no "
+                      "`.options` card -- reltol=1e-3, method=trapezoidal", text)
+
+    def test_reference_sine_record_states_the_resolved_settings(self):
+        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
+                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
+            point = rc.run_sine_point(
+                "* netlist\n", None, Path("/nonexistent"),
+                tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
+            )
+        self.assertEqual(deck.call_args.kwargs["solver_profile"], rc.REFERENCE_SOLVER_PROFILE)
+        with tempfile.TemporaryDirectory() as tmp:
+            text = TestSineRecord()._write(point, Path(tmp)).read_text()
+        self.assertNotIn("SOLVER-CONTROL RUN", text)
+        self.assertIn("simulator options: profile `reltol-gear` (reference policy, DR-023): "
+                      "`.options reltol=1e-4 method=gear`", text)
+
+    def test_sine_solver_control_flag_conflicts_with_another_profile(self):
+        argv = ["run_conversion.py", "--coherent-sine", "--sine-solver-control",
+                "--solver-profile", "gear-only"]
+        with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
+                mock.patch.object(rc.toolchain, "check_env",
+                                  return_value=self._NO_TOOLCHAIN) as check:
+            self.assertEqual(rc.main(), 2)
+        check.assert_not_called()
 
     def test_switch_trace_requires_coherent_sine_and_a_measured_conversion(self):
         for argv in (

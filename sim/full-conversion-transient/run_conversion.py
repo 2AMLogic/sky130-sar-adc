@@ -67,6 +67,19 @@ same DUT driven by a coherent antiphase sine instead of the DC schedule
 conversion, SNDR/ENOB by the stdlib-only FFT in `dynamic_enob.py`. Baseline
 corner only; an informational cross-check of `sim/enob-estimate/`'s
 behavioral-accelerated composite, never a grade of the DRAFT ENOB row.
+
+SOLVER POLICY (issue #637, DR-023). Transient solver settings are a named
+profile resolved at deck assembly (SOLVER_PROFILES / `--solver-profile`).
+The reference profile is `reltol-gear` (`.options reltol=1e-4 method=gear`)
+for every transient this runner assembles; any other profile -- including
+`ngspice-default`, the settings of every pre-DR-023 record -- is a labelled
+SOLVER CONTROL that never moves records/LATEST and may not --supersedes.
+`ngspice-default` alone is also allowed with --corners and the diagnostic
+modes, so every pre-DR-023 record stays reproducible (as a control).
+`--solver-audit` runs the DC baseline corner under the
+reference profile and each control profile, sequentially, and records which
+observations (if any) move -- the guard against presenting a
+solver-sensitive anomaly as converter behaviour.
 """
 
 from __future__ import annotations
@@ -108,6 +121,142 @@ CODE_TOLERANCE_LSB = 1
 
 
 # --------------------------------------------------------------------------
+# Transient solver policy (issue #637; spec/decision-records/DR-023-full-conversion-transient-solver-policy.md)
+# --------------------------------------------------------------------------
+# Solver settings are a NAMED POLICY resolved once at deck assembly
+# (`assemble_deck(solver_profile=...)`), never an `.options` string spliced
+# into one execution branch. Each profile is the exact list of `.options`
+# assignments it adds to the deck (one card, or none). Every record this
+# runner writes names the resolved profile and its options card, so a
+# workflow label is never the only provenance of how a transient was
+# integrated.
+#
+# REFERENCE POLICY (DR-023): `reltol-gear` -- ngspice's reltol tightened 10x
+# (1e-3 -> 1e-4) and Gear instead of trapezoidal integration -- for EVERY
+# transient this runner assembles (DC corner campaign, coherent-sine, and the
+# diagnostic modes). It is scoped to sim/full-conversion-transient/ only; no
+# other experiment's deck changes. Every record minted before DR-023 ran on
+# `ngspice-default` (no card); that profile stays available as a labelled
+# control so those records can be reproduced, and is the comparison point of
+# `--solver-audit`.
+#
+# Only REFERENCE_SOLVER_PROFILE may produce reference evidence (the corner
+# campaign, `records/LATEST`, a `--supersedes` chain). Every other profile is
+# a labelled SOLVER CONTROL: it may not --supersedes and never moves LATEST.
+# REPRODUCTION_SOLVER_PROFILE (`ngspice-default`) is additionally allowed
+# with --corners and every diagnostic mode, so any pre-DR-023 record --
+# the 9-corner campaign behind records/LATEST included -- can be re-run on
+# the settings it was minted under; its record is still a labelled control.
+# The single-setting attribution controls stay limited to the baseline-corner
+# DC run and --coherent-sine (a control is a check on reference evidence, not
+# a second campaign). Changing the reference policy again is a new decision
+# record, followed by a fresh reference campaign under it.
+SOLVER_PROFILES: dict[str, tuple[str, ...]] = {
+    # ngspice's own transient defaults (reltol=1e-3, trapezoidal): no card.
+    # The reference policy of every record minted before DR-023.
+    "ngspice-default": (),
+    # DR-023's reference policy (issue #621's combined control): 10x tighter
+    # reltol AND Gear integration.
+    "reltol-gear": ("reltol=1e-4", "method=gear"),
+    # issue #637's single-setting controls, which attribute the #621 effect.
+    "reltol-only": ("reltol=1e-4",),
+    "gear-only": ("method=gear",),
+}
+REFERENCE_SOLVER_PROFILE = "reltol-gear"
+# The settings of every pre-DR-023 record: the one control profile allowed
+# with --corners and the diagnostic modes (reproduction, never reference).
+REPRODUCTION_SOLVER_PROFILE = "ngspice-default"
+# What a profile with no card leaves in force (ngspice manual, `.options`):
+# stated in every record so "defaults" is never an unstated assumption.
+NGSPICE_DEFAULT_SOLVER_SETTINGS = "reltol=1e-3, method=trapezoidal (ngspice defaults)"
+# The profiles `--solver-audit` compares against the reference by default:
+# every other named profile, legacy default first.
+SOLVER_AUDIT_DEFAULT_PROFILES = tuple(
+    p for p in SOLVER_PROFILES if p != REFERENCE_SOLVER_PROFILE
+)
+
+
+def check_solver_profile(profile: str) -> None:
+    if profile not in SOLVER_PROFILES:
+        raise ValueError(
+            f"unknown solver profile {profile!r}; known: {', '.join(SOLVER_PROFILES)}"
+        )
+
+
+def is_solver_control(profile: str) -> bool:
+    """True for every profile that is not the reference solver policy."""
+    check_solver_profile(profile)
+    return profile != REFERENCE_SOLVER_PROFILE
+
+
+def solver_options_card(profile: str) -> str | None:
+    """The single `.options` card a profile adds, or None (`ngspice-default`)."""
+    check_solver_profile(profile)
+    opts = SOLVER_PROFILES[profile]
+    return ".options " + " ".join(opts) if opts else None
+
+
+def _solver_role(profile: str) -> str:
+    return ("SOLVER CONTROL" if is_solver_control(profile)
+            else "reference policy, DR-023")
+
+
+def solver_profile_deck_lines(profile: str) -> list[str]:
+    """Deck lines for a profile: a labelling comment plus exactly one
+    `.options` card, or nothing at all for a profile with no card (so an
+    `ngspice-default` deck is byte-identical to a pre-#637 deck)."""
+    card = solver_options_card(profile)
+    if card is None:
+        return []
+    return [
+        f"* --- solver profile '{profile}' ({_solver_role(profile)}; issue #637 "
+        "solver policy; simulator options only, DUT and stimulus unmodified) ---",
+        card,
+    ]
+
+
+def solver_settings_text(profile: str) -> str:
+    """Human-readable resolved settings for a record's Environment block."""
+    card = solver_options_card(profile)
+    if card is None:
+        return (f"profile `{profile}` ({_solver_role(profile)}): no `.options` card -- "
+                f"{NGSPICE_DEFAULT_SOLVER_SETTINGS}")
+    return (f"profile `{profile}` ({_solver_role(profile)}): `{card}`; all other "
+            "settings ngspice defaults")
+
+
+def solver_control_note(profile: str) -> str:
+    """What a control run changes relative to the reference policy, for the
+    record's up-front SOLVER-CONTROL bullet."""
+    card = solver_options_card(profile)
+    ref_card = solver_options_card(REFERENCE_SOLVER_PROFILE)
+    ref = f"`{ref_card}`" if ref_card else NGSPICE_DEFAULT_SOLVER_SETTINGS
+    this = f"`{card}`" if card else f"no `.options` card ({NGSPICE_DEFAULT_SOLVER_SETTINGS})"
+    return (f"this transient runs solver profile `{profile}`: {this}, instead of the "
+            f"reference policy `{REFERENCE_SOLVER_PROFILE}` ({ref}, DR-023)")
+
+
+def solver_control_bullet(profile: str) -> str:
+    """The up-front SOLVER-CONTROL bullet of a diagnostic record (node/cm/
+    decision-margin trace) run under a control profile. Diagnostic records
+    never move `records/LATEST` and supersede nothing under ANY profile; the
+    bullet makes the non-reference settings impossible to miss."""
+    return (
+        "- **SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE**: "
+        + solver_control_note(profile)
+        + ". DUT, stimulus and probes are unmodified; only the integration "
+        "settings differ. It re-runs this diagnostic on the settings a "
+        "pre-DR-023 record was minted under, so that record stays reproducible."
+    )
+
+
+def solver_written_by(base: str, profile: str) -> str:
+    """A diagnostic record's **Written by** command, naming the profile when
+    it is not the reference policy (so the command reproduces the record)."""
+    return f"{base} --solver-profile {profile}" if is_solver_control(profile) else base
+
+
+# --------------------------------------------------------------------------
 # Deck assembly
 # --------------------------------------------------------------------------
 def dut_text() -> str:
@@ -123,6 +272,7 @@ def assemble_deck(
     delayed_comparator_strobe: bool = False,
     extra_meas: list[str] | None = None,
     fragment: str | None = None,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> str:
     """Assemble the runnable deck: per-corner preamble + DUT body + the
     committed stimulus/measurement fragment.
@@ -147,7 +297,15 @@ def assemble_deck(
     itself (unlike `delayed_comparator_strobe`) -- it only adds read-only
     probes, so it is safe to combine with the as-committed (unmodified)
     netlist.
+
+    `solver_profile` (issue #637) names the transient solver policy (see
+    SOLVER_PROFILES); the default is the DR-023 reference policy. A profile
+    adds exactly one labelled `.options` card (or nothing, for
+    `ngspice-default`), placed after the fragment and before `extra_meas` --
+    the same position issue #621's coherent-sine control used, so that
+    control's deck is reproduced unchanged.
     """
+    solver_lines = solver_profile_deck_lines(solver_profile)  # validates the name first
     stdcell_spice = (
         pdk_info.variant_dir / "libs.ref" / "sky130_fd_sc_hd" / "spice" / "sky130_fd_sc_hd.spice"
     )
@@ -198,6 +356,7 @@ def assemble_deck(
         "",
         *extra_sources,
         tb.FRAGMENT_PATH.read_text() if fragment is None else fragment,
+        *solver_lines,
         *(extra_meas or []),
         ".end",
     ]
@@ -331,17 +490,36 @@ def run_point(
     supply_v: float,
     delayed_comparator_strobe: bool = False,
     tag_prefix: str = "full_conversion",
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+    audit: bool = False,
 ) -> dict:
+    """One DC-fragment transient. `solver_profile` selects the solver policy
+    (issue #637). `audit=True` is `--solver-audit`'s instrumentation, applied
+    identically under every profile it compares: the print-only accounting
+    card (SOLVER_AUDIT_STATS_CARD) and the read-only register-transition
+    guard probes on every measured conversion. Neither touches the DUT, the
+    stimulus or the solver settings."""
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+    extra_meas: list[str] = []
+    if audit:
+        extra_meas.append(SOLVER_AUDIT_STATS_CARD)
+        for c in tb.measured_conversions():
+            extra_meas += transition_guard_measure_lines(c, supply_v)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, delayed_comparator_strobe
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, delayed_comparator_strobe,
+        extra_meas=extra_meas or None, solver_profile=solver_profile,
     )
     t0 = time.time()
     log_text = _run_ngspice(deck, scratch, f"{tag_prefix}_{cid}")
     wall_s = time.time() - t0
 
     names = tb.all_measure_names()
-    parsed = measure.parse(log_text, names, anchored=False)
+    guard_names = (
+        [n for c in tb.measured_conversions() for n in transition_guard_flat_names(c)]
+        if audit else []
+    )
+    parsed = measure.parse(log_text, names + guard_names, anchored=False)
+    # guard probes are read-only extras: their absence never fails the point
     missing = measure.missing(parsed, names)
     result = decode(parsed, supply_v)
     result.update(
@@ -352,7 +530,13 @@ def run_point(
         missing=missing,
         log_text=log_text,
         wall_s=wall_s,
+        solver_profile=solver_profile,
     )
+    if audit:
+        result["guards"] = [
+            decode_switch_trace(parsed, c, supply_v) for c in tb.measured_conversions()
+        ]
+        result["solver_stats"] = parse_solver_stats(log_text)
     if missing:
         result["all_ok"] = False
     return result
@@ -384,7 +568,8 @@ def format_point(point: dict) -> str:
 # Campaign
 # --------------------------------------------------------------------------
 def run_campaign(
-    corners_mode: bool, jobs: int, quiet: bool, scratch: Path
+    corners_mode: bool, jobs: int, quiet: bool, scratch: Path,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> tuple[list[dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
@@ -401,7 +586,8 @@ def run_campaign(
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
             futures = {
                 pool.submit(
-                    run_point, netlist_text, pdk_info, scratch, pc, tc, sv
+                    run_point, netlist_text, pdk_info, scratch, pc, tc, sv,
+                    solver_profile=solver_profile,
                 ): (pc, tc, sv)
                 for pc, tc, sv in grid
             }
@@ -414,7 +600,8 @@ def run_campaign(
             points = [done[key] for key in grid]
     else:
         for pc, tc, sv in grid:
-            point = run_point(netlist_text, pdk_info, scratch, pc, tc, sv)
+            point = run_point(netlist_text, pdk_info, scratch, pc, tc, sv,
+                              solver_profile=solver_profile)
             points.append(point)
             if not quiet:
                 print("  " + format_point(point), flush=True)
@@ -450,7 +637,19 @@ def write_record(
     netlist_text: str,
     probe: dict | None = None,
     supersedes: str = "",
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> Path:
+    """Mint a DC-fragment record. Under the reference solver profile this is
+    the corner-campaign record and it moves `records/LATEST`. Under any other
+    profile (issue #637) it is a labelled SOLVER-CONTROL record: it may not
+    supersede anything and it never touches LATEST -- refused here, not only
+    at the CLI, so no caller can turn a control into reference evidence."""
+    control = is_solver_control(solver_profile)
+    if control and supersedes:
+        raise ValueError(
+            f"solver profile {solver_profile!r} is a SOLVER CONTROL, not a replacement "
+            "capture; its record may not --supersedes"
+        )
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "corners",
         {f"{p['corner_id']}.log": p["log_text"] for p in points},
@@ -469,6 +668,14 @@ def write_record(
     supplies = sorted({p["supply_v"] for p in points})
 
     a = lines.append
+    if control:
+        a(
+            "- **SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE**: "
+            + solver_control_note(solver_profile)
+            + ". DUT and stimulus are unmodified; only the integration settings "
+            "differ. It exists to test whether a recorded observation depends on the "
+            "solver settings. It does not update `records/LATEST` and supersedes nothing."
+        )
     a(
         "- **Claim**: `spec/target-spec.md#target-table` -- **Sample rate** and "
         "**Power**, both DRAFT rows, INFORMATIONAL only. This is the first "
@@ -647,19 +854,25 @@ def write_record(
                 "tran step": f"{tb.TRAN_STEP_NS} ns",
                 "simulated span": f"{tb.t_stop_ns():.1f} ns per corner point",
                 "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
-    lines.extend(
-        evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --corners --record",
-            supersedes,
-        )
-    )
+    if control:
+        written_by = "sim/full-conversion-transient/run_conversion.py"
+        if len(points) > 1:
+            written_by += " --corners"
+        if probe is not None:
+            written_by += " --mechanism-probe"
+        written_by += f" --record --solver-profile {solver_profile}"
+    else:
+        written_by = "sim/full-conversion-transient/run_conversion.py --corners --record"
+    lines.extend(evidence.footer_lines(written_by, supersedes))
 
-    path = evidence.close_record(prov, lines, "Record")
-    evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
+    path = evidence.close_record(prov, lines, "Solver-control record" if control else "Record")
+    if not control:
+        evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
     return path
 
 
@@ -815,6 +1028,7 @@ def run_node_trace_point(
     temp_c: float,
     supply_v: float,
     conversions: tuple[int, ...],
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> dict:
     """Run the as-committed DUT ONCE with the node-trace `.meas` probes for
     every conversion in `conversions` appended, and decode the result into a
@@ -831,7 +1045,8 @@ def run_node_trace_point(
     for c in conversions:
         extra_meas += node_trace_measure_lines(plans[c], conversion=c)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas,
+        solver_profile=solver_profile,
     )
     t0 = time.time()
     log_text = _run_ngspice(deck, scratch, f"node_trace_{cid}")
@@ -885,6 +1100,7 @@ def run_node_trace_point(
         missing=missing,
         log_text=log_text,
         wall_s=wall_s,
+        solver_profile=solver_profile,
     )
 
 
@@ -924,13 +1140,16 @@ def msb_evaluate_control(point: dict) -> dict:
     )
 
 
-def run_node_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
+def run_node_trace(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> tuple[dict[str, dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     out: dict[str, dict] = {}
     for pc, tc, sv in NODE_TRACE_CORNERS:
         point = run_node_trace_point(
-            netlist_text, pdk_info, scratch, pc, tc, sv, NODE_TRACE_CONVERSIONS
+            netlist_text, pdk_info, scratch, pc, tc, sv, NODE_TRACE_CONVERSIONS,
+            solver_profile=solver_profile,
         )
         out[point["corner_id"]] = point
         if not quiet:
@@ -950,7 +1169,10 @@ def run_node_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
     return out, netlist_text
 
 
-def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
+def write_node_trace_record(
+    traces: dict[str, dict], netlist_text: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> Path:
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "diagnostics",
         {f"node-trace-{cid}.log": point["log_text"] for cid, point in traces.items()},
@@ -961,6 +1183,8 @@ def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
     n_traces_per_corner = sum(len(c["phases"]) for c in traced_conversions)
 
     a = lines.append
+    if is_solver_control(solver_profile):
+        a(solver_control_bullet(solver_profile))
     a(
         "- **Claim**: issue #259 (diagnostic/investigation only -- no spec row "
         "and no design fix). This record extends the "
@@ -1392,13 +1616,15 @@ def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
                 ),
                 "pre-edge / post-edge margins": f"{_NODE_TRACE_PRE_EDGE_NS:g} ns / "
                 f"{_NODE_TRACE_POST_EDGE_NS:g} ns",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
     lines.extend(
         evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --node-trace",
+            solver_written_by("sim/full-conversion-transient/run_conversion.py --node-trace",
+                              solver_profile),
             # Deliberately "(none)", not the two corner-campaign records this
             # extends: **Supersedes** means "replaces and invalidates", which
             # this diagnostic does not do -- see the "Claim" bullet above and
@@ -1452,13 +1678,16 @@ CM_TRACE_CONVERSIONS: tuple[int, ...] = (1, 5)
 _CM_GROSS_DEVIATION_V = 0.100
 
 
-def run_cm_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
+def run_cm_trace(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> tuple[dict[str, dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     out: dict[str, dict] = {}
     for pc, tc, sv in CM_TRACE_CORNERS:
         point = run_node_trace_point(
-            netlist_text, pdk_info, scratch, pc, tc, sv, CM_TRACE_CONVERSIONS
+            netlist_text, pdk_info, scratch, pc, tc, sv, CM_TRACE_CONVERSIONS,
+            solver_profile=solver_profile,
         )
         out[point["corner_id"]] = point
         if not quiet:
@@ -1485,7 +1714,10 @@ def _cm_deviation_v(ph: dict, supply_v: float) -> float | None:
     return 0.5 * (p + n) - 0.5 * supply_v
 
 
-def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
+def write_cm_trace_record(
+    traces: dict[str, dict], netlist_text: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> Path:
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "diagnostics",
         {f"cm-trace-{cid}.log": point["log_text"] for cid, point in traces.items()},
@@ -1495,6 +1727,8 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
     traced_conversions = first_point["conversions"]
 
     a = lines.append
+    if is_solver_control(solver_profile):
+        a(solver_control_bullet(solver_profile))
     a(
         "- **Claim**: issue #265 (diagnostic/investigation only -- no spec row "
         "and no design fix in this record's own scope). This record tests "
@@ -1729,13 +1963,15 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
                 ),
                 "pre-edge / post-edge margins": f"{_NODE_TRACE_PRE_EDGE_NS:g} ns / "
                 f"{_NODE_TRACE_POST_EDGE_NS:g} ns",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
     lines.extend(
         evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --cm-trace",
+            solver_written_by("sim/full-conversion-transient/run_conversion.py --cm-trace",
+                              solver_profile),
             # Diagnostic/investigation record (see the "Claim" bullet above):
             # it extends the corner campaigns' evidence without invalidating
             # any of it, so it supersedes nothing by construction -- the same
@@ -1751,7 +1987,9 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
-def run_mechanism_probe(scratch: Path, quiet: bool) -> dict:
+def run_mechanism_probe(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> dict:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     pc, tc, sv = BASELINE_CORNER
@@ -1760,6 +1998,7 @@ def run_mechanism_probe(scratch: Path, quiet: bool) -> dict:
         point = run_point(
             netlist_text, pdk_info, scratch, pc, tc, sv,
             delayed_comparator_strobe=delayed, tag_prefix=f"probe_{tag}",
+            solver_profile=solver_profile,
         )
         out[tag] = point
         if not quiet:
@@ -1892,11 +2131,13 @@ def run_decision_margin_point(
     temp_c: float,
     supply_v: float,
     tag: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> dict:
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
     extra_meas, names = decision_margin_measure_lines(DECISION_MARGIN_CONVERSIONS)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas,
+        solver_profile=solver_profile,
     )
     log_text = _run_ngspice(deck, scratch, f"decision_margin_{tag}_{cid}")
     parsed = measure.parse(log_text, names, anchored=False)
@@ -2005,7 +2246,9 @@ def _worst_correct_margin_lsb(point: dict) -> float | None:
     return min(mags) if mags else None
 
 
-def run_decision_margin_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
+def run_decision_margin_trace(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> tuple[dict[str, dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     variants = (
@@ -2015,7 +2258,8 @@ def run_decision_margin_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dic
     out: dict[str, dict] = {}
     for tag, text in variants:
         for pc, tc, sv in DECISION_MARGIN_CORNERS:
-            point = run_decision_margin_point(text, pdk_info, scratch, pc, tc, sv, tag)
+            point = run_decision_margin_point(text, pdk_info, scratch, pc, tc, sv, tag,
+                                              solver_profile=solver_profile)
             out[f"{tag}@{point['corner_id']}"] = point
             if not quiet:
                 bad = _decision_mismatches(point)
@@ -2038,7 +2282,10 @@ def run_decision_margin_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dic
     return out, netlist_text
 
 
-def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> Path:
+def write_decision_margin_record(
+    points: dict[str, dict], netlist_text: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> Path:
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "diagnostics",
         {
@@ -2048,6 +2295,8 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
     )
 
     a = lines.append
+    if is_solver_control(solver_profile):
+        a(solver_control_bullet(solver_profile))
     a(
         "- **Claim**: issue #263 (second pass) / "
         "`spec/decision-records/DR-009-comparator-output-load-balance-and-half-"
@@ -2205,13 +2454,15 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
             extra={
                 "tran step": f"{tb.TRAN_STEP_NS} ns",
                 "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
     lines.extend(
         evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --decision-margin-trace",
+            solver_written_by("sim/full-conversion-transient/run_conversion.py "
+                              "--decision-margin-trace", solver_profile),
             # Diagnostic/mechanism record, NOT a corner campaign (see the
             # "Claim" bullet above) -- supersedes nothing by construction, same
             # as the two trace writers above (issue #502).
@@ -2938,15 +3189,500 @@ def format_switch_trace_summary(st: dict) -> str:
     return "\n".join(out)
 
 
+# --------------------------------------------------------------------------
+# Solver-sensitivity audit of the DC baseline corner (`--solver-audit`,
+# issue #637)
+# --------------------------------------------------------------------------
+# Runs the SAME DC fragment, DUT and corner (tt/27C/1.8V) once under the
+# reference solver profile and once under each control profile, SEQUENTIALLY
+# in one process (so the wall-clock figures are like-for-like on one host),
+# and writes ONE diagnostic record that says, observation by observation,
+# whether anything the reference run shows moves under a control. It is
+# the guard that keeps a solver-sensitive anomaly from being presented as
+# unqualified converter behaviour: the record names each moved observation
+# SOLVER-SENSITIVE. It never touches records/LATEST and supersedes nothing.
+#
+# Instrumentation, identical under every profile (so it cannot be what
+# differs between them):
+#   * SOLVER_AUDIT_STATS_CARD -- ngspice's print-only accounting option
+#     (`acct`): timepoint / iteration / analysis-time statistics. It does not
+#     change any tolerance or the integration method.
+#   * transition_guard_measure_lines() -- the WHEN-crossing half of the
+#     issue #621 switching-event trace (every DOUT/SEL/ring/control node and
+#     the registers' D-path, classified scheduled / UNSCHEDULED against the
+#     SAR's own edge schedule) plus the first top-plate rail excursion, on
+#     every measured conversion. Read-only `.meas` cards.
+SOLVER_AUDIT_STATS_CARD = ".options acct"
+# Relative change in a supply/reference current or total power above which
+# the audit calls the power observation "moved". An AUDIT reporting
+# tolerance only (not a spec threshold): it is far above the relative
+# tolerance any compared profile integrates to (1e-4 for the reference
+# policy, 1e-3 for the ngspice-default/gear-only controls), so a change past
+# it is not integration noise, and every delta is printed regardless.
+SOLVER_AUDIT_POWER_REL_TOL = 0.01
+# ngspice `acct` statistics the record reports (name as ngspice prints it).
+SOLVER_STAT_NAMES = (
+    "Transient timepoints",
+    "Accepted timepoints",
+    "Rejected timepoints",
+    "Transient iterations",
+    "Transient analysis time",
+    "Total analysis time (seconds)",
+)
+_STAT_RE = re.compile(r"^\s*(?P<name>[A-Za-z][A-Za-z ()]*?)\s*=\s*(?P<value>[-+0-9.eE]+)\s*$")
+# Log lines a solver change could plausibly move (counted, not interpreted).
+_SOLVER_LOG_PATTERNS = (
+    ("timestep too small", re.compile(r"timestep too small", re.I)),
+    ("warning lines", re.compile(r"\bwarning\b", re.I)),
+    ("gmin/source stepping", re.compile(r"gmin stepping|source stepping", re.I)),
+    ("convergence trouble", re.compile(r"trouble|no convergence|failed to converge", re.I)),
+)
+
+
+def transition_guard_names(conversion: int) -> dict:
+    names = switch_trace_names(conversion)
+    return dict(
+        events=names["events"],
+        excursion_t={top: ex["t"] for top, ex in names["excursion"].items()},
+    )
+
+
+def transition_guard_flat_names(conversion: int) -> list[str]:
+    g = transition_guard_names(conversion)
+    out = [n for per in g["events"].values() for n in per.values()]
+    return out + list(g["excursion_t"].values())
+
+
+def transition_guard_measure_lines(conversion: int, supply_v: float) -> list[str]:
+    """The event (WHEN-crossing) and rail-excursion-time subset of
+    switch_trace_measure_lines(): enough to say whether any register or DAC
+    select moved off the SAR's own schedule, without the per-phase snapshot
+    and strobe-sample bulk. Read-only probes; DUT and stimulus untouched."""
+    wanted = set(transition_guard_flat_names(conversion))
+    return [
+        f"* --- issue #637 register-transition guard, conversion {conversion} "
+        "(read-only probes; DUT and stimulus unmodified) ---",
+        *(ln for ln in switch_trace_measure_lines(conversion, supply_v)
+          if ln.startswith(".meas") and ln.split()[2] in wanted),
+    ]
+
+
+def parse_solver_stats(log_text: str) -> dict:
+    """ngspice `acct` statistics (SOLVER_STAT_NAMES) plus counts of the log
+    lines in _SOLVER_LOG_PATTERNS. Missing statistics are simply absent."""
+    stats: dict[str, float] = {}
+    counts = {label: 0 for label, _ in _SOLVER_LOG_PATTERNS}
+    for line in log_text.splitlines():
+        m = _STAT_RE.match(line)
+        if m and m.group("name") in SOLVER_STAT_NAMES and m.group("name") not in stats:
+            try:
+                stats[m.group("name")] = float(m.group("value"))
+            except ValueError:
+                pass
+        for label, pat in _SOLVER_LOG_PATTERNS:
+            if pat.search(line):
+                counts[label] += 1
+    return dict(stats=stats, log_counts=counts)
+
+
+def _rel_delta(ref: float | None, ctl: float | None) -> float | None:
+    if ref is None or ctl is None:
+        return None
+    if ref == 0.0:
+        return 0.0 if ctl == 0.0 else math.inf
+    return (ctl - ref) / abs(ref)
+
+
+def compare_audit_runs(reference: dict, control: dict) -> list[dict]:
+    """Every observation of `reference` (a run_point(audit=True) result under
+    the reference profile) that differs under `control`, as a list of
+    {observation, reference, control, failure_mode} dicts. Empty == nothing
+    moved. `failure_mode` marks a change in a recorded pass/fail property
+    (a code's +-1 LSB verdict, a phase-structure verdict, a missing
+    measurement) as opposed to a value that moved within the same verdict."""
+    moved: list[dict] = []
+
+    def add(obs: str, ref, ctl, failure_mode: bool) -> None:
+        moved.append(dict(observation=obs, reference=ref, control=ctl, failure_mode=failure_mode))
+
+    for rc_, cc in zip(reference["conversions"], control["conversions"]):
+        label = f"conversion {rc_['conversion']} (`{rc_['fraction']:+.2f}*V_REF`)"
+        if rc_["code"] != cc["code"]:
+            add(f"{label} captured code", rc_["code"], cc["code"], False)
+        if rc_["code_ok"] != cc["code_ok"]:
+            add(f"{label} within +-{CODE_TOLERANCE_LSB} LSB", rc_["code_ok"], cc["code_ok"], True)
+        if (rc_["busy"], rc_["sample"]) != (cc["busy"], cc["sample"]):
+            add(f"{label} BUSY/SAMPLE words",
+                _bits_str(rc_["busy"]) + "/" + _bits_str(rc_["sample"]),
+                _bits_str(cc["busy"]) + "/" + _bits_str(cc["sample"]), False)
+        if rc_["phase_ok"] != cc["phase_ok"]:
+            add(f"{label} 12-period phase structure", rc_["phase_ok"], cc["phase_ok"], True)
+    if sorted(reference["missing"]) != sorted(control["missing"]):
+        add("missing measurements", len(reference["missing"]), len(control["missing"]), True)
+    if reference["all_ok"] != control["all_ok"]:
+        add("point verdict (PASS/FAIL)", reference["all_ok"], control["all_ok"], True)
+
+    for name, _source, _pot in tb.SUPPLY_SOURCES:
+        d = _rel_delta(reference["currents"].get(name), control["currents"].get(name))
+        if d is None:
+            if (name in reference["currents"]) != (name in control["currents"]):
+                add(f"current `{name}` availability", name in reference["currents"],
+                    name in control["currents"], True)
+        elif abs(d) > SOLVER_AUDIT_POWER_REL_TOL:
+            add(f"current `{name}` (relative change {d:+.2%})",
+                reference["currents"][name], control["currents"][name], False)
+    d = _rel_delta(reference["power_w"], control["power_w"])
+    if d is not None and abs(d) > SOLVER_AUDIT_POWER_REL_TOL:
+        add(f"total power (relative change {d:+.2%})", reference["power_w"], control["power_w"], False)
+
+    for rg, cg in zip(reference.get("guards", []), control.get("guards", [])):
+        c = rg["conversion"]
+        if len(rg["unscheduled"]) != len(cg["unscheduled"]):
+            add(f"conversion {c} UNSCHEDULED register/DAC-select transitions",
+                len(rg["unscheduled"]), len(cg["unscheduled"]), False)
+        for top in ("TOP_P", "TOP_N"):
+            r_ex, c_ex = rg["excursions"].get(top), cg["excursions"].get(top)
+            if (r_ex is None) != (c_ex is None):
+                add(f"conversion {c} {top} below -{SWITCH_TRACE_RAIL_V:g} V",
+                    r_ex is not None, c_ex is not None, False)
+    return moved
+
+
+_LATEST_CODE_CELL = re.compile(r"(\d+|MISSING) \(([+-]?\d+|n/a) LSB\)")
+
+
+def latest_baseline_row(records_dir: Path | None = None) -> dict | None:
+    """The `tt_27c_1.80v` codes and total power of the record `records/LATEST`
+    names (the reference corner campaign), read from its own tables, so the
+    audit can say whether its reference-profile run reproduces the recorded
+    failure modes. None if LATEST or the row cannot be read."""
+    records_dir = EXPERIMENT_DIR / "records" if records_dir is None else records_dir
+    latest = records_dir / "LATEST"
+    if not latest.is_file():
+        return None
+    name = latest.read_text().strip()
+    path = records_dir / name
+    if not path.is_file():
+        return None
+    text = path.read_text()
+    cid = corners_mod.corner_id(*BASELINE_CORNER)
+    section = None
+    codes = power = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            section = line
+            continue
+        if not line.startswith(f"| `{cid}` |") or section is None:
+            continue
+        if section.startswith("## Captured code vs ideal code"):
+            cells = _LATEST_CODE_CELL.findall(line)
+            codes = [None if c == "MISSING" else int(c) for c, _ in cells]
+        elif section.startswith("## Power"):
+            last = line.rstrip(" |").split("|")[-1].strip()
+            try:
+                power = float(last) * 1e-6
+            except ValueError:
+                power = None
+    if codes is None:
+        return None
+    env = {}
+    for key, pat in (("ngspice", r"^- ngspice: (.+)$"),
+                     ("netlist_sha", r"^- DUT netlist sha256: `([0-9a-f]+)`"),
+                     ("fragment_sha", r"^- testbench fragment sha256: `([0-9a-f]+)`"),
+                     ("simulator_options", r"^- simulator options: (.+)$")):
+        m = re.search(pat, text, re.M)
+        env[key] = m.group(1) if m else None
+    if env["simulator_options"] is None:
+        # every record minted before issue #637 ran on ngspice's defaults
+        env["simulator_options"] = f"not stated (pre-#637 record: {NGSPICE_DEFAULT_SOLVER_SETTINGS})"
+    return dict(record_id=path.stem, corner_id=cid, codes=codes, power_w=power, **env)
+
+
+def run_solver_audit(
+    profiles: tuple[str, ...], scratch: Path, quiet: bool
+) -> tuple[list[dict], str, float]:
+    """Reference profile first, then each control profile, one after the other
+    (never concurrently: the wall-clock comparison must be like-for-like).
+    Returns (runs, netlist_text, total wall seconds)."""
+    pdk_info = pdk.resolve()
+    netlist_text = dut_text()
+    runs: list[dict] = []
+    t0 = time.time()
+    for profile in (REFERENCE_SOLVER_PROFILE, *profiles):
+        if not quiet:
+            print(f"  [{profile}] {solver_settings_text(profile)}", flush=True)
+        point = run_point(netlist_text, pdk_info, scratch, *BASELINE_CORNER,
+                          tag_prefix=f"solver_audit_{profile.replace('-', '_')}",
+                          solver_profile=profile, audit=True)
+        runs.append(point)
+        if not quiet:
+            print("    " + format_point(point), flush=True)
+    return runs, netlist_text, time.time() - t0
+
+
+def write_solver_audit_record(
+    runs: list[dict], netlist_text: str, total_wall_s: float,
+    latest: dict | None, written_by: str,
+) -> Path:
+    """Mint the audit's diagnostic record (append-only, never LATEST, never
+    supersedes: a solver audit is a check on reference evidence, not a
+    replacement for it)."""
+    reference, controls = runs[0], runs[1:]
+    if is_solver_control(reference["solver_profile"]) or not controls or not all(
+        is_solver_control(r["solver_profile"]) for r in controls
+    ):
+        raise ValueError("a solver audit is the reference profile first, then >= 1 control profile")
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "diagnostics",
+        {f"solver-audit-{r['solver_profile']}-{r['corner_id']}.log": r["log_text"] for r in runs},
+    )
+    cid = reference["corner_id"]
+    comparisons = {r["solver_profile"]: compare_audit_runs(reference, r) for r in controls}
+    sensitive = {p: m for p, m in comparisons.items() if m}
+    fm_moved = {p: [m for m in ms if m["failure_mode"]] for p, ms in comparisons.items()}
+    add = lines.append
+
+    add(
+        "- **Claim**: `spec/target-spec.md#target-table` -- none graded. A "
+        "SOLVER-SENSITIVITY AUDIT (issue #637) of the full-conversion DC campaign's "
+        f"baseline corner `{cid}`: the same DUT, DC stimulus and toolchain under the "
+        f"reference solver profile `{REFERENCE_SOLVER_PROFILE}` and under "
+        + ", ".join(f"`{r['solver_profile']}`" for r in controls)
+        + ". It is a diagnostic about the evidence, not converter evidence: it edits "
+        "no spec row, proposes no target, does not update `records/LATEST` and "
+        "supersedes nothing."
+    )
+    add("- **Netlist provenance**: schematic (`design/sar_adc_top.spice`, unmodified)")
+    add(corners_mod.corner_matrix_summary_line(
+        [reference["process_corner"]], [reference["temp_c"]], [reference["supply_v"]], 1
+    ).replace("one-at-a-time per sim/README.md",
+              "single-corner solver audit, NOT the ratified grid"))
+    add(
+        "- **Stimulus**: the committed DC fragment "
+        "(`testbench/full_conversion_tb_fragment.spice`), byte-for-byte the "
+        "corner campaign's, under every profile."
+    )
+    add(
+        "- **Overall**: "
+        + ("NO OBSERVATION MOVED under any control profile -- the reference-profile "
+           "result at this corner is not solver-sensitive to these settings."
+           if not sensitive else
+           "SOLVER-SENSITIVE -- at least one observation moved under "
+           + ", ".join(f"`{p}`" for p in sensitive)
+           + "; see the comparison below. A moved observation is a property of the "
+           "integration settings until shown otherwise and must not be read as "
+           "unqualified converter behaviour.")
+    )
+    add(
+        "- **Recorded failure modes moved**: "
+        + "; ".join(
+            f"`{p}`: " + ("none" if not fm else ", ".join(m["observation"] for m in fm))
+            for p, fm in fm_moved.items()
+        )
+        + "."
+    )
+    add(
+        "- **Measured value(s)**: per-profile codes, phase structure, per-rail "
+        "currents/power, UNSCHEDULED register/DAC-select transitions, ngspice "
+        "accounting statistics and simulator wall-clock (below)."
+    )
+    add("")
+
+    add("## Solver profiles and simulator cost (like-for-like, one host, sequential)")
+    add("")
+    add(
+        "Wall-clock is measured around the ngspice subprocess only (deck write + "
+        "simulation + log read); it excludes host/CI queueing and toolchain setup. "
+        "The runs were sequential in one process on one host. `acct` statistics are "
+        "ngspice's own accounting (print-only option, identical in every deck)."
+    )
+    add("")
+    add("| profile | `.options` card | wall-clock (s) | x reference | "
+        + " | ".join(SOLVER_STAT_NAMES) + " | "
+        + " | ".join(label for label, _ in _SOLVER_LOG_PATTERNS) + " |")
+    add("|" + "---|" * (4 + len(SOLVER_STAT_NAMES) + len(_SOLVER_LOG_PATTERNS)))
+    for r in runs:
+        st = r["solver_stats"]
+        card = solver_options_card(r["solver_profile"])
+        ratio = r["wall_s"] / reference["wall_s"] if reference["wall_s"] > 0 else float("nan")
+        add(
+            f"| `{r['solver_profile']}` | {'(none)' if card is None else f'`{card}`'} | "
+            f"{r['wall_s']:.0f} | {ratio:.2f} | "
+            + " | ".join(
+                "n/a" if st["stats"].get(n) is None else f"{st['stats'][n]:g}"
+                for n in SOLVER_STAT_NAMES
+            )
+            + " | "
+            + " | ".join(str(st["log_counts"][label]) for label, _ in _SOLVER_LOG_PATTERNS)
+            + " |"
+        )
+    add("")
+    add(f"Total audit wall-clock (all {len(runs)} runs): {total_wall_s:.0f} s.")
+    add("")
+
+    add("## Captured code vs ideal code, every input under every profile")
+    add("")
+    add("| profile | " + " | ".join(
+        f"`{f:+.2f}*V_REF` (ideal {tb.ideal_code(f)})" for f in tb.INPUT_FRACTIONS
+    ) + " | phase structure | verdict |")
+    add("|---" * (len(tb.INPUT_FRACTIONS) + 3) + "|")
+    if latest is not None:
+        add(
+            f"| `records/LATEST` = `{latest['record_id']}` ({latest['ngspice'] or 'ngspice ?'}) | "
+            + " | ".join("MISSING" if c is None else str(c) for c in latest["codes"])
+            + " | (see that record) | (see that record) |"
+        )
+    for r in runs:
+        cells = []
+        for cv in r["conversions"]:
+            code = "MISSING" if cv["code"] is None else str(cv["code"])
+            err = "n/a" if cv["error_lsb"] is None else f"{cv['error_lsb']:+d}"
+            cells.append(f"{code} ({err} LSB)")
+        add(f"| `{r['solver_profile']}` | " + " | ".join(cells)
+            + f" | {r['n_phase_ok']}/{r['n_conversions']} | {'PASS' if r['all_ok'] else 'FAIL'} |")
+    add("")
+    if latest is not None:
+        ref_codes = [cv["code"] for cv in reference["conversions"]]
+        same = ref_codes == latest["codes"]
+        same_dut = latest["netlist_sha"] == prov.netlist_sha
+        add(
+            f"- **Reference profile vs `records/LATEST` row `{cid}`**: codes "
+            + ("IDENTICAL" if same else "DIFFER")
+            + f" ({latest['ngspice'] or 'unknown ngspice'} there, {prov.ng_version} here; "
+            + ("same" if same_dut else "DIFFERENT")
+            + " DUT netlist sha256; LATEST's simulator options: "
+            + f"{latest['simulator_options']}; this run: profile `{reference['solver_profile']}`). "
+            + ("The recorded failure modes at this corner are reproduced by this audit's "
+               "reference run, so the comparison below speaks to them directly."
+               if same else
+               "The reference run does not reproduce LATEST's row, so the comparison "
+               "below is against this audit's own reference run, not against LATEST.")
+        )
+        add("")
+
+    add("## Per-input detail (captured bits, BUSY/SAMPLE per CLK period)")
+    add("")
+    add("| profile | input | captured bits (DOUT9..DOUT0) | BUSY | SAMPLE | phase |")
+    add("|---|---|---|---|---|---|")
+    for r in runs:
+        for cv in r["conversions"]:
+            add(f"| `{r['solver_profile']}` | `{cv['fraction']:+.2f}*V_REF` | "
+                f"`{_bits_str(cv['bits'])}` | `{_bits_str(cv['busy'])}` | "
+                f"`{_bits_str(cv['sample'])}` | {'OK' if cv['phase_ok'] else 'WRONG'} |")
+    add("")
+
+    add("## Power (informational -- DRAFT row)")
+    add("")
+    add("| profile | I(VDD) (uA) | I(VPWR) (uA) | I(VREFP) (uA) | I(VCM) (uA) | "
+        "I(VREFN) (uA) | total power (uW) | total power vs reference |")
+    add("|---|---|---|---|---|---|---|---|")
+    if latest is not None:
+        add(f"| `records/LATEST` = `{latest['record_id']}` | | | | | | "
+            + ("n/a" if latest["power_w"] is None else f"{latest['power_w'] * 1e6:.3f}")
+            + " | |")
+    for r in runs:
+        def ua(name: str, _r=r) -> str:
+            v = _r["currents"].get(name)
+            return "n/a" if v is None else f"{v * 1e6:.3f}"
+        d = _rel_delta(reference["power_w"], r["power_w"])
+        add(f"| `{r['solver_profile']}` | {ua('i_vdd')} | {ua('i_vpwr')} | {ua('i_vrefp')} | "
+            f"{ua('i_vcm')} | {ua('i_vrefn')} | {_power_uw_str(r['power_w'])} | "
+            + ("n/a" if d is None else f"{d:+.3%}") + " |")
+    add("")
+
+    add("## Register-transition guard (read-only probes, every measured conversion)")
+    add("")
+    lo, hi = SWITCH_TRACE_EDGE_WINDOW_NS
+    add(
+        "A DOUT/SEL/ring/control transition is *scheduled* when it lands "
+        f"{lo:g}..+{hi:g} ns after a CLK rising edge at which the SAR's own "
+        "sequencer may move that node (`switch_trace_expected_edges()`); anything "
+        "else is UNSCHEDULED -- the signature of issue #621's default-settings "
+        "artefact. Rail excursion = a top plate below "
+        f"-{SWITCH_TRACE_RAIL_V:g} V inside the conversion window."
+    )
+    add("")
+    add("| profile | conversion | UNSCHEDULED | first UNSCHEDULED | TOP_P below rail | TOP_N below rail |")
+    add("|---|---|---|---|---|---|")
+    for r in runs:
+        for g in r["guards"]:
+            fu = g["first_unscheduled"]
+            ex = g["excursions"]
+            add(
+                f"| `{r['solver_profile']}` | {g['conversion']} | {len(g['unscheduled'])} | "
+                + ("none" if fu is None else
+                   f"`{fu['node']}` {fu['direction']} phase {fu['phase']} {fu['offset_ns']:+.2f} ns")
+                + " | "
+                + " | ".join("no" if ex.get(t) is None else
+                             f"phase {ex[t]['phase']} {ex[t]['offset_ns']:+.2f} ns"
+                             for t in ("TOP_P", "TOP_N"))
+                + " |"
+            )
+    add("")
+
+    add("## Comparison against the reference profile")
+    add("")
+    for p, ms in comparisons.items():
+        add(f"### `{p}` vs `{REFERENCE_SOLVER_PROFILE}`")
+        add("")
+        if not ms:
+            add("No observation moved (codes, BUSY/SAMPLE words, phase verdicts, missing "
+                f"measurements, per-rail currents and power within "
+                f"{SOLVER_AUDIT_POWER_REL_TOL:.0%}, UNSCHEDULED counts, rail excursions).")
+        else:
+            add("| observation | reference | control | recorded failure mode? |")
+            add("|---|---|---|---|")
+            for m in ms:
+                add(f"| {m['observation']} | {m['reference']} | {m['control']} | "
+                    f"{'**yes -- SOLVER-SENSITIVE**' if m['failure_mode'] else 'no (value only)'} |")
+        add("")
+
+    add("## LIMITATIONS")
+    add("")
+    add(
+        f"One corner (`{cid}`), five DC inputs, one toolchain. A clean audit here says "
+        "the reference settings are adequate for THIS corner's recorded observations; "
+        "it does not certify the other eight corners or any other experiment. The "
+        "power-change tolerance is an audit reporting threshold, not a spec value."
+    )
+    add("")
+
+    extra = {
+        "tran step": f"{tb.TRAN_STEP_NS} ns",
+        "simulated span": f"{tb.t_stop_ns():.1f} ns per run",
+        "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+        "SIM_NGSPICE_TIMEOUT_S": os.environ.get("SIM_NGSPICE_TIMEOUT_S", "(default)"),
+        "audit instrumentation (every profile)": f"`{SOLVER_AUDIT_STATS_CARD}` + register-transition guard `.meas` probes",
+    }
+    for r in runs:
+        extra[f"simulator options [{r['solver_profile']}]"] = solver_settings_text(r["solver_profile"])
+        extra[f"wall-clock [{r['solver_profile']}]"] = f"{r['wall_s']:.0f} s"
+    lines.extend(evidence.environment_block(
+        pdk_line=prov.pdk_line, ngspice_line=prov.ng_version,
+        netlist_sha256=prov.netlist_sha, extra=extra,
+    ))
+    add("")
+    # A solver audit is a check on reference evidence, never a replacement for
+    # it, so it supersedes nothing by construction (issue #502's named opt-out).
+    lines.extend(evidence.footer_lines(written_by, evidence.NEVER_SUPERSEDES))
+    return evidence.close_record(prov, lines, "Solver-audit record")
+
+
 # issue #621: an opt-in SOLVER CONTROL for the coherent-sine run. It tightens
 # ngspice's relative tolerance 10x (default 1e-3) and swaps the default
 # trapezoidal integration for Gear, which damps trapezoidal ringing. DUT and
 # stimulus are untouched; only how the same circuit is integrated changes.
 # Its purpose is to separate a circuit behaviour from a numerical artefact:
 # an event that persists under both is not an artefact of the default
-# settings. A control run is never the reference capture -- the record says
-# so up front and it must not supersede one.
-SINE_SOLVER_CONTROL_OPTIONS = ".options reltol=1e-4 method=gear"
+# settings. Since issue #637 this is the named solver profile `reltol-gear`
+# (SOLVER_PROFILES), and DR-023 made that profile the REFERENCE policy, so
+# `--sine-solver-control` no longer selects a control: it is kept only as the
+# spelling of `--solver-profile reltol-gear` that the committed #621 record's
+# Written-by line uses (sim/spec-coverage.json cites it as a cold start).
+# A run with it is now a reference capture. The pre-DR-023 settings are
+# `--solver-profile ngspice-default`, which is the control.
+SINE_SOLVER_CONTROL_PROFILE = "reltol-gear"
+SINE_SOLVER_CONTROL_OPTIONS = solver_options_card(SINE_SOLVER_CONTROL_PROFILE)
 
 
 def run_sine_point(
@@ -2959,24 +3695,19 @@ def run_sine_point(
     corner: tuple[str, float, float] = BASELINE_CORNER,
     trace_conversions: tuple[int, ...] = (),
     switch_trace_conversions: tuple[int, ...] = (),
-    solver_control: bool = False,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> dict:
     process_corner, temp_c, supply_v = corner
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
     fragment = tb.sine_fragment_text(n, tone_bin, amplitude_fraction)
     extra_meas: list[str] = []
-    if solver_control:
-        extra_meas += [
-            "* --- issue #621 SOLVER CONTROL (simulator options only; DUT and stimulus unmodified) ---",
-            SINE_SOLVER_CONTROL_OPTIONS,
-        ]
     for c in trace_conversions:
         extra_meas += sine_trace_measure_lines(c)
     for c in switch_trace_conversions:
         extra_meas += switch_trace_measure_lines(c, supply_v)
     deck = assemble_deck(
         netlist_text, pdk_info, process_corner, temp_c, supply_v, fragment=fragment,
-        extra_meas=extra_meas or None,
+        extra_meas=extra_meas or None, solver_profile=solver_profile,
     )
     t0 = time.time()
     log_text = _run_ngspice(deck, scratch, f"coherent_sine_{cid}", attempts=1)
@@ -3021,7 +3752,8 @@ def run_sine_point(
         log_text=log_text,
         fragment=fragment,
         wall_s=wall_s,
-        solver_control=solver_control,
+        solver_profile=solver_profile,
+        solver_control=is_solver_control(solver_profile),
     )
     return result
 
@@ -3133,14 +3865,15 @@ def write_sine_record(
         "an amplitude below full scale (see LIMITATIONS). No spec row is edited."
     )
     add("- **Netlist provenance**: schematic (`design/sar_adc_top.spice`, unmodified)")
-    if point.get("solver_control"):
+    profile = point.get("solver_profile", REFERENCE_SOLVER_PROFILE)
+    if is_solver_control(profile):
         add(
-            "- **SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE**: this "
-            f"transient adds `{SINE_SOLVER_CONTROL_OPTIONS}` (ngspice defaults: "
-            "reltol=1e-3, trapezoidal). DUT and stimulus are unmodified; only the "
-            "integration settings differ. It exists to test whether an observed event "
-            "is a numerical artefact of the default settings; its figures are a "
-            "control, not the converter's headline evidence."
+            "- **SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE**: "
+            + solver_control_note(profile)
+            + ". DUT and stimulus are unmodified; only the integration settings "
+            "differ. It exists to test whether an observed event depends on the "
+            "solver settings; its figures are a control, not the converter's "
+            "headline evidence."
         )
     add(corners_mod.corner_matrix_summary_line(
         [point["process_corner"]], [point["temp_c"]], [point["supply_v"]], 1
@@ -3434,14 +4167,77 @@ def write_sine_record(
                 "wall-clock": f"{point['wall_s']:.0f} s",
                 "coherent-sine fragment sha256": f"`{evidence.sha256_text(point['fragment'])}`",
                 "SIM_NGSPICE_TIMEOUT_S": os.environ.get("SIM_NGSPICE_TIMEOUT_S", "(default)"),
-                "simulator options": (f"`{SINE_SOLVER_CONTROL_OPTIONS}` (solver control)"
-                                      if point.get("solver_control") else "ngspice defaults"),
+                "simulator options": solver_settings_text(profile),
             },
         )
     )
     add("")
     lines.extend(evidence.footer_lines(written_by, supersedes))
     return evidence.close_record(prov, lines, "Coherent-sine record")
+
+
+def resolve_solver_cli(args: argparse.Namespace) -> tuple[str, str]:
+    """(resolved solver profile, problem). A non-empty problem means the flag
+    combination is refused before any simulation (issue #637)."""
+    profile = args.solver_profile
+    if args.sine_solver_control:
+        if profile not in (None, SINE_SOLVER_CONTROL_PROFILE):
+            return "", (f"--sine-solver-control means --solver-profile "
+                        f"{SINE_SOLVER_CONTROL_PROFILE}; it conflicts with "
+                        f"--solver-profile {profile}")
+        profile = SINE_SOLVER_CONTROL_PROFILE
+    profile = profile or REFERENCE_SOLVER_PROFILE
+    modes = (
+        ("--corners", args.corners),
+        ("--mechanism-probe", args.mechanism_probe),
+        ("--node-trace", args.node_trace),
+        ("--cm-trace", args.cm_trace),
+        ("--decision-margin-trace", args.decision_margin_trace),
+    )
+    if args.solver_audit:
+        others = [f for f, on in modes + (
+            ("--coherent-sine", args.coherent_sine),
+            ("--solver-profile", args.solver_profile is not None),
+            ("--sine-solver-control", args.sine_solver_control),
+            ("--supersedes", bool(args.supersedes)),
+        ) if on]
+        if others:
+            return "", (f"--solver-audit cannot be combined with {', '.join(others)} -- "
+                        "it runs its own fixed baseline-corner comparison and its record "
+                        "supersedes nothing")
+        if args.jobs != 1:
+            return "", ("--solver-audit runs its profiles sequentially so the wall-clock "
+                        "comparison is like-for-like; --jobs must be 1")
+        return profile, ""
+    if args.audit_profile:
+        return "", "--audit-profile requires --solver-audit"
+    if is_solver_control(profile):
+        if args.supersedes:
+            return "", (f"solver profile {profile!r} is a SOLVER CONTROL, not a "
+                        "replacement capture; it may not use --supersedes")
+        on = [f for f, flag in modes if flag]
+        # `ngspice-default` (the settings of every pre-DR-023 record) may run
+        # --corners and the diagnostic modes so those records stay
+        # reproducible; its records stay labelled controls (write_record and
+        # the diagnostic writers never move LATEST under a control profile).
+        if on and profile != REPRODUCTION_SOLVER_PROFILE:
+            return "", (f"solver profile {profile!r} is a SOLVER CONTROL, allowed only for "
+                        f"the baseline-corner DC run and --coherent-sine, not with "
+                        f"{', '.join(on)} (only {REPRODUCTION_SOLVER_PROFILE!r}, the "
+                        "pre-DR-023 settings, may re-run the grid or a diagnostic, to "
+                        "reproduce an old record; promoting a profile to the reference "
+                        "policy is a decision-record change)")
+    return profile, ""
+
+
+def audit_profiles(args: argparse.Namespace) -> tuple[str, ...]:
+    """--audit-profile values in the order given, de-duplicated; the default
+    set when none is given."""
+    seen: list[str] = []
+    for p in args.audit_profile:
+        if p not in seen:
+            seen.append(p)
+    return tuple(seen) or SOLVER_AUDIT_DEFAULT_PROFILES
 
 
 def main() -> int:
@@ -3534,11 +4330,39 @@ def main() -> int:
     )
     ap.add_argument(
         "--sine-solver-control", action="store_true",
-        help="--coherent-sine only (issue #621): SOLVER CONTROL run -- add "
+        help="--coherent-sine only (issue #621): add "
         f"`{SINE_SOLVER_CONTROL_OPTIONS}` to the same deck (DUT and stimulus "
-        "unmodified) to test whether an event is a numerical artefact of the "
-        "default settings. The record is labelled a control and may not use "
-        "--supersedes.",
+        "unmodified). Kept for the committed #621 record's cold start; it is "
+        f"exactly --solver-profile {SINE_SOLVER_CONTROL_PROFILE}, which DR-023 made "
+        "the reference policy, so the run is no longer a control. The pre-DR-023 "
+        "control is --solver-profile ngspice-default.",
+    )
+    ap.add_argument(
+        "--solver-profile", choices=tuple(SOLVER_PROFILES), default=None,
+        help="transient solver policy (issue #637; DR-023). Default "
+        f"`{REFERENCE_SOLVER_PROFILE}` (the reference policy). Any other profile -- "
+        "including `ngspice-default`, every pre-DR-023 record's settings -- is a "
+        "labelled SOLVER CONTROL: never with --supersedes, and its record never "
+        "updates records/LATEST. `ngspice-default` may also run --corners and every "
+        "diagnostic mode (to reproduce a pre-DR-023 record); the other controls are "
+        "allowed for the baseline-corner DC run and --coherent-sine only. Profiles: "
+        + "; ".join(f"{k} = {solver_options_card(k) or '(no card)'}" for k in SOLVER_PROFILES),
+    )
+    ap.add_argument(
+        "--solver-audit", action="store_true",
+        help="issue #637: solver-sensitivity audit of the DC baseline corner "
+        "(tt/27C/1.8V) -- the reference profile, then each --audit-profile, run "
+        "sequentially on the same DUT and DC fragment, with print-only ngspice "
+        "accounting and read-only register-transition guard probes added to every "
+        "run. With --record, mints ONE diagnostic record (never records/LATEST, "
+        "supersedes nothing) that names every observation that moved. Mutually "
+        "exclusive with every other mode.",
+    )
+    ap.add_argument(
+        "--audit-profile", action="append", default=[], metavar="PROFILE",
+        choices=tuple(p for p in SOLVER_PROFILES if p != REFERENCE_SOLVER_PROFILE),
+        help="--solver-audit only: a control profile to compare (repeatable; default "
+        + " ".join(SOLVER_AUDIT_DEFAULT_PROFILES) + ").",
     )
     ap.add_argument(
         "--jobs", type=int, default=1,
@@ -3597,13 +4421,17 @@ def main() -> int:
         except ValueError as exc:
             print(f"FAIL: --coherent-sine plan: {exc}", file=sys.stderr)
             return 2
-        if args.sine_solver_control and args.supersedes:
-            print("FAIL: a --sine-solver-control record is a control, not a "
-                  "replacement capture; it may not use --supersedes", file=sys.stderr)
-            return 2
     elif args.sine_trace or args.sine_switch_trace or args.sine_solver_control:
         print("FAIL: --sine-trace/--sine-switch-trace/--sine-solver-control require "
               "--coherent-sine", file=sys.stderr)
+        return 2
+
+    # issue #637: resolve the solver policy once, and refuse every flag
+    # combination that would let a control profile stand in for reference
+    # evidence -- all before any toolchain check or simulation.
+    solver_profile, problem = resolve_solver_cli(args)
+    if problem:
+        print(f"FAIL: {problem}", file=sys.stderr)
         return 2
 
     check = toolchain.check_env()
@@ -3645,15 +4473,15 @@ def main() -> int:
                 f"bin={args.sine_bin}, A={args.sine_amplitude:g}*V_REF, "
                 f"{tb.sine_t_stop_ns(args.sine_n) / 1000:.1f} us simulated:"
             )
-            if args.sine_solver_control:
-                print(f"  SOLVER CONTROL (not the reference capture): {SINE_SOLVER_CONTROL_OPTIONS}")
+            if is_solver_control(solver_profile):
+                print(f"  SOLVER CONTROL (not the reference capture): {solver_settings_text(solver_profile)}")
             sine_netlist_text = dut_text()
             point = run_sine_point(
                 sine_netlist_text, pdk.resolve(), scratch,
                 args.sine_n, args.sine_bin, args.sine_amplitude,
                 trace_conversions=tuple(args.sine_trace),
                 switch_trace_conversions=tuple(args.sine_switch_trace),
-                solver_control=args.sine_solver_control,
+                solver_profile=solver_profile,
             )
             if not args.quiet:
                 print("  " + format_sine_point(point), flush=True)
@@ -3676,19 +4504,49 @@ def main() -> int:
                     written_by += f" --sine-switch-trace {c}"
                 if args.sine_solver_control:
                     written_by += " --sine-solver-control"
+                elif is_solver_control(solver_profile):
+                    written_by += f" --solver-profile {solver_profile}"
                 write_sine_record(
                     point, sine_netlist_text, args.supersedes, written_by,
                     behavioral_enob_reference(),
                 )
             return 1 if sine_point_problems(point) else 0
 
+        if args.solver_audit:
+            profiles = audit_profiles(args)
+            print(
+                f"Solver-sensitivity audit (issue #637) at "
+                f"{corners_mod.corner_id(*BASELINE_CORNER)}: reference "
+                f"`{REFERENCE_SOLVER_PROFILE}` then {', '.join(profiles)}, sequentially:"
+            )
+            runs, audit_netlist_text, total_wall_s = run_solver_audit(profiles, scratch, args.quiet)
+            for r in runs[1:]:
+                moved = compare_audit_runs(runs[0], r)
+                print(f"  {r['solver_profile']} vs {REFERENCE_SOLVER_PROFILE}: "
+                      + ("no observation moved" if not moved else
+                         f"{len(moved)} observation(s) moved: "
+                         + "; ".join(m["observation"] for m in moved)))
+            if args.record:
+                written_by = "sim/full-conversion-transient/run_conversion.py --solver-audit --record"
+                if profiles != SOLVER_AUDIT_DEFAULT_PROFILES:
+                    written_by += "".join(f" --audit-profile {p}" for p in profiles)
+                write_solver_audit_record(
+                    runs, audit_netlist_text, total_wall_s, latest_baseline_row(), written_by,
+                )
+            return 1 if any(r["missing"] for r in runs) else 0
+
+        if is_solver_control(solver_profile) and (
+            args.node_trace or args.cm_trace or args.decision_margin_trace
+        ):
+            print(f"SOLVER CONTROL (not reference evidence): {solver_settings_text(solver_profile)}")
+
         if args.node_trace:
             corner_names = ", ".join(
                 corners_mod.corner_id(pc, tc, sv) for pc, tc, sv in NODE_TRACE_CORNERS
             )
             print(f"Node-level trace (issue #259) at {corner_names}:")
-            traces, node_trace_netlist_text = run_node_trace(scratch, args.quiet)
-            write_node_trace_record(traces, node_trace_netlist_text)
+            traces, node_trace_netlist_text = run_node_trace(scratch, args.quiet, solver_profile)
+            write_node_trace_record(traces, node_trace_netlist_text, solver_profile)
             any_missing = any(point["missing"] for point in traces.values())
             return 1 if any_missing else 0
 
@@ -3697,8 +4555,8 @@ def main() -> int:
                 corners_mod.corner_id(pc, tc, sv) for pc, tc, sv in CM_TRACE_CORNERS
             )
             print(f"Common-mode trace (issue #265) at {corner_names}:")
-            traces, cm_trace_netlist_text = run_cm_trace(scratch, args.quiet)
-            write_cm_trace_record(traces, cm_trace_netlist_text)
+            traces, cm_trace_netlist_text = run_cm_trace(scratch, args.quiet, solver_profile)
+            write_cm_trace_record(traces, cm_trace_netlist_text, solver_profile)
             any_missing = any(point["missing"] for point in traces.values())
             return 1 if any_missing else 0
 
@@ -3711,15 +4569,16 @@ def main() -> int:
                 "Decision-margin trace (issue #263 / DR-009) at "
                 f"{corner_names}, as-committed and unbalanced-control:"
             )
-            dm_points, dm_netlist_text = run_decision_margin_trace(scratch, args.quiet)
-            write_decision_margin_record(dm_points, dm_netlist_text)
+            dm_points, dm_netlist_text = run_decision_margin_trace(
+                scratch, args.quiet, solver_profile)
+            write_decision_margin_record(dm_points, dm_netlist_text, solver_profile)
             any_missing = any(point["missing"] for point in dm_points.values())
             return 1 if any_missing else 0
 
         probe = None
         if args.mechanism_probe:
             print("Mechanism probe (baseline corner):")
-            probe = run_mechanism_probe(scratch, args.quiet)
+            probe = run_mechanism_probe(scratch, args.quiet, solver_profile)
             if not (args.corners or args.record):
                 return 0
 
@@ -3727,7 +4586,11 @@ def main() -> int:
             f"Running {'the ratified OAT grid (9 points)' if args.corners else 'the baseline corner'}"
             f" -- {tb.N_CONVERSIONS} conversions at {tb.F_CLK_HZ / 1e6:g} MHz per point:"
         )
-        points, netlist_text = run_campaign(args.corners, args.jobs, args.quiet, scratch)
+        if is_solver_control(solver_profile):
+            print(f"  SOLVER CONTROL (not reference evidence): {solver_settings_text(solver_profile)}")
+        points, netlist_text = run_campaign(
+            args.corners, args.jobs, args.quiet, scratch, solver_profile=solver_profile,
+        )
 
         overall_ok = all(p["all_ok"] for p in points)
         n_ok = sum(1 for p in points if p["all_ok"])
@@ -3737,7 +4600,7 @@ def main() -> int:
         )
 
         if args.record:
-            write_record(points, netlist_text, probe, args.supersedes)
+            write_record(points, netlist_text, probe, args.supersedes, solver_profile=solver_profile)
 
     return 0 if overall_ok else 1
 
