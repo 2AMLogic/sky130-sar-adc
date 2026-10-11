@@ -280,6 +280,22 @@ on:
           profiles for --audit-profile (default: the runner's own default set).
         type: string
         default: ""
+      full_conversion_reference_campaign:
+        description: >-
+          Opt-in (issue #638): run the full-conversion DC reference corner
+          campaign (--corners --record --solver-profile reltol-gear, all nine
+          ratified OAT points, sequentially) on the pinned ngspice/PDK and
+          upload the new append-only files plus the moved records/LATEST as an
+          artifact. Never commits or pushes.
+        type: boolean
+        default: false
+      full_conversion_reference_supersedes:
+        description: >-
+          Optional, full_conversion_reference_campaign only: record-id for
+          --supersedes (must already exist under
+          sim/full-conversion-transient/records/).
+        type: string
+        default: ""
 
 jobs:
   checks:
@@ -418,7 +434,8 @@ jobs:
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && !inputs.coherent_sine_evidence &&
-       !inputs.full_conversion_solver_audit) ||
+       !inputs.full_conversion_solver_audit &&
+       !inputs.full_conversion_reference_campaign) ||
       (github.event_name == 'pull_request' &&
        contains(github.event.pull_request.labels.*.name, 'run-pdk-smoke'))
     steps:
@@ -742,6 +759,16 @@ jobs:
           cp /tmp/coherent-sine-run.log /tmp/evidence/ 2>/dev/null || true
           echo "runner exit code: ${{ steps.run.outputs.exit_code }}" > /tmp/evidence/exit-code.txt
           ngspice --version | head -3 > /tmp/evidence/ngspice-version.txt 2>&1 || true
+          # issue #638: a sine capture must never move records/LATEST (it
+          # names the DC corner campaign). Record the pointer's state.
+          if git diff --quiet -- sim/full-conversion-transient/records/LATEST; then
+            echo "records/LATEST unchanged: $(cat sim/full-conversion-transient/records/LATEST)" \
+              > /tmp/evidence/latest-pointer.txt
+          else
+            echo "records/LATEST CHANGED: $(cat sim/full-conversion-transient/records/LATEST)" \
+              > /tmp/evidence/latest-pointer.txt
+            echo "::error::the coherent-sine capture moved records/LATEST"
+          fi
 
       - name: Upload the evidence artifact (even on an invalid capture)
         if: always()
@@ -862,3 +889,188 @@ jobs:
           name: solver-audit-evidence
           path: /tmp/evidence
           if-no-files-found: error
+
+  full-conversion-reference-campaign:
+    name: Full-conversion DC reference corner campaign (manual dispatch only, issue #638)
+    # Opt-in: only a manual workflow_dispatch with
+    # full_conversion_reference_campaign=true. Never runs on push /
+    # pull_request / schedule. Same pinned provisioning as
+    # `solver-audit-evidence` (ngspice at sim/toolchain.json's
+    # `ngspice_reference`, sky130 PDK at sim/pdk.json's open_pdks_commit;
+    # same cache keys), no xschem (it consumes the committed
+    # design/sar_adc_top.spice). READ-ONLY on the repo: uploads the new
+    # append-only files AND the modified tracked records/LATEST as an
+    # artifact, never commits/pushes. The nine corner points run
+    # sequentially (--jobs 1) in one runner process.
+    #
+    # Timeouts: SIM_NGSPICE_TIMEOUT_S is per ngspice invocation (one corner);
+    # timeout-minutes bounds the whole job (provisioning + nine transients).
+    # The DR-023 reference profile ran the baseline point in ~130 s on a
+    # hosted runner (record 20261011-064547-a6dcdd7), so nine points are
+    # expected well inside an hour; 330 min leaves headroom under the hosted
+    # 360-min ceiling without letting a hung run occupy a runner indefinitely.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.full_conversion_reference_campaign
+    timeout-minutes: 330
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ngspice build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex \
+            libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
+            libxrender-dev gawk automake libtool
+
+      - name: Resolve the pinned ngspice version
+        id: ngspice-pin
+        run: |
+          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache ngspice build
+        id: cache-ngspice
+        uses: actions/cache@v4
+        with:
+          path: /opt/ngspice
+          key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
+
+      - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
+        if: steps.cache-ngspice.outputs.cache-hit != 'true'
+        run: |
+          V="${{ steps.ngspice-pin.outputs.version }}"
+          curl -fsSL -o /tmp/ngspice.tar.gz \
+            "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
+          mkdir -p /tmp/ngspice-src
+          tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
+          cd /tmp/ngspice-src
+          ./configure --prefix=/opt/ngspice --without-x --disable-debug \
+            --enable-xspice
+          make -j"$(nproc)"
+          make install
+
+      - name: Put the built ngspice on PATH
+        run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
+
+      - name: Install volare
+        run: pip install "volare==0.20.6"
+
+      - name: Fetch + enable the pinned sky130 PDK
+        run: |
+          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
+          volare enable --pdk sky130 "$PDK_COMMIT"
+
+      - name: Run the nine-corner DC reference campaign and record it
+        id: run
+        # Explicit DR-023 reference profile; no --allow-toolchain-drift, no
+        # plan overrides. The runner mints the record BEFORE it returns, and
+        # returns 1 whenever any corner fails the experiment's informational
+        # code criterion -- so exit 1 alone does not mean the run broke. The
+        # next step classifies the outcome. --supersedes comes in through env
+        # (never interpolated into the script) and is validated first.
+        env:
+          SIM_NGSPICE_TIMEOUT_S: "3600"
+          REF_SUPERSEDES: ${{ inputs.full_conversion_reference_supersedes }}
+        run: |
+          set +e
+          extra=()
+          if [[ -n "$REF_SUPERSEDES" ]]; then
+            if [[ ! "$REF_SUPERSEDES" =~ ^[0-9]{8}-[0-9]{6}-[0-9a-f]{7}$ ]]; then
+              echo "::error::REF_SUPERSEDES must be a record-id"; exit 1
+            fi
+            extra+=(--supersedes "$REF_SUPERSEDES")
+          fi
+          python3 sim/full-conversion-transient/run_conversion.py --corners --record \
+            --solver-profile reltol-gear "${extra[@]}" 2>&1 | tee /tmp/reference-campaign-run.log
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=${rc}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Classify the outcome (complete campaign vs infrastructure failure)
+        id: classify
+        if: always()
+        # complete-pass / complete-informational-fail: a record was minted,
+        # records/LATEST names it, all nine corner logs exist, the record has
+        # no MISSING measurement, and the runner printed its OVERALL line with
+        # an exit code consistent with it. Anything else (provisioning error,
+        # SKIP for a missing toolchain, drift, timeout, missing measurement,
+        # missing artifact) is `incomplete` and fails the job after upload.
+        env:
+          RC: ${{ steps.run.outputs.exit_code }}
+        run: |
+          set +e
+          d=sim/full-conversion-transient
+          rec="$(git ls-files --others --exclude-standard -- "$d/records" | grep -E '/[0-9]{8}-[0-9]{6}-[0-9a-f]{7}\.md$')"
+          n_rec="$(printf '%s' "$rec" | grep -c . )"
+          reasons=()
+          [[ "$n_rec" == "1" ]] || reasons+=("expected exactly one new record, found ${n_rec}")
+          id="$(basename "$rec" .md 2>/dev/null)"
+          latest="$(cat "$d/records/LATEST" 2>/dev/null)"
+          [[ -n "$id" && "$latest" == "${id}.md" ]] || reasons+=("records/LATEST is '${latest}', not the new record")
+          n_logs="$(ls "$d/corners/${id}"/*.log 2>/dev/null | wc -l)"
+          [[ "$n_logs" == "9" ]] || reasons+=("expected 9 corner logs, found ${n_logs}")
+          [[ -f "$d/netlist-snapshots/${id}.spice" ]] || reasons+=("netlist snapshot missing")
+          if [[ -n "$rec" ]] && grep -q "MISSING" "$rec"; then reasons+=("record has MISSING measurements"); fi
+          # The runner writes e.g. "- simulator options: profile `reltol-gear`
+          # (reference policy, DR-023): `.options reltol=1e-4 method=gear`; ..."
+          # -- require the reference role AND the card, never "SOLVER CONTROL".
+          if [[ -n "$rec" ]] && ! grep -qE '^- simulator options: profile `reltol-gear` \(reference[^)]*\): `\.options reltol=1e-4 method=gear`' "$rec"; then
+            reasons+=("record does not name the reltol-gear reference profile")
+          fi
+          overall="$(grep -oE '^OVERALL: (PASS|FAIL)' /tmp/reference-campaign-run.log 2>/dev/null | tail -1)"
+          case "${RC}:${overall}" in
+            "0:OVERALL: PASS") verdict=complete-pass ;;
+            "1:OVERALL: FAIL") verdict=complete-informational-fail ;;
+            *) reasons+=("runner exit '${RC}' with '${overall:-no OVERALL line}'") ;;
+          esac
+          if (( ${#reasons[@]} )); then
+            verdict=incomplete
+          fi
+          {
+            echo "outcome: ${verdict}"
+            echo "runner exit code: ${RC}"
+            echo "record: ${id}"
+            echo "records/LATEST: ${latest}"
+            echo "corner logs: ${n_logs}"
+            for r in "${reasons[@]}"; do echo "problem: ${r}"; done
+          } | tee /tmp/reference-campaign-outcome.txt
+          echo "outcome=${verdict}" >> "$GITHUB_OUTPUT"
+
+      - name: Collect the new append-only evidence files and the moved pointer
+        if: always()
+        run: |
+          mkdir -p /tmp/evidence
+          git status --porcelain --untracked-files=all -- sim | tee /tmp/evidence/git-status.txt
+          git ls-files --others --exclude-standard -- sim \
+            | while read -r f; do install -D -m 644 "$f" "/tmp/evidence/files/$f"; done
+          # The ls-files collector above sees only untracked files; LATEST is
+          # tracked and modified, so collect every modified tracked file too.
+          git diff --name-only -- sim \
+            | while read -r f; do install -D -m 644 "$f" "/tmp/evidence/files/$f"; done
+          git diff -- sim > /tmp/evidence/tracked-changes.diff || true
+          cp /tmp/reference-campaign-run.log /tmp/evidence/ 2>/dev/null || true
+          cp /tmp/reference-campaign-outcome.txt /tmp/evidence/ 2>/dev/null || true
+          echo "runner exit code: ${{ steps.run.outputs.exit_code }}" > /tmp/evidence/exit-code.txt
+          git rev-parse HEAD > /tmp/evidence/run-commit.txt
+          ngspice --version | head -3 > /tmp/evidence/ngspice-version.txt 2>&1 || true
+          nproc > /tmp/evidence/runner-nproc.txt 2>&1 || true
+
+      - name: Upload the evidence artifact (even on a failed run)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-conversion-reference-campaign
+          path: /tmp/evidence
+          if-no-files-found: error
+
+      - name: Fail the job on an incomplete campaign
+        if: always() && steps.classify.outputs.outcome != 'complete-pass' && steps.classify.outputs.outcome != 'complete-informational-fail'
+        run: |
+          echo "::error::reference campaign is incomplete (${{ steps.classify.outputs.outcome }}); see reference-campaign-outcome.txt in the artifact"
+          exit 1

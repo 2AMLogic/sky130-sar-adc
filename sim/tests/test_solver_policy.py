@@ -427,7 +427,22 @@ class TestLatestBaselineRow(unittest.TestCase):
         self.assertTrue(all(isinstance(c, int) for c in row["codes"]))
         self.assertIsNotNone(row["power_w"])
         self.assertRegex(row["netlist_sha"], r"^[0-9a-f]{64}$")
-        # the committed LATEST predates the solver policy: its settings are named, not blank
+        # issue #638: the committed LATEST is the DR-023 reference re-mint,
+        # whose Environment block states its own resolved solver profile
+        self.assertIn(f"profile `{rc.REFERENCE_SOLVER_PROFILE}` (reference",
+                      row["simulator_options"])
+
+    def test_pre_637_record_settings_are_named_not_blank(self):
+        # a record minted before issue #637 states no simulator options; the
+        # reader names the ngspice defaults it ran on instead of leaving it blank
+        old = "20261001-105439-c324f80.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            records = Path(tmp)
+            (records / old).write_text((EXPERIMENT_DIR / "records" / old).read_text())
+            (records / "LATEST").write_text(old + "\n")
+            row = rc.latest_baseline_row(records)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["record_id"] + ".md", old)
         self.assertIn("pre-#637 record", row["simulator_options"])
 
     def test_missing_latest_is_none(self):

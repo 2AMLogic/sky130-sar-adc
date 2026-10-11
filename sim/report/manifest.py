@@ -393,7 +393,20 @@ ROWS: tuple[Row, ...] = (
             "dominated by the comparator's own input gate capacitance; 0 "
             "LSB at mid-scale, ~1 LSB at +-0.25*V_REF, ~3 LSB at "
             "+-0.78*V_REF -- it needs an array unit-cap sizing decision or "
-            "an explicit gain-error spec row, neither of which exists yet)."
+            "an explicit gain-error spec row, neither of which exists yet). "
+            "UPDATE (issue #638, DR-023 solver policy): the newest record "
+            "cited below is now `20261011-112119-188e94c`, the same 9-corner "
+            "grid re-minted under the reference solver policy `reltol-gear` "
+            "(`.options reltol=1e-4 method=gear`) on the pinned ngspice-47, "
+            "superseding the ngspice-default record `20261001-105439-c324f80`. "
+            "No per-input or per-corner verdict moves: the three mid-scale "
+            "inputs are still within +-1 LSB, the two near-full-scale inputs "
+            "still fail, and the 12-period phase structure is 5/5 at all nine "
+            "corners. Five captured codes moved by 1 LSB and are "
+            "solver-sensitive observations of the old policy: "
+            "`-0.78*V_REF` at `ff_27c_1.80v` 205 -> 204 and `sf_27c_1.80v` "
+            "201 -> 200, and `+0.00*V_REF` 512 -> 511 at `sf_27c_1.80v`, "
+            "`tt_-40c_1.80v` and `tt_125c_1.80v`."
         ),
         sim_citations=(
             "sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md",
@@ -405,7 +418,7 @@ ROWS: tuple[Row, ...] = (
             "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
             "sim/sampling-cdac-handoff/records/20261001-135431-7487784.md",
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20261001-105439-c324f80.md",
+            "sim/full-conversion-transient/records/20261011-112119-188e94c.md",
         ),
     ),
     Row(
@@ -755,11 +768,27 @@ ROWS: tuple[Row, ...] = (
             "every corner is bit-identical to the superseded record, so "
             "the two near-full-scale failures and this row's UNMEASURED "
             "status are unchanged by the resize -- which is what re-running "
-            "it established rather than assumed."
+            "it established rather than assumed. UPDATE (issue #638, "
+            "DR-023 solver policy): the record cited below is now "
+            "`20261011-112119-188e94c`, the same 9-corner campaign "
+            "re-minted under the reference solver policy `reltol-gear` "
+            "(`.options reltol=1e-4 method=gear`) on the pinned ngspice-47, "
+            "superseding the ngspice-default record `20261001-105439-c324f80`. "
+            "Binding (highest-power) corner `tt_27c_1.98v` 34.136 uW, lowest "
+            "`tt_27c_1.62v` 21.389 uW, tt/27C/1.80V baseline 27.197 uW. "
+            "Total power is 0.3-6.4% lower per corner, mostly in I(VPWR). The "
+            "largest drops are `sf_27c_1.80v` -6.4%, `tt_-40c_1.80v` -6.3% "
+            "and `tt_125c_1.80v` -5.8%. That comparison crosses ngspice-46 "
+            "-> ngspice-47 as well as ngspice-default -> reltol-gear; the "
+            "version step alone is measured only at `tt_27c_1.80v`, where "
+            "issue #637's audit (20261011-064547-a6dcdd7) found it null, so "
+            "the 0.3-6.4% is a combined solver-plus-version shift, not a "
+            "measured integration-setting uncertainty. No per-corner verdict "
+            "moves, and this row stays UNMEASURED for the same reason as before."
         ),
         sim_citations=(
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",
-            "sim/full-conversion-transient/records/20261001-105439-c324f80.md",
+            "sim/full-conversion-transient/records/20261011-112119-188e94c.md",
         ),
     ),
     Row(
