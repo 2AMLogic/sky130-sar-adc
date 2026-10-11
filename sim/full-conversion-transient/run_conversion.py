@@ -73,10 +73,11 @@ profile resolved at deck assembly (SOLVER_PROFILES / `--solver-profile`).
 The reference profile is `reltol-gear` (`.options reltol=1e-4 method=gear`)
 for every transient this runner assembles; any other profile -- including
 `ngspice-default`, the settings of every pre-DR-023 record -- is a labelled
-SOLVER CONTROL that never moves records/LATEST and may not --supersedes. `--solver-audit` runs the DC baseline corner under the
-reference profile and each control profile, sequentially, and records which
-observations (if any) move -- the guard against presenting a
-solver-sensitive anomaly as converter behaviour.
+SOLVER CONTROL that never moves records/LATEST and may not --supersedes.
+`--solver-audit` runs the DC baseline corner under the reference profile and
+each control profile, sequentially, and records which observations (if any)
+move -- the guard against presenting a solver-sensitive anomaly as converter
+behaviour.
 """
 
 from __future__ import annotations
@@ -3142,7 +3143,7 @@ def format_switch_trace_summary(st: dict) -> str:
 SOLVER_AUDIT_STATS_CARD = ".options acct"
 # Relative change in a supply/reference current or total power above which
 # the audit calls the power observation "moved". An AUDIT reporting
-# tolerance only (not a spec threshold): it is far above the 1e-3 relative
+# tolerance only (not a spec threshold): it is far above the 1e-4 relative
 # tolerance the reference settings integrate to, so a change past it is not
 # integration noise, and every delta is printed regardless.
 SOLVER_AUDIT_POWER_REL_TOL = 0.01

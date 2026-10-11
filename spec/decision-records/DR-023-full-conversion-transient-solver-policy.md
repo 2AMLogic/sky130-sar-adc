@@ -48,7 +48,7 @@ including the DC corner campaign that `records/LATEST` names.
    52.00 dB. The default stream differs from all three in conversion 9 only.
 2. **No recorded DC failure mode moves at the baseline corner.**
    `20261011-064547-a6dcdd7` runs the DC fragment at tt/27C/1.8V under all four
-   profiles. The reference-profile run reproduces `records/LATEST`'s
+   profiles. The `ngspice-default` run reproduces `records/LATEST`'s
    `tt_27c_1.80v` row exactly (codes 214 / 383 / 511 / 641 / 1023, 27.986 uW;
    LATEST used ngspice-46, the audit ngspice-47). Under every control, the
    same three mid-scale inputs pass and the same two near-full-scale inputs
@@ -192,10 +192,16 @@ its transients, not what any result is graded against.
 - New full-conversion records integrate with `reltol=1e-4 method=gear` and
   say so in their Environment block. Old records keep their meaning as
   `ngspice-default` evidence. Running `--solver-profile ngspice-default`
-  reproduces one as a labelled control.
+  reproduces a baseline-corner DC or coherent-sine record as a labelled
+  control.
 - `--sine-solver-control` no longer selects a control, because its settings
   are now the reference. It is kept only because the committed #621 record's
   cold start uses it.
+- **Bad:** controls are refused with `--corners` and every diagnostic mode
+  (`--mechanism-probe`, `--node-trace`, `--cm-trace`,
+  `--decision-margin-trace`), so `records/LATEST` (the 9-corner campaign) and
+  the diagnostic records cannot be reproduced by any CLI invocation after
+  this decision; they stand as recorded evidence only.
 - **Bad:** about 1.66x simulator time per full-conversion transient, and
   more rejected timepoints (4509 vs 386 at the baseline corner).
 - **Bad:** until the next reference campaign is minted, `records/LATEST` is
