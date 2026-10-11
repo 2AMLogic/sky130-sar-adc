@@ -778,11 +778,13 @@ ROWS: tuple[Row, ...] = (
             "`tt_27c_1.62v` 21.389 uW, tt/27C/1.80V baseline 27.197 uW. "
             "Total power is 0.3-6.4% lower per corner, mostly in I(VPWR). The "
             "largest drops are `sf_27c_1.80v` -6.4%, `tt_-40c_1.80v` -6.3% "
-            "and `tt_125c_1.80v` -5.8%. The ngspice-default figures therefore "
-            "carried an integration-setting uncertainty of up to about 6%, "
-            "larger than the ~3% that issue #637's baseline-corner audit "
-            "could see. No per-corner verdict moves, and this row stays "
-            "UNMEASURED for the same reason as before."
+            "and `tt_125c_1.80v` -5.8%. That comparison crosses ngspice-46 "
+            "-> ngspice-47 as well as ngspice-default -> reltol-gear; the "
+            "version step alone is measured only at `tt_27c_1.80v`, where "
+            "issue #637's audit (20261011-064547-a6dcdd7) found it null, so "
+            "the 0.3-6.4% is a combined solver-plus-version shift, not a "
+            "measured integration-setting uncertainty. No per-corner verdict "
+            "moves, and this row stays UNMEASURED for the same reason as before."
         ),
         sim_citations=(
             "sim/full-conversion-transient/records/20260910-190240-2d1d196.md",

@@ -179,7 +179,7 @@
     ],
     "8.analog": {
       "file": "signoff/evidence/characterization-report.generic.json",
-      "content_hash": "sha256:48db2bc09f2e913311b01673c6f869418fda64c80b180ea578097df37c17d7b9"
+      "content_hash": "sha256:e314484da8e581e0e6fe40698a9a4f6d6c09f625e54171d56c3792e016f2e5c1"
     },
     "8.digital": {
       "file": "signoff/evidence/digital-characterization.generic.json",

@@ -598,7 +598,9 @@ The run was not imported, because a second record would fork the
 
 **DC campaign, per corner, against `20261001-105439-c324f80`** (codes are
 captured codes for `-0.78 / -0.25 / +0.00 / +0.25 / +0.78 * V_REF`; ideal
-113 / 384 / 512 / 640 / 911):
+113 / 384 / 512 / 640 / 911; the superseded record ran on **ngspice-46**
+under `ngspice-default`, so this comparison crosses a simulator-version
+step as well as the solver-profile step -- see the notes below it):
 
 | corner | old codes | new codes | moved | +-1 LSB (old / new) | phases (old / new) | worst \|err\| LSB (old / new) | verdict (old / new) | total power uW (old / new) | change |
 |---|---|---|---|---|---|---|---|---|---|
@@ -618,17 +620,29 @@ captured codes for `-0.78 / -0.25 / +0.00 / +0.25 / +0.78 * V_REF`; ideal
   and binding corner `tt_27c_1.62v` (124 LSB). Overall FAIL, 0/9, against
   the experiment's informational criterion. No per-input or per-corner
   verdict moves.
-* **Solver-sensitive observations of the old policy.** Five captured codes
+* **Solver-sensitive observations of the old settings.** Five captured codes
   move by 1 LSB: `-0.78*V_REF` at `ff` and `sf`, and `+0.00*V_REF` 512 -> 511
   at `sf`, `tt_-40c` and `tt_125c` (still within +-1 LSB). The baseline-corner
   audit (`20261011-064547-a6dcdd7`) could not see these, because none of
-  them is at `tt_27c_1.80v`. Under the old policy they were a property of
-  the integration settings, not of the converter.
-* **Power.** Total power is 0.3-6.4 % lower at every corner. The shift is
-  mostly in I(VPWR), the digital supply (-0.4 to -11.5 %); I(VDD) and the
-  reference currents move by under 3 %. The ngspice-default power figures
-  therefore carried an integration-setting uncertainty of up to about 6 %,
-  about twice what the baseline-only audit measured (2.8 %). Power remains
+  them is at `tt_27c_1.80v`. One qualification on the attribution: this
+  comparison crosses two axes at once, because the superseded record
+  (`20261001-105439-c324f80`) ran on **ngspice-46** under `ngspice-default`
+  while this one ran on **ngspice-47** under `reltol-gear`. The version step
+  alone has been measured only at `tt_27c_1.80v`, where the audit's
+  ngspice-47 `ngspice-default` run reproduces the ngspice-46 row exactly
+  (codes and power); at the other eight corners the two axes are not
+  separated. So a moved code is a solver-sensitive observation of the old
+  record's settings-plus-version, not of the converter, and not of the
+  integration settings measured on their own.
+* **Power.** Total power is 0.3-6.4 % lower at every corner. This is the
+  **combined solver-plus-version shift** (ngspice-46/`ngspice-default` ->
+  ngspice-47/`reltol-gear`), not a measured integration-setting
+  uncertainty: the version step alone was shown to be null only at
+  `tt_27c_1.80v` (audit `20261011-064547-a6dcdd7`) and is unmeasured at
+  the other eight corners. The shift is mostly in I(VPWR), the digital
+  supply (-0.4 to -11.5 %); I(VDD) and the VREFP/VREFN reference currents
+  move by under 3 %, while I(VCM) moves -14 % to +9 % -- at 0.010-0.037 uA
+  that is dominated by the table's 3-decimal rounding. Power remains
   an informational DRAFT-row figure.
 
 **Coherent-sine capture, against `20261011-022915-877794b`.** VALIDITY is
