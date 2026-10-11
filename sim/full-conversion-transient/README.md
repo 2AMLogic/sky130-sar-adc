@@ -35,18 +35,23 @@ circuit does at 12 MHz; it proposes no sample rate and no power target
 source sim/env.sh                                                    # PDK_ROOT / PDK
 python3 sim/full-conversion-transient/run_conversion.py --check-env  # toolchain + PDK pin
 
-# the recorded campaign (9 ratified OAT corner points + the mechanism probe):
+# a reference campaign (9 ratified OAT corner points + the mechanism probe)
+# under the DR-023 solver policy -- moves records/LATEST:
 SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
     --corners --record --mechanism-probe --jobs 3
+
+# reproduce the recorded pre-DR-023 campaign (records/LATEST) on the settings it
+# ran under -- a labelled SOLVER-CONTROL record that never moves LATEST:
+SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
+    --corners --record --mechanism-probe --jobs 3 --solver-profile ngspice-default
 ```
 
-Since DR-023 this command runs the reference policy (`reltol-gear`), so it
-mints a new reference record rather than reproducing `records/LATEST`, which
-ran on ngspice defaults; `--solver-profile ngspice-default` is refused with
-`--corners` and the diagnostic modes, so that campaign has no CLI
-reproduction (DR-023, Consequences). Apart from that, it reproduces from a
-clean checkout against the pinned PDK (`sim/pdk.json`) and
-toolchain (`sim/toolchain.json`). Other useful invocations:
+Both run from a clean checkout against the pinned PDK (`sim/pdk.json`) and
+toolchain (`sim/toolchain.json`). Every record minted before DR-023 ran on
+`ngspice-default`: to reproduce one, add `--solver-profile ngspice-default` to
+the command in its **Written by** line (allowed with `--corners`, every
+diagnostic mode and `--coherent-sine`; never with `--supersedes`). Other
+useful invocations:
 
 ```sh
 python3 sim/full-conversion-transient/run_conversion.py                 # baseline corner only
@@ -63,9 +68,12 @@ python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record
 # ^ issue #637 solver-sensitivity audit of the baseline corner (4 sequential
 #   transients; set SIM_NGSPICE_TIMEOUT_S=5400). Off-host on the pinned
 #   toolchain: dispatch CI with full_conversion_solver_audit=true.
+python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default
+# ^ the 9 corners of records/LATEST on its own pre-DR-023 settings (SOLVER CONTROL)
 python3 sim/full-conversion-transient/run_conversion.py --record --solver-profile ngspice-default
 # ^ a single labelled SOLVER-CONTROL baseline run on the pre-DR-023 settings
-#   (never moves records/LATEST, may not --supersedes)
+#   (never moves records/LATEST, may not --supersedes); add --corners or a
+#   diagnostic mode to reproduce a pre-DR-023 grid/diagnostic record
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
@@ -118,7 +126,7 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | `diagnostics/<record-id>/cm-trace-<corner-id>.log` | `--cm-trace` raw output (issue #265, see below) — on the **unmodified** DUT. |
 | `diagnostics/<record-id>/decision-margin-<variant>-<corner-id>.log` | `--decision-margin-trace` raw output (issue #263 / DR-009, see below). Two variants per corner: `as-committed` (unmodified DUT) and `unbalanced-control` (testbench-only modification — never a corner result). |
 | `diagnostics/<record-id>/solver-audit-<profile>-<corner-id>.log` | `--solver-audit` raw output, one per solver profile (issue #637, see "Transient solver policy" below). |
-| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace`/`--decision-margin-trace` records are separate, targeted diagnostics and never update `LATEST`; neither do `--coherent-sine` records, `--solver-audit` records, or any SOLVER-CONTROL record (any `--solver-profile` other than the reference profile, `ngspice-default` included). |
+| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace`/`--decision-margin-trace` records are separate, targeted diagnostics and never update `LATEST`; neither do `--coherent-sine` records, `--solver-audit` records, or any SOLVER-CONTROL record (any `--solver-profile` other than the DR-023 reference profile -- `ngspice-default` included). |
 
 ## Deck assembly: the two load-bearing details
 
@@ -390,20 +398,24 @@ scheduled or **UNSCHEDULED**; node values at the instant a top plate first
 leaves the rails; per-phase snapshots incl. the DAC bottom plates; and 0.5 ns
 samples across every comparator strobe of the registers' D-path
 (MUXOUT/PRESET/DFEED). `--sine-solver-control` reruns the same deck with
-only the simulator options changed, and is labelled a control in its record
-(it may not `--supersedes`). Since DR-023 (issue #637) those settings are the
-reference policy, so the flag no longer selects a control; see "Transient
-solver policy" below. Cold start for the default-settings records
-(`021527`, `022915`; ngspice defaults, so a labelled control since DR-023;
-each record's own **Written by** line names the probe subset it used):
+only the simulator options changed (`reltol=1e-4 method=gear`); when
+`20261011-023419-877794b` was minted that made it a labelled control. Since
+DR-023 (issue #637) those settings are the reference policy, so the flag no
+longer selects a control; see "Transient solver policy" below.
+
+Cold start for the default-settings records (`20261011-021527-8d0c19a`,
+`20261011-022915-877794b`; all trace probes, each record's own **Written by**
+line names the subset it used). They ran before DR-023, on ngspice defaults,
+so reproducing them now needs the `ngspice-default` profile, which makes the
+new record a labelled SOLVER CONTROL:
 
 ```
 python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10 --sine-switch-trace 9 --solver-profile ngspice-default
 ```
 
-Without `--solver-profile` the same command runs the reference policy
-(`reltol-gear`), which is the former "solver control" and what
-`--sine-solver-control` still selects:
+Cold start for `20261011-023419-877794b` (minted as the solver control; the
+same command now runs the DR-023 **reference** policy, identical to omitting
+`--sine-solver-control`):
 
 ```
 python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --sine-solver-control
@@ -485,13 +497,19 @@ states its resolved profile and `.options` card in its Environment block
 **Reference vs control.** Only the reference profile produces reference
 evidence: a corner campaign, `records/LATEST`, or a `--supersedes` chain.
 A control may run the baseline-corner DC transient (`--record --solver-profile
-P`), `--coherent-sine --solver-profile P`, or `--solver-audit`. The runner
-refuses a control with `--corners`, with any diagnostic mode, or with
-`--supersedes`, before any simulation starts. `write_record()` also refuses a
-superseding control, and a control record never moves `records/LATEST`. The
-scope is this experiment only; no other experiment's deck changed.
-`--sine-solver-control` is kept because the committed #621 record's cold
-start uses it. It now means `--solver-profile reltol-gear`, i.e. the
+P`), `--coherent-sine --solver-profile P`, or `--solver-audit`.
+`ngspice-default` may additionally run `--corners` and every diagnostic mode
+(`--mechanism-probe`, `--node-trace`, `--cm-trace`,
+`--decision-margin-trace`), so every pre-DR-023 record -- `records/LATEST`'s
+9-corner campaign included -- stays reproducible; the resulting record is
+still a labelled SOLVER CONTROL. The runner refuses the single-setting
+controls (`reltol-only`, `gear-only`) with `--corners` or a diagnostic mode,
+and every control with `--supersedes`, before any simulation starts.
+`write_record()` also refuses a superseding control, and a control record
+never moves `records/LATEST` (diagnostic records never do under any
+profile). The scope is this experiment only; no other experiment's deck
+changed. `--sine-solver-control` is kept because the committed #621 record's
+cold start uses it. It now means `--solver-profile reltol-gear`, i.e. the
 reference, not a control.
 
 **The guard: `--solver-audit`.** It runs the DC baseline corner under the

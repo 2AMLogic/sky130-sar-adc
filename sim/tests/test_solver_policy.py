@@ -9,7 +9,9 @@ place to discover it:
    deck assembly and nothing else; the reference profile adds nothing.
 2. Every flag combination that would let a control profile stand in for
    reference evidence is refused BEFORE the toolchain is checked or anything
-   is simulated.
+   is simulated -- while `ngspice-default` (the pre-DR-023 settings) may still
+   re-run --corners and every diagnostic mode, as a labelled control, so the
+   records minted before DR-023 stay reproducible.
 3. A control record never moves `records/LATEST` and can never carry a
    **Supersedes** pointer -- refused in the writer itself, not only at the CLI.
 4. The audit compares like with like (same instrumentation under every
@@ -36,7 +38,9 @@ import gen_full_conversion_tb as tb  # noqa: E402
 import run_conversion as rc  # noqa: E402
 from harness import evidence  # noqa: E402
 from report import generate as report_generate  # noqa: E402
-from test_full_conversion import _as_log, _ideal_codes, _synthetic_parsed  # noqa: E402
+from test_full_conversion import (  # noqa: E402
+    _as_log, _ideal_codes, _synthetic_node_trace, _synthetic_parsed,
+)
 
 
 def _fake_pdk(tmp: Path) -> SimpleNamespace:
@@ -141,7 +145,10 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
 
     REFUSED = (
         ["--solver-profile", "ngspice-default", "--supersedes", "20261001-105439-c324f80"],
-        ["--solver-profile", "ngspice-default", "--corners"],
+        ["--solver-profile", "reltol-only", "--corners"],
+        ["--solver-profile", "gear-only", "--corners", "--record"],
+        ["--solver-profile", "ngspice-default", "--corners",
+         "--supersedes", "20261001-105439-c324f80"],
         ["--solver-profile", "gear-only", "--mechanism-probe"],
         ["--solver-profile", "gear-only", "--node-trace"],
         ["--solver-profile", "reltol-only", "--cm-trace"],
@@ -186,6 +193,32 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
         args.solver_profile = "reltol-gear"
         self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
+
+    def test_ngspice_default_may_reproduce_the_grid_and_every_diagnostic(self):
+        # issue #637 review: every pre-DR-023 record (records/LATEST's 9-corner
+        # campaign, the mechanism probe and the three traces) must stay
+        # reproducible -- as a labelled control, never as reference evidence.
+        for mode in ("corners", "mechanism_probe", "node_trace", "cm_trace",
+                     "decision_margin_trace"):
+            with self.subTest(mode=mode):
+                args = SimpleNamespace(
+                    solver_profile="ngspice-default", sine_solver_control=False,
+                    corners=False, mechanism_probe=False, node_trace=False,
+                    cm_trace=False, decision_margin_trace=False, solver_audit=False,
+                    coherent_sine=False, supersedes="", jobs=1, audit_profile=[],
+                )
+                setattr(args, mode, True)
+                self.assertEqual(rc.resolve_solver_cli(args), ("ngspice-default", ""))
+                args.solver_profile = "gear-only"
+                self.assertIn("SOLVER CONTROL", rc.resolve_solver_cli(args)[1])
+
+    def test_ngspice_default_grid_passes_the_cli_to_check_env(self):
+        argv = ["run_conversion.py", "--solver-profile", "ngspice-default", "--corners",
+                "--record"]
+        with mock.patch.object(sys, "argv", argv), mock.patch("sys.stdout"), \
+                mock.patch.object(rc.toolchain, "check_env", return_value=_NO_TOOLCHAIN) as check:
+            self.assertEqual(rc.main(), 0)  # status 3 -> SKIP, nothing simulated
+        check.assert_called_once()
 
     def test_audit_profiles_default_and_dedupe(self):
         self.assertEqual(rc.audit_profiles(SimpleNamespace(audit_profile=[])),
@@ -259,6 +292,19 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
                                 solver_profile="gear-only")
             self.assertFalse((Path(tmp) / "records" / "REC.md").exists())
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
+
+    def test_control_corner_campaign_record_leaves_latest_alone(self):
+        # `--solver-profile ngspice-default --corners --record` reproduces the
+        # pre-DR-023 campaign: labelled control, LATEST untouched, and the
+        # Written-by command is the one that reproduces it.
+        pts = [_point(profile="ngspice-default") for _ in range(9)]
+        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+            text = rc.write_record(pts, "* n\n", solver_profile="ngspice-default").read_text()
+            self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
+        self.assertIn("SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE", text)
+        self.assertIn("run_conversion.py --corners --record --solver-profile ngspice-default",
+                      text)
+        self.assertEqual(report_generate.extract_field(text, "Supersedes"), "(none)")
 
     def test_reference_record_still_moves_latest_and_names_its_settings(self):
         with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
@@ -434,3 +480,61 @@ class TestSolverAuditRecord(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDiagnosticModesHonourTheProfile(unittest.TestCase):
+    """The diagnostic runners assemble their deck under the resolved profile
+    (not a hard-wired reference policy), and their records name it."""
+
+    def test_node_trace_point_deck_carries_the_profile(self):
+        decks: list[str] = []
+
+        def fake_run(deck, scratch, tag, attempts=3):
+            decks.append(deck)
+            return ""
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(rc, "_run_ngspice", side_effect=fake_run):
+            fake = _fake_pdk(Path(tmp))
+            for profile in ("ngspice-default", "reltol-gear"):
+                rc.run_node_trace_point("* dut\n", fake, Path(tmp), "tt", 27.0, 1.8,
+                                        rc.NODE_TRACE_CONVERSIONS, solver_profile=profile)
+                rc.run_decision_margin_point("* dut\n", fake, Path(tmp), "tt", 27.0, 1.8,
+                                             "as-committed", solver_profile=profile)
+        self.assertEqual([_options_lines(d) for d in decks], [
+            [], [],
+            [".options reltol=1e-4 method=gear"], [".options reltol=1e-4 method=gear"],
+        ])
+
+    def test_mechanism_probe_runs_both_variants_under_the_profile(self):
+        seen = []
+        with mock.patch.object(rc, "pdk"), mock.patch.object(rc, "dut_text", return_value=""), \
+                mock.patch.object(rc, "run_point",
+                                  side_effect=lambda *a, **k: seen.append(k["solver_profile"])
+                                  or {}):
+            rc.run_mechanism_probe(Path("/nonexistent"), True, "ngspice-default")
+        self.assertEqual(seen, ["ngspice-default", "ngspice-default"])
+
+    def _node_trace_record(self, profile: str) -> str:
+        traces = {
+            cid: _synthetic_node_trace(cid, pc, tc, sv, all_reset=True)
+            for cid, pc, tc, sv in (("tt_27c_1.62v", "tt", 27.0, 1.62),
+                                    ("ff_27c_1.80v", "ff", 27.0, 1.80))
+        }
+        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+            text = rc.write_node_trace_record(traces, "* n\n", profile).read_text()
+            self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
+        return text
+
+    def test_control_diagnostic_record_is_labelled_and_reproducible(self):
+        text = self._node_trace_record("ngspice-default")
+        self.assertIn("SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE", text)
+        self.assertIn("simulator options: profile `ngspice-default` (SOLVER CONTROL)", text)
+        self.assertIn("run_conversion.py --node-trace --solver-profile ngspice-default", text)
+        self.assertEqual(report_generate.extract_field(text, "Supersedes"), "(none)")
+
+    def test_reference_diagnostic_record_names_its_settings(self):
+        text = self._node_trace_record("reltol-gear")
+        self.assertNotIn("SOLVER-CONTROL RUN", text)
+        self.assertIn("simulator options: profile `reltol-gear` (reference policy, DR-023)", text)
+        self.assertNotIn("--solver-profile", text)
