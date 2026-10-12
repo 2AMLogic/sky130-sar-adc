@@ -56,6 +56,8 @@ LAYOUT_DIR="$(cd "$WELLS_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 TOP=gen_compose_0
 VIOLATION_FIXTURE="$WELLS_DIR/drc/nwell_violation_fixture.json"
 BLOCKS=(sa_p se_p scp_p cmswp_p invp cmswp_n scp_n se_n sa_n)

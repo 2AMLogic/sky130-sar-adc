@@ -41,6 +41,8 @@ ERC_REPORTS="$BLOCK_DIR/erc-reports"
 # is `{"name": "sky130", "source": "built-in", "version": null}`). Matches
 # the `sky130A` pin every other `layout/*/bin/run-flow.sh` resolves.
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 
 # shellcheck source=../../bin/_flow_common.sh
 source "$LAYOUT_DIR/bin/_flow_common.sh"

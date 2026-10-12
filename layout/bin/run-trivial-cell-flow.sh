@@ -35,6 +35,8 @@ KLT="$LAYOUT_DIR/.venv/bin/klt"
 CELL=trivial_mos_array
 FIXTURE=drc_violation_fixture
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
