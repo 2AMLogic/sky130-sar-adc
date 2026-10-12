@@ -1,0 +1,8 @@
+klt 0.7.0
+grading_ruleset_id: sha256:eb8d2ba54d1700c78f1139ac111aee598fd7bc48688ab9654fca22995b6ac25e
+graded T1 items (docs/design-evidence-tiers.md): 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+opt-in evidence kinds (kind -> T1 items it may satisfy):
+  generic: 1, 2, 8, 9, 10
+  power: none (satisfies nothing)
+  erc: 11
+  place-and-route: 11
