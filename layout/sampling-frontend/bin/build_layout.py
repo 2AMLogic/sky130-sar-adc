@@ -167,7 +167,7 @@ MET3_ISLAND_PAD_UM = 0.50  # a met3 landing pad that is the ONLY met3 shape at
 # met3 MINIMUM-AREA rule is (`m3.6`, 0.240um^2, from the pinned PDK's own
 # libs.tech/klayout/drc/sky130A_mr.drc). A STACK_PAD_UM square is 0.1764um^2 --
 # below it, and invisible to `klt drc`, whose curated sky130 deck carries no
-# `area`-kind rule at the pinned klayout-tools==0.5.0 (issue #326; fixed
+# `area`-kind rule at klayout-tools==0.5.0, the pin when written (now 0.6.0) (issue #326; fixed
 # upstream by klayout-tools#1989, not yet released). 0.50^2 = 0.25um^2 clears
 # the rule; CAP_MET4_ESCAPE_MARGIN_UM (0.80) still leaves this wider pad
 # 0.80 - 0.25 = 0.55um clear of the bottom plate's own met3 sheet below it,

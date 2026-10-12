@@ -78,7 +78,7 @@ between via3 and via2 when a `cap_array` `*_TOP` port escapes on met4
 0.42 um square, 0.1764 um^2 — while nothing else on met3 ever touches them.
 sky130A's own `m3.6` rule requires 0.240 um^2, so all four were real
 minimum-area violations, invisible to `klt drc`: the curated `sky130` deck at
-the pinned `klayout-tools==0.5.0` carries **no `area`-kind rule** (fixed
+`klayout-tools==0.5.0` (the pin when written; now 0.6.0) carries **no `area`-kind rule** (fixed
 upstream by klayout-tools#1989, not yet released). Those pads are now drawn at
 `MET3_ISLAND_PAD_UM` (0.50 um, 0.25 um^2); `CAP_MET4_ESCAPE_MARGIN_UM` still
 leaves the wider pad 0.55 um clear of the bottom plate's own met3 sheet, well

@@ -402,7 +402,7 @@ KLT=.venv-signoff/bin/klt bash signoff/run-signoff.sh
 ```
 
 The grader pin (`klayout-tools==0.6.0`) deliberately diverges from
-`layout/requirements.txt`'s `0.5.0`: that one **mints** evidence and only moves
+`layout/requirements.txt`'s pin (also `0.6.0` since issue #103's bump; kept as a separate file by role): that one **mints** evidence and only moves
 with a full re-run of every `layout/` flow, while this one **grades** it and is
 a pure JSON+Markdown transform. `signoff/requirements.txt` documents the split
 and why 0.6.0 specifically. **Moving the grader pin is a claim change, not a

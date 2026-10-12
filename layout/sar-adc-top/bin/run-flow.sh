@@ -255,7 +255,7 @@ REL_GDS="${GDS#"$REPO_ROOT"/}"
 # design's own intended 19/19/19 promoted/reference/matched pin counts,
 # where none of `--top-cell-pins`/`--pins`/`--def-pins` could. Requires a
 # `klt` build with klayout-tools#1515 -- carried by every pinned release
-# since `klayout-tools==0.5.0` (layout/requirements.txt).
+# since `klayout-tools==0.5.0` (layout/requirements.txt, now 0.6.0).
 ( cd "$REPO_ROOT" && "$KLT" extract "$REL_GDS" --deck sky130 --top "$TOP" \
     --pin-source-cells "$ROUTE_CELL_QUALIFIED" \
     -o "$OUT_DIR/sar_adc_top.extract.spice" --format json ) \

@@ -6,7 +6,7 @@
 # layout/sar-adc-top/erc-reports/<record-id>/ (issue #344).
 #
 # Usage:
-#   layout/bin/setup-erc-venv.sh              # once, or after an erc-requirements.txt bump
+#   layout/bin/setup-venv.sh                  # once, or after a requirements.txt bump
 #   layout/sar-adc-top/bin/run-erc.sh         # ~1 s; grades reports/LATEST's GDS
 #   layout/sar-adc-top/bin/run-erc.sh <gds>   # grade a specific GDS instead
 #
@@ -19,17 +19,19 @@
 # rather than overwriting an earlier one), and minting a reports/<id>/ record
 # with no layout in it would misrepresent what that tree means.
 #
-# Runs on layout/.venv-erc (klayout-tools==0.6.0, layout/erc-requirements.txt),
-# NOT on the DRC/LVS flow's layout/.venv (0.5.0) -- see erc-requirements.txt's
-# header for the whole justification, and note that the supply verdict itself
-# is identical on both builds (cross-checked in each record's record.md).
+# Runs on the same layout/.venv as the DRC/LVS flows (layout/requirements.txt:
+# klayout-tools==0.6.0, klayout==0.30.12). Until issue #648 this ran from a
+# separate layout/.venv-erc pinned by layout/erc-requirements.txt, because the
+# DRC/LVS pin was then 0.5.0; both pins now name the same build, so that
+# second pin was retired. Earlier erc-reports/ records still cite the old file
+# name; they are append-only and were not edited.
 set -euo pipefail
 
 PROG="$(basename "${BASH_SOURCE[0]}")"
 BLOCK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$BLOCK_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="$LAYOUT_DIR/.venv-erc/bin/klt"
+KLT="$LAYOUT_DIR/.venv/bin/klt"
 SPEC="$BLOCK_DIR/erc-supply-spec.json"
 ERC_REPORTS="$BLOCK_DIR/erc-reports"
 # The PDK *install* to pin in the record's provenance, resolved via `klt pdk
@@ -44,7 +46,7 @@ PDK_VARIANT=sky130A
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
 if [[ ! -x "$KLT" ]]; then
-  echo "$PROG: $KLT not found -- run layout/bin/setup-erc-venv.sh first" >&2
+  echo "$PROG: $KLT not found -- run layout/bin/setup-venv.sh first" >&2
   exit 1
 fi
 
@@ -132,7 +134,7 @@ prov = report.get("provenance")
 if not prov:
     sys.exit(
         "run-erc.sh: this klt build's `klt erc` writes no provenance block -- "
-        "see layout/erc-requirements.txt for why the pin must carry one"
+        "layout/requirements.txt must pin a klt build whose `klt erc` carries one"
     )
 for label, got, want in (
     ("input (layout)", prov["input"]["content_hash"], sha256(gds_path)),
