@@ -123,6 +123,8 @@ REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 # own `klt` version line shows which build ran.
 KLT="${SAR_ADC_TOP_KLT:-$LAYOUT_DIR/.venv/bin/klt}"
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 TOP=gen_compose_0
 ROUTE_CELL_NAME=SAR_ADC_TOP_ROUTE
 # The literal cell name `klt gen-compose` gives this flow's own routing cell

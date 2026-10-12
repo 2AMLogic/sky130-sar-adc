@@ -33,6 +33,8 @@ LAYOUT_DIR="$(cd "$BLOCK_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 TOP=seln_inverters
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"

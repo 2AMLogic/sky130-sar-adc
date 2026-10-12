@@ -58,6 +58,8 @@ REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PY="$LAYOUT_DIR/.venv/bin/python"
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 TOPS=(cdac_unit_cell cdac_array)
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"

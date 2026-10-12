@@ -100,6 +100,9 @@ export PDK_ROOT="$(volare path)"   # -> the volare-managed PDK store root
 export PDK=sky130A
 ```
 
+The `layout/*/bin/run-*.sh` flow scripts export `PDK=sky130A` themselves, so
+klt cannot resolve a sibling PDK from a shell that lacks it.
+
 Verify:
 
 ```sh
