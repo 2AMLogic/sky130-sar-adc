@@ -4,9 +4,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-12
 
+- **PR #655**: layout: export PDK=sky130A in flow scripts
 - **PR #653**: docs: evaluate klayout-tools 0.7.0 against pinned 0.6.0 (no bump)
 - **PR #651**: refactor(layout): fold shared P&R/DRC/LVS pipeline into run_pnr_drc_lvs_flow
 - **PR #650**: layout: retire erc-requirements.txt, run ERC on the DRC/LVS venv (#648)
+- **Issue #652** (closed): Flow scripts rely on ambient $PDK=sky130A; a shell without it makes klt resolve a gf180mcu PDK
 - **Issue #649** (closed): Evaluate klayout-tools 0.7.0 against the pinned 0.6.0 grader before the next pin bump
 - **Issue #648** (closed): Retire layout/erc-requirements.txt: the second klt pin's 0.5.0 premise no longer holds
 - **Issue #647** (closed): Dedupe P&R flow scaffolding shared by sar-sequencer, seln-inverters, top-glue run-flow.sh
