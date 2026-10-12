@@ -1554,9 +1554,9 @@ now reads from it.
 | | |
 |---|---|
 | Spec | `layout/sar-adc-top/erc-supply-spec.json` |
-| Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
+| Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-venv.sh`) |
 | Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
-| Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
+| Tool pin | `layout/requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
 | Current record | `erc-reports/20260926-184830-e1176e3/` — `erc_status: clean`, 0 findings, grading `reports/20260926-184816-e1176e3/sar_adc_top.gds` (issue #465's via arrays; the second ERC record in this chain graded on **different geometry** rather than re-minted prose) |
 
 | Record | Graded GDS | Supply continuity | Item 11 as graded |
@@ -1609,12 +1609,14 @@ or the graded spec moved: a recursive field diff of any two adjacent records'
 This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
 content hash; it regenerates no geometry, which is why it lives in its own
 `erc-reports/` tree rather than inside a `reports/` record (those are
-append-only). It runs from its own venv (`layout/.venv-erc`,
-`layout/erc-requirements.txt`) rather than the DRC/LVS flow's `layout/.venv`
-— the two pins are free to move independently, and the reason that separation
-was introduced was that `klayout-tools==0.5.0`'s `klt erc` emitted no
-`provenance` block and so could not pin a report to its input at all. Both
-files now pin 0.6.0; see `layout/erc-requirements.txt`'s own header.
+append-only). It runs from the same `layout/.venv` as the DRC/LVS flows
+(`layout/requirements.txt`, `klayout-tools==0.6.0`). It originally ran from a
+separate venv and `layout/erc-requirements.txt`, because the DRC/LVS pin was
+then `0.5.0`, whose `klt erc` emitted no `provenance` block and so could not
+pin a report to its input at all; once both pins named 0.6.0 that second pin
+was retired (issue #648). The older `erc-reports/` records still cite
+`layout/erc-requirements.txt` as their tool pin; they are append-only and
+were not edited.
 
 `erc.missing_tie` is deliberately **not computed** (no `ties[]` declared),
 disclosed in-report as `ties_disclosed_tool_limitation`: klayout-tools#2169
@@ -2062,7 +2064,7 @@ black boxes at the top level instead of flattened devices — "reducing the
 top-level compare to pure interconnect/topology, where `combine_devices`
 has nothing left to disagree about." `--abstract-cells` (issue #620) was
 never tried against this composition before this pass; it already ships in
-the pinned `klayout-tools==0.5.0` (no version bump needed).
+`klayout-tools==0.5.0`, the pin at the time (no version bump needed; now 0.6.0).
 
 **Mechanism.** `klt extract --abstract-cells '<qualified-cell-name>'`
 (repeatable) treats every instance of a matched cell **type** as an opaque

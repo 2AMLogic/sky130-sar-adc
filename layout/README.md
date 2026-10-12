@@ -119,12 +119,8 @@ which is what verdict 6 has to prove.
 ```
 layout/
   requirements.txt                 # pinned klt (DRC/extract/LVS flows)
-  erc-requirements.txt             # SECOND, narrower klt pin -- the `klt erc`
-                                   # T1 item 11 supply run only (issue #344);
-                                   # see its header for why it is separate
   bin/
     setup-venv.sh                  # create/refresh layout/.venv
-    setup-erc-venv.sh              # create/refresh layout/.venv-erc
     run-trivial-cell-flow.sh       # the six-verdict flow
     render-record.py               # renders record.md, asserts the verdicts
     drc_violation_fixture.json     # `klt draw` params for the illegal fixture
