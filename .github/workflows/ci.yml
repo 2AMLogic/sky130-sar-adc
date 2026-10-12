@@ -400,8 +400,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Deliberately NOT layout/requirements.txt's pin (0.5.0 there, 0.6.0
-      # here). The two gate different things: that one MINTS the DRC/LVS
+      # Deliberately NOT layout/requirements.txt's pin (a separate file by role;
+      # it was 0.5.0 when this was written, both are 0.6.0 now). The two gate different things: that one MINTS the DRC/LVS
       # evidence and only moves with a full re-run of every layout/ flow,
       # while this one GRADES it and reads no PDK, no KLayout engine and no
       # GDS. 0.6.0 is the first PyPI release whose bundled checklist carries

@@ -106,7 +106,7 @@ spec.loader.exec_module(module)
 
 def discover_entry_points() -> list[Path]:
     """Every `layout/<block>/bin/<entry point>.py`, sorted, repo-relative
-    order. Hidden directories (`layout/.venv/`, `layout/.venv-erc/`) are
+    order. Hidden directories (`layout/.venv/`) are
     excluded to match `package.json`'s own lint/compile exclusions."""
     found: set[Path] = set()
     for name in ENTRY_POINT_NAMES:

@@ -22,8 +22,8 @@ equally trustworthy:
     verdict alone.
 
 That fix is merged but not in any published release (`klayout-tools`'s latest
-tag/PyPI release is still `v0.5.0`; `layout/requirements.txt` pins
-`klayout-tools==0.5.0`), so the affected behaviour is exactly what a `klt drc`
+tag/PyPI release was `v0.5.0` and `layout/requirements.txt` pinned
+`klayout-tools==0.5.0` when this gate was written; the pin is now 0.6.0), so the affected behaviour is exactly what a `klt drc`
 run in this repo does *today*. The defensible answer is not to wait for the
 release but to state, mechanically, that no current DRC verdict rests on the
 affected path -- which is what this gate does.
