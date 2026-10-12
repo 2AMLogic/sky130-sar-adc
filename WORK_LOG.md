@@ -2,6 +2,15 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-12
+
+- **PR #653**: docs: evaluate klayout-tools 0.7.0 against pinned 0.6.0 (no bump)
+- **PR #651**: refactor(layout): fold shared P&R/DRC/LVS pipeline into run_pnr_drc_lvs_flow
+- **PR #650**: layout: retire erc-requirements.txt, run ERC on the DRC/LVS venv (#648)
+- **Issue #649** (closed): Evaluate klayout-tools 0.7.0 against the pinned 0.6.0 grader before the next pin bump
+- **Issue #648** (closed): Retire layout/erc-requirements.txt: the second klt pin's 0.5.0 premise no longer holds
+- **Issue #647** (closed): Dedupe P&R flow scaffolding shared by sar-sequencer, seln-inverters, top-glue run-flow.sh
+
 ### 2026-10-11
 
 - **PR #644**: docs(claude): check interpretations against raw results before review
