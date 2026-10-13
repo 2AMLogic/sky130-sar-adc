@@ -365,16 +365,35 @@ fixture where the artifact changed while manifest and envelope still agree.
 
 ### Item 4's missing pin
 
-Item 4's citation carries **no** `content_hash`, and that is deliberate. klt
-0.5.0's `klt lvs` writes `provenance.input: null`, so there is no envelope-side
-hash for a manifest pin to match; a pin there would be decorative, and — because
-`check_failed` is evaluated before the staleness gate — would never even be
-consulted. The envelope does record its freshness a different way, and
-`check_evidence_hashes.py` verifies that instead, re-deriving both digests from
-the committed netlists on every push:
+Item 4's citation carries **no** `content_hash`, and that is deliberate — but
+the premise first recorded here no longer holds. The envelope originally cited
+was minted by klt 0.5.0, whose `klt lvs` wrote `provenance.input: null`, so
+there was then no envelope-side hash for a manifest pin to match. The pinned
+grader (`klayout-tools==0.6.0`, `signoff/requirements.txt`) writes one, and the
+cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` carries
+`provenance.input = {content_hash: sha256:b4fb2add24c1f4b5…, role: "netlist"}`
+— the hash of the **layout-side** netlist (`sar_adc_top.extract.lvs.spice`),
+equal to the envelope's own `environment.layout_sha256`. Nothing envelope-side
+records a hash of the **reference** netlist: `environment.reference_sha256`
+is still the only recorded statement about that side, so a pin would cover
+one of the two digests and nothing could ever pin the other.
+
+The pin stays omitted anyway, because it would still be decorative: it would
+carry a digest the envelope's freshness is already verified against — and,
+because `check_failed` is evaluated before the staleness gate, the grader
+would never even consult it — while pinning the EXTRACTED NETLIST rather than
+the GDS, which is the artifact items 3 and 11 already pin.
+
+What the checker verifies instead, re-derived from the committed netlists on
+every push, is **both** sides: for `lvs` citations the environment-digest leg
+of `check_evidence_hashes.py` runs whether or not the envelope also records a
+`provenance.input`. An input-hash envelope routes through the recorded-hash
+leg for the layout side; if the environment leg were skipped there, the
+reference side would silently lose its only verification:
 
 - `environment.layout_sha256` vs `sar_adc_top.extract.lvs.spice` →
-  `b4fb2add24c1f4b5…` ✓
+  `b4fb2add24c1f4b5…` ✓ (equal to `provenance.input.content_hash`, so the
+  envelope's two statements of the layout digest are cross-checked)
 - `environment.reference_sha256` vs `sar_adc_top.lvs-reference.spice` →
   `6cb0377eb6b2a1c2…` ✓
 

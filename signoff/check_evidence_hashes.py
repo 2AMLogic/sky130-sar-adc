@@ -44,11 +44,17 @@ WHAT IT CHECKS, per file-backed citation in signoff/block-manifest.json:
      is the half that still works when `klt` is not installed.)
   3. The artifact that hash DESCRIBES is found on disk and re-hashes to it.
      This is the half the grader cannot do.
-  4. For an unpinned `lvs` citation -- item 4 here, because klt 0.5.0's `klt
-     lvs` writes `provenance.input: null` and so offers no hash to pin -- the
-     envelope's own `environment.layout_sha256` / `environment.reference_sha256`
-     are re-derived from the committed netlists instead. An unpinnable citation
-     is not an unverifiable one.
+  4. For every `lvs` citation, the envelope's own `environment.layout_sha256`
+     / `environment.reference_sha256` are re-derived from the committed
+     netlists -- whether or not the envelope ALSO records a
+     `provenance.input.content_hash`. klt 0.5.0 wrote `provenance.input:
+     null` (item 4's first envelope here offered no hash to pin at all); the
+     pinned 0.6.0 records one, but with `role: "netlist"` it describes the
+     LAYOUT netlist only, and nothing envelope-side records a REFERENCE
+     hash -- so skipping this leg whenever an input hash is present would
+     silently retire the reference side's only verification. An unpinnable
+     citation is not an unverifiable one, and a hash for the pinned side
+     does not stand in for the unpinned one.
 """
 
 from __future__ import annotations
@@ -307,19 +313,40 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
                 f"item {item_key}: {kind} input {artifact.relative_to(REPO_ROOT)} verified "
                 f"({recorded[:23]}...)"
             )
-    elif kind == "lvs":
-        # 4. An lvs envelope with no provenance.input at all (klt 0.5.0). Its
-        #    freshness lives in environment.{layout,reference}_sha256 instead;
-        #    those are bare hex digests, not `sha256:`-prefixed.
+    elif kind != "lvs":
+        notes.append(
+            f"item {item_key}: {named_file} (kind={kind}) records no input hash; nothing to verify"
+        )
+
+    # 4. An lvs envelope's environment digests, for EVERY `lvs` citation --
+    #    not only when provenance.input is absent. Gating this leg on "no
+    #    recorded input hash" (the klt 0.5.0 shape) would retire it for every
+    #    0.6.0 envelope: leg 3 then verifies the LAYOUT netlist via
+    #    provenance.input.content_hash, the REFERENCE netlist has no other
+    #    recorded hash anywhere, and its verification would be dropped
+    #    silently. Running it always keeps both sides re-derived from the
+    #    committed netlists on every push; on a 0.6.0 envelope the layout leg
+    #    doubles as a cross-check that the envelope's two statements of that
+    #    digest (provenance.input and environment.layout_sha256) agree.
+    #    These are bare hex digests, not `sha256:`-prefixed.
+    if kind == "lvs":
         environment = envelope.get("environment") or {}
         for side, hash_field in (("layout", "layout_sha256"), ("reference", "reference_sha256")):
             recorded_hex = environment.get(hash_field)
             named_side = envelope.get(side)
             if not isinstance(recorded_hex, str) or not isinstance(named_side, str):
-                failures.append(
-                    f"item {item_key}: {named_file} carries neither provenance.input.content_hash "
-                    f"nor environment.{hash_field} -- its freshness cannot be verified at all"
-                )
+                if recorded is None:
+                    failures.append(
+                        f"item {item_key}: {named_file} carries neither "
+                        f"provenance.input.content_hash nor environment.{hash_field} "
+                        "-- its freshness cannot be verified at all"
+                    )
+                else:
+                    failures.append(
+                        f"item {item_key}: {named_file} records an input hash but no "
+                        f"usable environment.{hash_field} -- the {side} netlist's "
+                        "freshness cannot be verified"
+                    )
                 return
             artifact = resolve_artifact(named_side, envelope_path)
             if artifact is None:
@@ -339,10 +366,6 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
                 f"item {item_key}: lvs {side} {artifact.relative_to(REPO_ROOT)} verified "
                 f"(sha256:{recorded_hex[:16]}...)"
             )
-    else:
-        notes.append(
-            f"item {item_key}: {named_file} (kind={kind}) records no input hash; nothing to verify"
-        )
 
 
 def main() -> int:

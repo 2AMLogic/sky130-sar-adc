@@ -24,7 +24,11 @@ is therefore asserted directly on a fixture:
     matched and must not pass silently;
   - the artifact an envelope names is not in the repo at all;
   - an unpinned `lvs` envelope (klt 0.5.0 writes `provenance.input: null`)
-    whose `environment.*_sha256` no longer matches the committed netlists.
+    whose `environment.*_sha256` no longer matches the committed netlists;
+  - an input-hash `lvs` envelope (klt 0.6.0's shape: `provenance.input`
+    covers the LAYOUT netlist) whose REFERENCE netlist drifts -- the
+    environment leg must run even when a recorded input hash is present,
+    or the reference side silently loses its only verification.
 
 Plus one control of a different kind (`ForeignRecordedPathTests`): the checker
 must reach a VERDICT on every machine it runs on. An envelope's recorded path
@@ -331,10 +335,11 @@ class GenericCitationTests(unittest.TestCase):
 
 
 class UnpinnedLvsCitationTests(unittest.TestCase):
-    """Item 4's citation. klt 0.5.0's `klt lvs` writes `provenance.input:
-    null`, so there is no hash for a manifest pin to match -- but the envelope
-    does record `environment.{layout,reference}_sha256`, and an unpinnable
-    citation must not become an unverifiable one."""
+    """Item 4's citation as the PRE-0.6.0 grader minted it: klt 0.5.0's
+    `klt lvs` writes `provenance.input: null`, so there is no hash for a
+    manifest pin to match -- but the envelope does record
+    `environment.{layout,reference}_sha256`, and an unpinnable citation must
+    not become an unverifiable one."""
 
     def setUp(self):
         self.tree = FixtureTree(self)
@@ -384,6 +389,95 @@ class UnpinnedLvsCitationTests(unittest.TestCase):
         failures = self.tree.check(self.manifest)
         self.assertEqual(len(failures), 1, failures)
         self.assertIn("cannot be verified at all", failures[0])
+
+
+class NetlistHashedLvsCitationTests(unittest.TestCase):
+    """Item 4's citation as the pinned klt 0.6.0 grader mints it.
+
+    Since 0.6.0 an `lvs` envelope DOES record a `provenance.input.content_hash`
+    -- but with `role: "netlist"` it describes the LAYOUT-side netlist only,
+    and nothing envelope-side records a hash of the REFERENCE netlist. So the
+    environment-digest leg must run for such an envelope too: gated on the
+    recorded hash being absent (the pre-0.6.0 shape), leg 3 would pass on the
+    layout netlist and the reference side would silently lose its only
+    verification. The reference-drift control below is the regression test for
+    exactly that.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.layout = b"* extracted netlist\n"
+        self.reference = b"* reference netlist\n"
+        self.tree.write("evidence/top.extract.lvs.spice", self.layout)
+        self.tree.write("evidence/top.lvs-reference.spice", self.reference)
+        self.envelope = {
+            "status": "mismatch",
+            "mismatches": [],
+            "layout": "top.extract.lvs.spice",
+            "reference": "top.lvs-reference.spice",
+            "provenance": {
+                "input": {
+                    "content_hash": sha256_bytes(self.layout),
+                    "role": "netlist",
+                }
+            },
+            "environment": {
+                "layout_sha256": hashlib.sha256(self.layout).hexdigest(),
+                "reference_sha256": hashlib.sha256(self.reference).hexdigest(),
+            },
+        }
+        self.tree.write_json("evidence/lvs.json", self.envelope)
+        self.manifest = {
+            "block": "fixture",
+            "kind": "analog",
+            "evidence": {"4": {"file": "evidence/lvs.json"}},
+        }
+
+    def test_passes_when_both_netlists_match(self):
+        self.assertEqual(self.tree.check(self.manifest), [])
+
+    def test_fails_when_the_reference_netlist_changed(self):
+        """The hole this class exists to lock: with the layout side verified via
+        provenance.input, only the environment leg reads the reference netlist
+        at all."""
+        self.tree.write("evidence/top.lvs-reference.spice", b"* reference netlist v2\n")
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("environment.reference_sha256", failures[0])
+
+    def test_fails_when_the_extracted_netlist_changed(self):
+        # Caught by leg 3 (the recorded hash) before the environment leg runs.
+        self.tree.write("evidence/top.extract.lvs.spice", b"* extracted netlist v2\n")
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("hashes to", failures[0])
+
+    def test_environment_leg_cross_checks_the_two_statements_of_the_layout_digest(self):
+        """provenance.input.content_hash and environment.layout_sha256 state the
+        layout digest twice; when they disagree, the committed artifact can
+        satisfy only one of them, and since leg 3 grades the provenance
+        statement this failure can only come from the environment layout
+        check."""
+        self.envelope["environment"]["layout_sha256"] = hashlib.sha256(
+            b"* a different revision\n"
+        ).hexdigest()
+        self.tree.write_json("evidence/lvs.json", self.envelope)
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("environment.layout_sha256", failures[0])
+
+    def test_fails_when_the_reference_side_has_no_environment_digest(self):
+        """An input-hash envelope must not read as verified with half the
+        environment block missing -- the reference side has no other recorded
+        hash."""
+        envelope = dict(self.envelope)
+        environment = dict(self.envelope["environment"])
+        del environment["reference_sha256"]
+        envelope["environment"] = environment
+        self.tree.write_json("evidence/lvs.json", envelope)
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("environment.reference_sha256", failures[0])
 
 
 class CompoundAndCommandEntryTests(unittest.TestCase):
