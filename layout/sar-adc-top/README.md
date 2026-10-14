@@ -2408,6 +2408,62 @@ right after, so the record's GDS is `571f036` + that commit's `build_layout.py`.
 Records `20261003-000530-629f2e6`, `-000742-5b86886` and `-000826-5b86886` are
 the retired pre-#401 composition and are kept unchanged as evidence.
 
+### Update (2026-10-14, issue #103): hierarchical extract does not clear the whole-netlist mismatch -- the mismatch is DR-012's substrate merge, not the combine scoping
+
+klayout-tools#2722 (`klt extract --hierarchical-cells`, per-cell `.SUBCKT`
+output so `options.combine_devices_per_circuit` can scope the layout side) was
+merged upstream as #3096 on 2026-10-11T07:32Z. **It is not in any release:**
+`klayout-tools==0.7.0` was published 2026-10-08T17:37Z, three days earlier, its
+`klt extract --help` has no such flag, and `v0.7.0...6bbed29` is 60 commits
+ahead. The PyPI pin in `layout/requirements.txt` therefore stays at 0.6.0 and no
+flow record was minted. The measurement below used a throwaway venv (outside the
+repo) built from klayout-tools `main` at `6bbed29`
+(`klt 0.7.1.dev380+g6bbed29ae978`, klayout 0.30.12).
+
+`bin/probe-hierarchical-lvs.sh` (new; reads a flow record, writes only a new
+append-only `probe-reports/<id>/`) ran four LVS compares on the composed GDS of
+record `20261003-041400-571f036` in one tool build
+(`probe-reports/20261014-054828-aa2a164/summary.txt`). "Hierarchical" = the six sub-block cells selected with
+`--hierarchical-cells`, the per-circuit settings the `run-flow.sh` step-7
+comment documents (comparator/sar_sequencer/top_glue `true`;
+cdac_array/sampling_frontend/halflsb_offset `false`), then flattened. "Flat" =
+`run-flow.sh` step 7's shape. "Diagnostic reference" = the real reference with
+the top-level `GND` net renamed `VGND` inside `.SUBCKT sar_adc_top` only -- the
+merge DR-012 records, nothing else. It is **not** a signoff reference.
+
+| | layout | reference | status | devices lay/ref/matched | nets lay/ref/matched | errors |
+|---|---|---|---|---|---|---|
+| A | hierarchical, per-circuit combine | real | `mismatch` | 2101/2101/2051 | 554/555/519 | 50 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+| B | hierarchical, per-circuit combine | diagnostic | **`match`** | 2101/2101/2101 | 554/555/555 | 0 |
+| C | flat, `combine_devices` | diagnostic | **`match`** | 1095/1095/1095 | 554/555/555 | 0 |
+| D | flat, `combine_devices` | real | `mismatch` | 1095/1095/1046 | 554/555/519 | 49 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+
+D reproduces the `20261003-041400-571f036` record's own verdict (66 errors, same
+counts) on the newer build. What the table supports, and no more:
+
+- Hierarchical extraction **works as a mechanism** here: the per-circuit compare
+  runs and reproduces D's matched population (`top_glue` and `sar_sequencer`
+  contribute no unmatched device in either A or D; A's unmatched devices are in
+  `sampling_frontend`, `cdac_array`, `comparator`, `halflsb_offset` and the
+  decaps, as D's are).
+- It **does not change the verdict**: A and D carry the same 9 `net.merged` and
+  8 `net.split`, and A has one more `device.unmatched` than D (50 vs 49). The
+  extra entry is the second analog decap (`DECAP_A1`): D's whole-request combine
+  folds the two analog decaps into one device, while A's per-circuit mode leaves
+  the top-level circuit uncombined.
+- The mismatch is **not** attributable to combine scoping (the premise of
+  klayout-tools#1878/#2722 as this README recorded it): C and B, both against a
+  reference that differs from the real one only by that one renamed net, reach
+  `match` with **0 error-severity entries** -- flat and hierarchical alike, so
+  hierarchical extraction is not needed for the match either.
+- What the table does **not** show: that the design is LVS clean against
+  `design/sar_adc_top.spice`. B and C compare against a modified reference. The
+  real reference keeps `GND` and `VGND` as distinct ports, per the schematic and
+  DR-012; the layout cannot (shared p-substrate). Whether a compare modulo that
+  declared merge satisfies the acceptance criterion (for example via `klt lvs`'s
+  documented `hints`) is a spec-level decision for the operator, so **no
+  acceptance box is ticked** and the pin is not bumped.
+
 ## Remaining work (tracked against #103)
 
 - [x] Place all **six** blocks via `klt gen-compose` `placement.strategy:
