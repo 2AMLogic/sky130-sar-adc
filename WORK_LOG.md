@@ -2,6 +2,15 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-14
+
+- **PR #660**: layout(sar-adc-top): hierarchical extract measured -- LVS mismatch is DR-012's merge (Part of #103)
+
+### 2026-10-13
+
+- **PR #659**: fix(signoff): verify lvs environment digests even when an input hash is present
+- **Issue #657** (closed): signoff README: item 4 'missing pin' premise (klt 0.5.0 null provenance) contradicts the cited 0.6.0 lvs.json
+
 ### 2026-10-12
 
 - **PR #655**: layout: export PDK=sky130A in flow scripts
