@@ -2464,6 +2464,30 @@ counts) on the newer build. What the table supports, and no more:
   documented `hints`) is a spec-level decision for the operator, so **no
   acceptance box is ticked** and the pin is not bumped.
 
+### Update (2026-10-14, issue #103): the hierarchical-extract probe re-run on the host `klt` build -- field-identical
+
+The host `klt` (`klt 0.7.1.dev428+gc68a2198cafc`, newer than the `6bbed29` build
+the previous update measured) now lists `klt extract --hierarchical-cells`.
+`bin/probe-hierarchical-lvs.sh` re-run unchanged on the same GDS (record
+`20261003-041400-571f036`) wrote
+`probe-reports/20261014-212619-4e58071/`. Result, same four measurements:
+
+| | status | devices lay/ref/matched | nets lay/ref/matched | errors |
+|---|---|---|---|---|
+| A hier / real ref | `mismatch` | 2101/2101/2051 | 554/555/519 | 50 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+| B hier / diagnostic ref | `match` | 2101/2101/2101 | 554/555/555 | 0 |
+| C flat / diagnostic ref | `match` | 1095/1095/1095 | 554/555/555 | 0 |
+| D flat / real ref | `mismatch` | 1095/1095/1046 | 554/555/519 | 49 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+
+Every count equals the `20261014-054828-aa2a164` probe's. The conclusion
+stands unchanged: the only difference between match and mismatch is the
+`GND`/`VGND` merge DR-012 records (diagnostic reference, not a signoff
+reference). **No acceptance box is ticked and the pin stays at 0.6.0.** The
+remaining step is an operator/spec-level decision on whether LVS modulo that
+declared merge satisfies "LVS clean against `design/sar_adc_top.spice`"; no
+agent may relax that criterion or the reference. No new klt gap was found, so
+nothing was filed at klayout-tools.
+
 ## Remaining work (tracked against #103)
 
 - [x] Place all **six** blocks via `klt gen-compose` `placement.strategy:
