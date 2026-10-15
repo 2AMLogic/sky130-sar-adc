@@ -3530,6 +3530,38 @@ tracker already owns.
    stays **PARTIAL (LVS device match UNMET / BLOCKED)**, "Post-layout PVT
    simulation, full ADC" stays **UNMET**, and acceptance criterion 3 of
    issue #121 is still not met.
+
+   **Update (2026-10-15): the upstream blocker closed, but the remaining
+   blocker is now an operator decision, not a tool gap; the verdicts do not
+   move.** Re-read live this pass. Two of the 2026-10-03 and 2026-10-07
+   entries above are superseded:
+   [klayout-tools#2722](https://github.com/2AMLogic/klayout-tools/issues/2722)
+   is **closed** (completed, 2026-10-11T07:32:29Z), and the premise those
+   entries gave for the flat compare's mismatch (that it comes from
+   `combine_devices_per_circuit` having no per-cell layout side to scope) is
+   not what `layout/sar-adc-top/README.md`'s two 2026-10-14 updates measured.
+   The fix is merged upstream but, per that README, is in no release: the
+   PyPI pin `layout/requirements.txt` stays `klayout-tools==0.6.0` and no
+   flow record was minted, so `layout/sar-adc-top/reports/LATEST` still names
+   `20261003-041400-571f036`. The measurement used throwaway `klt` builds
+   from upstream `main` (`probe-reports/20261014-054828-aa2a164/`, then
+   re-run on a newer host build as
+   `probe-reports/20261014-212619-4e58071/`, field-identical). Four LVS
+   compares on that record's GDS: against the real reference `design/sar_adc_top.spice`,
+   hierarchical and flat both report `mismatch` (2051/2101 and 1046/1095
+   devices matched; 9 `net.merged` and 8 `net.split` in each). Against a
+   *diagnostic* reference, which differs from the real one only in the
+   top-level `GND` net renamed `VGND` (the substrate merge
+   [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) records),
+   both report `match`. That diagnostic reference is not a signoff reference,
+   so this is not an LVS-clean result. What remains is a spec-level decision
+   for the operator, whether an LVS compare modulo that declared merge
+   satisfies "LVS clean against `design/sar_adc_top.spice`". This document
+   does not make that call and does not relax the criterion. No acceptance
+   box on #103 is ticked. "DRC/LVS-clean GDS, full ADC" stays **PARTIAL (LVS
+   device match UNMET)**, "Post-layout PVT simulation, full ADC" stays
+   **UNMET**, and acceptance criterion 3 of issue #121 is still not met.
+   These are layout records, not simulations.
 2. **Sample rate is not re-derived (narrowed this pass, not closed).**
    `spec/target-spec.md`'s 100 kS/s–1 MS/s row remains DRAFT. A first-pass,
    single-corner (`tt`/27 °C/1.8 V) settling-time budget for ONE mechanism —
