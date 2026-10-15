@@ -3,21 +3,28 @@
 <!-- guide:plan-body:start -->
 ## Operator Attention: Merge-Risk-Hold Pileup
 
-Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
+Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
+
+- **#530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
+
+## Very Important
+
+`loom:very-important` (one counts per workspace); every stage takes these first.
 
 _None._
 
-## Operator Priority
+## Important
 
-Issues the operator starred (`loom:operator-priority`); land these first.
+`loom:important`; taken before unlabelled work.
 
-_None._
+- **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly
+- **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
 
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
+_None._
 
 ## In Progress
 
@@ -51,6 +58,7 @@ Issues carrying `loom:curated`.
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
 - **#564**: Pilot: express one PVT corner campaign as a klt sim request (first klt sim envelope) *(architect)*
 - **#629**: Dedupe repeated testbench entries in the generated spec-coverage index *(architect)*
+- **#658**: Refresh stale tracker #23 body to point at signoff/t1-report.json instead of the 2026-08-15 analog/10-item table *(architect)*
 - **#588**: Simplify the Chipalooza proposal citation gate: ~16k lines of checker, tests and rationale guard one prose document *(hermit)*
 
 ## Epics
@@ -59,16 +67,16 @@ Issues carrying `loom:curated`.
 
 ## Backlog Balance
 
-| Tier | Count |
+| Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
-| Operator priority | 0 |
-| Ready (`loom:issue`) | 1 |
+| Operator merge-risk holds | 1 |
+| Very important | 0 |
+| Important | 2 |
+| Ready (`loom:issue`) | 0 |
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 4 |
-| Architect / Hermit proposals | 4 |
+| Architect / Hermit proposals | 5 |
 | Active epics | 1 |
-
 <!-- guide:plan-body:end -->
