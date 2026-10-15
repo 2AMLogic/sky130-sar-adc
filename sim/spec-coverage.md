@@ -15,7 +15,7 @@ One-time machine bootstrap: `docs/environment-setup.md` sections 1-3. Then, from
 
 ```sh
 # One-time machine bootstrap: docs/environment-setup.md sections 1-3
-#   (xschem + ngspice + volare install, `volare enable` of the pinned
+#   (xschem + ngspice + ciel install, `ciel enable` of the pinned
 #    open_pdks commit, PDK_ROOT/PDK convention).
 source sim/env.sh
 python3 sim/run_corners.py --check-env   # exit 3 = tools/PDK missing, 1 = pin drifted

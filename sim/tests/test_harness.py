@@ -988,6 +988,42 @@ class TestPdkResolve(unittest.TestCase):
             self.assertEqual(info.error, "")
 
 
+class TestPdkSearchOrder(unittest.TestCase):
+    """With no $PDK_ROOT, ~/.ciel (default_pdk_root) is searched before the
+    fallback ~/.volare root, and a fallback is only used when the default
+    root has no variant directory."""
+
+    def _make_home(self, tmp: str, roots: list[str]) -> Path:
+        home = Path(tmp)
+        for name in roots:
+            lib = home / name / "sky130A" / "libs.tech" / "combined"
+            lib.mkdir(parents=True)
+            (lib / "sky130.lib.spice").write_text("* fake\n")
+        return home
+
+    def _resolve(self, home: Path) -> pdk.PdkInfo:
+        env = {k: v for k, v in os.environ.items() if k not in ("PDK_ROOT", "PDK")}
+        env["HOME"] = str(home)
+        with mock.patch.dict(os.environ, env, clear=True):
+            return pdk.resolve()
+
+    def test_ciel_root_is_preferred_over_volare(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = self._make_home(tmp, [".ciel", ".volare"])
+            self.assertEqual(self._resolve(home).root, home / ".ciel")
+
+    def test_falls_back_to_volare_when_ciel_has_no_variant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = self._make_home(tmp, [".volare"])
+            self.assertEqual(self._resolve(home).root, home / ".volare")
+
+    def test_pdk_root_override_wins_over_both(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = self._make_home(tmp, [".ciel", ".volare", "custom"])
+            with mock.patch.dict(os.environ, {"PDK_ROOT": str(home / "custom"), "PDK": "sky130A"}):
+                self.assertEqual(pdk.resolve().root, home / "custom")
+
+
 class TestPdkResolveOrRaise(unittest.TestCase):
     """resolve_or_raise() -- the resolve()-or-RuntimeError helper shared by
     sim/comparator-decision/run.py and layout/comparator/pex/regen_probe.py
@@ -1101,6 +1137,60 @@ class TestPdkResolvedCommit(unittest.TestCase):
             display = pdk.resolved_commit(FakeInfo())
             self.assertTrue(display.startswith("b" * 40))
             self.assertIn("unverified", display)
+
+    def _tree_with_sources(self, tmp: str, sources: str | None, name: str = "sky130A") -> Path:
+        variant_dir = Path(tmp) / name
+        variant_dir.mkdir(parents=True)
+        if sources is not None:
+            (variant_dir / "SOURCES").write_text(sources)
+        return variant_dir
+
+    def test_sources_file_at_the_new_pin_is_verified(self):
+        pin = pdk.load_pdk_json()["open_pdks_commit"]
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = self._tree_with_sources(tmp, f"open_pdks {pin}\n")
+
+            class FakeInfo:
+                variant_dir = vdir
+                open_pdks_commit_expected = pin
+
+            self.assertEqual(pdk.resolved_commit_verified(FakeInfo()), pin)
+
+    def test_sources_file_at_the_old_pin_reads_as_that_commit_so_check_env_fails_it(self):
+        old = "c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = self._tree_with_sources(tmp, f"open_pdks {old}\n")
+
+            class FakeInfo:
+                variant_dir = vdir
+                open_pdks_commit_expected = pdk.load_pdk_json()["open_pdks_commit"]
+
+            self.assertEqual(pdk.resolved_commit_verified(FakeInfo()), old)
+            self.assertNotEqual(old, FakeInfo.open_pdks_commit_expected)
+
+    def test_sources_wins_over_a_volare_shaped_path(self):
+        path_sha, src_sha = "a" * 40, "b" * 40
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = Path(tmp) / "volare" / "sky130" / "versions" / path_sha / "sky130A"
+            vdir.mkdir(parents=True)
+            (vdir / "SOURCES").write_text(f"open_pdks {src_sha}\n")
+
+            class FakeInfo:
+                variant_dir = vdir
+                open_pdks_commit_expected = "c" * 40
+
+            self.assertEqual(pdk.resolved_commit_verified(FakeInfo()), src_sha)
+
+    def test_malformed_or_absent_sources_is_unverifiable(self):
+        for sources in (None, "", "magic 1234\n", "open_pdks nothex\n"):
+            with self.subTest(sources=sources), tempfile.TemporaryDirectory() as tmp:
+                vdir = self._tree_with_sources(tmp, sources)
+
+                class FakeInfo:
+                    variant_dir = vdir
+                    open_pdks_commit_expected = "c" * 40
+
+                self.assertIsNone(pdk.resolved_commit_verified(FakeInfo()))
 
     def test_nonexistent_path_is_unverifiable_not_an_error(self):
         class FakeInfo:

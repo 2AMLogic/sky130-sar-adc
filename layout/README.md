@@ -75,7 +75,7 @@ met2–met5 / via2–via4 connectivity 0.2.0's sky130 extraction deck did not
 have, and carried a dummy-device-suppression fix that forced the
 trivial-cell LVS references to be re-derived — issue #104). `klt`
 brings its own KLayout wheel, so no system KLayout install is required. The
-PDK itself comes from `volare` — see `docs/environment-setup.md`.
+PDK itself comes from `ciel` — see `docs/environment-setup.md`.
 
 ## The trivial-cell proof
 

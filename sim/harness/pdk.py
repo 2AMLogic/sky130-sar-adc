@@ -4,13 +4,19 @@ Resolution order (env wins over the committed default, matching
 sim/pdk.json's own convention and gf180-sar-adc's sim/harness/pdk.py):
 
   1. $PDK_ROOT / $PDK, if both set.
-  2. sim/pdk.json's "default_pdk_root" (~/.volare) / "variant" (sky130A).
+  2. sim/pdk.json's "default_pdk_root" (~/.ciel) / "variant" (sky130A); if
+     that root has no variant directory, each of "fallback_pdk_roots"
+     (~/.volare) in order. A fallback root is only ever a place to look: the
+     open_pdks revision of whatever is found is still checked against the pin
+     (see resolved_commit_verified()), so a leftover install at the old pin
+     fails toolchain.check_env() instead of being used silently.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,8 +45,17 @@ def resolve() -> PdkInfo:
     root_env = os.environ.get("PDK_ROOT", "").strip()
     variant_env = os.environ.get("PDK", "").strip()
 
-    root = Path(root_env).expanduser() if root_env else Path(cfg["default_pdk_root"]).expanduser()
     variant = variant_env or cfg["variant"]
+    if root_env:
+        root = Path(root_env).expanduser()
+    else:
+        root = Path(cfg["default_pdk_root"]).expanduser()
+        if not (root / variant).is_dir():
+            for fallback in cfg.get("fallback_pdk_roots", []):
+                candidate = Path(fallback).expanduser()
+                if (candidate / variant).is_dir():
+                    root = candidate
+                    break
     variant_dir = root / variant
     ngspice_lib = variant_dir / cfg["ngspice_lib"]
     xschem_rc = variant_dir / cfg["xschem_pdk_rc"]
@@ -64,12 +79,28 @@ def resolve() -> PdkInfo:
     )
 
 
-def _volare_commit_from_path(variant_dir: Path) -> str | None:
+_SOURCES_OPEN_PDKS_RE = re.compile(r"^open_pdks\s+([0-9a-f]{40})\s*$", re.MULTILINE)
+
+
+def _commit_from_sources(variant_dir: Path) -> str | None:
+    """The open_pdks revision recorded in the SOURCES file at the root of
+    the variant tree (a line `open_pdks <40-hex>`), or None if the file is
+    absent, unreadable, or has no such line. open_pdks writes SOURCES into
+    the tree it installs, so this is independent of how the tree was fetched
+    (ciel, volare, or a hand build).
+    """
+    try:
+        text = (variant_dir / "SOURCES").read_text()
+    except OSError:
+        return None
+    m = _SOURCES_OPEN_PDKS_RE.search(text)
+    return m.group(1) if m else None
+
+
+def _commit_from_path(variant_dir: Path) -> str | None:
     """The open_pdks commit volare encodes into the resolved variant
     symlink's path (.../sky130/versions/<commit>/sky130A), or None if
-    variant_dir does not resolve through that shape (e.g. a hand-installed
-    or otherwise non-volare PDK, whose provenance this harness has no way
-    to verify).
+    variant_dir does not resolve through that shape.
     """
     try:
         resolved = variant_dir.resolve()
@@ -81,10 +112,18 @@ def _volare_commit_from_path(variant_dir: Path) -> str | None:
     return None
 
 
+def _open_pdks_commit(variant_dir: Path) -> str | None:
+    """The open_pdks revision of the tree at variant_dir: SOURCES first,
+    the volare path layout as a fallback, None if neither yields one (a
+    tree whose provenance this harness has no way to verify).
+    """
+    return _commit_from_sources(variant_dir) or _commit_from_path(variant_dir)
+
+
 def resolved_commit_verified(info: PdkInfo) -> str | None:
     """The open_pdks commit actually installed at info.variant_dir, IFF its
-    provenance can be verified through volare's path layout -- None
-    otherwise.
+    provenance can be verified (SOURCES file, else volare's path layout) --
+    None otherwise.
 
     Callers that must fail closed on unverifiable provenance (e.g.
     toolchain.check_env()'s pin-drift gate) use this, not resolved_commit()
@@ -95,7 +134,7 @@ def resolved_commit_verified(info: PdkInfo) -> str | None:
     suffix, which previously happened to `startswith()` the pin and so
     satisfied the drift gate for an install of unknown provenance.
     """
-    return _volare_commit_from_path(info.variant_dir)
+    return _open_pdks_commit(info.variant_dir)
 
 
 def resolved_commit(info: PdkInfo) -> str:
@@ -103,15 +142,15 @@ def resolved_commit(info: PdkInfo) -> str:
     for DISPLAY in evidence records and summaries.
 
     Falls back to the expected pin annotated
-    "(unverified -- non-volare layout)" so callers always get *some*
+    "(unverified -- no SOURCES file or volare layout)" so callers always get *some*
     string to record. This fallback is a display convenience only -- it
     must never be treated as proof the install is on pin; use
     resolved_commit_verified() for that decision.
     """
-    commit = _volare_commit_from_path(info.variant_dir)
+    commit = _open_pdks_commit(info.variant_dir)
     if commit is not None:
         return commit
-    return info.open_pdks_commit_expected + " (unverified -- non-volare layout)"
+    return info.open_pdks_commit_expected + " (unverified -- no SOURCES file or volare layout)"
 
 
 def resolve_or_raise() -> PdkInfo:

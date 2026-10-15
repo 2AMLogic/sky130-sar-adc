@@ -532,7 +532,11 @@ class CoverageCheck:
                     f"{rec_rel} pins PDK variant {variant!r}, {PDK_REL} pins "
                     f"{pdk.get('variant')!r}",
                 )
-            if commit != str(pdk.get("open_pdks_commit", "")).lower():
+            superseded = {
+                str(e.get("commit", "")).lower()
+                for e in pdk.get("superseded_open_pdks_commits", [])
+            }
+            if commit != str(pdk.get("open_pdks_commit", "")).lower() and commit not in superseded:
                 self.fail(
                     "pdk-pin-drift",
                     where,
