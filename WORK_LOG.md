@@ -2,8 +2,14 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-15
+
+- **PR #664**: docs(proposal): record #2722 closure and 2026-10-14 hierarchical-LVS probes
+- **PR #663**: Bump Repo Skills 0.19.5 -> 0.24.1
+
 ### 2026-10-14
 
+- **PR #662**: layout(sar-adc-top): re-run hierarchical-LVS probe on newer klt -- GND/VGND merge still the only blocker (#103)
 - **PR #660**: layout(sar-adc-top): hierarchical extract measured -- LVS mismatch is DR-012's merge (Part of #103)
 
 ### 2026-10-13
