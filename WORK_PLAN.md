@@ -7,6 +7,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 - **#530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
 - **#671**: build: re-pin open_pdks to f6eeac7 (ciel) and verify PDK SOURCES revision
+- **#673**: Bump Repo Skills 0.24.1 -> 0.24.3
 
 ## Very Important
 
@@ -45,6 +46,7 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
 - **#671**: build: re-pin open_pdks to f6eeac7 (ciel) and verify PDK SOURCES revision
+- **#673**: Bump Repo Skills 0.24.1 -> 0.24.3
 
 ## Proposed
 
@@ -72,13 +74,13 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 2 |
+| Operator merge-risk holds | 3 |
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
+| Approved PRs awaiting merge | 3 |
 | Curated | 5 |
 | Architect / Hermit proposals | 5 |
 | Active epics | 1 |
