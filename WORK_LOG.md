@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-16
+
+- **PR #673**: Bump Repo Skills 0.24.1 -> 0.24.3
+
 ### 2026-10-15
 
 - **PR #664**: docs(proposal): record #2722 closure and 2026-10-14 hierarchical-LVS probes
