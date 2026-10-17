@@ -71,7 +71,7 @@ def tool_version(*args: str) -> str:
 def resolve_pdk_commit(klt: str, pdk_variant: str) -> str:
     """Best-effort `open_pdks` commit `klt pdk find --pdk <pdk_variant>
     --format json` resolves for *pdk_variant*, e.g.
-    `"open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"`.
+    `"open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"`.
 
     This is the pin issue #407 is about: printing only the PDK *variant name*
     (e.g. `sky130A`) is not a pin -- it names which corner of the PDK a flow

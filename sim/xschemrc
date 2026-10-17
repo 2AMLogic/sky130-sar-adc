@@ -16,10 +16,10 @@
 #### (commit 1f04e8524cc2d8c2c7154773749b1b2d3be2ce64) per CLAUDE.md's
 #### "Harness bootstrap" instruction. Unchanged except for this header.
 
-#### PDK_ROOT / PDK: honour the environment, else fall back to the volare
+#### PDK_ROOT / PDK: honour the environment, else fall back to the ciel
 #### default root. Keep the fallback in sync with sim/pdk.json.
 if {![info exists env(PDK_ROOT)] || $env(PDK_ROOT) eq {}} {
-  set env(PDK_ROOT) [file normalize ~/.volare]
+  set env(PDK_ROOT) [file normalize ~/.ciel]
 }
 if {![info exists env(PDK)] || $env(PDK) eq {}} {
   set env(PDK) sky130A

@@ -41,7 +41,7 @@ disagree, and `sim/tests/test_measure_metal_min_area.py` for the regression
 fixture that now pins it.
 
 Clean room: every number this script uses comes from this repo's own pinned
-sky130A install (`sim/pdk.json`: open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b)
+sky130A install (`sim/pdk.json`: open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7)
 and from this repo's own committed GDS records. Nothing is transcribed from
 any third-party layout.
 
@@ -80,7 +80,7 @@ currently standing behind).
     --json          machine-readable output (per-target, per-layer, per-shape)
     --self-test     negative control: measure a deliberately-illegal fixture
                     and exit non-zero unless it is caught (see CI GATE below)
-    --pdk-root DIR  PDK search root (default: $PDK_ROOT, else ~/.volare)
+    --pdk-root DIR  PDK search root (default: $PDK_ROOT, else ~/.ciel)
     --variant NAME  PDK variant (default: $PDK, else sky130A)
     --repo-root DIR repo root used to resolve the default targets
 
@@ -170,7 +170,7 @@ def find_deck(pdk_root: Path, variant: str) -> Path:
     if not deck.is_file():
         raise MeasurementError(
             f"no {variant} DRC deck at {deck} -- see sim/pdk.json for the pin "
-            f"(install: volare enable --pdk sky130 <open_pdks_commit>)"
+            f"(install: ciel enable --pdk-family sky130 <open_pdks_commit>)"
         )
     return deck
 
@@ -451,7 +451,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        pdk_root = args.pdk_root or Path(os.environ.get("PDK_ROOT", "~/.volare")).expanduser()
+        pdk_root = args.pdk_root or Path(os.environ.get("PDK_ROOT", "~/.ciel")).expanduser()
         variant = args.variant or os.environ.get("PDK", "sky130A")
         deck = find_deck(Path(pdk_root).expanduser(), variant)
         rules = parse_min_area_rules(deck.read_text())

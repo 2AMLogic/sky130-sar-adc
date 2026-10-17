@@ -23,7 +23,7 @@
     "independent sources and cross-checked, per issue #344's own instruction",
     "not to copy them from another PDK's spec:",
     "  1. This repo's own pinned sky130A install (sim/pdk.json's pin, fetched",
-    "     via volare): libs.tech/klayout/tech/sky130A.lyp, whose <properties>",
+    "     via ciel): libs.tech/klayout/tech/sky130A.lyp, whose <properties>",
     "     entries name each pair directly (e.g. `met1.drawing - 68/20`,",
     "     `met1.label - 68/5`, `met1.pin - 68/16`).",
     "  2. klayout-tools' curated sky130 deck layer table",
