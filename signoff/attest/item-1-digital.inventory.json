@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "kind": "t1-attestation-inventory",
+  "t1_item": 1,
+  "description": "Digital partition design sources: the hand-captured sequencer schematic (no RTL, no synthesis) and the top-level schematic that instantiates the glue bank, the netlist derived from them, and the two gate-level Verilog netlists the place-and-route flows are fed. There are no separate top-glue source files: the glue instances live in design/sar_adc_top.sch.",
+  "sources": [
+    "design/sar_sequencer.sch",
+    "design/sar_sequencer.sym",
+    "design/sar_adc_top.sch"
+  ],
+  "derived": [
+    {
+      "path": "design/sar_adc_top.spice",
+      "generator": "design/regen_netlist.sh",
+      "check": {
+        "argv": [
+          "bash",
+          "design/regen_netlist.sh",
+          "--check"
+        ],
+        "cwd": "."
+      }
+    },
+    {
+      "path": "layout/top-glue/netlist/top_glue.v",
+      "generator": "hand transliteration of design/sar_adc_top.sch's standard-cell glue",
+      "check": {
+        "argv": [
+          "python3",
+          "layout/top-glue/bin/check-schematic-parity.py"
+        ],
+        "cwd": "."
+      }
+    },
+    {
+      "path": "layout/sar-sequencer/netlist/sar_sequencer.v",
+      "generator": "hand transliteration of design/sar_sequencer.sch (not RTL synthesis)",
+      "check": {
+        "argv": [
+          "python3",
+          "layout/sar-sequencer/bin/check-schematic-parity.py"
+        ],
+        "cwd": "."
+      }
+    }
+  ]
+}
