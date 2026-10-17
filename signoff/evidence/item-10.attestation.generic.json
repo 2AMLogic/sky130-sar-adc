@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "kind": "generic",
+  "t1_item": 10,
+  "status": "pass",
+  "summary": "Repo hygiene: README, LICENSE, spec/target-spec.md and the CI workflow are present and the workflow runs the declared audit commands. Those commands are executed by CI on every push, not here.",
+  "source": "signoff/attest/item-10.inventory.json",
+  "provenance": {
+    "input": {
+      "path": "signoff/attest/item-10.inventory.json",
+      "content_hash": "sha256:6447799a780b8ae1ed3ffff8b69c3ddf4b5d852f60877b0d2b2a42fe4c14ad16"
+    }
+  },
+  "checks": [
+    {
+      "check": "present",
+      "role": "hygiene",
+      "path": "README.md",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:a8dabbbcbd3e93bf35880948471a6e087fec16256c9e0bf5473b497410fa444d"
+    },
+    {
+      "check": "present",
+      "role": "hygiene",
+      "path": "LICENSE",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "check": "present",
+      "role": "hygiene",
+      "path": "spec/target-spec.md",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:4103b471ab69d3922ca637cf1357746b8134ffe767b0c89465a606dabe9005df"
+    },
+    {
+      "check": "present",
+      "role": "hygiene",
+      "path": ".github/workflows/ci.yml",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:df728be43d082432e11b9413c9843b3085404e8fa170481a7af2a855ed27c635"
+    },
+    {
+      "check": "ci-workflow-runs",
+      "command": "npm run check:ci",
+      "path": ".github/workflows/ci.yml",
+      "passed": true,
+      "executed": true
+    },
+    {
+      "check": "command",
+      "command": "npm run check:ci",
+      "passed": null,
+      "executed": false,
+      "gated_by": "CI job checks"
+    },
+    {
+      "check": "ci-workflow-runs",
+      "command": "bash signoff/run-signoff.sh --check",
+      "path": ".github/workflows/ci.yml",
+      "passed": true,
+      "executed": true
+    },
+    {
+      "check": "command",
+      "command": "bash signoff/run-signoff.sh --check",
+      "passed": null,
+      "executed": false,
+      "gated_by": "CI job signoff-check"
+    }
+  ]
+}

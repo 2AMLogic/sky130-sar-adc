@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "kind": "t1-attestation-inventory",
+  "t1_item": 9,
+  "description": "Every testbench indexed by sim/spec-coverage.json (gated by sim/check_spec_coverage.py), the documented cold start, and the PDK and tool pins.",
+  "testbenches": [
+    "design/sar_adc_top.spice",
+    "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice",
+    "sim/comparator-decision/testbench/comparator_core.spice",
+    "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice",
+    "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice",
+    "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice",
+    "sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice",
+    "sim/sampling-frontend/testbench/sampling_frontend_dut.spice",
+    "sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"
+  ],
+  "cold_start": {
+    "argv": [
+      "bash",
+      "-c",
+      "source sim/env.sh && python3 sim/run_corners.py --check-env"
+    ],
+    "cwd": "."
+  },
+  "pins": {
+    "pdk": {
+      "name": "sky130A",
+      "revision": "c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+    },
+    "tools": {
+      "ngspice_min_major": "46",
+      "ngspice_reference": "47",
+      "xschem_tag": "3.4.7"
+    }
+  }
+}

@@ -55,6 +55,17 @@ WHAT IT CHECKS, per file-backed citation in signoff/block-manifest.json:
      silently retire the reference side's only verification. An unpinnable
      citation is not an unverifiable one, and a hash for the pinned side
      does not stand in for the unpinned one.
+  5. For every ARTIFACT-ANCHORED generic envelope (one declaring `t1_item`,
+     the form klayout-tools 0.7.0 grades for T1 items 1, 2, 9 and 10; issue
+     #676): `t1_item` equals the item the manifest cites it under (an
+     attestation cannot be replayed onto another item), `provenance.input.path`
+     names the same artifact as `source` (leg 3 re-hashes `source`, so a
+     divergence would let the grader and this check audit different files),
+     and, when that artifact is a `t1-attestation-inventory`, every path it
+     lists exists. For an item-1 inventory that derives from
+     design/sar_adc_top.spice, the netlist's provenance header must also name
+     each source schematic's CURRENT sha256 -- the headless half of
+     `design/regen_netlist.sh --check`, which needs xschem.
 """
 
 from __future__ import annotations
@@ -62,6 +73,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -227,6 +239,71 @@ def iter_citations(manifest: dict):
             yield key, entry
 
 
+SPICE_HEADER_HASH = re.compile(r"^\*\s+(design/\S+\.sch): (sha256:[0-9a-f]{64})$", re.M)
+
+
+def inventory_paths(inventory: dict) -> list[str]:
+    """Every repo path a `t1-attestation-inventory` lists."""
+    paths: list[str] = []
+    for field in ("sources", "testbenches", "hygiene"):
+        paths.extend(p for p in inventory.get(field) or [] if isinstance(p, str))
+    paths.extend(
+        d["path"] for d in inventory.get("derived") or [] if isinstance(d, dict) and isinstance(d.get("path"), str)
+    )
+    return paths
+
+
+def check_anchored_generic(
+    item_key: str, named_file: str, envelope: dict, failures: list[str], notes: list[str]
+) -> bool:
+    """Leg 5. Returns False (after recording a failure) when the citation is bad."""
+    item_id = int(re.match(r"\d+", item_key).group())
+    if envelope.get("t1_item") != item_id:
+        failures.append(
+            f"item {item_key}: {named_file} declares t1_item {envelope.get('t1_item')!r}, "
+            f"but the manifest cites it for item {item_id}"
+        )
+        return False
+    pinned_path = (((envelope.get("provenance") or {}).get("input")) or {}).get("path")
+    if pinned_path != envelope.get("source"):
+        failures.append(
+            f"item {item_key}: {named_file} provenance.input.path {pinned_path!r} != its "
+            f"source {envelope.get('source')!r} -- the grader and this check would audit different files"
+        )
+        return False
+    artifact = REPO_ROOT / str(pinned_path)
+    if not artifact.is_file() or artifact.suffix != ".json":
+        return True
+    try:
+        inventory = json.loads(artifact.read_text())
+    except json.JSONDecodeError:
+        return True
+    if inventory.get("kind") != "t1-attestation-inventory":
+        return True
+    if inventory.get("t1_item") != item_id:
+        failures.append(
+            f"item {item_key}: inventory {pinned_path} declares t1_item {inventory.get('t1_item')!r}, expected {item_id}"
+        )
+        return False
+    missing = [p for p in inventory_paths(inventory) if not (REPO_ROOT / p).is_file()]
+    if missing:
+        failures.append(f"item {item_key}: inventory {pinned_path} lists path(s) that do not exist: {missing}")
+        return False
+    spice = REPO_ROOT / "design" / "sar_adc_top.spice"
+    if item_id == 1 and "design/sar_adc_top.spice" in inventory_paths(inventory) and spice.is_file():
+        header = SPICE_HEADER_HASH.findall(spice.read_text())
+        stale = [rel for rel, claimed in header if sha256_file(REPO_ROOT / rel) != claimed]
+        if not header or stale:
+            failures.append(
+                f"item {item_key}: design/sar_adc_top.spice's provenance header "
+                f"{'names no source schematics' if not header else 'is stale for ' + str(stale)} "
+                "-- regenerate it with design/regen_netlist.sh"
+            )
+            return False
+    notes.append(f"item {item_key}: anchored generic envelope for item {item_id}; inventory paths and header verified")
+    return True
+
+
 def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) -> None:
     if isinstance(entry, str):
         entry = {"file": entry}
@@ -317,6 +394,11 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
         notes.append(
             f"item {item_key}: {named_file} (kind={kind}) records no input hash; nothing to verify"
         )
+
+    # 5. artifact-anchored generic envelopes (T1 items 1, 2, 9, 10).
+    if kind == "generic" and "t1_item" in envelope:
+        if not check_anchored_generic(item_key, named_file, envelope, failures, notes):
+            return
 
     # 4. An lvs envelope's environment digests, for EVERY `lvs` citation --
     #    not only when provenance.input is absent. Gating this leg on "no
