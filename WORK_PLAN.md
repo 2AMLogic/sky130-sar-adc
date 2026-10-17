@@ -25,6 +25,7 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
+- **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
 
 ## In Progress
@@ -32,12 +33,18 @@ Human-approved issues ready for implementation (`loom:issue`).
 Issues currently being built (`loom:building`).
 
 - **#669**: Re-pin open_pdks to f6eeac7 + ciel 2.6.1 + revision-checked PDK search (#668 phase 1)
+- **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
+- **#677**: Item 11: declare ties[] in the top-level ERC supply spec now that klayout-tools#2169 is fixed
+- **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite
+- **#684**: ERC: 2 n-wells flagged erc.missing_tie by both ties[] entries (no tap on VDD or VPWR)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
+- **#683**: feat: digital partition STA and functional-verification evidence for T1 item 5
+- **#686**: docs(layout): classify the two both-flagged n-wells as BOOST_P/BOOST_N-tied
 
 ## Approved (Awaiting Merge)
 
@@ -45,6 +52,7 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
 - **#671**: build: re-pin open_pdks to f6eeac7 (ciel) and verify PDK SOURCES revision
+- **#682**: layout(sar-adc-top): declare n-well ties[] in the ERC supply spec and compute erc.missing_tie
 
 ## Proposed
 
@@ -55,6 +63,10 @@ Issues carrying `loom:curated`.
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives *(curated)*
 - **#621**: Coherent-sine capture: root-cause the single +438 LSB outlier (conversion 9) and add a per-code outlier check to the validity gate *(curated)*
 - **#669**: Re-pin open_pdks to f6eeac7 + ciel 2.6.1 + revision-checked PDK search (#668 phase 1) *(curated)*
+- **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes *(curated)*
+- **#677**: Item 11: declare ties[] in the top-level ERC supply spec now that klayout-tools#2169 is fixed *(curated)*
+- **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite *(curated)*
+- **#684**: ERC: 2 n-wells flagged erc.missing_tie by both ties[] entries (no tap on VDD or VPWR) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -75,11 +87,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 2 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 1 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 5 |
+| Ready (`loom:issue`) | 2 |
+| In Progress (`loom:building`) | 5 |
+| PRs awaiting review | 3 |
+| Approved PRs awaiting merge | 3 |
+| Curated | 9 |
 | Architect / Hermit proposals | 5 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
