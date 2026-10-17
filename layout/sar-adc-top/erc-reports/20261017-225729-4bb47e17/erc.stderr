@@ -1,0 +1,1 @@
+klt erc: warning: stackup entry 'met3' declares label_layer 70/5, but that layer carries no text anywhere in the analysed top cell -- nets matched through it resolve zero islands (erc.unconnected_net) and its gates[].net reads null. Check the label layer/datatype.
