@@ -679,8 +679,14 @@ placing all five sub-block layouts
   correct two GDS-specific shape counts a later Judge round found still
   described the superseded pre-mesh run — which moves the whole-file hash and
   nothing the tool reads), and the current run
-  ([`erc-reports/20261001-211722-1ca34e6/record.md`](../../layout/sar-adc-top/erc-reports/20261001-211722-1ca34e6/record.md),
-  issue #501, the fourth record in this chain graded on *different geometry*
+  ([`erc-reports/20261017-193237-9522693e/record.md`](../../layout/sar-adc-top/erc-reports/20261017-193237-9522693e/record.md),
+  issue #677, the first record to *compute* `erc.missing_tie`: the spec now
+  declares n-well `ties[]` and drops the `tool_limitation` disclosure, since
+  klayout-tools#2169 is fixed in the pinned klt 0.6.0, and the same GDS as the
+  record below reports 28 `erc.missing_tie` findings and no false
+  `erc.supply_short`) — which supersedes
+  [`erc-reports/20261001-211722-1ca34e6/record.md`](../../layout/sar-adc-top/erc-reports/20261001-211722-1ca34e6/record.md)
+  (issue #501, the fourth record in this chain graded on *different geometry*
   rather than on re-minted prose — the composition now embeds DR-019's resized
   `cdac_array`/`halflsb_offset`, which grows this layout's `capm` by 7.793 µm²
   across 1026 unit plates and moves exactly two of the 257 gate entries'
@@ -708,11 +714,13 @@ placing all five sub-block layouts
   gate-net denominator beside it, 210 → 257, and the ablated-mesh island count,
   2 → 3, the new island being `halflsb_offset`'s own ground terminal, and #501
   moved neither — 257 gate nets and 3 ablated islands at the same three bboxes)
-  reports `erc_status: clean`, 0 findings — all four supplies at one island
-  each, no `erc.supply_short`. **That is the continuity half only**: the
-  checklist item also requires zero `erc.missing_tie` from a tie the run
-  actually checked, and no `ties[]` is declared (klayout-tools#2169 would turn
-  a correct declaration into a false `erc.supply_short`), so `klt signoff`
+  report all four supplies at one island each, no `erc.supply_short`. **That is
+  the continuity half**: the checklist item also requires zero `erc.missing_tie`
+  from a tie the run actually checked. The records through #501's reported
+  `erc_status: clean`, 0 findings because no `ties[]` was declared; the current
+  one (#677) declares the n-well ties and reports `erc_status: violations`, 28
+  `erc.missing_tie` (26 distinct wells, 2 with no tap on either rail; the
+  p-substrate half is still undeclared, klayout-tools#3750), and `klt signoff`
   still renders the row `unmet`. See §7 item 9.
 - **`klt lvs`**: **still reports a mismatch** — not from a routing defect,
   but because no available `klt extract` declared-pin mechanism
@@ -4753,6 +4761,10 @@ tracker already owns.
    the sequencer switches coincidentally with the comparator decision by
    construction, so a shared metal rail would land the standard-cell bank's
    switching current on the comparator's own supply). The current run,
+   [`layout/sar-adc-top/erc-reports/20261017-193237-9522693e/record.md`](../../layout/sar-adc-top/erc-reports/20261017-193237-9522693e/record.md)
+   (issue #677: the same GDS as the record below, re-graded with n-well `ties[]`
+   declared — `erc_status` **violations**, 28 `erc.missing_tie`, supply
+   continuity unchanged), supersedes
    [`layout/sar-adc-top/erc-reports/20261001-211722-1ca34e6/record.md`](../../layout/sar-adc-top/erc-reports/20261001-211722-1ca34e6/record.md)
    — the fourth in this chain graded on *moved geometry*, and the narrowest
    such move: issue #501 re-composed the top level against DR-019's resized
@@ -4774,7 +4786,8 @@ tracker already owns.
    supersedes `20260926-081822-203cca3`, the first such record: issue #440's
    placement of DR-017's two per-domain decoupling capacitors, each of which is
    new drawn conductor on an already-declared supply) —
-   reports `erc_status: clean`, **0** findings:
+   reports `erc_status: clean`, **0** findings (the supply-continuity result;
+   issue #677's record keeps it and adds the tie findings above):
 
    | Supply | Islands, 2026-09-23 | Islands, now | Continuity verdict |
    |---|---:|---:|---|
@@ -4834,7 +4847,7 @@ tracker already owns.
    machine-checked**):
 
    > on the record `layout/sar-adc-top/erc-reports/LATEST` resolves to, `klt
-   > erc` reports `erc_status` **clean** with **0** findings; the declared
+   > erc` reports `erc_status` **violations** with **28** findings; the declared
    > supplies resolve to `GND` **1**, `VDD` **1**, `VGND` **1**, `VPWR` **1**
    > electrical islands; and it grades `20261001-211249-1ca34e6`, while
    > `reports/LATEST` there names `20261003-041400-571f036`: **stale**.
@@ -4853,6 +4866,14 @@ tracker already owns.
    verdict, but it is not a measurement of one. Until `run-erc.sh` grades
    `20261003-041400-571f036`, this item claims no ERC result for the current
    top-level GDS.
+
+   **Update (2026-10-17, issue #677):** `erc-reports/LATEST` now names
+   `20261017-193237-9522693e`, which re-grades the *same* GDS
+   (`20261001-211249-1ca34e6`, the one the sign-off manifest cites), so the
+   sentences above about what `LATEST` names are the 2026-10-03 state. It adds
+   n-well `ties[]` to the spec and reports `erc_status` **violations**, 28
+   `erc.missing_tie`; the island counts are unchanged. It still does not grade
+   `20261003-041400-571f036`, so the staleness verdict stands.
 
    Three things that readout closes, none of which any earlier check could
    see. First, **an ERC record was invisible to the gate entirely**: this
@@ -5605,8 +5626,8 @@ tracker already owns.
     > **4** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `4 analog`, `4 digital`,
     > `11 analog`, `11 digital`; and its manifest cites
-    > `layout/sar-adc-top/erc-reports/LATEST` at **20261001-211722-1ca34e6**
-    > against a pointer naming **20261001-211722-1ca34e6**,
+    > `layout/sar-adc-top/erc-reports/LATEST` at **20261017-193237-9522693e**
+    > against a pointer naming **20261017-193237-9522693e**,
     > `layout/sar-adc-top/reports/LATEST` at **20261001-211249-1ca34e6**
     > against a pointer naming **20261003-041400-571f036**: **stale**.
 
@@ -5699,9 +5720,9 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **94** of the **94** records under `sim/*/records/` name both an
-  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **91**
-  > records under `layout/*/reports/` and `layout/*/erc-reports/` **90** name
-  > a `klt` version and **53** name the `open_pdks` commit.
+  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **92**
+  > records under `layout/*/reports/` and `layout/*/erc-reports/` **91** name
+  > a `klt` version and **54** name the `open_pdks` commit.
 
   **Both columns moved together at the 2026-10-01 re-composition (issue
   #501)**, which is what #420's fix looks like from here: that pass minted one
