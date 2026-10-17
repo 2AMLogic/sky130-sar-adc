@@ -40,9 +40,20 @@ each therefore also flags the wells that belong to the other rail. Read off
 The two-sided reading is an inference from the findings' set structure, not
 something the tool states, and only the 2 wells in the last row are candidate
 real defects. They are **not** fixed or declared acceptable here (layout changes
-are out of scope for #677); they are findings to triage, and item 11 cannot be
-`met` while they stand. The 24 cross-domain flags are an artefact of declaring
-one `well_layer` for two rails, not 24 defects.
+are out of scope for #677); item 11 cannot be `met` while they stand. The 24
+cross-domain flags are an artefact of declaring one `well_layer` for two rails,
+not 24 defects.
+
+**Tracking (filed from #677 / PR #682):**
+
+- #684 — the 2 wells flagged by both entries (observed bboxes and rule; the tap
+  hypotheses above are listed there as suspected cause only).
+- #685 — the 24 single-entry flags: a per-rail well selector. This is not a new
+  tool gap: `well_requires` / `well_excludes` (klayout-tools#2339) and the
+  literal-geometry selectors (klayout-tools#2540) exist in klt v0.7.0, which
+  postdates the pinned 0.6.0 (the statement above that 0.6.0 has no well-side
+  selector is about the pin, not about the tool today). #685 covers evaluating
+  the pin bump and re-declaring the entries.
 
 ## Provenance
 
