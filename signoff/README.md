@@ -378,7 +378,7 @@ the Verilog was never regenerated, so the sequencer macro in the committed
 layout was routed from the older netlist. Because the check cannot pass, it is
 **not** wired into `npm run check:ci` (that would turn CI red on a layout
 re-spin this issue does not own) — wire it in the PR that regenerates the
-Verilog and re-runs the sequencer, top-level composition, DRC and LVS flows.
+Verilog and re-runs the sequencer, top-level composition, DRC and LVS flows (tracked by #680).
 The item 1 digital envelope records `status: "fail"` rather than omitting the
 citation, so the row reads `unmet` / `check_failed`. Separately, the checklist
 text for a digital partition asks for RTL plus a synthesized netlist; this block
