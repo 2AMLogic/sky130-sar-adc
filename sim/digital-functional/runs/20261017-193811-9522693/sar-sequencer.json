@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "engine": "icarus",
+  "hdl_toplevel": "sar_sequencer",
+  "testbench": "test_sar_sequencer",
+  "status": "pass",
+  "test_count": 8,
+  "passed_count": 8,
+  "failed_count": 0,
+  "skipped_count": 0,
+  "tests": [
+    {
+      "name": "reset_state",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.001
+    },
+    {
+      "name": "walking_one_phase_sequence",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.004
+    },
+    {
+      "name": "code_all_ones",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.001
+    },
+    {
+      "name": "code_all_zeros",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.002
+    },
+    {
+      "name": "codes_from_spice_campaign",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.006
+    },
+    {
+      "name": "closed_loop_every_code",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 1.99
+    },
+    {
+      "name": "mid_conversion_reset_every_phase",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.035
+    },
+    {
+      "name": "randomized_lockstep",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.358
+    }
+  ],
+  "coverage": null,
+  "trace": null,
+  "environment": {
+    "engine": "icarus",
+    "engine_version": "13.0",
+    "cocotb_version": "2.1.0",
+    "results_xml": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/results_icarus.xml",
+    "random_seed": 1792265891,
+    "sdf": null
+  }
+}

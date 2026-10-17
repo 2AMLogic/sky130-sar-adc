@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "engine": "openroad",
+  "engine_version": "26Q3-1510-g6cb3f2b704",
+  "hdl_toplevel": "top_glue",
+  "status": "ok",
+  "def_path": "/tmp/klt-sta-im49bc83/layout/top-glue/reports/20261012-113946-743bcd0/top_glue.def",
+  "verilog_path": null,
+  "geometry_source": "routed",
+  "wire_load_model": null,
+  "wire_load_mode": null,
+  "spef_path": null,
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+    },
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:63c71901379a73dc908886a7f7f1ad91a4bf4f98c80ad242831526819ba5d124",
+      "role": "layout"
+    }
+  },
+  "corners": [
+    {
+      "corner": "tt_025C_1v80",
+      "engine_log": {
+        "invocation_id": "0420ea22c8784c1fb5e948925bbc74d3",
+        "script_name": "sta_top_glue__tt_025C_1v80.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "ac83e4c8be17ed6f28e4637b2e38ba27b98dd135fc75a8c4f516c5e0ad4dde91",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -0.4031,
+      "total_negative_slack_ns": -7.66834,
+      "worst_hold_slack_ns": 0.05076,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 1755.09,
+      "timing_status": "constrained",
+      "setup_violation_count": 30,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.321,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__tt_025C_1v80",
+        "content_hash": "sha256:8e78e14442062dba34d414fca6490b2f6b96038d4510d1438ca44fee31487135",
+        "released": false
+      }
+    },
+    {
+      "corner": "tt_100C_1v80",
+      "engine_log": {
+        "invocation_id": "68ddc4a6fae642ed8e86a49b7787e9f3",
+        "script_name": "sta_top_glue__tt_100C_1v80.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "c2984059624a995982bc3246b259f1c9d0920a3c9944ac3dc9ca5ae0b27d0bdf",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -0.37818,
+      "total_negative_slack_ns": -7.25499,
+      "worst_hold_slack_ns": 0.05195,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 1835.38,
+      "timing_status": "constrained",
+      "setup_violation_count": 31,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.3402,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__tt_100C_1v80",
+        "content_hash": "sha256:7c6b9fc62d7e83b8317cdca883d79107d8f2ff1061b04519fda7d3088560015b",
+        "released": false
+      }
+    },
+    {
+      "corner": "ss_100C_1v60",
+      "engine_log": {
+        "invocation_id": "52a720b000924cbfbb6923867149a306",
+        "script_name": "sta_top_glue__ss_100C_1v60.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "e30515ee3a9205f7f7fd73edb81282a2e53361e1a4a0f3acc5df779e28abf652",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -0.77997,
+      "total_negative_slack_ns": -16.3629,
+      "worst_hold_slack_ns": 0.05941,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 1056.36,
+      "timing_status": "constrained",
+      "setup_violation_count": 31,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.2661,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__ss_100C_1v60",
+        "content_hash": "sha256:9b24f0db3967ac67b4cae1f74bb480fd47922d18d0ed577e3c121739b412c361",
+        "released": false
+      }
+    },
+    {
+      "corner": "ff_n40C_1v95",
+      "engine_log": {
+        "invocation_id": "e4ad568920f64593982f93b09669a257",
+        "script_name": "sta_top_glue__ff_n40C_1v95.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "1dce5ce12f0451a601e4a2b3102e1a1d16886af02268997dc9ca2a138c68a0a2",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -0.24049,
+      "total_negative_slack_ns": -4.24105,
+      "worst_hold_slack_ns": 0.04902,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 2456.06,
+      "timing_status": "constrained",
+      "setup_violation_count": 21,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.3614,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__ff_n40C_1v95",
+        "content_hash": "sha256:fb61d91c55a7f85b1989e8149d040b13ba5e7f5478f5bf0c3c16c5da30720139",
+        "released": false
+      }
+    }
+  ]
+}

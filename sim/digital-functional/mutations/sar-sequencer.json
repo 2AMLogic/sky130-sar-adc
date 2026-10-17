@@ -1,0 +1,53 @@
+{
+  "schema": "klt.functional_verification.mutation_proposals/1",
+  "scope": [
+    "../../../layout/sar-sequencer/netlist/sar_sequencer.v"
+  ],
+  "proposals": [
+    {
+      "index": 1,
+      "category": "mux-input-swap",
+      "file": "../../../layout/sar-sequencer/netlist/sar_sequencer.v",
+      "line": 56,
+      "original_code": ".A0(DOUT9), .A1(COMP_OUT)",
+      "mutated_code": ".A0(COMP_OUT), .A1(DOUT9)",
+      "detectability_argument": "bit 9 captures when it should hold and vice versa"
+    },
+    {
+      "index": 2,
+      "category": "ring-link-broken",
+      "file": "../../../layout/sar-sequencer/netlist/sar_sequencer.v",
+      "line": 37,
+      "original_code": ".D(PH_B6), ",
+      "mutated_code": ".D(PH_B7), ",
+      "detectability_argument": "skips a ring stage: phase order and period change"
+    },
+    {
+      "index": 3,
+      "category": "reset-disabled",
+      "file": "../../../layout/sar-sequencer/netlist/sar_sequencer.v",
+      "line": 69,
+      "original_code": ".RESET_B(RST_B), .Q(DOUT3)",
+      "mutated_code": ".RESET_B(1'b1), .Q(DOUT3)",
+      "detectability_argument": "DOUT3 is not cleared by reset"
+    },
+    {
+      "index": 4,
+      "category": "busy-term-dropped",
+      "file": "../../../layout/sar-sequencer/netlist/sar_sequencer.v",
+      "line": 49,
+      "original_code": ".C(PH_EOC)",
+      "mutated_code": ".C(1'b0)",
+      "detectability_argument": "BUSY/PH_SAMPLE wrong during the EOC phase; ring re-injects early"
+    },
+    {
+      "index": 5,
+      "category": "wrong-capture-select",
+      "file": "../../../layout/sar-sequencer/netlist/sar_sequencer.v",
+      "line": 74,
+      "original_code": ".S(PH_B0)",
+      "mutated_code": ".S(PH_B1)",
+      "detectability_argument": "bit 0 captures one phase early"
+    }
+  ]
+}
