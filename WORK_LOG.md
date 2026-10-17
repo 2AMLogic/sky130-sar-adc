@@ -2,6 +2,12 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-17
+
+- **PR #686**: docs(layout): classify the two both-flagged n-wells as BOOST_P/BOOST_N-tied
+- **PR #682**: layout(sar-adc-top): declare n-well ties[] in the ERC supply spec and compute erc.missing_tie
+- **Issue #677** (closed): Item 11: declare ties[] in the top-level ERC supply spec now that klayout-tools#2169 is fixed
+
 ### 2026-10-16
 
 - **PR #673**: Bump Repo Skills 0.24.1 -> 0.24.3
