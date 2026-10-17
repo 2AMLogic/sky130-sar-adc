@@ -75,7 +75,7 @@ saying, because the grader cannot.
 | 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
 | 9 | Testbenches shipped | **`met`** (both) | One bare citation: the inventory of every testbench `sim/spec-coverage.json` indexes, the cold start and the PDK/tool pins. See "What the item 1, 2, 9 and 10 citations assert" for what was and was not executed when the envelope was minted.
 | 10 | Repo hygiene | **`met`** (both) | One bare citation: README, LICENSE, `spec/target-spec.md` and the CI workflow are present and the workflow runs the declared audit commands. The commands themselves run in CI, not at mint. See "What the item 1, 2, 9 and 10 citations assert".
-| 11 | Power delivery (structural) | `unmet` / `check_failed` (both) | Now **cited**, as a compound entry (`klt erc` run + the LVS report item 4 grades) — see "Item 11" below. Its supply-continuity half **passes**: `erc_status: clean`, 0 findings, all four declared supplies at one electrical island each. It is `unmet` for two stated reasons, neither hidden: `erc.missing_tie` is not computed at all (no `ties[]`, disclosed as `tool_limitation` — klayout-tools#2169), and item 4's own LVS does not match. |
+| 11 | Power delivery (structural) | `unmet` / `check_failed` (both) | Now **cited**, as a compound entry (`klt erc` run + the LVS report item 4 grades) — see "Item 11" below. Its supply-continuity half **passes**: all four declared supplies at one electrical island each, no `erc.unconnected_net` / `erc.supply_short`. Since issue #677 the n-well `ties[]` are declared and computed (klayout-tools#2169 is fixed in 0.6.0): `erc_status: violations`, 28 `erc.missing_tie` findings (the p-substrate half is still undeclared — klayout-tools#3750). It is `unmet` / `check_failed` for item 4's LVS mismatch, which the grader tests first. |
 
 T2–T4 render as single `tier_not_supported` rows: this toolkit's closed loop
 targets T1, and T2+ need commercial tools and fab access this repo has no
@@ -239,10 +239,12 @@ same composed GDS by content hash
 pair is not two verdicts about two revisions. The September composed stream
 (`20260924-234053-66dca3c`, `sha256:bbb9b537…`) is superseded history.
 
-**What passes.** `layout/sar-adc-top/erc-reports/20261001-211722-1ca34e6/`
-(`erc.json` + `record.md`, the run the manifest cites) reports
-`erc_status: clean`, `erc_finding_count: 0`; the per-supply island table
-below is that record's, and the September run it supersedes
+**What passes.** `layout/sar-adc-top/erc-reports/20261017-193237-9522693e/`
+(`erc.json` + `record.md`, the run the manifest cites since issue #677) reports
+all four supplies at one island with no `erc.unconnected_net` / `erc.supply_short`
+(its `erc_status` is `violations` only because of the `erc.missing_tie` findings
+below); the per-supply island table is `20261001-211722-1ca34e6`'s (same layout
+GDS, spec `nets[]`/`stackup`/`vias` unchanged) and the September run it supersedes
 (`20260925-044420-f039594`) read the same:
 
 | Supply | Islands | `erc.unconnected_net` | `erc.supply_short` |
@@ -279,24 +281,23 @@ in a fixed order and stops at the first:
    grading path resolves the cited LVS part and tests it *before* it looks at
    the supply spec, so this is the reason of record today — `check_failed` —
    and the clean continuity half is not what it is about.
-2. **`erc.missing_tie` is not computed at all** — latent, and what surfaces
-   next once (1) clears. The item requires zero `erc.missing_tie` *from a tie
-   the run actually checked*, and this spec declares no `ties[]` — disclosed
-   in-report as `ties_disclosure.kind: "tool_limitation"`, because
-   klayout-tools#2169 turns a correct `ties[]` declaration on a routed
-   standard-cell design into a **false** `erc.supply_short`. The grader has a
-   dedicated reason for exactly that state
-   (`supply_spec_disclosed_tool_limitation`) and it is not a pass either. A
-   disclosure is the claimant's word about their toolchain; it is never a
-   computed result.
+2. **`erc.missing_tie` is now computed, and has findings** — latent, and what
+   surfaces next once (1) clears. Since issue #677 the spec declares n-well
+   `ties[]` (the `tool_limitation` disclosure is gone: klayout-tools#2169 is
+   fixed in the pinned 0.6.0 and no false `erc.supply_short` appears), and
+   `erc-reports/20261017-193237-9522693e/` reports 28 `erc.missing_tie`
+   findings — 26 distinct wells, 2 of them with no tap on either rail; see that
+   record's `record.md`. The p-substrate half is not declared
+   (klayout-tools#3750). Item 11 stays `unmet` after #103 clears until those
+   are resolved or filed.
 
 So fixing the LVS alone would move the reason, not the verdict.
 
 **Two things a reader should not over-read from the passing table.** `klt erc`
 is a geometric wire/via model with no device recognition, so `GND: 1 island`
 means the drawn `GND` conductor is one island, not that every NMOS body reaches
-it — the substrate half is exactly what the ungraded `erc.missing_tie` would
-have covered. And "one island" is not "reaches a pad" — the second half of that
+it — the substrate half is exactly what `erc.missing_tie` would cover, and
+that half is still undeclared (klayout-tools#3750). And "one island" is not "reaches a pad" — the second half of that
 warning is now discharged: analog `GND` had no top-level pin on this block at
 all until issue #362 drew one (`spec/decision-records/DR-012-analog-ground-pad.md`),
 and the ERC row read `1` both before and after, which is precisely why the gap

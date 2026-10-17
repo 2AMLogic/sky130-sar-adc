@@ -156,13 +156,18 @@ spec = json.load(open(spec_path))
 # ask the same question hash the same however their prose differs. Quote it in
 # the record's record.md; it is the thing a later reader compares across runs.
 _graded = lambda o: {k: v for k, v in o.items() if not k.startswith("_")}
+graded_spec_obj = {
+    "stackup": [_graded(e) for e in spec["stackup"]],
+    "vias": [_graded(e) for e in spec["vias"]],
+    "nets": [_graded(e) for e in spec["nets"]],
+    "ties_disclosure.kind": (spec.get("ties_disclosure") or {}).get("kind"),
+}
+# `ties[]` is graded work too (issue #677) -- but only enters the digest when
+# declared, so a spec without it keeps the digest earlier records quoted.
+if spec.get("ties"):
+    graded_spec_obj["ties"] = [_graded(e) for e in spec["ties"]]
 graded_spec = json.dumps(
-    {
-        "stackup": [_graded(e) for e in spec["stackup"]],
-        "vias": [_graded(e) for e in spec["vias"]],
-        "nets": [_graded(e) for e in spec["nets"]],
-        "ties_disclosure.kind": (spec.get("ties_disclosure") or {}).get("kind"),
-    },
+    graded_spec_obj,
     sort_keys=True,
     separators=(",", ":"),
 ).encode()
@@ -175,6 +180,10 @@ blocking = [
     if f["rule"] in ("erc.unconnected_net", "erc.supply_short", "erc.missing_tie")
     and (f.get("net") in supplies or f.get("other_net") in supplies)
 ]
+# Continuity (island/short) and tie findings are different halves of item 11;
+# once `ties[]` is declared (issue #677) they must not be summed into one line.
+continuity = [f for f in blocking if f["rule"] != "erc.missing_tie"]
+tie_findings = [f for f in blocking if f["rule"] == "erc.missing_tie"]
 ties = report.get("ties_disclosure") or {}
 print(f"run-erc.sh: content-hashes verified (layout + spec)")
 print(
@@ -190,7 +199,7 @@ print(f"run-erc.sh: erc_status={report.get('erc_status')} findings={len(findings
 # "MET" here would contradict the grader (issue #355).
 print(
     "run-erc.sh: supply continuity (declared supplies, one island each, no short): "
-    + ("PASS" if not blocking else f"FAIL ({len(blocking)} blocking finding(s))")
+    + ("PASS" if not continuity else f"FAIL ({len(continuity)} blocking finding(s))")
 )
 if ties:
     print(
@@ -199,6 +208,11 @@ if ties:
         "on the continuity half alone"
     )
 else:
+    if spec.get("ties"):
+        print(
+            "run-erc.sh: erc.missing_tie (declared ties[], computed): "
+            + ("PASS" if not tie_findings else f"{len(tie_findings)} finding(s)")
+        )
     print("run-erc.sh: T1 item 11 verdict: " + ("MET" if not blocking else "UNMET"))
 for f in blocking:
     print(f"run-erc.sh:   {f['rule']}: {f['description']}")
