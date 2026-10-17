@@ -43,4 +43,4 @@
 # tighten a grading rule, or change a reason string; signoff/t1-report.json will
 # drift and CI will say so. Re-render it, read the diff row by row against
 # signoff/README.md's claim, and update both together.
-klayout-tools==0.6.0
+klayout-tools==0.7.0
