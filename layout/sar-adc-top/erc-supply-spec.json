@@ -4,7 +4,7 @@
     "block's T1 checklist item 11 (Power delivery, structural) is graded from.",
     "Issue #344. JSON has no comment syntax, so every justification below lives",
     "in a `_comment` key; `klt erc` ignores unknown keys (verified against the",
-    "pinned build in layout/erc-requirements.txt -- a run with and without these",
+    "pinned build in layout/requirements.txt -- a run with and without these",
     "keys produces an identical erc_findings list).",
     "",
     "WHAT ITEM 11 GRADES (klayout-tools/docs/design-evidence-tiers.md):",
@@ -240,7 +240,7 @@
         "one-island verdict on 'GND' here therefore means 'the drawn GND",
         "conductor is one island', NOT 'every NMOS body reaches it'. The",
         "substrate half is exactly what erc.missing_tie would have graded -- and",
-        "that check is not computed, see ties_disclosure below."
+        "that half is not declared, see _ties_comment below."
       ]
     },
     {
@@ -270,8 +270,54 @@
     }
   ],
 
-  "ties_disclosure": {
-    "kind": "tool_limitation",
-    "reason": "No ties[] is declared, so erc.missing_tie is NOT COMPUTED for this layout -- an absence of evidence, not evidence of absence. sky130 taps ARE nameable here (tap.drawing 65/44 inside nwell.drawing 64/20, wired to li1 through licon1 66/44), so this is not an unexpressible stream; the obstacle is klayout-tools#2169, whose unisolated tie extraction collapses a real routed standard-cell design into one electrical island and reports a FALSE erc.supply_short from a correct ties[] declaration. Declaring ties[] here would therefore replace a stated gap with a misleading finding. Standing in for the ungraded check, and named so a reader can go look rather than take this on faith: (a) the two std-cell macros are tapped by klt place-and-route's own tap cells -- sky130_fd_sc_hd__tapvpwrvgnd_1 instances are present in the graded GDS by name (text.drawing 83/44 carries 'tapvpwrvgnd_1'), and 12 tap.drawing 65/44 shapes are drawn; (b) the body/tub labels VPB (nwell.label 64/5) and VNB (pwell.label 64/59) are drawn on the wells themselves; (c) the same record's LVS report (lvs.json) carries the supply nets in its net_correspondence -- VDD<->VDD (pin), and ONE digital rail, VPB|VPWR<->VPWR (pin), where issue #344's run saw a split VPWR<->VPWR_SEQ / VPWR$1<->VPWR_SELN pair, because issue #355 made the two std-cell macros' rails one net. NOTE that (c) is a partial standin only: that LVS run's own status is 'mismatch', not 'match', and neither GND nor VGND appears in its net_correspondence at all -- GND appears on the reference side of a net.merged mismatch instead, since GND and VGND extract as the single net GND|VGND."
-  }
+  "_ties_comment": [
+    "n-well tap ties (issue #677; klayout-tools#2169 is fixed in the pinned",
+    "klt 0.6.0, so the `tool_limitation` ties_disclosure this entry replaces is",
+    "retired -- it described a false erc.supply_short that a ties[] declaration",
+    "no longer produces, re-measured on erc-reports/LATEST's record.md).",
+    "",
+    "Grammar (klayout_tools/erc.py `_validate_ties`): `well_layer` nwell.drawing",
+    "64/20; `tap_layer` tap.drawing 65/44, which is a tap-only layer in sky130",
+    "(source/drain diffusion is diff.drawing 65/20), so `tap_is_dedicated` is",
+    "true rather than narrowing it with `tap_requires`; `connect_to` is the",
+    "stackup role `li1`, the level a tap licon1 lands on; `net` is the supply",
+    "the tap must reach.",
+    "",
+    "TWO ENTRIES, ONE PER n-WELL SUPPLY CLASS. This block's n-wells are tied to",
+    "two different rails (DR-010 splits analog VDD from digital VPWR) and a",
+    "ties[] entry applies to EVERY island of its well_layer, with no well-side",
+    "selector in 0.6.0. Each entry therefore also reports the wells that belong",
+    "to the OTHER class as erc.missing_tie: a well flagged by exactly one of",
+    "the two entries is tied to the other rail, and only a well flagged by BOTH",
+    "has no tap on either. record.md of the run of record separates the two",
+    "populations; the raw erc_findings list does not.",
+    "",
+    "NOT DECLARED: the p-substrate half. sky130 draws no pwell/tub shape for",
+    "the bulk substrate, so there is no `well_layer` to name; the only other",
+    "form (`well_layer: null` + `well_boxes`) needs the substrate to be",
+    "described as boxes, which a region defined as 'everywhere outside the",
+    "n-wells' cannot be without either covering the whole die (graded as",
+    "skipped work, degenerate_well_assertion) or hand-listing every gap. The",
+    "substrate tie is therefore ungraded here, stated rather than hidden;",
+    "GND/VGND substrate taps are still not evidence of anything in this file.",
+    "See the generic tool-gap issue cited in the record's record.md."
+  ],
+  "ties": [
+    {
+      "name": "nwell_tap_vdd",
+      "well_layer": "64/20",
+      "tap_layer": "65/44",
+      "tap_is_dedicated": true,
+      "connect_to": "li1",
+      "net": "VDD"
+    },
+    {
+      "name": "nwell_tap_vpwr",
+      "well_layer": "64/20",
+      "tap_layer": "65/44",
+      "tap_is_dedicated": true,
+      "connect_to": "li1",
+      "net": "VPWR"
+    }
+  ]
 }
