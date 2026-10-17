@@ -4851,13 +4851,22 @@ class TestProvenanceCensus(unittest.TestCase):
 
         A census that could only ever read "all of them" would be a check that
         never fires. The gap issue #407 tracks is real today: some `layout/`
-        record names no `open_pdks` commit, and every `sim/` record does.
+        record names no `open_pdks` commit, and every `sim/` record that names
+        an ngspice version also names it. The non-SPICE campaigns (functional
+        simulation, static timing) run no ngspice, so they are not in that
+        population and are the whole of the `sim/` shortfall.
         """
         fixture_root = checker.REPO_ROOT
         checker.REPO_ROOT = REPO_ROOT
         self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
         census = checker.provenance_census()
-        self.assertEqual(census["sim_pinned"], census["sim_records"])
+        ngspice_records = sum(
+            1
+            for path in REPO_ROOT.glob(checker.PROVENANCE_SIM_GLOB)
+            if checker.PROVENANCE_NGSPICE_RE.search(path.read_text())
+        )
+        self.assertEqual(census["sim_pinned"], ngspice_records)
+        self.assertLessEqual(census["sim_pinned"], census["sim_records"])
         self.assertLess(census["layout_pdk"], census["layout_records"])
         self.assertTrue(census["unpinned"])
 

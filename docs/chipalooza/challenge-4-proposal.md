@@ -1411,8 +1411,8 @@ harness self-tests `sim/harness-corner-smoke/` and `sim/mc-smoke/` (which the
 by record path from those two rows, no verdict moving, and the general case is
 gated:
 
-> of the **15** campaigns under `sim/` holding at least one committed record,
-> **15** are cited by path in this document and **0** are not: **none** — every
+> of the **17** campaigns under `sim/` holding at least one committed record,
+> **17** are cited by path in this document and **0** are not: **none** — every
 > campaign holding a committed record is cited by path
 
 `--stats` prints that sentence live too. "Cited by path" deliberately means a
@@ -5602,7 +5602,7 @@ tracker already owns.
     tree, after `reports/` at check 9 and `erc-reports/` at check 16):
 
     > on the report `signoff/t1-report.json`, `klt signoff` **0.6.0** grades
-    > **4** of **22** T1 items met, block tier **none**; the items whose cited
+    > **5** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `4 analog`, `4 digital`,
     > `11 analog`, `11 digital`; and its manifest cites
     > `layout/sar-adc-top/erc-reports/LATEST` at **20261001-211722-1ca34e6**
@@ -5621,6 +5621,24 @@ tracker already owns.
     `drc.json` is clean, as was its predecessor's. Item 11's ERC citation is
     itself stale (item 9's 2026-10-03 note). That expectation is not a
     re-grade, and this item states the report as it stands.
+
+    **Update (2026-10-17, issue #678): the met count is 5, and the fifth row is
+    `5 digital`.** The digital partition's two non-SPICE campaigns are new
+    evidence: `sim/digital-sta/records/20261017-194050-9522693.md` (multi-corner
+    static timing of the routed macros at the provisional 12 MHz period, with a
+    6 GHz negative control) and
+    `sim/digital-functional/records/20261017-193811-9522693.md` (zero-delay
+    gate-level functional verification with a mutation campaign). The manifest's
+    `5.digital` cites one `klt sta` report from the first, and `klt signoff`
+    grades that one report `met`. Nothing else moved: the four failed rows are
+    the same four. What that `met` does not assert is stated in
+    [`signoff/README.md`](../../signoff/README.md) "Item 5, digital": the spec
+    table is still DRAFT, only the nearest stock Liberty corner is graded and the
+    other eight of the nine PVT points are declared gaps, the analysis is of the
+    partition boundary only, and the functional run covers the routed
+    `sar_sequencer` netlist rather than the later schematic (issue #680). No §4
+    verdict moves because of it. The earlier "Three of twenty-two" bullet below
+    describes an earlier grade and is left as written.
 
     Four things that readout states, each read out of the committed report
     rather than asserted here:
@@ -5698,10 +5716,20 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **94** of the **94** records under `sim/*/records/` name both an
+  > **94** of the **96** records under `sim/*/records/` name both an
   > `ngspice` version and a 40-hex `open_pdks` commit, while of the **91**
   > records under `layout/*/reports/` and `layout/*/erc-reports/` **90** name
   > a `klt` version and **53** name the `open_pdks` commit.
+
+  **The two `sim/` records short of the first column are not ngspice runs
+  (2026-10-17, issue #678).** `sim/digital-functional/records/20261017-193811-9522693.md`
+  (icarus/cocotb functional simulation) and
+  `sim/digital-sta/records/20261017-194050-9522693.md` (OpenSTA via `klt sta`)
+  name no `ngspice` version, so the census counts neither as pinned. The STA
+  record does name an `open_pdks` commit, and says it differs from
+  `sim/pdk.json`'s pin; the functional record names no PDK revision beyond the
+  Verilog models it extracts. All 94 records that name an `ngspice` version
+  also name the commit.
 
   **Both columns moved together at the 2026-10-01 re-composition (issue
   #501)**, which is what #420's fix looks like from here: that pass minted one

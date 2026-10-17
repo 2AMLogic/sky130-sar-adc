@@ -80,6 +80,29 @@
     }
   ],
 
+  "non_spice_campaigns": [
+    {
+      "experiment": "digital-functional",
+      "runner": "sim/digital-functional/bin/run-record.py",
+      "cold_start": "KLT=.venv-signoff/bin/klt python3 -I sim/digital-functional/bin/run-record.py",
+      "documented_in": "sim/digital-functional/README.md",
+      "covers": "Zero-delay gate-level functional verification of the routed sar-sequencer and top-glue netlists against a reference model, with a mutation campaign as negative control (issue #678, T1 item 5). Not an ngspice run; no spec-table row claims it.",
+      "records": [
+        "sim/digital-functional/records/20261017-193811-9522693.md"
+      ]
+    },
+    {
+      "experiment": "digital-sta",
+      "runner": "sim/digital-sta/bin/run-record.py",
+      "cold_start": "KLT=.venv-signoff/bin/klt python3 -I sim/digital-sta/bin/run-record.py",
+      "documented_in": "sim/digital-sta/README.md",
+      "covers": "Multi-corner static timing of the routed digital macros at the provisional 12 MHz period, with a too-fast negative control (issue #678, T1 item 5). Not an ngspice run; only the nearest stock Liberty corner is graded and the rest are declared gaps.",
+      "records": [
+        "sim/digital-sta/records/20261017-194050-9522693.md"
+      ]
+    }
+  ],
+
   "rows": [
     {
       "parameter": "Architecture",

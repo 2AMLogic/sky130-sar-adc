@@ -428,6 +428,24 @@ followed by the per-bench command in the table below. Each of those commands is 
 - **`sim/harness-corner-smoke`** — Harness self-test, never a spec claim (sim/README.md 'Harness self-test experiments'): an ideal divider plus a diode-connected nfet_01v8, proving the corner runner actually switches the .lib process section, .temp and vdd_val independently. Counted toward T1 item 9 by nothing.
 - **`sim/mc-smoke`** — Harness self-test, never a spec claim: one diode-connected nfet_01v8 drawn N times at tt_mm with a deterministic plain-tt negative control, proving the Monte Carlo plumbing reaches the simulator. Counted toward T1 item 9 by nothing.
 
+## Non-SPICE campaigns (no spec-table row)
+
+Evidence that is not an ngspice run, so it carries no ngspice pin, SPICE deck or DUT netlist hash and substantiates no row of `spec/target-spec.md`. The check requires each one's runner, records and documented cold-start command to exist, and forbids listing it as a row bench or a harness proof.
+
+**`sim/digital-functional`** — Zero-delay gate-level functional verification of the routed sar-sequencer and top-glue netlists against a reference model, with a mutation campaign as negative control (issue #678, T1 item 5). Not an ngspice run; no spec-table row claims it.
+
+- Runner: `sim/digital-functional/bin/run-record.py`
+- Cold start: `KLT=.venv-signoff/bin/klt python3 -I sim/digital-functional/bin/run-record.py`
+- Documented in: `sim/digital-functional/README.md`
+- Evidence: `sim/digital-functional/records/20261017-193811-9522693.md`
+
+**`sim/digital-sta`** — Multi-corner static timing of the routed digital macros at the provisional 12 MHz period, with a too-fast negative control (issue #678, T1 item 5). Not an ngspice run; only the nearest stock Liberty corner is graded and the rest are declared gaps.
+
+- Runner: `sim/digital-sta/bin/run-record.py`
+- Cold start: `KLT=.venv-signoff/bin/klt python3 -I sim/digital-sta/bin/run-record.py`
+- Documented in: `sim/digital-sta/README.md`
+- Evidence: `sim/digital-sta/records/20261017-194050-9522693.md`
+
 ## Pinning
 
 Every record indexed here states, in its own Environment section, the PDK variant + resolved open_pdks commit and the ngspice version it was produced with; sim/check_spec_coverage.py verifies those against sim/pdk.json / sim/toolchain.json rather than trusting the prose. xschem is pinned by sim/toolchain.json's xschem_tag and is a WARNING rather than a fatal drift (sim/selftest.sh stage 2's rule: xschem only netlists, and every record pins the exact netlist it ran by SHA-256) -- so the per-record xschem-side provenance this check enforces is the presence of that DUT netlist sha256 line, not a version string.

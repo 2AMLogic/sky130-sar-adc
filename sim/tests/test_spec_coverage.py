@@ -440,6 +440,42 @@ class TestFailureModes(unittest.TestCase):
         self.repo.write("sim/stray/records/20260101-000000-abc1234.md", "stray evidence\n")
         self.assertIn("orphan-experiment", self.repo.codes())
 
+    # -- non-SPICE campaigns ------------------------------------------------
+
+    def _add_non_spice_campaign(self) -> None:
+        self.repo.write("sim/dsta/bin/run.py", "# runner\n")
+        self.repo.write("sim/dsta/README.md", "python3 sim/dsta/bin/run.py\n")
+        self.repo.write("sim/dsta/records/20260101-000000-abc1234.md", "sta record\n")
+        self.repo.index["non_spice_campaigns"] = [
+            {
+                "experiment": "dsta",
+                "runner": "sim/dsta/bin/run.py",
+                "cold_start": "python3 sim/dsta/bin/run.py",
+                "documented_in": "sim/dsta/README.md",
+                "covers": "fake",
+                "records": ["sim/dsta/records/20260101-000000-abc1234.md"],
+            }
+        ]
+
+    def test_non_spice_campaign_needs_no_ngspice_pin(self):
+        self._add_non_spice_campaign()
+        self.assertEqual(self.repo.codes(), [])
+
+    def test_non_spice_campaign_with_missing_record_fails(self):
+        self._add_non_spice_campaign()
+        self.repo.index["non_spice_campaigns"][0]["records"] = ["sim/dsta/records/nope.md"]
+        self.assertIn("missing-path", self.repo.codes())
+
+    def test_non_spice_campaign_with_undocumented_cold_start_fails(self):
+        self._add_non_spice_campaign()
+        self.repo.write("sim/dsta/README.md", "no command here\n")
+        self.assertIn("cold-start-undocumented", self.repo.codes())
+
+    def test_non_spice_campaign_also_listed_as_a_row_bench_fails(self):
+        self._add_non_spice_campaign()
+        self.repo.index["rows"][0]["benches"][0]["experiment"] = "dsta"
+        self.assertIn("non-spice-campaign-double-listed", self.repo.codes())
+
     # -- methodology rows ---------------------------------------------------
 
     def test_methodology_row_missing_a_process_corner_fails(self):
