@@ -85,6 +85,7 @@ import re
 import struct
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -4653,6 +4654,80 @@ def _census_field_misses(
     return misses
 
 
+@dataclass(frozen=True)
+class CensusSpec:
+    """What one `*_census` check differs by; `_check_stated_census` is the rest.
+
+    `applies(text)` is the document-level gate (a document that does not cite
+    the campaign qualifies nothing and is not made to), `load()` the live census
+    (`None` = nothing to compare against), `unstated(doc_name, actual)` the
+    message for a document that cites the campaign but states no census, and
+    `exempt_unstated(collapsed, actual)` (optional) a reason to stay silent
+    about that. `noun`, `source`, `fields` and `tail` feed `_census_field_misses`.
+    The named-entries clause every census ends in is compared by
+    `listed_re.findall(match.group(listed_group))` (through `normalize`) against
+    `actual[listed_key]`, worded by `none_word`, `role`, `thing`,
+    `consequence` and `listed_source`. `extra(where, match, actual)` (optional)
+    adds check-specific misses between the field and clause comparisons.
+    """
+
+    noun: str
+    source: str
+    fields: tuple[str, ...]
+    tail: str
+    regex: re.Pattern[str]
+    applies: Callable[[str], bool]
+    load: Callable[[], dict | None]
+    unstated: Callable[[str, dict], str]
+    listed_re: re.Pattern[str]
+    listed_group: str
+    listed_key: str
+    none_word: str
+    role: str
+    thing: str
+    consequence: str
+    listed_source: str
+    exempt_unstated: Callable[[str, dict], bool] | None = None
+    extra: Callable[[str, re.Match[str], dict], list[str]] | None = None
+    normalize: Callable[[list[str]], list[str]] = list
+
+
+def _check_stated_census(doc: Path, text: str, spec: CensusSpec) -> list[str]:
+    """The skeleton checks 30--34 share: every stated census must be this tree's own."""
+    if not spec.applies(text):
+        return []
+    actual = spec.load()
+    if actual is None:
+        # Nothing to compare a census against, and inventing one would be a
+        # claim rather than a check.
+        return []
+    collapsed, offsets = _collapse_quoted_prose(text)
+    stated = list(spec.regex.finditer(collapsed))
+    if not stated:
+        if spec.exempt_unstated and spec.exempt_unstated(collapsed, actual):
+            return []
+        return [spec.unstated(doc.name, actual)]
+    misses: list[str] = []
+    for match in stated:
+        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
+        misses += _census_field_misses(
+            where, match, actual, spec.fields, spec.noun, spec.source, spec.tail
+        )
+        if spec.extra:
+            misses += spec.extra(where, match, actual)
+        listed = spec.normalize(spec.listed_re.findall(match.group(spec.listed_group)))
+        if listed != actual[spec.listed_key]:
+            misses.append(
+                f"{where}: the {spec.noun} census names "
+                f"{', '.join(f'`{name}`' for name in listed) or spec.none_word} "
+                f"as {spec.role}, but {spec.listed_source} reports "
+                f"{', '.join(f'`{name}`' for name in actual[spec.listed_key]) or 'none'}"
+                f" -- restate the clause from `--stats`; naming the wrong "
+                f"{spec.thing} {spec.consequence}"
+            )
+    return misses
+
+
 def check_provenance_census(doc: Path, text: str) -> list[str]:
     """Check 26: the stated toolchain/PDK provenance census is this tree's own."""
     if not any((REPO_ROOT / top).is_dir() for top in ("sim", "layout")):
@@ -5154,46 +5229,41 @@ def renderer_sentence(census: dict) -> str:
     )
 
 
+RENDERER_CENSUS_SPEC = CensusSpec(
+    noun="renderer",
+    source="`layout/`",
+    fields=("entry_points", "pinning", "naming"),
+    tail="if an entry point now resolves the commit, say so rather than "
+    "only moving the number",
+    regex=RENDERER_CENSUS_RE,
+    # A document that does not state check 26's record census states nothing
+    # this one qualifies, and is not made to.
+    applies=lambda text: (REPO_ROOT / "layout").is_dir()
+    and bool(PROVENANCE_CENSUS_RE.search(_collapse_quoted_prose(text)[0])),
+    load=renderer_census,
+    unstated=lambda name, actual: (
+        f"{name}: states check 26's record census but not the "
+        f"renderer census that explains it -- records are append-only, so "
+        f"the record count alone cannot say whether a shortfall is live "
+        f"or already-fixed history awaiting a re-run. State it "
+        f"(`{renderer_sentence(actual)}` today), so the explanation is "
+        f"graded rather than asserted"
+    ),
+    listed_re=RENDERER_ENTRY_RE,
+    listed_group="offenders",
+    listed_key="unpinned",
+    none_word="no entry point",
+    role="resolving no `open_pdks` commit",
+    thing="entry point",
+    consequence="sends a reader to the wrong file to fix it",
+    listed_source="`layout/`",
+    normalize=lambda names: sorted(set(names)),
+)
+
+
 def check_renderer_census(doc: Path, text: str) -> list[str]:
     """Check 30: the stated record-renderer census is this tree's own."""
-    if not (REPO_ROOT / "layout").is_dir():
-        return []
-    collapsed, offsets = _collapse_quoted_prose(text)
-    if not PROVENANCE_CENSUS_RE.search(collapsed):
-        # A document that does not state check 26's record census states
-        # nothing this one qualifies, and is not made to.
-        return []
-    actual = renderer_census()
-    stated = list(RENDERER_CENSUS_RE.finditer(collapsed))
-    if not stated:
-        return [
-            f"{doc.name}: states check 26's record census but not the "
-            f"renderer census that explains it -- records are append-only, so "
-            f"the record count alone cannot say whether a shortfall is live "
-            f"or already-fixed history awaiting a re-run. State it "
-            f"(`{renderer_sentence(actual)}` today), so the explanation is "
-            f"graded rather than asserted"
-        ]
-    misses = []
-    for match in stated:
-        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        misses += _census_field_misses(
-            where, match, actual, ("entry_points", "pinning", "naming"),
-            "renderer", "`layout/`",
-            "if an entry point now resolves the commit, say so rather than "
-            "only moving the number",
-        )
-        listed = sorted(set(RENDERER_ENTRY_RE.findall(match.group("offenders"))))
-        if listed != actual["unpinned"]:
-            misses.append(
-                f"{where}: the renderer census names "
-                f"{', '.join(f'`{entry}`' for entry in listed) or 'no entry point'} "
-                f"as resolving no `open_pdks` commit, but `layout/` reports "
-                f"{', '.join(f'`{entry}`' for entry in actual['unpinned']) or 'none'}"
-                f" -- restate the clause from `--stats`; naming the wrong entry "
-                f"point sends a reader to the wrong file to fix it"
-            )
-    return misses
+    return _check_stated_census(doc, text, RENDERER_CENSUS_SPEC)
 
 
 def runner_arms() -> list[str]:
@@ -5276,48 +5346,38 @@ def arm_sentence(census: dict) -> str:
     )
 
 
+ARM_CENSUS_SPEC = CensusSpec(
+    noun="arm",
+    source=f"`sim/{ARM_CAMPAIGN}/`",
+    fields=("offered", "ran", "unrun"),
+    tail="if an arm has now been run, say what its record prices rather "
+    "than only moving the number",
+    regex=ARM_CENSUS_RE,
+    # A document that does not cite this campaign qualifies nothing about the
+    # arms its records leave unrun, and is not made to.
+    applies=lambda text: ARM_CENSUS_ANCHOR in text,
+    load=arm_census,
+    unstated=lambda name, actual: (
+        f"{name}: cites `sim/{ARM_CAMPAIGN}/`, whose records run a "
+        f"SUBSET of the arms `{ARM_RUNNER}` implements, but states no arm "
+        f"census -- state it (`{arm_sentence(actual)}` today), so what the "
+        f"cited record may not be read for is graded rather than asserted "
+        f"and cannot be quietly dropped"
+    ),
+    listed_re=ARM_TOKEN_RE,
+    listed_group="arms",
+    listed_key="unrun_arms",
+    none_word="no arm",
+    role="unrun",
+    thing="arm",
+    consequence="misstates which claim the cited record cannot support",
+    listed_source=f"`sim/{ARM_CAMPAIGN}/`",
+)
+
+
 def check_arm_census(doc: Path, text: str) -> list[str]:
     """Check 31: the stated supply-return arm census is this tree's own."""
-    if ARM_CENSUS_ANCHOR not in text:
-        # A document that does not cite this campaign qualifies nothing about
-        # the arms its records leave unrun, and is not made to.
-        return []
-    actual = arm_census()
-    if actual is None:
-        # No runner, no current record, or a record this parse does not
-        # recognise: there is nothing to compare a census against, and
-        # inventing one would be a claim rather than a check.
-        return []
-    collapsed, offsets = _collapse_quoted_prose(text)
-    stated = list(ARM_CENSUS_RE.finditer(collapsed))
-    if not stated:
-        return [
-            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose records run a "
-            f"SUBSET of the arms `{ARM_RUNNER}` implements, but states no arm "
-            f"census -- state it (`{arm_sentence(actual)}` today), so what the "
-            f"cited record may not be read for is graded rather than asserted "
-            f"and cannot be quietly dropped"
-        ]
-    misses = []
-    for match in stated:
-        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        misses += _census_field_misses(
-            where, match, actual, ("offered", "ran", "unrun"),
-            "arm", f"`sim/{ARM_CAMPAIGN}/`",
-            "if an arm has now been run, say what its record prices rather "
-            "than only moving the number",
-        )
-        listed = ARM_TOKEN_RE.findall(match.group("arms"))
-        if listed != actual["unrun_arms"]:
-            misses.append(
-                f"{where}: the arm census names "
-                f"{', '.join(f'`{arm}`' for arm in listed) or 'no arm'} as "
-                f"unrun, but `sim/{ARM_CAMPAIGN}/` reports "
-                f"{', '.join(f'`{arm}`' for arm in actual['unrun_arms']) or 'none'}"
-                f" -- restate the clause from `--stats`; naming the wrong arm "
-                f"misstates which claim the cited record cannot support"
-            )
-    return misses
+    return _check_stated_census(doc, text, ARM_CENSUS_SPEC)
 
 
 def sweep_box() -> tuple[int, int] | None:
@@ -5406,49 +5466,39 @@ def sweep_sentence(census: dict) -> str:
     )
 
 
+SWEEP_CENSUS_SPEC = CensusSpec(
+    noun="sweep",
+    source=f"`sim/{ARM_CAMPAIGN}/`",
+    fields=("points", "l_mults", "rsubx", "covered", "records"),
+    tail="if the box has now been walked, say what its record measures "
+    "rather than only moving the number",
+    regex=SWEEP_CENSUS_RE,
+    # A document that does not cite this campaign qualifies nothing about the
+    # magnitudes its records did not walk, and is not made to.
+    applies=lambda text: SWEEP_CENSUS_ANCHOR in text,
+    load=sweep_census,
+    unstated=lambda name, actual: (
+        f"{name}: cites `sim/{ARM_CAMPAIGN}/`, whose records test "
+        f"DR-015's assumption at ONE magnitude while `{SWEEP_RUNNER}` "
+        f"defines a bounded sweep around it, but states no sweep census "
+        f"-- state it (`{sweep_sentence(actual)}` today), so the "
+        f"magnitudes the cited record cannot speak for are graded rather "
+        f"than asserted and cannot be quietly dropped"
+    ),
+    listed_re=ARM_TOKEN_RE,
+    listed_group="names",
+    listed_key="record_ids",
+    none_word="no record",
+    role="carrying the box",
+    thing="record",
+    consequence="misstates which magnitudes have been walked",
+    listed_source=f"`sim/{ARM_CAMPAIGN}/records/`",
+)
+
+
 def check_sweep_census(doc: Path, text: str) -> list[str]:
     """Check 32: the stated `--sweep` box census is this tree's own."""
-    if SWEEP_CENSUS_ANCHOR not in text:
-        # A document that does not cite this campaign qualifies nothing about
-        # the magnitudes its records did not walk, and is not made to.
-        return []
-    actual = sweep_census()
-    if actual is None:
-        # No runner, or a sweep box this parse does not recognise: there is
-        # nothing to compare a census against, and inventing one would be a
-        # claim rather than a check.
-        return []
-    collapsed, offsets = _collapse_quoted_prose(text)
-    stated = list(SWEEP_CENSUS_RE.finditer(collapsed))
-    if not stated:
-        return [
-            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose records test "
-            f"DR-015's assumption at ONE magnitude while `{SWEEP_RUNNER}` "
-            f"defines a bounded sweep around it, but states no sweep census "
-            f"-- state it (`{sweep_sentence(actual)}` today), so the "
-            f"magnitudes the cited record cannot speak for are graded rather "
-            f"than asserted and cannot be quietly dropped"
-        ]
-    misses = []
-    for match in stated:
-        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        misses += _census_field_misses(
-            where, match, actual, ("points", "l_mults", "rsubx", "covered", "records"),
-            "sweep", f"`sim/{ARM_CAMPAIGN}/`",
-            "if the box has now been walked, say what its record measures "
-            "rather than only moving the number",
-        )
-        listed = ARM_TOKEN_RE.findall(match.group("names"))
-        if listed != actual["record_ids"]:
-            misses.append(
-                f"{where}: the sweep census names "
-                f"{', '.join(f'`{stamp}`' for stamp in listed) or 'no record'} "
-                f"as carrying the box, but `sim/{ARM_CAMPAIGN}/records/` holds "
-                f"{', '.join(f'`{stamp}`' for stamp in actual['record_ids']) or 'none'}"
-                f" -- restate the clause from `--stats`; naming the wrong "
-                f"record misstates which magnitudes have been walked"
-            )
-    return misses
+    return _check_stated_census(doc, text, SWEEP_CENSUS_SPEC)
 
 
 def _open_item_bullets(text: str) -> list[str]:
@@ -5526,53 +5576,57 @@ def decoupling_sentence(census: dict) -> str:
     )
 
 
+def _decoupling_untracked_miss(where: str, match: re.Match[str], actual: dict) -> list[str]:
+    """The `untracked=` count of the decoupling census, which has no `actual` field."""
+    claimed = int(match.group("untracked"))
+    if claimed == len(actual["untracked"]):
+        return []
+    return [
+        f"{where}: the decoupling census says untracked="
+        f"{claimed}, but `spec/decision-records/` reports "
+        f"untracked={len(actual['untracked'])} -- restate it from "
+        f"`--stats`"
+    ]
+
+
+DECOUPLING_CENSUS_SPEC = CensusSpec(
+    noun="decoupling",
+    source="`spec/decision-records/`",
+    fields=("carrying", "tracked"),
+    tail="if a record has since struck the item or named its tracker, say "
+    "which rather than only moving the number",
+    regex=DECOUPLING_CENSUS_RE,
+    applies=lambda text: True,
+    load=decoupling_census,
+    unstated=lambda name, actual: (
+        f"{name}: cites a decision record whose own open items still "
+        f"carry the on-die-decoupling gap, but states no ownership census "
+        f"-- that gap is what makes every ground-excursion figure in this "
+        f"tree an *undecoupled* upper bound, and Section 7's rule is that "
+        f"an open item points at the issue that tracks it. State it "
+        f"(`{decoupling_sentence(actual)}` today), so the ownership is "
+        f"graded rather than asserted and cannot be quietly dropped"
+    ),
+    # A document that cites none of the records carrying the gap qualifies
+    # nothing about who owns it, and is not made to.
+    exempt_unstated=lambda collapsed, actual: not any(
+        f"`{record}`" in collapsed for record in actual["untracked"]
+    ),
+    extra=_decoupling_untracked_miss,
+    listed_re=DECOUPLING_RECORD_RE,
+    listed_group="records",
+    listed_key="untracked",
+    none_word="no record",
+    role="naming no tracker",
+    thing="record",
+    consequence="sends a reader to the wrong file to fix it",
+    listed_source="`spec/decision-records/`",
+)
+
+
 def check_decoupling_census(doc: Path, text: str) -> list[str]:
     """Check 33: the stated on-die-decoupling ownership census is this tree's own."""
-    actual = decoupling_census()
-    collapsed, offsets = _collapse_quoted_prose(text)
-    stated = list(DECOUPLING_CENSUS_RE.finditer(collapsed))
-    if not stated:
-        if not any(f"`{record}`" in collapsed for record in actual["untracked"]):
-            # A document that cites none of the records carrying the gap
-            # qualifies nothing about who owns it, and is not made to.
-            return []
-        return [
-            f"{doc.name}: cites a decision record whose own open items still "
-            f"carry the on-die-decoupling gap, but states no ownership census "
-            f"-- that gap is what makes every ground-excursion figure in this "
-            f"tree an *undecoupled* upper bound, and Section 7's rule is that "
-            f"an open item points at the issue that tracks it. State it "
-            f"(`{decoupling_sentence(actual)}` today), so the ownership is "
-            f"graded rather than asserted and cannot be quietly dropped"
-        ]
-    misses = []
-    for match in stated:
-        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        misses += _census_field_misses(
-            where, match, actual, ("carrying", "tracked"),
-            "decoupling", "`spec/decision-records/`",
-            "if a record has since struck the item or named its tracker, say "
-            "which rather than only moving the number",
-        )
-        claimed_untracked = int(match.group("untracked"))
-        if claimed_untracked != len(actual["untracked"]):
-            misses.append(
-                f"{where}: the decoupling census says untracked="
-                f"{claimed_untracked}, but `spec/decision-records/` reports "
-                f"untracked={len(actual['untracked'])} -- restate it from "
-                f"`--stats`"
-            )
-        listed = DECOUPLING_RECORD_RE.findall(match.group("records"))
-        if listed != actual["untracked"]:
-            misses.append(
-                f"{where}: the decoupling census names "
-                f"{', '.join(f'`{record}`' for record in listed) or 'no record'} "
-                f"as naming no tracker, but `spec/decision-records/` reports "
-                f"{', '.join(f'`{record}`' for record in actual['untracked']) or 'none'}"
-                f" -- restate the clause from `--stats`; naming the wrong "
-                f"record sends a reader to the wrong file to fix it"
-            )
-    return misses
+    return _check_stated_census(doc, text, DECOUPLING_CENSUS_SPEC)
 
 
 def null_sweep_ladder() -> int | None:
@@ -5654,52 +5708,41 @@ def null_sweep_sentence(census: dict) -> str:
     )
 
 
+NULL_SWEEP_CENSUS_SPEC = CensusSpec(
+    noun="ladder",
+    source=f"`sim/{ARM_CAMPAIGN}/`",
+    fields=("rungs", "covered", "records"),
+    tail="if the ladder has now been walked, say what its record measures "
+    "rather than only moving the number",
+    regex=NULL_SWEEP_CENSUS_RE,
+    # A document that does not cite this campaign qualifies nothing about the
+    # topology its records did not move, and is not made to.
+    applies=lambda text: NULL_SWEEP_CENSUS_ANCHOR in text,
+    load=null_sweep_census,
+    unstated=lambda name, actual: (
+        f"{name}: cites `sim/{ARM_CAMPAIGN}/`, whose 2-D sweep moves "
+        f"the lumped substrate resistor only where `GND` is bonded and it "
+        f"is a secondary shunt, while `{NULL_SWEEP_RUNNER}` defines a "
+        f"ladder that moves it on DR-012's rejected topology where it "
+        f"carries the whole return -- but states no ladder census. State "
+        f"it (`{null_sweep_sentence(actual)}` today), so the topology the "
+        f"cited records cannot speak for is graded rather than asserted "
+        f"and cannot be quietly dropped"
+    ),
+    listed_re=ARM_TOKEN_RE,
+    listed_group="names",
+    listed_key="record_ids",
+    none_word="no record",
+    role="carrying the ladder",
+    thing="record",
+    consequence="misstates which topology has been swept",
+    listed_source=f"`sim/{ARM_CAMPAIGN}/records/`",
+)
+
+
 def check_null_sweep_census(doc: Path, text: str) -> list[str]:
     """Check 34: the stated `--null-sweep` ladder census is this tree's own."""
-    if NULL_SWEEP_CENSUS_ANCHOR not in text:
-        # A document that does not cite this campaign qualifies nothing about
-        # the topology its records did not move, and is not made to.
-        return []
-    actual = null_sweep_census()
-    if actual is None:
-        # No runner, or a ladder this parse does not recognise: there is
-        # nothing to compare a census against, and inventing one would be a
-        # claim rather than a check.
-        return []
-    collapsed, offsets = _collapse_quoted_prose(text)
-    stated = list(NULL_SWEEP_CENSUS_RE.finditer(collapsed))
-    if not stated:
-        return [
-            f"{doc.name}: cites `sim/{ARM_CAMPAIGN}/`, whose 2-D sweep moves "
-            f"the lumped substrate resistor only where `GND` is bonded and it "
-            f"is a secondary shunt, while `{NULL_SWEEP_RUNNER}` defines a "
-            f"ladder that moves it on DR-012's rejected topology where it "
-            f"carries the whole return -- but states no ladder census. State "
-            f"it (`{null_sweep_sentence(actual)}` today), so the topology the "
-            f"cited records cannot speak for is graded rather than asserted "
-            f"and cannot be quietly dropped"
-        ]
-    misses = []
-    for match in stated:
-        where = f"{doc.name}:{_line_of(text, offsets[match.start()])}"
-        misses += _census_field_misses(
-            where, match, actual, ("rungs", "covered", "records"),
-            "ladder", f"`sim/{ARM_CAMPAIGN}/`",
-            "if the ladder has now been walked, say what its record measures "
-            "rather than only moving the number",
-        )
-        listed = ARM_TOKEN_RE.findall(match.group("names"))
-        if listed != actual["record_ids"]:
-            misses.append(
-                f"{where}: the ladder census names "
-                f"{', '.join(f'`{stamp}`' for stamp in listed) or 'no record'} "
-                f"as carrying the ladder, but `sim/{ARM_CAMPAIGN}/records/` "
-                f"holds "
-                f"{', '.join(f'`{stamp}`' for stamp in actual['record_ids']) or 'none'}"
-                f" -- restate the clause from `--stats`; naming the wrong "
-                f"record misstates which topology has been swept"
-            )
-    return misses
+    return _check_stated_census(doc, text, NULL_SWEEP_CENSUS_SPEC)
 
 
 def excursion_chain_figures(span: str) -> list[str]:
