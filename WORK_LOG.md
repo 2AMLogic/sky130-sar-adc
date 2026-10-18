@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-18
 
+- **PR #694**: refactor: drive checks 30-34 from one table-driven census checker
+- **Issue #688** (closed): Dedupe repeated census checks in check_proposal_citations.py
 - **PR #692**: layout: declare the BOOST_P/BOOST_N n-wells as ERC ties, re-mint ERC record (2 -> 0 findings)
 - **Issue #684** (closed): ERC: 2 n-wells flagged erc.missing_tie by both ties[] entries (no tap on VDD or VPWR)
 
