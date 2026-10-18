@@ -27,7 +27,6 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
 
 ## In Progress
@@ -37,14 +36,14 @@ Issues currently being built (`loom:building`).
 - **#669**: Re-pin open_pdks to f6eeac7 + ciel 2.6.1 + revision-checked PDK search (#668 phase 1)
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
 - **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite
-- **#685**: ERC: per-rail well selector for the n-well ties[] (24 cross-domain erc.missing_tie flags)
+- **#684**: ERC: 2 n-wells flagged erc.missing_tie by both ties[] entries (no tap on VDD or VPWR)
 - **#688**: Dedupe repeated census checks in check_proposal_citations.py
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#692**: layout: declare the BOOST_P/BOOST_N n-wells as ERC ties, re-mint ERC record (2 -> 0 findings)
 
 ## Approved (Awaiting Merge)
 
@@ -67,7 +66,6 @@ Issues carrying `loom:curated`.
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes *(curated)*
 - **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite *(curated)*
 - **#684**: ERC: 2 n-wells flagged erc.missing_tie by both ties[] entries (no tap on VDD or VPWR) *(curated)*
-- **#685**: ERC: per-rail well selector for the n-well ties[] (24 cross-domain erc.missing_tie flags) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -88,11 +86,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 4 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 2 |
+| Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 5 |
-| PRs awaiting review | 0 |
+| PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 4 |
-| Curated | 9 |
+| Curated | 8 |
 | Architect / Hermit proposals | 5 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
