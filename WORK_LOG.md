@@ -2,6 +2,11 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-18
+
+- **PR #692**: layout: declare the BOOST_P/BOOST_N n-wells as ERC ties, re-mint ERC record (2 -> 0 findings)
+- **Issue #684** (closed): ERC: 2 n-wells flagged erc.missing_tie by both ties[] entries (no tap on VDD or VPWR)
+
 ### 2026-10-17
 
 - **PR #690**: layout: grade n-well ties per rail with the std-cell marker on klt 0.7.0, re-mint sar-adc-top ERC record (28 -> 2 findings)
