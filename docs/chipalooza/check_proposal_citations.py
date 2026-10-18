@@ -4667,8 +4667,8 @@ class CensusSpec:
     The named-entries clause every census ends in is compared by
     `listed_re.findall(match.group(listed_group))` (through `normalize`) against
     `actual[listed_key]`, worded by `none_word`, `role`, `thing`,
-    `consequence` and `listed_source`. `extra(where, match, actual)` (optional)
-    adds check-specific misses between the field and clause comparisons.
+    `consequence`, `listed_source` and `listed_verb`. `extra(where, match, actual)`
+    (optional) adds check-specific misses between the field and clause comparisons.
     """
 
     noun: str
@@ -4687,6 +4687,7 @@ class CensusSpec:
     thing: str
     consequence: str
     listed_source: str
+    listed_verb: str = "reports"
     exempt_unstated: Callable[[str, dict], bool] | None = None
     extra: Callable[[str, re.Match[str], dict], list[str]] | None = None
     normalize: Callable[[list[str]], list[str]] = list
@@ -4720,7 +4721,7 @@ def _check_stated_census(doc: Path, text: str, spec: CensusSpec) -> list[str]:
             misses.append(
                 f"{where}: the {spec.noun} census names "
                 f"{', '.join(f'`{name}`' for name in listed) or spec.none_word} "
-                f"as {spec.role}, but {spec.listed_source} reports "
+                f"as {spec.role}, but {spec.listed_source} {spec.listed_verb} "
                 f"{', '.join(f'`{name}`' for name in actual[spec.listed_key]) or 'none'}"
                 f" -- restate the clause from `--stats`; naming the wrong "
                 f"{spec.thing} {spec.consequence}"
@@ -5493,6 +5494,7 @@ SWEEP_CENSUS_SPEC = CensusSpec(
     thing="record",
     consequence="misstates which magnitudes have been walked",
     listed_source=f"`sim/{ARM_CAMPAIGN}/records/`",
+    listed_verb="holds",
 )
 
 
@@ -5737,6 +5739,7 @@ NULL_SWEEP_CENSUS_SPEC = CensusSpec(
     thing="record",
     consequence="misstates which topology has been swept",
     listed_source=f"`sim/{ARM_CAMPAIGN}/records/`",
+    listed_verb="holds",
 )
 
 
