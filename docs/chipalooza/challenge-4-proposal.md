@@ -679,11 +679,15 @@ placing all five sub-block layouts
   correct two GDS-specific shape counts a later Judge round found still
   described the superseded pre-mesh run — which moves the whole-file hash and
   nothing the tool reads), and the current run
-  ([`erc-reports/20261017-225729-4bb47e17/record.md`](../../layout/sar-adc-top/erc-reports/20261017-225729-4bb47e17/record.md),
-  issue #685: the same GDS as the record below, graded on klt 0.7.0 with each
-  n-well `ties[]` entry restricted to its own rail's wells by the std-cell
-  marker 81/4 — 2 `erc.missing_tie` findings, the two wells issue #684
-  tracks, and supply continuity unchanged; it supersedes
+  ([`erc-reports/20261018-005757-5d07fe65/record.md`](../../layout/sar-adc-top/erc-reports/20261018-005757-5d07fe65/record.md),
+  issue #684 / DR-024: the same GDS, graded with the two boosted-side n-wells
+  declared as `ties[]` to `BOOST_P` / `BOOST_N` — `erc_status` **clean**, 0
+  findings, supply continuity unchanged; it supersedes
+  [`erc-reports/20261017-225729-4bb47e17/record.md`](../../layout/sar-adc-top/erc-reports/20261017-225729-4bb47e17/record.md),
+  issue #685: the same GDS, graded on klt 0.7.0 with each n-well `ties[]`
+  entry restricted to its own rail's wells by the std-cell marker 81/4 — 2
+  `erc.missing_tie` findings, the two wells issue #684 tracks — which in turn
+  supersedes
   [`erc-reports/20261017-193237-9522693e/record.md`](../../layout/sar-adc-top/erc-reports/20261017-193237-9522693e/record.md),
   issue #677, the first record to *compute* `erc.missing_tie`: the spec then
   declared n-well `ties[]` and dropped the `tool_limitation` disclosure, since
@@ -4144,6 +4148,9 @@ tracker already owns.
    > **DR-023**
    > (`spec/decision-records/DR-023-full-conversion-transient-solver-policy.md`)
    > is **proposed**.
+   > **DR-024**
+   > (`spec/decision-records/DR-024-boost-well-tie-declaration.md`) is
+   > **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
@@ -4766,12 +4773,17 @@ tracker already owns.
    the sequencer switches coincidentally with the comparator decision by
    construction, so a shared metal rail would land the standard-cell bank's
    switching current on the comparator's own supply). The current run,
+   [`layout/sar-adc-top/erc-reports/20261018-005757-5d07fe65/record.md`](../../layout/sar-adc-top/erc-reports/20261018-005757-5d07fe65/record.md)
+   (issue #684 / DR-024: the same GDS, the two boosted-side n-wells declared
+   as `ties[]` to `BOOST_P` / `BOOST_N` — `erc_status` **clean**, 0 findings,
+   supply continuity unchanged; a spec declaration, no layout change),
+   supersedes
    [`layout/sar-adc-top/erc-reports/20261017-225729-4bb47e17/record.md`](../../layout/sar-adc-top/erc-reports/20261017-225729-4bb47e17/record.md)
    (issue #685: the same GDS as the record below, re-graded on klt 0.7.0 with
    each n-well `ties[]` entry restricted to its own rail's wells —
    `erc_status` **violations**, 2 `erc.missing_tie`, supply continuity
    unchanged; the tool version moved with the spec, so the drop from issue
-   #677's 28 is not attributed to the selectors alone), supersedes
+   #677's 28 is not attributed to the selectors alone), which supersedes
    [`layout/sar-adc-top/erc-reports/20261017-193237-9522693e/record.md`](../../layout/sar-adc-top/erc-reports/20261017-193237-9522693e/record.md)
    (issue #677, same GDS, n-well `ties[]` declared without a well selector,
    28 `erc.missing_tie`), which in turn supersedes
@@ -4857,7 +4869,7 @@ tracker already owns.
    machine-checked**):
 
    > on the record `layout/sar-adc-top/erc-reports/LATEST` resolves to, `klt
-   > erc` reports `erc_status` **violations** with **2** findings; the declared
+   > erc` reports `erc_status` **clean** with **0** findings; the declared
    > supplies resolve to `GND` **1**, `VDD` **1**, `VGND` **1**, `VPWR` **1**
    > electrical islands; and it grades `20261001-211249-1ca34e6`, while
    > `reports/LATEST` there names `20261003-041400-571f036`: **stale**.
@@ -5644,7 +5656,7 @@ tracker already owns.
     > evidence was read and still failed are `4 analog`, `4 digital`,
     > `11 analog`, `11 digital`; and its manifest cites
     > `layout/sar-adc-top/erc-reports/LATEST` at **20261017-193237-9522693e**
-    > against a pointer naming **20261017-225729-4bb47e17**,
+    > against a pointer naming **20261018-005757-5d07fe65**,
     > `layout/sar-adc-top/reports/LATEST` at **20261001-211249-1ca34e6**
     > against a pointer naming **20261003-041400-571f036**: **stale**.
 
@@ -5737,9 +5749,9 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **94** of the **94** records under `sim/*/records/` name both an
-  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **93**
-  > records under `layout/*/reports/` and `layout/*/erc-reports/` **92** name
-  > a `klt` version and **55** name the `open_pdks` commit.
+  > `ngspice` version and a 40-hex `open_pdks` commit, while of the **94**
+  > records under `layout/*/reports/` and `layout/*/erc-reports/` **93** name
+  > a `klt` version and **56** name the `open_pdks` commit.
 
   **Both columns moved together at the 2026-10-01 re-composition (issue
   #501)**, which is what #420's fix looks like from here: that pass minted one
