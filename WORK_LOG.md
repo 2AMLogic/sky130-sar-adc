@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-17
 
+- **PR #690**: layout: grade n-well ties per rail with the std-cell marker on klt 0.7.0, re-mint sar-adc-top ERC record (28 -> 2 findings)
+- **Issue #685** (closed): ERC: per-rail well selector for the n-well ties[] (24 cross-domain erc.missing_tie flags)
 - **PR #686**: docs(layout): classify the two both-flagged n-wells as BOOST_P/BOOST_N-tied
 - **PR #682**: layout(sar-adc-top): declare n-well ties[] in the ERC supply spec and compute erc.missing_tie
 - **Issue #677** (closed): Item 11: declare ties[] in the top-level ERC supply spec now that klayout-tools#2169 is fixed
