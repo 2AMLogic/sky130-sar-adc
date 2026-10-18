@@ -1629,6 +1629,12 @@ name as the well side (klayout-tools#3750) — so a clean `erc.missing_tie` woul
 still not say every NMOS body reaches `GND`/`VGND`. Earlier records keep their
 `tool_limitation` text; they are append-only.
 
+Since issue #684 two further `ties[]` entries (`nwell_tap_boost_p`,
+`nwell_tap_boost_n`) grade the two boosted-side wells against `BOOST_P` /
+`BOOST_N` (DR-024), selected by caller-named boxes because no drawn layer
+separates them; record `erc-reports/20261018-005757-5d07fe65/` is the first to
+carry them and lists the affected entries under `checked_by_well_assertion`.
+
 ## Composition mechanism actually used: `klt gen-compose` as a pure placer
 
 The section below is kept as the *investigation record* that led to this

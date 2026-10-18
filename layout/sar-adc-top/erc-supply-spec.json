@@ -299,6 +299,22 @@
     "marker: a digital well drawn outside 81/4 would be graded against VDD and",
     "show up as a finding, not as a pass.",
     "",
+    "BOOST WELLS (issue #684, DR-007). Two further n-wells are tied to the",
+    "boosted-side nets BOOST_P / BOOST_N, not to VDD or VPWR: the",
+    "sampling front-end's Sa_p/Se_p and Sa_n/Se_n body wells",
+    "(63.825,85.850)-(70.565,90.620) and (90.105,85.850)-(97.095,90.620) um.",
+    "Each holds one 65/44 tap on a licon1/li1/mcon/met1 stack; a probe with",
+    "stock klayout traced the taps to nets carrying text BOOST_P / BOOST_N on",
+    "69/5 (probe-reports/20261017-201500-9522693e/summary.md). No drawn layer",
+    "separates these two wells from the other analog wells (65/20 and 66/20",
+    "are the only layers interacting with a superset of them, and both reach",
+    "17 of the 26 wells), so selection is by well_requires_boxes /",
+    "well_excludes_boxes, the tap's own coordinates: caller-asserted, which",
+    "klt reports under erc_coverage.checked_by_well_assertion. The VDD entry",
+    "excludes the same two boxes so they are graded once, against their own",
+    "rail. The tap, its reach to li1, and the net it sits on are still",
+    "measured by klt; only WHICH wells belong to the class is asserted.",
+    "",
     "NOT DECLARED: the p-substrate half. sky130 draws no pwell/tub shape for",
     "the bulk substrate, so there is no `well_layer` to name; the only other",
     "form (`well_layer: null` + `well_boxes`) needs the substrate to be",
@@ -317,7 +333,29 @@
       "tap_is_dedicated": true,
       "connect_to": "li1",
       "well_excludes": ["81/4"],
+      "well_excludes_boxes": [
+        [64.225, 86.450, 64.825, 87.650],
+        [90.505, 86.450, 91.105, 87.650]
+      ],
       "net": "VDD"
+    },
+    {
+      "name": "nwell_tap_boost_p",
+      "well_layer": "64/20",
+      "tap_layer": "65/44",
+      "tap_is_dedicated": true,
+      "connect_to": "li1",
+      "well_requires_boxes": [[64.225, 86.450, 64.825, 87.650]],
+      "net": "BOOST_P"
+    },
+    {
+      "name": "nwell_tap_boost_n",
+      "well_layer": "64/20",
+      "tap_layer": "65/44",
+      "tap_is_dedicated": true,
+      "connect_to": "li1",
+      "well_requires_boxes": [[90.505, 86.450, 91.105, 87.650]],
+      "net": "BOOST_N"
     },
     {
       "name": "nwell_tap_vpwr",
