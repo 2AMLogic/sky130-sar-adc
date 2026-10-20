@@ -27,6 +27,7 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
+- **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
 
 ## In Progress
@@ -83,7 +84,7 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 4 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 1 |
+| Ready (`loom:issue`) | 2 |
 | In Progress (`loom:building`) | 3 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 4 |
