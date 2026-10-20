@@ -46,33 +46,55 @@ gain g            = 512 * C_u / (512 * C_u + C_par)           gain error eps = 1
 **The measured gain.** I re-derived it from the committed trace and did not
 copy it from the issue. `20260912-011519-9aaf1ca.md` records the comparator's
 own differential input at every bit-trial instant of the `-0.25`, `+0.00` and
-`+0.25 * V_REF` conversions, at `tt_27c_1.80v` and `tt_27c_1.62v`. Trial `k`
+`+0.25 * V_REF` conversions, at `tt_27c_1.80v` and `tt_27c_1.62v`, for the
+`as-committed` netlist and for a testbench-only `unbalanced-control` copy. Trial `k`
 moves the residual by `2^k` units. That gives two independent ways to read
 `g`:
 
-1. **The bit-8 symmetric pair.** DR-009's half-LSB cell switches `Choff_n` on
-   the `PH_B9 -> PH_B8` edge (`HALF_LSB_EN = BUSY AND NOT PH_B9`), the same
+1. **The bit-8 symmetric pair.** DR-009's half-LSB cell switches `Choff_n`
+   on the `PH_B9 -> PH_B8` edge (`HALF_LSB_EN = BUSY AND NOT PH_B9`), the same
    edge as the bit-8 trial. Every bit-8 delta therefore carries the half-LSB
    step `s` with a fixed sign. The trial direction itself depends on `DOUT9`.
-   - `+0.00` conversion: `Delta = +894.536 mV = +256*u*g + s`
-   - `+0.25` conversion: `Delta = -891.071 mV = -256*u*g + s`
+   Only the `+0.00 * V_REF` conversion presents a bit-8 delta of a full
+   `+-256` units. Its sign differs between the two variants of the record
+   (the `unbalanced-control` variant resolves the mid-scale bit 9 the other
+   way, which is the comparator defect the record is about). Both legs below
+   are the `+0.00` conversion, one from each variant (bit-8 rows at
+   `tt_27c_1.80v`):
+   - `as-committed`, `+0.00` conversion: `Delta = +894.554 mV = +256*u*g + s`
+   - `unbalanced-control`, `+0.00` conversion: `Delta = -891.055 mV = -256*u*g + s`
    - The two equations give `256*u*g = 892.80 mV`, so **`g = 0.99200`**.
-     They also give `s = +1.73 mV`, which matches a half LSB scaled by `g`
+     They also give `s = +1.75 mV`, which matches a half LSB scaled by `g`
      (`1.758 * 0.992 = 1.744 mV`).
-   - At `1.62 V`: `256*u*g = 803.47 mV` against an ideal `810.00 mV`, so
-     **`g = 0.99194`**, with `s = 1.55 mV`.
+   - At `1.62 V` (`+804.955` and `-801.916 mV`): `256*u*g = 803.44 mV`
+     against an ideal `810.00 mV`, so **`g = 0.99190`**, with `s = 1.52 mV`.
+
+   **The control variant is an assumption-backed leg, not a second
+   as-committed conversion.** The record builds it from the same netlist with
+   `xdum_mux_n` and `xdum_xnor_n` deleted at deck-assembly time
+   (testbench-only). Using it for a capacitance ratio assumes that deleting
+   those two cells leaves the DAC step and `s` unchanged. Those cells load the
+   comparator outputs, not the top plate, which is the reason to expect it.
+   The record supports it without proving it: for the inputs where both
+   variants take the same path, the comparator's own input agrees to within
+   `0.06 mV` (for example `-0.25` bit 8: `443.457` vs `443.458 mV`; `+0.25`
+   bit 8: `-440.016` vs `-439.964 mV`; `+0.25` bit 7: `6.310` vs `6.307 mV`),
+   and the record's Findings state that the residuals agree to a few tenths of
+   an LSB. This pair is not a fully controlled comparison: the two legs differ
+   in netlist, and the mean of two legs hides any shared error. The
+   independent check is method 2 below.
 2. **The bits 7..4 steps**, which carry no half-LSB term. All 12 steps at each
    corner fall in `0.9917–0.9923`, while the top-plate common mode moves from
    `565` to `871 mV` (at `1.8 V`).
 
 | quantity | `tt_27c_1.80v` | `tt_27c_1.62v` |
 |---|---|---|
-| gain `g` (bit-8 pair) | `0.99200` | `0.99194` |
+| gain `g` (bit-8 pair) | `0.99200` | `0.99190` |
 | `eps = 1 - g` | **`0.80 %`** | **`0.81 %`** |
 | gain error, span-referred (`eps * 2^N`) | **`8.2 LSB`** | **`8.3 LSB`** |
 | ... at `+-0.25 * V_REF` (`eps * 128 LSB`) | `1.0 LSB` | `1.0 LSB` |
 | ... at `+-0.78 * V_REF` (`eps * 399 LSB`) | `3.2 LSB` | `3.2 LSB` |
-| `C_par = 512 * (1/g - 1)` | `4.13 C_u` (`35.7 fF` at the trace's `C_u = 8.654 fF`) | `4.13 C_u` |
+| `C_par = 512 * (1/g - 1)` | `4.13 C_u` (`35.7 fF` at the trace's `C_u = 8.654 fF`) | `4.18 C_u` |
 
 **This trace corrects four details in #269's text.**
 
@@ -105,7 +127,7 @@ bias on the junctions. Per side:
 | `Csamp_x` in series with node `BPREF_x` | `BPREF_x` floats after sampling. The `4.43 pF` `Csamp_x` couples it to `TOP_x`, so `TOP_x` sees `BPREF_x`'s own load: junction and overlap capacitance of the two `W = 16 um` `Cmswn`/`Cmswp` devices (`~18–24 fF`) | **`~2.1–2.8`** |
 | sampling switch `Msw_x` (`W = 2 um`) | junction + overlap | `~0.2` |
 | comparator input device (`W = 4 um`, `L = 0.5 um`) | overlap (`~1 fF`) up to full-inversion gate (`~18 fF`). The measured total puts it near the low end | `~0.1–2.2` (inferred `~0.13–0.83`) |
-| **measured total** | | **`4.13`** |
+| **measured total** | | **`4.13–4.18`** |
 
 The estimate overturns two earlier attributions:
 
