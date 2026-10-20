@@ -1558,7 +1558,7 @@ def _cache_identity(deck: str, pdk_info: pdk.PdkInfo) -> dict | None:
     `pdk.resolved_commit()`: the latter is a *display* string whose own
     docstring forbids treating it as proof of the install's provenance,
     because for any non-volare install it falls back to the expected pin
-    annotated "(unverified -- non-volare layout)". `toolchain.check_env()`
+    annotated "(unverified -- no SOURCES file or volare layout)". `toolchain.check_env()`
     treats a non-volare install as a warning rather than a failure, so that
     fallback is reachable in a real run -- and it is a *constant*: two
     genuinely different hand-installed model libraries produce the identical

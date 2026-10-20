@@ -42,7 +42,7 @@ sys.path.insert(0, str(REPO_ROOT / "docs" / "chipalooza"))
 import _record_common as record_common  # noqa: E402
 import check_proposal_citations as citations  # noqa: E402
 
-OPEN_PDKS_COMMIT = "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+OPEN_PDKS_COMMIT = "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
 
 
 def _fake_klt(tmp_dir: str, *, stdout: str = "", exit_code: int = 0) -> str:

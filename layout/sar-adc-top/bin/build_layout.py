@@ -247,7 +247,7 @@ PAD_UM = 0.36  # generic via/wire landing pad side. Bigger than
 #: sky130A's own MINIMUM-AREA rules for every layer this module lands a pad
 #: on, read out of the pinned PDK's own deck
 #: (`libs.tech/klayout/drc/sky130A_mr.drc`, open_pdks
-#: c6d73a35f524070e85faff4a6a9eef49553ebc2b -- the `sim/pdk.json` pin):
+#: f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7 -- the `sim/pdk.json` pin):
 #: `m1.6` 0.083, `m2.6` 0.0676, `m3.6` 0.240, `m4.4a` 0.240 um^2, plus li1's
 #: own (`0.0561 um^2`, the deck's `linotace.with_area`). At the klt pin this
 #: module was written against (klayout-tools==0.5.0), NONE of these were

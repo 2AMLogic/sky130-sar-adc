@@ -346,8 +346,8 @@ def check_env(allow_drift: bool = False) -> CheckResult:
 
     if cfg["open_pdks"] is not None:
         # Fail closed: resolved_commit_verified() returns None for any
-        # install whose provenance can't be confirmed through volare's path
-        # layout (e.g. a hand-installed / non-volare PDK). Such an install
+        # install whose provenance can't be confirmed (no SOURCES file at the
+        # tree root and no volare-shaped path). Such an install
         # must NEVER read as "on pin" just because pdk.resolved_commit()'s
         # display fallback happens to start with the pin string -- that was
         # exactly the gap this branch used to have.
@@ -355,7 +355,7 @@ def check_env(allow_drift: bool = False) -> CheckResult:
         if verified is None:
             warns.append(
                 f"PDK commit provenance unverifiable at {info.variant_dir} "
-                "(non-volare layout) -- cannot confirm it matches pinned "
+                "(no SOURCES file, non-volare layout) -- cannot confirm it matches pinned "
                 f"'{cfg['open_pdks']}' (sim/toolchain.json / sim/pdk.json); "
                 "evidence records from this install are marked unverified"
             )
