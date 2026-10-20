@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-20
+
+- **Issue #629** (closed): Dedupe repeated testbench entries in the generated spec-coverage index
+
 ### 2026-10-18
 
 - **PR #694**: refactor: drive checks 30-34 from one table-driven census checker
