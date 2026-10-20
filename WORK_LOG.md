@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-20
 
+- **PR #671**: build: re-pin open_pdks to f6eeac7 (ciel) and verify PDK SOURCES revision
+- **Issue #669** (closed): Re-pin open_pdks to f6eeac7 + ciel 2.6.1 + revision-checked PDK search (#668 phase 1)
 - **Issue #629** (closed): Dedupe repeated testbench entries in the generated spec-coverage index
 
 ### 2026-10-18
