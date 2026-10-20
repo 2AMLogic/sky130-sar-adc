@@ -2817,5 +2817,185 @@ class TestDR012OpenItemIsRetired(unittest.TestCase):
         self.assertIn("#378", text)
 
 
+
+class TestUnavailablePowerRendersAsNa(unittest.TestCase):
+    """Issues #569/#573: `run_conversion.decode()` now returns
+    `power_w=None` (and omits the current from `currents`) when a required
+    supply current is missing or non-finite. Every average-current table this
+    runner writes must render that as `n/a` -- the convention
+    `run_conversion.format_point()`/`write_record()` use -- instead of raising
+    `TypeError` on `None * 1e6`. Finite rows must stay byte-identical to the
+    pre-fix `f"{p['power_w'] * 1e6:.3f}"` rendering.
+
+    The three fixed sites: `write_record()`'s "Average rail current over the
+    same conversion" table, `_rail_current_table_lines()` (both sweep
+    writers), and `write_decap_esr_record()`'s "Average rail current per rung"
+    table. The two full writers are exercised end-to-end into a temporary
+    directory, never the committed evidence tree.
+    """
+
+    CID = "tt_27c_1.80v"
+
+    def _point(self, arm: str, *, power_w: float | None, currents: dict | None = None) -> dict:
+        return {
+            "arm": arm,
+            "corner_id": self.CID,
+            "process_corner": "tt",
+            "temp_c": 27.0,
+            "supply_v": 1.8,
+            "point_id": f"{arm}@{self.CID}",
+            "conversions": [
+                {"conversion": i + 1, "fraction": f, "code": c}
+                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, [214, 383, 511, 641, 1023]))
+            ],
+            "currents": (
+                {"i_vdd": 1e-6, "i_vpwr": 2e-6, "i_vrefp": 1e-6, "i_vcm": 1e-7}
+                if currents is None
+                else currents
+            ),
+            "power_w": power_w,
+            "extras": {
+                **{f"{probe}_pp": 0.010 for probe, _n, _l in si.RAIL_PROBES},
+                "i_gnda": 2.2e-6,
+            },
+            "margins": {},
+            "all_ok": power_w is not None,
+            "missing": [] if power_w is not None else ["i_vdd"],
+            "log_text": "LOG\n",
+            "deck_text": "* deck\n",
+            "wall_s": 600.0,
+            "reused": False,
+        }
+
+    def _unavailable(self, arm: str) -> dict:
+        # i_vdd missing/non-finite: dropped from `currents`, power unavailable.
+        return self._point(
+            arm,
+            power_w=None,
+            currents={"i_vpwr": 2e-6, "i_vrefp": 1e-6, "i_vcm": 1e-7},
+        )
+
+    def _write(self, writer) -> str:
+        import shutil
+        import tempfile
+
+        from harness import evidence
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        try:
+            si.EXPERIMENT_DIR = tmp_dir
+            evidence.resolve_provenance = fake_resolve
+            path = writer()
+        finally:
+            si.EXPERIMENT_DIR = real_dir
+            evidence.resolve_provenance = real_resolve
+        self.assertTrue(str(path).startswith(str(tmp_dir)))
+        return path.read_text()
+
+    # -- the shared helpers -------------------------------------------------
+
+    def test_uw_renders_none_as_na_and_finite_as_before(self) -> None:
+        self.assertEqual(si._uw(None), "n/a")
+        for value in (27.9e-6, 0.0, 1.23456e-3, -4.5e-9):
+            self.assertEqual(si._uw(value), f"{value * 1e6:.3f}")
+
+    def test_avg_current_cells_finite_control_is_byte_identical(self) -> None:
+        p = self._point(si.CONTROL_ARM, power_w=27.9e-6)
+        self.assertEqual(
+            si._avg_current_cells(p), "1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |"
+        )
+
+    def test_avg_current_cells_unavailable_power(self) -> None:
+        cells = si._avg_current_cells(self._unavailable("package"))
+        self.assertEqual(cells, "n/a | 2.000 | 2.200 | 1.000 | 0.100 | n/a |")
+
+    # -- site 2: _rail_current_table_lines (both sweep writers) -------------
+
+    def test_rail_current_table_finite_control_is_byte_identical(self) -> None:
+        p = self._point(si.CONTROL_ARM, power_w=27.9e-6)
+        rows = si._rail_current_table_lines([p], "point")
+        pp = " | ".join("10.000" for _ in si.RAIL_PROBES)
+        self.assertIn(f"| `ideal` | {pp} | 1.000 | 2.000 | 2.200 | 27.900 |", rows)
+
+    def test_rail_current_table_unavailable_power(self) -> None:
+        rows = si._rail_current_table_lines([self._unavailable("package")], "point")
+        pp = " | ".join("10.000" for _ in si.RAIL_PROBES)
+        self.assertIn(f"| `package` | {pp} | n/a | 2.000 | 2.200 | n/a |", rows)
+
+    # -- site 1: write_record() ---------------------------------------------
+
+    def _write_arm_record(self, other: dict) -> str:
+        control = self._point(si.CONTROL_ARM, power_w=27.9e-6)
+        return self._write(
+            lambda: si.write_record(
+                [control, other], "* netlist\n", False, [si.CONTROL_ARM, other["arm"]]
+            )
+        )
+
+    def test_write_record_unavailable_power(self) -> None:
+        text = self._write_arm_record(self._unavailable("package"))
+        self.assertIn(
+            f"| `{self.CID}` | `package` | n/a | 2.000 | 2.200 | 1.000 | 0.100 | n/a |", text
+        )
+        self.assertIn(
+            f"| `{self.CID}` | `ideal` | 1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |",
+            text,
+        )
+
+    def test_write_record_finite_control(self) -> None:
+        text = self._write_arm_record(self._point("package", power_w=31.25e-6))
+        self.assertIn(
+            f"| `{self.CID}` | `package` | 1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 31.250 |",
+            text,
+        )
+        self.assertNotIn("| n/a |\n", text.split("## Average rail current")[1].split("##")[0])
+
+    # -- site 3: write_decap_esr_record() -----------------------------------
+
+    def _write_decap_record(self, unavailable: bool) -> str:
+        control = self._point(si.CONTROL_ARM, power_w=27.9e-6)
+        rungs = [
+            self._unavailable(si.decap_esr_arm_name(m))
+            if unavailable and i == 0
+            else self._point(si.decap_esr_arm_name(m), power_w=27.9e-6)
+            for i, m in enumerate(si.DECAP_ESR_MULTIPLIERS)
+        ]
+        ties = si.load_decap_ties()
+        return self._write(
+            lambda: si.write_decap_esr_record(
+                [control] + rungs, "* netlist\n", si.DECAP_ESR_MULTIPLIERS, ties
+            )
+        )
+
+    def test_write_decap_esr_record_unavailable_power(self) -> None:
+        text = self._write_decap_record(unavailable=True)
+        first = si.decap_esr_arm_name(si.DECAP_ESR_MULTIPLIERS[0])
+        self.assertIn(f"| `{first}` | n/a | 2.000 | 2.200 | 1.000 | 0.100 | n/a |", text)
+
+    def test_write_decap_esr_record_finite_control(self) -> None:
+        text = self._write_decap_record(unavailable=False)
+        self.assertIn("| `ideal` | 1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |", text)
+        first = si.decap_esr_arm_name(si.DECAP_ESR_MULTIPLIERS[0])
+        self.assertIn(f"| `{first}` | 1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |", text)
+
+    def test_no_writer_multiplies_power_w_directly(self) -> None:
+        source = (EXPERIMENT_DIR / "run_supply_impedance.py").read_text()
+        self.assertIsNone(re.search(r"power_w['\"]\]\s*\*", source))
+
+
 if __name__ == "__main__":
     unittest.main()

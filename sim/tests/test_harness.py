@@ -62,6 +62,61 @@ class TestMeasureParse(unittest.TestCase):
         parsed = measure.parse("vgs_nfet = 1.0", ["vgs_nfet"], anchored=False)
         self.assertAlmostEqual(parsed["vgs_nfet"], 1.0)
 
+    # -- issue #569: non-finite values are rejected at the parser boundary --
+    def test_exponent_overflow_is_rejected_in_plain_lines(self):
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                log = "pos = 1e999\nneg = -1e999\nok = 2.5e-03\n"
+                names = ["pos", "neg", "ok"]
+                parsed = measure.parse(log, names, anchored=anchored)
+                self.assertNotIn("pos", parsed)
+                self.assertNotIn("neg", parsed)
+                self.assertAlmostEqual(parsed["ok"], 2.5e-03)
+                self.assertEqual(measure.missing(parsed, names), ["pos", "neg"])
+
+    def test_exponent_overflow_is_rejected_in_trig_targ_lines(self):
+        log = (
+            "t_pos = 1e999 targ= 1.2345e-09 trig=0\n"
+            "t_neg = -1e999 targ= 1.2345e-09 trig=0\n"
+            "t_ok = 1.234500e-09 targ= 1.2345e-09 trig=0\n"
+        )
+        names = ["t_pos", "t_neg", "t_ok"]
+        parsed = measure.parse(log, names, anchored=False)
+        self.assertEqual(measure.missing(parsed, names), ["t_pos", "t_neg"])
+        self.assertAlmostEqual(parsed["t_ok"], 1.2345e-09)
+
+    def test_finite_exponent_tokens_keep_their_values(self):
+        log = "a = 1e300\nb = -1e-300\nc = 1.8E+00\nd = -3.0e-6\n"
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                parsed = measure.parse(log, ["a", "b", "c", "d"], anchored=anchored)
+                self.assertEqual(parsed["a"], 1e300)
+                self.assertEqual(parsed["b"], -1e-300)
+                self.assertEqual(parsed["c"], 1.8)
+                self.assertEqual(parsed["d"], -3.0e-6)
+
+    def test_nan_and_inf_tokens_never_parse(self):
+        log = "a = nan\nb = inf\nc = -inf\n"
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                parsed = measure.parse(log, ["a", "b", "c"], anchored=anchored)
+                self.assertEqual(parsed, {})
+
+    def test_non_finite_first_occurrence_falls_through_to_a_later_finite_one(self):
+        # first-*successful*-value rule: a rejected value does not claim the name
+        for anchored in (True, False):
+            with self.subTest(anchored=anchored):
+                parsed = measure.parse("x = 1e999\nx = 2.0\nx = 3.0\n", ["x"], anchored=anchored)
+                self.assertEqual(parsed["x"], 2.0)
+
+    def test_finite_first_occurrence_still_wins_over_a_later_overflow(self):
+        parsed = measure.parse("x = 1.0\nx = 1e999\n", ["x"])
+        self.assertEqual(parsed["x"], 1.0)
+
+    def test_repeated_overflow_only_stays_missing(self):
+        parsed = measure.parse("x = 1e999\nx = -1e999\n", ["x"], anchored=False)
+        self.assertEqual(measure.missing(parsed, ["x"]), ["x"])
+
 
 class TestCorners(unittest.TestCase):
     def test_mismatch_corner_for(self):
@@ -147,6 +202,37 @@ class TestCorners(unittest.TestCase):
         )
         actual = corners.ratified_oat_grid(nominal_v, tolerance, process_corners, temps_c)
         self.assertEqual(actual, expected)
+
+    def test_sweep_matches_ratified_grid_and_ids(self):
+        pcs, temps = ["tt", "ss", "ff"], [-40, 27, 125]
+        got = list(corners.sweep(1.8, 0.10, pcs, temps, quiet=True))
+        grid = corners.ratified_oat_grid(1.8, 0.10, pcs, temps)
+        self.assertEqual([g[:3] for g in got], grid)
+        self.assertEqual(
+            [g[3] for g in got], [corners.corner_id(*p) for p in grid]
+        )
+        self.assertEqual(got[0][3], "tt_27c_1.80v")
+
+    def test_sweep_nondefault_nominal_and_collapsed_supply(self):
+        got = list(corners.sweep(1.2, 0.0, ["tt", "ss"], [27], quiet=True))
+        self.assertEqual(
+            [g[:3] for g in got], [("tt", 27.0, 1.2), ("ss", 27.0, 1.2)]
+        )
+
+    def test_sweep_progress_and_quiet_modes(self):
+        import contextlib
+        import io
+
+        def run(**kw):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ids = [g[3] for g in corners.sweep(1.8, 0.10, ["tt"], [27], **kw)]
+            return ids, buf.getvalue()
+
+        ids, out = run()
+        self.assertEqual(out, "".join(f"{c}:\n" for c in ids))
+        self.assertEqual(run(quiet=True)[1], "")
+        self.assertEqual(run(announce=False)[1], "")
 
 
 class TestEvidence(unittest.TestCase):
@@ -281,6 +367,34 @@ class TestRunKltYield(unittest.TestCase):
             self.assertEqual(called_args[:2], ["klt", "yield"])
             self.assertEqual(called_args[3], "--format")
             self.assertTrue(called_args[2].endswith(".json"))
+
+    def test_samples_document_persisted_and_cited(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / "yield-reports" / "rec.json"
+            captured = {}
+
+            def fake_run(cmd, **kw):
+                sp = Path(cmd[2])
+                if not sp.is_absolute():
+                    sp = Path(kw["cwd"]) / sp
+                captured["bytes"] = sp.read_bytes()
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=0, stdout=json.dumps({"samples": cmd[2]}), stderr="",
+                )
+
+            with mock.patch.object(evidence.subprocess, "run", side_effect=fake_run):
+                report = evidence.run_klt_yield(self._measurements(), out_path)
+            cited = Path(report["samples"])
+            self.assertTrue(cited.is_absolute())  # tmp is outside the repo
+            self.assertTrue(cited.is_file())
+            self.assertEqual(cited.parent, out_path.parent.resolve())
+            self.assertEqual(
+                hashlib.sha256(cited.read_bytes()).hexdigest(),
+                hashlib.sha256(captured["bytes"]).hexdigest(),
+            )
+            self.assertEqual(json.loads(cited.read_text()), {"measurements": self._measurements()})
 
 
 class TestResolveCornersProvenance(unittest.TestCase):
@@ -874,6 +988,42 @@ class TestPdkResolve(unittest.TestCase):
             self.assertEqual(info.error, "")
 
 
+class TestPdkSearchOrder(unittest.TestCase):
+    """With no $PDK_ROOT, ~/.ciel (default_pdk_root) is searched before the
+    fallback ~/.volare root, and a fallback is only used when the default
+    root has no variant directory."""
+
+    def _make_home(self, tmp: str, roots: list[str]) -> Path:
+        home = Path(tmp)
+        for name in roots:
+            lib = home / name / "sky130A" / "libs.tech" / "combined"
+            lib.mkdir(parents=True)
+            (lib / "sky130.lib.spice").write_text("* fake\n")
+        return home
+
+    def _resolve(self, home: Path) -> pdk.PdkInfo:
+        env = {k: v for k, v in os.environ.items() if k not in ("PDK_ROOT", "PDK")}
+        env["HOME"] = str(home)
+        with mock.patch.dict(os.environ, env, clear=True):
+            return pdk.resolve()
+
+    def test_ciel_root_is_preferred_over_volare(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = self._make_home(tmp, [".ciel", ".volare"])
+            self.assertEqual(self._resolve(home).root, home / ".ciel")
+
+    def test_falls_back_to_volare_when_ciel_has_no_variant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = self._make_home(tmp, [".volare"])
+            self.assertEqual(self._resolve(home).root, home / ".volare")
+
+    def test_pdk_root_override_wins_over_both(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = self._make_home(tmp, [".ciel", ".volare", "custom"])
+            with mock.patch.dict(os.environ, {"PDK_ROOT": str(home / "custom"), "PDK": "sky130A"}):
+                self.assertEqual(pdk.resolve().root, home / "custom")
+
+
 class TestPdkResolveOrRaise(unittest.TestCase):
     """resolve_or_raise() -- the resolve()-or-RuntimeError helper shared by
     sim/comparator-decision/run.py and layout/comparator/pex/regen_probe.py
@@ -987,6 +1137,60 @@ class TestPdkResolvedCommit(unittest.TestCase):
             display = pdk.resolved_commit(FakeInfo())
             self.assertTrue(display.startswith("b" * 40))
             self.assertIn("unverified", display)
+
+    def _tree_with_sources(self, tmp: str, sources: str | None, name: str = "sky130A") -> Path:
+        variant_dir = Path(tmp) / name
+        variant_dir.mkdir(parents=True)
+        if sources is not None:
+            (variant_dir / "SOURCES").write_text(sources)
+        return variant_dir
+
+    def test_sources_file_at_the_new_pin_is_verified(self):
+        pin = pdk.load_pdk_json()["open_pdks_commit"]
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = self._tree_with_sources(tmp, f"open_pdks {pin}\n")
+
+            class FakeInfo:
+                variant_dir = vdir
+                open_pdks_commit_expected = pin
+
+            self.assertEqual(pdk.resolved_commit_verified(FakeInfo()), pin)
+
+    def test_sources_file_at_the_old_pin_reads_as_that_commit_so_check_env_fails_it(self):
+        old = "c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = self._tree_with_sources(tmp, f"open_pdks {old}\n")
+
+            class FakeInfo:
+                variant_dir = vdir
+                open_pdks_commit_expected = pdk.load_pdk_json()["open_pdks_commit"]
+
+            self.assertEqual(pdk.resolved_commit_verified(FakeInfo()), old)
+            self.assertNotEqual(old, FakeInfo.open_pdks_commit_expected)
+
+    def test_sources_wins_over_a_volare_shaped_path(self):
+        path_sha, src_sha = "a" * 40, "b" * 40
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = Path(tmp) / "volare" / "sky130" / "versions" / path_sha / "sky130A"
+            vdir.mkdir(parents=True)
+            (vdir / "SOURCES").write_text(f"open_pdks {src_sha}\n")
+
+            class FakeInfo:
+                variant_dir = vdir
+                open_pdks_commit_expected = "c" * 40
+
+            self.assertEqual(pdk.resolved_commit_verified(FakeInfo()), src_sha)
+
+    def test_malformed_or_absent_sources_is_unverifiable(self):
+        for sources in (None, "", "magic 1234\n", "open_pdks nothex\n"):
+            with self.subTest(sources=sources), tempfile.TemporaryDirectory() as tmp:
+                vdir = self._tree_with_sources(tmp, sources)
+
+                class FakeInfo:
+                    variant_dir = vdir
+                    open_pdks_commit_expected = "c" * 40
+
+                self.assertIsNone(pdk.resolved_commit_verified(FakeInfo()))
 
     def test_nonexistent_path_is_unverifiable_not_an_error(self):
         class FakeInfo:

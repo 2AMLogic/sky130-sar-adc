@@ -10,7 +10,7 @@
 #   layout/comparator/bin/run-flow.sh   # ~1 minute
 #
 # Requires: layout/.venv (see setup-venv.sh) and a resolvable sky130A PDK
-# install (same pin as sim/pdk.json; `volare enable --pdk sky130 <sha>`).
+# install (same pin as sim/pdk.json; `ciel enable --pdk-family sky130 <sha>`).
 #
 # Flow:
 #   1. `klt gen` x6      -- one matched device/pair block per schematic device
@@ -49,6 +49,8 @@ LAYOUT_DIR="$(cd "$COMPARATOR_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 TOP=gen_compose_0
 BLOCKS=(tail inpair latn latp rst rstd)
 

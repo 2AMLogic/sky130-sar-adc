@@ -188,9 +188,9 @@ LSB_DIFF_MV_PROVISIONAL = 3.5156  # DR-003 Item 2, provisional pending #27 --
 # regen-corners campaign sweeps. Used only by the optional --corners mode
 # below; the single-corner (tt/27C/1.8V) default behavior above is
 # unchanged.
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 
 # The single-corner (tt/27C/1.8V) record --corners's own evidence record
 # cross-references as "the finding this campaign extends" -- PR #204,
@@ -441,13 +441,11 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     across process/temperature/supply.
     """
     pdk.resolve_or_raise()
-    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
 
     points: list[dict] = []
-    for process_corner, temp_c, supply_v in grid:
-        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
-        if not quiet:
-            print(f"{cid}:")
+    for process_corner, temp_c, supply_v, cid in corners_mod.sweep(
+        VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, quiet=quiet
+    ):
         crossing_rows, budget_rows, netlist = run_all(
             scratch, corner=process_corner, temp_c=temp_c, vdd=supply_v,
             quiet=quiet, tag=f"acquisition_settling_{cid}",

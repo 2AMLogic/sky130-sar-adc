@@ -19,10 +19,20 @@
 # rather than overwriting an earlier one), and minting a reports/<id>/ record
 # with no layout in it would misrepresent what that tree means.
 #
-# Runs on layout/.venv-erc (klayout-tools==0.6.0, layout/erc-requirements.txt),
-# NOT on the DRC/LVS flow's layout/.venv (0.5.0) -- see erc-requirements.txt's
-# header for the whole justification, and note that the supply verdict itself
-# is identical on both builds (cross-checked in each record's record.md).
+# Runs on layout/.venv-erc, pinned by layout/erc-requirements.txt
+# (klayout-tools==0.7.0), NOT on the DRC/LVS layout/.venv (0.6.0). Issue #648
+# had collapsed the two pins while they named the same build; issue #685 needs
+# 0.7.0's well-side tie selector (`ties[].well_requires`/`well_excludes`) and
+# 0.7.0's DRC deck is not yet triaged (docs/klt-0.7.0-evaluation/), so the ERC
+# run is split off again. Earlier erc-reports/ records were run on 0.6.0 and
+# are append-only; they were not edited.
+#
+# klt 0.7.0 rejects any spec key outside its schema, including the `_comment`
+# annotations this spec carries at every level (klayout-tools#2822, fixed on
+# main after the v0.7.0 tag). So the committed, annotated spec is NOT what klt
+# is handed: the run first writes a comment-stripped copy into the record
+# (erc-supply-spec.graded.json) and grades that. The strip drops exactly the
+# underscore-prefixed keys the graded-spec digest below already ignores.
 set -euo pipefail
 
 PROG="$(basename "${BASH_SOURCE[0]}")"
@@ -39,6 +49,8 @@ ERC_REPORTS="$BLOCK_DIR/erc-reports"
 # is `{"name": "sky130", "source": "built-in", "version": null}`). Matches
 # the `sky130A` pin every other `layout/*/bin/run-flow.sh` resolves.
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 
 # shellcheck source=../../bin/_flow_common.sh
 source "$LAYOUT_DIR/bin/_flow_common.sh"
@@ -92,7 +104,26 @@ echo "$PROG: spec   $SPEC"
 # inside this repo; fall back to the absolute path for an out-of-tree argument.
 REL_GDS="$GDS"
 case "$GDS" in "$REPO_ROOT"/*) REL_GDS="${GDS#"$REPO_ROOT"/}" ;; esac
-REL_SPEC="${SPEC#"$REPO_ROOT"/}"
+# The graded copy lives in the record (see the header): klt reads it, and its
+# provenance hashes it, so the record carries the exact bytes that were graded.
+GRADED_SPEC="$OUT_DIR/erc-supply-spec.graded.json"
+python3 - "$SPEC" "$GRADED_SPEC" <<'PY'
+import json, sys
+
+
+def strip(o):
+    if isinstance(o, dict):
+        return {k: strip(v) for k, v in o.items() if not k.startswith("_")}
+    if isinstance(o, list):
+        return [strip(v) for v in o]
+    return o
+
+
+with open(sys.argv[1]) as src, open(sys.argv[2], "w") as dst:
+    json.dump(strip(json.load(src)), dst, indent=2)
+    dst.write("\n")
+PY
+REL_SPEC="${GRADED_SPEC#"$REPO_ROOT"/}"
 
 # `klt erc` exits 3 when it completed successfully AND found ERC findings --
 # a real verdict, not a failure to run, so it must not trip `set -e`. Exit 1
@@ -113,10 +144,10 @@ fi
 # was actually run against. Assert both hashes here rather than leaving a
 # reader to re-derive them -- a report whose input hash has drifted from the
 # committed GDS is stale, and staleness is failure (docs/t1-gap.md).
-python3 - "$OUT_DIR/erc.json" "$GDS" "$SPEC" <<'PY'
+python3 - "$OUT_DIR/erc.json" "$GDS" "$SPEC" "$GRADED_SPEC" <<'PY'
 import hashlib, json, sys
 
-report_path, gds_path, spec_path = sys.argv[1:4]
+report_path, gds_path, spec_path, graded_spec_path = sys.argv[1:5]
 report = json.load(open(report_path))
 
 
@@ -132,11 +163,11 @@ prov = report.get("provenance")
 if not prov:
     sys.exit(
         "run-erc.sh: this klt build's `klt erc` writes no provenance block -- "
-        "see layout/erc-requirements.txt for why the pin must carry one"
+        "layout/requirements.txt must pin a klt build whose `klt erc` carries one"
     )
 for label, got, want in (
     ("input (layout)", prov["input"]["content_hash"], sha256(gds_path)),
-    ("spec", prov["spec"]["content_hash"], sha256(spec_path)),
+    ("spec (comment-stripped copy)", prov["spec"]["content_hash"], sha256(graded_spec_path)),
 ):
     if got != want:
         sys.exit(f"run-erc.sh: {label} content-hash mismatch: {got} != {want}")
@@ -152,13 +183,18 @@ spec = json.load(open(spec_path))
 # ask the same question hash the same however their prose differs. Quote it in
 # the record's record.md; it is the thing a later reader compares across runs.
 _graded = lambda o: {k: v for k, v in o.items() if not k.startswith("_")}
+graded_spec_obj = {
+    "stackup": [_graded(e) for e in spec["stackup"]],
+    "vias": [_graded(e) for e in spec["vias"]],
+    "nets": [_graded(e) for e in spec["nets"]],
+    "ties_disclosure.kind": (spec.get("ties_disclosure") or {}).get("kind"),
+}
+# `ties[]` is graded work too (issue #677) -- but only enters the digest when
+# declared, so a spec without it keeps the digest earlier records quoted.
+if spec.get("ties"):
+    graded_spec_obj["ties"] = [_graded(e) for e in spec["ties"]]
 graded_spec = json.dumps(
-    {
-        "stackup": [_graded(e) for e in spec["stackup"]],
-        "vias": [_graded(e) for e in spec["vias"]],
-        "nets": [_graded(e) for e in spec["nets"]],
-        "ties_disclosure.kind": (spec.get("ties_disclosure") or {}).get("kind"),
-    },
+    graded_spec_obj,
     sort_keys=True,
     separators=(",", ":"),
 ).encode()
@@ -171,6 +207,10 @@ blocking = [
     if f["rule"] in ("erc.unconnected_net", "erc.supply_short", "erc.missing_tie")
     and (f.get("net") in supplies or f.get("other_net") in supplies)
 ]
+# Continuity (island/short) and tie findings are different halves of item 11;
+# once `ties[]` is declared (issue #677) they must not be summed into one line.
+continuity = [f for f in blocking if f["rule"] != "erc.missing_tie"]
+tie_findings = [f for f in blocking if f["rule"] == "erc.missing_tie"]
 ties = report.get("ties_disclosure") or {}
 print(f"run-erc.sh: content-hashes verified (layout + spec)")
 print(
@@ -186,7 +226,7 @@ print(f"run-erc.sh: erc_status={report.get('erc_status')} findings={len(findings
 # "MET" here would contradict the grader (issue #355).
 print(
     "run-erc.sh: supply continuity (declared supplies, one island each, no short): "
-    + ("PASS" if not blocking else f"FAIL ({len(blocking)} blocking finding(s))")
+    + ("PASS" if not continuity else f"FAIL ({len(continuity)} blocking finding(s))")
 )
 if ties:
     print(
@@ -195,6 +235,11 @@ if ties:
         "on the continuity half alone"
     )
 else:
+    if spec.get("ties"):
+        print(
+            "run-erc.sh: erc.missing_tie (declared ties[], computed): "
+            + ("PASS" if not tie_findings else f"{len(tie_findings)} finding(s)")
+        )
     print("run-erc.sh: T1 item 11 verdict: " + ("MET" if not blocking else "UNMET"))
 for f in blocking:
     print(f"run-erc.sh:   {f['rule']}: {f['description']}")

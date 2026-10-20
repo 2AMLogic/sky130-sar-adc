@@ -73,12 +73,12 @@ spec, same `klt` build. See `analog_ground_pad_without_mesh()`.
 
 Usage
 -----
-Run me with the pinned ERC venv's Python (`layout/bin/setup-erc-venv.sh`),
+Run me with the pinned venv's Python (`layout/bin/setup-venv.sh`),
 pointing at a record directory `run-flow.sh` already produced -- this script
 re-uses that record's own copies of the six sub-block GDS files, so the
 ablated variant is composed from byte-identical inputs:
 
-    layout/.venv-erc/bin/python layout/sar-adc-top/bin/probe-ground-mesh.py \
+    layout/.venv/bin/python layout/sar-adc-top/bin/probe-ground-mesh.py \
         layout/sar-adc-top/reports/<record-id> \
         -o layout/sar-adc-top/erc-reports/<erc-record-id>/ground-mesh-ablation.json
 
@@ -281,14 +281,14 @@ def main() -> int:
     parser.add_argument("record", type=pathlib.Path, help="a reports/<record-id> directory")
     parser.add_argument("-o", "--out", type=pathlib.Path, required=True)
     parser.add_argument("--work-dir", type=pathlib.Path, default=None)
-    parser.add_argument("--klt", default=None, help="klt binary (default: layout/.venv-erc/bin/klt)")
+    parser.add_argument("--klt", default=None, help="klt binary (default: layout/.venv/bin/klt)")
     args = parser.parse_args()
 
     bin_dir = pathlib.Path(__file__).resolve().parent
     block_dir = bin_dir.parent
     layout_dir = block_dir.parent
     repo_root = layout_dir.parent
-    klt = args.klt or str(layout_dir / ".venv-erc" / "bin" / "klt")
+    klt = args.klt or str(layout_dir / ".venv" / "bin" / "klt")
     spec = block_dir / "erc-supply-spec.json"
     record = args.record.resolve()
 

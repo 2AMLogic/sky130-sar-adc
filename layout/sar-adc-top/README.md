@@ -1083,9 +1083,10 @@ render `met`**:
 still `mismatch` (klayout-tools#1878) — so the continuity half being clean is
 not what the reason is about. Behind that sits a second, latent reason the run
 never gets to: the item also requires zero `erc.missing_tie` from a tie the run
-actually checked, and this spec declares no `ties[]` (klayout-tools#2169 would
-turn a correct one into a false `erc.supply_short`), the state
-`supply_spec_disclosed_tool_limitation` names. See "Structural supply check
+actually checked. Since issue #677 the spec declares n-well `ties[]` (klayout-tools#2169
+is fixed in the pinned 0.6.0) and `erc-reports/20261017-193237-9522693e/` computes them: 28
+`erc.missing_tie` findings, no false `erc.supply_short` — see that record's
+`record.md` for what the 28 are. See "Structural supply check
 (`klt erc`, T1 item 11)" below.
 
 ### The digital-rail route itself (issue #355)
@@ -1317,8 +1318,8 @@ would turn this block's own T1 item 11 record red over a short that is the
 design.
 
 The summary of both passes is committed at
-`erc-reports/LATEST/ground-mesh-ablation.json` — `20261001-211722-1ca34e6` as of
-this record, which is where every number stated in the present tense above comes
+`erc-reports/20261001-211722-1ca34e6/ground-mesh-ablation.json` (the ablation is
+not re-minted by later ERC records: see `erc-reports/20261017-193237-9522693e/record.md`), which is where every number stated in the present tense above comes
 from; the script exits 3 if **either** prediction fails, so a mesh that stopped
 mattering — in whole or in that one leg — would turn the check red rather than
 quietly passing.
@@ -1554,9 +1555,9 @@ now reads from it.
 | | |
 |---|---|
 | Spec | `layout/sar-adc-top/erc-supply-spec.json` |
-| Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-erc-venv.sh`) |
+| Runner | `layout/sar-adc-top/bin/run-erc.sh` (after `layout/bin/setup-venv.sh`) |
 | Records | `layout/sar-adc-top/erc-reports/<record-id>/` (`erc.json` + `record.md`), `erc-reports/LATEST` |
-| Tool pin | `layout/erc-requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
+| Tool pin | `layout/requirements.txt` → `klayout-tools==0.6.0` / `klayout==0.30.12` |
 | Current record | `erc-reports/20260926-184830-e1176e3/` — `erc_status: clean`, 0 findings, grading `reports/20260926-184816-e1176e3/sar_adc_top.gds` (issue #465's via arrays; the second ERC record in this chain graded on **different geometry** rather than re-minted prose) |
 
 | Record | Graded GDS | Supply continuity | Item 11 as graded |
@@ -1609,19 +1610,30 @@ or the graded spec moved: a recursive field diff of any two adjacent records'
 This is a verdict **about** one `reports/<record-id>/` GDS, pinned to it by
 content hash; it regenerates no geometry, which is why it lives in its own
 `erc-reports/` tree rather than inside a `reports/` record (those are
-append-only). It runs from its own venv (`layout/.venv-erc`,
-`layout/erc-requirements.txt`) rather than the DRC/LVS flow's `layout/.venv`
-— the two pins are free to move independently, and the reason that separation
-was introduced was that `klayout-tools==0.5.0`'s `klt erc` emitted no
-`provenance` block and so could not pin a report to its input at all. Both
-files now pin 0.6.0; see `layout/erc-requirements.txt`'s own header.
+append-only). It runs from the same `layout/.venv` as the DRC/LVS flows
+(`layout/requirements.txt`, `klayout-tools==0.6.0`). It originally ran from a
+separate venv and `layout/erc-requirements.txt`, because the DRC/LVS pin was
+then `0.5.0`, whose `klt erc` emitted no `provenance` block and so could not
+pin a report to its input at all; once both pins named 0.6.0 that second pin
+was retired (issue #648). The older `erc-reports/` records still cite
+`layout/erc-requirements.txt` as their tool pin; they are append-only and
+were not edited.
 
-`erc.missing_tie` is deliberately **not computed** (no `ties[]` declared),
-disclosed in-report as `ties_disclosed_tool_limitation`: klayout-tools#2169
-turns a correct `ties[]` declaration on a routed standard-cell design into a
-false `erc.supply_short`. The well-tie evidence standing in for it — tap-cell
-instances, body/tub labels, and the LVS `net_correspondence` — is named in the
-record, along with where that stand-in is weaker than it looks.
+`erc.missing_tie` is computed for the **n-well half** since issue #677: two
+`ties[]` entries (`nwell_tap_vdd`, `nwell_tap_vpwr`, `tap.drawing 65/44` in
+`nwell.drawing 64/20`, up to `li1`) in `erc-supply-spec.json`, replacing the
+`ties_disclosed_tool_limitation` disclosure (klayout-tools#2169 is fixed in the
+pinned 0.6.0). Record `erc-reports/20261017-193237-9522693e/` is the first to carry them. The
+**p-substrate half is still not declared** — sky130 draws no substrate shape to
+name as the well side (klayout-tools#3750) — so a clean `erc.missing_tie` would
+still not say every NMOS body reaches `GND`/`VGND`. Earlier records keep their
+`tool_limitation` text; they are append-only.
+
+Since issue #684 two further `ties[]` entries (`nwell_tap_boost_p`,
+`nwell_tap_boost_n`) grade the two boosted-side wells against `BOOST_P` /
+`BOOST_N` (DR-024), selected by caller-named boxes because no drawn layer
+separates them; record `erc-reports/20261018-005757-5d07fe65/` is the first to
+carry them and lists the affected entries under `checked_by_well_assertion`.
 
 ## Composition mechanism actually used: `klt gen-compose` as a pure placer
 
@@ -2062,7 +2074,7 @@ black boxes at the top level instead of flattened devices — "reducing the
 top-level compare to pure interconnect/topology, where `combine_devices`
 has nothing left to disagree about." `--abstract-cells` (issue #620) was
 never tried against this composition before this pass; it already ships in
-the pinned `klayout-tools==0.5.0` (no version bump needed).
+`klayout-tools==0.5.0`, the pin at the time (no version bump needed; now 0.6.0).
 
 **Mechanism.** `klt extract --abstract-cells '<qualified-cell-name>'`
 (repeatable) treats every instance of a matched cell **type** as an opaque
@@ -2405,6 +2417,86 @@ right after, so the record's GDS is `571f036` + that commit's `build_layout.py`.
 
 Records `20261003-000530-629f2e6`, `-000742-5b86886` and `-000826-5b86886` are
 the retired pre-#401 composition and are kept unchanged as evidence.
+
+### Update (2026-10-14, issue #103): hierarchical extract does not clear the whole-netlist mismatch -- the mismatch is DR-012's substrate merge, not the combine scoping
+
+klayout-tools#2722 (`klt extract --hierarchical-cells`, per-cell `.SUBCKT`
+output so `options.combine_devices_per_circuit` can scope the layout side) was
+merged upstream as #3096 on 2026-10-11T07:32Z. **It is not in any release:**
+`klayout-tools==0.7.0` was published 2026-10-08T17:37Z, three days earlier, its
+`klt extract --help` has no such flag, and `v0.7.0...6bbed29` is 60 commits
+ahead. The PyPI pin in `layout/requirements.txt` therefore stays at 0.6.0 and no
+flow record was minted. The measurement below used a throwaway venv (outside the
+repo) built from klayout-tools `main` at `6bbed29`
+(`klt 0.7.1.dev380+g6bbed29ae978`, klayout 0.30.12).
+
+`bin/probe-hierarchical-lvs.sh` (new; reads a flow record, writes only a new
+append-only `probe-reports/<id>/`) ran four LVS compares on the composed GDS of
+record `20261003-041400-571f036` in one tool build
+(`probe-reports/20261014-054828-aa2a164/summary.txt`). "Hierarchical" = the six sub-block cells selected with
+`--hierarchical-cells`, the per-circuit settings the `run-flow.sh` step-7
+comment documents (comparator/sar_sequencer/top_glue `true`;
+cdac_array/sampling_frontend/halflsb_offset `false`), then flattened. "Flat" =
+`run-flow.sh` step 7's shape. "Diagnostic reference" = the real reference with
+the top-level `GND` net renamed `VGND` inside `.SUBCKT sar_adc_top` only -- the
+merge DR-012 records, nothing else. It is **not** a signoff reference.
+
+| | layout | reference | status | devices lay/ref/matched | nets lay/ref/matched | errors |
+|---|---|---|---|---|---|---|
+| A | hierarchical, per-circuit combine | real | `mismatch` | 2101/2101/2051 | 554/555/519 | 50 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+| B | hierarchical, per-circuit combine | diagnostic | **`match`** | 2101/2101/2101 | 554/555/555 | 0 |
+| C | flat, `combine_devices` | diagnostic | **`match`** | 1095/1095/1095 | 554/555/555 | 0 |
+| D | flat, `combine_devices` | real | `mismatch` | 1095/1095/1046 | 554/555/519 | 49 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+
+D reproduces the `20261003-041400-571f036` record's own verdict (66 errors, same
+counts) on the newer build. What the table supports, and no more:
+
+- Hierarchical extraction **works as a mechanism** here: the per-circuit compare
+  runs and reproduces D's matched population (`top_glue` and `sar_sequencer`
+  contribute no unmatched device in either A or D; A's unmatched devices are in
+  `sampling_frontend`, `cdac_array`, `comparator`, `halflsb_offset` and the
+  decaps, as D's are).
+- It **does not change the verdict**: A and D carry the same 9 `net.merged` and
+  8 `net.split`, and A has one more `device.unmatched` than D (50 vs 49). The
+  extra entry is the second analog decap (`DECAP_A1`): D's whole-request combine
+  folds the two analog decaps into one device, while A's per-circuit mode leaves
+  the top-level circuit uncombined.
+- The mismatch is **not** attributable to combine scoping (the premise of
+  klayout-tools#1878/#2722 as this README recorded it): C and B, both against a
+  reference that differs from the real one only by that one renamed net, reach
+  `match` with **0 error-severity entries** -- flat and hierarchical alike, so
+  hierarchical extraction is not needed for the match either.
+- What the table does **not** show: that the design is LVS clean against
+  `design/sar_adc_top.spice`. B and C compare against a modified reference. The
+  real reference keeps `GND` and `VGND` as distinct ports, per the schematic and
+  DR-012; the layout cannot (shared p-substrate). Whether a compare modulo that
+  declared merge satisfies the acceptance criterion (for example via `klt lvs`'s
+  documented `hints`) is a spec-level decision for the operator, so **no
+  acceptance box is ticked** and the pin is not bumped.
+
+### Update (2026-10-14, issue #103): the hierarchical-extract probe re-run on the host `klt` build -- field-identical
+
+The host `klt` (`klt 0.7.1.dev428+gc68a2198cafc`, newer than the `6bbed29` build
+the previous update measured) now lists `klt extract --hierarchical-cells`.
+`bin/probe-hierarchical-lvs.sh` re-run unchanged on the same GDS (record
+`20261003-041400-571f036`) wrote
+`probe-reports/20261014-212619-4e58071/`. Result, same four measurements:
+
+| | status | devices lay/ref/matched | nets lay/ref/matched | errors |
+|---|---|---|---|---|
+| A hier / real ref | `mismatch` | 2101/2101/2051 | 554/555/519 | 50 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+| B hier / diagnostic ref | `match` | 2101/2101/2101 | 554/555/555 | 0 |
+| C flat / diagnostic ref | `match` | 1095/1095/1095 | 554/555/555 | 0 |
+| D flat / real ref | `mismatch` | 1095/1095/1046 | 554/555/519 | 49 `device.unmatched`, 9 `net.merged`, 8 `net.split` |
+
+Every count equals the `20261014-054828-aa2a164` probe's. The conclusion
+stands unchanged: the only difference between match and mismatch is the
+`GND`/`VGND` merge DR-012 records (diagnostic reference, not a signoff
+reference). **No acceptance box is ticked and the pin stays at 0.6.0.** The
+remaining step is an operator/spec-level decision on whether LVS modulo that
+declared merge satisfies "LVS clean against `design/sar_adc_top.spice`"; no
+agent may relax that criterion or the reference. No new klt gap was found, so
+nothing was filed at klayout-tools.
 
 ## Remaining work (tracked against #103)
 

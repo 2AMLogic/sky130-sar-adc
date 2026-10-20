@@ -53,6 +53,8 @@ LAYOUT_DIR="$(cd "$SF_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 TOP=gen_compose_0
 DELIVERABLE=sampling_frontend.gds
 

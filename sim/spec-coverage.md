@@ -15,7 +15,7 @@ One-time machine bootstrap: `docs/environment-setup.md` sections 1-3. Then, from
 
 ```sh
 # One-time machine bootstrap: docs/environment-setup.md sections 1-3
-#   (xschem + ngspice + volare install, `volare enable` of the pinned
+#   (xschem + ngspice + ciel install, `ciel enable` of the pinned
 #    open_pdks commit, PDK_ROOT/PDK convention).
 source sim/env.sh
 python3 sim/run_corners.py --check-env   # exit 3 = tools/PDK missing, 1 = pin drifted
@@ -29,15 +29,15 @@ followed by the per-bench command in the table below. Each of those commands is 
 |---|---|---|---|---|
 | Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-135431-7487784.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
 | Resolution `N` | RATIFIED | benched (ratified, graded pass/fail) | `sim/sar-sequencer-behavioral` | `20260827-211956-e13bc1e.md` |
-| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261001-105439-c324f80.md` |
-| ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate` | `20260828-005033-0c70212.md` |
+| Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261011-112119-188e94c.md`<br>`20261001-105439-c324f80.md`<br>`20261011-064547-a6dcdd7.md` |
+| ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20260828-005033-0c70212.md`<br>`20261011-110009-320dbc6.md`<br>`20261010-070734-f968286.md`<br>`20261010-204225-57a55c1.md`<br>`20261011-021527-8d0c19a.md`<br>`20261011-022915-877794b.md`<br>`20261011-023419-877794b.md`<br>`20261011-064924-ad4bfff.md`<br>`20261011-064408-ad4bfff.md` |
 | INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20261001-124049-5207381.md` |
 | `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
-| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity` | `20261001-105439-c324f80.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md` |
+| Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/digital-partition` | `20261011-112119-188e94c.md`<br>`20261001-105439-c324f80.md`<br>`20261011-064547-a6dcdd7.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md`<br>`20261010-132019-f757b0e.md` |
 | Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20261001-120402-d24f700.md`<br>`20260827-212404-e13bc1e.md` |
 
 ## Per-row detail
@@ -136,13 +136,29 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Documented in: `sim/vcm-drive-budget/run_vcm_drive_budget.py`
 - Evidence: `sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`
 
-**`sim/full-conversion-transient`** — The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record's own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB, though the 12-period phase structure is correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate.
+**`sim/full-conversion-transient`** — The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record is the DR-023 reference re-mint (issue #638): solver profile reltol-gear (`.options reltol=1e-4 method=gear`), pinned ngspice-47 and PDK, run off-host on CI, superseding the pre-DR-023 record below. Its own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB; 12-period phase structure correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate. Against the superseded ngspice-default record no per-input or per-corner verdict moves (same three mid-scale passes, same two near-full-scale failures, same binding corner tt_27c_1.62v at 124 LSB). Five captured codes move by 1 LSB and are solver-sensitive observations of the old policy: -0.78*V_REF at ff_27c_1.80v (205 -> 204) and sf_27c_1.80v (201 -> 200); +0.00*V_REF 512 -> 511 at sf_27c_1.80v, tt_-40c_1.80v and tt_125c_1.80v.
 
 - Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
 - Runner: `sim/full-conversion-transient/run_conversion.py`
-- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-112119-188e94c.md`
+
+**`sim/full-conversion-transient`** — HISTORICAL, SUPERSEDED (issue #638): the pre-DR-023 run of the reference campaign below, on ngspice's default solver settings (reltol=1e-3, trapezoidal). Its own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB; 12-period phase structure correct at 5/5 conversions everywhere), and it declines to substantiate this DRAFT row. Superseded by 20261011-112119-188e94c. The cold start names `--solver-profile ngspice-default`, the settings the record ran on: since DR-023 that re-run is a labelled SOLVER CONTROL that reproduces the record but never moves records/LATEST and may not --supersedes.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default`
 - Documented in: `sim/full-conversion-transient/README.md`
 - Evidence: `sim/full-conversion-transient/records/20261001-105439-c324f80.md`
+
+**`sim/full-conversion-transient`** — SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md`
 
 ### ENOB
 
@@ -157,6 +173,49 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/enob-estimate/run_enob.py --cdac-mc-record 20260828-005006-0c70212 --record`
 - Documented in: `sim/enob-estimate/run_enob.py`
 - Evidence: `sim/enob-estimate/records/20260828-005033-0c70212.md`
+
+**`sim/full-conversion-transient`** — REFERENCE coherent-sine capture under the DR-023 solver policy reltol-gear (issue #638): whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, pinned ngspice-47 + pinned PDK, run off-host on CI, superseding the ngspice-default record 20261011-022915-877794b. VALIDITY clean (32/32 phase structure, 0 missing measurements, peak bin = drive bin, 0/32 codes at a rail); per-code outlier diagnostic: 0 outliers above 8 LSB, max |error| 2 LSB. Unmodified-stream SNDR 52.00 dB, ENOB 8.345 bit, SFDR 54.98 dB (ideal quantizer on the same N=32 plan: 50.89 dB / 8.161 bit; the excess is short-record estimator variance). The stream matches the #621 solver-control record 20261011-023419-877794b code for code and differs from 20261011-022915-877794b only at conversion 9 (521 vs 960, ideal 522), so the +438 LSB outlier does not appear under the reference policy. INFORMATIONAL only: one corner, N=32, no noise sources, -12 dBFS; it does not grade the DRAFT ENOB row and no target changes.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --solver-profile reltol-gear`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-110009-320dbc6.md`
+
+**`sim/full-conversion-transient`** — HISTORICAL (pre-DR-023, ngspice-default; superseded for reporting by the reference capture 20261011-110009-320dbc6 above, issue #638). First dynamic (coherent-sine FFT) SNDR/ENOB on the whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, on the pinned ngspice-47 + pinned PDK (issue #605). INFORMATIONAL only: the VALIDITY gate is clean (32/32 phase structure, no missing measurements, peak bin = drive bin) and 31 of 32 captured codes are within +/-2 LSB of ideal, but one conversion (conversion 9, near the zero crossing) returned 960 against an ideal 522 (+438 LSB) and dominates the reported SNDR 2.17 dB (ENOB 0.068 bit; ideal quantizer on the same plan 50.89 dB). Those headline figures are a single-outlier artifact, not a clean converter measurement; the outlier is tracked in issue #621 (the runner now reports a per-code outlier diagnostic for new records; the re-run `20261010-204225-57a55c1.md` (same capture, bit-identical codes, ngspice-46 at the pin floor) supersedes this record for reporting and adds a read-only conversion-9 trace: conversion 9's comparator-input top plate TOP_P makes the normal bit-4 staircase step (phase-5 mid-evaluate 0.860 V, +0.057 V where ~+0.056 V is expected), then drops by ~1.37 V to -0.505 V later in the same phase, before the pre-capture instant, and stays below ground for the rest of the conversion; the mechanism behind that drop was not identified by that trace). Root cause (issue #621): the read-only --sine-switch-trace re-runs `20261011-021527-8d0c19a.md` and `20261011-022915-877794b.md` (ngspice-47, default solver settings, bit-identical stream; each supersedes the previous) OBSERVE the already-rejected registers DOUT8/7/6 and DOUT2 switching 0->1 together, with no CLK rising edge, ~2.6 ns after phase 5's CLK falling edge during the comparator's regeneration; their P bottom plates then pull TOP_P below ground. The SOLVER-CONTROL record `20261011-023419-877794b.md` (same DUT/stimulus/toolchain, only `.options reltol=1e-4 method=gear`) shows no such transition, conversion 9 = 521 vs ideal 522, 0 outliers, SNDR 52.00 dB / ENOB 8.345 bit (ideal quantizer 50.89 dB on this N=32 plan); the INFERRED root cause is a numerical artefact of the default ngspice settings, not a converter decision. The control is a control, not replacement evidence. It grades nothing and no target value changes. All four records cited here ran on ngspice's default solver settings, before DR-023 made `.options reltol=1e-4 method=gear` the reference policy for this experiment; the cold start therefore names `--solver-profile ngspice-default`, which reproduces their settings as a labelled SOLVER CONTROL (it never moves records/LATEST and may not --supersedes). The same flags without the profile now run the DR-023 reference policy and would not reproduce the +438 LSB outlier.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10 --sine-switch-trace 9 --solver-profile ngspice-default`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261010-070734-f968286.md`
+- Evidence: `sim/full-conversion-transient/records/20261010-204225-57a55c1.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-021527-8d0c19a.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-022915-877794b.md`
+
+**`sim/full-conversion-transient`** — SOLVER CONTROL for the coherent-sine capture above (issue #621): the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4 method=gear` added. Conversion 9 converts to 521 (ideal 522), no transition is unscheduled, TOP_P stays inside the rails, 0 outliers above the 8 LSB bound; SNDR 52.00 dB / ENOB 8.345 bit against the ideal quantizer's 50.89 dB / 8.161 bit on the same N=32 plan (the excess is short-record estimator variance). A CONTROL, not replacement evidence: it supports the inference that the default-settings +438 LSB outlier is a numerical artefact. One corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes. Since DR-023 (issue #637) these settings are this experiment's reference solver policy; the record itself predates that and is labelled a control. Its cold start (`--sine-solver-control`, which now means `--solver-profile reltol-gear`) reproduces the record's settings, but a re-run today is a reference-policy run, not a control.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --sine-solver-control`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-023419-877794b.md`
+
+**`sim/full-conversion-transient`** — SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 522 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile reltol-only`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-064924-ad4bfff.md`
+
+**`sim/full-conversion-transient`** — SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options method=gear` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 217 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile gear-only`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-064408-ad4bfff.md`
 
 ### INL / DNL
 
@@ -251,13 +310,29 @@ followed by the per-bench command in the table below. Each of those commands is 
 - **Note**: DRAFT row, target text 'provisional, minimise at rate' with the note 'report, don't pre-commit'. There is still no threshold to grade against, so nothing here is a pass/fail claim -- but 'report' is exactly what the bench below now does: issue #254's end-to-end campaign carries the first supply- and reference-current measurement of any kind on this block (per-rail `.meas tran avg i(...)` over a whole steady-state conversion, at every point of the ratified corner set). It is indexed here, informationally, rather than left orphaned. This row was claim_class 'unbenched' until issue #274; the stated reason (no bench exists, and a number with no ratified line to grade it against would be one CLAUDE.md forbids inventing) is why the class is 'draft-informational' rather than 'ratified-measured', and why no power target is proposed anywhere in this index or in the record. If a future decision record ratifies a power row, this index's ratified-row rule then requires a bench graded against it.
 - **Tracking**: future power decision record (none open); docs/chipalooza/challenge-4-proposal.md Section 4's Power row carries the current reported figures
 
-**`sim/full-conversion-transient`** — Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target.
+**`sim/full-conversion-transient`** — Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above, re-minted under the DR-023 reference solver policy reltol-gear (issue #638): min 21.389 uW at tt_27c_1.62v, typ 27.197 uW at tt_27c_1.80v, max 34.136 uW at tt_27c_1.98v. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target.
 
 - Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
 - Runner: `sim/full-conversion-transient/run_conversion.py`
-- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-112119-188e94c.md`
+
+**`sim/full-conversion-transient`** — HISTORICAL, SUPERSEDED (issue #638): the per-rail current and power of the pre-DR-023 campaign, on ngspice's default solver settings. Superseded by 20261011-112119-188e94c, whose figures are 0.3-6.4 % lower per corner (largest at sf_27c_1.80v, tt_-40c_1.80v and tt_125c_1.80v, mostly I(VPWR)). That comparison crosses ngspice-46 -> ngspice-47 as well as ngspice-default -> reltol-gear; the version step alone is measured only at tt_27c_1.80v, where audit 20261011-064547-a6dcdd7 found it null, so the 0.3-6.4 % is a combined solver-plus-version shift, not a measured integration-setting uncertainty. The cold start names `--solver-profile ngspice-default` so it reproduces the record's settings; that re-run is a labelled SOLVER CONTROL that never moves records/LATEST and may not --supersedes.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default`
 - Documented in: `sim/full-conversion-transient/README.md`
 - Evidence: `sim/full-conversion-transient/records/20261001-105439-c324f80.md`
+
+**`sim/full-conversion-transient`** — SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.
+
+- Testbench: `design/sar_adc_top.spice`, `sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`
+- Runner: `sim/full-conversion-transient/run_conversion.py`
+- Cold start: `python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record`
+- Documented in: `sim/full-conversion-transient/README.md`
+- Evidence: `sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md`
 
 **`sim/supply-impedance-sensitivity`** — Same per-rail average current/power as the bench above, but with DR-015's package-style R+L (or a lumped substrate stand-in) driving the four supply terminals instead of ideal sources at the die -- DR-012's own open item, issue #378, 'the impedance argument is unmeasured'. Baseline corner only (see the record's own Subset-corner justification); reported informationally, same as the row above, and no power target is proposed here either.
 
@@ -306,6 +381,15 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record`
 - Documented in: `sim/supply-impedance-sensitivity/README.md`
 - Evidence: `sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md`
+
+**`sim/digital-partition`** — Digital-rail power (idle/reset and active) and energy per conversion at the provisional 12 MHz operating point across the ratified corner set, with the digital partition's clock-frequency bracket and routed area (issue #619). The digital rail only, schematic level; reported informationally against this DRAFT row, and not an ADC power figure.
+
+- Testbench: `design/sar_adc_top.spice`
+- Deck note: No committed deck of its own: digital_char.build_netlist() assembles the deck from design/sar_adc_top.spice's sar_sequencer subcircuit and its 33 top-level sky130_fd_sc_hd glue instances; every probe's deck, request and report is committed under sim/digital-partition/corners/<record>/.
+- Runner: `sim/digital-partition/run_digital_partition.py`
+- Cold start: `python3 sim/digital-partition/run_digital_partition.py --record`
+- Documented in: `sim/digital-partition/run_digital_partition.py`
+- Evidence: `sim/digital-partition/records/20261010-132019-f757b0e.md`
 
 ### Corners
 

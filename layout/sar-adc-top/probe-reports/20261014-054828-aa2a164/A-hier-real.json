@@ -1,0 +1,3906 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "hier.extract.lvs.spice",
+  "reference": "sar_adc_top.lvs-reference.spice",
+  "top": "GEN_COMPOSE_0",
+  "reference_top": "SAR_ADC_TOP",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": {
+      "COMPARATOR*": true,
+      "SAR_SEQUENCER*": true,
+      "TOP_GLUE*": true,
+      "CDAC_ARRAY*": false,
+      "SAMPLING_FRONTEND*": false,
+      "HALFLSB_OFFSET*": false
+    },
+    "combine_devices_max_attempts": 5,
+    "flatten_layout": true,
+    "flatten_reference": true,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "anchor_top_level_pins": null,
+    "strict_top_level_pin_count": false,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ],
+    "finfet_bulk": null
+  },
+  "hints_applied": null,
+  "status": "mismatch",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unchecked",
+    "reason": "no request.layout.deck was given (the pre-extracted request.layout.netlist form), so nothing establishes this layout's substrate/well-tap convention and no synthesized body net can be told apart from a real one -- this run verified nothing about the device bodies either way",
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
+  },
+  "device_parameter_coverage": [
+    {
+      "class": "SKY130_FD_PR__MODEL__CAP_MIM",
+      "device_kind": "capacitor",
+      "layout_devices": 1034,
+      "reference_devices": 1034,
+      "compared": [
+        "C"
+      ],
+      "not_compared": [
+        {
+          "parameter": "A",
+          "reason": "secondary"
+        },
+        {
+          "parameter": "P",
+          "reason": "secondary"
+        }
+      ]
+    }
+  ],
+  "mismatch_count": 70,
+  "error_count": 67,
+  "category_counts": {
+    "device.geometry_not_compared": 1,
+    "device.unmatched": 50,
+    "net.merged": 9,
+    "net.split": 8,
+    "topology.flattened": 2
+  },
+  "category_error_counts": {
+    "device.unmatched": 50,
+    "net.merged": 9,
+    "net.split": 8
+  },
+  "counts": {
+    "nets": {
+      "layout": 554,
+      "reference": 555,
+      "matched": 519
+    },
+    "devices": {
+      "layout": 2101,
+      "reference": 2101,
+      "matched": 2051
+    },
+    "pins": {
+      "layout": 21,
+      "reference": 22,
+      "matched": 22
+    }
+  },
+  "device_classes": null,
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "netgen_binary": null,
+    "layout_sha256": "b84343be9e1130e330b4c9e14c5550bbb79bc0cc6b97c5ddb908e6d961572c93",
+    "reference_sha256": "6cb0377eb6b2a1c28b919228ca005a8deb18f8bf558a962afe87b2ca3cda4f01",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.7.1.dev380+g6bbed29ae978",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:b84343be9e1130e330b4c9e14c5550bbb79bc0cc6b97c5ddb908e6d961572c93",
+      "role": "netlist"
+    },
+    "klayout_version_mismatch": false
+  },
+  "mismatches": [
+    {
+      "category": "device.geometry_not_compared",
+      "severity": "warning",
+      "description": "device class 'SKY130_FD_PR__MODEL__CAP_MIM' is a capacitor class, whose ['A', 'P'] parameter(s) KLayout declares *secondary*: kdb.NetlistComparer compares primary parameters only, so none of them took part in this compare and each is NOT verified -- this capacitor's geometry could differ between the two sides by any amount and this run would still report 'match'. The compared parameter(s) were ['C']. Name them in options.compare_parameters to compare them (see docs/cli/lvs.md, 'device.geometry_not_compared')",
+      "side": "both",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": {
+        "device_kind": "capacitor",
+        "compared_parameters": [
+          "C"
+        ],
+        "not_compared_parameters": [
+          "A",
+          "P"
+        ],
+        "layout_devices": 1034,
+        "reference_devices": 1034
+      },
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$1",
+        "reference": "CDAC_P0N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$10",
+        "reference": "CDAC_N0N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$11",
+        "reference": "CDAC_N1N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$12",
+        "reference": "CDAC_N2N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$13",
+        "reference": "CDAC_N3N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$14",
+        "reference": "CDAC_N4N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$15",
+        "reference": "CDAC_N5N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$16",
+        "reference": "CDAC_N6N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$17",
+        "reference": "CDAC_N7N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$18",
+        "reference": "CDAC_N8N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$2",
+        "reference": "CDAC_P1N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$3",
+        "reference": "FE__SCN_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$4",
+        "reference": "CDAC_P3N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$5",
+        "reference": "CDAC_P4N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$6",
+        "reference": "CDAC_P5N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$7",
+        "reference": "CDAC_P6N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$8",
+        "reference": "CDAC_P7N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$9",
+        "reference": "CDAC_P8N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "COMPARATOR__GEN_COMPOSE_0_1_$1",
+        "reference": "CMP__TAIL",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "COMPARATOR__GEN_COMPOSE_0_1_$2",
+        "reference": "CMP__INN",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "COMPARATOR__GEN_COMPOSE_0_1_$3",
+        "reference": "CMP__INP",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "COMPARATOR__GEN_COMPOSE_0_1_$6",
+        "reference": "CMP__LATN_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "COMPARATOR__GEN_COMPOSE_0_1_$7",
+        "reference": "CMP__LATN_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "HALFLSB_OFFSET__GEN_COMPOSE_0_1_$1",
+        "reference": "HALFLSB__MOFF_N_CMN",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "HALFLSB_OFFSET__GEN_COMPOSE_0_1_$2",
+        "reference": "HALFLSB__MOFF_P_CMN",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$1",
+        "reference": "FE__MSW_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$10",
+        "reference": "FE__SB_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$11",
+        "reference": "FE__INVN",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$12",
+        "reference": "FE__SA_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$13",
+        "reference": "FE__SE_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$14",
+        "reference": "FE__SCP_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$15",
+        "reference": "FE__CMSWP_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$17",
+        "reference": "FE__CMSWP_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$18",
+        "reference": "FE__SCP_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$19",
+        "reference": "FE__SE_P",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$2",
+        "reference": "FE__MSW_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$20",
+        "reference": "FE__SA_N",
+        "class": "PFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$21",
+        "reference": "FE__CBOOT_N",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$22",
+        "reference": "FE__CBOOT_P",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$23",
+        "reference": "FE__CSAMP_P",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$24",
+        "reference": "FE__CSAMP_N",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$3",
+        "reference": "FE__SCN_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$4",
+        "reference": "FE__SB_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$5",
+        "reference": "FE__SD_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$6",
+        "reference": "FE__CMSWN_N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$7",
+        "reference": "FE__CMSWN_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$8",
+        "reference": "FE__SD_P",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$9",
+        "reference": "CDAC_P2N",
+        "class": "NFET"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$2120",
+        "reference": "DECAP_A0",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$2121",
+        "reference": "DECAP_A1",
+        "class": "SKY130_FD_PR__MODEL__CAP_MIM"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BOOST_N_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BOOST_P_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BPREF_N_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "BPREF_P_NC"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE_BSBOT_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE_BSBOT_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE_G_N"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "FE_G_P"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.merged",
+      "severity": "error",
+      "description": "multiple reference nets were collapsed into one layout net",
+      "side": "reference",
+      "net": {
+        "layout": null,
+        "reference": "GND"
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$0",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$0$1",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$0$3",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$0$4",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_BOOST_N",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_BOOST_P",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_BPREF_N",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.split",
+      "severity": "error",
+      "description": "a reference net's role is divided across multiple layout nets",
+      "side": "layout",
+      "net": {
+        "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_BPREF_P",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology.flattened",
+      "severity": "warning",
+      "description": "options.flatten_layout flattened the layout netlist before comparing: 7 circuit(s) were collapsed into 1 top-level circuit(s), substituting every subcircuit-call instance in place -- this compare verified topology only after removing the original hierarchy boundaries on this side (see docs/cli/lvs.md, \"topology.flattened\")",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology.flattened",
+      "severity": "warning",
+      "description": "options.flatten_reference flattened the reference netlist before comparing: 7 circuit(s) were collapsed into 1 top-level circuit(s), substituting every subcircuit-call instance in place -- this compare verified topology only after removing the original hierarchy boundaries on this side (see docs/cli/lvs.md, \"topology.flattened\")",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT0\u0007CX",
+      "reference": "ADCOUT0",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT1\u0007CX",
+      "reference": "ADCOUT1",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT2\u0007CX",
+      "reference": "ADCOUT2",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT3\u0007CX",
+      "reference": "ADCOUT3",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT4\u0007CX",
+      "reference": "ADCOUT4",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT5\u0007CX",
+      "reference": "ADCOUT5",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT6\u0007CX",
+      "reference": "ADCOUT6",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT7\u0007CX",
+      "reference": "ADCOUT7",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_ADCOUT8\u0007CX",
+      "reference": "ADCOUT8",
+      "pin": false
+    },
+    {
+      "layout": "HALFLSB_OFFSET__GEN_COMPOSE_0_1_BOT_OFF_N",
+      "reference": "BOT_OFF_N",
+      "pin": false
+    },
+    {
+      "layout": "A|B|BUSY|X",
+      "reference": "BUSY",
+      "pin": true
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$9",
+      "reference": "CDAC_BOT_N0",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$10",
+      "reference": "CDAC_BOT_N1",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$11",
+      "reference": "CDAC_BOT_N2",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$12",
+      "reference": "CDAC_BOT_N3",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$13",
+      "reference": "CDAC_BOT_N4",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$14",
+      "reference": "CDAC_BOT_N5",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$15",
+      "reference": "CDAC_BOT_N6",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$16",
+      "reference": "CDAC_BOT_N7",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$17",
+      "reference": "CDAC_BOT_N8",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0",
+      "reference": "CDAC_BOT_P0",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$1",
+      "reference": "CDAC_BOT_P1",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$2",
+      "reference": "CDAC_BOT_P2",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$3",
+      "reference": "CDAC_BOT_P3",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$4",
+      "reference": "CDAC_BOT_P4",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$5",
+      "reference": "CDAC_BOT_P5",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$6",
+      "reference": "CDAC_BOT_P6",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$7",
+      "reference": "CDAC_BOT_P7",
+      "pin": false
+    },
+    {
+      "layout": "CDAC_ARRAY__CDAC_ARRAY_1_$0$8",
+      "reference": "CDAC_BOT_P8",
+      "pin": false
+    },
+    {
+      "layout": "A|CLK",
+      "reference": "CLK",
+      "pin": true
+    },
+    {
+      "layout": "COMPARATOR__GEN_COMPOSE_0_1_$0$2",
+      "reference": "CMP_DIN",
+      "pin": false
+    },
+    {
+      "layout": "COMPARATOR__GEN_COMPOSE_0_1_$0$1",
+      "reference": "CMP_DIP",
+      "pin": false
+    },
+    {
+      "layout": "COMPARATOR__GEN_COMPOSE_0_1_$0",
+      "reference": "CMP_TAIL",
+      "pin": false
+    },
+    {
+      "layout": "A|A0|B|DOUT0|Q",
+      "reference": "DOUT0",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT1|Q",
+      "reference": "DOUT1",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT2|Q",
+      "reference": "DOUT2",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT3|Q",
+      "reference": "DOUT3",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT4|Q",
+      "reference": "DOUT4",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT5|Q",
+      "reference": "DOUT5",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT6|Q",
+      "reference": "DOUT6",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT7|Q",
+      "reference": "DOUT7",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT8|Q",
+      "reference": "DOUT8",
+      "pin": true
+    },
+    {
+      "layout": "A|A0|B|DOUT9|Q",
+      "reference": "DOUT9",
+      "pin": true
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_DUMLOAD_MUX_NC\u0007CX",
+      "reference": "DUMLOAD_MUX_NC",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_DUMLOAD_XNOR_NC\u0007CY",
+      "reference": "DUMLOAD_XNOR_NC",
+      "pin": false
+    },
+    {
+      "layout": "SAMPLING_FRONTEND__GEN_COMPOSE_0_1_$0$2",
+      "reference": "FE_SAMPLEB",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_B\u0007CY",
+      "reference": "GLUE_DOUT9N",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$26",
+      "reference": "GLUE_XAND_HALFLSB_A",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$29",
+      "reference": "GLUE_XAND_HALFLSB_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$28",
+      "reference": "GLUE_XAND_HALFLSB_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$55",
+      "reference": "GLUE_XAND_SELN0_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$54",
+      "reference": "GLUE_XAND_SELN0_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$47",
+      "reference": "GLUE_XAND_SELN1_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$46",
+      "reference": "GLUE_XAND_SELN1_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$37",
+      "reference": "GLUE_XAND_SELN2_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$36",
+      "reference": "GLUE_XAND_SELN2_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$19",
+      "reference": "GLUE_XAND_SELN3_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$18",
+      "reference": "GLUE_XAND_SELN3_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$59",
+      "reference": "GLUE_XAND_SELN4_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$58",
+      "reference": "GLUE_XAND_SELN4_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$57",
+      "reference": "GLUE_XAND_SELN5_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$56",
+      "reference": "GLUE_XAND_SELN5_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$63",
+      "reference": "GLUE_XAND_SELN6_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$62",
+      "reference": "GLUE_XAND_SELN6_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$21",
+      "reference": "GLUE_XAND_SELN7_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$20",
+      "reference": "GLUE_XAND_SELN7_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$7",
+      "reference": "GLUE_XAND_SELN8_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$6",
+      "reference": "GLUE_XAND_SELN8_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$12",
+      "reference": "GLUE_XAND_SELP0_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$11",
+      "reference": "GLUE_XAND_SELP0_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$33",
+      "reference": "GLUE_XAND_SELP1_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$32",
+      "reference": "GLUE_XAND_SELP1_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$15",
+      "reference": "GLUE_XAND_SELP2_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$14",
+      "reference": "GLUE_XAND_SELP2_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$53",
+      "reference": "GLUE_XAND_SELP3_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$52",
+      "reference": "GLUE_XAND_SELP3_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$61",
+      "reference": "GLUE_XAND_SELP4_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$60",
+      "reference": "GLUE_XAND_SELP4_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$51",
+      "reference": "GLUE_XAND_SELP5_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$50",
+      "reference": "GLUE_XAND_SELP5_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$17",
+      "reference": "GLUE_XAND_SELP6_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$16",
+      "reference": "GLUE_XAND_SELP6_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$45",
+      "reference": "GLUE_XAND_SELP7_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$44",
+      "reference": "GLUE_XAND_SELP7_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$49",
+      "reference": "GLUE_XAND_SELP8_SNDA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$48",
+      "reference": "GLUE_XAND_SELP8_Y",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$31",
+      "reference": "GLUE_XDUM_MUX_N_SB",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$30",
+      "reference": "GLUE_XDUM_MUX_N_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$27",
+      "reference": "GLUE_XDUM_MUX_N_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$75",
+      "reference": "GLUE_XDUM_MUX_N_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$76",
+      "reference": "GLUE_XDUM_MUX_N_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$25",
+      "reference": "GLUE_XDUM_MUX_N_XB",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$22",
+      "reference": "GLUE_XDUM_XNOR_N_INAND",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$24",
+      "reference": "GLUE_XDUM_XNOR_N_NMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$23",
+      "reference": "GLUE_XDUM_XNOR_N_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$74",
+      "reference": "GLUE_XDUM_XNOR_N_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0",
+      "reference": "GLUE_XXOR_CODE0_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$65",
+      "reference": "GLUE_XXOR_CODE0_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$1",
+      "reference": "GLUE_XXOR_CODE0_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$64",
+      "reference": "GLUE_XXOR_CODE0_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$34",
+      "reference": "GLUE_XXOR_CODE1_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$78",
+      "reference": "GLUE_XXOR_CODE1_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$35",
+      "reference": "GLUE_XXOR_CODE1_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$77",
+      "reference": "GLUE_XXOR_CODE1_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$2",
+      "reference": "GLUE_XXOR_CODE2_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$67",
+      "reference": "GLUE_XXOR_CODE2_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$3",
+      "reference": "GLUE_XXOR_CODE2_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$66",
+      "reference": "GLUE_XXOR_CODE2_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$8",
+      "reference": "GLUE_XXOR_CODE3_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$71",
+      "reference": "GLUE_XXOR_CODE3_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$9",
+      "reference": "GLUE_XXOR_CODE3_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$70",
+      "reference": "GLUE_XXOR_CODE3_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$38",
+      "reference": "GLUE_XXOR_CODE4_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$80",
+      "reference": "GLUE_XXOR_CODE4_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$39",
+      "reference": "GLUE_XXOR_CODE4_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$79",
+      "reference": "GLUE_XXOR_CODE4_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$40",
+      "reference": "GLUE_XXOR_CODE5_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$82",
+      "reference": "GLUE_XXOR_CODE5_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$41",
+      "reference": "GLUE_XXOR_CODE5_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$81",
+      "reference": "GLUE_XXOR_CODE5_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$42",
+      "reference": "GLUE_XXOR_CODE6_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$84",
+      "reference": "GLUE_XXOR_CODE6_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$43",
+      "reference": "GLUE_XXOR_CODE6_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$83",
+      "reference": "GLUE_XXOR_CODE6_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$10",
+      "reference": "GLUE_XXOR_CODE7_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$73",
+      "reference": "GLUE_XXOR_CODE7_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$13",
+      "reference": "GLUE_XXOR_CODE7_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$72",
+      "reference": "GLUE_XXOR_CODE7_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$4",
+      "reference": "GLUE_XXOR_CODE8_INOR",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$69",
+      "reference": "GLUE_XXOR_CODE8_PMID",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$5",
+      "reference": "GLUE_XXOR_CODE8_SNDNA",
+      "pin": false
+    },
+    {
+      "layout": "TOP_GLUE__TOP_GLUE_1_$0$68",
+      "reference": "GLUE_XXOR_CODE8_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "HALF_LSB_ENN|Y",
+      "reference": "HALF_LSB_ENN",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_B\u0007CD\u0007CPH_B8\u0007CQ\u0007CS",
+      "reference": "NET1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_C\u0007CPH_EOC\u0007CQ",
+      "reference": "NET10",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_C\u0007CD\u0007CPH_B7\u0007CQ\u0007CS",
+      "reference": "NET2",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CPH_B6\u0007CQ\u0007CS",
+      "reference": "NET3",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_A\u0007CD\u0007CPH_B5\u0007CQ\u0007CS",
+      "reference": "NET4",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_B\u0007CD\u0007CPH_B4\u0007CQ\u0007CS",
+      "reference": "NET5",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_C\u0007CD\u0007CPH_B3\u0007CQ\u0007CS",
+      "reference": "NET6",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CPH_B2\u0007CQ\u0007CS",
+      "reference": "NET7",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_A\u0007CD\u0007CPH_B1\u0007CQ\u0007CS",
+      "reference": "NET8",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_B\u0007CD\u0007CPH_B0\u0007CQ\u0007CS",
+      "reference": "NET9",
+      "pin": false
+    },
+    {
+      "layout": "A|A_N|D|PH_B9|Q|S",
+      "reference": "PH_B9",
+      "pin": false
+    },
+    {
+      "layout": "RESET_B|RST_B",
+      "reference": "RST_B",
+      "pin": true
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$112",
+      "reference": "SEQ_CLKBUF_0_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$132",
+      "reference": "SEQ_CLKBUF_1_0__F_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$102",
+      "reference": "SEQ_CLKBUF_1_1__F_CLK_AB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_Y",
+      "reference": "SEQ_CLKLOAD0_Y",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_A\u0007CX",
+      "reference": "SEQ_CLKNET_0_CLK",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_A\u0007CCLK\u0007CX",
+      "reference": "SEQ_CLKNET_1_0__LEAF_CLK",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_CLK\u0007CX",
+      "reference": "SEQ_CLKNET_1_1__LEAF_CLK",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_9",
+      "reference": "SEQ_MUXOUT0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_6",
+      "reference": "SEQ_MUXOUT1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_4",
+      "reference": "SEQ_MUXOUT2",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_2",
+      "reference": "SEQ_MUXOUT3",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_3",
+      "reference": "SEQ_MUXOUT4",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX",
+      "reference": "SEQ_MUXOUT5",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_5",
+      "reference": "SEQ_MUXOUT6",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_7",
+      "reference": "SEQ_MUXOUT7",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_10",
+      "reference": "SEQ_MUXOUT8",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_D\u0007CX_8",
+      "reference": "SEQ_MUXOUT9",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_A\u0007CX_2",
+      "reference": "SEQ_ORG1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_B\u0007CX",
+      "reference": "SEQ_ORG2",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_C\u0007CX",
+      "reference": "SEQ_ORG3",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$174",
+      "reference": "SEQ_XBREG0_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$182",
+      "reference": "SEQ_XBREG0_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$202",
+      "reference": "SEQ_XBREG0_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$212",
+      "reference": "SEQ_XBREG0_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$236",
+      "reference": "SEQ_XBREG0_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$237",
+      "reference": "SEQ_XBREG0_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$277",
+      "reference": "SEQ_XBREG0_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$333",
+      "reference": "SEQ_XBREG0_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$347",
+      "reference": "SEQ_XBREG0_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$263",
+      "reference": "SEQ_XBREG0_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$270",
+      "reference": "SEQ_XBREG0_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$220",
+      "reference": "SEQ_XBREG0_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$257",
+      "reference": "SEQ_XBREG0_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$173",
+      "reference": "SEQ_XBREG1_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$181",
+      "reference": "SEQ_XBREG1_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$201",
+      "reference": "SEQ_XBREG1_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$211",
+      "reference": "SEQ_XBREG1_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$234",
+      "reference": "SEQ_XBREG1_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$235",
+      "reference": "SEQ_XBREG1_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$276",
+      "reference": "SEQ_XBREG1_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$332",
+      "reference": "SEQ_XBREG1_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$346",
+      "reference": "SEQ_XBREG1_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$262",
+      "reference": "SEQ_XBREG1_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$269",
+      "reference": "SEQ_XBREG1_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$219",
+      "reference": "SEQ_XBREG1_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$256",
+      "reference": "SEQ_XBREG1_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$10",
+      "reference": "SEQ_XBREG2_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$16",
+      "reference": "SEQ_XBREG2_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$27",
+      "reference": "SEQ_XBREG2_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$38",
+      "reference": "SEQ_XBREG2_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$51",
+      "reference": "SEQ_XBREG2_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$52",
+      "reference": "SEQ_XBREG2_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$94",
+      "reference": "SEQ_XBREG2_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$283",
+      "reference": "SEQ_XBREG2_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$297",
+      "reference": "SEQ_XBREG2_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$85",
+      "reference": "SEQ_XBREG2_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$90",
+      "reference": "SEQ_XBREG2_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$42",
+      "reference": "SEQ_XBREG2_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$76",
+      "reference": "SEQ_XBREG2_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$2",
+      "reference": "SEQ_XBREG3_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$6",
+      "reference": "SEQ_XBREG3_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$14",
+      "reference": "SEQ_XBREG3_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$20",
+      "reference": "SEQ_XBREG3_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$34",
+      "reference": "SEQ_XBREG3_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$35",
+      "reference": "SEQ_XBREG3_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$82",
+      "reference": "SEQ_XBREG3_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$280",
+      "reference": "SEQ_XBREG3_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$291",
+      "reference": "SEQ_XBREG3_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$63",
+      "reference": "SEQ_XBREG3_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$72",
+      "reference": "SEQ_XBREG3_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$25",
+      "reference": "SEQ_XBREG3_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$57",
+      "reference": "SEQ_XBREG3_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$8",
+      "reference": "SEQ_XBREG4_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$9",
+      "reference": "SEQ_XBREG4_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$22",
+      "reference": "SEQ_XBREG4_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$29",
+      "reference": "SEQ_XBREG4_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$47",
+      "reference": "SEQ_XBREG4_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$48",
+      "reference": "SEQ_XBREG4_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$92",
+      "reference": "SEQ_XBREG4_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$282",
+      "reference": "SEQ_XBREG4_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$296",
+      "reference": "SEQ_XBREG4_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$78",
+      "reference": "SEQ_XBREG4_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$87",
+      "reference": "SEQ_XBREG4_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$40",
+      "reference": "SEQ_XBREG4_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$69",
+      "reference": "SEQ_XBREG4_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0",
+      "reference": "SEQ_XBREG5_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$4",
+      "reference": "SEQ_XBREG5_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$12",
+      "reference": "SEQ_XBREG5_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$18",
+      "reference": "SEQ_XBREG5_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$30",
+      "reference": "SEQ_XBREG5_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$31",
+      "reference": "SEQ_XBREG5_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$80",
+      "reference": "SEQ_XBREG5_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$278",
+      "reference": "SEQ_XBREG5_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$289",
+      "reference": "SEQ_XBREG5_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$61",
+      "reference": "SEQ_XBREG5_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$70",
+      "reference": "SEQ_XBREG5_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$23",
+      "reference": "SEQ_XBREG5_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$55",
+      "reference": "SEQ_XBREG5_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$84",
+      "reference": "SEQ_XBREG6_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$89",
+      "reference": "SEQ_XBREG6_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$97",
+      "reference": "SEQ_XBREG6_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$98",
+      "reference": "SEQ_XBREG6_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$103",
+      "reference": "SEQ_XBREG6_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$104",
+      "reference": "SEQ_XBREG6_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$121",
+      "reference": "SEQ_XBREG6_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$300",
+      "reference": "SEQ_XBREG6_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$303",
+      "reference": "SEQ_XBREG6_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$115",
+      "reference": "SEQ_XBREG6_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$118",
+      "reference": "SEQ_XBREG6_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$100",
+      "reference": "SEQ_XBREG6_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$110",
+      "reference": "SEQ_XBREG6_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$149",
+      "reference": "SEQ_XBREG7_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$152",
+      "reference": "SEQ_XBREG7_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$159",
+      "reference": "SEQ_XBREG7_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$163",
+      "reference": "SEQ_XBREG7_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$185",
+      "reference": "SEQ_XBREG7_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$186",
+      "reference": "SEQ_XBREG7_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$241",
+      "reference": "SEQ_XBREG7_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$318",
+      "reference": "SEQ_XBREG7_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$334",
+      "reference": "SEQ_XBREG7_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$222",
+      "reference": "SEQ_XBREG7_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$226",
+      "reference": "SEQ_XBREG7_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$167",
+      "reference": "SEQ_XBREG7_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$213",
+      "reference": "SEQ_XBREG7_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$170",
+      "reference": "SEQ_XBREG8_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$179",
+      "reference": "SEQ_XBREG8_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$199",
+      "reference": "SEQ_XBREG8_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$209",
+      "reference": "SEQ_XBREG8_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$230",
+      "reference": "SEQ_XBREG8_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$231",
+      "reference": "SEQ_XBREG8_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$274",
+      "reference": "SEQ_XBREG8_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$330",
+      "reference": "SEQ_XBREG8_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$344",
+      "reference": "SEQ_XBREG8_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$260",
+      "reference": "SEQ_XBREG8_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$267",
+      "reference": "SEQ_XBREG8_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$217",
+      "reference": "SEQ_XBREG8_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$254",
+      "reference": "SEQ_XBREG8_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$150",
+      "reference": "SEQ_XBREG9_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$153",
+      "reference": "SEQ_XBREG9_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$160",
+      "reference": "SEQ_XBREG9_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$164",
+      "reference": "SEQ_XBREG9_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$187",
+      "reference": "SEQ_XBREG9_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$188",
+      "reference": "SEQ_XBREG9_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$242",
+      "reference": "SEQ_XBREG9_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$319",
+      "reference": "SEQ_XBREG9_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$335",
+      "reference": "SEQ_XBREG9_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$223",
+      "reference": "SEQ_XBREG9_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$227",
+      "reference": "SEQ_XBREG9_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$168",
+      "reference": "SEQ_XBREG9_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$214",
+      "reference": "SEQ_XBREG9_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$215",
+      "reference": "SEQ_XMUX0_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$206",
+      "reference": "SEQ_XMUX0_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$191",
+      "reference": "SEQ_XMUX0_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$323",
+      "reference": "SEQ_XMUX0_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$328",
+      "reference": "SEQ_XMUX0_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$183",
+      "reference": "SEQ_XMUX0_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$151",
+      "reference": "SEQ_XMUX1_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$147",
+      "reference": "SEQ_XMUX1_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$143",
+      "reference": "SEQ_XMUX1_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$309",
+      "reference": "SEQ_XMUX1_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$315",
+      "reference": "SEQ_XMUX1_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$141",
+      "reference": "SEQ_XMUX1_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$88",
+      "reference": "SEQ_XMUX2_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$79",
+      "reference": "SEQ_XMUX2_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$65",
+      "reference": "SEQ_XMUX2_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$288",
+      "reference": "SEQ_XMUX2_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$299",
+      "reference": "SEQ_XMUX2_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$59",
+      "reference": "SEQ_XMUX2_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$75",
+      "reference": "SEQ_XMUX3_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$67",
+      "reference": "SEQ_XMUX3_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$50",
+      "reference": "SEQ_XMUX3_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$287",
+      "reference": "SEQ_XMUX3_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$295",
+      "reference": "SEQ_XMUX3_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$45",
+      "reference": "SEQ_XMUX3_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$68",
+      "reference": "SEQ_XMUX4_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$60",
+      "reference": "SEQ_XMUX4_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$46",
+      "reference": "SEQ_XMUX4_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$285",
+      "reference": "SEQ_XMUX4_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$293",
+      "reference": "SEQ_XMUX4_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$41",
+      "reference": "SEQ_XMUX4_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$74",
+      "reference": "SEQ_XMUX5_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$66",
+      "reference": "SEQ_XMUX5_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$49",
+      "reference": "SEQ_XMUX5_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$286",
+      "reference": "SEQ_XMUX5_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$294",
+      "reference": "SEQ_XMUX5_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$44",
+      "reference": "SEQ_XMUX5_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$116",
+      "reference": "SEQ_XMUX6_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$113",
+      "reference": "SEQ_XMUX6_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$107",
+      "reference": "SEQ_XMUX6_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$302",
+      "reference": "SEQ_XMUX6_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$304",
+      "reference": "SEQ_XMUX6_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$106",
+      "reference": "SEQ_XMUX6_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$207",
+      "reference": "SEQ_XMUX7_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$197",
+      "reference": "SEQ_XMUX7_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$184",
+      "reference": "SEQ_XMUX7_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$321",
+      "reference": "SEQ_XMUX7_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$326",
+      "reference": "SEQ_XMUX7_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$171",
+      "reference": "SEQ_XMUX7_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$271",
+      "reference": "SEQ_XMUX8_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$264",
+      "reference": "SEQ_XMUX8_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$250",
+      "reference": "SEQ_XMUX8_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$340",
+      "reference": "SEQ_XMUX8_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$348",
+      "reference": "SEQ_XMUX8_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$243",
+      "reference": "SEQ_XMUX8_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$272",
+      "reference": "SEQ_XMUX9_SB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$265",
+      "reference": "SEQ_XMUX9_SMDNA0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$251",
+      "reference": "SEQ_XMUX9_SNDNA1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$341",
+      "reference": "SEQ_XMUX9_SNDPS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$349",
+      "reference": "SEQ_XMUX9_SNDPSB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$244",
+      "reference": "SEQ_XMUX9_XB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$327",
+      "reference": "SEQ_XOR_BUSY_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$325",
+      "reference": "SEQ_XOR_BUSY_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$203",
+      "reference": "SEQ_XOR_BUSY_Y",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$316",
+      "reference": "SEQ_XOR_G1_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$313",
+      "reference": "SEQ_XOR_G1_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$311",
+      "reference": "SEQ_XOR_G1_SNDPC",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$145",
+      "reference": "SEQ_XOR_G1_Y",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$317",
+      "reference": "SEQ_XOR_G2_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$314",
+      "reference": "SEQ_XOR_G2_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$312",
+      "reference": "SEQ_XOR_G2_SNDPC",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$146",
+      "reference": "SEQ_XOR_G2_Y",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$342",
+      "reference": "SEQ_XOR_G3_SNDPA",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$339",
+      "reference": "SEQ_XOR_G3_SNDPB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$248",
+      "reference": "SEQ_XOR_G3_Y",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$122",
+      "reference": "SEQ_XRINGB0_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$125",
+      "reference": "SEQ_XRINGB0_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$130",
+      "reference": "SEQ_XRINGB0_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$131",
+      "reference": "SEQ_XRINGB0_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$135",
+      "reference": "SEQ_XRINGB0_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$136",
+      "reference": "SEQ_XRINGB0_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$148",
+      "reference": "SEQ_XRINGB0_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$307",
+      "reference": "SEQ_XRINGB0_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$310",
+      "reference": "SEQ_XRINGB0_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$142",
+      "reference": "SEQ_XRINGB0_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$144",
+      "reference": "SEQ_XRINGB0_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$133",
+      "reference": "SEQ_XRINGB0_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$140",
+      "reference": "SEQ_XRINGB0_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$93",
+      "reference": "SEQ_XRINGB1_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$96",
+      "reference": "SEQ_XRINGB1_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$99",
+      "reference": "SEQ_XRINGB1_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$101",
+      "reference": "SEQ_XRINGB1_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$108",
+      "reference": "SEQ_XRINGB1_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$109",
+      "reference": "SEQ_XRINGB1_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$126",
+      "reference": "SEQ_XRINGB1_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$301",
+      "reference": "SEQ_XRINGB1_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$305",
+      "reference": "SEQ_XRINGB1_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$119",
+      "reference": "SEQ_XRINGB1_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$123",
+      "reference": "SEQ_XRINGB1_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$105",
+      "reference": "SEQ_XRINGB1_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$117",
+      "reference": "SEQ_XRINGB1_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$3",
+      "reference": "SEQ_XRINGB2_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$7",
+      "reference": "SEQ_XRINGB2_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$15",
+      "reference": "SEQ_XRINGB2_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$21",
+      "reference": "SEQ_XRINGB2_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$36",
+      "reference": "SEQ_XRINGB2_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$37",
+      "reference": "SEQ_XRINGB2_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$83",
+      "reference": "SEQ_XRINGB2_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$281",
+      "reference": "SEQ_XRINGB2_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$292",
+      "reference": "SEQ_XRINGB2_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$64",
+      "reference": "SEQ_XRINGB2_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$73",
+      "reference": "SEQ_XRINGB2_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$26",
+      "reference": "SEQ_XRINGB2_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$58",
+      "reference": "SEQ_XRINGB2_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$1",
+      "reference": "SEQ_XRINGB3_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$5",
+      "reference": "SEQ_XRINGB3_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$13",
+      "reference": "SEQ_XRINGB3_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$19",
+      "reference": "SEQ_XRINGB3_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$32",
+      "reference": "SEQ_XRINGB3_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$33",
+      "reference": "SEQ_XRINGB3_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$81",
+      "reference": "SEQ_XRINGB3_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$279",
+      "reference": "SEQ_XRINGB3_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$290",
+      "reference": "SEQ_XRINGB3_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$62",
+      "reference": "SEQ_XRINGB3_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$71",
+      "reference": "SEQ_XRINGB3_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$24",
+      "reference": "SEQ_XRINGB3_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$56",
+      "reference": "SEQ_XRINGB3_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$11",
+      "reference": "SEQ_XRINGB4_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$17",
+      "reference": "SEQ_XRINGB4_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$28",
+      "reference": "SEQ_XRINGB4_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$39",
+      "reference": "SEQ_XRINGB4_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$53",
+      "reference": "SEQ_XRINGB4_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$54",
+      "reference": "SEQ_XRINGB4_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$95",
+      "reference": "SEQ_XRINGB4_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$284",
+      "reference": "SEQ_XRINGB4_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$298",
+      "reference": "SEQ_XRINGB4_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$86",
+      "reference": "SEQ_XRINGB4_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$91",
+      "reference": "SEQ_XRINGB4_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$43",
+      "reference": "SEQ_XRINGB4_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$77",
+      "reference": "SEQ_XRINGB4_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$111",
+      "reference": "SEQ_XRINGB5_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$114",
+      "reference": "SEQ_XRINGB5_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$120",
+      "reference": "SEQ_XRINGB5_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$124",
+      "reference": "SEQ_XRINGB5_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$128",
+      "reference": "SEQ_XRINGB5_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$129",
+      "reference": "SEQ_XRINGB5_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$139",
+      "reference": "SEQ_XRINGB5_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$306",
+      "reference": "SEQ_XRINGB5_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$308",
+      "reference": "SEQ_XRINGB5_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$137",
+      "reference": "SEQ_XRINGB5_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$138",
+      "reference": "SEQ_XRINGB5_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$127",
+      "reference": "SEQ_XRINGB5_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$134",
+      "reference": "SEQ_XRINGB5_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$156",
+      "reference": "SEQ_XRINGB6_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$157",
+      "reference": "SEQ_XRINGB6_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$165",
+      "reference": "SEQ_XRINGB6_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$176",
+      "reference": "SEQ_XRINGB6_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$195",
+      "reference": "SEQ_XRINGB6_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$196",
+      "reference": "SEQ_XRINGB6_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$252",
+      "reference": "SEQ_XRINGB6_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$322",
+      "reference": "SEQ_XRINGB6_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$337",
+      "reference": "SEQ_XRINGB6_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$239",
+      "reference": "SEQ_XRINGB6_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$246",
+      "reference": "SEQ_XRINGB6_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$190",
+      "reference": "SEQ_XRINGB6_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$224",
+      "reference": "SEQ_XRINGB6_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$169",
+      "reference": "SEQ_XRINGB7_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$178",
+      "reference": "SEQ_XRINGB7_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$198",
+      "reference": "SEQ_XRINGB7_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$208",
+      "reference": "SEQ_XRINGB7_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$228",
+      "reference": "SEQ_XRINGB7_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$229",
+      "reference": "SEQ_XRINGB7_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$273",
+      "reference": "SEQ_XRINGB7_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$329",
+      "reference": "SEQ_XRINGB7_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$343",
+      "reference": "SEQ_XRINGB7_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$259",
+      "reference": "SEQ_XRINGB7_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$266",
+      "reference": "SEQ_XRINGB7_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$216",
+      "reference": "SEQ_XRINGB7_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$253",
+      "reference": "SEQ_XRINGB7_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$158",
+      "reference": "SEQ_XRINGB8_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$161",
+      "reference": "SEQ_XRINGB8_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$175",
+      "reference": "SEQ_XRINGB8_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$189",
+      "reference": "SEQ_XRINGB8_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$204",
+      "reference": "SEQ_XRINGB8_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$205",
+      "reference": "SEQ_XRINGB8_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$258",
+      "reference": "SEQ_XRINGB8_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$324",
+      "reference": "SEQ_XRINGB8_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$338",
+      "reference": "SEQ_XRINGB8_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$245",
+      "reference": "SEQ_XRINGB8_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$249",
+      "reference": "SEQ_XRINGB8_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$194",
+      "reference": "SEQ_XRINGB8_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$238",
+      "reference": "SEQ_XRINGB8_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$172",
+      "reference": "SEQ_XRINGB9_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$180",
+      "reference": "SEQ_XRINGB9_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$200",
+      "reference": "SEQ_XRINGB9_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$210",
+      "reference": "SEQ_XRINGB9_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$232",
+      "reference": "SEQ_XRINGB9_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$233",
+      "reference": "SEQ_XRINGB9_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$275",
+      "reference": "SEQ_XRINGB9_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$331",
+      "reference": "SEQ_XRINGB9_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$345",
+      "reference": "SEQ_XRINGB9_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$261",
+      "reference": "SEQ_XRINGB9_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$268",
+      "reference": "SEQ_XRINGB9_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$218",
+      "reference": "SEQ_XRINGB9_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$255",
+      "reference": "SEQ_XRINGB9_S0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$154",
+      "reference": "SEQ_XRINGEOC_CLKNEG",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$155",
+      "reference": "SEQ_XRINGEOC_CLKPOS",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$162",
+      "reference": "SEQ_XRINGEOC_DB",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$166",
+      "reference": "SEQ_XRINGEOC_M0",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$192",
+      "reference": "SEQ_XRINGEOC_M1",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$193",
+      "reference": "SEQ_XRINGEOC_NET101",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$247",
+      "reference": "SEQ_XRINGEOC_NET108",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$320",
+      "reference": "SEQ_XRINGEOC_NET144",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$336",
+      "reference": "SEQ_XRINGEOC_NET165",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$225",
+      "reference": "SEQ_XRINGEOC_NET81",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$240",
+      "reference": "SEQ_XRINGEOC_NET82",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$177",
+      "reference": "SEQ_XRINGEOC_NET93",
+      "pin": false
+    },
+    {
+      "layout": "SAR_SEQUENCER__SAR_SEQUENCER_1_$0$221",
+      "reference": "SEQ_XRINGEOC_S0",
+      "pin": false
+    },
+    {
+      "layout": "TOP_N|VINN",
+      "reference": "TOP_N",
+      "pin": false
+    },
+    {
+      "layout": "TOP_P|VINP",
+      "reference": "TOP_P",
+      "pin": false
+    },
+    {
+      "layout": "VINN",
+      "reference": "VINN",
+      "pin": true
+    },
+    {
+      "layout": "VINP",
+      "reference": "VINP",
+      "pin": true
+    },
+    {
+      "layout": "VPB|VPWR",
+      "reference": "VPWR",
+      "pin": true
+    },
+    {
+      "layout": "VREFN",
+      "reference": "VREFN",
+      "pin": true
+    },
+    {
+      "layout": "VREFP",
+      "reference": "VREFP",
+      "pin": true
+    }
+  ]
+}

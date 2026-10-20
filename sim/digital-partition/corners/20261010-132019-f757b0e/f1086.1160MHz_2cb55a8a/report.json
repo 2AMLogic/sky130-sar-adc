@@ -1,0 +1,7031 @@
+{
+ "schema_version": 3,
+ "netlist": {
+  "path": null,
+  "scope": "external"
+ },
+ "status": "pass",
+ "corner_count": 4,
+ "passed": 4,
+ "failed": 0,
+ "errored": 0,
+ "inconclusive": 0,
+ "diagnostic_counts": {
+  "by_code": {},
+  "by_severity": {},
+  "corners_with_diagnostics": 0
+ },
+ "metrics": {
+  "sim__corner__count": 4,
+  "sim__corner__passed_count": 4,
+  "sim__corner__failed_count": 0,
+  "sim__corner__errored_count": 0,
+  "sim__corner__inconclusive_count": 0
+ },
+ "environment": {
+  "engine": "ngspice",
+  "engine_version": "46",
+  "ngspice_binary": "/home/ubuntu/.local/bin/ngspice",
+  "models_lib": {
+   "path": null,
+   "scope": "external"
+  },
+  "models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+  "netlist_sha256": "3db0b5232fbb7ad3d07742f5ca3b97b542e1e69a31c14b996c158d0742534411",
+  "netlist_closure": [
+   {
+    "path": null,
+    "scope": "external",
+    "sha256": "3db0b5232fbb7ad3d07742f5ca3b97b542e1e69a31c14b996c158d0742534411"
+   },
+   {
+    "target": "$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice",
+    "sha256": null,
+    "unhashed_reason": "env_var"
+   }
+  ],
+  "remote": {
+   "provider": "aws-batch-fleet",
+   "job_id": "klt-sim-20dc23567f79",
+   "bucket": "2am-batch-jobs-221082181346",
+   "region": "us-east-1",
+   "instance_id": "i-069d2087f9f3c3d96",
+   "instance_type": "c7i.4xlarge",
+   "availability_zone": "us-east-1b",
+   "ami_id": "ami-0e40e3245f1923ac8",
+   "lifecycle": "spot",
+   "spot": true,
+   "state": "done",
+   "exit_code": "0",
+   "concurrency": "1",
+   "physical_cores": "8",
+   "elapsed_seconds": 95,
+   "runner_klt_version": "0.5.0",
+   "client_klt_version": "0.7.0+g8eec069c7576",
+   "runner_compatibility": "mismatch",
+   "runner_compatibility_warning": "the fleet runner ran klt 0.5.0 but the submitting client is 0.7.0+g8eec069c7576; request options the runner does not know may have been ignored -- update the runner image or use a compatible client"
+  }
+ },
+ "coverage": {
+  "corners_simulated": 4,
+  "measurements_declared": 116,
+  "measurements_with_limits": 0,
+  "unrecognized_limit_keys": [],
+  "schema_version": 1,
+  "known": true,
+  "checked": [
+   "measurement:[0,\"ff/1.800V/27C\",\"adc_c0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"adc_c1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"adc_c2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"adc_c3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"ctl_rst\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"dout_c0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"dout_c1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"dout_c2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"dout_c3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"iavg_active\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"iavg_reset\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j10\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j11\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j4\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j5\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j6\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j7\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j8\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j9\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"pc_rst\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"seln_c0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"seln_c1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"seln_c2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"seln_c3\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"selp_c0\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"selp_c1\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"selp_c2\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"selp_c3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"adc_c0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"adc_c1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"adc_c2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"adc_c3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"ctl_rst\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"dout_c0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"dout_c1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"dout_c2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"dout_c3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"iavg_active\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"iavg_reset\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j10\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j11\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j4\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j5\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j6\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j7\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j8\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j9\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"pc_rst\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"seln_c0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"seln_c1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"seln_c2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"seln_c3\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"selp_c0\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"selp_c1\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"selp_c2\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"selp_c3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"adc_c0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"adc_c1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"adc_c2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"adc_c3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"ctl_rst\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"dout_c0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"dout_c1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"dout_c2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"dout_c3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"iavg_active\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"iavg_reset\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j10\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j11\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j4\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j5\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j6\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j7\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j8\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j9\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"pc_rst\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"seln_c0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"seln_c1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"seln_c2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"seln_c3\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"selp_c0\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"selp_c1\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"selp_c2\"]/observation",
+   "measurement:[2,\"tt/1.800V/125C\",\"selp_c3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"adc_c0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"adc_c1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"adc_c2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"adc_c3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"ctl_rst\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"dout_c0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"dout_c1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"dout_c2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"dout_c3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"iavg_active\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"iavg_reset\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j10\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j11\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j4\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j5\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j6\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j7\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j8\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j9\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"pc_rst\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"seln_c0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"seln_c1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"seln_c2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"seln_c3\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"selp_c0\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"selp_c1\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"selp_c2\"]/observation",
+   "measurement:[3,\"tt/1.980V/27C\",\"selp_c3\"]/observation"
+  ],
+  "skipped": [],
+  "inapplicable": [
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"adc_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"adc_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"adc_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"adc_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"ctl_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"dout_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"dout_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"dout_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"dout_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"iavg_active\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"iavg_reset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"pc_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"seln_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"seln_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"seln_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"seln_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"selp_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"selp_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"selp_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"selp_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"adc_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"adc_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"adc_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"adc_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"ctl_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"dout_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"dout_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"dout_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"dout_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"iavg_active\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"iavg_reset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"pc_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"seln_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"seln_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"seln_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"seln_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"selp_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"selp_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"selp_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"selp_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"adc_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"adc_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"adc_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"adc_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"ctl_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"dout_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"dout_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"dout_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"dout_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"iavg_active\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"iavg_reset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"pc_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"seln_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"seln_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"seln_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"seln_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"selp_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"selp_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"selp_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"tt/1.800V/125C\",\"selp_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"adc_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"adc_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"adc_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"adc_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"ctl_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"dout_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"dout_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"dout_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"dout_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"iavg_active\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"iavg_reset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c0_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c1_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c2_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j10\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j11\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j4\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j5\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j6\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j7\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j8\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_c3_j9\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"pc_rst\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"seln_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"seln_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"seln_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"seln_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"selp_c0\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"selp_c1\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"selp_c2\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"tt/1.980V/27C\",\"selp_c3\"]/limits",
+    "reason": "characterization_without_limits"
+   }
+  ],
+  "unknown": [],
+  "nothing_checked": false,
+  "nothing_checked_reasons": []
+ },
+ "provenance": {
+  "klt_version": "0.7.0+g8eec069c7576",
+  "klayout_version": "0.30.12",
+  "pdk": {
+   "name": "sky130A",
+   "source": "PDK_ROOT environment variable",
+   "version": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+  },
+  "deck": {
+   "name": "sky130.lib.spice",
+   "content_hash": "sha256:48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+   "released": false
+  },
+  "input": {
+   "content_hash": "sha256:3db0b5232fbb7ad3d07742f5ca3b97b542e1e69a31c14b996c158d0742534411",
+   "role": "netlist"
+  }
+ },
+ "measurements": [
+  {
+   "name": "pc_rst",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_rst",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 5.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 8.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 16.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 32.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 64.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 128.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 256.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 512.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1024.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2048.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c0_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 0.999995,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c0_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.53265e-09,
+    "margin": null
+   }
+  },
+  {
+   "name": "dout_c0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 811.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "adc_c0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 299.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "seln_c0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.13465e-13,
+    "margin": null
+   }
+  },
+  {
+   "name": "selp_c0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 299.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 5.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 8.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 16.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 32.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 64.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 128.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 256.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 512.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1024.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2048.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c1_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 0.999994,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c1_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.51419e-09,
+    "margin": null
+   }
+  },
+  {
+   "name": "dout_c1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 212.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "adc_c1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 299.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "seln_c1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 212.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "selp_c1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.13465e-13,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 5.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 8.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 16.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 32.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 64.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 128.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 256.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 512.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1024.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2048.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c2_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 0.999995,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c2_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.52628e-09,
+    "margin": null
+   }
+  },
+  {
+   "name": "dout_c2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 682.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "adc_c2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 170.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "seln_c2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.13465e-13,
+    "margin": null
+   }
+  },
+  {
+   "name": "selp_c2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 170.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j0",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 5.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j1",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 8.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j2",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 16.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 32.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j4",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 64.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j5",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 128.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j6",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 256.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j7",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 512.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j8",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1024.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j9",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 2048.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j10",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 3.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "pc_c3_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 0.999995,
+    "margin": null
+   }
+  },
+  {
+   "name": "ctl_c3_j11",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.52436e-09,
+    "margin": null
+   }
+  },
+  {
+   "name": "dout_c3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 341.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "adc_c3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 170.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "seln_c3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 341.0,
+    "margin": null
+   }
+  },
+  {
+   "name": "selp_c3",
+   "unit": null,
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.13465e-13,
+    "margin": null
+   }
+  },
+  {
+   "name": "iavg_reset",
+   "unit": "A",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": -0.000293778,
+    "margin": null
+   }
+  },
+  {
+   "name": "iavg_active",
+   "unit": "A",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": -0.000500948,
+    "margin": null
+   }
+  }
+ ],
+ "corners": [
+  {
+   "corner_id": "ff/1.800V/27C",
+   "process": "ff",
+   "supply_v": {
+    "vdig": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 88.722,
+   "measurements": [
+    {
+     "name": "pc_rst",
+     "value": 1.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_rst",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j11",
+     "value": 0.999995,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j11",
+     "value": 1.53265e-09,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c0",
+     "value": 811.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c0",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j11",
+     "value": 0.999994,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j11",
+     "value": 1.51419e-09,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c1",
+     "value": 212.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c1",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c1",
+     "value": 212.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c1",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j11",
+     "value": 0.999995,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j11",
+     "value": 1.52628e-09,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c2",
+     "value": 682.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c2",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j11",
+     "value": 0.999995,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j11",
+     "value": 1.52436e-09,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c3",
+     "value": 341.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c3",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c3",
+     "value": 341.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c3",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_reset",
+     "value": -0.000293778,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_active",
+     "value": -0.000500948,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/ff_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/ff_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null
+  },
+  {
+   "corner_id": "fs/1.800V/27C",
+   "process": "fs",
+   "supply_v": {
+    "vdig": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 87.823,
+   "measurements": [
+    {
+     "name": "pc_rst",
+     "value": 1.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_rst",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j11",
+     "value": 0.231165,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j11",
+     "value": 1.99993,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c0",
+     "value": 811.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c0",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j11",
+     "value": 0.230221,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j11",
+     "value": 1.99993,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c1",
+     "value": 212.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c1",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c1",
+     "value": 212.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c1",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j11",
+     "value": 0.230939,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j11",
+     "value": 1.99993,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c2",
+     "value": 682.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c2",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j11",
+     "value": 0.230763,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j11",
+     "value": 1.99993,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c3",
+     "value": 341.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c3",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c3",
+     "value": 341.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c3",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_reset",
+     "value": -0.000292184,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_active",
+     "value": -0.000493965,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/fs_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/fs_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null
+  },
+  {
+   "corner_id": "tt/1.800V/125C",
+   "process": "tt",
+   "supply_v": {
+    "vdig": 1.8
+   },
+   "temperature_c": 125.0,
+   "status": "pass",
+   "runtime_s": 85.065,
+   "measurements": [
+    {
+     "name": "pc_rst",
+     "value": 1.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_rst",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j11",
+     "value": 2.96806e-06,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j11",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c0",
+     "value": 811.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c0",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j0",
+     "value": 1.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j0",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j1",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j1",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j2",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j3",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j4",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j5",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j6",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j7",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j8",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j9",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j10",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j11",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j11",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c1",
+     "value": 599.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c1",
+     "value": 87.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c1",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c1",
+     "value": 87.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j0",
+     "value": 2.96652e-06,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j1",
+     "value": 1.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j2",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j2",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j3",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j4",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j5",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j6",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j7",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j8",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j9",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j10",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j11",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j11",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c2",
+     "value": 682.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c2",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j0",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j0",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j1",
+     "value": 2.92521e-06,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j1",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j2",
+     "value": 1.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j2",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j3",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j3",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j4",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j5",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j6",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j7",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j8",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j9",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j10",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j11",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j11",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c3",
+     "value": 172.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c3",
+     "value": 339.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c3",
+     "value": 172.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c3",
+     "value": 1.13465e-13,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_reset",
+     "value": -0.00029742,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_active",
+     "value": -0.000474422,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/tt_1p800V_125C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/tt_1p800V_125C/corner.cir"
+   },
+   "monte_carlo": null
+  },
+  {
+   "corner_id": "tt/1.980V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vdig": 1.98
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 88.318,
+   "measurements": [
+    {
+     "name": "pc_rst",
+     "value": 1.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_rst",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c0_j11",
+     "value": 0.999609,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c0_j11",
+     "value": 2.41047e-06,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c0",
+     "value": 811.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c0",
+     "value": 0.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c0",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c1_j11",
+     "value": 0.999604,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c1_j11",
+     "value": 2.4775e-06,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c1",
+     "value": 212.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c1",
+     "value": 299.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c1",
+     "value": 212.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c1",
+     "value": 0.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c2_j11",
+     "value": 0.999606,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c2_j11",
+     "value": 2.4445e-06,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c2",
+     "value": 682.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c2",
+     "value": 0.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c2",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j0",
+     "value": 2.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j0",
+     "value": 5.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j1",
+     "value": 4.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j1",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j2",
+     "value": 8.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j2",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j3",
+     "value": 16.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j3",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j4",
+     "value": 32.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j4",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j5",
+     "value": 64.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j5",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j6",
+     "value": 128.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j6",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j7",
+     "value": 256.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j7",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j8",
+     "value": 512.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j8",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j9",
+     "value": 1024.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j9",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j10",
+     "value": 2048.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j10",
+     "value": 3.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "pc_c3_j11",
+     "value": 0.999607,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "ctl_c3_j11",
+     "value": 2.43684e-06,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "dout_c3",
+     "value": 341.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "adc_c3",
+     "value": 170.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "seln_c3",
+     "value": 341.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "selp_c3",
+     "value": 0.0,
+     "unit": null,
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_reset",
+     "value": -0.000322981,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    },
+    {
+     "name": "iavg_active",
+     "value": -0.00054823,
+     "unit": "A",
+     "status": "pass",
+     "margin": null
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/tt_1p980V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/dp619/campaign5/f1086.1160MHz_2cb55a8a/out/tt_1p980V_27C/corner.cir"
+   },
+   "monte_carlo": null
+  }
+ ]
+}

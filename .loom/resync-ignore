@@ -34,3 +34,12 @@
 # its regression test.
 scripts/worktree.sh
 scripts/tests/test-worktree-stale-reset-preserves-pushed-tip.sh
+
+# ---------------------------------------------------------------------------
+# Issue #615 — repo-owned regression suite (new file; Loom does not ship it)
+# ---------------------------------------------------------------------------
+# Pins that worktree-write-confinement denies a raw `mkdir -p
+# .loom/sweep-checkpoint` from the main checkout (intended; no exemption) while
+# the documented helper-script path stays allowed. See
+# docs/guard-sweep-checkpoint-confinement.md.
+hooks/tests/test-guard-sweep-checkpoint-confinement.sh

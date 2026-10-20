@@ -73,16 +73,7 @@ loom_test_require_daemon_bin "$SCRIPTS_DIR" "merge-pr" \
     "merge-pr worktree-primary" "merge-pr worktree-branch-for" \
     "merge-pr worktree-find-by-branch"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m'
-
-TESTS_RUN=0
-TESTS_PASSED=0
-TESTS_FAILED=0
-
-pass() { TESTS_RUN=$((TESTS_RUN + 1)); TESTS_PASSED=$((TESTS_PASSED + 1)); echo -e "  ${GREEN}PASS${NC}: $1"; }
-fail() { TESTS_RUN=$((TESTS_RUN + 1)); TESTS_FAILED=$((TESTS_FAILED + 1)); echo -e "  ${RED}FAIL${NC}: $1"; }
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/assert.sh"
 
 # An assertion that CANNOT survive the port to Rust, retired under the
 # three-part test in defaults/docs/verification-recipes.md §6. Printed, not
@@ -109,10 +100,13 @@ echo "Test 1: merge-pr.sh source contains the primary-checkout helper and call s
 
 assert_grep '_is_primary_worktree_path\(\) \{' "$MERGE_PR" \
     "merge-pr.sh defines the _is_primary_worktree_path helper"
-assert_grep 'if _is_primary_worktree_path "\$DISCOVERED_WT"; then' "$MERGE_PR" \
+assert_grep '_is_primary_worktree_path "\$DISCOVERED_WT"' "$MERGE_PR" \
     "discovery-fallback checks whether the discovered worktree is the primary checkout"
-assert_grep 'not a removable worktree' "$MERGE_PR" \
-    "discovery-fallback reports the primary checkout as not removable"
+retired \
+    "the grep for the in-shell 'not a removable worktree' text" \
+    "the discovery fallback reports the primary checkout as not removable and never suggests worktree removal (#4171)" \
+    "#8191: the classification and its message text left merge-pr.sh for 'loom-daemon merge-pr discovered-worktree' (loom-daemon/src/merge_pr/discovered_worktree.rs), so no grep of this file can pass" \
+    "loom-daemon/tests/merge_pr_discovered_worktree_differential.rs (frozen retired block vs the verb, primary case byte for byte) and the_primary_checkout_is_noted_and_never_offers_removal_advice in src/merge_pr/discovered_worktree/tests.rs"
 retired \
     "_maybe_delete_local_branch resolves the branch's checkout location" \
     "a checked-out refusal is attributed to WHERE the branch is checked out, so the primary checkout gets primary-specific advice (#4171)" \

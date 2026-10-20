@@ -51,6 +51,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
+from _record_common_strict import failing_checks, offgrid_census  # noqa: E402
 from _record_common import (  # noqa: E402
     build_argparser,
     git_commit_and_dirty,
@@ -64,33 +65,6 @@ EXPECTED_ARRAY_DEVICES = {
     "nfet": 18,
     "pfet": 18,
 }
-
-
-def _failing_checks(precheck: dict) -> list[str]:
-    """Names of every `klt precheck` check that reported `fail`."""
-    return sorted(
-        str(check.get("name"))
-        for check in precheck.get("checks", [])
-        if check.get("status") == "fail"
-    )
-
-
-def _offgrid_census(precheck: dict) -> dict[tuple[str, str], int]:
-    """`{(cell, layer): count}` for the `offgrid` check's own violations.
-
-    Empty on a passing run. Kept (rather than reporting a bare count) so a
-    future regression names the layer it is on, which is what decides whether
-    it is a MiM-plate consequence or a routing defect -- the same census shape
-    `layout/halflsb-offset/bin/render-record.py` renders.
-    """
-    census: dict[tuple[str, str], int] = {}
-    for check in precheck.get("checks", []):
-        if check.get("name") != "offgrid":
-            continue
-        for violation in check.get("violations", []):
-            key = (str(violation.get("cell")), str(violation.get("layer")))
-            census[key] = census.get(key, 0) + 1
-    return census
 
 
 def main() -> int:
@@ -189,8 +163,8 @@ def main() -> int:
         ):
             env = precheck[top][grid]
             passed = env.get("status") == "pass"
-            failing = _failing_checks(env)
-            census = _offgrid_census(env)
+            failing = failing_checks(env)
+            census = offgrid_census(env)
             # Appended to `verdicts` only at the end of main(), so the
             # numbering README.md's own verdict table uses (1..8, predating
             # #498) stays stable and these land as 9..12.

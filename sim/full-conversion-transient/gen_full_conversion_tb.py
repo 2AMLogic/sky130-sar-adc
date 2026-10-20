@@ -70,6 +70,7 @@ still includes `PH_EOC`.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -226,6 +227,54 @@ def _input_pwl(side: str) -> str:
     return _pwl(points)
 
 
+def _supply_clock_reset_lines(stop: float) -> list[str]:
+    """Supplies/references, CLK and RST_B -- identical in the DC-input
+    fragment and the coherent-sine fragment (issue #603)."""
+    return [
+        "* --- supplies and references -----------------------------------------",
+        "VVDD VDD 0 DC {vdd_val}",
+        "VVPWR VPWR 0 DC {vdd_val}",
+        "VVGND VGND 0 DC 0",
+        "VVREFP VREFP 0 DC {vdd_val}",
+        "VVREFN VREFN 0 DC 0",
+        "VVCM VCM 0 DC {vdd_val*0.5}",
+        "",
+        "* --- clock and reset --------------------------------------------------",
+        f"VCLK CLK 0 PULSE(0 {{vdd_val}} {T_FIRST_EDGE_NS - EDGE_NS / 2:.4f}n "
+        f"{EDGE_NS:g}n {EDGE_NS:g}n {T_CLK_NS / 2 - EDGE_NS:.5f}n {T_CLK_NS:.5f}n)",
+        f"VRSTB RST_B 0 PWL(0 0 {T_RSTB_RELEASE_NS:.4f}n 0 "
+        f"{T_RSTB_RELEASE_NS + EDGE_NS:.4f}n {{vdd_val}} {stop:.4f}n {{vdd_val}})",
+    ]
+
+
+def _code_meas_lines(conversion: int) -> list[str]:
+    """The ten DOUT9..DOUT0 `.meas` cards for `conversion`, read mid-PH_EOC
+    (DOUT9 directly, bits 8..0 from the ADCOUT<i> recoded nodes)."""
+    t_read = t_code_read_ns(conversion)
+    out = []
+    for name, b in zip(code_measure_names(conversion), range(N_BITS - 1, -1, -1)):
+        node = "dout9" if b == N_BITS - 1 else f"adcout{b}"
+        out.append(f".meas tran {name} find v({node}) at={t_read:.4f}n")
+    return out
+
+
+def _phase_meas_header_lines() -> list[str]:
+    return [
+        "* --- phase structure: BUSY and PH_SAMPLE (SAMPLE_INT) per CLK period --",
+        "* Expected per conversion: BUSY = 1 for periods 0..10 (10 bit trials +",
+        "* EOC) and 0 for period 11 (SAMPLE); SAMPLE_INT is its complement.",
+    ]
+
+
+def _phase_meas_lines(conversion: int) -> list[str]:
+    out = []
+    for p in range(PHASES_PER_CONVERSION):
+        t_mid = t_phase_mid_ns(conversion, p)
+        out.append(f".meas tran busy_c{conversion}_p{p} find v(busy) at={t_mid:.4f}n")
+        out.append(f".meas tran smpl_c{conversion}_p{p} find v(sample_int) at={t_mid:.4f}n")
+    return out
+
+
 def fragment_text() -> str:
     stop = t_stop_ns()
     idd_from = t_edge_ns(PHASES_PER_CONVERSION * IDD_CONVERSION)
@@ -272,19 +321,7 @@ def fragment_text() -> str:
         "* V_REF = V_DD (spec/target-spec.md, RATIFIED DR-003) means the ideal",
         "* code above is the same integer at every corner.",
         "",
-        "* --- supplies and references -----------------------------------------",
-        "VVDD VDD 0 DC {vdd_val}",
-        "VVPWR VPWR 0 DC {vdd_val}",
-        "VVGND VGND 0 DC 0",
-        "VVREFP VREFP 0 DC {vdd_val}",
-        "VVREFN VREFN 0 DC 0",
-        "VVCM VCM 0 DC {vdd_val*0.5}",
-        "",
-        "* --- clock and reset --------------------------------------------------",
-        f"VCLK CLK 0 PULSE(0 {{vdd_val}} {T_FIRST_EDGE_NS - EDGE_NS / 2:.4f}n "
-        f"{EDGE_NS:g}n {EDGE_NS:g}n {T_CLK_NS / 2 - EDGE_NS:.5f}n {T_CLK_NS:.5f}n)",
-        f"VRSTB RST_B 0 PWL(0 0 {T_RSTB_RELEASE_NS:.4f}n 0 "
-        f"{T_RSTB_RELEASE_NS + EDGE_NS:.4f}n {{vdd_val}} {stop:.4f}n {{vdd_val}})",
+        *_supply_clock_reset_lines(stop),
         "",
         "* --- DC differential input schedule -----------------------------------",
         f"VINP VINP 0 {_input_pwl('p')}",
@@ -308,20 +345,13 @@ def fragment_text() -> str:
             f"* conversion {c}: Vd = {input_fraction(c):+.2f}*V_REF, "
             f"read at {t_read:.4f} ns"
         )
-        for name, b in zip(code_measure_names(c), range(N_BITS - 1, -1, -1)):
-            node = "dout9" if b == N_BITS - 1 else f"adcout{b}"
-            lines.append(f".meas tran {name} find v({node}) at={t_read:.4f}n")
+        lines += _code_meas_lines(c)
     lines += [
         "",
-        "* --- phase structure: BUSY and PH_SAMPLE (SAMPLE_INT) per CLK period --",
-        "* Expected per conversion: BUSY = 1 for periods 0..10 (10 bit trials +",
-        "* EOC) and 0 for period 11 (SAMPLE); SAMPLE_INT is its complement.",
+        *_phase_meas_header_lines(),
     ]
     for c in measured_conversions():
-        for p in range(PHASES_PER_CONVERSION):
-            t_mid = t_phase_mid_ns(c, p)
-            lines.append(f".meas tran busy_c{c}_p{p} find v(busy) at={t_mid:.4f}n")
-            lines.append(f".meas tran smpl_c{c}_p{p} find v(sample_int) at={t_mid:.4f}n")
+        lines += _phase_meas_lines(c)
     lines += [
         "",
         "* --- average supply/reference currents over one steady-state ----------",
@@ -335,36 +365,201 @@ def fragment_text() -> str:
     return "\n".join(lines) + "\n"
 
 
+# ==========================================================================
+# Coherent-sine mode (issue #603): dynamic SNDR/ENOB by FFT
+# ==========================================================================
+#
+# Same DUT, same supplies/clock/reset, same mid-PH_EOC code read and phase
+# checks as the DC fragment above -- only the input changes: instead of a
+# DC step schedule, VINP/VINN carry a continuous, antiphase sine about VCM
+# whose frequency puts it exactly on FFT bin `tone_bin` of an `N`-point
+# record at the conversion rate `f_s = f_clk / 12` (coherent sampling,
+# `sim/README.md` "Dynamic-test (FFT) metadata"). One code per conversion
+# is captured for `N` consecutive conversions after the start-up one(s).
+#
+# Sample instant. Conversion `c` holds the input the front end acquired
+# during the previous conversion's PH_SAMPLE period and froze at the
+# PH_SAMPLE -> PH_B9 edge, i.e. CLK edge `12c` (see the timing table in the
+# module docstring). Consecutive sample instants are therefore exactly one
+# conversion period (12 CLK periods = 1/f_s) apart, which is what makes the
+# record coherent; the fixed aperture delay of the switch after that edge
+# only adds a constant phase, which an FFT does not see.
+#
+# Default plan = the single-corner pilot's (`sim/full-conversion-transient/
+# README.md`). RECORD LENGTH IS THE BINDING COST: one full-ADC conversion is
+# 1 us of simulated time and the 6-conversion DC deck already takes minutes
+# per corner, so a textbook 1024-point record (~1 ms simulated) is out of
+# reach of a local run; the pilot uses the shortest record that still gives
+# a meaningful spectrum, and the record reports the ideal quantizer's SNDR at
+# the identical plan alongside the measured one.
+#
+# Amplitude. The latest corner campaign
+# (records/20261001-105439-c324f80.md) resolves the +-0.25*V_REF DC inputs
+# within 1 LSB at every corner but saturates at +-0.78*V_REF -- the
+# near-full-scale common-mode droop DR-021 proposes to fix. A tone that
+# swept into that region would measure that known, already-recorded defect
+# rather than the converter's in-range dynamic behaviour, so the pilot's
+# peak amplitude stays at the largest magnitude the DC bench has shown
+# converting correctly, 0.25*V_REF (-12 dBFS against the +-V_REF
+# differential full scale).
+SINE_STARTUP_CONVERSIONS = 1
+SINE_RECORD_N = 32
+SINE_TONE_BIN = 7
+SINE_AMPLITUDE_FRACTION = 0.25  # peak differential amplitude / V_REF
+F_SAMPLE_HZ = F_CLK_HZ / PHASES_PER_CONVERSION  # one code per 12 CLK periods
+SINE_FRAGMENT_PATH = EXPERIMENT_DIR / "testbench" / "coherent_sine_tb_fragment.spice"
+
+
+def sine_tone_hz(n: int = SINE_RECORD_N, tone_bin: int = SINE_TONE_BIN) -> float:
+    """Coherent input frequency `f_in = tone_bin * f_s / N`."""
+    return tone_bin * F_SAMPLE_HZ / n
+
+
+def t_sample_ns(conversion: int) -> float:
+    """Nominal instant conversion `conversion`'s input is frozen: the
+    PH_SAMPLE -> PH_B9 CLK edge `12 * conversion`."""
+    return t_edge_ns(PHASES_PER_CONVERSION * conversion)
+
+
+def sine_n_conversions(n: int = SINE_RECORD_N) -> int:
+    return SINE_STARTUP_CONVERSIONS + n
+
+
+def sine_measured_conversions(n: int = SINE_RECORD_N) -> list[int]:
+    return list(range(SINE_STARTUP_CONVERSIONS, sine_n_conversions(n)))
+
+
+def sine_t_stop_ns(n: int = SINE_RECORD_N) -> float:
+    """One CLK period past the last conversion's SAMPLE phase (same rule as
+    `t_stop_ns()` for the DC fragment)."""
+    return t_edge_ns(PHASES_PER_CONVERSION * sine_n_conversions(n) + 1)
+
+
+def sine_input_fraction(
+    conversion: int,
+    n: int = SINE_RECORD_N,
+    tone_bin: int = SINE_TONE_BIN,
+    amplitude_fraction: float = SINE_AMPLITUDE_FRACTION,
+) -> float:
+    """Differential input (fraction of V_REF) at conversion `conversion`'s
+    nominal sample instant, for the SIN sources `sine_fragment_text()` writes
+    (zero delay, zero phase on VINP)."""
+    t_s = t_sample_ns(conversion) * 1e-9
+    return amplitude_fraction * math.sin(2.0 * math.pi * sine_tone_hz(n, tone_bin) * t_s)
+
+
+def sine_phase_rad(n: int = SINE_RECORD_N, tone_bin: int = SINE_TONE_BIN) -> float:
+    """Input phase at the FIRST measured conversion's sample instant, so a
+    reference stream `sin(2*pi*tone_bin*i/N + phase)` (i = 0..N-1) matches
+    `sine_input_fraction()` sample for sample."""
+    t0 = t_sample_ns(SINE_STARTUP_CONVERSIONS) * 1e-9
+    return math.fmod(2.0 * math.pi * sine_tone_hz(n, tone_bin) * t0, 2.0 * math.pi)
+
+
+def sine_fragment_text(
+    n: int = SINE_RECORD_N,
+    tone_bin: int = SINE_TONE_BIN,
+    amplitude_fraction: float = SINE_AMPLITUDE_FRACTION,
+) -> str:
+    if not (n > 0 and (n & (n - 1)) == 0) or n < 8:
+        raise ValueError(f"record length N={n} must be a power of two >= 8")
+    if not 0 < tone_bin < n // 2 or math.gcd(tone_bin, n) != 1:
+        raise ValueError(f"tone bin {tone_bin} must be in (0, N/2) and coprime to N={n}")
+    if not 0.0 < amplitude_fraction < 1.0:
+        raise ValueError(f"amplitude fraction {amplitude_fraction} must be in (0, 1)")
+    stop = sine_t_stop_ns(n)
+    f_in = sine_tone_hz(n, tone_bin)
+    half_amp = amplitude_fraction / 2.0
+    lines: list[str] = [
+        "* coherent_sine_tb_fragment.spice -- coherent-sine dynamic-test",
+        "* testbench for design/sar_adc_top.spice (issue #603).",
+        "*",
+        "* GENERATED by sim/full-conversion-transient/gen_full_conversion_tb.py -- do not",
+        "* edit by hand; sim/tests/test_dynamic_enob_fft.py pins this file",
+        "* byte-for-byte against a fresh generation.",
+        "*",
+        "* Same assembly contract as full_conversion_tb_fragment.spice (the",
+        "* driver supplies .lib/.temp/.param vdd_val/.include/.global and the",
+        "* DUT); only the input differs: a coherent antiphase sine about VCM.",
+        "*",
+        f"* CLK: f_clk = {F_CLK_HZ / 1e6:g} MHz, f_s = f_clk/{PHASES_PER_CONVERSION} = "
+        f"{F_SAMPLE_HZ / 1e6:g} MS/s (one code per conversion).",
+        f"* Record: N = {n} conversions ({SINE_STARTUP_CONVERSIONS} start-up "
+        f"conversion(s) discarded first), tone on bin {tone_bin}:",
+        f"*   f_in = {tone_bin} * f_s / {n} = {f_in:.10g} Hz, window = none (coherent).",
+        f"* Peak differential amplitude = {amplitude_fraction:g}*V_REF "
+        f"({20 * math.log10(amplitude_fraction):.2f} dBFS).",
+        "",
+        *_supply_clock_reset_lines(stop),
+        "",
+        "* --- coherent sine input (antiphase about VCM) ------------------------",
+        f"VINP VINP 0 SIN({{vdd_val*0.5}} {{vdd_val*{half_amp:.6g}}} {f_in:.10g} 0 0 0)",
+        f"VINN VINN 0 SIN({{vdd_val*0.5}} {{vdd_val*{half_amp:.6g}}} {f_in:.10g} 0 0 180)",
+        "",
+        f".tran {TRAN_STEP_NS:g}n {stop:.4f}n",
+        "",
+        "* --- captured output code per conversion, read mid-PH_EOC (same nodes",
+        "* and instants as full_conversion_tb_fragment.spice) -------------------",
+    ]
+    for c in sine_measured_conversions(n):
+        lines.append(
+            f"* conversion {c}: sampled at {t_sample_ns(c):.4f} ns, "
+            f"Vd = {sine_input_fraction(c, n, tone_bin, amplitude_fraction):+.6f}*V_REF, "
+            f"read at {t_code_read_ns(c):.4f} ns"
+        )
+        lines += _code_meas_lines(c)
+    lines += ["", *_phase_meas_header_lines()]
+    for c in sine_measured_conversions(n):
+        lines += _phase_meas_lines(c)
+    return "\n".join(lines) + "\n"
+
+
+def sine_measure_names(n: int = SINE_RECORD_N) -> list[str]:
+    names: list[str] = []
+    for c in sine_measured_conversions(n):
+        names += code_measure_names(c)
+        names += busy_measure_names(c)
+        names += sample_measure_names(c)
+    return names
+
+
+def _committed_fragments() -> list[tuple[Path, str]]:
+    return [(FRAGMENT_PATH, fragment_text()), (SINE_FRAGMENT_PATH, sine_fragment_text())]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--write", action="store_true", help="(re)write the committed fragment")
+    ap.add_argument("--write", action="store_true", help="(re)write the committed fragments")
     ap.add_argument(
         "--check",
         action="store_true",
-        help="exit 1 if the committed fragment differs from a fresh generation",
+        help="exit 1 if a committed fragment differs from a fresh generation",
     )
     args = ap.parse_args()
 
-    text = fragment_text()
     if args.write:
-        FRAGMENT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        FRAGMENT_PATH.write_text(text)
-        print(f"wrote {FRAGMENT_PATH}")
+        for path, text in _committed_fragments():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+            print(f"wrote {path}")
         return 0
     if args.check:
-        if not FRAGMENT_PATH.is_file():
-            print(f"FAIL: {FRAGMENT_PATH} does not exist -- run with --write", file=sys.stderr)
-            return 1
-        if FRAGMENT_PATH.read_text() != text:
-            print(
-                f"FAIL: {FRAGMENT_PATH} is stale -- regenerate with "
-                "`python3 sim/full-conversion-transient/gen_full_conversion_tb.py --write`",
-                file=sys.stderr,
-            )
-            return 1
-        print(f"OK: {FRAGMENT_PATH} matches a fresh generation.")
-        return 0
-    sys.stdout.write(text)
+        status = 0
+        for path, text in _committed_fragments():
+            if not path.is_file():
+                print(f"FAIL: {path} does not exist -- run with --write", file=sys.stderr)
+                status = 1
+            elif path.read_text() != text:
+                print(
+                    f"FAIL: {path} is stale -- regenerate with "
+                    "`python3 sim/full-conversion-transient/gen_full_conversion_tb.py --write`",
+                    file=sys.stderr,
+                )
+                status = 1
+            else:
+                print(f"OK: {path} matches a fresh generation.")
+        return status
+    sys.stdout.write(fragment_text())
     return 0
 
 

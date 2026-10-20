@@ -43,11 +43,6 @@ sim/build/
 
 # layout/ DRC/LVS flow: local klt install, created by layout/bin/setup-venv.sh
 layout/.venv/
-# layout/sar-adc-top/ ERC supply check (issue #344): the SECOND, narrower klt
-# install, created by layout/bin/setup-erc-venv.sh from
-# layout/erc-requirements.txt -- see that file's header for why the item-11
-# `klt erc` run is pinned separately from the DRC/LVS flow above.
-layout/.venv-erc/
 # layout/sar-sequencer/ (issue #102): generate-lvs-reference.py's own output
 # -- regenerated per run-flow.sh run from that run's post-route netlist, and
 # copied into each timestamped reports/<record-id>/ (the committed evidence
@@ -94,14 +89,20 @@ layout/comparator/**/.klt/
 .loom/claims/
 .loom/locks/
 .loom/signals/
+.loom/sweep-dispatch-tap/
 .loom/status/
 .loom/retry-state/
 .loom/exit-codes/
 .loom/sweep-checkpoint/
+.loom/private-jobs/
 .loom/sweep-run/
+.loom/targets/
+.loom/target*/
+.cargo-target*/
+.loom-target/
+/target-*/
 .loom/state/*
 !.loom/state/detect-unlabeled-epics-dismissed
-.loom/concierge/
 .loom/stats/
 .loom/diagnostics/
 .loom/guide-docs-state.json

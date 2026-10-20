@@ -6,7 +6,7 @@
 #   .venv-signoff/bin/pip install -r signoff/requirements.txt
 #   KLT=.venv-signoff/bin/klt bash signoff/run-signoff.sh --check
 #
-# WHY THIS DIVERGES FROM layout/requirements.txt (which pins 0.5.0)
+# WHY THIS DIVERGES FROM layout/requirements.txt (which now pins the same 0.6.0; the divergence is about role, not version)
 #
 # The two pins gate different things and must be free to move independently:
 #

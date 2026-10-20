@@ -35,13 +35,24 @@ circuit does at 12 MHz; it proposes no sample rate and no power target
 source sim/env.sh                                                    # PDK_ROOT / PDK
 python3 sim/full-conversion-transient/run_conversion.py --check-env  # toolchain + PDK pin
 
-# the recorded campaign (9 ratified OAT corner points + the mechanism probe):
+# a reference campaign (9 ratified OAT corner points + the mechanism probe)
+# under the DR-023 solver policy -- moves records/LATEST:
 SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
     --corners --record --mechanism-probe --jobs 3
+
+# reproduce the superseded pre-DR-023 campaign (20261001-105439-c324f80, the
+# LATEST before issue #638) on the settings it ran under -- a labelled
+# SOLVER-CONTROL record that never moves LATEST:
+SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
+    --corners --record --mechanism-probe --jobs 3 --solver-profile ngspice-default
 ```
 
-Reproduces from a clean checkout against the pinned PDK (`sim/pdk.json`) and
-toolchain (`sim/toolchain.json`). Other useful invocations:
+Both run from a clean checkout against the pinned PDK (`sim/pdk.json`) and
+toolchain (`sim/toolchain.json`). Every record minted before DR-023 ran on
+`ngspice-default`: to reproduce one, add `--solver-profile ngspice-default` to
+the command in its **Written by** line (allowed with `--corners`, every
+diagnostic mode and `--coherent-sine`; never with `--supersedes`). Other
+useful invocations:
 
 ```sh
 python3 sim/full-conversion-transient/run_conversion.py                 # baseline corner only
@@ -49,15 +60,42 @@ python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
 python3 sim/full-conversion-transient/run_conversion.py --node-trace      # issue #259 node-level trace
 python3 sim/full-conversion-transient/run_conversion.py --cm-trace        # issue #265 common-mode trace
 python3 sim/full-conversion-transient/run_conversion.py --decision-margin-trace  # issue #263 / DR-009
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record
+# ^ issue #603/#605 coherent-sine SNDR/ENOB, baseline corner only (set
+#   SIM_NGSPICE_TIMEOUT_S=5400 on a slow host; the 120 s default is too short)
 python3 sim/full-conversion-transient/run_conversion.py --corners --record \
     --supersedes <record-id>   # name the prior record this one replaces (e.g. after a design/ fix)
+python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record
+# ^ issue #637 solver-sensitivity audit of the baseline corner (4 sequential
+#   transients; set SIM_NGSPICE_TIMEOUT_S=5400). Off-host on the pinned
+#   toolchain: dispatch CI with full_conversion_solver_audit=true.
+python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear
+# ^ the current reference campaign (records/LATEST = 20261011-112119-188e94c,
+#   issue #638), profile named explicitly; set SIM_NGSPICE_TIMEOUT_S=3600.
+#   Off-host on the pinned toolchain: dispatch CI with
+#   full_conversion_reference_campaign=true (job
+#   full-conversion-reference-campaign; optional
+#   full_conversion_reference_supersedes=<record-id>)
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --solver-profile reltol-gear
+# ^ the current reference coherent-sine capture (20261011-110009-320dbc6,
+#   issue #638); set SIM_NGSPICE_TIMEOUT_S=5400. Off-host: dispatch CI with
+#   coherent_sine_evidence=true, coherent_sine_solver_profile=reltol-gear
+python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default
+# ^ the 9 corners of 20261001-105439-c324f80 (superseded) on its own
+#   pre-DR-023 settings (SOLVER CONTROL)
+python3 sim/full-conversion-transient/run_conversion.py --record --solver-profile ngspice-default
+# ^ a single labelled SOLVER-CONTROL baseline run on the pre-DR-023 settings
+#   (never moves records/LATEST, may not --supersedes); add --corners or a
+#   diagnostic mode to reproduce a pre-DR-023 grid/diagnostic record
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
 
 **Runtime.** One corner point is a ~6.3 µs transient over the whole ADC and
 takes roughly 3–6 minutes on the reference toolchain (longer on a contended
-machine), so the 120 s `sim/harness` default timeout is far too small —
+machine; about 2 minutes on a GitHub-hosted runner under the DR-023 solver
+policy, 1.66x the old ngspice-default time -- see "Transient solver policy"
+below), so the 120 s `sim/harness` default timeout is far too small —
 `SIM_NGSPICE_TIMEOUT_S` must be raised, as above. `--jobs N` runs N corner
 points concurrently (independent ngspice processes; it changes runtime only,
 never results).
@@ -91,13 +129,17 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | `gen_full_conversion_tb.py` | Generates the committed fragment; owns the timing schedule, the input set and the ideal-code mapping. `--check` fails if the committed fragment is stale (also pinned byte-for-byte by `sim/tests/test_full_conversion.py`). |
 | `testbench/full_conversion_tb_fragment.spice` | The generated, committed testbench: sources, `.tran`, and every `.meas` card. Rail-referenced via `{vdd_val}` so one fragment serves every supply point. |
 | `run_conversion.py` | Deck assembly, corner loop, decoding, record writing. |
+| `testbench/coherent_sine_tb_fragment.spice` | `--coherent-sine`'s generated, committed testbench (issue #603): same supplies/clock/code reads as the DC fragment, coherent antiphase sine input. Pinned byte-for-byte by `sim/tests/test_dynamic_enob_fft.py`. |
+| `dynamic_enob.py` | Stdlib-only radix-2 FFT and SNDR/ENOB/SFDR analyzer for `--coherent-sine` (no numpy -- `sim/` runs without a venv). |
+| `corners/<record-id>/coherent-sine-<corner-id>.log` | `--coherent-sine` raw output, with the exact fragment that ran beside it. |
 | `netlist-snapshots/<record-id>.spice` | The frozen DUT netlist the record was produced from (byte-identical to `design/sar_adc_top.spice` at the recorded commit). |
 | `corners/<record-id>/<corner-id>.log` | Raw ngspice output, one per ratified corner point. |
 | `diagnostics/<record-id>/*.log` | `--mechanism-probe` raw output (see below). Kept separate from `corners/` because one of the two runs is on a **modified** netlist and must never be read as a corner result. |
 | `diagnostics/<record-id>/node-trace-<corner-id>.log` | `--node-trace` raw output (issue #259, see below) — on the **unmodified** DUT, unlike the mechanism probe. |
 | `diagnostics/<record-id>/cm-trace-<corner-id>.log` | `--cm-trace` raw output (issue #265, see below) — on the **unmodified** DUT. |
 | `diagnostics/<record-id>/decision-margin-<variant>-<corner-id>.log` | `--decision-margin-trace` raw output (issue #263 / DR-009, see below). Two variants per corner: `as-committed` (unmodified DUT) and `unbalanced-control` (testbench-only modification — never a corner result). |
-| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace`/`--decision-margin-trace` records are separate, targeted diagnostics and never update `LATEST`. |
+| `diagnostics/<record-id>/solver-audit-<profile>-<corner-id>.log` | `--solver-audit` raw output, one per solver profile (issue #637, see "Transient solver policy" below). |
+| `records/<record-id>.md` | The append-only evidence record. `records/LATEST` names the newest **corner-campaign** record; `--node-trace`/`--cm-trace`/`--decision-margin-trace` records are separate, targeted diagnostics and never update `LATEST`; neither do `--coherent-sine` records, `--solver-audit` records, or any SOLVER-CONTROL record (any `--solver-profile` other than the DR-023 reference profile -- `ngspice-default` included). |
 
 ## Deck assembly: the two load-bearing details
 
@@ -223,6 +265,412 @@ the inputs whose late bit trials present residuals of order 1 LSB, where a
 few-mV offset changes the answer. The near-full-scale conversions belong to
 [issue #265](https://github.com/2AMLogic/sky130-sar-adc/issues/265) and are
 deliberately not traced here.
+
+## The coherent-sine dynamic test (`--coherent-sine`, issue #603)
+
+The only **dynamic** (FFT) ENOB bench in the tree. The ENOB row's other
+evidence, `sim/enob-estimate/run_enob.py`, composes per-block noise in
+quadrature and says itself that a real dynamic ENOB needs a coherent-sampled
+full-chip transient. This mode is that transient. It is an informational
+**cross-check** of the behavioral estimate. It never grades the DRAFT ENOB row.
+
+- **Stimulus.** The same DUT, supplies, clock, reset, mid-`PH_EOC` code reads
+  and per-period BUSY/SAMPLE checks as the DC bench. Only the input changes,
+  to an antiphase sine about `VCM`
+  (`testbench/coherent_sine_tb_fragment.spice`, generated by
+  `gen_full_conversion_tb.sine_fragment_text()`). Default plan: `N = 32`
+  conversions after 1 discarded start-up conversion, tone on bin 7
+  (`f_in = 7 · 1 MS/s / 32 = 218.75 kHz`), peak `0.25·V_REF` (−12 dBFS).
+  The amplitude is the largest magnitude the DC corner campaign resolves
+  within 1 LSB. A larger tone would sweep into the near-full-scale saturation
+  that DR-021 addresses.
+- **Analysis.** `dynamic_enob.py` is a stdlib-only radix-2 FFT, coherent with
+  no window and DC excluded. It computes `SNDR`, `ENOB = (SNDR − 1.76)/6.02`
+  (the same relationship `run_enob.py` uses), SFDR, and the ENOB normalised
+  to a full-scale sine. That last figure is an extrapolation, and the record
+  says so. Each record also reports an ideal 10-bit quantizer on the
+  *identical* plan, because on a short record the ideal quantizer's own
+  estimate deviates from `6.02·N + 1.76`.
+- **Validity gate.** An FFT turns any code stream into a number. So the
+  runner stamps the record **NOT A VALID MEASUREMENT** and exits 1 if any
+  of these is wrong: a measurement is missing, a conversion lacks the
+  12-period BUSY/SAMPLE structure, or the largest non-DC bin is not the
+  drive bin.
+- **Scope.** Baseline corner (`tt/27C/1.8V`) only. A longer record, more
+  corners or Monte Carlo is a `klt sim` request (#564), not a local loop.
+  Records never update `records/LATEST`.
+
+**Pilot status (issue #605): first record minted.** The earlier ngspice-42
+probe (issue #603) is not evidence and is superseded. The default plan
+(`tt/27C/1.8V`, N=32, bin 7, 0.25*V_REF) was run on the pinned toolchain
+(ngspice-47, PDK `c6d73a35...`) through the opt-in manual-dispatch job
+`coherent-sine-evidence` in `.github/workflows/ci.yml` (dispatch CI with
+`coherent_sine_evidence=true`; it uploads the new append-only files as an
+artifact and never commits or pushes). Record:
+`records/20261010-070734-f968286.md` (239 s wall-clock for 33.3 us).
+
+* **VALIDITY is clean:** 0 missing measurements, 32/32 conversions with the
+  correct 12-period BUSY/SAMPLE structure, largest non-DC bin = drive bin 7.
+  This confirms the #603 probe's all-BUSY / two-code collapse was an artefact
+  of the below-floor ngspice-42, not of the sine stimulus.
+* **The headline figures are dominated by a single outlier conversion.**
+  The record reports SNDR = 2.17 dB (ENOB 0.068 bit at the tone's amplitude;
+  2.001 bit full-scale-normalised) and SFDR 13.77 dB, against 50.89 dB /
+  8.161 bit for an ideal quantizer on the same plan. The record's own
+  captured-code table shows where that comes from: **31 of the 32 codes are
+  within +/-2 LSB of ideal**, and one conversion (sample 8, conversion 9,
+  sampled Vd = +0.0196 x V_REF, just above the zero crossing) returned code
+  **960 against an ideal 522 (+438 LSB)**. That one conversion carries nearly
+  all of the error power. A back-of-envelope recompute from the table (not
+  recorded evidence) puts SNDR at roughly 47 dB with conversion 9 replaced
+  by a typical +1 LSB code. The SFDR is very likely set by the same
+  outlier. So 2.17 dB / 0.068 bit should **not** be read as a clean
+  measurement of the converter's dynamic performance, and it does not show
+  the code is wrong across the inputs. What it shows is one unexplained
+  near-mid-scale conversion error that the VALIDITY gate does not check for:
+  the gate checks phase structure, missing measurements and the tone bin,
+  not per-code error. The minted record is append-only, and its LIMITATIONS
+  section does not mention the outlier. This paragraph is the correction.
+  Root-causing conversion 9 and adding an outlier check are tracked in
+  [issue #621](https://github.com/2AMLogic/sky130-sar-adc/issues/621). The result is informational only (one corner, N=32, no
+  noise, below full scale). The DRAFT ENOB row and every target value are
+  unchanged.
+* Indexed under the ENOB row of `sim/spec-coverage.json`.
+
+**Per-code outlier diagnostic (issue #621).** `--coherent-sine` now reports,
+on the console and in every new record, a named *diagnostic* (not a validity
+criterion -- a large code error can be a real DUT result): the signed error
+`captured - ideal` per sample, the bound, the maximum |error|, and every
+outlier (sample, conversion, ideal, captured, signed error). The default bound
+is `SINE_OUTLIER_BOUND_LSB = 8` LSB, flagged when |error| is strictly greater:
+4x the +-2 LSB spread of the in-family codes in the first record and 8x the
+DC campaign's 1 LSB resolution, yet far below a glitch like conversion 9
+(+438). Headline SNDR/ENOB/SFDR always come from the complete, unmodified
+captured stream. Beside them the record gives a clearly labelled
+**DIAGNOSTIC-ONLY, NOT REPLACEMENT EVIDENCE** sensitivity: because an FFT needs
+the whole coherent record, the outlier samples are not deleted but have their
+error zeroed (ideal code substituted at those samples only) and the metrics
+and deltas recomputed. Existing validity failures (missing measurement, phase
+structure, wrong tone bin) are unchanged. Covered PDK-free by
+`TestOutlierDiagnostic` in `sim/tests/test_dynamic_enob_fft.py`.
+
+**Conversion 9: first trace run (narrowed, not closed; see the root-cause
+paragraph below).** `--coherent-sine
+--sine-trace CONV` (repeatable) appends read-only `.meas` probes for those
+conversions to the same coherent-sine transient (DUT and stimulus untouched,
+single corner, no grid; cold start `python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10`) and the record gains a "Conversion trace" section.
+It was run on the pinned toolchain (ngspice-46, the pin floor; PDK pin
+`sim/pdk.json`) as `records/20261010-204225-57a55c1.md`, tracing conversions 8, 9 and 10. That
+record re-captures the same stream bit-for-bit (sample 8 / conversion 9:
+960 vs ideal 522, +438 LSB; headline SNDR 2.17 dB), so it **Supersedes**
+`20261010-070734-f968286` for reporting purposes (the older record is
+unchanged). Observed, from the raw probes in
+`corners/20261010-204225-57a55c1/coherent-sine-tt_27c_1.80v.log`
+(lines 13582-13594): conversion 9's comparator-input top plate `TOP_P`
+follows a normal binary staircase through the bit-8..bit-5 trials (steps of
+-0.891, +0.446, +0.223, +0.111 V), and the bit-4 trial (phase 5) **also makes its
+normal step**: `nt_c9_p4_top_p_pre = 0.803 V` to `nt_c9_p5_top_p_mid =
+0.860 V`, i.e. +0.057 V where the binary staircase expects about +0.056 V.
+Later in that **same** phase, between the mid-evaluate and pre-capture
+instants and after the trial's own DAC update had already settled, `TOP_P`
+drops by about 1.37 V to `nt_c9_p5_top_p_pre = -0.505 V`, and it stays
+below ground (-0.40..-0.47 V) through the last trial. `TOP_N` is steady
+(`nt_c9_p5_top_n_mid = 0.883 V`, `nt_c9_p5_top_n_pre = 0.882 V`). No top
+plate in conversions 8 or 10 leaves [0, V_DD] (the record's excursion check
+allows a +/-0.05 V tolerance on each rail). Comparator decisions after that
+point are therefore taken with an input far outside the rails. Not
+established: what causes the drop, or how the final code 1111000000 arises.
+**Unverified inference:** the drop looks like a separate switching event
+later in phase 5, not an oversized trial step, since the trial's own step is
+normal. Its size is close to the magnitude of the bit-8 plus bit-7 steps
+observed in this conversion (0.891 + 0.446 = 1.337 V), but no probe resolves
+which plates switched, so this is arithmetic on the observed values and not
+a finding. The per-trial
+captured-bit probe is taken 2 ns after each capturing edge and is not the
+final readout, so it is reported but not used as a divergence criterion. The
+root cause is therefore narrowed to a specific analog event, not closed.
+
+**Conversion 9: root cause (issue #621) -- a solver artefact of the default
+ngspice settings, not a converter decision.** Three pinned-toolchain runs
+(ngspice-47, PDK pin `sim/pdk.json`), each a single coherent-sine transient at
+tt/27C/1.8V on the off-host opt-in CI job `coherent-sine-evidence` (inputs
+`coherent_sine_switch_trace`, `coherent_sine_trace`,
+`coherent_sine_solver_control`, `coherent_sine_supersedes`):
+
+| record | settings | conversion 9 | outliers (> 8 LSB) | headline SNDR |
+|---|---|---|---|---|
+| `records/20261011-021527-8d0c19a.md` | ngspice defaults | 960 vs 522 (+438) | 1 | 2.17 dB |
+| `records/20261011-022915-877794b.md` | ngspice defaults | 960 vs 522 (+438) | 1 | 2.17 dB |
+| `records/20261011-023419-877794b.md` | **solver control** `.options reltol=1e-4 method=gear` | 521 vs 522 (-1) | 0 (max \|error\| 2 LSB) | 52.00 dB |
+
+The probe is `--sine-switch-trace CONV`. It adds read-only `.meas` cards to
+the same transient: WHEN-crossing times of every DAC-steering and sequencer
+node, each classified against the SAR's own edge schedule
+(`switch_trace_expected_edges()`, derived from `design/sar_adc_top.spice`) as
+scheduled or **UNSCHEDULED**; node values at the instant a top plate first
+leaves the rails; per-phase snapshots incl. the DAC bottom plates; and 0.5 ns
+samples across every comparator strobe of the registers' D-path
+(MUXOUT/PRESET/DFEED). `--sine-solver-control` reruns the same deck with
+only the simulator options changed (`reltol=1e-4 method=gear`); when
+`20261011-023419-877794b` was minted that made it a labelled control. Since
+DR-023 (issue #637) those settings are the reference policy, so the flag no
+longer selects a control; see "Transient solver policy" below.
+
+Cold start for the default-settings records (`20261011-021527-8d0c19a`,
+`20261011-022915-877794b`; all trace probes, each record's own **Written by**
+line names the subset it used). They ran before DR-023, on ngspice defaults,
+so reproducing them now needs the `ngspice-default` profile, which makes the
+new record a labelled SOLVER CONTROL:
+
+```
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10 --sine-switch-trace 9 --solver-profile ngspice-default
+```
+
+Cold start for `20261011-023419-877794b` (minted as the solver control; the
+same command now runs the DR-023 **reference** policy, identical to omitting
+`--sine-solver-control`):
+
+```
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --sine-solver-control
+```
+
+*Observed* (defaults; `20261011-022915-877794b`, which also probes the ring
+correctly -- `20261011-021527-8d0c19a`'s ring probes are missing, because a
+subckt port is not addressable as `xseq.<port>` in ngspice; its DOUT/SEL/
+plate data are unaffected): the ring is correct (only PH_B4 high in phase
+5), and the bit-4 trial proceeds normally up to the strobe. Then, between
++43.67 and +44.67 ns after phase 5's CLK rising edge, i.e. ~2-3 ns after the
+CLK falling edge (+41.67 ns) and coincident with the comparator's
+regeneration (in the 0.5 ns strobe samples COMP_OUT is 0.894 V at +44.17 ns,
+and COMP_EFF falls from 1.381 V at +44.17 ns to 0.037 V at +44.67 ns), the
+**already-rejected** registers DOUT8, DOUT7, DOUT6 and the
+untouched DOUT2 switch 0 -> 1 together with their own D-paths (MUXOUT/
+PRESET/DFEED cross at +44.27 ns, DOUT at +44.32 ns). No CLK rising edge
+occurs, and RST_B and every supply are ideal sources. SELp8/7/6/2 follow,
+the corresponding P bottom plates swing from VREFP toward VREFN, and TOP_P
+leaves the rails at +44.59 ns (-0.2 V crossing) while TOP_N is undisturbed.
+The bit-4 decision itself (0) is correct; later trials decide on a top
+plate below ground. That gives the final code 1111000000 (DOUT2 is cleared
+by its own rejected trial). The switch trace reports exactly 8 UNSCHEDULED
+transitions in conversion 9 (SELp8/7/6/2 and DOUT8/7/6/2 rising), all
+between +44.28 and +44.32 ns of phase 5.
+
+*Observed* (solver control, `20261011-023419-877794b`): with DUT, stimulus,
+ngspice and PDK unchanged and only `reltol=1e-4 method=gear` added, conversion
+9 converts to 521 (ideal 522), there are **no** UNSCHEDULED transitions and
+TOP_P stays inside the rails (0.86 V through phase 5). The capture has no
+outlier above the 8 LSB bound.
+
+*Inferred* (not established by a further control): four static registers
+flipping together without a clock edge, under ideal supplies, at a sharp
+regenerative event, and vanishing when only the integration settings are
+tightened, is a **numerical artefact of the default solver settings**
+(reltol=1e-3, trapezoidal) rather than a circuit behaviour. The control
+changes two settings at once, so it does not say which one matters. The
+~1.37 V top-plate drop is consistent with the observed plate switching:
+bit-8+7+6+2 steps sum to about 1.57 V, and the shortfall to the observed
+about -0.53 V minimum is consistent with a forward-biased junction clamping
+TOP_P/BPREF_P below ground. No junction current was probed, so that last
+part is arithmetic, not a finding. Consequences:
+
+* The 2.17 dB / 0.068 bit headline of the default-settings records is a
+  simulator artefact in one conversion, which the outlier diagnostic flags.
+  It is not the converter's dynamic performance.
+* The control's 52.00 dB SNDR / 8.345 bit ENOB (ideal quantizer on the same
+  N=32 plan: 50.89 dB / 8.161 bit; the excess is the short record's
+  estimator variance) is a **control, not replacement evidence**. It is one
+  corner, N=32, no noise, -12 dBFS, so the DRAFT ENOB row and every target
+  are unchanged.
+* Every other transient record in this repo uses the same default solver
+  settings. Whether any of them carries a similar artefact is outside this
+  issue's scope and is tracked as a follow-up (issue #637; see "Transient
+  solver policy" below); no other record is reinterpreted here.
+
+`20261011-021527-8d0c19a` **Supersedes** `20261010-204225-57a55c1`, and
+`20261011-022915-877794b` **Supersedes** `20261011-021527-8d0c19a`. Each is
+the same default-settings capture, re-run with deeper probes, and the stream
+is bit-for-bit identical. The solver-control record supersedes nothing. It
+makes a different claim, a control, and is not a replacement capture.
+`20261010-070734-f968286` remains superseded via `57a55c1`, as before.
+
+## Transient solver policy (issue #637, DR-023)
+
+Solver settings are a **named policy** applied at deck assembly
+(`SOLVER_PROFILES` / `--solver-profile` in `run_conversion.py`). Every record
+states its resolved profile and `.options` card in its Environment block
+(`simulator options: ...`).
+
+| profile | `.options` card | role |
+|---|---|---|
+| `reltol-gear` | `.options reltol=1e-4 method=gear` | **reference policy** ([DR-023](../../spec/decision-records/DR-023-full-conversion-transient-solver-policy.md)) for every transient this runner assembles: DC campaign, `--coherent-sine` and every diagnostic mode |
+| `ngspice-default` | (none: reltol=1e-3, trapezoidal) | SOLVER CONTROL; the settings of **every record minted before DR-023** |
+| `reltol-only` | `.options reltol=1e-4` | SOLVER CONTROL (single setting) |
+| `gear-only` | `.options method=gear` | SOLVER CONTROL (single setting) |
+
+**Reference vs control.** Only the reference profile produces reference
+evidence: a corner campaign, `records/LATEST`, or a `--supersedes` chain.
+A control may run the baseline-corner DC transient (`--record --solver-profile
+P`), `--coherent-sine --solver-profile P`, or `--solver-audit`.
+`ngspice-default` may additionally run `--corners` and every diagnostic mode
+(`--mechanism-probe`, `--node-trace`, `--cm-trace`,
+`--decision-margin-trace`), so every pre-DR-023 record -- `records/LATEST`'s
+9-corner campaign included -- stays reproducible; the resulting record is
+still a labelled SOLVER CONTROL. The runner refuses the single-setting
+controls (`reltol-only`, `gear-only`) with `--corners` or a diagnostic mode,
+and every control with `--supersedes`, before any simulation starts.
+`write_record()` also refuses a superseding control, and a control record
+never moves `records/LATEST` (diagnostic records never do under any
+profile). The scope is this experiment only; no other experiment's deck
+changed. `--sine-solver-control` is kept because the committed #621 record's
+cold start uses it. It now means `--solver-profile reltol-gear`, i.e. the
+reference, not a control.
+
+**The guard: `--solver-audit`.** It runs the DC baseline corner under the
+reference profile and then each control (`--audit-profile`, default: all
+others), one after another in one process, so the wall-clock comparison is
+like-for-like. Every run carries the same instrumentation: ngspice's
+print-only `.options acct` statistics and read-only register-transition
+guard probes. The guard probes are the WHEN-crossing half of the #621
+switching-event trace, on every measured conversion. The audit mints one
+diagnostic record (never `LATEST`, supersedes nothing) that names each moved
+observation **SOLVER-SENSITIVE** and separates a moved *recorded failure
+mode* from a moved value. Cold start:
+
+```
+python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record
+```
+
+Off-host on the pinned toolchain: dispatch CI with
+`full_conversion_solver_audit=true` (job `solver-audit-evidence`; it uploads
+an artifact and never commits). The coherent-sine dispatch job accepts
+`coherent_sine_solver_profile` for single-profile controls, e.g.:
+
+```
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile reltol-only
+python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile gear-only
+```
+
+**Evidence behind DR-023.** All on ngspice-47 and the PDK pin, through the CI
+dispatch jobs on 2026-10-11.
+
+| record | what | result |
+|---|---|---|
+| `records/20261011-064547-a6dcdd7.md` | DC baseline `--solver-audit` (commit `a6dcdd7`; at that commit the reference was still `ngspice-default`) | `ngspice-default` reproduces `LATEST`'s `tt_27c_1.80v` row exactly (214/383/511/641/1023, 27.986 uW). **No recorded failure mode moves** under any control. Power falls 1.9-2.8 % (VPWR -5..-6 %). Both `reltol=1e-4` profiles resolve a brief TOP_N dip below -0.2 V in conversion 3 (no code effect). `gear-only` moves the failing -0.78 input by 1 LSB (214 -> 213). Simulator wall-clock 76 / 127 / 114 / 74 s (default / reltol-gear / reltol-only / gear-only). |
+| `records/20261011-064924-ad4bfff.md` | coherent-sine, `reltol-only` control | conversion 9 = 521, 0 outliers, SNDR 52.00 dB; 522 s |
+| `records/20261011-064408-ad4bfff.md` | coherent-sine, `gear-only` control | conversion 9 = 521, 0 outliers, SNDR 52.00 dB; 217 s |
+
+Both single-setting streams match the `reltol-gear` control
+(`20261011-023419-877794b`) code for code. **Either setting alone removes
+the #621 artefact.** DR-023 adopts both together: tighter tolerance resolves
+the fast edges, and Gear guards against trapezoidal ringing at the
+regenerating latch. The like-for-like cost is 1.66x. DR-023 records the
+rejected alternatives and the full runtime comparison.
+
+**What this means for existing records.** They stay as they are. Each is
+evidence under `ngspice-default`. When DR-023 landed, `records/LATEST`
+(`20261001-105439-c324f80`) had been confirmed unchanged in codes and verdicts
+at the baseline corner only, with power about 2.8 % above the new policy's
+figure there and the other eight corners unaudited. Issue #638 has since
+re-minted both reference records under `reltol-gear`; see the next section.
+
+## Reference re-mint under DR-023 (issue #638)
+
+Both reference records were re-minted under the reference profile
+`reltol-gear` (`.options reltol=1e-4 method=gear`). The runs were off-host on
+GitHub-hosted runners with ngspice-47 built from source at
+`sim/toolchain.json`'s pin and sky130A at `sim/pdk.json`'s pin
+(`c6d73a35f524070e85faff4a6a9eef49553ebc2b`), with no toolchain-drift
+override. The records were imported byte-for-byte from the run artifacts.
+
+| record | what | run | commit | runner exit | Supersedes |
+|---|---|---|---|---|---|
+| `records/20261011-112119-188e94c.md` | 9-corner DC reference campaign (`--corners --record --solver-profile reltol-gear`); moves `records/LATEST` | [38134032661](https://github.com/2AMLogic/sky130-sar-adc/actions/runs/38134032661) (`full-conversion-reference-campaign`) | `188e94c` | 1, classified `complete-informational-fail`: all 9 corners measured, OVERALL FAIL against the informational code criterion | `20261001-105439-c324f80` |
+| `records/20261011-110009-320dbc6.md` | coherent-sine reference capture (`--coherent-sine --record --solver-profile reltol-gear`, N=32, bin 7, 0.25*V_REF); `records/LATEST` left unchanged | [38133222055](https://github.com/2AMLogic/sky130-sar-adc/actions/runs/38133222055) (`coherent-sine-evidence`) | `320dbc6` | 0 (validity gate clean) | `20261011-022915-877794b` |
+
+An earlier dispatch of the DC job,
+[38133220856](https://github.com/2AMLogic/sky130-sar-adc/actions/runs/38133220856)
+at `320dbc6`, completed all nine corners. Its codes, phase checks and per-rail
+currents were identical to the imported run at every corner. The job's own
+outcome classifier rejected it because it matched the wrong role label in the
+record's `simulator options` line. That was a workflow bug, fixed at `188e94c`.
+The run was not imported, because a second record would fork the
+**Supersedes** chain.
+
+**DC campaign, per corner, against `20261001-105439-c324f80`** (codes are
+captured codes for `-0.78 / -0.25 / +0.00 / +0.25 / +0.78 * V_REF`; ideal
+113 / 384 / 512 / 640 / 911; the superseded record ran on **ngspice-46**
+under `ngspice-default`, so this comparison crosses a simulator-version
+step as well as the solver-profile step -- see the notes below it):
+
+| corner | old codes | new codes | moved | +-1 LSB (old / new) | phases (old / new) | worst \|err\| LSB (old / new) | verdict (old / new) | total power uW (old / new) | change |
+|---|---|---|---|---|---|---|---|---|---|
+| `tt_27c_1.80v` | 214/383/511/641/1023 | 214/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 27.986 / 27.197 | -2.82 % |
+| `ss_27c_1.80v` | 223/383/511/641/1023 | 223/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 26.980 / 26.682 | -1.10 % |
+| `ff_27c_1.80v` | 205/383/511/641/1023 | 204/383/511/641/1023 | -0.78: 205 -> 204 | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 28.395 / 28.194 | -0.71 % |
+| `sf_27c_1.80v` | 201/383/512/641/1023 | 200/383/511/641/1023 | -0.78: 201 -> 200; +0.00: 512 -> 511 | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 28.957 / 27.094 | -6.43 % |
+| `fs_27c_1.80v` | 225/383/511/641/1023 | 225/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 28.016 / 27.291 | -2.59 % |
+| `tt_-40c_1.80v` | 234/383/512/641/1023 | 234/383/511/641/1023 | +0.00: 512 -> 511 | 3/5 / 3/5 | 5/5 / 5/5 | 121 / 121 | FAIL / FAIL | 28.111 / 26.336 | -6.31 % |
+| `tt_125c_1.80v` | 184/383/512/641/1023 | 184/383/511/641/1023 | +0.00: 512 -> 511 | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 31.211 / 29.401 | -5.80 % |
+| `tt_27c_1.62v` | 237/383/511/641/1023 | 237/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 124 / 124 | FAIL / FAIL | 21.612 / 21.389 | -1.03 % |
+| `tt_27c_1.98v` | 194/383/511/641/1023 | 194/383/511/641/1023 | none | 3/5 / 3/5 | 5/5 / 5/5 | 112 / 112 | FAIL / FAIL | 34.254 / 34.136 | -0.34 % |
+
+* **Unchanged failure modes.** These hold at all nine corners: the three
+  mid-scale inputs within +-1 LSB, `+0.78*V_REF` saturated at 1023
+  (+112 LSB), `-0.78*V_REF` failing by +71 to +124 LSB, 5/5 phase structure,
+  and binding corner `tt_27c_1.62v` (124 LSB). Overall FAIL, 0/9, against
+  the experiment's informational criterion. No per-input or per-corner
+  verdict moves.
+* **Solver-sensitive observations of the old settings.** Five captured codes
+  move by 1 LSB: `-0.78*V_REF` at `ff` and `sf`, and `+0.00*V_REF` 512 -> 511
+  at `sf`, `tt_-40c` and `tt_125c` (still within +-1 LSB). The baseline-corner
+  audit (`20261011-064547-a6dcdd7`) could not see these, because none of
+  them is at `tt_27c_1.80v`. One qualification on the attribution: this
+  comparison crosses two axes at once, because the superseded record
+  (`20261001-105439-c324f80`) ran on **ngspice-46** under `ngspice-default`
+  while this one ran on **ngspice-47** under `reltol-gear`. The version step
+  alone has been measured only at `tt_27c_1.80v`, where the audit's
+  ngspice-47 `ngspice-default` run reproduces the ngspice-46 row exactly
+  (codes and power); at the other eight corners the two axes are not
+  separated. So a moved code is a solver-sensitive observation of the old
+  record's settings-plus-version, not of the converter, and not of the
+  integration settings measured on their own.
+* **Power.** Total power is 0.3-6.4 % lower at every corner. This is the
+  **combined solver-plus-version shift** (ngspice-46/`ngspice-default` ->
+  ngspice-47/`reltol-gear`), not a measured integration-setting
+  uncertainty: the version step alone was shown to be null only at
+  `tt_27c_1.80v` (audit `20261011-064547-a6dcdd7`) and is unmeasured at
+  the other eight corners. The shift is mostly in I(VPWR), the digital
+  supply (-0.4 to -11.5 %); I(VDD) and the VREFP/VREFN reference currents
+  move by under 3 %, while I(VCM) moves -14 % to +9 % -- at 0.010-0.037 uA
+  that is dominated by the table's 3-decimal rounding. Power remains
+  an informational DRAFT-row figure.
+
+**Coherent-sine capture, against `20261011-022915-877794b`.** VALIDITY is
+clean: 32/32 conversions with the correct 12-period structure, 0 missing
+measurements, peak bin = drive bin 7, and 0/32 codes at a rail. Per-code
+diagnostic: 0 outliers above 8 LSB, max |error| 2 LSB (20 codes at +-1,
+6 at +-2, 6 exact). On the complete, unmodified stream: SNDR **52.00 dB**,
+ENOB **8.345 bit**, SFDR **54.98 dB**, tone -11.95 dBFS. The ideal quantizer
+on the same plan gives 50.89 dB / 8.161 bit, and the excess is the short
+record's estimator variance. The superseded default-settings capture gave
+2.17 dB / 0.068 bit / 13.77 dB, set entirely by conversion 9 (960 vs ideal
+522). The new stream differs from it **only** at conversion 9 (521). It
+matches the #621 combined-profile control `20261011-023419-877794b` (minted
+with `--sine-solver-control`, labelled a SOLVER CONTROL at the time) code
+for code. That control keeps its historical label. The new record is the
+reference capture, with the same settings, minted as reference evidence.
+This is still one corner, N=32, no noise sources and -12 dBFS, so the DRAFT
+ENOB row is informational only and is not graded, and no target changes.
+
+**Provenance notes.** Both records are pre-formatted by the runner, so two
+of their own phrases are generic and not run-specific. The sine record's
+runtime line says "on a shared dispatch host" (it ran on a 4-vCPU
+GitHub-hosted runner), and its stimulus line names `20261001-105439-c324f80`
+as the DC campaign that resolves 0.25*V_REF within 1 LSB (the new campaign
+does too). Both records stay as minted (append-only). Each record reads
+`(dirty)` on its git line, as earlier records of this experiment do,
+because the runner writes the netlist snapshot before it reads the
+tree state.
 
 ## Findings
 

@@ -7,9 +7,9 @@
 #   layout/bin/setup-erc-venv.sh --force  # reinstall even if it exists
 #
 # This is deliberately a SECOND venv beside layout/.venv (layout/bin/
-# setup-venv.sh, klayout-tools==0.5.0), not a replacement for it -- see
+# setup-venv.sh, klayout-tools==0.6.0), not a replacement for it -- see
 # layout/erc-requirements.txt's own header for why the ERC run is pinned
-# separately from the DRC/LVS flow, and why that separation is safe.
+# separately from the DRC/LVS flow, and why that separation is safe (issue #685).
 #
 # Structure ported verbatim from layout/bin/setup-venv.sh, including its
 # `--force-reinstall` discipline; only the venv path, the requirements file

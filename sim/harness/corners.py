@@ -15,6 +15,15 @@ from __future__ import annotations
 
 from .pdk import load_pdk_json
 
+# Ratified corner set (spec/target-spec.md, "Numeric rows -- RATIFIED
+# 2026-08-19"): +/-10% supply, -40/27/125 C, tt/ss/ff/sf/fs process.
+# Single definition shared by every --corners driver in sim/ (issue #546);
+# drivers alias these as SUPPLY_TOLERANCE / TEMPS_C / PROCESS_CORNERS.
+# No new numeric values -- these are the values each driver already carried.
+RATIFIED_SUPPLY_TOLERANCE = 0.10
+RATIFIED_TEMPS_C = [-40, 27, 125]
+RATIFIED_PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+
 
 def default_mismatch_corners() -> list[str]:
     return list(load_pdk_json()["mismatch_corners"])
@@ -123,8 +132,38 @@ def ratified_oat_grid(
     supply_points() + oat_grid() chain those call sites previously
     hand-repeated (issue #211 -- see sim/harness/corners.py's docstring for
     why the baseline itself is a repo convention, not a hardcoded spec
-    value: nominal_v/process_corners/temps_c are still supplied by the
-    caller's own testbench manifest)."""
+    value). The ratified corner-set constants are RATIFIED_SUPPLY_TOLERANCE /
+    RATIFIED_TEMPS_C / RATIFIED_PROCESS_CORNERS above (issue #546); drivers
+    alias them, but this function still takes tolerance/process_corners/
+    temps_c as arguments, so a caller may pass its own set, and nominal_v
+    is still supplied by the caller's own testbench manifest."""
     return oat_grid(
         "tt", 27.0, nominal_v, process_corners, temps_c, supply_points(nominal_v, tolerance)
     )
+
+
+def sweep(
+    nominal_v: float,
+    tolerance: float,
+    process_corners: list[str],
+    temps_c: list[float],
+    *,
+    quiet: bool = False,
+    announce: bool = True,
+):
+    """Iterate the ratified OAT grid as (process_corner, temp_c, supply_v, cid).
+
+    Pure iterator over ratified_oat_grid() + corner_id(): grid order is the
+    OAT order, cid is the corner_id() string. The caller keeps PDK
+    resolution, per-point simulation, and its own reduction. When `announce`
+    is true and `quiet` is false, prints "<cid>:" as each point is yielded
+    (the progress line the --corners drivers used to print by hand); drivers
+    that own their own progress output pass announce=False. This is the
+    single seam for the corner loop (issue #576)."""
+    for process_corner, temp_c, supply_v in ratified_oat_grid(
+        nominal_v, tolerance, process_corners, temps_c
+    ):
+        cid = corner_id(process_corner, temp_c, supply_v)
+        if announce and not quiet:
+            print(f"{cid}:")
+        yield process_corner, temp_c, supply_v, cid

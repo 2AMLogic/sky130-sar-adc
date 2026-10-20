@@ -25,7 +25,12 @@ of verified open-PDK analog blocks.
   is not.
 - **Verification is the product**: no claim without a testbench. PVT corners on
   every recorded result. `sim/` results are append-only evidence — a later run
-  mints a new record rather than overwriting an earlier one.
+  mints a new record rather than overwriting an earlier one. Before requesting
+  review, compare every interpretation sentence and cold-start command you wrote
+  against the cited raw results and the current CLI defaults: check
+  counts/population, sign, timing, reference/control roles, and uncontrolled
+  differences between compared runs (e.g. tool version), and state no more than
+  the observations support.
 - **The spec is a gate**: spec changes go through `spec/` with a decision record;
   agents do not relax a spec line to make a result pass. A row that proves
   unmeetable is superseded by a new decision record, never silently loosened.
@@ -48,7 +53,7 @@ of verified open-PDK analog blocks.
 This repository uses [Loom](https://github.com/rjwalters/loom) for AI-powered development orchestration — see the Loom repository for the full guide (roles, labels, worktrees, configuration). When installed, Loom also writes a locally-substituted copy of that guide to `.loom/CLAUDE.md`.
 <!-- END LOOM ORCHESTRATION -->
 <!-- BEGIN REPO-SKILLS -->
-This repository has [Repo Skills](https://github.com/rjwalters/repo) v0.19.5 installed —
+This repository has [Repo Skills](https://github.com/rjwalters/repo) v0.24.3 installed —
 general repository hygiene and environment commands invoked as `/repo:<command>`. Run
 `/repo:help` for the command list, or see `.claude/skills/repo/SKILL.md` for the full
 guide. Hygiene commands apply safe, reversible fixes by default and report each

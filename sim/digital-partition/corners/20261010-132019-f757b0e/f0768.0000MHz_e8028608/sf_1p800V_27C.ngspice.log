@@ -1,0 +1,259 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * klt sim -- generated corner deck, do not edit
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+vpwr                                       1.8
+vgnd                                         0
+clku                                         0
+clk                                          0
+rstu                                         0
+rst_b                                        0
+cmpu                                         0
+comp_out                                     0
+outn_nc                                      0
+ph_sample                                  1.8
+ph_b9                              4.32707e-09
+ph_b8                              4.32707e-09
+ph_b7                              4.32707e-09
+ph_b6                              4.32707e-09
+ph_b5                              4.32707e-09
+ph_b4                              4.32707e-09
+ph_b3                              4.32707e-09
+ph_b2                              4.32707e-09
+ph_b1                              4.32707e-09
+ph_b0                              4.32707e-09
+ph_eoc                             4.32707e-09
+xseq.org1                          4.32707e-09
+xseq.org2                          4.32707e-09
+xseq.org3                          4.32707e-09
+busy                               4.32707e-09
+xseq.org4                          4.32707e-09
+xseq.busy_bits                     4.32707e-09
+dout9                              4.32707e-09
+xseq.muxout9                       4.32707e-09
+dout8                              4.32707e-09
+xseq.comp_eff                              1.8
+xseq.muxout8                       4.32707e-09
+xseq.dfeed8                        4.32707e-09
+dout7                              4.32707e-09
+xseq.muxout7                       4.32707e-09
+xseq.dfeed7                        4.32707e-09
+dout6                              4.32707e-09
+xseq.muxout6                       4.32707e-09
+xseq.dfeed6                        4.32707e-09
+dout5                              4.32707e-09
+xseq.muxout5                       4.32707e-09
+xseq.dfeed5                        4.32707e-09
+dout4                              4.32707e-09
+xseq.muxout4                       4.32707e-09
+xseq.dfeed4                        4.32707e-09
+dout3                              4.32707e-09
+xseq.muxout3                       4.32707e-09
+xseq.dfeed3                        4.32707e-09
+dout2                              4.32707e-09
+xseq.muxout2                       4.32707e-09
+xseq.dfeed2                        4.32707e-09
+dout1                              4.32707e-09
+xseq.muxout1                       4.32707e-09
+xseq.dfeed1                        4.32707e-09
+dout0                              4.32707e-09
+xseq.muxout0                       4.32707e-09
+xseq.dfeed0                        4.32707e-09
+xseq.preset8                       4.32707e-09
+xseq.preset7                       4.32707e-09
+xseq.preset6                       4.32707e-09
+xseq.preset5                       4.32707e-09
+xseq.preset4                       4.32707e-09
+xseq.preset3                       4.32707e-09
+xseq.preset2                       4.32707e-09
+xseq.preset1                       4.32707e-09
+xseq.preset0                       4.32707e-09
+clkn                                       1.8
+dout9n                                     1.8
+seln0                              4.32707e-09
+selp0                              4.32707e-09
+seln1                              4.32707e-09
+selp1                              4.32707e-09
+seln2                              4.32707e-09
+selp2                              4.32707e-09
+seln3                              4.32707e-09
+selp3                              4.32707e-09
+seln4                              4.32707e-09
+selp4                              4.32707e-09
+seln5                              4.32707e-09
+selp5                              4.32707e-09
+seln6                              4.32707e-09
+selp6                              4.32707e-09
+seln7                              4.32707e-09
+selp7                              4.32707e-09
+seln8                              4.32707e-09
+selp8                              4.32707e-09
+adcout0                                    1.8
+adcout1                                    1.8
+adcout2                                    1.8
+adcout3                                    1.8
+adcout4                                    1.8
+adcout5                                    1.8
+adcout6                                    1.8
+adcout7                                    1.8
+adcout8                                    1.8
+dumload_mux_nc                     4.32707e-09
+dumload_xnor_nc                            1.8
+half_lsb_en                        4.32707e-09
+half_lsb_enn                               1.8
+pcode                                        1
+ctlcode                                      4
+dcode                              2.27152e-13
+adccode                                    511
+selncode                           1.13465e-13
+selpcode                           1.13465e-13
+bselp#branch                                 0
+bseln#branch                                 0
+badc#branch                                  0
+bdcode#branch                                0
+bctl#branch                                  0
+bpcode#branch                                0
+bcmp#branch                                  0
+brst#branch                                  0
+bclk#branch                                  0
+voutn#branch                                 0
+vcmpu#branch                                 0
+vrstu#branch                                 0
+vclku#branch                                 0
+vgnd#branch                        1.33225e-09
+vdig#branch                       -1.33341e-09
+
+
+No. of Data Rows : 2980
+
+  Measurements for Transient Analysis
+
+pc_rst              =  1.00000e+00
+ctl_rst             =  4.00000e+00
+pc_c0_j0            =  2.00000e+00
+ctl_c0_j0           =  5.00000e+00
+pc_c0_j1            =  4.00000e+00
+ctl_c0_j1           =  3.00000e+00
+pc_c0_j2            =  8.00000e+00
+ctl_c0_j2           =  3.00000e+00
+pc_c0_j3            =  1.60000e+01
+ctl_c0_j3           =  3.00000e+00
+pc_c0_j4            =  3.20000e+01
+ctl_c0_j4           =  3.00000e+00
+pc_c0_j5            =  6.40000e+01
+ctl_c0_j5           =  3.00000e+00
+pc_c0_j6            =  1.28000e+02
+ctl_c0_j6           =  3.00000e+00
+pc_c0_j7            =  2.56000e+02
+ctl_c0_j7           =  3.00000e+00
+pc_c0_j8            =  5.12000e+02
+ctl_c0_j8           =  3.00000e+00
+pc_c0_j9            =  1.02400e+03
+ctl_c0_j9           =  3.00000e+00
+pc_c0_j10           =  2.04800e+03
+ctl_c0_j10          =  3.00000e+00
+pc_c0_j11           =  9.99994e-01
+ctl_c0_j11          =  6.28006e-11
+dout_c0             =  8.11000e+02
+adc_c0              =  2.99000e+02
+seln_c0             =  1.13465e-13
+selp_c0             =  2.99000e+02
+pc_c1_j0            =  2.00000e+00
+ctl_c1_j0           =  5.00000e+00
+pc_c1_j1            =  4.00000e+00
+ctl_c1_j1           =  3.00000e+00
+pc_c1_j2            =  8.00000e+00
+ctl_c1_j2           =  3.00000e+00
+pc_c1_j3            =  1.60000e+01
+ctl_c1_j3           =  3.00000e+00
+pc_c1_j4            =  3.20000e+01
+ctl_c1_j4           =  3.00000e+00
+pc_c1_j5            =  6.40000e+01
+ctl_c1_j5           =  3.00000e+00
+pc_c1_j6            =  1.28000e+02
+ctl_c1_j6           =  3.00000e+00
+pc_c1_j7            =  2.56000e+02
+ctl_c1_j7           =  3.00000e+00
+pc_c1_j8            =  5.12000e+02
+ctl_c1_j8           =  3.00000e+00
+pc_c1_j9            =  1.02400e+03
+ctl_c1_j9           =  3.00000e+00
+pc_c1_j10           =  2.04800e+03
+ctl_c1_j10          =  3.00000e+00
+pc_c1_j11           =  9.99994e-01
+ctl_c1_j11          =  6.27170e-11
+dout_c1             =  2.12000e+02
+adc_c1              =  2.99000e+02
+seln_c1             =  2.12000e+02
+selp_c1             =  1.13465e-13
+pc_c2_j0            =  2.00000e+00
+ctl_c2_j0           =  5.00000e+00
+pc_c2_j1            =  4.00000e+00
+ctl_c2_j1           =  3.00000e+00
+pc_c2_j2            =  8.00000e+00
+ctl_c2_j2           =  3.00000e+00
+pc_c2_j3            =  1.60000e+01
+ctl_c2_j3           =  3.00000e+00
+pc_c2_j4            =  3.20000e+01
+ctl_c2_j4           =  3.00000e+00
+pc_c2_j5            =  6.40000e+01
+ctl_c2_j5           =  3.00000e+00
+pc_c2_j6            =  1.28000e+02
+ctl_c2_j6           =  3.00000e+00
+pc_c2_j7            =  2.56000e+02
+ctl_c2_j7           =  3.00000e+00
+pc_c2_j8            =  5.12000e+02
+ctl_c2_j8           =  3.00000e+00
+pc_c2_j9            =  1.02400e+03
+ctl_c2_j9           =  3.00000e+00
+pc_c2_j10           =  2.04800e+03
+ctl_c2_j10          =  3.00000e+00
+pc_c2_j11           =  9.99994e-01
+ctl_c2_j11          =  6.28399e-11
+dout_c2             =  6.82000e+02
+adc_c2              =  1.70000e+02
+seln_c2             =  1.13465e-13
+selp_c2             =  1.70000e+02
+pc_c3_j0            =  2.00000e+00
+ctl_c3_j0           =  5.00000e+00
+pc_c3_j1            =  4.00000e+00
+ctl_c3_j1           =  3.00000e+00
+pc_c3_j2            =  8.00000e+00
+ctl_c3_j2           =  3.00000e+00
+pc_c3_j3            =  1.60000e+01
+ctl_c3_j3           =  3.00000e+00
+pc_c3_j4            =  3.20000e+01
+ctl_c3_j4           =  3.00000e+00
+pc_c3_j5            =  6.40000e+01
+ctl_c3_j5           =  3.00000e+00
+pc_c3_j6            =  1.28000e+02
+ctl_c3_j6           =  3.00000e+00
+pc_c3_j7            =  2.56000e+02
+ctl_c3_j7           =  3.00000e+00
+pc_c3_j8            =  5.12000e+02
+ctl_c3_j8           =  3.00000e+00
+pc_c3_j9            =  1.02400e+03
+ctl_c3_j9           =  3.00000e+00
+pc_c3_j10           =  2.04800e+03
+ctl_c3_j10          =  3.00000e+00
+pc_c3_j11           =  9.99994e-01
+ctl_c3_j11          =  6.27961e-11
+dout_c3             =  3.41000e+02
+adc_c3              =  1.70000e+02
+seln_c3             =  3.41000e+02
+selp_c3             =  1.13465e-13
+iavg_reset          =  -2.07954e-04 from=  1.95313e-09 to=  4.56055e-09
+iavg_active         =  -3.49559e-04 from=  2.14844e-08 to=  6.83626e-08
+
+ngspice-46 done

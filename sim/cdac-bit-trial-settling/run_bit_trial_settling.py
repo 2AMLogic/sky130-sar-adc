@@ -185,9 +185,9 @@ DIRECTIONS = ["fall", "rise"]  # fall: BOT 1.8->0V (NMOS); rise: BOT 0->1.8V (PM
 # sim/sampling-acquisition-settling/, and sim/sequencer-logic-delay/ each
 # already sweep. Used only by the optional --corners mode below; the
 # single-corner (tt/27C/1.8V) default behavior above is unchanged.
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 
 # The single-corner (tt/27C/1.8V) record --corners's own evidence record
 # cross-references as "the finding this campaign extends" -- the record
@@ -462,13 +462,11 @@ def run_corners(scratch: Path, quiet: bool = False) -> list[dict]:
     the single-corner record declined to call itself PVT-complete.
     """
     pdk.resolve_or_raise()
-    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
 
     points: list[dict] = []
-    for process_corner, temp_c, supply_v in grid:
-        cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
-        if not quiet:
-            print(f"{cid}:")
+    for process_corner, temp_c, supply_v, cid in corners_mod.sweep(
+        VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, quiet=quiet
+    ):
         rows = run_all(
             scratch, corner=process_corner, temp_c=temp_c, vdd=supply_v,
             quiet=True, tag_prefix=f"{cid}_", tran_stop_ns=CORNERS_TRAN_STOP_NS,

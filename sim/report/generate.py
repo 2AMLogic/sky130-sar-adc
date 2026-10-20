@@ -35,6 +35,14 @@ If one is found, the citation is stale -- the report is citing a record a
 newer one has explicitly superseded, and `--check` (and `main()`'s default
 "write" path) exits non-zero rather than rendering a stale claim silently.
 
+Digital partition (issue #619): the same generator also renders
+`docs/characterization-report-digital.md` from the campaign the
+`sim/digital-partition/records/LATEST` record names (`--write`/`--check` cover
+both documents), `--check` rejects a changed digital-partition netlist or routed
+layout without a regenerated campaign, and `--write-envelope` (re)writes
+`signoff/evidence/digital-characterization.generic.json` -- refusing unless the
+campaign meets the item-8 digital checklist.
+
 Layout citations (`manifest.Row.layout_citations`) are pinned paths, not
 resolved against a supersession scheme -- `layout/` has none (see
 `manifest.BLIND_SPOTS`, which says so explicitly rather than pretending
@@ -50,9 +58,13 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REPORT_PATH = REPO_ROOT / "docs" / "characterization-report.md"
+DIGITAL_REPORT_PATH = REPO_ROOT / "docs" / "characterization-report-digital.md"
+DIGITAL_ENVELOPE_PATH = REPO_ROOT / "signoff" / "evidence" / "digital-characterization.generic.json"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # sim/ on path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "digital-partition"))
 from report import manifest  # noqa: E402  (path setup must precede this import)
+import digital_report  # noqa: E402  (sim/digital-partition/, issue #619)
 
 
 def extract_field(text: str, field_name: str) -> str | None:
@@ -145,6 +157,26 @@ def check_freshness(rows: tuple[manifest.Row, ...] = manifest.ROWS) -> list[str]
                     f"[{row.id}] layout citation {rel_path!r} in sim/report/manifest.py "
                     "does not exist."
                 )
+    return problems
+
+
+def check_digital_freshness(repo: Path = REPO_ROOT) -> list[str]:
+    """Problems with the digital-partition section (issue #619): the record
+    `records/LATEST` names was superseded by a later sibling, or the
+    partition netlist / routed layout the campaign pinned has changed
+    without a regenerated campaign. Empty when no digital record exists (the
+    report then states the gap) or everything is fresh."""
+    got = digital_report.latest_record(repo)
+    if got is None:
+        return []
+    rid, camp = got
+    problems: list[str] = []
+    rec = repo / "sim/digital-partition/records" / f"{rid}.md"
+    superseder = find_superseding_sibling(rec)
+    if superseder is not None:
+        problems.append(f"[digital] {rec.name} has been superseded by {superseder.name} "
+                        "-- records/LATEST must name the superseding record.")
+    problems.extend(f"[digital] {p}" for p in digital_report.freshness_problems(camp, repo))
     return problems
 
 
@@ -264,9 +296,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="freshness + drift check only (CI mode): exit non-zero without writing",
     )
+    parser.add_argument(
+        "--write-envelope",
+        action="store_true",
+        help="(re)write signoff/evidence/digital-characterization.generic.json; refuses unless the "
+        "latest digital campaign meets the item-8 digital checklist",
+    )
     args = parser.parse_args(argv)
 
-    problems = check_freshness()
+    problems = check_freshness() + check_digital_freshness()
     if problems:
         print("STALE CITATIONS:", file=sys.stderr)
         for p in problems:
@@ -274,6 +312,22 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     content = render_report()
+    digital_content = digital_report.render(REPO_ROOT)
+
+    if args.write_envelope:
+        import hashlib
+        import json
+
+        DIGITAL_REPORT_PATH.write_text(digital_content)
+        sha = "sha256:" + hashlib.sha256(digital_content.encode()).hexdigest()
+        try:
+            env = digital_report.build_envelope(REPO_ROOT, sha)
+        except ValueError as exc:
+            print(f"refusing to write the digital envelope: {exc}", file=sys.stderr)
+            return 1
+        DIGITAL_ENVELOPE_PATH.write_text(json.dumps(env, indent=2) + "\n")
+        print(f"wrote {DIGITAL_REPORT_PATH} and {DIGITAL_ENVELOPE_PATH}")
+        return 0
 
     if args.check:
         if not REPORT_PATH.is_file():
@@ -288,13 +342,22 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 1
-        print(f"OK: {REPORT_PATH} is fresh and up to date ({len(manifest.ROWS)} rows).")
+        if not DIGITAL_REPORT_PATH.is_file() or DIGITAL_REPORT_PATH.read_text() != digital_content:
+            print(
+                f"{DIGITAL_REPORT_PATH} is missing or out of date with the digital-partition "
+                "campaign. Run `python3 sim/report/generate.py --write` and commit the result.",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"OK: {REPORT_PATH} is fresh and up to date ({len(manifest.ROWS)} rows); "
+              f"{DIGITAL_REPORT_PATH.name} is fresh.")
         return 0
 
     if args.write:
         REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
         REPORT_PATH.write_text(content)
-        print(f"wrote {REPORT_PATH}")
+        DIGITAL_REPORT_PATH.write_text(digital_content)
+        print(f"wrote {REPORT_PATH} and {DIGITAL_REPORT_PATH}")
         return 0
 
     print(content)

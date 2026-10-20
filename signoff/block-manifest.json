@@ -27,13 +27,13 @@
     "  3   (bare -- both partitions) layout/sar-adc-top/.../drc.json. `klt drc`",
     "      ran on sar_adc_top.gds, the COMPOSED top-level stream, which contains",
     "      both partitions' drawn geometry (cdac_array + sampling_frontend +",
-    "      comparator on the analog side, sar_sequencer + seln_inverters on the",
-    "      digital side -- see that report's compose.request.json). So one clean",
+    "      comparator + halflsb_offset on the analog side, sar_sequencer + top_glue",
+    "      on the digital side -- see that report's compose.request.json). So one clean",
     "      DRC genuinely covers both partitions and the bare key is not a",
     "      shortcut. status: clean, and the pin below is the sha256 of the",
     "      committed sar_adc_top.gds (verified; see check-evidence-hashes.py).",
     "      THE COVERAGE GAPS ARE NOT GRADED: `klt signoff` renders item 3 `met`",
-    "      on `status: \"clean\"` alone. This block's deck leaves 22 drawn",
+    "      on `status: \"clean\"` alone. This block's deck leaves 23 drawn",
     "      layer/datatype pairs rule-free and skips 5 rules; both lists are",
     "      enumerated in signoff/README.md, which is where the item's",
     "      claimant-enforced disclosure obligation is actually discharged.",
@@ -42,12 +42,14 @@
     "      renders unmet/check_failed. That is the point -- 'an LVS run exists",
     "      and did not match' is a materially different, and more useful,",
     "      machine-readable statement than 'no evidence'. NOT PINNED, and the",
-    "      omission is deliberate rather than an oversight. It was originally",
-    "      unpinnable: the envelope this item cited was produced by klt 0.5.0,",
+    "      omission is deliberate rather than an oversight. It was unpinnable",
+    "      when first cited: the envelope cited then was minted by klt 0.5.0,",
     "      whose `klt lvs` writes `provenance.input: null`, so there was no",
     "      envelope-side hash for a manifest pin to match. The pinned klt build",
-    "      now writes one (`role: \"netlist\"`), but a pin here would still be",
-    "      decorative -- because check_failed is evaluated first, it would never",
+    "      now writes one, and the envelope now cited carries it (`role:",
+    "      \"netlist\"` -- the hash of the extracted layout netlist), but a pin",
+    "      here would still be decorative -- because check_failed is evaluated",
+    "      first, it would never",
     "      be consulted -- and it would pin the EXTRACTED NETLIST rather than the",
     "      GDS, which is the artifact items 3 and 11 already pin. The freshness",
     "      axis is carried instead by the envelope's own environment.layout_sha256",
@@ -58,10 +60,24 @@
     "      envelope (the only kind item 8 accepts) wrapping",
     "      docs/characterization-report.md. PARTITION-QUALIFIED on purpose: that",
     "      report covers spec/target-spec.md's Target table, which is the ADC's",
-    "      analog/system-level spec. The doc's item 8 additionally requires Fmax,",
-    "      area and power across the corner set for a digital partition, and this",
-    "      repo has none of those, so `8.digital` is left uncited and renders",
-    "      unmet/no_evidence rather than borrowing the analog row's pass.",
+    "      analog/system-level spec. It does NOT borrow its pass for the digital",
+    "      partition: the doc's item 8 additionally requires Fmax, area and power",
+    "      across the corner set for a digital partition, which is `8.digital`'s",
+    "      own, separate citation below.",
+    "  8.digital  signoff/evidence/digital-characterization.generic.json, a generic",
+    "      envelope wrapping docs/characterization-report-digital.md, which",
+    "      sim/report/generate.py renders from the immutable campaign",
+    "      sim/digital-partition/runs/<record>/campaign.json (issue #619): a",
+    "      frequency bracket per ratified corner (highest tested passing / next",
+    "      failing, or a declared lower bound), rail power and energy per",
+    "      conversion at the 12 MHz provisional operating point, routed area, and",
+    "      a too-fast-clock negative control that fails everywhere. The envelope",
+    "      is written only by `generate.py --write-envelope`, which refuses unless",
+    "      the campaign meets that checklist. SCHEMATIC-LEVEL: no extracted",
+    "      timing; a digital clock bracket is not the ADC sample rate. Freshness:",
+    "      the pin below hashes the document; `generate.py --check` additionally",
+    "      rejects a changed digital-partition netlist or routed layout without a",
+    "      regenerated campaign.",
     "",
     "WHAT IS DELIBERATELY NOT CITED (against this tree, 2026-09-23)",
     "  1, 2, 9, 10  no `klt` verb backs these; `klt signoff` grades them on",
@@ -156,7 +172,7 @@
     },
     "11": [
       {
-        "file": "layout/sar-adc-top/erc-reports/20261001-211722-1ca34e6/erc.json",
+        "file": "layout/sar-adc-top/erc-reports/20261017-193237-9522693e/erc.json",
         "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b"
       },
       {
@@ -165,7 +181,11 @@
     ],
     "8.analog": {
       "file": "signoff/evidence/characterization-report.generic.json",
-      "content_hash": "sha256:d63917e8123b64346a5dbd6cc19b6ce71fd963527fb0084c0e531313bf813594"
+      "content_hash": "sha256:e314484da8e581e0e6fe40698a9a4f6d6c09f625e54171d56c3792e016f2e5c1"
+    },
+    "8.digital": {
+      "file": "signoff/evidence/digital-characterization.generic.json",
+      "content_hash": "sha256:84321265f40157da1ca3d03228d3e01e3816a91215d395293c6bd80be7a15e2b"
     }
   }
 }

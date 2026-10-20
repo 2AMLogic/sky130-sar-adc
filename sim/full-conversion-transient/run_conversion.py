@@ -7,6 +7,7 @@
     python3 sim/full-conversion-transient/run_conversion.py            # tt/27C/1.8V only
     python3 sim/full-conversion-transient/run_conversion.py --corners --record
     python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
+    python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record
 
 WHAT THIS IS. Every prior `sim/` experiment drives one sub-block, or the
 sequencer against an *ideal* comparator-decision stimulus
@@ -59,13 +60,35 @@ re-pointed from `CLK` to a separate `CLK_CMP` node driven half a period
 later. It exists to isolate *which* mechanism a wrong code comes from; it
 NEVER contributes to a corner record, and the modified netlist is never
 written back to `design/`. See this experiment's README.md.
+
+COHERENT-SINE DYNAMIC TEST (`--coherent-sine`, issue #603). Opt-in: the
+same DUT driven by a coherent antiphase sine instead of the DC schedule
+(`gen_full_conversion_tb.sine_fragment_text()`), one captured code per
+conversion, SNDR/ENOB by the stdlib-only FFT in `dynamic_enob.py`. Baseline
+corner only; an informational cross-check of `sim/enob-estimate/`'s
+behavioral-accelerated composite, never a grade of the DRAFT ENOB row.
+
+SOLVER POLICY (issue #637, DR-023). Transient solver settings are a named
+profile resolved at deck assembly (SOLVER_PROFILES / `--solver-profile`).
+The reference profile is `reltol-gear` (`.options reltol=1e-4 method=gear`)
+for every transient this runner assembles; any other profile -- including
+`ngspice-default`, the settings of every pre-DR-023 record -- is a labelled
+SOLVER CONTROL that never moves records/LATEST and may not --supersedes.
+`ngspice-default` alone is also allowed with --corners and the diagnostic
+modes, so every pre-DR-023 record stays reproducible (as a control).
+`--solver-audit` runs the DC baseline corner under the
+reference profile and each control profile, sequentially, and records which
+observations (if any) move -- the guard against presenting a
+solver-sensitive anomaly as converter behaviour.
 """
 
 from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import math
 import os
+import re
 import sys
 import tempfile
 import time
@@ -78,6 +101,7 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 
 from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
 
+import dynamic_enob  # noqa: E402  (issue #603's stdlib-only FFT/ENOB analyzer)
 import gen_full_conversion_tb as tb  # noqa: E402  (this experiment's own testbench constants)
 
 REPO_ROOT = evidence.REPO_ROOT
@@ -86,14 +110,150 @@ DUT_NETLIST = REPO_ROOT / "design" / "sar_adc_top.spice"
 # --- Ratified corner-set axes (spec/target-spec.md "Numeric rows --
 # RATIFIED 2026-08-19"; V_REF = V_DD = 1.8 V per DR-003 Item 1). -----------
 NOMINAL_SUPPLY_V = 1.8
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 BASELINE_CORNER = ("tt", 27.0, NOMINAL_SUPPLY_V)
 
 # Informational tolerance for the per-input code check (NOT a ratified-row
 # threshold): the issue's own "ideal code +- 1 LSB" criterion.
 CODE_TOLERANCE_LSB = 1
+
+
+# --------------------------------------------------------------------------
+# Transient solver policy (issue #637; spec/decision-records/DR-023-full-conversion-transient-solver-policy.md)
+# --------------------------------------------------------------------------
+# Solver settings are a NAMED POLICY resolved once at deck assembly
+# (`assemble_deck(solver_profile=...)`), never an `.options` string spliced
+# into one execution branch. Each profile is the exact list of `.options`
+# assignments it adds to the deck (one card, or none). Every record this
+# runner writes names the resolved profile and its options card, so a
+# workflow label is never the only provenance of how a transient was
+# integrated.
+#
+# REFERENCE POLICY (DR-023): `reltol-gear` -- ngspice's reltol tightened 10x
+# (1e-3 -> 1e-4) and Gear instead of trapezoidal integration -- for EVERY
+# transient this runner assembles (DC corner campaign, coherent-sine, and the
+# diagnostic modes). It is scoped to sim/full-conversion-transient/ only; no
+# other experiment's deck changes. Every record minted before DR-023 ran on
+# `ngspice-default` (no card); that profile stays available as a labelled
+# control so those records can be reproduced, and is the comparison point of
+# `--solver-audit`.
+#
+# Only REFERENCE_SOLVER_PROFILE may produce reference evidence (the corner
+# campaign, `records/LATEST`, a `--supersedes` chain). Every other profile is
+# a labelled SOLVER CONTROL: it may not --supersedes and never moves LATEST.
+# REPRODUCTION_SOLVER_PROFILE (`ngspice-default`) is additionally allowed
+# with --corners and every diagnostic mode, so any pre-DR-023 record --
+# the 9-corner campaign behind records/LATEST included -- can be re-run on
+# the settings it was minted under; its record is still a labelled control.
+# The single-setting attribution controls stay limited to the baseline-corner
+# DC run and --coherent-sine (a control is a check on reference evidence, not
+# a second campaign). Changing the reference policy again is a new decision
+# record, followed by a fresh reference campaign under it.
+SOLVER_PROFILES: dict[str, tuple[str, ...]] = {
+    # ngspice's own transient defaults (reltol=1e-3, trapezoidal): no card.
+    # The reference policy of every record minted before DR-023.
+    "ngspice-default": (),
+    # DR-023's reference policy (issue #621's combined control): 10x tighter
+    # reltol AND Gear integration.
+    "reltol-gear": ("reltol=1e-4", "method=gear"),
+    # issue #637's single-setting controls, which attribute the #621 effect.
+    "reltol-only": ("reltol=1e-4",),
+    "gear-only": ("method=gear",),
+}
+REFERENCE_SOLVER_PROFILE = "reltol-gear"
+# The settings of every pre-DR-023 record: the one control profile allowed
+# with --corners and the diagnostic modes (reproduction, never reference).
+REPRODUCTION_SOLVER_PROFILE = "ngspice-default"
+# What a profile with no card leaves in force (ngspice manual, `.options`):
+# stated in every record so "defaults" is never an unstated assumption.
+NGSPICE_DEFAULT_SOLVER_SETTINGS = "reltol=1e-3, method=trapezoidal (ngspice defaults)"
+# The profiles `--solver-audit` compares against the reference by default:
+# every other named profile, legacy default first.
+SOLVER_AUDIT_DEFAULT_PROFILES = tuple(
+    p for p in SOLVER_PROFILES if p != REFERENCE_SOLVER_PROFILE
+)
+
+
+def check_solver_profile(profile: str) -> None:
+    if profile not in SOLVER_PROFILES:
+        raise ValueError(
+            f"unknown solver profile {profile!r}; known: {', '.join(SOLVER_PROFILES)}"
+        )
+
+
+def is_solver_control(profile: str) -> bool:
+    """True for every profile that is not the reference solver policy."""
+    check_solver_profile(profile)
+    return profile != REFERENCE_SOLVER_PROFILE
+
+
+def solver_options_card(profile: str) -> str | None:
+    """The single `.options` card a profile adds, or None (`ngspice-default`)."""
+    check_solver_profile(profile)
+    opts = SOLVER_PROFILES[profile]
+    return ".options " + " ".join(opts) if opts else None
+
+
+def _solver_role(profile: str) -> str:
+    return ("SOLVER CONTROL" if is_solver_control(profile)
+            else "reference policy, DR-023")
+
+
+def solver_profile_deck_lines(profile: str) -> list[str]:
+    """Deck lines for a profile: a labelling comment plus exactly one
+    `.options` card, or nothing at all for a profile with no card (so an
+    `ngspice-default` deck is byte-identical to a pre-#637 deck)."""
+    card = solver_options_card(profile)
+    if card is None:
+        return []
+    return [
+        f"* --- solver profile '{profile}' ({_solver_role(profile)}; issue #637 "
+        "solver policy; simulator options only, DUT and stimulus unmodified) ---",
+        card,
+    ]
+
+
+def solver_settings_text(profile: str) -> str:
+    """Human-readable resolved settings for a record's Environment block."""
+    card = solver_options_card(profile)
+    if card is None:
+        return (f"profile `{profile}` ({_solver_role(profile)}): no `.options` card -- "
+                f"{NGSPICE_DEFAULT_SOLVER_SETTINGS}")
+    return (f"profile `{profile}` ({_solver_role(profile)}): `{card}`; all other "
+            "settings ngspice defaults")
+
+
+def solver_control_note(profile: str) -> str:
+    """What a control run changes relative to the reference policy, for the
+    record's up-front SOLVER-CONTROL bullet."""
+    card = solver_options_card(profile)
+    ref_card = solver_options_card(REFERENCE_SOLVER_PROFILE)
+    ref = f"`{ref_card}`" if ref_card else NGSPICE_DEFAULT_SOLVER_SETTINGS
+    this = f"`{card}`" if card else f"no `.options` card ({NGSPICE_DEFAULT_SOLVER_SETTINGS})"
+    return (f"this transient runs solver profile `{profile}`: {this}, instead of the "
+            f"reference policy `{REFERENCE_SOLVER_PROFILE}` ({ref}, DR-023)")
+
+
+def solver_control_bullet(profile: str) -> str:
+    """The up-front SOLVER-CONTROL bullet of a diagnostic record (node/cm/
+    decision-margin trace) run under a control profile. Diagnostic records
+    never move `records/LATEST` and supersede nothing under ANY profile; the
+    bullet makes the non-reference settings impossible to miss."""
+    return (
+        "- **SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE**: "
+        + solver_control_note(profile)
+        + ". DUT, stimulus and probes are unmodified; only the integration "
+        "settings differ. It re-runs this diagnostic on the settings a "
+        "pre-DR-023 record was minted under, so that record stays reproducible."
+    )
+
+
+def solver_written_by(base: str, profile: str) -> str:
+    """A diagnostic record's **Written by** command, naming the profile when
+    it is not the reference policy (so the command reproduces the record)."""
+    return f"{base} --solver-profile {profile}" if is_solver_control(profile) else base
 
 
 # --------------------------------------------------------------------------
@@ -111,9 +271,17 @@ def assemble_deck(
     supply_v: float = NOMINAL_SUPPLY_V,
     delayed_comparator_strobe: bool = False,
     extra_meas: list[str] | None = None,
+    fragment: str | None = None,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> str:
     """Assemble the runnable deck: per-corner preamble + DUT body + the
     committed stimulus/measurement fragment.
+
+    `fragment` (issue #603's `--coherent-sine`) replaces the committed DC
+    fragment with another stimulus/measurement fragment text -- the
+    coherent-sine one from `gen_full_conversion_tb.sine_fragment_text()`.
+    Default `None` keeps the DC fragment, so every existing mode is
+    unchanged.
 
     `delayed_comparator_strobe` is the `--mechanism-probe` modification
     only (see the module docstring): it re-points the comparator instance's
@@ -129,7 +297,15 @@ def assemble_deck(
     itself (unlike `delayed_comparator_strobe`) -- it only adds read-only
     probes, so it is safe to combine with the as-committed (unmodified)
     netlist.
+
+    `solver_profile` (issue #637) names the transient solver policy (see
+    SOLVER_PROFILES); the default is the DR-023 reference policy. A profile
+    adds exactly one labelled `.options` card (or nothing, for
+    `ngspice-default`), placed after the fragment and before `extra_meas` --
+    the same position issue #621's coherent-sine control used, so that
+    control's deck is reproduced unchanged.
     """
+    solver_lines = solver_profile_deck_lines(solver_profile)  # validates the name first
     stdcell_spice = (
         pdk_info.variant_dir / "libs.ref" / "sky130_fd_sc_hd" / "spice" / "sky130_fd_sc_hd.spice"
     )
@@ -179,7 +355,8 @@ def assemble_deck(
         *dut_lines,
         "",
         *extra_sources,
-        tb.FRAGMENT_PATH.read_text(),
+        tb.FRAGMENT_PATH.read_text() if fragment is None else fragment,
+        *solver_lines,
         *(extra_meas or []),
         ".end",
     ]
@@ -189,25 +366,40 @@ def assemble_deck(
 # --------------------------------------------------------------------------
 # Running and decoding
 # --------------------------------------------------------------------------
-def _run_ngspice(deck: str, scratch: Path, tag: str) -> str:
+def _run_ngspice(deck: str, scratch: Path, tag: str, attempts: int = 3) -> str:
     """Retry policy documented once in toolchain.run_ngspice_with_retry().
     One full-ADC transient here is ~6.3 us of simulated time over ~2000
     devices and takes minutes, so raise SIM_NGSPICE_TIMEOUT_S well above
     the 120 s harness default before running (the README names the value
     used for the record); attempts=3 (not the shared helper's default 4)
     keeps a fully-exhausted retry budget from blowing past that already-
-    long per-attempt wall-clock cost."""
-    return toolchain.run_ngspice_with_retry(deck, scratch, tag, attempts=3)
+    long per-attempt wall-clock cost. `--coherent-sine` passes attempts=1:
+    its single transient is several times longer again, and a retry after a
+    timeout would only repeat the same cost."""
+    return toolchain.run_ngspice_with_retry(deck, scratch, tag, attempts=attempts)
 
 
 def decode(parsed: dict[str, float], supply_v: float) -> dict:
     """Turn one run's parsed `.meas` values into per-conversion code results,
-    phase-structure verdicts, and supply-current/power numbers."""
+    phase-structure verdicts, and supply-current/power numbers.
+
+    A measurement that is absent OR non-finite (NaN / +-inf -- issue #569)
+    is unavailable: it decodes to no bit, contributes no digital margin and
+    no current. `measure.parse()` already rejects non-finite values from a
+    log; this is the same rule at the decoder boundary for any caller that
+    hands in a dict directly. If any required supply current is unavailable
+    the result fails (`all_ok=False`) and, when that current carries a power
+    term (nonzero potential), `power_w` is `None` rather than the partial
+    sum of the currents that remain."""
     threshold = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
     lsb_v = 2.0 * supply_v / (2**tb.N_BITS)
 
-    def bit(name: str) -> int | None:
+    def value(name: str) -> float | None:
         v = parsed.get(name)
+        return v if v is not None and math.isfinite(v) else None
+
+    def bit(name: str) -> int | None:
+        v = value(name)
         return None if v is None else (1 if v > threshold else 0)
 
     margins: list[float] = []
@@ -216,8 +408,9 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         bit_names = tb.code_measure_names(c)
         bits = [bit(n) for n in bit_names]
         for n in bit_names:
-            if parsed.get(n) is not None:
-                margins.append(abs(parsed[n] - threshold))
+            v = value(n)
+            if v is not None:
+                margins.append(abs(v - threshold))
         code = None
         if all(b is not None for b in bits):
             code = int("".join(str(b) for b in bits), 2)
@@ -227,8 +420,9 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         busy = [bit(n) for n in tb.busy_measure_names(c)]
         smpl = [bit(n) for n in tb.sample_measure_names(c)]
         for n in tb.busy_measure_names(c) + tb.sample_measure_names(c):
-            if parsed.get(n) is not None:
-                margins.append(abs(parsed[n] - threshold))
+            v = value(n)
+            if v is not None:
+                margins.append(abs(v - threshold))
         expected_busy = [1] * (tb.PHASES_PER_CONVERSION - 1) + [0]
         expected_smpl = [0] * (tb.PHASES_PER_CONVERSION - 1) + [1]
         phase_ok = busy == expected_busy and smpl == expected_smpl
@@ -250,14 +444,22 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         )
 
     currents: dict[str, float] = {}
-    power_w = 0.0
+    power_w: float | None = 0.0
+    currents_ok = True
     for name, _source, potential in tb.SUPPLY_SOURCES:
-        raw = parsed.get(name)
+        raw = value(name)
         if raw is None:
+            # Unavailable required current: omit it, fail the point, and do
+            # not pass the remaining sources off as complete power. A source
+            # at 0 V contributes no power term either way (convention below).
+            currents_ok = False
+            if potential != 0.0:
+                power_w = None
             continue
         amps = abs(raw)
         currents[name] = amps
-        power_w += potential * supply_v * amps
+        if power_w is not None:
+            power_w += potential * supply_v * amps
 
     errors = [abs(cv["error_lsb"]) for cv in conversions if cv["error_lsb"] is not None]
     return dict(
@@ -270,8 +472,13 @@ def decode(parsed: dict[str, float], supply_v: float) -> dict:
         n_phase_ok=sum(1 for cv in conversions if cv["phase_ok"]),
         n_conversions=len(conversions),
         worst_margin_v=min(margins) if margins else float("nan"),
-        all_ok=all(cv["code_ok"] and cv["phase_ok"] for cv in conversions),
+        all_ok=currents_ok and all(cv["code_ok"] and cv["phase_ok"] for cv in conversions),
     )
+
+
+def _power_uw_str(power_w: float | None) -> str:
+    """`power_w` in uW, or `n/a` when decode() marked it unavailable."""
+    return "n/a" if power_w is None else f"{power_w * 1e6:.3f}"
 
 
 def run_point(
@@ -283,17 +490,36 @@ def run_point(
     supply_v: float,
     delayed_comparator_strobe: bool = False,
     tag_prefix: str = "full_conversion",
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+    audit: bool = False,
 ) -> dict:
+    """One DC-fragment transient. `solver_profile` selects the solver policy
+    (issue #637). `audit=True` is `--solver-audit`'s instrumentation, applied
+    identically under every profile it compares: the print-only accounting
+    card (SOLVER_AUDIT_STATS_CARD) and the read-only register-transition
+    guard probes on every measured conversion. Neither touches the DUT, the
+    stimulus or the solver settings."""
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+    extra_meas: list[str] = []
+    if audit:
+        extra_meas.append(SOLVER_AUDIT_STATS_CARD)
+        for c in tb.measured_conversions():
+            extra_meas += transition_guard_measure_lines(c, supply_v)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, delayed_comparator_strobe
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, delayed_comparator_strobe,
+        extra_meas=extra_meas or None, solver_profile=solver_profile,
     )
     t0 = time.time()
     log_text = _run_ngspice(deck, scratch, f"{tag_prefix}_{cid}")
     wall_s = time.time() - t0
 
     names = tb.all_measure_names()
-    parsed = measure.parse(log_text, names, anchored=False)
+    guard_names = (
+        [n for c in tb.measured_conversions() for n in transition_guard_flat_names(c)]
+        if audit else []
+    )
+    parsed = measure.parse(log_text, names + guard_names, anchored=False)
+    # guard probes are read-only extras: their absence never fails the point
     missing = measure.missing(parsed, names)
     result = decode(parsed, supply_v)
     result.update(
@@ -304,7 +530,13 @@ def run_point(
         missing=missing,
         log_text=log_text,
         wall_s=wall_s,
+        solver_profile=solver_profile,
     )
+    if audit:
+        result["guards"] = [
+            decode_switch_trace(parsed, c, supply_v) for c in tb.measured_conversions()
+        ]
+        result["solver_stats"] = parse_solver_stats(log_text)
     if missing:
         result["all_ok"] = False
     return result
@@ -317,13 +549,17 @@ def format_point(point: dict) -> str:
         for cv in point["conversions"]
     )
     worst = point["worst_error_lsb"]
-    idd_ua = 1e6 * sum(point["currents"].get(n, 0.0) for n in ("i_vdd", "i_vpwr", "i_vrefp"))
+    idd_names = ("i_vdd", "i_vpwr", "i_vrefp")
+    if all(n in point["currents"] for n in idd_names):
+        idd_str = f"{1e6 * sum(point['currents'][n] for n in idd_names):.3f}"
+    else:
+        idd_str = "n/a"  # an unavailable current is not summed as zero (#569)
     return (
         f"{point['corner_id']}: {'PASS' if point['all_ok'] else 'FAIL'} "
         f"codes(captured/ideal) {code_str} "
         f"worst|err|={'n/a' if worst is None else worst} LSB "
         f"phases_ok={point['n_phase_ok']}/{point['n_conversions']} "
-        f"IDD={idd_ua:.3f}uA P={point['power_w'] * 1e6:.3f}uW "
+        f"IDD={idd_str}uA P={_power_uw_str(point['power_w'])}uW "
         f"({point['wall_s']:.0f}s)"
     )
 
@@ -332,7 +568,8 @@ def format_point(point: dict) -> str:
 # Campaign
 # --------------------------------------------------------------------------
 def run_campaign(
-    corners_mode: bool, jobs: int, quiet: bool, scratch: Path
+    corners_mode: bool, jobs: int, quiet: bool, scratch: Path,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> tuple[list[dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
@@ -349,7 +586,8 @@ def run_campaign(
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
             futures = {
                 pool.submit(
-                    run_point, netlist_text, pdk_info, scratch, pc, tc, sv
+                    run_point, netlist_text, pdk_info, scratch, pc, tc, sv,
+                    solver_profile=solver_profile,
                 ): (pc, tc, sv)
                 for pc, tc, sv in grid
             }
@@ -362,7 +600,8 @@ def run_campaign(
             points = [done[key] for key in grid]
     else:
         for pc, tc, sv in grid:
-            point = run_point(netlist_text, pdk_info, scratch, pc, tc, sv)
+            point = run_point(netlist_text, pdk_info, scratch, pc, tc, sv,
+                              solver_profile=solver_profile)
             points.append(point)
             if not quiet:
                 print("  " + format_point(point), flush=True)
@@ -398,7 +637,19 @@ def write_record(
     netlist_text: str,
     probe: dict | None = None,
     supersedes: str = "",
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> Path:
+    """Mint a DC-fragment record. Under the reference solver profile this is
+    the corner-campaign record and it moves `records/LATEST`. Under any other
+    profile (issue #637) it is a labelled SOLVER-CONTROL record: it may not
+    supersede anything and it never touches LATEST -- refused here, not only
+    at the CLI, so no caller can turn a control into reference evidence."""
+    control = is_solver_control(solver_profile)
+    if control and supersedes:
+        raise ValueError(
+            f"solver profile {solver_profile!r} is a SOLVER CONTROL, not a replacement "
+            "capture; its record may not --supersedes"
+        )
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "corners",
         {f"{p['corner_id']}.log": p["log_text"] for p in points},
@@ -417,6 +668,14 @@ def write_record(
     supplies = sorted({p["supply_v"] for p in points})
 
     a = lines.append
+    if control:
+        a(
+            "- **SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE**: "
+            + solver_control_note(solver_profile)
+            + ". DUT and stimulus are unmodified; only the integration settings "
+            "differ. It exists to test whether a recorded observation depends on the "
+            "solver settings. It does not update `records/LATEST` and supersedes nothing."
+        )
     a(
         "- **Claim**: `spec/target-spec.md#target-table` -- **Sample rate** and "
         "**Power**, both DRAFT rows, INFORMATIONAL only. This is the first "
@@ -533,9 +792,16 @@ def write_record(
         a(
             f"| `{p['corner_id']}` | {ua('i_vdd')} | {ua('i_vpwr')} | "
             f"{ua('i_vrefp')} | {ua('i_vcm')} | {ua('i_vrefn')} | "
-            f"{p['power_w'] * 1e6:.3f} |"
+            f"{_power_uw_str(p['power_w'])} |"
         )
     a("")
+    if any(p["power_w"] is None for p in points):
+        a(
+            "`n/a` total power: at least one supply current at a nonzero "
+            "potential was missing or non-finite at that corner, so no total "
+            "is reported (a partial sum would understate it)."
+        )
+        a("")
     a(
         "Power is `sum(V_source * |avg I_source|)` over the sources at a nonzero "
         "potential (`VDD`, `VPWR`, `VREFP` at `V_DD`; `VCM` at `V_DD/2`; `VREFN` "
@@ -588,19 +854,25 @@ def write_record(
                 "tran step": f"{tb.TRAN_STEP_NS} ns",
                 "simulated span": f"{tb.t_stop_ns():.1f} ns per corner point",
                 "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
-    lines.extend(
-        evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --corners --record",
-            supersedes,
-        )
-    )
+    if control:
+        written_by = "sim/full-conversion-transient/run_conversion.py"
+        if len(points) > 1:
+            written_by += " --corners"
+        if probe is not None:
+            written_by += " --mechanism-probe"
+        written_by += f" --record --solver-profile {solver_profile}"
+    else:
+        written_by = "sim/full-conversion-transient/run_conversion.py --corners --record"
+    lines.extend(evidence.footer_lines(written_by, supersedes))
 
-    path = evidence.close_record(prov, lines, "Record")
-    evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
+    path = evidence.close_record(prov, lines, "Solver-control record" if control else "Record")
+    if not control:
+        evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
     return path
 
 
@@ -756,6 +1028,7 @@ def run_node_trace_point(
     temp_c: float,
     supply_v: float,
     conversions: tuple[int, ...],
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> dict:
     """Run the as-committed DUT ONCE with the node-trace `.meas` probes for
     every conversion in `conversions` appended, and decode the result into a
@@ -772,7 +1045,8 @@ def run_node_trace_point(
     for c in conversions:
         extra_meas += node_trace_measure_lines(plans[c], conversion=c)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas,
+        solver_profile=solver_profile,
     )
     t0 = time.time()
     log_text = _run_ngspice(deck, scratch, f"node_trace_{cid}")
@@ -826,6 +1100,7 @@ def run_node_trace_point(
         missing=missing,
         log_text=log_text,
         wall_s=wall_s,
+        solver_profile=solver_profile,
     )
 
 
@@ -865,13 +1140,16 @@ def msb_evaluate_control(point: dict) -> dict:
     )
 
 
-def run_node_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
+def run_node_trace(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> tuple[dict[str, dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     out: dict[str, dict] = {}
     for pc, tc, sv in NODE_TRACE_CORNERS:
         point = run_node_trace_point(
-            netlist_text, pdk_info, scratch, pc, tc, sv, NODE_TRACE_CONVERSIONS
+            netlist_text, pdk_info, scratch, pc, tc, sv, NODE_TRACE_CONVERSIONS,
+            solver_profile=solver_profile,
         )
         out[point["corner_id"]] = point
         if not quiet:
@@ -891,7 +1169,10 @@ def run_node_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
     return out, netlist_text
 
 
-def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
+def write_node_trace_record(
+    traces: dict[str, dict], netlist_text: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> Path:
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "diagnostics",
         {f"node-trace-{cid}.log": point["log_text"] for cid, point in traces.items()},
@@ -902,6 +1183,8 @@ def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
     n_traces_per_corner = sum(len(c["phases"]) for c in traced_conversions)
 
     a = lines.append
+    if is_solver_control(solver_profile):
+        a(solver_control_bullet(solver_profile))
     a(
         "- **Claim**: issue #259 (diagnostic/investigation only -- no spec row "
         "and no design fix). This record extends the "
@@ -1333,13 +1616,15 @@ def write_node_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
                 ),
                 "pre-edge / post-edge margins": f"{_NODE_TRACE_PRE_EDGE_NS:g} ns / "
                 f"{_NODE_TRACE_POST_EDGE_NS:g} ns",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
     lines.extend(
         evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --node-trace",
+            solver_written_by("sim/full-conversion-transient/run_conversion.py --node-trace",
+                              solver_profile),
             # Deliberately "(none)", not the two corner-campaign records this
             # extends: **Supersedes** means "replaces and invalidates", which
             # this diagnostic does not do -- see the "Claim" bullet above and
@@ -1393,13 +1678,16 @@ CM_TRACE_CONVERSIONS: tuple[int, ...] = (1, 5)
 _CM_GROSS_DEVIATION_V = 0.100
 
 
-def run_cm_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
+def run_cm_trace(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> tuple[dict[str, dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     out: dict[str, dict] = {}
     for pc, tc, sv in CM_TRACE_CORNERS:
         point = run_node_trace_point(
-            netlist_text, pdk_info, scratch, pc, tc, sv, CM_TRACE_CONVERSIONS
+            netlist_text, pdk_info, scratch, pc, tc, sv, CM_TRACE_CONVERSIONS,
+            solver_profile=solver_profile,
         )
         out[point["corner_id"]] = point
         if not quiet:
@@ -1426,7 +1714,10 @@ def _cm_deviation_v(ph: dict, supply_v: float) -> float | None:
     return 0.5 * (p + n) - 0.5 * supply_v
 
 
-def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
+def write_cm_trace_record(
+    traces: dict[str, dict], netlist_text: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> Path:
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "diagnostics",
         {f"cm-trace-{cid}.log": point["log_text"] for cid, point in traces.items()},
@@ -1436,6 +1727,8 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
     traced_conversions = first_point["conversions"]
 
     a = lines.append
+    if is_solver_control(solver_profile):
+        a(solver_control_bullet(solver_profile))
     a(
         "- **Claim**: issue #265 (diagnostic/investigation only -- no spec row "
         "and no design fix in this record's own scope). This record tests "
@@ -1670,13 +1963,15 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
                 ),
                 "pre-edge / post-edge margins": f"{_NODE_TRACE_PRE_EDGE_NS:g} ns / "
                 f"{_NODE_TRACE_POST_EDGE_NS:g} ns",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
     lines.extend(
         evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --cm-trace",
+            solver_written_by("sim/full-conversion-transient/run_conversion.py --cm-trace",
+                              solver_profile),
             # Diagnostic/investigation record (see the "Claim" bullet above):
             # it extends the corner campaigns' evidence without invalidating
             # any of it, so it supersedes nothing by construction -- the same
@@ -1692,7 +1987,9 @@ def write_cm_trace_record(traces: dict[str, dict], netlist_text: str) -> Path:
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
-def run_mechanism_probe(scratch: Path, quiet: bool) -> dict:
+def run_mechanism_probe(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> dict:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     pc, tc, sv = BASELINE_CORNER
@@ -1701,6 +1998,7 @@ def run_mechanism_probe(scratch: Path, quiet: bool) -> dict:
         point = run_point(
             netlist_text, pdk_info, scratch, pc, tc, sv,
             delayed_comparator_strobe=delayed, tag_prefix=f"probe_{tag}",
+            solver_profile=solver_profile,
         )
         out[tag] = point
         if not quiet:
@@ -1833,11 +2131,13 @@ def run_decision_margin_point(
     temp_c: float,
     supply_v: float,
     tag: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> dict:
     cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
     extra_meas, names = decision_margin_measure_lines(DECISION_MARGIN_CONVERSIONS)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, extra_meas=extra_meas,
+        solver_profile=solver_profile,
     )
     log_text = _run_ngspice(deck, scratch, f"decision_margin_{tag}_{cid}")
     parsed = measure.parse(log_text, names, anchored=False)
@@ -1946,7 +2246,9 @@ def _worst_correct_margin_lsb(point: dict) -> float | None:
     return min(mags) if mags else None
 
 
-def run_decision_margin_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dict], str]:
+def run_decision_margin_trace(
+    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> tuple[dict[str, dict], str]:
     pdk_info = pdk.resolve()
     netlist_text = dut_text()
     variants = (
@@ -1956,7 +2258,8 @@ def run_decision_margin_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dic
     out: dict[str, dict] = {}
     for tag, text in variants:
         for pc, tc, sv in DECISION_MARGIN_CORNERS:
-            point = run_decision_margin_point(text, pdk_info, scratch, pc, tc, sv, tag)
+            point = run_decision_margin_point(text, pdk_info, scratch, pc, tc, sv, tag,
+                                              solver_profile=solver_profile)
             out[f"{tag}@{point['corner_id']}"] = point
             if not quiet:
                 bad = _decision_mismatches(point)
@@ -1979,7 +2282,10 @@ def run_decision_margin_trace(scratch: Path, quiet: bool) -> tuple[dict[str, dic
     return out, netlist_text
 
 
-def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> Path:
+def write_decision_margin_record(
+    points: dict[str, dict], netlist_text: str,
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> Path:
     prov, lines = evidence.open_record(
         EXPERIMENT_DIR, netlist_text, "diagnostics",
         {
@@ -1989,6 +2295,8 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
     )
 
     a = lines.append
+    if is_solver_control(solver_profile):
+        a(solver_control_bullet(solver_profile))
     a(
         "- **Claim**: issue #263 (second pass) / "
         "`spec/decision-records/DR-009-comparator-output-load-balance-and-half-"
@@ -2146,13 +2454,15 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
             extra={
                 "tran step": f"{tb.TRAN_STEP_NS} ns",
                 "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+                "simulator options": solver_settings_text(solver_profile),
             },
         )
     )
     a("")
     lines.extend(
         evidence.footer_lines(
-            "sim/full-conversion-transient/run_conversion.py --decision-margin-trace",
+            solver_written_by("sim/full-conversion-transient/run_conversion.py "
+                              "--decision-margin-trace", solver_profile),
             # Diagnostic/mechanism record, NOT a corner campaign (see the
             # "Claim" bullet above) -- supersedes nothing by construction, same
             # as the two trace writers above (issue #502).
@@ -2160,6 +2470,1774 @@ def write_decision_margin_record(points: dict[str, dict], netlist_text: str) -> 
         )
     )
     return evidence.close_record(prov, lines, "Record")
+
+
+# --------------------------------------------------------------------------
+# Coherent-sine dynamic test (issue #603): SNDR/ENOB by FFT, single corner
+# --------------------------------------------------------------------------
+#
+# An informational CROSS-CHECK of sim/enob-estimate/'s behavioral-accelerated
+# composite ENOB, not a grade of the DRAFT ENOB row. Runs ONE corner (the
+# baseline tt/27C/1.8V) -- a multi-corner or Monte Carlo extension is a
+# `klt sim` request (#564), never a loop over this function.
+
+ENOB_ESTIMATE_RECORDS = SIM_DIR / "enob-estimate" / "records"
+# The figure spec/target-spec.md quotes for the behavioral estimate
+# (mean-case) when issue #603 was filed. Quoted for the delta only -- the
+# record also reads the CURRENT behavioral record (records/LATEST) and
+# reports the delta against that, so a later behavioral re-run is not
+# silently compared against a stale number.
+SPEC_QUOTED_BEHAVIORAL_ENOB_BIT = 8.491
+_BEHAVIORAL_ENOB_RE = re.compile(
+    r"achieved ENOB \(mean-case CDAC mismatch\) = \*\*(?P<v>[0-9.]+) bit\*\*"
+)
+
+
+def behavioral_enob_reference(records_dir: Path = ENOB_ESTIMATE_RECORDS) -> dict | None:
+    """The current behavioral-accelerated mean-case ENOB: `records/LATEST`'s
+    record id and its parsed value, or None if either is unavailable."""
+    latest = records_dir / "LATEST"
+    if not latest.is_file():
+        return None
+    name = latest.read_text().strip()
+    path = records_dir / name
+    if not path.is_file():
+        return None
+    m = _BEHAVIORAL_ENOB_RE.search(path.read_text())
+    if not m:
+        return None
+    return dict(record=os.path.relpath(path, REPO_ROOT), enob_bit=float(m.group("v")))
+
+
+def decode_code_stream(
+    parsed: dict[str, float], supply_v: float, conversions: list[int]
+) -> dict:
+    """Per-conversion codes (None where any bit is missing/non-finite) and
+    phase-structure verdicts for `conversions`, with the same 1/0 threshold
+    and MSB-first bit order `decode()` uses."""
+    threshold = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
+
+    def bit(name: str) -> int | None:
+        v = parsed.get(name)
+        if v is None or not math.isfinite(v):
+            return None
+        return 1 if v > threshold else 0
+
+    codes: list[int | None] = []
+    phase_ok: list[bool] = []
+    expected_busy = [1] * (tb.PHASES_PER_CONVERSION - 1) + [0]
+    expected_smpl = [0] * (tb.PHASES_PER_CONVERSION - 1) + [1]
+    for c in conversions:
+        bits = [bit(n) for n in tb.code_measure_names(c)]
+        codes.append(
+            int("".join(str(b) for b in bits), 2) if all(b is not None for b in bits) else None
+        )
+        busy = [bit(n) for n in tb.busy_measure_names(c)]
+        smpl = [bit(n) for n in tb.sample_measure_names(c)]
+        phase_ok.append(busy == expected_busy and smpl == expected_smpl)
+    return dict(codes=codes, phase_ok=phase_ok)
+
+
+def analyze_sine_capture(
+    codes: list[int | None],
+    n: int,
+    tone_bin: int,
+    amplitude_fraction: float,
+) -> dict:
+    """FFT analysis of a captured stream plus the ideal-quantizer reference
+    on the identical plan (same N, bin, amplitude and input phase).
+    `analysis` is None (with `analysis_error` set) if the stream cannot be
+    analysed -- e.g. a missing code -- rather than raising, so the record can
+    still be written and say why."""
+    ideal_codes = [
+        tb.ideal_code(tb.sine_input_fraction(c, n, tone_bin, amplitude_fraction))
+        for c in tb.sine_measured_conversions(n)
+    ]
+    ideal = dynamic_enob.analyze(ideal_codes, tone_bin, tb.N_BITS)
+    try:
+        analysis = dynamic_enob.analyze(codes, tone_bin, tb.N_BITS)
+        error = None
+    except ValueError as exc:
+        analysis, error = None, str(exc)
+    return dict(ideal_codes=ideal_codes, ideal=ideal, analysis=analysis, analysis_error=error)
+
+
+# Per-code outlier bound (issue #621), in LSB of |captured - ideal|. A named
+# DIAGNOSTIC threshold, not a spec value and not a validity criterion. The
+# first pinned-toolchain capture (records/20261010-070734-f968286.md) has 31
+# of 32 codes within +-2 LSB of the ideal quantizer, and the DC corner
+# campaign resolves within 1 LSB; 8 LSB (4x the observed in-family spread, 8x
+# the DC bound) leaves a wide margin so ordinary settling/INL error never
+# trips it, while still catching anything of the order of a 3-bit-weight
+# decision error, well below the +438 LSB conversion-9 glitch.
+SINE_OUTLIER_BOUND_LSB = 8
+
+
+def sine_outlier_diagnostic(
+    codes: list[int | None],
+    ideal_codes: list[int],
+    conversions: list[int],
+    n: int,
+    tone_bin: int,
+    bound_lsb: int = SINE_OUTLIER_BOUND_LSB,
+) -> dict:
+    """Per-code error diagnostic. Signed error = captured - ideal; an outlier
+    is a sample with |error| STRICTLY greater than `bound_lsb`. Missing codes
+    are not outliers (they already make the capture unanalysable).
+
+    The sensitivity metrics are DIAGNOSTIC-ONLY: an FFT needs the full
+    coherent record, so "leaving the outliers out" is done by substituting the
+    ideal code at just the outlier samples (zeroing their error) and
+    re-analysing; every other sample is untouched. The captured stream itself
+    is never modified and the headline metrics always come from it."""
+    errors = [None if c is None else c - i for c, i in zip(codes, ideal_codes)]
+    present = [abs(e) for e in errors if e is not None]
+    outliers = [
+        dict(sample=k, conversion=conversions[k], ideal=ideal_codes[k],
+             captured=codes[k], error=e)
+        for k, e in enumerate(errors)
+        if e is not None and abs(e) > bound_lsb
+    ]
+    leave_out = None
+    if outliers:
+        idx = {o["sample"] for o in outliers}
+        patched = [ideal_codes[k] if k in idx else codes[k] for k in range(len(codes))]
+        try:
+            leave_out = dynamic_enob.analyze(patched, tone_bin, tb.N_BITS)
+        except ValueError:
+            leave_out = None
+    return dict(
+        bound_lsb=bound_lsb,
+        max_abs_error=max(present) if present else None,
+        errors=errors,
+        outliers=outliers,
+        leave_out=leave_out,
+    )
+
+
+def sine_trace_measure_lines(conversion: int) -> list[str]:
+    """Read-only `.meas` probes (issue #621) for ONE coherent-sine conversion:
+    the --node-trace per-phase probes (CLK / COMP_OUT / OUTN_NC / TOP_P / TOP_N
+    mid-evaluate and pre-capture, captured bit after the capturing edge) plus
+    VINP/VINN/TOP_P/TOP_N at the sampling instant. Unlike the DC --node-trace
+    these are placed at the coherent-sine run's own conversion timing (same
+    clock grid, `tb.t_edge_ns`), and the captured-bit node follows the sine
+    fragment's naming (`dout9`, `adcout8..adcout0`). Adds probes only; the
+    DUT netlist and the stimulus are untouched."""
+    lines = node_trace_measure_lines(node_trace_plan(conversion), conversion=conversion)
+    fixed = []
+    for ln in lines:
+        for b in range(tb.N_BITS - 1):
+            ln = ln.replace(f"find v(dout{b}) ", f"find v(adcout{b}) ")
+        fixed.append(ln)
+    t_s = tb.t_sample_ns(conversion)
+    fixed.append(f"* conversion {conversion}: sampling-instant input / top-plate nodes")
+    for tag, node in (("vinp", "VINP"), ("vinn", "VINN"), ("top_p", "TOP_P"), ("top_n", "TOP_N")):
+        fixed.append(f".meas tran nt_c{conversion}_samp_{tag} find v({node}) at={t_s - 1.0:.4f}n")
+    return fixed
+
+
+def decode_sine_trace(
+    parsed: dict, conversion: int, ideal_code: int, supply_v: float,
+    final_code: int | None = None,
+) -> dict:
+    """Decode one conversion's trace probes into per-phase rows and name the
+    FIRST phase whose captured bit differs from the ideal code's bit (the
+    observation). Which mechanism produced it is inference, left to the
+    record's prose."""
+    threshold = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
+    phases = []
+    for entry in node_trace_plan(conversion):
+        v = {k: parsed.get(name) for k, name in entry["names"].items()}
+        dout = v["dout_post"]
+        got = None if dout is None else int(dout > threshold)
+        phases.append(dict(
+            phase=entry["phase"], bit=entry["bit"],
+            ideal_bit=(ideal_code >> entry["bit"]) & 1, captured_bit=got, v=v,
+        ))
+    first = next((ph for ph in phases if ph["captured_bit"] != ph["ideal_bit"]), None)
+    samp = {t: parsed.get(f"nt_c{conversion}_samp_{t}") for t in ("vinp", "vinn", "top_p", "top_n")}
+    # Observation, not inference: a comparator-input top plate driven outside
+    # [0, V_DD] (by more than the probe's own noise) at a pre-capture instant.
+    # "Outside" means beyond a fixed +/-0.05 V tolerance on each rail, i.e.
+    # below -0.05 V or above V_DD + 0.05 V. Only the pre-capture top-plate
+    # probes are tested, so this catches rail excursions only: an anomalous
+    # staircase step that stays within the rails is not flagged here.
+    excursions = [
+        (ph["phase"], ph["bit"], node, ph["v"][key])
+        for ph in phases
+        for node, key in (("TOP_P", "top_p_pre"), ("TOP_N", "top_n_pre"))
+        if ph["v"][key] is not None and not (-0.05 <= ph["v"][key] <= supply_v + 0.05)
+    ]
+    return dict(conversion=conversion, ideal_code=ideal_code, final_code=final_code,
+                phases=phases, first_divergent=first, sampling=samp,
+                rail_excursions=excursions)
+
+
+# --- issue #621: switching-event trace of one coherent-sine conversion ------
+#
+# The per-phase `--sine-trace` above samples TOP_P/TOP_N at two instants per
+# phase. That localised conversion 9's anomaly to one analog event (TOP_P
+# leaving the rails inside phase 5) but cannot say WHICH plate or control
+# moved. This trace answers that with read-only `.meas` probes on the SAME
+# transient:
+#   1. WHEN-crossing times of every digital node that steers the DAC or the
+#      sequencer (DOUT9..0, SELp/SELn8..0, the PH_B ring, PH_EOC, BUSY,
+#      BUSY_BITS, SAMPLE_INT): the first SWITCH_TRACE_MAX_EDGES rises and
+#      falls inside the conversion window. Each is classified against the
+#      SAR's own edge schedule (below) as scheduled or UNSCHEDULED -- an
+#      observation about timing, not a mechanism.
+#   2. The instant a comparator-input top plate first leaves the rails
+#      (WHEN v(TOP_x) = -SWITCH_TRACE_RAIL_V), and every probed node's value
+#      at that instant (FIND ... WHEN).
+#   3. Per-phase snapshots of the same nodes plus the P/N DAC bottom plates,
+#      the sampling front-end's floating plates and boosted gates.
+# Node names are the DUT's own (top-level) or `<instance>.<node>` for the
+# sequencer/CDAC/front-end internals -- the netlist's top level is flat
+# (`**.subckt sar_adc_top` is commented out), so `xseq`, `xcdac` and `xfe`
+# are top-level instances.
+
+SWITCH_TRACE_MAX_EDGES = 3
+# An edge-triggered transition (clk-to-q + one or two gates) lands within a
+# few ns of the CLK rising edge's 50% point; 8 ns is ~10% of the 83.3 ns
+# period, generous for these standard cells yet far from mid-period.
+SWITCH_TRACE_EDGE_WINDOW_NS = (-1.0, 8.0)
+# Top-plate "left the rails" threshold for the WHEN probe: well outside the
+# +/-0.05 V rail tolerance of decode_sine_trace(), and never reached by a
+# normal staircase (which stays inside [0, V_DD]).
+SWITCH_TRACE_RAIL_V = 0.2
+# Snapshot instants within each phase, as offsets from that phase's CLK
+# rising edge: after the register update, mid CLK-high, just after the CLK
+# falling edge (comparator strobe), mid CLK-low, and 1 ns before the next
+# capturing edge.
+# Dense samples across each bit phase's comparator strobe: 0.5 ns apart from
+# 0.5 ns before to 5 ns after the CLK falling edge (T/2 after the rising
+# edge). Fine enough to order a D-path glitch against a register change.
+SWITCH_TRACE_STROBE_OFFSETS_NS = tuple(tb.T_CLK_NS * 0.5 + 0.5 * i for i in range(-1, 11))
+SWITCH_TRACE_SNAPSHOT_OFFSETS_NS = (
+    ("post", 4.0),
+    ("mid", tb.T_CLK_NS * 0.25),
+    ("strobe", tb.T_CLK_NS * 0.5 + 3.0),
+    ("late", tb.T_CLK_NS * 0.75),
+    ("pre", tb.T_CLK_NS - 1.0),
+)
+
+
+def _switch_trace_digital_nodes() -> list[str]:
+    """Nodes whose transitions are classified against the SAR's schedule.
+    Names are LOGICAL (the sequencer's own port names for the ring);
+    `switch_trace_probe_node()` maps them onto the deck's nets."""
+    nodes = [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+    nodes += [f"SELp{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"SELn{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+    nodes += ["PH_EOC", "BUSY", "xseq.BUSY_BITS", "SAMPLE_INT"]
+    return nodes
+
+
+def _switch_trace_context_nodes() -> list[str]:
+    """The bit registers' own D-path inside the sequencer (internal nets of
+    `sar_sequencer`): MUXOUTk = PH_Bk ? COMP_EFF : DOUTk, PRESETk = MUXOUTk |
+    PH_B(k+1), DFEEDk = PRESETk & BUSY_BITS (DOUT9's D is MUXOUT9). Their
+    transitions are recorded but not schedule-classified: MUXOUTk follows
+    the comparator during its own trial, so it legitimately moves mid-phase."""
+    nodes = [f"xseq.MUXOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+    nodes += [f"xseq.PRESET{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"xseq.DFEED{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    return nodes
+
+
+def _switch_trace_analog_nodes() -> list[str]:
+    nodes = ["CLK", "CLKN", "COMP_OUT", "OUTN_NC", "xseq.COMP_EFF", "TOP_P", "TOP_N",
+             "BPREF_P_NC", "BPREF_N_NC", "xfe.G_P", "xfe.G_N", "VINP", "VINN"]
+    nodes += [f"xcdac.BOT_p{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    nodes += [f"xcdac.BOT_n{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+    return nodes
+
+
+def _switch_trace_strobe_nodes() -> list[str]:
+    """Nodes sampled densely across each phase's comparator strobe (the CLK
+    falling edge): the comparator outputs, the shared COMP_EFF, every bit
+    register's output and D-path."""
+    return (["CLK", "CLKN", "COMP_OUT", "OUTN_NC", "xseq.COMP_EFF"]
+            + [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+            + _switch_trace_context_nodes())
+
+
+_SEQUENCER_INSTANCE = "xseq"
+_SEQUENCER_SUBCKT = "sar_sequencer"
+
+
+def sequencer_port_nets(netlist_text: str | None = None) -> dict[str, str]:
+    """{sequencer port name: top-level net} read from the DUT netlist's own
+    `xseq` instance line and `.subckt sar_sequencer` port list. Subckt PORTS
+    are not addressable as `xseq.<port>` in ngspice (only internal nets
+    are), so a ring probe must name the net the port is wired to."""
+    text = dut_text() if netlist_text is None else netlist_text
+    inst = sub = None
+    for ln in text.splitlines():
+        tok = ln.split()
+        if not tok:
+            continue
+        if tok[0].lower() == _SEQUENCER_INSTANCE and tok[-1].lower() == _SEQUENCER_SUBCKT:
+            inst = tok[1:-1]
+        elif tok[0].lower() == ".subckt" and len(tok) > 1 and tok[1].lower() == _SEQUENCER_SUBCKT:
+            sub = tok[2:]
+    if inst is None or sub is None or len(inst) != len(sub):
+        raise ValueError(
+            f"{DUT_NETLIST.name}: cannot map {_SEQUENCER_SUBCKT} ports onto "
+            f"{_SEQUENCER_INSTANCE}'s nets -- the netlist changed shape; re-derive the probe."
+        )
+    return dict(zip(sub, inst))
+
+
+def switch_trace_probe_node(node: str, ports: dict[str, str] | None = None) -> str:
+    """The deck-level name to put inside v(...) for a logical node: ring
+    ports (PH_B9..PH_B0, PH_EOC) resolve to their top-level nets."""
+    if node.startswith("PH_"):
+        return (sequencer_port_nets() if ports is None else ports)[node]
+    return node
+
+
+def _meas_tag(node: str) -> str:
+    """A `.meas`-name-safe, lower-case tag for a (possibly hierarchical) node."""
+    return node.lower().replace(".", "_")
+
+
+def switch_trace_window_ns(conversion: int) -> tuple[float, float]:
+    """[from, to] of the event probes: from just before the sampling edge
+    (12c) to just after edge 12c+11, where the code registers are cleared."""
+    base = tb.PHASES_PER_CONVERSION * conversion
+    return tb.t_edge_ns(base) - 2.0, tb.t_edge_ns(base + tb.PHASES_PER_CONVERSION - 1) + 10.0
+
+
+def switch_trace_expected_edges(conversion: int) -> dict[str, set[tuple[int, str]]]:
+    """For each digital node, the (edge index, direction) pairs at which the
+    SAR's OWN schedule (design/sar_adc_top.spice's sequencer, read from the
+    netlist, not from any other design) can move it during conversion c.
+    Edge 12c+p starts phase p (p=0 is PH_B9, p=10 PH_EOC, p=11 PH_SAMPLE):
+
+    * PH_B(9-p) rises at 12c+p and falls at 12c+p+1; PH_EOC rises at 12c+10
+      and falls at 12c+11. BUSY and SAMPLE_INT switch at 12c and 12c+11;
+      BUSY_BITS rises at 12c and falls at 12c+10.
+    * DOUT_k (k <= 8) is preset (rises) at 12c+9-k for its trial, falls at
+      12c+10-k if the trial is rejected, and is cleared (falls) at 12c+11.
+    * DOUT9 can change (either way) only at 12c+1 (the MSB capture).
+    * SELp_k = DOUT9 & DOUT_k, SELn_k = !DOUT9 & DOUT_k: either direction at
+      any edge where DOUT_k or DOUT9 may change.
+
+    A transition at any other edge, or more than SWITCH_TRACE_EDGE_WINDOW_NS
+    after a CLK rising edge, is UNSCHEDULED (observation)."""
+    base = tb.PHASES_PER_CONVERSION * conversion
+    last = tb.PHASES_PER_CONVERSION - 1  # 11: PH_SAMPLE
+    exp: dict[str, set[tuple[int, str]]] = {}
+    for p in range(tb.N_BITS):
+        b = tb.N_BITS - 1 - p
+        exp[f"PH_B{b}"] = {(base + p, "rise"), (base + p + 1, "fall")}
+    exp["PH_EOC"] = {(base + tb.N_BITS, "rise"), (base + last, "fall")}
+    exp["BUSY"] = {(base, "rise"), (base + last, "fall")}
+    exp["SAMPLE_INT"] = {(base, "fall"), (base + last, "rise")}
+    exp["xseq.BUSY_BITS"] = {(base, "rise"), (base + tb.N_BITS, "fall")}
+    msb = {(base + 1, "rise"), (base + 1, "fall")}
+    exp[f"DOUT{tb.N_BITS - 1}"] = set(msb)
+    for k in range(tb.N_BITS - 1):
+        dk = {(base + 9 - k, "rise"), (base + 10 - k, "fall"), (base + last, "fall")}
+        exp[f"DOUT{k}"] = dk
+        either = {(e, d) for e, _ in dk | msb for d in ("rise", "fall")}
+        exp[f"SELp{k}"] = set(either)
+        exp[f"SELn{k}"] = set(either)
+    return exp
+
+
+def _switch_prefix(conversion: int) -> str:
+    return f"sw_c{conversion}"
+
+
+def switch_trace_names(conversion: int) -> dict:
+    """Every `.meas` name this trace emits, grouped for decoding."""
+    pre = _switch_prefix(conversion)
+    events = {
+        node: {
+            (d, i): f"{pre}_{_meas_tag(node)}_{d}{i}"
+            for d in ("rise", "fall") for i in range(1, SWITCH_TRACE_MAX_EDGES + 1)
+        }
+        for node in _switch_trace_digital_nodes() + _switch_trace_context_nodes()
+    }
+    all_nodes = (_switch_trace_digital_nodes() + _switch_trace_context_nodes()
+                 + _switch_trace_analog_nodes())
+    excursion = {
+        top: dict(
+            t=f"{pre}_{_meas_tag(top)}_off_t",
+            at={node: f"{pre}_{_meas_tag(top)}_off_{_meas_tag(node)}" for node in all_nodes},
+        )
+        for top in ("TOP_P", "TOP_N")
+    }
+    snapshots = {
+        (p, tag): {node: f"{pre}_p{p}_{tag}_{_meas_tag(node)}" for node in all_nodes}
+        for p in range(tb.PHASES_PER_CONVERSION - 1)
+        for tag, _ in SWITCH_TRACE_SNAPSHOT_OFFSETS_NS
+    }
+    strobe = {
+        (p, i): {node: f"{pre}_p{p}_s{i}_{_meas_tag(node)}" for node in _switch_trace_strobe_nodes()}
+        for p in range(tb.N_BITS)
+        for i in range(len(SWITCH_TRACE_STROBE_OFFSETS_NS))
+    }
+    return dict(events=events, excursion=excursion, snapshots=snapshots, strobe=strobe)
+
+
+def switch_trace_flat_names(conversion: int) -> list[str]:
+    names = switch_trace_names(conversion)
+    out = [n for per in names["events"].values() for n in per.values()]
+    for ex in names["excursion"].values():
+        out.append(ex["t"])
+        out += list(ex["at"].values())
+    for per in names["snapshots"].values():
+        out += list(per.values())
+    for per in names["strobe"].values():
+        out += list(per.values())
+    return out
+
+
+def switch_trace_measure_lines(conversion: int, supply_v: float) -> list[str]:
+    """Read-only `.meas` cards for the switching-event trace of one
+    coherent-sine conversion. Adds probes only; DUT and stimulus untouched."""
+    names = switch_trace_names(conversion)
+    t_from, t_to = switch_trace_window_ns(conversion)
+    thr = tb.DIGITAL_THRESHOLD_FRACTION * supply_v
+    base = tb.PHASES_PER_CONVERSION * conversion
+    ports = sequencer_port_nets()
+
+    def v(node: str) -> str:
+        return f"v({switch_trace_probe_node(node, ports)})"
+
+    lines = [
+        f"* --- issue #621 switching-event trace, conversion {conversion} "
+        "(read-only probes; DUT and stimulus unmodified) ---",
+    ]
+    for node, per in names["events"].items():
+        for (d, i), name in per.items():
+            lines.append(
+                f".meas tran {name} when {v(node)}={thr:.4f} {d}={i} "
+                f"from={t_from:.4f}n to={t_to:.4f}n"
+            )
+    for top, ex in names["excursion"].items():
+        cond = f"v({top})={-SWITCH_TRACE_RAIL_V:.4f} fall=1 from={t_from:.4f}n to={t_to:.4f}n"
+        lines.append(f".meas tran {ex['t']} when {cond}")
+        for node, name in ex["at"].items():
+            lines.append(f".meas tran {name} find {v(node)} when {cond}")
+    for (p, tag), per in names["snapshots"].items():
+        offset = dict(SWITCH_TRACE_SNAPSHOT_OFFSETS_NS)[tag]
+        t = tb.t_edge_ns(base + p) + offset
+        for node, name in per.items():
+            lines.append(f".meas tran {name} find {v(node)} at={t:.4f}n")
+    for (p, i), per in names["strobe"].items():
+        t = tb.t_edge_ns(base + p) + SWITCH_TRACE_STROBE_OFFSETS_NS[i]
+        for node, name in per.items():
+            lines.append(f".meas tran {name} find {v(node)} at={t:.4f}n")
+    return lines
+
+
+def classify_switch_event(
+    node: str, t_ns: float, expected: dict[str, set[tuple[int, str]]], direction: str
+) -> dict:
+    """Place one transition on the CLK grid: the nearest preceding rising
+    edge index, the offset after it, the phase within the conversion grid,
+    and whether the SAR's own schedule allows it there (observation)."""
+    # 1e-9 period guard: a transition exactly at the window's early bound
+    # must not round onto the previous edge.
+    k = math.floor((t_ns - tb.T_FIRST_EDGE_NS - SWITCH_TRACE_EDGE_WINDOW_NS[0]) / tb.T_CLK_NS + 1e-9)
+    offset = t_ns - tb.t_edge_ns(k)
+    lo, hi = SWITCH_TRACE_EDGE_WINDOW_NS
+    on_edge = lo <= offset <= hi
+    scheduled = on_edge and (k, direction) in expected.get(node, set())
+    return dict(node=node, direction=direction, t_ns=t_ns, edge=k, offset_ns=offset,
+                on_edge=on_edge, scheduled=scheduled)
+
+
+def decode_switch_trace(parsed: dict, conversion: int, supply_v: float) -> dict:
+    """Decode the switching-event trace into a time-ordered event list
+    (each classified scheduled / UNSCHEDULED), the first top-plate rail
+    excursion with every node's value at that instant, and the snapshots.
+    Observations only; the mechanism is the record prose's job."""
+    names = switch_trace_names(conversion)
+    expected = switch_trace_expected_edges(conversion)
+    base = tb.PHASES_PER_CONVERSION * conversion
+    context = set(_switch_trace_context_nodes())
+    events = []
+    saturated = []
+    for node, per in names["events"].items():
+        for d in ("rise", "fall"):
+            for i in range(1, SWITCH_TRACE_MAX_EDGES + 1):
+                v = parsed.get(per[(d, i)])
+                if v is None:
+                    break
+                ev = classify_switch_event(node, v * 1e9, expected, d)
+                ev["phase"] = ev["edge"] - base
+                if node in context:
+                    ev["scheduled"] = None  # recorded, not schedule-classified
+                events.append(ev)
+                if i == SWITCH_TRACE_MAX_EDGES:
+                    saturated.append((node, d))
+    events.sort(key=lambda e: (e["t_ns"], e["node"]))
+    unscheduled = [e for e in events if e["scheduled"] is False]
+    excursions = {}
+    for top, ex in names["excursion"].items():
+        t = parsed.get(ex["t"])
+        if t is None:
+            excursions[top] = None
+            continue
+        t_ns = t * 1e9
+        k = math.floor((t_ns - tb.T_FIRST_EDGE_NS) / tb.T_CLK_NS)
+        excursions[top] = dict(
+            t_ns=t_ns, edge=k, phase=k - base, offset_ns=t_ns - tb.t_edge_ns(k),
+            values={node: parsed.get(name) for node, name in ex["at"].items()},
+        )
+    snapshots = {
+        key: {node: parsed.get(name) for node, name in per.items()}
+        for key, per in names["snapshots"].items()
+    }
+    strobe = {
+        key: {node: parsed.get(name) for node, name in per.items()}
+        for key, per in names["strobe"].items()
+    }
+    return dict(conversion=conversion, supply_v=supply_v, events=events, strobe=strobe,
+                unscheduled=unscheduled, first_unscheduled=(unscheduled[0] if unscheduled else None),
+                saturated=saturated, excursions=excursions, snapshots=snapshots)
+
+
+def _logic_char(v: float | None, supply_v: float) -> str:
+    """'1'/'0' against 50% V_DD, 'x' inside the 20..80% V_DD band (a node
+    mid-transition or not driven to a rail), '?' if the probe is missing."""
+    if v is None:
+        return "?"
+    if 0.2 * supply_v < v < 0.8 * supply_v:
+        return "x"
+    return "1" if v > tb.DIGITAL_THRESHOLD_FRACTION * supply_v else "0"
+
+
+def _logic_word(values: dict, nodes: list[str], supply_v: float) -> str:
+    return "".join(_logic_char(values.get(n), supply_v) for n in nodes)
+
+
+_SW_DOUT = [f"DOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+_SW_SELP = [f"SELp{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_SELN = [f"SELn{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_RING = [f"PH_B{b}" for b in range(tb.N_BITS - 1, -1, -1)] + ["PH_EOC"]
+_SW_MUXOUT = [f"xseq.MUXOUT{b}" for b in range(tb.N_BITS - 1, -1, -1)]
+_SW_PRESET = [f"xseq.PRESET{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_DFEED = [f"xseq.DFEED{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_BOTP = [f"xcdac.BOT_p{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+_SW_BOTN = [f"xcdac.BOT_n{b}" for b in range(tb.N_BITS - 2, -1, -1)]
+
+
+def switch_trace_record_lines(switch_traces: list[dict]) -> list[str]:
+    out: list[str] = []
+    add = out.append
+    lo, hi = SWITCH_TRACE_EDGE_WINDOW_NS
+    add("## Switching-event trace (issue #621; read-only probes on the same run)")
+    add("")
+    add(
+        "Raw `.meas` values from the SAME transient as the code stream above "
+        "(probes appended after the stimulus; DUT and stimulus unmodified). "
+        "OBSERVED = the times, words and voltages below. A transition is "
+        f"*scheduled* when it lands {lo:g}..+{hi:g} ns from a CLK rising edge at "
+        "which the SAR's own sequencer can move that node "
+        "(`switch_trace_expected_edges()` documents the schedule, derived from "
+        "`design/sar_adc_top.spice`); anything else is **UNSCHEDULED**. That is a "
+        "timing observation, not a mechanism. Digital words are MSB first; "
+        "`1`/`0` against 50% V_DD, `x` = inside the 20..80% V_DD band, `?` = "
+        "probe missing. The ring word is PH_B9..PH_B0 then PH_EOC. Every value "
+        "here is also in the retained ngspice log."
+    )
+    add("")
+    for st in switch_traces:
+        c, vdd = st["conversion"], st["supply_v"]
+        add(f"### Conversion {c}")
+        add("")
+        fu = st["first_unscheduled"]
+        add(
+            "- **First UNSCHEDULED transition (observed)**: "
+            + ("none." if fu is None else
+               f"`{fu['node']}` {fu['direction']} at {fu['t_ns']:.3f} ns = phase "
+               f"{fu['phase']}, {fu['offset_ns']:+.2f} ns from its CLK rising edge.")
+        )
+        add(f"- **UNSCHEDULED transitions in the window (observed)**: {len(st['unscheduled'])}.")
+        if st["saturated"]:
+            add(
+                "- **Edge-count limit reached** (more transitions may exist past "
+                f"the {SWITCH_TRACE_MAX_EDGES} probed per direction): "
+                + ", ".join(f"`{n}` {d}" for n, d in st["saturated"]) + "."
+            )
+        for top in ("TOP_P", "TOP_N"):
+            ex = st["excursions"].get(top)
+            add(
+                f"- **{top} first below -{SWITCH_TRACE_RAIL_V:g} V (observed)**: "
+                + ("never in the window." if ex is None else
+                   f"{ex['t_ns']:.3f} ns = phase {ex['phase']}, "
+                   f"{ex['offset_ns']:+.2f} ns from its CLK rising edge.")
+            )
+        add("")
+        add("#### Transitions (time-ordered)")
+        add("")
+        add("| t (ns) | phase | from CLK rise (ns) | node | direction | schedule |")
+        add("|---|---|---|---|---|---|")
+        for e in st["events"]:
+            add(
+                f"| {e['t_ns']:.3f} | {e['phase']} | {e['offset_ns']:+.2f} | `{e['node']}` | "
+                f"{e['direction']} | "
+                + ("context (D-path, not classified)" if e["scheduled"] is None else
+                   "scheduled" if e["scheduled"] else "**UNSCHEDULED**")
+                + " |"
+            )
+        add("")
+        for top in ("TOP_P", "TOP_N"):
+            ex = st["excursions"].get(top)
+            if ex is None:
+                continue
+            v = ex["values"]
+            fmt = lambda x: "n/a" if x is None else f"{x:.4f}"
+            add(f"#### Node values at the instant {top} crosses -{SWITCH_TRACE_RAIL_V:g} V")
+            add("")
+            add(
+                f"DOUT9..0 `{_logic_word(v, _SW_DOUT, vdd)}`, SELp8..0 "
+                f"`{_logic_word(v, _SW_SELP, vdd)}`, SELn8..0 `{_logic_word(v, _SW_SELN, vdd)}`, "
+                f"ring `{_logic_word(v, _SW_RING, vdd)}`, BUSY/BUSY_BITS/SAMPLE_INT "
+                f"`{_logic_word(v, ['BUSY', 'xseq.BUSY_BITS', 'SAMPLE_INT'], vdd)}`, "
+                f"MUXOUT9..0 `{_logic_word(v, _SW_MUXOUT, vdd)}`, PRESET8..0 "
+                f"`{_logic_word(v, _SW_PRESET, vdd)}`, DFEED8..0 `{_logic_word(v, _SW_DFEED, vdd)}`."
+            )
+            add("")
+            add("| node | V |")
+            add("|---|---|")
+            for node in _switch_trace_analog_nodes():
+                add(f"| `{node}` | {fmt(v.get(node))} |")
+            add("")
+        add("#### Per-phase snapshots")
+        add("")
+        add(
+            "Instants are offsets from each phase's CLK rising edge: "
+            + ", ".join(f"`{t}` = +{o:.1f} ns" for t, o in SWITCH_TRACE_SNAPSHOT_OFFSETS_NS)
+            + "."
+        )
+        add("")
+        add("| phase | instant | DOUT9..0 | SELp8..0 | SELn8..0 | ring | BUSY/BB/SMP | "
+            "MUXOUT9..0 | DFEED8..0 | "
+            "CLK | COMP_OUT | OUTN_NC | TOP_P | TOP_N | BPREF_P | BPREF_N | G_P | G_N | "
+            "BOT_p8..0 (V) | BOT_n8..0 (V) |")
+        add("|" + "---|" * 20)
+        fmt = lambda x: "n/a" if x is None else f"{x:.3f}"
+        for (p, tag), v in st["snapshots"].items():
+            add(
+                f"| {p} | {tag} | `{_logic_word(v, _SW_DOUT, vdd)}` | "
+                f"`{_logic_word(v, _SW_SELP, vdd)}` | `{_logic_word(v, _SW_SELN, vdd)}` | "
+                f"`{_logic_word(v, _SW_RING, vdd)}` | "
+                f"`{_logic_word(v, ['BUSY', 'xseq.BUSY_BITS', 'SAMPLE_INT'], vdd)}` | "
+                f"`{_logic_word(v, _SW_MUXOUT, vdd)}` | `{_logic_word(v, _SW_DFEED, vdd)}` | "
+                f"{fmt(v.get('CLK'))} | {fmt(v.get('COMP_OUT'))} | {fmt(v.get('OUTN_NC'))} | "
+                f"{fmt(v.get('TOP_P'))} | {fmt(v.get('TOP_N'))} | "
+                f"{fmt(v.get('BPREF_P_NC'))} | {fmt(v.get('BPREF_N_NC'))} | "
+                f"{fmt(v.get('xfe.G_P'))} | {fmt(v.get('xfe.G_N'))} | "
+                + " ".join(fmt(v.get(n)) for n in _SW_BOTP) + " | "
+                + " ".join(fmt(v.get(n)) for n in _SW_BOTN) + " |"
+            )
+        add("")
+        fu = st["first_unscheduled"]
+        strobe = st.get("strobe") or {}
+        if fu is not None and 0 <= fu["phase"] < tb.N_BITS and strobe:
+            add(f"#### Strobe window, phase {fu['phase']} (the first UNSCHEDULED transition's phase)")
+            add("")
+            add(
+                "Samples 0.5 ns apart across this phase's CLK falling edge (comparator "
+                f"strobe, +{tb.T_CLK_NS * 0.5:.2f} ns after the rising edge). DOUT and the "
+                "registers' D-path as logic words; the comparator nodes in volts."
+            )
+            add("")
+            add("| from CLK rise (ns) | CLK | CLKN | COMP_OUT | OUTN_NC | COMP_EFF | "
+                "DOUT9..0 | MUXOUT9..0 | PRESET8..0 | DFEED8..0 |")
+            add("|" + "---|" * 10)
+            for i, off in enumerate(SWITCH_TRACE_STROBE_OFFSETS_NS):
+                v = strobe.get((fu["phase"], i), {})
+                add(
+                    f"| {off:+.2f} | {fmt(v.get('CLK'))} | {fmt(v.get('CLKN'))} | "
+                    f"{fmt(v.get('COMP_OUT'))} | {fmt(v.get('OUTN_NC'))} | "
+                    f"{fmt(v.get('xseq.COMP_EFF'))} | `{_logic_word(v, _SW_DOUT, vdd)}` | "
+                    f"`{_logic_word(v, _SW_MUXOUT, vdd)}` | `{_logic_word(v, _SW_PRESET, vdd)}` | "
+                    f"`{_logic_word(v, _SW_DFEED, vdd)}` |"
+                )
+            add("")
+    return out
+
+
+def format_switch_trace_summary(st: dict) -> str:
+    c = st["conversion"]
+    out = [f"Switching-event trace, conversion {c} (observed):"]
+    fu = st["first_unscheduled"]
+    out.append(
+        "  first UNSCHEDULED transition: "
+        + ("none" if fu is None else
+           f"{fu['node']} {fu['direction']} at {fu['t_ns']:.3f} ns = phase {fu['phase']} "
+           f"+{fu['offset_ns']:.2f} ns after its CLK rising edge")
+    )
+    out.append(f"  unscheduled transitions: {len(st['unscheduled'])}")
+    for top in ("TOP_P", "TOP_N"):
+        ex = st["excursions"].get(top)
+        out.append(
+            f"  {top} below -{SWITCH_TRACE_RAIL_V:g} V: "
+            + ("never" if ex is None else
+               f"at {ex['t_ns']:.3f} ns = phase {ex['phase']} +{ex['offset_ns']:.2f} ns")
+        )
+    return "\n".join(out)
+
+
+# --------------------------------------------------------------------------
+# Solver-sensitivity audit of the DC baseline corner (`--solver-audit`,
+# issue #637)
+# --------------------------------------------------------------------------
+# Runs the SAME DC fragment, DUT and corner (tt/27C/1.8V) once under the
+# reference solver profile and once under each control profile, SEQUENTIALLY
+# in one process (so the wall-clock figures are like-for-like on one host),
+# and writes ONE diagnostic record that says, observation by observation,
+# whether anything the reference run shows moves under a control. It is
+# the guard that keeps a solver-sensitive anomaly from being presented as
+# unqualified converter behaviour: the record names each moved observation
+# SOLVER-SENSITIVE. It never touches records/LATEST and supersedes nothing.
+#
+# Instrumentation, identical under every profile (so it cannot be what
+# differs between them):
+#   * SOLVER_AUDIT_STATS_CARD -- ngspice's print-only accounting option
+#     (`acct`): timepoint / iteration / analysis-time statistics. It does not
+#     change any tolerance or the integration method.
+#   * transition_guard_measure_lines() -- the WHEN-crossing half of the
+#     issue #621 switching-event trace (every DOUT/SEL/ring/control node and
+#     the registers' D-path, classified scheduled / UNSCHEDULED against the
+#     SAR's own edge schedule) plus the first top-plate rail excursion, on
+#     every measured conversion. Read-only `.meas` cards.
+SOLVER_AUDIT_STATS_CARD = ".options acct"
+# Relative change in a supply/reference current or total power above which
+# the audit calls the power observation "moved". An AUDIT reporting
+# tolerance only (not a spec threshold): it is far above the relative
+# tolerance any compared profile integrates to (1e-4 for the reference
+# policy, 1e-3 for the ngspice-default/gear-only controls), so a change past
+# it is not integration noise, and every delta is printed regardless.
+SOLVER_AUDIT_POWER_REL_TOL = 0.01
+# ngspice `acct` statistics the record reports (name as ngspice prints it).
+SOLVER_STAT_NAMES = (
+    "Transient timepoints",
+    "Accepted timepoints",
+    "Rejected timepoints",
+    "Transient iterations",
+    "Transient analysis time",
+    "Total analysis time (seconds)",
+)
+_STAT_RE = re.compile(r"^\s*(?P<name>[A-Za-z][A-Za-z ()]*?)\s*=\s*(?P<value>[-+0-9.eE]+)\s*$")
+# Log lines a solver change could plausibly move (counted, not interpreted).
+_SOLVER_LOG_PATTERNS = (
+    ("timestep too small", re.compile(r"timestep too small", re.I)),
+    ("warning lines", re.compile(r"\bwarning\b", re.I)),
+    ("gmin/source stepping", re.compile(r"gmin stepping|source stepping", re.I)),
+    ("convergence trouble", re.compile(r"trouble|no convergence|failed to converge", re.I)),
+)
+
+
+def transition_guard_names(conversion: int) -> dict:
+    names = switch_trace_names(conversion)
+    return dict(
+        events=names["events"],
+        excursion_t={top: ex["t"] for top, ex in names["excursion"].items()},
+    )
+
+
+def transition_guard_flat_names(conversion: int) -> list[str]:
+    g = transition_guard_names(conversion)
+    out = [n for per in g["events"].values() for n in per.values()]
+    return out + list(g["excursion_t"].values())
+
+
+def transition_guard_measure_lines(conversion: int, supply_v: float) -> list[str]:
+    """The event (WHEN-crossing) and rail-excursion-time subset of
+    switch_trace_measure_lines(): enough to say whether any register or DAC
+    select moved off the SAR's own schedule, without the per-phase snapshot
+    and strobe-sample bulk. Read-only probes; DUT and stimulus untouched."""
+    wanted = set(transition_guard_flat_names(conversion))
+    return [
+        f"* --- issue #637 register-transition guard, conversion {conversion} "
+        "(read-only probes; DUT and stimulus unmodified) ---",
+        *(ln for ln in switch_trace_measure_lines(conversion, supply_v)
+          if ln.startswith(".meas") and ln.split()[2] in wanted),
+    ]
+
+
+def parse_solver_stats(log_text: str) -> dict:
+    """ngspice `acct` statistics (SOLVER_STAT_NAMES) plus counts of the log
+    lines in _SOLVER_LOG_PATTERNS. Missing statistics are simply absent."""
+    stats: dict[str, float] = {}
+    counts = {label: 0 for label, _ in _SOLVER_LOG_PATTERNS}
+    for line in log_text.splitlines():
+        m = _STAT_RE.match(line)
+        if m and m.group("name") in SOLVER_STAT_NAMES and m.group("name") not in stats:
+            try:
+                stats[m.group("name")] = float(m.group("value"))
+            except ValueError:
+                pass
+        for label, pat in _SOLVER_LOG_PATTERNS:
+            if pat.search(line):
+                counts[label] += 1
+    return dict(stats=stats, log_counts=counts)
+
+
+def _rel_delta(ref: float | None, ctl: float | None) -> float | None:
+    if ref is None or ctl is None:
+        return None
+    if ref == 0.0:
+        return 0.0 if ctl == 0.0 else math.inf
+    return (ctl - ref) / abs(ref)
+
+
+def compare_audit_runs(reference: dict, control: dict) -> list[dict]:
+    """Every observation of `reference` (a run_point(audit=True) result under
+    the reference profile) that differs under `control`, as a list of
+    {observation, reference, control, failure_mode} dicts. Empty == nothing
+    moved. `failure_mode` marks a change in a recorded pass/fail property
+    (a code's +-1 LSB verdict, a phase-structure verdict, a missing
+    measurement) as opposed to a value that moved within the same verdict."""
+    moved: list[dict] = []
+
+    def add(obs: str, ref, ctl, failure_mode: bool) -> None:
+        moved.append(dict(observation=obs, reference=ref, control=ctl, failure_mode=failure_mode))
+
+    for rc_, cc in zip(reference["conversions"], control["conversions"]):
+        label = f"conversion {rc_['conversion']} (`{rc_['fraction']:+.2f}*V_REF`)"
+        if rc_["code"] != cc["code"]:
+            add(f"{label} captured code", rc_["code"], cc["code"], False)
+        if rc_["code_ok"] != cc["code_ok"]:
+            add(f"{label} within +-{CODE_TOLERANCE_LSB} LSB", rc_["code_ok"], cc["code_ok"], True)
+        if (rc_["busy"], rc_["sample"]) != (cc["busy"], cc["sample"]):
+            add(f"{label} BUSY/SAMPLE words",
+                _bits_str(rc_["busy"]) + "/" + _bits_str(rc_["sample"]),
+                _bits_str(cc["busy"]) + "/" + _bits_str(cc["sample"]), False)
+        if rc_["phase_ok"] != cc["phase_ok"]:
+            add(f"{label} 12-period phase structure", rc_["phase_ok"], cc["phase_ok"], True)
+    if sorted(reference["missing"]) != sorted(control["missing"]):
+        add("missing measurements", len(reference["missing"]), len(control["missing"]), True)
+    if reference["all_ok"] != control["all_ok"]:
+        add("point verdict (PASS/FAIL)", reference["all_ok"], control["all_ok"], True)
+
+    for name, _source, _pot in tb.SUPPLY_SOURCES:
+        d = _rel_delta(reference["currents"].get(name), control["currents"].get(name))
+        if d is None:
+            if (name in reference["currents"]) != (name in control["currents"]):
+                add(f"current `{name}` availability", name in reference["currents"],
+                    name in control["currents"], True)
+        elif abs(d) > SOLVER_AUDIT_POWER_REL_TOL:
+            add(f"current `{name}` (relative change {d:+.2%})",
+                reference["currents"][name], control["currents"][name], False)
+    d = _rel_delta(reference["power_w"], control["power_w"])
+    if d is not None and abs(d) > SOLVER_AUDIT_POWER_REL_TOL:
+        add(f"total power (relative change {d:+.2%})", reference["power_w"], control["power_w"], False)
+
+    for rg, cg in zip(reference.get("guards", []), control.get("guards", [])):
+        c = rg["conversion"]
+        if len(rg["unscheduled"]) != len(cg["unscheduled"]):
+            add(f"conversion {c} UNSCHEDULED register/DAC-select transitions",
+                len(rg["unscheduled"]), len(cg["unscheduled"]), False)
+        for top in ("TOP_P", "TOP_N"):
+            r_ex, c_ex = rg["excursions"].get(top), cg["excursions"].get(top)
+            if (r_ex is None) != (c_ex is None):
+                add(f"conversion {c} {top} below -{SWITCH_TRACE_RAIL_V:g} V",
+                    r_ex is not None, c_ex is not None, False)
+    return moved
+
+
+_LATEST_CODE_CELL = re.compile(r"(\d+|MISSING) \(([+-]?\d+|n/a) LSB\)")
+
+
+def latest_baseline_row(records_dir: Path | None = None) -> dict | None:
+    """The `tt_27c_1.80v` codes and total power of the record `records/LATEST`
+    names (the reference corner campaign), read from its own tables, so the
+    audit can say whether its reference-profile run reproduces the recorded
+    failure modes. None if LATEST or the row cannot be read."""
+    records_dir = EXPERIMENT_DIR / "records" if records_dir is None else records_dir
+    latest = records_dir / "LATEST"
+    if not latest.is_file():
+        return None
+    name = latest.read_text().strip()
+    path = records_dir / name
+    if not path.is_file():
+        return None
+    text = path.read_text()
+    cid = corners_mod.corner_id(*BASELINE_CORNER)
+    section = None
+    codes = power = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            section = line
+            continue
+        if not line.startswith(f"| `{cid}` |") or section is None:
+            continue
+        if section.startswith("## Captured code vs ideal code"):
+            cells = _LATEST_CODE_CELL.findall(line)
+            codes = [None if c == "MISSING" else int(c) for c, _ in cells]
+        elif section.startswith("## Power"):
+            last = line.rstrip(" |").split("|")[-1].strip()
+            try:
+                power = float(last) * 1e-6
+            except ValueError:
+                power = None
+    if codes is None:
+        return None
+    env = {}
+    for key, pat in (("ngspice", r"^- ngspice: (.+)$"),
+                     ("netlist_sha", r"^- DUT netlist sha256: `([0-9a-f]+)`"),
+                     ("fragment_sha", r"^- testbench fragment sha256: `([0-9a-f]+)`"),
+                     ("simulator_options", r"^- simulator options: (.+)$")):
+        m = re.search(pat, text, re.M)
+        env[key] = m.group(1) if m else None
+    if env["simulator_options"] is None:
+        # every record minted before issue #637 ran on ngspice's defaults
+        env["simulator_options"] = f"not stated (pre-#637 record: {NGSPICE_DEFAULT_SOLVER_SETTINGS})"
+    return dict(record_id=path.stem, corner_id=cid, codes=codes, power_w=power, **env)
+
+
+def run_solver_audit(
+    profiles: tuple[str, ...], scratch: Path, quiet: bool
+) -> tuple[list[dict], str, float]:
+    """Reference profile first, then each control profile, one after the other
+    (never concurrently: the wall-clock comparison must be like-for-like).
+    Returns (runs, netlist_text, total wall seconds)."""
+    pdk_info = pdk.resolve()
+    netlist_text = dut_text()
+    runs: list[dict] = []
+    t0 = time.time()
+    for profile in (REFERENCE_SOLVER_PROFILE, *profiles):
+        if not quiet:
+            print(f"  [{profile}] {solver_settings_text(profile)}", flush=True)
+        point = run_point(netlist_text, pdk_info, scratch, *BASELINE_CORNER,
+                          tag_prefix=f"solver_audit_{profile.replace('-', '_')}",
+                          solver_profile=profile, audit=True)
+        runs.append(point)
+        if not quiet:
+            print("    " + format_point(point), flush=True)
+    return runs, netlist_text, time.time() - t0
+
+
+def write_solver_audit_record(
+    runs: list[dict], netlist_text: str, total_wall_s: float,
+    latest: dict | None, written_by: str,
+) -> Path:
+    """Mint the audit's diagnostic record (append-only, never LATEST, never
+    supersedes: a solver audit is a check on reference evidence, not a
+    replacement for it)."""
+    reference, controls = runs[0], runs[1:]
+    if is_solver_control(reference["solver_profile"]) or not controls or not all(
+        is_solver_control(r["solver_profile"]) for r in controls
+    ):
+        raise ValueError("a solver audit is the reference profile first, then >= 1 control profile")
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "diagnostics",
+        {f"solver-audit-{r['solver_profile']}-{r['corner_id']}.log": r["log_text"] for r in runs},
+    )
+    cid = reference["corner_id"]
+    comparisons = {r["solver_profile"]: compare_audit_runs(reference, r) for r in controls}
+    sensitive = {p: m for p, m in comparisons.items() if m}
+    fm_moved = {p: [m for m in ms if m["failure_mode"]] for p, ms in comparisons.items()}
+    add = lines.append
+
+    add(
+        "- **Claim**: `spec/target-spec.md#target-table` -- none graded. A "
+        "SOLVER-SENSITIVITY AUDIT (issue #637) of the full-conversion DC campaign's "
+        f"baseline corner `{cid}`: the same DUT, DC stimulus and toolchain under the "
+        f"reference solver profile `{REFERENCE_SOLVER_PROFILE}` and under "
+        + ", ".join(f"`{r['solver_profile']}`" for r in controls)
+        + ". It is a diagnostic about the evidence, not converter evidence: it edits "
+        "no spec row, proposes no target, does not update `records/LATEST` and "
+        "supersedes nothing."
+    )
+    add("- **Netlist provenance**: schematic (`design/sar_adc_top.spice`, unmodified)")
+    add(corners_mod.corner_matrix_summary_line(
+        [reference["process_corner"]], [reference["temp_c"]], [reference["supply_v"]], 1
+    ).replace("one-at-a-time per sim/README.md",
+              "single-corner solver audit, NOT the ratified grid"))
+    add(
+        "- **Stimulus**: the committed DC fragment "
+        "(`testbench/full_conversion_tb_fragment.spice`), byte-for-byte the "
+        "corner campaign's, under every profile."
+    )
+    add(
+        "- **Overall**: "
+        + ("NO OBSERVATION MOVED under any control profile -- the reference-profile "
+           "result at this corner is not solver-sensitive to these settings."
+           if not sensitive else
+           "SOLVER-SENSITIVE -- at least one observation moved under "
+           + ", ".join(f"`{p}`" for p in sensitive)
+           + "; see the comparison below. A moved observation is a property of the "
+           "integration settings until shown otherwise and must not be read as "
+           "unqualified converter behaviour.")
+    )
+    add(
+        "- **Recorded failure modes moved**: "
+        + "; ".join(
+            f"`{p}`: " + ("none" if not fm else ", ".join(m["observation"] for m in fm))
+            for p, fm in fm_moved.items()
+        )
+        + "."
+    )
+    add(
+        "- **Measured value(s)**: per-profile codes, phase structure, per-rail "
+        "currents/power, UNSCHEDULED register/DAC-select transitions, ngspice "
+        "accounting statistics and simulator wall-clock (below)."
+    )
+    add("")
+
+    add("## Solver profiles and simulator cost (like-for-like, one host, sequential)")
+    add("")
+    add(
+        "Wall-clock is measured around the ngspice subprocess only (deck write + "
+        "simulation + log read); it excludes host/CI queueing and toolchain setup. "
+        "The runs were sequential in one process on one host. `acct` statistics are "
+        "ngspice's own accounting (print-only option, identical in every deck)."
+    )
+    add("")
+    add("| profile | `.options` card | wall-clock (s) | x reference | "
+        + " | ".join(SOLVER_STAT_NAMES) + " | "
+        + " | ".join(label for label, _ in _SOLVER_LOG_PATTERNS) + " |")
+    add("|" + "---|" * (4 + len(SOLVER_STAT_NAMES) + len(_SOLVER_LOG_PATTERNS)))
+    for r in runs:
+        st = r["solver_stats"]
+        card = solver_options_card(r["solver_profile"])
+        ratio = r["wall_s"] / reference["wall_s"] if reference["wall_s"] > 0 else float("nan")
+        add(
+            f"| `{r['solver_profile']}` | {'(none)' if card is None else f'`{card}`'} | "
+            f"{r['wall_s']:.0f} | {ratio:.2f} | "
+            + " | ".join(
+                "n/a" if st["stats"].get(n) is None else f"{st['stats'][n]:g}"
+                for n in SOLVER_STAT_NAMES
+            )
+            + " | "
+            + " | ".join(str(st["log_counts"][label]) for label, _ in _SOLVER_LOG_PATTERNS)
+            + " |"
+        )
+    add("")
+    add(f"Total audit wall-clock (all {len(runs)} runs): {total_wall_s:.0f} s.")
+    add("")
+
+    add("## Captured code vs ideal code, every input under every profile")
+    add("")
+    add("| profile | " + " | ".join(
+        f"`{f:+.2f}*V_REF` (ideal {tb.ideal_code(f)})" for f in tb.INPUT_FRACTIONS
+    ) + " | phase structure | verdict |")
+    add("|---" * (len(tb.INPUT_FRACTIONS) + 3) + "|")
+    if latest is not None:
+        add(
+            f"| `records/LATEST` = `{latest['record_id']}` ({latest['ngspice'] or 'ngspice ?'}) | "
+            + " | ".join("MISSING" if c is None else str(c) for c in latest["codes"])
+            + " | (see that record) | (see that record) |"
+        )
+    for r in runs:
+        cells = []
+        for cv in r["conversions"]:
+            code = "MISSING" if cv["code"] is None else str(cv["code"])
+            err = "n/a" if cv["error_lsb"] is None else f"{cv['error_lsb']:+d}"
+            cells.append(f"{code} ({err} LSB)")
+        add(f"| `{r['solver_profile']}` | " + " | ".join(cells)
+            + f" | {r['n_phase_ok']}/{r['n_conversions']} | {'PASS' if r['all_ok'] else 'FAIL'} |")
+    add("")
+    if latest is not None:
+        ref_codes = [cv["code"] for cv in reference["conversions"]]
+        same = ref_codes == latest["codes"]
+        same_dut = latest["netlist_sha"] == prov.netlist_sha
+        add(
+            f"- **Reference profile vs `records/LATEST` row `{cid}`**: codes "
+            + ("IDENTICAL" if same else "DIFFER")
+            + f" ({latest['ngspice'] or 'unknown ngspice'} there, {prov.ng_version} here; "
+            + ("same" if same_dut else "DIFFERENT")
+            + " DUT netlist sha256; LATEST's simulator options: "
+            + f"{latest['simulator_options']}; this run: profile `{reference['solver_profile']}`). "
+            + ("The recorded failure modes at this corner are reproduced by this audit's "
+               "reference run, so the comparison below speaks to them directly."
+               if same else
+               "The reference run does not reproduce LATEST's row, so the comparison "
+               "below is against this audit's own reference run, not against LATEST.")
+        )
+        add("")
+
+    add("## Per-input detail (captured bits, BUSY/SAMPLE per CLK period)")
+    add("")
+    add("| profile | input | captured bits (DOUT9..DOUT0) | BUSY | SAMPLE | phase |")
+    add("|---|---|---|---|---|---|")
+    for r in runs:
+        for cv in r["conversions"]:
+            add(f"| `{r['solver_profile']}` | `{cv['fraction']:+.2f}*V_REF` | "
+                f"`{_bits_str(cv['bits'])}` | `{_bits_str(cv['busy'])}` | "
+                f"`{_bits_str(cv['sample'])}` | {'OK' if cv['phase_ok'] else 'WRONG'} |")
+    add("")
+
+    add("## Power (informational -- DRAFT row)")
+    add("")
+    add("| profile | I(VDD) (uA) | I(VPWR) (uA) | I(VREFP) (uA) | I(VCM) (uA) | "
+        "I(VREFN) (uA) | total power (uW) | total power vs reference |")
+    add("|---|---|---|---|---|---|---|---|")
+    if latest is not None:
+        add(f"| `records/LATEST` = `{latest['record_id']}` | | | | | | "
+            + ("n/a" if latest["power_w"] is None else f"{latest['power_w'] * 1e6:.3f}")
+            + " | |")
+    for r in runs:
+        def ua(name: str, _r=r) -> str:
+            v = _r["currents"].get(name)
+            return "n/a" if v is None else f"{v * 1e6:.3f}"
+        d = _rel_delta(reference["power_w"], r["power_w"])
+        add(f"| `{r['solver_profile']}` | {ua('i_vdd')} | {ua('i_vpwr')} | {ua('i_vrefp')} | "
+            f"{ua('i_vcm')} | {ua('i_vrefn')} | {_power_uw_str(r['power_w'])} | "
+            + ("n/a" if d is None else f"{d:+.3%}") + " |")
+    add("")
+
+    add("## Register-transition guard (read-only probes, every measured conversion)")
+    add("")
+    lo, hi = SWITCH_TRACE_EDGE_WINDOW_NS
+    add(
+        "A DOUT/SEL/ring/control transition is *scheduled* when it lands "
+        f"{lo:g}..+{hi:g} ns after a CLK rising edge at which the SAR's own "
+        "sequencer may move that node (`switch_trace_expected_edges()`); anything "
+        "else is UNSCHEDULED -- the signature of issue #621's default-settings "
+        "artefact. Rail excursion = a top plate below "
+        f"-{SWITCH_TRACE_RAIL_V:g} V inside the conversion window."
+    )
+    add("")
+    add("| profile | conversion | UNSCHEDULED | first UNSCHEDULED | TOP_P below rail | TOP_N below rail |")
+    add("|---|---|---|---|---|---|")
+    for r in runs:
+        for g in r["guards"]:
+            fu = g["first_unscheduled"]
+            ex = g["excursions"]
+            add(
+                f"| `{r['solver_profile']}` | {g['conversion']} | {len(g['unscheduled'])} | "
+                + ("none" if fu is None else
+                   f"`{fu['node']}` {fu['direction']} phase {fu['phase']} {fu['offset_ns']:+.2f} ns")
+                + " | "
+                + " | ".join("no" if ex.get(t) is None else
+                             f"phase {ex[t]['phase']} {ex[t]['offset_ns']:+.2f} ns"
+                             for t in ("TOP_P", "TOP_N"))
+                + " |"
+            )
+    add("")
+
+    add("## Comparison against the reference profile")
+    add("")
+    for p, ms in comparisons.items():
+        add(f"### `{p}` vs `{REFERENCE_SOLVER_PROFILE}`")
+        add("")
+        if not ms:
+            add("No observation moved (codes, BUSY/SAMPLE words, phase verdicts, missing "
+                f"measurements, per-rail currents and power within "
+                f"{SOLVER_AUDIT_POWER_REL_TOL:.0%}, UNSCHEDULED counts, rail excursions).")
+        else:
+            add("| observation | reference | control | recorded failure mode? |")
+            add("|---|---|---|---|")
+            for m in ms:
+                add(f"| {m['observation']} | {m['reference']} | {m['control']} | "
+                    f"{'**yes -- SOLVER-SENSITIVE**' if m['failure_mode'] else 'no (value only)'} |")
+        add("")
+
+    add("## LIMITATIONS")
+    add("")
+    add(
+        f"One corner (`{cid}`), five DC inputs, one toolchain. A clean audit here says "
+        "the reference settings are adequate for THIS corner's recorded observations; "
+        "it does not certify the other eight corners or any other experiment. The "
+        "power-change tolerance is an audit reporting threshold, not a spec value."
+    )
+    add("")
+
+    extra = {
+        "tran step": f"{tb.TRAN_STEP_NS} ns",
+        "simulated span": f"{tb.t_stop_ns():.1f} ns per run",
+        "testbench fragment sha256": f"`{evidence.sha256_file(tb.FRAGMENT_PATH)}`",
+        "SIM_NGSPICE_TIMEOUT_S": os.environ.get("SIM_NGSPICE_TIMEOUT_S", "(default)"),
+        "audit instrumentation (every profile)": f"`{SOLVER_AUDIT_STATS_CARD}` + register-transition guard `.meas` probes",
+    }
+    for r in runs:
+        extra[f"simulator options [{r['solver_profile']}]"] = solver_settings_text(r["solver_profile"])
+        extra[f"wall-clock [{r['solver_profile']}]"] = f"{r['wall_s']:.0f} s"
+    lines.extend(evidence.environment_block(
+        pdk_line=prov.pdk_line, ngspice_line=prov.ng_version,
+        netlist_sha256=prov.netlist_sha, extra=extra,
+    ))
+    add("")
+    # A solver audit is a check on reference evidence, never a replacement for
+    # it, so it supersedes nothing by construction (issue #502's named opt-out).
+    lines.extend(evidence.footer_lines(written_by, evidence.NEVER_SUPERSEDES))
+    return evidence.close_record(prov, lines, "Solver-audit record")
+
+
+# issue #621: an opt-in SOLVER CONTROL for the coherent-sine run. It tightens
+# ngspice's relative tolerance 10x (default 1e-3) and swaps the default
+# trapezoidal integration for Gear, which damps trapezoidal ringing. DUT and
+# stimulus are untouched; only how the same circuit is integrated changes.
+# Its purpose is to separate a circuit behaviour from a numerical artefact:
+# an event that persists under both is not an artefact of the default
+# settings. Since issue #637 this is the named solver profile `reltol-gear`
+# (SOLVER_PROFILES), and DR-023 made that profile the REFERENCE policy, so
+# `--sine-solver-control` no longer selects a control: it is kept only as the
+# spelling of `--solver-profile reltol-gear` that the committed #621 record's
+# Written-by line uses (sim/spec-coverage.json cites it as a cold start).
+# A run with it is now a reference capture. The pre-DR-023 settings are
+# `--solver-profile ngspice-default`, which is the control.
+SINE_SOLVER_CONTROL_PROFILE = "reltol-gear"
+SINE_SOLVER_CONTROL_OPTIONS = solver_options_card(SINE_SOLVER_CONTROL_PROFILE)
+
+
+def run_sine_point(
+    netlist_text: str,
+    pdk_info: pdk.PdkInfo,
+    scratch: Path,
+    n: int,
+    tone_bin: int,
+    amplitude_fraction: float,
+    corner: tuple[str, float, float] = BASELINE_CORNER,
+    trace_conversions: tuple[int, ...] = (),
+    switch_trace_conversions: tuple[int, ...] = (),
+    solver_profile: str = REFERENCE_SOLVER_PROFILE,
+) -> dict:
+    process_corner, temp_c, supply_v = corner
+    cid = corners_mod.corner_id(process_corner, temp_c, supply_v)
+    fragment = tb.sine_fragment_text(n, tone_bin, amplitude_fraction)
+    extra_meas: list[str] = []
+    for c in trace_conversions:
+        extra_meas += sine_trace_measure_lines(c)
+    for c in switch_trace_conversions:
+        extra_meas += switch_trace_measure_lines(c, supply_v)
+    deck = assemble_deck(
+        netlist_text, pdk_info, process_corner, temp_c, supply_v, fragment=fragment,
+        extra_meas=extra_meas or None, solver_profile=solver_profile,
+    )
+    t0 = time.time()
+    log_text = _run_ngspice(deck, scratch, f"coherent_sine_{cid}", attempts=1)
+    wall_s = time.time() - t0
+
+    names = tb.sine_measure_names(n)
+    trace_names: list[str] = []
+    for c in trace_conversions:
+        trace_names += _node_trace_names(node_trace_plan(c))
+        trace_names += [f"nt_c{c}_samp_{t}" for t in ("vinp", "vinn", "top_p", "top_n")]
+    for c in switch_trace_conversions:
+        trace_names += switch_trace_flat_names(c)
+    parsed = measure.parse(log_text, names + trace_names, anchored=False)
+    # trace probes are read-only extras: their absence never makes the
+    # capture invalid, so `missing` stays the code/phase measurements only.
+    missing = measure.missing(parsed, names)
+    conversions = tb.sine_measured_conversions(n)
+    stream = decode_code_stream(parsed, supply_v, conversions)
+    result = analyze_sine_capture(stream["codes"], n, tone_bin, amplitude_fraction)
+    result["outlier_diag"] = sine_outlier_diagnostic(
+        stream["codes"], result["ideal_codes"], conversions, n, tone_bin
+    )
+    result["traces"] = [
+        decode_sine_trace(parsed, c, result["ideal_codes"][conversions.index(c)], supply_v,
+                          stream["codes"][conversions.index(c)])
+        for c in trace_conversions
+    ]
+    result["switch_traces"] = [
+        decode_switch_trace(parsed, c, supply_v) for c in switch_trace_conversions
+    ]
+    result.update(
+        stream,
+        conversions=conversions,
+        n=n,
+        tone_bin=tone_bin,
+        amplitude_fraction=amplitude_fraction,
+        process_corner=process_corner,
+        temp_c=temp_c,
+        supply_v=supply_v,
+        corner_id=cid,
+        missing=missing,
+        log_text=log_text,
+        fragment=fragment,
+        wall_s=wall_s,
+        solver_profile=solver_profile,
+        solver_control=is_solver_control(solver_profile),
+    )
+    return result
+
+
+def sine_point_problems(point: dict) -> list[str]:
+    """Why a coherent-sine capture is NOT a valid measurement of the
+    converter (empty list = valid). An FFT will happily turn any code stream
+    into an SNDR, so the run's own sanity evidence gates it: every
+    measurement present, every conversion with the correct 12-period
+    BUSY/SAMPLE structure (a converter that is not cycling through its
+    phases is not converting the sampled tone, whatever codes come out), and
+    the largest non-DC bin on the drive bin."""
+    problems: list[str] = []
+    if point["missing"]:
+        problems.append(f"{len(point['missing'])} measurement(s) missing")
+    n_bad = sum(1 for ok in point["phase_ok"] if not ok)
+    if n_bad:
+        problems.append(
+            f"phase structure wrong at {n_bad}/{len(point['phase_ok'])} conversions"
+        )
+    a = point["analysis"]
+    if a is None:
+        problems.append(f"not analysable: {point['analysis_error']}")
+    elif a["peak_bin"] != point["tone_bin"]:
+        problems.append(
+            f"largest non-DC bin is {a['peak_bin']}, not the drive bin {point['tone_bin']}"
+        )
+    return problems
+
+
+def format_outlier_summary(point: dict) -> str:
+    """Console lines for the per-code outlier diagnostic (never a validity
+    verdict)."""
+    d = point["outlier_diag"]
+    head = (
+        f"per-code outlier diagnostic: bound |error| > {d['bound_lsb']} LSB, "
+        f"max |error| = {d['max_abs_error']} LSB, {len(d['outliers'])} outlier(s)"
+    )
+    out = [head]
+    for o in d["outliers"]:
+        out.append(
+            f"  OUTLIER sample {o['sample']} conversion {o['conversion']}: ideal "
+            f"{o['ideal']}, captured {o['captured']}, error {o['error']:+d} LSB"
+        )
+    lo, a = d["leave_out"], point["analysis"]
+    if lo is not None and a is not None:
+        out.append(
+            f"  DIAGNOSTIC-ONLY (outlier error zeroed; headline above is the "
+            f"unmodified stream): SNDR={lo['sndr_db']:.2f} dB "
+            f"({lo['sndr_db'] - a['sndr_db']:+.2f}) ENOB={lo['enob_bit']:.3f} bit "
+            f"({lo['enob_bit'] - a['enob_bit']:+.3f}) SFDR={lo['sfdr_db']:.2f} dB "
+            f"({lo['sfdr_db'] - a['sfdr_db']:+.2f})"
+        )
+    return "\n".join(out)
+
+
+def format_sine_point(point: dict) -> str:
+    a = point["analysis"]
+    ideal = point["ideal"]
+    problems = sine_point_problems(point)
+    if a is None:
+        body = f"NOT ANALYSABLE ({point['analysis_error']})"
+    else:
+        body = ("INVALID (" + "; ".join(problems) + ") " if problems else "") + (
+            f"SNDR={a['sndr_db']:.2f} dB ENOB={a['enob_bit']:.3f} bit "
+            f"(FS-normalised {a['enob_fs_bit']:.3f}); ideal quantizer at the same "
+            f"plan: SNDR={ideal['sndr_db']:.2f} dB ENOB={ideal['enob_bit']:.3f} bit"
+        )
+    return (
+        f"{point['corner_id']}: N={point['n']} bin={point['tone_bin']} "
+        f"A={point['amplitude_fraction']:g}*V_REF -- {body} "
+        f"phases_ok={sum(point['phase_ok'])}/{len(point['phase_ok'])} "
+        f"({point['wall_s']:.0f}s)"
+    )
+
+
+def write_sine_record(
+    point: dict,
+    netlist_text: str,
+    supersedes: str,
+    written_by: str,
+    behavioral: dict | None,
+) -> Path:
+    """Mint a NEW coherent-sine record (append-only; never touches
+    records/LATEST, which names the corner campaign)."""
+    cid = point["corner_id"]
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, netlist_text, "corners",
+        {
+            f"coherent-sine-{cid}.log": point["log_text"],
+            "coherent_sine_tb_fragment.spice": point["fragment"],
+        },
+    )
+    n, k, amp = point["n"], point["tone_bin"], point["amplitude_fraction"]
+    a = point["analysis"]
+    ideal = point["ideal"]
+    f_in = tb.sine_tone_hz(n, k)
+    span_ns = tb.sine_t_stop_ns(n)
+    n_phase_ok = sum(point["phase_ok"])
+
+    add = lines.append
+    add(
+        "- **Claim**: `spec/target-spec.md#target-table` -- **ENOB**, DRAFT row, "
+        "INFORMATIONAL CROSS-CHECK ONLY (issue #603). The first dynamic-test "
+        "(coherent-sine FFT) SNDR/ENOB measurement on the whole transistor-level "
+        "`design/sar_adc_top.spice`, reported against the behavioral-accelerated "
+        "composite estimate (`sim/enob-estimate/`). It does NOT grade the DRAFT "
+        "row: one corner, a short record, no noise sources in the transient, and "
+        "an amplitude below full scale (see LIMITATIONS). No spec row is edited."
+    )
+    add("- **Netlist provenance**: schematic (`design/sar_adc_top.spice`, unmodified)")
+    profile = point.get("solver_profile", REFERENCE_SOLVER_PROFILE)
+    if is_solver_control(profile):
+        add(
+            "- **SOLVER-CONTROL RUN (issue #621) -- NOT THE REFERENCE CAPTURE**: "
+            + solver_control_note(profile)
+            + ". DUT and stimulus are unmodified; only the integration settings "
+            "differ. It exists to test whether an observed event depends on the "
+            "solver settings; its figures are a control, not the converter's "
+            "headline evidence."
+        )
+    add(corners_mod.corner_matrix_summary_line(
+        [point["process_corner"]], [point["temp_c"]], [point["supply_v"]], 1
+    ).replace("one-at-a-time per sim/README.md", "single-corner pilot, NOT the ratified grid"))
+    add(
+        f"- **Dynamic-test (FFT) metadata**: N = {n} samples (one code per "
+        f"conversion); f_s = {tb.F_SAMPLE_HZ / 1e6:g} MS/s (`f_clk = "
+        f"{tb.F_CLK_HZ / 1e6:g} MHz` / {tb.PHASES_PER_CONVERSION} CLK periods per "
+        f"conversion, DR-006); coherent bin = {k} (coprime to N); "
+        f"f_in = {k} * f_s / {n} = {f_in:.10g} Hz; window = none (coherent sampling)."
+    )
+    add(
+        f"- **Stimulus**: antiphase sine on VINP/VINN about `VCM = V_DD/2`, peak "
+        f"differential amplitude `{amp:g}*V_REF` "
+        f"({20 * math.log10(amp):.2f} dBFS against the +-V_REF differential full "
+        "scale) -- the largest magnitude the DC corner campaign "
+        "(`records/20261001-105439-c324f80.md`) resolves within 1 LSB; a larger "
+        "tone would sweep into the known near-full-scale saturation DR-021 "
+        "addresses and measure that recorded defect instead. "
+        f"{tb.SINE_STARTUP_CONVERSIONS} start-up conversion(s) discarded before the "
+        f"N-sample record (conversions {point['conversions'][0]}.."
+        f"{point['conversions'][-1]}); codes read mid-PH_EOC exactly as the DC "
+        "bench does -- see `sim/full-conversion-transient/testbench/"
+        "coherent_sine_tb_fragment.spice` (the exact fragment run is also stored "
+        f"under `corners/{prov.record_id}/`)."
+    )
+    add(
+        f"- **Runtime (the pilot's first deliverable)**: {span_ns / 1000:.1f} us "
+        f"simulated in {point['wall_s']:.0f} s wall-clock "
+        f"({point['wall_s'] / (span_ns / 1000):.1f} s per simulated us) on a shared "
+        "dispatch host -- see the record-length table below."
+    )
+    if a is None:
+        add(
+            f"- **Measured value(s)**: NONE -- the captured stream could not be "
+            f"analysed: {point['analysis_error']}. Missing measurements: "
+            f"{len(point['missing'])}."
+        )
+    else:
+        add(
+            f"- **Measured value(s)** (`{cid}`): SNDR = **{a['sndr_db']:.2f} dB**, "
+            f"ENOB = **{a['enob_bit']:.3f} bit** at the tone's own amplitude "
+            f"({a['amplitude_dbfs']:.2f} dBFS measured); full-scale-normalised "
+            f"ENOB = **{a['enob_fs_bit']:.3f} bit** (extrapolation, see "
+            f"LIMITATIONS); SFDR = {a['sfdr_db']:.2f} dB (largest spur bin "
+            f"{a['spur_bin']}). Ideal 10-bit quantizer on the identical plan: SNDR = "
+            f"{ideal['sndr_db']:.2f} dB, ENOB = {ideal['enob_bit']:.3f} bit "
+            f"(FS-normalised {ideal['enob_fs_bit']:.3f} bit)."
+        )
+    problems = sine_point_problems(point)
+    if problems:
+        add(
+            "- **VALIDITY: NOT A VALID MEASUREMENT OF THE CONVERTER** -- "
+            + "; ".join(problems)
+            + ". The figures above are what the FFT returns for the captured "
+            "stream, recorded as-is (append-only evidence), but they are not an "
+            "SNDR/ENOB of the design and no delta below may be read as one."
+        )
+    d = point["outlier_diag"]
+    add(
+        f"- **Per-code outlier diagnostic (issue #621; a named DIAGNOSTIC, not a "
+        f"validity criterion)**: bound |captured - ideal| > {d['bound_lsb']} LSB; "
+        f"max |error| = {d['max_abs_error']} LSB; outliers = **{len(d['outliers'])}** "
+        f"of {n}. "
+        + ("OUTLIER PRESENT -- the headline figures above are set by these "
+           "conversions, not by the converter's general dynamic performance. "
+           if d["outliers"] else "")
+        + "The headline SNDR/ENOB/SFDR above are computed from the complete, "
+        "unmodified captured stream."
+    )
+    for o in d["outliers"]:
+        add(
+            f"  - outlier: sample {o['sample']}, conversion {o['conversion']}, ideal "
+            f"{o['ideal']}, captured {o['captured']}, signed error {o['error']:+d} LSB"
+        )
+    if d["outliers"] and d["leave_out"] is not None and a is not None:
+        lo = d["leave_out"]
+        add(
+            "  - **DIAGNOSTIC-ONLY, NOT REPLACEMENT EVIDENCE** -- sensitivity with the "
+            "outlier samples' error zeroed (ideal code substituted at those samples "
+            "only, to keep the coherent record whole): "
+            f"SNDR {lo['sndr_db']:.2f} dB ({lo['sndr_db'] - a['sndr_db']:+.2f} dB vs "
+            f"headline), ENOB {lo['enob_bit']:.3f} bit "
+            f"({lo['enob_bit'] - a['enob_bit']:+.3f}), SFDR {lo['sfdr_db']:.2f} dB "
+            f"({lo['sfdr_db'] - a['sfdr_db']:+.2f}). The captured stream is unchanged."
+        )
+    add(
+        "- **Data provenance**: transient simulation of the schematic netlist at a "
+        "single PVT corner; ngspice `.tran` injects no device noise, so the "
+        "measured spectrum holds quantization plus deterministic errors only."
+    )
+    add("")
+
+    add("## Cross-check against the behavioral-accelerated estimate")
+    add("")
+    if a is None:
+        add("No delta: the dynamic measurement did not produce an analysable stream.")
+    else:
+        add(
+            "| reference | behavioral ENOB (bit) | dynamic ENOB, FS-normalised (bit) | "
+            "delta, dynamic - behavioral (bit) |"
+        )
+        add("|---|---|---|---|")
+        refs = [("spec/target-spec.md quoted value (when #603 was filed)",
+                 SPEC_QUOTED_BEHAVIORAL_ENOB_BIT)]
+        if behavioral is not None:
+            refs.append((f"`{behavioral['record']}` (current LATEST)", behavioral["enob_bit"]))
+        for label, value in refs:
+            add(
+                f"| {label} | {value:.3f} | {a['enob_fs_bit']:.3f} | "
+                f"{a['enob_fs_bit'] - value:+.3f} |"
+            )
+        add("")
+        add(
+            "The comparison uses the FULL-SCALE-NORMALISED dynamic ENOB because the "
+            "behavioral estimate is full-scale-referred (it composes noise against "
+            "`LSB/sqrt(12)`, i.e. a full-scale sine's SNR relationship). The two "
+            "do NOT measure the same things: the behavioral estimate includes "
+            "125C comparator thermal noise and CDAC mismatch, which this "
+            "noise-free, mismatch-free tt transient cannot see; this measurement "
+            "includes the dynamic, deterministic error mechanisms of the real "
+            "circuit (settling, kickback, CDAC gain error, mid-scale MSB behaviour) "
+            "that the behavioral estimate does not model. The measured-vs-ideal "
+            "gap below is the cleaner statement of what the circuit itself costs "
+            "at this plan."
+        )
+        add("")
+        add(
+            f"- Measured vs ideal quantizer, same plan: SNDR "
+            f"{a['sndr_db'] - ideal['sndr_db']:+.2f} dB, ENOB "
+            f"{a['enob_bit'] - ideal['enob_bit']:+.3f} bit."
+        )
+        add(
+            f"- Tone bin check: largest non-DC bin = {a['peak_bin']} "
+            f"({'matches' if a['peak_bin'] == k else 'DOES NOT match'} the drive bin {k})."
+        )
+        add(
+            f"- Clipping: {a['n_at_rails']}/{n} codes at a rail (0 or "
+            f"{2 ** tb.N_BITS - 1})."
+        )
+        add(
+            f"- Measured tone amplitude: {a['amplitude_codes']:.2f} codes peak "
+            f"(driven: {amp * 2 ** (tb.N_BITS - 1):.2f}); DC: "
+            f"{a['dc_codes']:.2f} codes (mid-scale = {2 ** (tb.N_BITS - 1)})."
+        )
+    add(
+        f"- Convergence / phase structure: {len(point['missing'])} missing "
+        f"measurement(s); {n_phase_ok}/{len(point['phase_ok'])} conversions with "
+        "the correct 12-period BUSY/SAMPLE structure."
+    )
+    add("")
+
+    add("## Captured code stream")
+    add("")
+    add("| sample | conversion | sampled Vd (x V_REF) | ideal code | captured code | error (LSB) | phases |")
+    add("|---|---|---|---|---|---|---|")
+    for i, c in enumerate(point["conversions"]):
+        code = point["codes"][i]
+        ideal_c = point["ideal_codes"][i]
+        err = "n/a" if code is None else f"{code - ideal_c:+d}"
+        add(
+            f"| {i} | {c} | {tb.sine_input_fraction(c, n, k, amp):+.5f} | {ideal_c} | "
+            f"{'MISSING' if code is None else code} | {err} | "
+            f"{'OK' if point['phase_ok'][i] else 'WRONG'} |"
+        )
+    add("")
+
+    if point.get("traces"):
+        add("## Conversion trace (issue #621; read-only probes on the same run)")
+        add("")
+        add(
+            "Raw `.meas` values from the SAME transient that produced the code "
+            "stream above (probes appended after the stimulus; DUT and stimulus "
+            "unmodified), at the coherent-sine run's own conversion timing. "
+            "OBSERVED = the voltages/bits below. INFERRED = anything in the prose "
+            "after the tables."
+        )
+        add("")
+        for tr in point["traces"]:
+            c = tr["conversion"]
+            sm = tr["sampling"]
+            fmt = lambda x: "n/a" if x is None else f"{x:.4f}"
+            add(
+                f"### Conversion {c} (ideal code {tr['ideal_code']} = "
+                f"`{tr['ideal_code']:010b}`)"
+            )
+            add("")
+            add(
+                f"Just before the sampling edge: VINP={fmt(sm['vinp'])} V, "
+                f"VINN={fmt(sm['vinn'])} V, TOP_P={fmt(sm['top_p'])} V, "
+                f"TOP_N={fmt(sm['top_n'])} V."
+            )
+            add("")
+            add("| phase | bit | ideal bit | captured bit | CLK mid | COMP_OUT mid | OUTN_NC mid | COMP_OUT pre | OUTN_NC pre | TOP_P pre | TOP_N pre |")
+            add("|---|---|---|---|---|---|---|---|---|---|---|")
+            for ph in tr["phases"]:
+                v = ph["v"]
+                add(
+                    f"| {ph['phase']} | {ph['bit']} | {ph['ideal_bit']} | "
+                    f"{'n/a' if ph['captured_bit'] is None else ph['captured_bit']}"
+                    f"{'' if ph['captured_bit'] == ph['ideal_bit'] else ' **(differs)**'} | "
+                    f"{fmt(v['clk_mid'])} | {fmt(v['compout_mid'])} | {fmt(v['compoutn_mid'])} | "
+                    f"{fmt(v['compout_pre'])} | {fmt(v['compoutn_pre'])} | "
+                    f"{fmt(v['top_p_pre'])} | {fmt(v['top_n_pre'])} |"
+                )
+            add("")
+            fd = tr["first_divergent"]
+            fc = tr["final_code"]
+            add(
+                f"- **Final captured code (mid-PH_EOC readout, the authoritative "
+                f"code)**: {'MISSING' if fc is None else f'{fc} = `{fc:010b}`'} "
+                f"(ideal {tr['ideal_code']}). The `captured bit` column above is a "
+                "probe 2 ns after each trial's capturing edge, NOT the final "
+                "readout: it can differ from the ideal bit in a conversion whose "
+                "final code is correct, so by itself it is not a divergence "
+                "criterion; compare it with the final code."
+            )
+            add(
+                "- **First post-edge probe differing from the ideal bit (observed)**: "
+                + ("none."
+                   if fd is None else
+                   f"phase {fd['phase']} (bit {fd['bit']}): ideal {fd['ideal_bit']}, "
+                   f"probe {fd['captured_bit']}.")
+            )
+            ex = tr["rail_excursions"]
+            add(
+                "- **Comparator-input top plate outside [0, V_DD] at a pre-capture "
+                "instant (observed)**: "
+                + ("none." if not ex else "; ".join(
+                    f"phase {p} (bit {b}) {node} = {v:.4f} V" for p, b, node, v in ex)
+                ) + (" The first such phase is the earliest analog event outside the "
+                     "normal staircase in this trace." if ex else "")
+            )
+            add("")
+
+    if point.get("switch_traces"):
+        lines.extend(switch_trace_record_lines(point["switch_traces"]))
+
+    add("## Record length vs runtime")
+    add("")
+    per_us = point["wall_s"] / (span_ns / 1000)
+    add("| N | simulated span (us) | wall-clock (measured / projected at this rate) |")
+    add("|---|---|---|")
+    for n_alt in sorted({n, 64, 128, 256, 1024}):
+        span_alt = tb.sine_t_stop_ns(n_alt) / 1000
+        tag = "measured" if n_alt == n else "projected"
+        add(f"| {n_alt} | {span_alt:.1f} | {span_alt * per_us / 60:.0f} min ({tag}) |")
+    add("")
+    add(
+        "Projections assume runtime linear in simulated time at this pilot's own "
+        "rate on the same host. Longer records -- and any multi-corner or Monte "
+        "Carlo extension -- belong on the batch fleet as a `klt sim` request "
+        "(#564), not a local loop."
+    )
+    add("")
+
+    add("## LIMITATIONS (named, flagged -- not relaxed to force a result)")
+    add("")
+    add(
+        f"1. **Short record.** N = {n}: the noise floor is spread over only "
+        f"{n // 2 - 1} non-DC, non-tone bins, so the SNDR estimate itself has "
+        "sizeable variance (even the ideal quantizer's ENOB on this plan deviates "
+        "from the textbook value). Read the measured-vs-ideal gap, not the "
+        "absolute ENOB."
+    )
+    add(
+        "2. **No noise.** `.tran` injects no thermal/flicker noise; the behavioral "
+        "estimate's dominant comparator-noise term is absent here by construction."
+    )
+    add(
+        "3. **One corner, no mismatch.** tt/27C/1.8V only; no Monte Carlo. Not a "
+        "statistical (yield) statement."
+    )
+    add(
+        f"4. **Below full scale.** {20 * math.log10(amp):.2f} dBFS. The "
+        "full-scale-normalised ENOB assumes the noise+distortion floor is "
+        "amplitude-independent, which is false for distortion that grows with "
+        "amplitude (and the large-signal saturation recorded by the DC campaign "
+        "is the opposite of amplitude-independent)."
+    )
+    add("")
+
+    lines.extend(
+        evidence.environment_block(
+            pdk_line=prov.pdk_line,
+            ngspice_line=prov.ng_version,
+            netlist_sha256=prov.netlist_sha,
+            extra={
+                "tran step": f"{tb.TRAN_STEP_NS} ns",
+                "simulated span": f"{span_ns:.1f} ns",
+                "wall-clock": f"{point['wall_s']:.0f} s",
+                "coherent-sine fragment sha256": f"`{evidence.sha256_text(point['fragment'])}`",
+                "SIM_NGSPICE_TIMEOUT_S": os.environ.get("SIM_NGSPICE_TIMEOUT_S", "(default)"),
+                "simulator options": solver_settings_text(profile),
+            },
+        )
+    )
+    add("")
+    lines.extend(evidence.footer_lines(written_by, supersedes))
+    return evidence.close_record(prov, lines, "Coherent-sine record")
+
+
+def resolve_solver_cli(args: argparse.Namespace) -> tuple[str, str]:
+    """(resolved solver profile, problem). A non-empty problem means the flag
+    combination is refused before any simulation (issue #637)."""
+    profile = args.solver_profile
+    if args.sine_solver_control:
+        if profile not in (None, SINE_SOLVER_CONTROL_PROFILE):
+            return "", (f"--sine-solver-control means --solver-profile "
+                        f"{SINE_SOLVER_CONTROL_PROFILE}; it conflicts with "
+                        f"--solver-profile {profile}")
+        profile = SINE_SOLVER_CONTROL_PROFILE
+    profile = profile or REFERENCE_SOLVER_PROFILE
+    modes = (
+        ("--corners", args.corners),
+        ("--mechanism-probe", args.mechanism_probe),
+        ("--node-trace", args.node_trace),
+        ("--cm-trace", args.cm_trace),
+        ("--decision-margin-trace", args.decision_margin_trace),
+    )
+    if args.solver_audit:
+        others = [f for f, on in modes + (
+            ("--coherent-sine", args.coherent_sine),
+            ("--solver-profile", args.solver_profile is not None),
+            ("--sine-solver-control", args.sine_solver_control),
+            ("--supersedes", bool(args.supersedes)),
+        ) if on]
+        if others:
+            return "", (f"--solver-audit cannot be combined with {', '.join(others)} -- "
+                        "it runs its own fixed baseline-corner comparison and its record "
+                        "supersedes nothing")
+        if args.jobs != 1:
+            return "", ("--solver-audit runs its profiles sequentially so the wall-clock "
+                        "comparison is like-for-like; --jobs must be 1")
+        return profile, ""
+    if args.audit_profile:
+        return "", "--audit-profile requires --solver-audit"
+    if is_solver_control(profile):
+        if args.supersedes:
+            return "", (f"solver profile {profile!r} is a SOLVER CONTROL, not a "
+                        "replacement capture; it may not use --supersedes")
+        on = [f for f, flag in modes if flag]
+        # `ngspice-default` (the settings of every pre-DR-023 record) may run
+        # --corners and the diagnostic modes so those records stay
+        # reproducible; its records stay labelled controls (write_record and
+        # the diagnostic writers never move LATEST under a control profile).
+        if on and profile != REPRODUCTION_SOLVER_PROFILE:
+            return "", (f"solver profile {profile!r} is a SOLVER CONTROL, allowed only for "
+                        f"the baseline-corner DC run and --coherent-sine, not with "
+                        f"{', '.join(on)} (only {REPRODUCTION_SOLVER_PROFILE!r}, the "
+                        "pre-DR-023 settings, may re-run the grid or a diagnostic, to "
+                        "reproduce an old record; promoting a profile to the reference "
+                        "policy is a decision-record change)")
+    return profile, ""
+
+
+def audit_profiles(args: argparse.Namespace) -> tuple[str, ...]:
+    """--audit-profile values in the order given, de-duplicated; the default
+    set when none is given."""
+    seen: list[str] = []
+    for p in args.audit_profile:
+        if p not in seen:
+            seen.append(p)
+    return tuple(seen) or SOLVER_AUDIT_DEFAULT_PROFILES
 
 
 def main() -> int:
@@ -2210,6 +4288,83 @@ def main() -> int:
         "--node-trace/--cm-trace.",
     )
     ap.add_argument(
+        "--coherent-sine",
+        action="store_true",
+        help="dynamic test (issue #603): drive a coherent antiphase sine, capture "
+        "DOUT9..DOUT0 per conversion and compute SNDR/ENOB by FFT, at the baseline "
+        "corner (tt/27C/1.8V) ONLY. Informational cross-check of sim/enob-estimate/, "
+        "never a grade of the DRAFT ENOB row. With --record, mints a new record "
+        "under records/ (never records/LATEST). Mutually exclusive with --corners/"
+        "--mechanism-probe/--node-trace/--cm-trace/--decision-margin-trace; a "
+        "multi-corner/Monte Carlo extension is a `klt sim` request (#564), not a "
+        "flag here.",
+    )
+    ap.add_argument(
+        "--sine-n", type=int, default=tb.SINE_RECORD_N,
+        help=f"--coherent-sine record length N, a power of two (default {tb.SINE_RECORD_N})",
+    )
+    ap.add_argument(
+        "--sine-bin", type=int, default=tb.SINE_TONE_BIN,
+        help=f"--coherent-sine tone bin, coprime to N (default {tb.SINE_TONE_BIN})",
+    )
+    ap.add_argument(
+        "--sine-amplitude", type=float, default=tb.SINE_AMPLITUDE_FRACTION,
+        help="--coherent-sine peak differential amplitude as a fraction of V_REF "
+        f"(default {tb.SINE_AMPLITUDE_FRACTION:g})",
+    )
+    ap.add_argument(
+        "--sine-trace", type=int, action="append", default=[], metavar="CONV",
+        help="--coherent-sine only (issue #621): also record a read-only node/control "
+        "trace of this conversion number (repeatable) from the SAME transient. "
+        "Single run, single corner; adds .meas probes only.",
+    )
+    ap.add_argument(
+        "--sine-switch-trace", type=int, action="append", default=[], metavar="CONV",
+        help="--coherent-sine only (issue #621): also record a read-only "
+        "switching-event trace of this conversion (repeatable) from the SAME "
+        "transient -- WHEN-crossing times of every DAC-steering and sequencer "
+        "node classified against the SAR's own edge schedule, node values at the "
+        "first top-plate rail excursion, and per-phase snapshots of the DAC "
+        "bottom plates and front-end nodes. Single run, single corner; adds "
+        ".meas probes only.",
+    )
+    ap.add_argument(
+        "--sine-solver-control", action="store_true",
+        help="--coherent-sine only (issue #621): add "
+        f"`{SINE_SOLVER_CONTROL_OPTIONS}` to the same deck (DUT and stimulus "
+        "unmodified). Kept for the committed #621 record's cold start; it is "
+        f"exactly --solver-profile {SINE_SOLVER_CONTROL_PROFILE}, which DR-023 made "
+        "the reference policy, so the run is no longer a control. The pre-DR-023 "
+        "control is --solver-profile ngspice-default.",
+    )
+    ap.add_argument(
+        "--solver-profile", choices=tuple(SOLVER_PROFILES), default=None,
+        help="transient solver policy (issue #637; DR-023). Default "
+        f"`{REFERENCE_SOLVER_PROFILE}` (the reference policy). Any other profile -- "
+        "including `ngspice-default`, every pre-DR-023 record's settings -- is a "
+        "labelled SOLVER CONTROL: never with --supersedes, and its record never "
+        "updates records/LATEST. `ngspice-default` may also run --corners and every "
+        "diagnostic mode (to reproduce a pre-DR-023 record); the other controls are "
+        "allowed for the baseline-corner DC run and --coherent-sine only. Profiles: "
+        + "; ".join(f"{k} = {solver_options_card(k) or '(no card)'}" for k in SOLVER_PROFILES),
+    )
+    ap.add_argument(
+        "--solver-audit", action="store_true",
+        help="issue #637: solver-sensitivity audit of the DC baseline corner "
+        "(tt/27C/1.8V) -- the reference profile, then each --audit-profile, run "
+        "sequentially on the same DUT and DC fragment, with print-only ngspice "
+        "accounting and read-only register-transition guard probes added to every "
+        "run. With --record, mints ONE diagnostic record (never records/LATEST, "
+        "supersedes nothing) that names every observation that moved. Mutually "
+        "exclusive with every other mode.",
+    )
+    ap.add_argument(
+        "--audit-profile", action="append", default=[], metavar="PROFILE",
+        choices=tuple(p for p in SOLVER_PROFILES if p != REFERENCE_SOLVER_PROFILE),
+        help="--solver-audit only: a control profile to compare (repeatable; default "
+        + " ".join(SOLVER_AUDIT_DEFAULT_PROFILES) + ").",
+    )
+    ap.add_argument(
         "--jobs", type=int, default=1,
         help="run this many ngspice corner points concurrently (default 1; results "
         "are independent processes, so this changes runtime only)",
@@ -2236,6 +4391,47 @@ def main() -> int:
             "**Supersedes** field must point at a record that exists.",
             file=sys.stderr,
         )
+        return 2
+
+    if args.coherent_sine:
+        others = [
+            flag for flag, on in (
+                ("--corners", args.corners),
+                ("--mechanism-probe", args.mechanism_probe),
+                ("--node-trace", args.node_trace),
+                ("--cm-trace", args.cm_trace),
+                ("--decision-margin-trace", args.decision_margin_trace),
+            ) if on
+        ]
+        if others:
+            print(f"FAIL: --coherent-sine cannot be combined with {', '.join(others)}",
+                  file=sys.stderr)
+            return 2
+        for flag, convs in (("--sine-trace", args.sine_trace),
+                            ("--sine-switch-trace", args.sine_switch_trace)):
+            bad_trace = [c for c in convs
+                         if c not in tb.sine_measured_conversions(args.sine_n)]
+            if bad_trace:
+                print(f"FAIL: {flag} {bad_trace}: not a measured conversion of this record",
+                      file=sys.stderr)
+                return 2
+        try:
+            dynamic_enob.check_coherent(args.sine_n, args.sine_bin)
+            tb.sine_fragment_text(args.sine_n, args.sine_bin, args.sine_amplitude)
+        except ValueError as exc:
+            print(f"FAIL: --coherent-sine plan: {exc}", file=sys.stderr)
+            return 2
+    elif args.sine_trace or args.sine_switch_trace or args.sine_solver_control:
+        print("FAIL: --sine-trace/--sine-switch-trace/--sine-solver-control require "
+              "--coherent-sine", file=sys.stderr)
+        return 2
+
+    # issue #637: resolve the solver policy once, and refuse every flag
+    # combination that would let a control profile stand in for reference
+    # evidence -- all before any toolchain check or simulation.
+    solver_profile, problem = resolve_solver_cli(args)
+    if problem:
+        print(f"FAIL: {problem}", file=sys.stderr)
         return 2
 
     check = toolchain.check_env()
@@ -2270,13 +4466,87 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="full-conversion-") as scratch_name:
         scratch = Path(scratch_name)
 
+        if args.coherent_sine:
+            print(
+                f"Coherent-sine dynamic test (issue #603) at "
+                f"{corners_mod.corner_id(*BASELINE_CORNER)}: N={args.sine_n}, "
+                f"bin={args.sine_bin}, A={args.sine_amplitude:g}*V_REF, "
+                f"{tb.sine_t_stop_ns(args.sine_n) / 1000:.1f} us simulated:"
+            )
+            if is_solver_control(solver_profile):
+                print(f"  SOLVER CONTROL (not the reference capture): {solver_settings_text(solver_profile)}")
+            sine_netlist_text = dut_text()
+            point = run_sine_point(
+                sine_netlist_text, pdk.resolve(), scratch,
+                args.sine_n, args.sine_bin, args.sine_amplitude,
+                trace_conversions=tuple(args.sine_trace),
+                switch_trace_conversions=tuple(args.sine_switch_trace),
+                solver_profile=solver_profile,
+            )
+            if not args.quiet:
+                print("  " + format_sine_point(point), flush=True)
+                print("  " + format_outlier_summary(point).replace("\n", "\n  "), flush=True)
+                for st in point["switch_traces"]:
+                    print("  " + format_switch_trace_summary(st).replace("\n", "\n  "),
+                          flush=True)
+            if args.record:
+                written_by = "sim/full-conversion-transient/run_conversion.py --coherent-sine --record"
+                for flag, value, default in (
+                    ("--sine-n", args.sine_n, tb.SINE_RECORD_N),
+                    ("--sine-bin", args.sine_bin, tb.SINE_TONE_BIN),
+                    ("--sine-amplitude", args.sine_amplitude, tb.SINE_AMPLITUDE_FRACTION),
+                ):
+                    if value != default:
+                        written_by += f" {flag} {value:g}"
+                for c in args.sine_trace:
+                    written_by += f" --sine-trace {c}"
+                for c in args.sine_switch_trace:
+                    written_by += f" --sine-switch-trace {c}"
+                if args.sine_solver_control:
+                    written_by += " --sine-solver-control"
+                elif is_solver_control(solver_profile):
+                    written_by += f" --solver-profile {solver_profile}"
+                write_sine_record(
+                    point, sine_netlist_text, args.supersedes, written_by,
+                    behavioral_enob_reference(),
+                )
+            return 1 if sine_point_problems(point) else 0
+
+        if args.solver_audit:
+            profiles = audit_profiles(args)
+            print(
+                f"Solver-sensitivity audit (issue #637) at "
+                f"{corners_mod.corner_id(*BASELINE_CORNER)}: reference "
+                f"`{REFERENCE_SOLVER_PROFILE}` then {', '.join(profiles)}, sequentially:"
+            )
+            runs, audit_netlist_text, total_wall_s = run_solver_audit(profiles, scratch, args.quiet)
+            for r in runs[1:]:
+                moved = compare_audit_runs(runs[0], r)
+                print(f"  {r['solver_profile']} vs {REFERENCE_SOLVER_PROFILE}: "
+                      + ("no observation moved" if not moved else
+                         f"{len(moved)} observation(s) moved: "
+                         + "; ".join(m["observation"] for m in moved)))
+            if args.record:
+                written_by = "sim/full-conversion-transient/run_conversion.py --solver-audit --record"
+                if profiles != SOLVER_AUDIT_DEFAULT_PROFILES:
+                    written_by += "".join(f" --audit-profile {p}" for p in profiles)
+                write_solver_audit_record(
+                    runs, audit_netlist_text, total_wall_s, latest_baseline_row(), written_by,
+                )
+            return 1 if any(r["missing"] for r in runs) else 0
+
+        if is_solver_control(solver_profile) and (
+            args.node_trace or args.cm_trace or args.decision_margin_trace
+        ):
+            print(f"SOLVER CONTROL (not reference evidence): {solver_settings_text(solver_profile)}")
+
         if args.node_trace:
             corner_names = ", ".join(
                 corners_mod.corner_id(pc, tc, sv) for pc, tc, sv in NODE_TRACE_CORNERS
             )
             print(f"Node-level trace (issue #259) at {corner_names}:")
-            traces, node_trace_netlist_text = run_node_trace(scratch, args.quiet)
-            write_node_trace_record(traces, node_trace_netlist_text)
+            traces, node_trace_netlist_text = run_node_trace(scratch, args.quiet, solver_profile)
+            write_node_trace_record(traces, node_trace_netlist_text, solver_profile)
             any_missing = any(point["missing"] for point in traces.values())
             return 1 if any_missing else 0
 
@@ -2285,8 +4555,8 @@ def main() -> int:
                 corners_mod.corner_id(pc, tc, sv) for pc, tc, sv in CM_TRACE_CORNERS
             )
             print(f"Common-mode trace (issue #265) at {corner_names}:")
-            traces, cm_trace_netlist_text = run_cm_trace(scratch, args.quiet)
-            write_cm_trace_record(traces, cm_trace_netlist_text)
+            traces, cm_trace_netlist_text = run_cm_trace(scratch, args.quiet, solver_profile)
+            write_cm_trace_record(traces, cm_trace_netlist_text, solver_profile)
             any_missing = any(point["missing"] for point in traces.values())
             return 1 if any_missing else 0
 
@@ -2299,15 +4569,16 @@ def main() -> int:
                 "Decision-margin trace (issue #263 / DR-009) at "
                 f"{corner_names}, as-committed and unbalanced-control:"
             )
-            dm_points, dm_netlist_text = run_decision_margin_trace(scratch, args.quiet)
-            write_decision_margin_record(dm_points, dm_netlist_text)
+            dm_points, dm_netlist_text = run_decision_margin_trace(
+                scratch, args.quiet, solver_profile)
+            write_decision_margin_record(dm_points, dm_netlist_text, solver_profile)
             any_missing = any(point["missing"] for point in dm_points.values())
             return 1 if any_missing else 0
 
         probe = None
         if args.mechanism_probe:
             print("Mechanism probe (baseline corner):")
-            probe = run_mechanism_probe(scratch, args.quiet)
+            probe = run_mechanism_probe(scratch, args.quiet, solver_profile)
             if not (args.corners or args.record):
                 return 0
 
@@ -2315,7 +4586,11 @@ def main() -> int:
             f"Running {'the ratified OAT grid (9 points)' if args.corners else 'the baseline corner'}"
             f" -- {tb.N_CONVERSIONS} conversions at {tb.F_CLK_HZ / 1e6:g} MHz per point:"
         )
-        points, netlist_text = run_campaign(args.corners, args.jobs, args.quiet, scratch)
+        if is_solver_control(solver_profile):
+            print(f"  SOLVER CONTROL (not reference evidence): {solver_settings_text(solver_profile)}")
+        points, netlist_text = run_campaign(
+            args.corners, args.jobs, args.quiet, scratch, solver_profile=solver_profile,
+        )
 
         overall_ok = all(p["all_ok"] for p in points)
         n_ok = sum(1 for p in points if p["all_ok"])
@@ -2325,7 +4600,7 @@ def main() -> int:
         )
 
         if args.record:
-            write_record(points, netlist_text, probe, args.supersedes)
+            write_record(points, netlist_text, probe, args.supersedes, solver_profile=solver_profile)
 
     return 0 if overall_ok else 1
 

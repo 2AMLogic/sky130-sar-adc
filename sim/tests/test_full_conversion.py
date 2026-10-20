@@ -24,11 +24,13 @@ five-minute-per-corner simulation:
 
 from __future__ import annotations
 
+import math
 import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 EXPERIMENT_DIR = SIM_DIR / "full-conversion-transient"
@@ -188,6 +190,136 @@ class TestDecode(unittest.TestCase):
         self.assertFalse(result["all_ok"])
 
 
+_NON_FINITE = (("+inf", math.inf), ("-inf", -math.inf), ("nan", math.nan))
+
+
+def _ideal_codes() -> dict[int, int]:
+    return {c: tb.ideal_code(tb.input_fraction(c)) for c in tb.measured_conversions()}
+
+
+class TestDecodeRejectsNonFinite(unittest.TestCase):
+    """Issue #569: a NaN/+-inf handed straight to decode() is unavailable --
+    never a bit, never a margin entry, never a current or a power term."""
+
+    SUPPLY_V = 1.8
+    # synthetic levels are exactly 0 / V_DD against a V_DD/2 threshold
+    IDEAL_MARGIN_V = 0.9
+
+    def _assert_margin_is_finite_and_ideal(self, result: dict) -> None:
+        self.assertTrue(math.isfinite(result["worst_margin_v"]))
+        self.assertAlmostEqual(result["worst_margin_v"], self.IDEAL_MARGIN_V)
+
+    def test_control_is_finite_and_passes(self):
+        result = rc.decode(_synthetic_parsed(_ideal_codes()), self.SUPPLY_V)
+        self.assertTrue(result["all_ok"])
+        self._assert_margin_is_finite_and_ideal(result)
+
+    def test_non_finite_code_bits_are_undecodable(self):
+        parsed0 = _synthetic_parsed(_ideal_codes())
+        c0 = tb.measured_conversions()[0]
+        names = tb.code_measure_names(c0)
+        high = next(n for n in names if parsed0[n] > 0.9)
+        low = next(n for n in names if parsed0[n] < 0.9)
+        for which, name in (("expected-high", high), ("expected-low", low)):
+            for label, bad in _NON_FINITE:
+                with self.subTest(bit=which, value=label):
+                    parsed = dict(parsed0)
+                    parsed[name] = bad
+                    result = rc.decode(parsed, self.SUPPLY_V)
+                    cv = result["conversions"][0]
+                    self.assertIsNone(cv["bits"][names.index(name)])
+                    self.assertIsNone(cv["code"])
+                    self.assertFalse(cv["code_ok"])
+                    self.assertFalse(result["all_ok"])
+                    self._assert_margin_is_finite_and_ideal(result)
+
+    def test_non_finite_busy_and_sample_fail_the_phase_structure(self):
+        parsed0 = _synthetic_parsed(_ideal_codes())
+        c0 = tb.measured_conversions()[0]
+        cases = (
+            ("busy-high", tb.busy_measure_names(c0)[0]),
+            ("busy-low", tb.busy_measure_names(c0)[-1]),
+            ("sample-low", tb.sample_measure_names(c0)[0]),
+            ("sample-high", tb.sample_measure_names(c0)[-1]),
+        )
+        for which, name in cases:
+            for label, bad in _NON_FINITE:
+                with self.subTest(measure=which, value=label):
+                    parsed = dict(parsed0)
+                    parsed[name] = bad
+                    result = rc.decode(parsed, self.SUPPLY_V)
+                    cv = result["conversions"][0]
+                    self.assertIn(None, cv["busy"] + cv["sample"])
+                    self.assertFalse(cv["phase_ok"])
+                    self.assertEqual(result["n_phase_ok"], result["n_conversions"] - 1)
+                    self.assertFalse(result["all_ok"])
+                    self._assert_margin_is_finite_and_ideal(result)
+
+    def test_non_finite_current_never_yields_a_complete_passing_result(self):
+        parsed0 = _synthetic_parsed(_ideal_codes())
+        for name, _src, potential in tb.SUPPLY_SOURCES:
+            for label, bad in _NON_FINITE:
+                with self.subTest(current=name, value=label):
+                    parsed = dict(parsed0)
+                    parsed[name] = bad
+                    result = rc.decode(parsed, self.SUPPLY_V)
+                    self.assertNotIn(name, result["currents"])
+                    self.assertFalse(result["all_ok"])
+                    if potential != 0.0:
+                        self.assertIsNone(result["power_w"])
+                    else:
+                        # zero-potential convention: no power term either way
+                        self.assertAlmostEqual(
+                            result["power_w"],
+                            rc.decode(parsed0, self.SUPPLY_V)["power_w"],
+                            places=15,
+                        )
+                    for v in result["currents"].values():
+                        self.assertTrue(math.isfinite(v))
+
+    def test_missing_current_marks_power_unavailable_not_a_partial_sum(self):
+        parsed = _synthetic_parsed(_ideal_codes())
+        del parsed["i_vdd"]
+        result = rc.decode(parsed, self.SUPPLY_V)
+        self.assertIsNone(result["power_w"])
+        self.assertNotIn("i_vdd", result["currents"])
+        self.assertFalse(result["all_ok"])
+
+
+def _as_log(parsed: dict[str, float], override: dict[str, str] | None = None) -> str:
+    """Serialize a parsed dict back into ngspice-shaped `name = value` lines."""
+    override = override or {}
+    return "".join(
+        f"{name} = {override.get(name, f'{v:.6e}')}\n" for name, v in parsed.items()
+    )
+
+
+class TestRunPointRejectsOverflow(unittest.TestCase):
+    """run_point() end to end with ngspice and deck assembly mocked out."""
+
+    def _run(self, log_text: str) -> dict:
+        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n"), \
+                mock.patch.object(rc, "_run_ngspice", return_value=log_text):
+            return rc.run_point("* netlist\n", None, Path("/nonexistent"), "tt", 27.0, 1.8)
+
+    def test_finite_control_passes(self):
+        point = self._run(_as_log(_synthetic_parsed(_ideal_codes())))
+        self.assertEqual(point["missing"], [])
+        self.assertTrue(point["all_ok"])
+        self.assertIsNotNone(point["power_w"])
+
+    def test_one_overflowed_token_is_missing_and_fails_the_point(self):
+        parsed = _synthetic_parsed(_ideal_codes())
+        c0 = tb.measured_conversions()[0]
+        for name in (tb.code_measure_names(c0)[0], tb.busy_measure_names(c0)[0], "i_vdd"):
+            for token in ("1e999", "-1e999"):
+                with self.subTest(name=name, token=token):
+                    point = self._run(_as_log(parsed, {name: token}))
+                    self.assertEqual(point["missing"], [name])
+                    self.assertFalse(point["all_ok"])
+                    self.assertTrue(math.isfinite(point["worst_margin_v"]))
+
+
 class TestRecordRendering(unittest.TestCase):
     """write_record() must emit every base field sim/report/generate.py
     re-extracts, or the characterization report degrades silently."""
@@ -245,6 +377,66 @@ class TestRecordRendering(unittest.TestCase):
             self.assertIn("ss_27c_1.80v", report_generate.extract_field(text, "Binding corner"))
             self.assertTrue((tmp_dir / "corners" / "REC" / "ss_27c_1.80v.log").is_file())
             self.assertEqual((tmp_dir / "records" / "LATEST").read_text().strip(), "REC.md")
+
+    def test_finite_power_renders_as_before(self):
+        point = self._point("tt_27c_1.80v", "tt", 27.0, 1.8, 0)
+        expected_uw = f"{point['power_w'] * 1e6:.3f}"
+        line = rc.format_point(point)
+        self.assertIn(f"P={expected_uw}uW", line)
+        self.assertIn(f"IDD={1e6 * (2.0e-6 + 3.0e-6 + 2.5e-6):.3f}uA", line)
+
+    def test_unavailable_power_renders_as_n_a_in_console_and_record(self):
+        good = self._point("tt_27c_1.80v", "tt", 27.0, 1.8, 0)
+        bad = self._point("ss_27c_1.80v", "ss", 27.0, 1.8, 0)
+        # what decode() yields when a powered current is missing/non-finite
+        del bad["currents"]["i_vdd"]
+        bad["power_w"] = None
+        bad["all_ok"] = False
+
+        line = rc.format_point(bad)
+        self.assertIn("P=n/auW", line)
+        self.assertIn("IDD=n/auA", line)
+        self.assertIn("FAIL", line)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+
+            def fake_resolve(experiment_dir: Path, netlist_text: str):
+                (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+                (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(netlist_text)
+                (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+                return evidence.ProvenanceInfo(
+                    record_id="REC",
+                    record_path=experiment_dir / "records" / "REC.md",
+                    netlist_sha="0" * 64,
+                    pdk_line="sky130A @ testing",
+                    ng_version="ngspice-46",
+                )
+
+            try:
+                rc.EXPERIMENT_DIR = tmp_dir
+                evidence.resolve_provenance = fake_resolve
+                path = rc.write_record([good, bad], "* synthetic netlist\n")
+            finally:
+                rc.EXPERIMENT_DIR = real_dir
+                evidence.resolve_provenance = real_resolve
+
+            text = path.read_text()
+            bad_row = next(
+                ln for ln in text.splitlines()
+                if ln.startswith("| `ss_27c_1.80v` |") and ln.rstrip().endswith("n/a |")
+            )
+            # I(VDD) n/a and total power n/a -- no fabricated partial sum
+            self.assertEqual(bad_row.count("n/a"), 2)
+            good_row = next(
+                ln for ln in text.splitlines()
+                if ln.startswith("| `tt_27c_1.80v` |")
+                and ln.rstrip().endswith(f"{good['power_w'] * 1e6:.3f} |")
+            )
+            self.assertNotIn("n/a", good_row)
+            self.assertIn("`n/a` total power", text)
+            self.assertIn("FAIL", report_generate.extract_field(text, "Overall"))
 
 
 class TestNodeTracePlan(unittest.TestCase):

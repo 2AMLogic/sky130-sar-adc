@@ -51,9 +51,9 @@ NOMINAL_SUPPLY_V = 1.8  # = V_DD, per DR-003 Item 1's recommendation
 # pending #27 -- NOT a ratified spec value; used here only as the
 # harness's own nominal test-supply convention (same role
 # nominal_supply_v plays in every tb.json manifest).
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 SETTLE_T = "500n"
 TRAN_STEP = "0.5n"
 

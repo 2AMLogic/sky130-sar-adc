@@ -58,9 +58,9 @@ FRAGMENT = EXPERIMENT_DIR / "testbench" / "sar_sequencer_tb_fragment.spice"
 # sky130 process corners. NOMINAL_SUPPLY_V = 1.8V is the ratified V_REF/V_DD
 # value (DR-003 Item 1), not a provisional planning constant.
 NOMINAL_SUPPLY_V = 1.8
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 
 # Expected value (digital 1/0) for every `.meas` name in the fragment --
 # derived by hand from the same CODE1/CODE2 target codes and phase/timing

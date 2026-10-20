@@ -42,6 +42,16 @@ not a substitute for a future full-chip dynamic-test campaign.
 
     python3 sim/enob-estimate/run_enob.py --cdac-mc-record <record-id> --record
 
+PER-DRAW SAMPLES (issue #587). The `klt yield` sample set is one conditional
+analytical ENOB estimate per REAL CDAC mismatch draw, loaded from the source
+record's committed `mc-draws/<record-id>/draw_*.log` raw logs (the parser
+run_mc.py's `reanalyze_from_logs()` uses; no new simulation). Draw index and
+seed are carried into the record and samples document. A missing, incomplete
+or non-finite draw set is an explicit failure, never a fallback to summary
+statistics. Mean-case / worst-case headline values are kept for comparison.
+This is a conditional estimate across CDAC mismatch draws only (fixed
+comparator and kT/C terms), not a transient/FFT ENOB and not a joint MC.
+
 Requires --cdac-mc-record naming the sim/cdac-array-transfer/ Monte Carlo
 record (run_mc.py) this estimate draws its CDAC-mismatch contribution from,
 so the composite record's provenance is explicit and reproducible rather
@@ -185,6 +195,83 @@ def read_cdac_mc_inl(record_id: str) -> dict:
     }
 
 
+def _load_run_mc():
+    """Import sim/cdac-array-transfer/run_mc.py by path (its directory name has
+    a hyphen, so it is not importable as a package) for its pure raw-log
+    parser `_parse_draw()` / `_LOG_NAME_RE` -- no ngspice is invoked."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("cdac_run_mc", CDAC_DIR / "run_mc.py")
+    mod = importlib.util.module_from_spec(spec)
+    # run_mc.py imports its sibling gen_fragment.py by bare name.
+    sys.modules["cdac_run_mc"] = mod
+    sys.path.insert(0, str(CDAC_DIR))
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        sys.path.remove(str(CDAC_DIR))
+    return mod
+
+
+def load_cdac_draws(record_id: str, expected_n: int | None = None, draws_root: Path | None = None) -> list[dict]:
+    """Load the REAL per-draw max|INL| values (ratified LSB) of a CDAC Monte
+    Carlo source record from its committed `mc-draws/<record_id>/draw_*.log`
+    raw logs (the same parsing run_mc.py's `reanalyze_from_logs()` uses; the
+    negative-control `negctrl_*` logs are not draws and are ignored).
+
+    Returns one dict per draw, ordered by draw index:
+    `{"index", "seed", "inl_max_lsb"}`. Raises ValueError/FileNotFoundError
+    -- never degrades to summary statistics -- if the directory or logs are
+    missing, indices are not the contiguous 0..n-1, the count differs from
+    `expected_n` (the source record's own reported N), or any draw's INL is
+    missing or non-finite (a code measurement absent from the log)."""
+    root = draws_root if draws_root is not None else CDAC_DIR / "mc-draws"
+    draws_dir = root / record_id
+    if not draws_dir.is_dir():
+        raise FileNotFoundError(f"no raw draws for CDAC MC record {record_id}: {draws_dir} (refusing to fall back to summary statistics)")
+    mc = _load_run_mc()
+    found: dict[int, tuple[int, Path]] = {}
+    for log_path in sorted(draws_dir.glob("*.log")):
+        m = mc._LOG_NAME_RE.match(log_path.name)
+        if not m or m.group("kind") != "draw":
+            continue
+        found[int(m.group("idx"))] = (int(m.group("seed")), log_path)
+    if not found:
+        raise FileNotFoundError(f"{draws_dir} contains no draw_*.log files")
+    if sorted(found) != list(range(len(found))):
+        raise ValueError(f"{draws_dir}: draw indices are not contiguous 0..{len(found) - 1}: {sorted(found)}")
+    if expected_n is not None and len(found) != expected_n:
+        raise ValueError(f"{draws_dir}: {len(found)} draw logs but the source record reports N={expected_n} (incomplete draw set)")
+    out = []
+    for idx in sorted(found):
+        seed, path = found[idx]
+        inl = mc._parse_draw(seed, path.read_text()).inl_max_lsb
+        if not math.isfinite(inl):
+            raise ValueError(f"{path}: draw {idx} (seed {seed}) has missing or non-finite max|INL| ({inl})")
+        out.append({"index": idx, "seed": seed, "inl_max_lsb": inl})
+    return out
+
+
+def per_draw_enob(draws: list[dict], sigma_cmp_v: float, sigma_ktc_v: float, lsb_v: float = LSB_V) -> list[dict]:
+    """One conditional analytical ENOB estimate per real CDAC draw: the draw's
+    OWN max|INL| (converted to volts, treated as an rms noise-like term as in
+    the headline estimate) combined in quadrature with the FIXED comparator
+    and kT/C terms. Adds `"sigma_cdac_v"` and `"enob_bit"` to each draw."""
+    if not draws:
+        raise ValueError("no CDAC draws supplied; refusing to emit an empty sample set")
+    out = []
+    for d in draws:
+        inl = d["inl_max_lsb"]
+        if not isinstance(inl, (int, float)) or not math.isfinite(inl):
+            raise ValueError(f"draw {d.get('index')}: non-finite max|INL| {inl!r}")
+        sigma_cdac = inl * lsb_v
+        enob = achieved_enob(math.sqrt(sigma_cmp_v ** 2 + sigma_ktc_v ** 2 + sigma_cdac ** 2), lsb_v)
+        if not math.isfinite(enob):
+            raise ValueError(f"draw {d.get('index')}: non-finite ENOB")
+        out.append({**d, "sigma_cdac_v": sigma_cdac, "enob_bit": enob})
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Behavioral-accelerated ENOB estimate (issue #29)")
     ap.add_argument("--cdac-mc-record", required=True, help="sim/cdac-array-transfer/ Monte Carlo record-id (run_mc.py) to draw the CDAC-mismatch contribution from")
@@ -211,22 +298,12 @@ def main() -> int:
     sigma_ktc = sigma_ktc_differential()
     sigma_cmp = COMPARATOR_NOISE_DIFF_V
 
-    # Per-draw achieved ENOB, one per CDAC MC draw statistic available:
-    # use each draw's OWN max|INL| (converted to volts) combined with the
-    # FIXED comparator-noise and kT/C contributors, so the resulting ENOB
-    # sample set inherits the CDAC campaign's own draw-to-draw spread
-    # (rather than collapsing to a single point estimate).
-    # Recover the raw per-draw INL values by re-reading the CDAC record's
-    # own reported distribution (mean/stdev/min/max) is NOT enough to
-    # reconstruct N individual draws; instead this composes the ENOB
-    # distribution analytically from the reported distribution's OWN
-    # mean/stdev via a first-order propagation (quadrature composition is
-    # nonlinear, so this is an approximation -- see LIMITATIONS) by
-    # sampling N synthetic points spanning [mean-stdev, mean, mean+stdev]
-    # is avoided in favor of the two headline scalars every downstream
-    # reader needs: MEAN-case and WORST-CASE achieved ENOB, both reported
-    # explicitly rather than a synthetic distribution dressed up as real
-    # Monte Carlo draws.
+    # One conditional analytical ENOB estimate per REAL CDAC MC draw, loaded
+    # from the source record's committed raw draw logs (issue #587); fixed
+    # comparator and kT/C terms. No synthetic draws; mean/worst headline
+    # values below are kept for comparison.
+    draws = per_draw_enob(load_cdac_draws(args.cdac_mc_record, expected_n=cdac["n"]), sigma_cmp, sigma_ktc)
+    enob_samples = [d["enob_bit"] for d in draws]
     inl_mean_v = cdac["mean_lsb"] * LSB_V
     inl_worst_v = cdac["max_lsb"] * LSB_V
 
@@ -242,17 +319,27 @@ def main() -> int:
     record_path = records_dir / f"{record_id}.md"
 
     yield_dir = EXPERIMENT_DIR / "yield-reports"
-    yield_report = evidence.run_klt_yield(
-        [
+    yield_measurements = [
             {
                 "name": "enob_bit",
                 "unit": "bit",
-                "samples": [enob_mean_case, enob_worst_case],
+                "samples": enob_samples,
+                "draws": [{"index": d["index"], "seed": d["seed"], "inl_max_lsb": d["inl_max_lsb"]} for d in draws],
+                "source_record": args.cdac_mc_record,
                 "limits": {"min": args.target_baseline_bit, "target_yield": args.target_yield},
             },
-        ],
+        ]
+    yield_report = evidence.run_klt_yield(
+        yield_measurements,
         yield_dir / f"{record_id}.json",
     )
+    yield_samples_path = yield_dir / f"{record_id}.samples.json"
+    if yield_report is None and not yield_samples_path.exists():
+        # run_klt_yield() deletes the samples document when `klt yield` is
+        # unavailable. The per-draw samples are the committed INPUT evidence
+        # either way, so persist the identical document and let the record say
+        # the verdict is absent.
+        yield_samples_path.write_text(json.dumps({"measurements": yield_measurements}, indent=2))
 
     inputs_manifest = json.dumps({
         "comparator_noise_record": COMPARATOR_NOISE_SOURCE_RECORD,
@@ -260,6 +347,7 @@ def main() -> int:
         "cdac_mc_record": str(cdac["record_path"].relative_to(evidence.REPO_ROOT)),
         "cdac_inl_mean_lsb": cdac["mean_lsb"],
         "cdac_inl_max_lsb": cdac["max_lsb"],
+        "cdac_draws": [[d["index"], d["seed"], d["inl_max_lsb"]] for d in draws],
     }, sort_keys=True)
     inputs_sha = hashlib.sha256(inputs_manifest.encode()).hexdigest()
 
@@ -321,6 +409,14 @@ def main() -> int:
         f"({cdac['max_lsb']:.4f} LSB)"
     )
     a(
+        "- **Estimate class**: conditional analytical ENOB estimate across real CDAC mismatch "
+        f"draws (N={len(draws)}, one estimate per draw of `{args.cdac_mc_record}`). Comparator "
+        "noise and kT/C are FIXED model inputs with their existing provenance; the quadrature "
+        "treatment of max INL as a noise contribution is an approximation. This is neither a "
+        "transient/FFT ENOB measurement nor a joint comparator/CDAC/noise Monte Carlo population. "
+        "Supersedes the earlier two-point (mean/worst) yield sample set."
+    )
+    a(
         "- **LIMITATIONS (named, flagged simplifications, not something this record relaxes "
         "to force a pass)**: (1) no dynamic effects (settling, slewing, aperture jitter, "
         "reference-droop) are modeled -- those need a real transient FFT campaign against "
@@ -362,17 +458,40 @@ def main() -> int:
             f"{'meets' if enob > args.target_stretch_bit else 'does NOT meet'} |"
         )
     a("")
+    a("## Per-draw conditional analytical ENOB estimates (CDAC mismatch draws)")
+    a("")
+    a(
+        f"Source record `{args.cdac_mc_record}`, N={len(draws)} real draws loaded from its committed "
+        "`mc-draws/` raw logs (no draws fabricated; negative-control logs excluded). Each row combines "
+        "that draw's own max\\|INL\\| with the fixed comparator and kT/C terms in quadrature. "
+        "Conditional analytical estimate -- NOT a transient/FFT ENOB, NOT a joint Monte Carlo."
+    )
+    a("")
+    a("| draw | seed | max\\|INL\\| (LSB) | sigma_cdac (mV rms) | conditional ENOB (bit) |")
+    a("|---|---|---|---|---|")
+    for d in draws:
+        a(f"| {d['index']} | {d['seed']} | {d['inl_max_lsb']:.4f} | {d['sigma_cdac_v'] * 1000:.4f} | {d['enob_bit']:.3f} |")
+    a("")
+    a(
+        f"Per-draw ENOB: min {min(enob_samples):.3f}, mean {sum(enob_samples) / len(enob_samples):.3f}, "
+        f"max {max(enob_samples):.3f} bit. The mean-case / worst-case headline values above are retained "
+        "for comparison (they use the source record's reported mean and maximum of max\\|INL\\|)."
+    )
+    a("")
     a("## Machine-checkable yield evidence (`klt yield`)")
     a("")
     if yield_report is not None:
         a(
-            "Two-point sample set (mean-case, worst-case achieved ENOB above) against "
+            f"Sample set: {len(draws)} per-draw CONDITIONAL ANALYTICAL ENOB estimates, one per real "
+            f"CDAC mismatch Monte Carlo draw of `{args.cdac_mc_record}` (table above; draw index and seed "
+            "preserved), with the comparator and kT/C terms held fixed -- against "
             f"the {target_label} baseline ENOB target (`> {args.target_baseline_bit:g} bit`), "
             f"target_yield={args.target_yield:g}, 95% confidence -- INFORMATIONAL, not a ratified "
-            f"pass/fail. Full JSON report: `sim/enob-estimate/yield-reports/{record_id}.json`. With "
-            "only two points this is a demonstration of the machine-checkable-evidence PATH (same "
-            "invocation issue #29's other two statistical rows use), not a real yield claim -- "
-            "see the sample-size verdict below, which says so explicitly."
+            f"pass/fail. Full JSON report: `sim/enob-estimate/yield-reports/{record_id}.json`; samples "
+            f"document: `sim/enob-estimate/yield-reports/{record_id}.samples.json`. The yield fraction "
+            "describes CDAC-mismatch variability only, under the quadrature model; it is not a "
+            "transient/FFT ENOB measurement and not a joint comparator/CDAC/noise Monte Carlo "
+            "population, and a larger sample count does not validate the model itself."
         )
         a("")
         for m in yield_report.get("measurements", []):
@@ -387,9 +506,14 @@ def main() -> int:
             a(f"- klt yield warning: {w}")
     else:
         a(
-            "`klt yield` did not produce a report in this environment -- see "
+            "`klt yield` did not produce a report in this environment (the native yield "
+            "extension was not installed on the minting host -- see "
             "sim/cdac-array-transfer/run_mc.py's own note on "
-            "2AMLogic/klayout-tools#1061 (already-filed, COMPLETED packaging gap; not a new gap)."
+            "2AMLogic/klayout-tools#1061, already-filed packaging gap; not a new gap), so NO "
+            "yield verdict is recorded here. The per-draw sample set that `klt yield` would "
+            f"consume is persisted at `sim/enob-estimate/yield-reports/{record_id}.samples.json` "
+            "for a later run of `klt yield` against it; that report, once produced, is a new "
+            "derived record, not an edit of this one."
         )
     a("")
     if is_candidate:

@@ -51,6 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
+    failing_checks,
     git_field,
     load_json_strict,
     render_lvs_findings,
@@ -198,11 +199,7 @@ def main() -> int:
     body_wrong = sorted(
         name for name, expected in EXPECTED_BODY.items() if bodies.get(name) != expected
     )
-    precheck_failed = sorted(
-        str(check.get("check"))
-        for check in precheck.get("checks", [])
-        if check.get("status") == "fail"
-    )
+    precheck_failed = failing_checks(precheck)
     fixture_rules = drc_fixture.get("rule_counts") or {}
 
     checks = [

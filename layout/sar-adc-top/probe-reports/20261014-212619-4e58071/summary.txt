@@ -1,0 +1,8 @@
+A-hier-real: status=mismatch devices=2101/2101/2051 nets=554/555/519 pins=21/22/22
+   device.geometry_not_compared[warning]=1, device.unmatched[error]=50, net.merged[error]=9, net.split[error]=8, topology.flattened[warning]=2
+B-hier-diag: status=match devices=2101/2101/2101 nets=554/555/555 pins=21/22/22
+   device.geometry_not_compared[warning]=1, topology.flattened[warning]=2
+C-flat-diag: status=match devices=1095/1095/1095 nets=554/555/555 pins=21/22/22
+   device.geometry_not_compared[warning]=1, topology.flattened[warning]=1
+D-flat-real: status=mismatch devices=1095/1095/1046 nets=554/555/519 pins=21/22/22
+   device.geometry_not_compared[warning]=1, device.unmatched[error]=49, net.merged[error]=9, net.split[error]=8, topology.flattened[warning]=1

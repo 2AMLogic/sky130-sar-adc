@@ -14,10 +14,20 @@ above but rejects ngspice's TRIG/TARG crossing-based `.meas` lines outright
 " targ=... trig=..." context on the SAME line as `name = value`. Pass
 `anchored=False` for that shape (issue #229 -- previously duplicated as a
 private `_parse_trig_targ()` across three sim/ run scripts).
+
+Only FINITE values are accepted (issue #569). The value regex already keeps
+literal `nan`/`inf` tokens out, but an exponent-overflow token such as
+`1e999` / `-1e999` still matches it and `float()` turns it into +-inf. Such
+a value is treated exactly like an unconvertible token: it is skipped (so a
+later, finite occurrence of the same name may still be taken -- the
+first-*successful*-value rule) and, if no finite value follows, the name is
+reported by `missing()`. A non-finite number therefore never reaches a
+caller's threshold/margin/power arithmetic as if it were a measurement.
 """
 
 from __future__ import annotations
 
+import math
 import re
 
 _LINE_RE = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P<value>[-+0-9.eE]+)\s*$")
@@ -35,9 +45,12 @@ def parse(log_text: str, names: list[str], *, anchored: bool = True) -> dict[str
         name = m.group("name")
         if name in wanted and name not in out:
             try:
-                out[name] = float(m.group("value"))
+                value = float(m.group("value"))
             except ValueError:
                 continue
+            if not math.isfinite(value):
+                continue
+            out[name] = value
     return out
 
 

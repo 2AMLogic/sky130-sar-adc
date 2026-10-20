@@ -141,9 +141,9 @@ SAMPLE_END_NS = 409.0  # matches sim/sampling-frontend/run_transient.py
 # supply_points()/oat_grid(), which is the drift issue #211/#217 closed) so
 # this campaign's grid is the same 9-point one-at-a-time star every other
 # --corners driver in sim/ runs.
-SUPPLY_TOLERANCE = 0.10
-TEMPS_C = [-40, 27, 125]
-PROCESS_CORNERS = ["tt", "ss", "ff", "sf", "fs"]
+SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
+TEMPS_C = corners_mod.RATIFIED_TEMPS_C
+PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 
 # --- issue #469: mechanism (d)'s stimulus, replayed at the combined load ----
 # Every constant below is lifted unchanged from
@@ -526,14 +526,14 @@ def run_corners(
     the baseline corner as a code-state-independence control.
     """
     pdk.resolve_or_raise()
-    grid = corners_mod.ratified_oat_grid(VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C)
-
     points = [
         run_acquisition_point(
             CORNERS_CODE_STATE, pc, tc, sv, scratch, quiet=quiet,
             tran_step_ns=tran_step_ns,
         )
-        for pc, tc, sv in grid
+        for pc, tc, sv, _cid in corners_mod.sweep(
+            VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, announce=False
+        )
     ]
     control = [
         run_acquisition_point(

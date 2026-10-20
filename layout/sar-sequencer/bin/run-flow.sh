@@ -24,12 +24,14 @@
 # dumping the *post-route* gate-level netlist (clock-tree/repair cells
 # included) -> generate-lvs-reference.py (flattens that netlist against the
 # PDK's own official CDL device models) -> `klt extract --def-pins` -> `klt
-# lvs`.
+# lvs`. The pipeline itself is _flow_common.sh's run_pnr_drc_lvs_flow,
+# shared with the seln-inverters and top-glue flow scripts (#647); this
+# script only contributes the block-specific rationale above and no hooks.
 #
 # LVS status (see README.md "LVS reference provenance" / the filed
-# klayout-tools issue for the full writeup): this script always runs `klt
-# lvs` and records whatever verdict it reports -- it does not assume any
-# particular outcome, so a rerun against a future klt release simply
+# klayout-tools issue for the full writeup): the shared flow always runs
+# `klt lvs` and records whatever verdict it reports -- it does not assume
+# any particular outcome, so a rerun against a future klt release simply
 # records whatever verdict that release reaches without any script change.
 # `set -e` is deliberately not applied to the `klt extract`/`klt lvs`
 # invocations (a non-clean/mismatch verdict is a normal documented exit
@@ -37,11 +39,13 @@
 # `|| true` convention for the same reason).
 set -euo pipefail
 
-SAR_SEQ_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LAYOUT_DIR="$(cd "$SAR_SEQ_DIR/.." && pwd)"
+BLOCK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LAYOUT_DIR="$(cd "$BLOCK_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
 KLT="$LAYOUT_DIR/.venv/bin/klt"
 PDK_VARIANT=sky130A
+# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
+export PDK=sky130A
 TOP=sar_sequencer
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
@@ -54,106 +58,4 @@ if ! command -v openroad >/dev/null 2>&1; then
   exit 1
 fi
 
-RECORD_ID="$(new_record_id "$REPO_ROOT")"
-OUT_DIR="$SAR_SEQ_DIR/reports/$RECORD_ID"
-mkdir -p "$OUT_DIR/.klt/place-and-route"
-echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
-
-# --- 1. Place-and-route -----------------------------------------------------
-cp "$SAR_SEQ_DIR/netlist/sar_sequencer.v" "$OUT_DIR/sar_sequencer.v"
-sed "s#../netlist/sar_sequencer.v#sar_sequencer.v#" \
-  "$SAR_SEQ_DIR/requests/place-and-route.json" > "$OUT_DIR/place-and-route.json"
-
-set +e
-"$KLT" place-and-route "$OUT_DIR/place-and-route.json" --format json \
-  > "$OUT_DIR/pnr.json" 2> "$OUT_DIR/pnr.stderr.log"
-pnr_status=$?
-set -e
-if [[ $pnr_status -ne 0 ]]; then
-  echo "run-flow.sh: place-and-route FAILED -- see $OUT_DIR/pnr.stderr.log" >&2
-  cat "$OUT_DIR/pnr.json" >&2 || true
-  echo "$RECORD_ID" > "$SAR_SEQ_DIR/reports/LATEST"
-  exit 1
-fi
-
-# Flatten the final GDS/DEF up to $OUT_DIR's own top level, matching
-# layout/trivial-cell/reports/<record-id>/'s flat convention -- the
-# `.klt/place-and-route/` scratch subdirectory (per-stage ODB checkpoints,
-# Tcl scripts, raw -metrics dumps) is a debug cache, not a deliverable, and
-# is pruned at the end of this script (step 8) rather than committed.
-cp "$OUT_DIR/.klt/place-and-route/${TOP}.gds" "$OUT_DIR/${TOP}.gds"
-cp "$OUT_DIR/.klt/place-and-route/${TOP}.def" "$OUT_DIR/${TOP}.def"
-GDS="$OUT_DIR/${TOP}.gds"
-
-# --- 2. DRC against the sky130 deck -----------------------------------------
-"$KLT" drc "$GDS" --deck sky130 --format json > "$OUT_DIR/drc.json" || true
-
-# --- 3. Dump the post-route gate-level netlist ------------------------------
-# `klt place-and-route`'s own response has no "final netlist" field (issue
-# #102's own investigation) -- read back the route-stage ODB checkpoint it
-# already wrote and `write_verilog` from it directly. Invoked with `cwd` set
-# to the checkpoint's own directory so the openroad Docker wrapper's `-v
-# "$PWD:$PWD"` mount (see docs/environment-setup.md) covers both the input
-# .odb and the output .v without needing an absolute-path remount.
-cat > "$OUT_DIR/.klt/place-and-route/dump_netlist.tcl" <<EOF
-read_db ${TOP}_route.odb
-write_verilog ${TOP}_post_route.v
-EOF
-( cd "$OUT_DIR/.klt/place-and-route" && openroad -no_init -exit dump_netlist.tcl \
-  > "$OUT_DIR/dump_netlist.stdout.log" 2>&1 )
-cp "$OUT_DIR/.klt/place-and-route/${TOP}_post_route.v" "$OUT_DIR/${TOP}_post_route.v"
-
-# --- 4. Generate the LVS reference from the post-route netlist --------------
-python3 "$SAR_SEQ_DIR/bin/generate-lvs-reference.py" "$OUT_DIR/${TOP}_post_route.v"
-REFERENCE_SRC="$SAR_SEQ_DIR/reference/sar_sequencer.lvs-reference.spice"
-cp "$REFERENCE_SRC" "$OUT_DIR/sar_sequencer.lvs-reference.spice"
-
-# --- 5. Extract, deriving the declared pin set from the routed DEF ---------
-# `--def-pins` (klt 0.4.0, klayout-tools#1390/#1397) replaces the earlier
-# inline `layout.top_cell_pins: true` LVS request (klt 0.2.0/0.3.0):
-# `--top-cell-pins`'s "only labels drawn directly in the top cell" heuristic
-# cannot tell a genuine top-level design port from an internal DEF NETS
-# connection point once a DEF->GDS merge flattens the whole design into the
-# top cell -- see README.md "LVS reference provenance" for the full
-# investigation and 2AMLogic/klayout-tools#1385, the tool gap filed against
-# the earlier (0.3.0-era) attempt. `--def-pins "${TOP}.def"` instead derives
-# the declared pin set directly from the routed DEF's own PINS section, so
-# extraction runs as an explicit pre-step here (its own committed
-# extract.spice/extract.json) rather than inline inside the `klt lvs`
-# request.
-"$KLT" extract "$GDS" --deck sky130 --top "$TOP" --def-pins "$OUT_DIR/${TOP}.def" \
-  -o "$OUT_DIR/${TOP}.extract.spice" --format json > "$OUT_DIR/extract.json" || true
-
-# --- 6. LVS: pre-extracted layout netlist vs. the generated reference -------
-cat > "$OUT_DIR/lvs.request.json" <<EOF
-{
-  "schema": "klt.lvs.request/1",
-  "engine": "klayout",
-  "layout": {
-    "netlist": "${TOP}.extract.spice",
-    "top": "${TOP}"
-  },
-  "reference": {
-    "netlist": "sar_sequencer.lvs-reference.spice",
-    "top": "${TOP}"
-  },
-  "options": {
-    "combine_devices": true
-  }
-}
-EOF
-"$KLT" lvs "$OUT_DIR/lvs.request.json" --format json > "$OUT_DIR/lvs.json" || true
-
-# --- 7. Record summary --------------------------------------------------
-python3 "$SAR_SEQ_DIR/bin/render-record.py" \
-  --out-dir "$OUT_DIR" --record-id "$RECORD_ID" --repo-root "$REPO_ROOT" \
-  --klt "$KLT" --pdk-variant "$PDK_VARIANT" > "$OUT_DIR/record.md"
-
-# --- 8. Prune the .klt/ scratch cache ---------------------------------------
-# Per-stage ODB checkpoints, generated Tcl, and raw -metrics dumps are a
-# debug cache (megabytes of binary state), not a deliverable -- the flat
-# copies made in steps 1/3 above already carry everything this record needs.
-rm -rf "$OUT_DIR/.klt"
-
-echo "$RECORD_ID" > "$SAR_SEQ_DIR/reports/LATEST"
-echo "run-flow.sh: done. See $OUT_DIR/record.md"
+run_pnr_drc_lvs_flow "$BLOCK_DIR" "$REPO_ROOT" "$KLT" "$PDK_VARIANT" "$TOP"

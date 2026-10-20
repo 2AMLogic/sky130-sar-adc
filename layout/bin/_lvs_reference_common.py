@@ -166,7 +166,7 @@ def _generalize_model(model: str) -> str:
 
 
 def _resolve_pdk_root() -> str:
-    root = os.environ.get("PDK_ROOT") or os.path.expanduser("~/.volare")
+    root = os.environ.get("PDK_ROOT") or os.path.expanduser("~/.ciel")
     variant = os.environ.get("PDK", "sky130A")
     return os.path.join(root, variant)
 

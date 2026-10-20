@@ -95,8 +95,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 from _geometry_common import (  # noqa: E402
     L_MET1,
     L_MET2,
-    L_MET3,
-    L_MET4,
     L_VIA1,
     STACK_PAD_UM,
     VIA1_UM,
