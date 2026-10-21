@@ -4145,6 +4145,9 @@ tracker already owns.
    > **DR-021**
    > (`spec/decision-records/DR-021-near-full-scale-common-mode-droop-resolution.md`)
    > is **proposed**.
+   > **DR-022**
+   > (`spec/decision-records/DR-022-cdac-gain-error-specified-not-sized.md`)
+   > is **proposed**.
    > **DR-023**
    > (`spec/decision-records/DR-023-full-conversion-transient-solver-policy.md`)
    > is **proposed**.
