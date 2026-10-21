@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-21
+
+- **PR #703**: Bump Repo Skills 0.24.3 -> 0.24.7
+
 ### 2026-10-20
 
 - **PR #671**: build: re-pin open_pdks to f6eeac7 (ciel) and verify PDK SOURCES revision
