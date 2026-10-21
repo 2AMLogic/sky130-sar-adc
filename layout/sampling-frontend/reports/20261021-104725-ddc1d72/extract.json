@@ -1,0 +1,934 @@
+{
+  "schema_version": 3,
+  "file": "sampling_frontend.gds",
+  "deck": "sky130",
+  "top": "gen_compose_0",
+  "dbu_um": 0.001,
+  "netlist_path": "sampling_frontend.extract.spice",
+  "netlist_sha256": "fc816dca3bf4a690fab1970e9665fa7a3f179d22bc3170e28c7415275f71f008",
+  "status": "extracted",
+  "device_count": 24,
+  "net_count": 17,
+  "pin_count": 12,
+  "device_counts": {
+    "nfet": 11,
+    "pfet": 9,
+    "sky130_fd_pr__model__cap_mim": 4
+  },
+  "dummy_devices_dropped": 0,
+  "ignored_layers": [],
+  "device_recognition_only_layers": [
+    {
+      "layer": 89,
+      "datatype": 44,
+      "shapes": 4
+    }
+  ],
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "\\$6",
+        "d": "\\$8",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "sb_p__SB_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$11",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$10",
+      "class": "nfet",
+      "nets": {
+        "s": "VCM",
+        "g": "SAMPLE",
+        "d": "BPREF_P",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 16.0,
+        "as_um2": 7.52,
+        "ad_um2": 7.52,
+        "ps_um": 32.94,
+        "pd_um": 32.94
+      },
+      "instance_path": [
+        {
+          "cell": "cmswn_p__CMSWN_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$14",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$11",
+      "class": "nfet",
+      "nets": {
+        "s": "VCM",
+        "g": "SAMPLE",
+        "d": "BPREF_N",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 16.0,
+        "as_um2": 7.52,
+        "ad_um2": 7.52,
+        "ps_um": 32.94,
+        "pd_um": 32.94
+      },
+      "instance_path": [
+        {
+          "cell": "cmswn_n__CMSWN_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$15",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$12",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "\\$5",
+        "d": "BOOST_P",
+        "b": "BOOST_P"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0,
+        "as_um2": 0.42,
+        "ad_um2": 0.42,
+        "ps_um": 2.84,
+        "pd_um": 2.84
+      },
+      "instance_path": [
+        {
+          "cell": "sa_p__SA_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$13",
+      "class": "pfet",
+      "nets": {
+        "s": "BOOST_P",
+        "g": "\\$6",
+        "d": "\\$5",
+        "b": "BOOST_P"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "se_p__SE_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$1",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$14",
+      "class": "pfet",
+      "nets": {
+        "s": "VINP",
+        "g": "\\$6",
+        "d": "\\$8",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "scp_p__SCP_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$2",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$15",
+      "class": "pfet",
+      "nets": {
+        "s": "VINN",
+        "g": "\\$6",
+        "d": "\\$10",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "scp_n__SCP_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$6",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$16",
+      "class": "pfet",
+      "nets": {
+        "s": "BOOST_N",
+        "g": "\\$6",
+        "d": "\\$11",
+        "b": "BOOST_N"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "se_n__SE_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$7",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$17",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "\\$11",
+        "d": "BOOST_N",
+        "b": "BOOST_N"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0,
+        "as_um2": 0.42,
+        "ad_um2": 0.42,
+        "ps_um": 2.84,
+        "pd_um": 2.84
+      },
+      "instance_path": [
+        {
+          "cell": "sa_n__SA_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$8",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$18",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "SAMPLE",
+        "d": "\\$6",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      },
+      "instance_path": [
+        {
+          "cell": "invp__INVP",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$4",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$19",
+      "class": "pfet",
+      "nets": {
+        "s": "VCM",
+        "g": "\\$6",
+        "d": "BPREF_P",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 16.0,
+        "as_um2": 7.52,
+        "ad_um2": 7.52,
+        "ps_um": 32.94,
+        "pd_um": 32.94
+      },
+      "instance_path": [
+        {
+          "cell": "cmswp_p__CMSWP_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$3",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$2",
+      "class": "nfet",
+      "nets": {
+        "s": "VINP",
+        "g": "SAMPLE",
+        "d": "\\$8",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "scn_p__SCN_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$12",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$20",
+      "class": "pfet",
+      "nets": {
+        "s": "VCM",
+        "g": "\\$6",
+        "d": "BPREF_N",
+        "b": "VDD"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 16.0,
+        "as_um2": 7.52,
+        "ad_um2": 7.52,
+        "ps_um": 32.94,
+        "pd_um": 32.94
+      },
+      "instance_path": [
+        {
+          "cell": "cmswp_n__CMSWP_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$5",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$21",
+      "class": "sky130_fd_pr__model__cap_mim",
+      "nets": {
+        "a": "\\$8",
+        "b": "BOOST_P"
+      },
+      "params": {
+        "c_f": 1.99528e-13,
+        "area_um2": 96.04,
+        "perimeter_um": 39.2
+      },
+      "instance_path": [
+        {
+          "cell": "cboot__CBOOT",
+          "array_index": null
+        },
+        {
+          "cell": "cap_array",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$22",
+      "class": "sky130_fd_pr__model__cap_mim",
+      "nets": {
+        "a": "\\$10",
+        "b": "BOOST_N"
+      },
+      "params": {
+        "c_f": 1.99528e-13,
+        "area_um2": 96.04,
+        "perimeter_um": 39.2
+      },
+      "instance_path": [
+        {
+          "cell": "cboot__CBOOT",
+          "array_index": null
+        },
+        {
+          "cell": "cap_array",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$23",
+      "class": "sky130_fd_pr__model__cap_mim",
+      "nets": {
+        "a": "BPREF_P",
+        "b": "TOP_P"
+      },
+      "params": {
+        "c_f": 4.434864e-12,
+        "area_um2": 2199.61,
+        "perimeter_um": 187.6
+      },
+      "instance_path": [
+        {
+          "cell": "csamp__CSAMP",
+          "array_index": null
+        },
+        {
+          "cell": "cap_array$1",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$24",
+      "class": "sky130_fd_pr__model__cap_mim",
+      "nets": {
+        "a": "BPREF_N",
+        "b": "TOP_N"
+      },
+      "params": {
+        "c_f": 4.434864e-12,
+        "area_um2": 2199.61,
+        "perimeter_um": 187.6
+      },
+      "instance_path": [
+        {
+          "cell": "csamp__CSAMP",
+          "array_index": null
+        },
+        {
+          "cell": "cap_array$1",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$3",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "\\$6",
+        "d": "\\$5",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0,
+        "as_um2": 0.42,
+        "ad_um2": 0.42,
+        "ps_um": 2.84,
+        "pd_um": 2.84
+      },
+      "instance_path": [
+        {
+          "cell": "sd_p__SD_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$13",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$4",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "\\$6",
+        "d": "\\$11",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0,
+        "as_um2": 0.42,
+        "ad_um2": 0.42,
+        "ps_um": 2.84,
+        "pd_um": 2.84
+      },
+      "instance_path": [
+        {
+          "cell": "sd_n__SD_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$16",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$5",
+      "class": "nfet",
+      "nets": {
+        "s": "VINN",
+        "g": "SAMPLE",
+        "d": "\\$10",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "scn_n__SCN_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$17",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$6",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "\\$6",
+        "d": "\\$10",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "sb_n__SB_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$18",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$7",
+      "class": "nfet",
+      "nets": {
+        "s": "GND",
+        "g": "SAMPLE",
+        "d": "\\$6",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 1.0,
+        "as_um2": 0.47,
+        "ad_um2": 0.47,
+        "ps_um": 2.94,
+        "pd_um": 2.94
+      },
+      "instance_path": [
+        {
+          "cell": "invn__INVN",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$19",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$8",
+      "class": "nfet",
+      "nets": {
+        "s": "TOP_P",
+        "g": "\\$5",
+        "d": "VINP",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      },
+      "instance_path": [
+        {
+          "cell": "msw_p__MSW_P",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$9",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$9",
+      "class": "nfet",
+      "nets": {
+        "s": "TOP_N",
+        "g": "\\$11",
+        "d": "VINN",
+        "b": "GND"
+      },
+      "params": {
+        "l_um": 0.15,
+        "w_um": 2.0,
+        "as_um2": 0.94,
+        "ad_um2": 0.94,
+        "ps_um": 4.94,
+        "pd_um": 4.94
+      },
+      "instance_path": [
+        {
+          "cell": "msw_n__MSW_N",
+          "array_index": null
+        },
+        {
+          "cell": "mos_array$10",
+          "array_index": null
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "BOOST_N",
+      "pin": true,
+      "device_count": 5,
+      "net_id": 3,
+      "pin_index": 0,
+      "label_positions_um": [
+        {
+          "text": "BOOST_N",
+          "x_um": 26.98,
+          "y_um": 53.82
+        }
+      ]
+    },
+    {
+      "name": "BOOST_P",
+      "pin": true,
+      "device_count": 5,
+      "net_id": 1,
+      "pin_index": 1,
+      "label_positions_um": [
+        {
+          "text": "BOOST_P",
+          "x_um": 0.7,
+          "y_um": 53.32
+        }
+      ]
+    },
+    {
+      "name": "BPREF_N",
+      "pin": true,
+      "device_count": 3,
+      "net_id": 15,
+      "pin_index": 2,
+      "label_positions_um": [
+        {
+          "text": "BPREF_N",
+          "x_um": 21.27,
+          "y_um": 57.82
+        }
+      ]
+    },
+    {
+      "name": "BPREF_P",
+      "pin": true,
+      "device_count": 3,
+      "net_id": 13,
+      "pin_index": 3,
+      "label_positions_um": [
+        {
+          "text": "BPREF_P",
+          "x_um": 14.87,
+          "y_um": 57.32
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "pin": true,
+      "device_count": 16,
+      "net_id": 18,
+      "pin_index": 4,
+      "label_positions_um": [
+        {
+          "text": "GND",
+          "x_um": 39.97,
+          "y_um": 52.32
+        }
+      ]
+    },
+    {
+      "name": "SAMPLE",
+      "pin": true,
+      "device_count": 6,
+      "net_id": 14,
+      "pin_index": 5,
+      "label_positions_um": [
+        {
+          "text": "SAMPLE",
+          "x_um": 17.285,
+          "y_um": 51.32
+        }
+      ]
+    },
+    {
+      "name": "TOP_N",
+      "pin": true,
+      "device_count": 2,
+      "net_id": 17,
+      "pin_index": 6,
+      "label_positions_um": [
+        {
+          "text": "TOP_N",
+          "x_um": 44.52,
+          "y_um": 58.82
+        }
+      ]
+    },
+    {
+      "name": "TOP_P",
+      "pin": true,
+      "device_count": 2,
+      "net_id": 16,
+      "pin_index": 7,
+      "label_positions_um": [
+        {
+          "text": "TOP_P",
+          "x_um": 42.23,
+          "y_um": 58.32
+        }
+      ]
+    },
+    {
+      "name": "VCM",
+      "pin": true,
+      "device_count": 4,
+      "net_id": 12,
+      "pin_index": 8,
+      "label_positions_um": [
+        {
+          "text": "VCM",
+          "x_um": 13.3,
+          "y_um": 52.82
+        }
+      ]
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 8,
+      "net_id": 2,
+      "pin_index": 9,
+      "label_positions_um": [
+        {
+          "text": "VDD",
+          "x_um": 1.76,
+          "y_um": 51.82
+        }
+      ]
+    },
+    {
+      "name": "VINN",
+      "pin": true,
+      "device_count": 3,
+      "net_id": 9,
+      "pin_index": 10,
+      "label_positions_um": [
+        {
+          "text": "VINN",
+          "x_um": 22.9,
+          "y_um": 54.82
+        }
+      ]
+    },
+    {
+      "name": "VINP",
+      "pin": true,
+      "device_count": 3,
+      "net_id": 7,
+      "pin_index": 11,
+      "label_positions_um": [
+        {
+          "text": "VINP",
+          "x_um": 10.1,
+          "y_um": 54.32
+        }
+      ]
+    },
+    {
+      "name": "\\$10",
+      "pin": false,
+      "device_count": 4,
+      "net_id": 10,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$11",
+      "pin": false,
+      "device_count": 4,
+      "net_id": 11,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$5",
+      "pin": false,
+      "device_count": 4,
+      "net_id": 5,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$6",
+      "pin": false,
+      "device_count": 12,
+      "net_id": 6,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$8",
+      "pin": false,
+      "device_count": 4,
+      "net_id": 8,
+      "pin_index": null,
+      "label_positions_um": []
+    }
+  ],
+  "warnings": [
+    "promoted 12 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BOOST_N, BOOST_P, BPREF_N, BPREF_P, GND, SAMPLE, TOP_N, TOP_P, VCM, VDD, VINN, VINP -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
+  ],
+  "black_box_regions": [],
+  "abstracted_cells": [],
+  "unmodelled_poly": [],
+  "merged_net_labels": [],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
+  "dead_metal": [],
+  "matched_device_groups": [],
+  "pdk": null,
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:93cc2052dc8e661a8a1012d0e64fecca66ca2ae44258417d6fa46e0e9171b3ca",
+      "role": "layout"
+    }
+  },
+  "parasitics": null,
+  "spef_path": null,
+  "subcircuit": null,
+  "metrics": {
+    "extract__device__count": 24,
+    "extract__net__count": 17,
+    "extract__pin__count": 12
+  }
+}

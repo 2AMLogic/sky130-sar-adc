@@ -1,0 +1,14 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "file": "sampling_frontend_pwells.gds",
+    "deck": "sky130",
+    "top": "gen_compose_0"
+  },
+  "reference": {
+    "netlist": "reference.broken-device.spice",
+    "top": "sampling_frontend_pwells"
+  },
+  "options": { "combine_devices": true }
+}
