@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-21
 
+- **PR #710**: layout: re-run sign-off flows under open_pdks f6eeac7 as new reports
+- **Issue #708** (closed): Re-qualify layout sign-off reports under open_pdks f6eeac7 (#670 split)
 - **PR #530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
 - **PR #703**: Bump Repo Skills 0.24.3 -> 0.24.7
 - **PR #707**: refactor: share Stimulus and Netlist-provenance record bullets via helpers
