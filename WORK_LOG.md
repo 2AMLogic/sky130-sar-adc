@@ -4,6 +4,7 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-21
 
+- **PR #530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
 - **PR #703**: Bump Repo Skills 0.24.3 -> 0.24.7
 
 ### 2026-10-20
