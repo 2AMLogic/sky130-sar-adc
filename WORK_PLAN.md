@@ -54,7 +54,6 @@ Issues carrying `loom:curated`.
 - **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly *(curated)*
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(curated)*
 - **#621**: Coherent-sine capture: root-cause the single +438 LSB outlier (conversion 9) and add a per-code outlier check to the validity gate *(curated)*
-- **#670**: Re-qualify reference records under open_pdks f6eeac7 + supersede c6d73a3 records (#668 phase 2) *(curated)*
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes *(curated)*
 - **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite *(curated)*
 
@@ -64,7 +63,6 @@ Issues carrying `loom:curated`.
 - **#564**: Pilot: express one PVT corner campaign as a klt sim request (first klt sim envelope) *(architect)*
 - **#658**: Refresh stale tracker #23 body to point at signoff/t1-report.json instead of the 2026-08-15 analog/10-item table *(architect)*
 - **#588**: Simplify the Chipalooza proposal citation gate: ~16k lines of checker, tests and rationale guard one prose document *(hermit)*
-- **#705**: Dedup Stimulus/Netlist-provenance prose copied across run_supply_impedance.py record writers *(hermit)*
 
 ## Epics
 
@@ -81,7 +79,7 @@ Issues carrying `loom:curated`.
 | In Progress (`loom:building`) | 2 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 6 |
-| Architect / Hermit proposals | 5 |
+| Curated | 5 |
+| Architect / Hermit proposals | 4 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
