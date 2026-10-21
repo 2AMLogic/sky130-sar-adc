@@ -6,6 +6,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - **PR #530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
 - **PR #703**: Bump Repo Skills 0.24.3 -> 0.24.7
+- **PR #707**: refactor: share Stimulus and Netlist-provenance record bullets via helpers
+- **Issue #705** (closed): Dedup Stimulus/Netlist-provenance prose copied across run_supply_impedance.py record writers
 
 ### 2026-10-20
 
