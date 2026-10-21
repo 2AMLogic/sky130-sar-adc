@@ -1,0 +1,18 @@
+* extracted by klt extract --deck sky130
+
+* cell trivial_mos_array
+* pin vsubs
+.SUBCKT trivial_mos_array vsubs
+* device instance $1 r0 *1 0.56,0.21 nfet
+M$1 \$4 \$17 \$3 vsubs nfet L=0.28U W=0.42U AS=0.1764P AD=0.1764P PS=1.68U
++ PD=1.68U
+* device instance $2 r0 *1 2.08,0.21 nfet
+M$2 \$6 \$18 \$5 vsubs nfet L=0.28U W=0.42U AS=0.1764P AD=0.1764P PS=1.68U
++ PD=1.68U
+* device instance $3 r0 *1 0.56,1.45 nfet
+M$3 \$12 \$19 \$11 vsubs nfet L=0.28U W=0.42U AS=0.1764P AD=0.1764P PS=1.68U
++ PD=1.68U
+* device instance $4 r0 *1 2.08,1.45 nfet
+M$4 \$14 \$20 \$13 vsubs nfet L=0.28U W=0.42U AS=0.1764P AD=0.1764P PS=1.68U
++ PD=1.68U
+.ENDS trivial_mos_array
