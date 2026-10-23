@@ -21,6 +21,12 @@ __pycache__/
 # the two runs it holds is on a testbench-only MODIFIED netlist and must
 # never be read as a ratified-corner result, but it is evidence, not scratch.
 !sim/*/diagnostics/**/*.log
+# Staging tree for runs stored through the fleet artifact store (issue #717,
+# sim/harness/evidence_store.py): bytes are staged here, stored with
+# `klt artifact put`, and never committed; git keeps only the manifest under
+# manifests/artifacts/ and the run's record.
+sim/.work/
+
 # harness scratch: regenerated netlists and generated corner decks. The
 # runners themselves simulate in a TemporaryDirectory and only copy the
 # resulting logs back under sim/<experiment>/, so this only catches

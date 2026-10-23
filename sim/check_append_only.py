@@ -26,6 +26,10 @@ exactly one directory below `sim/`:
     raw logs, frozen decks, JSON yield reports and persisted samples all
     carry evidence.
 
+  * `manifests/artifacts/<name>.manifest.json` (issue #717): the only committed
+    handle on evidence bytes that live in the artifact store, so it may not be
+    edited, deleted or renamed either (`MANIFEST_RE`).
+
 Excluded: `sim/<experiment>/records/LATEST` is a pointer that is meant to move
 (sim/README.md, "The `records/LATEST` pointer"). It is not a `.md` file, so the
 records rule never matches it; it is still listed in `MUTABLE_POINTERS` so
@@ -130,6 +134,9 @@ PROTECTED_ARTIFACT_DIRS = frozenset(
 #: directory.
 MUTABLE_POINTERS = frozenset({"records/LATEST"})
 
+#: Stored-evidence manifests (issue #717), direct children only.
+MANIFEST_RE = re.compile(r"^manifests/artifacts/[^/]+\.manifest\.json$")
+
 #: Statuses whose pre-image path is destroyed or altered by the change.
 REJECTED_STATUSES = frozenset({"M", "D", "R", "T"})
 #: Statuses that leave every pre-existing path intact.
@@ -155,6 +162,8 @@ _ZERO_SHA = re.compile(r"^0+$")
 
 def is_protected(path: str) -> bool:
     """Whether a repository-relative, `/`-separated path is protected evidence."""
+    if MANIFEST_RE.match(path):
+        return True
     parts = path.split("/")
     if len(parts) < 4 or parts[0] != SIM_DIR:
         return False

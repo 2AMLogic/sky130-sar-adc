@@ -55,6 +55,7 @@ PROTECTED_SAMPLES = {
     "yield-reports": "sim/exp-a/yield-reports/20260101-000000-abc1234/yield.json",
     "yield-samples": "sim/exp-a/yield-reports/20260101-000000-abc1234/samples.json",
     "artifact-LATEST": "sim/exp-a/corners/LATEST",
+    "artifact-manifest": "manifests/artifacts/exp-a-20260101-000000-abc1234.manifest.json",
 }
 
 #: Paths that must stay editable: the mutable pointer, experiment sources,
