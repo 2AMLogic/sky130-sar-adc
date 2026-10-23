@@ -5,6 +5,7 @@
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
+- **#681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
 - **#683**: feat: digital partition STA and functional-verification evidence for T1 item 5
 
 ## Very Important
@@ -32,13 +33,12 @@ Issues currently being built (`loom:building`).
 
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
 - **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite
-- **#717**: Adopt the common artifact store for sim evidence (manifests in git, bytes via klt artifact)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#718**: feat: store new corner-run evidence via klt artifact, commit only manifests
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -56,7 +56,6 @@ Issues carrying `loom:curated`.
 - **#621**: Coherent-sine capture: root-cause the single +438 LSB outlier (conversion 9) and add a per-code outlier check to the validity gate *(curated)*
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes *(curated)*
 - **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite *(curated)*
-- **#717**: Adopt the common artifact store for sim evidence (manifests in git, bytes via klt artifact) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -73,14 +72,14 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 2 |
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 1 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 6 |
+| Curated | 5 |
 | Architect / Hermit proposals | 4 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->

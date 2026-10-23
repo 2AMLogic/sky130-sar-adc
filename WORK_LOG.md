@@ -2,6 +2,11 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-23
+
+- **PR #718**: feat: store new corner-run evidence via klt artifact, commit only manifests
+- **Issue #717** (closed): Adopt the common artifact store for sim evidence (manifests in git, bytes via klt artifact)
+
 ### 2026-10-21
 
 - **PR #710**: layout: re-run sign-off flows under open_pdks f6eeac7 as new reports
