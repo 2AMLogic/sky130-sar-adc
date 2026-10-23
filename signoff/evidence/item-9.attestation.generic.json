@@ -8,7 +8,7 @@
   "provenance": {
     "input": {
       "path": "signoff/attest/item-9.inventory.json",
-      "content_hash": "sha256:19c7090c1b8eea54bae65fad6d2958573192d4378af9f8873bb160b082aa6622"
+      "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4"
     }
   },
   "checks": [
@@ -98,7 +98,7 @@
       "executed": true,
       "value": {
         "name": "sky130A",
-        "revision": "c6d73a35f524070e85faff4a6a9eef49553ebc2b"
+        "revision": "f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
       }
     },
     {

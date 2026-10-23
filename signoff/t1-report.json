@@ -440,13 +440,13 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:19c7090c1b8eea54bae65fad6d2958573192d4378af9f8873bb160b082aa6622",
+        "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
           "t1_item": 9,
           "path": "signoff/attest/item-9.inventory.json",
-          "content_hash": "sha256:19c7090c1b8eea54bae65fad6d2958573192d4378af9f8873bb160b082aa6622",
+          "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
           "input_verified": true,
           "summary": "Testbenches shipped: 9 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
           "source": "signoff/attest/item-9.inventory.json"
@@ -469,13 +469,13 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:19c7090c1b8eea54bae65fad6d2958573192d4378af9f8873bb160b082aa6622",
+        "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
           "t1_item": 9,
           "path": "signoff/attest/item-9.inventory.json",
-          "content_hash": "sha256:19c7090c1b8eea54bae65fad6d2958573192d4378af9f8873bb160b082aa6622",
+          "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
           "input_verified": true,
           "summary": "Testbenches shipped: 9 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
           "source": "signoff/attest/item-9.inventory.json"
