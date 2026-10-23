@@ -1,0 +1,1232 @@
+{
+  "schema_version": 1,
+  "engine": "openroad",
+  "engine_version": "26Q3-1510-g6cb3f2b704",
+  "engine_logs": [
+    {
+      "invocation_id": "a68ad6b8be084daab9b52d034637801d",
+      "script_name": "pnr_top_glue_floorplan.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_floorplan.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "bf2634053c03afab7a1ccd53f2542160ea827ae8d37614d6594b83350e037a33",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_floorplan_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a68ad6b8be084daab9b52d034637801d",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a68ad6b8be084daab9b52d034637801d/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a68ad6b8be084daab9b52d034637801d/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a68ad6b8be084daab9b52d034637801d/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "3463e066597f47ea8ddd95a6d2d97856",
+      "script_name": "pnr_top_glue_place.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_place.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "480fab465ae08d94e48ab2b95117c3d82cf26009ad7d01200e9539b2392b993d",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_place_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/3463e066597f47ea8ddd95a6d2d97856",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/3463e066597f47ea8ddd95a6d2d97856/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/3463e066597f47ea8ddd95a6d2d97856/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/3463e066597f47ea8ddd95a6d2d97856/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "0f92134f52ac4863915e7dc771f3a24d",
+      "script_name": "pnr_top_glue_cts.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_cts.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "1471705a4047b02e102e90a30df315218a91ee4d1818391ba96fbbbb5dfb7b6a",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_cts_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f92134f52ac4863915e7dc771f3a24d",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f92134f52ac4863915e7dc771f3a24d/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f92134f52ac4863915e7dc771f3a24d/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f92134f52ac4863915e7dc771f3a24d/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "70d6587725204dd1be4ac98fcc7d0780",
+      "script_name": "pnr_top_glue_route.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "fe3cbac830fc515025cc2146f9f4d039f335ec575099c77e4b8af256ba5c7613",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/70d6587725204dd1be4ac98fcc7d0780",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/70d6587725204dd1be4ac98fcc7d0780/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/70d6587725204dd1be4ac98fcc7d0780/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/70d6587725204dd1be4ac98fcc7d0780/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "8449430795ad41dcab8911d887fe1025",
+      "script_name": "pnr_top_glue_route_corners.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corners.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "f35ded317aa6498eacbda70c6ae5aafb612c4650e7210ae2c54ec99ffa50d398",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corners_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/8449430795ad41dcab8911d887fe1025",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/8449430795ad41dcab8911d887fe1025/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/8449430795ad41dcab8911d887fe1025/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/8449430795ad41dcab8911d887fe1025/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "1eb3d333bf3243acad1e151778744f8b",
+      "script_name": "pnr_top_glue_route_corner_ff_100C_1v65.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ff_100C_1v65.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "d88b8031a3d2efe142a2d70a1ac12add4084cf6451f6d6c7e0ebf3bafd4a96a0",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ff_100C_1v65_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1eb3d333bf3243acad1e151778744f8b",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1eb3d333bf3243acad1e151778744f8b/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1eb3d333bf3243acad1e151778744f8b/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1eb3d333bf3243acad1e151778744f8b/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "a28d5e963e844816924a763dbc2383c8",
+      "script_name": "pnr_top_glue_route_corner_ff_100C_1v95.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ff_100C_1v95.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "1cb017c525ff309dec10beac6a3b4b2eae8c2e8393b76aef9e10664e13fe3ca8",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ff_100C_1v95_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a28d5e963e844816924a763dbc2383c8",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a28d5e963e844816924a763dbc2383c8/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a28d5e963e844816924a763dbc2383c8/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a28d5e963e844816924a763dbc2383c8/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "a09744a4e2b84e4da5a3162d31c363b1",
+      "script_name": "pnr_top_glue_route_corner_ff_n40C_1v56.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ff_n40C_1v56.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "dd50a442cafe8f0f761316f888918530eeb28a820e84de36524febf42c66bcd7",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ff_n40C_1v56_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a09744a4e2b84e4da5a3162d31c363b1",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a09744a4e2b84e4da5a3162d31c363b1/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a09744a4e2b84e4da5a3162d31c363b1/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a09744a4e2b84e4da5a3162d31c363b1/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "2413f0f49b93424a91f4598245bccf7e",
+      "script_name": "pnr_top_glue_route_corner_ff_n40C_1v65.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ff_n40C_1v65.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "edec4d191882d4bb3f4a06120be229867d6a4cb307758f4ade2a5d88e6679474",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ff_n40C_1v65_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/2413f0f49b93424a91f4598245bccf7e",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/2413f0f49b93424a91f4598245bccf7e/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/2413f0f49b93424a91f4598245bccf7e/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/2413f0f49b93424a91f4598245bccf7e/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "cc4b4b3121d146babebf37be7644e2a3",
+      "script_name": "pnr_top_glue_route_corner_ff_n40C_1v76.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ff_n40C_1v76.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "46ac7c3378a41dd55b88eb023df7ad96d21253f1f8c8bd8c6eedc6e13acd7f80",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ff_n40C_1v76_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/cc4b4b3121d146babebf37be7644e2a3",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/cc4b4b3121d146babebf37be7644e2a3/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/cc4b4b3121d146babebf37be7644e2a3/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/cc4b4b3121d146babebf37be7644e2a3/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "ebfb59cba12f4ae59e46a6b592f0ed74",
+      "script_name": "pnr_top_glue_route_corner_ff_n40C_1v95.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ff_n40C_1v95.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "85c6de6aa47379ee791d4c2f254d842b9c4365c2d0b1175dc23084453f4b1516",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ff_n40C_1v95_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/ebfb59cba12f4ae59e46a6b592f0ed74",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/ebfb59cba12f4ae59e46a6b592f0ed74/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/ebfb59cba12f4ae59e46a6b592f0ed74/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/ebfb59cba12f4ae59e46a6b592f0ed74/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "c6a5268c23c345eead108f40da727bd8",
+      "script_name": "pnr_top_glue_route_corner_ss_100C_1v40.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_100C_1v40.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "cb66d49dca2c0c7b5734764f2a96518b8f4a61644a96f4b8e7f3a8a6bcbd96b2",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_100C_1v40_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/c6a5268c23c345eead108f40da727bd8",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/c6a5268c23c345eead108f40da727bd8/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/c6a5268c23c345eead108f40da727bd8/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/c6a5268c23c345eead108f40da727bd8/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "bbe24dcd797244c8bc2348b33d5a1fce",
+      "script_name": "pnr_top_glue_route_corner_ss_100C_1v60.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_100C_1v60.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "801ace188b493a0055fc9e94fa8c345483591a81c2de859bae925a7e9b4cd384",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_100C_1v60_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/bbe24dcd797244c8bc2348b33d5a1fce",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/bbe24dcd797244c8bc2348b33d5a1fce/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/bbe24dcd797244c8bc2348b33d5a1fce/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/bbe24dcd797244c8bc2348b33d5a1fce/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "e75c22f123dd4cc6a44b029db51ea1db",
+      "script_name": "pnr_top_glue_route_corner_ss_n40C_1v28.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_n40C_1v28.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "1f6df3771f6ed4833b2b3aec73cdd4f6d58b4bbc3930ff89acc0caca2bb079ef",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_n40C_1v28_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/e75c22f123dd4cc6a44b029db51ea1db",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/e75c22f123dd4cc6a44b029db51ea1db/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/e75c22f123dd4cc6a44b029db51ea1db/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/e75c22f123dd4cc6a44b029db51ea1db/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "668cf93ea14142f7898d5915ed2d03f1",
+      "script_name": "pnr_top_glue_route_corner_ss_n40C_1v35.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_n40C_1v35.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "97afd3f0ef4b79d90217900267303d001aa17f20d6179ba9beaeb8c318022ac2",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_n40C_1v35_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/668cf93ea14142f7898d5915ed2d03f1",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/668cf93ea14142f7898d5915ed2d03f1/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/668cf93ea14142f7898d5915ed2d03f1/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/668cf93ea14142f7898d5915ed2d03f1/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "0f940f728dd34ef084cfc0b19c586ff9",
+      "script_name": "pnr_top_glue_route_corner_ss_n40C_1v40.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_n40C_1v40.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "ee58d4e882bb6363e43620fa0f9635afb3796d3e9890f90bd38720bf4bc0af30",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_n40C_1v40_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f940f728dd34ef084cfc0b19c586ff9",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f940f728dd34ef084cfc0b19c586ff9/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f940f728dd34ef084cfc0b19c586ff9/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/0f940f728dd34ef084cfc0b19c586ff9/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "231edc02a04e41c68fb7656d4f228bd9",
+      "script_name": "pnr_top_glue_route_corner_ss_n40C_1v44.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_n40C_1v44.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "0de11406773b638aba9b378f50853ef5ee50ba511818bd4c96417aebefa30fc1",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_n40C_1v44_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/231edc02a04e41c68fb7656d4f228bd9",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/231edc02a04e41c68fb7656d4f228bd9/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/231edc02a04e41c68fb7656d4f228bd9/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/231edc02a04e41c68fb7656d4f228bd9/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "a5fc2e409eee4f7ea2365a739017b07e",
+      "script_name": "pnr_top_glue_route_corner_ss_n40C_1v60.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_n40C_1v60.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "93cddac6f6a4dc6c33cdfe5baf52b1e3cb67ebe3230635e81d7f4d1dbf3be7b9",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_n40C_1v60_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a5fc2e409eee4f7ea2365a739017b07e",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a5fc2e409eee4f7ea2365a739017b07e/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a5fc2e409eee4f7ea2365a739017b07e/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/a5fc2e409eee4f7ea2365a739017b07e/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "1a276e67d7d24f348fcf542f14016f78",
+      "script_name": "pnr_top_glue_route_corner_ss_n40C_1v76.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_ss_n40C_1v76.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "3a5d007eea1c4725945894406d3e5ed2abbac8da4cdf243aaa1526e1809a4e42",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_ss_n40C_1v76_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1a276e67d7d24f348fcf542f14016f78",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1a276e67d7d24f348fcf542f14016f78/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1a276e67d7d24f348fcf542f14016f78/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/1a276e67d7d24f348fcf542f14016f78/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "caeb5abe2e9346e0b9d30e1183019bb7",
+      "script_name": "pnr_top_glue_route_corner_tt_025C_1v80.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_tt_025C_1v80.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "f5cd2cce855872dc7d00df958d1ab8cab8076578404732d5107fcdd6ed47ea77",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_tt_025C_1v80_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/caeb5abe2e9346e0b9d30e1183019bb7",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/caeb5abe2e9346e0b9d30e1183019bb7/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/caeb5abe2e9346e0b9d30e1183019bb7/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/caeb5abe2e9346e0b9d30e1183019bb7/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    },
+    {
+      "invocation_id": "fbfd8d9e1dd74dd8a5f7965454163633",
+      "script_name": "pnr_top_glue_route_corner_tt_100C_1v80.tcl",
+      "script_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/pnr_top_glue_route_corner_tt_100C_1v80.tcl",
+        "scope": "repo"
+      },
+      "script_sha256": "37ce61744331a900e226a2deaa14d0b54999cf52482b93f69dda5944817ad44c",
+      "metrics_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue_route_corner_tt_100C_1v80_metrics.json",
+        "scope": "repo"
+      },
+      "outcome": "exited",
+      "returncode": 0,
+      "directory": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/fbfd8d9e1dd74dd8a5f7965454163633",
+        "scope": "repo"
+      },
+      "stdout_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/fbfd8d9e1dd74dd8a5f7965454163633/stdout.log",
+        "scope": "repo"
+      },
+      "stderr_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/fbfd8d9e1dd74dd8a5f7965454163633/stderr.log",
+        "scope": "repo"
+      },
+      "metadata_path": {
+        "path": "layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/openroad-logs/fbfd8d9e1dd74dd8a5f7965454163633/invocation.json",
+        "scope": "repo"
+      },
+      "retention_errors": []
+    }
+  ],
+  "hdl_toplevel": "top_glue",
+  "status": "ok",
+  "stage_reached": "route",
+  "seed": 1,
+  "interconnect_corner": "nom",
+  "die_area_um2": 5163.14,
+  "core_area_um2": 4384.2,
+  "utilization_pct": 6.7352,
+  "wirelength_um": 995,
+  "worst_slack_ns": 1e+39,
+  "total_negative_slack_ns": 0,
+  "fmax_mhz": 1724.7,
+  "setup_violation_count": 0,
+  "hold_violation_count": 0,
+  "nominal_hold_slack_ns": 1e+39,
+  "antenna_violation_count": 0,
+  "route_drc_violation_count": 0,
+  "estimated_power_mw": 0.0001,
+  "clock_skew_ns": 0,
+  "worst_setup_slack_ns": 1e+39,
+  "worst_hold_slack_ns": 1e+39,
+  "corners": [
+    {
+      "name": "ff_100C_1v65",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ff_100C_1v95",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ff_n40C_1v56",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ff_n40C_1v65",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ff_n40C_1v76",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ff_n40C_1v95",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_100C_1v40",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_100C_1v60",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_n40C_1v28",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_n40C_1v35",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_n40C_1v40",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_n40C_1v44",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_n40C_1v60",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "ss_n40C_1v76",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "tt_025C_1v80",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    },
+    {
+      "name": "tt_100C_1v80",
+      "setup_slack_ns": 1e+39,
+      "hold_slack_ns": 1e+39,
+      "total_negative_setup_slack_ns": 0,
+      "total_negative_hold_slack_ns": 0,
+      "timing_status": "unconstrained",
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0
+    }
+  ],
+  "max_transition_violation_count": 0,
+  "max_capacitance_violation_count": 0,
+  "timing_status": "unconstrained",
+  "stages": [
+    {
+      "name": "floorplan",
+      "die_area_um2": 5163.14,
+      "core_area_um2": 4384.2,
+      "utilization_pct": 6.7352,
+      "worst_slack_ns": 1e+39,
+      "total_negative_slack_ns": 0,
+      "timing_status": "unconstrained"
+    },
+    {
+      "name": "place",
+      "die_area_um2": 5163.14,
+      "core_area_um2": 4384.2,
+      "utilization_pct": 6.7352,
+      "worst_slack_ns": 1e+39,
+      "total_negative_slack_ns": 0,
+      "wirelength_um": 859.569,
+      "fmax_mhz": 1893.42,
+      "estimated_power_mw": 0.0001,
+      "setup_violation_count": 0,
+      "hold_violation_count": 0,
+      "nominal_hold_slack_ns": 1e+39,
+      "timing_status": "unconstrained"
+    },
+    {
+      "name": "cts",
+      "die_area_um2": 5163.14,
+      "core_area_um2": 4384.2,
+      "utilization_pct": 6.7352,
+      "worst_slack_ns": 1e+39,
+      "total_negative_slack_ns": 0,
+      "wirelength_um": 859.569,
+      "fmax_mhz": 1845.23,
+      "estimated_power_mw": 0.0001,
+      "clock_skew_ns": 0,
+      "setup_violation_count": 0,
+      "hold_violation_count": 0,
+      "nominal_hold_slack_ns": 1e+39,
+      "timing_status": "unconstrained"
+    },
+    {
+      "name": "route",
+      "die_area_um2": 5163.14,
+      "core_area_um2": 4384.2,
+      "utilization_pct": 6.7352,
+      "worst_slack_ns": 1e+39,
+      "total_negative_slack_ns": 0,
+      "wirelength_um": 995,
+      "fmax_mhz": 1724.7,
+      "estimated_power_mw": 0.0001,
+      "clock_skew_ns": 0,
+      "setup_violation_count": 0,
+      "hold_violation_count": 0,
+      "nominal_hold_slack_ns": 1e+39,
+      "antenna_violation_count": 0,
+      "route_drc_violation_count": 0,
+      "worst_setup_slack_ns": 1e+39,
+      "worst_hold_slack_ns": 1e+39,
+      "corners": [
+        {
+          "name": "ff_100C_1v65",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ff_100C_1v95",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ff_n40C_1v56",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ff_n40C_1v65",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ff_n40C_1v76",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ff_n40C_1v95",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_100C_1v40",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_100C_1v60",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_n40C_1v28",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_n40C_1v35",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_n40C_1v40",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_n40C_1v44",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_n40C_1v60",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "ss_n40C_1v76",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "tt_025C_1v80",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        },
+        {
+          "name": "tt_100C_1v80",
+          "setup_slack_ns": 1e+39,
+          "hold_slack_ns": 1e+39,
+          "total_negative_setup_slack_ns": 0,
+          "total_negative_hold_slack_ns": 0,
+          "timing_status": "unconstrained",
+          "max_transition_violation_count": 0,
+          "max_capacitance_violation_count": 0
+        }
+      ],
+      "max_transition_violation_count": 0,
+      "max_capacitance_violation_count": 0,
+      "timing_status": "unconstrained"
+    }
+  ],
+  "macros": [],
+  "def_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-708/layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue.def",
+  "unrouted_def_path": null,
+  "gds_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-708/layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue.gds",
+  "layer_map": {
+    "path": "/home/ubuntu/.ciel/sky130A/libs.tech/klayout/tech/sky130A.map",
+    "resolution": "exact"
+  },
+  "def_net_names": {
+    "single_pin_markers": 0,
+    "unresolved_single_pin_nets": []
+  },
+  "min_area_repair": {
+    "status": "clean",
+    "reason": null,
+    "patches": 0,
+    "repaired": 0,
+    "remaining": 0,
+    "rules": [],
+    "unrepaired": []
+  },
+  "verilog_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-708/layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue.v",
+  "spef_sta": null,
+  "power": {
+    "preset": null,
+    "pdn": true,
+    "global_connect": true,
+    "power_net": "VPWR",
+    "ground_net": "VGND",
+    "tapcell_master": "sky130_fd_sc_hd__tapvpwrvgnd_1",
+    "endcap_master": null,
+    "filler_masters": [
+      "sky130_fd_sc_hd__fill_1",
+      "sky130_fd_sc_hd__fill_2",
+      "sky130_fd_sc_hd__fill_4",
+      "sky130_fd_sc_hd__fill_8"
+    ],
+    "straps": [
+      {
+        "layer": "met1",
+        "spacing_um": null
+      },
+      {
+        "layer": "met4",
+        "spacing_um": null
+      },
+      {
+        "layer": "met5",
+        "spacing_um": null
+      }
+    ],
+    "connects": [
+      {
+        "layers": [
+          "met1",
+          "met4"
+        ],
+        "max_columns": null,
+        "ongrid": null,
+        "split_cuts": null
+      },
+      {
+        "layers": [
+          "met4",
+          "met5"
+        ],
+        "max_columns": null,
+        "ongrid": null,
+        "split_cuts": null
+      }
+    ],
+    "row_rail": {
+      "emitted": false,
+      "layer": null,
+      "power_net": null,
+      "ground_net": null,
+      "filler_masters": []
+    },
+    "placed": {
+      "evidence": "def",
+      "def_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-708/layout/top-glue/reports/20261021-104637-ddc1d72/.klt/place-and-route/top_glue.def",
+      "unavailable_reason": null,
+      "status": "complete",
+      "missing": [],
+      "components": 613,
+      "tapcells": 52,
+      "endcaps": 0,
+      "fillers": 528,
+      "special_nets": [
+        {
+          "name": "VGND",
+          "use": "GROUND",
+          "followpin_segments": 13,
+          "stripe_segments": 86,
+          "other_segments": 52,
+          "stripe_layers": [
+            "met5",
+            "met4",
+            "met3",
+            "met2",
+            "met1"
+          ],
+          "vias": 82
+        },
+        {
+          "name": "VPWR",
+          "use": "POWER",
+          "followpin_segments": 12,
+          "stripe_segments": 80,
+          "other_segments": 48,
+          "stripe_layers": [
+            "met5",
+            "met4",
+            "met3",
+            "met2",
+            "met1"
+          ],
+          "vias": 76
+        }
+      ]
+    }
+  },
+  "warnings": [],
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "search root: ~/.ciel",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+    },
+    "deck": {
+      "name": "sky130_fd_sc_hd__tt_025C_1v80",
+      "content_hash": "sha256:8e78e14442062dba34d414fca6490b2f6b96038d4510d1438ca44fee31487135",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:490e87fae9414c19252a454ab021cbff7c6b3a8081ebd7a465941c33751718e1",
+      "role": "netlist"
+    }
+  }
+}

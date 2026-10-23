@@ -10,7 +10,7 @@
 #   layout/comparator/bin/run-flow.sh   # ~1 minute
 #
 # Requires: layout/.venv (see setup-venv.sh) and a resolvable sky130A PDK
-# install (same pin as sim/pdk.json; `volare enable --pdk sky130 <sha>`).
+# install (same pin as sim/pdk.json; `ciel enable --pdk-family sky130 <sha>`).
 #
 # Flow:
 #   1. `klt gen` x6      -- one matched device/pair block per schematic device

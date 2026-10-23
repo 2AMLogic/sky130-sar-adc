@@ -5969,6 +5969,13 @@ class TestSweepCensus(unittest.TestCase):
         self.assertEqual(len(misses), 1, misses)
         self.assertIn("20260101-000000-0000000", misses[0])
         self.assertIn("20260926-101010-abcdef0", misses[0])
+        # The listed-names clause is pinned whole: its verb is this check's own.
+        self.assertIn(
+            "the sweep census names `20260101-000000-0000000` as carrying the box, "
+            f"but `sim/{checker.ARM_CAMPAIGN}/records/` holds `20260926-101010-abcdef0`"
+            " -- restate the clause from `--stats`; naming the wrong record ",
+            misses[0],
+        )
 
     def test_covered_is_the_largest_box_not_the_sum(self):
         """Two records of the same box are two runs of one experiment."""
@@ -6159,6 +6166,13 @@ class TestNullSweepCensus(unittest.TestCase):
         self.assertEqual(len(misses), 1, misses)
         self.assertIn("20260101-000000-0000000", misses[0])
         self.assertIn("20260926-101010-abcdef0", misses[0])
+        # The listed-names clause is pinned whole: its verb is this check's own.
+        self.assertIn(
+            "the ladder census names `20260101-000000-0000000` as carrying the ladder, "
+            f"but `sim/{checker.ARM_CAMPAIGN}/records/` holds `20260926-101010-abcdef0`"
+            " -- restate the clause from `--stats`; naming the wrong record ",
+            misses[0],
+        )
 
     def test_covered_is_the_longest_ladder_not_the_sum(self):
         """Two records of the same ladder are two runs of one experiment."""

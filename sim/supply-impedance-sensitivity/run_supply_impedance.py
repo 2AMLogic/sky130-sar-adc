@@ -1558,7 +1558,7 @@ def _cache_identity(deck: str, pdk_info: pdk.PdkInfo) -> dict | None:
     `pdk.resolved_commit()`: the latter is a *display* string whose own
     docstring forbids treating it as proof of the install's provenance,
     because for any non-volare install it falls back to the expected pin
-    annotated "(unverified -- non-volare layout)". `toolchain.check_env()`
+    annotated "(unverified -- no SOURCES file or volare layout)". `toolchain.check_env()`
     treats a non-volare install as a warning rather than a failure, so that
     fallback is reachable in a real run -- and it is a *constant*: two
     genuinely different hand-installed model libraries produce the identical
@@ -1997,6 +1997,41 @@ def invocation_line(
     return " ".join(parts)
 
 
+def _stimulus_bullet() -> str:
+    """The `Stimulus` header bullet shared by all four record writers."""
+    return (
+        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
+        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
+        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
+        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
+        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
+        "the remaining five carrying DC differential inputs of "
+        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
+        + "."
+    )
+
+
+def _provenance_bullet(rewire_scope: str = "") -> str:
+    """The two-transformation `Netlist provenance` header bullet.
+
+    `rewire_scope` is an optional phrase (leading space included) that narrows
+    where the source cards are re-pointed; `write_record()` passes one because
+    only some of its arms bond the supplies through an impedance. The
+    three-transformation decap-ESR text and the midscale-probe text make
+    different claims and stay inline in their writers.
+    """
+    return (
+        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with two "
+        "TESTBENCH-ONLY transformations that are never written back to `design/`: "
+        "the DUT's `GND` net is renamed `GND_DIE` (a net named `GND` is ngspice's "
+        "global node 0 and would short out every series element this campaign "
+        "inserts), and the committed fragment's `VVDD`/`VVPWR`/`VVGND` source "
+        f"cards are re-pointed to board-side nodes{rewire_scope}. Source instance "
+        "names, the `.tran` card, the clock/reset/input schedule and every code and "
+        "phase `.meas` card are used verbatim."
+    )
+
+
 def _open_corners_record(
     points: list[dict], dut_netlist_text: str
 ) -> tuple[evidence.ProvenanceInfo, list[str], list[str], list[str], list[float], list[float]]:
@@ -2055,17 +2090,7 @@ def write_record(
         "a ratified line. What it measures is a DIFFERENCE: the same stimulus, "
         f"the same DUT, {len(arms_run)} supply-return networks."
     )
-    a(
-        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with two "
-        "TESTBENCH-ONLY transformations that are never written back to `design/`: "
-        "the DUT's `GND` net is renamed `GND_DIE` (a net named `GND` is ngspice's "
-        "global node 0 and would short out every series element this campaign "
-        "inserts), and the committed fragment's `VVDD`/`VVPWR`/`VVGND` source "
-        "cards are re-pointed to board-side nodes on the arms that bond them "
-        "through an impedance. Source instance names, the `.tran` card, the "
-        "clock/reset/input schedule and every code and phase `.meas` card are "
-        "used verbatim."
-    )
+    a(_provenance_bullet(" on the arms that bond them through an impedance"))
     a(corners_mod.corner_matrix_summary_line(processes, temps, supplies, len(corner_ids)))
     a(
         f"- **Arms**: {len(arms_run)} supply-return networks "
@@ -2074,16 +2099,7 @@ def write_record(
         f"`{CONTROL_ARM}` is the control: it is exactly what every existing "
         "`sim/` campaign runs today."
     )
-    a(
-        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
-        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
-        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
-        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
-        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
-        "the remaining five carrying DC differential inputs of "
-        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
-        + "."
-    )
+    a(_stimulus_bullet())
     a("")
 
     a("## The package-style assumption (DR-015)")
@@ -2940,16 +2956,7 @@ def write_sweep_record(
         "existing answer MOVES as DR-015's two assumed magnitudes are walked "
         "away from, on the as-built supply-return network."
     )
-    a(
-        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with two "
-        "TESTBENCH-ONLY transformations that are never written back to `design/`: "
-        "the DUT's `GND` net is renamed `GND_DIE` (a net named `GND` is ngspice's "
-        "global node 0 and would short out every series element this campaign "
-        "inserts), and the committed fragment's `VVDD`/`VVPWR`/`VVGND` source "
-        "cards are re-pointed to board-side nodes. Source instance names, the "
-        "`.tran` card, the clock/reset/input schedule and every code and phase "
-        "`.meas` card are used verbatim."
-    )
+    a(_provenance_bullet())
     a(corners_mod.corner_matrix_summary_line(processes, temps, supplies, len(corner_ids)))
     a(
         f"- **Grid**: {len(l_mults)} bond-inductance multipliers x "
@@ -2959,16 +2966,7 @@ def write_sweep_record(
         f"as-built `{SWEEP_BASE_ARM}` topology (all four supply terminals bonded, "
         "DR-012's chosen shape) with exactly those two elements moved."
     )
-    a(
-        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
-        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
-        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
-        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
-        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
-        "the remaining five carrying DC differential inputs of "
-        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
-        + "."
-    )
+    a(_stimulus_bullet())
     a("")
 
     a("## Why this record exists")
@@ -3397,16 +3395,7 @@ def write_null_sweep_record(
         "with a large one it looks fatal\". It edits no spec row, proposes no power "
         "target, and grades nothing against a ratified line."
     )
-    a(
-        "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`), with two "
-        "TESTBENCH-ONLY transformations that are never written back to `design/`: "
-        "the DUT's `GND` net is renamed `GND_DIE` (a net named `GND` is ngspice's "
-        "global node 0 and would short out every series element this campaign "
-        "inserts), and the committed fragment's `VVDD`/`VVPWR`/`VVGND` source "
-        "cards are re-pointed to board-side nodes. Source instance names, the "
-        "`.tran` card, the clock/reset/input schedule and every code and phase "
-        "`.meas` card are used verbatim."
-    )
+    a(_provenance_bullet())
     a(corners_mod.corner_matrix_summary_line(processes, temps, supplies, len(corner_ids)))
     a(
         f"- **Ladder**: {len(swept)} substrate-return resistances plus the "
@@ -3415,16 +3404,7 @@ def write_null_sweep_record(
         f"`{NULL_SWEEP_BASE_ARM}` topology (`GND` unbonded; `VDD`/`VPWR`/`VGND` at "
         "DR-015's R+L) with exactly one element moved."
     )
-    a(
-        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
-        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
-        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
-        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
-        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
-        "the remaining five carrying DC differential inputs of "
-        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
-        + "."
-    )
+    a(_stimulus_bullet())
     a("")
 
     a("## Why this record exists")
@@ -4867,16 +4847,7 @@ def write_decap_esr_record(
         f"Every rung is the as-built `{DECAP_ESR_BASE_ARM}` topology with exactly "
         "those four resistors moved."
     )
-    a(
-        "- **Stimulus**: `sim/full-conversion-transient/testbench/"
-        "full_conversion_tb_fragment.spice`, unmodified except for the supply "
-        f"source cards' nodes -- `f_clk = {tb.F_CLK_HZ / 1e6:g} MHz` (DR-006 worst "
-        f"case), {tb.N_CONVERSIONS} back-to-back conversions of "
-        f"{tb.PHASES_PER_CONVERSION} CLK periods, the first discarded as start-up, "
-        "the remaining five carrying DC differential inputs of "
-        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
-        + "."
-    )
+    a(_stimulus_bullet())
     a("")
 
     a("## Why this record exists")

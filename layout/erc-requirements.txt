@@ -1,0 +1,20 @@
+# Pinned klayout-tools (`klt`) install for the item-11 `klt erc` run only
+# (layout/sar-adc-top/bin/run-erc.sh), issue #685.
+#
+# Deliberately NOT layout/requirements.txt's pin (0.6.0 there, 0.7.0 here). The
+# DRC/LVS pin MINTS the layout evidence and only moves with a full re-run of
+# every layout/ flow; docs/klt-0.7.0-evaluation/note-20261012.md (issue #649)
+# found that 0.7.0's DRC deck reports violations on the cited top-level stream
+# where 0.6.0 reports clean, so that pin cannot move until that is triaged. The
+# ERC run reads a GDS and a JSON spec only (no PDK install, no DRC deck, no
+# extraction), so it can take 0.7.0 on its own. This is the same split this repo
+# had before #648 retired the previous erc-requirements.txt.
+#
+# Why 0.7.0: it carries the well-side class selector `ties[].well_requires` /
+# `well_excludes` (klayout-tools#2339, PR #2375; tag v0.7.0 is later than
+# v0.6.0), which lets the two n-well `ties[]` entries each grade only their own
+# rail's wells (issue #685). 0.6.0 has no such key.
+#
+# `klayout` is pinned to the same version as layout/requirements.txt.
+klayout-tools==0.7.0
+klayout==0.30.12

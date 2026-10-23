@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import corners as corners_mod
-from . import evidence, measure, pdk, testbench, toolchain
+from . import evidence, evidence_store, measure, pdk, testbench, toolchain
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 
@@ -183,24 +183,44 @@ def run(
 
 
 def write_evidence(
-    result: RunResult, axis_spreads: dict, note: str = "", supersedes: str = ""
+    result: RunResult,
+    axis_spreads: dict,
+    note: str = "",
+    supersedes: str = "",
+    store: bool = False,
 ) -> Path:
+    """Write the run's evidence record. With `store=True` (issue #717) the raw
+    logs and netlist snapshot are staged under the git-ignored `sim/.work/`,
+    stored with `klt artifact put`, and only the manifest under
+    `manifests/artifacts/` plus the record are written; any failure raises
+    evidence_store.StoreError with nothing written under `manifests/` or `sim/`
+    (the staged bytes stay in `sim/.work/`)."""
     manifest = result.manifest
     experiment_dir = manifest.experiment_dir
+    rid = result.record_id
 
     # Persist the logs already captured by run() -- no need to re-invoke
     # ngspice a second time (each sky130-library invocation costs ~15-20s on
     # this toolchain; doubling it here for a --record run would be wasteful
     # and could theoretically diverge from what was just evaluated).
-    corners_dir = experiment_dir / "corners" / result.record_id
-    corners_dir.mkdir(parents=True, exist_ok=True)
     info = pdk.resolve()
+    if store:
+        stage = SIM_DIR / ".work" / experiment_dir.name / rid
+        corners_dir = stage / "corners" / rid
+        corners_dir.mkdir(parents=True, exist_ok=True)
+        (stage / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
+        (stage / "netlist-snapshots" / f"{rid}.spice").write_text(
+            manifest.netlist_fragment.read_text()
+        )
+        record_path = experiment_dir / "records" / f"{rid}.md"
+    else:
+        corners_dir = experiment_dir / "corners" / rid
+        corners_dir.mkdir(parents=True, exist_ok=True)
+        record_path = evidence.write_netlist_snapshot(
+            experiment_dir, rid, manifest.netlist_fragment
+        )
     for p in result.points:
         (corners_dir / f"{p.corner_id}.log").write_text(p.log_text)
-
-    record_path = evidence.write_netlist_snapshot(
-        experiment_dir, result.record_id, manifest.netlist_fragment
-    )
 
     lines: list[str] = []
     a = lines.append
@@ -248,6 +268,23 @@ def write_evidence(
     ))
     a("")
     lines.extend(evidence.footer_lines("sim/run_corners.py", supersedes))
+
+    if store:
+        rel = experiment_dir.relative_to(evidence.REPO_ROOT).as_posix()
+        files = [
+            (f, f"{rel}/{f.relative_to(stage).as_posix()}")
+            for f in sorted(stage.rglob("*"))
+            if f.is_file()
+        ]
+        evidence_store.store_files(
+            files,
+            repo_root=evidence.REPO_ROOT,
+            bench=experiment_dir.name,
+            rid=rid,
+            summary_text="\n".join(lines),
+            summary_path=record_path,
+        )
+        return record_path
 
     record_path.write_text("\n".join(lines))
     return record_path

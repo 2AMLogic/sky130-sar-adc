@@ -644,13 +644,13 @@ class TestRecordRendering(unittest.TestCase):
             "probe_log": [{"index": 0, "f_mhz": 12.0, "corners": CORNERS,
                            "run": {"backend": "batch", "remote": {"job_id": "j"}, "status": "pass"}}],
             "negative_control_run": {"backend": "batch", "remote": {"job_id": "n"}, "status": "pass"},
-            "pins": {"PDK": "sky130A @ c6d73a35f524070e85faff4a6a9eef49553ebc2b", "x": "y"},
+            "pins": {"PDK": "sky130A @ f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7", "x": "y"},
             "environment": {"ngspice line": "ngspice-46", "12 MHz tt deck netlist sha256": "a" * 64,
                             "backend": "batch"},
         }
         text = "\n".join(rdp.render_record("R1", camp, "", "sim/digital-partition/run_digital_partition.py"))
         for needle in ("**Record ID**: R1", "**Claim**", "**Overall**", "**Supersedes**: (none)",
-                       "- PDK: sky130A @ c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+                       "- PDK: sky130A @ f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
                        "- ngspice: ngspice-46", "- DUT netlist sha256: `" + "a" * 64 + "`",
                        "Negative control", "NOT the ADC sample rate", "NOT extracted timing",
                        "Outside the DUT boundary", "Supply polarity", "Composed footprint", "\"job_id\": \"j\""):

@@ -65,7 +65,7 @@ Written by `{written_by}`.
 
 PDK_JSON = {
     "variant": "fakeA",
-    "open_pdks_commit": "c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+    "open_pdks_commit": "f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
     "process_corners": ["tt", "ss", "ff"],
     "mismatch_corners": ["tt_mm", "ss_mm", "ff_mm"],
 }
@@ -361,6 +361,36 @@ class TestFailureModes(unittest.TestCase):
     # -- pinning ------------------------------------------------------------
 
     def test_pdk_commit_drift_fails(self):
+        self.repo.write_record(
+            "sim/widget/records/20260101-000000-abc1234.md", commit="d" * 40
+        )
+        self.assertIn("pdk-pin-drift", self.repo.codes())
+
+    def test_record_at_a_listed_superseded_commit_passes(self):
+        self.repo.write_json(
+            "sim/pdk.json",
+            {
+                **PDK_JSON,
+                "superseded_open_pdks_commits": [
+                    {"commit": "d" * 40, "reason": "old pin", "issue": "x#1"}
+                ],
+            },
+        )
+        self.repo.write_record(
+            "sim/widget/records/20260101-000000-abc1234.md", commit="d" * 40
+        )
+        self.assertNotIn("pdk-pin-drift", self.repo.codes())
+
+    def test_record_at_an_unlisted_commit_still_fails_when_another_is_superseded(self):
+        self.repo.write_json(
+            "sim/pdk.json",
+            {
+                **PDK_JSON,
+                "superseded_open_pdks_commits": [
+                    {"commit": "e" * 40, "reason": "old pin", "issue": "x#1"}
+                ],
+            },
+        )
         self.repo.write_record(
             "sim/widget/records/20260101-000000-abc1234.md", commit="d" * 40
         )

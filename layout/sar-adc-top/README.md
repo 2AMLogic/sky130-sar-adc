@@ -1083,9 +1083,10 @@ render `met`**:
 still `mismatch` (klayout-tools#1878) — so the continuity half being clean is
 not what the reason is about. Behind that sits a second, latent reason the run
 never gets to: the item also requires zero `erc.missing_tie` from a tie the run
-actually checked, and this spec declares no `ties[]` (klayout-tools#2169 would
-turn a correct one into a false `erc.supply_short`), the state
-`supply_spec_disclosed_tool_limitation` names. See "Structural supply check
+actually checked. Since issue #677 the spec declares n-well `ties[]` (klayout-tools#2169
+is fixed in the pinned 0.6.0) and `erc-reports/20261017-193237-9522693e/` computes them: 28
+`erc.missing_tie` findings, no false `erc.supply_short` — see that record's
+`record.md` for what the 28 are. See "Structural supply check
 (`klt erc`, T1 item 11)" below.
 
 ### The digital-rail route itself (issue #355)
@@ -1317,8 +1318,8 @@ would turn this block's own T1 item 11 record red over a short that is the
 design.
 
 The summary of both passes is committed at
-`erc-reports/LATEST/ground-mesh-ablation.json` — `20261001-211722-1ca34e6` as of
-this record, which is where every number stated in the present tense above comes
+`erc-reports/20261001-211722-1ca34e6/ground-mesh-ablation.json` (the ablation is
+not re-minted by later ERC records: see `erc-reports/20261017-193237-9522693e/record.md`), which is where every number stated in the present tense above comes
 from; the script exits 3 if **either** prediction fails, so a mesh that stopped
 mattering — in whole or in that one leg — would turn the check red rather than
 quietly passing.
@@ -1618,12 +1619,21 @@ was retired (issue #648). The older `erc-reports/` records still cite
 `layout/erc-requirements.txt` as their tool pin; they are append-only and
 were not edited.
 
-`erc.missing_tie` is deliberately **not computed** (no `ties[]` declared),
-disclosed in-report as `ties_disclosed_tool_limitation`: klayout-tools#2169
-turns a correct `ties[]` declaration on a routed standard-cell design into a
-false `erc.supply_short`. The well-tie evidence standing in for it — tap-cell
-instances, body/tub labels, and the LVS `net_correspondence` — is named in the
-record, along with where that stand-in is weaker than it looks.
+`erc.missing_tie` is computed for the **n-well half** since issue #677: two
+`ties[]` entries (`nwell_tap_vdd`, `nwell_tap_vpwr`, `tap.drawing 65/44` in
+`nwell.drawing 64/20`, up to `li1`) in `erc-supply-spec.json`, replacing the
+`ties_disclosed_tool_limitation` disclosure (klayout-tools#2169 is fixed in the
+pinned 0.6.0). Record `erc-reports/20261017-193237-9522693e/` is the first to carry them. The
+**p-substrate half is still not declared** — sky130 draws no substrate shape to
+name as the well side (klayout-tools#3750) — so a clean `erc.missing_tie` would
+still not say every NMOS body reaches `GND`/`VGND`. Earlier records keep their
+`tool_limitation` text; they are append-only.
+
+Since issue #684 two further `ties[]` entries (`nwell_tap_boost_p`,
+`nwell_tap_boost_n`) grade the two boosted-side wells against `BOOST_P` /
+`BOOST_N` (DR-024), selected by caller-named boxes because no drawn layer
+separates them; record `erc-reports/20261018-005757-5d07fe65/` is the first to
+carry them and lists the affected entries under `checked_by_well_assertion`.
 
 ## Composition mechanism actually used: `klt gen-compose` as a pure placer
 
