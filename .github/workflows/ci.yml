@@ -14,7 +14,7 @@ name: CI
 #     and Monte Carlo knobs actually reach the simulator — including the two
 #     negative controls) runs in the `pdk-smoke` job below, gated on a
 #     nightly schedule / manual dispatch / an opt-in `run-pdk-smoke` label on
-#     a PR, because it needs a full volare PDK fetch.
+#     a PR, because it needs a full ciel PDK fetch.
 #   - The metal minimum-area gate (issue #338) also runs in `pdk-smoke`:
 #     `docs/chipalooza/measure_metal_min_area.py` cross-checks sky130A's own
 #     m1.6/m2.6/m3.6/m4.4a/m5.4 rules -- which the pinned klayout-tools==0.6.0
@@ -549,8 +549,8 @@ jobs:
         run: |
           echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
 
-      - name: Install volare
-        run: pip install "volare==0.20.6"
+      - name: Install ciel
+        run: pip install "ciel==2.6.1"
 
       - name: Fetch + enable the pinned sky130 PDK
         # The pin lives in sim/pdk.json (open_pdks_commit) so CI and
@@ -559,7 +559,7 @@ jobs:
         # on drift rather than silently producing incomparable numbers.
         run: |
           PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          volare enable --pdk sky130 "$PDK_COMMIT"
+          ciel enable --pdk-family sky130 "$PDK_COMMIT"
 
       - name: Harness acceptance test (PVT + Monte Carlo + both negative controls)
         # --require-pdk turns the "tools unavailable, skipping" path into a
@@ -690,13 +690,13 @@ jobs:
       - name: Put the built ngspice on PATH
         run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
 
-      - name: Install volare
-        run: pip install "volare==0.20.6"
+      - name: Install ciel
+        run: pip install "ciel==2.6.1"
 
       - name: Fetch + enable the pinned sky130 PDK
         run: |
           PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          volare enable --pdk sky130 "$PDK_COMMIT"
+          ciel enable --pdk-family sky130 "$PDK_COMMIT"
 
       - name: Run the default coherent-sine capture and record it
         id: run
@@ -840,13 +840,13 @@ jobs:
       - name: Put the built ngspice on PATH
         run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
 
-      - name: Install volare
-        run: pip install "volare==0.20.6"
+      - name: Install ciel
+        run: pip install "ciel==2.6.1"
 
       - name: Fetch + enable the pinned sky130 PDK
         run: |
           PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          volare enable --pdk sky130 "$PDK_COMMIT"
+          ciel enable --pdk-family sky130 "$PDK_COMMIT"
 
       - name: Run the DC baseline solver audit and record it
         id: run
@@ -958,13 +958,13 @@ jobs:
       - name: Put the built ngspice on PATH
         run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
 
-      - name: Install volare
-        run: pip install "volare==0.20.6"
+      - name: Install ciel
+        run: pip install "ciel==2.6.1"
 
       - name: Fetch + enable the pinned sky130 PDK
         run: |
           PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          volare enable --pdk sky130 "$PDK_COMMIT"
+          ciel enable --pdk-family sky130 "$PDK_COMMIT"
 
       - name: Run the nine-corner DC reference campaign and record it
         id: run

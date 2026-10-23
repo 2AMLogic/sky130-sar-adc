@@ -2,6 +2,36 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-21
+
+- **PR #710**: layout: re-run sign-off flows under open_pdks f6eeac7 as new reports
+- **Issue #708** (closed): Re-qualify layout sign-off reports under open_pdks f6eeac7 (#670 split)
+- **PR #530**: docs(spec): DR-022 proposes a systematic gain-error spec row instead of resizing the CDAC or comparator
+- **PR #703**: Bump Repo Skills 0.24.3 -> 0.24.7
+- **PR #707**: refactor: share Stimulus and Netlist-provenance record bullets via helpers
+- **Issue #705** (closed): Dedup Stimulus/Netlist-provenance prose copied across run_supply_impedance.py record writers
+
+### 2026-10-20
+
+- **PR #671**: build: re-pin open_pdks to f6eeac7 (ciel) and verify PDK SOURCES revision
+- **Issue #669** (closed): Re-pin open_pdks to f6eeac7 + ciel 2.6.1 + revision-checked PDK search (#668 phase 1)
+- **Issue #629** (closed): Dedupe repeated testbench entries in the generated spec-coverage index
+
+### 2026-10-18
+
+- **PR #694**: refactor: drive checks 30-34 from one table-driven census checker
+- **Issue #688** (closed): Dedupe repeated census checks in check_proposal_citations.py
+- **PR #692**: layout: declare the BOOST_P/BOOST_N n-wells as ERC ties, re-mint ERC record (2 -> 0 findings)
+- **Issue #684** (closed): ERC: 2 n-wells flagged erc.missing_tie by both ties[] entries (no tap on VDD or VPWR)
+
+### 2026-10-17
+
+- **PR #690**: layout: grade n-well ties per rail with the std-cell marker on klt 0.7.0, re-mint sar-adc-top ERC record (28 -> 2 findings)
+- **Issue #685** (closed): ERC: per-rail well selector for the n-well ties[] (24 cross-domain erc.missing_tie flags)
+- **PR #686**: docs(layout): classify the two both-flagged n-wells as BOOST_P/BOOST_N-tied
+- **PR #682**: layout(sar-adc-top): declare n-well ties[] in the ERC supply spec and compute erc.missing_tie
+- **Issue #677** (closed): Item 11: declare ties[] in the top-level ERC supply spec now that klayout-tools#2169 is fixed
+
 ### 2026-10-16
 
 - **PR #673**: Bump Repo Skills 0.24.1 -> 0.24.3

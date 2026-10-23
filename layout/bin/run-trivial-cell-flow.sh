@@ -11,7 +11,7 @@
 #   layout/bin/run-trivial-cell-flow.sh   # ~1 minute
 #
 # Requires: layout/.venv (see setup-venv.sh) and a resolvable sky130A PDK
-# install (same pin as sim/pdk.json; `volare enable --pdk sky130 <sha>`).
+# install (same pin as sim/pdk.json; `ciel enable --pdk-family sky130 <sha>`).
 #
 # Exit codes: 0 all six verdicts held, 1 at least one flipped (the record is
 # still written first, so the evidence trail keeps the failure).

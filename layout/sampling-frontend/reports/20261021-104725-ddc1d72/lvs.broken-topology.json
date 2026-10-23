@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "sampling_frontend.gds",
+  "reference": "reference.broken-topology.spice",
+  "top": "gen_compose_0",
+  "reference_top": "SAMPLING_FRONTEND",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
+  },
+  "hints_applied": null,
+  "status": "mismatch",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "verified",
+    "reason": null,
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
+  },
+  "mismatch_count": 3,
+  "error_count": 2,
+  "category_counts": {
+    "device.unmatched": 2,
+    "topology": 1
+  },
+  "category_error_counts": {
+    "device.unmatched": 2
+  },
+  "counts": {
+    "nets": {
+      "layout": 17,
+      "reference": 17,
+      "matched": 13
+    },
+    "devices": {
+      "layout": 24,
+      "reference": 24,
+      "matched": 22
+    },
+    "pins": {
+      "layout": 12,
+      "reference": 12,
+      "matched": 12
+    }
+  },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "pnp",
+    "sky130_fd_pr__model__cap_mim",
+    "sky130_fd_pr__model__cap_mim_m4",
+    "resistor"
+  ],
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "layout_sha256": "93cc2052dc8e661a8a1012d0e64fecca66ca2ae44258417d6fa46e0e9171b3ca",
+    "reference_sha256": "9217505f2abc9a9105338169acd37d56c95f0ffb3cf202fc987fe5d9e104fef7",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:93cc2052dc8e661a8a1012d0e64fecca66ca2ae44258417d6fa46e0e9171b3ca",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
+  },
+  "mismatches": [
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$23",
+        "reference": "_CSAMP_P",
+        "class": "sky130_fd_pr__model__cap_mim"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "device.unmatched",
+      "severity": "error",
+      "description": "device has no counterpart on the other side",
+      "side": "reference",
+      "net": null,
+      "device": {
+        "layout": "\\$24",
+        "reference": "_CSAMP_N",
+        "class": "sky130_fd_pr__model__cap_mim"
+      },
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BPREF_N",
+      "reference": "BPREF_N",
+      "pin": true
+    },
+    {
+      "layout": "BPREF_P",
+      "reference": "BPREF_P",
+      "pin": true
+    },
+    {
+      "layout": "\\$10",
+      "reference": "BSBOT_N",
+      "pin": false
+    },
+    {
+      "layout": "\\$8",
+      "reference": "BSBOT_P",
+      "pin": false
+    },
+    {
+      "layout": "GND",
+      "reference": "GND",
+      "pin": true
+    },
+    {
+      "layout": "\\$11",
+      "reference": "G_N",
+      "pin": false
+    },
+    {
+      "layout": "\\$5",
+      "reference": "G_P",
+      "pin": false
+    },
+    {
+      "layout": "SAMPLE",
+      "reference": "SAMPLE",
+      "pin": true
+    },
+    {
+      "layout": "\\$6",
+      "reference": "SAMPLEB",
+      "pin": false
+    },
+    {
+      "layout": "VCM",
+      "reference": "VCM",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VINN",
+      "reference": "VINN",
+      "pin": true
+    },
+    {
+      "layout": "VINP",
+      "reference": "VINP",
+      "pin": true
+    }
+  ]
+}

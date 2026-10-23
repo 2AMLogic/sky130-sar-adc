@@ -110,8 +110,8 @@ BACK_END_LAYERS = {
 
 #: The PDK parameter file every sheet/via resistance below is read out of, so
 #: no resistivity in this script is a typed-in constant. Relative to the PDK
-#: root `klt` itself resolves (`$PDK_ROOT/sky130A`, or the `~/.volare` /
-#: `~/.ciel` search root the flow's own provenance records).
+#: root `klt` itself resolves (`$PDK_ROOT/sky130A`, or the `~/.ciel` /
+#: `~/.volare` search root the flow's own provenance records).
 PDK_RES_FILE = "libs.tech/ngspice/r+c/res_typical__cap_typical.spice"
 
 #: `.param` name in that file for each layer's sheet resistance (ohm/square)
@@ -132,7 +132,7 @@ def find_pdk_root() -> Path | None:
     if os.environ.get("PDK_ROOT"):
         candidates.append(Path(os.environ["PDK_ROOT"]) / "sky130A")
     home = Path.home()
-    candidates += [home / ".volare" / "sky130A", home / ".ciel" / "sky130A"]
+    candidates += [home / ".ciel" / "sky130A", home / ".volare" / "sky130A"]
     for root in candidates:
         if (root / PDK_RES_FILE).is_file():
             return root
