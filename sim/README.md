@@ -481,6 +481,39 @@ with its own `<record-id>`, `Netlist provenance: extracted`, and a
 section. The extracted record **appends alongside** the schematic one; it
 never replaces or edits it.
 
+## Stored evidence (artifact store, issue #717)
+
+New runs can store their raw bytes (per-corner logs, netlist snapshot) in the
+fleet artifact store instead of committing them:
+
+    python3 sim/run_corners.py <experiment> --record --store
+
+The bytes are staged in the git-ignored `sim/.work/`, stored with
+`klt artifact put`, and only `manifests/artifacts/<experiment>-<record-id>.manifest.json`
+plus the record (with a "Stored evidence" table of name, size and sha256 per
+object) are written. The record keeps every field `check_spec_coverage.py` and
+`report/generate.py --check` read (e.g. `DUT netlist sha256`); the raw files
+are simply not under `corners/` / `netlist-snapshots/`.
+
+**Fail closed.** With `$KLT_ARTIFACT_BROKER` unset, no `klt` with `artifact put`,
+or an unreachable/refusing broker, the run exits nonzero before simulating (or,
+if the store fails afterwards, with nothing written under `manifests/` or
+`sim/`; the staged bytes stay in `sim/.work/`). There is no flag to commit the
+bytes instead.
+
+**Client.** `layout/requirements.txt` pins `klayout-tools==0.6.0`, which has no
+`artifact` verb, and that pin is deliberately not bumped here. Use a separate
+client at klayout-tools `7e3561f` or later (a venv inside your worktree, or
+`uvx --from ...`), first on `PATH`; never a host-wide install. The broker URL
+comes from the environment only.
+
+Only `sim/run_corners.py` is wired so far. The Monte Carlo runner, the per-block
+`run_*.py` writers and the `layout/*/bin/run-flow.sh` flows still commit bytes
+(follow-up). Already-committed evidence is untouched (manifest-forward only).
+Checks: `npm run check:artifact-manifests` (schema, `artifact:` URIs only, no
+stored bytes also committed; it does not contact the broker) and
+`klt artifact verify <manifest>` from a fleet worker.
+
 ## Append-only rule
 
 `records/*.md` are never edited or deleted after creation, and neither are the

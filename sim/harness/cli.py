@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import pdk, runner, testbench, toolchain
+from . import evidence, evidence_store, pdk, runner, testbench, toolchain
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -29,11 +29,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--supply-tol", type=float, help="supply tolerance override (e.g. 0.1)")
     ap.add_argument("--sabotage-corners", action="store_true", help="force process corner to tt (negative control)")
     ap.add_argument("--record", action="store_true", help="write an evidence record under sim/<experiment>/records/")
+    ap.add_argument(
+        "--store",
+        action="store_true",
+        help="with --record: store the raw bytes in the fleet artifact store "
+        "(klt artifact put) and commit only manifests/artifacts/<bench>-<run-id>."
+        "manifest.json plus the record; fails closed, no fallback to committing bytes",
+    )
     ap.add_argument("--supersedes", default="", help="record-id this run's evidence record supersedes")
     ap.add_argument("--note", default="", help="free-text note attached to the evidence record")
     ap.add_argument("--quiet", action="store_true", help="suppress per-corner progress output")
     ap.add_argument("--allow-toolchain-drift", action="store_true")
     args = ap.parse_args(argv)
+    if args.store and not args.record:
+        print("run_corners.py: --store requires --record", file=sys.stderr)
+        return 2
 
     if args.print_env:
         info = pdk.resolve()
@@ -64,6 +74,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"run_corners.py: no such experiment '{args.experiment}' (no {e})", file=sys.stderr)
         return 1
 
+    if args.store:
+        # Refuse before spending simulation time on a run that cannot be stored.
+        try:
+            evidence_store.preflight(evidence.REPO_ROOT)
+        except evidence_store.StoreError as e:
+            print(f"run_corners.py: cannot store evidence: {e}", file=sys.stderr)
+            return 1
+
     process_corners = args.corners.split(",") if args.corners else None
     temperatures_c = [float(t) for t in args.temps.split(",")] if args.temps else None
 
@@ -77,9 +95,14 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if args.record:
-        record_path = runner.write_evidence(
-            result, axis_spreads, note=args.note, supersedes=args.supersedes
-        )
+        kwargs = {"store": True} if args.store else {}
+        try:
+            record_path = runner.write_evidence(
+                result, axis_spreads, note=args.note, supersedes=args.supersedes, **kwargs
+            )
+        except evidence_store.StoreError as e:
+            print(f"run_corners.py: evidence not stored, nothing committed: {e}", file=sys.stderr)
+            return 1
         print(f"wrote {record_path}")
 
     if not args.quiet:
