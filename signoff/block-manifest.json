@@ -79,6 +79,34 @@
     "      rejects a changed digital-partition netlist or routed layout without a",
     "      regenerated campaign.",
     "",
+    "  5.digital  (partition-qualified) sim/digital-sta/runs/20261017-194050-9522693/",
+    "      sar-sequencer.12mhz.json, a `klt sta` report over the ROUTED sar_sequencer",
+    "      DEF at four stock sky130_fd_sc_hd Liberty corners. `klt signoff` renders",
+    "      it `met` because every corner it reports is `constrained` with non-",
+    "      negative setup and hold slack -- and that is ALL the grader looks at.",
+    "      Read signoff/README.md before relying on the word `met`:",
+    "        (a) ONE CITATION SLOT. The grader (0.6.0) accepts one citation per",
+    "            item/partition (item 11 alone is compound), but this item is backed",
+    "            by FOUR reports: STA and functional verification, for each of the",
+    "            two macros. The grader sees the sequencer's STA only. The other",
+    "            three are listed under `supplementary_evidence` below, which `klt",
+    "            signoff` does not read; check_evidence_hashes.py re-derives their",
+    "            freshness. A `met` here is therefore NOT a statement about the glue",
+    "            macro or about functional verification, and the grader cannot say",
+    "            otherwise.",
+    "        (b) CORNER COVERAGE. The grader grades the corner set the cited run",
+    "            itself declared (four Liberty corners). Of the nine PVT points the",
+    "            digital characterization uses, only tt_27c_1.80v has a stock",
+    "            Liberty file at all, and that as a declared nearest-temperature",
+    "            mapping (25 C file for a 27 C point). Eight points are declared",
+    "            gaps in sim/digital-sta/corner-set.json and were not timed; the",
+    "            grader neither knows nor checks that list.",
+    "        (c) SPEC. The spec's sample-rate row is DRAFT; item 5 requires a",
+    "            ratified spec; the grader does not check it. Provisional.",
+    "      The over-fast-clock negative control (...negative-control-6ghz.json) grades",
+    "      `unmet`/`check_failed` when cited in its place (tried while preparing",
+    "      this change), so the grader does distinguish a failing run.",
+    "",
     "WHAT IS DELIBERATELY NOT CITED (against this tree, 2026-09-23)",
     "  1, 2, 9, 10  no `klt` verb backs these; `klt signoff` grades them on",
     "      'some passing envelope was cited', not on topical relevance",
@@ -91,7 +119,7 @@
     "      turn those rows green is precisely the dishonesty this manifest exists",
     "      to prevent, so they render unmet/no_evidence and signoff/README.md",
     "      states what actually stands behind each.",
-    "  5   no `klt sim` envelope exists: sim/ campaigns mint this repo's own",
+    "  5.analog  no `klt sim` envelope exists: sim/ campaigns mint this repo's own",
     "      Markdown evidence records, not `klt sim` JSON. And the spec half of",
     "      the item is not met either -- spec/target-spec.md's sample-rate and",
     "      ENOB/INL-DNL target rows are still DRAFT.",
@@ -170,6 +198,10 @@
     "4": {
       "file": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json"
     },
+    "5.digital": {
+      "file": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
+      "content_hash": "sha256:13fc4c592f8449b61f7dae6d1a0653d23149078dd714328b3850ad140230890e"
+    },
     "11": [
       {
         "file": "layout/sar-adc-top/erc-reports/20261017-193237-9522693e/erc.json",
@@ -187,5 +219,19 @@
       "file": "signoff/evidence/digital-characterization.generic.json",
       "content_hash": "sha256:84321265f40157da1ca3d03228d3e01e3816a91215d395293c6bd80be7a15e2b"
     }
+  },
+  "supplementary_evidence": {
+    "5.digital": [
+      {
+        "file": "sim/digital-sta/runs/20261017-194050-9522693/top-glue.12mhz.json",
+        "content_hash": "sha256:63c71901379a73dc908886a7f7f1ad91a4bf4f98c80ad242831526819ba5d124"
+      },
+      {
+        "file": "sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json"
+      },
+      {
+        "file": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json"
+      }
+    ]
   }
 }

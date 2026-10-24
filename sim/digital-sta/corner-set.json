@@ -1,0 +1,111 @@
+{
+  "_comment": [
+    "Single committed place for the digital partition's STA corner set (issue #678); #679 cites this file.",
+    "operating_points = the nine PVT points sim/digital-partition/ characterizes (docs/characterization-report-digital.md).",
+    "Liberty availability was read from the sky130_fd_sc_hd lib/ directory of the PDK the reports were minted against (see the record's provenance).",
+    "supplementary_corners = stock liberty files that are NOT among the nine points; they are timed in addition (clearly labelled) because they are the library's own slow/fast/hot extremes. They are never a substitute for a gap above."
+  ],
+  "operating_points": [
+    {
+      "id": "ff_27c_1.80v",
+      "process": "ff",
+      "temp_c": 27,
+      "vdd_v": 1.8,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "no ff liberty at 27 C / 1.80 V (stock ff files: n40C_1v56/1v65/1v76/1v95, 100C_1v65/1v95). Not substituted."
+    },
+    {
+      "id": "fs_27c_1.80v",
+      "process": "fs",
+      "temp_c": 27,
+      "vdd_v": 1.8,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "sky130_fd_sc_hd ships no fs (fast-NMOS/slow-PMOS) liberty at any temperature or voltage. Not substituted."
+    },
+    {
+      "id": "sf_27c_1.80v",
+      "process": "sf",
+      "temp_c": 27,
+      "vdd_v": 1.8,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "sky130_fd_sc_hd ships no sf (slow-NMOS/fast-PMOS) liberty at any temperature or voltage. Not substituted."
+    },
+    {
+      "id": "ss_27c_1.80v",
+      "process": "ss",
+      "temp_c": 27,
+      "vdd_v": 1.8,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "no ss liberty at 27 C / 1.80 V (stock ss files: n40C_1v28..1v76, 100C_1v40/1v60). Not substituted."
+    },
+    {
+      "id": "tt_-40c_1.80v",
+      "process": "tt",
+      "temp_c": -40,
+      "vdd_v": 1.8,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "no tt liberty at -40 C (stock tt files: 025C_1v80, 100C_1v80 only). Not substituted."
+    },
+    {
+      "id": "tt_125c_1.80v",
+      "process": "tt",
+      "temp_c": 125,
+      "vdd_v": 1.8,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "no tt liberty at 125 C (stock tt files: 025C_1v80, 100C_1v80 only). Not substituted."
+    },
+    {
+      "id": "tt_27c_1.62v",
+      "process": "tt",
+      "temp_c": 27,
+      "vdd_v": 1.62,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "no tt liberty at 1.62 V (stock tt files are 1.80 V only). Not substituted."
+    },
+    {
+      "id": "tt_27c_1.80v",
+      "process": "tt",
+      "temp_c": 27,
+      "vdd_v": 1.8,
+      "liberty": "tt_025C_1v80",
+      "status": "graded_nearest_stock",
+      "note": "The library's typical corner is 25 C; the digital characterization's SPICE point is 27 C. The 2 C difference is declared here and in the record, not hidden: this row is a mapping, not an identity."
+    },
+    {
+      "id": "tt_27c_1.98v",
+      "process": "tt",
+      "temp_c": 27,
+      "vdd_v": 1.98,
+      "liberty": null,
+      "status": "declared_gap",
+      "note": "no tt liberty at 1.98 V (stock tt files are 1.80 V only). Not substituted."
+    }
+  ],
+  "klt_sta_pdk_corners": [
+    "tt_025C_1v80",
+    "tt_100C_1v80",
+    "ss_100C_1v60",
+    "ff_n40C_1v95"
+  ],
+  "supplementary_corners": [
+    {
+      "liberty": "tt_100C_1v80",
+      "role": "stock typical-process hot point; 100 C is not the 125 C point"
+    },
+    {
+      "liberty": "ss_100C_1v60",
+      "role": "stock slow/hot/low-V point (the library's setup-limiting extreme); not the ss_27c_1.80v point"
+    },
+    {
+      "liberty": "ff_n40C_1v95",
+      "role": "stock fast/cold/high-V point (the library's hold-limiting extreme); not the ff_27c_1.80v point"
+    }
+  ]
+}

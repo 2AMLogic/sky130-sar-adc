@@ -273,6 +273,7 @@ class CoverageCheck:
 
         self._check_rows_against_spec(spec_rows)
         self._check_harness_proofs()
+        self._check_non_spice_campaigns()
         self._check_orphan_experiments()
         if check_doc:
             self._check_rendered_doc()
@@ -682,6 +683,42 @@ class CoverageCheck:
                         "counted toward T1 item 9",
                     )
 
+    def _check_non_spice_campaigns(self) -> None:
+        """Campaigns whose evidence is not an ngspice run (functional simulation,
+        static timing). They substantiate no spec-table row, so they cannot sit
+        under `rows`, whose benches are pinned to a SPICE deck, an ngspice major
+        and a DUT netlist hash. Each is held to what it can honestly state: its
+        runner, its records and a documented cold-start command exist, and it is
+        not also listed as a row bench or a harness proof."""
+        rows_experiments = {
+            bench.get("experiment")
+            for row in self.index.get("rows", [])
+            for bench in row.get("benches", [])
+        }
+        proof_names = {p.get("experiment", "") for p in self.index.get("harness_proofs", [])}
+        for camp in self.index.get("non_spice_campaigns", []):
+            experiment = camp.get("experiment", "<unnamed>")
+            where = f"non-SPICE campaign {experiment}"
+            if experiment in rows_experiments or experiment in proof_names:
+                self.fail(
+                    "non-spice-campaign-double-listed",
+                    where,
+                    "listed as a non-SPICE campaign and also as a row bench or harness proof",
+                )
+            if not (self.root / "sim" / experiment).is_dir():
+                self.fail("missing-path", where, f"experiment directory not found: sim/{experiment}")
+                continue
+            if not camp.get("covers", "").strip():
+                self.fail("non-spice-campaign-no-claim", where, "no 'covers' sentence")
+            runner_rel = camp.get("runner", "")
+            runner_ok = self.exists(runner_rel, "missing-path", where, "runner")
+            records = camp.get("records", [])
+            if not records:
+                self.fail("bench-has-no-record", where, "lists no evidence record")
+            for rec_rel in records:
+                self.exists(rec_rel, "missing-path", where, "evidence record")
+            self._check_cold_start(where, camp, self.read(runner_rel) if runner_ok else None)
+
     def _check_orphan_experiments(self) -> None:
         proof_names = {p.get("experiment", "") for p in self.index.get("harness_proofs", [])}
         indexed = {
@@ -689,6 +726,7 @@ class CoverageCheck:
             for row in self.index.get("rows", [])
             for bench in row.get("benches", [])
         }
+        indexed |= {c.get("experiment") for c in self.index.get("non_spice_campaigns", [])}
         sim_dir = self.root / "sim"
         if not sim_dir.is_dir():
             return
@@ -852,6 +890,26 @@ def render_markdown(index: dict) -> str:
     for proof in index.get("harness_proofs", []):
         out.append(f"- **`sim/{proof.get('experiment')}`** — {proof.get('why', '')}")
     out.append("")
+    campaigns = index.get("non_spice_campaigns", [])
+    if campaigns:
+        out.append("## Non-SPICE campaigns (no spec-table row)")
+        out.append("")
+        out.append(
+            "Evidence that is not an ngspice run, so it carries no ngspice pin, SPICE deck "
+            "or DUT netlist hash and substantiates no row of `spec/target-spec.md`. The "
+            "check requires each one's runner, records and documented cold-start command "
+            "to exist, and forbids listing it as a row bench or a harness proof."
+        )
+        out.append("")
+        for camp in campaigns:
+            out.append(f"**`sim/{camp.get('experiment')}`** — {camp.get('covers', '')}")
+            out.append("")
+            out.append(f"- Runner: `{camp.get('runner')}`")
+            out.append(f"- Cold start: `{camp.get('cold_start')}`")
+            out.append(f"- Documented in: `{camp.get('documented_in')}`")
+            for rec in camp.get("records", []):
+                out.append(f"- Evidence: `{rec}`")
+            out.append("")
     out.append("## Pinning")
     out.append("")
     note = index.get("pins", {}).get("note", [])

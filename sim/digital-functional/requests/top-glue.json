@@ -1,0 +1,9 @@
+{
+  "sources": [
+    "../models/sky130_fd_sc_hd_subset.v",
+    "../../../layout/top-glue/netlist/top_glue.v"
+  ],
+  "hdl_toplevel": "top_glue",
+  "testbench": {"module": "test_top_glue", "search_path": "../tb"},
+  "engine": "icarus"
+}

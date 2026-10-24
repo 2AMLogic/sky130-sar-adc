@@ -17,12 +17,12 @@ Current verdict, at the committed report:
 | block | `sky130-sar-adc` |
 | kind | `mixed-signal` (22 rows: 11 items × 2 partitions) |
 | tier | `null` — not T1 |
-| T1 items met | **4 / 22** (item 3 on both partitions, item 8 on both partitions) |
+| T1 items met | **5 / 22** (item 3 on both partitions, item 8 on both partitions, item 5 on the digital partition — **provisional, narrow; read "Item 5, digital" below**) |
 | checklist graded against | `design-evidence-tiers.md` @ `sha256:63eeec72…` (the copy `klayout-tools==0.6.0` bundles) |
 | grading build | `klt 0.6.0` (`git_tag v0.6.0`, `grading_ruleset_id sha256:0d8cc27c…`) |
 
 **An almost-entirely-`unmet` report is the correct result, not a failure of this
-file.** 18 of 22 rows are `unmet` with a machine-readable `reason`, and that is
+file.** 17 of 22 rows are `unmet` with a machine-readable `reason`, and that is
 exactly the honest statement of the gap. Nothing here should be "improved" by
 citing an envelope that does not actually support the item it is filed under.
 
@@ -69,7 +69,7 @@ saying, because the grader cannot.
 | 2 | Layout | `unmet` / `no_evidence` (both) | Same shape. Every sub-block under `layout/*/` has a reproducible flow script and an append-only `reports/<stamp>/` record; the composed top level is the `sar_adc_top.gds` in the record the manifest's item 3 citation names (`layout/sar-adc-top/reports/20261001-211249-1ca34e6/`; the earlier September composed streams are superseded history). No `klt` verb grades "the GDS is reproducibly generated". |
 | 3 | DRC clean | **`met`** (both) | `klt drc` on the composed top-level stream: `status: clean`, 0 violations, deck `sky130` @ `sha256:a1d90e06…` (see the cited `drc.json` for the authoritative deck hash and counts). Covers both partitions because the stream it ran on contains both partitions' geometry. **Coverage gaps are disclosed below — read them; a `met` here is not evidence they were disclosed.** |
 | 4 | LVS clean | `unmet` / `check_failed` (both) | Cited deliberately even though it fails. `klt lvs` reports `status: "mismatch"` against the full-block reference; the authoritative mismatch, net, device and pin counts are in the cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` (`mismatch_count`, `category_counts`, `counts`) — read them there. Summary retained at that record only: 67 mismatches / 66 errors, 519/555 reference nets and 1046/1095 reference devices matched; categories 49 `device.unmatched`, 9 `net.merged`, 8 `net.split`, 1 `topology.flattened`. Pins read 21 layout / 22 reference / 22 matched: the reference carries `GND` and `VGND` as two ports of what the layout extracts as one net — the shared p-substrate (`GND\|VGND\|VSS`) — so one promoted layout pin answers both, which is why `layout < reference` here is not a missing pin; see [DR-012](../spec/decision-records/DR-012-analog-ground-pad.md). *Historical comparison, superseded:* the 2026-09-24 record (`reports/20260924-234053-66dca3c/`) read 88 mismatches / 87 errors, 411/444 nets and 803/869 devices; before issue #355 it read 98/97. Root cause is an upstream extraction-hierarchy gap, not a design defect — filed generically as klayout-tools#1878; see `layout/sar-adc-top/README.md`'s "LVS device/topology blocker". The full-block LVS still does not match. |
-| 5 | Full corner verification | `unmet` / `no_evidence` (both) | Two independent reasons. (a) No `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown evidence records. (b) The spec half is not met either: `spec/target-spec.md`'s sample-rate row and the ENOB / INL-DNL **target values** are still DRAFT, and item 5 requires a ratified spec table. |
+| 5 | Full corner verification | analog: `unmet` / `no_evidence`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Three more reports back the same claim but the grader accepts one citation per row: the `top_glue` STA and the two `klt functional-verification` reports (bit-exact, with mutation negative controls). **`met` is the grader's verdict on that one report; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, and the STA covers the digital partition's own boundary only — see "Item 5, digital" below.** Analog: no `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown records — and the ENOB / INL-DNL **target values** are still DRAFT. |
 | 6 | Statistical claims | `unmet` / `no_evidence` (both) | Five `klt yield` envelopes **do** exist and all report `status: "fail"` — see "Item 6" below for what they say and why none is cited. |
 | 7 | Post-layout verification | `unmet` / `no_evidence` (both) | No `klt pex` report exists for the composed top level or any partition; three comparator-level `pex.json` envelopes exist under `layout/comparator/reports/` but are not cited in the manifest, because they cover the comparator block only and do not prove post-layout behaviour of the composed block. Item 7 on the composed block is blocked on item 4 (the top-level LVS mismatch), mirroring `layout/sar-adc-top/README.md`. Item 7 accepts nothing else, by design: a clean DRC or a pre-layout sim renders `wrong_kind`, because neither proves anything about post-layout behaviour. Nothing to disclose about `body_bias` yet — that field is reported on a `pex` citation, and there is no `pex` citation in the manifest. |
 | 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
@@ -163,6 +163,66 @@ None is cited, for reasons about the **citation**, not about the campaign:
 
 So item 6 renders `no_evidence` and the actual verdicts are recorded here. The
 underlying campaign is issue #29's; its Markdown records stand unedited.
+
+### Item 5, digital: what `met` asserts, and what it does not
+
+**Provisional.** Item 5 requires a *ratified* spec. `spec/target-spec.md`'s
+sample-rate row is still DRAFT (issue #1), so every verdict below is provisional
+until it is ratified. Ratifying it is not part of the work behind this row, and
+`klt signoff` does not check it: the `met` would read the same against a draft.
+
+What stands behind the row (all minted by the pinned `klt 0.6.0`; records are
+append-only, see `sim/README.md`):
+
+| Evidence | Where | Verdict |
+|---|---|---|
+| STA, routed `sar_sequencer`, 12 MHz | `sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json` (**the one the grader sees**) | all four corners `constrained`, setup and hold slack positive, 0 violations |
+| STA, routed `top_glue`, 12 MHz | `…/top-glue.12mhz.json` (supplementary) | same |
+| Negative control: 6 GHz clock | `…/*.negative-control-6ghz.json` | setup fails at every corner of both macros; cited in place of the real report the grader renders it `unmet` / `check_failed` |
+| Functional verification, `sar_sequencer` | `sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json` (supplementary) | 8 / 8 tests pass; 5 / 5 netlist mutants killed |
+| Functional verification, `top_glue` | `…/top-glue.json` (supplementary) | 6 / 6 tests pass; 6 / 6 mutants killed |
+
+The tests are bit-exact against `sim/digital-functional/tb/sar_ref.py` (a
+reference model written from the DR-006 / DR-008 / DR-009 text, with its own
+self-check) on every output at every edge. They cover the cases the SPICE
+campaign did not drive: all-ones, all-zeros, a mid-conversion asynchronous reset
+at each of the 12 sequencer states, every one of the 1024 codes in closed loop,
+and the whole `top_glue` input space.
+
+Disclosures the grader cannot make:
+
+- **One citation slot.** The grader accepts one citation per item/partition; this
+  row is backed by four reports. Only the sequencer STA is in `evidence`. The
+  other three are in the manifest's `supplementary_evidence` key, which `klt
+  signoff` does not read and `check_evidence_hashes.py` does (the sta DEF hash;
+  for functional verification, every netlist / model / testbench hash in the
+  record's `inputs.sha256`). So the `met` is not, by itself, a statement about
+  `top_glue` or about functional verification.
+- **Corner coverage: 1 of 9 points, and not exactly.** The nine PVT points the
+  digital characterization uses are listed in `sim/digital-sta/corner-set.json`.
+  `sky130_fd_sc_hd` ships Liberty files only for `tt_025C_1v80`, `tt_100C_1v80`,
+  `ss_{n40C,100C}_*`, `ff_{n40C,100C}_*`: no `fs` / `sf` file at all, nothing at
+  27 C other than the 25 C typical file, nothing at 1.62 / 1.98 V. Eight points
+  are **declared gaps and were not timed**. `tt_27c_1.80v` is timed with the
+  25 C file, a declared mapping (2 C apart), not an identity. The four timed
+  corners include three stock extremes that are *not* among the nine
+  (`tt_100C_1v80`, `ss_100C_1v60`, `ff_n40C_1v95`) and are never a substitute for
+  a gap. The grader grades the corner set the run itself declared, so it cannot
+  see the gaps.
+- **Boundary STA only.** The analysis is of the digital partition's own routed
+  netlists under stated assumptions (0.25 T input and output delays, ideal
+  clock, unloaded outputs, no SPEF). It says nothing about the ADC's conversion
+  rate, which also depends on the analog partition.
+- **The routed `sar_sequencer` is not today's schematic (issue #680).** The netlist that was
+  placed and routed, `layout/sar-sequencer/netlist/sar_sequencer.v`, has 36
+  instances (issue #102). `design/sar_sequencer.sch` has 57: it gained the
+  `COMP_EFF` xnor and per-conversion clear gating of issue #263 / DR-008. Both
+  the functional tests and the STA cover the 36-instance netlist, so neither
+  speaks for `COMP_EFF` or the clear gating.
+- **Zero-delay functional run.** No SDF; that is item 7 (issue #679).
+- **PDK revision.** The reports were minted against open_pdks `f6eeac7`, the
+  revision installed on the host, not the `c6d73a3` that `sim/pdk.json` pins
+  (issue #669, the re-pin, is open).
 
 ### Item 8: exactly what `met` asserts
 
@@ -331,7 +391,7 @@ evidence of nothing. Two independent, headless checks enforce it, and they catch
 | Gate | Command | Catches | Does **not** catch |
 |---|---|---|---|
 | Grader re-render | `bash signoff/run-signoff.sh --check` | Any change that alters a graded row: an edited manifest, a superseded evidence envelope, a pin that no longer matches the envelope's own hash, a checklist/grader change. | An artifact rewritten underneath a manifest and envelope that still agree with each other. |
-| Artifact re-hash | `python3 signoff/check_evidence_hashes.py` | Exactly that: every cited envelope's recorded input hash is re-derived from the file on disk. | Grading changes — it does not know what the checklist says. |
+| Artifact re-hash | `python3 signoff/check_evidence_hashes.py` | Exactly that: every cited envelope's recorded input hash is re-derived from the file on disk, including the manifest's `supplementary_evidence` list (item 5 digital) that the grader never reads. | Grading changes — it does not know what the checklist says. |
 
 The second gate exists because the first one structurally cannot do its job.
 `klt signoff` compares the manifest's pin against the **envelope's own

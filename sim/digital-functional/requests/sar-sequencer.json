@@ -1,0 +1,9 @@
+{
+  "sources": [
+    "../models/sky130_fd_sc_hd_subset.v",
+    "../../../layout/sar-sequencer/netlist/sar_sequencer.v"
+  ],
+  "hdl_toplevel": "sar_sequencer",
+  "testbench": {"module": "test_sar_sequencer", "search_path": "../tb"},
+  "engine": "icarus"
+}
