@@ -8,7 +8,8 @@
 #   .venv-yield/bin/pip install -r sim/yield-requirements.txt
 #   .venv-yield/bin/klt yield <samples.json> --format json
 #
-# STATUS AS OF 2026-10-10: THIS PIN DOES NOT YET RESOLVE. klayout-tools 0.7.0
+# STATUS AS OF 2026-10-10 (0.7.0; bumped to 0.8.0 in issue #727, resolvability not re-tested -- PyPI
+# metadata for 0.8.0 still lists the same extra): THIS PIN DOES NOT YET RESOLVE. klayout-tools 0.7.0
 # (the newest published release) declares extra `yield` ->
 # `klt-yield-native>=0.1.0,<0.2`, and that distribution is not on PyPI, so the
 # install above fails ("No matching distribution found for klt-yield-native").
@@ -18,4 +19,4 @@
 # 2AMLogic/klayout-tools#2900 (and #2466/#2531, closed). When a wheel is
 # published, this file is the checked statement of what to install; re-mint the
 # missing envelopes from the persisted samples then and update this header.
-klayout-tools[yield]==0.7.0
+klayout-tools[yield]==0.8.0

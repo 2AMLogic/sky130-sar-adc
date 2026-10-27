@@ -18,8 +18,8 @@ Current verdict, at the committed report:
 | kind | `mixed-signal` (22 rows: 11 items × 2 partitions) |
 | tier | `null` — not T1 |
 | T1 items met | **4 / 22** (item 3 on both partitions, item 8 on both partitions) |
-| checklist graded against | `design-evidence-tiers.md` @ `sha256:63eeec72…` (the copy `klayout-tools==0.6.0` bundles) |
-| grading build | `klt 0.6.0` (`git_tag v0.6.0`, `grading_ruleset_id sha256:0d8cc27c…`) |
+| checklist graded against | `design-evidence-tiers.md` @ `sha256:a26b9026…` (the copy `klayout-tools==0.8.0` bundles) |
+| grading build | `klt 0.8.0` (`git_tag v0.8.0`, `grading_ruleset_id sha256:46c446d8…`) |
 
 **An almost-entirely-`unmet` report is the correct result, not a failure of this
 file.** 18 of 22 rows are `unmet` with a machine-readable `reason`, and that is
@@ -135,7 +135,7 @@ unratified candidate value). Its record states the per-draw ENOB spans
 7.755–9.101 bit, mean 8.531, but no `klt yield` verdict exists for it.
 
 **Why no new envelope was minted (2026-10-10).** `klt yield` needs the
-`klt_yield_native` extension. The newest published `klayout-tools` (0.7.0)
+`klt_yield_native` extension. As of 2026-10-10 the newest published `klayout-tools` (0.7.0)
 exposes it only as extra `yield`, which requires `klt-yield-native>=0.1.0,<0.2`;
 that distribution is not on PyPI, so `pip install "klayout-tools[yield]==0.7.0"`
 fails to resolve (0.6.0 and earlier have no such extra). The host `klt` fails
@@ -370,7 +370,7 @@ Item 4's citation carries **no** `content_hash`, and that is deliberate — but
 the premise first recorded here no longer holds. The envelope originally cited
 was minted by klt 0.5.0, whose `klt lvs` wrote `provenance.input: null`, so
 there was then no envelope-side hash for a manifest pin to match. The pinned
-grader (`klayout-tools==0.6.0`, `signoff/requirements.txt`) writes one, and the
+grader (`klayout-tools==0.8.0`, `signoff/requirements.txt`) writes one, and the
 cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` carries
 `provenance.input = {content_hash: sha256:b4fb2add24c1f4b5…, role: "netlist"}`
 — the hash of the **layout-side** netlist (`sar_adc_top.extract.lvs.spice`),
@@ -421,11 +421,11 @@ KLT=.venv-signoff/bin/klt bash signoff/run-signoff.sh
   --format text --no-color
 ```
 
-The grader pin (`klayout-tools==0.6.0`) deliberately diverges from
-`layout/requirements.txt`'s pin (also `0.6.0` since issue #103's bump; kept as a separate file by role): that one **mints** evidence and only moves
+The grader pin (`klayout-tools==0.8.0`) deliberately diverges from
+`layout/requirements.txt`'s pin (`0.6.0`; kept as a separate file by role): that one **mints** evidence and only moves
 with a full re-run of every `layout/` flow, while this one **grades** it and is
 a pure JSON+Markdown transform. `signoff/requirements.txt` documents the split
-and why 0.6.0 specifically. **Moving the grader pin is a claim change, not a
+and why the grader needs at least 0.6.0. **Moving the grader pin is a claim change, not a
 chore** — re-render, read the report diff row by row against this file, and
 update both together.
 

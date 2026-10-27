@@ -41,7 +41,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="signoff/block-manifest.json"
 REPORT="signoff/t1-report.json"
-PINNED_VERSION="0.6.0"
+PINNED_VERSION="0.8.0"
 
 mode="write"
 case "${1-}" in
