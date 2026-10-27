@@ -112,7 +112,8 @@ L_MET2 = (69, 20)
 # is the authority, these are the drawn sizes chosen to clear it.
 MCON_UM = 0.17  # ct.2 spacing 0.19 respected by the track pitch below
 VIA_UM = 0.15  # via.1a_a min size 0.15
-PAD_UM = 0.30  # met1/met2 landing pad: 0.065 over mcon, 0.075 over via
+PAD_UM = 0.30  # met1/met2 landing pad over mcon: 0.065 per side
+VIA_PAD_UM = 0.32  # met1/met2 pad at each via1: 0.085 per side (via.5a / m2.5, klt 0.8.0)
 WIRE_UM = 0.30  # met1/met2 wire width (m1.1/m2.1 minimum is 0.14)
 MET1_SPACE_UM = 0.14  # m1.2
 MCON_SPACE_UM = 0.19  # ct.2
@@ -479,6 +480,9 @@ class Router:
             self.net_met1.setdefault(net, []).append(rect)
 
     def add_via(self, net: str, trunk_x: float, y: float) -> None:
+        pad = Rect.centred(trunk_x, y, VIA_PAD_UM, VIA_PAD_UM)
+        self.shapes.append((L_MET1, pad))
+        self.shapes.append((L_MET2, pad))
         self.shapes.append((L_VIA, Rect.centred(trunk_x, y, VIA_UM, VIA_UM)))
         self.via_count[net] = self.via_count.get(net, 0) + 1
         key = (net, trunk_x)

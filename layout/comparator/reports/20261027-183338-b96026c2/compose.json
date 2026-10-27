@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "generator": "gen-compose",
+  "cell_name": "gen_compose_0",
+  "gds_path": "gen_compose_0.gds",
+  "pdk": {
+    "name": "sky130A",
+    "variant": "sky130A",
+    "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+  },
+  "dbu_um": 0.001,
+  "bbox_um": {
+    "x0": 0.0,
+    "y0": 2.5,
+    "x1": 26.6,
+    "y1": 38.660000000000004
+  },
+  "ports": [],
+  "blocks": [
+    {
+      "id": "tail",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "TAIL",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-733/layout/comparator/reports/20261027-183338-b96026c2/tail.gds",
+      "source_digest": "sha256:99041183f3437b1c49d6ae13ee8f3a113201d92a3cccff1269859f6eccc818d7",
+      "offset_um": {
+        "x": 2.0,
+        "y": 16.0
+      },
+      "bbox_um": {
+        "x0": 2.0,
+        "y0": 16.0,
+        "x1": 3.34,
+        "y1": 24.82
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "inpair",
+      "source": "generator_report",
+      "generator": "diff_pair",
+      "cell_name": "INPAIR",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-733/layout/comparator/reports/20261027-183338-b96026c2/inpair.gds",
+      "source_digest": "sha256:ec2f6a6bc32942a4419f65cac7b639f9fae4dfa7c2d6f2d079236b3dbc191540",
+      "offset_um": {
+        "x": 5.5,
+        "y": 17.39
+      },
+      "bbox_um": {
+        "x0": 5.5,
+        "y0": 17.39,
+        "x1": 8.58,
+        "y1": 23.43
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "latn",
+      "source": "generator_report",
+      "generator": "diff_pair",
+      "cell_name": "LATN",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-733/layout/comparator/reports/20261027-183338-b96026c2/latn.gds",
+      "source_digest": "sha256:da8675f56745fa0973f94fb7f8cd08e73965713e0d4eac49366be3f4712cffac",
+      "offset_um": {
+        "x": 10.7,
+        "y": 15.39
+      },
+      "bbox_um": {
+        "x0": 10.7,
+        "y0": 15.39,
+        "x1": 12.04,
+        "y1": 25.43
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "latp",
+      "source": "generator_report",
+      "generator": "diff_pair",
+      "cell_name": "LATP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-733/layout/comparator/reports/20261027-183338-b96026c2/latp.gds",
+      "source_digest": "sha256:fa5df693fdbe43450c9b1fd18dd919101ce1100f6031f3dc57bdb1ecc43090fd",
+      "offset_um": {
+        "x": 14.2,
+        "y": 11.39
+      },
+      "bbox_um": {
+        "x0": 14.049999999999999,
+        "y0": 11.24,
+        "x1": 15.69,
+        "y1": 29.580000000000002
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "rst",
+      "source": "generator_report",
+      "generator": "diff_pair",
+      "cell_name": "RST",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-733/layout/comparator/reports/20261027-183338-b96026c2/rst.gds",
+      "source_digest": "sha256:3f8661b51ef1c8a6a4d6dfb9582a88d6bec628d551df6190f27c7636384c2988",
+      "offset_um": {
+        "x": 18.0,
+        "y": 3.3900000000000006
+      },
+      "bbox_um": {
+        "x0": 17.85,
+        "y0": 3.2400000000000007,
+        "x1": 19.49,
+        "y1": 37.58
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "rstd",
+      "source": "generator_report",
+      "generator": "diff_pair",
+      "cell_name": "RSTD",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-733/layout/comparator/reports/20261027-183338-b96026c2/rstd.gds",
+      "source_digest": "sha256:73102600d706f0f85ea9f02b4467191a6d6b40fc885df3d0ce508b989426192f",
+      "offset_um": {
+        "x": 23.0,
+        "y": 15.39
+      },
+      "bbox_um": {
+        "x0": 22.85,
+        "y0": 15.24,
+        "x1": 24.49,
+        "y1": 25.58
+      },
+      "orientation": "none"
+    },
+    {
+      "id": "route",
+      "source": "generator_report",
+      "generator": "draw",
+      "cell_name": "ROUTE",
+      "source_path": "route.gds",
+      "source_digest": "sha256:21e0788696010427ff33b4d672cbe40e8125c7dce13af6ffaf9c4f65afffd8a3",
+      "offset_um": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 0.0,
+        "y0": 2.5,
+        "x1": 26.6,
+        "y1": 38.660000000000004
+      },
+      "orientation": "none"
+    }
+  ],
+  "nets": [],
+  "pins": [],
+  "unrouted_nets": [],
+  "drc_hints": {
+    "min_spacing_um": null,
+    "matched_groups": [
+      {
+        "matched_group_id": "mos_array:1x1:common_centroid",
+        "blocks": [
+          "tail"
+        ],
+        "placement_symmetric": null
+      },
+      {
+        "matched_group_id": "diff_pair:pair:2",
+        "blocks": [
+          "inpair"
+        ],
+        "placement_symmetric": null
+      },
+      {
+        "matched_group_id": "diff_pair:pair:1",
+        "blocks": [
+          "latn",
+          "latp",
+          "rst",
+          "rstd"
+        ],
+        "placement_symmetric": null
+      }
+    ],
+    "notes": []
+  },
+  "warnings": [
+    "block 'route' is placed 0.00um from block 'tail' (strategy: explicit), closer than tail's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'inpair' (strategy: explicit), closer than inpair's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'latn' (strategy: explicit), closer than latn's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'latp' (strategy: explicit), closer than latp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'rst' (strategy: explicit), closer than rst's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'rstd' (strategy: explicit), closer than rstd's own declared drc_hints.min_spacing_um of 0.40um"
+  ],
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "search root: ~/.ciel",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+    },
+    "deck": null,
+    "input": null
+  }
+}
