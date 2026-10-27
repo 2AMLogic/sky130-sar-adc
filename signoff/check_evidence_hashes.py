@@ -232,13 +232,10 @@ def iter_citations(manifest: dict):
     compound array form, then every `supplementary_evidence` entry.
 
     `supplementary_evidence` is NOT part of `klt signoff`'s manifest schema (it
-    reads only block/kind/partition_boundary/evidence, like `_comment`). It
-    exists because the grader accepts exactly ONE citation per item/partition
-    (item 11 alone is compound), while the digital item 5 is backed by four
-    reports (two macros x STA / functional verification). The one the grader
-    sees is in `evidence`; the rest are listed here so their freshness is
-    still re-derived from disk on every push rather than asserted in prose.
-    The grader never grades these: signoff/README.md says so.
+    reads only block/kind/partition_boundary/evidence, like `_comment`). It is
+    kept for reports a block wants re-hashed but the grader cannot take; the
+    manifest currently has none, because `klt` 0.8.0 accepts item 5 digital as a
+    list and all four of its reports are in `evidence`.
     """
     for key, entry in (manifest.get("evidence") or {}).items():
         if isinstance(entry, list):

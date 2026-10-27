@@ -85,15 +85,14 @@
     "      it `met` because every corner it reports is `constrained` with non-",
     "      negative setup and hold slack -- and that is ALL the grader looks at.",
     "      Read signoff/README.md before relying on the word `met`:",
-    "        (a) ONE CITATION SLOT. The grader (0.6.0) accepts one citation per",
-    "            item/partition (item 11 alone is compound), but this item is backed",
-    "            by FOUR reports: STA and functional verification, for each of the",
-    "            two macros. The grader sees the sequencer's STA only. The other",
-    "            three are listed under `supplementary_evidence` below, which `klt",
-    "            signoff` does not read; check_evidence_hashes.py re-derives their",
-    "            freshness. A `met` here is therefore NOT a statement about the glue",
-    "            macro or about functional verification, and the grader cannot say",
-    "            otherwise.",
+    "        (a) COMPOUND CITATION. The pinned grader (0.8.0) takes a list for this",
+    "            item: it needs a `klt sta` report AND a `klt functional-verification`",
+    "            report (with only the STA cited it renders `unmet`/`partial_coverage`,",
+    "            `missing_kinds: functional-verification`). Four reports are cited --",
+    "            STA and functional verification for each of the two macros -- and each",
+    "            is graded `met` on its own. The grader checks that both kinds are",
+    "            present and individually pass; it does not check that every macro",
+    "            has both. check_evidence_hashes.py re-derives every one's freshness.",
     "        (b) CORNER COVERAGE. The grader grades the corner set the cited run",
     "            itself declared (four Liberty corners). Of the nine PVT points the",
     "            digital characterization uses, only tt_27c_1.80v has a stock",
@@ -198,10 +197,22 @@
     "4": {
       "file": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json"
     },
-    "5.digital": {
-      "file": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
-      "content_hash": "sha256:13fc4c592f8449b61f7dae6d1a0653d23149078dd714328b3850ad140230890e"
-    },
+    "5.digital": [
+      {
+        "file": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
+        "content_hash": "sha256:13fc4c592f8449b61f7dae6d1a0653d23149078dd714328b3850ad140230890e"
+      },
+      {
+        "file": "sim/digital-sta/runs/20261017-194050-9522693/top-glue.12mhz.json",
+        "content_hash": "sha256:63c71901379a73dc908886a7f7f1ad91a4bf4f98c80ad242831526819ba5d124"
+      },
+      {
+        "file": "sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json"
+      },
+      {
+        "file": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json"
+      }
+    ],
     "11": [
       {
         "file": "layout/sar-adc-top/erc-reports/20261017-193237-9522693e/erc.json",
@@ -219,19 +230,5 @@
       "file": "signoff/evidence/digital-characterization.generic.json",
       "content_hash": "sha256:84321265f40157da1ca3d03228d3e01e3816a91215d395293c6bd80be7a15e2b"
     }
-  },
-  "supplementary_evidence": {
-    "5.digital": [
-      {
-        "file": "sim/digital-sta/runs/20261017-194050-9522693/top-glue.12mhz.json",
-        "content_hash": "sha256:63c71901379a73dc908886a7f7f1ad91a4bf4f98c80ad242831526819ba5d124"
-      },
-      {
-        "file": "sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json"
-      },
-      {
-        "file": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json"
-      }
-    ]
   }
 }
