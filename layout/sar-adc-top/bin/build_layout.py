@@ -275,6 +275,7 @@ MIN_METAL_AREA_UM2 = {
     MET4: 0.240,
 }
 
+VIA2_MET2_PAD_UM = 0.37  # = VIA_UM + 2 * 0.085: met2 pad at every via2 site
 ISLAND_PAD_UM = 0.50  # pad side for a pad that has to satisfy its own metal's
 #                       minimum-area rule UNAIDED -- see `_pad_side()`. 0.50^2
 #                       = 0.25 um^2, clearing met3/met4's own 0.24 um^2
@@ -430,6 +431,13 @@ class Canvas:
         # here (they never needed one), and a single cut has no neighbour.
         pitch = _via_array_pitch_um(cut) if array > 1 else 0.0
         grow = (array - 1) * pitch
+        # via2.5 (`met2.enclosing_adjacent.via2.1`): met2 needs >= 0.085 um on
+        # two adjacent sides of a via2, i.e. a 0.37 um pad, not PAD_UM's 0.36.
+        if cut == VIA2:
+            if at_layer_lo == MET2:
+                pad_lo = max(pad_lo, VIA2_MET2_PAD_UM)
+            if at_layer_hi == MET2:
+                pad_hi = max(pad_hi, VIA2_MET2_PAD_UM)
         self.square(at_layer_lo, x, y, pad_lo + grow)
         self.square(at_layer_hi, x, y, pad_hi + grow)
         first = -(array - 1) * pitch / 2.0
