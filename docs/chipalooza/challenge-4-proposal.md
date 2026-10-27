@@ -5667,7 +5667,7 @@ tracker already owns.
     gate](check_proposal_citations.py), added this pass — the third evidence
     tree, after `reports/` at check 9 and `erc-reports/` at check 16):
 
-    > on the report `signoff/t1-report.json`, `klt signoff` **0.6.0** grades
+    > on the report `signoff/t1-report.json`, `klt signoff` **0.8.0** grades
     > **4** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `4 analog`, `4 digital`, `11
     > analog`, `11 digital`; and its manifest cites

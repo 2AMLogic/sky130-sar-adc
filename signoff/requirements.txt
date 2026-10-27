@@ -6,7 +6,7 @@
 #   .venv-signoff/bin/pip install -r signoff/requirements.txt
 #   KLT=.venv-signoff/bin/klt bash signoff/run-signoff.sh --check
 #
-# WHY THIS DIVERGES FROM layout/requirements.txt (which now pins the same 0.6.0; the divergence is about role, not version)
+# WHY THIS DIVERGES FROM layout/requirements.txt (the divergence is about role; the two pins may differ in version)
 #
 # The two pins gate different things and must be free to move independently:
 #
@@ -22,7 +22,7 @@
 #       the grader release on its own schedule, and pinning it here keeps that
 #       decision from being smuggled into a layout-flow bump (or vice versa).
 #
-# WHY 0.6.0 SPECIFICALLY
+# WHY AT LEAST 0.6.0 (moved to 0.8.0 for issue #727; the 0.6.0 properties below still hold)
 #
 #   1. The T1 checklist grew an ELEVENTH item on 2026-09-17 ("Power delivery
 #      (structural)", klayout-tools#2025). `klt signoff` parses the checklist
@@ -43,4 +43,4 @@
 # tighten a grading rule, or change a reason string; signoff/t1-report.json will
 # drift and CI will say so. Re-render it, read the diff row by row against
 # signoff/README.md's claim, and update both together.
-klayout-tools==0.6.0
+klayout-tools==0.8.0
