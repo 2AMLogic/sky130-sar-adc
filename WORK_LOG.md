@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-27
 
+- **PR #739**: fix: widen met2 pads at via2 cuts to clear via2.5 enclosure
+- **Issue #738** (closed): Fix or disposition met2.enclosing_adjacent.via2.1 drawn geometry (klt 0.8.0 via2.5)
 - **PR #736**: fix(layout): widen via1 landing pads to clear klt 0.8.0 via.5a/m2.5
 - **Issue #733** (closed): klt 0.8.0 triage: fix or record drawn-geometry DRC families (via.5a, m2.5, poly.8, via3.width)
 - **PR #735**: docs: record via2.5 as a met2 rule and the drawn-geometry disposition
