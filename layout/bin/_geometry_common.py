@@ -125,6 +125,9 @@ VIA1_UM = 0.15  # via1 square side (via1.width min 0.15), proven DRC-clean
 VIA23_UM = 0.20  # via2/via3 square side (via2/via3.width min 0.20 -- a
 # DIFFERENT, larger minimum than via1's 0.15; found directly building
 # `layout/sampling-frontend/`, as via2.width.1 violations at 0.15).
+# via.5a/m2.5 (klt 0.8.0 `*.enclosing_adjacent.via.1`): a via1 needs >= 0.085 um
+# of metal on two ADJACENT sides; a 0.30 um wire/pad leaves 0.075 um on each.
+VIA1_SITE_PAD_UM = 0.32  # = VIA1_UM + 2 * 0.085: met1/met2 pad at every via1 site
 STACK_PAD_UM = 0.42  # landing pad for a stacked via cut (the same pad size
 # `klt gen`'s own gate_contact uses), so a 0.20um via2/via3 lands with
 # >= 0.11um enclosure on every side.
@@ -232,7 +235,7 @@ def step_down_to_met1(
         # notch a wider STACK_PAD_UM pad would leave between itself and the
         # (narrower) hwire/riser, which read back as met1.space.1 when first
         # built that way.
-        shapes.append((L_MET1, Rect.centred(x, y, WIRE_UM, WIRE_UM)))
+        shapes.append((L_MET1, Rect.centred(x, y, VIA1_SITE_PAD_UM, VIA1_SITE_PAD_UM)))
         shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
         return x, y
     if layer == L_MET4:
@@ -266,7 +269,7 @@ def step_down_to_met1(
         shapes.append((L_VIA3, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
         shapes.append((L_MET2, Rect.centred(x, y, STACK_PAD_UM, STACK_PAD_UM)))
         shapes.append((L_VIA2, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
-        shapes.append((L_MET1, Rect.centred(x, y, WIRE_UM, WIRE_UM)))
+        shapes.append((L_MET1, Rect.centred(x, y, VIA1_SITE_PAD_UM, VIA1_SITE_PAD_UM)))
         shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
         return x, y
     raise BuildError(f"no met1 step-down rule for layer {layer!r}")
