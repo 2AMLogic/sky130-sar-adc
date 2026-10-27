@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-27
+
+- **PR #730**: docs: triage klt 0.8.0 DRC families on top-level streams; hold pin at 0.6.0
+
 ### 2026-10-23
 
 - **PR #718**: feat: store new corner-run evidence via klt artifact, commit only manifests

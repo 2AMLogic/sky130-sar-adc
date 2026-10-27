@@ -24,7 +24,7 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly
+_None._
 
 ## In Progress
 
@@ -33,19 +33,20 @@ Issues currently being built (`loom:building`).
 - **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
 - **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite
+- **#727**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#683**: feat: digital partition STA and functional-verification evidence for T1 item 5
+- **#728**: chore(deps): bump klayout-tools signoff/ERC/yield pins to 0.8.0
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
-- **#683**: feat: digital partition STA and functional-verification evidence for T1 item 5
 - **#722**: spec(DR-022): add DRAFT systematic gain-error row as the ratification vehicle
 
 ## Proposed
@@ -57,6 +58,8 @@ Issues carrying `loom:curated`.
 - **#621**: Coherent-sine capture: root-cause the single +438 LSB outlier (conversion 9) and add a per-code outlier check to the validity gate *(curated)*
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes *(curated)*
 - **#678**: Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite *(curated)*
+- **#727**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)*
+- **#729**: Triage klt 0.8.0 DRC violations on top-level streams (blocks layout pin bump) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -76,11 +79,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 3 |
-| Curated | 5 |
+| Ready (`loom:issue`) | 0 |
+| In Progress (`loom:building`) | 4 |
+| PRs awaiting review | 2 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 7 |
 | Architect / Hermit proposals | 4 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
