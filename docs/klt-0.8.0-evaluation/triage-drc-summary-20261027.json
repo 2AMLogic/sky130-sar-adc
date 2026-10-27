@@ -1,0 +1,129 @@
+{
+ "command": "klt drc <sar_adc_top.gds> --deck sky130 --format json",
+ "klt": "0.8.0",
+ "runs": {
+  "20261001-211249-1ca34e6": {
+   "status": "violations",
+   "violation_count": 34211,
+   "rule_counts": {
+    "diff.ongrid.1": 1184,
+    "hvtp.ongrid.1": 28,
+    "li1.ongrid.1": 5986,
+    "licon1.ongrid.1": 6008,
+    "mcon.ongrid.1": 6108,
+    "met1.enclosing_adjacent.via.1": 157,
+    "met1.ongrid.1": 3336,
+    "met2.enclosing_adjacent.via.1": 66,
+    "met2.enclosing_adjacent.via2.1": 1171,
+    "met2.ongrid.1": 1540,
+    "met3.ongrid.1": 152,
+    "met4.ongrid.1": 24,
+    "npc.ongrid.1": 1194,
+    "nsdm.ongrid.1": 148,
+    "nwell.ongrid.1": 36,
+    "poly.endcap.diff.1": 91,
+    "poly.ongrid.1": 4588,
+    "psdm.ongrid.1": 444,
+    "tap.ongrid.1": 136,
+    "via.ongrid.1": 1220,
+    "via2.ongrid.1": 336,
+    "via3.ongrid.1": 240,
+    "via3.width.1": 10,
+    "via4.ongrid.1": 8
+   },
+   "provenance": {
+    "klt_version": "0.8.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+     "name": "sky130",
+     "content_hash": "sha256:ba0f97887e3d231aec8b54f1f52f2941ded0228f0234b6759712bcaca0e942e6",
+     "released": true
+    },
+    "input": {
+     "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b",
+     "role": "layout"
+    },
+    "klayout_version_mismatch": false
+   }
+  },
+  "20261003-041400-571f036": {
+   "status": "violations",
+   "violation_count": 1495,
+   "rule_counts": {
+    "met1.enclosing_adjacent.via.1": 157,
+    "met2.enclosing_adjacent.via.1": 66,
+    "met2.enclosing_adjacent.via2.1": 1171,
+    "poly.endcap.diff.1": 91,
+    "via3.width.1": 10
+   },
+   "provenance": {
+    "klt_version": "0.8.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+     "name": "sky130",
+     "content_hash": "sha256:ba0f97887e3d231aec8b54f1f52f2941ded0228f0234b6759712bcaca0e942e6",
+     "released": true
+    },
+    "input": {
+     "content_hash": "sha256:a2b58035a62db885e65c9c9d47342debe70281443fe5ba5b4d4372bd743c4a93",
+     "role": "layout"
+    },
+    "klayout_version_mismatch": false
+   }
+  },
+  "20261021-104809-ddc1d72": {
+   "status": "violations",
+   "violation_count": 1495,
+   "rule_counts": {
+    "met1.enclosing_adjacent.via.1": 157,
+    "met2.enclosing_adjacent.via.1": 66,
+    "met2.enclosing_adjacent.via2.1": 1171,
+    "poly.endcap.diff.1": 91,
+    "via3.width.1": 10
+   },
+   "provenance": {
+    "klt_version": "0.8.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+     "name": "sky130",
+     "content_hash": "sha256:ba0f97887e3d231aec8b54f1f52f2941ded0228f0234b6759712bcaca0e942e6",
+     "released": true
+    },
+    "input": {
+     "content_hash": "sha256:a2b58035a62db885e65c9c9d47342debe70281443fe5ba5b4d4372bd743c4a93",
+     "role": "layout"
+    },
+    "klayout_version_mismatch": false
+   }
+  },
+  "20261021-104926-ddc1d72": {
+   "status": "violations",
+   "violation_count": 1495,
+   "rule_counts": {
+    "met1.enclosing_adjacent.via.1": 157,
+    "met2.enclosing_adjacent.via.1": 66,
+    "met2.enclosing_adjacent.via2.1": 1171,
+    "poly.endcap.diff.1": 91,
+    "via3.width.1": 10
+   },
+   "provenance": {
+    "klt_version": "0.8.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+     "name": "sky130",
+     "content_hash": "sha256:ba0f97887e3d231aec8b54f1f52f2941ded0228f0234b6759712bcaca0e942e6",
+     "released": true
+    },
+    "input": {
+     "content_hash": "sha256:a2b58035a62db885e65c9c9d47342debe70281443fe5ba5b4d4372bd743c4a93",
+     "role": "layout"
+    },
+    "klayout_version_mismatch": false
+   }
+  }
+ }
+}

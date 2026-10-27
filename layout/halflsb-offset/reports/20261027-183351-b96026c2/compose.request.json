@@ -1,0 +1,88 @@
+{
+  "schema": "klt.gen_compose.request/1",
+  "pdk": {
+    "variant": "sky130A"
+  },
+  "blocks": [
+    {
+      "id": "moff_n_cmn",
+      "generator_report": "moff_n_cmn.json"
+    },
+    {
+      "id": "moff_n_refp",
+      "generator_report": "moff_n_refp.json"
+    },
+    {
+      "id": "moff_n_cmp",
+      "generator_report": "moff_n_cmp.json"
+    },
+    {
+      "id": "moff_p_cmn",
+      "generator_report": "moff_p_cmn.json"
+    },
+    {
+      "id": "moff_p_refp",
+      "generator_report": "moff_p_refp.json"
+    },
+    {
+      "id": "moff_p_cmp",
+      "generator_report": "moff_p_cmp.json"
+    },
+    {
+      "id": "choff",
+      "generator_report": "choff.json"
+    },
+    {
+      "id": "route",
+      "generator_report": "draw.json"
+    }
+  ],
+  "placement": {
+    "strategy": "explicit",
+    "order": [
+      "moff_n_cmn",
+      "moff_n_refp",
+      "moff_n_cmp",
+      "moff_p_cmn",
+      "moff_p_refp",
+      "moff_p_cmp",
+      "choff",
+      "route"
+    ],
+    "origins_um": {
+      "moff_n_cmn": {
+        "x": 5.2,
+        "y": 0.0
+      },
+      "moff_n_refp": {
+        "x": 9.89,
+        "y": 0.0
+      },
+      "moff_n_cmp": {
+        "x": 13.09,
+        "y": 0.0
+      },
+      "moff_p_cmn": {
+        "x": 21.2,
+        "y": 0.0
+      },
+      "moff_p_refp": {
+        "x": 25.89,
+        "y": 0.0
+      },
+      "moff_p_cmp": {
+        "x": 29.09,
+        "y": 0.0
+      },
+      "choff": {
+        "x": 0.0,
+        "y": 5.0
+      },
+      "route": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  },
+  "connectivity": []
+}

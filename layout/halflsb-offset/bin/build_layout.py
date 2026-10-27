@@ -97,6 +97,7 @@ from _geometry_common import (  # noqa: E402
     L_MET2,
     L_VIA1,
     STACK_PAD_UM,
+    VIA1_SITE_PAD_UM,
     VIA1_UM,
     BuildError,
     MCON_UM,
@@ -650,7 +651,8 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         cols = sorted(net_columns[net])
         for x, y_from in cols:
             shapes.append((L_MET1, Rect.vwire(x, y_from, track_y)))
-            shapes.append((L_MET1, Rect.centred(x, track_y, WIRE_UM, WIRE_UM)))
+            shapes.append((L_MET1, Rect.centred(x, track_y, VIA1_SITE_PAD_UM, VIA1_SITE_PAD_UM)))
+            shapes.append((L_MET2, Rect.centred(x, track_y, VIA1_SITE_PAD_UM, VIA1_SITE_PAD_UM)))
             shapes.append((L_VIA1, Rect.centred(x, track_y, VIA1_UM, VIA1_UM)))
             met1_riser_um[side_of_column[nm(x)]] += track_y - y_from
         xs = [x for x, _ in cols]
