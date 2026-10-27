@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-27
 
+- **PR #728**: chore(deps): bump klayout-tools signoff/ERC/yield pins to 0.8.0
+- **Issue #727** (closed): Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0
 - **PR #739**: fix: widen met2 pads at via2 cuts to clear via2.5 enclosure
 - **Issue #738** (closed): Fix or disposition met2.enclosing_adjacent.via2.1 drawn geometry (klt 0.8.0 via2.5)
 - **PR #736**: fix(layout): widen via1 landing pads to clear klt 0.8.0 via.5a/m2.5
