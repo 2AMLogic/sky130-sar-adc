@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "engine": "icarus",
+  "hdl_toplevel": "top_glue",
+  "testbench": "test_top_glue_sdf",
+  "status": "pass",
+  "test_count": 6,
+  "passed_count": 6,
+  "failed_count": 0,
+  "skipped_count": 0,
+  "tests": [
+    {
+      "name": "exhaustive_data_path",
+      "status": "passed",
+      "sim_time_ns": 327680.0,
+      "real_time_s": 0.851
+    },
+    {
+      "name": "clock_inverter_both_polarities",
+      "status": "passed",
+      "sim_time_ns": 960.0,
+      "real_time_s": 0.002
+    },
+    {
+      "name": "code_all_ones",
+      "status": "passed",
+      "sim_time_ns": 40.0,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "code_all_zeros",
+      "status": "passed",
+      "sim_time_ns": 40.0,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "sign_branch_codes_from_spice_campaign",
+      "status": "passed",
+      "sim_time_ns": 160.0,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "dr009_enable_pair",
+      "status": "passed",
+      "sim_time_ns": 480.0,
+      "real_time_s": 0.001
+    }
+  ],
+  "coverage": null,
+  "trace": null,
+  "environment": {
+    "engine": "icarus",
+    "engine_version": "13.0",
+    "cocotb_version": "2.1.0",
+    "results_xml": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/results_icarus.xml",
+    "test_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/test_icarus.log",
+    "build_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/build_icarus.log",
+    "random_seed": 1793300219,
+    "source_defines": {},
+    "initial_state": null,
+    "sdf": {
+      "file": "<repo>/sim/digital-sta/runs/20261029-185629-5bb0e1e/sdf/top-glue.ss_100C_1v60.sdf",
+      "corner": "typ",
+      "entries": "all",
+      "annotated": true,
+      "partial": false,
+      "dropped": {}
+    }
+  }
+}
