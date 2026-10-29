@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-10-29
+
+- **Issue #351** (closed): README: embed the fleet burndown chart (one line)
+
 ### 2026-10-27
 
 - **PR #728**: chore(deps): bump klayout-tools signoff/ERC/yield pins to 0.8.0
