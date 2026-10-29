@@ -9,7 +9,7 @@
   "tier": null,
   "t1_item_count": 22,
   "build_t1_item_count": 22,
-  "t1_met_count": 4,
+  "t1_met_count": 5,
   "source_doc": "docs/design-evidence-tiers.md",
   "source_doc_content_hash": "sha256:a26b90262320d0fbd32b3f549a02b6300832706041797a559d8bf6bdb62efdc7",
   "build": {
@@ -273,10 +273,78 @@
       "notes": [
         "Both require the spec table itself to be ratified \u2014 verdicts against a draft spec are provisional by construction."
       ],
-      "status": "unmet",
-      "reason": "no_evidence",
+      "status": "met",
+      "reason": null,
       "graded_by_build": true,
-      "citation": null
+      "citation": {
+        "file": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
+        "command": null,
+        "kind": "sta",
+        "check_status": "ok",
+        "content_hash": "sha256:13fc4c592f8449b61f7dae6d1a0653d23149078dd714328b3850ad140230890e",
+        "input_verified": null,
+        "exit_status": 0
+      },
+      "citations_graded": [
+        {
+          "citation": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
+          "status": "met",
+          "reason": null
+        },
+        {
+          "citation": "sim/digital-sta/runs/20261017-194050-9522693/top-glue.12mhz.json",
+          "status": "met",
+          "reason": null
+        },
+        {
+          "citation": "sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json",
+          "status": "met",
+          "reason": null
+        },
+        {
+          "citation": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json",
+          "status": "met",
+          "reason": null
+        }
+      ],
+      "citations": [
+        {
+          "file": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
+          "command": null,
+          "kind": "sta",
+          "check_status": "ok",
+          "content_hash": "sha256:13fc4c592f8449b61f7dae6d1a0653d23149078dd714328b3850ad140230890e",
+          "input_verified": null,
+          "exit_status": 0
+        },
+        {
+          "file": "sim/digital-sta/runs/20261017-194050-9522693/top-glue.12mhz.json",
+          "command": null,
+          "kind": "sta",
+          "check_status": "ok",
+          "content_hash": "sha256:63c71901379a73dc908886a7f7f1ad91a4bf4f98c80ad242831526819ba5d124",
+          "input_verified": null,
+          "exit_status": 0
+        },
+        {
+          "file": "sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json",
+          "command": null,
+          "kind": "functional-verification",
+          "check_status": "pass",
+          "content_hash": null,
+          "input_verified": null,
+          "exit_status": 0
+        },
+        {
+          "file": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json",
+          "command": null,
+          "kind": "functional-verification",
+          "check_status": "pass",
+          "content_hash": null,
+          "input_verified": null,
+          "exit_status": 0
+        }
+      ]
     },
     {
       "tier": "T1",

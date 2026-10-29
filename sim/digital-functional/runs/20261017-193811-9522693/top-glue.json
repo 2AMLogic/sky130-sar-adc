@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "engine": "icarus",
+  "hdl_toplevel": "top_glue",
+  "testbench": "test_top_glue",
+  "status": "pass",
+  "test_count": 6,
+  "passed_count": 6,
+  "failed_count": 0,
+  "skipped_count": 0,
+  "tests": [
+    {
+      "name": "exhaustive_data_path",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.91
+    },
+    {
+      "name": "clock_inverter_both_polarities",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.003
+    },
+    {
+      "name": "code_all_ones",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "code_all_zeros",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "sign_branch_codes_from_spice_campaign",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "dr009_enable_pair",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.001
+    }
+  ],
+  "coverage": null,
+  "trace": null,
+  "environment": {
+    "engine": "icarus",
+    "engine_version": "13.0",
+    "cocotb_version": "2.1.0",
+    "results_xml": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/results_icarus.xml",
+    "random_seed": 1792265898,
+    "sdf": null
+  }
+}

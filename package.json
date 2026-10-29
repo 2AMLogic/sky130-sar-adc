@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "worktree:return": "./.loom/scripts/worktree-return.sh",
-    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:supersedes && npm run check:append-only && npm run check:artifact-manifests && npm run check:report",
-    "check:all": "npm run check:ci && npm run check:layout",
+    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:digital-ref && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:supersedes && npm run check:append-only && npm run check:artifact-manifests && npm run check:report",
     "check:harness": "./sim/selftest.sh",
     "check:harness:quick": "./sim/selftest.sh --quick",
     "check:harness:full": "./sim/selftest.sh --full",
@@ -21,6 +20,7 @@
     "check:append-only": "python3 sim/check_append_only.py",
     "check:artifact-manifests": "python3 sim/check_artifact_manifests.py check --tree HEAD",
     "check:signoff-hashes": "python3 signoff/check_evidence_hashes.py",
+    "check:digital-ref": "python3 -I sim/digital-functional/tb/sar_ref.py",
     "check:spec-coverage": "python3 sim/check_spec_coverage.py",
     "render:spec-coverage": "python3 sim/check_spec_coverage.py --render",
     "test": "npm run test:compile && npm run test:unit",

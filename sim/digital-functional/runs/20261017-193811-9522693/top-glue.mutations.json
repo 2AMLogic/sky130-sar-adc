@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "engine": "icarus",
+  "hdl_toplevel": "top_glue",
+  "testbench": "test_top_glue",
+  "status": "pass",
+  "test_count": 6,
+  "passed_count": 6,
+  "failed_count": 0,
+  "skipped_count": 0,
+  "tests": [
+    {
+      "name": "exhaustive_data_path",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.989
+    },
+    {
+      "name": "clock_inverter_both_polarities",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.003
+    },
+    {
+      "name": "code_all_ones",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "code_all_zeros",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.0
+    },
+    {
+      "name": "sign_branch_codes_from_spice_campaign",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.001
+    },
+    {
+      "name": "dr009_enable_pair",
+      "status": "passed",
+      "sim_time_ns": null,
+      "real_time_s": 0.001
+    }
+  ],
+  "coverage": null,
+  "trace": null,
+  "environment": {
+    "engine": "icarus",
+    "engine_version": "13.0",
+    "cocotb_version": "2.1.0",
+    "results_xml": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/results_icarus.xml",
+    "random_seed": 1792265900,
+    "sdf": null
+  },
+  "mutation_testing": {
+    "schema_version": 1,
+    "proposal_count": 6,
+    "valid_count": 6,
+    "rejected_count": 0,
+    "killed_count": 6,
+    "survived_count": 0,
+    "mutation_score": 1.0,
+    "results": [
+      {
+        "index": 1,
+        "category": "wrong-operand",
+        "file": "../../../layout/top-glue/netlist/top_glue.v",
+        "line": 104,
+        "status": "killed",
+        "first_killing_test": "exhaustive_data_path",
+        "log_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/mutants/mutant_1.log"
+      },
+      {
+        "index": 2,
+        "category": "wrong-side-gate",
+        "file": "../../../layout/top-glue/netlist/top_glue.v",
+        "line": 107,
+        "status": "killed",
+        "first_killing_test": "exhaustive_data_path",
+        "log_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/mutants/mutant_2.log"
+      },
+      {
+        "index": 3,
+        "category": "recode-cell-swap",
+        "file": "../../../layout/top-glue/netlist/top_glue.v",
+        "line": 118,
+        "status": "killed",
+        "first_killing_test": "exhaustive_data_path",
+        "log_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/mutants/mutant_3.log"
+      },
+      {
+        "index": 4,
+        "category": "clock-inverter-stuck",
+        "file": "../../../layout/top-glue/netlist/top_glue.v",
+        "line": 88,
+        "status": "killed",
+        "first_killing_test": "clock_inverter_both_polarities",
+        "log_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/mutants/mutant_4.log"
+      },
+      {
+        "index": 5,
+        "category": "dummy-load-operand",
+        "file": "../../../layout/top-glue/netlist/top_glue.v",
+        "line": 129,
+        "status": "killed",
+        "first_killing_test": "exhaustive_data_path",
+        "log_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/mutants/mutant_5.log"
+      },
+      {
+        "index": 6,
+        "category": "enable-polarity",
+        "file": "../../../layout/top-glue/netlist/top_glue.v",
+        "line": 134,
+        "status": "killed",
+        "first_killing_test": "exhaustive_data_path",
+        "log_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-678/sim/digital-functional/requests/.klt/functional-verification/mutants/mutant_6.log"
+      }
+    ]
+  }
+}
