@@ -6,7 +6,7 @@
 #   .venv-signoff/bin/pip install -r signoff/requirements.txt
 #   KLT=.venv-signoff/bin/klt bash signoff/run-signoff.sh --check
 #
-# WHY THIS DIVERGES FROM layout/requirements.txt (which still pins 0.6.0 -- this file moved to 0.7.0 first, issue #676)
+# WHY THIS DIVERGES FROM layout/requirements.txt (the divergence is about role; the two pins may differ in version)
 #
 # The two pins gate different things and must be free to move independently:
 #
@@ -22,18 +22,16 @@
 #       the grader release on its own schedule, and pinning it here keeps that
 #       decision from being smuggled into a layout-flow bump (or vice versa).
 #
-# WHY 0.7.0 (it was 0.6.0 until issue #676; items 1-3 below are why 0.6.0 was the floor)
+# WHY AT LEAST 0.7.0 (it was 0.6.0 until issue #676, 0.7.0 until issue #727; the properties below still hold at 0.8.0)
 #
-#   0. 0.7.0 grades ARTIFACT-ANCHORED generic envelopes for T1 items 1, 2, 9
-#      and 10 (klayout-tools#2718): the envelope declares `t1_item` and pins
-#      the audited artifact by path and sha256, the manifest pins the same
-#      hash, and the row is `met` only while the artifact still re-hashes to
-#      it. Before 0.7.0 those four rows could only be satisfied by citing an
-#      unrelated passing envelope. Moving the pin changed no existing verdict:
-#      all 25 rows kept status, reason and citation (issues #649 / #676).
-#      Bumping layout/requirements.txt is a separate decision -- `klt drc`
-#      0.7.0 changes verdicts (#653).
-#
+#   0. 0.7.0 is the first release that grades ARTIFACT-ANCHORED generic envelopes
+#      for T1 items 1, 2, 9 and 10 (klayout-tools#2718): the envelope declares
+#      `t1_item` and pins the audited artifact by path and sha256, the manifest
+#      pins the same hash, and the row is `met` only while the artifact still
+#      re-hashes to it. Before 0.7.0 those four rows could only be satisfied by
+#      citing an unrelated passing envelope. Bumping layout/requirements.txt is
+#      a separate decision -- `klt drc` 0.7.0 changes verdicts (#653).
+#      Items 1-3 below are why 0.6.0 was the floor before that.
 #
 #   1. The T1 checklist grew an ELEVENTH item on 2026-09-17 ("Power delivery
 #      (structural)", klayout-tools#2025). `klt signoff` parses the checklist
@@ -54,4 +52,4 @@
 # tighten a grading rule, or change a reason string; signoff/t1-report.json will
 # drift and CI will say so. Re-render it, read the diff row by row against
 # signoff/README.md's claim, and update both together.
-klayout-tools==0.7.0
+klayout-tools==0.8.0

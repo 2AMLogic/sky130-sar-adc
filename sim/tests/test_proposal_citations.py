@@ -4846,18 +4846,68 @@ class TestProvenanceCensus(unittest.TestCase):
         doc = REPO_ROOT / "docs" / "chipalooza" / "challenge-4-proposal.md"
         self.assertEqual(checker.check_provenance_census(doc, doc.read_text()), [])
 
+    @staticmethod
+    def spice_records(root: Path) -> list[Path]:
+        """Every `sim/` record that is not under a non-SPICE campaign.
+
+        The population check 26's `sim_pinned` is held to is defined by the
+        campaigns `sim/spec-coverage.json` lists in `non_spice_campaigns`
+        (they run no ngspice), not by which records happen to name an ngspice
+        version: a SPICE record that omits its version must fall short of this
+        population, not drop out of it.
+        """
+        index = json.loads((root / "sim" / "spec-coverage.json").read_text())
+        non_spice = {c["experiment"] for c in index.get("non_spice_campaigns", [])}
+        return [
+            path
+            for path in sorted(root.glob(checker.PROVENANCE_SIM_GLOB))
+            if path.relative_to(root).parts[1] not in non_spice
+        ]
+
+    def write_non_spice_index(self, *experiments: str):
+        (self.tree.root / "sim").mkdir(exist_ok=True)
+        (self.tree.root / "sim" / "spec-coverage.json").write_text(
+            json.dumps({"non_spice_campaigns": [{"experiment": e} for e in experiments]})
+        )
+
+    def test_a_spice_record_that_omits_its_ngspice_version_falls_short(self):
+        """Regression for the operator ruling of 2026-10-23, item (b).
+
+        Defining the population as "records that name an ngspice version"
+        silently dropped exactly this record from it. Defined as every record
+        outside `non_spice_campaigns`, it is counted and the census falls short.
+        """
+        self.write_non_spice_index("sta")
+        self.tree.add_sim_record("a", "s1", provenance=self.SIM_PINNED)
+        self.tree.add_sim_record(
+            "b", "s2", provenance="\n## Environment\n\n- PDK: sky130A @ " + "c" * 40 + "\n"
+        )
+        self.tree.add_sim_record("sta", "s3", provenance="\n- PDK: sky130A @ " + "c" * 40 + "\n")
+        census = checker.provenance_census()
+        spice_records = self.spice_records(self.tree.root)
+        self.assertEqual(len(spice_records), 2)
+        self.assertEqual(census["sim_records"], 3)
+        self.assertEqual(census["sim_pinned"], 1)
+        self.assertLess(census["sim_pinned"], len(spice_records))
+
     def test_the_real_layout_shortfall_is_not_vacuous(self):
         """The finding this check was added for, asserted against the live tree.
 
         A census that could only ever read "all of them" would be a check that
         never fires. The gap issue #407 tracks is real today: some `layout/`
-        record names no `open_pdks` commit, and every `sim/` record does.
+        record names no `open_pdks` commit, and every `sim/` record that names
+        an ngspice version also names it. The non-SPICE campaigns (functional
+        simulation, static timing) run no ngspice, so they are not in that
+        population and are the whole of the `sim/` shortfall.
         """
         fixture_root = checker.REPO_ROOT
         checker.REPO_ROOT = REPO_ROOT
         self.addCleanup(lambda: setattr(checker, "REPO_ROOT", fixture_root))
         census = checker.provenance_census()
-        self.assertEqual(census["sim_pinned"], census["sim_records"])
+        spice_records = self.spice_records(REPO_ROOT)
+        self.assertTrue(spice_records)
+        self.assertEqual(census["sim_pinned"], len(spice_records))
+        self.assertLess(census["sim_pinned"], census["sim_records"])
         self.assertLess(census["layout_pdk"], census["layout_records"])
         self.assertTrue(census["unpinned"])
 

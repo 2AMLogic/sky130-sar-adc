@@ -17,12 +17,12 @@ Current verdict, at the committed report:
 | block | `sky130-sar-adc` |
 | kind | `mixed-signal` (22 rows: 11 items × 2 partitions) |
 | tier | `null` — not T1 |
-| T1 items met | **11 / 22** (items 2, 3, 8, 9, 10 on both partitions; item 1 on the analog partition) |
-| checklist graded against | `design-evidence-tiers.md` @ `sha256:4c67ffc5…` (the copy `klayout-tools==0.7.0` bundles) |
-| grading build | `klt 0.7.0` (`git_tag v0.7.0`, `grading_ruleset_id sha256:eb8d2ba5…`) |
+| T1 items met | **12 / 22** (items 2, 3, 8, 9, 10 on both partitions; item 1 on the analog partition; item 5 on the digital partition — **provisional, narrow; read "Item 5, digital" below**) |
+| checklist graded against | `design-evidence-tiers.md` @ `sha256:a26b9026…` (the copy `klayout-tools==0.8.0` bundles) |
+| grading build | `klt 0.8.0` (`git_tag v0.8.0`, `grading_ruleset_id sha256:46c446d8…`) |
 
 **A mostly-`unmet` report is the correct result, not a failure of this
-file.** 11 of 22 rows are `unmet` with a machine-readable `reason`, and that is
+file.** 10 of 22 rows are `unmet` with a machine-readable `reason`, and that is
 exactly the honest statement of the gap. Nothing here should be "improved" by
 citing an envelope that does not actually support the item it is filed under.
 
@@ -69,7 +69,7 @@ saying, because the grader cannot.
 | 2 | Layout | **`met`** (both) | One bare citation: a generic envelope pinning the composed top-level stream (`layout/sar-adc-top/reports/20261001-211249-1ca34e6/sar_adc_top.gds`) by path and sha256. Asserts nothing about item 4. See "What the item 1, 2, 9 and 10 citations assert".
 | 3 | DRC clean | **`met`** (both) | `klt drc` on the composed top-level stream: `status: clean`, 0 violations, deck `sky130` @ `sha256:a1d90e06…` (see the cited `drc.json` for the authoritative deck hash and counts). Covers both partitions because the stream it ran on contains both partitions' geometry. **Coverage gaps are disclosed below — read them; a `met` here is not evidence they were disclosed.** |
 | 4 | LVS clean | `unmet` / `check_failed` (both) | Cited deliberately even though it fails. `klt lvs` reports `status: "mismatch"` against the full-block reference; the authoritative mismatch, net, device and pin counts are in the cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` (`mismatch_count`, `category_counts`, `counts`) — read them there. Summary retained at that record only: 67 mismatches / 66 errors, 519/555 reference nets and 1046/1095 reference devices matched; categories 49 `device.unmatched`, 9 `net.merged`, 8 `net.split`, 1 `topology.flattened`. Pins read 21 layout / 22 reference / 22 matched: the reference carries `GND` and `VGND` as two ports of what the layout extracts as one net — the shared p-substrate (`GND\|VGND\|VSS`) — so one promoted layout pin answers both, which is why `layout < reference` here is not a missing pin; see [DR-012](../spec/decision-records/DR-012-analog-ground-pad.md). *Historical comparison, superseded:* the 2026-09-24 record (`reports/20260924-234053-66dca3c/`) read 88 mismatches / 87 errors, 411/444 nets and 803/869 devices; before issue #355 it read 98/97. Root cause is an upstream extraction-hierarchy gap, not a design defect — filed generically as klayout-tools#1878; see `layout/sar-adc-top/README.md`'s "LVS device/topology blocker". The full-block LVS still does not match. |
-| 5 | Full corner verification | `unmet` / `no_evidence` (both) | Two independent reasons. (a) No `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown evidence records. (b) The spec half is not met either: `spec/target-spec.md`'s sample-rate row and the ENOB / INL-DNL **target values** are still DRAFT, and item 5 requires a ratified spec table. |
+| 5 | Full corner verification | analog: `unmet` / `no_evidence`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Under `klt 0.8.0` the row is compound: the manifest cites four reports (STA and `klt functional-verification` for each of `sar_sequencer` and `top_glue`), each graded `met`; citing the STA alone renders `unmet` / `partial_coverage` (`missing_kinds: functional-verification`). **`met` is the grader's verdict on those four reports; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, and the STA covers the digital partition's own boundary only — see "Item 5, digital" below.** Analog: no `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown records — and the ENOB / INL-DNL **target values** are still DRAFT. |
 | 6 | Statistical claims | `unmet` / `no_evidence` (both) | Five `klt yield` envelopes **do** exist and all report `status: "fail"` — see "Item 6" below for what they say and why none is cited. |
 | 7 | Post-layout verification | `unmet` / `no_evidence` (both) | No `klt pex` report exists for the composed top level or any partition; three comparator-level `pex.json` envelopes exist under `layout/comparator/reports/` but are not cited in the manifest, because they cover the comparator block only and do not prove post-layout behaviour of the composed block. Item 7 on the composed block is blocked on item 4 (the top-level LVS mismatch), mirroring `layout/sar-adc-top/README.md`. Item 7 accepts nothing else, by design: a clean DRC or a pre-layout sim renders `wrong_kind`, because neither proves anything about post-layout behaviour. Nothing to disclose about `body_bias` yet — that field is reported on a `pex` citation, and there is no `pex` citation in the manifest. |
 | 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
@@ -135,7 +135,7 @@ unratified candidate value). Its record states the per-draw ENOB spans
 7.755–9.101 bit, mean 8.531, but no `klt yield` verdict exists for it.
 
 **Why no new envelope was minted (2026-10-10).** `klt yield` needs the
-`klt_yield_native` extension. The newest published `klayout-tools` (0.7.0)
+`klt_yield_native` extension. As of 2026-10-10 the newest published `klayout-tools` (0.7.0)
 exposes it only as extra `yield`, which requires `klt-yield-native>=0.1.0,<0.2`;
 that distribution is not on PyPI, so `pip install "klayout-tools[yield]==0.7.0"`
 fails to resolve (0.6.0 and earlier have no such extra). The host `klt` fails
@@ -163,6 +163,69 @@ None is cited, for reasons about the **citation**, not about the campaign:
 
 So item 6 renders `no_evidence` and the actual verdicts are recorded here. The
 underlying campaign is issue #29's; its Markdown records stand unedited.
+
+### Item 5, digital: what `met` asserts, and what it does not
+
+**Provisional.** Item 5 requires a *ratified* spec. `spec/target-spec.md`'s
+sample-rate row is still DRAFT (issue #1), so every verdict below is provisional
+until it is ratified. Ratifying it is not part of the work behind this row, and
+`klt signoff` does not check it: the `met` would read the same against a draft.
+
+What stands behind the row (the reports were minted by `klt 0.6.0`, the build
+that minted the evidence; the grader is `klt 0.8.0`; records are
+append-only, see `sim/README.md`):
+
+| Evidence | Where | Verdict |
+|---|---|---|
+| STA, routed `sar_sequencer`, 12 MHz | `sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json` (cited) | all four corners `constrained`, setup and hold slack positive, 0 violations |
+| STA, routed `top_glue`, 12 MHz | `…/top-glue.12mhz.json` (cited) | same |
+| Negative control: 6 GHz clock | `…/*.negative-control-6ghz.json` | setup fails at every corner of both macros; cited in place of the real report the grader renders it `unmet` / `check_failed` |
+| Functional verification, `sar_sequencer` | `sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json` (cited) | 8 / 8 tests pass; 5 / 5 netlist mutants killed |
+| Functional verification, `top_glue` | `…/top-glue.json` (cited) | 6 / 6 tests pass; 6 / 6 mutants killed |
+
+The tests are bit-exact against `sim/digital-functional/tb/sar_ref.py` (a
+reference model written from the DR-006 / DR-008 / DR-009 text, with its own
+self-check) on every output at every edge. They cover the cases the SPICE
+campaign did not drive: all-ones, all-zeros, a mid-conversion asynchronous reset
+at each of the 12 sequencer states, every one of the 1024 codes in closed loop,
+and the whole `top_glue` input space.
+
+Disclosures the grader cannot make:
+
+- **What the grader checks about the four citations.** The `5.digital` entry is
+  a list (as item 11's is). `klt 0.8.0` grades each cited report on its own
+  (all four `met`) and requires both kinds, `klt sta` and `klt
+  functional-verification`, to be present: with only the sequencer STA cited
+  (the `0.6.0`-era shape, one slot) the row renders `unmet` / `partial_coverage`.
+  It does not check that each macro has both kinds, nor the netlist-to-report
+  linkage; `check_evidence_hashes.py` re-derives the sta DEF hash and, for
+  functional verification, every netlist / model / testbench hash in the
+  record's `inputs.sha256`.
+- **Corner coverage: 1 of 9 points, and not exactly.** The nine PVT points the
+  digital characterization uses are listed in `sim/digital-sta/corner-set.json`.
+  `sky130_fd_sc_hd` ships Liberty files only for `tt_025C_1v80`, `tt_100C_1v80`,
+  `ss_{n40C,100C}_*`, `ff_{n40C,100C}_*`: no `fs` / `sf` file at all, nothing at
+  27 C other than the 25 C typical file, nothing at 1.62 / 1.98 V. Eight points
+  are **declared gaps and were not timed**. `tt_27c_1.80v` is timed with the
+  25 C file, a declared mapping (2 C apart), not an identity. The four timed
+  corners include three stock extremes that are *not* among the nine
+  (`tt_100C_1v80`, `ss_100C_1v60`, `ff_n40C_1v95`) and are never a substitute for
+  a gap. The grader grades the corner set the run itself declared, so it cannot
+  see the gaps.
+- **Boundary STA only.** The analysis is of the digital partition's own routed
+  netlists under stated assumptions (0.25 T input and output delays, ideal
+  clock, unloaded outputs, no SPEF). It says nothing about the ADC's conversion
+  rate, which also depends on the analog partition.
+- **The routed `sar_sequencer` is not today's schematic (issue #680).** The netlist that was
+  placed and routed, `layout/sar-sequencer/netlist/sar_sequencer.v`, has 36
+  instances (issue #102). `design/sar_sequencer.sch` has 57: it gained the
+  `COMP_EFF` xnor and per-conversion clear gating of issue #263 / DR-008. Both
+  the functional tests and the STA cover the 36-instance netlist, so neither
+  speaks for `COMP_EFF` or the clear gating.
+- **Zero-delay functional run.** No SDF; that is item 7 (issue #679).
+- **PDK revision.** The reports were minted against open_pdks `f6eeac7`, the
+  revision installed on the host, not the `c6d73a3` that `sim/pdk.json` pins
+  (issue #669, the re-pin, is open).
 
 ### Item 8: exactly what `met` asserts
 
@@ -312,8 +375,8 @@ so the return paths differ off-die, not on it.
 
 No `klt` verb backs these four items, and `klt signoff` cannot judge topical
 relevance of a bare passing envelope, so citing an unrelated one (the clean DRC,
-say) would have been dishonest. Since klayout-tools 0.7.0 (the grader pin,
-issue #676) the tool grades an **artifact-anchored generic envelope**: it
+say) would have been dishonest. Since klayout-tools 0.7.0 (issue #676; the grader pin is now
+0.8.0, which grades them the same way) the tool grades an **artifact-anchored generic envelope**: it
 declares `t1_item`, pins the audited artifact by path and sha256, and the
 manifest pins the same hash; the row is `met` only while the artifact re-hashes
 to it. This block's citations:
@@ -400,7 +463,7 @@ evidence of nothing. Two independent, headless checks enforce it, and they catch
 | Gate | Command | Catches | Does **not** catch |
 |---|---|---|---|
 | Grader re-render | `bash signoff/run-signoff.sh --check` | Any change that alters a graded row: an edited manifest, a superseded evidence envelope, a pin that no longer matches the envelope's own hash, a checklist/grader change. | An artifact rewritten underneath a manifest and envelope that still agree with each other. |
-| Artifact re-hash | `python3 signoff/check_evidence_hashes.py` | Exactly that: every cited envelope's recorded input hash is re-derived from the file on disk. | Grading changes — it does not know what the checklist says. |
+| Artifact re-hash | `python3 signoff/check_evidence_hashes.py` | Exactly that: every cited envelope's recorded input hash is re-derived from the file on disk, including all four item 5 digital reports. | Grading changes — it does not know what the checklist says. |
 
 The second gate exists because the first one structurally cannot do its job.
 `klt signoff` compares the manifest's pin against the **envelope's own
@@ -439,7 +502,7 @@ Item 4's citation carries **no** `content_hash`, and that is deliberate — but
 the premise first recorded here no longer holds. The envelope originally cited
 was minted by klt 0.5.0, whose `klt lvs` wrote `provenance.input: null`, so
 there was then no envelope-side hash for a manifest pin to match. The pinned
-grader (`klayout-tools==0.7.0`, `signoff/requirements.txt`) writes one, and the
+grader (`klayout-tools==0.8.0`, `signoff/requirements.txt`) writes one, and the
 cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` carries
 `provenance.input = {content_hash: sha256:b4fb2add24c1f4b5…, role: "netlist"}`
 — the hash of the **layout-side** netlist (`sar_adc_top.extract.lvs.spice`),
@@ -490,11 +553,11 @@ KLT=.venv-signoff/bin/klt bash signoff/run-signoff.sh
   --format text --no-color
 ```
 
-The grader pin (`klayout-tools==0.7.0`) deliberately diverges from
-`layout/requirements.txt`'s pin (still `0.6.0`: `klt drc` 0.7.0 changes verdicts, #653; kept as a separate file by role): that one **mints** evidence and only moves
+The grader pin (`klayout-tools==0.8.0`) deliberately diverges from
+`layout/requirements.txt`'s pin (`0.6.0`; kept as a separate file by role): that one **mints** evidence and only moves
 with a full re-run of every `layout/` flow, while this one **grades** it and is
 a pure JSON+Markdown transform. `signoff/requirements.txt` documents the split
-and why 0.7.0 specifically. The 0.6.0 → 0.7.0 bump (issue #676) was re-rendered and read row by row: all 25 report rows kept status, reason and citation; only the bundled checklist text/notes and the `build` block changed. **Moving the grader pin is a claim change, not a
+and why the grader needs at least 0.7.0 (it was 0.6.0 until issue #676). Re-rendered under the 0.8.0 pin and compared with the report on `main` before issue #676's citations: the eight rows for items 1, 2, 9 and 10 changed (item 1 digital `no_evidence` → `check_failed`; the other seven `unmet` / `no_evidence` → `met`) and every other row kept its status and reason. **Moving the grader pin is a claim change, not a
 chore** — re-render, read the report diff row by row against this file, and
 update both together.
 

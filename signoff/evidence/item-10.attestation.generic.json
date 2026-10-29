@@ -18,7 +18,7 @@
       "path": "README.md",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:a8dabbbcbd3e93bf35880948471a6e087fec16256c9e0bf5473b497410fa444d"
+      "content_hash": "sha256:ed449c9d54cbecc26bd95c451d9c1492fce014a8239e3e078bbaa410cad84bb0"
     },
     {
       "check": "present",
@@ -42,7 +42,7 @@
       "path": ".github/workflows/ci.yml",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:ebef1f957c6db40b09b2b8d7e6c276432d3cac070247720e1c6b2a8fe49350e6"
+      "content_hash": "sha256:2c3f9c08304f3f299acbd96cff0da7e17e19cbf4991f9c9f247b396f6cb39dda"
     },
     {
       "check": "ci-workflow-runs",

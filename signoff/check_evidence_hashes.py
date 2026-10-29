@@ -99,6 +99,11 @@ ARTIFACT_FIELD = {
     # `resolve_artifact` below has to re-root the recorded absolute path rather
     # than rely on the basename-beside-the-envelope reading alone.
     "erc": "file",
+    # `klt sta` (item 5 digital, issue #678). The envelope records the DEF it
+    # timed as `def_path` (an absolute path inside the producing worktree) and
+    # that DEF's hash as `provenance.input.content_hash`; `resolve_artifact`
+    # re-roots the path under this checkout like it does for `erc`.
+    "sta": "def_path",
 }
 
 
@@ -128,6 +133,12 @@ def classify(envelope: dict) -> str:
     # `gate_role` string.
     if isinstance(envelope.get("gates"), list) and "gate_role" in envelope:
         return "erc"
+    # `klt sta` and `klt functional-verification` (issue #678): detected by the
+    # same structural fields `klt signoff` uses.
+    if "geometry_source" in envelope and isinstance(envelope.get("corners"), list):
+        return "sta"
+    if "test_count" in envelope and isinstance(envelope.get("tests"), list):
+        return "functional-verification"
     if "violations" in envelope and "deck" in envelope:
         return "drc"
     if "mismatches" in envelope and "reference" in envelope:
@@ -230,13 +241,23 @@ def resolve_artifact(named: str, envelope_path: Path) -> Path | None:
 
 def iter_citations(manifest: dict):
     """Yield (item_key, entry) for every evidence entry, flattening item 11's
-    compound array form."""
+    compound array form, then every `supplementary_evidence` entry.
+
+    `supplementary_evidence` is NOT part of `klt signoff`'s manifest schema (it
+    reads only block/kind/partition_boundary/evidence, like `_comment`). It is
+    kept for reports a block wants re-hashed but the grader cannot take; the
+    manifest currently has none, because `klt` 0.8.0 accepts item 5 digital as a
+    list and all four of its reports are in `evidence`.
+    """
     for key, entry in (manifest.get("evidence") or {}).items():
         if isinstance(entry, list):
             for index, part in enumerate(entry):
                 yield f"{key}[{index}]", part
         else:
             yield key, entry
+    for key, entries in (manifest.get("supplementary_evidence") or {}).items():
+        for index, part in enumerate(entries):
+            yield f"{key} supplementary[{index}]", part
 
 
 SPICE_HEADER_HASH = re.compile(r"^\*\s+(design/\S+\.sch): (sha256:[0-9a-f]{64})$", re.M)
@@ -390,6 +411,35 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
                 f"item {item_key}: {kind} input {artifact.relative_to(REPO_ROOT)} verified "
                 f"({recorded[:23]}...)"
             )
+    elif kind == "functional-verification":
+        # A functional-verification envelope records no input hash. The record
+        # that minted it lists the sha256 of every input (netlists, cell
+        # models, testbench, reference model, requests) in `inputs.sha256`
+        # beside it; re-derive each from the checkout so a changed netlist or
+        # testbench turns this red instead of leaving a stale pass behind.
+        inputs = envelope_path.parent / "inputs.sha256"
+        if not inputs.is_file():
+            failures.append(
+                f"item {item_key}: {named_file} (kind={kind}) records no input hash "
+                f"and has no sibling inputs.sha256 -- its freshness cannot be verified"
+            )
+            return
+        rows = [ln.split(None, 1) for ln in inputs.read_text().splitlines() if ln.strip()]
+        for digest, rel in rows:
+            rel = rel.strip()
+            target = REPO_ROOT / rel
+            if not target.is_file():
+                failures.append(f"item {item_key}: {inputs.relative_to(REPO_ROOT)} names {rel}, which no longer exists")
+                return
+            actual = sha256_file(target)
+            if actual != "sha256:" + digest:
+                failures.append(
+                    f"item {item_key}: {rel} hashes to {actual}, but {inputs.relative_to(REPO_ROOT)} "
+                    f"records sha256:{digest}. The netlist/testbench changed under the evidence: "
+                    "mint a new functional-verification record and update the citation."
+                )
+                return
+        notes.append(f"item {item_key}: functional-verification {len(rows)} input(s) re-hashed via {inputs.relative_to(REPO_ROOT)}")
     elif kind != "lvs":
         notes.append(
             f"item {item_key}: {named_file} (kind={kind}) records no input hash; nothing to verify"

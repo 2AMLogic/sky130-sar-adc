@@ -98,6 +98,9 @@ VIA_S = 0.20  # via2/via3 square side
 VIA1_S = 0.15  # via1 square side
 MCON_S = 0.17  # mcon square side
 PAD_HALF = 0.16  # met1/met2 landing-pad half-side
+# via2.5 (klt 0.8.0 `met2.enclosing_adjacent.via2.1`): >= 0.085 um of met2 on
+# two adjacent sides of every via2; a PAD_HALF pad leaves 0.06 um.
+VIA2_PAD_HALF = VIA_S / 2.0 + 0.085
 WIRE_W = 0.30  # generic li1/met1/met2 wire width
 MET4_W = 0.40  # met4 rail/bus width
 LICON_S = 0.17  # licon1 square side (matches this repo's other flows' contacts)
@@ -298,7 +301,7 @@ class Canvas:
     def via2(self, cx: float, cy: float) -> None:
         """met2 <-> met3, with a met2 landing pad (met3 is the caller's own
         plate or wire)."""
-        self.square(MET2, cx, cy, 2 * PAD_HALF)
+        self.square(MET2, cx, cy, 2 * VIA2_PAD_HALF)
         self.square(VIA2, cx, cy, VIA_S)
 
     def mcon(self, cx: float, cy: float) -> None:

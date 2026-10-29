@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "file": "sampling_frontend.gds",
+  "dbu_um": 0.001,
+  "status": "pass",
+  "check_count": 5,
+  "checks": [
+    {
+      "name": "offgrid",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    },
+    {
+      "name": "zero_area",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    },
+    {
+      "name": "cell_names",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    },
+    {
+      "name": "layer_whitelist",
+      "status": "skipped",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": "no --allowed-layers given"
+    },
+    {
+      "name": "pin_labels_over_drawing",
+      "status": "pass",
+      "violation_count": 0,
+      "violations": [],
+      "skip_reason": null
+    }
+  ],
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": null,
+    "deck": {
+      "name": "sky130",
+      "content_hash": "sha256:a1d90e066e822d0a8f36e2d4f4969b83df4360692f689b5815be9c3f151f7c8e",
+      "released": false
+    },
+    "input": null
+  }
+}

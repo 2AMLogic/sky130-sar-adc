@@ -5,7 +5,7 @@
     python3 signoff/mint_attest_envelopes.py           # (re)write signoff/attest/*.json and signoff/evidence/*
     python3 signoff/mint_attest_envelopes.py --check   # exit 1 if any committed file differs from a fresh mint
 
-WHAT THIS IS, AND WHAT IT IS NOT. klayout-tools 0.7.0 (the grader pin) grades
+WHAT THIS IS, AND WHAT IT IS NOT. klayout-tools 0.7.0 (the first release to grade them; the grader pin is now 0.8.0) grades
 an item-1/2/9/10 citation `met` when a `"kind": "generic"` envelope declares
 `"t1_item": <id>`, pins the audited artifact (`provenance.input.path` +
 `content_hash`), and the manifest pins the same hash. 0.7.0 has no producer for

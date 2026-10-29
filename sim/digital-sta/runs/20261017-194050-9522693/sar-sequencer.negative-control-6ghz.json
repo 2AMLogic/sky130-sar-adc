@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "engine": "openroad",
+  "engine_version": "26Q3-1510-g6cb3f2b704",
+  "hdl_toplevel": "sar_sequencer",
+  "status": "ok",
+  "def_path": "/tmp/klt-sta-im49bc83/layout/sar-sequencer/reports/20261012-113813-743bcd0/sar_sequencer.def",
+  "verilog_path": null,
+  "geometry_source": "routed",
+  "wire_load_model": null,
+  "wire_load_mode": null,
+  "spef_path": null,
+  "provenance": {
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+    },
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:13fc4c592f8449b61f7dae6d1a0653d23149078dd714328b3850ad140230890e",
+      "role": "layout"
+    }
+  },
+  "corners": [
+    {
+      "corner": "tt_025C_1v80",
+      "engine_log": {
+        "invocation_id": "31926897dee848e3b2655bde8f0ba927",
+        "script_name": "sta_sar_sequencer__tt_025C_1v80.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "dbb08e1682be6884da363a6c12b81c15403f4e4e045d39340e41e7a4f328ae5e",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -1.16611,
+      "total_negative_slack_ns": -17.3661,
+      "worst_hold_slack_ns": -0.25392,
+      "total_negative_hold_slack_ns": -5.33234,
+      "fmax_mhz": 750.314,
+      "timing_status": "constrained",
+      "setup_violation_count": 44,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0.00099,
+      "estimated_power_mw": 7.2706,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__tt_025C_1v80",
+        "content_hash": "sha256:8e78e14442062dba34d414fca6490b2f6b96038d4510d1438ca44fee31487135",
+        "released": false
+      }
+    },
+    {
+      "corner": "tt_100C_1v80",
+      "engine_log": {
+        "invocation_id": "b3da9eec97124daeac28138b0ca49461",
+        "script_name": "sta_sar_sequencer__tt_100C_1v80.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "d95a251bc0fa735e6035d1c0ee27993c3c11bb70f076e38e729f37ba8c3520f9",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -1.15205,
+      "total_negative_slack_ns": -17.3471,
+      "worst_hold_slack_ns": -0.25317,
+      "total_negative_hold_slack_ns": -5.31664,
+      "fmax_mhz": 758.311,
+      "timing_status": "constrained",
+      "setup_violation_count": 44,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0.00095,
+      "estimated_power_mw": 7.4051,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__tt_100C_1v80",
+        "content_hash": "sha256:7c6b9fc62d7e83b8317cdca883d79107d8f2ff1061b04519fda7d3088560015b",
+        "released": false
+      }
+    },
+    {
+      "corner": "ss_100C_1v60",
+      "engine_log": {
+        "invocation_id": "eb4694c976e543f0bf7aedbd4d378d88",
+        "script_name": "sta_sar_sequencer__ss_100C_1v60.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "8f074abf0cccb93cb5fb257f2da4ab186e4cc123b35f168fc1e5fbd6614106cb",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -2.83847,
+      "total_negative_slack_ns": -44.9538,
+      "worst_hold_slack_ns": -0.57313,
+      "total_negative_hold_slack_ns": -12.0357,
+      "fmax_mhz": 332.763,
+      "timing_status": "constrained",
+      "setup_violation_count": 44,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0.00185,
+      "estimated_power_mw": 5.8464,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__ss_100C_1v60",
+        "content_hash": "sha256:9b24f0db3967ac67b4cae1f74bb480fd47922d18d0ed577e3c121739b412c361",
+        "released": false
+      }
+    },
+    {
+      "corner": "ff_n40C_1v95",
+      "engine_log": {
+        "invocation_id": "8971c114285041a58924ab8d92d95edb",
+        "script_name": "sta_sar_sequencer__ff_n40C_1v95.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "4f26f1f7a6e2b033beac860d8e0bca7ae091d6fbf706e754cbbe4f53aee7f23f",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": -0.62944,
+      "total_negative_slack_ns": -8.32084,
+      "worst_hold_slack_ns": -0.14311,
+      "total_negative_hold_slack_ns": -3.00531,
+      "fmax_mhz": 1256.1,
+      "timing_status": "constrained",
+      "setup_violation_count": 44,
+      "hold_violation_count": 0,
+      "clock_skew_ns": 0.00062,
+      "estimated_power_mw": 8.4396,
+      "spef_annotation": null,
+      "deck": {
+        "name": "sky130_fd_sc_hd__ff_n40C_1v95",
+        "content_hash": "sha256:fb61d91c55a7f85b1989e8149d040b13ba5e7f5478f5bf0c3c16c5da30720139",
+        "released": false
+      }
+    }
+  ]
+}
