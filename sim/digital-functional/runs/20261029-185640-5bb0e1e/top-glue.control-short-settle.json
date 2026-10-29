@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "engine": "icarus",
+  "hdl_toplevel": "top_glue",
+  "testbench": "test_top_glue_sdf",
+  "status": "fail",
+  "test_count": 6,
+  "passed_count": 0,
+  "failed_count": 6,
+  "skipped_count": 0,
+  "tests": [
+    {
+      "name": "exhaustive_data_path",
+      "status": "failed",
+      "sim_time_ns": 0.1,
+      "real_time_s": 0.006,
+      "error_type": "AssertionError",
+      "error_message": "in=(dout=0x000 ph_b9=0 busy=0 outn=0 clk=0) (dut, ref): {'SELp0': ('x', 0), 'SELn0': ('x', 0), 'ADCOUT0': ('x', 1), 'SELp1': ('x', 0), 'SELn1': ('x', 0), 'ADCOUT1': ('x', 1), 'SELp2': ('x', 0), 'SELn2': ('x', 0), 'ADCOUT2': ('x', 1), 'SELp3': ('x', 0), 'SELn3': ('x', 0), 'ADCOUT3': ('x', 1), 'SELp4': ('x', 0), 'SELn4': ('x', 0), 'ADCOUT4': ('x', 1), 'SELp5': ('x', 0), 'SELn5': ('x', 0), 'ADCOUT5': ('x', 1), 'SELp6': ('x', 0), 'SELn6': ('x', 0), 'ADCOUT6': ('x', 1), 'SELp7': ('x', 0), 'SELn7': ('x', 0), 'ADCOUT7': ('x', 1), 'SELp8': ('x', 0), 'SELn8': ('x', 0), 'ADCOUT8': ('x', 1), 'HALF_LSB_EN': ('x', 0), 'HALF_LSB_ENN': ('x', 1), 'DUMLOAD_MUX_NC': ('x', 0), 'DUMLOAD_XNOR_NC': ('x', 1)}\nassert not {'SELp0': ('x', 0), 'SELn0': ('x', 0), 'ADCOUT0': ('x', 1), 'SELp1': ('x', 0), ...}"
+    },
+    {
+      "name": "clock_inverter_both_polarities",
+      "status": "failed",
+      "sim_time_ns": 0.1,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "in=(dout=0x000 ph_b9=1 busy=1 outn=0 clk=0) (dut, ref): {'SELp0': ('x', 0), 'SELn0': ('x', 0), 'ADCOUT0': ('x', 1), 'SELp1': ('x', 0), 'SELn1': ('x', 0), 'ADCOUT1': ('x', 1), 'SELp2': ('x', 0), 'SELn2': ('x', 0), 'ADCOUT2': ('x', 1), 'SELp3': ('x', 0), 'SELn3': ('x', 0), 'ADCOUT3': ('x', 1), 'SELp4': ('x', 0), 'SELn4': ('x', 0), 'ADCOUT4': ('x', 1), 'SELp5': ('x', 0), 'SELn5': ('x', 0), 'ADCOUT5': ('x', 1), 'SELp6': ('x', 0), 'SELn6': ('x', 0), 'ADCOUT6': ('x', 1), 'SELp7': ('x', 0), 'SELn7': ('x', 0), 'ADCOUT7': ('x', 1), 'SELp8': ('x', 0), 'SELn8': ('x', 0), 'ADCOUT8': ('x', 1), 'HALF_LSB_EN': ('x', 0), 'HALF_LSB_ENN': ('x', 1), 'DUMLOAD_MUX_NC': ('x', 0)}\nassert not {'SELp0': ('x', 0), 'SELn0': ('x', 0), 'ADCOUT0': ('x', 1), 'SELp1': ('x', 0), ...}"
+    },
+    {
+      "name": "code_all_ones",
+      "status": "failed",
+      "sim_time_ns": 0.09999999999999998,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "in=(dout=0x3ff ph_b9=0 busy=0 outn=0 clk=0) (dut, ref): {'SELn0': ('x', 0), 'ADCOUT0': ('x', 1), 'SELn1': ('x', 0), 'ADCOUT1': ('x', 1), 'SELn2': ('x', 0), 'ADCOUT2': ('x', 1), 'SELn3': ('x', 0), 'ADCOUT3': ('x', 1), 'SELn4': ('x', 0), 'ADCOUT4': ('x', 1), 'SELn5': ('x', 0), 'ADCOUT5': ('x', 1), 'SELn6': ('x', 0), 'ADCOUT6': ('x', 1), 'SELn7': ('x', 0), 'ADCOUT7': ('x', 1), 'SELn8': ('x', 0), 'ADCOUT8': ('x', 1), 'HALF_LSB_EN': ('x', 0), 'HALF_LSB_ENN': ('x', 1), 'DUMLOAD_MUX_NC': ('x', 1)}\nassert not {'SELn0': ('x', 0), 'ADCOUT0': ('x', 1), 'SELn1': ('x', 0), 'ADCOUT1': ('x', 1), ...}"
+    },
+    {
+      "name": "code_all_zeros",
+      "status": "failed",
+      "sim_time_ns": 0.10000000000000003,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "in=(dout=0x000 ph_b9=0 busy=0 outn=0 clk=0) (dut, ref): {'ADCOUT0': ('x', 1), 'ADCOUT1': ('x', 1), 'ADCOUT2': ('x', 1), 'ADCOUT3': ('x', 1), 'ADCOUT4': ('x', 1), 'ADCOUT5': ('x', 1), 'ADCOUT6': ('x', 1), 'ADCOUT7': ('x', 1), 'ADCOUT8': ('x', 1), 'DUMLOAD_XNOR_NC': (0, 1)}\nassert not {'ADCOUT0': ('x', 1), 'ADCOUT1': ('x', 1), 'ADCOUT2': ('x', 1), 'ADCOUT3': ('x', 1), ...}"
+    },
+    {
+      "name": "sign_branch_codes_from_spice_campaign",
+      "status": "failed",
+      "sim_time_ns": 0.09999999999999998,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "in=(dout=0x32b ph_b9=0 busy=1 outn=0 clk=0) (dut, ref): {'SELp0': (0, 1), 'ADCOUT0': ('x', 1), 'SELp1': (0, 1), 'ADCOUT1': ('x', 1), 'ADCOUT2': ('x', 0), 'SELp3': (0, 1), 'ADCOUT3': ('x', 1), 'ADCOUT4': ('x', 0), 'SELp5': (0, 1), 'ADCOUT5': ('x', 1), 'ADCOUT6': ('x', 0), 'ADCOUT7': ('x', 0), 'SELp8': (0, 1), 'ADCOUT8': ('x', 1), 'HALF_LSB_EN': (0, 1), 'HALF_LSB_ENN': (1, 0), 'DUMLOAD_MUX_NC': (0, 1)}\nassert not {'SELp0': (0, 1), 'ADCOUT0': ('x', 1), 'SELp1': (0, 1), 'ADCOUT1': ('x', 1), ...}"
+    },
+    {
+      "name": "dr009_enable_pair",
+      "status": "failed",
+      "sim_time_ns": 0.09999999999999998,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "in=(dout=0x000 ph_b9=0 busy=0 outn=0 clk=0) (dut, ref): {'ADCOUT0': ('x', 1), 'ADCOUT1': ('x', 1), 'ADCOUT2': ('x', 1), 'ADCOUT3': ('x', 1), 'ADCOUT4': ('x', 1), 'ADCOUT5': ('x', 1), 'ADCOUT6': ('x', 1), 'ADCOUT7': ('x', 1), 'ADCOUT8': ('x', 1), 'DUMLOAD_XNOR_NC': (0, 1)}\nassert not {'ADCOUT0': ('x', 1), 'ADCOUT1': ('x', 1), 'ADCOUT2': ('x', 1), 'ADCOUT3': ('x', 1), ...}"
+    }
+  ],
+  "coverage": null,
+  "trace": null,
+  "environment": {
+    "engine": "icarus",
+    "engine_version": "13.0",
+    "cocotb_version": "2.1.0",
+    "results_xml": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/results_icarus.xml",
+    "test_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/test_icarus.log",
+    "build_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/build_icarus.log",
+    "random_seed": 1793300222,
+    "source_defines": {},
+    "initial_state": null,
+    "sdf": {
+      "file": "<repo>/sim/digital-sta/runs/20261029-185629-5bb0e1e/sdf/top-glue.ss_100C_1v60.sdf",
+      "corner": "typ",
+      "entries": "all",
+      "annotated": true,
+      "partial": false,
+      "dropped": {}
+    }
+  }
+}

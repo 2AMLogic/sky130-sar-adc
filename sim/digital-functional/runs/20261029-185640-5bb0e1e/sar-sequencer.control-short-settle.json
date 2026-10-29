@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "engine": "icarus",
+  "hdl_toplevel": "sar_sequencer",
+  "testbench": "test_sar_sequencer_sdf",
+  "status": "fail",
+  "test_count": 8,
+  "passed_count": 0,
+  "failed_count": 8,
+  "skipped_count": 0,
+  "tests": [
+    {
+      "name": "reset_state",
+      "status": "failed",
+      "sim_time_ns": 0.1,
+      "real_time_s": 0.004,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    },
+    {
+      "name": "walking_one_phase_sequence",
+      "status": "failed",
+      "sim_time_ns": 0.1,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    },
+    {
+      "name": "code_all_ones",
+      "status": "failed",
+      "sim_time_ns": 0.09999999999999998,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    },
+    {
+      "name": "code_all_zeros",
+      "status": "failed",
+      "sim_time_ns": 0.10000000000000003,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    },
+    {
+      "name": "codes_from_spice_campaign",
+      "status": "failed",
+      "sim_time_ns": 0.09999999999999998,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    },
+    {
+      "name": "closed_loop_every_code",
+      "status": "failed",
+      "sim_time_ns": 0.09999999999999998,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    },
+    {
+      "name": "mid_conversion_reset_every_phase",
+      "status": "failed",
+      "sim_time_ns": 0.09999999999999998,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    },
+    {
+      "name": "randomized_lockstep",
+      "status": "failed",
+      "sim_time_ns": 0.10000000000000009,
+      "real_time_s": 0.0,
+      "error_type": "AssertionError",
+      "error_message": "asynchronous reset: (dut, ref) mismatches {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}\nassert not {'PH_SAMPLE': ('x', 1), 'BUSY': ('x', 0)}"
+    }
+  ],
+  "coverage": null,
+  "trace": null,
+  "environment": {
+    "engine": "icarus",
+    "engine_version": "13.0",
+    "cocotb_version": "2.1.0",
+    "results_xml": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/results_icarus.xml",
+    "test_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/test_icarus.log",
+    "build_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/build_icarus.log",
+    "random_seed": 1793300213,
+    "source_defines": {},
+    "initial_state": null,
+    "sdf": {
+      "file": "<repo>/sim/digital-sta/runs/20261029-185629-5bb0e1e/sdf/sar-sequencer.ss_100C_1v60.sdf",
+      "corner": "typ",
+      "entries": "all",
+      "annotated": true,
+      "partial": true,
+      "dropped": {
+        "timingcheck": {
+          "count": 21,
+          "reason": "Icarus Verilog implements SDF delay annotation (IOPATH/INTERCONNECT) but not SDF TIMINGCHECK -- every TIMINGCHECK section in the SDF is dropped, so $setup/$hold/$width checks run against the cell library's own placeholder timing, not the characterised limits in the SDF"
+        }
+      }
+    }
+  }
+}
