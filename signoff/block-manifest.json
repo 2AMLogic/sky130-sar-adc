@@ -79,6 +79,31 @@
     "      rejects a changed digital-partition netlist or routed layout without a",
     "      regenerated campaign.",
     "",
+    "  1.analog, 1.digital, 2, 9, 10  ARTIFACT-ANCHORED generic envelopes (issue #676,",
+    "      klayout-tools#2718, graded since the 0.7.0 pin). No `klt` verb backs these",
+    "      four items, so each envelope declares `t1_item`, pins the audited artifact by",
+    "      path and sha256, and this manifest pins the same hash. The row turns unmet",
+    "      the moment the artifact changes; signoff/check_evidence_hashes.py re-hashes",
+    "      it on every push. Envelopes and inventories are written by",
+    "      signoff/mint_attest_envelopes.py (`--check` in CI); the inventories use the",
+    "      `klt signoff --attest` schema_version 1 format so that, once a klt release",
+    "      ships it, the same files regenerate the envelopes. Until then `status` is",
+    "      derived by that script from the checks it executes, listed in each",
+    "      envelope's `checks[]`; checks needing xschem/ngspice/the PDK/the CI suite",
+    "      are listed `executed: false` with the CI job that runs them. See",
+    "      signoff/README.md 'What the item 1, 2, 9 and 10 citations assert'.",
+    "      1.analog   signoff/attest/item-1-analog.inventory.json: schematic sources +",
+    "                 design/sar_adc_top.spice.",
+    "      1.digital  signoff/attest/item-1-digital.inventory.json. UNMET (check_failed):",
+    "                 layout/sar-sequencer/netlist/sar_sequencer.v is a gate-level netlist",
+    "                 transliterated by hand from design/sar_sequencer.sch (not RTL",
+    "                 synthesis) and has fallen behind it since issue #263;",
+    "                 layout/sar-sequencer/bin/check-schematic-parity.py reports it. The",
+    "                 envelope records status fail rather than omit the citation.",
+    "      2          the committed composed stream (bare key: both partitions). Says",
+    "                 nothing about item 4 (top-level LVS, #103).",
+    "      9, 10      signoff/attest/item-9 / item-10 inventories (bare keys).",
+    "",
     "  5.digital  (partition-qualified) sim/digital-sta/runs/20261017-194050-9522693/",
     "      sar-sequencer.12mhz.json, a `klt sta` report over the ROUTED sar_sequencer",
     "      DEF at four stock sky130_fd_sc_hd Liberty corners. `klt signoff` renders",
@@ -106,18 +131,7 @@
     "      `unmet`/`check_failed` when cited in its place (tried while preparing",
     "      this change), so the grader does distinguish a failing run.",
     "",
-    "WHAT IS DELIBERATELY NOT CITED (against this tree, 2026-09-23)",
-    "  1, 2, 9, 10  no `klt` verb backs these; `klt signoff` grades them on",
-    "      'some passing envelope was cited', not on topical relevance",
-    "      (klayout-tools signoff.md, 'Items 1, 2, 9, and 10'). Every one of the",
-    "      four has real work behind it in this repo -- committed xschem sources",
-    "      with a CI-gated netlist regeneration check (1), reproducibly generated",
-    "      GDS with per-flow records (2), a per-spec-row testbench index gated by",
-    "      sim/check_spec_coverage.py (9), README + license + CI (10) -- and",
-    "      NONE of it is a klt envelope. Citing an unrelated passing envelope to",
-    "      turn those rows green is precisely the dishonesty this manifest exists",
-    "      to prevent, so they render unmet/no_evidence and signoff/README.md",
-    "      states what actually stands behind each.",
+    "WHAT IS DELIBERATELY NOT CITED (against this tree, 2026-10-17)",
     "  5.analog  no `klt sim` envelope exists: sim/ campaigns mint this repo's own",
     "      Markdown evidence records, not `klt sim` JSON. And the spec half of",
     "      the item is not met either -- spec/target-spec.md's sample-rate and",
@@ -190,12 +204,32 @@
     "digital": "The sky130_fd_sc_hd standard-cell logic, placed and routed by OpenROAD via `klt place-and-route`: the (N+1)-stage walking-one ring sequencer and 10-bit SAR register (xseq, .subckt sar_sequencer) and the top-level standard-cell glue bank laid out as top_glue (the xand_seln*/xand_selp* SELn/SELp drivers of DR-008, xinv_clkcap, xinv_dout9n, the xxor_code* offset-binary recoding stage of DR-008, the xdum_mux_n/xdum_xnor_n matched comparator-output load and the xand_halflsb/xinv_halflsb enable pair of DR-009 -- 33 instances across 6 cell types, gated instance-for-instance against design/sar_adc_top.spice by layout/top-glue/bin/check-schematic-parity.py). Nets: CLK, RST_B, COMP_OUT, DOUT9..DOUT0, PH_B9..PH_B0, PH_EOC, PH_SAMPLE/SAMPLE_INT, BUSY, SELp8..SELp0, SELn8..SELn0, ADCOUT8..ADCOUT0, DOUT9N, HALF_LSB_EN, HALF_LSB_ENN, VPWR, VGND. Layout cells: sar_sequencer, top_glue (layout/sar-sequencer/, layout/top-glue/). COMPOSED since issue #401: layout/sar-adc-top/ places top_glue and halflsb_offset themselves -- the DR-008-superseded seln_inverters bank is retired from the composition (its records stay as append-only history), and the composition is re-derived from design/sar_adc_top.spice on every run and gated against it by layout/sar-adc-top/bin/check-composition-parity.py (npm run check:composition-parity), which also asserts that the LVS reference's own wrapper is derived rather than hand-maintained -- the gap issue #387 was filed for. Crossings (a boundary is only reviewable if its crossings are named) -- analog to digital: comparator.OUTP drives COMP_OUT into xseq. Digital to analog: SELn8..0/SELp8..0 drive the CDAC bottom plates, HALF_LSB_EN/HALF_LSB_ENN drive the DR-009 offset network, SAMPLE_INT (the sequencer's PH_SAMPLE) drives the sampling front end, and CLKN (xinv_clkcap) drives the comparator clock. The supplies are NOT shared across the boundary in the netlist -- the analog side is on VDD/GND and the standard cells on VPWR/VGND -- which is an item-11 question (issue #344), not an item-4 one."
   },
   "evidence": {
+    "1.analog": {
+      "file": "signoff/evidence/item-1-analog.attestation.generic.json",
+      "content_hash": "sha256:6c68f548444fb75b1d2b4d489e0262f2b9ac0a16b7ea6dabf663d897c89d3d63"
+    },
+    "1.digital": {
+      "file": "signoff/evidence/item-1-digital.attestation.generic.json",
+      "content_hash": "sha256:bd2c75194045795a7fec12e76b5ca97735d235b8f6c0ebadf35f4823083843cb"
+    },
+    "2": {
+      "file": "signoff/evidence/item-2-layout.generic.json",
+      "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b"
+    },
     "3": {
       "file": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/drc.json",
       "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b"
     },
     "4": {
       "file": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json"
+    },
+    "9": {
+      "file": "signoff/evidence/item-9.attestation.generic.json",
+      "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4"
+    },
+    "10": {
+      "file": "signoff/evidence/item-10.attestation.generic.json",
+      "content_hash": "sha256:6447799a780b8ae1ed3ffff8b69c3ddf4b5d852f60877b0d2b2a42fe4c14ad16"
     },
     "5.digital": [
       {

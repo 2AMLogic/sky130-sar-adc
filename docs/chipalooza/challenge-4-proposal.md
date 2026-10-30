@@ -5668,9 +5668,9 @@ tracker already owns.
     tree, after `reports/` at check 9 and `erc-reports/` at check 16):
 
     > on the report `signoff/t1-report.json`, `klt signoff` **0.8.0** grades
-    > **5** of **22** T1 items met, block tier **none**; the items whose cited
-    > evidence was read and still failed are `4 analog`, `4 digital`, `11
-    > analog`, `11 digital`; and its manifest cites
+    > **12** of **22** T1 items met, block tier **none**; the items whose cited
+    > evidence was read and still failed are `1 digital`, `4 analog`,
+    > `4 digital`, `11 analog`, `11 digital`; and its manifest cites
     > `layout/sar-adc-top/erc-reports/LATEST` at **20261017-193237-9522693e**
     > against a pointer naming **20261021-104830-ddc1d72**,
     > `layout/sar-adc-top/reports/LATEST` at **20261001-211249-1ca34e6**
