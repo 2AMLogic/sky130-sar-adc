@@ -18,6 +18,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 | Sampling cap (CDAC unit × array) | RATIFIED | PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, LVS match, unit-cap count 1024… | 2 record(s), see detail below |
 | Comparator input-referred noise | RATIFIED | PASS vs. baseline (<=1.0148 mV rms) at every corner, binding corner `tt_125c_1.80v` = 0.8643 mV rms… | 1 record(s), see detail below |
 | Kickback | DRAFT | INFORMATIONAL (DRAFT row, no ratified line to grade against). Worst-case peak pin disturbance 73.36… | 1 record(s), see detail below |
+| Gain error, systematic | DRAFT (new row, DR-022 candidate) | INFORMATIONAL (DRAFT row, no ratified line to grade against). Extracted gain g = 0.99200 at tt_27c_… | 1 record(s), see detail below |
 | Power | DRAFT | UNMEASURED as a Power-row figure/target (informational first current/power evidence only, not a pas… | 2 record(s), see detail below |
 | Corners | RATIFIED | In use, verified: harness self-test PASS (proves the corner runner switches the .lib process-corner… | 4 record(s), see detail below |
 
@@ -192,6 +193,19 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Overall: measured (informational, see Claim above) -- worst-case peak pin disturbance across the 3 Vindiff point(s) run: 73.3673 mV (at Vindiff=+50.0000mV). Decomposed (issue #390, DR-014's first gate): worst-case peak COMMON-MODE deviation -70.4415 mV (at Vindiff=+50.0000mV, t=5.108ns); worst-case peak DIFFERENTIAL deviation -10.9153 mV (at Vindiff=+50.0000mV, t=5.083ns), excluding the Vindiff=0mV symmetry-control row, whose differential columns are a metastable-resolution artifact rather than a kickback (see below)
   - Corner matrix run: process=['tt'], temperature_c=[27.0], supply_v=[1.8] (1 PVT point -- **subset-corner justification**: first-pass, nominal-corner-only characterization, consistent with how DR-004's own `regen`/`offset`/`noise` records each landed single-corner first; a PVT sweep is deferred to future work, see the record's closing note)
   - Claim: none -- INFORMATIONAL. spec/target-spec.md's Kickback row is DRAFT (added by DR-011 via issue #361, with its bound adopted verbatim from a sibling canary rather than derived from this block's own budget), and spec/READM…
+
+### Gain error, systematic
+
+- **Status**: DRAFT (new row, DR-022 candidate)
+- **Conditions**: TWO CORNERS ONLY, schematic netlist: process {tt} x temperature {27} C x supply {1.62, 1.80} V -- a targeted mechanism trace, not the ratified corner set and not the MiM r+c corners the DRAFT row's binding condition names. The comparator's own differential input is sampled at every bit-trial instant of the -0.25, +0.00 and +0.25 * V_REF conversions; the gain is read off the bit-8 symmetric pair of the +0.00 conversion (as-committed against the testbench-only unbalanced-control variant), cross-checked against the bits 7..4 steps.
+- **Verdict**: INFORMATIONAL (DRAFT row, no ratified line to grade against). Extracted gain g = 0.99200 at tt_27c_1.80v and 0.99190 at tt_27c_1.62v, i.e. a systematic gain error of 0.80 % / 0.81 % (8.2 / 8.3 LSB span-referred) -- approx. 5.8x the DRAFT <=1.42 LSB candidate, at the two corners measured.
+- **Notes**: The row is new (spec/decision-records/DR-022-cdac-gain-error-specified-not-sized.md, issue #269): before it, this error showed only as an absolute-code miss against sim/full-conversion-transient/'s +-1 LSB criterion. The candidate value is derived by gf180-sar-adc DR-0012's method (equal share with DR-003 Item 3's 1.42 LSB mismatch term), not fitted to this measurement, and the gap is recorded, not relaxed. The gain is extracted by DR-022 from the cited record's tables by hand; the record itself reports comparator inputs, not a gain, and no runner extracts it yet (DR-022 Decision item 3 / Open item 4). The control variant leg assumes deleting xdum_mux_n/xdum_xnor_n leaves the DAC step unchanged; the bits 7..4 steps are the independent check. The C_par composition is an estimate, not a measurement (DR-022 Open item 1).
+
+**Evidence:**
+
+- `sim/full-conversion-transient/records/20260912-011519-9aaf1ca.md` (Record ID `20260912-011519-9aaf1ca`, Supersedes: (none))
+  - Result: (no Overall/Statistical convention/Measured value(s) field found)
+  - Claim: issue #263 (second pass) / `spec/decision-records/DR-009-comparator-output-load-balance-and-half-lsb-offset.md` -- diagnostic/mechanism evidence, NOT a spec row and NOT a corner campaign. It measures the comparator's OW…
 
 ### Power
 
