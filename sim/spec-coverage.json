@@ -144,6 +144,16 @@
           "records": ["sim/cdac-array-transfer/records/20260821-062504-433a294.md"]
         },
         {
+          "experiment": "top-plate-cpar",
+          "runner": "sim/top-plate-cpar/run_top_plate_cpar.py",
+          "testbench": ["sim/top-plate-cpar/run_top_plate_cpar.py"],
+          "testbench_note": "The deck is assembled by the runner from design/sar_adc_top.spice plus testbench-only sources; there is no committed fragment (deck bodies are frozen per record under corners/).",
+          "cold_start": "python3 sim/top-plate-cpar/run_top_plate_cpar.py --record",
+          "documented_in": "sim/top-plate-cpar/README.md",
+          "covers": "Top-plate parasitic capacitance C_par of the as-committed netlist: C(V), leave-one-out composition, per PVT and MiM r+c corner (issue #754; informational, asserts no numeric spec value).",
+          "records": ["sim/top-plate-cpar/records/20261101-183325-60421e38.md"]
+        },
+        {
           "experiment": "sar-sequencer-behavioral",
           "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
           "testbench": ["sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"],
