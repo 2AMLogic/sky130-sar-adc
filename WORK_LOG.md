@@ -2,6 +2,15 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-01
+
+- **PR #747**: sim: SDF-annotated post-route functional verification for digital partition (T1 item 7)
+- **Issue #679** (closed): Digital partition, item 7: re-run the functional suite on the post-route netlists with back-annotated SDF
+
+### 2026-10-31
+
+- **PR #748**: Bump Repo Skills 0.24.7 -> 0.25.1
+
 ### 2026-10-29
 
 - **PR #683**: feat: digital partition STA and functional-verification evidence for T1 item 5
