@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-01
 
+- **PR #722**: spec(DR-022): add DRAFT systematic gain-error row as the ratification vehicle
+- **Issue #269** (closed): design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
 - **PR #747**: sim: SDF-annotated post-route functional verification for digital partition (T1 item 7)
 - **Issue #679** (closed): Digital partition, item 7: re-run the functional suite on the post-route netlists with back-annotated SDF
 

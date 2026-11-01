@@ -5,7 +5,7 @@
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-- **#722**: spec(DR-022): add DRAFT systematic gain-error row as the ratification vehicle
+_None._
 
 ## Very Important
 
@@ -24,27 +24,29 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
+- **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#269**: design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
+- **#753**: spec: record DR-022 post-#722 status and file its open items
+- **#754**: sim: measure CDAC top-plate C_par composition per corner (C(V) extraction, incl. r+c corners)
+- **#756**: sim: CDAC gain error, mismatch half (Monte Carlo check of analytic 1.42 LSB 3-sigma)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#758**: docs(DR-022): record post-#722 status and file open items
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
-- **#722**: spec(DR-022): add DRAFT systematic gain-error row as the ratification vehicle
 
 ## Proposed
 
@@ -55,6 +57,9 @@ Issues carrying `loom:curated`.
 - **#428**: Operator hand-off: create the 'main: required status checks' ruleset that arms the base-freshness guard (from #422 / PR #425) *(curated)*
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes *(curated)*
 - **#734**: Bump layout/requirements.txt to klt 0.8.0 and re-run layout flows *(curated)*
+- **#753**: spec: record DR-022 post-#722 status and file its open items *(curated)*
+- **#754**: sim: measure CDAC top-plate C_par composition per corner (C(V) extraction, incl. r+c corners) *(curated)*
+- **#756**: sim: CDAC gain error, mismatch half (Monte Carlo check of analytic 1.42 LSB 3-sigma) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -71,14 +76,14 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 0 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 5 |
+| Ready (`loom:issue`) | 2 |
+| In Progress (`loom:building`) | 4 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 8 |
 | Architect / Hermit proposals | 4 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
