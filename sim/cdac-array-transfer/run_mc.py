@@ -180,6 +180,43 @@ def _parse_draw(seed: int | None, log_text: str) -> Draw:
     )
 
 
+def span_v(d: Draw) -> float:
+    """Differential span (code ENDPOINT_HI minus code ENDPOINT_LO), volts.
+    NaN if either endpoint level is missing from the draw's log."""
+    return d.vdiff[ENDPOINT_HI] - d.vdiff[ENDPOINT_LO]
+
+
+def gain_error_lsb(draw: Draw, plain: Draw) -> float:
+    """Mismatch gain error of one `tt_mm` draw, in ratified ADC LSB: the
+    draw's code-0 -> code-511 span minus the span of the plain-corner
+    (mismatch disabled) draw of the SAME seed, over RATIFIED_LSB_V.
+    Referencing to the plain-corner span (not to the ideal 2*V_REF*511/512
+    slope) deliberately cancels the systematic C_par divider term, so only
+    the mismatch term remains (issue #756; DR-022 Open item 3). NaN if
+    either span is missing an endpoint."""
+    return (span_v(draw) - span_v(plain)) / RATIFIED_LSB_V
+
+
+def gain_error_summary(result: "McResult") -> dict:
+    """Per-draw mismatch gain error plus summary statistics. Draws with a
+    missing endpoint (NaN) are LISTED in `missing_seeds` and excluded from
+    the statistics, never silently dropped; `n_used + len(missing_seeds) == n`.
+    Sample (n-1) stdev is used, as the estimate of the population sigma the
+    analytic 32*sigma_u figure describes."""
+    per_draw = [(d.seed, gain_error_lsb(d, p)) for d, p in zip(result.draws, result.negctrl)]
+    used = [g for _, g in per_draw if g == g]
+    missing = [seed for seed, g in per_draw if g != g]
+    n_used = len(used)
+    mean = statistics.fmean(used) if used else float("nan")
+    sd = statistics.stdev(used) if n_used > 1 else float("nan")
+    return {
+        "per_draw": per_draw, "n_used": n_used, "missing_seeds": missing,
+        "mean_lsb": mean, "stdev_lsb": sd, "three_sigma_lsb": 3 * sd,
+        "rel_se_pct": 100.0 / (2 * (n_used - 1)) ** 0.5 if n_used > 1 else float("nan"),
+        "plain_span_v": sorted({span_v(p) for p in result.negctrl if span_v(p) == span_v(p)}),
+    }
+
+
 def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Path, log_name: str) -> Draw:
     netlist = build_netlist(info, corner, TEMP_C, NOMINAL_SUPPLY_V, seed)
     log_text = toolchain.run_ngspice(netlist, scratch_dir, log_name)
@@ -516,6 +553,135 @@ def write_evidence(
     return record_path, overall_ok
 
 
+ANALYTIC_GAIN_3SIGMA_LSB = 1.4191  # DR-003 Item 3 as updated by DR-019: 3*32*sigma_u
+ANALYTIC_GAIN_SIGMA_UNIT_PCT = 1.4737  # DR-019 sigma_u (percent)
+
+
+def write_gain_error_evidence(result: McResult, supersedes: str = "", note: str = "") -> tuple[Path, bool]:
+    """Mint a gain-error (mismatch half) record from a McResult, normally a
+    `reanalyze_from_logs()` one. Informational: no spec row is touched."""
+    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
+    g = gain_error_summary(result)
+    n = result.n
+    neg_spans = g["plain_span_v"]
+    negctrl_ok = len(neg_spans) == 1  # all same-seed plain draws must give one identical span
+    neg_gain = [gain_error_lsb(p, result.negctrl[0]) for p in result.negctrl]
+    neg_sd = statistics.pstdev(neg_gain) if len(neg_gain) > 1 else 0.0
+    negctrl_ok = negctrl_ok and neg_sd == 0.0
+    positive_ok = g["stdev_lsb"] == g["stdev_lsb"] and g["stdev_lsb"] > 0
+    ideal_span_v = 2 * NOMINAL_SUPPLY_V * (ENDPOINT_HI - ENDPOINT_LO) / 512
+    sys_offset_lsb = (neg_spans[0] - ideal_span_v) / RATIFIED_LSB_V if neg_spans else float("nan")
+    ratio = g["three_sigma_lsb"] / ANALYTIC_GAIN_3SIGMA_LSB
+    lo = g["stdev_lsb"] * (1 - g["rel_se_pct"] / 100)
+    hi = g["stdev_lsb"] * (1 + g["rel_se_pct"] / 100)
+    agree = 3 * lo <= ANALYTIC_GAIN_3SIGMA_LSB <= 3 * hi
+
+    L: list[str] = []
+    a = L.append
+    a(f"# Monte Carlo record {prov.record_id}")
+    a("")
+    a(f"- **Record ID**: {prov.record_id}")
+    a(
+        "- **Claim**: mismatch half of the CDAC gain error -- Monte Carlo check of DR-003 Item 3's "
+        f"analytic `sigma = 32*sigma_u` (`{ANALYTIC_GAIN_3SIGMA_LSB} LSB` at 3-sigma, DR-019 `C_u`). "
+        "Evidence for DR-022 Open item 3 (issue #756). Adds NO spec row and changes no value in "
+        "`spec/target-spec.md` (DRAFT until issue #1)."
+    )
+    if result.source_record_id:
+        a(
+            "- **Reanalysis, not a new simulation**: derived/composite -- NO new ngspice invocation. "
+            f"Re-parses the already-committed `mc-draws/{result.source_record_id}/` logs of source record "
+            f"`sim/cdac-array-transfer/records/{result.source_record_id}.md` (the code-0 and code-511 "
+            "levels `vtop_p_*`/`vtop_n_*` are already in every log)."
+        )
+    a(
+        f"- **Statistical convention**: mismatch corner `{result.mismatch_corner}`, N={n}, seed={result.seed} "
+        f"(draws use seed, seed+1, ..., seed+N-1), PVT point process={result.corner} temp={TEMP_C}C "
+        f"supply={NOMINAL_SUPPLY_V}V. Sampled corner only: this says nothing about other PVT corners."
+    )
+    a(
+        "- **Gain-error definition**: per draw, `(span_mm - span_plain) / 3.5156 mV`, where `span` = "
+        "differential output at code 511 minus at code 0, `span_mm` is the `tt_mm` draw and `span_plain` "
+        "is the plain-`tt` (mismatch disabled) draw of the SAME seed. Referencing to the plain-corner span "
+        "cancels the systematic `C_par` divider term, so only the mismatch term remains; the systematic "
+        f"term is reported separately below. Units: ratified ADC LSB (3.5156 mV). Scope: the array-only "
+        "experiment exercises the 9-bit sub-array, whose code step is 2x the ADC LSB (see "
+        "`run_mc.py` UNITS note); the figure here is the span deviation in volts divided by the ADC LSB, "
+        "not a 10-bit-ADC-level gain error."
+    )
+    a(
+        f"- **Negative control**: N={n} plain-`{result.corner}` draws, same seed sequence -- "
+        f"{'PASS (all plain spans identical, gain-error stdev == 0)' if negctrl_ok else 'FAIL: plain spans differ across draws'}"
+    )
+    a(
+        f"- **Positive control**: `{result.mismatch_corner}` gain-error stdev = {g['stdev_lsb']:.6g} LSB "
+        f"({'> 0, genuine spread -- PASS' if positive_ok else 'FAIL: no spread'})"
+    )
+    if note:
+        a(f"- **Note**: {note}")
+    a(f"- **Overall**: {'PASS' if negctrl_ok and positive_ok else 'FAIL'} (harness/negative-control validity only; the comparison to the analytic figure is informational)")
+    a("")
+    a("## Gain-error statistics (mismatch-enabled draws)")
+    a("")
+    a("| N used / N | mean (LSB) | stdev (LSB, n-1) | 3-sigma (LSB) | SE on stdev | analytic 3-sigma (LSB) | measured 3-sigma / analytic |")
+    a("|---|---|---|---|---|---|---|")
+    a(
+        f"| {g['n_used']} / {n} | {g['mean_lsb']:+.5f} | {g['stdev_lsb']:.5f} | {g['three_sigma_lsb']:.4f} | "
+        f"~{g['rel_se_pct']:.1f}% (1/sqrt(2(N-1))) | {ANALYTIC_GAIN_3SIGMA_LSB} | {ratio:.3f} |"
+    )
+    a("")
+    a(f"- Draws excluded for a missing endpoint: {g['missing_seeds'] if g['missing_seeds'] else 'none'}.")
+    a(
+        f"- Mean vs zero: standard error of the mean = {g['stdev_lsb'] / g['n_used'] ** 0.5:.5f} LSB, so the "
+        f"mean ({g['mean_lsb']:+.5f}) is {abs(g['mean_lsb']) / (g['stdev_lsb'] / g['n_used'] ** 0.5):.2f} standard errors from zero."
+    )
+    a(
+        f"- Plain-corner (mismatch-disabled) span: {neg_spans[0] * 1000:.4f} mV vs ideal "
+        f"2*V_REF*511/512 = {ideal_span_v * 1000:.4f} mV; systematic offset {sys_offset_lsb:+.4f} LSB "
+        "(the `C_par` divider term, excluded from the mismatch figure above; reported, not analysed here)."
+        if neg_spans else "- Plain-corner span unavailable."
+    )
+    a("")
+    a("## Interpretation (checked against the raw draws below)")
+    a("")
+    a(
+        f"At `{result.corner}`/{TEMP_C}C/{NOMINAL_SUPPLY_V}V, N={g['n_used']}, seed={result.seed}, the measured "
+        f"mismatch gain-error stdev is {g['stdev_lsb']:.4f} LSB (3-sigma {g['three_sigma_lsb']:.4f} LSB; with the "
+        f"~{g['rel_se_pct']:.0f}% standard error on the stdev, 3-sigma spans about {3 * lo:.4f}-{3 * hi:.4f} LSB), "
+        f"against the analytic {ANALYTIC_GAIN_3SIGMA_LSB} LSB. The analytic figure is "
+        f"{'SUPPORTED' if agree else 'NOT supported'} by this measurement at the sampled corner: the measured "
+        f"3-sigma is {ratio:.3f}x the analytic value ({1 / ratio:.0f}x smaller). "
+        "Resolution caveat: ngspice prints each `.meas` level to 6 significant digits, so the spans are quantized "
+        "at 10 uV = 0.0028 LSB; the measured stdev is only ~3 quantization steps, so its last digits are "
+        "resolution-limited, which does not affect the ~50x gap to the analytic figure. "
+        "This record does not establish why the two differ and does not claim the analytic figure is wrong for "
+        "any other definition of gain error; it only reports what this span-referred metric measured."
+    )
+    a("")
+    a("## Per-draw gain error (mismatch-enabled)")
+    a("")
+    a("| draw | seed | span_mm (V) | span_plain (V) | gain error (LSB) |")
+    a("|---|---|---|---|---|")
+    for i, (d, p) in enumerate(zip(result.draws, result.negctrl)):
+        a(f"| {i} | {d.seed} | {span_v(d):.7f} | {span_v(p):.7f} | {gain_error_lsb(d, p):+.5f} |")
+    a("")
+    extra_env = {"MC seed": str(result.seed), "MC N": str(n)}
+    if result.source_record_id:
+        extra_env["Reanalysis of"] = f"`sim/cdac-array-transfer/records/{result.source_record_id}.md` (no new ngspice run)"
+        extra_env["Tool-version caveat"] = (
+            "the PDK/ngspice lines above describe the host that re-parsed the logs; the draws themselves were "
+            "simulated under the SOURCE record's environment (see its Environment block). Not controlled for here."
+        )
+    L.extend(evidence.environment_block(
+        pdk_line=prov.pdk_line, ngspice_line=prov.ng_version, netlist_sha256=prov.netlist_sha, extra=extra_env,
+    ))
+    a("")
+    L.extend(evidence.footer_lines("sim/cdac-array-transfer/run_mc.py", supersedes))
+    prov.record_path.write_text("\n".join(L))
+    return prov.record_path, negctrl_ok and positive_ok
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="CDAC array transfer-characteristic Monte Carlo runner (issue #29)")
     ap.add_argument("--check-env", action="store_true")
@@ -535,6 +701,10 @@ def main() -> int:
             "draws #29 already collected). Mutually exclusive with --n/--seed (which "
             "only apply to a fresh simulation)."
         ),
+    )
+    ap.add_argument(
+        "--gain-error", action="store_true",
+        help="with --reanalyze --record: mint the mismatch gain-error record (issue #756) instead of the DNL/INL one",
     )
     ap.add_argument(
         "--target-limit-lsb", type=float, default=DRAFT_INL_DNL_TARGET_LSB,
@@ -559,7 +729,12 @@ def main() -> int:
     else:
         result = run_mc(seed=args.seed, n=args.n, corner=args.corner, quiet=args.quiet)
     exit_code = 0
-    if args.record:
+    if args.record and args.gain_error:
+        record_path, ok = write_gain_error_evidence(result, supersedes=args.supersedes, note=args.note)
+        print(f"wrote {record_path}")
+        print("PASS" if ok else "FAIL")
+        exit_code = 0 if ok else 1
+    elif args.record:
         record_path, ok = write_evidence(
             result, note=args.note,
             target_limit_lsb=args.target_limit_lsb, target_yield=args.target_yield,
