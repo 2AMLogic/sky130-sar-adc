@@ -1336,18 +1336,20 @@ than an oversight**, and for the same underlying reason:
   ... three distinct claims" until then, which undercounted both the records
   and the claim axes: it omitted the offset axis and the neutralized-variant
   kickback record.)
-- `sim/cdac-array-transfer`'s six records are likewise not a single
+- `sim/cdac-array-transfer`'s seven records are likewise not a single
   supersession chain, just along a different axis: a pre-ratification
   functional spot-check (`20260821-062504-433a294`, cited by no row), a
   ratified V_REF/LSB structural-and-functional check (cited alone by the
   `V_REF` row; `20260827-213107-e13bc1e` and its DR-019 re-run
-  `20261001-120402-d24f700`, the only record of the six whose `Supersedes`
+  `20261001-120402-d24f700`, the only record of the seven whose `Supersedes`
   field is not `(none)`), and the INL/DNL Monte Carlo scorings -- against the
   original DRAFT target (`20260828-005006-0c70212`), against DR-007's candidate
   (`20260828-022618-f36913e`, a re-parse of the same draws), and a DR-019
-  re-run of the first (`20261001-124049-5207381`) -- are distinct claims
-  about the same DUT. The other five records carry `Supersedes: (none)`.
-  One of those five is a real replacement not expressed in the field:
+  re-run of the first (`20261001-124049-5207381`), plus a no-new-simulation
+  CDAC gain-error reanalysis of that re-run's committed draws
+  (`20261101-181403-60421e3`, issue #756) -- are distinct claims
+  about the same DUT. The other six records carry `Supersedes: (none)`.
+  One of those six is a real replacement not expressed in the field:
   `20261001-124049-5207381` re-runs `20260828-005006-0c70212` against the
   DR-019-resized unit cap and says so in its **Note** only (`run_mc.py` has
   no `--supersedes` flag). The `INL / DNL` row still cites the pre-resize
@@ -1393,7 +1395,7 @@ pointer-claim census below:
 > table, **21** name a flow that publishes a `LATEST` pointer and are
 > therefore freshness-checked by check 3; the remaining **9** name a flow
 > that publishes none, whose current record nothing grades:
-> `sim/cdac-array-transfer` (**6** records), `sim/comparator-decision`
+> `sim/cdac-array-transfer` (**7** records), `sim/comparator-decision`
 > (**17** records), `sim/harness-corner-smoke` (**1** record),
 > `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**2** records).
 
@@ -1403,7 +1405,7 @@ directions: a campaign that starts publishing a pointer must leave the list,
 and a row that starts citing a pointerless campaign must join it — shrinking
 the list is the cheapest way to make this gate's coverage read better than it
 is. The record count is stated per flow because it is what says how large each
-hole is: `sim/cdac-array-transfer`'s six records narrow what either of its
+hole is: `sim/cdac-array-transfer`'s seven records narrow what either of its
 two rows' citations could have meant far less than a one-record campaign
 would, and `sim/comparator-decision`'s seventeen widen that same uncertainty
 further still — a citation chosen out of a set nothing re-derives.
@@ -5435,7 +5437,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **211** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **212** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5460,7 +5462,10 @@ tracker already owns.
      2026-10-11: issue #638's DR-023 reference re-mint committed the DC
      campaign's netlist snapshot and the coherent-sine record's fragment and
      snapshot. These are three more copies of decks already counted in kind,
-     again with no inductor card. 204 → **211** on 2026-11-01: issue #754's
+     again with no inductor card. 204 → **205** on 2026-11-01: issue #756's
+     CDAC gain-error reanalysis record committed one more netlist snapshot, a
+     copy of a deck already counted in kind, again with no inductor card and
+     no ground-return model. 205 → **212** the same day: issue #754's
      `sim/top-plate-cpar/` campaign committed six per-variant testbench decks
      (`requests/*.tb.spice`) and the frozen DUT netlist snapshot for its
      record. These are seven more copies of decks already counted in kind: AC
@@ -5791,12 +5796,12 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **95** of the **99** records under `sim/*/records/` name both an `ngspice`
+  > **96** of the **100** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **112** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **111** name a `klt`
   > version and **74** name the `open_pdks` commit
 
-  **Update (2026-11-01, issue #754):** the new `sim/top-plate-cpar/records/20261101-183325-60421e38.md` is the first record of a new campaign (98 → **99** records) and names both an `ngspice` version (`ngspice-46`) and a 40-hex `open_pdks` commit (`c6d73a35f524070e85faff4a6a9eef49553ebc2b`), so the pinned count moves with it (94 → **95**): this flow pins the commit. Its Environment block also records that the submitting host resolved a different `open_pdks` commit and `ngspice-42`, which the record flags as an uncontrolled difference. No earlier record was rewritten.
+  **Update (2026-11-01, issue #754):** the new `sim/top-plate-cpar/records/20261101-183325-60421e38.md` is the first record of a new campaign and names both an `ngspice` version (`ngspice-46`) and a 40-hex `open_pdks` commit (`c6d73a35f524070e85faff4a6a9eef49553ebc2b`), so it counts as pinned; so does `sim/cdac-array-transfer/records/20261101-181403-60421e3.md` (issue #756, merged to `main` the same day, whose census text had not yet been restated). Together they move the totals 98 → **100** records and 94 → **96** pinned: both flows pin the commit. Its Environment block also records that the submitting host resolved a different `open_pdks` commit and `ngspice-42`, which the record flags as an uncontrolled difference. No earlier record was rewritten.
 
   **Update (2026-10-21, issue #708):** the sign-off flows were re-run under `open_pdks` `f6eeac7`, minting 12 new `layout/*/reports/` and `layout/*/erc-reports/` records (94 → **106**); all 12 name a `klt` version (93 → **105**) and the `open_pdks` commit (56 → **68**). The per-flow counts of records naming no commit are the ones `--stats` prints (issue #407). No earlier record was rewritten.
 
