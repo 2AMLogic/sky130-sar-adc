@@ -49,7 +49,7 @@ can fail; it is not a coverage claim beyond those faults.
 
 ## Limits (read before citing)
 
-- **Zero-delay.** No SDF, no timing. Post-route SDF re-simulation is issue #679;
+- **Zero-delay.** No SDF, no timing. Post-route SDF re-simulation is `bin/run-sdf-record.py` (issue #679, `records/*-sdf.md`);
   timing is `sim/digital-sta/`.
 - **The routed `sar_sequencer` is the issue-#102 netlist, 36 instances.**
   `design/sar_sequencer.sch` has 57: it gained the `COMP_EFF` xnor (DR-008's
@@ -75,3 +75,15 @@ KLT=.venv-signoff/bin/klt python3 -I sim/digital-functional/bin/run-record.py
 `klt` leaves scratch files in `requests/.klt/`; delete them before committing.
 Needs `iverilog` on `PATH`. `klt` 0.6.0 has no `-o`, so that directory is where
 it writes.
+
+## SDF-annotated re-run (issue #679)
+
+`bin/run-sdf-record.py <sim/digital-sta run id>` re-runs the bench on the routed
+`*_post_route.v` netlists with each corner's SDF back-annotated
+(`options.sdf`), using `tb/test_*_sdf.py` (timing from `SAR_TB_HALF_NS` /
+`SAR_TB_SETTLE_NS`; the zero-delay benches are untouched because the zero-delay
+record hashes them) and `models/sky130_fd_sc_hd_subset_timing.v` (the PDK's
+`specify`-bearing models, `bin/extract-cell-models.py --timing`). It refuses to
+write a record unless a short-settle control fails and a no-SDF control passes.
+Results: `records/*-sdf.md`. Icarus drops SDF TIMINGCHECK, so setup/hold are not
+checked here.

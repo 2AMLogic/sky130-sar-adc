@@ -1,0 +1,12 @@
+{
+  "sources": [
+    "<repo>/sim/digital-functional/models/sky130_fd_sc_hd_subset_timing.v",
+    "<repo>/layout/sar-sequencer/reports/20261021-104530-ddc1d72/sar_sequencer_post_route.v"
+  ],
+  "hdl_toplevel": "sar_sequencer",
+  "engine": "icarus",
+  "testbench": {
+    "module": "test_sar_sequencer_sdf",
+    "search_path": "<repo>/sim/digital-functional/tb"
+  }
+}

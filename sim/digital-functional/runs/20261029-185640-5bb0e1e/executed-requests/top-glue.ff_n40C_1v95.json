@@ -1,0 +1,18 @@
+{
+  "sources": [
+    "<repo>/sim/digital-functional/models/sky130_fd_sc_hd_subset_timing.v",
+    "<repo>/layout/top-glue/reports/20261021-104637-ddc1d72/top_glue_post_route.v"
+  ],
+  "hdl_toplevel": "top_glue",
+  "engine": "icarus",
+  "testbench": {
+    "module": "test_top_glue_sdf",
+    "search_path": "<repo>/sim/digital-functional/tb"
+  },
+  "options": {
+    "sdf": {
+      "file": "<repo>/sim/digital-sta/runs/20261029-185629-5bb0e1e/sdf/top-glue.ff_n40C_1v95.sdf",
+      "corner": "typ"
+    }
+  }
+}

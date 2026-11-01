@@ -1,0 +1,719 @@
+{
+  "schema_version": 2,
+  "engine": "openroad",
+  "engine_version": "26Q3-1510-g6cb3f2b704",
+  "hdl_toplevel": "top_glue",
+  "status": "ok",
+  "def_path": {
+    "path": "layout/top-glue/reports/20261021-104637-ddc1d72/top_glue.def",
+    "scope": "repo"
+  },
+  "verilog_path": null,
+  "geometry_source": "routed",
+  "wire_load_model": null,
+  "wire_load_mode": null,
+  "clock_mode": "ideal",
+  "spef_path": {
+    "path": null,
+    "scope": "external"
+  },
+  "provenance": {
+    "klt_version": "0.8.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+      "ambiguous_sources": [
+        "search root: ~/.volare"
+      ]
+    },
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:63c71901379a73dc908886a7f7f1ad91a4bf4f98c80ad242831526819ba5d124",
+      "role": "layout"
+    }
+  },
+  "corners": [
+    {
+      "corner": "tt_025C_1v80",
+      "engine_log": {
+        "invocation_id": "d90ab9fdd4ad4b95af3961593a2a1238",
+        "script_name": "sta_top_glue__tt_025C_1v80.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "a73d04031b4a0397c199609e272c3bb4e0b948ddc675c4954f572c7eb6da1c4b",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": 20.8089,
+      "total_negative_slack_ns": 0,
+      "worst_hold_slack_ns": 20.8475,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 23.7145,
+      "timing_status": "constrained",
+      "constraint_completeness": {
+        "status": "complete",
+        "unconstrained_endpoints": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "unclocked_registers": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "sample_limit": 20
+      },
+      "setup_violation_count": 0,
+      "hold_violation_count": 0,
+      "worst_setup_path": {
+        "status": "ok",
+        "check_type": "output_setup",
+        "engine_check_role": "output setup",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.80895,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "worst_hold_path": {
+        "status": "ok",
+        "check_type": "output_hold",
+        "engine_check_role": "output hold",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.84751,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.0008,
+      "power_basis": {
+        "activity_source": "engine_default",
+        "activity": null,
+        "duty": null,
+        "parasitics": "spef_annotated"
+      },
+      "spef_annotation": {
+        "nets_annotated": 49,
+        "nets_total": 49,
+        "design_nets_annotated": 49,
+        "design_nets_total": 49,
+        "design_nets_missing_sample": [],
+        "reader_warning_count": 113,
+        "reader_warning_sample": [
+          "[WARNING STA-1656] <outside repo> line 75, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 96, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 114, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 135, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 163, pin DOUT9N not found."
+        ],
+        "unannotated_driver_count": 0,
+        "partially_unannotated_driver_count": 1,
+        "floating_driver_count": 0,
+        "floating_driver_sample": [],
+        "unannotated_driver_sample": [],
+        "unannotated_driver_detail": [],
+        "partially_unannotated_driver_sample": [
+          "xinv_dout9n/Y",
+          "xand_seln0/B",
+          "xand_seln1/B",
+          "xand_seln2/B",
+          "xand_seln3/B",
+          "xand_seln4/B",
+          "xand_seln5/B",
+          "xand_seln6/B",
+          "xand_seln7/B",
+          "xand_seln8/B",
+          "xxor_code0/B",
+          "xxor_code1/B",
+          "xxor_code2/B",
+          "xxor_code3/B",
+          "xxor_code4/B",
+          "xxor_code5/B",
+          "xxor_code6/B",
+          "xxor_code7/B",
+          "xxor_code8/B"
+        ],
+        "delay_changed": true,
+        "annotation_complete": false,
+        "annotation_warning": "read_spef discarded annotation for 113 SPEF record(s) it could not resolve against the linked design (OpenSTA STA-1650/STA-1648 'not found' warnings) -- the worst_slack_ns/etc. fields above are NOT a real-parasitics measurement to the extent annotation is missing."
+      },
+      "electrical_checks": {
+        "parasitics_source": "spef",
+        "max_transition": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "ns",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        },
+        "max_capacitance": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "pF",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        }
+      },
+      "clock_propagation": null,
+      "sdf": {
+        "path": null,
+        "scope": "external",
+        "content_hash": "sha256:9a6dc2d40f8cc1979020147b41a6a24d0e290db8c95772dec46e9eae4c40f83d"
+      },
+      "deck": {
+        "name": "sky130_fd_sc_hd__tt_025C_1v80",
+        "content_hash": "sha256:8e78e14442062dba34d414fca6490b2f6b96038d4510d1438ca44fee31487135",
+        "released": false,
+        "path": {
+          "path": null,
+          "scope": "external"
+        }
+      }
+    },
+    {
+      "corner": "tt_100C_1v80",
+      "engine_log": {
+        "invocation_id": "164b553eda2449f2899520387e500e18",
+        "script_name": "sta_top_glue__tt_100C_1v80.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "171c885a30e03241fd4f40f874781d665f448656886c4a63fb831d40d6952a83",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": 20.8099,
+      "total_negative_slack_ns": 0,
+      "worst_hold_slack_ns": 20.8496,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 23.7284,
+      "timing_status": "constrained",
+      "constraint_completeness": {
+        "status": "complete",
+        "unconstrained_endpoints": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "unclocked_registers": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "sample_limit": 20
+      },
+      "setup_violation_count": 0,
+      "hold_violation_count": 0,
+      "worst_setup_path": {
+        "status": "ok",
+        "check_type": "output_setup",
+        "engine_check_role": "output setup",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.80991,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "worst_hold_path": {
+        "status": "ok",
+        "check_type": "output_hold",
+        "engine_check_role": "output hold",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.84957,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.0009,
+      "power_basis": {
+        "activity_source": "engine_default",
+        "activity": null,
+        "duty": null,
+        "parasitics": "spef_annotated"
+      },
+      "spef_annotation": {
+        "nets_annotated": 49,
+        "nets_total": 49,
+        "design_nets_annotated": 49,
+        "design_nets_total": 49,
+        "design_nets_missing_sample": [],
+        "reader_warning_count": 113,
+        "reader_warning_sample": [
+          "[WARNING STA-1656] <outside repo> line 75, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 96, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 114, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 135, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 163, pin DOUT9N not found."
+        ],
+        "unannotated_driver_count": 0,
+        "partially_unannotated_driver_count": 1,
+        "floating_driver_count": 0,
+        "floating_driver_sample": [],
+        "unannotated_driver_sample": [],
+        "unannotated_driver_detail": [],
+        "partially_unannotated_driver_sample": [
+          "xinv_dout9n/Y",
+          "xand_seln0/B",
+          "xand_seln1/B",
+          "xand_seln2/B",
+          "xand_seln3/B",
+          "xand_seln4/B",
+          "xand_seln5/B",
+          "xand_seln6/B",
+          "xand_seln7/B",
+          "xand_seln8/B",
+          "xxor_code0/B",
+          "xxor_code1/B",
+          "xxor_code2/B",
+          "xxor_code3/B",
+          "xxor_code4/B",
+          "xxor_code5/B",
+          "xxor_code6/B",
+          "xxor_code7/B",
+          "xxor_code8/B"
+        ],
+        "delay_changed": true,
+        "annotation_complete": false,
+        "annotation_warning": "read_spef discarded annotation for 113 SPEF record(s) it could not resolve against the linked design (OpenSTA STA-1650/STA-1648 'not found' warnings) -- the worst_slack_ns/etc. fields above are NOT a real-parasitics measurement to the extent annotation is missing."
+      },
+      "electrical_checks": {
+        "parasitics_source": "spef",
+        "max_transition": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "ns",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        },
+        "max_capacitance": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "pF",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        }
+      },
+      "clock_propagation": null,
+      "sdf": {
+        "path": null,
+        "scope": "external",
+        "content_hash": "sha256:610ccdd02fccc642a335ea1429de465cb0de268cee37ab9383691be50a5e6425"
+      },
+      "deck": {
+        "name": "sky130_fd_sc_hd__tt_100C_1v80",
+        "content_hash": "sha256:7c6b9fc62d7e83b8317cdca883d79107d8f2ff1061b04519fda7d3088560015b",
+        "released": false,
+        "path": {
+          "path": null,
+          "scope": "external"
+        }
+      }
+    },
+    {
+      "corner": "ss_100C_1v60",
+      "engine_log": {
+        "invocation_id": "b070ea868c1643aa8fba479a8afe35c2",
+        "script_name": "sta_top_glue__ss_100C_1v60.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "5a9b20721349e33e06ae4ab0f9ab2c222224cabddce26bbf6695c9547da8d081",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": 20.7954,
+      "total_negative_slack_ns": 0,
+      "worst_hold_slack_ns": 20.8609,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 23.4982,
+      "timing_status": "constrained",
+      "constraint_completeness": {
+        "status": "complete",
+        "unconstrained_endpoints": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "unclocked_registers": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "sample_limit": 20
+      },
+      "setup_violation_count": 0,
+      "hold_violation_count": 0,
+      "worst_setup_path": {
+        "status": "ok",
+        "check_type": "output_setup",
+        "engine_check_role": "output setup",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.79543,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "worst_hold_path": {
+        "status": "ok",
+        "check_type": "output_hold",
+        "engine_check_role": "output hold",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.86092,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.0008,
+      "power_basis": {
+        "activity_source": "engine_default",
+        "activity": null,
+        "duty": null,
+        "parasitics": "spef_annotated"
+      },
+      "spef_annotation": {
+        "nets_annotated": 49,
+        "nets_total": 49,
+        "design_nets_annotated": 49,
+        "design_nets_total": 49,
+        "design_nets_missing_sample": [],
+        "reader_warning_count": 113,
+        "reader_warning_sample": [
+          "[WARNING STA-1656] <outside repo> line 75, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 96, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 114, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 135, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 163, pin DOUT9N not found."
+        ],
+        "unannotated_driver_count": 0,
+        "partially_unannotated_driver_count": 1,
+        "floating_driver_count": 0,
+        "floating_driver_sample": [],
+        "unannotated_driver_sample": [],
+        "unannotated_driver_detail": [],
+        "partially_unannotated_driver_sample": [
+          "xinv_dout9n/Y",
+          "xand_seln0/B",
+          "xand_seln1/B",
+          "xand_seln2/B",
+          "xand_seln3/B",
+          "xand_seln4/B",
+          "xand_seln5/B",
+          "xand_seln6/B",
+          "xand_seln7/B",
+          "xand_seln8/B",
+          "xxor_code0/B",
+          "xxor_code1/B",
+          "xxor_code2/B",
+          "xxor_code3/B",
+          "xxor_code4/B",
+          "xxor_code5/B",
+          "xxor_code6/B",
+          "xxor_code7/B",
+          "xxor_code8/B"
+        ],
+        "delay_changed": true,
+        "annotation_complete": false,
+        "annotation_warning": "read_spef discarded annotation for 113 SPEF record(s) it could not resolve against the linked design (OpenSTA STA-1650/STA-1648 'not found' warnings) -- the worst_slack_ns/etc. fields above are NOT a real-parasitics measurement to the extent annotation is missing."
+      },
+      "electrical_checks": {
+        "parasitics_source": "spef",
+        "max_transition": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "ns",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        },
+        "max_capacitance": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "pF",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        }
+      },
+      "clock_propagation": null,
+      "sdf": {
+        "path": null,
+        "scope": "external",
+        "content_hash": "sha256:f0a37382cc2a968b25e064f88bba7b1dbb66dfd48f092f476d2d34e5ae9071a4"
+      },
+      "deck": {
+        "name": "sky130_fd_sc_hd__ss_100C_1v60",
+        "content_hash": "sha256:9b24f0db3967ac67b4cae1f74bb480fd47922d18d0ed577e3c121739b412c361",
+        "released": false,
+        "path": {
+          "path": null,
+          "scope": "external"
+        }
+      }
+    },
+    {
+      "corner": "ff_n40C_1v95",
+      "engine_log": {
+        "invocation_id": "53eec5931c65472c96fea82ab26d9f92",
+        "script_name": "sta_top_glue__ff_n40C_1v95.tcl",
+        "script_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "script_sha256": "92a969a90dfce0d520caf6152a0180a3b439572a5a2402fbbab97c0aa813598d",
+        "metrics_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "outcome": "exited",
+        "returncode": 0,
+        "directory": {
+          "path": null,
+          "scope": "external"
+        },
+        "stdout_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "stderr_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "metadata_path": {
+          "path": null,
+          "scope": "external"
+        },
+        "retention_errors": []
+      },
+      "worst_slack_ns": 20.8158,
+      "total_negative_slack_ns": 0,
+      "worst_hold_slack_ns": 20.8429,
+      "total_negative_hold_slack_ns": 0,
+      "fmax_mhz": 23.8089,
+      "timing_status": "constrained",
+      "constraint_completeness": {
+        "status": "complete",
+        "unconstrained_endpoints": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "unclocked_registers": {
+          "status": "ok",
+          "count": 0,
+          "sample": [],
+          "truncated": false,
+          "reason": null
+        },
+        "sample_limit": 20
+      },
+      "setup_violation_count": 0,
+      "hold_violation_count": 0,
+      "worst_setup_path": {
+        "status": "ok",
+        "check_type": "output_setup",
+        "engine_check_role": "output setup",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.81581,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "worst_hold_path": {
+        "status": "ok",
+        "check_type": "output_hold",
+        "engine_check_role": "output hold",
+        "startpoint": "CLK",
+        "endpoint": "CLKN",
+        "slack_ns": 20.84287,
+        "consistent_with_aggregate": true,
+        "reason": null
+      },
+      "clock_skew_ns": 0,
+      "estimated_power_mw": 0.0009,
+      "power_basis": {
+        "activity_source": "engine_default",
+        "activity": null,
+        "duty": null,
+        "parasitics": "spef_annotated"
+      },
+      "spef_annotation": {
+        "nets_annotated": 49,
+        "nets_total": 49,
+        "design_nets_annotated": 49,
+        "design_nets_total": 49,
+        "design_nets_missing_sample": [],
+        "reader_warning_count": 113,
+        "reader_warning_sample": [
+          "[WARNING STA-1656] <outside repo> line 75, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 96, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 114, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 135, pin DOUT9N not found.",
+          "[WARNING STA-1656] <outside repo> line 163, pin DOUT9N not found."
+        ],
+        "unannotated_driver_count": 0,
+        "partially_unannotated_driver_count": 1,
+        "floating_driver_count": 0,
+        "floating_driver_sample": [],
+        "unannotated_driver_sample": [],
+        "unannotated_driver_detail": [],
+        "partially_unannotated_driver_sample": [
+          "xinv_dout9n/Y",
+          "xand_seln0/B",
+          "xand_seln1/B",
+          "xand_seln2/B",
+          "xand_seln3/B",
+          "xand_seln4/B",
+          "xand_seln5/B",
+          "xand_seln6/B",
+          "xand_seln7/B",
+          "xand_seln8/B",
+          "xxor_code0/B",
+          "xxor_code1/B",
+          "xxor_code2/B",
+          "xxor_code3/B",
+          "xxor_code4/B",
+          "xxor_code5/B",
+          "xxor_code6/B",
+          "xxor_code7/B",
+          "xxor_code8/B"
+        ],
+        "delay_changed": true,
+        "annotation_complete": false,
+        "annotation_warning": "read_spef discarded annotation for 113 SPEF record(s) it could not resolve against the linked design (OpenSTA STA-1650/STA-1648 'not found' warnings) -- the worst_slack_ns/etc. fields above are NOT a real-parasitics measurement to the extent annotation is missing."
+      },
+      "electrical_checks": {
+        "parasitics_source": "spef",
+        "max_transition": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "ns",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        },
+        "max_capacitance": {
+          "coverage": "checked",
+          "limit_source": "liberty",
+          "unit": "pF",
+          "violation_count": 0,
+          "net_count": 0,
+          "worst_excess": null,
+          "worst_pin": null
+        }
+      },
+      "clock_propagation": null,
+      "sdf": {
+        "path": null,
+        "scope": "external",
+        "content_hash": "sha256:17881cc43a362c1adb3d6048a9a9afb21963f06763577414e736b0297b42690f"
+      },
+      "deck": {
+        "name": "sky130_fd_sc_hd__ff_n40C_1v95",
+        "content_hash": "sha256:fb61d91c55a7f85b1989e8149d040b13ba5e7f5478f5bf0c3c16c5da30720139",
+        "released": false,
+        "path": {
+          "path": null,
+          "scope": "external"
+        }
+      }
+    }
+  ]
+}
