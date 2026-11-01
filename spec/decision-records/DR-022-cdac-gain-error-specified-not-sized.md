@@ -1,13 +1,14 @@
 # DR-022: Specify the CDAC's systematic gain error as its own spec row. Neither sizing lever can remove it
 
-- **Status**: proposed. Ratification is via the operator's approval of the PR
-  that resolves #269's decision step, under the canary spec/DR
-  ratification-via-PR standing policy (2AMLogic/2am#357) and the two-key route
-  2am#1056 confirms for new or amended DRs. This record **proposes** a spec
-  row. It does not edit `spec/target-spec.md`; the ratification-vehicle PR
-  for #269 (the one that carries this status line) adds the DRAFT row, and
-  the operator's merge of it is the ratification, after the independent EE
-  and market key reviews are posted on it. See "Spec lines affected".
+- **Status**: accepted (ratified as a DRAFT row), 2026-11-01. The operator approved and
+  merged #722 (merge commit `60421e38`), the ratification-vehicle PR for
+  #269, under the canary spec/DR ratification-via-PR standing policy
+  (2AMLogic/2am#357). #722 added the systematic gain-error row to
+  `spec/target-spec.md` as DRAFT. The row stays DRAFT: the whole target table
+  is DRAFT until issue #1 ratifies it, and nothing here relaxes its value.
+  Revision note (2026-11-01, #753): this status update is a decision-record
+  revision. It changes no Decision, records no new simulation, and files the
+  Open items below as issues. Original 2026-10-03 status was "proposed".
 - **Date**: 2026-10-03
 - **Decided by**: Builder agent, issue #269 (scope per the issue's
   "Revision 2026-09-14 (operator lane)": draft the DR, recommend one option,
@@ -279,13 +280,15 @@ separate decision (see "Open items").
 
 ## Open items
 
-Each item is to be filed on ratification, since its shape depends on that
-ruling:
+Each item was to be filed on ratification, since its shape depends on that
+ruling. Filed 2026-11-01 under #753 (all `loom:triage`); the per-item note
+under each entry gives the issue number:
 
 1. **Measure the composition of `C_par`.** A C(V) extraction on `TOP_x` in
    the reset/hold state, per corner, including the r+c corners. gf180 does
    this in `sim/top-plate-cpar/`. It replaces the estimate table above, and
    it decides which closure path in item 2 is worth taking.
+   *Filed 2026-11-01: #754.*
 2. **Close or supersede the miss.** A later DR chooses among:
    - (a) moving the half-LSB offset into the existing termination cap
      (DR-009's own named alternative, about `-1 C_u`/side);
@@ -299,8 +302,11 @@ ruling:
    (a) and (b) together leave about `0.3–1.0 C_u` (`~0.7–2.1 LSB`). So the
    row may be reachable *without* an architecture change, but only item 1's
    measurement can say so.
+   *Filed 2026-11-01: #755 (waits on #754).*
 3. **Gain error, mismatch** (the other half of gf180's split). DR-003 Item 3's
    analytic `1.42 LSB` at 3σ has no row and no Monte Carlo check. A user
    measures the sum of the two halves, so the published total waits on it.
+   *Filed 2026-11-01: #756.*
 4. **Implement Decision item 3** (gain extraction plus corrected-code
    reporting across all 9 corners) once this record is ratified.
+   *Filed 2026-11-01: #757 (waits on #754 and #755).*
