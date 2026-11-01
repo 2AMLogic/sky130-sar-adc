@@ -27,7 +27,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 
 | Spec row | Status | Coverage | Testbench(es) | Evidence record(s) |
 |---|---|---|---|---|
-| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-135431-7487784.md`<br>`20260821-062504-433a294.md`<br>`20260823-152752-47640c8.md` |
+| Architecture | DRAFT | benched (structural row, exercised block by block) | `sim/sampling-frontend`<br>`sim/sampling-cdac-handoff`<br>`sim/cdac-array-transfer`<br>`sim/top-plate-cpar`<br>`sim/sar-sequencer-behavioral` | `20260821-072657-433a294.md`<br>`20260824-231304-144edeb.md`<br>`20261001-135431-7487784.md`<br>`20260821-062504-433a294.md`<br>`20261101-183325-60421e38.md`<br>`20260823-152752-47640c8.md` |
 | Resolution `N` | RATIFIED | benched (ratified, graded pass/fail) | `sim/sar-sequencer-behavioral` | `20260827-211956-e13bc1e.md` |
 | Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261011-112119-188e94c.md`<br>`20261001-105439-c324f80.md`<br>`20261011-064547-a6dcdd7.md` |
 | ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20260828-005033-0c70212.md`<br>`20261011-110009-320dbc6.md`<br>`20261010-070734-f968286.md`<br>`20261010-204225-57a55c1.md`<br>`20261011-021527-8d0c19a.md`<br>`20261011-022915-877794b.md`<br>`20261011-023419-877794b.md`<br>`20261011-064924-ad4bfff.md`<br>`20261011-064408-ad4bfff.md` |
@@ -73,6 +73,15 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --record`
 - Documented in: `sim/cdac-array-transfer/README.md`
 - Evidence: `sim/cdac-array-transfer/records/20260821-062504-433a294.md`
+
+**`sim/top-plate-cpar`** — Top-plate parasitic capacitance C_par of the as-committed netlist: C(V), leave-one-out composition, per PVT and MiM r+c corner (issue #754; informational, asserts no numeric spec value).
+
+- Testbench: `sim/top-plate-cpar/run_top_plate_cpar.py`
+- Deck note: The deck is assembled by the runner from design/sar_adc_top.spice plus testbench-only sources; there is no committed fragment (deck bodies are frozen per record under corners/).
+- Runner: `sim/top-plate-cpar/run_top_plate_cpar.py`
+- Cold start: `python3 sim/top-plate-cpar/run_top_plate_cpar.py --record`
+- Documented in: `sim/top-plate-cpar/README.md`
+- Evidence: `sim/top-plate-cpar/records/20261101-183325-60421e38.md`
 
 **`sim/sar-sequencer-behavioral`** — Successive approximation: MSB-first bit-by-bit search and phase sequencing (issue #55).
 
