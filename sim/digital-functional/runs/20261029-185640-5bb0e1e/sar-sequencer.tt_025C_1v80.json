@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "engine": "icarus",
+  "hdl_toplevel": "sar_sequencer",
+  "testbench": "test_sar_sequencer_sdf",
+  "status": "pass",
+  "test_count": 8,
+  "passed_count": 8,
+  "failed_count": 0,
+  "skipped_count": 0,
+  "tests": [
+    {
+      "name": "reset_state",
+      "status": "passed",
+      "sim_time_ns": 332.0,
+      "real_time_s": 0.004
+    },
+    {
+      "name": "walking_one_phase_sequence",
+      "status": "passed",
+      "sim_time_ns": 3272.0,
+      "real_time_s": 0.005
+    },
+    {
+      "name": "code_all_ones",
+      "status": "passed",
+      "sim_time_ns": 1340.0000000000005,
+      "real_time_s": 0.001
+    },
+    {
+      "name": "code_all_zeros",
+      "status": "passed",
+      "sim_time_ns": 2432.0,
+      "real_time_s": 0.002
+    },
+    {
+      "name": "codes_from_spice_campaign",
+      "status": "passed",
+      "sim_time_ns": 4196.000000000001,
+      "real_time_s": 0.008
+    },
+    {
+      "name": "closed_loop_every_code",
+      "status": "passed",
+      "sim_time_ns": 1032356.0,
+      "real_time_s": 1.812
+    },
+    {
+      "name": "mid_conversion_reset_every_phase",
+      "status": "passed",
+      "sim_time_ns": 24624.0,
+      "real_time_s": 0.033
+    },
+    {
+      "name": "randomized_lockstep",
+      "status": "passed",
+      "sim_time_ns": 346996.0,
+      "real_time_s": 0.308
+    }
+  ],
+  "coverage": null,
+  "trace": null,
+  "environment": {
+    "engine": "icarus",
+    "engine_version": "13.0",
+    "cocotb_version": "2.1.0",
+    "results_xml": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/results_icarus.xml",
+    "test_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/test_icarus.log",
+    "build_log": "/tmp/klt-fv-sdf-l53nn7cy/.klt/functional-verification/build_icarus.log",
+    "random_seed": 1793300201,
+    "source_defines": {},
+    "initial_state": null,
+    "sdf": {
+      "file": "<repo>/sim/digital-sta/runs/20261029-185629-5bb0e1e/sdf/sar-sequencer.tt_025C_1v80.sdf",
+      "corner": "typ",
+      "entries": "all",
+      "annotated": true,
+      "partial": true,
+      "dropped": {
+        "timingcheck": {
+          "count": 21,
+          "reason": "Icarus Verilog implements SDF delay annotation (IOPATH/INTERCONNECT) but not SDF TIMINGCHECK -- every TIMINGCHECK section in the SDF is dropped, so $setup/$hold/$width checks run against the cell library's own placeholder timing, not the characterised limits in the SDF"
+        }
+      }
+    }
+  }
+}

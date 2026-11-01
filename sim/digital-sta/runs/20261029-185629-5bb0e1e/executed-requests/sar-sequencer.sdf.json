@@ -1,0 +1,21 @@
+{
+  "def": "<repo>/layout/sar-sequencer/reports/20261021-104530-ddc1d72/sar_sequencer.def",
+  "hdl_toplevel": "sar_sequencer",
+  "pdk": {
+    "cell_library": "sky130_fd_sc_hd",
+    "corners": [
+      "tt_025C_1v80",
+      "tt_100C_1v80",
+      "ss_100C_1v60",
+      "ff_n40C_1v95"
+    ]
+  },
+  "constraints": {
+    "clock_port": "CLK",
+    "clock_period_ns": 83.33,
+    "input_delay_ns": 20.8325,
+    "output_delay_ns": 20.8325
+  },
+  "spef": "<scratch>/sar_sequencer.spef",
+  "sdf": true
+}

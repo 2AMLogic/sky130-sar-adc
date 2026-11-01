@@ -17,12 +17,12 @@ Current verdict, at the committed report:
 | block | `sky130-sar-adc` |
 | kind | `mixed-signal` (22 rows: 11 items × 2 partitions) |
 | tier | `null` — not T1 |
-| T1 items met | **12 / 22** (items 2, 3, 8, 9, 10 on both partitions; item 1 on the analog partition; item 5 on the digital partition — **provisional, narrow; read "Item 5, digital" below**) |
+| T1 items met | **13 / 22** (items 2, 3, 8, 9, 10 on both partitions; item 1 on the analog partition; item 5 on the digital partition — **provisional, narrow; read "Item 5, digital" below** — and item 7 on the digital partition — **partial annotation, one macro cited; read "Item 7, digital" below**) |
 | checklist graded against | `design-evidence-tiers.md` @ `sha256:a26b9026…` (the copy `klayout-tools==0.8.0` bundles) |
 | grading build | `klt 0.8.0` (`git_tag v0.8.0`, `grading_ruleset_id sha256:46c446d8…`) |
 
 **A mostly-`unmet` report is the correct result, not a failure of this
-file.** 10 of 22 rows are `unmet` with a machine-readable `reason`, and that is
+file.** 9 of 22 rows are `unmet` with a machine-readable `reason`, and that is
 exactly the honest statement of the gap. Nothing here should be "improved" by
 citing an envelope that does not actually support the item it is filed under.
 
@@ -71,7 +71,7 @@ saying, because the grader cannot.
 | 4 | LVS clean | `unmet` / `check_failed` (both) | Cited deliberately even though it fails. `klt lvs` reports `status: "mismatch"` against the full-block reference; the authoritative mismatch, net, device and pin counts are in the cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` (`mismatch_count`, `category_counts`, `counts`) — read them there. Summary retained at that record only: 67 mismatches / 66 errors, 519/555 reference nets and 1046/1095 reference devices matched; categories 49 `device.unmatched`, 9 `net.merged`, 8 `net.split`, 1 `topology.flattened`. Pins read 21 layout / 22 reference / 22 matched: the reference carries `GND` and `VGND` as two ports of what the layout extracts as one net — the shared p-substrate (`GND\|VGND\|VSS`) — so one promoted layout pin answers both, which is why `layout < reference` here is not a missing pin; see [DR-012](../spec/decision-records/DR-012-analog-ground-pad.md). *Historical comparison, superseded:* the 2026-09-24 record (`reports/20260924-234053-66dca3c/`) read 88 mismatches / 87 errors, 411/444 nets and 803/869 devices; before issue #355 it read 98/97. Root cause is an upstream extraction-hierarchy gap, not a design defect — filed generically as klayout-tools#1878; see `layout/sar-adc-top/README.md`'s "LVS device/topology blocker". The full-block LVS still does not match. |
 | 5 | Full corner verification | analog: `unmet` / `no_evidence`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Under `klt 0.8.0` the row is compound: the manifest cites four reports (STA and `klt functional-verification` for each of `sar_sequencer` and `top_glue`), each graded `met`; citing the STA alone renders `unmet` / `partial_coverage` (`missing_kinds: functional-verification`). **`met` is the grader's verdict on those four reports; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, and the STA covers the digital partition's own boundary only — see "Item 5, digital" below.** Analog: no `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown records — and the ENOB / INL-DNL **target values** are still DRAFT. |
 | 6 | Statistical claims | `unmet` / `no_evidence` (both) | Five `klt yield` envelopes **do** exist and all report `status: "fail"` — see "Item 6" below for what they say and why none is cited. |
-| 7 | Post-layout verification | `unmet` / `no_evidence` (both) | No `klt pex` report exists for the composed top level or any partition; three comparator-level `pex.json` envelopes exist under `layout/comparator/reports/` but are not cited in the manifest, because they cover the comparator block only and do not prove post-layout behaviour of the composed block. Item 7 on the composed block is blocked on item 4 (the top-level LVS mismatch), mirroring `layout/sar-adc-top/README.md`. Item 7 accepts nothing else, by design: a clean DRC or a pre-layout sim renders `wrong_kind`, because neither proves anything about post-layout behaviour. Nothing to disclose about `body_bias` yet — that field is reported on a `pex` citation, and there is no `pex` citation in the manifest. |
+| 7 | Post-layout verification | analog `unmet` / `no_evidence`; digital `met` | **Analog:** no `klt pex` report exists for the composed top level or any partition; three comparator-level `pex.json` envelopes exist under `layout/comparator/reports/` but are not cited, because they cover the comparator block only and do not prove post-layout behaviour of the composed block. The analog half is blocked on item 4 (the top-level LVS mismatch, issue #103), mirroring `layout/sar-adc-top/README.md`. Item 7 on the analog partition accepts nothing else: a clean DRC or a pre-layout sim renders `wrong_kind`. Nothing to disclose about `body_bias` yet — that field is reported on a `pex` citation, and there is no `pex` citation in the manifest. **Digital:** cited since issue #679 — a `klt functional-verification` report with `options.sdf` set and `environment.sdf.annotated: true` on the routed `sar_sequencer`; see "Item 7, digital" below for what `met` does and does not assert. |
 | 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
 | 9 | Testbenches shipped | **`met`** (both) | One bare citation: the inventory of every testbench `sim/spec-coverage.json` indexes, the cold start and the PDK/tool pins. See "What the item 1, 2, 9 and 10 citations assert" for what was and was not executed when the envelope was minted.
 | 10 | Repo hygiene | **`met`** (both) | One bare citation: README, LICENSE, `spec/target-spec.md` and the CI workflow are present and the workflow runs the declared audit commands. The commands themselves run in CI, not at mint. See "What the item 1, 2, 9 and 10 citations assert".
@@ -222,10 +222,65 @@ Disclosures the grader cannot make:
   `COMP_EFF` xnor and per-conversion clear gating of issue #263 / DR-008. Both
   the functional tests and the STA cover the 36-instance netlist, so neither
   speaks for `COMP_EFF` or the clear gating.
-- **Zero-delay functional run.** No SDF; that is item 7 (issue #679).
+- **Zero-delay functional run.** The item 5 functional reports carry no SDF; the SDF-annotated re-run is item 7 ("Item 7, digital" below).
 - **PDK revision.** The reports were minted against open_pdks `f6eeac7`, the
   revision installed on the host, not the `c6d73a3` that `sim/pdk.json` pins
   (issue #669, the re-pin, is open).
+
+### Item 7, digital: what `met` asserts
+
+Item 7 asks for the functional suite re-run on the post-route gate-level netlist
+with back-annotated SDF timing. The `7.digital` entry cites
+`sim/digital-functional/runs/20261029-185640-5bb0e1e/sar-sequencer.ss_100C_1v60.json`:
+the bit-exact `sar_sequencer` bench on
+`layout/sar-sequencer/reports/20261021-104530-ddc1d72/sar_sequencer_post_route.v`
+with the `ss_100C_1v60` SDF back-annotated (`environment.sdf.annotated: true`),
+8 / 8 tests pass. Record: `sim/digital-functional/records/20261029-185640-5bb0e1e-sdf.md`;
+SDF provenance (P&R record, corner, tool versions, annotation counts):
+`sim/digital-sta/records/20261029-185629-5bb0e1e-sdf.md`.
+
+| Evidence | Where | Verdict |
+|---|---|---|
+| SDF-annotated, `sar_sequencer`, `ss_100C_1v60` | `…/20261029-185640-5bb0e1e/sar-sequencer.ss_100C_1v60.json` (cited) | 8 / 8 pass |
+| SDF-annotated, `sar_sequencer`, the other three corners | `…/sar-sequencer.{tt_025C_1v80,tt_100C_1v80,ff_n40C_1v95}.json` (not cited) | 8 / 8 pass each |
+| SDF-annotated, `top_glue`, all four corners | `…/top-glue.<corner>.json` (not cited) | 6 / 6 pass each |
+| Controls: same SDF, outputs sampled 0.1 ns after the edge | `…/*.control-short-settle.json` | every test fails (the delays are visible to the bench) |
+| Controls: same models, no SDF, 0.1 ns settle | `…/*.control-no-sdf.json` | every test passes |
+
+Disclosures the grader cannot make:
+
+- **One report is graded.** The pinned grader takes a single entry for this item;
+  a list renders `unmet` / `invalid_evidence` (filed generically as
+  klayout-tools#4601). So `met` rests on the `sar_sequencer` report. The routed
+  `top_glue` reports, and the other corners, pass and are committed in the same
+  run but are not what the grader saw. `check_evidence_hashes.py` re-derives
+  every input hash in that run's `inputs.sha256` (cell models, both routed
+  netlists, all eight SDFs, the benches, the SDF run's own `inputs.sha256`).
+- **Partial annotation.** Icarus does not implement SDF `TIMINGCHECK`, so the
+  `sar_sequencer` reports carry `environment.sdf.partial: true` (21 sections
+  dropped). The simulation applies IOPATH / INTERCONNECT delays only; it does not
+  check setup, hold or pulse width. Those limits are covered only by
+  `sim/digital-sta/` (ideal clock, no skew).
+- **What the delays are.** The SDF is OpenSTA's `write_sdf` from the routed DEF
+  plus a lumped-RC SPEF from `klt extract --parasitics` (one R and one C per net,
+  not a distributed extraction), at the four item 5 Liberty corners, ideal clock.
+  `spef_annotation.annotation_complete` is `false` in the STA reports: every
+  design net is annotated (44/44 and 49/49) but the SPEF names other nets too.
+- **Timing of the check.** 84 ns period (no tighter than the 12 MHz STA request's
+  83.33 ns), outputs compared 40 ns after each edge or input change. It shows the
+  outputs settle within 40 ns and match the model; it is not a measured maximum
+  frequency.
+- **Not the item 5 geometry by name, but by bytes.** The P&R records used
+  (`20261021-104530-ddc1d72`, `20261021-104637-ddc1d72`) are newer than the
+  `20261012-*` ones item 5 names; the DEFs, post-route netlists and GDS are
+  byte-identical (the SDF script asserts the DEF hash against the item 5 request's).
+- **Same netlist caveats as item 5:** the routed `sar_sequencer` is the
+  36-instance netlist (issue #680); corners are the four stock Liberty files, the
+  eight declared gaps are unchanged; the spec is DRAFT (issue #1).
+- **Tool versions differ.** The item 5 reports were minted by `klt 0.6.0`; these
+  by `klt 0.8.0` (the grader pin) with cocotb 2.1.0 / Icarus 13.0.
+- **Analog half untouched.** Item 7 on the analog partition stays `unmet` /
+  `no_evidence`, tracked on issue #103.
 
 ### Item 8: exactly what `met` asserts
 

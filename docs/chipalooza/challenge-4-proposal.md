@@ -5668,7 +5668,7 @@ tracker already owns.
     tree, after `reports/` at check 9 and `erc-reports/` at check 16):
 
     > on the report `signoff/t1-report.json`, `klt signoff` **0.8.0** grades
-    > **12** of **22** T1 items met, block tier **none**; the items whose cited
+    > **13** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `1 digital`, `4 analog`,
     > `4 digital`, `11 analog`, `11 digital`; and its manifest cites
     > `layout/sar-adc-top/erc-reports/LATEST` at **20261017-193237-9522693e**
@@ -5782,7 +5782,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **94** of the **96** records under `sim/*/records/` name both an `ngspice`
+  > **94** of the **98** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **112** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **111** name a `klt`
   > version and **74** name the `open_pdks` commit

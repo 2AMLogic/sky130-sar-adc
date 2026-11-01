@@ -95,7 +95,6 @@ layout/comparator/**/.klt/
 .loom/claims/
 .loom/locks/
 .loom/signals/
-.loom/sweep-dispatch-tap/
 .loom/status/
 .loom/retry-state/
 .loom/exit-codes/
@@ -153,3 +152,6 @@ layout/comparator/**/.klt/
 .claude/skills/repo/.install-local.json
 layout/.venv-*/
 .aider*
+
+# Repo Skills Codex-side machine-local install metadata (never committed)
+.agents/skills/repo/.install-local.json

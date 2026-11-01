@@ -55,3 +55,13 @@ python3 -m venv .venv-signoff && .venv-signoff/bin/pip install -r signoff/requir
 export PDK=sky130A PDK_ROOT=<dir that holds sky130A>
 KLT=.venv-signoff/bin/klt python3 -I sim/digital-sta/bin/run-record.py
 ```
+
+## Post-route SDF (issue #679)
+
+`bin/run-sdf.py` mints `runs/<id>/sdf/<macro>.<corner>.sdf` (+ `<macro>.sdf-sta.json`,
+`inputs.sha256`, `records/<id>-sdf.md`): `klt extract --parasitics --def-net-connections`
+on the routed GDS, then `klt sta` with `spef` + `sdf: true` at the four corners.
+`--def-net-connections` matters: without it only 44 of 240 SPEF nets resolved against
+the DEF-linked design and the delays did not change. The SDFs are consumed by
+`../digital-functional/bin/run-sdf-record.py`. Needs `PDK_ROOT` at the open_pdks
+revision the layout was minted under (`f6eeac7`); see the record for limits.

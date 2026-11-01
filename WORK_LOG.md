@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-10-29
 
+- **PR #683**: feat: digital partition STA and functional-verification evidence for T1 item 5
+- **Issue #678** (closed): Digital partition, item 5: multi-corner klt sta plus a bit-exact klt functional-verification suite
 - **Issue #351** (closed): README: embed the fleet burndown chart (one line)
 
 ### 2026-10-27

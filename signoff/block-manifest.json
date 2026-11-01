@@ -146,8 +146,24 @@
     "      reports and only one entry per item is accepted, so citing either one",
     "      alone would misrepresent the coverage. signoff/README.md records both",
     "      verdicts in full instead.",
-    "  7   no `klt pex` report exists. Item 7 accepts nothing else -- a clean DRC",
-    "      or a pre-layout sim renders wrong_kind by design.",
+    "  7.analog  no `klt pex` report exists for the composed top level or any",
+    "      partition. Item 7 on the analog partition accepts nothing else -- a clean",
+    "      DRC or a pre-layout sim renders wrong_kind by design. Blocked on #103.",
+    "  7.digital  (partition-qualified) sim/digital-functional/runs/20261029-185640-5bb0e1e/",
+    "      sar-sequencer.ss_100C_1v60.json, a `klt functional-verification` report of",
+    "      the bit-exact bench on the ROUTED sar_sequencer netlist with the post-route",
+    "      SDF of the ss_100C_1v60 Liberty corner back-annotated (options.sdf set,",
+    "      environment.sdf.annotated true). Read signoff/README.md before relying on",
+    "      the word `met`:",
+    "        (a) ONE REPORT ONLY. The pinned grader takes a single entry for this item",
+    "            (a list renders unmet/invalid_evidence; klayout-tools#4601). The",
+    "            routed top_glue report and the other three corners per macro pass too",
+    "            and are committed in the same run directory, but cannot be cited.",
+    "        (b) PARTIAL ANNOTATION. Icarus drops SDF TIMINGCHECK, so the report has",
+    "            environment.sdf.partial true; setup/hold limits are not simulated.",
+    "        (c) input_verified is null (a functional-verification envelope records no",
+    "            input hash); freshness is carried by the run's inputs.sha256, which",
+    "            check_evidence_hashes.py re-derives.",
     "  11  (bare -- both partitions) a COMPOUND citation, the only item whose",
     "      entry may be an array: the `klt erc` supply run plus the LVS report",
     "      item 4 grades, which is what this item's own grading path",
@@ -247,7 +263,10 @@
         "file": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json"
       }
     ],
-    "11": [
+    "7.digital": {
+    "file": "sim/digital-functional/runs/20261029-185640-5bb0e1e/sar-sequencer.ss_100C_1v60.json"
+  },
+  "11": [
       {
         "file": "layout/sar-adc-top/erc-reports/20261017-193237-9522693e/erc.json",
         "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b"
