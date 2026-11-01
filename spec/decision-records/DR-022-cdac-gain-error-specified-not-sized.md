@@ -1,6 +1,6 @@
 # DR-022: Specify the CDAC's systematic gain error as its own spec row. Neither sizing lever can remove it
 
-- **Status**: ratified as a DRAFT row, 2026-11-01. The operator approved and
+- **Status**: accepted (ratified as a DRAFT row), 2026-11-01. The operator approved and
   merged #722 (merge commit `60421e38`), the ratification-vehicle PR for
   #269, under the canary spec/DR ratification-via-PR standing policy
   (2AMLogic/2am#357). #722 added the systematic gain-error row to

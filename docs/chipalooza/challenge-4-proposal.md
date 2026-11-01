@@ -4153,7 +4153,7 @@ tracker already owns.
    > is **proposed**.
    > **DR-022**
    > (`spec/decision-records/DR-022-cdac-gain-error-specified-not-sized.md`)
-   > is **proposed**.
+   > is **accepted**.
    > **DR-023**
    > (`spec/decision-records/DR-023-full-conversion-transient-solver-policy.md`)
    > is **proposed**.
