@@ -120,3 +120,14 @@ instead of `spec/target-spec.md`'s row — see
 check. `--target-limit-lsb`/`--target-yield` also apply to a **fresh** `--n`
 run (default `1.0`/`0.99`, matching the DRAFT spec row), for evaluating a
 brand-new campaign against a non-default candidate directly.
+
+### Mismatch gain error (issue #756)
+
+`run_mc.py --reanalyze <record-id> --gain-error --record` mints a record of the
+mismatch half of the CDAC gain error from an existing campaign's committed
+logs (no new ngspice run; the code-0 and code-511 levels are already in every
+log). Per draw, gain error = (`tt_mm` code-0→511 span − plain-`tt` span of the
+same seed) / 3.5156 mV, so the systematic `C_par` term cancels and is reported
+separately. The record compares mean/stdev/3σ (with N and the stdev's standard
+error) to DR-003 Item 3's analytic figure and adds no spec row. Spans are
+quantized at the 6-significant-digit `.meas` print resolution (~0.0028 LSB).
