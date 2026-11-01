@@ -424,6 +424,14 @@
       ]
     },
     {
+      "parameter": "Gain error, systematic",
+      "status": "DRAFT",
+      "claim_class": "unbenched",
+      "reason": "Deliberately unbenched, not overlooked: this DRAFT row (<= 1.42 LSB span-referred, proposed by DR-022 via issue #269) has no bench that measures the gain. The only evidence is issue #263's decision-margin trace (sim/full-conversion-transient/records/20260912-011519-9aaf1ca.md), a two-corner mechanism trace whose Claim field names DR-009, not this row; DR-022 reads g = 0.99190-0.99200 (0.80-0.81 %, 8.2-8.3 LSB, about 5.8x the candidate) off its tables by hand. Indexing that record as this row's evidence would claim more than it says, and the record is append-only. DR-022 Decision item 3 / Open item 4 owe the per-corner gain extraction in sim/full-conversion-transient/ once the row is ratified; this index's ratified-row rule then forces a bench, because a RATIFIED row may never carry claim_class 'unbenched'.",
+      "tracking": "DR-022 (#269: specify the systematic gain error, do not resize; ratification open) and its Open items: C_par composition measurement, closure or superseding DR for the 5.8x miss, the mismatch half, per-corner gain extraction",
+      "benches": []
+    },
+    {
       "parameter": "Power",
       "status": "DRAFT",
       "claim_class": "draft-informational",

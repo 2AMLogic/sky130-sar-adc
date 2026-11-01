@@ -4,7 +4,10 @@
   that resolves #269's decision step, under the canary spec/DR
   ratification-via-PR standing policy (2AMLogic/2am#357) and the two-key route
   2am#1056 confirms for new or amended DRs. This record **proposes** a spec
-  row. It does not edit `spec/target-spec.md`. See "Spec lines affected".
+  row. It does not edit `spec/target-spec.md`; the ratification-vehicle PR
+  for #269 (the one that carries this status line) adds the DRAFT row, and
+  the operator's merge of it is the ratification, after the independent EE
+  and market key reviews are posted on it. See "Spec lines affected".
 - **Date**: 2026-10-03
 - **Decided by**: Builder agent, issue #269 (scope per the issue's
   "Revision 2026-09-14 (operator lane)": draft the DR, recommend one option,

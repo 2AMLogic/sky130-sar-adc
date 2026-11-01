@@ -666,6 +666,47 @@ ROWS: tuple[Row, ...] = (
         sim_citations=("sim/comparator-decision/records/20260925-050027-0259924.md",),
     ),
     Row(
+        id="gain-error-systematic",
+        spec_row="Gain error, systematic",
+        status="DRAFT (new row, DR-022 candidate)",
+        spec_anchor="spec/target-spec.md#target-table",
+        conditions=(
+            "TWO CORNERS ONLY, schematic netlist: process {tt} x temperature "
+            "{27} C x supply {1.62, 1.80} V -- a targeted mechanism trace, not "
+            "the ratified corner set and not the MiM r+c corners the DRAFT "
+            "row's binding condition names. The comparator's own differential "
+            "input is sampled at every bit-trial instant of the -0.25, +0.00 "
+            "and +0.25 * V_REF conversions; the gain is read off the bit-8 "
+            "symmetric pair of the +0.00 conversion (as-committed against the "
+            "testbench-only unbalanced-control variant), cross-checked against "
+            "the bits 7..4 steps."
+        ),
+        verdict=(
+            "INFORMATIONAL (DRAFT row, no ratified line to grade against). "
+            "Extracted gain g = 0.99200 at tt_27c_1.80v and 0.99190 at "
+            "tt_27c_1.62v, i.e. a systematic gain error of 0.80 % / 0.81 % "
+            "(8.2 / 8.3 LSB span-referred) -- approx. 5.8x the DRAFT "
+            "<=1.42 LSB candidate, at the two corners measured."
+        ),
+        notes=(
+            "The row is new (spec/decision-records/DR-022-cdac-gain-error-"
+            "specified-not-sized.md, issue #269): before it, this error "
+            "showed only as an absolute-code miss against sim/full-conversion-"
+            "transient/'s +-1 LSB criterion. The candidate value is derived by "
+            "gf180-sar-adc DR-0012's method (equal share with DR-003 Item 3's "
+            "1.42 LSB mismatch term), not fitted to this measurement, and the "
+            "gap is recorded, not relaxed. The gain is extracted by DR-022 "
+            "from the cited record's tables by hand; the record itself "
+            "reports comparator inputs, not a gain, and no runner extracts "
+            "it yet (DR-022 Decision item 3 / Open item 4). The control "
+            "variant leg assumes deleting xdum_mux_n/xdum_xnor_n leaves the "
+            "DAC step unchanged; the bits 7..4 steps are the independent "
+            "check. The C_par composition is an estimate, not a measurement "
+            "(DR-022 Open item 1)."
+        ),
+        sim_citations=("sim/full-conversion-transient/records/20260912-011519-9aaf1ca.md",),
+    ),
+    Row(
         id="power",
         spec_row="Power",
         status="DRAFT",
