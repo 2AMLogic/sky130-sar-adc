@@ -69,7 +69,7 @@ class TestRequest(unittest.TestCase):
         excl = {(e["process"], e["temperature_c"], e["supply_v"]["vsup"]) for e in req["exclude"]}
         got = {(p, t, v) for p in c["process"] for t in c["temperature_c"]
                for v in c["supply_v"]["vsup"]} - excl
-        self.assertEqual(got, {m.parse_corner_id(i) for i in ids})
+        self.assertEqual(got, {m.corners_mod.parse_corner_id(i) for i in ids})
         self.assertEqual(len(req["analysis_steps"]), 2 * len(m.BIASES_V))
 
 

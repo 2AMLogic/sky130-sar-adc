@@ -35,9 +35,16 @@ from __future__ import annotations
 
 import json
 import math
-import re
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, Iterable, Sequence
+
+SIM_DIR = Path(__file__).resolve().parent.parent
+if str(SIM_DIR) not in sys.path:
+    sys.path.insert(0, str(SIM_DIR))
+
+from harness import corners as corners_mod  # noqa: E402
 
 # --------------------------------------------------------------------------
 # Frequency grid and search
@@ -587,17 +594,6 @@ def analysis_args(f_mhz: float, n_conv: int = len(CODES)) -> str:
 SUPPLY_KEY = "vdig"
 
 
-def parse_corner_id(cid: str) -> tuple[str, float, float]:
-    m = re.fullmatch(r"([a-z]+)_(-?[0-9.]+)c_([0-9.]+)v", cid)
-    if not m:
-        raise ValueError(f"unparseable corner id {cid!r}")
-    return m.group(1), float(m.group(2)), float(m.group(3))
-
-
-def make_corner_id(process: str, temp_c: float, vdd: float) -> str:
-    return f"{process}_{temp_c:g}c_{vdd:.2f}v"
-
-
 def build_request(netlist_name: str, f_mhz: float, corner_ids: Sequence[str], *,
                   timeout_s: float = 900.0, models_lib: str = "libs.tech/combined/sky130.lib.spice",
                   pdk: str = "sky130A", backend: str | None = None,
@@ -608,7 +604,7 @@ def build_request(netlist_name: str, f_mhz: float, corner_ids: Sequence[str], *,
     The corner axes are the full product of the distinct process /
     temperature / supply values; points not wanted are removed with
     `exclude`, so any subset of the OAT grid is one request."""
-    pts = [parse_corner_id(c) for c in corner_ids]
+    pts = [corners_mod.parse_corner_id(c) for c in corner_ids]
     procs = sorted({p for p, _, _ in pts})
     temps = sorted({t for _, t, _ in pts})
     vdds = sorted({v for _, _, v in pts})
@@ -663,7 +659,7 @@ def read_report(report: dict) -> tuple[dict[str, UnitResult], dict]:
         sv = (c.get("supply_v") or {}).get(SUPPLY_KEY)
         if not _finite(sv) or c.get("process") is None or not _finite(c.get("temperature_c")):
             raise ValueError(f"corner without process/temperature/{SUPPLY_KEY}: {c.get('corner_id')}")
-        cid = make_corner_id(c["process"], float(c["temperature_c"]), float(sv))
+        cid = corners_mod.corner_id(c["process"], float(c["temperature_c"]), float(sv))
         vals = {m["name"]: m.get("value") for m in (c.get("measurements") or [])
                 if isinstance(m, dict) and "name" in m}
         errs = [str(d.get("code")) for d in (c.get("diagnostics") or [])
@@ -809,7 +805,7 @@ def op_point_power(unit: UnitResult | None, corner_id: str,
     """Rail power / energy at the provisional operating point for one corner.
     `functional_at_op` is the 12 MHz probe's own pass/fail: a nonfunctional
     corner keeps its numbers (flagged) but is never reported as clean."""
-    _p, _t, vdd = parse_corner_id(corner_id)
+    _p, _t, vdd = corners_mod.parse_corner_id(corner_id)
     f = F_BASE_MHZ
     v = unit.values if unit else {}
     p_act = power_from_avg_current(v.get("iavg_active"), vdd)

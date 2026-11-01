@@ -42,6 +42,13 @@ from . import pdk
 SIM_DIR = Path(__file__).resolve().parent.parent
 
 
+def pwl(points: list[tuple[float, float]]) -> str:
+    """ngspice `pwl(...)` source value from (time_ns, volts) points, e.g.
+    `pwl(0n 0 10n 1.8)`. Shared by the sampling-acquisition-settling and
+    sampling-cdac-handoff deck builders."""
+    return "pwl(" + " ".join(f"{t:g}n {v:g}" for t, v in points) + ")"
+
+
 def experiments() -> list[str]:
     """Experiment directory names under sim/ that have a testbench manifest,
     i.e. sim/<experiment>/testbench/tb.json -- shared by run_corners.py's and

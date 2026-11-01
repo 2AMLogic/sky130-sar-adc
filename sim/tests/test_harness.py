@@ -128,6 +128,13 @@ class TestCorners(unittest.TestCase):
         self.assertEqual(corners.corner_id("ss", -40, 1.62), "ss_-40c_1.62v")
         self.assertEqual(corners.corner_id("tt", 27, 1.8), "tt_27c_1.80v")
 
+    def test_parse_corner_id_round_trips_corner_id(self):
+        for cid in ("ss_-40c_1.62v", "tt_27c_1.80v", "ff_125c_1.98v"):
+            self.assertEqual(corners.corner_id(*corners.parse_corner_id(cid)), cid)
+        self.assertEqual(corners.parse_corner_id("ss_-40c_1.62v"), ("ss", -40.0, 1.62))
+        with self.assertRaises(ValueError):
+            corners.parse_corner_id("nonsense")
+
     def test_supply_points_tolerance(self):
         pts = corners.supply_points(1.8, 0.10)
         self.assertEqual(pts, [1.62, 1.8, 1.98])
