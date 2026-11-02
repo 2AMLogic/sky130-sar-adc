@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-01
 
+- **PR #766**: refactor: share parse_corner_id and pwl helpers via sim/harness
+- **Issue #764** (closed): Dedupe corner-id and pwl helpers in sim drivers (use sim/harness/corner helpers)
 - **PR #758**: docs(DR-022): record post-#722 status and file open items
 - **Issue #753** (closed): spec: record DR-022 post-#722 status and file its open items
 - **PR #761**: sim: measure CDAC top-plate C_par composition per PVT and MiM r+c corner
