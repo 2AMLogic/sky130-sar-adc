@@ -5,7 +5,7 @@
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-_None._
+- **#763**: docs: propose CDAC gain-error closure path (DR-025)
 
 ## Very Important
 
@@ -32,21 +32,20 @@ Human-approved issues ready for implementation (`loom:issue`).
 Issues currently being built (`loom:building`).
 
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
-- **#753**: spec: record DR-022 post-#722 status and file its open items
-- **#754**: sim: measure CDAC top-plate C_par composition per corner (C(V) extraction, incl. r+c corners)
-- **#756**: sim: CDAC gain error, mismatch half (Monte Carlo check of analytic 1.42 LSB 3-sigma)
+- **#755**: design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#758**: docs(DR-022): record post-#722 status and file open items
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
+- **#763**: docs: propose CDAC gain-error closure path (DR-025)
 
 ## Proposed
 
@@ -57,9 +56,7 @@ Issues carrying `loom:curated`.
 - **#428**: Operator hand-off: create the 'main: required status checks' ruleset that arms the base-freshness guard (from #422 / PR #425) *(curated)*
 - **#676**: Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes *(curated)*
 - **#734**: Bump layout/requirements.txt to klt 0.8.0 and re-run layout flows *(curated)*
-- **#753**: spec: record DR-022 post-#722 status and file its open items *(curated)*
-- **#754**: sim: measure CDAC top-plate C_par composition per corner (C(V) extraction, incl. r+c corners) *(curated)*
-- **#756**: sim: CDAC gain error, mismatch half (Monte Carlo check of analytic 1.42 LSB 3-sigma) *(curated)*
+- **#755**: design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -76,14 +73,14 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 2 |
-| In Progress (`loom:building`) | 4 |
-| PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 1 |
-| Curated | 8 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 6 |
 | Architect / Hermit proposals | 4 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
