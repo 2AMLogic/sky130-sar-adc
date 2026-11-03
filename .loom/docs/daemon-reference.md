@@ -2301,6 +2301,15 @@ dispatches from its **own main checkout**: the spawn script and the role
 prompts are read from that working tree. So the same timer also fast-forwards
 each registered workspace's main checkout to its default branch.
 
+**The daemon root (#12727).** The daemon's own root (`~/loom-daemon` on a
+release-roll host) is fast-forwarded by the same pass, with the same gates,
+timeouts, holds and identical-dirt handling, but it is **not** a registered
+workspace: it is only appended to the pass's roots, never registered, never
+offered to dispatch, and never re-judged for workspace holds. A root that is
+absent, not a git checkout, or already registered is skipped or visited once.
+Its `checkout.freshness` (`checkout_role=daemon-root`) keeps emitting, so
+`commits_behind` should fall to ~0 after a pass.
+
 - **When.** Inside the startup pass, before any dispatch producer exists, so a
   daemon that just rolled dispatches (and later resumes paused agents) from the
   installed files that match it. Then on every tick, as the last step of the
@@ -4782,16 +4791,19 @@ they were the largest GitHub read cost a host made on its own initiative.
   `LOOM_RELEASE_STALE_BLOCKED_INTERVAL_SECS` and
   `LOOM_RELEASE_STALE_BLOCKED_MAX_WRITES` are no longer read.
   `host.health.managed_repos[].stale_blocked_release` is no longer sent.
-  `pass.summary` / `pass.verdict` stay registered but have no producer.
+  `pass.summary` is retired (#12094); `pass.verdict` stays registered for
+  role-step verdicts.
   The read-only `check-stale-blocked` advisory and `merge-pr.sh`'s
   `notify-cleared-blockers` comment are unchanged: both are on-demand verbs,
   not loops.
 - **The `fleet.state` producer** (`observability/fleet_state`, #10196). The
   collector pass and the post-tick pass no longer build, diff or send
   `fleet.state`, and so no longer derive `eta.stage_outcome` or `pr.resolved`
-  from consecutive views. All three kinds stay registered so stored records
-  decode, but nothing sends them. `telemetry-replay` and its `--check` read only
-  records already in the store. A consumer that needs fleet state computes it
+  from consecutive views. All three kinds, and `pass.summary`, were retired
+  from the registry (#12094); a spool or store still holding them is read
+  with those records ignored. The `telemetry-replay` CLI, its SigNoz replay
+  queries and their CI jobs are deleted (#12094): with no new anchors every
+  host would read `unknown`. A consumer that needs fleet state computes it
   from the facts the daemon still exports (`sweep.*`, `stage.work_started`,
   `pick.decision`, `host.health`) and from the forge's label
   history.

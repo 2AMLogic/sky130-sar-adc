@@ -1,0 +1,4766 @@
+{
+ "schema_version": 3,
+ "netlist": {
+  "path": null,
+  "scope": "external"
+ },
+ "status": "pass",
+ "corner_count": 13,
+ "passed": 13,
+ "failed": 0,
+ "errored": 0,
+ "inconclusive": 0,
+ "diagnostic_counts": {
+  "by_code": {},
+  "by_severity": {},
+  "corners_with_diagnostics": 0
+ },
+ "metrics": {
+  "sim__corner__count": 13,
+  "sim__corner__passed_count": 13,
+  "sim__corner__failed_count": 0,
+  "sim__corner__errored_count": 0,
+  "sim__corner__inconclusive_count": 0
+ },
+ "environment": {
+  "engine": "ngspice",
+  "engine_version": "46",
+  "ngspice_binary": "/usr/local/bin/ngspice",
+  "engine_build": {
+   "version_banner": "******\n** ngspice-42 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2023, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Sun Mar 31 20:15:14 UTC 2024\n******",
+   "binary_sha256": "820658317b0b54035208da41936fd6871ce924036e5ea4113a4168b821b7fc45",
+   "probe": "ok",
+   "reason": null
+  },
+  "models_lib": {
+   "path": null,
+   "scope": "external"
+  },
+  "models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+  "models_lib_sha256_scope": "client",
+  "netlist_sha256": "157f2ed7ae583e3d63c48f2c36a79f79b7fbea9702279661a05046c94361c6aa",
+  "netlist_closure": [
+   {
+    "path": null,
+    "scope": "external",
+    "sha256": "157f2ed7ae583e3d63c48f2c36a79f79b7fbea9702279661a05046c94361c6aa"
+   },
+   {
+    "target": "$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice",
+    "sha256": null,
+    "unhashed_reason": "env_var"
+   }
+  ],
+  "netlist_identity": null,
+  "netlist_identity_error": "include(s) resolved by the executing host are not hashable: $PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice",
+  "remote": {
+   "provider": "aws-batch-fleet",
+   "job_id": "klt-sim-2aab54012ab7",
+   "region": "us-east-1",
+   "instance_id": "i-0ad92b90b7ffde5cf",
+   "instance_type": "m6i.4xlarge",
+   "availability_zone": "us-east-1d",
+   "ami_id": "ami-0fa5ef830209100bd",
+   "lifecycle": "spot",
+   "spot": true,
+   "state": "done",
+   "exit_code": "0",
+   "concurrency": "1",
+   "physical_cores": "8",
+   "elapsed_seconds": 64,
+   "client_submitted_at": "2026-11-01T18:29:25.741275Z",
+   "client_launched_at": "2026-11-01T18:29:41.834122Z",
+   "client_status_terminal_at": "2026-11-01T18:31:14.564580Z",
+   "client_collected_at": "2026-11-01T18:31:15.475534Z",
+   "runner_klt_version": "0.8.0",
+   "client_klt_version": "0.8.1.dev1012+g31b24f439f3f",
+   "runner_compatibility": "match",
+   "runner_request_features": {
+    "required": [
+     "analysis_steps"
+    ],
+    "missing": [],
+    "status": "supported"
+   },
+   "worker_environment": {
+    "capture": "ok",
+    "simulator": {
+     "requested_binary": "ngspice",
+     "binary_source": "PATH",
+     "selected_path": "/usr/local/bin/ngspice",
+     "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+     "version_probe": "ok"
+    },
+    "pdk": {
+     "variant": "sky130A",
+     "root": "/opt/pdk",
+     "stamp_scheme": "sources-sha256",
+     "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+     "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+     "models_staged": false,
+     "stamp_scope": "executed"
+    },
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz",
+    "omp_num_threads": null,
+    "image_manifest": null,
+    "model_inputs": null,
+    "diagnostics": [],
+    "pdk_stamp_comparison": {
+     "status": "mismatch",
+     "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+    },
+    "engine_build_comparison": {
+     "status": "mismatch",
+     "warning": "the worker's ngspice --version banner differs from the local binary's; build options (e.g. FFT linkage) may differ, so results derived from them can differ from a local run"
+    }
+   },
+   "runner_model_inputs": null,
+   "job_ceiling": {
+    "basis": "conservative_serial_bound",
+    "unit_count": 13,
+    "per_unit_timeout_s": 1800.0,
+    "overhead_s": 120.0,
+    "job_bound_s": 23520.0,
+    "max_job_seconds": 3600.0,
+    "max_job_seconds_source": "fleet_config",
+    "exceeds_ceiling": true,
+    "check": "warn",
+    "max_units_per_job": 1,
+    "recommended_hosts": 13,
+    "warning": "batch job bound 23520s (options.timeout_s 1800s x 13 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. Set request.remote.hosts to at least 13 to run one job per shard of at most 1 units, each within the ceiling"
+   }
+  },
+  "engine_host": "worker",
+  "client_ngspice_binary": "/usr/bin/ngspice",
+  "backend": {
+   "resolved": "batch",
+   "source": "env",
+   "requested": "batch"
+  }
+ },
+ "coverage": {
+  "corners_simulated": 13,
+  "measurements_declared": 20,
+  "measurements_with_limits": 0,
+  "unrecognized_limit_keys": [],
+  "schema_version": 1,
+  "known": true,
+  "checked": [
+   "measurement:[0,\"ff/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[10,\"tt/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n565.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n565.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n642.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n642.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n718.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n718.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n794.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n794.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n871.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"n871.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p565.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p565.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p642.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p642.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p718.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p718.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p794.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p794.ctop\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p871.cref\"]/observation",
+   "measurement:[11,\"tt/1.800V/125C\",\"p871.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n565.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n642.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n718.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n794.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n871.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p565.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p642.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p718.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p794.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p871.cref\"]/observation",
+   "measurement:[12,\"tt/1.980V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[2,\"hh/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[3,\"hl/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[4,\"lh/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[5,\"ll/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[6,\"sf/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n565.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n642.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n718.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n794.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n871.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p565.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p642.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p718.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p794.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p871.cref\"]/observation",
+   "measurement:[7,\"ss/1.800V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n565.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n565.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n642.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n642.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n718.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n718.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n794.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n794.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n871.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"n871.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p565.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p565.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p642.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p642.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p718.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p718.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p794.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p794.ctop\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p871.cref\"]/observation",
+   "measurement:[8,\"tt/1.620V/27C\",\"p871.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n565.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n565.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n642.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n642.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n718.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n718.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n794.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n794.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n871.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"n871.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p565.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p565.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p642.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p642.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p718.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p718.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p794.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p794.ctop\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p871.cref\"]/observation",
+   "measurement:[9,\"tt/1.800V/-40C\",\"p871.ctop\"]/observation"
+  ],
+  "skipped": [],
+  "inapplicable": [
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[10,\"tt/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[11,\"tt/1.800V/125C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[12,\"tt/1.980V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"hh/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"hl/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"lh/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"ll/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"sf/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"ss/1.800V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.620V/27C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"n871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p565.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p565.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p642.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p642.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p718.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p718.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p794.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p794.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p871.cref\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[9,\"tt/1.800V/-40C\",\"p871.ctop\"]/limits",
+    "reason": "characterization_without_limits"
+   }
+  ],
+  "unknown": [],
+  "nothing_checked": false,
+  "nothing_checked_reasons": []
+ },
+ "provenance": {
+  "klt_version": "0.8.1.dev1012+g31b24f439f3f",
+  "klt_git_commit": "31b24f439f3f5ba17a67a70a3b62ef8899fe189b",
+  "klt_reinstall_spec": "klayout-tools @ git+https://github.com/2AMLogic/klayout-tools@31b24f439f3f5ba17a67a70a3b62ef8899fe189b",
+  "klayout_version": "0.30.12",
+  "pdk": {
+   "name": "sky130A",
+   "source": "PDK_ROOT environment variable",
+   "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+   "ambiguous_sources": [
+    "search root: ~/.volare"
+   ]
+  },
+  "deck": {
+   "name": "sky130.lib.spice",
+   "content_hash": "sha256:48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+   "released": false
+  },
+  "input": {
+   "content_hash": "sha256:157f2ed7ae583e3d63c48f2c36a79f79b7fbea9702279661a05046c94361c6aa",
+   "role": "netlist"
+  }
+ },
+ "measurements": [
+  {
+   "name": "p565.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p565"
+  },
+  {
+   "name": "p565.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p565"
+  },
+  {
+   "name": "n565.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n565"
+  },
+  {
+   "name": "n565.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n565"
+  },
+  {
+   "name": "p642.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p642"
+  },
+  {
+   "name": "p642.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p642"
+  },
+  {
+   "name": "n642.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n642"
+  },
+  {
+   "name": "n642.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n642"
+  },
+  {
+   "name": "p718.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p718"
+  },
+  {
+   "name": "p718.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p718"
+  },
+  {
+   "name": "n718.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n718"
+  },
+  {
+   "name": "n718.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n718"
+  },
+  {
+   "name": "p794.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p794"
+  },
+  {
+   "name": "p794.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p794"
+  },
+  {
+   "name": "n794.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n794"
+  },
+  {
+   "name": "n794.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n794"
+  },
+  {
+   "name": "p871.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p871"
+  },
+  {
+   "name": "p871.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "p871"
+  },
+  {
+   "name": "n871.ctop",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n871"
+  },
+  {
+   "name": "n871.cref",
+   "unit": "F",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 4.30336e-12,
+    "margin": null
+   },
+   "step": "n871"
+  }
+ ],
+ "corners": [
+  {
+   "corner_id": "ff/1.800V/27C",
+   "process": "ff",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 36.342,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/ff_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/ff_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "fs/1.800V/27C",
+   "process": "fs",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 29.043,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/fs_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/fs_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "hh/1.800V/27C",
+   "process": "hh",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 29.296,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/hh_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/hh_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "hl/1.800V/27C",
+   "process": "hl",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 33.295,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/hl_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/hl_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "lh/1.800V/27C",
+   "process": "lh",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 32.414,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 5.253266e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/lh_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/lh_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "ll/1.800V/27C",
+   "process": "ll",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 33.491,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 3.483241e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/ll_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/ll_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "sf/1.800V/27C",
+   "process": "sf",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 33.615,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/sf_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/sf_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "ss/1.800V/27C",
+   "process": "ss",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 35.735,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/ss_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/ss_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.620V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.62
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 25.019,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/tt_1p620V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/tt_1p620V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.800V/-40C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": -40.0,
+   "status": "pass",
+   "runtime_s": 23.415,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/tt_1p800V_n40C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/tt_1p800V_n40C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.800V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 24.258,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/tt_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/tt_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.800V/125C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 125.0,
+   "status": "pass",
+   "runtime_s": 23.988,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/tt_1p800V_125C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/tt_1p800V_125C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.980V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.98
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 23.242,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "p565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "p565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p565"
+    },
+    {
+     "name": "n565.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "n565.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n565"
+    },
+    {
+     "name": "p642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "p642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p642"
+    },
+    {
+     "name": "n642.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "n642.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n642"
+    },
+    {
+     "name": "p718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "p718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p718"
+    },
+    {
+     "name": "n718.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "n718.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n718"
+    },
+    {
+     "name": "p794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "p794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p794"
+    },
+    {
+     "name": "n794.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "n794.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n794"
+    },
+    {
+     "name": "p871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "p871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "p871"
+    },
+    {
+     "name": "n871.ctop",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    },
+    {
+     "name": "n871.cref",
+     "value": 4.30336e-12,
+     "unit": "F",
+     "status": "pass",
+     "margin": null,
+     "step": "n871"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/cpar-run/all-removed/out/tt_1p980V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/cpar-run/all-removed/out/tt_1p980V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "p565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n565",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n642",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n718",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n794",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "p871",
+     "kind": "ac",
+     "status": "ok"
+    },
+    {
+     "name": "n871",
+     "kind": "ac",
+     "status": "ok"
+    }
+   ]
+  }
+ ]
+}

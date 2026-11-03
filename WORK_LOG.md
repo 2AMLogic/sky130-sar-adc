@@ -2,6 +2,25 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-01
+
+- **PR #766**: refactor: share parse_corner_id and pwl helpers via sim/harness
+- **Issue #764** (closed): Dedupe corner-id and pwl helpers in sim drivers (use sim/harness/corner helpers)
+- **PR #758**: docs(DR-022): record post-#722 status and file open items
+- **Issue #753** (closed): spec: record DR-022 post-#722 status and file its open items
+- **PR #761**: sim: measure CDAC top-plate C_par composition per PVT and MiM r+c corner
+- **Issue #754** (closed): sim: measure CDAC top-plate C_par composition per corner (C(V) extraction, incl. r+c corners)
+- **Issue #756** (closed): sim: CDAC gain error, mismatch half (Monte Carlo check of analytic 1.42 LSB 3-sigma)
+- **PR #759**: sim: add CDAC mismatch gain-error reanalysis and record
+- **PR #722**: spec(DR-022): add DRAFT systematic gain-error row as the ratification vehicle
+- **Issue #269** (closed): design: CDAC absolute gain error (~1%) from top-plate parasitic loading -- the array's unit cap is smaller than the parasitic it drives
+- **PR #747**: sim: SDF-annotated post-route functional verification for digital partition (T1 item 7)
+- **Issue #679** (closed): Digital partition, item 7: re-run the functional suite on the post-route netlists with back-annotated SDF
+
+### 2026-10-31
+
+- **PR #748**: Bump Repo Skills 0.24.7 -> 0.25.1
+
 ### 2026-10-29
 
 - **PR #683**: feat: digital partition STA and functional-verification evidence for T1 item 5

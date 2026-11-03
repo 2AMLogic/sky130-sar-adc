@@ -19,6 +19,7 @@ REPO = SIM_DIR.parent
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(SIM_DIR / "digital-partition"))
 
+from harness import corners as corners_mod  # noqa: E402
 import digital_area as da  # noqa: E402
 import digital_char as dc  # noqa: E402
 import digital_report as dr  # noqa: E402
@@ -385,9 +386,9 @@ class TestDeckAndRequest(unittest.TestCase):
 
     def test_corner_id_round_trip(self):
         for cid in CORNERS:
-            self.assertEqual(dc.make_corner_id(*dc.parse_corner_id(cid)), cid)
+            self.assertEqual(corners_mod.corner_id(*corners_mod.parse_corner_id(cid)), cid)
         with self.assertRaises(ValueError):
-            dc.parse_corner_id("nonsense")
+            corners_mod.parse_corner_id("nonsense")
 
     def test_ratified_grid_matches_corner_ids(self):
         self.assertEqual(rdp.ratified_corner_ids(), CORNERS)
@@ -396,7 +397,7 @@ class TestDeckAndRequest(unittest.TestCase):
 def klt_report(units, remote=None):
     corners = []
     for cid, (status, vals, diags) in units.items():
-        p, t, v = dc.parse_corner_id(cid)
+        p, t, v = corners_mod.parse_corner_id(cid)
         corners.append({
             "corner_id": f"{p}/{v:.3f}V/{t:g}C", "process": p, "temperature_c": t,
             "supply_v": {"vdig": v}, "status": status,

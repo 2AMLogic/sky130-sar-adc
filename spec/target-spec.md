@@ -138,8 +138,14 @@ guessed:**
   here.
 - **A gain-error spec row** — DR-003 Item 3 found the ratified `C_u`'s
   total-array gain error (`1.42 LSB` at 3σ) would exceed 1 LSB *if* this
-  spec carried a gain-error target, but it does not today; this record
-  flags the spec-completeness gap without inventing a row to close it.
+  spec carried a gain-error target. For the **systematic** half this is now
+  proposed, not open:
+  [DR-022](decision-records/DR-022-cdac-gain-error-specified-not-sized.md)
+  (#269) specifies it as its own DRAFT row (see the target table) rather
+  than removing it by resizing; the row is added by the PR that is DR-022's
+  ratification vehicle and stays DRAFT until the operator ratifies it. The
+  **mismatch** half (DR-003 Item 3's analytic `1.42 LSB`) still has no row
+  and no Monte Carlo check; DR-022's Open item 3 owns it.
 - **A comparator offset and/or dead-band (non-decision) spec row** — asked
   and **answered**, not merely unaddressed:
   [DR-020](decision-records/DR-020-comparator-offset-and-dead-band-spec-rows.md)
@@ -211,6 +217,7 @@ and the device-level evidence each number is read from:
 | Sampling cap (CDAC unit × array) | `C_u ≈ 8.66 fF` (`1.9000 µm` square plate, 5 nm-grid-legal), `2^9 = 512` positions/side | **RATIFIED** (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496) | matching-limited; kT/C floor is `≈ 415×` looser |
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | `28.86 %` / `16.67 %` of LSB; one-third of the total non-quant budget |
 | Kickback | `≤ 5 mV` peak pin disturbance into a `1 kΩ` series source impedance, single decision edge (target); stretch `≤ 2 mV` | DRAFT (new row, DR-011 candidate) | new row proposed (DR-011 via #361) against #346's baseline (`sim/comparator-decision/records/20260924-041815-afcb1b5.md`: `73.3673 mV`, `tt`/27 °C only — `≈ 14.7×` the target, `≈ 36.7×` the stretch); bound **adopted verbatim** from sibling `2AMLogic/sky130-comparator`'s DR-002-ratified row as a stated interim choice, not derived from this block's own budget; stated at the ratified corner set, evidenced at one point; ratification still open. Mitigation evaluated by [DR-014](decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) (#349): static preamp **not adopted** (DR-004 §1 stands) and no mitigation adopted yet. Row unchanged and still unmet, and the next gate is the common-mode / differential split (#390) |
+| Gain error, systematic | `<= 1.42 LSB` span-referred (`<= 0.139 %` of full scale), untrimmed, excluding `V_REF` error | DRAFT (new row, DR-022 candidate) | proposed by [DR-022](decision-records/DR-022-cdac-gain-error-specified-not-sized.md) via #269; method ported from gf180-sar-adc DR-0012 (equal share with the mismatch term), value re-derived from DR-003 Item 3's `1.42 LSB`. Binding condition: the full ratified PVT corner set plus the MiM r+c corners, zero mismatch. Measured `8.2–8.3 LSB` at `tt`/27 °C at `1.80 V` and `1.62 V` (`sim/full-conversion-transient/records/20260912-011519-9aaf1ca.md`, schematic; the other corners and the r+c corners are unmeasured), about `5.8×` over. Recorded, not relaxed; closure is a later DR (DR-022 Open item 2). Ratification still open |
 | Power | provisional, minimise at rate | DRAFT | report, don't pre-commit |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | held as drafted; see the Liberty/STA scope note above |
 
@@ -224,7 +231,8 @@ characterization report; testbenches shipped; repo hygiene. `V_REF`, LSB,
 `N`, the CDAC unit-cap/array size, the comparator noise budget, and the
 corner set are ratified (DR-003 via #27) and evidence may be recorded
 against them now; sample rate, the ENOB/INL-DNL *target values*, and the
-Kickback row (DR-011 via #361) remain DRAFT and nothing against those
+Kickback row (DR-011 via #361) and the systematic gain-error row
+(DR-022 via #269) remain DRAFT and nothing against those
 specific rows is claimable until a future record ratifies them. Ratifying
 Kickback additionally obliges a full-corner kickback campaign — today's
 evidence is a single `tt`/27 °C point (see DR-011's Consequences §5).

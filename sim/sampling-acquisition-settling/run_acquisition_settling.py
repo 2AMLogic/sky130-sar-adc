@@ -165,7 +165,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, evidence, measure, pdk, toolchain  # noqa: E402
+from harness import corners as corners_mod, evidence, measure, pdk, testbench, toolchain  # noqa: E402
 
 # Same regenerated DUT fragment sim/sampling-frontend/run_transient.py and
 # sim/sampling-frontend/run_hold_kick.py already use (design/
@@ -312,10 +312,6 @@ TRIG_TARG_NAMES = [f"t_settle_{side}_{int(f * 100)}" for side in SIDES for f in 
 MEASURE_NAMES = [f"{stat}_{side}" for side in SIDES for stat in ("budget", "confirm")]
 
 
-def _pwl(points: list[tuple[float, float]]) -> str:
-    return "pwl(" + " ".join(f"{t:g}n {v:g}" for t, v in points) + ")"
-
-
 def build_transient(corner: str = CORNER, temp_c: float = TEMP_C, vdd: float = VDD) -> str:
     frag = DUT_FRAGMENT.read_text()
     info = pdk.resolve()
@@ -353,9 +349,9 @@ def build_transient(corner: str = CORNER, temp_c: float = TEMP_C, vdd: float = V
         "",
         f"Vdd VDD 0 dc {vdd}",
         f"Vvcm VCM 0 dc {VCM}",
-        f"Vinp VINP 0 {_pwl(vinp_points)}",
-        f"Vinn VINN 0 {_pwl(vinn_points)}",
-        f"Vsample SAMPLE 0 {_pwl(sample_points)}",
+        f"Vinp VINP 0 {testbench.pwl(vinp_points)}",
+        f"Vinn VINN 0 {testbench.pwl(vinn_points)}",
+        f"Vsample SAMPLE 0 {testbench.pwl(sample_points)}",
         "",
         frag,
         "",

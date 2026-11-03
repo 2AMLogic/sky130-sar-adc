@@ -379,6 +379,10 @@ process/temperature/supply, not mismatch): these records combine WITH that
 corner evidence rather than substituting for it, per each record's own
 "Statistical convention" / "Subset-corner justification" text.
 
+- **`sim/top-plate-cpar/`** — CDAC top-plate parasitic capacitance `C_par`
+  (issue #754): AC C(V) extraction on `TOP_P`/`TOP_N` in hold, leave-one-out
+  composition, PVT plus MiM r+c corners, run through `klt sim`. Own runner
+  (`run_top_plate_cpar.py`); see its README.
 - **`sim/cdac-array-transfer/run_mc.py`** — Monte Carlo DNL/INL campaign.
   Extends #53/#28's deterministic 5-code transfer-curve experiment (same
   directory) with mismatch draws (`tt_mm`) over a larger, programmatically

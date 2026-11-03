@@ -144,6 +144,16 @@
           "records": ["sim/cdac-array-transfer/records/20260821-062504-433a294.md"]
         },
         {
+          "experiment": "top-plate-cpar",
+          "runner": "sim/top-plate-cpar/run_top_plate_cpar.py",
+          "testbench": ["sim/top-plate-cpar/run_top_plate_cpar.py"],
+          "testbench_note": "The deck is assembled by the runner from design/sar_adc_top.spice plus testbench-only sources; there is no committed fragment (deck bodies are frozen per record under corners/).",
+          "cold_start": "python3 sim/top-plate-cpar/run_top_plate_cpar.py --record",
+          "documented_in": "sim/top-plate-cpar/README.md",
+          "covers": "Top-plate parasitic capacitance C_par of the as-committed netlist: C(V), leave-one-out composition, per PVT and MiM r+c corner (issue #754; informational, asserts no numeric spec value).",
+          "records": ["sim/top-plate-cpar/records/20261101-183325-60421e38.md"]
+        },
+        {
           "experiment": "sar-sequencer-behavioral",
           "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
           "testbench": ["sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"],
@@ -422,6 +432,14 @@
           "records": ["sim/comparator-decision/records/20260925-050027-0259924.md"]
         }
       ]
+    },
+    {
+      "parameter": "Gain error, systematic",
+      "status": "DRAFT",
+      "claim_class": "unbenched",
+      "reason": "Deliberately unbenched, not overlooked: this DRAFT row (<= 1.42 LSB span-referred, proposed by DR-022 via issue #269) has no bench that measures the gain. The only evidence is issue #263's decision-margin trace (sim/full-conversion-transient/records/20260912-011519-9aaf1ca.md), a two-corner mechanism trace whose Claim field names DR-009, not this row; DR-022 reads g = 0.99190-0.99200 (0.80-0.81 %, 8.2-8.3 LSB, about 5.8x the candidate) off its tables by hand. Indexing that record as this row's evidence would claim more than it says, and the record is append-only. DR-022 Decision item 3 / Open item 4 owe the per-corner gain extraction in sim/full-conversion-transient/ once the row is ratified; this index's ratified-row rule then forces a bench, because a RATIFIED row may never carry claim_class 'unbenched'.",
+      "tracking": "DR-022 (#269: specify the systematic gain error, do not resize; ratification open) and its Open items: C_par composition measurement, closure or superseding DR for the 5.8x miss, the mismatch half, per-corner gain extraction",
+      "benches": []
     },
     {
       "parameter": "Power",
