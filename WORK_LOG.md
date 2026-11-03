@@ -2,6 +2,11 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-03
+
+- **PR #681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
+- **Issue #676** (closed): Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
+
 ### 2026-11-01
 
 - **PR #766**: refactor: share parse_corner_id and pwl helpers via sim/harness
