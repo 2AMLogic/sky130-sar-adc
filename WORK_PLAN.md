@@ -24,8 +24,7 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly
-- **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
+_None._
 
 ## In Progress
 
@@ -76,7 +75,7 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 2 |
+| Ready (`loom:issue`) | 0 |
 | In Progress (`loom:building`) | 2 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
