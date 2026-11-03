@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "kind": "generic",
+  "t1_item": 1,
+  "status": "fail",
+  "summary": "Digital design sources. sar_sequencer.v is a structural gate-level netlist TRANSLITERATED BY HAND from design/sar_sequencer.sch, not synthesized from RTL; layout/sar-sequencer/bin/check-schematic-parity.py binds it to the schematic through design/sar_adc_top.spice's .subckt sar_sequencer. The check currently FAILS: the committed Verilog predates the schematic's per-conversion clear and decision-direction logic (issue #263), so this item is not claimed.",
+  "source": "signoff/attest/item-1-digital.inventory.json",
+  "provenance": {
+    "input": {
+      "path": "signoff/attest/item-1-digital.inventory.json",
+      "content_hash": "sha256:bd2c75194045795a7fec12e76b5ca97735d235b8f6c0ebadf35f4823083843cb"
+    }
+  },
+  "checks": [
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/sar_sequencer.sch",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:9d76813255ceb43a7f2dcde6cba04d6396cb9e7767c3e0f2cce178b5db849999"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/sar_sequencer.sym",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:af31a351cf4083cd63756c4908f35e4a1cc23c68972922e2eea2cff79656adfc"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/sar_adc_top.sch",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:fbd3643f1988a5ed243a1f14d67251640272dd8ca2d923b69bc907179e0b9fc8"
+    },
+    {
+      "check": "present",
+      "role": "derived",
+      "path": "design/sar_adc_top.spice",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:3a519b41e0bea4e82ec20828066ea31d123fe6879d922077ab0c0c5eec0d83e6"
+    },
+    {
+      "check": "netlist-header-hashes",
+      "path": "design/sar_adc_top.spice",
+      "passed": true,
+      "executed": true,
+      "schematics_checked": 5,
+      "stale": [],
+      "note": "proxy for design/regen_netlist.sh --check (needs xschem), which CI runs"
+    },
+    {
+      "check": "command",
+      "command": "bash design/regen_netlist.sh --check",
+      "passed": null,
+      "executed": false,
+      "gated_by": "CI job pdk-smoke"
+    },
+    {
+      "check": "present",
+      "role": "derived",
+      "path": "layout/top-glue/netlist/top_glue.v",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:490e87fae9414c19252a454ab021cbff7c6b3a8081ebd7a465941c33751718e1"
+    },
+    {
+      "check": "command",
+      "command": "python3 layout/top-glue/bin/check-schematic-parity.py",
+      "passed": true,
+      "executed": true,
+      "exit_status": 0
+    },
+    {
+      "check": "present",
+      "role": "derived",
+      "path": "layout/sar-sequencer/netlist/sar_sequencer.v",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:aa083f063b2bfe53d8b6350cec0c5fa870ae3feb8b93b3cf2f593c5b2b60ae65"
+    },
+    {
+      "check": "command",
+      "command": "python3 layout/sar-sequencer/bin/check-schematic-parity.py",
+      "passed": false,
+      "executed": true,
+      "exit_status": 1
+    }
+  ]
+}

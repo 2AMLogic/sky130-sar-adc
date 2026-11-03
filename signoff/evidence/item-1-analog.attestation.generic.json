@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "kind": "generic",
+  "t1_item": 1,
+  "status": "pass",
+  "summary": "Analog design sources: 10 schematic/symbol files inventoried and present, and design/sar_adc_top.spice's provenance header names each source schematic's current sha256. The regeneration check itself (design/regen_netlist.sh --check) needs xschem and is run by CI's pdk-smoke job, not here.",
+  "source": "signoff/attest/item-1-analog.inventory.json",
+  "provenance": {
+    "input": {
+      "path": "signoff/attest/item-1-analog.inventory.json",
+      "content_hash": "sha256:6c68f548444fb75b1d2b4d489e0262f2b9ac0a16b7ea6dabf663d897c89d3d63"
+    }
+  },
+  "checks": [
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/sampling_frontend.sch",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:59a1888aa4bc4491454dd9f0d5a209da42f0f32c36d1bdf6e217e13a285b2f01"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/sampling_frontend.sym",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:a76caea319e51f329f6f8328a07ad200378f50126e537dc5beec327e145026b7"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/cdac/cdac_array.sch",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:01af2a637837210d9f8c33175532a18ef7911880de8dc181832b76438023348f"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/cdac/cdac_array.sym",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:c6b8d9a370c74cbd317a3570600ea3fd44307b73b360bfc5ae0d6ec83bf4f709"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/cdac/cdac_unit_cell.sch",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:baed289e88471d60771566c71faefbb0d9d5e35beba3d4c5313276986eaf73b4"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/comparator.sch",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:f41de8706e334fec841686572647db4441fa365d726ef26c18093777b1629536"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/comparator.sym",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:ba8891eafaf2c46ceb2d3a7d2259be9e07cf8c7fcb80d9676cb8863450cb0fa0"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/sar_adc_top.sch",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:fbd3643f1988a5ed243a1f14d67251640272dd8ca2d923b69bc907179e0b9fc8"
+    },
+    {
+      "check": "present",
+      "role": "source",
+      "path": "design/sar_adc_top.sym",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:3ac050bb116d2a553e632e31f6100757b476166d55818fd6b09e8758a344db14"
+    },
+    {
+      "check": "present",
+      "role": "derived",
+      "path": "design/sar_adc_top.spice",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:3a519b41e0bea4e82ec20828066ea31d123fe6879d922077ab0c0c5eec0d83e6"
+    },
+    {
+      "check": "netlist-header-hashes",
+      "path": "design/sar_adc_top.spice",
+      "passed": true,
+      "executed": true,
+      "schematics_checked": 5,
+      "stale": [],
+      "note": "proxy for design/regen_netlist.sh --check (needs xschem), which CI runs"
+    },
+    {
+      "check": "command",
+      "command": "bash design/regen_netlist.sh --check",
+      "passed": null,
+      "executed": false,
+      "gated_by": "CI job pdk-smoke"
+    }
+  ]
+}

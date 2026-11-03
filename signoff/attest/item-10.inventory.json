@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "kind": "t1-attestation-inventory",
+  "t1_item": 10,
+  "description": "Repo hygiene: README, license, spec table and CI, plus the CI audit commands.",
+  "hygiene": [
+    "README.md",
+    "LICENSE",
+    "spec/target-spec.md",
+    ".github/workflows/ci.yml"
+  ],
+  "checks": [
+    {
+      "name": "check-ci",
+      "argv": [
+        "npm",
+        "run",
+        "check:ci"
+      ],
+      "cwd": "."
+    },
+    {
+      "name": "signoff-check",
+      "argv": [
+        "bash",
+        "signoff/run-signoff.sh",
+        "--check"
+      ],
+      "cwd": "."
+    }
+  ]
+}

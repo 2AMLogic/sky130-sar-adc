@@ -510,6 +510,102 @@ class CompoundAndCommandEntryTests(unittest.TestCase):
         self.assertIn("command-backed evidence is not supported", failures[0])
 
 
+class AnchoredGenericCitationTests(unittest.TestCase):
+    """Artifact-anchored generic envelopes for T1 items 1, 2, 9 and 10 (issue
+    #676). `klt signoff` re-hashes the pinned artifact itself only when the
+    path resolves from its working directory; these controls hold the same
+    obligations headlessly, plus the ones the grader cannot: the inventory the
+    envelope pins lists only paths that exist."""
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.tree.write("design/a.sch", b"schematic")
+        self.inventory = {
+            "schema_version": 1,
+            "kind": "t1-attestation-inventory",
+            "t1_item": 1,
+            "sources": ["design/a.sch"],
+            "derived": [{"path": "design/a.spice", "generator": "g", "check": {"argv": ["true"]}}],
+        }
+        self.tree.write("design/a.spice", b"netlist")
+        self.tree.write_json("signoff/attest/item-1.inventory.json", self.inventory)
+        self.inv_hash = sha256_bytes((self.tree.root / "signoff/attest/item-1.inventory.json").read_bytes())
+        self.envelope = {
+            "schema_version": 1,
+            "kind": "generic",
+            "t1_item": 1,
+            "status": "pass",
+            "source": "signoff/attest/item-1.inventory.json",
+            "provenance": {
+                "input": {"path": "signoff/attest/item-1.inventory.json", "content_hash": self.inv_hash}
+            },
+        }
+        self.tree.write_json("signoff/evidence/item-1.generic.json", self.envelope)
+        self.manifest = {
+            "block": "fixture",
+            "kind": "mixed-signal",
+            "evidence": {"1.analog": {"file": "signoff/evidence/item-1.generic.json", "content_hash": self.inv_hash}},
+        }
+
+    def test_passes_when_everything_agrees(self):
+        self.assertEqual(self.tree.check(self.manifest), [])
+
+    def test_fails_when_the_bound_inventory_is_edited(self):
+        self.inventory["sources"].append("design/a.sch ")
+        self.tree.write_json("signoff/attest/item-1.inventory.json", self.inventory)
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("hashes to", failures[0])
+
+    def test_fails_when_an_inventoried_path_disappears(self):
+        (self.tree.root / "design/a.sch").unlink()
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("do not exist", failures[0])
+
+    def test_fails_when_the_envelope_is_cited_for_another_item(self):
+        self.manifest["evidence"] = {"9": self.manifest["evidence"]["1.analog"]}
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("declares t1_item 1", failures[0])
+
+    def test_fails_when_input_path_and_source_name_different_files(self):
+        self.envelope["provenance"]["input"]["path"] = "design/a.sch"
+        self.tree.write_json("signoff/evidence/item-1.generic.json", self.envelope)
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("different files", failures[0])
+
+    def test_fails_when_the_netlist_header_names_a_stale_schematic(self):
+        header = "* design/a.sch: sha256:" + "0" * 64 + "\n"
+        self.tree.write("design/sar_adc_top.spice", header.encode())
+        self.inventory["derived"][0]["path"] = "design/sar_adc_top.spice"
+        self.tree.write_json("signoff/attest/item-1.inventory.json", self.inventory)
+        new_hash = sha256_bytes((self.tree.root / "signoff/attest/item-1.inventory.json").read_bytes())
+        self.envelope["provenance"]["input"]["content_hash"] = new_hash
+        self.tree.write_json("signoff/evidence/item-1.generic.json", self.envelope)
+        self.manifest["evidence"]["1.analog"]["content_hash"] = new_hash
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("stale", failures[0])
+
+
+class MintedAttestationTests(unittest.TestCase):
+    """The committed inventories and envelopes are exactly what the mint script
+    derives, so an envelope's `status` cannot be edited by hand."""
+
+    def test_committed_files_match_a_fresh_mint(self):
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, str(SIGNOFF_DIR / "mint_attest_envelopes.py"), "--check"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
 class CommittedManifestTests(unittest.TestCase):
     """The real manifest, against the real tree. This is the check `npm run
     check:ci` runs; asserting it here too means a `test:unit` run catches the
