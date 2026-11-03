@@ -95,6 +95,14 @@ CELL_TYPES = (
     "sky130_fd_sc_hd__or3_1",
     "sky130_fd_sc_hd__inv_1",
     "sky130_fd_sc_hd__buf_4",
+    # Added for issue #680: the schematic's SAR-register feed logic
+    # (and2_1/or2_1/xnor2_1) and the CTS-inserted clkinv_2. A cell type
+    # missing from this tuple is silently dropped from the reference, which
+    # surfaces only as unmatched layout devices in `klt lvs`.
+    "sky130_fd_sc_hd__and2_1",
+    "sky130_fd_sc_hd__or2_1",
+    "sky130_fd_sc_hd__xnor2_1",
+    "sky130_fd_sc_hd__clkinv_2",
 )
 
 

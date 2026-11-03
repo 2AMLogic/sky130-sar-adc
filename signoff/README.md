@@ -17,12 +17,12 @@ Current verdict, at the committed report:
 | block | `sky130-sar-adc` |
 | kind | `mixed-signal` (22 rows: 11 items × 2 partitions) |
 | tier | `null` — not T1 |
-| T1 items met | **13 / 22** (items 2, 3, 8, 9, 10 on both partitions; item 1 on the analog partition; item 5 on the digital partition — **provisional, narrow; read "Item 5, digital" below** — and item 7 on the digital partition — **partial annotation, one macro cited; read "Item 7, digital" below**) |
+| T1 items met | **14 / 22** (items 1, 2, 3, 8, 9, 10 on both partitions; item 5 on the digital partition — **provisional, narrow; read "Item 5, digital" below** — and item 7 on the digital partition — **partial annotation, one macro cited; read "Item 7, digital" below**) |
 | checklist graded against | `design-evidence-tiers.md` @ `sha256:a26b9026…` (the copy `klayout-tools==0.8.0` bundles) |
 | grading build | `klt 0.8.0` (`git_tag v0.8.0`, `grading_ruleset_id sha256:46c446d8…`) |
 
 **A mostly-`unmet` report is the correct result, not a failure of this
-file.** 9 of 22 rows are `unmet` with a machine-readable `reason`, and that is
+file.** 8 of 22 rows are `unmet` with a machine-readable `reason`, and that is
 exactly the honest statement of the gap. Nothing here should be "improved" by
 citing an envelope that does not actually support the item it is filed under.
 
@@ -65,7 +65,7 @@ saying, because the grader cannot.
 
 | # | Item | Verdict | What is actually true here |
 |---|------|---------|----------------------------|
-| 1 | Design sources | analog **`met`**; digital `unmet` / `check_failed` | Cited through artifact-anchored generic envelopes (issue #676), one per partition, each pinned to its inventory under `signoff/attest/`. Analog: the schematics/symbols and `design/sar_adc_top.spice`. Digital: **`unmet`** because `layout/sar-sequencer/netlist/sar_sequencer.v` has fallen behind `design/sar_sequencer.sch` — see "What the item 1, 2, 9 and 10 citations assert".
+| 1 | Design sources | **`met`** (both) | Cited through artifact-anchored generic envelopes (issue #676), one per partition, each pinned to its inventory under `signoff/attest/`. Analog: the schematics/symbols and `design/sar_adc_top.spice`. Digital: **`met`** since issue #680 regenerated `layout/sar-sequencer/netlist/sar_sequencer.v` to match `design/sar_sequencer.sch` (parity check passes) — see "What the item 1, 2, 9 and 10 citations assert".
 | 2 | Layout | **`met`** (both) | One bare citation: a generic envelope pinning the composed top-level stream (`layout/sar-adc-top/reports/20261001-211249-1ca34e6/sar_adc_top.gds`) by path and sha256. Asserts nothing about item 4. See "What the item 1, 2, 9 and 10 citations assert".
 | 3 | DRC clean | **`met`** (both) | `klt drc` on the composed top-level stream: `status: clean`, 0 violations, deck `sky130` @ `sha256:a1d90e06…` (see the cited `drc.json` for the authoritative deck hash and counts). Covers both partitions because the stream it ran on contains both partitions' geometry. **Coverage gaps are disclosed below — read them; a `met` here is not evidence they were disclosed.** |
 | 4 | LVS clean | `unmet` / `check_failed` (both) | Cited deliberately even though it fails. `klt lvs` reports `status: "mismatch"` against the full-block reference; the authoritative mismatch, net, device and pin counts are in the cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` (`mismatch_count`, `category_counts`, `counts`) — read them there. Summary retained at that record only: 67 mismatches / 66 errors, 519/555 reference nets and 1046/1095 reference devices matched; categories 49 `device.unmatched`, 9 `net.merged`, 8 `net.split`, 1 `topology.flattened`. Pins read 21 layout / 22 reference / 22 matched: the reference carries `GND` and `VGND` as two ports of what the layout extracts as one net — the shared p-substrate (`GND\|VGND\|VSS`) — so one promoted layout pin answers both, which is why `layout < reference` here is not a missing pin; see [DR-012](../spec/decision-records/DR-012-analog-ground-pad.md). *Historical comparison, superseded:* the 2026-09-24 record (`reports/20260924-234053-66dca3c/`) read 88 mismatches / 87 errors, 411/444 nets and 803/869 devices; before issue #355 it read 98/97. Root cause is an upstream extraction-hierarchy gap, not a design defect — filed generically as klayout-tools#1878; see `layout/sar-adc-top/README.md`'s "LVS device/topology blocker". The full-block LVS still does not match. |
@@ -216,12 +216,15 @@ Disclosures the grader cannot make:
   netlists under stated assumptions (0.25 T input and output delays, ideal
   clock, unloaded outputs, no SPEF). It says nothing about the ADC's conversion
   rate, which also depends on the analog partition.
-- **The routed `sar_sequencer` is not today's schematic (issue #680).** The netlist that was
-  placed and routed, `layout/sar-sequencer/netlist/sar_sequencer.v`, has 36
+- **The cited routed `sar_sequencer` is not today's schematic (issue #680).** The netlist that was
+  placed and routed for the cited reports, `layout/sar-sequencer/reports/20261021-104530-ddc1d72/`, has 36
   instances (issue #102). `design/sar_sequencer.sch` has 57: it gained the
   `COMP_EFF` xnor and per-conversion clear gating of issue #263 / DR-008. Both
-  the functional tests and the STA cover the 36-instance netlist, so neither
-  speaks for `COMP_EFF` or the clear gating.
+  the functional tests and the STA cover that 36-instance netlist, so neither
+  speaks for `COMP_EFF` or the clear gating. Issue #680 regenerated the committed
+  Verilog and minted a new sequencer record (`reports/20261103-203525-e3664123`, 57 instances), but the
+  STA and functional-verification runs were **not** repeated on it, so the cited
+  reports still describe the 36-instance netlist.
 - **Zero-delay functional run.** The item 5 functional reports carry no SDF; the SDF-annotated re-run is item 7 ("Item 7, digital" below).
 - **PDK revision.** The reports were minted against open_pdks `f6eeac7`, the
   revision installed on the host, not the `c6d73a3` that `sim/pdk.json` pins
@@ -274,8 +277,8 @@ Disclosures the grader cannot make:
   (`20261021-104530-ddc1d72`, `20261021-104637-ddc1d72`) are newer than the
   `20261012-*` ones item 5 names; the DEFs, post-route netlists and GDS are
   byte-identical (the SDF script asserts the DEF hash against the item 5 request's).
-- **Same netlist caveats as item 5:** the routed `sar_sequencer` is the
-  36-instance netlist (issue #680); corners are the four stock Liberty files, the
+- **Same netlist caveats as item 5:** the cited routed `sar_sequencer` is the
+  36-instance netlist (issue #680 minted a 57-instance record these runs do not cover); corners are the four stock Liberty files, the
   eight declared gaps are unchanged; the spec is DRAFT (issue #1).
 - **Tool versions differ.** The item 5 reports were minted by `klt 0.6.0`; these
   by `klt 0.8.0` (the grader pin) with cocotb 2.1.0 / Icarus 13.0.
@@ -476,10 +479,11 @@ by hand.
 - *Item 2* attests that the composed stream is committed and byte-pinned, and
   that it is the stream items 3 and 11 cite. **It says nothing about item 4**:
   the top-level LVS mismatch stays tracked by #103 and item 4 stays `unmet`.
-  Its `sar_sequencer` macro was routed from `sar_sequencer.v` as committed, which
-  is stale (below), so item 2 does not say that macro matches the schematic.
+  The cited stream (`20261001-211249-1ca34e6`) predates the issue #680 regeneration, so its
+  `sar_sequencer` macro was routed from the stale Verilog (item 1, digital, below) and item 2 does not say
+  that macro matches the schematic.
 
-**Item 1, digital: `unmet` (`check_failed`), on purpose.**
+**Item 1, digital: `met`, after issue #680.**
 `layout/sar-sequencer/netlist/sar_sequencer.v` is a structural gate-level netlist
 **transliterated by hand from `design/sar_sequencer.sch`**, not synthesized from
 RTL (its header and `layout/sar-sequencer/README.md` say so). The freshness check
@@ -487,19 +491,19 @@ that binds it is `layout/sar-sequencer/bin/check-schematic-parity.py`: it
 compares the Verilog, instance for instance and pin for pin, with the `.subckt
 sar_sequencer` of `design/sar_adc_top.spice` (itself bound to the schematic by
 the header hashes above and `regen_netlist.sh --check`), and it has negative
-controls in `sim/tests/test_sar_sequencer_schematic_parity.py`. **It currently
-fails on the committed Verilog**: 21 instances the schematic has are missing
-(`xxnor_compeff`, the nine `xpre<i>` / `xclr<i>` pairs, `xor_g4`,
-`xor_busybits`) and 18 pins differ (`xmux<i>.A1` is `COMP_OUT` where the
-schematic has `COMP_EFF`; `xbreg<i>.D` is `MUXOUT<i>` where it has `DFEED<i>`).
-Those are the per-conversion clear and decision-direction changes of issue #263;
-the Verilog was never regenerated, so the sequencer macro in the committed
-layout was routed from the older netlist. Because the check cannot pass, it is
-**not** wired into `npm run check:ci` (that would turn CI red on a layout
-re-spin this issue does not own) — wire it in the PR that regenerates the
-Verilog and re-runs the sequencer, top-level composition, DRC and LVS flows (tracked by #680).
-The item 1 digital envelope records `status: "fail"` rather than omitting the
-citation, so the row reads `unmet` / `check_failed`. Separately, the checklist
+controls in `sim/tests/test_sar_sequencer_schematic_parity.py`. Issue #676 found
+that the committed Verilog failed it (21 missing instances, 18 differing pins,
+from the per-conversion clear and decision-direction changes of issue #263), and
+the item 1 digital envelope recorded `status: "fail"` (`unmet` / `check_failed`).
+Issue #680 regenerated the Verilog (57 instances, 0 missing, 0 differing pins),
+re-ran the sequencer flow (`layout/sar-sequencer/reports/20261103-203525-e3664123`:
+DRC clean, LVS `match` 892/892 devices, 461/461 nets) and the top-level
+composition (`layout/sar-adc-top/reports/20261103-203610-e3664123`: DRC clean,
+LVS still `mismatch`, see item 4), re-minted the envelope (`pass`) and wired the
+check into `npm run check:ci` as `check:sequencer-parity`. `met` asserts only that
+the Verilog matches the schematic; items 2, 3, 4 and 11 still cite the older
+`20261001-211249-1ca34e6` top-level record, and items 5 and 7 the older routed
+netlist. Separately, the checklist
 text for a digital partition asks for RTL plus a synthesized netlist; this block
 has neither, and relies on the "full-custom digital sub-case" wording for
 item 1 (hand-captured schematics, every gate drawn).

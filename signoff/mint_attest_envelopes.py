@@ -323,8 +323,8 @@ def item2_envelope() -> dict:
             "Layout: the committed composed top-level stream. It is produced by the committed klt flows "
             "(layout/*/bin/run-flow.sh, layout/sar-adc-top/bin/) with a per-flow record, and this envelope pins its bytes. "
             "It asserts the stream exists and is the one items 3 and 11 cite; it asserts nothing about item 4 (top-level LVS "
-            "mismatches stay tracked by #103). Its sar_sequencer macro was routed from layout/sar-sequencer/netlist/sar_sequencer.v "
-            "as committed, which item 1 (digital) reports as stale against the schematic."
+            "mismatches stay tracked by #103). The cited stream predates the issue #680 regeneration of layout/sar-sequencer/netlist/sar_sequencer.v, "
+            "so its sar_sequencer macro was routed from the older, schematic-stale Verilog."
         ),
         "source": GDS,
         "provenance": {"input": {"path": GDS, "content_hash": sha256_file(GDS)}},

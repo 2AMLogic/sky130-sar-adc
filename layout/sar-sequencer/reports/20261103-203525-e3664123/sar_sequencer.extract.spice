@@ -1,0 +1,2779 @@
+* extracted by klt extract --deck sky130
+
+* cell sar_sequencer
+* pin A,A1,COMP_OUT
+* pin A,B,D,PH_B1,Q,S
+* pin A,B,D,PH_B5,Q,S
+* pin A,B,D,PH_B9,Q,S
+* pin A,BUSY,X
+* pin A,CLK
+* pin A,CLK,X
+* pin A0,B,DOUT9,Q
+* pin A0,DOUT0,Q
+* pin A0,DOUT1,Q
+* pin A0,DOUT2,Q
+* pin A0,DOUT3,Q
+* pin A0,DOUT4,Q
+* pin A0,DOUT5,Q
+* pin A0,DOUT6,Q
+* pin A0,DOUT7,Q
+* pin A0,DOUT8,Q
+* pin B,C,D,PH_B3,Q,S
+* pin B,C,D,PH_B7,Q,S
+* pin B,D,PH_B0,Q,S
+* pin B,D,PH_B2,Q,S
+* pin B,D,PH_B4,Q,S
+* pin B,D,PH_B6,Q,S
+* pin B,D,PH_B8,Q,S
+* pin C,PH_EOC,Q
+* pin CLK,X
+* pin D,PH_SAMPLE,Y
+* pin RESET_B,RST_B
+* pin VGND
+* pin VPB,VPWR
+.SUBCKT sar_sequencer A|A1|COMP_OUT A|B|D|PH_B1|Q|S A|B|D|PH_B5|Q|S
++ A|B|D|PH_B9|Q|S A|BUSY|X A|CLK A|CLK|X A0|B|DOUT9|Q A0|DOUT0|Q A0|DOUT1|Q
++ A0|DOUT2|Q A0|DOUT3|Q A0|DOUT4|Q A0|DOUT5|Q A0|DOUT6|Q A0|DOUT7|Q A0|DOUT8|Q
++ B|C|D|PH_B3|Q|S B|C|D|PH_B7|Q|S B|D|PH_B0|Q|S B|D|PH_B2|Q|S B|D|PH_B4|Q|S
++ B|D|PH_B6|Q|S B|D|PH_B8|Q|S C|PH_EOC|Q CLK|X D|PH_SAMPLE|Y RESET_B|RST_B VGND
++ VPB|VPWR
+* device instance $1 r0 *1 23.91,7.6 nfet
+M$1 A0|DOUT5|Q \$10 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $2 r0 *1 15.65,7.715 nfet
+M$2 VGND A|CLK|X \$2 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $3 r0 *1 16.07,7.715 nfet
+M$3 \$3 \$2 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $4 r0 *1 17.345,7.715 nfet
+M$4 \$5 D|X VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $5 r0 *1 17.82,7.745 nfet
+M$5 \$6 \$2 \$5 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P PS=0.745U
++ PD=0.69U
+* device instance $6 r0 *1 18.3,7.745 nfet
+M$6 \$6 \$3 \$17 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $7 r0 *1 19.13,7.715 nfet
+M$7 \$16 \$8 \$17 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $8 r0 *1 19.49,7.715 nfet
+M$8 \$16 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $9 r0 *1 20.15,7.605 nfet
+M$9 \$8 \$6 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $10 r0 *1 20.645,7.745 nfet
+M$10 \$9 \$3 \$8 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P PS=0.985U
++ PD=0.755U
+* device instance $11 r0 *1 21.19,7.745 nfet
+M$11 \$9 \$2 \$15 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P PS=0.75U
++ PD=0.755U
+* device instance $12 r0 *1 21.67,7.715 nfet
+M$12 VGND \$10 \$15 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P PS=0.75U
++ PD=1.015U
+* device instance $13 r0 *1 22.415,7.715 nfet
+M$13 \$14 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P AD=0.06405P
++ PS=1.015U PD=0.725U
+* device instance $14 r0 *1 22.87,7.715 nfet
+M$14 \$10 \$9 \$14 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P PS=0.725U
++ PD=1.36U
+* device instance $15 r0 *1 18.41,8.72 nfet
+M$15 VGND A|X \$19 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.08775P PS=1.82U
++ PD=0.92U
+* device instance $16 r0 *1 18.83,8.72 nfet
+M$16 A|CLK|X \$19 VGND VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P
++ PS=0.92U PD=0.92U
+* device instance $17 r0 *1 19.25,8.72 nfet
+M$17 VGND \$19 A|CLK|X VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P
++ PS=0.92U PD=0.92U
+* device instance $18 r0 *1 19.67,8.72 nfet
+M$18 A|CLK|X \$19 VGND VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P
++ PS=0.92U PD=0.92U
+* device instance $19 r0 *1 20.09,8.72 nfet
+M$19 VGND \$19 A|CLK|X VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.169P PS=0.92U
++ PD=1.82U
+* device instance $20 r0 *1 21.15,13.04 nfet
+M$20 A0|DOUT3|Q \$33 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $21 r0 *1 31.01,8.745 nfet
+M$21 \$23 A|X$1 \$21 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P PS=1.4U
++ PD=0.69U
+* device instance $22 r0 *1 31.43,8.745 nfet
+M$22 \$23 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $23 r0 *1 31.97,8.72 nfet
+M$23 D|X$1 \$21 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $24 r0 *1 39.55,13.04 nfet
+M$24 A0|DOUT6|Q \$44 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $25 r0 *1 8.895,13.155 nfet
+M$25 \$24 B|D|PH_B4|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $26 r0 *1 9.315,13.155 nfet
+M$26 \$24 A|X$4 VGND VGND nfet L=0.15U W=0.42U AS=0.10025P AD=0.0567P PS=0.985U
++ PD=0.69U
+* device instance $27 r0 *1 9.8,13.04 nfet
+M$27 A|X$2 \$24 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P PS=0.985U
++ PD=1.82U
+* device instance $28 r0 *1 12.89,13.155 nfet
+M$28 VGND A|CLK|X \$26 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $29 r0 *1 13.31,13.155 nfet
+M$29 \$27 \$26 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $30 r0 *1 14.585,13.155 nfet
+M$30 \$28 D|X$3 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $31 r0 *1 15.06,13.185 nfet
+M$31 \$29 \$26 \$28 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P PS=0.745U
++ PD=0.69U
+* device instance $32 r0 *1 15.54,13.185 nfet
+M$32 \$29 \$27 \$59 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $33 r0 *1 16.37,13.155 nfet
+M$33 \$61 \$31 \$59 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $34 r0 *1 16.73,13.155 nfet
+M$34 \$61 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $35 r0 *1 17.39,13.045 nfet
+M$35 \$31 \$29 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $36 r0 *1 17.885,13.185 nfet
+M$36 \$32 \$27 \$31 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P PS=0.985U
++ PD=0.755U
+* device instance $37 r0 *1 18.43,13.185 nfet
+M$37 \$32 \$26 \$62 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P PS=0.75U
++ PD=0.755U
+* device instance $38 r0 *1 18.91,13.155 nfet
+M$38 VGND \$33 \$62 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P PS=0.75U
++ PD=1.015U
+* device instance $39 r0 *1 19.655,13.155 nfet
+M$39 \$63 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P AD=0.06405P
++ PS=1.015U PD=0.725U
+* device instance $40 r0 *1 20.11,13.155 nfet
+M$40 \$33 \$32 \$63 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P PS=0.725U
++ PD=1.36U
+* device instance $41 r0 *1 22.27,13.015 nfet
+M$41 \$60 A|X$3 \$35 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P PS=1.4U
++ PD=0.69U
+* device instance $42 r0 *1 22.69,13.015 nfet
+M$42 \$60 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $43 r0 *1 23.23,13.04 nfet
+M$43 D|X$2 \$35 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $44 r0 *1 31.29,13.155 nfet
+M$44 VGND A|CLK|X \$37 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $45 r0 *1 31.71,13.155 nfet
+M$45 \$38 \$37 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $46 r0 *1 32.985,13.155 nfet
+M$46 \$39 D|X$1 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $47 r0 *1 33.46,13.185 nfet
+M$47 \$40 \$37 \$39 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P PS=0.745U
++ PD=0.69U
+* device instance $48 r0 *1 33.94,13.185 nfet
+M$48 \$40 \$38 \$57 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $49 r0 *1 34.77,13.155 nfet
+M$49 \$58 \$42 \$57 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $50 r0 *1 35.13,13.155 nfet
+M$50 \$58 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $51 r0 *1 35.79,13.045 nfet
+M$51 \$42 \$40 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $52 r0 *1 36.285,13.185 nfet
+M$52 \$43 \$38 \$42 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P PS=0.985U
++ PD=0.755U
+* device instance $53 r0 *1 36.83,13.185 nfet
+M$53 \$43 \$37 \$56 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P PS=0.75U
++ PD=0.755U
+* device instance $54 r0 *1 37.31,13.155 nfet
+M$54 VGND \$44 \$56 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P PS=0.75U
++ PD=1.015U
+* device instance $55 r0 *1 38.055,13.155 nfet
+M$55 \$55 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P AD=0.06405P
++ PS=1.015U PD=0.725U
+* device instance $56 r0 *1 38.51,13.155 nfet
+M$56 \$44 \$43 \$55 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P PS=0.725U
++ PD=1.36U
+* device instance $57 r0 *1 2.77,14.045 nfet
+M$57 VGND A|CLK|X \$64 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $58 r0 *1 3.19,14.045 nfet
+M$58 \$65 \$64 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $59 r0 *1 4.94,14.015 nfet
+M$59 \$67 \$64 \$66 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P PS=0.745U
++ PD=0.69U
+* device instance $60 r0 *1 5.42,14.015 nfet
+M$60 \$90 \$65 \$67 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P PS=0.69U
++ PD=1.1U
+* device instance $61 r0 *1 7.765,14.015 nfet
+M$61 \$69 \$65 \$68 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P PS=0.985U
++ PD=0.755U
+* device instance $62 r0 *1 8.31,14.015 nfet
+M$62 \$92 \$64 \$69 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P PS=0.755U
++ PD=0.75U
+* device instance $63 r0 *1 4.465,14.045 nfet
+M$63 \$66 B|D|PH_B4|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $64 r0 *1 6.25,14.045 nfet
+M$64 \$91 \$68 \$90 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $65 r0 *1 6.61,14.045 nfet
+M$65 VGND RESET_B|RST_B \$91 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $66 r0 *1 8.79,14.045 nfet
+M$66 VGND \$70 \$92 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P PS=0.75U
++ PD=1.015U
+* device instance $67 r0 *1 9.535,14.045 nfet
+M$67 \$93 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P AD=0.06405P
++ PS=1.015U PD=0.725U
+* device instance $68 r0 *1 9.99,14.045 nfet
+M$68 \$70 \$69 \$93 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P PS=0.725U
++ PD=1.36U
+* device instance $69 r0 *1 7.27,14.155 nfet
+M$69 \$68 \$67 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $70 r0 *1 11.03,14.16 nfet
+M$70 B|C|D|PH_B3|Q|S \$70 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $71 r0 *1 23.01,14.045 nfet
+M$71 VGND A|CLK|X \$73 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $72 r0 *1 23.43,14.045 nfet
+M$72 \$74 \$73 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $73 r0 *1 25.18,14.015 nfet
+M$73 \$76 \$73 \$75 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P PS=0.745U
++ PD=0.69U
+* device instance $74 r0 *1 25.66,14.015 nfet
+M$74 \$97 \$74 \$76 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P PS=0.69U
++ PD=1.1U
+* device instance $75 r0 *1 28.005,14.015 nfet
+M$75 \$78 \$74 \$77 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P PS=0.985U
++ PD=0.755U
+* device instance $76 r0 *1 28.55,14.015 nfet
+M$76 \$99 \$73 \$78 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P PS=0.755U
++ PD=0.75U
+* device instance $77 r0 *1 24.705,14.045 nfet
+M$77 \$75 D|X$2 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $78 r0 *1 26.49,14.045 nfet
+M$78 \$98 \$77 \$97 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $79 r0 *1 26.85,14.045 nfet
+M$79 VGND RESET_B|RST_B \$98 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $80 r0 *1 29.03,14.045 nfet
+M$80 VGND \$79 \$99 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P PS=0.75U
++ PD=1.015U
+* device instance $81 r0 *1 29.775,14.045 nfet
+M$81 \$100 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P AD=0.06405P
++ PS=1.015U PD=0.725U
+* device instance $82 r0 *1 30.23,14.045 nfet
+M$82 \$79 \$78 \$100 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P PS=0.725U
++ PD=1.36U
+* device instance $83 r0 *1 27.51,14.155 nfet
+M$83 \$77 \$76 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $84 r0 *1 31.27,14.16 nfet
+M$84 A0|DOUT4|Q \$79 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $85 r0 *1 34.195,14.045 nfet
+M$85 \$81 B|C|D|PH_B7|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $86 r0 *1 34.615,14.045 nfet
+M$86 VGND A|X$5 \$81 VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.10025P PS=0.69U
++ PD=0.985U
+* device instance $87 r0 *1 35.1,14.16 nfet
+M$87 A|X$1 \$81 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P PS=0.985U
++ PD=1.82U
+* device instance $88 r0 *1 37.355,14.045 nfet
+M$88 \$94 B|D|PH_B6|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P AD=0.0693P
++ PS=1.045U PD=0.75U
+* device instance $89 r0 *1 37.835,14.045 nfet
+M$89 \$83 A1|Y \$94 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P PS=0.75U
++ PD=0.895U
+* device instance $90 r0 *1 38.46,14.045 nfet
+M$90 \$89 A0|DOUT6|Q \$83 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $91 r0 *1 38.94,14.045 nfet
+M$91 VGND \$84 \$89 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $92 r0 *1 39.78,14.045 nfet
+M$92 \$84 B|D|PH_B6|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P AD=0.1092P
++ PS=1.11U PD=1.36U
+* device instance $93 r0 *1 36.81,14.16 nfet
+M$93 VGND \$83 A|X$5 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P PS=1.82U
++ PD=1.045U
+* device instance $94 r0 *1 2.77,19.485 nfet
+M$94 VGND A|CLK|X \$133 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $95 r0 *1 3.19,19.485 nfet
+M$95 \$134 \$133 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $96 r0 *1 4.94,19.455 nfet
+M$96 \$136 \$133 \$135 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P PS=0.745U
++ PD=0.69U
+* device instance $97 r0 *1 5.42,19.455 nfet
+M$97 \$156 \$134 \$136 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P PS=0.69U
++ PD=1.1U
+* device instance $98 r0 *1 7.765,19.455 nfet
+M$98 \$137 \$134 \$168 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $99 r0 *1 8.31,19.455 nfet
+M$99 \$158 \$133 \$137 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $100 r0 *1 4.465,19.485 nfet
+M$100 \$135 B|C|D|PH_B3|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $101 r0 *1 6.25,19.485 nfet
+M$101 \$157 \$168 \$156 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $102 r0 *1 6.61,19.485 nfet
+M$102 VGND RESET_B|RST_B \$157 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $103 r0 *1 8.79,19.485 nfet
+M$103 VGND \$138 \$158 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $104 r0 *1 9.535,19.485 nfet
+M$104 \$159 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $105 r0 *1 9.99,19.485 nfet
+M$105 \$138 \$137 \$159 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $106 r0 *1 7.27,19.595 nfet
+M$106 \$168 \$136 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $107 r0 *1 9.21,18.48 nfet
+M$107 VGND \$109 A|X$4 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P PS=1.82U
++ PD=1.045U
+* device instance $108 r0 *1 9.755,18.595 nfet
+M$108 \$131 B|C|D|PH_B3|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P
++ AD=0.0693P PS=1.045U PD=0.75U
+* device instance $109 r0 *1 10.235,18.595 nfet
+M$109 \$109 A1|Y \$131 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $110 r0 *1 10.86,18.595 nfet
+M$110 \$132 A0|DOUT3|Q \$109 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $111 r0 *1 11.34,18.595 nfet
+M$111 VGND \$111 \$132 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $112 r0 *1 12.18,18.595 nfet
+M$112 \$111 B|C|D|PH_B3|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P
++ AD=0.1092P PS=1.11U PD=1.36U
+* device instance $113 r0 *1 11.03,19.6 nfet
+M$113 B|D|PH_B2|Q|S \$138 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $114 r0 *1 13.99,14.185 nfet
+M$114 \$95 A|X$2 \$71 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P PS=1.4U
++ PD=0.69U
+* device instance $115 r0 *1 14.41,14.185 nfet
+M$115 \$95 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $116 r0 *1 14.95,14.16 nfet
+M$116 D|X$3 \$71 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $117 r0 *1 14.875,18.595 nfet
+M$117 \$112 B|D|PH_B6|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $118 r0 *1 15.295,18.595 nfet
+M$118 \$112 A|X$7 VGND VGND nfet L=0.15U W=0.42U AS=0.10025P AD=0.0567P
++ PS=0.985U PD=0.69U
+* device instance $119 r0 *1 15.78,18.48 nfet
+M$119 A|X$6 \$112 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P
++ PS=0.985U PD=1.82U
+* device instance $120 r0 *1 17.21,14.185 nfet
+M$120 \$96 A|X$6 \$72 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P PS=1.4U
++ PD=0.69U
+* device instance $121 r0 *1 17.63,14.185 nfet
+M$121 \$96 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $122 r0 *1 18.17,14.16 nfet
+M$122 D|X \$72 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $123 r0 *1 18.88,18.595 nfet
+M$123 Y A|CLK|X VGND VGND nfet L=0.15U W=0.42U AS=0.1113P AD=0.0588P PS=1.37U
++ PD=0.7U
+* device instance $124 r0 *1 19.31,18.595 nfet
+M$124 VGND A|CLK|X Y VGND nfet L=0.15U W=0.42U AS=0.0588P AD=0.1092P PS=0.7U
++ PD=1.36U
+* device instance $125 r0 *1 19.33,19.6 nfet
+M$125 VGND A|CLK \$140 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.08775P PS=1.82U
++ PD=0.92U
+* device instance $126 r0 *1 19.75,19.6 nfet
+M$126 A|X \$140 VGND VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P PS=0.92U
++ PD=0.92U
+* device instance $127 r0 *1 20.17,19.6 nfet
+M$127 VGND \$140 A|X VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P PS=0.92U
++ PD=0.92U
+* device instance $128 r0 *1 20.59,19.6 nfet
+M$128 A|X \$140 VGND VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P PS=0.92U
++ PD=0.92U
+* device instance $129 r0 *1 21.01,19.6 nfet
+M$129 VGND \$140 A|X VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.169P PS=0.92U
++ PD=1.82U
+* device instance $130 r0 *1 23.555,19.485 nfet
+M$130 \$161 B|D|PH_B4|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P AD=0.0693P
++ PS=1.045U PD=0.75U
+* device instance $131 r0 *1 24.035,19.485 nfet
+M$131 \$142 A1|Y \$161 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $132 r0 *1 24.66,19.485 nfet
+M$132 \$163 A0|DOUT4|Q \$142 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $133 r0 *1 25.14,19.485 nfet
+M$133 VGND \$143 \$163 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $134 r0 *1 25.98,19.485 nfet
+M$134 \$143 B|D|PH_B4|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P AD=0.1092P
++ PS=1.11U PD=1.36U
+* device instance $135 r0 *1 23.01,19.6 nfet
+M$135 VGND \$142 A|X$8 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P PS=1.82U
++ PD=1.045U
+* device instance $136 r0 *1 28.215,19.485 nfet
+M$136 \$144 B|C|D|PH_B3|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0567P PS=1.36U PD=0.69U
+* device instance $137 r0 *1 28.635,19.485 nfet
+M$137 VGND A|X$9 \$144 VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.10025P
++ PS=0.69U PD=0.985U
+* device instance $138 r0 *1 29.12,19.6 nfet
+M$138 A|X$10 \$144 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P
++ PS=0.985U PD=1.82U
+* device instance $139 r0 *1 33.13,19.485 nfet
+M$139 VGND A|CLK|X \$149 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $140 r0 *1 33.55,19.485 nfet
+M$140 \$150 \$149 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $141 r0 *1 35.3,19.455 nfet
+M$141 \$152 \$149 \$151 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $142 r0 *1 35.78,19.455 nfet
+M$142 \$165 \$150 \$152 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $143 r0 *1 38.125,19.455 nfet
+M$143 \$153 \$150 \$169 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $144 r0 *1 38.67,19.455 nfet
+M$144 \$162 \$149 \$153 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $145 r0 *1 34.825,19.485 nfet
+M$145 \$151 D|X$4 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $146 r0 *1 36.61,19.485 nfet
+M$146 \$164 \$169 \$165 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $147 r0 *1 36.97,19.485 nfet
+M$147 VGND RESET_B|RST_B \$164 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $148 r0 *1 39.15,19.485 nfet
+M$148 VGND \$154 \$162 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $149 r0 *1 39.895,19.485 nfet
+M$149 \$160 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $150 r0 *1 40.35,19.485 nfet
+M$150 \$154 \$153 \$160 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $151 r0 *1 37.63,19.595 nfet
+M$151 \$169 \$152 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $152 r0 *1 35.43,18.595 nfet
+M$152 VGND A|CLK|X \$115 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $153 r0 *1 35.85,18.595 nfet
+M$153 \$116 \$115 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $154 r0 *1 37.125,18.595 nfet
+M$154 \$117 B|C|D|PH_B7|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $155 r0 *1 37.6,18.625 nfet
+M$155 \$118 \$115 \$117 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $156 r0 *1 38.08,18.625 nfet
+M$156 \$118 \$116 \$130 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $157 r0 *1 38.91,18.595 nfet
+M$157 \$129 \$120 \$130 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $158 r0 *1 39.27,18.595 nfet
+M$158 \$129 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $159 r0 *1 39.93,18.485 nfet
+M$159 \$120 \$118 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $160 r0 *1 40.425,18.625 nfet
+M$160 \$121 \$116 \$120 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $161 r0 *1 40.97,18.625 nfet
+M$161 \$121 \$115 \$128 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P
++ PS=0.75U PD=0.755U
+* device instance $162 r0 *1 41.45,18.595 nfet
+M$162 VGND \$122 \$128 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $163 r0 *1 42.195,18.595 nfet
+M$163 \$127 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $164 r0 *1 42.65,18.595 nfet
+M$164 \$122 \$121 \$127 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $165 r0 *1 41.39,19.6 nfet
+M$165 A0|DOUT2|Q \$154 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $166 r0 *1 43.69,18.48 nfet
+M$166 B|D|PH_B6|Q|S \$122 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $167 r0 *1 2.77,24.925 nfet
+M$167 VGND CLK|X \$208 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $168 r0 *1 3.19,24.925 nfet
+M$168 \$209 \$208 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $169 r0 *1 4.94,24.895 nfet
+M$169 \$194 \$208 \$193 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $170 r0 *1 5.42,24.895 nfet
+M$170 \$219 \$209 \$194 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $171 r0 *1 7.765,24.895 nfet
+M$171 \$195 \$209 \$234 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $172 r0 *1 8.31,24.895 nfet
+M$172 \$221 \$208 \$195 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $173 r0 *1 4.465,24.925 nfet
+M$173 \$193 B|D|PH_B2|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $174 r0 *1 6.25,24.925 nfet
+M$174 \$220 \$234 \$219 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $175 r0 *1 6.61,24.925 nfet
+M$175 VGND RESET_B|RST_B \$220 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $176 r0 *1 8.79,24.925 nfet
+M$176 VGND \$196 \$221 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $177 r0 *1 9.535,24.925 nfet
+M$177 \$223 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $178 r0 *1 9.99,24.925 nfet
+M$178 \$196 \$195 \$223 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $179 r0 *1 7.27,25.035 nfet
+M$179 \$234 \$194 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $180 r0 *1 10.13,24.035 nfet
+M$180 VGND A|CLK|X \$177 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $181 r0 *1 10.55,24.035 nfet
+M$181 \$178 \$177 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $182 r0 *1 11.03,25.04 nfet
+M$182 A|B|D|PH_B1|Q|S \$196 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $183 r0 *1 11.825,24.035 nfet
+M$183 \$179 B|D|PH_B6|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $184 r0 *1 12.3,24.065 nfet
+M$184 \$180 \$177 \$179 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $185 r0 *1 12.78,24.065 nfet
+M$185 \$180 \$178 \$190 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $186 r0 *1 13.61,24.035 nfet
+M$186 \$189 \$182 \$190 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $187 r0 *1 13.97,24.035 nfet
+M$187 \$189 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $188 r0 *1 14.63,23.925 nfet
+M$188 \$182 \$180 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $189 r0 *1 15.125,24.065 nfet
+M$189 \$183 \$178 \$182 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $190 r0 *1 15.67,24.065 nfet
+M$190 \$183 \$177 \$191 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P
++ PS=0.75U PD=0.755U
+* device instance $191 r0 *1 16.15,24.035 nfet
+M$191 VGND \$184 \$191 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $192 r0 *1 16.895,24.035 nfet
+M$192 \$192 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $193 r0 *1 17.35,24.035 nfet
+M$193 \$184 \$183 \$192 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $194 r0 *1 17.49,24.925 nfet
+M$194 VGND CLK|X \$212 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $195 r0 *1 17.91,24.925 nfet
+M$195 \$213 \$212 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $196 r0 *1 18.39,23.92 nfet
+M$196 A|B|D|PH_B5|Q|S \$184 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $197 r0 *1 19.66,24.895 nfet
+M$197 \$198 \$212 \$197 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $198 r0 *1 20.14,24.895 nfet
+M$198 \$225 \$213 \$198 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $199 r0 *1 22.485,24.895 nfet
+M$199 \$199 \$213 \$235 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $200 r0 *1 23.03,24.895 nfet
+M$200 \$228 \$212 \$199 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $201 r0 *1 19.185,24.925 nfet
+M$201 \$197 A|B|D|PH_B5|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $202 r0 *1 20.97,24.925 nfet
+M$202 \$226 \$235 \$225 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $203 r0 *1 21.33,24.925 nfet
+M$203 VGND RESET_B|RST_B \$226 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $204 r0 *1 23.51,24.925 nfet
+M$204 VGND \$200 \$228 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $205 r0 *1 24.255,24.925 nfet
+M$205 \$229 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $206 r0 *1 24.71,24.925 nfet
+M$206 \$200 \$199 \$229 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $207 r0 *1 21.99,25.035 nfet
+M$207 \$235 \$198 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $208 r0 *1 19.935,24.035 nfet
+M$208 \$186 A|B|D|PH_B5|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0567P PS=1.36U PD=0.69U
+* device instance $209 r0 *1 20.355,24.035 nfet
+M$209 \$186 A|X$8 VGND VGND nfet L=0.15U W=0.42U AS=0.10025P AD=0.0567P
++ PS=0.985U PD=0.69U
+* device instance $210 r0 *1 20.84,23.92 nfet
+M$210 A|X$3 \$186 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P
++ PS=0.985U PD=1.82U
+* device instance $211 r0 *1 25.75,25.04 nfet
+M$211 B|D|PH_B4|Q|S \$200 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $212 r0 *1 27.695,24.925 nfet
+M$212 \$231 B|D|PH_B2|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P AD=0.0693P
++ PS=1.045U PD=0.75U
+* device instance $213 r0 *1 28.175,24.925 nfet
+M$213 \$201 A1|Y \$231 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $214 r0 *1 28.8,24.925 nfet
+M$214 \$232 A0|DOUT2|Q \$201 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $215 r0 *1 29.28,24.925 nfet
+M$215 VGND \$202 \$232 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $216 r0 *1 30.12,24.925 nfet
+M$216 \$202 B|D|PH_B2|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P AD=0.1092P
++ PS=1.11U PD=1.36U
+* device instance $217 r0 *1 27.15,25.04 nfet
+M$217 VGND \$201 A|X$9 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P PS=1.82U
++ PD=1.045U
+* device instance $218 r0 *1 30.55,19.625 nfet
+M$218 \$167 A|X$10 \$147 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $219 r0 *1 30.97,19.625 nfet
+M$219 \$167 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $220 r0 *1 31.51,19.6 nfet
+M$220 D|X$4 \$147 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $221 r0 *1 34.05,24.925 nfet
+M$221 VGND CLK|X \$216 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $222 r0 *1 34.47,24.925 nfet
+M$222 \$217 \$216 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $223 r0 *1 36.22,24.895 nfet
+M$223 \$205 \$216 \$204 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $224 r0 *1 36.7,24.895 nfet
+M$224 \$230 \$217 \$205 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $225 r0 *1 39.045,24.895 nfet
+M$225 \$206 \$217 \$236 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $226 r0 *1 39.59,24.895 nfet
+M$226 \$224 \$216 \$206 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $227 r0 *1 35.745,24.925 nfet
+M$227 \$204 D|X$5 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $228 r0 *1 37.53,24.925 nfet
+M$228 \$227 \$236 \$230 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $229 r0 *1 37.89,24.925 nfet
+M$229 VGND RESET_B|RST_B \$227 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $230 r0 *1 40.07,24.925 nfet
+M$230 VGND \$207 \$224 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $231 r0 *1 40.815,24.925 nfet
+M$231 \$222 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $232 r0 *1 41.27,24.925 nfet
+M$232 \$207 \$206 \$222 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $233 r0 *1 38.55,25.035 nfet
+M$233 \$236 \$205 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $234 r0 *1 42.31,25.04 nfet
+M$234 A0|DOUT7|Q \$207 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $235 r0 *1 2.77,29.475 nfet
+M$235 VGND CLK|X \$245 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $236 r0 *1 3.19,29.475 nfet
+M$236 \$246 \$245 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $237 r0 *1 4.465,29.475 nfet
+M$237 \$247 A|B|D|PH_B1|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $238 r0 *1 4.94,29.505 nfet
+M$238 \$248 \$245 \$247 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $239 r0 *1 5.42,29.505 nfet
+M$239 \$248 \$246 \$281 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $240 r0 *1 6.25,29.475 nfet
+M$240 \$280 \$250 \$281 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $241 r0 *1 6.61,29.475 nfet
+M$241 \$280 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $242 r0 *1 7.27,29.365 nfet
+M$242 \$250 \$248 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $243 r0 *1 7.765,29.505 nfet
+M$243 \$251 \$246 \$250 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $244 r0 *1 8.31,29.505 nfet
+M$244 \$251 \$245 \$283 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P
++ PS=0.75U PD=0.755U
+* device instance $245 r0 *1 8.79,29.475 nfet
+M$245 VGND \$252 \$283 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $246 r0 *1 9.535,29.475 nfet
+M$246 \$284 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $247 r0 *1 9.99,29.475 nfet
+M$247 \$252 \$251 \$284 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $248 r0 *1 11.03,29.36 nfet
+M$248 B|D|PH_B0|Q|S \$252 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $249 r0 *1 11.655,30.365 nfet
+M$249 \$291 A|B|D|PH_B1|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0567P PS=1.36U PD=0.69U
+* device instance $250 r0 *1 12.075,30.365 nfet
+M$250 VGND A|X$12 \$291 VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.10025P
++ PS=0.69U PD=0.985U
+* device instance $251 r0 *1 12.56,30.48 nfet
+M$251 A|X$16 \$291 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P
++ PS=0.985U PD=1.82U
+* device instance $252 r0 *1 11.97,29.36 nfet
+M$252 VGND \$255 A|X$12 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P
++ PS=1.82U PD=1.045U
+* device instance $253 r0 *1 12.515,29.475 nfet
+M$253 \$285 B|D|PH_B0|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P AD=0.0693P
++ PS=1.045U PD=0.75U
+* device instance $254 r0 *1 12.995,29.475 nfet
+M$254 \$255 A1|Y \$285 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $255 r0 *1 13.62,29.475 nfet
+M$255 \$286 A0|DOUT0|Q \$255 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $256 r0 *1 14.1,29.475 nfet
+M$256 VGND \$257 \$286 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $257 r0 *1 14.94,29.475 nfet
+M$257 \$257 B|D|PH_B0|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P AD=0.1092P
++ PS=1.11U PD=1.36U
+* device instance $258 r0 *1 16.57,29.36 nfet
+M$258 VGND \$258 A|X$7 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P PS=1.82U
++ PD=1.045U
+* device instance $259 r0 *1 17.115,29.475 nfet
+M$259 \$288 A|B|D|PH_B5|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P
++ AD=0.0693P PS=1.045U PD=0.75U
+* device instance $260 r0 *1 17.595,29.475 nfet
+M$260 \$258 A1|Y \$288 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $261 r0 *1 18.22,29.475 nfet
+M$261 \$290 A0|DOUT5|Q \$258 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $262 r0 *1 18.7,29.475 nfet
+M$262 VGND \$259 \$290 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $263 r0 *1 19.54,29.475 nfet
+M$263 \$259 A|B|D|PH_B5|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P
++ AD=0.1092P PS=1.11U PD=1.36U
+* device instance $264 r0 *1 20.855,30.365 nfet
+M$264 \$293 B|D|PH_B2|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $265 r0 *1 21.275,30.365 nfet
+M$265 VGND A|X$17 \$293 VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.10025P
++ PS=0.69U PD=0.985U
+* device instance $266 r0 *1 21.76,30.48 nfet
+M$266 A|X$14 \$293 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P
++ PS=0.985U PD=1.82U
+* device instance $267 r0 *1 21.81,29.335 nfet
+M$267 \$289 A|X$14 \$260 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $268 r0 *1 22.23,29.335 nfet
+M$268 \$289 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $269 r0 *1 22.77,29.36 nfet
+M$269 D|X$6 \$260 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $270 r0 *1 23.01,30.365 nfet
+M$270 VGND CLK|X \$295 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $271 r0 *1 23.43,30.365 nfet
+M$271 \$296 \$295 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $272 r0 *1 25.18,30.335 nfet
+M$272 \$299 \$295 \$298 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $273 r0 *1 25.66,30.335 nfet
+M$273 \$304 \$296 \$299 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $274 r0 *1 28.005,30.335 nfet
+M$274 \$301 \$296 \$300 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $275 r0 *1 28.55,30.335 nfet
+M$275 \$306 \$295 \$301 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $276 r0 *1 24.705,30.365 nfet
+M$276 \$298 D|PH_SAMPLE|Y VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $277 r0 *1 26.49,30.365 nfet
+M$277 \$305 \$300 \$304 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $278 r0 *1 26.85,30.365 nfet
+M$278 VGND RESET_B|RST_B \$305 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $279 r0 *1 29.03,30.365 nfet
+M$279 VGND \$302 \$306 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $280 r0 *1 29.775,30.365 nfet
+M$280 \$307 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $281 r0 *1 30.23,30.365 nfet
+M$281 \$302 \$301 \$307 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $282 r0 *1 27.51,30.475 nfet
+M$282 \$300 \$299 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $283 r0 *1 31.01,29.335 nfet
+M$283 \$287 A|X$15 \$262 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $284 r0 *1 31.43,29.335 nfet
+M$284 \$287 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $285 r0 *1 31.97,29.36 nfet
+M$285 D|X$7 \$262 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $286 r0 *1 31.27,30.48 nfet
+M$286 A|B|D|PH_B9|Q|S \$302 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $287 r0 *1 31.47,25.065 nfet
+M$287 \$233 A|X$11 \$215 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $288 r0 *1 31.89,25.065 nfet
+M$288 \$233 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $289 r0 *1 32.43,25.04 nfet
+M$289 D|X$5 \$215 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $290 r0 *1 34.655,29.475 nfet
+M$290 \$271 B|D|PH_B8|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $291 r0 *1 35.075,29.475 nfet
+M$291 \$271 A|X$13 VGND VGND nfet L=0.15U W=0.42U AS=0.10025P AD=0.0567P
++ PS=0.985U PD=0.69U
+* device instance $292 r0 *1 35.56,29.36 nfet
+M$292 A|X$11 \$271 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P
++ PS=0.985U PD=1.82U
+* device instance $293 r0 *1 37.73,29.36 nfet
+M$293 VGND \$265 A|X$13 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P
++ PS=1.82U PD=1.045U
+* device instance $294 r0 *1 38.275,29.475 nfet
+M$294 \$282 B|C|D|PH_B7|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P
++ AD=0.0693P PS=1.045U PD=0.75U
+* device instance $295 r0 *1 38.755,29.475 nfet
+M$295 \$265 A1|Y \$282 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $296 r0 *1 39.38,29.475 nfet
+M$296 \$279 A0|DOUT7|Q \$265 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $297 r0 *1 39.86,29.475 nfet
+M$297 VGND \$266 \$279 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $298 r0 *1 40.7,29.475 nfet
+M$298 \$266 B|C|D|PH_B7|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P
++ AD=0.1092P PS=1.11U PD=1.36U
+* device instance $299 r0 *1 5.07,34.915 nfet
+M$299 VGND CLK|X \$312 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $300 r0 *1 5.49,34.915 nfet
+M$300 \$313 \$312 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $301 r0 *1 6.765,34.915 nfet
+M$301 \$314 D|X$8 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $302 r0 *1 7.24,34.945 nfet
+M$302 \$315 \$312 \$314 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $303 r0 *1 7.72,34.945 nfet
+M$303 \$315 \$313 \$346 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $304 r0 *1 8.55,34.915 nfet
+M$304 \$347 \$317 \$346 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $305 r0 *1 8.91,34.915 nfet
+M$305 \$347 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $306 r0 *1 9.57,34.805 nfet
+M$306 \$317 \$315 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $307 r0 *1 10.065,34.945 nfet
+M$307 \$318 \$313 \$317 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $308 r0 *1 10.61,34.945 nfet
+M$308 \$318 \$312 \$349 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P
++ PS=0.75U PD=0.755U
+* device instance $309 r0 *1 11.09,34.915 nfet
+M$309 VGND \$319 \$349 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $310 r0 *1 11.835,34.915 nfet
+M$310 \$351 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $311 r0 *1 12.29,34.915 nfet
+M$311 \$319 \$318 \$351 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $312 r0 *1 13.33,34.8 nfet
+M$312 A0|DOUT0|Q \$319 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $313 r0 *1 15.37,34.775 nfet
+M$313 \$352 A|X$16 \$320 VGND nfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $314 r0 *1 15.79,34.775 nfet
+M$314 \$352 B|X VGND VGND nfet L=0.15U W=0.42U AS=0.1118P AD=0.0567P PS=1.04U
++ PD=0.69U
+* device instance $315 r0 *1 16.33,34.8 nfet
+M$315 D|X$8 \$320 VGND VGND nfet L=0.15U W=0.65U AS=0.1118P AD=0.182P PS=1.04U
++ PD=1.86U
+* device instance $316 r0 *1 19.475,34.915 nfet
+M$316 \$336 B|D|PH_B0|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $317 r0 *1 19.895,34.915 nfet
+M$317 \$336 A|B|D|PH_B1|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.10025P
++ AD=0.0567P PS=0.985U PD=0.69U
+* device instance $318 r0 *1 20.38,34.8 nfet
+M$318 C|X \$336 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P PS=0.985U
++ PD=1.82U
+* device instance $319 r0 *1 22.09,34.8 nfet
+M$319 VGND \$322 A|X$17 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P
++ PS=1.82U PD=1.045U
+* device instance $320 r0 *1 22.635,34.915 nfet
+M$320 \$354 A|B|D|PH_B1|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P
++ AD=0.0693P PS=1.045U PD=0.75U
+* device instance $321 r0 *1 23.115,34.915 nfet
+M$321 \$322 A1|Y \$354 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $322 r0 *1 23.74,34.915 nfet
+M$322 \$353 A0|DOUT1|Q \$322 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $323 r0 *1 24.22,34.915 nfet
+M$323 VGND \$323 \$353 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $324 r0 *1 25.06,34.915 nfet
+M$324 \$323 A|B|D|PH_B1|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P
++ AD=0.1092P PS=1.11U PD=1.36U
+* device instance $325 r0 *1 30.975,34.915 nfet
+M$325 \$337 A|B|D|PH_B9|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0567P PS=1.36U PD=0.69U
+* device instance $326 r0 *1 31.395,34.915 nfet
+M$326 \$337 A|X$18 VGND VGND nfet L=0.15U W=0.42U AS=0.10025P AD=0.0567P
++ PS=0.985U PD=0.69U
+* device instance $327 r0 *1 31.88,34.8 nfet
+M$327 A|X$15 \$337 VGND VGND nfet L=0.15U W=0.65U AS=0.10025P AD=0.169P
++ PS=0.985U PD=1.82U
+* device instance $328 r0 *1 33.59,34.915 nfet
+M$328 VGND CLK|X \$324 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $329 r0 *1 34.01,34.915 nfet
+M$329 \$325 \$324 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $330 r0 *1 35.285,34.915 nfet
+M$330 \$326 D|X$7 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $331 r0 *1 35.76,34.945 nfet
+M$331 \$327 \$324 \$326 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $332 r0 *1 36.24,34.945 nfet
+M$332 \$327 \$325 \$350 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $333 r0 *1 37.07,34.915 nfet
+M$333 \$348 \$329 \$350 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $334 r0 *1 37.43,34.915 nfet
+M$334 \$348 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $335 r0 *1 38.09,34.805 nfet
+M$335 \$329 \$327 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $336 r0 *1 38.585,34.945 nfet
+M$336 \$330 \$325 \$329 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $337 r0 *1 39.13,34.945 nfet
+M$337 \$330 \$324 \$345 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P
++ PS=0.75U PD=0.755U
+* device instance $338 r0 *1 39.61,34.915 nfet
+M$338 VGND \$331 \$345 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $339 r0 *1 40.355,34.915 nfet
+M$339 \$344 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $340 r0 *1 40.81,34.915 nfet
+M$340 \$331 \$330 \$344 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $341 r0 *1 41.85,34.8 nfet
+M$341 A0|DOUT8|Q \$331 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $342 r0 *1 2.77,35.805 nfet
+M$342 VGND CLK|X \$355 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $343 r0 *1 3.19,35.805 nfet
+M$343 \$356 \$355 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $344 r0 *1 4.94,35.775 nfet
+M$344 \$359 \$355 \$358 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $345 r0 *1 5.42,35.775 nfet
+M$345 \$379 \$356 \$359 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $346 r0 *1 7.765,35.775 nfet
+M$346 \$360 \$356 \$374 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $347 r0 *1 8.31,35.775 nfet
+M$347 \$381 \$355 \$360 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $348 r0 *1 4.465,35.805 nfet
+M$348 \$358 D|X$9 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $349 r0 *1 6.25,35.805 nfet
+M$349 \$380 \$374 \$379 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $350 r0 *1 6.61,35.805 nfet
+M$350 VGND RESET_B|RST_B \$380 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $351 r0 *1 8.79,35.805 nfet
+M$351 VGND \$361 \$381 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $352 r0 *1 9.535,35.805 nfet
+M$352 \$383 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $353 r0 *1 9.99,35.805 nfet
+M$353 \$361 \$360 \$383 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $354 r0 *1 7.27,35.915 nfet
+M$354 \$374 \$359 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $355 r0 *1 11.03,35.92 nfet
+M$355 A0|B|DOUT9|Q \$361 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $356 r0 *1 12.515,35.805 nfet
+M$356 \$385 A|B|D|PH_B9|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P
++ AD=0.0693P PS=1.045U PD=0.75U
+* device instance $357 r0 *1 12.995,35.805 nfet
+M$357 \$362 A|A1|COMP_OUT \$385 VGND nfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.09975P PS=0.75U PD=0.895U
+* device instance $358 r0 *1 13.62,35.805 nfet
+M$358 \$386 A0|B|DOUT9|Q \$362 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $359 r0 *1 14.1,35.805 nfet
+M$359 VGND \$363 \$386 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $360 r0 *1 14.94,35.805 nfet
+M$360 \$363 A|B|D|PH_B9|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P
++ AD=0.1092P PS=1.11U PD=1.36U
+* device instance $361 r0 *1 11.97,35.92 nfet
+M$361 VGND \$362 D|X$9 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P PS=1.82U
++ PD=1.045U
+* device instance $362 r0 *1 17.49,35.92 nfet
+M$362 VGND A|X \$364 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.08775P PS=1.82U
++ PD=0.92U
+* device instance $363 r0 *1 17.91,35.92 nfet
+M$363 CLK|X \$364 VGND VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P
++ PS=0.92U PD=0.92U
+* device instance $364 r0 *1 18.33,35.92 nfet
+M$364 VGND \$364 CLK|X VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P
++ PS=0.92U PD=0.92U
+* device instance $365 r0 *1 18.75,35.92 nfet
+M$365 CLK|X \$364 VGND VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.08775P
++ PS=0.92U PD=0.92U
+* device instance $366 r0 *1 19.17,35.92 nfet
+M$366 VGND \$364 CLK|X VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.169P PS=0.92U
++ PD=1.82U
+* device instance $367 r0 *1 22.55,35.805 nfet
+M$367 VGND CLK|X \$366 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $368 r0 *1 22.97,35.805 nfet
+M$368 \$367 \$366 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $369 r0 *1 24.72,35.775 nfet
+M$369 \$369 \$366 \$368 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $370 r0 *1 25.2,35.775 nfet
+M$370 \$390 \$367 \$369 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $371 r0 *1 27.545,35.775 nfet
+M$371 \$370 \$367 \$378 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $372 r0 *1 28.09,35.775 nfet
+M$372 \$388 \$366 \$370 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $373 r0 *1 24.245,35.805 nfet
+M$373 \$368 D|X$6 VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P PS=1.89U
++ PD=0.745U
+* device instance $374 r0 *1 26.03,35.805 nfet
+M$374 \$389 \$378 \$390 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $375 r0 *1 26.39,35.805 nfet
+M$375 VGND RESET_B|RST_B \$389 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $376 r0 *1 28.57,35.805 nfet
+M$376 VGND \$371 \$388 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $377 r0 *1 29.315,35.805 nfet
+M$377 \$387 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $378 r0 *1 29.77,35.805 nfet
+M$378 \$371 \$370 \$387 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $379 r0 *1 27.05,35.915 nfet
+M$379 \$378 \$369 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $380 r0 *1 30.81,35.92 nfet
+M$380 A0|DOUT1|Q \$371 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $381 r0 *1 35.975,35.805 nfet
+M$381 \$384 B|D|PH_B8|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.11285P AD=0.0693P
++ PS=1.045U PD=0.75U
+* device instance $382 r0 *1 36.455,35.805 nfet
+M$382 \$372 A1|Y \$384 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.09975P
++ PS=0.75U PD=0.895U
+* device instance $383 r0 *1 37.08,35.805 nfet
+M$383 \$382 A0|DOUT8|Q \$372 VGND nfet L=0.15U W=0.42U AS=0.09975P AD=0.0693P
++ PS=0.895U PD=0.75U
+* device instance $384 r0 *1 37.56,35.805 nfet
+M$384 VGND \$373 \$382 VGND nfet L=0.15U W=0.42U AS=0.0693P AD=0.1449P PS=0.75U
++ PD=1.11U
+* device instance $385 r0 *1 38.4,35.805 nfet
+M$385 \$373 B|D|PH_B8|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1449P AD=0.1092P
++ PS=1.11U PD=1.36U
+* device instance $386 r0 *1 35.43,35.92 nfet
+M$386 VGND \$372 A|X$18 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.11285P
++ PS=1.82U PD=1.045U
+* device instance $387 r0 *1 5.07,41.245 nfet
+M$387 VGND CLK|X \$432 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $388 r0 *1 5.49,41.245 nfet
+M$388 \$433 \$432 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $389 r0 *1 7.24,41.215 nfet
+M$389 \$435 \$432 \$434 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $390 r0 *1 7.72,41.215 nfet
+M$390 \$447 \$433 \$435 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $391 r0 *1 10.065,41.215 nfet
+M$391 \$437 \$433 \$436 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $392 r0 *1 10.61,41.215 nfet
+M$392 \$449 \$432 \$437 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $393 r0 *1 6.765,41.245 nfet
+M$393 \$434 B|D|PH_B0|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $394 r0 *1 8.55,41.245 nfet
+M$394 \$448 \$436 \$447 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $395 r0 *1 8.91,41.245 nfet
+M$395 VGND RESET_B|RST_B \$448 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $396 r0 *1 11.09,41.245 nfet
+M$396 VGND \$438 \$449 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $397 r0 *1 11.835,41.245 nfet
+M$397 \$450 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $398 r0 *1 12.29,41.245 nfet
+M$398 \$438 \$437 \$450 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $399 r0 *1 9.57,41.355 nfet
+M$399 \$436 \$435 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $400 r0 *1 11.61,40.24 nfet
+M$400 \$431 A0|B|DOUT9|Q \$402 VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.06825P
++ PS=1.82U PD=0.86U
+* device instance $401 r0 *1 11.97,40.24 nfet
+M$401 VGND A|A1|COMP_OUT \$431 VGND nfet L=0.15U W=0.65U AS=0.06825P
++ AD=0.08775P PS=0.86U PD=0.92U
+* device instance $402 r0 *1 12.39,40.24 nfet
+M$402 \$426 A|A1|COMP_OUT VGND VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.169P
++ PS=0.92U PD=1.82U
+* device instance $403 r0 *1 13.33,40.24 nfet
+M$403 \$426 A0|B|DOUT9|Q VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.08775P
++ PS=1.82U PD=0.92U
+* device instance $404 r0 *1 13.75,40.24 nfet
+M$404 A1|Y \$402 \$426 VGND nfet L=0.15U W=0.65U AS=0.08775P AD=0.195P PS=0.92U
++ PD=1.9U
+* device instance $405 r0 *1 13.33,41.36 nfet
+M$405 C|PH_EOC|Q \$438 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $406 r0 *1 16.58,40.325 nfet
+M$406 VGND C|PH_EOC|Q \$404 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P
++ PS=1.36U PD=0.69U
+* device instance $407 r0 *1 17,40.325 nfet
+M$407 \$404 B|D|PH_B0|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.0567P
++ PS=0.69U PD=0.69U
+* device instance $408 r0 *1 17.42,40.325 nfet
+M$408 \$404 A|B|D|PH_B1|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.101875P
++ AD=0.0567P PS=0.99U PD=0.69U
+* device instance $409 r0 *1 17.91,40.24 nfet
+M$409 C|X$1 \$404 VGND VGND nfet L=0.15U W=0.65U AS=0.101875P AD=0.182P
++ PS=0.99U PD=1.86U
+* device instance $410 r0 *1 19.8,40.325 nfet
+M$410 VGND C|X$1 \$406 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $411 r0 *1 20.22,40.325 nfet
+M$411 \$406 B|X$1 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.0567P PS=0.69U
++ PD=0.69U
+* device instance $412 r0 *1 20.64,40.325 nfet
+M$412 \$406 A|X$19 VGND VGND nfet L=0.15U W=0.42U AS=0.101875P AD=0.0567P
++ PS=0.99U PD=0.69U
+* device instance $413 r0 *1 21.13,40.24 nfet
+M$413 A|BUSY|X \$406 VGND VGND nfet L=0.15U W=0.65U AS=0.101875P AD=0.182P
++ PS=0.99U PD=1.86U
+* device instance $414 r0 *1 20.26,35.835 nfet
+M$414 VGND C|X \$365 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $415 r0 *1 20.68,35.835 nfet
+M$415 \$365 B|X$1 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.0567P PS=0.69U
++ PD=0.69U
+* device instance $416 r0 *1 21.1,35.835 nfet
+M$416 \$365 A|X$19 VGND VGND nfet L=0.15U W=0.42U AS=0.101875P AD=0.0567P
++ PS=0.99U PD=0.69U
+* device instance $417 r0 *1 21.59,35.92 nfet
+M$417 B|X \$365 VGND VGND nfet L=0.15U W=0.65U AS=0.101875P AD=0.182P PS=0.99U
++ PD=1.86U
+* device instance $418 r0 *1 23.215,40.24 nfet
+M$418 D|PH_SAMPLE|Y A|BUSY|X VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P
++ PS=1.82U PD=1.82U
+* device instance $419 r0 *1 30.83,40.325 nfet
+M$419 \$408 B|D|PH_B6|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0693P
++ PS=1.36U PD=0.75U
+* device instance $420 r0 *1 31.31,40.325 nfet
+M$420 VGND B|C|D|PH_B7|Q|S \$408 VGND nfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.0567P PS=0.75U PD=0.69U
+* device instance $421 r0 *1 31.73,40.325 nfet
+M$421 \$408 B|D|PH_B8|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.0567P
++ PS=0.69U PD=0.69U
+* device instance $422 r0 *1 32.15,40.325 nfet
+M$422 \$408 A|B|D|PH_B9|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.101875P
++ AD=0.0567P PS=0.99U PD=0.69U
+* device instance $423 r0 *1 32.64,40.24 nfet
+M$423 A|X$19 \$408 VGND VGND nfet L=0.15U W=0.65U AS=0.101875P AD=0.1755P
++ PS=0.99U PD=1.84U
+* device instance $424 r0 *1 31.29,41.245 nfet
+M$424 VGND CLK|X \$440 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $425 r0 *1 31.71,41.245 nfet
+M$425 \$441 \$440 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $426 r0 *1 33.46,41.215 nfet
+M$426 \$443 \$440 \$442 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $427 r0 *1 33.94,41.215 nfet
+M$427 \$452 \$441 \$443 VGND nfet L=0.15U W=0.36U AS=0.0594P AD=0.1401P
++ PS=0.69U PD=1.1U
+* device instance $428 r0 *1 36.285,41.215 nfet
+M$428 \$445 \$441 \$444 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $429 r0 *1 36.83,41.215 nfet
+M$429 \$454 \$440 \$445 VGND nfet L=0.15U W=0.36U AS=0.0711P AD=0.0669P
++ PS=0.755U PD=0.75U
+* device instance $430 r0 *1 32.985,41.245 nfet
+M$430 \$442 A|B|D|PH_B9|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $431 r0 *1 34.77,41.245 nfet
+M$431 \$453 \$444 \$452 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $432 r0 *1 35.13,41.245 nfet
+M$432 VGND RESET_B|RST_B \$453 VGND nfet L=0.15U W=0.42U AS=0.0441P AD=0.1346P
++ PS=0.63U PD=1.15U
+* device instance $433 r0 *1 37.31,41.245 nfet
+M$433 VGND \$446 \$454 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $434 r0 *1 38.055,41.245 nfet
+M$434 \$451 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $435 r0 *1 38.51,41.245 nfet
+M$435 \$446 \$445 \$451 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $436 r0 *1 35.79,41.355 nfet
+M$436 \$444 \$443 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $437 r0 *1 35.43,40.355 nfet
+M$437 VGND CLK|X \$409 VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0567P PS=1.36U
++ PD=0.69U
+* device instance $438 r0 *1 35.85,40.355 nfet
+M$438 \$410 \$409 VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.1092P PS=0.69U
++ PD=1.36U
+* device instance $439 r0 *1 37.125,40.355 nfet
+M$439 \$411 B|D|PH_B8|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.2205P AD=0.066P
++ PS=1.89U PD=0.745U
+* device instance $440 r0 *1 37.6,40.385 nfet
+M$440 \$412 \$409 \$411 VGND nfet L=0.15U W=0.36U AS=0.066P AD=0.0594P
++ PS=0.745U PD=0.69U
+* device instance $441 r0 *1 38.08,40.385 nfet
+M$441 \$412 \$410 \$430 VGND nfet L=0.15U W=0.36U AS=0.1401P AD=0.0594P PS=1.1U
++ PD=0.69U
+* device instance $442 r0 *1 38.91,40.355 nfet
+M$442 \$429 \$414 \$430 VGND nfet L=0.15U W=0.42U AS=0.1401P AD=0.0441P PS=1.1U
++ PD=0.63U
+* device instance $443 r0 *1 39.27,40.355 nfet
+M$443 \$429 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.1346P AD=0.0441P
++ PS=1.15U PD=0.63U
+* device instance $444 r0 *1 39.93,40.245 nfet
+M$444 \$414 \$412 VGND VGND nfet L=0.15U W=0.64U AS=0.1346P AD=0.0999P PS=1.15U
++ PD=0.985U
+* device instance $445 r0 *1 40.425,40.385 nfet
+M$445 \$415 \$410 \$414 VGND nfet L=0.15U W=0.36U AS=0.0999P AD=0.0711P
++ PS=0.985U PD=0.755U
+* device instance $446 r0 *1 40.97,40.385 nfet
+M$446 \$415 \$409 \$428 VGND nfet L=0.15U W=0.36U AS=0.0669P AD=0.0711P
++ PS=0.75U PD=0.755U
+* device instance $447 r0 *1 41.45,40.355 nfet
+M$447 VGND \$416 \$428 VGND nfet L=0.15U W=0.42U AS=0.0669P AD=0.12495P
++ PS=0.75U PD=1.015U
+* device instance $448 r0 *1 42.195,40.355 nfet
+M$448 \$427 RESET_B|RST_B VGND VGND nfet L=0.15U W=0.42U AS=0.12495P
++ AD=0.06405P PS=1.015U PD=0.725U
+* device instance $449 r0 *1 42.65,40.355 nfet
+M$449 \$416 \$415 \$427 VGND nfet L=0.15U W=0.42U AS=0.06405P AD=0.1092P
++ PS=0.725U PD=1.36U
+* device instance $450 r0 *1 39.55,41.36 nfet
+M$450 B|D|PH_B8|Q|S \$446 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $451 r0 *1 43.69,40.24 nfet
+M$451 B|C|D|PH_B7|Q|S \$416 VGND VGND nfet L=0.15U W=0.65U AS=0.2087P AD=0.169P
++ PS=2.02U PD=1.82U
+* device instance $452 r0 *1 17.49,41.275 nfet
+M$452 \$439 B|D|PH_B2|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.1092P AD=0.0693P
++ PS=1.36U PD=0.75U
+* device instance $453 r0 *1 17.97,41.275 nfet
+M$453 VGND B|C|D|PH_B3|Q|S \$439 VGND nfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.0567P PS=0.75U PD=0.69U
+* device instance $454 r0 *1 18.39,41.275 nfet
+M$454 \$439 B|D|PH_B4|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.0567P AD=0.0567P
++ PS=0.69U PD=0.69U
+* device instance $455 r0 *1 18.81,41.275 nfet
+M$455 \$439 A|B|D|PH_B5|Q|S VGND VGND nfet L=0.15U W=0.42U AS=0.101875P
++ AD=0.0567P PS=0.99U PD=0.69U
+* device instance $456 r0 *1 19.3,41.36 nfet
+M$456 B|X$1 \$439 VGND VGND nfet L=0.15U W=0.65U AS=0.101875P AD=0.1755P
++ PS=0.99U PD=1.84U
+* device instance $457 r0 *1 17.405,5.885 pfet
+M$457 \$5 D|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $458 r0 *1 17.865,5.885 pfet
+M$458 \$6 \$3 \$5 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P PS=0.73U
++ PD=0.765U
+* device instance $459 r0 *1 18.36,5.885 pfet
+M$459 \$7 \$2 \$6 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $460 r0 *1 19.06,5.885 pfet
+M$460 VPB|VPWR \$8 \$7 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $461 r0 *1 19.545,5.885 pfet
+M$461 \$7 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $462 r0 *1 21.025,5.885 pfet
+M$462 \$9 \$2 \$8 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $463 r0 *1 21.455,5.885 pfet
+M$463 \$12 \$3 \$9 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P PS=0.7U
++ PD=0.69U
+* device instance $464 r0 *1 21.875,5.885 pfet
+M$464 VPB|VPWR \$10 \$12 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $465 r0 *1 22.415,5.885 pfet
+M$465 \$10 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $466 r0 *1 22.835,5.885 pfet
+M$466 VPB|VPWR \$9 \$10 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $467 r0 *1 20.53,6.095 pfet
+M$467 \$8 \$6 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $468 r0 *1 23.91,6.175 pfet
+M$468 A0|DOUT5|Q \$10 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $469 r0 *1 14.645,11.325 pfet
+M$469 \$28 D|X$3 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $470 r0 *1 15.105,11.325 pfet
+M$470 \$29 \$27 \$28 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $471 r0 *1 15.6,11.325 pfet
+M$471 \$30 \$26 \$29 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $472 r0 *1 16.3,11.325 pfet
+M$472 VPB|VPWR \$31 \$30 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $473 r0 *1 16.785,11.325 pfet
+M$473 \$30 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $474 r0 *1 15.65,6.025 pfet
+M$474 VPB|VPWR A|CLK|X \$2 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $475 r0 *1 16.07,6.025 pfet
+M$475 \$3 \$2 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $476 r0 *1 18.265,11.325 pfet
+M$476 \$32 \$26 \$31 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $477 r0 *1 18.695,11.325 pfet
+M$477 \$45 \$27 \$32 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $478 r0 *1 19.115,11.325 pfet
+M$478 VPB|VPWR \$33 \$45 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $479 r0 *1 19.655,11.325 pfet
+M$479 \$33 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $480 r0 *1 20.075,11.325 pfet
+M$480 VPB|VPWR \$32 \$33 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $481 r0 *1 17.77,11.535 pfet
+M$481 \$31 \$29 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $482 r0 *1 18.41,10.145 pfet
+M$482 VPB|VPWR A|X \$19 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.135P PS=2.52U
++ PD=1.27U
+* device instance $483 r0 *1 18.83,10.145 pfet
+M$483 A|CLK|X \$19 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $484 r0 *1 19.25,10.145 pfet
+M$484 VPB|VPWR \$19 A|CLK|X VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $485 r0 *1 19.67,10.145 pfet
+M$485 A|CLK|X \$19 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $486 r0 *1 20.09,10.145 pfet
+M$486 VPB|VPWR \$19 A|CLK|X VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.26P
++ PS=1.27U PD=2.52U
+* device instance $487 r0 *1 21.15,11.615 pfet
+M$487 A0|DOUT3|Q \$33 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $488 r0 *1 31.01,10.225 pfet
+M$488 \$21 A|X$1 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $489 r0 *1 31.43,10.225 pfet
+M$489 \$21 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $490 r0 *1 31.97,10.145 pfet
+M$490 D|X$1 \$21 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $491 r0 *1 33.045,11.325 pfet
+M$491 \$39 D|X$1 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $492 r0 *1 33.505,11.325 pfet
+M$492 \$40 \$38 \$39 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $493 r0 *1 34,11.325 pfet
+M$493 \$41 \$37 \$40 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $494 r0 *1 34.7,11.325 pfet
+M$494 VPB|VPWR \$42 \$41 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $495 r0 *1 35.185,11.325 pfet
+M$495 \$41 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $496 r0 *1 36.665,11.325 pfet
+M$496 \$43 \$37 \$42 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $497 r0 *1 37.095,11.325 pfet
+M$497 \$46 \$38 \$43 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $498 r0 *1 37.515,11.325 pfet
+M$498 VPB|VPWR \$44 \$46 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $499 r0 *1 38.055,11.325 pfet
+M$499 \$44 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $500 r0 *1 38.475,11.325 pfet
+M$500 VPB|VPWR \$43 \$44 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $501 r0 *1 36.17,11.535 pfet
+M$501 \$42 \$40 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $502 r0 *1 39.55,11.615 pfet
+M$502 A0|DOUT6|Q \$44 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $503 r0 *1 2.77,15.735 pfet
+M$503 VPB|VPWR A|CLK|X \$64 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $504 r0 *1 3.19,15.735 pfet
+M$504 \$65 \$64 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $505 r0 *1 7.65,15.665 pfet
+M$505 \$68 \$67 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $506 r0 *1 8.145,15.875 pfet
+M$506 \$69 \$64 \$68 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $507 r0 *1 8.575,15.875 pfet
+M$507 \$107 \$65 \$69 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $508 r0 *1 8.995,15.875 pfet
+M$508 VPB|VPWR \$70 \$107 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $509 r0 *1 9.535,15.875 pfet
+M$509 \$70 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $510 r0 *1 9.955,15.875 pfet
+M$510 VPB|VPWR \$69 \$70 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $511 r0 *1 8.955,11.905 pfet
+M$511 \$52 B|D|PH_B4|Q|S \$24 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $512 r0 *1 9.315,11.905 pfet
+M$512 \$52 A|X$4 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14575P AD=0.0441P
++ PS=1.335U PD=0.63U
+* device instance $513 r0 *1 9.8,11.615 pfet
+M$513 A|X$2 \$24 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $514 r0 *1 11.03,15.585 pfet
+M$514 B|C|D|PH_B3|Q|S \$70 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $515 r0 *1 12.89,11.465 pfet
+M$515 VPB|VPWR A|CLK|X \$26 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $516 r0 *1 13.31,11.465 pfet
+M$516 \$27 \$26 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $517 r0 *1 13.99,15.665 pfet
+M$517 \$71 A|X$2 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $518 r0 *1 14.41,15.665 pfet
+M$518 \$71 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $519 r0 *1 14.95,15.585 pfet
+M$519 D|X$3 \$71 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $520 r0 *1 17.21,15.665 pfet
+M$520 \$72 A|X$6 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $521 r0 *1 17.63,15.665 pfet
+M$521 \$72 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $522 r0 *1 18.17,15.585 pfet
+M$522 D|X \$72 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $523 r0 *1 22.27,11.535 pfet
+M$523 \$35 A|X$3 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $524 r0 *1 22.69,11.535 pfet
+M$524 \$35 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $525 r0 *1 23.23,11.615 pfet
+M$525 D|X$2 \$35 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $526 r0 *1 23.01,15.735 pfet
+M$526 VPB|VPWR A|CLK|X \$73 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $527 r0 *1 23.43,15.735 pfet
+M$527 \$74 \$73 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $528 r0 *1 27.89,15.665 pfet
+M$528 \$77 \$76 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $529 r0 *1 28.385,15.875 pfet
+M$529 \$78 \$73 \$77 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $530 r0 *1 28.815,15.875 pfet
+M$530 \$108 \$74 \$78 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $531 r0 *1 29.235,15.875 pfet
+M$531 VPB|VPWR \$79 \$108 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $532 r0 *1 29.775,15.875 pfet
+M$532 \$79 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $533 r0 *1 30.195,15.875 pfet
+M$533 VPB|VPWR \$78 \$79 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $534 r0 *1 31.27,15.585 pfet
+M$534 A0|DOUT4|Q \$79 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $535 r0 *1 31.29,11.465 pfet
+M$535 VPB|VPWR A|CLK|X \$37 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $536 r0 *1 31.71,11.465 pfet
+M$536 \$38 \$37 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $537 r0 *1 34.255,15.295 pfet
+M$537 \$102 B|C|D|PH_B7|Q|S \$81 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $538 r0 *1 34.615,15.295 pfet
+M$538 VPB|VPWR A|X$5 \$102 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.14575P
++ PS=0.63U PD=1.335U
+* device instance $539 r0 *1 35.1,15.585 pfet
+M$539 A|X$1 \$81 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $540 r0 *1 37.355,15.68 pfet
+M$540 \$106 B|D|PH_B6|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $541 r0 *1 37.87,15.68 pfet
+M$541 \$83 A0|DOUT6|Q \$106 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $542 r0 *1 38.94,15.68 pfet
+M$542 \$105 A1|Y \$83 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $543 r0 *1 39.3,15.68 pfet
+M$543 VPB|VPWR \$84 \$105 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $544 r0 *1 39.78,15.68 pfet
+M$544 \$84 B|D|PH_B6|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $545 r0 *1 36.81,15.585 pfet
+M$545 VPB|VPWR \$83 A|X$5 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $546 r0 *1 4.525,15.875 pfet
+M$546 \$66 B|D|PH_B4|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $547 r0 *1 4.985,15.875 pfet
+M$547 \$67 \$65 \$66 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $548 r0 *1 5.48,15.875 pfet
+M$548 \$103 \$64 \$67 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $549 r0 *1 6.18,15.875 pfet
+M$549 VPB|VPWR \$68 \$103 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $550 r0 *1 6.665,15.875 pfet
+M$550 \$103 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $551 r0 *1 24.765,15.875 pfet
+M$551 \$75 D|X$2 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $552 r0 *1 25.225,15.875 pfet
+M$552 \$76 \$74 \$75 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $553 r0 *1 25.72,15.875 pfet
+M$553 \$104 \$73 \$76 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $554 r0 *1 26.42,15.875 pfet
+M$554 VPB|VPWR \$77 \$104 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $555 r0 *1 26.905,15.875 pfet
+M$555 \$104 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $556 r0 *1 7.65,21.105 pfet
+M$556 \$168 \$136 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $557 r0 *1 8.145,21.315 pfet
+M$557 \$137 \$133 \$168 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $558 r0 *1 8.575,21.315 pfet
+M$558 \$173 \$134 \$137 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $559 r0 *1 8.995,21.315 pfet
+M$559 VPB|VPWR \$138 \$173 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $560 r0 *1 9.535,21.315 pfet
+M$560 \$138 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $561 r0 *1 9.955,21.315 pfet
+M$561 VPB|VPWR \$137 \$138 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $562 r0 *1 9.755,16.96 pfet
+M$562 \$123 B|C|D|PH_B3|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $563 r0 *1 10.27,16.96 pfet
+M$563 \$109 A0|DOUT3|Q \$123 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $564 r0 *1 11.34,16.96 pfet
+M$564 \$124 A1|Y \$109 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $565 r0 *1 11.7,16.96 pfet
+M$565 VPB|VPWR \$111 \$124 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $566 r0 *1 12.18,16.96 pfet
+M$566 \$111 B|C|D|PH_B3|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $567 r0 *1 9.21,17.055 pfet
+M$567 VPB|VPWR \$109 A|X$4 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $568 r0 *1 11.03,21.025 pfet
+M$568 B|D|PH_B2|Q|S \$138 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $569 r0 *1 14.935,17.345 pfet
+M$569 \$125 B|D|PH_B6|Q|S \$112 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $570 r0 *1 15.295,17.345 pfet
+M$570 \$125 A|X$7 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14575P AD=0.0441P
++ PS=1.335U PD=0.63U
+* device instance $571 r0 *1 15.78,17.055 pfet
+M$571 A|X$6 \$112 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $572 r0 *1 18.435,17.055 pfet
+M$572 VPB|VPWR A|CLK|X Y VPB|VPWR pfet L=0.15U W=1U AS=0.265P AD=0.14P PS=2.53U
++ PD=1.28U
+* device instance $573 r0 *1 18.865,17.055 pfet
+M$573 Y A|CLK|X VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14P AD=0.14P PS=1.28U
++ PD=1.28U
+* device instance $574 r0 *1 19.295,17.055 pfet
+M$574 VPB|VPWR A|CLK|X Y VPB|VPWR pfet L=0.15U W=1U AS=0.14P AD=0.265P PS=1.28U
++ PD=2.53U
+* device instance $575 r0 *1 19.33,21.025 pfet
+M$575 VPB|VPWR A|CLK \$140 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.135P
++ PS=2.52U PD=1.27U
+* device instance $576 r0 *1 19.75,21.025 pfet
+M$576 A|X \$140 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $577 r0 *1 20.17,21.025 pfet
+M$577 VPB|VPWR \$140 A|X VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $578 r0 *1 20.59,21.025 pfet
+M$578 A|X \$140 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $579 r0 *1 21.01,21.025 pfet
+M$579 VPB|VPWR \$140 A|X VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.26P PS=1.27U
++ PD=2.52U
+* device instance $580 r0 *1 23.555,21.12 pfet
+M$580 \$176 B|D|PH_B4|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $581 r0 *1 24.07,21.12 pfet
+M$581 \$142 A0|DOUT4|Q \$176 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $582 r0 *1 25.14,21.12 pfet
+M$582 \$175 A1|Y \$142 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $583 r0 *1 25.5,21.12 pfet
+M$583 VPB|VPWR \$143 \$175 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $584 r0 *1 25.98,21.12 pfet
+M$584 \$143 B|D|PH_B4|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $585 r0 *1 23.01,21.025 pfet
+M$585 VPB|VPWR \$142 A|X$8 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $586 r0 *1 28.275,20.735 pfet
+M$586 \$174 B|C|D|PH_B3|Q|S \$144 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $587 r0 *1 28.635,20.735 pfet
+M$587 VPB|VPWR A|X$9 \$174 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.14575P
++ PS=0.63U PD=1.335U
+* device instance $588 r0 *1 29.12,21.025 pfet
+M$588 A|X$10 \$144 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $589 r0 *1 35.43,16.905 pfet
+M$589 VPB|VPWR A|CLK|X \$115 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P
++ AD=0.0864P PS=1.8U PD=0.91U
+* device instance $590 r0 *1 35.85,16.905 pfet
+M$590 \$116 \$115 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $591 r0 *1 37.185,16.765 pfet
+M$591 \$117 B|C|D|PH_B7|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $592 r0 *1 37.645,16.765 pfet
+M$592 \$118 \$116 \$117 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $593 r0 *1 38.14,16.765 pfet
+M$593 \$119 \$115 \$118 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $594 r0 *1 38.84,16.765 pfet
+M$594 VPB|VPWR \$120 \$119 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $595 r0 *1 39.325,16.765 pfet
+M$595 \$119 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $596 r0 *1 38.01,21.105 pfet
+M$596 \$169 \$152 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $597 r0 *1 38.505,21.315 pfet
+M$597 \$153 \$149 \$169 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $598 r0 *1 38.935,21.315 pfet
+M$598 \$172 \$150 \$153 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $599 r0 *1 39.355,21.315 pfet
+M$599 VPB|VPWR \$154 \$172 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $600 r0 *1 39.895,21.315 pfet
+M$600 \$154 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $601 r0 *1 40.315,21.315 pfet
+M$601 VPB|VPWR \$153 \$154 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $602 r0 *1 40.805,16.765 pfet
+M$602 \$121 \$115 \$120 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $603 r0 *1 41.235,16.765 pfet
+M$603 \$126 \$116 \$121 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $604 r0 *1 41.655,16.765 pfet
+M$604 VPB|VPWR \$122 \$126 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $605 r0 *1 42.195,16.765 pfet
+M$605 \$122 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $606 r0 *1 42.615,16.765 pfet
+M$606 VPB|VPWR \$121 \$122 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $607 r0 *1 40.31,16.975 pfet
+M$607 \$120 \$118 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $608 r0 *1 41.39,21.025 pfet
+M$608 A0|DOUT2|Q \$154 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $609 r0 *1 43.69,17.055 pfet
+M$609 B|D|PH_B6|Q|S \$122 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $610 r0 *1 2.77,21.175 pfet
+M$610 VPB|VPWR A|CLK|X \$133 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P
++ AD=0.0864P PS=1.8U PD=0.91U
+* device instance $611 r0 *1 3.19,21.175 pfet
+M$611 \$134 \$133 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $612 r0 *1 4.525,21.315 pfet
+M$612 \$135 B|C|D|PH_B3|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $613 r0 *1 4.985,21.315 pfet
+M$613 \$136 \$134 \$135 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $614 r0 *1 5.48,21.315 pfet
+M$614 \$170 \$133 \$136 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $615 r0 *1 6.18,21.315 pfet
+M$615 VPB|VPWR \$168 \$170 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $616 r0 *1 6.665,21.315 pfet
+M$616 \$170 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $617 r0 *1 30.55,21.105 pfet
+M$617 \$147 A|X$10 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $618 r0 *1 30.97,21.105 pfet
+M$618 \$147 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $619 r0 *1 31.51,21.025 pfet
+M$619 D|X$4 \$147 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $620 r0 *1 33.13,21.175 pfet
+M$620 VPB|VPWR A|CLK|X \$149 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P
++ AD=0.0864P PS=1.8U PD=0.91U
+* device instance $621 r0 *1 33.55,21.175 pfet
+M$621 \$150 \$149 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $622 r0 *1 34.885,21.315 pfet
+M$622 \$151 D|X$4 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $623 r0 *1 35.345,21.315 pfet
+M$623 \$152 \$150 \$151 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $624 r0 *1 35.84,21.315 pfet
+M$624 \$171 \$149 \$152 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $625 r0 *1 36.54,21.315 pfet
+M$625 VPB|VPWR \$169 \$171 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $626 r0 *1 37.025,21.315 pfet
+M$626 \$171 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $627 r0 *1 2.77,26.615 pfet
+M$627 VPB|VPWR CLK|X \$208 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $628 r0 *1 3.19,26.615 pfet
+M$628 \$209 \$208 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $629 r0 *1 4.525,26.755 pfet
+M$629 \$193 B|D|PH_B2|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $630 r0 *1 4.985,26.755 pfet
+M$630 \$194 \$209 \$193 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $631 r0 *1 5.48,26.755 pfet
+M$631 \$237 \$208 \$194 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $632 r0 *1 6.18,26.755 pfet
+M$632 VPB|VPWR \$234 \$237 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $633 r0 *1 6.665,26.755 pfet
+M$633 \$237 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $634 r0 *1 7.65,26.545 pfet
+M$634 \$234 \$194 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $635 r0 *1 8.145,26.755 pfet
+M$635 \$195 \$208 \$234 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $636 r0 *1 8.575,26.755 pfet
+M$636 \$243 \$209 \$195 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $637 r0 *1 8.995,26.755 pfet
+M$637 VPB|VPWR \$196 \$243 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $638 r0 *1 9.535,26.755 pfet
+M$638 \$196 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $639 r0 *1 9.955,26.755 pfet
+M$639 VPB|VPWR \$195 \$196 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $640 r0 *1 10.13,22.345 pfet
+M$640 VPB|VPWR A|CLK|X \$177 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P
++ AD=0.0864P PS=1.8U PD=0.91U
+* device instance $641 r0 *1 10.55,22.345 pfet
+M$641 \$178 \$177 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $642 r0 *1 11.03,26.465 pfet
+M$642 A|B|D|PH_B1|Q|S \$196 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $643 r0 *1 11.885,22.205 pfet
+M$643 \$179 B|D|PH_B6|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $644 r0 *1 12.345,22.205 pfet
+M$644 \$180 \$178 \$179 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $645 r0 *1 12.84,22.205 pfet
+M$645 \$181 \$177 \$180 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $646 r0 *1 13.54,22.205 pfet
+M$646 VPB|VPWR \$182 \$181 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $647 r0 *1 14.025,22.205 pfet
+M$647 \$181 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $648 r0 *1 15.505,22.205 pfet
+M$648 \$183 \$177 \$182 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $649 r0 *1 15.935,22.205 pfet
+M$649 \$187 \$178 \$183 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $650 r0 *1 16.355,22.205 pfet
+M$650 VPB|VPWR \$184 \$187 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $651 r0 *1 16.895,22.205 pfet
+M$651 \$184 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $652 r0 *1 17.315,22.205 pfet
+M$652 VPB|VPWR \$183 \$184 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $653 r0 *1 15.01,22.415 pfet
+M$653 \$182 \$180 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $654 r0 *1 17.49,26.615 pfet
+M$654 VPB|VPWR CLK|X \$212 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $655 r0 *1 17.91,26.615 pfet
+M$655 \$213 \$212 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $656 r0 *1 18.39,22.495 pfet
+M$656 A|B|D|PH_B5|Q|S \$184 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $657 r0 *1 19.245,26.755 pfet
+M$657 \$197 A|B|D|PH_B5|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $658 r0 *1 19.705,26.755 pfet
+M$658 \$198 \$213 \$197 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $659 r0 *1 20.2,26.755 pfet
+M$659 \$238 \$212 \$198 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $660 r0 *1 20.9,26.755 pfet
+M$660 VPB|VPWR \$235 \$238 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $661 r0 *1 21.385,26.755 pfet
+M$661 \$238 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $662 r0 *1 19.995,22.785 pfet
+M$662 \$188 A|B|D|PH_B5|Q|S \$186 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $663 r0 *1 20.355,22.785 pfet
+M$663 \$188 A|X$8 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14575P AD=0.0441P
++ PS=1.335U PD=0.63U
+* device instance $664 r0 *1 20.84,22.495 pfet
+M$664 A|X$3 \$186 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $665 r0 *1 22.37,26.545 pfet
+M$665 \$235 \$198 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $666 r0 *1 22.865,26.755 pfet
+M$666 \$199 \$212 \$235 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $667 r0 *1 23.295,26.755 pfet
+M$667 \$244 \$213 \$199 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $668 r0 *1 23.715,26.755 pfet
+M$668 VPB|VPWR \$200 \$244 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $669 r0 *1 24.255,26.755 pfet
+M$669 \$200 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $670 r0 *1 24.675,26.755 pfet
+M$670 VPB|VPWR \$199 \$200 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $671 r0 *1 25.75,26.465 pfet
+M$671 B|D|PH_B4|Q|S \$200 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $672 r0 *1 27.695,26.56 pfet
+M$672 \$241 B|D|PH_B2|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $673 r0 *1 28.21,26.56 pfet
+M$673 \$201 A0|DOUT2|Q \$241 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $674 r0 *1 29.28,26.56 pfet
+M$674 \$240 A1|Y \$201 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $675 r0 *1 29.64,26.56 pfet
+M$675 VPB|VPWR \$202 \$240 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $676 r0 *1 30.12,26.56 pfet
+M$676 \$202 B|D|PH_B2|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $677 r0 *1 27.15,26.465 pfet
+M$677 VPB|VPWR \$201 A|X$9 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $678 r0 *1 31.47,26.545 pfet
+M$678 \$215 A|X$11 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $679 r0 *1 31.89,26.545 pfet
+M$679 \$215 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $680 r0 *1 32.43,26.465 pfet
+M$680 D|X$5 \$215 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $681 r0 *1 34.05,26.615 pfet
+M$681 VPB|VPWR CLK|X \$216 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $682 r0 *1 34.47,26.615 pfet
+M$682 \$217 \$216 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $683 r0 *1 35.805,26.755 pfet
+M$683 \$204 D|X$5 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $684 r0 *1 36.265,26.755 pfet
+M$684 \$205 \$217 \$204 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $685 r0 *1 36.76,26.755 pfet
+M$685 \$239 \$216 \$205 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $686 r0 *1 37.46,26.755 pfet
+M$686 VPB|VPWR \$236 \$239 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $687 r0 *1 37.945,26.755 pfet
+M$687 \$239 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $688 r0 *1 38.93,26.545 pfet
+M$688 \$236 \$205 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $689 r0 *1 39.425,26.755 pfet
+M$689 \$206 \$216 \$236 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $690 r0 *1 39.855,26.755 pfet
+M$690 \$242 \$217 \$206 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $691 r0 *1 40.275,26.755 pfet
+M$691 VPB|VPWR \$207 \$242 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $692 r0 *1 40.815,26.755 pfet
+M$692 \$207 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $693 r0 *1 41.235,26.755 pfet
+M$693 VPB|VPWR \$206 \$207 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $694 r0 *1 42.31,26.465 pfet
+M$694 A0|DOUT7|Q \$207 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $695 r0 *1 2.77,27.785 pfet
+M$695 VPB|VPWR CLK|X \$245 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $696 r0 *1 3.19,27.785 pfet
+M$696 \$246 \$245 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $697 r0 *1 4.525,27.645 pfet
+M$697 \$247 A|B|D|PH_B1|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $698 r0 *1 4.985,27.645 pfet
+M$698 \$248 \$246 \$247 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $699 r0 *1 5.48,27.645 pfet
+M$699 \$249 \$245 \$248 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $700 r0 *1 6.18,27.645 pfet
+M$700 VPB|VPWR \$250 \$249 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $701 r0 *1 6.665,27.645 pfet
+M$701 \$249 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $702 r0 *1 8.145,27.645 pfet
+M$702 \$251 \$245 \$250 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $703 r0 *1 8.575,27.645 pfet
+M$703 \$267 \$246 \$251 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $704 r0 *1 8.995,27.645 pfet
+M$704 VPB|VPWR \$252 \$267 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $705 r0 *1 9.535,27.645 pfet
+M$705 \$252 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $706 r0 *1 9.955,27.645 pfet
+M$706 VPB|VPWR \$251 \$252 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $707 r0 *1 7.65,27.855 pfet
+M$707 \$250 \$248 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $708 r0 *1 11.03,27.935 pfet
+M$708 B|D|PH_B0|Q|S \$252 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $709 r0 *1 11.715,31.615 pfet
+M$709 \$309 A|B|D|PH_B1|Q|S \$291 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $710 r0 *1 12.075,31.615 pfet
+M$710 VPB|VPWR A|X$12 \$309 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P
++ AD=0.14575P PS=0.63U PD=1.335U
+* device instance $711 r0 *1 12.56,31.905 pfet
+M$711 A|X$16 \$291 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $712 r0 *1 12.515,27.84 pfet
+M$712 \$274 B|D|PH_B0|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $713 r0 *1 13.03,27.84 pfet
+M$713 \$255 A0|DOUT0|Q \$274 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $714 r0 *1 14.1,27.84 pfet
+M$714 \$275 A1|Y \$255 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $715 r0 *1 14.46,27.84 pfet
+M$715 VPB|VPWR \$257 \$275 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $716 r0 *1 14.94,27.84 pfet
+M$716 \$257 B|D|PH_B0|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $717 r0 *1 11.97,27.935 pfet
+M$717 VPB|VPWR \$255 A|X$12 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $718 r0 *1 17.115,27.84 pfet
+M$718 \$277 A|B|D|PH_B5|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $719 r0 *1 17.63,27.84 pfet
+M$719 \$258 A0|DOUT5|Q \$277 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $720 r0 *1 18.7,27.84 pfet
+M$720 \$278 A1|Y \$258 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $721 r0 *1 19.06,27.84 pfet
+M$721 VPB|VPWR \$259 \$278 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $722 r0 *1 19.54,27.84 pfet
+M$722 \$259 A|B|D|PH_B5|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $723 r0 *1 16.57,27.935 pfet
+M$723 VPB|VPWR \$258 A|X$7 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $724 r0 *1 20.915,31.615 pfet
+M$724 \$310 B|D|PH_B2|Q|S \$293 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $725 r0 *1 21.275,31.615 pfet
+M$725 VPB|VPWR A|X$17 \$310 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P
++ AD=0.14575P PS=0.63U PD=1.335U
+* device instance $726 r0 *1 21.76,31.905 pfet
+M$726 A|X$14 \$293 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $727 r0 *1 21.81,27.855 pfet
+M$727 \$260 A|X$14 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $728 r0 *1 22.23,27.855 pfet
+M$728 \$260 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $729 r0 *1 22.77,27.935 pfet
+M$729 D|X$6 \$260 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $730 r0 *1 23.01,32.055 pfet
+M$730 VPB|VPWR CLK|X \$295 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $731 r0 *1 23.43,32.055 pfet
+M$731 \$296 \$295 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $732 r0 *1 27.89,31.985 pfet
+M$732 \$300 \$299 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $733 r0 *1 28.385,32.195 pfet
+M$733 \$301 \$295 \$300 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $734 r0 *1 28.815,32.195 pfet
+M$734 \$311 \$296 \$301 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $735 r0 *1 29.235,32.195 pfet
+M$735 VPB|VPWR \$302 \$311 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $736 r0 *1 29.775,32.195 pfet
+M$736 \$302 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $737 r0 *1 30.195,32.195 pfet
+M$737 VPB|VPWR \$301 \$302 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $738 r0 *1 31.01,27.855 pfet
+M$738 \$262 A|X$15 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $739 r0 *1 31.43,27.855 pfet
+M$739 \$262 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $740 r0 *1 31.97,27.935 pfet
+M$740 D|X$7 \$262 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $741 r0 *1 31.27,31.905 pfet
+M$741 A|B|D|PH_B9|Q|S \$302 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $742 r0 *1 34.715,28.225 pfet
+M$742 \$276 B|D|PH_B8|Q|S \$271 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $743 r0 *1 35.075,28.225 pfet
+M$743 \$276 A|X$13 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14575P
++ AD=0.0441P PS=1.335U PD=0.63U
+* device instance $744 r0 *1 35.56,27.935 pfet
+M$744 A|X$11 \$271 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $745 r0 *1 38.275,27.84 pfet
+M$745 \$273 B|C|D|PH_B7|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $746 r0 *1 38.79,27.84 pfet
+M$746 \$265 A0|DOUT7|Q \$273 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $747 r0 *1 39.86,27.84 pfet
+M$747 \$272 A1|Y \$265 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $748 r0 *1 40.22,27.84 pfet
+M$748 VPB|VPWR \$266 \$272 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $749 r0 *1 40.7,27.84 pfet
+M$749 \$266 B|C|D|PH_B7|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $750 r0 *1 37.73,27.935 pfet
+M$750 VPB|VPWR \$265 A|X$13 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $751 r0 *1 6.825,33.085 pfet
+M$751 \$314 D|X$8 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $752 r0 *1 7.285,33.085 pfet
+M$752 \$315 \$313 \$314 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $753 r0 *1 7.78,33.085 pfet
+M$753 \$316 \$312 \$315 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $754 r0 *1 8.48,33.085 pfet
+M$754 VPB|VPWR \$317 \$316 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $755 r0 *1 8.965,33.085 pfet
+M$755 \$316 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $756 r0 *1 10.445,33.085 pfet
+M$756 \$318 \$312 \$317 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $757 r0 *1 10.875,33.085 pfet
+M$757 \$333 \$313 \$318 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $758 r0 *1 11.295,33.085 pfet
+M$758 VPB|VPWR \$319 \$333 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $759 r0 *1 11.835,33.085 pfet
+M$759 \$319 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $760 r0 *1 12.255,33.085 pfet
+M$760 VPB|VPWR \$318 \$319 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $761 r0 *1 9.95,33.295 pfet
+M$761 \$317 \$315 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $762 r0 *1 13.33,33.375 pfet
+M$762 A0|DOUT0|Q \$319 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $763 r0 *1 22.635,33.28 pfet
+M$763 \$342 A|B|D|PH_B1|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $764 r0 *1 23.15,33.28 pfet
+M$764 \$322 A0|DOUT1|Q \$342 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $765 r0 *1 24.22,33.28 pfet
+M$765 \$341 A1|Y \$322 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $766 r0 *1 24.58,33.28 pfet
+M$766 VPB|VPWR \$323 \$341 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $767 r0 *1 25.06,33.28 pfet
+M$767 \$323 A|B|D|PH_B1|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $768 r0 *1 22.09,33.375 pfet
+M$768 VPB|VPWR \$322 A|X$17 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $769 r0 *1 24.765,32.195 pfet
+M$769 \$298 D|PH_SAMPLE|Y VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $770 r0 *1 25.225,32.195 pfet
+M$770 \$299 \$296 \$298 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $771 r0 *1 25.72,32.195 pfet
+M$771 \$308 \$295 \$299 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $772 r0 *1 26.42,32.195 pfet
+M$772 VPB|VPWR \$300 \$308 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $773 r0 *1 26.905,32.195 pfet
+M$773 \$308 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $774 r0 *1 35.345,33.085 pfet
+M$774 \$326 D|X$7 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $775 r0 *1 35.805,33.085 pfet
+M$775 \$327 \$325 \$326 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $776 r0 *1 36.3,33.085 pfet
+M$776 \$328 \$324 \$327 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $777 r0 *1 37,33.085 pfet
+M$777 VPB|VPWR \$329 \$328 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $778 r0 *1 37.485,33.085 pfet
+M$778 \$328 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $779 r0 *1 38.965,33.085 pfet
+M$779 \$330 \$324 \$329 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $780 r0 *1 39.395,33.085 pfet
+M$780 \$334 \$325 \$330 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $781 r0 *1 39.815,33.085 pfet
+M$781 VPB|VPWR \$331 \$334 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $782 r0 *1 40.355,33.085 pfet
+M$782 \$331 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $783 r0 *1 40.775,33.085 pfet
+M$783 VPB|VPWR \$330 \$331 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $784 r0 *1 38.47,33.295 pfet
+M$784 \$329 \$327 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $785 r0 *1 41.85,33.375 pfet
+M$785 A0|DOUT8|Q \$331 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $786 r0 *1 5.07,33.225 pfet
+M$786 VPB|VPWR CLK|X \$312 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $787 r0 *1 5.49,33.225 pfet
+M$787 \$313 \$312 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $788 r0 *1 7.65,37.425 pfet
+M$788 \$374 \$359 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $789 r0 *1 8.145,37.635 pfet
+M$789 \$360 \$355 \$374 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $790 r0 *1 8.575,37.635 pfet
+M$790 \$398 \$356 \$360 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $791 r0 *1 8.995,37.635 pfet
+M$791 VPB|VPWR \$361 \$398 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $792 r0 *1 9.535,37.635 pfet
+M$792 \$361 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $793 r0 *1 9.955,37.635 pfet
+M$793 VPB|VPWR \$360 \$361 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $794 r0 *1 11.03,37.345 pfet
+M$794 A0|B|DOUT9|Q \$361 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $795 r0 *1 12.515,37.44 pfet
+M$795 \$400 A|B|D|PH_B9|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $796 r0 *1 13.03,37.44 pfet
+M$796 \$362 A0|B|DOUT9|Q \$400 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $797 r0 *1 14.1,37.44 pfet
+M$797 \$401 A|A1|COMP_OUT \$362 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P
++ AD=0.0441P PS=1.34U PD=0.63U
+* device instance $798 r0 *1 14.46,37.44 pfet
+M$798 VPB|VPWR \$363 \$401 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $799 r0 *1 14.94,37.44 pfet
+M$799 \$363 A|B|D|PH_B9|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $800 r0 *1 11.97,37.345 pfet
+M$800 VPB|VPWR \$362 D|X$9 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $801 r0 *1 15.37,33.295 pfet
+M$801 \$320 A|X$16 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1176P AD=0.0567P
++ PS=1.4U PD=0.69U
+* device instance $802 r0 *1 15.79,33.295 pfet
+M$802 \$320 B|X VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.16655P AD=0.0567P
++ PS=1.39U PD=0.69U
+* device instance $803 r0 *1 16.33,33.375 pfet
+M$803 D|X$8 \$320 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.16655P AD=0.475P
++ PS=1.39U PD=2.95U
+* device instance $804 r0 *1 17.49,37.345 pfet
+M$804 VPB|VPWR A|X \$364 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.135P PS=2.52U
++ PD=1.27U
+* device instance $805 r0 *1 17.91,37.345 pfet
+M$805 CLK|X \$364 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $806 r0 *1 18.33,37.345 pfet
+M$806 VPB|VPWR \$364 CLK|X VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $807 r0 *1 18.75,37.345 pfet
+M$807 CLK|X \$364 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.135P
++ PS=1.27U PD=1.27U
+* device instance $808 r0 *1 19.17,37.345 pfet
+M$808 VPB|VPWR \$364 CLK|X VPB|VPWR pfet L=0.15U W=1U AS=0.135P AD=0.26P
++ PS=1.27U PD=2.52U
+* device instance $809 r0 *1 19.535,33.665 pfet
+M$809 \$340 B|D|PH_B0|Q|S \$336 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $810 r0 *1 19.895,33.665 pfet
+M$810 \$340 A|B|D|PH_B1|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14575P
++ AD=0.0441P PS=1.335U PD=0.63U
+* device instance $811 r0 *1 20.38,33.375 pfet
+M$811 C|X \$336 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $812 r0 *1 20.26,37.055 pfet
+M$812 \$395 C|X \$365 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0441P
++ PS=1.36U PD=0.63U
+* device instance $813 r0 *1 20.62,37.055 pfet
+M$813 \$394 B|X$1 \$395 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $814 r0 *1 21.1,37.055 pfet
+M$814 VPB|VPWR A|X$19 \$394 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.14825P PS=0.75U PD=1.34U
+* device instance $815 r0 *1 21.59,37.345 pfet
+M$815 B|X \$365 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14825P AD=0.28P
++ PS=1.34U PD=2.56U
+* device instance $816 r0 *1 27.43,37.425 pfet
+M$816 \$378 \$369 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $817 r0 *1 27.925,37.635 pfet
+M$817 \$370 \$366 \$378 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $818 r0 *1 28.355,37.635 pfet
+M$818 \$399 \$367 \$370 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $819 r0 *1 28.775,37.635 pfet
+M$819 VPB|VPWR \$371 \$399 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $820 r0 *1 29.315,37.635 pfet
+M$820 \$371 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $821 r0 *1 29.735,37.635 pfet
+M$821 VPB|VPWR \$370 \$371 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $822 r0 *1 30.81,37.345 pfet
+M$822 A0|DOUT1|Q \$371 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $823 r0 *1 31.035,33.665 pfet
+M$823 \$339 A|B|D|PH_B9|Q|S \$337 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $824 r0 *1 31.395,33.665 pfet
+M$824 \$339 A|X$18 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14575P
++ AD=0.0441P PS=1.335U PD=0.63U
+* device instance $825 r0 *1 31.88,33.375 pfet
+M$825 A|X$15 \$337 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14575P AD=0.34P
++ PS=1.335U PD=2.68U
+* device instance $826 r0 *1 33.59,33.225 pfet
+M$826 VPB|VPWR CLK|X \$324 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $827 r0 *1 34.01,33.225 pfet
+M$827 \$325 \$324 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $828 r0 *1 35.975,37.44 pfet
+M$828 \$397 B|D|PH_B8|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.15835P
++ AD=0.07665P PS=1.395U PD=0.785U
+* device instance $829 r0 *1 36.49,37.44 pfet
+M$829 \$372 A0|DOUT8|Q \$397 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07665P
++ AD=0.1932P PS=0.785U PD=1.34U
+* device instance $830 r0 *1 37.56,37.44 pfet
+M$830 \$396 A1|Y \$372 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1932P AD=0.0441P
++ PS=1.34U PD=0.63U
+* device instance $831 r0 *1 37.92,37.44 pfet
+M$831 VPB|VPWR \$373 \$396 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $832 r0 *1 38.4,37.44 pfet
+M$832 \$373 B|D|PH_B8|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.1176P PS=0.75U PD=1.4U
+* device instance $833 r0 *1 35.43,37.345 pfet
+M$833 VPB|VPWR \$372 A|X$18 VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.15835P
++ PS=2.52U PD=1.395U
+* device instance $834 r0 *1 2.77,37.495 pfet
+M$834 VPB|VPWR CLK|X \$355 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $835 r0 *1 3.19,37.495 pfet
+M$835 \$356 \$355 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $836 r0 *1 4.525,37.635 pfet
+M$836 \$358 D|X$9 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $837 r0 *1 4.985,37.635 pfet
+M$837 \$359 \$356 \$358 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $838 r0 *1 5.48,37.635 pfet
+M$838 \$391 \$355 \$359 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $839 r0 *1 6.18,37.635 pfet
+M$839 VPB|VPWR \$374 \$391 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $840 r0 *1 6.665,37.635 pfet
+M$840 \$391 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $841 r0 *1 22.55,37.495 pfet
+M$841 VPB|VPWR CLK|X \$366 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $842 r0 *1 22.97,37.495 pfet
+M$842 \$367 \$366 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $843 r0 *1 24.305,37.635 pfet
+M$843 \$368 D|X$6 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0651P
++ PS=1.36U PD=0.73U
+* device instance $844 r0 *1 24.765,37.635 pfet
+M$844 \$369 \$367 \$368 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $845 r0 *1 25.26,37.635 pfet
+M$845 \$393 \$366 \$369 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $846 r0 *1 25.96,37.635 pfet
+M$846 VPB|VPWR \$378 \$393 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $847 r0 *1 26.445,37.635 pfet
+M$847 \$393 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $848 r0 *1 5.07,42.935 pfet
+M$848 VPB|VPWR CLK|X \$432 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $849 r0 *1 5.49,42.935 pfet
+M$849 \$433 \$432 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $850 r0 *1 9.95,42.865 pfet
+M$850 \$436 \$435 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $851 r0 *1 10.445,43.075 pfet
+M$851 \$437 \$432 \$436 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $852 r0 *1 10.875,43.075 pfet
+M$852 \$461 \$433 \$437 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $853 r0 *1 11.295,43.075 pfet
+M$853 VPB|VPWR \$438 \$461 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $854 r0 *1 11.835,43.075 pfet
+M$854 \$438 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $855 r0 *1 12.255,43.075 pfet
+M$855 VPB|VPWR \$437 \$438 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $856 r0 *1 11.55,38.815 pfet
+M$856 \$402 A0|B|DOUT9|Q VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3P AD=0.135P
++ PS=2.6U PD=1.27U
+* device instance $857 r0 *1 11.97,38.815 pfet
+M$857 VPB|VPWR A|A1|COMP_OUT \$402 VPB|VPWR pfet L=0.15U W=1U AS=0.135P
++ AD=0.365P PS=1.27U PD=1.73U
+* device instance $858 r0 *1 12.85,38.815 pfet
+M$858 \$417 A|A1|COMP_OUT VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.365P
++ AD=0.105P PS=1.73U PD=1.21U
+* device instance $859 r0 *1 13.21,38.815 pfet
+M$859 A1|Y A0|B|DOUT9|Q \$417 VPB|VPWR pfet L=0.15U W=1U AS=0.105P AD=0.165P
++ PS=1.21U PD=1.33U
+* device instance $860 r0 *1 13.69,38.815 pfet
+M$860 VPB|VPWR \$402 A1|Y VPB|VPWR pfet L=0.15U W=1U AS=0.165P AD=0.36P
++ PS=1.33U PD=2.72U
+* device instance $861 r0 *1 13.33,42.785 pfet
+M$861 C|PH_EOC|Q \$438 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P AD=0.26P
++ PS=2.66U PD=2.52U
+* device instance $862 r0 *1 16.58,39.105 pfet
+M$862 \$418 C|PH_EOC|Q \$404 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0441P PS=1.36U PD=0.63U
+* device instance $863 r0 *1 16.94,39.105 pfet
+M$863 \$419 B|D|PH_B0|Q|S \$418 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P
++ AD=0.0693P PS=0.63U PD=0.75U
+* device instance $864 r0 *1 17.42,39.105 pfet
+M$864 \$419 A|B|D|PH_B1|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14825P
++ AD=0.0693P PS=1.34U PD=0.75U
+* device instance $865 r0 *1 17.91,38.815 pfet
+M$865 C|X$1 \$404 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14825P AD=0.28P
++ PS=1.34U PD=2.56U
+* device instance $866 r0 *1 17.49,42.495 pfet
+M$866 \$457 B|D|PH_B2|Q|S \$439 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0693P PS=1.36U PD=0.75U
+* device instance $867 r0 *1 17.97,42.495 pfet
+M$867 \$455 B|C|D|PH_B3|Q|S \$457 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.0441P PS=0.75U PD=0.63U
+* device instance $868 r0 *1 18.33,42.495 pfet
+M$868 \$456 B|D|PH_B4|Q|S \$455 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P
++ AD=0.0693P PS=0.63U PD=0.75U
+* device instance $869 r0 *1 18.81,42.495 pfet
+M$869 VPB|VPWR A|B|D|PH_B5|Q|S \$456 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.14825P PS=0.75U PD=1.34U
+* device instance $870 r0 *1 19.3,42.785 pfet
+M$870 B|X$1 \$439 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14825P AD=0.27P
++ PS=1.34U PD=2.54U
+* device instance $871 r0 *1 19.8,39.105 pfet
+M$871 \$421 C|X$1 \$406 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P AD=0.0441P
++ PS=1.36U PD=0.63U
+* device instance $872 r0 *1 20.16,39.105 pfet
+M$872 \$422 B|X$1 \$421 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P AD=0.0693P
++ PS=0.63U PD=0.75U
+* device instance $873 r0 *1 20.64,39.105 pfet
+M$873 \$422 A|X$19 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14825P
++ AD=0.0693P PS=1.34U PD=0.75U
+* device instance $874 r0 *1 21.13,38.815 pfet
+M$874 A|BUSY|X \$406 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14825P AD=0.28P
++ PS=1.34U PD=2.56U
+* device instance $875 r0 *1 23.215,38.815 pfet
+M$875 D|PH_SAMPLE|Y A|BUSY|X VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P
++ AD=0.26P PS=2.52U PD=2.52U
+* device instance $876 r0 *1 30.83,39.105 pfet
+M$876 \$423 B|D|PH_B6|Q|S \$408 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0693P PS=1.36U PD=0.75U
+* device instance $877 r0 *1 31.31,39.105 pfet
+M$877 \$424 B|C|D|PH_B7|Q|S \$423 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0693P
++ AD=0.0441P PS=0.75U PD=0.63U
+* device instance $878 r0 *1 31.67,39.105 pfet
+M$878 \$425 B|D|PH_B8|Q|S \$424 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0441P
++ AD=0.0693P PS=0.63U PD=0.75U
+* device instance $879 r0 *1 32.15,39.105 pfet
+M$879 \$425 A|B|D|PH_B9|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.14825P
++ AD=0.0693P PS=1.34U PD=0.75U
+* device instance $880 r0 *1 32.64,38.815 pfet
+M$880 A|X$19 \$408 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.14825P AD=0.27P
++ PS=1.34U PD=2.54U
+* device instance $881 r0 *1 31.29,42.935 pfet
+M$881 VPB|VPWR CLK|X \$440 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $882 r0 *1 31.71,42.935 pfet
+M$882 \$441 \$440 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $883 r0 *1 35.43,38.665 pfet
+M$883 VPB|VPWR CLK|X \$409 VPB|VPWR pfet L=0.15U W=0.64U AS=0.1664P AD=0.0864P
++ PS=1.8U PD=0.91U
+* device instance $884 r0 *1 35.85,38.665 pfet
+M$884 \$410 \$409 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.64U AS=0.0864P AD=0.1664P
++ PS=0.91U PD=1.8U
+* device instance $885 r0 *1 36.17,42.865 pfet
+M$885 \$444 \$443 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $886 r0 *1 36.665,43.075 pfet
+M$886 \$445 \$440 \$444 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $887 r0 *1 37.095,43.075 pfet
+M$887 \$460 \$441 \$445 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $888 r0 *1 37.515,43.075 pfet
+M$888 VPB|VPWR \$446 \$460 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $889 r0 *1 38.055,43.075 pfet
+M$889 \$446 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $890 r0 *1 38.475,43.075 pfet
+M$890 VPB|VPWR \$445 \$446 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $891 r0 *1 37.185,38.525 pfet
+M$891 \$411 B|D|PH_B8|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $892 r0 *1 37.645,38.525 pfet
+M$892 \$412 \$410 \$411 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $893 r0 *1 38.14,38.525 pfet
+M$893 \$413 \$409 \$412 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $894 r0 *1 38.84,38.525 pfet
+M$894 VPB|VPWR \$414 \$413 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $895 r0 *1 39.325,38.525 pfet
+M$895 \$413 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $896 r0 *1 39.55,42.785 pfet
+M$896 B|D|PH_B8|Q|S \$446 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $897 r0 *1 40.805,38.525 pfet
+M$897 \$415 \$409 \$414 VPB|VPWR pfet L=0.15U W=0.42U AS=0.12915P AD=0.0588P
++ PS=1.185U PD=0.7U
+* device instance $898 r0 *1 41.235,38.525 pfet
+M$898 \$420 \$410 \$415 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0588P AD=0.0567P
++ PS=0.7U PD=0.69U
+* device instance $899 r0 *1 41.655,38.525 pfet
+M$899 VPB|VPWR \$416 \$420 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.0819P
++ PS=0.69U PD=0.81U
+* device instance $900 r0 *1 42.195,38.525 pfet
+M$900 \$416 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.0819P
++ AD=0.0567P PS=0.81U PD=0.69U
+* device instance $901 r0 *1 42.615,38.525 pfet
+M$901 VPB|VPWR \$415 \$416 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0567P AD=0.1134P
++ PS=0.69U PD=1.38U
+* device instance $902 r0 *1 40.31,38.735 pfet
+M$902 \$414 \$412 VPB|VPWR VPB|VPWR pfet L=0.15U W=0.84U AS=0.2184P AD=0.12915P
++ PS=2.2U PD=1.185U
+* device instance $903 r0 *1 43.69,38.815 pfet
+M$903 B|C|D|PH_B7|Q|S \$416 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.3012P
++ AD=0.26P PS=2.66U PD=2.52U
+* device instance $904 r0 *1 6.825,43.075 pfet
+M$904 \$434 B|D|PH_B0|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $905 r0 *1 7.285,43.075 pfet
+M$905 \$435 \$433 \$434 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $906 r0 *1 7.78,43.075 pfet
+M$906 \$458 \$432 \$435 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $907 r0 *1 8.48,43.075 pfet
+M$907 VPB|VPWR \$436 \$458 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $908 r0 *1 8.965,43.075 pfet
+M$908 \$458 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+* device instance $909 r0 *1 33.045,43.075 pfet
+M$909 \$442 A|B|D|PH_B9|Q|S VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.1092P
++ AD=0.0651P PS=1.36U PD=0.73U
+* device instance $910 r0 *1 33.505,43.075 pfet
+M$910 \$443 \$441 \$442 VPB|VPWR pfet L=0.15U W=0.42U AS=0.0651P AD=0.07245P
++ PS=0.73U PD=0.765U
+* device instance $911 r0 *1 34,43.075 pfet
+M$911 \$459 \$440 \$443 VPB|VPWR pfet L=0.15U W=0.42U AS=0.07245P AD=0.1155P
++ PS=0.765U PD=0.97U
+* device instance $912 r0 *1 34.7,43.075 pfet
+M$912 VPB|VPWR \$444 \$459 VPB|VPWR pfet L=0.15U W=0.42U AS=0.1155P AD=0.07035P
++ PS=0.97U PD=0.755U
+* device instance $913 r0 *1 35.185,43.075 pfet
+M$913 \$459 RESET_B|RST_B VPB|VPWR VPB|VPWR pfet L=0.15U W=0.42U AS=0.07035P
++ AD=0.1092P PS=0.755U PD=1.36U
+.ENDS sar_sequencer
