@@ -12,7 +12,8 @@
     "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice",
     "sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice",
     "sim/sampling-frontend/testbench/sampling_frontend_dut.spice",
-    "sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"
+    "sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice",
+    "sim/top-plate-cpar/run_top_plate_cpar.py"
   ],
   "cold_start": {
     "argv": [

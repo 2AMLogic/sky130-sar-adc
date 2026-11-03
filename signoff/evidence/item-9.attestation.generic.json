@@ -3,12 +3,12 @@
   "kind": "generic",
   "t1_item": 9,
   "status": "pass",
-  "summary": "Testbenches shipped: 9 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
+  "summary": "Testbenches shipped: 10 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
   "source": "signoff/attest/item-9.inventory.json",
   "provenance": {
     "input": {
       "path": "signoff/attest/item-9.inventory.json",
-      "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4"
+      "content_hash": "sha256:6a5e0f6044a48c3ede3e29dee539e71ef558d9abb1b233e08ab4c97516c8b4c4"
     }
   },
   "checks": [
@@ -83,6 +83,14 @@
       "passed": true,
       "executed": true,
       "content_hash": "sha256:544a8ae9d40240afa876b9f95990318b90a388943ab720029450dc0be2cd8f8c"
+    },
+    {
+      "check": "present",
+      "role": "testbench",
+      "path": "sim/top-plate-cpar/run_top_plate_cpar.py",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:4ac1d0c4b20b7433c918e6fca5343e90302e9b0d4296056293479d22021f54e3"
     },
     {
       "check": "command",

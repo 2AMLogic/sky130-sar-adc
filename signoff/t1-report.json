@@ -516,15 +516,15 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
+        "content_hash": "sha256:6a5e0f6044a48c3ede3e29dee539e71ef558d9abb1b233e08ab4c97516c8b4c4",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
           "t1_item": 9,
           "path": "signoff/attest/item-9.inventory.json",
-          "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
+          "content_hash": "sha256:6a5e0f6044a48c3ede3e29dee539e71ef558d9abb1b233e08ab4c97516c8b4c4",
           "input_verified": true,
-          "summary": "Testbenches shipped: 9 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
+          "summary": "Testbenches shipped: 10 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
           "source": "signoff/attest/item-9.inventory.json"
         }
       }
@@ -545,15 +545,15 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
+        "content_hash": "sha256:6a5e0f6044a48c3ede3e29dee539e71ef558d9abb1b233e08ab4c97516c8b4c4",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
           "t1_item": 9,
           "path": "signoff/attest/item-9.inventory.json",
-          "content_hash": "sha256:a58aa5b17997bb9d502ba5f06471decda5d0c32092c766f430a410fd2eca06c4",
+          "content_hash": "sha256:6a5e0f6044a48c3ede3e29dee539e71ef558d9abb1b233e08ab4c97516c8b4c4",
           "input_verified": true,
-          "summary": "Testbenches shipped: 9 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
+          "summary": "Testbenches shipped: 10 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
           "source": "signoff/attest/item-9.inventory.json"
         }
       }
