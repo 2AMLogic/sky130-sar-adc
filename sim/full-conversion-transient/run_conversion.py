@@ -626,6 +626,152 @@ def binding_point(points: list[dict]) -> dict:
 
 
 # --------------------------------------------------------------------------
+# Gain / offset extraction from the captured codes (issue #757, DR-022 item 3)
+# --------------------------------------------------------------------------
+FULL_SCALE_CODE = 2**tb.N_BITS - 1
+GAIN_ERROR_DRAFT_LSB = 1.42  # DRAFT spec row, span-referred; informational only
+MIDSCALE_MAX_FRACTION = 0.25  # |input| subset used by the secondary fit
+DR022_GAIN_REFERENCE = {"tt_27c_1.80v": 0.99200, "tt_27c_1.62v": 0.99190}
+
+
+def fit_gain_offset(pairs: list[tuple[int, int | None]]) -> dict | None:
+    """Least-squares `code = g * ideal + offset` over (ideal, captured) pairs.
+
+    Missing codes and codes saturated at 0 or full scale are excluded (a
+    saturated code carries no slope information). Returns None when fewer
+    than two distinct ideal codes remain. `resolution_lsb` is a conservative
+    bound on the span-referred gain error this method can resolve: +-1 LSB of
+    quantization on the two ends of the fitted span, scaled to full scale --
+    it is NOT a fit confidence interval."""
+    used = [
+        (x, y) for x, y in pairs
+        if y is not None and 0 < y < FULL_SCALE_CODE
+    ]
+    if len({x for x, _ in used}) < 2:
+        return None
+    n = len(used)
+    mx = sum(x for x, _ in used) / n
+    my = sum(y for _, y in used) / n
+    sxx = sum((x - mx) ** 2 for x, _ in used)
+    g = sum((x - mx) * (y - my) for x, y in used) / sxx
+    offset = my - g * mx
+    span = max(x for x, _ in used) - min(x for x, _ in used)
+    return dict(
+        g=g,
+        offset=offset,
+        n_used=n,
+        eps_pct=(1.0 - g) * 100.0,
+        eps_lsb=(1.0 - g) * 2**tb.N_BITS,
+        resolution_lsb=2.0 * 2**tb.N_BITS / span,
+    )
+
+
+def corrected_code_errors(
+    pairs: list[tuple[int, int | None]], g: float, offset: float
+) -> list[float | None]:
+    """Error vs ideal (LSB) of each captured code after removing `g` and
+    `offset`: `(code - offset) / g - ideal`. None for a missing code."""
+    return [None if y is None else (y - offset) / g - x for x, y in pairs]
+
+
+def point_gain_analysis(point: dict) -> dict:
+    """Two fits for one corner: every non-saturated input, and the
+    mid-scale subset (|input| <= 0.25 V_REF). The subset is a post-hoc
+    exclusion of the inputs whose failure DR-022 attributes to a separate
+    mechanism (comparator defect), reported beside, never instead of, the
+    all-inputs fit."""
+    pairs = [(cv["ideal_code"], cv["code"]) for cv in point["conversions"]]
+    mid = [
+        (cv["ideal_code"], cv["code"]) for cv in point["conversions"]
+        if abs(cv["fraction"]) <= MIDSCALE_MAX_FRACTION + 1e-9
+    ]
+    out = {}
+    for tag, subset in (("all", pairs), ("mid", mid)):
+        fit = fit_gain_offset(subset)
+        out[tag] = None if fit is None else dict(
+            fit, errors=corrected_code_errors(pairs, fit["g"], fit["offset"]),
+        )
+    return out
+
+
+def gain_record_lines(points: list[dict]) -> list[str]:
+    """Record section: extracted gain per corner and corrected-code errors."""
+    lines: list[str] = []
+    a = lines.append
+    a("## Gain and offset from the captured codes (informational, issue #757)")
+    a("")
+    a(
+        "**Method**: least-squares `code = g * ideal_code + offset` over the "
+        "five captured codes of each corner (DR-022 Decision item 3's "
+        "split of the acceptance), excluding codes saturated at 0 or "
+        f"{FULL_SCALE_CODE}. This is **not** DR-022's bit-8-pair or bits-7..4 "
+        "decision-margin extraction: it fits a code-domain slope with 1-LSB "
+        "quantization, so offset, gain and any INL are confounded. "
+        "`resolution` is a conservative bound (+-1 LSB at each end of the "
+        "fitted span, scaled to full scale), not a confidence interval. "
+        "Results are informational; the gain-error row "
+        f"(`<= {GAIN_ERROR_DRAFT_LSB} LSB`) is DRAFT until #1 and this is "
+        "not a pass/fail against it. The `mid-scale` fit uses only "
+        f"|input| <= {MIDSCALE_MAX_FRACTION} V_REF, a post-hoc exclusion of "
+        "the inputs that fail by tens of LSB for a separate mechanism; it is "
+        "reported beside, not instead of, the all-inputs fit."
+    )
+    a("")
+    a(
+        "| corner-id | fit | inputs used | g | eps = 1-g (%) | eps x 2^N (LSB) | "
+        "resolution (+-LSB) | offset (LSB) | corrected-code error per input (LSB) | "
+        "worst \\|corrected error\\| (LSB) | within +-1 LSB |"
+    )
+    a("|---|---|---|---|---|---|---|---|---|---|---|")
+    for p in points:
+        for tag, label in (("all", "all non-saturated"), ("mid", "mid-scale")):
+            fit = point_gain_analysis(p)[tag]
+            if fit is None:
+                a(f"| `{p['corner_id']}` | {label} | <2 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+                continue
+            errs = fit["errors"]
+            cells = ", ".join("n/a" if e is None else f"{e:+.1f}" for e in errs)
+            worst = max((abs(e) for e in errs if e is not None), default=None)
+            a(
+                f"| `{p['corner_id']}` | {label} | {fit['n_used']} | {fit['g']:.5f} | "
+                f"{fit['eps_pct']:+.2f} | {fit['eps_lsb']:+.1f} | "
+                f"{fit['resolution_lsb']:.1f} | {fit['offset']:+.2f} | {cells} | "
+                f"{'n/a' if worst is None else f'{worst:.1f}'} | "
+                f"{'n/a' if worst is None else ('yes' if worst <= CODE_TOLERANCE_LSB else 'no')} |"
+            )
+    a("")
+    a(
+        "Corrected-code errors are listed in input order "
+        + ", ".join(f"`{f:+.2f}*V_REF`" for f in tb.INPUT_FRACTIONS)
+        + ". The absolute-code verdict above is unchanged."
+    )
+    a("")
+    a("**Cross-check against DR-022** (bit-8-pair `g`, a different method):")
+    a("")
+    a("| corner-id | DR-022 g | this record, all non-saturated | this record, mid-scale | difference (mid-scale - DR-022) |")
+    a("|---|---|---|---|---|")
+    by_id = {p["corner_id"]: p for p in points}
+    for cid, ref in DR022_GAIN_REFERENCE.items():
+        p = by_id.get(cid)
+        if p is None:
+            a(f"| `{cid}` | {ref:.5f} | not in this run | n/a | n/a |")
+            continue
+        an = point_gain_analysis(p)
+        fa = "n/a" if an["all"] is None else f"{an['all']['g']:.5f}"
+        fm = "n/a" if an["mid"] is None else f"{an['mid']['g']:.5f}"
+        diff = "n/a" if an["mid"] is None else f"{an['mid']['g'] - ref:+.5f}"
+        a(f"| `{cid}` | {ref:.5f} | {fa} | {fm} | {diff} |")
+    a("")
+    a(
+        "**r+c coverage**: all five `tt/ss/ff/sf/fs` libraries in this sweep "
+        "load `res_typical__cap_typical`, so it does **not** cover the MiM r+c "
+        "corners the DRAFT gain-error row names."
+    )
+    a("")
+    return lines
+
+
+# --------------------------------------------------------------------------
 # Evidence record
 # --------------------------------------------------------------------------
 def _bits_str(bits: list[int | None]) -> str:
@@ -759,6 +905,8 @@ def write_record(
             cells.append(f"{code} ({err} LSB)")
         a(f"| `{p['corner_id']}` | " + " | ".join(cells) + " |")
     a("")
+
+    lines.extend(gain_record_lines(points))
 
     a(f"## Per-input detail at the binding corner (`{binding['corner_id']}`)")
     a("")

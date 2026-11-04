@@ -804,5 +804,72 @@ class TestWriteCmTraceRecord(unittest.TestCase):
         )
 
 
+class TestGainOffsetFit(unittest.TestCase):
+    """Issue #757: PDK-free arithmetic for the gain / corrected-code columns."""
+
+    IDEAL = [113, 384, 512, 640, 911]
+
+    def _codes(self, g, off):
+        return [round(g * x + off) for x in self.IDEAL]
+
+    def test_recovers_known_gain_and_offset(self):
+        pairs = list(zip(self.IDEAL,
+                         [int(round(0.99 * x - 3.0)) for x in self.IDEAL]))
+        fit = rc.fit_gain_offset(pairs)
+        self.assertAlmostEqual(fit["g"], 0.99, places=2)
+        self.assertAlmostEqual(fit["offset"], -3.0, delta=1.0)
+        self.assertAlmostEqual(fit["eps_lsb"], 0.01 * 1024, delta=4.0)
+        self.assertEqual(fit["n_used"], 5)
+
+    def test_saturated_and_missing_codes_are_excluded(self):
+        pairs = [(113, 112), (384, 383), (512, 511), (640, 639), (911, 1023)]
+        fit = rc.fit_gain_offset(pairs)
+        self.assertEqual(fit["n_used"], 4)
+        self.assertAlmostEqual(fit["g"], 1.0, places=3)
+        pairs[0] = (113, None)
+        self.assertEqual(rc.fit_gain_offset(pairs)["n_used"], 3)
+
+    def test_too_few_points_returns_none(self):
+        self.assertIsNone(rc.fit_gain_offset([(512, 511), (640, 1023)]))
+        self.assertIsNone(rc.fit_gain_offset([(512, None), (640, 0)]))
+
+    def test_corrected_codes_are_exact_for_exact_line(self):
+        g, off = 0.992, -2.5
+        pairs = [(x, g * x + off) for x in self.IDEAL]
+        errs = rc.corrected_code_errors(pairs, g, off)
+        for e in errs:
+            self.assertAlmostEqual(e, 0.0, places=9)
+        self.assertEqual(rc.corrected_code_errors([(512, None)], g, off), [None])
+
+    def test_resolution_bound_scales_with_span(self):
+        wide = rc.fit_gain_offset([(113, 112), (512, 511), (911, 910)])
+        narrow = rc.fit_gain_offset([(384, 383), (512, 511), (640, 639)])
+        self.assertAlmostEqual(wide["resolution_lsb"], 2 * 1024 / 798)
+        self.assertAlmostEqual(narrow["resolution_lsb"], 2 * 1024 / 256)
+
+    def test_point_analysis_midscale_subset_ignores_outer_inputs(self):
+        codes = {-0.78: 214, -0.25: 383, 0.0: 511, 0.25: 641, 0.78: 1023}
+        point = dict(conversions=[
+            dict(fraction=f, ideal_code=tb.ideal_code(f), code=c)
+            for f, c in codes.items()
+        ])
+        an = rc.point_gain_analysis(point)
+        self.assertEqual(an["mid"]["n_used"], 3)
+        self.assertEqual(an["all"]["n_used"], 4)
+        self.assertGreater(an["mid"]["g"], 1.0)  # (641-383)/(640-384)
+
+    def test_gain_section_states_method_limits_and_rc_gap(self):
+        codes = {-0.78: 214, -0.25: 383, 0.0: 511, 0.25: 641, 0.78: 1023}
+        point = dict(corner_id="tt_27c_1.80v", conversions=[
+            dict(fraction=f, ideal_code=tb.ideal_code(f), code=c)
+            for f, c in codes.items()
+        ])
+        text = "\n".join(rc.gain_record_lines([point]))
+        self.assertIn("not** DR-022's bit-8-pair", text)
+        self.assertIn("res_typical__cap_typical", text)
+        self.assertIn("0.99200", text)
+        self.assertIn("not in this run", text)  # tt_27c_1.62v absent
+
+
 if __name__ == "__main__":
     unittest.main()
