@@ -5,7 +5,7 @@
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-- **#763**: docs: propose CDAC gain-error closure path (DR-025)
+_None._
 
 ## Very Important
 
@@ -31,20 +31,20 @@ _None._
 Issues currently being built (`loom:building`).
 
 - **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows
-- **#755**: design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR)
+- **#757**: sim: per-corner gain extraction and corrected-code reporting across all 9 corners
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#776**: feat: report per-corner gain and corrected-code error in full-conversion record
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#763**: docs: propose CDAC gain-error closure path (DR-025)
+_None._
 
 ## Proposed
 
@@ -55,7 +55,7 @@ Issues carrying `loom:curated`.
 - **#428**: Operator hand-off: create the 'main: required status checks' ruleset that arms the base-freshness guard (from #422 / PR #425) *(curated)*
 - **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows *(curated)*
 - **#734**: Bump layout/requirements.txt to klt 0.8.0 and re-run layout flows *(curated)*
-- **#755**: design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR) *(curated)*
+- **#757**: sim: per-corner gain extraction and corrected-code reporting across all 9 corners *(curated)*
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772) *(curated)*
 
 ## Proposed (Architect / Hermit)
@@ -73,13 +73,13 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 0 |
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
 | In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 1 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 0 |
 | Curated | 7 |
 | Architect / Hermit proposals | 4 |
 | Active epics | 1 |
