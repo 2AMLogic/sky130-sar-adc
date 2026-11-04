@@ -1,4 +1,4 @@
-# DR-025: Close the CDAC gain-error miss by removing the inert sampling network and folding the half-LSB cap into the termination cap
+# DR-025: CDAC gain-error closure path: remove the inert sampling network and fold the half-LSB cap into the termination cap (gated; expected to fall short), with bottom-plate sampling as the alternative
 
 - **Status**: proposed. This record **proposes** a closure path. It implements
   nothing and edits no spec row. Ratification is the operator's approval of
@@ -64,62 +64,89 @@ measured `C_par` minus the measured load(s) it deletes:
 
 | corner | base `C_par` (LSB) | (a) | (b) | (a)+(b) |
 |---|---|---|---|---|
-| `tt_27c_1.80v` | 3.962 (7.86) | 2.962 (5.89) | 1.571 (3.13) | **0.571 (1.14)** |
-| `ss_27c_1.80v` | 4.129 (8.19) | 3.129 (6.22) | 1.564 (3.12) | 0.564 (1.13) |
-| `ff_27c_1.80v` | 3.775 (7.49) | 2.775 (5.52) | 1.577 (3.14) | 0.577 (1.15) |
-| `sf_27c_1.80v` | 3.786 (7.52) | 2.786 (5.54) | 1.565 (3.12) | 0.565 (1.13) |
-| `fs_27c_1.80v` | 4.116 (8.17) | 3.116 (6.19) | 1.575 (3.14) | 0.575 (1.15) |
-| `tt_-40c_1.80v` | 3.934 (7.81) | 2.934 (5.83) | 1.577 (3.14) | 0.577 (1.15) |
-| `tt_125c_1.80v` | 4.099 (8.13) | 3.099 (6.16) | 1.544 (3.08) | 0.544 (1.09) |
-| `tt_27c_1.62v` | 3.998 (7.93) | 2.998 (5.96) | 1.571 (3.13) | 0.571 (1.14) |
-| `tt_27c_1.98v` | 3.930 (7.80) | 2.930 (5.83) | 1.570 (3.13) | 0.570 (1.14) |
-| `ll`/`hl` (cap low) | 4.658 (9.23) | 3.658 (7.26) | 1.705 (3.40) | **0.705 (1.41)** |
-| `hh`/`lh` (cap high) | 3.427 (6.81) | 2.427 (4.83) | 1.468 (2.93) | 0.468 (0.94) |
+| `tt_27c_1.80v` | 3.962 (7.86) | 2.962 (5.89) | 1.746 (3.48) | **0.745 (1.49)** |
+| `ss_27c_1.80v` | 4.129 (8.19) | 3.129 (6.22) | 1.754 (3.50) | 0.754 (1.51) |
+| `ff_27c_1.80v` | 3.775 (7.49) | 2.775 (5.52) | 1.735 (3.46) | 0.735 (1.47) |
+| `sf_27c_1.80v` | 3.786 (7.52) | 2.786 (5.54) | 1.713 (3.41) | 0.713 (1.42) |
+| `fs_27c_1.80v` | 4.116 (8.17) | 3.116 (6.19) | 1.775 (3.54) | 0.775 (1.55) |
+| `tt_-40c_1.80v` | 3.934 (7.81) | 2.934 (5.83) | 1.750 (3.49) | 0.751 (1.50) |
+| `tt_125c_1.80v` | 4.099 (8.13) | 3.099 (6.16) | 1.722 (3.43) | 0.723 (1.44) |
+| `tt_27c_1.62v` | 3.998 (7.93) | 2.998 (5.96) | 1.746 (3.48) | 0.745 (1.49) |
+| `tt_27c_1.98v` | 3.930 (7.80) | 2.930 (5.83) | 1.745 (3.48) | 0.745 (1.49) |
+| `ll`/`hl` (cap low) | 4.658 (9.23) | 3.658 (7.26) | 1.921 (3.83) | **0.921 (1.84)** |
+| `hh`/`lh` (cap high) | 3.427 (6.81) | 2.427 (4.83) | 1.611 (3.21) | 0.610 (1.22) |
 
 (Entries are `C_par` in `C_u`, then span-referred LSB in brackets; where
-`(a)` or `(b)` is chosen alone the other loads stay.)
+`(a)` or `(b)` is chosen alone the other loads stay. **(b) deletes the
+`Csamp_x`/`BPREF_x` branch only**, the `no-csamp` leave-one-out, which also
+disconnects the `Cmswn`/`Cmswp` load on `BPREF_x`. It does **not** delete
+`Msw_x`: that is the `VINP`/`VINN` to `TOP_P`/`TOP_N` sampling switch, which
+top-plate sampling cannot do without. DR-004 and DR-022 list only
+`Csamp`/`BPREF`/`Cmsw*` as inert. An earlier revision of this record, taken
+from the issue's re-curation note, also subtracted `Msw_x` and so understated
+the residual. Recomputed from the record's composition table.)
 
 Two corrections to the issue/DR-022 wording follow from this table:
 
-- Deleting `Csamp_x` and `Msw_x` alone (option b) leaves `1.47–1.71 C_u`
-  (`Choff_x` plus the comparator), as the re-curation noted. That is
-  `2.9–3.4 LSB`, still `2x` over the row.
+- Deleting the `Csamp_x` branch alone (option b) leaves `1.61–1.92 C_u`
+  (`Choff_x`, `Msw_x` and the comparator). That is `3.2–3.8 LSB`, still
+  `2.3–2.7x` over the row.
 - DR-022's "(a)+(b) leave about `0.3–1.0 C_u`" is **not reused**. The
-  recomputed residual for (a)+(b) is the comparator input pair alone,
-  `0.47–0.71 C_u`, which happens to lie inside DR-022's range. That
-  agreement is a coincidence of two estimates, not a confirmation: DR-022's
-  `0.3–1.0` was never traced.
+  recomputed residual for (a)+(b) is the comparator input pair plus
+  `Msw_x`, `0.61–0.92 C_u` (`1.22–1.84 LSB`). Part of that range lies inside
+  DR-022's, but that is a coincidence of two estimates, not a confirmation:
+  DR-022's `0.3–1.0` was never traced.
 
 ## Decision
 
-**Propose (a) + (b) as the closure path: remove the inert
-`Csamp_x`/`Cmsw*` network, and fold DR-009's half-LSB offset into the
-existing per-side termination cap. Do not ratify a looser value now, and do
-not choose (c) or (d) now.** Specifically:
+**Propose (b) first, with (a) gated on a post-(b) measurement: remove the
+inert `Csamp_x`/`BPREF_x`/`Cmsw*` network (keeping `Msw_x`), then decide
+whether to also fold DR-009's half-LSB offset into the existing per-side
+termination cap. State plainly that, by subtraction, (a)+(b) is expected to
+fall short of the row. Do not
+ratify a looser value now, and do not choose (c) or (d) now.** Specifically:
 
-1. **(b) is the first step and carries most of the benefit.** Per corner it
-   removes `1.96–2.96 C_u` (`tt` `2.39`), about `3.9–5.8 LSB` of the `6.8–9.2
-   LSB` base. It also halves the sampling-path load, which DR-004
-   (sampling) already named as an open cost. Alone it does not reach the row
-   (`2.9–3.4 LSB`, `2x` over).
-2. **(a) is the second step.** It removes `1.000 C_u` (about `2 LSB`), and
-   with (b) takes `tt` to `0.571 C_u` (`1.14 LSB`) against `1.42`. DR-022
-   already showed that `Choff_x` alone is `2.0 LSB`, more than the row, so
-   no combination that keeps it can meet the row.
-3. **The combination does not demonstrably meet the row at the cap-low
-   corners.** At `ll`/`hl`, (a)+(b) gives `0.705 C_u`, `1.41 LSB` mean over
-   bias, against a limit of `0.711 C_u` / `1.42 LSB`. The margin is `0.01
-   LSB`. The record's own bias spread of the total (`+-0.05 C_u`, about
-   `+-0.1 LSB`) is ten times that, and the per-load bias dependence of the
-   comparator pair alone was not measured. So the honest statement is
-   "reaches 0.9–1.15 LSB at nine corners and `hh`/`lh`, and is at the limit
-   at `ll`/`hl`", not "meets the row".
-4. **Gate before any ratified claim.** The (a)+(b) schematic is to be
+1. **(b) is the largest single lever.** Per corner it removes `1.816–2.737
+   C_u` (`tt` `2.216`), about `3.6–5.4 LSB` of the `6.8–9.2 LSB` base. It also
+   halves the sampling-path load, which DR-004 (sampling) already named as an
+   open cost. Alone it leaves `3.2–3.8 LSB`, over `2x` the row.
+2. **(a) removes `1.000 C_u` (about `2 LSB`).** DR-022 already showed that
+   `Choff_x` alone is `2.0 LSB`, more than the row, so no combination that
+   keeps it can meet the row.
+3. **The combination misses the row at most corners.** The residual is the
+   comparator input pair plus `Msw_x`, `0.61–0.92 C_u`, against a limit of
+   `0.711 C_u` (`1.42 LSB`). Per the table: `hh`/`lh` passes (`1.22`); `sf`
+   is at the limit (`0.713`, `0.002 C_u` over); the other eight distinct
+   points are over, `1.44–1.55 LSB`; `ll`/`hl` is `1.84 LSB`, `1.3x` the
+   row. This is a miss, not a margin of a few hundredths of an LSB. The
+   record's bias spread of the total (`+-0.05 C_u`, about `+-0.1 LSB`) does
+   not change that.
+4. **What a further lever would have to be.** Bringing `ll`/`hl` to the limit
+   needs `0.21 C_u` more off the residual. `Msw_x` is only `0.143–0.216 C_u`
+   in total, so downsizing it (at a stated `R_on`/settling cost against
+   DR-004) cannot close this alone; the whole switch would have to vanish.
+   The comparator pair (`0.47–0.71 C_u`) is the only load big enough, and
+   cutting it by roughly 30% at `ll`/`hl` trades against DR-022's finding
+   that comparator resizing cannot close the miss by itself. No such lever is
+   proposed here; it would need its own measurement.
+5. **Why do (a)+(b) first anyway, and when not to.** (b) is justified without
+   regard to the gain row (inert network, half the sampling load) and is
+   independent of (c): bottom-plate sampling would not need the inert branch
+   either. (a) is less safe: with (c) taken, the top-plate cap that (a)
+   removes stops mattering, so (a)'s schematic round, DR-009 rework and
+   layout-flow retirement could be wasted. The operator is therefore asked to
+   choose between two orderings: **(b) then measure, then decide (a) versus
+   (c)** (this record's proposal, one schematic round for the part that
+   survives either way), or **(c) now** (one architecture round, no
+   predicted-miss round). Because the subtraction already predicts a miss at
+   10 of 11 distinct points for (a)+(b), the proposal is to do (b) only, and
+   to take (a) only if the post-(b) measurement plus a named lever shows it
+   can reach the row.
+6. **Gate before any ratified claim.** The changed schematic is to be
    measured with the same `sim/top-plate-cpar/` method before anyone writes
-   "meets". That measurement also has to include the parasitics that making
-   the termination cap switchable adds to the top plate, which this record
-   cannot see (the record measured only the four existing loads).
-5. **Fallbacks, in order, if that measurement fails the row:** (c)
+   "meets". For (a) that includes the parasitics that making the termination
+   cap switchable adds to the top plate, which this record cannot see.
+7. **Fallbacks, in order, if that measurement fails the row:** (c)
    bottom-plate sampling (below), then a superseding DR ratifying a looser
    value as a recorded departure. Any looser value must be derived then from
    the measured post-change `C_par` and recorded as a departure. The DRAFT
@@ -133,27 +160,39 @@ Every number is read or subtracted from the one committed record above.
 
 - **(a) alone.** Rejected as a stopping point: it leaves `2.4–3.7 C_u`
   (`4.8–7.3 LSB`), over `3x` the row, at every corner.
-- **(b) alone.** Rejected as a stopping point: `2.9–3.4 LSB`, `2x` over, and
-  `Choff_x` by itself is `2.0 LSB` span-referred. Kept as step 1 because it
-  is the largest single lever and is independent of the DR-009 rework.
-- **(c) bottom-plate sampling (gf180 DR-0014).** Not chosen now. It removes
-  the top-plate divider from the gain by construction, so it is the
-  strongest closure, but it is an architecture change (the DRAFT
-  architecture row, DR-004 sampling, DR-005, DR-008) and adds a switch leg to
-  every cell. gf180's motivation, an INL/SFDR bow from a voltage-dependent
-  `C_par`, is not evidenced here: #754 measures `<= 0.16 C_u` of variation
-  over the traced range, about `0.3 LSB` of span-referred gain, and DR-022
-  measured the divider as a near-pure scale factor. Kept as the first
-  fallback. Cost of not choosing it: if (a)+(b) lands at `ll`/`hl` over
-  `1.42`, this decision is reopened and a second schematic round is spent.
-- **(d) digital gain correction.** Rejected as a closure of *this* row. The
-  candidate row is "untrimmed", and a fixed correction cannot cover the
-  corner spread: base gain error spans `6.8–9.2 LSB` across the measured
-  corners, `+-1.2 LSB` about the middle, itself near the `1.42` budget. A
-  per-part trim redefines the row rather than meeting it, and the
-  correction moves the problem into a digital block and a calibration
-  procedure that nothing in `spec/` defines. It remains legitimate
-  *in addition to* a hardware fix, and would be a separate decision.
+- **(b) alone.** Rejected as a closure of the row: `3.2–3.8 LSB`, over `2x`
+  over, and `Choff_x` by itself is `2.0 LSB` span-referred. Kept as the
+  first step because it is the largest single lever, is justified on its own,
+  and is independent of the DR-009 rework.
+- **(c) bottom-plate sampling (gf180 DR-0014).** Not chosen now, but with
+  `Msw_x` kept it is the only option that removes the sampling switch's and
+  the comparator pair's contribution by construction, so it is the strongest
+  closure and the likelier one to meet the row at `ll`/`hl`. It is an
+  architecture change (the DRAFT architecture row, DR-004 sampling, DR-005,
+  DR-008) and adds a switch leg to every cell. gf180's motivation, an
+  INL/SFDR bow from a voltage-dependent `C_par`, is not evidenced here: #754
+  measures `<= 0.16 C_u` of variation over the traced range, about `0.3 LSB`
+  of span-referred gain, and DR-022 measured the divider as a near-pure scale
+  factor. So (c) is not ranked above (a)+(b) on INL grounds, only on reach.
+  Cost of not choosing it first: a schematic round that the subtraction
+  predicts will miss at most corners (Decision item 5 states the trade the
+  operator is asked to make).
+- **(d) digital gain correction.** Not rejected on arithmetic. The base gain
+  error spans `6.81–9.23 LSB` across the measured corners, so a fixed
+  mid-span correction leaves `+-1.21 LSB` (`+-1.3` with the `+-0.1` bias
+  spread), which is inside `1.42` at every measured corner and tighter than
+  (a)+(b)'s `1.22–1.84`. It is declined as the closure for these reasons,
+  which an EE reader can check:
+  1. A digital scale-up by `1/g` with `g` about `0.992` (a `C_par` of about
+     `4 C_u`) cannot fill the output code space: it produces periodic missing
+     codes, roughly one per 128, which collide with the DNL/missing-code row.
+  2. A calibration or digital block that applies it is not defined in
+     `spec/`; it would be new scope, and a separate decision.
+  3. Whether a fixed design-time coefficient counts as "untrimmed" is a
+     spec-interpretation question for the operator, not settled here. A
+     per-part trim plainly redefines the row.
+  It remains legitimate *in addition to* a hardware fix, and stays open as a
+  candidate if the hardware route falls short.
 - **Superseding DR ratifying a looser value now.** Rejected: nothing yet
   shows the hardware route fails, and a looser value derived from today's
   `3.4–4.7 C_u` would be the relax-after-measured-FAIL that CLAUDE.md
@@ -170,11 +209,14 @@ Every number is read or subtracted from the one committed record above.
 - **Port parity.** gf180 DR-0012 (systematic vs mismatch split): row
   structure already carried by DR-022; unchanged here. gf180 DR-0014
   (bottom-plate sampling): gf180 adopted it as its closure, this record
-  chooses a different first path (a)+(b) on sky130 and keeps (c) as the
-  fallback. **Divergence recorded**: sky130 keeps top-plate sampling for now,
-  because the measured `C_par` here includes a removable `~2.4 C_u` inert
-  branch whereas gf180's DR-0014 argument rests on a voltage-dependent
-  divider that #754 does not show on sky130. gf180 DR-0019 (unit-cap resize
+  proposes a different first step, (b) with (a) gated, on sky130 and keeps (c)
+  as the alternative. **Divergence recorded**: sky130 keeps top-plate sampling
+  for now, because the measured `C_par` here includes a removable `1.8–2.7
+  C_u` inert branch whereas gf180's DR-0014 argument rests on a
+  voltage-dependent divider that #754 does not show on sky130. The corrected
+  residual (`1.22–1.84 LSB` for (a)+(b)) means this divergence may not
+  survive the post-(b) measurement; if it does not, sky130 converges on
+  gf180's (c). gf180 DR-0019 (unit-cap resize
   for gain-error margin): the mismatch-half lever. Not applicable to the
   systematic half here (DR-022: `Choff_x` scales with `C_u`); sky130's
   `C_u` stays as DR-019 set it.
@@ -197,23 +239,32 @@ Every number is read or subtracted from the one committed record above.
   against a smaller load, the very reason that record left them in.
 - **Cost of (a)+(b), stated:** two sub-block re-verifications
   (`sim/cdac-array-transfer/`, `sim/sampling-*`), one layout-flow retirement,
-  and a DR-009 half-LSB re-verification, in exchange for roughly `6–8x` less
-  gain error at the nine non-cap-corner points. There is no sizing-only way to get that.
-- **Probable outcome is "at the limit", not "pass", at `ll`/`hl`.** The
-  operator should read step 3 as a real risk, not a footnote.
+  and a DR-009 half-LSB re-verification, in exchange for roughly `5–5.5x` less
+  gain error at `tt` (`7.86` to `1.49 LSB`), still over the row. There is no
+  sizing-only way to get that.
+- **Probable outcome is "fails the row", not "at the limit".** By
+  subtraction (a)+(b) passes only at `hh`/`lh`; the gated measurement is
+  expected to fail unless a named further lever is added. The operator should
+  read Decision item 3 as the expected result, not a risk footnote.
+- **Not measured.** The comparator pair's `0.47–0.71 C_u` is in reset with
+  the tail off; its value in the regeneration phase (gate capacitance rising
+  toward inversion) is not measured, and DR-022 bounds it at `0.1–2.2 C_u`.
 - `sim/` evidence is unchanged and no record is minted. Nothing is
   invalidated by this record itself.
 
 ## Open items
 
-1. **File the implementation issues on ratification**, one per step: (b)
-   remove the inert network and re-verify DR-004 sampling; (a) switchable
-   termination cap, with the `sim/cdac-array-transfer/` and layout-parity
-   consequences above. Their order is the Decision's order.
+1. **File the implementation issues on ratification**: (b) remove the inert
+   network and re-verify DR-004 sampling first; (a) switchable termination
+   cap, with the `sim/cdac-array-transfer/` and layout-parity consequences
+   above, only per Decision item 5. Size them from this record, not from the
+   #755 re-curation note, whose "`Csamp_x` and `Msw_x`" grouping is the
+   error corrected here.
 2. **Re-measure `C_par` on the changed schematic** with
    `sim/top-plate-cpar/`, all 13 corners, from a clean tree and with a
    controlled PDK/simulator version, and include per-load bias dependence
-   at `ll`/`hl`. This decides the step 5 fallback.
+   at `ll`/`hl`, and a regeneration-phase check of the comparator pair. This
+   decides the Decision item 7 fallback.
 3. **Gain error, mismatch half** (DR-022 Open item 3) and **campaign
    reporting** (DR-022 Open item 4) are unchanged and out of scope.
 4. **Rebase note.** Open PR #758 edits DR-022's status and Open items.
