@@ -42,7 +42,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import re
 import subprocess
 import sys
 import tempfile
@@ -213,29 +212,18 @@ def analysis_steps() -> list[dict]:
     return steps
 
 
-def parse_corner_id(cid: str) -> tuple[str, float, float]:
-    m = re.fullmatch(r"([a-z]+)_(-?[0-9.]+)c_([0-9.]+)v", cid)
-    if not m:
-        raise ValueError(f"unparseable corner id {cid!r}")
-    return m.group(1), float(m.group(2)), float(m.group(3))
-
-
-def make_corner_id(process: str, temp_c: float, vdd: float) -> str:
-    return f"{process}_{temp_c:g}c_{vdd:.2f}v"
-
-
 def corner_ids() -> list[str]:
     grid = corners_mod.ratified_oat_grid(
         NOMINAL_SUPPLY_V, corners_mod.RATIFIED_SUPPLY_TOLERANCE,
         corners_mod.RATIFIED_PROCESS_CORNERS, corners_mod.RATIFIED_TEMPS_C)
-    ids = [make_corner_id(p, t, v) for p, t, v in grid]
-    ids += [make_corner_id(rc, 27.0, NOMINAL_SUPPLY_V) for rc in RC_CORNERS]
+    ids = [corners_mod.corner_id(p, t, v) for p, t, v in grid]
+    ids += [corners_mod.corner_id(rc, 27.0, NOMINAL_SUPPLY_V) for rc in RC_CORNERS]
     return ids
 
 
 def build_request(netlist_name: str, cids: list[str], *, timeout_s: float = 1800.0,
                   backend: str | None = None) -> dict:
-    pts = [parse_corner_id(c) for c in cids]
+    pts = [corners_mod.parse_corner_id(c) for c in cids]
     procs = sorted({p for p, _, _ in pts})
     temps = sorted({t for _, t, _ in pts})
     vdds = sorted({v for _, _, v in pts})
@@ -269,7 +257,7 @@ def read_report(report: dict) -> tuple[dict[str, dict[str, float | None]], dict]
     out: dict[str, dict[str, float | None]] = {}
     for c in report.get("corners") or []:
         sv = (c.get("supply_v") or {}).get(SUPPLY_KEY)
-        cid = make_corner_id(c["process"], float(c["temperature_c"]), float(sv))
+        cid = corners_mod.corner_id(c["process"], float(c["temperature_c"]), float(sv))
         vals = {m["name"]: m.get("value") for m in (c.get("measurements") or [])
                 if isinstance(m, dict) and "name" in m}
         if c.get("status") in ("error", "inconclusive"):
@@ -594,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.probe:
-        cid = make_corner_id("tt", 27.0, NOMINAL_SUPPLY_V)
+        cid = corners_mod.corner_id("tt", 27.0, NOMINAL_SUPPLY_V)
         results, _info, _req = submit_variant("as-committed", [cid], workdir, "local",
                                               args.timeout_s)
         for side in ("p", "n"):

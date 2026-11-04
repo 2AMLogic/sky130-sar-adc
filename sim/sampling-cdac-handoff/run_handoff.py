@@ -89,7 +89,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, pdk, toolchain, evidence, measure  # noqa: E402
+from harness import corners as corners_mod, pdk, toolchain, evidence, measure, testbench  # noqa: E402
 
 FE_FRAG = EXPERIMENT_DIR / "testbench" / "sampling_frontend_dut.spice"
 CDAC_FRAG = EXPERIMENT_DIR / "testbench" / "cdac_array_dut.spice"
@@ -355,12 +355,6 @@ def assert_fragments_current(scratch: Path) -> str:
     )
 
 
-def _pwl(points: list[tuple[float, float]]) -> str:
-    """Same `pwl(...)` rendering sim/sampling-acquisition-settling/'s own
-    deck builder uses."""
-    return "pwl(" + " ".join(f"{t:g}n {v:g}" for t, v in points) + ")"
-
-
 def build_acquisition_netlist(
     code_bits: list[int], corner: str, temp_c: float, vdd: float,
     tran_step_ns: float = TRAN_STEP_NS,
@@ -418,9 +412,9 @@ def build_acquisition_netlist(
         f"Vrefp VREFP 0 dc {vdd}",
         "Vrefn VREFN 0 dc 0",
         f"Vvcm VCM 0 dc {VCM}",
-        f"Vinp VINP 0 {_pwl(vinp_points)}",
-        f"Vinn VINN 0 {_pwl(vinn_points)}",
-        f"Vsample SAMPLE 0 {_pwl(sample_points)}",
+        f"Vinp VINP 0 {testbench.pwl(vinp_points)}",
+        f"Vinn VINN 0 {testbench.pwl(vinn_points)}",
+        f"Vsample SAMPLE 0 {testbench.pwl(sample_points)}",
         "",
         "* SELp<i>/SELn<i>: ideal DC sources standing in for the SAR",
         "* sequencer's DOUT<i> register held at a fixed previous-conversion",

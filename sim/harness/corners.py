@@ -13,6 +13,8 @@ the ADC spec.
 
 from __future__ import annotations
 
+import re
+
 from .pdk import load_pdk_json
 
 # Ratified corner set (spec/target-spec.md, "Numeric rows -- RATIFIED
@@ -47,6 +49,17 @@ def corner_id(process_corner: str, temp_c: float, supply_v: float) -> str:
     temp_str = f"{temp_c:g}"
     supply_str = f"{supply_v:.2f}"
     return f"{process_corner}_{temp_str}c_{supply_str}v"
+
+
+_CORNER_ID_RE = re.compile(r"([a-z]+)_(-?[0-9.]+)c_([0-9.]+)v")
+
+
+def parse_corner_id(cid: str) -> tuple[str, float, float]:
+    """Inverse of `corner_id`: (process_corner, temp_c, supply_v)."""
+    m = _CORNER_ID_RE.fullmatch(cid)
+    if not m:
+        raise ValueError(f"unparseable corner id {cid!r}")
+    return m.group(1), float(m.group(2)), float(m.group(3))
 
 
 def supply_points(nominal_v: float, tolerance: float) -> list[float]:

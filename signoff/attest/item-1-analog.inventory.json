@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "kind": "t1-attestation-inventory",
+  "t1_item": 1,
+  "description": "Analog partition design sources: the xschem schematics (and symbols) for the sampling front end, CDAC array and unit cell, comparator and top level, and the full-hierarchy netlist derived from them.",
+  "sources": [
+    "design/sampling_frontend.sch",
+    "design/sampling_frontend.sym",
+    "design/cdac/cdac_array.sch",
+    "design/cdac/cdac_array.sym",
+    "design/cdac/cdac_unit_cell.sch",
+    "design/comparator.sch",
+    "design/comparator.sym",
+    "design/sar_adc_top.sch",
+    "design/sar_adc_top.sym"
+  ],
+  "derived": [
+    {
+      "path": "design/sar_adc_top.spice",
+      "generator": "design/regen_netlist.sh",
+      "check": {
+        "argv": [
+          "bash",
+          "design/regen_netlist.sh",
+          "--check"
+        ],
+        "cwd": "."
+      }
+    }
+  ]
+}

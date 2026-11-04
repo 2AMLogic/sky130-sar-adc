@@ -2,8 +2,17 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-03
+
+- **PR #681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
+- **Issue #676** (closed): Bind T1 items 1, 2, 9 and 10 to audited artifacts (both partitions) with artifact-anchored envelopes
+
 ### 2026-11-01
 
+- **PR #766**: refactor: share parse_corner_id and pwl helpers via sim/harness
+- **Issue #764** (closed): Dedupe corner-id and pwl helpers in sim drivers (use sim/harness/corner helpers)
+- **PR #758**: docs(DR-022): record post-#722 status and file open items
+- **Issue #753** (closed): spec: record DR-022 post-#722 status and file its open items
 - **PR #761**: sim: measure CDAC top-plate C_par composition per PVT and MiM r+c corner
 - **Issue #754** (closed): sim: measure CDAC top-plate C_par composition per corner (C(V) extraction, incl. r+c corners)
 - **Issue #756** (closed): sim: CDAC gain error, mismatch half (Monte Carlo check of analytic 1.42 LSB 3-sigma)

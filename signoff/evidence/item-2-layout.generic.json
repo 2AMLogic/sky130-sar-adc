@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "kind": "generic",
+  "t1_item": 2,
+  "status": "pass",
+  "summary": "Layout: the committed composed top-level stream. It is produced by the committed klt flows (layout/*/bin/run-flow.sh, layout/sar-adc-top/bin/) with a per-flow record, and this envelope pins its bytes. It asserts the stream exists and is the one items 3 and 11 cite; it asserts nothing about item 4 (top-level LVS mismatches stay tracked by #103). Its sar_sequencer macro was routed from layout/sar-sequencer/netlist/sar_sequencer.v as committed, which item 1 (digital) reports as stale against the schematic.",
+  "source": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/sar_adc_top.gds",
+  "provenance": {
+    "input": {
+      "path": "layout/sar-adc-top/reports/20261001-211249-1ca34e6/sar_adc_top.gds",
+      "content_hash": "sha256:9d7c1a4cf91cc23878f198bf7de7574ef10d72c8ca62d01466312696f916d14b"
+    }
+  }
+}
