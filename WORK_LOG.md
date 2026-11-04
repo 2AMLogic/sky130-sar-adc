@@ -4,6 +4,7 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-04
 
+- **PR #776**: feat: report per-corner gain and corrected-code error in full-conversion record
 - **PR #763**: docs: propose CDAC gain-error closure path (DR-025)
 - **Issue #755** (closed): design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR)
 
