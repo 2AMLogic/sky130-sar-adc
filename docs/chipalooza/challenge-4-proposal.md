@@ -4165,6 +4165,9 @@ tracker already owns.
    > **DR-024**
    > (`spec/decision-records/DR-024-boost-well-tie-declaration.md`) is
    > **proposed**.
+   > **DR-025**
+   > (`spec/decision-records/DR-025-cdac-gain-error-closure-path.md`) is
+   > **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
