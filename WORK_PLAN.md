@@ -30,7 +30,9 @@ _None._
 
 Issues currently being built (`loom:building`).
 
+- **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows
 - **#755**: design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR)
+- **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
 
 ## PRs Awaiting Review
 
@@ -51,8 +53,10 @@ Issues carrying `loom:curated`.
 - **#103**: T1 item 2 (layout): top-level SAR ADC layout assembly *(curated)*
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(curated)*
 - **#428**: Operator hand-off: create the 'main: required status checks' ruleset that arms the base-freshness guard (from #422 / PR #425) *(curated)*
+- **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows *(curated)*
 - **#734**: Bump layout/requirements.txt to klt 0.8.0 and re-run layout flows *(curated)*
 - **#755**: design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR) *(curated)*
+- **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -73,10 +77,10 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 1 |
+| In Progress (`loom:building`) | 3 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 5 |
+| Curated | 7 |
 | Architect / Hermit proposals | 4 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
