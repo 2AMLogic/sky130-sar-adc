@@ -2,6 +2,11 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-04
+
+- **PR #763**: docs: propose CDAC gain-error closure path (DR-025)
+- **Issue #755** (closed): design: close or supersede the CDAC gain-error miss (DR-022 options a-d or looser-value DR)
+
 ### 2026-11-03
 
 - **PR #681**: feat(signoff): bind T1 items 1, 2, 9, 10 to audited artifacts; add sequencer parity check
