@@ -672,6 +672,40 @@ does too). Both records stay as minted (append-only). Each record reads
 because the runner writes the netlist snapshot before it reads the
 tree state.
 
+## Gain and offset from the captured codes (issue #757, DR-022 Decision item 3)
+
+`--corners --record` adds a "Gain and offset from the captured codes" section
+to the record: per corner, a least-squares `code = g * ideal + offset` over the
+five captured codes (codes saturated at 0 / 1023 excluded), `eps = 1 - g` in %
+and span-referred LSB (`eps * 2^N`), and a corrected-code error
+`(code - offset)/g - ideal` per input against `+-1 LSB`. The absolute-code
+verdict, phase check and power tables are unchanged.
+
+* **Method and limits.** This is method (i) of the issue: a code-domain slope
+  from 1-LSB-quantized codes. It is not DR-022's bit-8-pair extraction, and
+  offset, gain and INL are confounded. A second, `mid-scale` fit (|input| <=
+  0.25 V_REF) is reported beside the all-inputs fit; it is a post-hoc exclusion
+  of the inputs that fail by tens of LSB for a separate mechanism.
+* **Resolution.** The `resolution` column bounds what the fit can resolve
+  (+-1 LSB at each end of the fitted span scaled to full scale). The mid-scale
+  span is 256 codes, giving +-8.0 LSB span-referred -- about the size of the
+  8.2 / 8.3 LSB DR-022 reports. Arithmetic on the codes already in
+  `records/20261011-112119-188e94c.md` (not a new record): the mid-scale fit
+  gives `g = 1.00781` (`eps = -8.0 LSB`) at every corner, the opposite sign of
+  DR-022's `0.99200` / `0.99190`, because the three mid-scale codes
+  (383 / 511 / 641 for ideal 384 / 512 / 640) are identical across corners. The
+  all-inputs fit is dominated by the `-0.78 V_REF` failure (`g` about 0.76-0.80).
+  So method (i) is **too coarse to measure the gain error** here; per-corner
+  decision-margin traces (method (ii)) would be needed. The results are
+  informational and are not a pass/fail against the DRAFT `<= 1.42 LSB` row.
+* **r+c coverage.** The five `tt/ss/ff/sf/fs` libraries all load
+  `res_typical__cap_typical`, so this sweep does **not** cover the MiM r+c
+  corners the DRAFT row names.
+* **Record mint pending.** The new record needs the off-host reference
+  campaign (`full_conversion_reference_campaign=true`); it was not run from
+  the shared worker host. Until it is minted, the DR-022 cross-check table in
+  the record is unpopulated by this PR.
+
 ## Findings
 
 The first recorded campaign (`records/LATEST`) is a **FAIL** at every ratified
