@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "Deliberately illegal fixture for run-flow.sh's DRC negative control",
+    "(issue #122, updated by #149): two 2.0 x 2.0 um nwell islands 0.50 um",
+    "apart -- below sky130's nwell.2a minimum spacing (1.27 um) -- plus a",
+    "0.60 um wide nwell stripe, below nwell.1's minimum width (0.84 um).",
+    "Exactly the failure mode a deliberately-split well risks: two nwell",
+    "shapes drawn just barely apart are not two wells, they are one merged",
+    "well on silicon.",
+    "",
+    "Run through `klt drc --deck sky130` directly (curated engine, no",
+    "standalone `klayout` binary needed) since klt 0.4.0",
+    "(2AMLogic/klayout-tools#1420): the curated sky130 deck reports",
+    "'nwell.space.1'/'nwell.width.1' violations on these shapes. klt 0.3.0's",
+    "curated deck carried no n-well rules at all and reported this same",
+    "fixture 'clean' -- see ../README.md's verdict table for the closed gap",
+    "this fixture used to demonstrate.",
+    "",
+    "Before #149, this fixture also carried a `tap` (65/44) coincident with",
+    "its nwell (0 um enclosure, testing difftap.10) and a `diff` (65/20)",
+    "coincident with its nwell (0 um enclosure, testing difftap.8), checked",
+    "through a hand-written DRC-DSL deck (`drc/nwell_isolation.drc`, retired",
+    "by #149) run via `klt drc --engine klayout --deck-file`, which shells",
+    "out to a standalone `klayout` binary. Those two defects are dropped",
+    "here rather than carried forward unused: klt 0.4.0's curated deck",
+    "deliberately does not transcribe difftap.8/difftap.10 (they are",
+    "implant-scoped -- `and(nsdm)`/`and(psdm)` in sky130's own deck -- and no",
+    "`klt gen` generator in this repo's flows draws psdm/nsdm), and this",
+    "environment has no working `klayout` binary to check them any other",
+    "way. See ../README.md's 'The DRC gap this recipe used to work around'",
+    "section for the full writeup and the open klayout-tools issue if that",
+    "coverage is ever worth restoring.",
+    "",
+    "Written with `klt draw`, which writes geometry verbatim with no rule",
+    "checking -- exactly what a DRC negative control needs, the same way",
+    "layout/bin/drc_violation_fixture.json is the negative control for the",
+    "trivial-cell flow's curated-deck verdict."
+  ],
+  "shapes": [
+    {"layer": [64, 20], "rect_um": [0.0, 0.0, 2.0, 2.0]},
+    {"layer": [64, 20], "rect_um": [2.5, 0.0, 4.5, 2.0]},
+
+    {"layer": [64, 20], "rect_um": [10.0, 0.0, 10.6, 2.0]}
+  ]
+}
