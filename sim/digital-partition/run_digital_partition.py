@@ -378,9 +378,8 @@ def mint_record(camp: dict, supersedes: str, probe_dir: Path) -> Path:
     rdir.mkdir(parents=True, exist_ok=True)
     (rdir / CAMPAIGN_FILE).write_text(dc.dumps(camp))
     lines = render_record(rid, camp, supersedes, "sim/digital-partition/run_digital_partition.py")
-    prov.record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(prov, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, rid)
-    print(f"Record written: {prov.record_path.relative_to(REPO_ROOT)}")
     return prov.record_path
 
 

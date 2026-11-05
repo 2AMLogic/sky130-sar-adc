@@ -772,9 +772,8 @@ def write_corners_decouple_record(points: list[dict], point: str,
         written_by=WRITTEN_BY,
         supersedes=supersedes,
     )
-    record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(prov, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
-    print(f"\nWrote record: {record_path}")
     return record_path
 
 
@@ -1015,9 +1014,8 @@ def write_corners_record(points: list[dict], point: str,
         written_by=WRITTEN_BY,
         supersedes=supersedes,
     )
-    record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(prov, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
-    print(f"\nWrote record: {record_path}")
     return record_path
 
 
@@ -1143,8 +1141,7 @@ def write_record(all_results: dict, supersedes: str = "") -> None:
         written_by=WRITTEN_BY,
         supersedes=supersedes,
     )
-    record_path.write_text("\n".join(lines) + "\n")
-    print(f"\nWrote record: {record_path}")
+    evidence.close_record(prov, lines, "Record")
 
 
 def main() -> int:

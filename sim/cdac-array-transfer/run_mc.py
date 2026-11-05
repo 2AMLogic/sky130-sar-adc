@@ -549,7 +549,7 @@ def write_evidence(
     a("")
     lines.extend(evidence.footer_lines("sim/cdac-array-transfer/run_mc.py", supersedes))
 
-    record_path.write_text("\n".join(lines))
+    evidence.close_record(prov, lines, "Record")
     return record_path, overall_ok
 
 
@@ -678,7 +678,7 @@ def write_gain_error_evidence(result: McResult, supersedes: str = "", note: str 
     ))
     a("")
     L.extend(evidence.footer_lines("sim/cdac-array-transfer/run_mc.py", supersedes))
-    prov.record_path.write_text("\n".join(L))
+    evidence.close_record(prov, L, "Record")
     return prov.record_path, negctrl_ok and positive_ok
 
 
