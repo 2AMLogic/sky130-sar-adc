@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-05
 
+- **PR #797**: refactor(sim): remove unused record_path locals in sim drivers
+- **Issue #795** (closed): chore(sim): drop dead record_path locals left by close_record() adoption
 - **PR #794**: refactor(sim): route record-closing tails through evidence.close_record()
 - **Issue #791** (closed): Adopt evidence.close_record() in sim drivers: ~19 hand-rolled record closers
 - **PR #793**: refactor(sim): share one binary-safe file-hash helper across digital run drivers
