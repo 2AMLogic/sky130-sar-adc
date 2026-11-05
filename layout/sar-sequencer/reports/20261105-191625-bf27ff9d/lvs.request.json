@@ -1,0 +1,15 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "netlist": "sar_sequencer.extract.spice",
+    "top": "sar_sequencer"
+  },
+  "reference": {
+    "netlist": "sar_sequencer.lvs-reference.spice",
+    "top": "sar_sequencer"
+  },
+  "options": {
+    "combine_devices": true
+  }
+}

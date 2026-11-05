@@ -1,0 +1,15 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "netlist": "seln_inverters.extract.spice",
+    "top": "seln_inverters"
+  },
+  "reference": {
+    "netlist": "seln_inverters.lvs-reference.spice",
+    "top": "seln_inverters"
+  },
+  "options": {
+    "combine_devices": true
+  }
+}

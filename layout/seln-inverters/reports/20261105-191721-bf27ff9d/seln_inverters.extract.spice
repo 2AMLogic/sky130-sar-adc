@@ -1,0 +1,81 @@
+* extracted by klt extract --deck sky130
+
+* cell seln_inverters
+* pin A,DOUT0
+* pin A,DOUT1
+* pin A,DOUT2
+* pin A,DOUT3
+* pin A,DOUT4
+* pin A,DOUT5
+* pin A,DOUT6
+* pin A,DOUT7
+* pin A,DOUT8
+* pin SELn0,Y
+* pin SELn1,Y
+* pin SELn2,Y
+* pin SELn3,Y
+* pin SELn4,Y
+* pin SELn5,Y
+* pin SELn6,Y
+* pin SELn7,Y
+* pin SELn8,Y
+* pin VGND
+* pin VPB,VPWR
+.SUBCKT seln_inverters A|DOUT0 A|DOUT1 A|DOUT2 A|DOUT3 A|DOUT4 A|DOUT5 A|DOUT6
++ A|DOUT7 A|DOUT8 SELn0|Y SELn1|Y SELn2|Y SELn3|Y SELn4|Y SELn5|Y SELn6|Y
++ SELn7|Y SELn8|Y VGND VPB|VPWR
+* device instance $1 r0 *1 3.895,34.8 nfet
+M$1 SELn4|Y A|DOUT4 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $2 r0 *1 3.895,35.92 nfet
+M$2 SELn6|Y A|DOUT6 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $3 r0 *1 3.895,40.24 nfet
+M$3 SELn5|Y A|DOUT5 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $4 r0 *1 3.895,41.36 nfet
+M$4 SELn8|Y A|DOUT8 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $5 r0 *1 5.275,41.36 nfet
+M$5 SELn3|Y A|DOUT3 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $6 r0 *1 3.895,45.68 nfet
+M$6 SELn2|Y A|DOUT2 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $7 r0 *1 3.895,46.8 nfet
+M$7 SELn7|Y A|DOUT7 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $8 r0 *1 3.895,51.12 nfet
+M$8 SELn0|Y A|DOUT0 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $9 r0 *1 3.895,52.24 nfet
+M$9 SELn1|Y A|DOUT1 VGND VGND nfet L=0.15U W=0.65U AS=0.169P AD=0.169P PS=1.82U
++ PD=1.82U
+* device instance $10 r0 *1 3.895,33.375 pfet
+M$10 SELn4|Y A|DOUT4 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $11 r0 *1 3.895,37.345 pfet
+M$11 SELn6|Y A|DOUT6 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $12 r0 *1 3.895,38.815 pfet
+M$12 SELn5|Y A|DOUT5 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $13 r0 *1 3.895,42.785 pfet
+M$13 SELn8|Y A|DOUT8 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $14 r0 *1 5.275,42.785 pfet
+M$14 SELn3|Y A|DOUT3 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $15 r0 *1 3.895,44.255 pfet
+M$15 SELn2|Y A|DOUT2 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $16 r0 *1 3.895,48.225 pfet
+M$16 SELn7|Y A|DOUT7 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $17 r0 *1 3.895,49.695 pfet
+M$17 SELn0|Y A|DOUT0 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+* device instance $18 r0 *1 3.895,53.665 pfet
+M$18 SELn1|Y A|DOUT1 VPB|VPWR VPB|VPWR pfet L=0.15U W=1U AS=0.26P AD=0.26P
++ PS=2.52U PD=2.52U
+.ENDS seln_inverters

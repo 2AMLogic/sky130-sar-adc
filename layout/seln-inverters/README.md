@@ -273,3 +273,22 @@ single cell type and its own top-level port list. Clean room: the topology
 placed and routed is this repo's own `design/sar_adc_top.sch` (issue #56);
 the only external inputs are the sky130 PDK's own official, freely-licensed
 standard-cell library and OpenROAD's own placement/routing/CTS algorithms.
+
+## `io.layer_v` moved `li1` -> `met2` (issue #784)
+
+`requests/place-and-route.json` set `io.layer_v` to `li1`, which `klt
+place-and-route` rejects up front on klt 0.8.0 and still rejects on klt 0.9.0
+(`request.io.layer_v 'li1' is outside the signal routing range ... met1-met5`,
+klayout-tools#2473). It is now `met2` (`layer_h` stays `met1`), as in
+`layout/top-glue/`. No check, rule or spec line changed.
+
+New record `reports/20261105-191721-bf27ff9d/` (klt 0.9.0 in a worktree venv;
+`layout/requirements.txt` untouched, #734 owns that bump):
+
+- DRC clean (0 violations); LVS `match`, devices 18/18/18, nets 20/20/20,
+  pins 20/20/20, `extract.json` `pin_count` 20 (the 9 `topology` entries are
+  the expected symmetric-inverter warnings described above).
+- Pin placement before vs after: the DEF `PINS` entries (name, layer,
+  position) are identical to `reports/20261021-104608-ddc1d72/` (18 on `met1`,
+  2 on `met5` in both). No pin moved. The previous record was made on an
+  older klt and open_pdks pin, so the comparison covers pin placement only.
