@@ -841,8 +841,7 @@ def write_record(results: list[dict], note: str = "", supersedes: str = "") -> N
         "sim/sampling-cdac-handoff/run_handoff.py", supersedes
     ))
 
-    record_path.write_text("\n".join(lines) + "\n")
-    print(f"\nWrote {record_path}")
+    evidence.close_record(prov, lines, "Record")
 
 
 # The record this campaign's --corners mode EXTENDS rather than supersedes: it
@@ -1177,9 +1176,8 @@ def write_corners_record(
         "sim/sampling-cdac-handoff/run_handoff.py", supersedes
     ))
 
-    record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(run, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
-    print(f"\nWrote record: {record_path}")
     return record_path
 
 

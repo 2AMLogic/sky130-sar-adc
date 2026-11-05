@@ -303,8 +303,7 @@ def write_record(results: list[dict], supersedes: str = "") -> None:
     a("")
     lines.extend(evidence.footer_lines("sim/sampling-frontend/run_transient.py", supersedes))
 
-    record_path.write_text("\n".join(lines) + "\n")
-    print(f"\nWrote {record_path}")
+    evidence.close_record(prov, lines, "Record")
 
 
 if __name__ == "__main__":

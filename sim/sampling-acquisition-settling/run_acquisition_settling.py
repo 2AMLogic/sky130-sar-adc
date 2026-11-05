@@ -743,9 +743,8 @@ def write_record(
         supersedes,
     ))
 
-    record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(prov, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
-    print(f"\nWrote record: {record_path}")
 
 
 def write_corners_record(points: list[dict], supersedes: str = "") -> Path:
@@ -962,9 +961,8 @@ def write_corners_record(points: list[dict], supersedes: str = "") -> Path:
         supersedes,
     ))
 
-    record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(run, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
-    print(f"\nWrote record: {record_path}")
     return record_path
 
 

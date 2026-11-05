@@ -722,9 +722,8 @@ def write_record(
         "sim/cdac-bit-trial-settling/run_bit_trial_settling.py", supersedes
     ))
 
-    record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(prov, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
-    print(f"\nWrote record: {record_path}")
 
 
 def write_corners_record(
@@ -980,9 +979,8 @@ def write_corners_record(
         "sim/cdac-bit-trial-settling/run_bit_trial_settling.py", supersedes
     ))
 
-    record_path.write_text("\n".join(lines) + "\n")
+    evidence.close_record(run, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
-    print(f"\nWrote record: {record_path}")
     return record_path
 
 

@@ -1291,8 +1291,7 @@ def write_record(results: dict, supersedes: str = "") -> None:
     a("")
     lines.extend(evidence.footer_lines("sim/sampling-frontend/run_hold_kick.py", supersedes))
 
-    record_path.write_text("\n".join(lines) + "\n")
-    print(f"\nWrote {record_path}")
+    evidence.close_record(prov, lines, "Record")
 
 
 def main() -> int:
