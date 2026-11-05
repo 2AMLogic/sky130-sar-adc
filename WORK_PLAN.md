@@ -31,14 +31,13 @@ _None._
 Issues currently being built (`loom:building`).
 
 - **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows
-- **#757**: sim: per-corner gain extraction and corrected-code reporting across all 9 corners
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#776**: feat: report per-corner gain and corrected-code error in full-conversion record
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -77,8 +76,8 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 1 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
 | Curated | 7 |
 | Architect / Hermit proposals | 4 |
