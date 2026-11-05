@@ -4,6 +4,10 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-05
 
+- **PR #794**: refactor(sim): route record-closing tails through evidence.close_record()
+- **Issue #791** (closed): Adopt evidence.close_record() in sim drivers: ~19 hand-rolled record closers
+- **PR #793**: refactor(sim): share one binary-safe file-hash helper across digital run drivers
+- **Issue #789** (closed): Dedup byte-identical sha() file-hash helpers in digital sim run drivers
 - **PR #786**: fix(layout): widen sampling-frontend-wells via1 pads for adjacent enclosure
 - **Issue #783** (closed): layout: sampling-frontend-wells via-enclosure DRC (51 met1/met2 enclosing_adjacent.via.1) under the new klt deck
 - **Issue #780** (closed): Bump klayout-tools pin 0.6.0 → 0.8.0
