@@ -51,7 +51,18 @@ def sha256_text(text: str) -> str:
 
 
 def sha256_file(path: Path) -> str:
+    """SHA-256 of the file decoded as text and re-encoded as UTF-8 (netlists).
+    Not binary-safe -- use sha256_bytes_file for GDS/DEF/SPEF/SDF inputs."""
     return sha256_text(path.read_text())
+
+
+def sha256_bytes_file(path: Path | str) -> str:
+    """Binary-safe SHA-256 of the file's raw bytes, streamed in chunks."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def new_record_id() -> str:

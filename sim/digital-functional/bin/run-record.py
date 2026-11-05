@@ -15,7 +15,7 @@ cocotb importable in the same environment, plus iverilog:
 
     KLT=.venv-signoff/bin/klt python3 sim/digital-functional/bin/run-record.py
 """
-import datetime, hashlib, json, os, subprocess, sys
+import datetime, json, os, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
@@ -25,8 +25,9 @@ MACROS = {"sar-sequencer": "layout/sar-sequencer/netlist/sar_sequencer.v",
           "top-glue": "layout/top-glue/netlist/top_glue.v"}
 
 
-def sha(p):
-    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+# python3 -I ignores the script dir and PYTHONPATH, so add sim/ explicitly.
+sys.path.insert(0, str(REPO / "sim"))
+from harness.evidence import sha256_bytes_file as sha  # noqa: E402
 
 
 def klt(*args):
