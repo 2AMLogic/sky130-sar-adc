@@ -671,7 +671,6 @@ def write_record(results: list[dict], note: str = "", supersedes: str = "") -> N
     combined_netlist_text = FE_FRAG.read_text() + "\n\n" + CDAC_FRAG.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, combined_netlist_text)
     record_id = prov.record_id
-    record_path = prov.record_path
     netlist_sha = prov.netlist_sha
     pdk_line = prov.pdk_line
     ng_version = prov.ng_version

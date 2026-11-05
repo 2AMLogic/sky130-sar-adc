@@ -201,7 +201,6 @@ def run(record: bool, supersedes: str = "") -> int:
         if record:
             prov = evidence.resolve_provenance(EXPERIMENT_DIR, dut_text)
             record_id = prov.record_id
-            record_path = prov.record_path
             runs_dir = EXPERIMENT_DIR / "runs"
             runs_dir.mkdir(parents=True, exist_ok=True)
             (runs_dir / f"{record_id}.log").write_text(output)
@@ -347,7 +346,6 @@ def run_corner_campaign(
         # path.
         prov = evidence.resolve_provenance(EXPERIMENT_DIR, dut_text)
         record_id = prov.record_id
-        record_path = prov.record_path
         corners_out_dir = EXPERIMENT_DIR / "corners" / record_id
         corners_out_dir.mkdir(parents=True, exist_ok=True)
         for p in points:
