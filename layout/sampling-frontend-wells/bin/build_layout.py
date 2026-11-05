@@ -142,6 +142,11 @@ WIRE_UM = 0.30  # met1/met2 wire + landing-pad width (m1.1/m2.1 minimum 0.14)
 MET_SPACE_UM = 0.14  # m1.2 / m2.2
 MCON_UM = 0.17
 VIA_UM = 0.15
+#: met1/met2 landing pad at a via1 cut: via + 2 * 0.085 um. The sky130 deck's
+#: ``met{1,2}.enclosing_adjacent.via.1`` needs >= 0.085 um on two adjacent
+#: sides; the 0.30 um WIRE_UM pad left only 0.075 um per side (issue #783,
+#: same shape as the via2 fix of #738).
+VIA_PAD_UM = round(VIA_UM + 2 * 0.085, 3)
 LICON_UM = 0.17
 
 #: Drawn n-well island separation. sky130's own ``nwell.2a`` ("min. nwell
@@ -387,8 +392,9 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         cols = sorted(net_columns[net])
         for x, y_from in cols:
             shapes.append((L_MET1, Rect.vwire(x, y_from, track_y)))
-            shapes.append((L_MET1, Rect.centred(x, track_y, WIRE_UM, WIRE_UM)))
+            shapes.append((L_MET1, Rect.centred(x, track_y, VIA_PAD_UM, VIA_PAD_UM)))
             shapes.append((L_VIA, Rect.centred(x, track_y, VIA_UM, VIA_UM)))
+            shapes.append((L_MET2, Rect.centred(x, track_y, VIA_PAD_UM, VIA_PAD_UM)))
         xs = [x for x, _ in cols]
         shapes.append((L_MET2, Rect.hwire(min(xs), max(xs), track_y)))
         if net in PIN_NETS:
