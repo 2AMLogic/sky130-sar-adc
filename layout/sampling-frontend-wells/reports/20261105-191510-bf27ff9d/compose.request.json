@@ -1,0 +1,106 @@
+{
+  "schema": "klt.gen_compose.request/1",
+  "pdk": {
+    "variant": "sky130A"
+  },
+  "blocks": [
+    {
+      "id": "sa_p",
+      "generator_report": "sa_p.json"
+    },
+    {
+      "id": "se_p",
+      "generator_report": "se_p.json"
+    },
+    {
+      "id": "scp_p",
+      "generator_report": "scp_p.json"
+    },
+    {
+      "id": "cmswp_p",
+      "generator_report": "cmswp_p.json"
+    },
+    {
+      "id": "invp",
+      "generator_report": "invp.json"
+    },
+    {
+      "id": "cmswp_n",
+      "generator_report": "cmswp_n.json"
+    },
+    {
+      "id": "scp_n",
+      "generator_report": "scp_n.json"
+    },
+    {
+      "id": "se_n",
+      "generator_report": "se_n.json"
+    },
+    {
+      "id": "sa_n",
+      "generator_report": "sa_n.json"
+    },
+    {
+      "id": "route",
+      "generator_report": "draw.json"
+    }
+  ],
+  "placement": {
+    "strategy": "explicit",
+    "order": [
+      "sa_p",
+      "se_p",
+      "scp_p",
+      "cmswp_p",
+      "invp",
+      "cmswp_n",
+      "scp_n",
+      "se_n",
+      "sa_n",
+      "route"
+    ],
+    "origins_um": {
+      "sa_p": {
+        "x": 2.0,
+        "y": 0.0
+      },
+      "se_p": {
+        "x": 5.2,
+        "y": 0.0
+      },
+      "scp_p": {
+        "x": 10.34,
+        "y": 0.0
+      },
+      "cmswp_p": {
+        "x": 13.54,
+        "y": 0.0
+      },
+      "invp": {
+        "x": 16.74,
+        "y": 0.0
+      },
+      "cmswp_n": {
+        "x": 19.939999999999998,
+        "y": 0.0
+      },
+      "scp_n": {
+        "x": 23.139999999999997,
+        "y": 0.0
+      },
+      "se_n": {
+        "x": 28.279999999999998,
+        "y": 0.0
+      },
+      "sa_n": {
+        "x": 31.479999999999997,
+        "y": 0.0
+      },
+      "route": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  },
+  "connectivity": []
+}

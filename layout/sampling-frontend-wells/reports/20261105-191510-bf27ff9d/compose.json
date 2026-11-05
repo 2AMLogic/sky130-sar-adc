@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "generator": "gen-compose",
+  "cell_name": "gen_compose_0",
+  "gds_path": "gen_compose_0.gds",
+  "pdk": {
+    "name": "sky130A",
+    "variant": "sky130A",
+    "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+  },
+  "dbu_um": 0.001,
+  "bbox_um": {
+    "x0": 0.0,
+    "y0": -2.4,
+    "x1": 33.58,
+    "y1": 24.53
+  },
+  "ports": [],
+  "blocks": [
+    {
+      "id": "sa_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SA_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/sa_p.gds",
+      "source_digest": "sha256:34567c20dcbf5a2c091802745e11276d2662bbab16495fee311eba2b8337cd8a",
+      "offset_um": {
+        "x": 2.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 1.85,
+        "y0": -0.15,
+        "x1": 3.49,
+        "y1": 2.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "sa_p__SA_P",
+      "abuts": []
+    },
+    {
+      "id": "se_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SE_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/se_p.gds",
+      "source_digest": "sha256:71a4547abeb1eff02641c342391a593b76ecaaa882f0516c74cffa3030e48356",
+      "offset_um": {
+        "x": 5.2,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 5.05,
+        "y0": -0.15,
+        "x1": 6.44,
+        "y1": 2.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "se_p__SE_P",
+      "abuts": []
+    },
+    {
+      "id": "scp_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCP_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/scp_p.gds",
+      "source_digest": "sha256:5e4a4ee77a2619b5fe0e07a193267c6610a23e33f6f61eec2edb0b6b2cd82ec2",
+      "offset_um": {
+        "x": 10.34,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 10.19,
+        "y0": -0.15,
+        "x1": 11.58,
+        "y1": 2.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "scp_p__SCP_P",
+      "abuts": []
+    },
+    {
+      "id": "cmswp_p",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWP_P",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/cmswp_p.gds",
+      "source_digest": "sha256:347598a2ed77aa98fbfa77ad4db0bcba9cbcb1f9ab082e0e9d9c429dc9f93d0b",
+      "offset_um": {
+        "x": 13.54,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 13.389999999999999,
+        "y0": -0.15,
+        "x1": 14.78,
+        "y1": 17.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "cmswp_p__CMSWP_P",
+      "abuts": []
+    },
+    {
+      "id": "invp",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "INVP",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/invp.gds",
+      "source_digest": "sha256:064645790678279df882b105e7aefa720c9719fdfafa48db6a576a4bb6a1f83a",
+      "offset_um": {
+        "x": 16.74,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 16.59,
+        "y0": -0.15,
+        "x1": 17.979999999999997,
+        "y1": 3.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "invp__INVP",
+      "abuts": []
+    },
+    {
+      "id": "cmswp_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "CMSWP_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/cmswp_n.gds",
+      "source_digest": "sha256:e2f88b769476da1d4868525b4336bafa9ad0b8f6d5c56dd58a4610b383266076",
+      "offset_um": {
+        "x": 19.939999999999998,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 19.79,
+        "y0": -0.15,
+        "x1": 21.179999999999996,
+        "y1": 17.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "cmswp_n__CMSWP_N",
+      "abuts": []
+    },
+    {
+      "id": "scp_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SCP_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/scp_n.gds",
+      "source_digest": "sha256:c0be0eb99944618920f50fc8faa6576a342506c922b8e8ab182fe183baac299e",
+      "offset_um": {
+        "x": 23.139999999999997,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 22.99,
+        "y0": -0.15,
+        "x1": 24.379999999999995,
+        "y1": 2.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "scp_n__SCP_N",
+      "abuts": []
+    },
+    {
+      "id": "se_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SE_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/se_n.gds",
+      "source_digest": "sha256:9e6fac6b9fba7bd89c65e96c0a73893c971b8a4d3bf243e2e19d062035bdaf93",
+      "offset_um": {
+        "x": 28.279999999999998,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 28.13,
+        "y0": -0.15,
+        "x1": 29.519999999999996,
+        "y1": 2.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "se_n__SE_N",
+      "abuts": []
+    },
+    {
+      "id": "sa_n",
+      "source": "generator_report",
+      "generator": "mos_array",
+      "cell_name": "SA_N",
+      "source_path": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-783/layout/sampling-frontend-wells/reports/20261105-191510-bf27ff9d/sa_n.gds",
+      "source_digest": "sha256:fa42e7b9ec542c6b66918d04ba4197309d020e3048a85e93f42fa05b2f4ed195",
+      "offset_um": {
+        "x": 31.479999999999997,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 31.33,
+        "y0": -0.15,
+        "x1": 32.97,
+        "y1": 2.27
+      },
+      "orientation": "none",
+      "placed_cell_name": "sa_n__SA_N",
+      "abuts": []
+    },
+    {
+      "id": "route",
+      "source": "generator_report",
+      "generator": "draw",
+      "cell_name": "ROUTE",
+      "source_path": "route.gds",
+      "source_digest": "sha256:9c478b9dff06136c3f979036748e1f8fd2d40cac134a6c3b850866c350de68c5",
+      "offset_um": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "bbox_um": {
+        "x0": 0.0,
+        "y0": -2.4,
+        "x1": 33.58,
+        "y1": 24.53
+      },
+      "orientation": "none",
+      "placed_cell_name": "route__ROUTE",
+      "abuts": []
+    }
+  ],
+  "nets": [],
+  "pins": [],
+  "unrouted_nets": [],
+  "drc_hints": {
+    "min_spacing_um": null,
+    "matched_groups": [
+      {
+        "matched_group_id": "mos_array:1x1:common_centroid",
+        "blocks": [
+          "sa_p",
+          "se_p",
+          "scp_p",
+          "cmswp_p",
+          "invp",
+          "cmswp_n",
+          "scp_n",
+          "se_n",
+          "sa_n"
+        ],
+        "placement_symmetric": null
+      }
+    ],
+    "notes": []
+  },
+  "warnings": [
+    "block 'route' is placed 0.00um from block 'sa_p' (strategy: explicit), closer than sa_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'se_p' (strategy: explicit), closer than se_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scp_p' (strategy: explicit), closer than scp_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswp_p' (strategy: explicit), closer than cmswp_p's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'invp' (strategy: explicit), closer than invp's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'cmswp_n' (strategy: explicit), closer than cmswp_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'scp_n' (strategy: explicit), closer than scp_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'se_n' (strategy: explicit), closer than se_n's own declared drc_hints.min_spacing_um of 0.40um",
+    "block 'route' is placed 0.00um from block 'sa_n' (strategy: explicit), closer than sa_n's own declared drc_hints.min_spacing_um of 0.40um"
+  ],
+  "provenance": {
+    "klt_version": "0.9.0",
+    "klt_git_commit": "5dbbad05ff42265c92a6f3d2f20d1bbcd2957d49",
+    "klt_reinstall_spec": "klayout-tools==0.9.0",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "PDK_ROOT environment variable",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+      "ambiguous_sources": [
+        "search root: ~/.volare"
+      ]
+    },
+    "deck": null,
+    "input": null
+  }
+}

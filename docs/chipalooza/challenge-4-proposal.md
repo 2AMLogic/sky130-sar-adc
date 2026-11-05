@@ -5800,9 +5800,9 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **96** of the **100** records under `sim/*/records/` name both an `ngspice`
-  > version and a 40-hex `open_pdks` commit, while of the **112** records under
-  > `layout/*/reports/` and `layout/*/erc-reports/` **111** name a `klt`
-  > version and **74** name the `open_pdks` commit
+  > version and a 40-hex `open_pdks` commit, while of the **114** records under
+  > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
+  > version and **76** name the `open_pdks` commit
 
   **Update (2026-11-01, issue #754):** the new `sim/top-plate-cpar/records/20261101-183325-60421e38.md` is the first record of a new campaign and names both an `ngspice` version (`ngspice-46`) and a 40-hex `open_pdks` commit (`c6d73a35f524070e85faff4a6a9eef49553ebc2b`), so it counts as pinned; so does `sim/cdac-array-transfer/records/20261101-181403-60421e3.md` (issue #756, merged to `main` the same day, whose census text had not yet been restated). Together they move the totals 98 → **100** records and 94 → **96** pinned: both flows pin the commit. Its Environment block also records that the submitting host resolved a different `open_pdks` commit and `ngspice-42`, which the record flags as an uncontrolled difference. No earlier record was rewritten.
 
@@ -5811,6 +5811,8 @@ and is not claimed to be met.
   **Update (2026-10-27, issue #733):** the via1-pad-widening re-run minted 4 more `layout/*/reports/` records (`layout/comparator/`, `layout/halflsb-offset/`, `layout/sampling-frontend/`, `layout/sar-adc-top/`; 106 → **110**); all 4 name a `klt` version (105 → **109**) and the `open_pdks` commit (68 → **72**). No earlier record was rewritten.
 
   **Update (2026-10-27, issue #738):** the met2-pad-widening re-run minted 2 more `layout/*/reports/` records (`layout/cdac-array/` and `layout/sar-adc-top/`; 110 → **112**); both name a `klt` version (109 → **111**) and the `open_pdks` commit (72 → **74**). No flow's count of records naming no commit changed, so no flow newly pins the commit. No earlier record was rewritten.
+
+  **Update (2026-11-05, issue #783):** the via1-pad-widening re-run of `layout/sampling-frontend-wells/` minted 2 more `layout/*/reports/` records (`20261105-191430-bf27ff9d` and `20261105-191510-bf27ff9d`; 112 → **114**); both name a `klt` version (111 → **113**) and the `open_pdks` commit (74 → **76**). No flow's count of records naming no commit changed, so no flow newly pins the commit. No earlier record was rewritten.
 
   **The two `sim/` records short of the first column are not ngspice runs
   (2026-10-17, issue #678).** `sim/digital-functional/records/20261017-193811-9522693.md`
