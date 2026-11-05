@@ -291,4 +291,5 @@ New record `reports/20261105-191721-bf27ff9d/` (klt 0.9.0 in a worktree venv;
 - Pin placement before vs after: the DEF `PINS` entries (name, layer,
   position) are identical to `reports/20261021-104608-ddc1d72/` (18 on `met1`,
   2 on `met5` in both). No pin moved. The previous record was made on an
-  older klt and open_pdks pin, so the comparison covers pin placement only.
+  older klt (0.6.0 vs 0.9.0; both records name the same `open_pdks` commit
+  `f6eeac7`), so the comparison covers pin placement only.

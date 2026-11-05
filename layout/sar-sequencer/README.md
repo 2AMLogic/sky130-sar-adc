@@ -396,6 +396,6 @@ New record `reports/20261105-191625-bf27ff9d/` (klt 0.9.0 in a worktree venv;
   layer. In this block every signal pin was already on `met1` (the horizontal
   layer), so `layer_v` did not affect the result. The two DEFs and GDSs are not
   byte-identical: the filler-cell fill differs (`COMPONENTS` 167 -> 163), a
-  difference of the toolchain versions, which also changed between the two
-  runs (klt 0.6.0 -> 0.9.0, a newer open_pdks pin), so it is not attributable
-  to `layer_v` alone.
+  difference that was not isolated: the `klt` version also changed between the
+  two runs (0.6.0 -> 0.9.0; both records name the same `open_pdks` commit
+  `f6eeac7`), so it is not attributable to `layer_v` alone.
