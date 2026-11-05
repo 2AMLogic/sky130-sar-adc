@@ -32,12 +32,14 @@ Issues currently being built (`loom:building`).
 
 - **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
+- **#783**: layout: sampling-frontend-wells via-enclosure DRC (51 met1/met2 enclosing_adjacent.via.1) under the new klt deck
+- **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#786**: fix(layout): widen sampling-frontend-wells via1 pads for adjacent enclosure
 
 ## Approved (Awaiting Merge)
 
@@ -56,6 +58,8 @@ Issues carrying `loom:curated`.
 - **#734**: Bump layout/requirements.txt to klt 0.8.0 and re-run layout flows *(curated)*
 - **#757**: sim: per-corner gain extraction and corrected-code reporting across all 9 corners *(curated)*
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772) *(curated)*
+- **#783**: layout: sampling-frontend-wells via-enclosure DRC (51 met1/met2 enclosing_adjacent.via.1) under the new klt deck *(curated)*
+- **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -76,10 +80,10 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 0 |
+| In Progress (`loom:building`) | 4 |
+| PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 7 |
+| Curated | 9 |
 | Architect / Hermit proposals | 4 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
