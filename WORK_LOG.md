@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-05
+
+- **Issue #780** (closed): Bump klayout-tools pin 0.6.0 → 0.8.0
+
 ### 2026-11-04
 
 - **PR #776**: feat: report per-corner gain and corrected-code error in full-conversion record
