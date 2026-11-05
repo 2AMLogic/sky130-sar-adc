@@ -564,7 +564,7 @@
           "cold_start": "python3 sim/digital-partition/run_digital_partition.py --record",
           "documented_in": "sim/digital-partition/run_digital_partition.py",
           "covers": "Digital-rail power (idle/reset and active) and energy per conversion at the provisional 12 MHz operating point across the ratified corner set, with the digital partition's clock-frequency bracket and routed area (issue #619). The digital rail only, schematic level; reported informationally against this DRAFT row, and not an ADC power figure.",
-          "records": ["sim/digital-partition/records/20261010-132019-f757b0e.md"]
+          "records": ["sim/digital-partition/records/20261105-222956-b179ecb5.md"]
         }
       ]
     },

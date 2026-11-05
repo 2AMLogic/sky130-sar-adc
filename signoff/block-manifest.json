@@ -281,7 +281,7 @@
     },
     "8.digital": {
       "file": "signoff/evidence/digital-characterization.generic.json",
-      "content_hash": "sha256:84321265f40157da1ca3d03228d3e01e3816a91215d395293c6bd80be7a15e2b"
+      "content_hash": "sha256:1e615013763a3223fafd8254cd7c6a32e43107b9cce0ce0bf7eaa2776f6fce9e"
     }
   }
 }
