@@ -12,7 +12,7 @@ control fails setup at every corner) before writing anything.
     KLT=.venv-signoff/bin/klt PDK=sky130A PDK_ROOT=<dir holding sky130A> \
         python3 sim/digital-sta/bin/run-record.py
 """
-import datetime, hashlib, json, os, shutil, subprocess, sys, tempfile
+import datetime, json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
@@ -22,8 +22,9 @@ MACROS = ("sar-sequencer", "top-glue")
 CASES = ("12mhz", "negative-control-6ghz")
 
 
-def sha(p):
-    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+# python3 -I ignores the script dir and PYTHONPATH, so add sim/ explicitly.
+sys.path.insert(0, str(REPO / "sim"))
+from harness.evidence import sha256_bytes_file as sha  # noqa: E402
 
 
 def main():

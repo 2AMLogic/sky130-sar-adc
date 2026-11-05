@@ -21,7 +21,7 @@ inputs.sha256).
 
 Needs the pinned klt with the functional-verification extra (cocotb) + iverilog.
 """
-import datetime, hashlib, json, os, subprocess, sys, tempfile
+import datetime, json, os, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
@@ -36,8 +36,9 @@ MACROS = {
 }
 
 
-def sha(p):
-    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+# python3 -I ignores the script dir and PYTHONPATH, so add sim/ explicitly.
+sys.path.insert(0, str(REPO / "sim"))
+from harness.evidence import sha256_bytes_file as sha  # noqa: E402
 
 
 def klt_fv(req, settle):

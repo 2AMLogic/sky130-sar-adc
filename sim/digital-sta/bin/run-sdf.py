@@ -30,8 +30,9 @@ PDK_ROOT = os.environ.get("PDK_ROOT")
 MACROS = {"sar-sequencer": ("sar_sequencer", "sar-sequencer"), "top-glue": ("top_glue", "top-glue")}
 
 
-def sha(p):
-    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+# python3 -I ignores the script dir and PYTHONPATH, so add sim/ explicitly.
+sys.path.insert(0, str(REPO / "sim"))
+from harness.evidence import sha256_bytes_file as sha  # noqa: E402
 
 
 def run(args, **kw):
