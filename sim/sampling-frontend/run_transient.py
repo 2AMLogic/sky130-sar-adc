@@ -178,7 +178,6 @@ def write_record(results: list[dict], supersedes: str = "") -> None:
     # and reproducible across all of them).
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, DUT_FRAGMENT.read_text())
     record_id = prov.record_id
-    record_path = prov.record_path
     netlist_sha = prov.netlist_sha
     pdk_line = prov.pdk_line
     ng_version = prov.ng_version

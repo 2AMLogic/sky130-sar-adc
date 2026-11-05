@@ -921,7 +921,6 @@ def write_record(results: dict, supersedes: str = "") -> None:
     )
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, combined_netlist_text)
     record_id = prov.record_id
-    record_path = prov.record_path
     netlist_sha = prov.netlist_sha
     pdk_line = prov.pdk_line
     ng_version = prov.ng_version

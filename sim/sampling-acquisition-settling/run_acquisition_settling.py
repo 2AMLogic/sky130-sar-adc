@@ -482,7 +482,6 @@ def write_record(
     supersedes = supersedes or SINGLE_CORNER_SUPERSEDES_DEFAULT
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_sample)
     record_id = prov.record_id
-    record_path = prov.record_path
     netlist_sha = prov.netlist_sha
     pdk_line = prov.pdk_line
     ng_version = prov.ng_version
