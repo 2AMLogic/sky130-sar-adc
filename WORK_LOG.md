@@ -2,6 +2,22 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-06
+
+- **PR #809**: refactor: reuse sha256_bytes_file in digital_area, rename wrapper sha256_prefixed
+- **Issue #805** (closed): Consolidate duplicated streaming-SHA-256 helpers; stop reusing the name sha256_file for three contracts
+- **PR #808**: feat: mint n=40 ENOB yield envelope and derive yield pin hint from requirements
+- **Issue #803** (closed): Mint the missing ENOB klt yield envelope now that klt-yield-native 0.1.0 is on PyPI
+- **PR #807**: feat: klt sim request and envelope comparator for CDAC transfer bench (pilot NOT RUN: runner mismatch)
+- **Issue #564** (closed): Pilot: express one PVT corner campaign as a klt sim request (first klt sim envelope)
+- **PR #806**: chore: remove retired seln-inverters flow and fix stale consumer claims
+- **Issue #782** (closed): Remove retired seln-inverters run flow and fix its false 'still consumed' header
+- **PR #804**: docs: add citation-gate per-check drift evidence and replacement coverage
+- **Issue #588** (closed): Simplify the Chipalooza proposal citation gate: ~16k lines of checker, tests and rationale guard one prose document
+- **PR #802**: refactor: share pin-order cache resolver between schematic-parity checks
+- **Issue #801** (closed): Dedupe resolve_pin_orders/_cdl_text_if_available duplicated across two check-schematic-parity scripts
+- **Issue #658** (closed): Refresh stale tracker #23 body to point at signoff/t1-report.json instead of the 2026-08-15 analog/10-item table
+
 ### 2026-11-05
 
 - **PR #797**: refactor(sim): remove unused record_path locals in sim drivers
