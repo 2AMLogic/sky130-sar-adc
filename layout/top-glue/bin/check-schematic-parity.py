@@ -48,7 +48,6 @@ gate is not enough.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
@@ -59,9 +58,9 @@ REPO_ROOT = LAYOUT_DIR.parent
 
 sys.path.insert(0, str(LAYOUT_DIR / "bin"))
 
+import _lvs_reference_common
 from _lvs_reference_common import (  # noqa: E402
-    _extract_cdl_subckt,
-    _resolve_pdk_root,
+    cdl_text_if_available,
     parse_verilog_netlist,
     top_level_subckt_body,
 )
@@ -109,84 +108,31 @@ def top_level_cell_types(spice_path: Path) -> list[str]:
     return sorted(types)
 
 
-def _cdl_text_if_available() -> str | None:
-    """The PDK's own `sky130_fd_sc_hd.cdl`, or None when no PDK is resolvable
-    (a bare CI checkout). Never an error: the cache below covers that case."""
-    cdl_path = Path(_resolve_pdk_root()) / (
-        "libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl"
-    )
-    return cdl_path.read_text(encoding="utf-8") if cdl_path.is_file() else None
+PIN_ORDER_COMMENT = (
+    "Pin order of each sky130_fd_sc_hd cell type "
+    "design/sar_adc_top.spice instantiates at the top level, "
+    "transcribed from the PDK's own "
+    "libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl by "
+    "layout/top-glue/bin/check-schematic-parity.py "
+    "--refresh-pin-order-cache. Committed so that check can "
+    "run in CI's headless, PDK-less job; verified against the "
+    "real CDL on every run that HAS a PDK, so it cannot drift "
+    "silently. Regenerate, never hand-edit."
+)
 
 
 def resolve_pin_orders(
     cell_types: list[str], cdl_text: str | None, refresh: bool
 ) -> dict[str, list[str]]:
-    """`{cell_type: [pin, ...]}` in the PDK's own `.SUBCKT` declaration order.
-
-    With the PDK present the orders come from the CDL and the committed cache
-    is asserted to agree with it; with the PDK absent the cache is the source.
-    Either way the orders are the PDK's, never this script's -- the cache is a
-    transcription with a verification path, not a second opinion.
-    """
-    cached: dict[str, list[str]] = {}
-    if PIN_ORDER_CACHE.is_file():
-        cached = json.loads(PIN_ORDER_CACHE.read_text(encoding="utf-8"))["pin_order"]
-
-    if cdl_text is None:
-        missing = sorted(set(cell_types) - set(cached))
-        if missing:
-            raise SystemExit(
-                "check-schematic-parity.py: no sky130A PDK resolvable and "
-                f"{PIN_ORDER_CACHE.name} has no pin order for {missing} -- "
-                "re-run with the PDK available and "
-                "--refresh-pin-order-cache"
-            )
-        print(
-            "check-schematic-parity.py: no PDK resolvable -- using the committed "
-            f"pin-order cache ({PIN_ORDER_CACHE.name})"
-        )
-        return {cell: cached[cell] for cell in cell_types}
-
-    derived = {cell: _extract_cdl_subckt(cdl_text, cell)[0] for cell in cell_types}
-    if refresh:
-        PIN_ORDER_CACHE.write_text(
-            json.dumps(
-                {
-                    "_comment": (
-                        "Pin order of each sky130_fd_sc_hd cell type "
-                        "design/sar_adc_top.spice instantiates at the top level, "
-                        "transcribed from the PDK's own "
-                        "libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl by "
-                        "layout/top-glue/bin/check-schematic-parity.py "
-                        "--refresh-pin-order-cache. Committed so that check can "
-                        "run in CI's headless, PDK-less job; verified against the "
-                        "real CDL on every run that HAS a PDK, so it cannot drift "
-                        "silently. Regenerate, never hand-edit."
-                    ),
-                    "open_pdks_commit": json.loads(
-                        (REPO_ROOT / "sim" / "pdk.json").read_text(encoding="utf-8")
-                    )["open_pdks_commit"],
-                    "pin_order": {cell: derived[cell] for cell in sorted(derived)},
-                },
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        print(f"check-schematic-parity.py: refreshed {PIN_ORDER_CACHE}")
-        return derived
-
-    drifted = [
-        cell for cell in cell_types if cell in cached and cached[cell] != derived[cell]
-    ]
-    absent = sorted(set(cell_types) - set(cached))
-    if drifted or absent:
-        raise SystemExit(
-            f"check-schematic-parity.py: {PIN_ORDER_CACHE.name} is stale "
-            f"(drifted: {drifted}, missing: {absent}) -- re-run with "
-            "--refresh-pin-order-cache"
-        )
-    return derived
+    """Top-glue's pin orders; the cache rules live in
+    `layout/bin/_lvs_reference_common.py`'s `resolve_pin_orders`."""
+    return _lvs_reference_common.resolve_pin_orders(
+        cell_types,
+        cdl_text,
+        refresh,
+        cache_path=PIN_ORDER_CACHE,
+        comment=PIN_ORDER_COMMENT,
+    )
 
 
 def spice_std_cell_instances(
@@ -253,7 +199,7 @@ def main() -> int:
 
     cell_types = top_level_cell_types(args.spice)
     pin_orders = resolve_pin_orders(
-        cell_types, _cdl_text_if_available(), args.refresh_pin_order_cache
+        cell_types, cdl_text_if_available(), args.refresh_pin_order_cache
     )
 
     want = spice_std_cell_instances(args.spice, pin_orders)
