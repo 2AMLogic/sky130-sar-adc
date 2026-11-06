@@ -24,7 +24,7 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-_None._
+- **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
 
 ## In Progress
 
@@ -41,7 +41,7 @@ Issues currently being built (`loom:building`).
 PRs waiting on Judge (`loom:review-requested`).
 
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
-- **#812**: sim: record klt sim batch route probe for cdac-array-transfer under a 0.9.0 client
+- **#815**: sim: re-run local-slice records under open_pdks f6eeac7 as superseding records
 
 ## Approved (Awaiting Merge)
 
@@ -80,7 +80,7 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 0 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 0 |
+| Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 5 |
 | PRs awaiting review | 2 |
 | Approved PRs awaiting merge | 0 |
