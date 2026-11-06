@@ -189,7 +189,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/comparator-decision/records/20260925-050027-0259924.md` (Record ID `20260925-050027-0259924`, Supersedes: 20260924-041815-afcb1b5)
+- `sim/comparator-decision/records/20261106-190623-7bdf8c4.md` (Record ID `20261106-190623-7bdf8c4`, Supersedes: 20260925-050027-0259924)
   - Overall: measured (informational, see Claim above) -- worst-case peak pin disturbance across the 3 Vindiff point(s) run: 73.3673 mV (at Vindiff=+50.0000mV). Decomposed (issue #390, DR-014's first gate): worst-case peak COMMON-MODE deviation -70.4415 mV (at Vindiff=+50.0000mV, t=5.108ns); worst-case peak DIFFERENTIAL deviation -10.9153 mV (at Vindiff=+50.0000mV, t=5.083ns), excluding the Vindiff=0mV symmetry-control row, whose differential columns are a metastable-resolution artifact rather than a kickback (see below)
   - Corner matrix run: process=['tt'], temperature_c=[27.0], supply_v=[1.8] (1 PVT point -- **subset-corner justification**: first-pass, nominal-corner-only characterization, consistent with how DR-004's own `regen`/`offset`/`noise` records each landed single-corner first; a PVT sweep is deferred to future work, see the record's closing note)
   - Claim: none -- INFORMATIONAL. spec/target-spec.md's Kickback row is DRAFT (added by DR-011 via issue #361, with its bound adopted verbatim from a sibling canary rather than derived from this block's own budget), and spec/READM…

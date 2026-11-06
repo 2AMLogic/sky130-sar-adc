@@ -36,7 +36,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 | LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
-| Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20260925-050027-0259924.md` |
+| Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20261106-190623-7bdf8c4.md` |
 | Gain error, systematic | DRAFT | NOT benched -- deliberately, see reason | — | — |
 | Power | DRAFT | benched (DRAFT row, evidence informational) | `sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/supply-impedance-sensitivity`<br>`sim/digital-partition` | `20261011-112119-188e94c.md`<br>`20261001-105439-c324f80.md`<br>`20261011-064547-a6dcdd7.md`<br>`20260925-073912-0e385e5.md`<br>`20260925-204633-7339971.md`<br>`20260925-164447-722fcb0.md`<br>`20260926-000929-ce12f9b.md`<br>`20260926-012944-a966fdf.md`<br>`20260926-050045-8e62675.md`<br>`20261010-132019-f757b0e.md` |
 | Corners | RATIFIED | benched (methodology row, evidenced by the campaigns that ran it) | `sim/sar-sequencer-behavioral`<br>`sim/cdac-array-transfer`<br>`sim/comparator-decision` | `20260827-211956-e13bc1e.md`<br>`20261001-120402-d24f700.md`<br>`20260827-212404-e13bc1e.md` |
@@ -311,7 +311,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/comparator-decision/run.py`
 - Cold start: `python3 sim/comparator-decision/run.py kickback --record`
 - Documented in: `sim/comparator-decision/run.py`
-- Evidence: `sim/comparator-decision/records/20260925-050027-0259924.md`
+- Evidence: `sim/comparator-decision/records/20261106-190623-7bdf8c4.md`
 
 ### Gain error, systematic
 
