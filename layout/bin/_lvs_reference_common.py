@@ -32,10 +32,12 @@ runnable in CI's headless job.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
 from decimal import Decimal
+from pathlib import Path
 
 _MODULE_RE = re.compile(r"^module\s+(\w+)\s*\(", re.M)
 _PORT_CONN_RE = re.compile(r"\.\s*(\w+)\s*\(\s*([^()]*?)\s*\)")
@@ -271,3 +273,84 @@ def emit_std_cell_lvs_reference(
         f"({len(instances)} instances, {device_total} devices)"
     )
     return 0
+
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def cdl_text_if_available() -> str | None:
+    """The PDK's own `sky130_fd_sc_hd.cdl`, or None when no PDK is resolvable
+    (a bare CI checkout). Never an error: the pin-order cache covers that case."""
+    cdl_path = Path(_resolve_pdk_root()) / (
+        "libs.ref/sky130_fd_sc_hd/cdl/sky130_fd_sc_hd.cdl"
+    )
+    return cdl_path.read_text(encoding="utf-8") if cdl_path.is_file() else None
+
+
+def resolve_pin_orders(
+    cell_types: list[str],
+    cdl_text: str | None,
+    refresh: bool,
+    *,
+    cache_path: Path,
+    comment: str,
+    script_name: str = "check-schematic-parity.py",
+) -> dict[str, list[str]]:
+    """`{cell_type: [pin, ...]}` in the PDK's own `.SUBCKT` declaration order.
+
+    With the PDK present the orders come from the CDL and the committed cache
+    at `cache_path` is asserted to agree with it; with the PDK absent the cache
+    is the source. Either way the orders are the PDK's, never the caller's --
+    the cache is a transcription with a verification path, not a second
+    opinion. `comment` is the cache's `_comment` text written on `refresh`;
+    `script_name` prefixes every message so each caller keeps its own name.
+    """
+    cached: dict[str, list[str]] = {}
+    if cache_path.is_file():
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))["pin_order"]
+
+    if cdl_text is None:
+        missing = sorted(set(cell_types) - set(cached))
+        if missing:
+            raise SystemExit(
+                f"{script_name}: no sky130A PDK resolvable and "
+                f"{cache_path.name} has no pin order for {missing} -- "
+                "re-run with the PDK available and "
+                "--refresh-pin-order-cache"
+            )
+        print(
+            f"{script_name}: no PDK resolvable -- using the committed "
+            f"pin-order cache ({cache_path.name})"
+        )
+        return {cell: cached[cell] for cell in cell_types}
+
+    derived = {cell: _extract_cdl_subckt(cdl_text, cell)[0] for cell in cell_types}
+    if refresh:
+        cache_path.write_text(
+            json.dumps(
+                {
+                    "_comment": comment,
+                    "open_pdks_commit": json.loads(
+                        (_REPO_ROOT / "sim" / "pdk.json").read_text(encoding="utf-8")
+                    )["open_pdks_commit"],
+                    "pin_order": {cell: derived[cell] for cell in sorted(derived)},
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"{script_name}: refreshed {cache_path}")
+        return derived
+
+    drifted = [
+        cell for cell in cell_types if cell in cached and cached[cell] != derived[cell]
+    ]
+    absent = sorted(set(cell_types) - set(cached))
+    if drifted or absent:
+        raise SystemExit(
+            f"{script_name}: {cache_path.name} is stale "
+            f"(drifted: {drifted}, missing: {absent}) -- re-run with "
+            "--refresh-pin-order-cache"
+        )
+    return derived
