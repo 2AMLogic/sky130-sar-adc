@@ -1,0 +1,15 @@
+{
+  "passed": false,
+  "pairs_compared": 90,
+  "corners_envelope": 9,
+  "corners_baseline": 9,
+  "max_abs_delta_v": 3.0000000000196536e-05,
+  "max_at": "ff_27c_1.80v/vtop_n_0",
+  "tolerance_v": 2e-05,
+  "problems": [
+    "ff_27c_1.80v/vtop_n_0: |delta|=3.000e-05 V > 2.0e-05 V",
+    "ff_27c_1.80v/vtop_n_128: |delta|=2.000e-05 V > 2.0e-05 V",
+    "ff_27c_1.80v/vtop_n_256: |delta|=2.000e-05 V > 2.0e-05 V",
+    "ff_27c_1.80v/vtop_p_511: |delta|=3.000e-05 V > 2.0e-05 V"
+  ]
+}
