@@ -17,8 +17,8 @@
 # (`klt place-and-route` invokes it as a subprocess -- see
 # docs/environment-setup.md).
 #
-# Flow (identical shape to the superseded layout/seln-inverters/bin/
-# run-flow.sh, with ONE step added at the front):
+# Flow (identical shape to the removed (issue #782) superseded
+# layout/seln-inverters flow, with ONE step added at the front):
 #   0. check-schematic-parity.py -- HARD GATE, and the whole reason this
 #      block exists. Asserts netlist/top_glue.v is instance-for-instance,
 #      net-for-net identical to design/sar_adc_top.spice's own top-level

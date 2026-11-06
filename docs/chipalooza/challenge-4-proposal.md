@@ -5870,9 +5870,13 @@ and is not claimed to be met.
   leaves the tree, graded in both directions by check 30 of the
   [citation gate](check_proposal_citations.py):
 
-  > of the **11** record-minting entry points under `layout/`, **11** resolve
+  > of the **10** record-minting entry points under `layout/`, **10** resolve
   > the `open_pdks` commit before writing a record and **0** do not:
   > **none** — every entry point resolves it.
+
+  (Restated from 11 to 10 by issue #782, which removed the retired
+  `layout/seln-inverters/` flow's `bin/render-record.py`; no entry point
+  changed how it resolves the commit.)
 
   The tenth entry point is `layout/top-glue/`'s `bin/render-record.py`
   (PR #402), which resolves the commit by calling the same shared
