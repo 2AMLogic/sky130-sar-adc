@@ -33,11 +33,17 @@
 > `seln_inverters` reference reappears in its placement tables. This
 > directory's `reports/` are kept because `sim/`- and `layout/`-style records are
 > append-only evidence (CLAUDE.md), not because anything consumes them; its
-> `bin/run-flow.sh` still runs and still produces a DRC/LVS-clean nine-inverter
+> former `bin/run-flow.sh` produced a DRC/LVS-clean nine-inverter
 > macro, which is simply not a macro this design has. Everything below this banner is
 > preserved as the record of what was built and verified, and remains accurate
 > *about those nine inverters*; it is no longer accurate about the SAR ADC's
 > top-level glue.
+>
+> **Flow removed (issue #782).** `bin/` (`run-flow.sh`, `generate-lvs-reference.py`,
+> `render-record.py`) and `requests/place-and-route.json` were deleted so a
+> retired block cannot mint new records. The `reports/` records stay readable
+> without them; `git log` before the issue-#782 commit holds the scripts. The
+> "Running the flow" and re-run sections below are history, not live commands.
 
 Physical layout for the nine `sky130_fd_sc_hd__inv_1` instances
 `design/sar_adc_top.sch` (issue #56) added directly at the top-level
@@ -153,7 +159,7 @@ top of this file.
 
 **No clock, no state — but the request schema still requires
 `constraints.clock_port`/`clock_period_ns`.** This design has zero sequential
-elements, so `requests/place-and-route.json` declares a placeholder clock net
+elements, so the (since removed) `requests/place-and-route.json` declared a placeholder clock net
 name (`CTS_NO_SUCH_CLOCK`) that does not appear anywhere in the netlist,
 purely to satisfy that required field. Naming a *real* net (e.g. an actual
 input pin) as the placeholder instead reproducibly **segfaults** `klt
@@ -182,13 +188,16 @@ Same mechanism as `layout/sar-sequencer/bin/generate-lvs-reference.py` (issue
 #102): `klt extract --deck sky130` is a flat, transistor-level extractor, so
 the LVS reference has to be flat and transistor-level too, with every drawn
 NMOS/PMOS generalized to `klt`'s own `nfet`/`pfet` device classes.
-`bin/generate-lvs-reference.py` flattens the **post-route** structural
+The former `bin/generate-lvs-reference.py` flattened the **post-route** structural
 Verilog netlist (`klt place-and-route`'s own `write_verilog` dump) against
 the sky130 PDK's own official per-cell CDL model
 (`sky130_fd_sc_hd.cdl`, Apache-2.0, SkyWater's own release — not
 reverse-engineered).
 
-## Running the flow
+## Running the flow (REMOVED, issue #782 — historical)
+
+The flow below no longer exists in the tree; retrieve it from `git log` before
+the issue-#782 commit if the old records must be reproduced.
 
 ```sh
 layout/bin/setup-venv.sh              # once, or after bumping requirements.txt
@@ -208,13 +217,7 @@ layout/seln-inverters/
   README.md                        # this file
   netlist/
     seln_inverters.v               # hand-verified structural netlist (not RTL)
-  requests/
-    place-and-route.json           # klt place-and-route request
-  bin/
-    run-flow.sh                    # place-and-route -> DRC -> post-route netlist dump -> LVS reference -> extract --def-pins -> LVS -> record
-    generate-lvs-reference.py      # flattens the post-route netlist against the PDK's own CDL models
-    render-record.py               # renders record.md from the JSON envelopes run-flow.sh produced
-  reference/                       # generate-lvs-reference.py's own output -- regenerated per run, git-ignored
+  reference/                       # former generate-lvs-reference.py output, git-ignored (flow removed, #782)
   reports/
     LATEST                         # record-id of the most recent run
     <record-id>/                   # append-only: netlist, request, routed GDS/DEF, post-route netlist,

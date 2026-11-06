@@ -138,7 +138,7 @@ from pathlib import Path
 #: Default measurement targets: `(label, flow directory, GDS basename)`.
 #: The GDS basename is each flow's own top-level artefact -- the same file
 #: `layout/sar-adc-top/bin/run-flow.sh` copies in as a composition input for
-#: the five sub-blocks, and the composed cell that flow itself writes. Each
+#: the four sub-blocks, and the composed cell that flow itself writes. Each
 #: path is resolved through the flow's own `reports/LATEST` pointer, never a
 #: hardcoded record id, so this measures whatever record the repo currently
 #: stands behind.
@@ -148,7 +148,6 @@ DEFAULT_TARGETS: list[tuple[str, str, str]] = [
     ("comparator", "layout/comparator", "comparator.gds"),
     ("sampling-frontend", "layout/sampling-frontend", "sampling_frontend.gds"),
     ("sar-sequencer", "layout/sar-sequencer", "sar_sequencer.gds"),
-    ("seln-inverters", "layout/seln-inverters", "seln_inverters.gds"),
 ]
 
 #: The metal layer symbols the PDK deck names, in process order. Each one has

@@ -25,7 +25,7 @@
 # included) -> generate-lvs-reference.py (flattens that netlist against the
 # PDK's own official CDL device models) -> `klt extract --def-pins` -> `klt
 # lvs`. The pipeline itself is _flow_common.sh's run_pnr_drc_lvs_flow,
-# shared with the seln-inverters and top-glue flow scripts (#647); this
+# shared with the top-glue flow script (#647; formerly also seln-inverters, removed in #782); this
 # script only contributes the block-specific rationale above and no hooks.
 #
 # LVS status (see README.md "LVS reference provenance" / the filed

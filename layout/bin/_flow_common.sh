@@ -9,7 +9,6 @@
 # layout/sar-adc-top/bin/run-erc.sh,
 # layout/sar-adc-top/bin/run-flow.sh,
 # layout/sar-sequencer/bin/run-flow.sh,
-# layout/seln-inverters/bin/run-flow.sh,
 # layout/top-glue/bin/run-flow.sh -- re-verify with
 # `grep -rln "source .*_flow_common" layout`). Meant to be `source`d, not
 # executed directly, matching the `layout/bin/_*` naming convention
@@ -65,7 +64,7 @@ new_record_id() {
 #
 # The place-and-route -> DRC -> post-route netlist dump -> LVS-reference ->
 # extract -> LVS -> record.md -> .klt-prune pipeline shared verbatim by the
-# three P&R flow scripts (sar-sequencer, seln-inverters, top-glue; #647).
+# three P&R flow scripts (sar-sequencer, top-glue; formerly also seln-inverters, removed in #782; #647).
 # Call it after require_klt/require_pdk and the openroad-on-$PATH check.
 #
 # Optional hook points for block-specific steps, each set to the NAME of a

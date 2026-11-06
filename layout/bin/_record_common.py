@@ -1,13 +1,12 @@
 """Shared helpers for the layout sub-block `render-record.py` scripts.
 
 Used by `layout/sar-sequencer/bin/render-record.py`,
-`layout/seln-inverters/bin/render-record.py`,
 `layout/cdac-array/bin/render-record.py`, and
 `layout/sar-adc-top/bin/render-record.py`, which import this module via a
 `sys.path` insert (see each script's own header) rather than a package
 install, matching sim/harness/'s no-extra-runtime-dependency convention.
 `render_pnr_drc_lvs_record` below is shared only by the sar-sequencer and
-seln-inverters flows, which have identical place-and-route/DRC/LVS report
+and the former (removed, #782) seln-inverters flows, which had identical place-and-route/DRC/LVS report
 shapes and differ only in their H1 title string; cdac-array's and
 sar-adc-top's own flows each assert their own different set of verdicts (see
 each script's own docstring) and use only the smaller helpers below --
@@ -136,7 +135,7 @@ def build_argparser() -> argparse.ArgumentParser:
 def render_pnr_drc_lvs_record(title: str, args: argparse.Namespace) -> str:
     """Render the shared place-and-route/DRC/LVS record body for *title*.
 
-    Shared by the sar-sequencer and seln-inverters sub-block flows, which
+    Shared by the sar-sequencer sub-block flow (and formerly seln-inverters', removed in #782), which
     have identical report shapes (DRC-clean, LVS-blocked-on-a-filed-tool-gap)
     and differ only in their H1 title string -- see each calling script's own
     thin `main()`. The LVS "known blocker" prose below deliberately names no
