@@ -131,3 +131,20 @@ same seed) / 3.5156 mV, so the systematic `C_par` term cancels and is reported
 separately. The record compares mean/stdev/3σ (with N and the stdev's standard
 error) to DR-003 Item 3's analytic figure and adds no spec row. Spans are
 quantized at the 6-significant-digit `.meas` print resolution (~0.0028 LSB).
+
+## `klt sim` pilot (issue #564)
+
+A first `klt sim` request for the ratified-corner transfer campaign (the same
+9-point one-at-a-time star as `--ratified-record`) lives in
+`testbench/klt/request.json` (+ `tb_body.spice`, which `.include`s the fragment
+above). It is a pilot beside, not a replacement for, `run_transfer.py`.
+
+```sh
+uvx --from "klayout-tools==0.8.0" klt sim sim/cdac-array-transfer/testbench/klt/request.json --dry-run --format json   # expect unit_count: 9
+uvx --from "klayout-tools==0.8.0" klt sim sim/cdac-array-transfer/testbench/klt/request.json -o OUTDIR --report-out OUTDIR/report.json.gz --format json
+python3 sim/cdac-array-transfer/compare_klt_envelope.py OUTDIR/report.json.gz   # 90 pairs, |delta| <= 2e-5 V vs record 20261001-120402-d24f700
+```
+
+Result so far: record `records/20261106-180843-15ea2ea.md` (NOT RUN -- the
+fleet refused the job on a client/runner version mismatch; no comparison was
+possible). Raw report: `klt-sim/20261106-180843-15ea2ea/`.
