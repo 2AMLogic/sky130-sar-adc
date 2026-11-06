@@ -11,8 +11,11 @@
 // file when that landed, and the flow's own klt lvs verdict could not
 // notice, because its reference is generated from this same netlist (see
 // layout/top-glue/README.md, "The parity gate is the point of this
-// directory"). It is kept only because layout/sar-adc-top/'s composition
-// still consumes the GDS built from it.
+// directory"). Nothing consumes the GDS built from it:
+// layout/sar-adc-top/'s composition retired this block (issue #401). The file
+// is kept as the historical input of this directory's append-only reports/
+// records and as the SUPERSEDED reference of
+// sim/tests/test_top_glue_schematic_parity.py.
 //
 // Structural gate-level netlist for the SELn<i> = NOT(DOUT<i>) inverter
 // bank -- nine independent sky130_fd_sc_hd__inv_1 instances, hand-derived

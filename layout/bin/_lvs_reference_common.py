@@ -1,8 +1,8 @@
 """Shared Verilog/CDL flattening core for the layout sub-block
 `generate-lvs-reference.py` scripts.
 
-Used by `layout/sar-sequencer/bin/generate-lvs-reference.py` and
-`layout/seln-inverters/bin/generate-lvs-reference.py`, which import this
+Used by `layout/sar-sequencer/bin/generate-lvs-reference.py` (and formerly the
+retired seln-inverters flow, removed in issue #782), which imports this
 module via a `sys.path` insert (see either script's own header) rather than a
 package install, matching this directory's existing `_geometry_common.py` /
 `_record_common.py` shared-module convention.
@@ -186,8 +186,8 @@ def emit_std_cell_lvs_reference(
     transistor-level LVS reference, and write it to ``out_path``.
 
     This is the `main()` body shared verbatim (issue #304) by
-    `layout/sar-sequencer/bin/generate-lvs-reference.py` and
-    `layout/seln-inverters/bin/generate-lvs-reference.py` -- see either
+    `layout/sar-sequencer/bin/generate-lvs-reference.py` (and formerly the
+    removed seln-inverters flow, issue #782) -- see that
     script's own module docstring for the full "why" of this mechanism (flat
     extraction, generic nfet/pfet device classes, post-route-not-pre-route
     topology, `m=` finger-count scaling). Each caller stays responsible only

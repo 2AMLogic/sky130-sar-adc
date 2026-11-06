@@ -144,7 +144,7 @@ fanout to any sequential cell — filed generically as
 
 **`io.layer_v` must name a layer the router actually draws on.** The first run
 of this flow used `{"layer_h": "met1", "layer_v": "li1"}`, copied from
-`layout/seln-inverters/requests/place-and-route.json`, and reached `route` with
+the retired `layout/seln-inverters/`'s `place-and-route` request (since removed, issue #782), and reached `route` with
 a **clean DRC and a `match` LVS verdict while extracting only 2 of its 48
 top-level pins** (`extract.json` `pin_count: 2`). The sibling never hit it
 because with only 18 signal pins OpenROAD placed every one of them on the
@@ -237,10 +237,10 @@ layout/top-glue/
 
 `layout/seln-inverters/` is this block's **superseded predecessor** — nine
 `inv_1` cells implementing issue #56's `SELn<i> = NOT(DOUT<i>)`, a wiring
-DR-008 retired. It is kept in the tree, marked superseded in its own README,
-only because `layout/sar-adc-top/`'s composition still consumes its GDS. It is
-retired (and its records left as append-only history) by the top-level
-recomposition that replaces it with this block, issue #401 — see below.
+DR-008 retired. It was retired by the top-level recomposition that replaced it with
+this block (issue #401, closed): `layout/sar-adc-top/` no longer composes it.
+It stays in the tree, marked retired in its own README, only as append-only
+history; its flow scripts were removed in issue #782.
 
 ## Remaining work before the top level means anything
 
