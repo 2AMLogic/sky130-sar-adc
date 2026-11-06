@@ -23,19 +23,19 @@ Area is geometry-derived and does not vary with the electrical corner.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from harness.evidence import sha256_bytes_file
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return "sha256:" + h.hexdigest()
+
+def sha256_prefixed(path: Path) -> str:
+    """Binary-safe digest of the raw bytes, `sha256:`-prefixed. Deliberately not
+    named `sha256_file`: `harness.evidence.sha256_file` is the text-decoded,
+    unprefixed variant."""
+    return "sha256:" + sha256_bytes_file(path)
 
 
 @dataclass
@@ -161,14 +161,14 @@ def derive(repo: Path, *, lef_path: Path | None = None) -> dict:
         p = repo / d / "reports" / rid / fname
         g = repo / d / "reports" / rid / fname.replace(".def", ".gds")
         srcs[macro] = {"report": f"{d}/reports/{rid}", "def": f"{d}/reports/{rid}/{fname}",
-                       "def_sha256": sha256_file(p),
-                       "gds": f"{d}/reports/{rid}/{g.name}", "gds_sha256": sha256_file(g)}
+                       "def_sha256": sha256_prefixed(p),
+                       "gds": f"{d}/reports/{rid}/{g.name}", "gds_sha256": sha256_prefixed(g)}
         defs[macro] = parse_def(p.read_text())
 
     top_rid = (repo / "layout/sar-adc-top/reports/LATEST").read_text().strip()
     creq = repo / "layout/sar-adc-top/reports" / top_rid / "compose.request.json"
     srcs["composition"] = {"compose_request": f"layout/sar-adc-top/reports/{top_rid}/compose.request.json",
-                           "compose_request_sha256": sha256_file(creq)}
+                           "compose_request_sha256": sha256_prefixed(creq)}
     origins = json.loads(creq.read_text())["placement"]["origins_um"]
     srcs["composition"]["origins_um"] = {m: origins[m] for m in ("sar_sequencer", "top_glue")}
     placed: dict[str, Rect] = {}
@@ -185,7 +185,7 @@ def derive(repo: Path, *, lef_path: Path | None = None) -> dict:
         sizes = parse_lef_sizes(lef_path.read_text())
         cells = {m: placed_cell_area(i, sizes) for m, i in defs.items()}
         out["cells"] = cells
-        out["lef_sha256"] = sha256_file(lef_path)
+        out["lef_sha256"] = sha256_prefixed(lef_path)
         out["placed_cell_area_um2"] = round(sum(c["placed_cell_area_um2"] for c in cells.values()), 4)
         out["logic_cell_area_um2"] = round(sum(c["logic_cell_area_um2"] for c in cells.values()), 4)
     out["metric_notes"] = [
