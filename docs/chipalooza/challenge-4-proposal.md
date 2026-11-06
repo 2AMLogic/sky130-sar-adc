@@ -1395,7 +1395,7 @@ pointer-claim census below:
 > table, **21** name a flow that publishes a `LATEST` pointer and are
 > therefore freshness-checked by check 3; the remaining **9** name a flow
 > that publishes none, whose current record nothing grades:
-> `sim/cdac-array-transfer` (**7** records), `sim/comparator-decision`
+> `sim/cdac-array-transfer` (**8** records), `sim/comparator-decision`
 > (**17** records), `sim/harness-corner-smoke` (**1** record),
 > `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**2** records).
 
@@ -5440,7 +5440,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **212** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **213** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5473,7 +5473,12 @@ tracker already owns.
      (`requests/*.tb.spice`) and the frozen DUT netlist snapshot for its
      record. These are seven more copies of decks already counted in kind: AC
      capacitance probes of the as-committed netlist and its load-deleted
-     variants, with no inductor card and no ground-return model.)
+     variants, with no inductor card and no ground-return model. 212 → **213**
+     on 2026-11-06: issue #564's `klt sim` request for the CDAC transfer bench
+     committed one more deck, `sim/cdac-array-transfer/testbench/klt/tb_body.spice`,
+     a two-line wrapper that sets `vdd_val` and `.include`s the existing
+     `tb_cdac_array_transfer.spice`; it carries no inductor card and models no
+     ground-return path, so the count moves and the qualification does not.)
 
      Read this census the way it already reads itself: **a floor on the gap,
      not a proof of it, and it never claimed to be the thing that retires
@@ -5799,7 +5804,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **96** of the **100** records under `sim/*/records/` name both an `ngspice`
+  > **97** of the **101** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **114** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
   > version and **76** name the `open_pdks` commit
@@ -5813,6 +5818,8 @@ and is not claimed to be met.
   **Update (2026-10-27, issue #738):** the met2-pad-widening re-run minted 2 more `layout/*/reports/` records (`layout/cdac-array/` and `layout/sar-adc-top/`; 110 → **112**); both name a `klt` version (109 → **111**) and the `open_pdks` commit (72 → **74**). No flow's count of records naming no commit changed, so no flow newly pins the commit. No earlier record was rewritten.
 
   **Update (2026-11-05, issue #783):** the via1-pad-widening re-run of `layout/sampling-frontend-wells/` minted 2 more `layout/*/reports/` records (`20261105-191430-bf27ff9d` and `20261105-191510-bf27ff9d`; 112 → **114**); both name a `klt` version (111 → **113**) and the `open_pdks` commit (74 → **76**). No flow's count of records naming no commit changed, so no flow newly pins the commit. No earlier record was rewritten.
+
+  **Update (2026-11-06, issue #564):** the new `sim/cdac-array-transfer/records/20261106-180843-15ea2ea.md` records the `klt sim` pilot (status `error`, NOT RUN: runner/client version mismatch) and names both an `ngspice` version (`ngspice-46`) and a 40-hex `open_pdks` commit (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`, as reported by the batch receipt), so it counts as pinned. It moves the totals 100 → **101** records and 96 → **97** pinned; because the record is a NOT RUN record, the pin describes the worker environment, not a completed measurement. No earlier record was rewritten.
 
   **The two `sim/` records short of the first column are not ngspice runs
   (2026-10-17, issue #678).** `sim/digital-functional/records/20261017-193811-9522693.md`
