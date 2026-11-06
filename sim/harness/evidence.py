@@ -287,12 +287,34 @@ def resolve_corners_provenance(
     )
 
 
+YIELD_REQUIREMENTS = REPO_ROOT / "sim" / "yield-requirements.txt"
+
+
+def _yield_pin(requirements: Path = YIELD_REQUIREMENTS) -> str | None:
+    """The `klayout-tools[yield]==X` line from the requirements file, or None
+    if it is unreadable or absent (so the hint cannot drift from the pin)."""
+    try:
+        for line in requirements.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("klayout-tools[yield]=="):
+                return line
+    except OSError:
+        pass
+    return None
+
+
+def yield_pin_hint(requirements: Path = YIELD_REQUIREMENTS) -> str:
+    pin = _yield_pin(requirements)
+    what = f"expected pin is {pin} per" if pin else "expected pin is in"
+    return (
+        f"{what} sim/yield-requirements.txt "
+        "(native yield extension required; no verdict recorded)"
+    )
+
+
 #: What environment is expected to mint `klt yield` envelopes (checked
 #: statement, issue #625); the pin lives in sim/yield-requirements.txt.
-YIELD_PIN_HINT = (
-    "expected pin is klayout-tools[yield]==0.7.0 per sim/yield-requirements.txt "
-    "(native yield extension required; no verdict recorded)"
-)
+YIELD_PIN_HINT = yield_pin_hint()
 
 
 def run_klt_yield(measurements: list[dict], out_json_path: Path) -> dict | None:
