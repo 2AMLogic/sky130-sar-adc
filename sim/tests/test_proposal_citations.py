@@ -4726,6 +4726,7 @@ class TestProvenanceCensus(unittest.TestCase):
     """
 
     ANCHOR = "Pinned by `sim/toolchain.json`.\n"
+    KNOWN_UNPINNED_SPICE = ("sim/cdac-array-transfer/records/20261106-190301-7bdf8c4.md",)
     SIM_PINNED = "\n## Environment\n\n- PDK: sky130A @ " + "c" * 40 + "\n- ngspice: ngspice-46\n"
     LAYOUT_PINNED = (
         "\n## Provenance\n\n- `klt` version: klt 0.6.0\n- PDK: sky130A (open_pdks "
@@ -4895,10 +4896,13 @@ class TestProvenanceCensus(unittest.TestCase):
 
         A census that could only ever read "all of them" would be a check that
         never fires. The gap issue #407 tracks is real today: some `layout/`
-        record names no `open_pdks` commit, and every `sim/` record that names
-        an ngspice version also names it. The non-SPICE campaigns (functional
-        simulation, static timing) run no ngspice, so they are not in that
-        population and are the whole of the `sim/` shortfall.
+        record names no `open_pdks` commit. Every SPICE `sim/` record also names
+        it except the ones in `KNOWN_UNPINNED_SPICE` (issue #811: the batch
+        report carried no `pdk_stamp`, so the record holds only an abbreviated
+        stamp); a new SPICE record short of the pin fails here until it is
+        either pinned or listed with its reason. The non-SPICE campaigns
+        (functional simulation, static timing) run no ngspice, so they are not
+        in that population.
         """
         fixture_root = checker.REPO_ROOT
         checker.REPO_ROOT = REPO_ROOT
@@ -4906,7 +4910,11 @@ class TestProvenanceCensus(unittest.TestCase):
         census = checker.provenance_census()
         spice_records = self.spice_records(REPO_ROOT)
         self.assertTrue(spice_records)
-        self.assertEqual(census["sim_pinned"], len(spice_records))
+        self.assertEqual(
+            census["sim_pinned"], len(spice_records) - len(self.KNOWN_UNPINNED_SPICE)
+        )
+        for rel in self.KNOWN_UNPINNED_SPICE:
+            self.assertIn(REPO_ROOT / rel, spice_records)
         self.assertLess(census["sim_pinned"], census["sim_records"])
         self.assertLess(census["layout_pdk"], census["layout_records"])
         self.assertTrue(census["unpinned"])
