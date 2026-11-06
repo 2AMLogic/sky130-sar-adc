@@ -663,7 +663,7 @@ ROWS: tuple[Row, ...] = (
             "follow-on, and a full-corner campaign is still owed before this "
             "row could be ratified (DR-011 Consequences section 5)."
         ),
-        sim_citations=("sim/comparator-decision/records/20260925-050027-0259924.md",),
+        sim_citations=("sim/comparator-decision/records/20261106-190623-7bdf8c4.md",),
     ),
     Row(
         id="gain-error-systematic",
