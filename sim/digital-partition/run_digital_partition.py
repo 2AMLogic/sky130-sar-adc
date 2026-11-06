@@ -330,10 +330,10 @@ def render_record(rec_id: str, camp: dict, supersedes: str, written_by: str) -> 
 def pins(dut_text_sha: str, pdk_line: str) -> dict:
     return {
         "digital partition netlist sha256": digital_report.partition_netlist_sha(TOP_NETLIST.read_text()),
-        "design/sar_adc_top.spice sha256 (informational; whole file incl. analog)": digital_area.sha256_file(TOP_NETLIST),
-        "design/sar_sequencer.sch sha256": digital_area.sha256_file(REPO_ROOT / "design/sar_sequencer.sch"),
-        "design/sar_adc_top.sch sha256": digital_area.sha256_file(REPO_ROOT / "design/sar_adc_top.sch"),
-        "digital deck generator sha256 (informational)": digital_area.sha256_file(HERE / "digital_char.py"),
+        "design/sar_adc_top.spice sha256 (informational; whole file incl. analog)": digital_area.sha256_prefixed(TOP_NETLIST),
+        "design/sar_sequencer.sch sha256": digital_area.sha256_prefixed(REPO_ROOT / "design/sar_sequencer.sch"),
+        "design/sar_adc_top.sch sha256": digital_area.sha256_prefixed(REPO_ROOT / "design/sar_adc_top.sch"),
+        "digital deck generator sha256 (informational)": digital_area.sha256_prefixed(HERE / "digital_char.py"),
         "PDK": pdk_line,
         "frequency grid": f"{dc.F_BASE_MHZ:g} MHz x 2^(i/{dc.STEPS_PER_OCTAVE}), ceiling index {dc.CEILING_INDEX}",
     }

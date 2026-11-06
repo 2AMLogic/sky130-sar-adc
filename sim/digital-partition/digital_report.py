@@ -64,7 +64,7 @@ def freshness_problems(camp: dict, repo: Path) -> list[str]:
         rid = (repo / d / "reports" / "LATEST").read_text().strip()
         for kind, key in (("def", "def_sha256"), ("gds", "gds_sha256")):
             fname = s[kind].rsplit("/", 1)[1]
-            cur_sha = digital_area.sha256_file(repo / d / "reports" / rid / fname)
+            cur_sha = digital_area.sha256_prefixed(repo / d / "reports" / rid / fname)
             if cur_sha != s[key]:
                 problems.append(f"{macro} routed {kind.upper()} changed since the campaign "
                                 f"({s[key][:19]}... -> {cur_sha[:19]}...)")
