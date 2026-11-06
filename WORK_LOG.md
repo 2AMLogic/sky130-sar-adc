@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-06
 
+- **PR #815**: sim: re-run local-slice records under open_pdks f6eeac7 as superseding records
+- **Issue #810** (closed): Re-run local single-corner/analytic sim records under open_pdks f6eeac7 as superseding records (#709 split)
 - **PR #812**: sim: record klt sim batch route probe for cdac-array-transfer under a 0.9.0 client
 - **PR #809**: refactor: reuse sha256_bytes_file in digital_area, rename wrapper sha256_prefixed
 - **Issue #805** (closed): Consolidate duplicated streaming-SHA-256 helpers; stop reusing the name sha256_file for three contracts
