@@ -1,0 +1,2 @@
+.param vdd_val = 1.8
+.include ../tb_cdac_array_transfer.spice

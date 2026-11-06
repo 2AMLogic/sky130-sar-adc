@@ -1,0 +1,194 @@
+{
+  "netlist": "tb_body.spice",
+  "engine": "ngspice",
+  "models": {
+    "pdk": "sky130A",
+    "lib": "libs.tech/combined/sky130.lib.spice"
+  },
+  "analysis": {
+    "kind": "tran",
+    "args": "0.5n 500n"
+  },
+  "corners": {
+    "process": [
+      "tt",
+      "ss",
+      "ff",
+      "sf",
+      "fs"
+    ],
+    "temperature_c": [
+      -40,
+      27,
+      125
+    ],
+    "params": {
+      "vdd_val": [
+        1.62,
+        1.8,
+        1.98
+      ]
+    }
+  },
+  "exclude": [
+    {
+      "temperature_c": -40,
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "temperature_c": -40,
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "temperature_c": 125,
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "temperature_c": 125,
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": -40
+    },
+    {
+      "process": "ss",
+      "temperature_c": 125
+    },
+    {
+      "process": "ss",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "ss",
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": -40
+    },
+    {
+      "process": "ff",
+      "temperature_c": 125
+    },
+    {
+      "process": "ff",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "ff",
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": -40
+    },
+    {
+      "process": "sf",
+      "temperature_c": 125
+    },
+    {
+      "process": "sf",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "sf",
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": -40
+    },
+    {
+      "process": "fs",
+      "temperature_c": 125
+    },
+    {
+      "process": "fs",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "fs",
+      "params": {
+        "vdd_val": 1.98
+      }
+    }
+  ],
+  "measurements": [
+    {
+      "name": "vtop_p_0",
+      "spice": ".meas tran vtop_p_0 FIND v(top_0p) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_n_0",
+      "spice": ".meas tran vtop_n_0 FIND v(top_0n) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_p_128",
+      "spice": ".meas tran vtop_p_128 FIND v(top_128p) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_n_128",
+      "spice": ".meas tran vtop_n_128 FIND v(top_128n) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_p_256",
+      "spice": ".meas tran vtop_p_256 FIND v(top_256p) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_n_256",
+      "spice": ".meas tran vtop_n_256 FIND v(top_256n) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_p_384",
+      "spice": ".meas tran vtop_p_384 FIND v(top_384p) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_n_384",
+      "spice": ".meas tran vtop_n_384 FIND v(top_384n) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_p_511",
+      "spice": ".meas tran vtop_p_511 FIND v(top_511p) AT=500n",
+      "unit": "V"
+    },
+    {
+      "name": "vtop_n_511",
+      "spice": ".meas tran vtop_n_511 FIND v(top_511n) AT=500n",
+      "unit": "V"
+    }
+  ],
+  "options": {
+    "keep_artifacts": true
+  }
+}
