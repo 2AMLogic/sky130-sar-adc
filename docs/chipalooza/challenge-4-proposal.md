@@ -1395,7 +1395,7 @@ pointer-claim census below:
 > table, **21** name a flow that publishes a `LATEST` pointer and are
 > therefore freshness-checked by check 3; the remaining **9** name a flow
 > that publishes none, whose current record nothing grades:
-> `sim/cdac-array-transfer` (**8** records), `sim/comparator-decision`
+> `sim/cdac-array-transfer` (**9** records), `sim/comparator-decision`
 > (**17** records), `sim/harness-corner-smoke` (**1** record),
 > `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**2** records).
 
@@ -5804,7 +5804,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **97** of the **101** records under `sim/*/records/` name both an `ngspice`
+  > **97** of the **102** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **114** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
   > version and **76** name the `open_pdks` commit
@@ -5820,6 +5820,8 @@ and is not claimed to be met.
   **Update (2026-11-05, issue #783):** the via1-pad-widening re-run of `layout/sampling-frontend-wells/` minted 2 more `layout/*/reports/` records (`20261105-191430-bf27ff9d` and `20261105-191510-bf27ff9d`; 112 → **114**); both name a `klt` version (111 → **113**) and the `open_pdks` commit (74 → **76**). No flow's count of records naming no commit changed, so no flow newly pins the commit. No earlier record was rewritten.
 
   **Update (2026-11-06, issue #564):** the new `sim/cdac-array-transfer/records/20261106-180843-15ea2ea.md` records the `klt sim` pilot (status `error`, NOT RUN: runner/client version mismatch) and names both an `ngspice` version (`ngspice-46`) and a 40-hex `open_pdks` commit (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`, as reported by the batch receipt), so it counts as pinned. It moves the totals 100 → **101** records and 96 → **97** pinned; because the record is a NOT RUN record, the pin describes the worker environment, not a completed measurement. No earlier record was rewritten.
+
+  **Update (2026-11-06, issue #811):** the new `sim/cdac-array-transfer/records/20261106-190301-7bdf8c4.md` records the `klt sim` batch-route probe under a 0.9.0 client. It names an `ngspice` version (`ngspice-46`) but only an abbreviated `open_pdks` stamp (`f6eeac7d...`), not a 40-hex commit, so it does not count as pinned. It moves the totals 101 → **102** records and leaves the pinned count at **97**; no flow newly pins the commit. No earlier record was rewritten.
 
   **The two `sim/` records short of the first column are not ngspice runs
   (2026-10-17, issue #678).** `sim/digital-functional/records/20261017-193811-9522693.md`
