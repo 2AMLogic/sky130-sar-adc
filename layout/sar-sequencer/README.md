@@ -372,3 +372,30 @@ draw`. Clean room: the topology placed and routed is this repo's own
 sky130 PDK's own official, freely-licensed standard-cell library (LEF/
 liberty/GDS/CDL) and OpenROAD's own placement/routing/CTS algorithms — never
 another party's implementation.
+
+## `io.layer_v` moved `li1` -> `met2` (issue #784)
+
+`requests/place-and-route.json` set `io.layer_v` to `li1`, which `klt
+place-and-route` rejects up front on klt 0.8.0 and still rejects on klt 0.9.0
+(`request.io.layer_v 'li1' is outside the signal routing range ... met1-met5`,
+klayout-tools#2473: the router draws no signal conductor on `li1`). It is now
+`met2` (`layer_h` stays `met1`), the same choice `layout/top-glue/` made. No
+check, rule or spec line changed.
+
+New record `reports/20261105-191625-bf27ff9d/` (klt 0.9.0 in a worktree venv;
+`layout/requirements.txt` is untouched, #734 owns that bump). Observations:
+
+- DRC clean (0 violations); LVS `match`, devices 760/760/760, nets 395/395/395.
+- `lvs.json` pins layout/reference/matched = 30/28/30, `extract.json`
+  `pin_count` = 30. This is the same 30/28/30 asymmetry as the previous record
+  `reports/20261021-104530-ddc1d72/` (see "Why the pin counts read 30/28/30"
+  above, issue #322); the DEF `PINS` block declares 28 (26 on `met1`, 2 on
+  `met5`). It is not a short count.
+- Pin placement before vs after: the DEF `PINS` entries (name, layer,
+  position) are identical between the two records, so no pin changed edge or
+  layer. In this block every signal pin was already on `met1` (the horizontal
+  layer), so `layer_v` did not affect the result. The two DEFs and GDSs are not
+  byte-identical: the filler-cell fill differs (`COMPONENTS` 167 -> 163), a
+  difference that was not isolated: the `klt` version also changed between the
+  two runs (0.6.0 -> 0.9.0; both records name the same `open_pdks` commit
+  `f6eeac7`), so it is not attributable to `layer_v` alone.

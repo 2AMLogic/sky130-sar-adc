@@ -15,7 +15,7 @@
   },
   "io": {
     "layer_h": "met1",
-    "layer_v": "li1"
+    "layer_v": "met2"
   },
   "power": {
     "power_net": "VPWR",
