@@ -4,6 +4,7 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-07
 
+- **PR #822**: Bump Repo Skills 0.25.1 -> 0.25.10
 - **PR #821**: chore: drop unused subprocess import from test_evidence_store
 - **Issue #817** (closed): Remove redundant imports in two SDF testbenches and test_evidence_store.py
 
