@@ -24,7 +24,7 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
+_None._
 
 ## In Progress
 
@@ -34,20 +34,18 @@ Issues currently being built (`loom:building`).
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
-- **#810**: Re-run local single-corner/analytic sim records under open_pdks f6eeac7 as superseding records (#709 split)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
-- **#815**: sim: re-run local-slice records under open_pdks f6eeac7 as superseding records
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#822**: Bump Repo Skills 0.25.1 -> 0.25.10
 
 ## Proposed
 
@@ -62,12 +60,12 @@ Issues carrying `loom:curated`.
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772) *(curated)*
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route) *(curated)*
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report) *(curated)*
-- **#810**: Re-run local single-corner/analytic sim records under open_pdks f6eeac7 as superseding records (#709 split) *(curated)*
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
+- **#820**: Simplify: citation gate for challenge-4-proposal is ~16k lines guarding one doc *(hermit)*
 
 ## Epics
 
@@ -80,11 +78,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 0 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 5 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 0 |
-| Curated | 11 |
-| Architect / Hermit proposals | 1 |
+| Ready (`loom:issue`) | 0 |
+| In Progress (`loom:building`) | 4 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 10 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
