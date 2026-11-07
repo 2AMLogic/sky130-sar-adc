@@ -2,8 +2,8 @@
   "schema_version": 1,
   "kind": "generic",
   "t1_item": 1,
-  "status": "fail",
-  "summary": "Digital design sources. sar_sequencer.v is a structural gate-level netlist TRANSLITERATED BY HAND from design/sar_sequencer.sch, not synthesized from RTL; layout/sar-sequencer/bin/check-schematic-parity.py binds it to the schematic through design/sar_adc_top.spice's .subckt sar_sequencer. The check currently FAILS: the committed Verilog predates the schematic's per-conversion clear and decision-direction logic (issue #263), so this item is not claimed.",
+  "status": "pass",
+  "summary": "Digital design sources. sar_sequencer.v is a structural gate-level netlist TRANSLITERATED BY HAND from design/sar_sequencer.sch, not synthesized from RTL; layout/sar-sequencer/bin/check-schematic-parity.py binds it to the schematic through design/sar_adc_top.spice's .subckt sar_sequencer. The check currently PASSES.",
   "source": "signoff/attest/item-1-digital.inventory.json",
   "provenance": {
     "input": {
@@ -81,14 +81,14 @@
       "path": "layout/sar-sequencer/netlist/sar_sequencer.v",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:aa083f063b2bfe53d8b6350cec0c5fa870ae3feb8b93b3cf2f593c5b2b60ae65"
+      "content_hash": "sha256:ae05ad79e6b3e40c7bc0b98073df3f91c9e94f928784ea2dcd1551cea5614e65"
     },
     {
       "check": "command",
       "command": "python3 layout/sar-sequencer/bin/check-schematic-parity.py",
-      "passed": false,
+      "passed": true,
       "executed": true,
-      "exit_status": 1
+      "exit_status": 0
     }
   ]
 }

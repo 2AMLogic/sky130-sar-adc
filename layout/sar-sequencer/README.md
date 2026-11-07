@@ -73,8 +73,11 @@ points at the newest record id.
   clock constraint above with **zero setup/hold timing violations**.
 - **DRC: clean.** `klt drc --deck sky130` reports 0 violations against the
   routed GDS.
-- **LVS: clean.** `klt lvs` reports `status: "match"`, 760/760 devices and
-  395/395 nets matched, 0 mismatches — see "LVS reference provenance" below
+- **LVS: clean.** `klt lvs` reports `status: "match"`, 892/892 devices and
+  461/461 nets matched, 0 mismatches (record `20261103-203525-e3664123`, issue #680,
+  57 instances after the netlist was regenerated to match the schematic; the
+  earlier `20261021-104530-ddc1d72` record was 760/760 and 395/395 on the older
+  36-instance netlist) — see "LVS reference provenance" below
   for the three-part fix that got here from the `mismatch` verdict PR #105
   originally recorded.
 

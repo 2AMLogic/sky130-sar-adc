@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "worktree:return": "./.loom/scripts/worktree-return.sh",
-    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:signoff-attest && npm run check:digital-ref && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:supersedes && npm run check:append-only && npm run check:artifact-manifests && npm run check:report",
+    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:sequencer-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:signoff-attest && npm run check:digital-ref && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:supersedes && npm run check:append-only && npm run check:artifact-manifests && npm run check:report",
     "check:harness": "./sim/selftest.sh",
     "check:harness:quick": "./sim/selftest.sh --quick",
     "check:harness:full": "./sim/selftest.sh --full",
@@ -12,6 +12,7 @@
     "check:drc-evidence": "python3 layout/bin/check_drc_evidence.py",
     "check:glue-parity": "python3 layout/top-glue/bin/check-schematic-parity.py",
     "check:halflsb-parity": "python3 layout/halflsb-offset/bin/check-schematic-parity.py",
+    "check:sequencer-parity": "python3 layout/sar-sequencer/bin/check-schematic-parity.py",
     "check:composition-parity": "python3 layout/sar-adc-top/bin/check-composition-parity.py --self-test && python3 layout/sar-adc-top/bin/check-composition-parity.py",
     "check:klt-pin-evidence": "./layout/bin/check-klt-pin-evidence.sh",
     "check:proposal-citations": "python3 docs/chipalooza/check_proposal_citations.py",
