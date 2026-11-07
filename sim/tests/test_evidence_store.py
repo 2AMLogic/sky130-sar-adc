@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import http.server
 import json
-import subprocess
 import sys
 import tempfile
 import threading
