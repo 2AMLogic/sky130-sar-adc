@@ -2,8 +2,15 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-07
+
+- **PR #821**: chore: drop unused subprocess import from test_evidence_store
+- **Issue #817** (closed): Remove redundant imports in two SDF testbenches and test_evidence_store.py
+
 ### 2026-11-06
 
+- **PR #819**: sim: replay old netlist snapshots at the f6eeac7 pin to isolate PDK effect
+- **Issue #814** (closed): sim: #810 re-runs show deltas that are not like-for-like (design changed since old records)
 - **PR #815**: sim: re-run local-slice records under open_pdks f6eeac7 as superseding records
 - **Issue #810** (closed): Re-run local single-corner/analytic sim records under open_pdks f6eeac7 as superseding records (#709 split)
 - **PR #812**: sim: record klt sim batch route probe for cdac-array-transfer under a 0.9.0 client
