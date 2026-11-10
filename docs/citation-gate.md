@@ -16,6 +16,20 @@ the `--stats` census output and the final `OK: every citation in ...` line.
 It lives one directory up for that reason, not by accident. Do not move it
 back.
 
+## Freeze
+
+**The checker is frozen: do not add new `check_*` functions.** Operator ruling
+of 2026-11-10 on issue #820: "freeze the checker now; migrate to klt evidence
+claims." The functionality is moving to klayout-tools as `klt evidence claims`
+plus a table renderer
+([2AMLogic/klayout-tools#5273](https://github.com/2AMLogic/klayout-tools/issues/5273)).
+When that release ships, a follow-up replaces this checker with the klt call
+and deletes it. Until then, fixing an existing check and its tests is still
+allowed, the existing gate stays green and wired (`package.json`
+`check:proposal-citations`, `.github/workflows/ci.yml`), and the per-check
+rationale below stays as written. Generated tables for the proposal's figures
+are the klt renderer's job, not a local build.
+
 ## Why this exists
 
 The Chipalooza Challenge #4 proposal (issue #121) is a hand-maintained

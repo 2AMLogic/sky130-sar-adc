@@ -13,6 +13,18 @@ PDK-free and network-free (pure file reads), like `sim/check_spec_coverage.py`
 and `layout/bin/check-klt-pin-evidence.sh`, so it runs in the always-on
 headless `checks` CI job rather than the PDK-gated one.
 
+FROZEN -- NO NEW `check_*` FUNCTIONS
+------------------------------------
+This checker is frozen. Per the operator ruling of 2026-11-10 on issue #820
+("freeze the checker now; migrate to klt evidence claims"), do not add new
+`check_*` functions here. The functionality is moving to klayout-tools as
+`klt evidence claims` plus a table renderer (2AMLogic/klayout-tools#5273); when
+that release ships, a follow-up replaces this checker with the klt call and
+deletes it. Fixing an existing check (and its tests) is still allowed, and the
+gate stays wired (`package.json` `check:proposal-citations`,
+`.github/workflows/ci.yml`). See the "Freeze" section of
+`docs/citation-gate.md`.
+
 WHAT IT CHECKS
 --------------
 Each check's own one-line docstring below states what it checks; the chain
