@@ -10,7 +10,9 @@ structure shared by Challenges #2/#3 (`rules-2.html`/`rules-3.html`) until
 `rules-4.html` publishes, and does not block on the unpublished rules. **When
 `rules-4.html` publishes, a follow-up pass must re-verify every slot-budget
 number and rail assumption in §2 against the actual text** — nothing here is
-final.
+final. **Update 2026-11-10: `rules-4.html` is now live (HTTP 200, challenge
+start 2026-11-09); the re-verification is §2.2.1, and it changes the
+dedicated-pad budget from the assumed 0–4 to the published 1–3.**
 
 **Source repository**: `2AMLogic/sky130-sar-adc` (`visibility: public`,
 flipped 2026-08-25 per Epic #542 Phase 4A — confirmed via `gh repo view`
@@ -104,19 +106,21 @@ numeric rows ratified 2026-08-19,
 Every row in §4 below is therefore reported at a single supply point,
 1.8 V ± 10 % (1.62 / 1.80 / 1.98 V), not two rails.
 
-### 2.2 Pad table, mapped to the assumed Challenge #4 slot budget
+### 2.2 Pad table, mapped to the Challenge #4 slot budget
 
-Per this issue's stated common structure: 24 digital control inputs, 12
-digital test outputs, 4 shared (multiplexed) analog lines, 0–4 dedicated
-pads, harness-supplied bias/bandgap reference, SPI control interface
-supplied by the harness (not per-block).
+Budget as published on `rules-4.html` (fetched 2026-11-10, reconciled in
+§2.2.1): up to 24 digital control inputs, up to 12 digital test outputs, up
+to 4 shared (multiplexed) analog lines, **1–3 dedicated pins**, a
+bandgap-referenced bias voltage and up to 2 bandgap-referenced current
+sources. (This table was first drafted against the Challenge #2/#3 common
+structure's *0–4* dedicated pads, which `rules-4.html` does not repeat.)
 
 | Signal | Dir | Assumed Challenge slot | Count used | Notes |
 |---|---|---|---|---|
 | `VDD` | supply | 1.8 V analog rail | — (rail, not a slot line item) | The **analog** supply: sampling front end, CDAC array, comparator, and the DR-009 offset network. Same 1.8 V supply point as the digital rail below, but a **separate domain** — see the `VPWR`/`VGND` row and §2.1 |
-| `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 0–4) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
+| `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 1–3) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
 | `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
-| `VCM` | in, dedicated | dedicated pad (budget: 0–4) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, full-ratified-PVT-grid on every one of its four legs (bare `R_source` at both the worst-case and legacy windows, `C_decouple` at both windows) — **re-derived this pass (2026-09-15) against the post-issue-#236 sampling front end** (the `Sa` gate-net move and `Cmsw` `W=1 µm`→`W=16 µm` widening that fixed the sampling acquisition-window bottleneck, §4/§7 Item 2, also changed this budget's own DUT netlist, per issues #245/#248 via PRs #249/#250). All four legs, at every one of the 9 ratified corners, now come back right-censored at ≤ 100 kΩ bare `R_source` (both the 1-LSB and 0.1-LSB thresholds) and ≤ 1000 pF `C_decouple` — a materially looser, corner-invariant result than the pre-#236 data superseded below (which spanned 1 kΩ–30 kΩ and hit zero bare-impedance margin at 4/9 legacy-window corners) ([`sim/vcm-drive-budget/records/20260908-074408-80df05e.md`](../../sim/vcm-drive-budget/records/20260908-074408-80df05e.md), [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md); each `Supersedes` its pre-#236 counterpart, [`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md) / [`20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md) / [`20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md) / [`20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md) / [`20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md), respectively), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
+| `VCM` | in, dedicated | dedicated pad (budget: 1–3) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, full-ratified-PVT-grid on every one of its four legs (bare `R_source` at both the worst-case and legacy windows, `C_decouple` at both windows) — **re-derived this pass (2026-09-15) against the post-issue-#236 sampling front end** (the `Sa` gate-net move and `Cmsw` `W=1 µm`→`W=16 µm` widening that fixed the sampling acquisition-window bottleneck, §4/§7 Item 2, also changed this budget's own DUT netlist, per issues #245/#248 via PRs #249/#250). All four legs, at every one of the 9 ratified corners, now come back right-censored at ≤ 100 kΩ bare `R_source` (both the 1-LSB and 0.1-LSB thresholds) and ≤ 1000 pF `C_decouple` — a materially looser, corner-invariant result than the pre-#236 data superseded below (which spanned 1 kΩ–30 kΩ and hit zero bare-impedance margin at 4/9 legacy-window corners) ([`sim/vcm-drive-budget/records/20260908-074408-80df05e.md`](../../sim/vcm-drive-budget/records/20260908-074408-80df05e.md), [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md); each `Supersedes` its pre-#236 counterpart, [`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md) / [`20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md) / [`20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md) / [`20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md) / [`20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md), respectively), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
 | `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
 | `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
@@ -127,7 +131,7 @@ supplied by the harness (not per-block).
 **Totals against the assumed budget, machine-checked** (check 10 of the
 [citation gate](check_proposal_citations.py), added 2026-09-17): **2** of ≤24
 digital control inputs (`CLK`, `RST_B`), **11** of ≤12 digital test outputs
-(`DOUT9..DOUT0` + `BUSY`), **3** of 0–4 dedicated pads (`VINP`, `VINN`,
+(`DOUT9..DOUT0` + `BUSY`), **3** of 1–3 dedicated pads (`VINP`, `VINN`,
 `VCM`), and **2** harness-supplied reference lines (`VREFP`, `VREFN`). Each of
 those four counts is recomputed from this table's own Count and slot columns
 rather than re-added by hand, so a row added, re-counted, or re-categorised
@@ -135,11 +139,12 @@ fails CI here instead of leaving a stale total behind — and a row that is
 charged against the budget while matching none of the four categories fails
 too, so a new signal cannot slip past the totals by being uncategorised. If
 the harness cannot supply a differential reference, its two lines must become
-dedicated pads as well — **5 dedicated pads against a 0–4 ceiling**, which
+dedicated pads as well — **5 dedicated pads against a 1–3 ceiling**, which
 exceeds it (that number is gated too, as the dedicated pads plus the
 harness-supplied reference lines). This is stated as an open slot-budget risk,
-not resolved by assumption (see §7); it cannot be resolved definitively until
-`rules-4.html` publishes and states the real per-signal budget categories.
+not resolved by assumption (see §7). `rules-4.html` has now published and
+does not remove the risk — it lists a single bias voltage, not a differential
+pair, so the two-line reference is still unmatched (§2.2.1).
 
 There is **no on-chip SPI interface** in this design — `design/sar_adc_top.sch`
 exposes only the parallel `CLK`/`RST_B`/`DOUT*`/`BUSY` port set (see §2.3).
@@ -150,6 +155,36 @@ equivalent decision record exists in this repo. If Challenge #4's SPI
 control interface must reach this block's own control/readback ports rather
 than only global harness configuration, a small interface-adapter
 sub-block would need to be designed; that is not assumed to already exist.
+
+### 2.2.1 Reconciliation against `rules-4.html` (published 2026-11-09)
+
+Issue #121 acceptance criterion 4. Source: `https://opencircuitdesign.com/chipalooza/rules-4.html`,
+fetched 2026-11-10 (HTTP 200, 13 704 bytes). The page is third-party and
+mutable; the figures below are what it said on that date, not a pinned
+record. Compared against the assumptions §2.2 was drafted under:
+
+| Item | Assumed (Challenge #2/#3 structure) | `rules-4.html` says | Effect on this design |
+|---|---|---|---|
+| Digital control inputs / test outputs | ≤24 / ≤12 | up to 24 / up to 12 | none — 2 of 24, 11 of 12 |
+| Shared analog lines | 4, multiplexed | 4, behind switches of "less than 5 ohms", shared by all eighteen projects, "not … for high-frequency analog signaling" | none for the pad count; no input or reference line is routed through them, so the budget is unused |
+| **Dedicated pins** | **0–4** | **one to three**, any signal pad from the pad library | **delta.** `VINP`, `VINN`, `VCM` fill all 3; the differential reference would add 2 more (5 of 3) |
+| Reference | "harness-supplied bias/bandgap reference" | one "bandgap-referenced bias voltage" plus up to 2 bandgap-referenced current sources | **no change to the §2.2 open item**: a single bias voltage does not obviously supply a differential `VREFP`/`VREFN` pair. "Any exceptions to the resource list need to be approved" |
+| SPI control interface | supplied by the harness | not mentioned on the page; slot size and I/O configuration are "TBD" in the harness repository | unconfirmed either way; the §2.2 no-SPI-in-this-block statement stands unchanged |
+| Rails | 1.8 V digital / 3.3 V analog | 1.8 V (digital) and 3.3 V (analog) available; pad library is the dual 1.8 V core / 3.3 V periphery library | consistent with §2.1. **New text**: a design that runs at 1.8 V on-chip but interfaces the padframe "need[s] to ensure overvoltage protection on [its] inputs and outputs". This design is 1.8 V throughout (DR-001/DR-002) and has no input protection network drawn; **not assessed here** — tracked as a new open item in §7 |
+| PVT | not stated | post-layout verification over PVT "for commercial spec (maximum 110 °C is acceptable)" | the ratified corner range is −40/27/125 °C (DR-003), which spans that; post-layout PVT itself is still pending (criterion 3) |
+| Layout forms | standalone block | two forms: standalone reusable layout **and** the layout inside the slot wrapper; wrapper template and slot size TBD | wrapper cell not started; blocked behind the top-level layout (#103) |
+| Licence / repository | Apache 2.0 preferred, public repo | same, plus a repository template "once it has been made available" and sign-off scripts | repo is Apache-2.0 and public; template adoption not yet possible if the template is unpublished — not checked here |
+| Capacity | not stated | up to 18 designs per test chip; designs ranked if more complete than fit | none |
+| Schedule | not stated | proposals due 2026-11-23; schematic/pre-layout review week of 2026-12-28; layout/post-layout review week of 2027-02-01; final review week of 2027-02-22 | this document is the proposal draft; it still carries DRAFT status and the unmet sign-off rows in §4 |
+
+What this pass does **not** establish: no spec row is changed, none is
+relaxed, and no §4 verdict moves. The pad overrun (5 of 3 if the harness
+cannot supply a differential reference) is now a stated conflict with a
+published limit rather than with an assumed one; resolving it needs either an
+approved exception from the organisers or a design change, and that choice is
+an operator decision, not made here. `rules-4.html` itself says further
+layout and test specifics are still to be announced on the project forum, so
+this table is expected to be revisited.
 
 ### 2.3 What this repo's own port list is, verbatim
 
@@ -5729,6 +5764,17 @@ tracker already owns.
     checklist reporting the same gaps §7 items 1–9 already name, counted. The
     two sign-off-bar rows stay UNMET and PARTIAL exactly as written, for the
     same reasons stated there.
+
+11. **Two conflicts with the published `rules-4.html` text (added 2026-11-10,
+    issue #121 criterion 4; detail in §2.2.1).** (a) The block needs 3
+    dedicated pads for `VINP`/`VINN`/`VCM` and 2 more for `VREFP`/`VREFN`
+    unless the harness supplies a differential reference; the published
+    ceiling is 3, and the page lists a single bias voltage plus current
+    sources. Resolving it needs an approved resource-list exception or a design
+    change — an operator decision. (b) The page requires overvoltage protection
+    on the inputs/outputs of a design that is 1.8 V on-chip but faces the
+    3.3 V-periphery padframe; this design draws no such network and none has
+    been assessed. **No §4 verdict moves because of this item.**
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
