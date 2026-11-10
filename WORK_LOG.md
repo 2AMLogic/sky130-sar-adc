@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-10
+
+- **PR #826**: docs: reconcile proposal slot budget with published rules-4.html
+
 ### 2026-11-07
 
 - **PR #822**: Bump Repo Skills 0.25.1 -> 0.25.10
