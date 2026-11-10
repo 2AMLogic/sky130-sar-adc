@@ -282,10 +282,10 @@ IO_TOTAL_RE = re.compile(
 # The conditional total: the same dedicated-pad count with the harness
 # reference's own lines folded in, which is the slot-budget risk Section 2
 # flags. Phrased distinctly from the claims above on purpose -- stated as
-# another "N of 0-4 dedicated pads" it would be indistinguishable from the
+# another "N of <budget> dedicated pads" it would be indistinguishable from the
 # unconditional one, and each would be graded against the other's number.
 IO_CONDITIONAL_RE = re.compile(
-    r"\*\*(?P<conditional>\d+) dedicated pads against a 0\s*[–-]\s*4 ceiling\*\*"
+    r"\*\*(?P<conditional>\d+) dedicated pads against a \d+\s*[–-]\s*\d+ ceiling\*\*"
 )
 
 # The scalar readout fields, paired with how each is read out of the record's

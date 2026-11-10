@@ -1495,6 +1495,23 @@ class TestIoTableParity(unittest.TestCase):
         self.assertIn("conditional dedicated-pad total claims 4", misses[0])
         self.assertIn("come to 3", misses[0])
 
+    def test_conditional_total_is_graded_against_a_1_to_3_ceiling_too(self):
+        # rules-4.html publishes a 1-3 dedicated-pin budget, not 0-4.
+        self.tree.add_top_netlist("VINP", "VREFP", "VREFN")
+        body = io_section(
+            "| `VINP` | in | dedicated pad (budget: 1–3) | 1 | analog in |",
+            "| `VREFP`, `VREFN` | in | harness-supplied bandgap reference | 2 | ref |",
+            totals=(
+                "**Totals**: **1** of 1–3 dedicated pads and **2** "
+                "harness-supplied reference lines — **4 dedicated pads against "
+                "a 1–3 ceiling** if the harness cannot supply the pair."
+            ),
+        )
+        misses = self.tree.check(body)
+        self.assertEqual(len(misses), 1, misses)
+        self.assertIn("conditional dedicated-pad total claims 4", misses[0])
+        self.assertIn("come to 3", misses[0])
+
     def test_check_is_inert_without_the_top_netlist(self):
         # No design/sar_adc_top.spice in the fixture tree at all.
         body = io_section("| `NOPE` | in | digital control input | 9 | invented |")
