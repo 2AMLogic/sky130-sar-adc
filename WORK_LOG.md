@@ -4,6 +4,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-10
 
+- **PR #828**: docs: record freeze on new citation-checker check_* functions
+- **Issue #820** (closed): Simplify: citation gate for challenge-4-proposal is ~16k lines guarding one doc
 - **PR #826**: docs: reconcile proposal slot budget with published rules-4.html
 
 ### 2026-11-07
