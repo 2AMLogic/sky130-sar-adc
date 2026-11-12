@@ -2,6 +2,10 @@
 
 Merged pull requests and closed issues from the preceding 30 days. Entries record completion events, not signoff verdicts.
 
+### 2026-11-12
+
+- **PR #831**: Bump Repo Skills 0.25.10 -> 0.26.1
+
 ### 2026-11-10
 
 - **PR #828**: docs: record freeze on new citation-checker check_* functions
