@@ -143,8 +143,6 @@ DUT_NODES = [
 # charge-injection sources into the floating island.
 SWINGING_NETS = ["SAMPLE", "SAMPLEB", "G_P", "G_N", "BOOST_P", "BOOST_N",
                  "BSBOT_P", "BSBOT_N"]
-# Nets held at a fixed potential by an external source during hold.
-FIXED_NETS = ["VDD", "VINP", "VINN", "VCM"]
 
 AC_FREQ_HZ = 1000.0
 
