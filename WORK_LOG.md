@@ -8,6 +8,12 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-13
 
+- **Issue #860** (closed): Consolidate three xschem netlisting helpers with conflicting exit-code policies onto toolchain.netlist_with_xschem()
+- **PR #867**: refactor(sim): one xschem exit-code policy on netlist_with_xschem()
+- **Issue #859** (closed): Consolidate four hand-rolled PDK-root lookups onto sim/harness/pdk.resolve()
+- **PR #866**: refactor: route four PDK-root lookups through sim/harness/pdk.resolve()
+- **Issue #862** (closed): sim/README.md does not list the sim/input-drive-budget campaign
+- **PR #864**: docs(sim): list the input-drive-budget campaign in sim/README.md
 - **Issue #847** (closed): sim: no campaign puts a source impedance on VINP/VINN — input-drive-impedance budget
 - **PR #857**: sim: add a VINP/VINN source-impedance budget campaign and record it at 9 corners
 - **Issue #841** (closed): sim: no campaign puts a drive impedance on VREFP/VREFN — reference-drive-impedance budget
