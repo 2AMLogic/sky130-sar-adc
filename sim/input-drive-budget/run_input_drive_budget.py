@@ -818,7 +818,16 @@ LIMITS = [
     "**A full-scale step between consecutive samples is the stimulus.** `VINP`/"
     "`VINN` step the whole rail-adjacent differential span (0.2 V <-> 1.6 V per "
     "side) during HOLD, so every figure below is the worst case for a near-Nyquist "
-    "input. A slowly varying input presents a far smaller step and is not graded.",
+    "input. A slowly varying input presents a far smaller step and is not graded. "
+    "One caveat at the top of the sweep: SAMPLE pulse #1, which settles the OLD "
+    f"value, is a fixed {T_SAMPLE1_WIDTH_NS:g} ns inherited from the "
+    "acquisition-settling runner, where the source is ideal. The `R_source` under "
+    "test also slows that first settling, so at large swept resistances the OLD "
+    "value is not fully settled when the input steps and the realised step is "
+    "smaller than the full-scale span -- those rows understate the error a true "
+    "full-scale step would produce. The deviation grows with `R_source` and is "
+    "largest at the top of the sweep list; this campaign does not quantify it, so "
+    "read the worst-case framing as approximate at the highest swept resistances.",
     "**`Csamp` stands in for the CDAC array.** The DUT is the sampling front-end "
     "fragment, whose per-side `Csamp` is sized (DR-004) to mimic the real array's "
     "load. The whole-ADC CDAC, its own parasitics and the comparator input are not "

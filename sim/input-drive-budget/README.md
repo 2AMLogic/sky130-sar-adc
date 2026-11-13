@@ -138,7 +138,13 @@ near-Nyquist input), the front end's `Csamp` stands in for the CDAC array, and
 campaign's fixed 0.9 V and does **not** track the supply corner; the 0.2/1.6 V
 input extremes are likewise fixed at every corner, exactly as in that runner.
 A budget is the largest *swept* value, so it is quantised to the log-spaced
-list above. The record repeats this list in full — read it there, not here.
+list above. SAMPLE pulse #1, which settles the OLD value, is a fixed 100 ns
+inherited from the mirrored runner (ideal source there); the `R_source` under
+test slows that settling too, so at large swept resistances the realised step
+is smaller than the full-scale span and those rows understate the error — the
+deviation grows with `R_source`, is largest at the top of the sweep list, and
+is not quantified here. The record repeats this list in full — read it there,
+not here.
 
 ## Tests
 
