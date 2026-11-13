@@ -12,7 +12,12 @@ structure shared by Challenges #2/#3 (`rules-2.html`/`rules-3.html`) until
 number and rail assumption in §2 against the actual text** — nothing here is
 final. **Update 2026-11-10: `rules-4.html` is now live (HTTP 200, challenge
 start 2026-11-09); the re-verification is §2.2.1, and it changes the
-dedicated-pad budget from the assumed 0–4 to the published 1–3.**
+dedicated-pad budget from the assumed 0–4 to the published 1–3. Update
+2026-11-13: re-fetched at the same byte count, with a sha256 now pinned in
+§2.2.2, so §2.2.1's figures stand; §2.2.2 extends the reconciliation to the
+page's proposal-content, repository-hygiene and design-conformance
+requirements, which the first pass did not grade. Proposals are due
+2026-11-23.**
 
 **Source repository**: `2AMLogic/sky130-sar-adc` (`visibility: public`,
 flipped 2026-08-25 per Epic #542 Phase 4A — confirmed via `gh repo view`
@@ -185,6 +190,55 @@ approved exception from the organisers or a design change, and that choice is
 an operator decision, not made here. `rules-4.html` itself says further
 layout and test specifics are still to be announced on the project forum, so
 this table is expected to be revisited.
+
+### 2.2.2 Second reconciliation pass (2026-11-13): the requirements §2.2.1 did not grade
+
+Issue #121 acceptance criterion 4, second pass. Source re-fetched the same
+way: `https://opencircuitdesign.com/chipalooza/rules-4.html`, 2026-11-13,
+HTTP 200, **13 704 bytes** — the same byte count §2.2.1 recorded on
+2026-11-10 — sha256
+`120db18a0d7781d7c94680888f79e2158e67327bd90b0c6fbe4ee6f6ddc8b4fb`. §2.2.1
+recorded a size and not a digest, so the matching size is evidence that the
+page did not change between the two fetches rather than proof of it; the
+digest is recorded here so the next pass can compare byte-exactly instead of
+by length. **Every §2.2.1 row stands unchanged on this fetch**: no
+resource-list, rail, PVT, layout-form, licence, capacity or schedule figure
+moved, and the pad-budget delta it reported (published 1–3, assumed 0–4) is
+still what the page says.
+
+What this pass adds is the *other* half of the page. §2.2.1 reconciled the
+**resource list and schedule**; the page also states **proposal-content,
+repository-hygiene and design-conformance** requirements that were not graded
+there, and several of them land on this document and this repository rather
+than on the slot budget. Each is graded below against the current tree, under
+the same rule as the rest of this document: nothing is marked met that is not,
+and no row of §4 is relaxed or moved by this pass.
+
+| Requirement, as published | Where this repository stands | Verdict |
+|---|---|---|
+| Proposal states "the type of IP block", and the block "should be … useful within the context of a system-on-chip" | §1 — a 10-bit differential charge-redistribution SAR ADC, a block class an SoC routinely needs; the device inventory behind that description is re-derived from [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice) by check 20 of the [citation gate](check_proposal_citations.py) rather than asserted. The page points participants at the earlier Efabless challenge's designs as a starting point; per `CLAUDE.md`'s clean-room rule this design takes nothing from any of them, which costs nothing here — the page permits reuse, it does not require it | **MET** |
+| "List of I/O, including test ports" | §2.2 pad table (every port categorised against a slot) and §2.3's verbatim `.subckt sar_adc_top` port list; both are machine-checked against `design/sar_adc_top.spice` by check 10 of the [citation gate](check_proposal_citations.py), so a port cannot be added, dropped or re-categorised here without failing CI | **MET** |
+| "Functional description of the IP block" | §3 | **MET** |
+| "A target specification with all relevant characteristics, including average, minimum, and maximum values (as appropriate), **and absolute limits**" | §4 carries a `Target (min/typ/max)` column and a per-row verdict for every row, traced to [`spec/target-spec.md`](../../spec/target-spec.md) or a dated `sim/` record. It states **no absolute limits** anywhere, and `spec/target-spec.md` carries no absolute-maximum row either — the ±10 % supply span (1.62 / 1.80 / 1.98 V) in §4 is a *verification grid* (DR-003), not an absolute maximum rating, and the page separately requires conformance to the Sky130 process's own "voltage limits" | **PARTIAL — min/typ/max MET, absolute limits UNMET** (§7 item 12) |
+| "An outline of a test plan for validating the IP block through measurement" | §5, written against the current port list and gated for port parity by the citation gate's test-plan check | **MET** |
+| "List of any equipment available for use in testing" and "CVs of the designers", both "sent separately from the proposal document" | Outside this document by the page's own instruction, and outside what this repository holds: both are operator-held material | **N/A here — operator action** |
+| "personal and institutional details are to be left out of the main proposal document" | This document names no individual. The single institutional string in it is §8's Apache-2.0 attribution line ("Copyright 2026 2AM Logic"), which is a licence fact rather than designer identification — removing it would misstate the licence this repository ships under | **Flagged, not changed** — whether the organisers read a licence copyright line as an institutional detail is theirs to say, not this pass's to assume |
+| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | Five summary figures are tracked under [`docs/plots/`](../plots/) (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 5 as of this pass; this row read **zero** until #835 landed), rendered by [`sim/report/plots.py`](../../sim/report/plots.py) from evidence already committed under `sim/` — no simulation is run to draw them — and re-checked by `sim/report/plots.py --check` through `npm run check:ci`. Every `sim/` result is still reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" MET for the five figures §7 item 13 lists** — the two summaries it deliberately leaves undrawn, and the untouched "avoid unnecessary data dumps" half of the same sentence, are recorded there |
+| "Sign-off data is required (i.e., final DRC and LVS results)" | `signoff/` carries the block manifest, the graded [`signoff/t1-report.json`](../../signoff/t1-report.json) and [`signoff/run-signoff.sh`](../../signoff/run-signoff.sh)`--check`, plus the hash re-derivation CI runs over every cited artifact | **Mechanism MET**; the DRC/LVS *content* is still §4's two sign-off-bar rows (DRC MET, LVS device match UNMET / post-layout PVT UNMET — §7 item 1) |
+| "Every design should follow the repository template (once it has been made available)", whose "scripts for running basic sign-off verification … must be able to run by anyone cloning the repository and show a verified result" | The Chipalooza template is still unpublished (the page offers the IHP-challenge template as generally applicable). This repository's own equivalent runs from a bare clone today: `signoff/run-signoff.sh --check` needs only the `klt` pin in [`signoff/requirements.txt`](../../signoff/requirements.txt) — no PDK, no KLayout engine — and exits 2 rather than silently passing when `klt` is absent; `npm run check:ci` runs the headless gate set | **Runnable verified result MET; template adoption PENDING publication** |
+| "The design must be verifiable with open source EDA tools … AI may be used in support of circuit design but must not be a requirement for the end user of the IP block to use, verify, or modify the IP block" | Directly relevant: this block is AI-designed, which `CLAUDE.md` states openly. Every verification entry point is open-source and agent-free — xschem, ngspice, `klt`/KLayout, driven by committed shell and Python (`package.json`'s `check:ci`, `sim/README.md`'s per-flow cold-start commands, `signoff/run-signoff.sh`). No step of using, verifying or modifying this block requires an AI agent | **MET** — the AI provenance is disclosed, and no verification path depends on it |
+| "Changes to the target specification mid-design must be approved" | Two §4 rows are still DRAFT: **Sample rate** (provisional, never re-derived end-to-end) and **ENOB / INL-DNL** (DR-007 still `proposed`). Ratifying either *after* a proposal is submitted is a mid-design specification change in the page's sense, needing organiser approval on top of this repository's own `spec/` decision-record gate | **Exposure noted** (§7 item 12); not resolvable here |
+| "Proposals are due two weeks from the beginning of the challenge, which is November 23, 2026", with proposal review the week of November 23 | **10 days after this pass.** This document is still headed "DRAFT design record, not a submission-ready proposal", and two of the rows above (CVs, equipment list) are operator-held material no automation here can produce | **Operator decision** — whether, when and under whose name to submit |
+
+Nothing in this table moves a §4 verdict, and none is claimed to. Three rows
+opened genuinely new gaps that were invisible while the rules were unpublished
+(absolute limits, plot summaries, the mid-design ratification exposure); they
+are carried as §7 item 12 — and the first two as issues #834 and #835 — rather
+than folded into §4, because none of them is a spec row. Of those three, the
+plot-summary gap is the one this pass closes: #835's rendering step landed as
+§7 item 13, and item 12(b) now records it as closed; the absolute-limits gap
+(#834) and the mid-design ratification exposure stay open. The two conflicts
+§2.2.1 found are tracked as #836, routed to an operator.
 
 ### 2.3 What this repo's own port list is, verbatim
 
@@ -4515,11 +4569,18 @@ tracker already owns.
    confirmed byte-identical before and after that fold-in, so
    `layout/sar-adc-top/`'s composition (§7 Item 1) needed no further re-run
    beyond the one already described in §4's sample-rate row above.
-7. **`rules-4.html` has not published.** Every slot-budget assumption in §2
-   is carried from Challenges #2/#3's common structure, not from Challenge
-   #4's own (unpublished) text. Per this issue's own acceptance criterion, a
-   follow-up pass is required once it publishes, to verify or correct §2's
-   numbers — not performed here because the source does not exist yet.
+7. **`rules-4.html` had not published — the reconciliation this item owed is
+   now done, in §2.2.1 (2026-11-10) and §2.2.2 (2026-11-13).** The item is
+   kept, with its re-check chain intact below, because that chain is the
+   record of *when* each §2 figure was still an assumption; it is no longer an
+   open gap. As originally filed: every slot-budget assumption in §2 was
+   carried from Challenges #2/#3's common structure, not from Challenge #4's
+   own (then-unpublished) text, and this issue's acceptance criterion 4 owed a
+   follow-up pass once it published, to verify or correct §2's numbers. The
+   page published on 2026-11-09; what the reconciliation found — the
+   dedicated-pad budget narrowing from the assumed 0–4 to a published 1–3,
+   and the two conflicts carried as item 11 — is in those two subsections, not
+   here.
    **Re-checked 2026-09-06**: `https://opencircuitdesign.com/chipalooza/rules-4.html`
    still returns HTTP 404, consistent with the epic's tracked 2026-11-09
    publish date. §2's numbers therefore stay assumptions, and no slot-budget
@@ -5766,7 +5827,9 @@ tracker already owns.
     same reasons stated there.
 
 11. **Two conflicts with the published `rules-4.html` text (added 2026-11-10,
-    issue #121 criterion 4; detail in §2.2.1).** (a) The block needs 3
+    issue #121 criterion 4; detail in §2.2.1). Both are now tracked as #836,
+    routed to an operator** — filed 2026-11-13 with the five routes below, the
+    evidence each would need, and the published text each quote comes from. (a) The block needs 3
     dedicated pads for `VINP`/`VINN`/`VCM` and 2 more for `VREFP`/`VREFN`
     unless the harness supplies a differential reference; the published
     ceiling is 3, and the page lists a single bias voltage plus current
@@ -5776,9 +5839,83 @@ tracker already owns.
     3.3 V-periphery padframe; this design draws no such network and none has
     been assessed. **No §4 verdict moves because of this item.**
 
-12. **Simulation results are now summarized in plots, not only raw data
-    (added 2026-11-13, issue #835; the other half of the same `rules-4.html`
-    sentence as item 11).** The published brief asks that "simulation results
+    **Routes the page itself offers for (a), enumerated 2026-11-13 (none
+    adopted).** The overrun was stated above as needing "an approved
+    resource-list exception or a design change"; re-reading the published text
+    for the second reconciliation pass (§2.2.2), it offers four distinct
+    routes plus that exception, and they do not cost the same thing:
+    (i) **an approved exception** — the page's own escape hatch ("Any
+    exceptions to the resource list need to be approved"), which costs nothing
+    technically and is entirely an organiser/operator matter;
+    (ii) **derive `VREFN` on-chip** from the single bandgap-referenced bias
+    voltage (and, if useful, the up-to-2 bandgap-referenced current sources),
+    which is a design change — a single-to-differential reference network that
+    does not exist in this design and has not been sized or simulated;
+    (iii) **put the reference behind the shared analog bus**, which this
+    design leaves entirely unspent (0 of the 4 shared lines). This is *not*
+    answerable from this repository's evidence: the CDAC draws transient
+    charge from `VREFP`/`VREFN` at every bit trial, the page warns the shared
+    lines are switched through "less than 5 ohms" but bussed to all eighteen
+    projects and "should not be relied on for high-frequency analog
+    signaling", and **no `sim/` campaign here puts a drive impedance on the
+    reference at all** — [`sim/vcm-drive-budget/`](../../sim/vcm-drive-budget/)
+    budgets `VCM`, [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/)
+    budgets the four supply terminals and its own runner states that
+    `VREFP`/`VREFN`/`VCM` "stay ideal at the die". So this route needs a new
+    reference-drive-impedance campaign before it could be claimed, not just
+    permission;
+    (iv) **slot sharing**, which the page invites "especially where
+    padframe-facing pins are being underutilized" — this design underutilizes
+    the *digital* budget heavily (2 of ≤24 inputs, 11 of ≤12 outputs) but needs
+    *more* padframe-facing analog pins, not fewer, so it is on the wrong side
+    of that trade, and the page notes sharing "makes it more difficult to
+    independently measure the power draw of each circuit", which bears on §4's
+    unmeasured Power row;
+    (v) **a custom pad**, allowed "with approval" but required to match the
+    foundry pads' size and configuration, abut them cleanly, ship its layout
+    in this repository, and be "completely verified (DRC, LVS, and simulation)
+    independently of the rest of the project" — additional layout and sign-off
+    scope stacked on top of item 1, which is itself unfinished. Choosing among
+    these is an operator decision (#836); route (iii) additionally needs
+    evidence this repository does not have. **Still no §4 verdict moves.**
+
+12. **Three brief requirements that no spec row covers (added 2026-11-13,
+    issue #121 criterion 4, second pass; detail in §2.2.2).** Each is tracked:
+    (a) #834, (b) #835 — closed by this pass, item 13 — (c) no separate
+    issue — it is a standing note on this document's own two DRAFT rows
+    rather than a unit of work. (a) **Absolute
+    limits are not stated.** The page's proposal-content list asks for
+    "absolute limits" alongside average/minimum/maximum values. §4 gives
+    min/typ/max per row, and [`spec/target-spec.md`](../../spec/target-spec.md)
+    carries no absolute-maximum row; the ±10 % supply span §4 reports at is a
+    verification grid (DR-003), not a rating, and the page separately requires
+    conformance to the Sky130 process's own voltage limits. Closing this means
+    a decision record stating the block's absolute maximum ratings — a `spec/`
+    ratification, not a measurement, and not written here (#834). (b) **No simulation
+    result was summarized in a plot — the gap this pass closes; see item
+    13.** The page asks for plots rather than raw data, with the raw data
+    reproducible on demand; when this sub-item was first recorded the
+    repository was the inverse by construction — 0 tracked image artifacts,
+    every result a Markdown table inside an append-only record, raw per-corner
+    artifacts committed beside it. The reproducibility half was met and the
+    summary half was not; closing it meant a rendering step in the evidence
+    flows (`sim/report/generate.py`, which renders this repository's
+    characterization tables today, was named as the natural place — scoped
+    that way in #835). That step is now in the tree: five figures under
+    [`docs/plots/`](../plots/), rendered from already-committed evidence and
+    gated through `sim/report/generate.py --check`. Item 13 states what they
+    cover and the two summaries it deliberately leaves undrawn, so this
+    sub-item is recorded as closed rather than open. (c)
+    **Ratifying a DRAFT row after
+    submission would be a mid-design specification change**, which the page
+    requires approval for. The two exposed rows are Sample rate and
+    ENOB/INL-DNL (DR-007, still `proposed`). Recorded so that a later
+    ratification is not mistaken for a purely internal `spec/` event. **No §4
+    verdict moves because of this item**, and none is claimed to.
+
+13. **Simulation results are now summarized in plots, not only raw data
+    (added 2026-11-13, issue #835; this closes the "summarized in plots" gap
+    item 12(b) records).** The published brief asks that "simulation results
     should be summarized in plots, not raw data", while requiring that the raw
     data stay reproducible from the sources in the repository. The
     reproducibility half was already over-met — every result is an append-only
