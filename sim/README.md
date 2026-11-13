@@ -383,6 +383,18 @@ corner evidence rather than substituting for it, per each record's own
   (issue #754): AC C(V) extraction on `TOP_P`/`TOP_N` in hold, leave-one-out
   composition, PVT plus MiM r+c corners, run through `klt sim`. Own runner
   (`run_top_plate_cpar.py`); see its README.
+- **`sim/reference-drive-budget/`** — how much series source resistance the
+  `VREFP`/`VREFN` pads tolerate before the captured codes move (issue #841).
+  Like `top-plate-cpar` above this is a deterministic PVT campaign with its
+  own runner rather than a Monte Carlo one, listed here because it is the
+  other campaign whose grid is a `klt sim` request: the whole
+  `design/sar_adc_top.spice` driven by `sim/full-conversion-transient/`'s
+  committed fragment, used verbatim except for an ideal source plus `R_ref`
+  in series on each reference pad, with `R_ref` and the supply carried as
+  `corners.params` axes. Every error is referenced to that corner's own
+  `R_ref = 0` control row, never to the ideal code. Own runner
+  (`run_reference_drive_budget.py`); see its README for what the testbench
+  does not model.
 - **`sim/cdac-array-transfer/run_mc.py`** — Monte Carlo DNL/INL campaign.
   Extends #53/#28's deterministic 5-code transfer-curve experiment (same
   directory) with mismatch draws (`tt_mm`) over a larger, programmatically
