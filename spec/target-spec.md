@@ -221,6 +221,54 @@ and the device-level evidence each number is read from:
 | Power | provisional, minimise at rate | DRAFT | report, don't pre-commit |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | held as drafted; see the Liberty/STA scope note above |
 
+## Absolute limits — PROPOSED 2026-11-13 (DR-026 via #834)
+
+**Not the PVT verification grid, and not part of the `## Target table`
+above.** The Corners row of that table (`−40/27/125 °C, ±10 % supply,
+sky130 process corners`, RATIFIED, DR-003 via #27) states the points this
+repo's corner runner *sweeps* — an assertion that the design works
+everywhere inside them. The limits below state where the part is *not to be
+taken*. The two are different claims and neither is derived from the other;
+in particular the grid's top supply point, `1.98 V`, is **not** an absolute
+maximum, and was never ratified as one.
+
+[DR-026](decision-records/DR-026-absolute-maximum-ratings.md) proposes the
+table below. It is **proposed**, not operator-ratified, and it changes no row
+of the Target table. Voltages are with respect to the pin's own domain
+return (`GND` for the analog domain, `VGND` for the digital domain, per
+DR-010).
+
+| Pin / quantity | Limit | Kind of limit |
+|---|---|---|
+| `VDD` (analog supply) | 0 to `1.95 V` | PDK model-validity bound |
+| `VPWR` (digital supply) | 0 to `1.95 V` | PDK model-validity bound |
+| `VINP`, `VINN`, `VCM` (analog inputs) | 0 to `1.95 V`, never above `VDD` | derived from the PDK bound via this block's topology |
+| `VREFP`, `VREFN` (reference inputs) | 0 to `1.95 V`, never above `VDD` | derived |
+| `CLK`, `RST_B` (digital inputs) | 0 to `1.95 V`, never above `VPWR` | derived |
+| `DOUT9..DOUT0`, `BUSY` (digital outputs) | 0 to `1.95 V` | derived |
+| CDAC unit-cap plate-to-plate | `≤ 5.0 V` | PDK model-validity bound (never binds here) |
+| Pin undershoot below the domain return | **open — no PDK-published rating** | — |
+| Operating temperature | **open — no PDK-published rating** | — |
+| Storage temperature | **open — no PDK-published rating** | — |
+| ESD (HBM / CDM) and latch-up current | **open — no PDK-published rating** | — |
+| `res_generic_po` terminal voltage | **open — the PDK publishes no bound** | — |
+
+**What kind of limit `1.95 V` is, because it is not a damage threshold.**
+It is the ceiling of the span SkyWater's own device documentation publishes
+under the heading "Operating Voltages where SPICE models are valid" for
+`sky130_fd_pr__nfet_01v8` and `sky130_fd_pr__pfet_01v8` — a *model-validity*
+range, not a foundry absolute-maximum rating. The pinned PDK install
+publishes no absolute-maximum table at all (DR-026 Context records the two
+sweeps that establish this). The open rows above are open for that reason
+and are named rather than filled.
+
+**One conflict this surfaces, recorded and not resolved** (DR-026 Open item
+5): `1.95 V` is `1.5 %` *below* the ratified grid's top supply point of
+`1.98 V`, so committed evidence at `tt_27c_1.98v` is reported outside the
+span the PDK warrants its models over. The Corners row is **not** relaxed,
+narrowed, or re-graded by this; the disposition is the operator's.
+
+
 ## What T1 (bronze) will require of this block
 
 Per `klayout-tools/docs/design-evidence-tiers.md`: schematic + regenerated
