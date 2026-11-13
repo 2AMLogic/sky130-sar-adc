@@ -223,7 +223,7 @@ and no row of §4 is relaxed or moved by this pass.
 | "An outline of a test plan for validating the IP block through measurement" | §5, written against the current port list and gated for port parity by the citation gate's test-plan check | **MET** |
 | "List of any equipment available for use in testing" and "CVs of the designers", both "sent separately from the proposal document" | Outside this document by the page's own instruction, and outside what this repository holds: both are operator-held material | **N/A here — operator action** |
 | "personal and institutional details are to be left out of the main proposal document" | This document names no individual. The single institutional string in it is §8's Apache-2.0 attribution line ("Copyright 2026 2AM Logic"), which is a licence fact rather than designer identification — removing it would misstate the licence this repository ships under | **Flagged, not changed** — whether the organisers read a licence copyright line as an institutional detail is theirs to say, not this pass's to assume |
-| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | Five summary figures are tracked under [`docs/plots/`](../plots/) (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 5 as of this pass; this row read **zero** until #835 landed), rendered by [`sim/report/plots.py`](../../sim/report/plots.py) from evidence already committed under `sim/` — no simulation is run to draw them — and re-checked by `sim/report/plots.py --check` through `npm run check:ci`. Every `sim/` result is still reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" MET for the five figures §7 item 13 lists** — the two summaries it deliberately leaves undrawn, and the untouched "avoid unnecessary data dumps" half of the same sentence, are recorded there |
+| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | Five summary figures are tracked under [`docs/plots/`](../plots/) (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 5 as of this pass; this row read **zero** until #835 landed), rendered by [`sim/report/plots.py`](../../sim/report/plots.py) from evidence already committed under `sim/` — no simulation is run to draw them — and re-checked by `sim/report/plots.py --check` through `npm run check:ci`. Every `sim/` result is still reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" MET for the five figures §7 item 13 lists** — the one summary it deliberately leaves undrawn (linearity from the 5-code transfer bench), and the untouched "avoid unnecessary data dumps" half of the same sentence, are recorded there |
 | "Sign-off data is required (i.e., final DRC and LVS results)" | `signoff/` carries the block manifest, the graded [`signoff/t1-report.json`](../../signoff/t1-report.json) and [`signoff/run-signoff.sh`](../../signoff/run-signoff.sh)`--check`, plus the hash re-derivation CI runs over every cited artifact | **Mechanism MET**; the DRC/LVS *content* is still §4's two sign-off-bar rows (DRC MET, LVS device match UNMET / post-layout PVT UNMET — §7 item 1) |
 | "Every design should follow the repository template (once it has been made available)", whose "scripts for running basic sign-off verification … must be able to run by anyone cloning the repository and show a verified result" | The Chipalooza template is still unpublished (the page offers the IHP-challenge template as generally applicable). This repository's own equivalent runs from a bare clone today: `signoff/run-signoff.sh --check` needs only the `klt` pin in [`signoff/requirements.txt`](../../signoff/requirements.txt) — no PDK, no KLayout engine — and exits 2 rather than silently passing when `klt` is absent; `npm run check:ci` runs the headless gate set | **Runnable verified result MET; template adoption PENDING publication** |
 | "The design must be verifiable with open source EDA tools … AI may be used in support of circuit design but must not be a requirement for the end user of the IP block to use, verify, or modify the IP block" | Directly relevant: this block is AI-designed, which `CLAUDE.md` states openly. Every verification entry point is open-source and agent-free — xschem, ngspice, `klt`/KLayout, driven by committed shell and Python (`package.json`'s `check:ci`, `sim/README.md`'s per-flow cold-start commands, `signoff/run-signoff.sh`). No step of using, verifying or modifying this block requires an AI agent | **MET** — the AI provenance is disclosed, and no verification path depends on it |
@@ -5904,7 +5904,7 @@ tracker already owns.
     that way in #835). That step is now in the tree: five figures under
     [`docs/plots/`](../plots/), rendered from already-committed evidence and
     gated through `sim/report/generate.py --check`. Item 13 states what they
-    cover and the two summaries it deliberately leaves undrawn, so this
+    cover and the one summary it deliberately leaves undrawn, so this
     sub-item is recorded as closed rather than open. (c)
     **Ratifying a DRAFT row after
     submission would be a mid-design specification change**, which the page
@@ -5929,7 +5929,8 @@ tracker already owns.
     [`enob-distribution.svg`](../plots/enob-distribution.svg) (per-draw ENOB
     against the DRAFT lower limit),
     [`cdac-inl-distribution.svg`](../plots/cdac-inl-distribution.svg) (per-draw
-    worst-case |INL| against the DRAFT ±1 LSB target),
+    worst-case |INL| and |DNL|, one panel each, against the DRAFT ±1 LSB
+    target),
     [`cdac-transfer-spot-check.svg`](../plots/cdac-transfer-spot-check.svg)
     (measured differential level at 5 codes across all 9 ratified corners, plus
     the per-corner monotonicity margin),
@@ -5947,11 +5948,13 @@ tracker already owns.
     moves because of this item**, and nothing under `sim/` was edited: the
     plots are a regenerable derived view, written outside every path
     `sim/check_append_only.py` and `signoff/check_evidence_hashes.py` protect.
-    Two deliberate gaps are recorded rather than filled: the CDAC campaign's
-    per-draw max|DNL| samples were never committed (only its summary
-    statistics), and no linearity figure is derived from the 5-code transfer
-    bench, whose own record states that DR-003 defers the DNL/INL budget to the
-    Monte Carlo campaign. The *first* half of the same brief sentence — "avoid
+    One deliberate gap is recorded rather than filled: no linearity figure is
+    derived from the 5-code transfer bench, whose own record states that DR-003
+    defers the DNL/INL budget to the Monte Carlo campaign. (Both Monte Carlo
+    series — max|INL| and max|DNL| — are re-derived from that campaign's own 40
+    committed raw draw logs by its own parser, not from the yield report's
+    persisted samples path, which is a scratch file.) The *first* half of the
+    same brief sentence — "avoid
     unnecessary data dumps" — is untouched: the committed raw artifacts under
     `sim/` stay as they are, since changing that would change the append-only
     rule, which is a separate decision. See

@@ -314,5 +314,70 @@ class TestCommittedPlots(unittest.TestCase):
         self.assertTrue(enob.is_file(), f"{enob} must be committed")
 
 
+class TestCdacMonteCarloDistributions(unittest.TestCase):
+    """Both Monte Carlo series come out of the campaign's own committed draw
+    logs, at the estimator its record prints."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.data = plots.load_cdac_inl_distribution()
+        record = REPO_ROOT / f"sim/cdac-array-transfer/records/{plots.CDAC_MC_RECORD_ID}.md"
+        cls.stated = plots._cdac_mc_stated_rows(record)
+
+    def test_every_draw_log_the_figure_hashes_is_committed(self):
+        self.assertEqual(len(plots.CDAC_MC_DRAW_LOGS), plots.CDAC_MC_N)
+        for rel in plots.CDAC_MC_DRAW_LOGS:
+            with self.subTest(log=rel):
+                self.assertTrue((REPO_ROOT / rel).is_file(), f"{rel} must be committed")
+
+    def test_both_series_are_derived_per_draw_not_summarized(self):
+        for key in ("inl", "dnl"):
+            with self.subTest(series=key):
+                self.assertEqual(len(self.data["series"][key]["values"]), plots.CDAC_MC_N)
+
+    def test_drawn_statistics_reproduce_the_record_at_its_own_precision(self):
+        for key, row_name in (("inl", "max|INL|"), ("dnl", "max|DNL|")):
+            row = self.stated[row_name]
+            entry = self.data["series"][key]
+            for label, column in (("mean", 1), ("stdev", 2), ("min", 3), ("max", 4)):
+                with self.subTest(series=key, statistic=label):
+                    self.assertAlmostEqual(round(entry[label], 4), float(row[column]), places=9)
+
+    def test_sigma_is_the_records_population_estimator_not_the_yield_reports(self):
+        """The defect this guards: the figure used to print the yield report's
+        sample (n-1) stddev while its record prints the population one."""
+        import statistics
+
+        report = json.loads((REPO_ROOT / plots.CDAC_MC_YIELD).read_text())
+        by_name = {m["name"]: m for m in report["measurements"]}
+        for key, measurement in (("inl", "inl_max_lsb"), ("dnl", "dnl_max_lsb")):
+            with self.subTest(series=key):
+                values = self.data["series"][key]["values"]
+                sample_sigma = statistics.stdev(values)
+                reported_sigma = float(by_name[measurement]["distribution"]["stddev"])
+                # The yield report carries the (n-1) estimator ...
+                self.assertAlmostEqual(reported_sigma, sample_sigma, places=9)
+                # ... and the two estimators genuinely differ at the record's
+                # printed precision, so drawing the wrong one is observable.
+                self.assertNotEqual(
+                    round(sample_sigma, 4), round(statistics.pstdev(values), 4)
+                )
+                # The figure draws the record's.
+                self.assertAlmostEqual(
+                    self.data["series"][key]["stdev"], statistics.pstdev(values), places=12
+                )
+
+    def test_a_wrong_sigma_is_caught_by_the_cross_check(self):
+        """`--check` must fail on an estimator swap, not just on a moved file."""
+        with self.assertRaises(plots.ProvenanceError):
+            plots._agree(
+                "max|INL| stdev",
+                round(self.data["series"]["inl"]["stdev"], 4),
+                round(self.data["series"]["inl"]["stdev"] + 0.0026, 4),
+                tolerance=1e-9,
+                where="estimator swap",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

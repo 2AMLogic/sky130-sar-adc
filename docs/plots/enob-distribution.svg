@@ -404,10 +404,10 @@ L 583.2 48.384
    <g id="legend_1">
     <g id="patch_19">
      <path d="M 86.25 87.409781 
-L 282.20625 87.409781 
-Q 283.70625 87.409781 283.70625 85.909781 
-L 283.70625 53.634 
-Q 283.70625 52.134 282.20625 52.134 
+L 386.592187 87.409781 
+Q 388.092187 87.409781 388.092187 85.909781 
+L 388.092187 53.634 
+Q 388.092187 52.134 386.592187 52.134 
 L 86.25 52.134 
 Q 84.75 52.134 84.75 53.634 
 L 84.75 85.909781 
@@ -433,7 +433,7 @@ L 102.75 69.216422
 " style="fill: none; stroke: #1a1a1a; stroke-width: 1.4; stroke-linecap: square"/>
     </g>
     <g id="text_22">
-     <text style="font-size: 7.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="108.75" y="71.841422" transform="rotate(-0 108.75 71.841422)">mean = 8.531 bit (σ = 0.316)</text>
+     <text style="font-size: 7.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="108.75" y="71.841422" transform="rotate(-0 108.75 71.841422)">mean = 8.531 bit (σ = 0.316, sample n−1 — the yield report's estimator)</text>
     </g>
     <g id="line2d_30">
      <path d="M 87.75 80.225016 

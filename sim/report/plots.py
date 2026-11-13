@@ -58,10 +58,17 @@ Hashes alone prove only that nothing moved. Each loader below additionally
 re-derives, from the raw artifact, a number the *record* states in prose, and
 raises `ProvenanceError` if the two disagree -- the coherent-sine FFT's
 SNDR/ENOB/SFDR, the transfer bench's per-corner minimum adjacent-code gap,
-the Monte Carlo INL mean/min/max. Those loaders are stdlib-only, so `--check`
-runs them too. The effect is that a figure cannot claim a record's authority
-unless this module can still reproduce that record's own stated numbers from
-the committed artifacts.
+the Monte Carlo max|INL| *and* max|DNL| mean/stdev/min/max. Those loaders are
+stdlib-only, so `--check` runs them too. The effect is that a figure cannot
+claim a record's authority unless this module can still reproduce that
+record's own stated numbers from the committed artifacts.
+
+A number a record states with a particular estimator is drawn with *that*
+estimator (the Monte Carlo sigmas are the population values `run_mc.py`
+prints into the record's own table, not the yield report's sample (n-1)
+ones), and every sigma a figure prints names the estimator it is -- a plot
+must not assert a number its own record does not, and two differently
+estimated sigmas across the figure set must not look like one convention.
 
 Each figure also prints its source **Record ID** and the record's own corner
 set / statistical convention into the figure itself, so a plot cannot outlive
@@ -140,6 +147,24 @@ class PlotSpec:
 ENOB_SAMPLES = "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.samples.json"
 ENOB_YIELD = "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.json"
 CDAC_MC_YIELD = "sim/cdac-array-transfer/yield-reports/20261001-124049-5207381.json"
+
+# The CDAC mismatch Monte Carlo campaign's own committed raw draw logs. Both
+# per-draw statistics the INL/DNL figure plots are re-derived from these by
+# the campaign's own parser, so the logs, that parser and the measure-parsing
+# helper it calls are all hashed inputs of that figure.
+CDAC_MC_RECORD_ID = "20261001-124049-5207381"
+CDAC_MC_DRAW_DIR = f"sim/cdac-array-transfer/mc-draws/{CDAC_MC_RECORD_ID}"
+CDAC_MC_N = 40  # the source record's own stated N; a missing log must fail the gate
+# `run_mc.py` writes `draw_<index>_seed<seed>.log`, seeds running seed..seed+N-1
+# from the record's stated seed=1 (`negctrl_*` logs are the mismatch-disabled
+# control, not draws, and are deliberately not read here).
+CDAC_MC_DRAW_LOGS = tuple(
+    f"{CDAC_MC_DRAW_DIR}/draw_{index}_seed{index + 1}.log" for index in range(CDAC_MC_N)
+)
+CDAC_MC_PARSER = "sim/cdac-array-transfer/run_mc.py"
+MEASURE_PARSER = "sim/harness/measure.py"
+DYNAMIC_ENOB = "sim/full-conversion-transient/dynamic_enob.py"
+
 TRANSFER_CORNER_DIR = "sim/cdac-array-transfer/corners/20261001-120402-d24f700"
 TRANSFER_CORNERS = (
     "tt_27c_1.80v",
@@ -165,10 +190,10 @@ PLOTS: tuple[PlotSpec, ...] = (
     PlotSpec(
         key="cdac-inl-distribution",
         spec_row="inl-dnl",
-        title="CDAC max|INL| — mismatch Monte Carlo distribution",
-        what="per-draw worst-case |INL| against the DRAFT ±1 LSB target",
-        source_record="sim/cdac-array-transfer/records/20261001-124049-5207381.md",
-        extra_inputs=(ENOB_SAMPLES, CDAC_MC_YIELD),
+        title="CDAC max|INL| and max|DNL| — mismatch Monte Carlo distributions",
+        what="per-draw worst-case |INL| and |DNL| against the DRAFT ±1 LSB target",
+        source_record=f"sim/cdac-array-transfer/records/{CDAC_MC_RECORD_ID}.md",
+        extra_inputs=(CDAC_MC_YIELD, CDAC_MC_PARSER, MEASURE_PARSER) + CDAC_MC_DRAW_LOGS,
     ),
     PlotSpec(
         key="cdac-transfer-spot-check",
@@ -193,6 +218,7 @@ PLOTS: tuple[PlotSpec, ...] = (
         title="Coherent-sine output spectrum — measured vs ideal quantizer",
         what="single-sided spectrum of the captured 32-code record (N=32, bin 7)",
         source_record="sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md",
+        extra_inputs=(DYNAMIC_ENOB,),
     ),
 )
 
@@ -330,6 +356,12 @@ def load_enob_distribution() -> dict:
     per-draw `enob_bit` values, plus the yield report minted from it (for the
     distribution summary and the limits). Cross-check: the samples' own mean
     must reproduce the yield report's stated `distribution.mean`.
+
+    The sigma drawn is the yield report's own `distribution.stddev`, which is
+    the sample (n-1) estimator; the source record states no sigma of its own,
+    so nothing is contradicted, but the figure labels which estimator it is
+    (the INL/DNL figure labels the population one its record prints) rather
+    than leaving two differently-estimated sigmas unmarked across the set.
     """
     samples_doc = json.loads((REPO_ROOT / ENOB_SAMPLES).read_text())
     report = json.loads((REPO_ROOT / ENOB_YIELD).read_text())
@@ -357,68 +389,139 @@ def load_enob_distribution() -> dict:
     }
 
 
-def load_cdac_inl_distribution() -> dict:
-    """Per-draw worst-case |INL| from the CDAC mismatch Monte Carlo campaign.
-
-    The per-draw values are carried in the enob-estimate samples document's
-    `draws[]` entries (each draw records the `inl_max_lsb` it was built from);
-    that document names the CDAC Monte Carlo record as its `source_record`.
-    The campaign's own yield report supplies the max|DNL| summary -- its
-    per-draw DNL samples were never committed (that report's `samples` field
-    points at a scratch path), so DNL is summarized numerically rather than
-    plotted as a distribution.
-
-    Cross-check: the per-draw INL mean/min/max must reproduce the three the
-    CDAC Monte Carlo record's own "DNL/INL distributions" table states.
+def _load_cdac_run_mc():
+    """Import `sim/cdac-array-transfer/run_mc.py` by path for its pure raw-log
+    parser `_parse_draw()` -- the campaign's own DNL/INL computation, the one
+    that minted the record's table. Its directory name has a hyphen, so it is
+    not importable as a package; `sim/enob-estimate/run_enob.py` loads it the
+    same way for the same reason. No ngspice is invoked, nothing is written.
     """
-    samples_doc = json.loads((REPO_ROOT / ENOB_SAMPLES).read_text())
-    measurement = _one_measurement(samples_doc, "enob_bit", ENOB_SAMPLES)
-    values = [float(draw["inl_max_lsb"]) for draw in measurement["draws"]]
-    report = json.loads((REPO_ROOT / CDAC_MC_YIELD).read_text())
-    by_name = {m["name"]: m for m in report["measurements"]}
-    inl, dnl = by_name["inl_max_lsb"], by_name["dnl_max_lsb"]
+    import importlib.util  # noqa: PLC0415  (kept local: stdlib `--check` path)
 
-    record_path = REPO_ROOT / "sim/cdac-array-transfer/records/20261001-124049-5207381.md"
-    table = _markdown_table(record_path.read_text(), "statistic")
+    cdac_dir = REPO_ROOT / "sim" / "cdac-array-transfer"
+    module_spec = importlib.util.spec_from_file_location("cdac_run_mc", cdac_dir / "run_mc.py")
+    module = importlib.util.module_from_spec(module_spec)
+    # run_mc.py imports its sibling gen_fragment.py and sim/harness/ by bare name.
+    sys.modules["cdac_run_mc"] = module
+    sys.path.insert(0, str(cdac_dir))
+    try:
+        module_spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(cdac_dir))
+    return module
+
+
+def _cdac_mc_stated_rows(record_path: Path) -> dict[str, list[str]]:
+    """The source record's own "DNL/INL distributions" table, by statistic."""
     stated = {}
-    for cells in table:
+    for cells in _markdown_table(record_path.read_text(), "statistic"):
         if len(cells) >= 6:
             stated[cells[0]] = cells[1:]
-    row = stated.get("max|INL|")
-    if row is None:
-        raise ProvenanceError(
-            f"{record_path.relative_to(REPO_ROOT)}: no 'max|INL|' row in the "
-            "DNL/INL distributions table -- the record's table shape changed, so "
-            "this figure's provenance cross-check can no longer be made"
-        )
-    # The record prints 4 decimals; compare at that precision only.
-    for label, derived, column in (
-        ("mean", statistics.mean(values), 1),
-        ("min", min(values), 3),
-        ("max", max(values), 4),
+    for name in ("max|DNL|", "max|INL|"):
+        if name not in stated:
+            raise ProvenanceError(
+                f"{record_path.relative_to(REPO_ROOT)}: no {name!r} row in the "
+                "DNL/INL distributions table -- the record's table shape changed, so "
+                "this figure's provenance cross-check can no longer be made"
+            )
+    return stated
+
+
+def load_cdac_inl_distribution() -> dict:
+    """Per-draw worst-case |INL| AND |DNL| from the CDAC mismatch Monte Carlo
+    campaign's own committed raw draw logs.
+
+    Both series are re-derived here from
+    `sim/cdac-array-transfer/mc-draws/<record-id>/draw_*.log` -- the campaign's
+    40 committed per-draw ngspice logs -- by that experiment's own
+    `run_mc._parse_draw()`, the same pure parser `run_mc.reanalyze_from_logs()`
+    and `sim/enob-estimate/run_enob.py` use, and the same computation that
+    minted the record's table. The campaign's yield report supplies only the
+    DRAFT limit, the empirical yields and their Clopper-Pearson intervals; its
+    persisted `samples` path is a scratch file, but that costs this figure
+    nothing, because the per-draw values do not come from it.
+
+    Cross-check: for BOTH statistics, the mean / stdev / min / max this module
+    derives from the raw logs must reproduce the four the record's own
+    "DNL/INL distributions" table states, at the record's printed precision.
+    `stdev` is the POPULATION standard deviation, which is the estimator
+    `run_mc.py` prints into that table (`statistics.pstdev`); the figure draws
+    the record's value, not a different estimator's.
+    """
+    mc = _load_cdac_run_mc()
+    inl_values: list[float] = []
+    dnl_values: list[float] = []
+    for rel in CDAC_MC_DRAW_LOGS:
+        path = REPO_ROOT / rel
+        name_match = mc._LOG_NAME_RE.match(path.name)
+        if name_match is None or name_match.group("kind") != "draw":
+            raise ProvenanceError(f"{rel}: not a `run_mc.py` mismatch draw log")
+        draw = mc._parse_draw(int(name_match.group("seed")), path.read_text())
+        if not (math.isfinite(draw.inl_max_lsb) and math.isfinite(draw.dnl_max_lsb)):
+            raise ProvenanceError(
+                f"{rel}: a code measurement is missing from the log, so this draw's "
+                f"max|INL| ({draw.inl_max_lsb}) / max|DNL| ({draw.dnl_max_lsb}) is not finite"
+            )
+        inl_values.append(draw.inl_max_lsb)
+        dnl_values.append(draw.dnl_max_lsb)
+
+    report = json.loads((REPO_ROOT / CDAC_MC_YIELD).read_text())
+    by_name = {m["name"]: m for m in report["measurements"]}
+    record_path = REPO_ROOT / f"sim/cdac-array-transfer/records/{CDAC_MC_RECORD_ID}.md"
+    stated = _cdac_mc_stated_rows(record_path)
+
+    series = {}
+    for key, row_name, measurement_name, values in (
+        ("inl", "max|INL|", "inl_max_lsb", inl_values),
+        ("dnl", "max|DNL|", "dnl_max_lsb", dnl_values),
     ):
-        _agree(
-            f"max|INL| {label}",
-            round(derived, 4),
-            float(row[column]),
-            tolerance=1e-9,
-            where=f"{ENOB_SAMPLES} draws vs {record_path.relative_to(REPO_ROOT)}",
-        )
+        row = stated[row_name]
+        if int(row[0]) != len(values):
+            raise ProvenanceError(
+                f"{row_name}: this module read {len(values)} committed draw logs from "
+                f"{CDAC_MC_DRAW_DIR} but {record_path.relative_to(REPO_ROOT)} states "
+                f"N = {row[0]}"
+            )
+        derived = {
+            "mean": statistics.fmean(values),
+            "stdev": statistics.pstdev(values),
+            "min": min(values),
+            "max": max(values),
+        }
+        # The record prints 4 decimals; compare at that precision only.
+        for label, column in (("mean", 1), ("stdev", 2), ("min", 3), ("max", 4)):
+            _agree(
+                f"{row_name} {label}",
+                round(derived[label], 4),
+                float(row[column]),
+                tolerance=1e-9,
+                where=(
+                    f"{CDAC_MC_DRAW_DIR}/draw_*.log via run_mc._parse_draw() vs "
+                    f"{record_path.relative_to(REPO_ROOT)}"
+                ),
+            )
+        measurement = by_name[measurement_name]
+        empirical = measurement["yield"]["empirical"]
+        series[key] = {
+            **derived,
+            "values": values,
+            "label": row_name,
+            "unit": measurement.get("unit", "LSB"),
+            "limit_max": (measurement.get("limits") or {}).get("max"),
+            "yield": empirical["estimate"],
+            "yield_ci": empirical["confidence_interval"],
+            "yield_confidence": empirical["confidence"],
+        }
     return {
-        "values": values,
-        "unit": inl.get("unit", "LSB"),
-        "limit_max": (inl.get("limits") or {}).get("max"),
-        "mean": statistics.mean(values),
-        "stdev": float(inl["distribution"]["stddev"]),
-        "inl_yield": inl["yield"]["empirical"]["estimate"],
-        "dnl_summary": {
-            "mean": float(dnl["distribution"]["mean"]),
-            "stdev": float(dnl["distribution"]["stddev"]),
-            "min": float(dnl["distribution"]["min"]),
-            "max": float(dnl["distribution"]["max"]),
-            "unit": dnl.get("unit", "LSB"),
-            "yield": dnl["yield"]["empirical"]["estimate"],
-        },
+        "n": len(inl_values),
+        "series": series,
+        "draw_dir": CDAC_MC_DRAW_DIR,
+        "sample_size_verdicts": sorted(
+            {
+                str((by_name[name].get("sample_size") or {}).get("verdict"))
+                for name in ("inl_max_lsb", "dnl_max_lsb")
+            }
+        ),
     }
 
 
@@ -739,7 +842,10 @@ def draw_enob_distribution(plt, spec: PlotSpec, data: dict):
         color="#1a1a1a",
         linestyle="-",
         linewidth=1.4,
-        label=f"mean = {data['mean']:.3f} {unit} (σ = {data['stdev']:.3f})",
+        label=(
+            f"mean = {data['mean']:.3f} {unit} "
+            f"(σ = {data['stdev']:.3f}, sample n−1 — the yield report's estimator)"
+        ),
     )
     if data["limit_min"] is not None:
         axis.axvline(
@@ -768,55 +874,83 @@ def draw_enob_distribution(plt, spec: PlotSpec, data: dict):
 
 
 def draw_cdac_inl_distribution(plt, spec: PlotSpec, data: dict):
+    """Both per-draw distributions, one panel each, on a shared axis.
+
+    Every number drawn here is the source record's own: the mean / sigma /
+    min / max are re-derived from the campaign's committed draw logs and
+    cross-checked against the record's table before the figure is drawn
+    (`load_cdac_inl_distribution`), and sigma is the population estimator the
+    record itself prints -- labelled as such, so the figure cannot be read as
+    asserting the sample (n-1) value.
+    """
     fig = _new_figure(plt)
-    axis = fig.add_subplot(111)
-    values, unit = data["values"], data["unit"]
-    axis.hist(
-        values,
-        bins=12,
-        color="#55a868",
-        edgecolor="white",
-        linewidth=0.7,
-        label=f"{len(values)} mismatch draws",
-    )
-    axis.axvline(
-        data["mean"],
-        color="#1a1a1a",
-        linewidth=1.4,
-        label=f"mean = {data['mean']:.4f} {unit} (σ = {data['stdev']:.4f})",
-    )
-    if data["limit_max"] is not None:
-        axis.axvline(
-            data["limit_max"],
-            color="#c44e52",
-            linestyle="--",
-            linewidth=1.6,
-            label=f"DRAFT target = ±{data['limit_max']:g} {unit} (not ratified)",
+    top = fig.add_subplot(211)
+    bottom = fig.add_subplot(212, sharex=top)
+    series = data["series"]
+    n = data["n"]
+
+    for axis, key, color in ((top, "inl", "#55a868"), (bottom, "dnl", "#4c72b0")):
+        entry = series[key]
+        unit = entry["unit"]
+        axis.hist(
+            entry["values"],
+            bins=12,
+            color=color,
+            edgecolor="white",
+            linewidth=0.7,
+            label=f"{n} mismatch draws",
         )
-    dnl = data["dnl_summary"]
-    axis.set_title(
-        f"{spec.title}\nmax|INL| within the DRAFT target in "
-        f"{data['inl_yield']:.0%} of draws; max|DNL| in {dnl['yield']:.0%}",
-        fontsize=11,
+        axis.axvline(
+            entry["mean"],
+            color="#1a1a1a",
+            linewidth=1.4,
+            label=(
+                f"mean = {entry['mean']:.4f} {unit} "
+                f"(σ = {entry['stdev']:.4f}, population — the record's estimator)"
+            ),
+        )
+        if entry["limit_max"] is not None:
+            axis.axvline(
+                entry["limit_max"],
+                color="#c44e52",
+                linestyle="--",
+                linewidth=1.6,
+                label=f"DRAFT target = ±{entry['limit_max']:g} {unit} (not ratified)",
+            )
+        low, high = entry["yield_ci"]["low"], entry["yield_ci"]["high"]
+        axis.set_title(
+            f"{entry['label']} — within the DRAFT target in {entry['yield']:.1%} of draws "
+            f"({entry['yield_confidence']:.0%} CI {low:.1%}–{high:.1%})",
+            fontsize=9,
+        )
+        axis.set_ylabel("draws per bin", fontsize=9)
+        axis.set_ylim(top=axis.get_ylim()[1] * 1.45)  # headroom: legend over bars
+        axis.legend(fontsize=6.6, loc="upper right", framealpha=0.9)
+        axis.grid(axis="y", linestyle=":", linewidth=0.6, alpha=0.6)
+        axis.tick_params(labelsize=8)
+
+    bottom.set_xlabel(
+        f"worst-case deviation across the sampled code set ({series['inl']['unit']})", fontsize=9
     )
-    axis.set_xlabel(f"worst-case |INL| across the sampled code set ({unit})")
-    axis.set_ylabel("draws per bin (count)")
-    axis.set_ylim(top=axis.get_ylim()[1] * 1.35)  # headroom: note box over bars
-    axis.legend(fontsize=7.5, loc="upper right", framealpha=0.9)
-    axis.grid(axis="y", linestyle=":", linewidth=0.6, alpha=0.6)
-    axis.text(
-        0.015,
-        0.97,
-        "max|DNL| per-draw samples were never committed for this campaign\n"
-        "(its yield report's samples path is a scratch file), so DNL is\n"
-        f"summarized, not plotted: mean {dnl['mean']:.4f}, σ {dnl['stdev']:.4f},\n"
-        f"min {dnl['min']:.4f}, max {dnl['max']:.4f} {dnl['unit']} over "
-        f"{len(values)} draws.",
-        transform=axis.transAxes,
-        fontsize=6.8,
-        va="top",
+    fig.suptitle(spec.title, fontsize=11, y=0.965)
+    fig.subplots_adjust(hspace=0.42)
+    verdicts = "/".join(data["sample_size_verdicts"])
+    fig.text(
+        0.012,
+        0.095,
+        f"Both distributions are re-derived from this campaign's own {n} committed raw draw "
+        f"logs ({data['draw_dir']}/draw_*.log),\n"
+        "parsed by its own run_mc._parse_draw() — the computation that minted the record's "
+        "table, which each number above is checked against\n"
+        f"before the figure is drawn. The record grades both sample sizes \"{verdicts}\" for a "
+        f"±1 percentage-point yield estimate at "
+        f"{series['inl']['yield_confidence']:.0%} confidence: read the yields as indicative.",
+        fontsize=6.2,
+        color="#333333",
+        va="bottom",
         ha="left",
-        bbox=dict(boxstyle="round,pad=0.4", facecolor="#f4f4f4", edgecolor="#cccccc"),
+        linespacing=1.5,
+        bbox=dict(boxstyle="round,pad=0.35", facecolor="#f4f4f4", edgecolor="#cccccc"),
     )
     _finish(fig, spec)
     return fig

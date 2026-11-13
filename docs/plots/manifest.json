@@ -2,7 +2,7 @@
   "schema_version": 1,
   "note": "Staleness manifest for the summary plots (issue #835). Written by `python3 sim/report/plots.py --render` and checked by `--check`, which `python3 sim/report/generate.py --check` (npm run check:report, part of npm run check:ci) calls. The SVGs beside this file are a regenerable DERIVED VIEW of committed evidence, never evidence themselves: nothing here is cited by signoff/block-manifest.json, and docs/plots/ is outside every path sim/check_append_only.py and signoff/check_evidence_hashes.py protect. Hashes are SHA-256 over raw bytes. The check does not re-render and compare bytes -- SVG output is not expected to be stable across matplotlib and font versions -- so rendering needs no CI dependency; see sim/report/plots-requirements.txt and sim/README.md 'Summary plots'.",
   "generator": "sim/report/plots.py",
-  "generator_sha256": "72fc76e2eb3d423dbc1108ac52b09765e7381ada1c5a762e4c3fb0fe01d61243",
+  "generator_sha256": "6038578e379e4c9febd079cc1feb1b9b4a9f1c676d9e7f48220681bb91972f7d",
   "plots": {
     "enob-distribution": {
       "file": "docs/plots/enob-distribution.svg",
@@ -12,7 +12,7 @@
       "spec_row_label": "ENOB \u2014 DRAFT (target value)",
       "source_record": "sim/enob-estimate/records/20261008-233032-8bc3d1f.md",
       "source_record_id": "20261008-233032-8bc3d1f",
-      "output_sha256": "02658da76b8d8d2e73214a9e129b6fd26a2842266fc59a9140bdd969ac72a6f1",
+      "output_sha256": "c195f65d3cfdb896ea0012e1c7ed6b543543201dc932f88ee7ff3acaf07db6f0",
       "inputs": {
         "sim/enob-estimate/records/20261008-233032-8bc3d1f.md": "58d959eea2329fdba2ab72ed3d2ede3bbefd1cf47d196bf6980339d5a891434f",
         "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.samples.json": "ce7015f7724383f07afffc27b385da54252d6294e635af0052379a70fb0378aa",
@@ -21,17 +21,58 @@
     },
     "cdac-inl-distribution": {
       "file": "docs/plots/cdac-inl-distribution.svg",
-      "title": "CDAC max|INL| \u2014 mismatch Monte Carlo distribution",
-      "what": "per-draw worst-case |INL| against the DRAFT \u00b11 LSB target",
+      "title": "CDAC max|INL| and max|DNL| \u2014 mismatch Monte Carlo distributions",
+      "what": "per-draw worst-case |INL| and |DNL| against the DRAFT \u00b11 LSB target",
       "spec_row": "inl-dnl",
       "spec_row_label": "INL / DNL \u2014 DRAFT (target value)",
       "source_record": "sim/cdac-array-transfer/records/20261001-124049-5207381.md",
       "source_record_id": "20261001-124049-5207381",
-      "output_sha256": "7be2e8136334c9f65c435d00daa6998b1fc6b41f598fb300c70a1357af9b7f0c",
+      "output_sha256": "8383d2326626a55640e6091f6123db367dd8635c7e1010655660d441a8386d34",
       "inputs": {
         "sim/cdac-array-transfer/records/20261001-124049-5207381.md": "a29e9fea2a7ce76046ea18981f646b839e590c86621d7af6f20068d001d5f638",
-        "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.samples.json": "ce7015f7724383f07afffc27b385da54252d6294e635af0052379a70fb0378aa",
-        "sim/cdac-array-transfer/yield-reports/20261001-124049-5207381.json": "44e3b60832fb0ae29633c34837ea0de3954ecd91ab2698da6658a39e870839d9"
+        "sim/cdac-array-transfer/yield-reports/20261001-124049-5207381.json": "44e3b60832fb0ae29633c34837ea0de3954ecd91ab2698da6658a39e870839d9",
+        "sim/cdac-array-transfer/run_mc.py": "0759cff59b3ac543212e79ca2e2916c2be995e633444026034eaf4f513b4b6e6",
+        "sim/harness/measure.py": "0da7201767ff85feda02cb55d77fb0f451cda5182a22b1de0d50eed53965bbe0",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_0_seed1.log": "b5dc6a86e5ec82b69502dc33307af9fb6b5416dbe065dd041db08a21a3843db3",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_1_seed2.log": "0ec2964f363d622e1b0686ead728a1bd706de10af94ff9afed2727ec635d6d35",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_2_seed3.log": "06c0c7f1889fc35607ac601bc2d8985605f14b734dcb6cdab28b1bb488599672",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_3_seed4.log": "5f622859a0b40437a981e71ea7a8eebb7164eb36591a50fd5cb5fd94a424252c",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_4_seed5.log": "90eb070e1b2a3ec65bd06cb3d8a7b82b363a557ff5a0bf573f09e2324a4cbffa",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_5_seed6.log": "f02e96105d571d1fd4d0bbd57cc47ce1f7d339c0bcd9bd50fa175d236cda9347",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_6_seed7.log": "33757bc2bcc18f70c3cf8dcf36d080bcbbfb444c7393a1cc6c94c1b5987811f4",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_7_seed8.log": "9087b6192b6c05fdadaf1d5fef87237b7c1466225b1bc751d5dda0c54cd170cd",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_8_seed9.log": "cbf59b544597a94cceca6cb35f35027a5ea4859236dc77cba88100d2d63049ea",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_9_seed10.log": "fdb79fd1dc461f50f7d026e5bed3b807d096e69f631179b20f8d0628ae8ccff9",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_10_seed11.log": "dbd59d73200447482df9f090326dfe06ee236eddb861e620eb9ac8523595978e",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_11_seed12.log": "5327791bef74e35e05d111beb8c7d1a6207db56f44f4fdae7b8d099c3e47fad8",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_12_seed13.log": "73964be19ba63e5e83289f1a6d1990697972d97c93cb500b6374da6d5ca25370",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_13_seed14.log": "17f42de960d18bbd24a911c04403880a71ebc99ad39976a9890f4b8361d62648",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_14_seed15.log": "938d42900fb0b7374783338b4572119509d4ac9a45aad962a5bc5d14adcba4ef",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_15_seed16.log": "fe806bea4290597eea38b6d558bd29e9e32ec724734324d9452421d18281051b",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_16_seed17.log": "0f6a5c2504e6da5d0f20502636822e6a006a6ffa531531b4f68281feee971af0",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_17_seed18.log": "5e3e3af6297b560d77b70dae089ee0f087b9b0676dae3f8cc71771b4ae708034",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_18_seed19.log": "621e5d94680171440fda48c544bb90bdadb6c3ce85ed28c08d2cb485c875522b",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_19_seed20.log": "5495f6bd3c8c81aa727175097b541c351ef83a8a54d2eeca72b485a574a1ea39",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_20_seed21.log": "55038ea68525587dffed9833a467d6cc6f1f74b218c3c8da6cb81eb765f2dcaa",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_21_seed22.log": "0ad738f837002abbfcd76662adac7ff49300a60c5526f65653ad4681d90b6bde",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_22_seed23.log": "4e92a7cd3a0bc632be202ea91346ccf49ff2450a38e645350a62b0f0188f3d75",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_23_seed24.log": "3497fa1505296ae0c38f16c18fd770f663af89affbc5b262b09764117fff6beb",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_24_seed25.log": "d53890fb8755d08886a7497d64e53dfd3dd56c8150ad9b66ba18bf0d2afa7445",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_25_seed26.log": "aa69bfc56adc0e819d7e90f0e49b3c7edbfec22196139c3d5192cbbf3c27bbda",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_26_seed27.log": "64f51b34b3d0652b169155a9df0ee074473adc1f713e1aaba894f988bf0a7451",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_27_seed28.log": "bdb13736e63cb829a8e7a878d28a27b4984f9b3f60a163267b228019cf1eed36",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_28_seed29.log": "7d3e6d0eb46f4db7d1e4182c6b60b588814dfe3e23dbdf08d816f1781444ff64",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_29_seed30.log": "4aa32d651f67de4f0a73c2ea13a07bd2659ee0999c426ca2ab06b8a643c2bed3",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_30_seed31.log": "deb0eed1ac1b55701f72d773347608edb509945be4ac67b0ef14de01e7ff6697",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_31_seed32.log": "00145e6819b3bf0b0dc1776ac7e196f8cb111d347a2f7d1652cba9a820db2ae3",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_32_seed33.log": "564dd5448d75752e0c058aa35627c72013f5d2a170a8e1b568d57912c409802a",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_33_seed34.log": "ff6ca3856ce16847f7f3bb017884cf0421447b6995e628aad970a124bc82a314",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_34_seed35.log": "456c891fb709cd61b6f5872054a8b2c117db08e59350e01762e98c6a1cdd78ba",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_35_seed36.log": "16a5e7b7204f77a1ed0d1871df9a95302d14ce72545eab08bcf5f8f42a821409",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_36_seed37.log": "95b0b5186f3278ecf44a1698ba5784a4a5be8c4d7ac4b0d91d5059b91fcce353",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_37_seed38.log": "5068388cbf4972b82ee8a9816fd6a436aa3cf308c832b8764eecab116acce1b5",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_38_seed39.log": "193d7ce3209e2e454f54b3e5ef15b0429155c0236abd97f253f28d974ace0ed9",
+        "sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_39_seed40.log": "f9cc18be22bbd772c998665676da18f288119f8d8230fee4812469eaffc7eecf"
       }
     },
     "cdac-transfer-spot-check": {
@@ -79,7 +120,8 @@
       "source_record_id": "20261106-193045-7bdf8c4",
       "output_sha256": "68bbad0079b14801a434d72dbfd266784766a26c0f85f20941b667d9acce6bac",
       "inputs": {
-        "sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md": "ef2f9af0334808d3c3cad1c5b13dfa1da157fbccd39fdff519ef0b796c3ff6d0"
+        "sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md": "ef2f9af0334808d3c3cad1c5b13dfa1da157fbccd39fdff519ef0b796c3ff6d0",
+        "sim/full-conversion-transient/dynamic_enob.py": "e7690e6644a3a1bf2051e379de31a514d865159f18a353832a417816ea7a57db"
       }
     }
   }
