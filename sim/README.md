@@ -53,6 +53,38 @@ Divergences from those sources, each deliberate:
    modules keeps the two runners from drifting apart in how they resolve the
    PDK or stamp a record. Stdlib only, no virtualenv, in both repos.
 
+## Batch campaign submits go through one helper (issue #865)
+
+A campaign whose corner grid is a `klt sim` request (`top-plate-cpar`,
+`reference-drive-budget`, `input-drive-budget`, `digital-partition`) builds its
+own deck and request and decodes its own measurements — but the step in
+between is **`sim/harness/klt_sim.py`**, not a per-campaign copy:
+
+- `submit(request, outdir, backend=..., capacity_wait_s=...)` writes the argv,
+  runs `klt sim`, reads the JSON report off stdout (or off stderr, where the
+  client writes its error envelope), refuses an error ENVELOPE rather than
+  reading it as zero corners, and caches `report.json` beside the request so a
+  campaign that died partway resumes without re-spending completed fleet jobs.
+- **One fleet-capacity policy.** `--wait-for-capacity` (default 600 s) is
+  passed on every submit that is not explicitly `--backend local`, per
+  `CLAUDE.md`'s host rule: the Spot fleet is vCPU-budgeted, so a burst is
+  refused with `batch_no_capacity`, and that refusal means "no capacity right
+  now", never "the design failed". `capacity_retries=` adds a bounded
+  client-side retry on top, for the client/runner pairings where the flag
+  alone does not wait a refusal out (`digital-partition` uses it).
+- `run_info(report)` reads run-level facts from **either** batch report
+  shape — a one-job run's `environment.remote`, or a sharded run's
+  `environment.remote.fleet[]` — and reports the executing PDK and simulator
+  only when every shard agrees. Reading only the single-job shape is how a
+  sharded record ends up reporting `job None`.
+
+The subprocess runner is injectable, so `sim/tests/test_harness_klt_sim.py`
+exercises all of it without `klt`, the PDK or the fleet. That file's last test
+class is a structural guard: it fails if a driver grows its own `klt sim` argv,
+`SubmitError` or capacity-marker list again, which is how the four copies this
+helper replaced had drifted to three different capacity policies (one of them
+none at all).
+
 ## Quick start
 
 ```sh

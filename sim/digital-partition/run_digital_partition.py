@@ -51,7 +51,7 @@ sys.path.insert(0, str(HERE))
 import digital_area  # noqa: E402
 import digital_char as dc  # noqa: E402
 import digital_report  # noqa: E402
-from harness import corners as corners_mod, evidence, pdk  # noqa: E402
+from harness import corners as corners_mod, evidence, klt_sim, pdk  # noqa: E402
 
 EXPERIMENT_DIR = HERE
 REPO_ROOT = evidence.REPO_ROOT
@@ -59,8 +59,10 @@ TOP_NETLIST = REPO_ROOT / "design" / "sar_adc_top.spice"
 CAMPAIGN_FILE = "campaign.json"
 
 
-class SubmitError(RuntimeError):
-    """A `klt sim` submission produced no usable report."""
+#: The submit path itself is `harness.klt_sim` (issue #865), shared with
+#: every other batch campaign; this module keeps only what is specific to
+#: this campaign (the per-(frequency, corner set) probe cache and the deck).
+SubmitError = klt_sim.SubmitError
 
 
 def ratified_corner_ids() -> list[str]:
@@ -69,29 +71,31 @@ def ratified_corner_ids() -> list[str]:
         corners_mod.RATIFIED_TEMPS_C, announce=False)]
 
 
-def _default_runner(argv: list[str]) -> tuple[int, str, str]:
-    done = subprocess.run(argv, capture_output=True, text=True, check=False)
-    return done.returncode, done.stdout, done.stderr
+#: Bounded client-side retry on a fleet capacity refusal, ON TOP OF the
+#: `--wait-for-capacity` every non-`local` submit now carries: `klt sim` does
+#: not wait a refusal out itself in every pairing of client and runner, and
+#: this campaign's probes are individually cheap but numerous (one submit per
+#: grid frequency per round), so a refused probe must wait rather than stop
+#: the search. The refusal means "no capacity right now", not "the design
+#: failed"; any other submit error stops the campaign.
+CAPACITY_RETRIES = 40
+RETRY_WAIT_S = 120.0
 
 
-#: A shared fleet refuses a launch while it is at its concurrency cap
-#: (`klt sim` does not wait this out itself in every client/runner pairing).
-#: That refusal means "no capacity right now", not "the design failed", and
-#: re-submitting to the SAME batch backend is the correct response. Any other
-#: submit error stops the campaign.
-CAPACITY_MARKERS = ("BATCH_MAX_CONCURRENT_INSTANCES", "batch_no_capacity", "no capacity")
-
-
-def is_capacity_refusal(message: str) -> bool:
-    return any(m.lower() in message.lower() for m in CAPACITY_MARKERS)
-
-
-def make_submitter(workdir: Path, dut: dict, backend: str, runner=_default_runner,
+def make_submitter(workdir: Path, dut: dict, backend: str, runner=klt_sim.default_runner,
                    timeout_s: float = 7200.0, batch: dict | None = None,
-                   capacity_retries: int = 40, retry_wait_s: float = 120.0, sleep=None):
+                   capacity_retries: int = CAPACITY_RETRIES,
+                   retry_wait_s: float = RETRY_WAIT_S, sleep=None):
     """`submit(f_mhz, corner_ids)` -> (UnitResults, run info). Reports are
     cached in `workdir` keyed by (frequency, corner set), so a campaign that
     died partway resumes without re-spending completed fleet jobs."""
+    # `--wait-for-capacity` and the request's `batch.capacity_wait_s` name the
+    # SAME budget, so the flag is derived from the request rather than set
+    # beside it: `--capacity-wait-s` can never be contradicted on the fleet by
+    # a second, different number this file chose (issue #865). It is passed
+    # only when the backend is not `local` -- `klt_sim.submit_argv()` holds
+    # that rule, so a `--probe --backend local` run still asks for no wait.
+    capacity_wait_s = (batch or {}).get("capacity_wait_s", klt_sim.DEFAULT_CAPACITY_WAIT_S)
 
     def submit(f_mhz: float, cids):
         key = hashlib.sha1(",".join(sorted(cids)).encode()).hexdigest()[:8]
@@ -100,35 +104,11 @@ def make_submitter(workdir: Path, dut: dict, backend: str, runner=_default_runne
         (d / "tb.spice").write_text(dc.build_netlist(f_mhz, dut))
         req = dc.build_request("tb.spice", f_mhz, cids, timeout_s=timeout_s, backend=backend, batch=batch)
         (d / "request.json").write_text(dc.dumps(req))
-        rep_path = d / "report.json"
-        if rep_path.is_file():
-            report = json.loads(rep_path.read_text())
-        else:
-            argv = ["klt", "sim", str(d / "request.json"), "--backend", backend,
-                    "--format", "json", "-o", str(d / "out")]
-            import time
-            nap = sleep or time.sleep
-            for attempt in range(capacity_retries + 1):
-                rc, out, err = runner(argv)
-                try:
-                    try:
-                        report = json.loads(out)
-                    except json.JSONDecodeError:
-                        report = json.loads(err)  # `klt` writes its error envelope to stderr (rc 1)
-                except json.JSONDecodeError as exc:
-                    raise SubmitError(
-                        f"klt sim ({backend}) at {f_mhz:.3f} MHz returned no JSON report "
-                        f"(rc={rc}): {(err or out)[:600]}") from exc
-                if "error" in report and "corners" not in report:
-                    msg = json.dumps(report["error"])
-                    if is_capacity_refusal(msg) and attempt < capacity_retries:
-                        print(f"fleet at capacity; retrying {f_mhz:.3f} MHz in {retry_wait_s:.0f}s "
-                              f"({attempt + 1}/{capacity_retries})", file=sys.stderr, flush=True)
-                        nap(retry_wait_s)
-                        continue
-                    raise SubmitError(f"klt sim ({backend}) at {f_mhz:.3f} MHz: {msg}")
-                break
-            rep_path.write_text(json.dumps(report, indent=1) + "\n")
+        report = klt_sim.submit(
+            d / "request.json", d / "out", backend=backend,
+            capacity_wait_s=capacity_wait_s, runner=runner,
+            label=f"{backend} at {f_mhz:.3f} MHz",
+            capacity_retries=capacity_retries, retry_wait_s=retry_wait_s, sleep=sleep)
         results, info = dc.read_report(report)
         info = dict(info, backend=backend, request=str(d.name))
         return results, info
@@ -383,7 +363,7 @@ def mint_record(camp: dict, supersedes: str, probe_dir: Path) -> Path:
     return prov.record_path
 
 
-def run_campaign(backend: str, probe_dir: Path, max_workers: int, runner=_default_runner,
+def run_campaign(backend: str, probe_dir: Path, max_workers: int, runner=klt_sim.default_runner,
                  batch: dict | None = None) -> dict:
     dut = dc.extract_dut(TOP_NETLIST.read_text())
     if len(dut["glue"]) != dc.GLUE_EXPECTED_INSTANCES:

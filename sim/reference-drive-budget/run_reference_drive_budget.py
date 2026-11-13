@@ -92,7 +92,7 @@ FULL_CONVERSION_DIR = SIM_DIR / "full-conversion-transient"
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(FULL_CONVERSION_DIR))
 
-from harness import corners as corners_mod, evidence  # noqa: E402
+from harness import corners as corners_mod, evidence, klt_sim  # noqa: E402
 
 # The whole point of this campaign is to drive the EXISTING full-conversion
 # stimulus, so that campaign's driver is imported and reused (its committed
@@ -168,9 +168,9 @@ RAIL_CODES: tuple[int, ...] = (0, fc.FULL_SCALE_CODE)
 #: able to eat a whole shard's wall clock.
 DEFAULT_TIMEOUT_S = 1200.0
 #: Host rule: a batch submit waits for fleet capacity instead of failing the
-#: step (the `--wait-for-capacity` the CLI passes, and the request's own
-#: `batch.capacity_wait_s`).
-DEFAULT_CAPACITY_WAIT_S = 600.0
+#: step (the `--wait-for-capacity` `harness.klt_sim.submit_argv()` passes, and
+#: the request's own `batch.capacity_wait_s`).
+DEFAULT_CAPACITY_WAIT_S = klt_sim.DEFAULT_CAPACITY_WAIT_S
 #: Serial wall-clock budget allowed per unit when sizing shards. Deliberately
 #: ABOVE the measured 485 s: the fleet's whole-job ceiling kills the job and
 #: loses EVERY unit in it (not just the slow one), so the shard size is
@@ -516,72 +516,11 @@ def read_report(report: dict) -> tuple[dict[tuple, UnitResult], dict]:
         if key in out:
             raise ValueError(f"klt sim report has two corners at {key}")
         out[key] = unit
-    env = report.get("environment") or {}
-    remote = env.get("remote") or {}
-    return out, run_info(report, remote)
-
-
-def _ngspice_from_banner(banner: str) -> str | None:
-    for line in (banner or "").splitlines():
-        token = next((t for t in line.replace("*", " ").split() if t.startswith("ngspice-")), None)
-        if token:
-            return token.strip(":,")
-    return None
-
-
-def run_info(report: dict, remote: dict) -> dict:
-    """Run-level facts, from EITHER batch report shape.
-
-    A one-job batch run carries `job_id` and `worker_environment` directly on
-    `environment.remote`; a SHARDED run (`remote.hosts > 1`, which this
-    campaign always uses) carries one entry per shard under
-    `environment.remote.fleet[]` instead, and the single-job keys are absent.
-    Reading only the single-job shape is how a sharded record ends up
-    reporting `job None` -- so both are handled here, and the executing
-    PDK/simulator are only reported when EVERY shard agrees on them."""
-    shards = remote.get("fleet")
-    entries = shards if isinstance(shards, list) and shards else [remote]
-    jobs = []
-    pdks, ngs, features = set(), set(), set()
-    for entry in entries:
-        worker = entry.get("worker_environment") or {}
-        pdk_stamp = (worker.get("pdk") or {}).get("stamp_text")
-        variant = (worker.get("pdk") or {}).get("variant")
-        ng = _ngspice_from_banner((worker.get("simulator") or {}).get("version_banner") or "")
-        if pdk_stamp:
-            pdks.add(f"{variant} @ {pdk_stamp.split()[-1]}" if variant else pdk_stamp)
-        if ng:
-            ngs.add(ng)
-        feats = entry.get("runner_request_features") or {}
-        if feats.get("status"):
-            features.add(str(feats["status"]))
-        if entry.get("job_id"):
-            jobs.append({
-                "job_id": entry.get("job_id"),
-                "state": entry.get("state"),
-                "exit_code": entry.get("exit_code"),
-                "instance_type": entry.get("instance_type"),
-                "elapsed_seconds": entry.get("elapsed_seconds"),
-                "runner_klt_version": entry.get("runner_klt_version"),
-            })
-    backend = (report.get("environment") or {}).get("backend")
-    if isinstance(backend, dict):
-        backend = backend.get("resolved") or backend.get("requested")
-    return {
-        "status": report.get("status"),
-        "jobs": jobs,
-        "job_id": jobs[0]["job_id"] if len(jobs) == 1 else None,
-        "sharded": bool(isinstance(shards, list) and shards),
-        "remote": remote or None,
-        "resolved_backend": backend,
-        # Only when every shard agrees; a mixed fleet reports None rather than
-        # letting one shard's environment stand for the whole run.
-        "worker_pdk": next(iter(pdks)) if len(pdks) == 1 else None,
-        "worker_ngspice": next(iter(ngs)) if len(ngs) == 1 else None,
-        "worker_pdks_seen": sorted(pdks),
-        "worker_ngspice_seen": sorted(ngs),
-        "request_feature_status": next(iter(features)) if len(features) == 1 else None,
-    }
+    # Both batch report shapes (single-job and sharded `remote.fleet[]`) are
+    # read by `harness.klt_sim.run_info()` -- shared with every other batch
+    # campaign, so none of them can regress to the single-job-only read that
+    # reports `job None` for a sharded run (issue #865).
+    return out, klt_sim.run_info(report)
 
 
 # --------------------------------------------------------------------------
@@ -730,8 +669,7 @@ def ideal_codes() -> list[int]:
 # --------------------------------------------------------------------------
 # Submission -- every simulation unit goes through `klt sim`
 # --------------------------------------------------------------------------
-class SubmitError(RuntimeError):
-    pass
+SubmitError = klt_sim.SubmitError
 
 
 def submit(points: list[tuple[str, float, float]], r_values: list[float], workdir: Path,
@@ -752,31 +690,8 @@ def submit(points: list[tuple[str, float, float]], r_values: list[float], workdi
         hosts=hosts,
     )
     (d / "request.json").write_text(json.dumps(req, indent=1) + "\n")
-    rep_path = d / "report.json"
-    if rep_path.is_file():
-        report = json.loads(rep_path.read_text())
-    else:
-        argv = ["klt", "sim", str(d / "request.json"), "--format", "json",
-                "-o", str(d / "out")]
-        if backend:
-            argv += ["--backend", backend]
-        if backend != "local" and capacity_wait_s is not None:
-            argv += ["--wait-for-capacity", f"{capacity_wait_s:g}"]
-        print(f"[{tag}] {' '.join(argv)}", flush=True)
-        done = subprocess.run(argv, capture_output=True, text=True, check=False)
-        try:
-            report = json.loads(done.stdout)
-        except json.JSONDecodeError:
-            try:
-                report = json.loads(done.stderr)
-            except json.JSONDecodeError as exc:
-                raise SubmitError(
-                    f"klt sim ({tag}) returned no JSON report (rc={done.returncode}): "
-                    f"{(done.stderr or done.stdout)[:1200]}"
-                ) from exc
-        if "error" in report and "corners" not in report:
-            raise SubmitError(f"klt sim ({tag}): {json.dumps(report['error'])}")
-        rep_path.write_text(json.dumps(report, indent=1) + "\n")
+    report = klt_sim.submit(d / "request.json", d / "out", backend=backend,
+                            capacity_wait_s=capacity_wait_s, label=tag)
     units, info = read_report(report)
     info = dict(info, backend=backend or "(klt default / KLT_SIM_BACKEND)")
     return units, info, req
