@@ -29,6 +29,22 @@ Since issue #495 it also houses `top_level_subckt_body()`, the
 from, and `layout/halflsb-offset/bin/check-schematic-parity.py`). It is a
 pure text slice -- no PDK, no `klt` -- which is what keeps both gates
 runnable in CI's headless job.
+
+Since issue #801 it houses `resolve_pin_orders()` / `cdl_text_if_available()`,
+the pin-order *cache* half the two standard-cell parity gates share
+(`layout/top-glue/` and `layout/sar-sequencer/`'s `check-schematic-parity.py`),
+and since issue #850 the *compare* half as well: `SUPPLY_DEFAULTS`,
+`spice_instances_from_cards()`, `verilog_instances_with_supply_defaults()`,
+`instance_map_problems()` and `report_instance_parity()`. Those two gates ran
+the same algorithm on separately-maintained copies, so a fix to one
+comparison silently missed the other -- the drift the gates exist to catch,
+in the gates themselves. What stays on each gate is only what is genuinely
+per-block: which lines it slices out of `design/sar_adc_top.spice`, any extra
+block-specific problems (the sequencer's module-port check), its default
+paths, its pin-order-cache comment text, and the scope suffix its FAIL/OK
+lines name. `layout/halflsb-offset/bin/check-schematic-parity.py` shares none
+of the compare half -- it diffs analog device cards against drawn geometry, a
+different algorithm.
 """
 from __future__ import annotations
 
@@ -354,3 +370,136 @@ def resolve_pin_orders(
             "--refresh-pin-order-cache"
         )
     return derived
+
+
+#: The implicit supply connections a structural Verilog netlist omits, and the
+#: nets `emit_std_cell_lvs_reference` resolves them to. Deliberately a second
+#: copy of that generator's own four `setdefault` lines rather than a shared
+#: constant with them: the schematic's instance cards name all four supply pins
+#: explicitly, so a Verilog netlist that omits them is only equivalent if these
+#: are the nets they resolve to -- which is what the standard-cell
+#: schematic-parity gates assert by overlaying this dict onto the Verilog side
+#: before the diff. Folding the generator onto this constant would make the
+#: gate agree with the generator by construction, which is the self-reference
+#: those gates exist to break.
+SUPPLY_DEFAULTS = {"VGND": "VGND", "VNB": "VGND", "VPB": "VPWR", "VPWR": "VPWR"}
+
+#: Message prefix for the helpers below. Hardcoded rather than a per-caller
+#: parameter because every gate that uses them is itself named
+#: `check-schematic-parity.py`; a differently-named caller would want its own
+#: name here, and should add the parameter then rather than carry an unread one.
+_PARITY_PROG = "check-schematic-parity.py"
+
+
+def spice_instances_from_cards(
+    cards: list[str], pin_orders: dict[str, list[str]]
+) -> dict[str, tuple[str, dict[str, str]]]:
+    """`{instance_name: (cell_type, {pin: net})}` from positional SPICE
+    instance cards.
+
+    Each card is `xname net... subckt`; the PDK's own `.SUBCKT` pin order in
+    `pin_orders` supplies the names to zip the nets against, so the
+    positional->named translation is the PDK's, never this module's. Which
+    cards reach here is the caller's own question (which `.subckt` body, which
+    cell-type filter) -- this is only the translation.
+    """
+    out: dict[str, tuple[str, dict[str, str]]] = {}
+    for card in cards:
+        toks = card.split()
+        inst_name, cell_type, nets = toks[0], toks[-1], toks[1:-1]
+        pins = pin_orders[cell_type]
+        if len(pins) != len(nets):
+            raise SystemExit(
+                f"{_PARITY_PROG}: {inst_name}: {cell_type} has "
+                f"{len(pins)} CDL pins but the instance card names {len(nets)} nets"
+            )
+        out[inst_name] = (cell_type, dict(zip(pins, nets)))
+    return out
+
+
+def verilog_instances_with_supply_defaults(
+    netlist_path: Path | str, cell_types: tuple[str, ...]
+) -> dict[str, tuple[str, dict[str, str]]]:
+    """The same shape as `spice_instances_from_cards`, read out of structural
+    Verilog, with the implicit supply connections resolved exactly as the
+    LVS-reference generator resolves them (`SUPPLY_DEFAULTS`)."""
+    _, instances = parse_verilog_netlist(str(netlist_path), tuple(cell_types))
+    out: dict[str, tuple[str, dict[str, str]]] = {}
+    for inst_name, cell_type, pin_map in instances:
+        if inst_name in out:
+            raise SystemExit(f"{_PARITY_PROG}: duplicate instance name {inst_name}")
+        full = dict(SUPPLY_DEFAULTS)
+        full.update(pin_map)
+        out[inst_name] = (cell_type, full)
+    return out
+
+
+def instance_map_problems(
+    want: dict[str, tuple[str, dict[str, str]]],
+    got: dict[str, tuple[str, dict[str, str]]],
+) -> list[str]:
+    """Every difference between the schematic-derived and Verilog-derived
+    instance maps, as printable lines in a stable order: missing instances,
+    extra instances, then per-instance cell-type and per-pin net differences.
+
+    Every difference, never just the first -- a parity gate that stopped at
+    one would make a multi-instance drift look like a single typo.
+    """
+    problems: list[str] = []
+    for name in sorted(set(want) - set(got)):
+        problems.append(f"MISSING from Verilog: {name} ({want[name][0]})")
+    for name in sorted(set(got) - set(want)):
+        problems.append(f"EXTRA in Verilog (not in schematic): {name} ({got[name][0]})")
+    for name in sorted(set(want) & set(got)):
+        want_cell, want_pins = want[name]
+        got_cell, got_pins = got[name]
+        if want_cell != got_cell:
+            problems.append(f"{name}: cell type {got_cell!r} != schematic {want_cell!r}")
+            continue
+        for pin in sorted(set(want_pins) | set(got_pins)):
+            w = want_pins.get(pin)
+            g = got_pins.get(pin)
+            if w != g:
+                problems.append(f"{name}.{pin}: Verilog net {g!r} != schematic net {w!r}")
+    return problems
+
+
+def report_instance_parity(
+    want: dict[str, tuple[str, dict[str, str]]],
+    problems: list[str],
+    *,
+    spice_path: Path,
+    netlist_path: Path,
+    fail_scope: str,
+    ok_scope: str,
+) -> int:
+    """Print the FAIL list or the OK census and return the exit status.
+
+    `fail_scope` / `ok_scope` are each caller's own suffix naming the slice of
+    the spice file it compared against (e.g. `"'s .subckt sar_sequencer"`),
+    appended to the repo-relative spice path -- the one genuinely per-block
+    part of either message.
+    """
+    rel_spice = os.path.relpath(spice_path, _REPO_ROOT)
+    rel_netlist = os.path.relpath(netlist_path, _REPO_ROOT)
+    if problems:
+        print(
+            f"{_PARITY_PROG}: FAIL -- {rel_netlist} does not match "
+            f"{rel_spice}{fail_scope}:",
+            file=sys.stderr,
+        )
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        return 1
+
+    census: dict[str, int] = {}
+    for cell, _ in want.values():
+        census[cell] = census.get(cell, 0) + 1
+    print(
+        f"{_PARITY_PROG}: OK -- {len(want)} instances, "
+        f"{len(census)} cell types, every pin net-identical to "
+        f"{rel_spice}{ok_scope}"
+    )
+    for cell in sorted(census):
+        print(f"  {cell}: {census[cell]}")
+    return 0

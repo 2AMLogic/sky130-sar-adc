@@ -70,6 +70,42 @@ class TestGitField(unittest.TestCase):
                 rcs.git_field(Path("/repo"), "status")
 
 
+class TestGitIdentity(unittest.TestCase):
+    def test_three_probes_in_provenance_order(self):
+        with mock.patch(
+            RUN,
+            side_effect=[_completed("cafe123\n"), _completed("feature/x\n"), _completed("")],
+        ) as run:
+            self.assertEqual(
+                rcs.git_identity(Path("/repo")), ("cafe123", "feature/x", False)
+            )
+        self.assertEqual(
+            [call.args[0][3:] for call in run.call_args_list],
+            [["rev-parse", "HEAD"], ["rev-parse", "--abbrev-ref", "HEAD"], ["status", "--porcelain"]],
+        )
+        for call in run.call_args_list:
+            self.assertEqual(call.args[0][:3], ["git", "-C", "/repo"])
+
+    def test_any_porcelain_output_is_dirty(self):
+        for porcelain in (" M a.py", "?? untracked.txt", " M a.py\n?? b.txt\n"):
+            with self.subTest(porcelain=porcelain):
+                with mock.patch(
+                    RUN,
+                    side_effect=[
+                        _completed("s\n"),
+                        _completed("b\n"),
+                        _completed(porcelain),
+                    ],
+                ):
+                    self.assertIs(rcs.git_identity(Path("/repo"))[2], True)
+
+    def test_failure_propagates(self):
+        err = subprocess.CalledProcessError(128, ["git"])
+        with mock.patch(RUN, side_effect=err):
+            with self.assertRaises(subprocess.CalledProcessError):
+                rcs.git_identity(Path("/repo"))
+
+
 class TestToolVersionStrict(unittest.TestCase):
     def test_argv_flags_and_strip(self):
         with mock.patch(RUN, return_value=_completed("  klt 1.2.3\n")) as run:
@@ -151,6 +187,43 @@ class TestBuildArgparserStrict(unittest.TestCase):
                 self.assertEqual(cm.exception.code, 2)
 
 
+class TestRenderVerdictChecklist(unittest.TestCase):
+    def test_all_ok_is_pass(self):
+        lines = rcs.render_verdict_checklist([("first", True), ("second", True)])
+        self.assertEqual(
+            lines,
+            [
+                "## Overall verdict: PASS",
+                "",
+                "- [x] first",
+                "- [x] second",
+                "",
+            ],
+        )
+
+    def test_any_failure_is_fail_and_marks_only_that_box(self):
+        lines = rcs.render_verdict_checklist(
+            [("ok one", True), ("broken", False), ("ok two", True)]
+        )
+        self.assertEqual(lines[0], "## Overall verdict: FAIL")
+        self.assertEqual(
+            lines[2:5], ["- [x] ok one", "- [ ] broken", "- [x] ok two"]
+        )
+
+    def test_empty_checks_is_vacuous_pass(self):
+        # `all([])` is True, matching the callers' own exit-status expression.
+        self.assertEqual(
+            rcs.render_verdict_checklist([]), ["## Overall verdict: PASS", "", ""]
+        )
+
+    def test_check_order_preserved(self):
+        checks = [(f"check {i}", True) for i in range(5)]
+        lines = rcs.render_verdict_checklist(checks)
+        self.assertEqual(
+            lines[2:-1], [f"- [x] check {i}" for i in range(5)]
+        )
+
+
 class TestRenderProvenanceHeader(unittest.TestCase):
     DRC = {"provenance": {"klayout_version": "0.29.1"}}
     PDK = {"variant": "sky130A", "version": "deadbeef", "resolved_via": "env:PDK_ROOT"}
@@ -181,6 +254,154 @@ class TestRenderProvenanceHeader(unittest.TestCase):
     def test_missing_optional_fields_do_not_raise(self):
         lines = rcs.render_provenance_header("v", {}, {}, "s", "b", False)
         self.assertIn("- KLayout engine: None", lines)
+
+
+class TestRenderBlocksTable(unittest.TestCase):
+    HEADER = [
+        "## Blocks (`klt gen`)",
+        "",
+        "| Block | Cell | Devices | bbox (um) | own DRC |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+
+    def _write(self, tmp, block, payload):
+        (Path(tmp) / f"{block}.json").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+
+    def test_row_per_block_in_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "tail", {
+                "cell_name": "gen_tail", "device_count": 4,
+                "bbox_um": {"x0": 0.0, "y0": 0.1, "x1": 2.5, "y1": 3.0},
+            })
+            self._write(tmp, "inpair", {
+                "cell_name": "gen_inpair", "device_count": 2,
+                "bbox_um": {"x0": 0, "y0": 0, "x1": 1, "y1": 1},
+            })
+            lines = rcs.render_blocks_table(
+                Path(tmp),
+                ("tail", "inpair"),
+                {"tail": {"status": "clean"}, "inpair": {"status": "violations"}},
+            )
+        self.assertEqual(lines[:4], self.HEADER)
+        self.assertEqual(
+            lines[4:6],
+            [
+                "| `tail` | `gen_tail` | 4 | 0.0,0.1 .. 2.5,3.0 | clean |",
+                "| `inpair` | `gen_inpair` | 2 | 0,0 .. 1,1 | violations |",
+            ],
+        )
+        self.assertEqual(lines[-1], "")
+        self.assertEqual(len(lines), 7)
+
+    def test_block_absent_from_block_drc_renders_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "rst", {"cell_name": "c", "device_count": 1,
+                                     "bbox_um": {}})
+            lines = rcs.render_blocks_table(Path(tmp), ("rst",), {})
+        self.assertEqual(
+            lines[4], "| `rst` | `c` | 1 | None,None .. None,None | None |"
+        )
+
+    def test_empty_blocks_still_renders_header(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lines = rcs.render_blocks_table(Path(tmp), (), {})
+        self.assertEqual(lines, self.HEADER + [""])
+
+    def test_missing_envelope_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(FileNotFoundError):
+                rcs.render_blocks_table(Path(tmp), ("absent",), {})
+
+
+class TestRenderLvsCountsRow(unittest.TestCase):
+    LVS = {
+        "status": "match",
+        "counts": {
+            "devices": {"matched": 30, "reference": 30},
+            "nets": {"matched": 12, "reference": 12},
+            "pins": {"matched": 6, "reference": 6},
+        },
+    }
+
+    def test_single_row_with_label_and_counts(self):
+        lines = rcs.render_lvs_counts_row(self.LVS, "good reference")
+        self.assertEqual(
+            lines,
+            [
+                "| LVS (good reference) | match | devices 30/30 matched, "
+                "nets 12/12 matched, pins 6/6 matched |"
+            ],
+        )
+
+    def test_label_is_the_only_difference(self):
+        good = rcs.render_lvs_counts_row(self.LVS, "good reference")[0]
+        schematic = rcs.render_lvs_counts_row(
+            self.LVS, "schematic-derived reference"
+        )[0]
+        self.assertNotEqual(good, schematic)
+        self.assertEqual(
+            good.replace("(good reference)", "(X)"),
+            schematic.replace("(schematic-derived reference)", "(X)"),
+        )
+
+    def test_unmatched_counts_are_reported_not_hidden(self):
+        lvs = {
+            "status": "mismatch",
+            "counts": {
+                "devices": {"matched": 29, "reference": 30},
+                "nets": {"matched": 12, "reference": 12},
+                "pins": {"matched": 5, "reference": 6},
+            },
+        }
+        row = rcs.render_lvs_counts_row(lvs, "good reference")[0]
+        self.assertIn("| mismatch |", row)
+        self.assertIn("devices 29/30 matched", row)
+        self.assertIn("pins 5/6 matched", row)
+
+    def test_missing_counts_block_renders_none(self):
+        row = rcs.render_lvs_counts_row({}, "good reference")[0]
+        self.assertEqual(
+            row,
+            "| LVS (good reference) | None | devices None/None matched, "
+            "nets None/None matched, pins None/None matched |",
+        )
+
+
+class TestRenderDrcCoverage(unittest.TestCase):
+    COVERAGE = {
+        "deck_scope": ["width", "spacing"],
+        "layers_checked": ["met1", "met2"],
+        "layers_in_stream_without_rules": ["capm"],
+        "rules_skipped": 7,
+    }
+
+    def test_heading_prose_and_four_bullets(self):
+        lines = rcs.render_drc_coverage(self.COVERAGE)
+        self.assertEqual(
+            lines[0], "## DRC coverage (what the deck did and did not check)"
+        )
+        self.assertEqual(lines[1], "")
+        self.assertIn("`klt drc`'s own `coverage` block", lines[2])
+        self.assertEqual(lines[3], "")
+        self.assertEqual(
+            lines[4:8],
+            [
+                "- rule families in scope: ['width', 'spacing']",
+                "- layers checked: ['met1', 'met2']",
+                "- layers present in the stream with **no** rule: ['capm']",
+                "- rules skipped (layer absent from the stream): 7",
+            ],
+        )
+        self.assertEqual(lines[-1], "")
+        self.assertEqual(len(lines), 9)
+
+    def test_empty_coverage_renders_none_rather_than_omitting_bullets(self):
+        lines = rcs.render_drc_coverage({})
+        bullets = [ln for ln in lines if ln.startswith("- ")]
+        self.assertEqual(len(bullets), 4)
+        self.assertTrue(all(ln.endswith("None") for ln in bullets))
 
 
 class TestRenderNetCorrespondence(unittest.TestCase):

@@ -133,7 +133,6 @@ LSB_DIFF_MV_PROVISIONAL = 3.5156  # DR-003 Item 2, provisional pending #27
 # DR-006-derived acquisition (SAMPLE-high) windows: t_sample = 1 / f_clk,
 # f_clk = 12 * f_s, f_s in the DRAFT 100 kS/s-1 MS/s row.
 T_SAMPLE_WORST_NS = 1.0e3 / 12.0   # 83.333... ns @ f_clk_max = 12 MHz
-T_SAMPLE_SLOW_NS = 1.0e3 / 1.2     # 833.33... ns @ f_clk_min = 1.2 MHz
 # Existing repo-wide sampling-frontend testbench convention (run_transient.py
 # / run_hold_kick.py), independent of DR-006 -- kept for direct comparison.
 T_SAMPLE_LEGACY_NS = 400.0

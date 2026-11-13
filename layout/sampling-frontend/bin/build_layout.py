@@ -119,10 +119,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
-from _geometry_common import BuildError, L_LI1  # noqa: E402
+from _geometry_common import BuildError  # noqa: E402
 from _geometry_common import Rect  # noqa: E402
 from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
 from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import step_down_to_met1  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
 from gen_blocks import (  # noqa: E402
     CAP_DEVICES,
@@ -132,20 +133,17 @@ from gen_blocks import (  # noqa: E402
 )
 
 # --- layer table (sky130A GDS numbers, as klt's own curated deck names them) --
-# L_TAP/L_LICON (the tap/well-tie structure's own layers, plus its
-# LICON_PITCH_UM pitch) now live in `_geometry_common` only, closed over by
-# `_tap_shapes_core` (imported above); L_LI1 is also defined there (this
-# module still needs it by name below, for `_step_down_to_met1`).
+# Only the layers THIS module still draws on directly. The tap/well-tie
+# structure's own layers (L_TAP/L_LICON, plus its LICON_PITCH_UM pitch), L_LI1,
+# and the met3/met4 via-stack layers (L_VIA2/L_MET3/L_VIA3/L_MET4) all live in
+# `_geometry_common` only, closed over by the shared helpers imported above
+# (`_tap_shapes_core`, `step_down_to_met1`).
 L_NWELL = (64, 20)
 L_MCON = (67, 44)
 L_MET1 = (68, 20)
 L_VIA1 = (68, 44)
 L_MET2 = (69, 20)
 L_MET2_PIN = (69, 5)
-L_VIA2 = (69, 44)
-L_MET3 = (70, 20)
-L_VIA3 = (70, 44)
-L_MET4 = (71, 20)
 
 # --- rule-derived geometry (sky130 deck thresholds + margin) -----------------
 WIRE_UM = 0.30  # met1/met2 wire + landing-pad width (m1.1/m2.1 minimum 0.14)
@@ -154,34 +152,14 @@ MCON_UM = 0.17
 VIA1_UM = 0.15  # via1 square side (via1.width min 0.15) -- matches the wells
 # recipe's own sizing, proven DRC-clean against met1/met2.enclosing.via.1's
 # 0.055um threshold with a 0.30um landing pad.
-VIA23_UM = 0.20  # via2/via3 square side (via2/via3.width min 0.20 -- a
-# DIFFERENT, larger minimum than via1's 0.15; found directly building this
-# layout, via2.width.1 violations at 0.15).
 # via.5a/m2.5 (klt 0.8.0 `*.enclosing_adjacent.via.1`): a via1 needs >= 0.085 um
 # of metal on two ADJACENT sides; a 0.30 um wire/pad leaves 0.075 um on each.
 VIA1_SITE_PAD_UM = 0.32  # = VIA1_UM + 2 * 0.085: met1/met2 pad at every via1 site
-STACK_PAD_UM = 0.42  # landing pad for a stacked via cut (matches the
-# gate_contact pad size `klt gen` itself uses elsewhere in this repo, so a
-# 0.20um via2/via3 lands with >= 0.11um enclosure on every side -- comfortably
-# above met2/met3/met4's 0.04-0.065um enclosure-of-via thresholds).
-MET3_ISLAND_PAD_UM = 0.50  # a met3 landing pad that is the ONLY met3 shape at
-# its own (x, y) -- the pass-through pad between via3 and via2 in the L_MET4
-# step-down below. Enclosure is not the binding constraint there; sky130A's own
-# met3 MINIMUM-AREA rule is (`m3.6`, 0.240um^2, from the pinned PDK's own
-# libs.tech/klayout/drc/sky130A_mr.drc). A STACK_PAD_UM square is 0.1764um^2 --
-# below it, and invisible to `klt drc`, whose curated sky130 deck carries no
-# `area`-kind rule at klayout-tools==0.5.0, the pin when written (now 0.6.0) (issue #326; fixed
-# upstream by klayout-tools#1989, not yet released). 0.50^2 = 0.25um^2 clears
-# the rule; CAP_MET4_ESCAPE_MARGIN_UM (0.80) still leaves this wider pad
-# 0.80 - 0.25 = 0.55um clear of the bottom plate's own met3 sheet below it,
-# comfortably over met3.space (0.30um). Verified by
-# `docs/chipalooza/measure_metal_min_area.py`, which `klt drc` cannot replace.
-MET3_VIA_INSET_UM = 0.20  # a `cap_array` *_BOT port's reported x sits right at
-# the bottom plate's own edge (direction 180, x = the plate's left edge) --
-# landing a via2 exactly there would poke past met3's own boundary and fail
-# met3.enclosing.via2. Step the via2 landing this far INTO the plate instead
-# (>= met3.enclosing.via2's ~0.065um threshold, with margin); the pin's
-# effective (x, y) for jogging purposes moves with it.
+# The via2/via3 cut size and the three landing-pad widths the met3/met4
+# step-down needs (VIA23_UM, STACK_PAD_UM, MET3_ISLAND_PAD_UM,
+# MET3_VIA_INSET_UM) now live in `_geometry_common` only, with the rule
+# derivations behind each of them -- `step_down_to_met1` closes over them and
+# nothing else in this module reads them.
 LICON_UM = 0.17
 
 #: Drawn n-well island separation -- unchanged from issue #122's own recipe.
@@ -216,12 +194,13 @@ ROW3_BLOCK_MARGIN_UM = 3.00
 
 #: How far above a `cap_array` unit's own bbox top its *_TOP port's met4
 #: riser must clear before stepping down to met3/met2/met1 -- see
-#: `_step_down_to_met1`'s `L_MET4` case for why landing that step INSIDE the
-#: cell's own footprint shorts the two plates together. Must clear
-#: met3.space (0.30um) from the bottom plate's own top edge to the new met3
-#: landing pad's near edge (STACK_PAD_UM/2 further out); 0.50 measured
-#: exactly 0.29um clear on the first build (a met3.space.1 violation) --
-#: 0.80 gives comfortable margin instead of chasing the threshold exactly.
+#: `_geometry_common.step_down_to_met1`'s `L_MET4` case for why landing that
+#: step INSIDE the cell's own footprint shorts the two plates together. Must
+#: clear met3.space (0.30um) from the bottom plate's own top edge to the new
+#: met3 landing pad's near edge (half that emitter's own MET3_ISLAND_PAD_UM
+#: further out); 0.50 measured exactly 0.29um clear on the first build (a
+#: met3.space.1 violation) -- 0.80 gives comfortable margin instead of
+#: chasing the threshold exactly.
 CAP_MET4_ESCAPE_MARGIN_UM = 0.80
 
 #: Shared met2 track band, one track per net, above every row (the tallest
@@ -421,89 +400,6 @@ def floorplan_row3(x_start: float, blocks: dict[str, dict]) -> dict:
     return origins
 
 
-# --------------------------------------------------------------------------- #
-# Generic per-pin "walk down to met1" + column/track routing
-# --------------------------------------------------------------------------- #
-def _step_down_to_met1(
-    shapes: list[tuple[tuple[int, int], Rect]],
-    x: float,
-    y: float,
-    layer: tuple[int, int],
-    direction: float,
-    met4_escape_y: float | None = None,
-) -> tuple[float, float]:
-    """Emit whatever via stack is needed to reach met1 from ``layer``, and
-    return the **effective** (x, y) the caller should treat as this pin's
-    location from here on (usually the input point unchanged; see the
-    ``L_MET3`` and ``L_MET4`` cases). See this module's docstring, "Routing
-    style", for why every pin -- not just li1 ports -- ends up on met1."""
-    if layer == L_LI1:
-        shapes.append((L_MCON, Rect.centred(x, y, MCON_UM, MCON_UM)))
-        return x, y
-    if layer == L_MET3:
-        # A `cap_array` *_BOT port reports its position AT the bottom plate's
-        # own edge (direction 180 => the plate's left edge is x=0 in the
-        # block's local frame) -- landing a via2 exactly there would poke past
-        # met3's own boundary. Shift the via into the plate (direction 180
-        # faces -x, so "into the plate" is +x) by MET3_VIA_INSET_UM; the
-        # thin met3 strip between the reported edge and the via is already
-        # part of the same bottom-plate conductor, so no extra wire is needed
-        # to bridge it.
-        if direction == 180.0:
-            x = x + MET3_VIA_INSET_UM
-        shapes.append((L_MET2, Rect.centred(x, y, STACK_PAD_UM, STACK_PAD_UM)))
-        shapes.append((L_VIA2, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
-        # The FINAL met1 pad, unlike the via2/via3 landing pads above, only
-        # has to enclose via1 (0.15um) -- WIRE_UM (0.30) already clears that
-        # with margin, and matching it to the jog wire's own width below
-        # avoids a corner notch a wider STACK_PAD_UM pad would leave between
-        # itself and the (narrower) hwire/riser, which read back as a
-        # met1.space.1 violation when first built this way.
-        shapes.append((L_MET1, Rect.centred(x, y, VIA1_SITE_PAD_UM, VIA1_SITE_PAD_UM)))
-        shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
-        return x, y
-    if layer == L_MET4:
-        # A `cap_array` *_TOP port's own via3 + local met3 landing sit
-        # DIRECTLY ABOVE the bottom plate's own met3 sheet, which -- being a
-        # PLATE -- covers this unit's ENTIRE footprint (its reported *_BOT
-        # port width_um spans the whole cell height). Found directly building
-        # this layout: adding a second via3/met3 pad at the port's own (x, y)
-        # -- reasoning that it would merely "duplicate" the generator's own
-        # already-isolated stub -- instead lands squarely inside the bottom
-        # plate's own sheet and SHORTS the two plates together (`klt extract`
-        # reported the top- and bottom-plate nets merged into one, with the
-        # real, now-orphaned top-plate net anonymous). There is no offset
-        # inside the cell's footprint where a new met3 shape is safe, because
-        # the bottom plate occupies the whole footprint.
-        #
-        # Fix: ride MET4 (which the bottom plate never touches) straight up
-        # and OUT of the cell's footprint first -- `met4_escape_y`, past the
-        # unit's own bbox top, supplied by the caller -- and only step down
-        # to met3/met2/met1 once clear of it.
-        if met4_escape_y is None:
-            raise BuildError("L_MET4 port requires met4_escape_y")
-        shapes.append((L_MET4, Rect.vwire(x, y, met4_escape_y)))
-        # An explicit landing pad at the escape point: the vertical wire
-        # alone only encloses via3 in x, not y (it ends exactly AT
-        # met4_escape_y, so via3's own half-width above that point would
-        # otherwise poke past the wire's own end -- a met4.enclosing.via3.1
-        # violation found directly building this layout).
-        shapes.append((L_MET4, Rect.centred(x, met4_escape_y, STACK_PAD_UM, STACK_PAD_UM)))
-        y = met4_escape_y
-        # This met3 pad is the whole met3 shape at this point -- via3 lands on
-        # it from above, via2 leaves it from below, and no met3 wire ever
-        # touches it -- so it has to satisfy m3.6 (min. met3 area) on its own:
-        # MET3_ISLAND_PAD_UM, not STACK_PAD_UM (issue #326).
-        shapes.append((L_MET3, Rect.centred(x, y, MET3_ISLAND_PAD_UM, MET3_ISLAND_PAD_UM)))
-        shapes.append((L_VIA3, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
-        shapes.append((L_MET2, Rect.centred(x, y, STACK_PAD_UM, STACK_PAD_UM)))
-        shapes.append((L_VIA2, Rect.centred(x, y, VIA23_UM, VIA23_UM)))
-        shapes.append((L_MET1, Rect.centred(x, y, VIA1_SITE_PAD_UM, VIA1_SITE_PAD_UM)))
-        shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
-        return x, y
-    raise BuildError(f"no met1 step-down rule for layer {layer!r}")
-
-
 def build(reports_dir: Path) -> tuple[dict, dict, dict]:
     """Return the (draw params, gen-compose request, layout summary) triple."""
     all_block_ids = (
@@ -656,7 +552,7 @@ def _route_mos_pins(shapes, add_column, block, origin, prefix, d_net, g_net, s_n
     for suffix, net in ((f"{prefix}_D", d_net), (f"{prefix}_G", g_net), (f"{prefix}_S", s_net)):
         x, y, _width, direction, layer = block["ports"][suffix]
         px, py = ox + x, oy + y
-        px, py = _step_down_to_met1(shapes, px, py, layer, direction)
+        px, py = step_down_to_met1(shapes, px, py, layer, direction)
         if direction == 180.0:  # faces -x: jog left
             col_x = px - CHANNEL_LEFT_UM
         elif direction == 0.0:  # faces +x: jog right
@@ -671,12 +567,12 @@ def _route_mos_pins(shapes, add_column, block, origin, prefix, d_net, g_net, s_n
 def _route_cap_pins(shapes, add_column, block, origin, unit_index, top_net, bot_net) -> None:
     ox, oy = origin["x"], origin["y"]
     # Above the whole cell's own bbox top (the bottom plate's own met3 sheet
-    # spans that full height) -- see _step_down_to_met1's L_MET4 case.
+    # spans that full height) -- see step_down_to_met1's L_MET4 case.
     escape_y = oy + block["bbox"]["y1"] + CAP_MET4_ESCAPE_MARGIN_UM
     for suffix, net in ((f"C{unit_index}_TOP", top_net), (f"C{unit_index}_BOT", bot_net)):
         x, y, _width, direction, layer = block["ports"][suffix]
         px, py = ox + x, oy + y
-        px, py = _step_down_to_met1(shapes, px, py, layer, direction, met4_escape_y=escape_y)
+        px, py = step_down_to_met1(shapes, px, py, layer, direction, met4_escape_y=escape_y)
         if direction == 180.0:
             col_x = px - CHANNEL_LEFT_UM
         elif direction == 0.0:

@@ -554,7 +554,6 @@ def write_evidence(
 
 
 ANALYTIC_GAIN_3SIGMA_LSB = 1.4191  # DR-003 Item 3 as updated by DR-019: 3*32*sigma_u
-ANALYTIC_GAIN_SIGMA_UNIT_PCT = 1.4737  # DR-019 sigma_u (percent)
 
 
 def write_gain_error_evidence(result: McResult, supersedes: str = "", note: str = "") -> tuple[Path, bool]:
