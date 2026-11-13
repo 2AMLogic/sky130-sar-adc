@@ -386,8 +386,8 @@ corner evidence rather than substituting for it, per each record's own
 - **`sim/reference-drive-budget/`** — how much series source resistance the
   `VREFP`/`VREFN` pads tolerate before the captured codes move (issue #841).
   Like `top-plate-cpar` above this is a deterministic PVT campaign with its
-  own runner rather than a Monte Carlo one, listed here because it is the
-  other campaign whose grid is a `klt sim` request: the whole
+  own runner rather than a Monte Carlo one, listed here because it is another
+  campaign whose grid is a `klt sim` request: the whole
   `design/sar_adc_top.spice` driven by `sim/full-conversion-transient/`'s
   committed fragment, used verbatim except for an ideal source plus `R_ref`
   in series on each reference pad, with `R_ref` and the supply carried as
@@ -395,6 +395,20 @@ corner evidence rather than substituting for it, per each record's own
   `R_ref = 0` control row, never to the ideal code. Own runner
   (`run_reference_drive_budget.py`); see its README for what the testbench
   does not model.
+- **`sim/input-drive-budget/`** — how much series source resistance the
+  `VINP`/`VINN` signal-input pads tolerate while the sampling front end still
+  acquires a new full-scale differential input inside the acquisition window
+  (issue #847). The signal-input counterpart of `reference-drive-budget` above,
+  and likewise a deterministic PVT campaign with its own runner rather than a
+  Monte Carlo one, listed here because its grid too is a `klt sim` request:
+  one submission of 9 corner units, each running 16 transient steps (2
+  acquisition windows x 8 source resistances) against
+  `sim/sampling-frontend/`'s DUT read in place, the only signal-path addition
+  being one ideal source plus one series resistor per input pin. Every corner
+  and window carries its own `R_source = 0` control row, and every budget is
+  computed on the error relative to that row. It grades no spec row. Own runner
+  (`run_input_drive_budget.py`); see its README for what the testbench does not
+  model, and `records/LATEST` for the figures.
 - **`sim/cdac-array-transfer/run_mc.py`** — Monte Carlo DNL/INL campaign.
   Extends #53/#28's deterministic 5-code transfer-curve experiment (same
   directory) with mismatch draws (`tt_mm`) over a larger, programmatically
