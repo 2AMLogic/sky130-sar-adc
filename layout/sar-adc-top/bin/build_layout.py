@@ -2367,8 +2367,9 @@ def decoupling_caps(c: Canvas) -> dict[str, tuple[int, int]]:
       `layout/sampling-frontend/bin/build_layout.py` routes the same
       generator's own `*_BOT` port.
     * **A top plate is reachable only from ABOVE**, on met4, and any *new* met3
-      shape inside the cell's footprint shorts the two plates (that sub-block's
-      own `_step_down_to_met1` records finding this directly). So every supply
+      shape inside the cell's footprint shorts the two plates (the shared
+      `_geometry_common.step_down_to_met1` records finding this directly, in
+      the `L_MET4` case that sub-block's flow worked out). So every supply
       tie here is met4, merging with the unit's own met4 lead, and no met3 is
       drawn inside any unit's footprint at all.
 
