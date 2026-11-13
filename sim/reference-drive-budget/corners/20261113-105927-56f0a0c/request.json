@@ -1,0 +1,1228 @@
+{
+ "netlist": "tb.spice",
+ "engine": "ngspice",
+ "models": {
+  "pdk": "sky130A",
+  "lib": "libs.tech/combined/sky130.lib.spice"
+ },
+ "corners": {
+  "process": [
+   "ff",
+   "fs",
+   "sf",
+   "ss",
+   "tt"
+  ],
+  "temperature_c": [
+   -40,
+   27.0,
+   125
+  ],
+  "params": {
+   "vdd_val": [
+    1.62,
+    1.62,
+    1.62,
+    1.62,
+    1.62,
+    1.62,
+    1.8,
+    1.8,
+    1.8,
+    1.8,
+    1.8,
+    1.8,
+    1.98,
+    1.98,
+    1.98,
+    1.98,
+    1.98,
+    1.98
+   ],
+   "r_ref": [
+    0.0,
+    5.0,
+    50.0,
+    200.0,
+    800.0,
+    3200.0,
+    0.0,
+    5.0,
+    50.0,
+    200.0,
+    800.0,
+    3200.0,
+    0.0,
+    5.0,
+    50.0,
+    200.0,
+    800.0,
+    3200.0
+   ]
+  }
+ },
+ "analysis": {
+  "kind": "tran",
+  "args": "0.5n 6283.3333n"
+ },
+ "measurements": [
+  {
+   "name": "d9_c1",
+   "spice": ".meas tran d9_c1 find v(dout9) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d8_c1",
+   "spice": ".meas tran d8_c1 find v(adcout8) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d7_c1",
+   "spice": ".meas tran d7_c1 find v(adcout7) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d6_c1",
+   "spice": ".meas tran d6_c1 find v(adcout6) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d5_c1",
+   "spice": ".meas tran d5_c1 find v(adcout5) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d4_c1",
+   "spice": ".meas tran d4_c1 find v(adcout4) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d3_c1",
+   "spice": ".meas tran d3_c1 find v(adcout3) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d2_c1",
+   "spice": ".meas tran d2_c1 find v(adcout2) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d1_c1",
+   "spice": ".meas tran d1_c1 find v(adcout1) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d0_c1",
+   "spice": ".meas tran d0_c1 find v(adcout0) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d9_c2",
+   "spice": ".meas tran d9_c2 find v(dout9) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d8_c2",
+   "spice": ".meas tran d8_c2 find v(adcout8) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d7_c2",
+   "spice": ".meas tran d7_c2 find v(adcout7) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d6_c2",
+   "spice": ".meas tran d6_c2 find v(adcout6) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d5_c2",
+   "spice": ".meas tran d5_c2 find v(adcout5) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d4_c2",
+   "spice": ".meas tran d4_c2 find v(adcout4) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d3_c2",
+   "spice": ".meas tran d3_c2 find v(adcout3) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d2_c2",
+   "spice": ".meas tran d2_c2 find v(adcout2) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d1_c2",
+   "spice": ".meas tran d1_c2 find v(adcout1) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d0_c2",
+   "spice": ".meas tran d0_c2 find v(adcout0) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d9_c3",
+   "spice": ".meas tran d9_c3 find v(dout9) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d8_c3",
+   "spice": ".meas tran d8_c3 find v(adcout8) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d7_c3",
+   "spice": ".meas tran d7_c3 find v(adcout7) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d6_c3",
+   "spice": ".meas tran d6_c3 find v(adcout6) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d5_c3",
+   "spice": ".meas tran d5_c3 find v(adcout5) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d4_c3",
+   "spice": ".meas tran d4_c3 find v(adcout4) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d3_c3",
+   "spice": ".meas tran d3_c3 find v(adcout3) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d2_c3",
+   "spice": ".meas tran d2_c3 find v(adcout2) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d1_c3",
+   "spice": ".meas tran d1_c3 find v(adcout1) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d0_c3",
+   "spice": ".meas tran d0_c3 find v(adcout0) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d9_c4",
+   "spice": ".meas tran d9_c4 find v(dout9) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d8_c4",
+   "spice": ".meas tran d8_c4 find v(adcout8) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d7_c4",
+   "spice": ".meas tran d7_c4 find v(adcout7) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d6_c4",
+   "spice": ".meas tran d6_c4 find v(adcout6) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d5_c4",
+   "spice": ".meas tran d5_c4 find v(adcout5) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d4_c4",
+   "spice": ".meas tran d4_c4 find v(adcout4) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d3_c4",
+   "spice": ".meas tran d3_c4 find v(adcout3) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d2_c4",
+   "spice": ".meas tran d2_c4 find v(adcout2) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d1_c4",
+   "spice": ".meas tran d1_c4 find v(adcout1) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d0_c4",
+   "spice": ".meas tran d0_c4 find v(adcout0) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d9_c5",
+   "spice": ".meas tran d9_c5 find v(dout9) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d8_c5",
+   "spice": ".meas tran d8_c5 find v(adcout8) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d7_c5",
+   "spice": ".meas tran d7_c5 find v(adcout7) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d6_c5",
+   "spice": ".meas tran d6_c5 find v(adcout6) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d5_c5",
+   "spice": ".meas tran d5_c5 find v(adcout5) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d4_c5",
+   "spice": ".meas tran d4_c5 find v(adcout4) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d3_c5",
+   "spice": ".meas tran d3_c5 find v(adcout3) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d2_c5",
+   "spice": ".meas tran d2_c5 find v(adcout2) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d1_c5",
+   "spice": ".meas tran d1_c5 find v(adcout1) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "d0_c5",
+   "spice": ".meas tran d0_c5 find v(adcout0) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p0",
+   "spice": ".meas tran busy_c1_p0 find v(busy) at=1241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p0",
+   "spice": ".meas tran smpl_c1_p0 find v(sample_int) at=1241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p1",
+   "spice": ".meas tran busy_c1_p1 find v(busy) at=1325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p1",
+   "spice": ".meas tran smpl_c1_p1 find v(sample_int) at=1325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p2",
+   "spice": ".meas tran busy_c1_p2 find v(busy) at=1408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p2",
+   "spice": ".meas tran smpl_c1_p2 find v(sample_int) at=1408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p3",
+   "spice": ".meas tran busy_c1_p3 find v(busy) at=1491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p3",
+   "spice": ".meas tran smpl_c1_p3 find v(sample_int) at=1491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p4",
+   "spice": ".meas tran busy_c1_p4 find v(busy) at=1575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p4",
+   "spice": ".meas tran smpl_c1_p4 find v(sample_int) at=1575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p5",
+   "spice": ".meas tran busy_c1_p5 find v(busy) at=1658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p5",
+   "spice": ".meas tran smpl_c1_p5 find v(sample_int) at=1658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p6",
+   "spice": ".meas tran busy_c1_p6 find v(busy) at=1741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p6",
+   "spice": ".meas tran smpl_c1_p6 find v(sample_int) at=1741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p7",
+   "spice": ".meas tran busy_c1_p7 find v(busy) at=1825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p7",
+   "spice": ".meas tran smpl_c1_p7 find v(sample_int) at=1825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p8",
+   "spice": ".meas tran busy_c1_p8 find v(busy) at=1908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p8",
+   "spice": ".meas tran smpl_c1_p8 find v(sample_int) at=1908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p9",
+   "spice": ".meas tran busy_c1_p9 find v(busy) at=1991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p9",
+   "spice": ".meas tran smpl_c1_p9 find v(sample_int) at=1991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p10",
+   "spice": ".meas tran busy_c1_p10 find v(busy) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p10",
+   "spice": ".meas tran smpl_c1_p10 find v(sample_int) at=2075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c1_p11",
+   "spice": ".meas tran busy_c1_p11 find v(busy) at=2158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c1_p11",
+   "spice": ".meas tran smpl_c1_p11 find v(sample_int) at=2158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p0",
+   "spice": ".meas tran busy_c2_p0 find v(busy) at=2241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p0",
+   "spice": ".meas tran smpl_c2_p0 find v(sample_int) at=2241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p1",
+   "spice": ".meas tran busy_c2_p1 find v(busy) at=2325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p1",
+   "spice": ".meas tran smpl_c2_p1 find v(sample_int) at=2325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p2",
+   "spice": ".meas tran busy_c2_p2 find v(busy) at=2408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p2",
+   "spice": ".meas tran smpl_c2_p2 find v(sample_int) at=2408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p3",
+   "spice": ".meas tran busy_c2_p3 find v(busy) at=2491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p3",
+   "spice": ".meas tran smpl_c2_p3 find v(sample_int) at=2491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p4",
+   "spice": ".meas tran busy_c2_p4 find v(busy) at=2575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p4",
+   "spice": ".meas tran smpl_c2_p4 find v(sample_int) at=2575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p5",
+   "spice": ".meas tran busy_c2_p5 find v(busy) at=2658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p5",
+   "spice": ".meas tran smpl_c2_p5 find v(sample_int) at=2658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p6",
+   "spice": ".meas tran busy_c2_p6 find v(busy) at=2741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p6",
+   "spice": ".meas tran smpl_c2_p6 find v(sample_int) at=2741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p7",
+   "spice": ".meas tran busy_c2_p7 find v(busy) at=2825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p7",
+   "spice": ".meas tran smpl_c2_p7 find v(sample_int) at=2825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p8",
+   "spice": ".meas tran busy_c2_p8 find v(busy) at=2908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p8",
+   "spice": ".meas tran smpl_c2_p8 find v(sample_int) at=2908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p9",
+   "spice": ".meas tran busy_c2_p9 find v(busy) at=2991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p9",
+   "spice": ".meas tran smpl_c2_p9 find v(sample_int) at=2991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p10",
+   "spice": ".meas tran busy_c2_p10 find v(busy) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p10",
+   "spice": ".meas tran smpl_c2_p10 find v(sample_int) at=3075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c2_p11",
+   "spice": ".meas tran busy_c2_p11 find v(busy) at=3158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c2_p11",
+   "spice": ".meas tran smpl_c2_p11 find v(sample_int) at=3158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p0",
+   "spice": ".meas tran busy_c3_p0 find v(busy) at=3241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p0",
+   "spice": ".meas tran smpl_c3_p0 find v(sample_int) at=3241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p1",
+   "spice": ".meas tran busy_c3_p1 find v(busy) at=3325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p1",
+   "spice": ".meas tran smpl_c3_p1 find v(sample_int) at=3325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p2",
+   "spice": ".meas tran busy_c3_p2 find v(busy) at=3408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p2",
+   "spice": ".meas tran smpl_c3_p2 find v(sample_int) at=3408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p3",
+   "spice": ".meas tran busy_c3_p3 find v(busy) at=3491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p3",
+   "spice": ".meas tran smpl_c3_p3 find v(sample_int) at=3491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p4",
+   "spice": ".meas tran busy_c3_p4 find v(busy) at=3575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p4",
+   "spice": ".meas tran smpl_c3_p4 find v(sample_int) at=3575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p5",
+   "spice": ".meas tran busy_c3_p5 find v(busy) at=3658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p5",
+   "spice": ".meas tran smpl_c3_p5 find v(sample_int) at=3658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p6",
+   "spice": ".meas tran busy_c3_p6 find v(busy) at=3741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p6",
+   "spice": ".meas tran smpl_c3_p6 find v(sample_int) at=3741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p7",
+   "spice": ".meas tran busy_c3_p7 find v(busy) at=3825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p7",
+   "spice": ".meas tran smpl_c3_p7 find v(sample_int) at=3825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p8",
+   "spice": ".meas tran busy_c3_p8 find v(busy) at=3908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p8",
+   "spice": ".meas tran smpl_c3_p8 find v(sample_int) at=3908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p9",
+   "spice": ".meas tran busy_c3_p9 find v(busy) at=3991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p9",
+   "spice": ".meas tran smpl_c3_p9 find v(sample_int) at=3991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p10",
+   "spice": ".meas tran busy_c3_p10 find v(busy) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p10",
+   "spice": ".meas tran smpl_c3_p10 find v(sample_int) at=4075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c3_p11",
+   "spice": ".meas tran busy_c3_p11 find v(busy) at=4158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c3_p11",
+   "spice": ".meas tran smpl_c3_p11 find v(sample_int) at=4158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p0",
+   "spice": ".meas tran busy_c4_p0 find v(busy) at=4241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p0",
+   "spice": ".meas tran smpl_c4_p0 find v(sample_int) at=4241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p1",
+   "spice": ".meas tran busy_c4_p1 find v(busy) at=4325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p1",
+   "spice": ".meas tran smpl_c4_p1 find v(sample_int) at=4325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p2",
+   "spice": ".meas tran busy_c4_p2 find v(busy) at=4408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p2",
+   "spice": ".meas tran smpl_c4_p2 find v(sample_int) at=4408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p3",
+   "spice": ".meas tran busy_c4_p3 find v(busy) at=4491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p3",
+   "spice": ".meas tran smpl_c4_p3 find v(sample_int) at=4491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p4",
+   "spice": ".meas tran busy_c4_p4 find v(busy) at=4575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p4",
+   "spice": ".meas tran smpl_c4_p4 find v(sample_int) at=4575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p5",
+   "spice": ".meas tran busy_c4_p5 find v(busy) at=4658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p5",
+   "spice": ".meas tran smpl_c4_p5 find v(sample_int) at=4658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p6",
+   "spice": ".meas tran busy_c4_p6 find v(busy) at=4741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p6",
+   "spice": ".meas tran smpl_c4_p6 find v(sample_int) at=4741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p7",
+   "spice": ".meas tran busy_c4_p7 find v(busy) at=4825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p7",
+   "spice": ".meas tran smpl_c4_p7 find v(sample_int) at=4825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p8",
+   "spice": ".meas tran busy_c4_p8 find v(busy) at=4908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p8",
+   "spice": ".meas tran smpl_c4_p8 find v(sample_int) at=4908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p9",
+   "spice": ".meas tran busy_c4_p9 find v(busy) at=4991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p9",
+   "spice": ".meas tran smpl_c4_p9 find v(sample_int) at=4991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p10",
+   "spice": ".meas tran busy_c4_p10 find v(busy) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p10",
+   "spice": ".meas tran smpl_c4_p10 find v(sample_int) at=5075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c4_p11",
+   "spice": ".meas tran busy_c4_p11 find v(busy) at=5158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c4_p11",
+   "spice": ".meas tran smpl_c4_p11 find v(sample_int) at=5158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p0",
+   "spice": ".meas tran busy_c5_p0 find v(busy) at=5241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p0",
+   "spice": ".meas tran smpl_c5_p0 find v(sample_int) at=5241.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p1",
+   "spice": ".meas tran busy_c5_p1 find v(busy) at=5325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p1",
+   "spice": ".meas tran smpl_c5_p1 find v(sample_int) at=5325.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p2",
+   "spice": ".meas tran busy_c5_p2 find v(busy) at=5408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p2",
+   "spice": ".meas tran smpl_c5_p2 find v(sample_int) at=5408.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p3",
+   "spice": ".meas tran busy_c5_p3 find v(busy) at=5491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p3",
+   "spice": ".meas tran smpl_c5_p3 find v(sample_int) at=5491.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p4",
+   "spice": ".meas tran busy_c5_p4 find v(busy) at=5575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p4",
+   "spice": ".meas tran smpl_c5_p4 find v(sample_int) at=5575.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p5",
+   "spice": ".meas tran busy_c5_p5 find v(busy) at=5658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p5",
+   "spice": ".meas tran smpl_c5_p5 find v(sample_int) at=5658.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p6",
+   "spice": ".meas tran busy_c5_p6 find v(busy) at=5741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p6",
+   "spice": ".meas tran smpl_c5_p6 find v(sample_int) at=5741.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p7",
+   "spice": ".meas tran busy_c5_p7 find v(busy) at=5825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p7",
+   "spice": ".meas tran smpl_c5_p7 find v(sample_int) at=5825.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p8",
+   "spice": ".meas tran busy_c5_p8 find v(busy) at=5908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p8",
+   "spice": ".meas tran smpl_c5_p8 find v(sample_int) at=5908.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p9",
+   "spice": ".meas tran busy_c5_p9 find v(busy) at=5991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p9",
+   "spice": ".meas tran smpl_c5_p9 find v(sample_int) at=5991.6667n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p10",
+   "spice": ".meas tran busy_c5_p10 find v(busy) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p10",
+   "spice": ".meas tran smpl_c5_p10 find v(sample_int) at=6075.0000n",
+   "unit": "V"
+  },
+  {
+   "name": "busy_c5_p11",
+   "spice": ".meas tran busy_c5_p11 find v(busy) at=6158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "smpl_c5_p11",
+   "spice": ".meas tran smpl_c5_p11 find v(sample_int) at=6158.3333n",
+   "unit": "V"
+  },
+  {
+   "name": "i_vdd",
+   "spice": ".meas tran i_vdd avg i(vvdd) from=3200.0000n to=4200.0000n",
+   "unit": "A"
+  },
+  {
+   "name": "i_vpwr",
+   "spice": ".meas tran i_vpwr avg i(vvpwr) from=3200.0000n to=4200.0000n",
+   "unit": "A"
+  },
+  {
+   "name": "i_vrefp",
+   "spice": ".meas tran i_vrefp avg i(vvrefp) from=3200.0000n to=4200.0000n",
+   "unit": "A"
+  },
+  {
+   "name": "i_vrefn",
+   "spice": ".meas tran i_vrefn avg i(vvrefn) from=3200.0000n to=4200.0000n",
+   "unit": "A"
+  },
+  {
+   "name": "i_vcm",
+   "spice": ".meas tran i_vcm avg i(vvcm) from=3200.0000n to=4200.0000n",
+   "unit": "A"
+  }
+ ],
+ "options": {
+  "timeout_s": 1200.0,
+  "keep_artifacts": true,
+  "save_vectors": [
+   "i(vvcm)",
+   "i(vvdd)",
+   "i(vvpwr)",
+   "i(vvrefn)",
+   "i(vvrefp)",
+   "v(adcout0)",
+   "v(adcout1)",
+   "v(adcout2)",
+   "v(adcout3)",
+   "v(adcout4)",
+   "v(adcout5)",
+   "v(adcout6)",
+   "v(adcout7)",
+   "v(adcout8)",
+   "v(busy)",
+   "v(dout9)",
+   "v(sample_int)"
+  ]
+ },
+ "exclude": [
+  {
+   "process": "ff",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  }
+ ],
+ "remote": {
+  "hosts": 11
+ },
+ "batch": {
+  "capacity_wait_s": 600.0
+ }
+}
