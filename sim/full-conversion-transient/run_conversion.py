@@ -6,7 +6,6 @@
     python3 sim/full-conversion-transient/run_conversion.py --check-env
     python3 sim/full-conversion-transient/run_conversion.py            # tt/27C/1.8V only
     python3 sim/full-conversion-transient/run_conversion.py --corners --record
-    python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
     python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record
 
 WHAT THIS IS. Every prior `sim/` experiment drives one sub-block, or the
@@ -53,14 +52,6 @@ details are load-bearing:
   * the `sky130_fd_sc_hd` combined-cell `.include`, exactly as
     `sim/sar-sequencer-behavioral/run_testbench.py` does it.
 
-MECHANISM PROBE (`--mechanism-probe`). A diagnostic mode that runs the same
-stimulus twice at the baseline corner: once on the unmodified DUT, and once
-on a TESTBENCH-ONLY MODIFIED copy in which the comparator's strobe input is
-re-pointed from `CLK` to a separate `CLK_CMP` node driven half a period
-later. It exists to isolate *which* mechanism a wrong code comes from; it
-NEVER contributes to a corner record, and the modified netlist is never
-written back to `design/`. See this experiment's README.md.
-
 COHERENT-SINE DYNAMIC TEST (`--coherent-sine`, issue #603). Opt-in: the
 same DUT driven by a coherent antiphase sine instead of the DC schedule
 (`gen_full_conversion_tb.sine_fragment_text()`), one captured code per
@@ -75,7 +66,10 @@ for every transient this runner assembles; any other profile -- including
 `ngspice-default`, the settings of every pre-DR-023 record -- is a labelled
 SOLVER CONTROL that never moves records/LATEST and may not --supersedes.
 `ngspice-default` alone is also allowed with --corners and the diagnostic
-modes, so every pre-DR-023 record stays reproducible (as a control).
+modes, so every pre-DR-023 record this runner can still mint stays
+reproducible (as a control). The one exception is the retired
+`--mechanism-probe` (issue #873): its two records are reproduced from their
+own recorded commit, not from this tree -- see this experiment's README.md.
 `--solver-audit` runs the DC baseline corner under the
 reference profile and each control profile, sequentially, and records which
 observations (if any) move -- the guard against presenting a
@@ -113,10 +107,7 @@ from full_conversion_campaigns.common import (  # noqa: E402
     solver_options_card,
     solver_settings_text,
 )
-from full_conversion_campaigns.dc_codes import (  # noqa: E402
-    run_mechanism_probe,
-    write_record,
-)
+from full_conversion_campaigns.dc_codes import write_record  # noqa: E402
 from full_conversion_campaigns.node_trace import (  # noqa: E402
     run_node_trace,
     write_node_trace_record,
@@ -196,7 +187,6 @@ def resolve_solver_cli(args: argparse.Namespace) -> tuple[str, str]:
     profile = profile or REFERENCE_SOLVER_PROFILE
     modes = (
         ("--corners", args.corners),
-        ("--mechanism-probe", args.mechanism_probe),
         ("--node-trace", args.node_trace),
         ("--cm-trace", args.cm_trace),
         ("--decision-margin-trace", args.decision_margin_trace),
@@ -253,13 +243,6 @@ def main() -> int:
     ap.add_argument("--corners", action="store_true", help="run the full ratified OAT grid (9 points)")
     ap.add_argument("--record", action="store_true", help="write an evidence record under records/")
     ap.add_argument(
-        "--mechanism-probe",
-        action="store_true",
-        help="diagnostic: baseline corner, as-committed vs comparator-strobe-delayed "
-        "(testbench-only netlist modification); folded into the record when combined "
-        "with --record",
-    )
-    ap.add_argument(
         "--node-trace",
         action="store_true",
         help="diagnostic (issue #259): node-level COMP_OUT/CLK voltage trace against "
@@ -267,8 +250,8 @@ def main() -> int:
         "netlist, at the two corners issue #259 names (tt_27c_1.62v, ff_27c_1.80v), "
         "for an opposite-sign pair of conversions probed within the same run. "
         "Always writes its own evidence record under records/ (a distinct diagnostic "
-        "record, never records/LATEST); mutually exclusive with --corners/--record/"
-        "--mechanism-probe -- it does not touch the corner-campaign flow at all.",
+        "record, never records/LATEST); mutually exclusive with --corners/--record "
+        "-- it does not touch the corner-campaign flow at all.",
     )
     ap.add_argument(
         "--cm-trace",
@@ -279,7 +262,7 @@ def main() -> int:
         "netlist -- tests DR-008's common-mode-headroom hypothesis for the "
         "large-signal saturation. Always writes its own evidence record under "
         "records/ (a distinct diagnostic record, never records/LATEST); mutually "
-        "exclusive with --corners/--record/--mechanism-probe/--node-trace/"
+        "exclusive with --corners/--record/--node-trace/"
         "--decision-margin-trace.",
     )
     ap.add_argument(
@@ -291,7 +274,7 @@ def main() -> int:
         "on a testbench-only control copy with DR-009's comparator-output balancing "
         "dummies removed. Separates a search defect from a comparator offset. Always "
         "writes its own diagnostic evidence record under records/ (never "
-        "records/LATEST); mutually exclusive with --corners/--record/--mechanism-probe/"
+        "records/LATEST); mutually exclusive with --corners/--record/"
         "--node-trace/--cm-trace.",
     )
     ap.add_argument(
@@ -302,7 +285,7 @@ def main() -> int:
         "corner (tt/27C/1.8V) ONLY. Informational cross-check of sim/enob-estimate/, "
         "never a grade of the DRAFT ENOB row. With --record, mints a new record "
         "under records/ (never records/LATEST). Mutually exclusive with --corners/"
-        "--mechanism-probe/--node-trace/--cm-trace/--decision-margin-trace; a "
+        "--node-trace/--cm-trace/--decision-margin-trace; a "
         "multi-corner/Monte Carlo extension is a `klt sim` request (#564), not a "
         "flag here.",
     )
@@ -404,7 +387,6 @@ def main() -> int:
         others = [
             flag for flag, on in (
                 ("--corners", args.corners),
-                ("--mechanism-probe", args.mechanism_probe),
                 ("--node-trace", args.node_trace),
                 ("--cm-trace", args.cm_trace),
                 ("--decision-margin-trace", args.decision_margin_trace),
@@ -573,13 +555,6 @@ def main() -> int:
             any_missing = any(point["missing"] for point in dm_points.values())
             return 1 if any_missing else 0
 
-        probe = None
-        if args.mechanism_probe:
-            print("Mechanism probe (baseline corner):")
-            probe = run_mechanism_probe(scratch, args.quiet, solver_profile)
-            if not (args.corners or args.record):
-                return 0
-
         print(
             f"Running {'the ratified OAT grid (9 points)' if args.corners else 'the baseline corner'}"
             f" -- {tb.N_CONVERSIONS} conversions at {tb.F_CLK_HZ / 1e6:g} MHz per point:"
@@ -598,7 +573,7 @@ def main() -> int:
         )
 
         if args.record:
-            write_record(points, netlist_text, probe, args.supersedes, solver_profile=solver_profile)
+            write_record(points, netlist_text, args.supersedes, solver_profile=solver_profile)
 
     return 0 if overall_ok else 1
 

@@ -213,7 +213,6 @@ def assemble_deck(
     process_corner: str = "tt",
     temp_c: float = 27.0,
     supply_v: float = NOMINAL_SUPPLY_V,
-    delayed_comparator_strobe: bool = False,
     extra_meas: list[str] | None = None,
     fragment: str | None = None,
     solver_profile: str = REFERENCE_SOLVER_PROFILE,
@@ -227,20 +226,11 @@ def assemble_deck(
     Default `None` keeps the DC fragment, so every existing mode is
     unchanged.
 
-    `delayed_comparator_strobe` is the `--mechanism-probe` modification
-    only (see the module docstring): it re-points the comparator instance's
-    strobe from `CLK` to `CLK_CMP` and adds a `CLK_CMP` source delayed by
-    half a CLK period, so the comparator evaluates during CLK-low and its
-    decision is still valid at the CLK rising edge where the SAR bit
-    registers capture. It is a diagnostic on a modified netlist, never a
-    recorded corner result.
-
     `extra_meas` (issue #259's `--node-trace`) is a list of additional,
     already-formatted `.meas tran ...` lines appended after the committed
     fragment and before `.end`. It never modifies the DUT netlist body
-    itself (unlike `delayed_comparator_strobe`) -- it only adds read-only
-    probes, so it is safe to combine with the as-committed (unmodified)
-    netlist.
+    itself -- it only adds read-only probes, so it is safe to combine with
+    the as-committed (unmodified) netlist.
 
     `solver_profile` (issue #637) names the transient solver policy (see
     SOLVER_PROFILES); the default is the DR-023 reference policy. A profile
@@ -257,37 +247,13 @@ def assemble_deck(
         raise RuntimeError(f"sky130_fd_sc_hd combined SPICE deck not found at {stdcell_spice}")
 
     dut_lines = [ln for ln in dut_netlist_text.splitlines() if ln.strip().lower() != ".end"]
-    extra_sources: list[str] = []
-    if delayed_comparator_strobe:
-        patched = []
-        hits = 0
-        for ln in dut_lines:
-            if ln.startswith("xcmp VDD CLK "):
-                ln = ln.replace("xcmp VDD CLK ", "xcmp VDD CLK_CMP ", 1)
-                hits += 1
-            patched.append(ln)
-        if hits != 1:
-            raise RuntimeError(
-                "mechanism probe: expected exactly one 'xcmp VDD CLK ' instance line in "
-                f"{DUT_NETLIST}, found {hits} -- the netlist changed shape; re-derive the probe."
-            )
-        dut_lines = patched
-        td = tb.T_FIRST_EDGE_NS - tb.EDGE_NS / 2 + tb.T_CLK_NS / 2
-        extra_sources = [
-            "* --- mechanism probe only: comparator strobe delayed by half a CLK",
-            "* period (testbench-only netlist modification, never recorded) -------",
-            f"VCLKCMP CLK_CMP 0 PULSE(0 {{vdd_val}} {td:.4f}n {tb.EDGE_NS:g}n "
-            f"{tb.EDGE_NS:g}n {tb.T_CLK_NS / 2 - tb.EDGE_NS:.5f}n {tb.T_CLK_NS:.5f}n)",
-            "",
-        ]
 
     lines = [
         "* sim/full-conversion-transient -- end-to-end full-conversion transient",
         "* on design/sar_adc_top.spice (issue #254). Assembled by",
         "* sim/full-conversion-transient/run_conversion.py; NOT routed through",
         "* sim/run_corners.py (its shared .control block is .op-only).",
-        f"* corner={process_corner} temp={temp_c}C supply={supply_v}V"
-        + ("  [MECHANISM PROBE: comparator strobe delayed]" if delayed_comparator_strobe else ""),
+        f"* corner={process_corner} temp={temp_c}C supply={supply_v}V",
         f".lib {pdk_info.ngspice_lib} {process_corner}",
         f".temp {temp_c}",
         f".param vdd_val = {supply_v}",
@@ -298,7 +264,6 @@ def assemble_deck(
         "",
         *dut_lines,
         "",
-        *extra_sources,
         tb.FRAGMENT_PATH.read_text() if fragment is None else fragment,
         *solver_lines,
         *(extra_meas or []),
@@ -432,7 +397,6 @@ def run_point(
     process_corner: str,
     temp_c: float,
     supply_v: float,
-    delayed_comparator_strobe: bool = False,
     tag_prefix: str = "full_conversion",
     solver_profile: str = REFERENCE_SOLVER_PROFILE,
     audit: bool = False,
@@ -450,7 +414,7 @@ def run_point(
         for c in tb.measured_conversions():
             extra_meas += transition_guard_measure_lines(c, supply_v)
     deck = assemble_deck(
-        netlist_text, pdk_info, process_corner, temp_c, supply_v, delayed_comparator_strobe,
+        netlist_text, pdk_info, process_corner, temp_c, supply_v,
         extra_meas=extra_meas or None, solver_profile=solver_profile,
     )
     t0 = time.time()
@@ -734,10 +698,10 @@ def _bits_str(bits: list[int | None]) -> str:
 #
 # COMP_OUT / comparator differential output
 # against the bit-capture registers' sampling CLK edge, on the AS-COMMITTED
-# (unmodified) netlist -- unlike --mechanism-probe, this never re-points any
-# instance's strobe. It only appends read-only `.meas tran ... find v(...)`
-# probes after the committed fragment (assemble_deck()'s `extra_meas`), so
-# it is safe to run against the real, unmodified design/sar_adc_top.spice.
+# (unmodified) netlist: it never re-points any instance's strobe. It only
+# appends read-only `.meas tran ... find v(...)` probes after the committed
+# fragment (assemble_deck()'s `extra_meas`), so it is safe to run against
+# the real, unmodified design/sar_adc_top.spice.
 # --------------------------------------------------------------------------
 
 # The two corners issue #259's Acceptance Criteria name explicitly: the
