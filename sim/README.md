@@ -730,6 +730,100 @@ pass) to the specific record(s) its verdict rests on, per
   unless the campaign meets the checklist. See
   [`sim/digital-partition/README.md`](digital-partition/README.md).
 
+## Summary plots (`docs/plots/`, issue #835)
+
+The published Chipalooza brief asks that "simulation results should be
+summarized in plots, not raw data", while also requiring the raw data stay
+reproducible. This directory's append-only convention over-meets the second
+half; `docs/plots/` is the first half. The plots are rendered **from evidence
+that is already committed** — no run, no network, no display — by
+`sim/report/plots.py`.
+
+```bash
+# Regenerate (needs the pin; see sim/report/plots-requirements.txt)
+python3 -m venv .venv-plots
+.venv-plots/bin/pip install -r sim/report/plots-requirements.txt
+.venv-plots/bin/python sim/report/plots.py --render
+
+# What is plotted, and from what
+python3 sim/report/plots.py --list
+
+# The gate CI runs (stdlib only, no matplotlib needed)
+python3 sim/report/plots.py --check
+```
+
+### The three decisions, recorded
+
+1. **Location: `docs/plots/`, regenerable, outside every evidence gate.** A
+   plot is a *derived view* of evidence, never evidence: it is overwritten on
+   regeneration and is not cited by `signoff/block-manifest.json`.
+   `sim/check_append_only.py` protects `sim/<experiment>/records/*.md` and the
+   `corners` / `mc-draws` / `netlist-snapshots` / `diagnostics` / `runs` /
+   `yield-reports` artifact directories; `docs/plots/` is outside that set (the
+   same way `docs/characterization-report.md` is), so a re-render can never
+   churn an evidence hash. **No plot is ever written inside a `records/` tree.**
+2. **Format: SVG**, written head-less with `svg.fonttype = "none"` — reviewable
+   text with greppable labels, not an opaque binary diff.
+3. **Gate: input-hash staleness, stdlib only.** `--render` records, per figure,
+   the SHA-256 of every committed file it read, of `sim/report/plots.py`, and
+   of the SVG it wrote, into `docs/plots/manifest.json`. `--check` re-hashes
+   those and fails on a mismatch, on a committed SVG no manifest entry claims,
+   and on a manifest entry with no file. It is reached from `python3
+   sim/report/generate.py --check` (`npm run check:report`, part of `npm run
+   check:ci`), so it needs no new `package.json` script and no CI dependency.
+
+   `--check` deliberately does **not** re-render and compare bytes. SVG output
+   is not expected to be stable across matplotlib and font versions, so a
+   byte-comparison gate would need matplotlib pinned into CI and would still be
+   fragile. (Within one matplotlib version output *is* byte-stable — a fixed
+   `svg.hashsalt` and `metadata={"Date": None}` — so a second `--render` on an
+   unchanged tree leaves `git status` clean.)
+
+### The second half of the gate: provenance cross-checks
+
+Hashes alone only prove nothing moved. Each loader also re-derives, from the
+raw artifact, a number the **record** states in prose, and fails if the two
+disagree — the coherent-sine FFT's SNDR/ENOB/SFDR/spur bin, the transfer
+bench's per-corner minimum adjacent-code gap, the Monte Carlo max|INL|
+mean/min/max. Those loaders are stdlib-only, so `--check` runs them too, and
+`--check` additionally fails if a figure's source record has been **superseded**
+by a sibling (the same `Supersedes` read `sim/report/generate.py` does). A
+figure therefore cannot keep asserting a record's authority once that record's
+own numbers stop reproducing, or once a later record replaces it.
+
+Every figure prints its source **Record ID** and the record's own corner set /
+statistical convention onto its own face, so a plot cannot outlive the PVT
+context it was measured in, and a DRAFT row's figure says DRAFT.
+
+### What is plotted
+
+| Figure | Spec row | Source record | What it shows |
+| --- | --- | --- | --- |
+| `enob-distribution.svg` | ENOB | `sim/enob-estimate/records/20261008-233032-8bc3d1f.md` | per-draw achieved ENOB (N=40) against the DRAFT lower limit |
+| `cdac-inl-distribution.svg` | INL / DNL | `sim/cdac-array-transfer/records/20261001-124049-5207381.md` | per-draw worst-case \|INL\| against the DRAFT ±1 LSB target |
+| `cdac-transfer-spot-check.svg` | Sampling cap | `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` | measured differential level at each of 5 codes, all 9 corners, plus the per-corner monotonicity margin |
+| `bit-trial-settling-corners.svg` | Sample rate | `sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md` | worst-case `t_settle_99%` per corner against the DR-006 phase budget |
+| `coherent-sine-spectrum.svg` | ENOB | `sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md` | single-sided spectrum of the captured 32-code record, measured vs ideal quantizer |
+
+Deliberately **not** plotted:
+
+- **max\|DNL\| as a distribution.** The CDAC Monte Carlo campaign's per-draw
+  DNL samples were never committed — that yield report's `samples` field points
+  at a scratch path — so only its summary statistics survive. The INL figure
+  states those numerically rather than inventing a distribution for them. (The
+  per-draw max\|INL\| values *are* committed, inside the enob-estimate samples
+  document, which names the CDAC Monte Carlo record as its `source_record`.)
+- **Linearity from the 5-code transfer bench.** That record states DR-003
+  defers the formal DNL/INL budget to the Monte Carlo campaign; the transfer
+  figure plots measured levels and the monotonicity margin only, and says so on
+  its face.
+- **Anything needing a new run.** A candidate with no parseable committed
+  source is listed here as not plotted, never filled in by simulating.
+
+Rendering is **not** a CI dependency: matplotlib is pinned in
+`sim/report/plots-requirements.txt` and installed by whoever regenerates. CI
+only runs the stdlib `--check`.
+
 ## The harness acceptance test (`sim/selftest.sh`)
 
 `sim/selftest.sh` is the harness's own gate, wired into `npm run check:ci`:

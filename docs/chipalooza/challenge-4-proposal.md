@@ -5776,6 +5776,52 @@ tracker already owns.
     3.3 V-periphery padframe; this design draws no such network and none has
     been assessed. **No §4 verdict moves because of this item.**
 
+12. **Simulation results are now summarized in plots, not only raw data
+    (added 2026-11-13, issue #835; the other half of the same `rules-4.html`
+    sentence as item 11).** The published brief asks that "simulation results
+    should be summarized in plots, not raw data", while requiring that the raw
+    data stay reproducible from the sources in the repository. The
+    reproducibility half was already over-met — every result is an append-only
+    record with its per-corner raw artifacts committed beside it, and
+    `sim/check_spec_coverage.py` gates that each record's documented cold-start
+    invocation is the one it was minted with — but until this pass the tree
+    held no image file at all, so the *summary* half was unmet. Five figures
+    now land under [`docs/plots/`](../plots/), rendered by
+    [`sim/report/plots.py`](../../sim/report/plots.py) from evidence that is
+    **already committed** (no simulation is run to draw them):
+    [`enob-distribution.svg`](../plots/enob-distribution.svg) (per-draw ENOB
+    against the DRAFT lower limit),
+    [`cdac-inl-distribution.svg`](../plots/cdac-inl-distribution.svg) (per-draw
+    worst-case |INL| against the DRAFT ±1 LSB target),
+    [`cdac-transfer-spot-check.svg`](../plots/cdac-transfer-spot-check.svg)
+    (measured differential level at 5 codes across all 9 ratified corners, plus
+    the per-corner monotonicity margin),
+    [`bit-trial-settling-corners.svg`](../plots/bit-trial-settling-corners.svg)
+    (worst-case `t_settle_99%` per corner against the DR-006 phase budget), and
+    [`coherent-sine-spectrum.svg`](../plots/coherent-sine-spectrum.svg) (the
+    captured 32-code dynamic-test record's spectrum, measured vs an ideal
+    quantizer on the identical plan). Each figure stamps its own source Record
+    ID and that record's corner set onto its face, and
+    `python3 sim/report/plots.py --check` — stdlib-only, wired into `npm run
+    check:ci` through `sim/report/generate.py --check` — fails if a cited
+    evidence file, the renderer, or a committed SVG changes without a
+    re-render, if a figure's source record is superseded, or if a record's own
+    stated figures stop reproducing from the raw artifact. **No §4 verdict
+    moves because of this item**, and nothing under `sim/` was edited: the
+    plots are a regenerable derived view, written outside every path
+    `sim/check_append_only.py` and `signoff/check_evidence_hashes.py` protect.
+    Two deliberate gaps are recorded rather than filled: the CDAC campaign's
+    per-draw max|DNL| samples were never committed (only its summary
+    statistics), and no linearity figure is derived from the 5-code transfer
+    bench, whose own record states that DR-003 defers the DNL/INL budget to the
+    Monte Carlo campaign. The *first* half of the same brief sentence — "avoid
+    unnecessary data dumps" — is untouched: the committed raw artifacts under
+    `sim/` stay as they are, since changing that would change the append-only
+    rule, which is a separate decision. See
+    [`sim/README.md`](../../sim/README.md) "Summary plots" for the location,
+    format and gate decisions and the cold-start regeneration command.
+
+
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
 current status against every spec row, is the deliverable this pass

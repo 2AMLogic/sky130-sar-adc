@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "note": "Staleness manifest for the summary plots (issue #835). Written by `python3 sim/report/plots.py --render` and checked by `--check`, which `python3 sim/report/generate.py --check` (npm run check:report, part of npm run check:ci) calls. The SVGs beside this file are a regenerable DERIVED VIEW of committed evidence, never evidence themselves: nothing here is cited by signoff/block-manifest.json, and docs/plots/ is outside every path sim/check_append_only.py and signoff/check_evidence_hashes.py protect. Hashes are SHA-256 over raw bytes. The check does not re-render and compare bytes -- SVG output is not expected to be stable across matplotlib and font versions -- so rendering needs no CI dependency; see sim/report/plots-requirements.txt and sim/README.md 'Summary plots'.",
+  "generator": "sim/report/plots.py",
+  "generator_sha256": "72fc76e2eb3d423dbc1108ac52b09765e7381ada1c5a762e4c3fb0fe01d61243",
+  "plots": {
+    "enob-distribution": {
+      "file": "docs/plots/enob-distribution.svg",
+      "title": "ENOB \u2014 Monte Carlo distribution",
+      "what": "per-draw achieved ENOB against the DRAFT lower limit",
+      "spec_row": "enob",
+      "spec_row_label": "ENOB \u2014 DRAFT (target value)",
+      "source_record": "sim/enob-estimate/records/20261008-233032-8bc3d1f.md",
+      "source_record_id": "20261008-233032-8bc3d1f",
+      "output_sha256": "02658da76b8d8d2e73214a9e129b6fd26a2842266fc59a9140bdd969ac72a6f1",
+      "inputs": {
+        "sim/enob-estimate/records/20261008-233032-8bc3d1f.md": "58d959eea2329fdba2ab72ed3d2ede3bbefd1cf47d196bf6980339d5a891434f",
+        "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.samples.json": "ce7015f7724383f07afffc27b385da54252d6294e635af0052379a70fb0378aa",
+        "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.json": "44134aa98641b22aff3408f587ef594e520388e51b54b8cbe281131b1267c586"
+      }
+    },
+    "cdac-inl-distribution": {
+      "file": "docs/plots/cdac-inl-distribution.svg",
+      "title": "CDAC max|INL| \u2014 mismatch Monte Carlo distribution",
+      "what": "per-draw worst-case |INL| against the DRAFT \u00b11 LSB target",
+      "spec_row": "inl-dnl",
+      "spec_row_label": "INL / DNL \u2014 DRAFT (target value)",
+      "source_record": "sim/cdac-array-transfer/records/20261001-124049-5207381.md",
+      "source_record_id": "20261001-124049-5207381",
+      "output_sha256": "7be2e8136334c9f65c435d00daa6998b1fc6b41f598fb300c70a1357af9b7f0c",
+      "inputs": {
+        "sim/cdac-array-transfer/records/20261001-124049-5207381.md": "a29e9fea2a7ce76046ea18981f646b839e590c86621d7af6f20068d001d5f638",
+        "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.samples.json": "ce7015f7724383f07afffc27b385da54252d6294e635af0052379a70fb0378aa",
+        "sim/cdac-array-transfer/yield-reports/20261001-124049-5207381.json": "44e3b60832fb0ae29633c34837ea0de3954ecd91ab2698da6658a39e870839d9"
+      }
+    },
+    "cdac-transfer-spot-check": {
+      "file": "docs/plots/cdac-transfer-spot-check.svg",
+      "title": "CDAC transfer \u2014 5-code spot check across the ratified PVT grid",
+      "what": "measured differential top-plate level per code, all 9 corners",
+      "spec_row": "sampling-cap",
+      "spec_row_label": "Sampling cap (CDAC unit \u00d7 array) \u2014 RATIFIED",
+      "source_record": "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
+      "source_record_id": "20261001-120402-d24f700",
+      "output_sha256": "1b3e89661ba11e2e5c9e01cb5dc98e36d151bad3344ade631d72ef37144bb69e",
+      "inputs": {
+        "sim/cdac-array-transfer/records/20261001-120402-d24f700.md": "391fe24d7bd6d70148a9ada86162c1998f3942965a28a2c012cd5a3776467a81",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/ff_27c_1.80v.log": "3a74f0fdb5459f866c3a824e282c2e476dd285780b59d6ec2b4e11b37a0faf38",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/fs_27c_1.80v.log": "5ac4460c4ad87464623e4f73511ab40d73a1d9a6046f474d4bb2f6c10a46a18d",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/sf_27c_1.80v.log": "44c9f5b4981fcd3b03e7026085946b3d223b3030b5d4fee33c72078279227c01",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/ss_27c_1.80v.log": "bf1c270acfec5c0b2f1d87942c35979c13bb0c091c64832d55dc595abe0ee84e",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/tt_-40c_1.80v.log": "b10aeb6fd6e4cc95e1a0d32dc3f062bf1a219e8baabbb234363783eae2e6c380",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/tt_125c_1.80v.log": "fcf055cdbd26a10d14fb093e06158602768461a3ab5d006625ce9e4af406bcb1",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/tt_27c_1.62v.log": "1c61ebea3de73b143bff17e64411cf0641147b657ab2ffd5f94e8f9728914107",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/tt_27c_1.80v.log": "3a7e03d846ec7000259fcb85461fc9d9846111cd4685013bf776b1beab88e0b9",
+        "sim/cdac-array-transfer/corners/20261001-120402-d24f700/tt_27c_1.98v.log": "f2bc008f6dcf2a6a02a36ff4f06bc5b0586f4a9c1a3e534426a02a38cdb054e8"
+      }
+    },
+    "bit-trial-settling-corners": {
+      "file": "docs/plots/bit-trial-settling-corners.svg",
+      "title": "CDAC bit-trial settling \u2014 corner spread vs the DR-006 phase budget",
+      "what": "worst-case t_settle_99% per corner against the 83.333 ns budget",
+      "spec_row": "sample-rate",
+      "spec_row_label": "Sample rate \u2014 DRAFT",
+      "source_record": "sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md",
+      "source_record_id": "20261001-140017-7487784",
+      "output_sha256": "9a46ff62d66945ea3ab5d7b7fffd9c10a9148c201e6a7fc1894feabb61bbff2c",
+      "inputs": {
+        "sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md": "36394618e4b2d50559a97a40a9d38d494771e9c47bbeb08df152abdff7b90f17"
+      }
+    },
+    "coherent-sine-spectrum": {
+      "file": "docs/plots/coherent-sine-spectrum.svg",
+      "title": "Coherent-sine output spectrum \u2014 measured vs ideal quantizer",
+      "what": "single-sided spectrum of the captured 32-code record (N=32, bin 7)",
+      "spec_row": "enob",
+      "spec_row_label": "ENOB \u2014 DRAFT (target value)",
+      "source_record": "sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md",
+      "source_record_id": "20261106-193045-7bdf8c4",
+      "output_sha256": "68bbad0079b14801a434d72dbfd266784766a26c0f85f20941b667d9acce6bac",
+      "inputs": {
+        "sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md": "ef2f9af0334808d3c3cad1c5b13dfa1da157fbccd39fdff519ef0b796c3ff6d0"
+      }
+    }
+  }
+}
