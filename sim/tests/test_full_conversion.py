@@ -39,6 +39,13 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 
 import gen_full_conversion_tb as tb  # noqa: E402
 import run_conversion as rc  # noqa: E402
+from full_conversion_campaigns import cm_trace as fc_cm  # noqa: E402
+from full_conversion_campaigns import coherent_sine as fc_sine  # noqa: E402
+from full_conversion_campaigns import common as fc_common  # noqa: E402
+from full_conversion_campaigns import dc_codes as fc_dc  # noqa: E402
+from full_conversion_campaigns import decision_margin as fc_dm  # noqa: E402
+from full_conversion_campaigns import node_trace as fc_node  # noqa: E402
+from full_conversion_campaigns import solver_audit as fc_audit  # noqa: E402
 from harness import evidence  # noqa: E402
 from report import generate as report_generate  # noqa: E402
 
@@ -148,7 +155,7 @@ def _synthetic_parsed(code_by_conversion: dict[int, int], supply_v: float = 1.8)
 class TestDecode(unittest.TestCase):
     def test_ideal_inputs_decode_to_the_ideal_codes_and_pass(self):
         ideal = {c: tb.ideal_code(tb.input_fraction(c)) for c in tb.measured_conversions()}
-        result = rc.decode(_synthetic_parsed(ideal), 1.8)
+        result = fc_common.decode(_synthetic_parsed(ideal), 1.8)
         self.assertTrue(result["all_ok"])
         self.assertEqual(result["worst_error_lsb"], 0)
         self.assertEqual(result["n_code_ok"], result["n_conversions"])
@@ -158,10 +165,10 @@ class TestDecode(unittest.TestCase):
         base = {c: tb.ideal_code(tb.input_fraction(c)) for c in tb.measured_conversions()}
         one_off = dict(base)
         one_off[tb.measured_conversions()[0]] += 1
-        self.assertTrue(rc.decode(_synthetic_parsed(one_off), 1.8)["all_ok"])
+        self.assertTrue(fc_common.decode(_synthetic_parsed(one_off), 1.8)["all_ok"])
         two_off = dict(base)
         two_off[tb.measured_conversions()[0]] += 2
-        result = rc.decode(_synthetic_parsed(two_off), 1.8)
+        result = fc_common.decode(_synthetic_parsed(two_off), 1.8)
         self.assertFalse(result["all_ok"])
         self.assertEqual(result["worst_error_lsb"], 2)
 
@@ -171,13 +178,13 @@ class TestDecode(unittest.TestCase):
         # BUSY stuck high through the SAMPLE period == conversion did not finish
         c = tb.measured_conversions()[0]
         parsed[tb.busy_measure_names(c)[-1]] = 1.8
-        result = rc.decode(parsed, 1.8)
+        result = fc_common.decode(parsed, 1.8)
         self.assertFalse(result["all_ok"])
         self.assertEqual(result["n_phase_ok"], result["n_conversions"] - 1)
 
     def test_power_sums_only_the_sources_at_a_nonzero_potential(self):
         ideal = {c: tb.ideal_code(tb.input_fraction(c)) for c in tb.measured_conversions()}
-        result = rc.decode(_synthetic_parsed(ideal), 1.8)
+        result = fc_common.decode(_synthetic_parsed(ideal), 1.8)
         expected = 1.8 * (2.0e-6 + 3.0e-6 + 2.5e-6) + 0.9 * 0.5e-6
         self.assertAlmostEqual(result["power_w"], expected, places=12)
 
@@ -185,7 +192,7 @@ class TestDecode(unittest.TestCase):
         ideal = {c: tb.ideal_code(tb.input_fraction(c)) for c in tb.measured_conversions()}
         parsed = _synthetic_parsed(ideal)
         del parsed[tb.code_measure_names(tb.measured_conversions()[0])[0]]
-        result = rc.decode(parsed, 1.8)
+        result = fc_common.decode(parsed, 1.8)
         self.assertIsNone(result["conversions"][0]["code"])
         self.assertFalse(result["all_ok"])
 
@@ -210,7 +217,7 @@ class TestDecodeRejectsNonFinite(unittest.TestCase):
         self.assertAlmostEqual(result["worst_margin_v"], self.IDEAL_MARGIN_V)
 
     def test_control_is_finite_and_passes(self):
-        result = rc.decode(_synthetic_parsed(_ideal_codes()), self.SUPPLY_V)
+        result = fc_common.decode(_synthetic_parsed(_ideal_codes()), self.SUPPLY_V)
         self.assertTrue(result["all_ok"])
         self._assert_margin_is_finite_and_ideal(result)
 
@@ -225,7 +232,7 @@ class TestDecodeRejectsNonFinite(unittest.TestCase):
                 with self.subTest(bit=which, value=label):
                     parsed = dict(parsed0)
                     parsed[name] = bad
-                    result = rc.decode(parsed, self.SUPPLY_V)
+                    result = fc_common.decode(parsed, self.SUPPLY_V)
                     cv = result["conversions"][0]
                     self.assertIsNone(cv["bits"][names.index(name)])
                     self.assertIsNone(cv["code"])
@@ -247,7 +254,7 @@ class TestDecodeRejectsNonFinite(unittest.TestCase):
                 with self.subTest(measure=which, value=label):
                     parsed = dict(parsed0)
                     parsed[name] = bad
-                    result = rc.decode(parsed, self.SUPPLY_V)
+                    result = fc_common.decode(parsed, self.SUPPLY_V)
                     cv = result["conversions"][0]
                     self.assertIn(None, cv["busy"] + cv["sample"])
                     self.assertFalse(cv["phase_ok"])
@@ -262,7 +269,7 @@ class TestDecodeRejectsNonFinite(unittest.TestCase):
                 with self.subTest(current=name, value=label):
                     parsed = dict(parsed0)
                     parsed[name] = bad
-                    result = rc.decode(parsed, self.SUPPLY_V)
+                    result = fc_common.decode(parsed, self.SUPPLY_V)
                     self.assertNotIn(name, result["currents"])
                     self.assertFalse(result["all_ok"])
                     if potential != 0.0:
@@ -271,7 +278,7 @@ class TestDecodeRejectsNonFinite(unittest.TestCase):
                         # zero-potential convention: no power term either way
                         self.assertAlmostEqual(
                             result["power_w"],
-                            rc.decode(parsed0, self.SUPPLY_V)["power_w"],
+                            fc_common.decode(parsed0, self.SUPPLY_V)["power_w"],
                             places=15,
                         )
                     for v in result["currents"].values():
@@ -280,7 +287,7 @@ class TestDecodeRejectsNonFinite(unittest.TestCase):
     def test_missing_current_marks_power_unavailable_not_a_partial_sum(self):
         parsed = _synthetic_parsed(_ideal_codes())
         del parsed["i_vdd"]
-        result = rc.decode(parsed, self.SUPPLY_V)
+        result = fc_common.decode(parsed, self.SUPPLY_V)
         self.assertIsNone(result["power_w"])
         self.assertNotIn("i_vdd", result["currents"])
         self.assertFalse(result["all_ok"])
@@ -298,9 +305,9 @@ class TestRunPointRejectsOverflow(unittest.TestCase):
     """run_point() end to end with ngspice and deck assembly mocked out."""
 
     def _run(self, log_text: str) -> dict:
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n"), \
-                mock.patch.object(rc, "_run_ngspice", return_value=log_text):
-            return rc.run_point("* netlist\n", None, Path("/nonexistent"), "tt", 27.0, 1.8)
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n"), \
+                mock.patch.object(fc_common, "_run_ngspice", return_value=log_text):
+            return fc_common.run_point("* netlist\n", None, Path("/nonexistent"), "tt", 27.0, 1.8)
 
     def test_finite_control_passes(self):
         point = self._run(_as_log(_synthetic_parsed(_ideal_codes())))
@@ -328,7 +335,7 @@ class TestRecordRendering(unittest.TestCase):
         codes = {
             c: tb.ideal_code(tb.input_fraction(c)) + offset for c in tb.measured_conversions()
         }
-        point = rc.decode(_synthetic_parsed(codes, supply), supply)
+        point = fc_common.decode(_synthetic_parsed(codes, supply), supply)
         point.update(
             process_corner=process, temp_c=temp, supply_v=supply, corner_id=corner_id,
             missing=[], log_text=f"* synthetic log for {corner_id}\n", wall_s=1.0,
@@ -342,7 +349,7 @@ class TestRecordRendering(unittest.TestCase):
         ]
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+            real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
             def fake_resolve(experiment_dir: Path, netlist_text: str):
                 (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -357,11 +364,11 @@ class TestRecordRendering(unittest.TestCase):
                 )
 
             try:
-                rc.EXPERIMENT_DIR = tmp_dir
+                fc_common.EXPERIMENT_DIR = tmp_dir
                 evidence.resolve_provenance = fake_resolve
-                path = rc.write_record(points, "* synthetic netlist\n")
+                path = fc_dc.write_record(points, "* synthetic netlist\n")
             finally:
-                rc.EXPERIMENT_DIR = real_dir
+                fc_common.EXPERIMENT_DIR = real_dir
                 evidence.resolve_provenance = real_resolve
 
             text = path.read_text()
@@ -381,7 +388,7 @@ class TestRecordRendering(unittest.TestCase):
     def test_finite_power_renders_as_before(self):
         point = self._point("tt_27c_1.80v", "tt", 27.0, 1.8, 0)
         expected_uw = f"{point['power_w'] * 1e6:.3f}"
-        line = rc.format_point(point)
+        line = fc_common.format_point(point)
         self.assertIn(f"P={expected_uw}uW", line)
         self.assertIn(f"IDD={1e6 * (2.0e-6 + 3.0e-6 + 2.5e-6):.3f}uA", line)
 
@@ -393,14 +400,14 @@ class TestRecordRendering(unittest.TestCase):
         bad["power_w"] = None
         bad["all_ok"] = False
 
-        line = rc.format_point(bad)
+        line = fc_common.format_point(bad)
         self.assertIn("P=n/auW", line)
         self.assertIn("IDD=n/auA", line)
         self.assertIn("FAIL", line)
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+            real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
             def fake_resolve(experiment_dir: Path, netlist_text: str):
                 (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -415,11 +422,11 @@ class TestRecordRendering(unittest.TestCase):
                 )
 
             try:
-                rc.EXPERIMENT_DIR = tmp_dir
+                fc_common.EXPERIMENT_DIR = tmp_dir
                 evidence.resolve_provenance = fake_resolve
-                path = rc.write_record([good, bad], "* synthetic netlist\n")
+                path = fc_dc.write_record([good, bad], "* synthetic netlist\n")
             finally:
-                rc.EXPERIMENT_DIR = real_dir
+                fc_common.EXPERIMENT_DIR = real_dir
                 evidence.resolve_provenance = real_resolve
 
             text = path.read_text()
@@ -444,15 +451,15 @@ class TestNodeTracePlan(unittest.TestCase):
     helpers: the measurement plan and the `.meas` lines it emits."""
 
     def test_ten_phases_msb_first(self):
-        plan = rc.node_trace_plan(2)
+        plan = fc_common.node_trace_plan(2)
         self.assertEqual(len(plan), tb.N_BITS)
         self.assertEqual([e["phase"] for e in plan], list(range(tb.N_BITS)))
         self.assertEqual([e["bit"] for e in plan], list(range(tb.N_BITS - 1, -1, -1)))
 
     def test_measure_lines_cover_every_name_exactly_once(self):
-        plan = rc.node_trace_plan(2)
-        lines = rc.node_trace_measure_lines(plan)
-        for name in rc._node_trace_names(plan):
+        plan = fc_common.node_trace_plan(2)
+        lines = fc_common.node_trace_measure_lines(plan)
+        for name in fc_common._node_trace_names(plan):
             self.assertEqual(
                 sum(1 for ln in lines if f".meas tran {name} " in ln),
                 1,
@@ -464,8 +471,8 @@ class TestNodeTracePlan(unittest.TestCase):
         not collide -- a collision would silently make one conversion's table
         report the other's samples."""
         names: list[str] = []
-        for conversion in rc.NODE_TRACE_CONVERSIONS:
-            names += rc._node_trace_names(rc.node_trace_plan(conversion))
+        for conversion in fc_node.NODE_TRACE_CONVERSIONS:
+            names += fc_common._node_trace_names(fc_common.node_trace_plan(conversion))
         self.assertEqual(len(names), len(set(names)), "duplicate .meas name across conversions")
 
     def test_traced_conversions_are_an_opposite_sign_msb_pair(self):
@@ -473,14 +480,14 @@ class TestNodeTracePlan(unittest.TestCase):
         conversions disagree on the ideal MSB -- otherwise a matching
         mid-evaluate level proves nothing about input dependence."""
         msbs = set()
-        for conversion in rc.NODE_TRACE_CONVERSIONS:
+        for conversion in fc_node.NODE_TRACE_CONVERSIONS:
             code = tb.ideal_code(tb.input_fraction(conversion))
             msbs.add((code >> (tb.N_BITS - 1)) & 1)
         self.assertEqual(msbs, {0, 1})
 
     def test_mid_and_pre_edge_times_land_inside_the_bit_trials_own_period(self):
         conversion = 2
-        plan = rc.node_trace_plan(conversion)
+        plan = fc_common.node_trace_plan(conversion)
         for entry in plan:
             k_start = tb.PHASES_PER_CONVERSION * conversion + entry["phase"]
             t_start = tb.t_edge_ns(k_start)
@@ -511,8 +518,8 @@ def _synthetic_node_trace(corner_id, process, temp, supply, *, all_reset, msb_tr
         return "1" if v > threshold else "0"
 
     conversions = []
-    for conversion in rc.NODE_TRACE_CONVERSIONS:
-        plan = rc.node_trace_plan(conversion)
+    for conversion in fc_node.NODE_TRACE_CONVERSIONS:
+        plan = fc_common.node_trace_plan(conversion)
         frac = tb.input_fraction(conversion)
         ideal_code = tb.ideal_code(frac)
         phases = []
@@ -557,7 +564,7 @@ class TestMsbEvaluateControl(unittest.TestCase):
 
     def test_tracks_input_when_msb_follows_the_sign_of_each_input(self):
         point = _synthetic_node_trace("tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=True)
-        control = rc.msb_evaluate_control(point)
+        control = fc_node.msb_evaluate_control(point)
         self.assertTrue(control["discriminating"])
         self.assertTrue(control["tracks_input"])
 
@@ -565,7 +572,7 @@ class TestMsbEvaluateControl(unittest.TestCase):
         point = _synthetic_node_trace(
             "tt_27c_1.62v", "tt", 27.0, 1.62, all_reset=True, msb_tracks=False
         )
-        control = rc.msb_evaluate_control(point)
+        control = fc_node.msb_evaluate_control(point)
         self.assertFalse(control["tracks_input"])
 
 
@@ -582,7 +589,7 @@ class TestWriteNodeTraceRecord(unittest.TestCase):
         # delete it on return, before the caller ever reads the file).
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -597,11 +604,11 @@ class TestWriteNodeTraceRecord(unittest.TestCase):
             )
 
         try:
-            rc.EXPERIMENT_DIR = tmp_dir
+            fc_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
-            path = rc.write_node_trace_record(traces, "* synthetic netlist\n")
+            path = fc_node.write_node_trace_record(traces, "* synthetic netlist\n")
         finally:
-            rc.EXPERIMENT_DIR = real_dir
+            fc_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
@@ -615,7 +622,7 @@ class TestWriteNodeTraceRecord(unittest.TestCase):
         self.assertIn("**Uniform.**", text)
         self.assertIn("comparator core is alive and input-dependent", text)
         # Both traced conversions must appear as their own table.
-        for conversion in rc.NODE_TRACE_CONVERSIONS:
+        for conversion in fc_node.NODE_TRACE_CONVERSIONS:
             self.assertIn(f"### Conversion {conversion} ", text)
         self.assertFalse((tmp_dir / "records" / "LATEST").exists())
         for corner_id in traces:
@@ -664,14 +671,14 @@ class TestNodeTracePlanCommonModeProbes(unittest.TestCase):
     for DR-008's common-mode-headroom hypothesis."""
 
     def test_plan_names_include_top_plate_probes(self):
-        plan = rc.node_trace_plan(1)
+        plan = fc_common.node_trace_plan(1)
         for entry in plan:
             for key in ("top_p_mid", "top_n_mid", "top_p_pre", "top_n_pre"):
                 self.assertIn(key, entry["names"])
 
     def test_measure_lines_probe_top_p_and_top_n_nodes(self):
-        plan = rc.node_trace_plan(5)
-        lines = rc.node_trace_measure_lines(plan)
+        plan = fc_common.node_trace_plan(5)
+        lines = fc_common.node_trace_measure_lines(plan)
         top_p_lines = [ln for ln in lines if "find v(TOP_P)" in ln]
         top_n_lines = [ln for ln in lines if "find v(TOP_N)" in ln]
         # Two probes (mid, pre) per bit trial, ten bit trials.
@@ -694,8 +701,8 @@ def _synthetic_cm_trace(corner_id, process, temp, supply, *, droop_from_phase):
         return "1" if v > threshold else "0"
 
     conversions = []
-    for conversion in rc.CM_TRACE_CONVERSIONS:
-        plan = rc.node_trace_plan(conversion)
+    for conversion in fc_cm.CM_TRACE_CONVERSIONS:
+        plan = fc_common.node_trace_plan(conversion)
         frac = tb.input_fraction(conversion)
         ideal_code = tb.ideal_code(frac)
         sign_hi = frac > 0
@@ -749,7 +756,7 @@ class TestWriteCmTraceRecord(unittest.TestCase):
     def _write(self, traces: dict) -> tuple[Path, Path]:
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -764,11 +771,11 @@ class TestWriteCmTraceRecord(unittest.TestCase):
             )
 
         try:
-            rc.EXPERIMENT_DIR = tmp_dir
+            fc_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
-            path = rc.write_cm_trace_record(traces, "* synthetic netlist\n")
+            path = fc_cm.write_cm_trace_record(traces, "* synthetic netlist\n")
         finally:
-            rc.EXPERIMENT_DIR = real_dir
+            fc_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
@@ -815,7 +822,7 @@ class TestGainOffsetFit(unittest.TestCase):
     def test_recovers_known_gain_and_offset(self):
         pairs = list(zip(self.IDEAL,
                          [int(round(0.99 * x - 3.0)) for x in self.IDEAL]))
-        fit = rc.fit_gain_offset(pairs)
+        fit = fc_common.fit_gain_offset(pairs)
         self.assertAlmostEqual(fit["g"], 0.99, places=2)
         self.assertAlmostEqual(fit["offset"], -3.0, delta=1.0)
         self.assertAlmostEqual(fit["eps_lsb"], 0.01 * 1024, delta=4.0)
@@ -823,27 +830,27 @@ class TestGainOffsetFit(unittest.TestCase):
 
     def test_saturated_and_missing_codes_are_excluded(self):
         pairs = [(113, 112), (384, 383), (512, 511), (640, 639), (911, 1023)]
-        fit = rc.fit_gain_offset(pairs)
+        fit = fc_common.fit_gain_offset(pairs)
         self.assertEqual(fit["n_used"], 4)
         self.assertAlmostEqual(fit["g"], 1.0, places=3)
         pairs[0] = (113, None)
-        self.assertEqual(rc.fit_gain_offset(pairs)["n_used"], 3)
+        self.assertEqual(fc_common.fit_gain_offset(pairs)["n_used"], 3)
 
     def test_too_few_points_returns_none(self):
-        self.assertIsNone(rc.fit_gain_offset([(512, 511), (640, 1023)]))
-        self.assertIsNone(rc.fit_gain_offset([(512, None), (640, 0)]))
+        self.assertIsNone(fc_common.fit_gain_offset([(512, 511), (640, 1023)]))
+        self.assertIsNone(fc_common.fit_gain_offset([(512, None), (640, 0)]))
 
     def test_corrected_codes_are_exact_for_exact_line(self):
         g, off = 0.992, -2.5
         pairs = [(x, g * x + off) for x in self.IDEAL]
-        errs = rc.corrected_code_errors(pairs, g, off)
+        errs = fc_common.corrected_code_errors(pairs, g, off)
         for e in errs:
             self.assertAlmostEqual(e, 0.0, places=9)
-        self.assertEqual(rc.corrected_code_errors([(512, None)], g, off), [None])
+        self.assertEqual(fc_common.corrected_code_errors([(512, None)], g, off), [None])
 
     def test_resolution_bound_scales_with_span(self):
-        wide = rc.fit_gain_offset([(113, 112), (512, 511), (911, 910)])
-        narrow = rc.fit_gain_offset([(384, 383), (512, 511), (640, 639)])
+        wide = fc_common.fit_gain_offset([(113, 112), (512, 511), (911, 910)])
+        narrow = fc_common.fit_gain_offset([(384, 383), (512, 511), (640, 639)])
         self.assertAlmostEqual(wide["resolution_lsb"], 2 * 1024 / 798)
         self.assertAlmostEqual(narrow["resolution_lsb"], 2 * 1024 / 256)
 
@@ -853,7 +860,7 @@ class TestGainOffsetFit(unittest.TestCase):
             dict(fraction=f, ideal_code=tb.ideal_code(f), code=c)
             for f, c in codes.items()
         ])
-        an = rc.point_gain_analysis(point)
+        an = fc_common.point_gain_analysis(point)
         self.assertEqual(an["mid"]["n_used"], 3)
         self.assertEqual(an["all"]["n_used"], 4)
         self.assertGreater(an["mid"]["g"], 1.0)  # (641-383)/(640-384)
@@ -864,7 +871,7 @@ class TestGainOffsetFit(unittest.TestCase):
             dict(fraction=f, ideal_code=tb.ideal_code(f), code=c)
             for f, c in codes.items()
         ])
-        text = "\n".join(rc.gain_record_lines([point]))
+        text = "\n".join(fc_common.gain_record_lines([point]))
         self.assertIn("not** DR-022's bit-8-pair", text)
         self.assertIn("res_typical__cap_typical", text)
         self.assertIn("0.99200", text)

@@ -43,7 +43,14 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 import dynamic_enob as de  # noqa: E402
 import gen_full_conversion_tb as tb  # noqa: E402
 import run_conversion as rc  # noqa: E402
-from harness import evidence  # noqa: E402
+from full_conversion_campaigns import cm_trace as fc_cm  # noqa: E402
+from full_conversion_campaigns import coherent_sine as fc_sine  # noqa: E402
+from full_conversion_campaigns import common as fc_common  # noqa: E402
+from full_conversion_campaigns import dc_codes as fc_dc  # noqa: E402
+from full_conversion_campaigns import decision_margin as fc_dm  # noqa: E402
+from full_conversion_campaigns import node_trace as fc_node  # noqa: E402
+from full_conversion_campaigns import solver_audit as fc_audit  # noqa: E402
+from harness import evidence, measure  # noqa: E402
 
 
 def _naive_dft(x: list[float]) -> list[complex]:
@@ -240,9 +247,9 @@ def _ideal_capture() -> dict[int, int]:
 
 class TestRunSinePoint(unittest.TestCase):
     def _run(self, log_text: str) -> dict:
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n"), \
-                mock.patch.object(rc, "_run_ngspice", return_value=log_text) as run:
-            point = rc.run_sine_point(
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n"), \
+                mock.patch.object(fc_common, "_run_ngspice", return_value=log_text) as run:
+            point = fc_sine.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
             )
@@ -257,7 +264,7 @@ class TestRunSinePoint(unittest.TestCase):
         self.assertAlmostEqual(point["analysis"]["sndr_db"], point["ideal"]["sndr_db"], places=9)
         self.assertEqual(point["analysis"]["peak_bin"], tb.SINE_TONE_BIN)
 
-        self.assertEqual(rc.sine_point_problems(point), [])
+        self.assertEqual(fc_sine.sine_point_problems(point), [])
 
     def test_missing_code_is_not_analysable(self):
         capture = _ideal_capture()
@@ -266,7 +273,7 @@ class TestRunSinePoint(unittest.TestCase):
         self.assertIsNone(point["analysis"])
         self.assertIn("missing", point["analysis_error"])
         self.assertTrue(point["missing"])
-        self.assertTrue(rc.sine_point_problems(point))
+        self.assertTrue(fc_sine.sine_point_problems(point))
 
     def test_wrong_phase_structure_invalidates_an_analysable_stream(self):
         # The pilot probe's shape: codes collapsed onto the input's sign
@@ -279,16 +286,16 @@ class TestRunSinePoint(unittest.TestCase):
         point = self._run(_sine_log(capture, busy_stuck_high=True))
         self.assertIsNotNone(point["analysis"])
         self.assertFalse(any(point["phase_ok"]))
-        problems = rc.sine_point_problems(point)
+        problems = fc_sine.sine_point_problems(point)
         self.assertTrue(any("phase structure wrong" in p for p in problems))
-        self.assertIn("INVALID", rc.format_sine_point(point))
+        self.assertIn("INVALID", fc_sine.format_sine_point(point))
 
 
 class TestOutlierDiagnostic(unittest.TestCase):
     def _point(self, capture: dict) -> dict:
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n"), \
-                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(capture)):
-            return rc.run_sine_point(
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n"), \
+                mock.patch.object(fc_common, "_run_ngspice", return_value=_sine_log(capture)):
+            return fc_sine.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
             )
@@ -307,13 +314,13 @@ class TestOutlierDiagnostic(unittest.TestCase):
         self.assertIsNone(d["leave_out"])
 
     def test_exactly_at_boundary_is_not_an_outlier(self):
-        b = rc.SINE_OUTLIER_BOUND_LSB
+        b = fc_sine.SINE_OUTLIER_BOUND_LSB
         d = self._with_errors({3: b, 5: -b})["outlier_diag"]
         self.assertEqual(d["outliers"], [])
         self.assertEqual(d["max_abs_error"], b)
 
     def test_beyond_boundary(self):
-        b = rc.SINE_OUTLIER_BOUND_LSB
+        b = fc_sine.SINE_OUTLIER_BOUND_LSB
         point = self._with_errors({3: b + 1})
         d = point["outlier_diag"]
         self.assertEqual([o["sample"] for o in d["outliers"]], [3])
@@ -322,7 +329,7 @@ class TestOutlierDiagnostic(unittest.TestCase):
         self.assertEqual(o["captured"] - o["ideal"], b + 1)
         self.assertEqual(o["conversion"], tb.sine_measured_conversions()[3])
         # a validity-clean capture stays valid
-        self.assertEqual(rc.sine_point_problems(point), [])
+        self.assertEqual(fc_sine.sine_point_problems(point), [])
 
     def test_multiple_outliers_signed(self):
         d = self._with_errors({2: -20, 9: 15, 11: 3})["outlier_diag"]
@@ -339,7 +346,7 @@ class TestOutlierDiagnostic(unittest.TestCase):
         self.assertEqual(point["codes"][8], point["ideal_codes"][8] + 438)
         self.assertLess(point["analysis"]["sndr_db"], d["leave_out"]["sndr_db"] - 10)
         self.assertAlmostEqual(d["leave_out"]["sndr_db"], point["ideal"]["sndr_db"], places=6)
-        self.assertIn("OUTLIER", rc.format_outlier_summary(point))
+        self.assertIn("OUTLIER", fc_sine.format_outlier_summary(point))
 
     def test_record_labels_diagnostic_only(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -354,31 +361,31 @@ class TestOutlierDiagnostic(unittest.TestCase):
         capture[tb.sine_measured_conversions()[3]] = None
         point = self._point(capture)
         self.assertIsNone(point["analysis"])
-        self.assertTrue(any("missing" in p for p in rc.sine_point_problems(point)))
+        self.assertTrue(any("missing" in p for p in fc_sine.sine_point_problems(point)))
         self.assertEqual(point["outlier_diag"]["outliers"], [])
         # wrong tone bin
         bad = self._point({
             c: 512 + round(300 * math.cos(2 * math.pi * 3 * i / tb.SINE_RECORD_N))
             for i, c in enumerate(tb.sine_measured_conversions())
         })
-        self.assertTrue(any("not the drive bin" in p for p in rc.sine_point_problems(bad)))
+        self.assertTrue(any("not the drive bin" in p for p in fc_sine.sine_point_problems(bad)))
 
 
 class TestSineTrace(unittest.TestCase):
     def _trace(self, ideal: int, got: int) -> dict:
         conv = 9
         lines = []
-        for entry in rc.node_trace_plan(conv):
+        for entry in fc_common.node_trace_plan(conv):
             for k, name in entry["names"].items():
                 val = 0.0
                 if k == "dout_post":
                     val = 1.8 if (got >> entry["bit"]) & 1 else 0.0
                 lines.append(f"{name} = {val:.6e}")
-        parsed = rc.measure.parse("\n".join(lines), [n.split(" = ")[0] for n in lines], anchored=False)
-        return rc.decode_sine_trace(parsed, conv, ideal, 1.8)
+        parsed = measure.parse("\n".join(lines), [n.split(" = ")[0] for n in lines], anchored=False)
+        return fc_sine.decode_sine_trace(parsed, conv, ideal, 1.8)
 
     def test_probes_use_sine_fragment_node_names(self):
-        text = "\n".join(rc.sine_trace_measure_lines(9))
+        text = "\n".join(fc_sine.sine_trace_measure_lines(9))
         self.assertIn("v(dout9)", text)
         self.assertIn("v(adcout0)", text)
         self.assertNotIn("v(dout0)", text)
@@ -417,7 +424,7 @@ class TestSwitchTrace(unittest.TestCase):
         plus `extra` (node, direction, t_ns) transitions."""
         c = self.CONV
         base = tb.PHASES_PER_CONVERSION * c
-        names = rc.switch_trace_names(c)["events"]
+        names = fc_common.switch_trace_names(c)["events"]
         ev: dict[tuple[str, str], list[float]] = {}
 
         def at(node, d, edge, delay=1.5):
@@ -441,13 +448,13 @@ class TestSwitchTrace(unittest.TestCase):
             ev.setdefault((node, d), []).append(t)
         lines = []
         for (node, d), times in ev.items():
-            for i, t in enumerate(sorted(times)[: rc.SWITCH_TRACE_MAX_EDGES], start=1):
+            for i, t in enumerate(sorted(times)[: fc_common.SWITCH_TRACE_MAX_EDGES], start=1):
                 lines.append(f"{names[node][(d, i)]} = {t * 1e-9:.9e}")
         return lines
 
     def _decode(self, lines: list[str]) -> dict:
-        parsed = rc.measure.parse("\n".join(lines), rc.switch_trace_flat_names(self.CONV))
-        return rc.decode_switch_trace(parsed, self.CONV, 1.8)
+        parsed = measure.parse("\n".join(lines), fc_sine.switch_trace_flat_names(self.CONV))
+        return fc_common.decode_switch_trace(parsed, self.CONV, 1.8)
 
     def test_schedule_following_conversion_has_no_unscheduled_event(self):
         st = self._decode(self._event_lines(522))
@@ -475,35 +482,35 @@ class TestSwitchTrace(unittest.TestCase):
         self.assertFalse(fu["scheduled"])
 
     def test_edge_window_bounds(self):
-        exp = rc.switch_trace_expected_edges(self.CONV)
+        exp = fc_common.switch_trace_expected_edges(self.CONV)
         base = tb.PHASES_PER_CONVERSION * self.CONV
-        lo, hi = rc.SWITCH_TRACE_EDGE_WINDOW_NS
+        lo, hi = fc_common.SWITCH_TRACE_EDGE_WINDOW_NS
         edge = tb.t_edge_ns(base + 1)
-        self.assertTrue(rc.classify_switch_event("DOUT8", edge + hi, exp, "rise")["scheduled"])
-        self.assertTrue(rc.classify_switch_event("DOUT8", edge + lo, exp, "rise")["scheduled"])
-        self.assertFalse(rc.classify_switch_event("DOUT8", edge + hi + 0.5, exp, "rise")["scheduled"])
+        self.assertTrue(fc_common.classify_switch_event("DOUT8", edge + hi, exp, "rise")["scheduled"])
+        self.assertTrue(fc_common.classify_switch_event("DOUT8", edge + lo, exp, "rise")["scheduled"])
+        self.assertFalse(fc_common.classify_switch_event("DOUT8", edge + hi + 0.5, exp, "rise")["scheduled"])
 
     def test_measure_lines_are_read_only_and_named_uniquely(self):
-        lines = rc.switch_trace_measure_lines(self.CONV, 1.8)
+        lines = fc_common.switch_trace_measure_lines(self.CONV, 1.8)
         text = "\n".join(lines)
         self.assertTrue(all(ln.startswith((".meas tran ", "*")) for ln in lines))
         self.assertIn("when v(DOUT8)=0.9000 rise=1 from=", text)
         self.assertIn("find v(xcdac.BOT_p8) when v(TOP_P)=-0.2000 fall=1", text)
         # ring PORTS are probed on the nets the netlist wires them to
         # (`xseq.<port>` does not exist in ngspice); internal nets keep xseq.
-        ports = rc.sequencer_port_nets()
+        ports = fc_common.sequencer_port_nets()
         self.assertIn(f"v({ports['PH_B4']})", text)
         self.assertNotIn("v(xseq.PH_B4)", text)
         self.assertIn("v(xseq.DFEED8)", text)
         self.assertIn("v(xseq.MUXOUT9)", text)
-        names = rc.switch_trace_flat_names(self.CONV)
+        names = fc_sine.switch_trace_flat_names(self.CONV)
         self.assertEqual(len(names), len(set(names)))
         self.assertEqual(len(names), sum(1 for ln in lines if ln.startswith(".meas")))
         for n in names:
             self.assertRegex(n, r"^[a-z_][a-z0-9_]*$")
 
     def test_excursion_and_snapshot_decode_and_render(self):
-        names = rc.switch_trace_names(self.CONV)
+        names = fc_common.switch_trace_names(self.CONV)
         base = tb.PHASES_PER_CONVERSION * self.CONV
         t_off = tb.t_edge_ns(base + 5) + 44.0
         lines = self._event_lines(522, [("DOUT8", "rise", t_off - 1.0)])
@@ -527,17 +534,17 @@ class TestSwitchTrace(unittest.TestCase):
         self.assertIn("SELp8..0 `1????????`", text)
         self.assertIn("-0.505", text)
         self.assertIn("first UNSCHEDULED transition: DOUT8 rise",
-                      rc.format_switch_trace_summary(st))
+                      fc_sine.format_switch_trace_summary(st))
 
     def test_sequencer_port_map_comes_from_the_netlist(self):
-        ports = rc.sequencer_port_nets()
+        ports = fc_common.sequencer_port_nets()
         self.assertEqual(ports["PH_B9"], "PH_B9")
         self.assertEqual(ports["CLK"], "CLK")
         self.assertEqual(ports["PH_SAMPLE"], "SAMPLE_INT")
         for b in range(tb.N_BITS):
             self.assertIn(f"PH_B{b}", ports)
         with self.assertRaises(ValueError):
-            rc.sequencer_port_nets("* no sequencer here\n")
+            fc_common.sequencer_port_nets("* no sequencer here\n")
 
     def test_context_nets_are_recorded_but_not_classified(self):
         base = tb.PHASES_PER_CONVERSION * self.CONV
@@ -549,23 +556,23 @@ class TestSwitchTrace(unittest.TestCase):
         self.assertEqual(st["unscheduled"], [])
 
     def test_strobe_window_rendered_for_first_unscheduled_phase(self):
-        names = rc.switch_trace_names(self.CONV)
+        names = fc_common.switch_trace_names(self.CONV)
         base = tb.PHASES_PER_CONVERSION * self.CONV
         lines = self._event_lines(522, [("DOUT8", "rise", tb.t_edge_ns(base + 5) + 44.3)])
         lines.append(f"{names['strobe'][(5, 3)]['xseq.DFEED8']} = 1.8")
         lines.append(f"{names['strobe'][(5, 3)]['COMP_OUT']} = 0.48")
         st = self._decode(lines)
         self.assertEqual(st["strobe"][(5, 3)]["xseq.DFEED8"], 1.8)
-        text = "\n".join(rc.switch_trace_record_lines([st]))
+        text = "\n".join(fc_sine.switch_trace_record_lines([st]))
         self.assertIn("#### Strobe window, phase 5", text)
         self.assertIn("| 0.480 |", text)
         self.assertIn("`1????????` |", text)
 
     def test_logic_char_bands(self):
-        self.assertEqual(rc._logic_char(None, 1.8), "?")
-        self.assertEqual(rc._logic_char(0.9, 1.8), "x")
-        self.assertEqual(rc._logic_char(1.7, 1.8), "1")
-        self.assertEqual(rc._logic_char(0.1, 1.8), "0")
+        self.assertEqual(fc_sine._logic_char(None, 1.8), "?")
+        self.assertEqual(fc_sine._logic_char(0.9, 1.8), "x")
+        self.assertEqual(fc_sine._logic_char(1.7, 1.8), "1")
+        self.assertEqual(fc_sine._logic_char(0.1, 1.8), "0")
 
 
 class TestBehavioralReference(unittest.TestCase):
@@ -577,20 +584,20 @@ class TestBehavioralReference(unittest.TestCase):
                 "**8.507 bit**; achieved ENOB (worst-case CDAC mismatch) = **7.7 bit**\n"
             )
             (d / "LATEST").write_text("R1.md\n")
-            ref = rc.behavioral_enob_reference(d)
+            ref = fc_sine.behavioral_enob_reference(d)
         self.assertAlmostEqual(ref["enob_bit"], 8.507)
 
     def test_absent_is_none(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertIsNone(rc.behavioral_enob_reference(Path(tmp)))
+            self.assertIsNone(fc_sine.behavioral_enob_reference(Path(tmp)))
 
     def test_committed_latest_is_parseable(self):
-        self.assertIsNotNone(rc.behavioral_enob_reference())
+        self.assertIsNotNone(fc_sine.behavioral_enob_reference())
 
 
 class TestSineRecord(unittest.TestCase):
     def _write(self, point: dict, tmp_dir: Path) -> Path:
-        real_dir, real_resolve = rc.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
@@ -603,21 +610,21 @@ class TestSineRecord(unittest.TestCase):
             )
 
         try:
-            rc.EXPERIMENT_DIR = tmp_dir
+            fc_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
-            return rc.write_sine_record(
+            return fc_sine.write_sine_record(
                 point, "* netlist\n", "",
                 "sim/full-conversion-transient/run_conversion.py --coherent-sine --record",
                 {"record": "sim/enob-estimate/records/X.md", "enob_bit": 8.507},
             )
         finally:
-            rc.EXPERIMENT_DIR = real_dir
+            fc_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
 
     def _point(self, capture: dict) -> dict:
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n"), \
-                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(capture)):
-            return rc.run_sine_point(
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n"), \
+                mock.patch.object(fc_common, "_run_ngspice", return_value=_sine_log(capture)):
+            return fc_sine.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
             )
@@ -659,10 +666,10 @@ class TestSineRecord(unittest.TestCase):
             c: (640 if tb.sine_input_fraction(c) > 0 else 383)
             for c in tb.sine_measured_conversions()
         }
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n"), \
-                mock.patch.object(rc, "_run_ngspice",
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n"), \
+                mock.patch.object(fc_common, "_run_ngspice",
                                   return_value=_sine_log(capture, busy_stuck_high=True)):
-            point = rc.run_sine_point(
+            point = fc_sine.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
             )
@@ -714,14 +721,14 @@ class TestCli(unittest.TestCase):
     def test_legacy_sine_solver_control_flag_is_now_the_reference_policy(self):
         # issue #621's control settings are DR-023's reference policy, so the
         # kept flag resolves to the reference profile and is no longer a control
-        self.assertEqual(rc.SINE_SOLVER_CONTROL_PROFILE, rc.REFERENCE_SOLVER_PROFILE)
-        self.assertEqual(rc.SINE_SOLVER_CONTROL_OPTIONS, ".options reltol=1e-4 method=gear")
-        self.assertFalse(rc.is_solver_control(rc.SINE_SOLVER_CONTROL_PROFILE))
+        self.assertEqual(fc_sine.SINE_SOLVER_CONTROL_PROFILE, fc_common.REFERENCE_SOLVER_PROFILE)
+        self.assertEqual(fc_sine.SINE_SOLVER_CONTROL_OPTIONS, ".options reltol=1e-4 method=gear")
+        self.assertFalse(fc_common.is_solver_control(fc_sine.SINE_SOLVER_CONTROL_PROFILE))
 
     def test_control_profile_is_passed_to_deck_assembly_and_labelled(self):
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
-                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
-            point = rc.run_sine_point(
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n") as deck, \
+                mock.patch.object(fc_common, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
+            point = fc_sine.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
                 solver_profile="ngspice-default",
@@ -737,13 +744,13 @@ class TestCli(unittest.TestCase):
                       "`.options` card -- reltol=1e-3, method=trapezoidal", text)
 
     def test_reference_sine_record_states_the_resolved_settings(self):
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
-                mock.patch.object(rc, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
-            point = rc.run_sine_point(
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n") as deck, \
+                mock.patch.object(fc_common, "_run_ngspice", return_value=_sine_log(_ideal_capture())):
+            point = fc_sine.run_sine_point(
                 "* netlist\n", None, Path("/nonexistent"),
                 tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION,
             )
-        self.assertEqual(deck.call_args.kwargs["solver_profile"], rc.REFERENCE_SOLVER_PROFILE)
+        self.assertEqual(deck.call_args.kwargs["solver_profile"], fc_common.REFERENCE_SOLVER_PROFILE)
         with tempfile.TemporaryDirectory() as tmp:
             text = TestSineRecord()._write(point, Path(tmp)).read_text()
         self.assertNotIn("SOLVER-CONTROL RUN", text)
