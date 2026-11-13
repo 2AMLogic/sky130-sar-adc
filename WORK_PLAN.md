@@ -5,7 +5,7 @@
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-_None._
+- **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 
 ## Very Important
 
@@ -30,10 +30,12 @@ _None._
 
 Issues currently being built (`loom:building`).
 
+- **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
 - **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
+- **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
 
 ## PRs Awaiting Review
 
@@ -45,7 +47,7 @@ PRs waiting on Judge (`loom:review-requested`).
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 
 ## Proposed
 
@@ -61,10 +63,15 @@ Issues carrying `loom:curated`.
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route) *(curated)*
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report) *(curated)*
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split) *(curated)*
+- **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits" *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
+- **#854**: Fold the 10 copy-pasted toolchain SKIP/FAIL gates in sim drivers into one harness helper (two copies drop warnings) *(hermit)*
+- **#859**: Consolidate four hand-rolled PDK-root lookups onto sim/harness/pdk.resolve() *(hermit)*
+- **#860**: Consolidate three xschem netlisting helpers with conflicting exit-code policies onto toolchain.netlist_with_xschem() *(hermit)*
+- **#861**: Split the 4.7k-line run_conversion.py into per-campaign modules behind the existing CLI *(hermit)*
 
 ## Epics
 
@@ -74,14 +81,14 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 4 |
+| In Progress (`loom:building`) | 6 |
 | PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 0 |
-| Curated | 10 |
-| Architect / Hermit proposals | 1 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 11 |
+| Architect / Hermit proposals | 5 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
