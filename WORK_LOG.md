@@ -8,6 +8,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-13
 
+- **PR #893**: sim: run the vcm-drive-budget PVT grid as one klt sim request
+- **Issue #881** (closed): vcm-drive-budget: port --corners to klt sim and re-mint the four full-grid records after #874
 - **Issue #879** (closed): test: the decision-margin and sequencer-port netlist-shape guards have no test in either direction
 - **PR #883**: test: cover both netlist-shape guards on synthetic netlists
 - **Issue #880** (closed): vcm-drive-budget: mint superseding records after #874 and restate text citing the old '<= 0 ohm' / '9 of 9 rescued' wording
