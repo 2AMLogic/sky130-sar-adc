@@ -95,6 +95,35 @@ which *leg* of the budget ``--corners`` repeats per corner:
 Nothing about the single-corner default path above is changed;
 ``--corners``/``--window``/``--sweep`` are purely additive.
 
+HOW ``--corners`` EXECUTES: ``klt sim``, NOT A LOCAL ngspice LOOP (issue
+#881, 2026-11-13). Both ``--corners`` legs used to run their grid as an
+in-process ``ngspice`` loop, one subprocess per (corner, swept value) -- 72
+solves for the worst-window bare sweep, 117 for its decouple sibling.
+CLAUDE.md's host rule forbids a hand-launched grid on this shared dispatch
+worker, so the four full-PVT-grid records this mode minted could not be
+re-run at all as the driver stood. Each ``--corners`` invocation is now ONE
+``klt sim`` request submitted to the batch fleet through
+``sim/harness/klt_sim.py`` (which passes ``--wait-for-capacity 600``), one
+unit per corner, every swept value an ``analysis_steps[]`` entry inside that
+unit -- the pattern
+``sim/input-drive-budget/run_input_drive_budget.py`` established. The
+single-corner default path is unchanged and still runs locally, which is
+what it is: one unit.
+
+One shared deck body cannot bake a corner's supply into a literal the way a
+regenerated per-corner deck can, so the port made four deck changes (the
+supply-tracking ``VCM`` and ``SAMPLE`` sources, the ``vsup`` element name the
+corner axis alters, and an always-present ``Cdecouple`` card whose
+``C_decouple = 0`` control row is a negligible capacitance rather than an
+omitted card). All four are listed in ``DECK_PORT_CHANGES`` and restated in
+every record this path mints, beside the PDK-commit, simulator-version and
+execution-route differences against the record each one supersedes. ``--probe``
+is the single-unit control that separates those deck changes from the rest:
+one corner, one swept resistance, the ported deck and the pre-port
+``build_transient()`` deck run against each other on the SAME host and PDK.
+
+    python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --dry-run
+    python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --probe
     python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record
     python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --window legacy --record
     python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --sweep decouple --record
@@ -103,7 +132,12 @@ Nothing about the single-corner default path above is changed;
 from __future__ import annotations
 
 import argparse
+import json
+import math
+import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parent.parent
@@ -111,7 +145,13 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, evidence, measure, toolchain  # noqa: E402
+from harness import (  # noqa: E402
+    corners as corners_mod,
+    evidence,
+    klt_sim,
+    measure,
+    toolchain,
+)
 
 DUT_FRAGMENT = (
     SIM_DIR / "sampling-frontend" / "testbench" / "sampling_frontend_dut.spice"
@@ -165,6 +205,89 @@ R_SOURCE_SWEEP_LEGACY_OHM = [0.0, 10e3, 100e3]
 # pad decoupling relaxes the bare-R_source budget.
 C_DECOUPLE_SWEEP_F = [0.0, 1e-12, 10e-12, 100e-12, 1e-9]
 
+# ---------------------------------------------------------------------------
+# --corners execution constants: ONE `klt sim` request per invocation (#881)
+# ---------------------------------------------------------------------------
+#: The `corners.supply_v` axis key. `klt sim` applies that axis as a literal
+#: `alter <key>=<value>`, so the key IS the supply source's element name -- a
+#: key naming no element is refused, and a mismatch would otherwise simulate
+#: the nominal supply at every corner. The `--corners` deck body therefore
+#: declares the supply source under this exact name
+#: (sim/input-drive-budget/run_input_drive_budget.py's own convention).
+SUPPLY_KEY = "vsup"
+
+#: The resistance actually emitted for the `R_source = 0` control row.
+#: `build_transient()` already used this literal, for the reason stated at
+#: its own call site (a 0-ohm resistor is an ngspice singular-matrix /
+#: convergence footgun on some ngspice versions). It is named here because
+#: the `klt sim` steps `alter` the same card and must emit the same value.
+R_IDEAL_OHM = 1.0e-6
+
+#: The capacitance emitted for the `C_decouple = 0` control row of the
+#: `--corners --sweep decouple` request.
+#:
+#: `build_transient()` OMITS the `Cdecouple` card entirely when
+#: `C_decouple = 0`; a `klt sim` step can only `alter` a card the one shared
+#: deck body already carries, so the card is present in EVERY step and the
+#: control row is a negligible capacitance instead of an absent card. 1 aF
+#: is six orders of magnitude below the smallest swept value (1 pF) and far
+#: below the `VCM` node's own device parasitics, so it is an open circuit to
+#: the precision anything here is read at -- the same stand-in shape
+#: `R_IDEAL_OHM` already has on the resistance axis. This is a deck
+#: difference from the records a `--corners` re-run supersedes, and every
+#: record this path mints states it (see `DECK_PORT_CHANGES`).
+C_IDEAL_F = 1.0e-18
+
+#: Per-unit `options.timeout_s` for a `--corners` submission. NOT a free
+#: parameter: the batch fleet refuses a job whose CONSERVATIVE FULLY-SERIAL
+#: bound -- `timeout_s * units + 120` -- exceeds its own whole-job ceiling
+#: (`max_job_seconds`, 3600 s when this was written), which with 9 corner
+#: units caps `timeout_s` at about 386 s. 300 s holds the whole-job bound at
+#: 2820 s, inside the ceiling. The largest unit this driver submits is the
+#: worst-window `decouple` one at 36 tran steps; each record's `klt sim` run
+#: block reports the per-corner `runtime_s` the fleet actually measured, so
+#: the headroom is checkable rather than asserted. Raising this is not free
+#: -- check it against the ceiling and the unit count first, or the submit
+#: is refused before anything runs.
+DEFAULT_TIMEOUT_S = 300.0
+
+#: CLAUDE.md's fleet rule: the fleet is vCPU-budgeted, so a burst is refused
+#: with `batch_no_capacity` unless the submit may wait with backoff. Applied
+#: by `harness.klt_sim.submit_argv()` on every non-local submit, shared with
+#: every other batch campaign (issue #865).
+CAPACITY_WAIT_S = klt_sim.DEFAULT_CAPACITY_WAIT_S
+
+SubmitError = klt_sim.SubmitError
+
+#: Every way the one shared `--corners` deck body differs from the per-corner
+#: deck `build_transient()` regenerates, stated in each record this path
+#: mints so a reader comparing a new record against the one it supersedes can
+#: see what changed besides the PDK and simulator versions. Each entry is a
+#: consequence of "one deck body, corner applied as an axis" -- see
+#: `build_corners_body()`.
+DECK_PORT_CHANGES = [
+    "**Supply-tracking `VCM` source.** The per-corner deck wrote `VCM`'s "
+    "ideal level as a literal (`dc {vdd * VCM_FRAC}`) because it regenerated "
+    "a deck per corner. One shared body cannot, so `VCM_IDEAL` is driven by "
+    "a behavioural source `Bvcm VCM_IDEAL 0 V=v(VDD)*VCM_FRAC`, which "
+    "evaluates to the same level at every corner the grid runs.",
+    "**Supply-tracking `SAMPLE` source.** Likewise `pulse(0 {vdd} ...)` "
+    "becomes a NORMALISED 0..1 `pulse` on `SMP_CTL` scaled by the corner's "
+    "own supply through `Bsample SAMPLE 0 V=v(SMP_CTL)*v(VDD)` -- the same "
+    "device `sim/input-drive-budget/run_input_drive_budget.py` uses for its "
+    "own SAMPLE control, and for the same reason.",
+    "**The supply source is named `vsup`.** `klt sim` applies the "
+    "`corners.supply_v` axis as a literal `alter <key>=<value>`, so the key "
+    "is the element name; the per-corner deck called it `Vdd`.",
+    "**The `C_decouple = 0` control row is a 1 aF capacitor, not an omitted "
+    "card.** A step can only `alter` a card the shared body already carries, "
+    "so `Cdecouple` is present in every step (see `C_IDEAL_F`). The "
+    "per-corner deck omitted it entirely at `C_decouple = 0`.",
+    "**`.options num_threads=1`.** Added so a multi-core fleet worker solves "
+    "the deck the same way a single-threaded local run does; the per-corner "
+    "deck carried no `.options` card.",
+]
+
 # Ratified corner-set axes (issue #28), per spec/target-spec.md's "Numeric
 # rows -- RATIFIED 2026-08-19" section: -40/27/125C, +-10% supply, sky130
 # process corners -- the same axes every other Section 7 Item 2 mechanism
@@ -193,6 +316,56 @@ CORNERS_SUPERSEDES_RECORD = {
     ("decouple", "worst"): "20260907-104958-a546200",
     ("decouple", "legacy"): "20260908-021006-f48a228",
 }
+
+# The CURRENT full-PVT-grid record per (--sweep, --window) as of issue #881:
+# the four records the `klt sim` port's own re-runs displace. Used ONLY to
+# report the uncontrolled differences between a new record and the one it
+# supersedes (PDK commit, simulator version) -- and the PDK/ngspice figures
+# are READ OUT OF THAT RECORD'S OWN Environment BLOCK by
+# predecessor_environment() below, never transcribed here, so this map
+# cannot drift from the records it names.
+#
+# Like CORNERS_SUPERSEDES_RECORD above this is a fixed historical fact, not a
+# self-updating pointer: a later re-run that displaces a DIFFERENT record
+# must update this map alongside its own `--supersedes` (issue #513's same
+# contract). `records/LATEST` is not used for it, because LATEST names
+# whichever record is newest across all four combinations, not the one this
+# combination displaces.
+CORNERS_PREDECESSOR_RECORD = {
+    ("rsource", "worst"): "20260908-100413-f3e2914",
+    ("rsource", "legacy"): "20260908-101358-f3e2914",
+    ("decouple", "worst"): "20260908-113002-f3e2914",
+    ("decouple", "legacy"): "20260908-115336-f3e2914",
+}
+
+_ENV_PDK_RE = re.compile(r"^- PDK: (.+)$", re.M)
+_ENV_NGSPICE_RE = re.compile(r"^- ngspice: (.+)$", re.M)
+
+
+def predecessor_environment(sweep: str, window: str,
+                            records_dir: Path | None = None) -> dict:
+    """`{"record": <id>, "pdk": ..., "ngspice": ...}` for the record a
+    `--corners` re-run of this (`sweep`, `window`) combination displaces.
+
+    The PDK commit and simulator version are parsed out of that record's own
+    `## Environment` block rather than copied into this file, so the
+    "uncontrolled differences" statement a new record carries is read from
+    the evidence it is being compared against. A missing record, or a record
+    whose Environment block cannot be parsed, yields `None` for the field --
+    the record writer then says the comparison could not be made rather than
+    inventing one."""
+    record_id = CORNERS_PREDECESSOR_RECORD[(sweep, window)]
+    records_dir = records_dir or (EXPERIMENT_DIR / "records")
+    path = records_dir / f"{record_id}.md"
+    text = path.read_text() if path.is_file() else ""
+    pdk_hit = _ENV_PDK_RE.search(text)
+    ng_hit = _ENV_NGSPICE_RE.search(text)
+    return {
+        "record": record_id,
+        "pdk": pdk_hit.group(1).strip() if pdk_hit else None,
+        "ngspice": ng_hit.group(1).strip() if ng_hit else None,
+    }
+
 
 # Per-`--sweep` description of what a --corners pass repeats at every corner,
 # spliced into the default supersession narrative below.
@@ -343,7 +516,7 @@ def build_transient(
         # to run_transient.py / run_hold_kick.py's own Vvcm), kept as a
         # literal wire rather than a 0-ohm resistor to avoid an ngspice
         # singular-matrix / convergence footgun on some ngspice versions.
-        lines.append("Rvcm VCM_IDEAL VCM 1e-6")
+        lines.append(f"Rvcm VCM_IDEAL VCM {R_IDEAL_OHM:g}")
     if c_decouple_f > 0:
         lines.append(f"Cdecouple VCM 0 {c_decouple_f:.6g}")
     lines.append(
@@ -657,39 +830,412 @@ def tt_point_seed_comparison_note(measured_budget_ohm: float | None,
     return f"{measured} {comparison}"
 
 
-def run_corners(scratch: Path, point: str = DEFAULT_POINT,
-                window: str = "worst",
+# ---------------------------------------------------------------------------
+# --corners execution: ONE `klt sim` request per invocation (issue #881)
+# ---------------------------------------------------------------------------
+# Both `--corners` legs used to loop `ngspice` in-process, one subprocess per
+# (corner, swept value): 72 solves for the worst-window bare sweep, 117 for
+# its decouple sibling. CLAUDE.md forbids a hand-launched grid on this shared
+# dispatch host, so the four full-grid records could not be re-run at all as
+# the driver stood. Each `--corners` invocation is now ONE `klt sim` request
+# executed by the batch fleet, following
+# sim/input-drive-budget/run_input_drive_budget.py; the single-corner default
+# path below is untouched and still runs locally.
+#
+# WHY THE DECOUPLE LEG IS STILL ONE REQUEST. Each corner is decoupled against
+# its OWN marginal R_source, which is not known until that corner's bare
+# sweep has been solved -- so it cannot be written into the request. Instead
+# the request carries the bare steps PLUS every (non-zero swept R_source,
+# non-zero swept C_decouple) pair, and the per-corner selection happens when
+# the report is decoded (`run_corners_decouple()` below). Every value
+# `marginal_r_source()` can return is a non-zero swept R_source (it returns
+# either the largest swept value or the first row past 1 LSB, and the control
+# row's error is zero by construction), so the enumerated pairs always cover
+# the corner's own marginal case. That is 8 + 7x4 = 36 steps per corner at
+# the worst window and 3 + 2x4 = 11 at the legacy window, in one submit --
+# and it keeps the existing property that a corner's bare and decoupled rows
+# come from the same invocation. The alternative (submit the bare request,
+# then one decouple request per corner) costs nine more submits and carries
+# state between them, to skip solves that are cheap.
+
+
+def corners_sample_end_ns(window: str) -> float:
+    """End of the SAMPLE window, in ns -- `build_transient()`'s own
+    expression, factored out so the ported deck's probe time and transient
+    stop time are the SAME arithmetic the per-corner deck uses rather than a
+    re-derivation that could drift from it."""
+    sample_ns, _ = WINDOW_CONFIG[window]
+    return SAMPLE_TD_NS + SAMPLE_TR_NS + sample_ns
+
+
+def corners_probe_ns(window: str) -> float:
+    """The fixed probe time (ns): one step-pair inside the end of the SAMPLE
+    window, `build_transient()`'s own `probe_ns`."""
+    return corners_sample_end_ns(window) - (TRAN_STEP_PS / 1000.0) * 2
+
+
+def corners_tran_stop_ns(window: str) -> float:
+    """Transient stop time (ns), `build_transient()`'s own `tran_stop_ns`."""
+    return corners_sample_end_ns(window) + 50.0
+
+
+def r_source_effective(r_source_ohm: float) -> float:
+    """The resistance actually emitted for a swept point: `R_IDEAL_OHM`
+    stands in for 0, exactly as `build_transient()` does."""
+    if r_source_ohm < 0:
+        raise ValueError(f"R_source must be >= 0, got {r_source_ohm!r}")
+    return R_IDEAL_OHM if r_source_ohm == 0 else float(r_source_ohm)
+
+
+def c_decouple_effective(c_decouple_f: float) -> float:
+    """The capacitance actually emitted for a swept point: `C_IDEAL_F`
+    stands in for 0 (see `C_IDEAL_F` for why the card cannot be omitted)."""
+    if c_decouple_f < 0:
+        raise ValueError(f"C_decouple must be >= 0, got {c_decouple_f!r}")
+    return C_IDEAL_F if c_decouple_f == 0 else float(c_decouple_f)
+
+
+def corners_step_name(r_source_ohm: float, c_decouple_f: float = 0.0) -> str:
+    """A stable, ngspice-vector-safe step name per (R_source, C_decouple).
+
+    The `C_decouple = 0` name is the BARE step's name on purpose: the
+    decouple leg's control row IS that corner's bare row at the same
+    resistance, measured in the same invocation, so the two legs share one
+    solve rather than duplicating it."""
+    if c_decouple_f <= 0:
+        return f"bare_r{round(r_source_ohm)}"
+    return f"dec_r{round(r_source_ohm)}_c{round(c_decouple_f * 1e12)}"
+
+
+def build_corners_body(window: str, point: str = DEFAULT_POINT) -> str:
+    """Circuit BODY for `klt sim`: no `.lib`, `.temp`, `.control` or `.end`
+    (klt emits all four, and the corner axes drive the first two).
+
+    The DUT fragment is inserted verbatim, exactly as `build_transient()`
+    inserts it. Everything else is testbench, and differs from the
+    per-corner deck only in the ways `DECK_PORT_CHANGES` lists: one shared
+    body cannot carry a corner's supply as a literal, so `VCM` and `SAMPLE`
+    are driven through supply-scaling behavioural sources, the supply source
+    is named for the corner axis key, and `Cdecouple` is always present.
+    `Rvcm` and `Cdecouple` are the two per-step `alter` targets."""
+    vinp, vinn = TEST_POINTS[point]
+    sample_ns, _ = WINDOW_CONFIG[window]
+    tran_stop_ns = corners_tran_stop_ns(window)
+    return "\n".join(
+        [
+            "* sim/vcm-drive-budget deck body -- VCM drive-impedance /",
+            "* decoupling budget over the full ratified PVT grid (issue #121;",
+            "* ported from a local ngspice loop to `klt sim` for issue #881).",
+            "* Devices: sim/sampling-frontend/testbench/"
+            "sampling_frontend_dut.spice,",
+            "* read in place and inserted verbatim below.",
+            f"* Test point {point} (VINP={vinp:g} V, VINN={vinn:g} V); "
+            f"{window} window ({sample_ns:.3f} ns SAMPLE-high).",
+            ".options num_threads=1",
+            "",
+            DUT_FRAGMENT.read_text().rstrip("\n"),
+            "",
+            f"* --- testbench sources (the supply source is named `{SUPPLY_KEY}`,",
+            "* which is also the corners.supply_v axis key -- see SUPPLY_KEY) ---",
+            f"{SUPPLY_KEY} VDD 0 DC {VDD_NOM}",
+            f"Vinp VINP 0 dc {vinp:g}",
+            f"Vinn VINN 0 dc {vinn:g}",
+            "* VCM's ideal level tracks the corner's own supply through a",
+            "* behavioural source, so one deck body serves every corner (the",
+            f"* per-corner deck wrote the literal `dc vdd*{VCM_FRAC:g}`).",
+            f"Bvcm VCM_IDEAL 0 V=v(VDD)*{VCM_FRAC:g}",
+            "* The two per-step `alter` targets. Both carry their own control-row",
+            "* stand-in value here (R_IDEAL_OHM / C_IDEAL_F); every step alters",
+            "* both, so no step inherits another's value.",
+            f"Rvcm VCM_IDEAL VCM {R_IDEAL_OHM:g}",
+            f"Cdecouple VCM 0 {C_IDEAL_F:g}",
+            "* SAMPLE: a normalised 0..1 pulse scaled by the corner's own supply,",
+            "* so the pulse itself carries no corner-dependent voltage.",
+            f"Vsmp_ctl SMP_CTL 0 pulse(0 1 {SAMPLE_TD_NS}n {SAMPLE_TR_NS}n "
+            f"{SAMPLE_TR_NS}n {sample_ns}n {tran_stop_ns * 10}n)",
+            "Bsample SAMPLE 0 V=v(SMP_CTL)*v(VDD)",
+            "",
+        ]
+    )
+
+
+def corners_measurement_cards(window: str) -> list[dict]:
+    """The five fixed-time reads `build_transient()` emits, as `klt sim`
+    measurement entries. The names are `MEASURE_NAMES`, none of which is a
+    node name -- an ngspice `.meas` result is written as a vector into the
+    step's own plot, so a measurement named after a node would overwrite that
+    node's waveform and break every later card in the same step that reads
+    it (the pitfall
+    sim/input-drive-budget/run_input_drive_budget.py documents)."""
+    at_ns = corners_probe_ns(window)
+    return [
+        {
+            "name": name,
+            "spice": f".meas tran {name} find v({node}) at={at_ns}n",
+            "unit": "V",
+        }
+        for name, node in zip(
+            MEASURE_NAMES, ("TOP_P", "TOP_N", "BPREF_P", "BPREF_N", "VCM")
+        )
+    ]
+
+
+def corners_analysis_steps(window: str, sweep: str = "rsource") -> list[dict]:
+    """One `tran` step per swept point, both `--sweep` legs in the one
+    request shape.
+
+    `reset: true` re-parses the circuit before each step, so a step's own
+    `alter` set fully determines its deck -- no state or override leaks from
+    the previous solve. klt re-emits the corner's own supply `alter` after
+    the reset, so the corner axis survives it."""
+    _, r_source_list = WINDOW_CONFIG[window]
+    tran_args = f"{TRAN_STEP_PS}p {corners_tran_stop_ns(window)}n"
+    measurements = corners_measurement_cards(window)
+
+    def step(name: str, r_source_ohm: float, c_decouple_f: float) -> dict:
+        return {
+            "name": name,
+            "reset": True,
+            "analysis": {"kind": "tran", "args": tran_args},
+            "alter": {
+                "Rvcm": r_source_effective(r_source_ohm),
+                "Cdecouple": c_decouple_effective(c_decouple_f),
+            },
+            "measurements": measurements,
+        }
+
+    steps = [step(corners_step_name(r), r, 0.0) for r in r_source_list]
+    if sweep == "decouple":
+        for r_source in [r for r in r_source_list if r > 0]:
+            for c_decouple in [c for c in C_DECOUPLE_SWEEP_F if c > 0]:
+                steps.append(
+                    step(corners_step_name(r_source, c_decouple),
+                         r_source, c_decouple)
+                )
+    return steps
+
+
+def corner_ids() -> list[str]:
+    """The ratified 9-point one-at-a-time PVT grid, in grid order."""
+    return [
+        corners_mod.corner_id(p, t, v)
+        for p, t, v in corners_mod.ratified_oat_grid(
+            VDD_NOM, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
+        )
+    ]
+
+
+def build_corners_request(
+    netlist_name: str,
+    cids: list[str],
+    window: str,
+    sweep: str = "rsource",
+    *,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    backend: str | None = None,
+) -> dict:
+    """The `klt sim` request for one `--corners` submission.
+
+    The corner axes are declared as the full cross product with the points
+    the one-at-a-time grid omits listed under `exclude` -- `klt sim` has no
+    OAT axis form, so this is how every `--corners` campaign in this repo
+    expresses the same 9-point grid."""
+    pts = [corners_mod.parse_corner_id(c) for c in cids]
+    procs = sorted({p for p, _, _ in pts})
+    temps = sorted({t for _, t, _ in pts})
+    vdds = sorted({v for _, _, v in pts})
+    want = set(pts)
+    exclude = [
+        {"process": p, "temperature_c": t, "supply_v": {SUPPLY_KEY: v}}
+        for p in procs
+        for t in temps
+        for v in vdds
+        if (p, t, v) not in want
+    ]
+    req: dict = {
+        "netlist": netlist_name,
+        "engine": "ngspice",
+        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
+        "corners": {
+            "process": procs,
+            "supply_v": {SUPPLY_KEY: vdds},
+            "temperature_c": temps,
+        },
+        "analysis_steps": corners_analysis_steps(window, sweep),
+        "options": {"timeout_s": timeout_s, "keep_artifacts": True},
+    }
+    if exclude:
+        req["exclude"] = exclude
+    if backend:
+        req["backend"] = backend
+    return req
+
+
+def read_corners_report(report: dict) -> tuple[dict[str, dict], dict]:
+    """`({corner_id: {"<step>.<name>": value}}, run info)`.
+
+    Refuses an error ENVELOPE rather than inventing numbers, and nulls a
+    corner whose own status is `error`/`inconclusive` so a partial solve is
+    never read as a measurement."""
+    if not isinstance(report, dict):
+        raise ValueError("klt sim report is not a JSON object")
+    if "error" in report and "corners" not in report:
+        raise ValueError(f"klt sim error envelope: {report['error']}")
+    out: dict[str, dict] = {}
+    for c in report.get("corners") or []:
+        sv = (c.get("supply_v") or {}).get(SUPPLY_KEY)
+        cid = corners_mod.corner_id(
+            c["process"], float(c["temperature_c"]), float(sv)
+        )
+        vals = {
+            m["name"]: m.get("value")
+            for m in (c.get("measurements") or [])
+            if isinstance(m, dict) and "name" in m
+        }
+        if c.get("status") in ("error", "inconclusive"):
+            vals = {k: None for k in vals}
+        out[cid] = vals
+    # Run-level facts come from harness.klt_sim.run_info(), which reads the
+    # sharded `environment.remote.fleet[]` shape as well as the single-job
+    # one -- reading only the latter is how a sharded record ends up
+    # reporting `job None` (issue #865).
+    return out, klt_sim.run_info(report)
+
+
+def _finite(x) -> bool:
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def _rows_from_steps(values: dict, specs: list[tuple[str, dict]]) -> list[dict] | None:
+    """Decode one corner's sweep into the row dicts the reporting helpers
+    already take -- byte-for-byte the shape `run_sweep()` /
+    `run_decouple_sweep()` build, so `find_budget()`,
+    `marginal_r_source()`, `partition_decouple_rescue()` and both record
+    writers are unchanged by the port.
+
+    Returns None when ANY point in the sweep is missing or non-finite: a
+    budget read off a partial sweep would silently be a budget over a
+    different sweep list, so the corner is reported INCOMPLETE instead."""
+    rows: list[dict] = []
+    baseline: float | None = None
+    for step, axis in specs:
+        m = {name: values.get(f"{step}.{name}") for name in MEASURE_NAMES}
+        if not all(_finite(v) for v in m.values()):
+            return None
+        diff = m["top_p_end"] - m["top_n_end"]
+        row = {**axis, "diff_v": diff, **m}
+        if baseline is None:
+            baseline = diff
+        row["diff_err_mv"] = (diff - baseline) * 1000
+        row["diff_err_lsb"] = row["diff_err_mv"] / LSB_DIFF_MV_PROVISIONAL
+        rows.append(row)
+    return rows
+
+
+def corner_bare_rows(values: dict, window: str) -> list[dict] | None:
+    """One corner's bare (undecoupled) R_source sweep rows, or None when the
+    sweep is incomplete."""
+    _, r_source_list = WINDOW_CONFIG[window]
+    return _rows_from_steps(
+        values,
+        [(corners_step_name(r), {"r_source_ohm": r}) for r in r_source_list],
+    )
+
+
+def corner_decouple_rows(values: dict, marginal_r_ohm: float) -> list[dict] | None:
+    """One corner's C_decouple sweep rows at `marginal_r_ohm`, or None when
+    the sweep is incomplete. The `C_decouple = 0` control row is that
+    corner's own BARE step at the same resistance (see
+    `corners_step_name()`)."""
+    return _rows_from_steps(
+        values,
+        [
+            (corners_step_name(marginal_r_ohm, c), {"c_decouple_f": c})
+            for c in C_DECOUPLE_SWEEP_F
+        ],
+    )
+
+
+def submit_corners(
+    cids: list[str],
+    workdir: Path,
+    window: str,
+    sweep: str = "rsource",
+    *,
+    point: str = DEFAULT_POINT,
+    backend: str | None = None,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    capacity_wait_s: float | None = CAPACITY_WAIT_S,
+) -> tuple[dict, dict, dict, str]:
+    """Write the deck + request under `workdir`, run `klt sim`, return
+    `(results, run info, request, deck body)`. An existing `report.json` is
+    reused, so a re-run after a successful submit does not re-spend fleet
+    capacity."""
+    workdir.mkdir(parents=True, exist_ok=True)
+    body = build_corners_body(window, point)
+    (workdir / "tb.spice").write_text(body)
+    req = build_corners_request(
+        "tb.spice", cids, window, sweep, timeout_s=timeout_s, backend=backend
+    )
+    (workdir / "request.json").write_text(json.dumps(req, indent=1) + "\n")
+    report = klt_sim.submit(
+        workdir / "request.json", workdir / "out",
+        backend=backend, capacity_wait_s=capacity_wait_s,
+        label=f"vcm-drive-budget {sweep}/{window}",
+    )
+    results, info = read_corners_report(report)
+    return (
+        results,
+        dict(info, backend=backend or "(klt default / KLT_SIM_BACKEND)"),
+        req,
+        body,
+    )
+
+
+def _corner_point(cid: str) -> dict:
+    process_corner, temp_c, supply_v = corners_mod.parse_corner_id(cid)
+    return {
+        "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
+        "corner_id": cid,
+    }
+
+
+def run_corners(results: dict, cids: list[str], window: str = "worst",
                 quiet: bool = False) -> list[dict]:
-    """Full ratified-corner-set OAT sweep of the bare (undecoupled)
-    R_source budget at ONE acquisition window (`window`, "worst" or
-    "legacy") -- the same PVT grid every other Section 7 Item 2 mechanism
-    campaign now sweeps. Does NOT change the mechanism measured: identical
-    DUT fragment, identical per-window R_source sweep list
-    (`WINDOW_CONFIG[window]`), identical diff_err definition (referenced to
-    that SAME corner's own R_source=0 point) as the single-corner default
-    path -- only the `.lib` corner, `.temp`, and supply voltage vary per
-    point."""
-    sample_ns, r_source_list = WINDOW_CONFIG[window]
+    """Decode a `--sweep rsource` report into one point per ratified corner:
+    the full OAT grid's bare (undecoupled) R_source budget at ONE
+    acquisition window (`window`, "worst" or "legacy").
+
+    Does NOT change the mechanism measured: identical DUT fragment,
+    identical per-window R_source sweep list (`WINDOW_CONFIG[window]`),
+    identical diff_err definition (referenced to that SAME corner's own
+    R_source=0 point) as the single-corner default path -- only the `.lib`
+    corner, `.temp`, supply voltage and the deck differences
+    `DECK_PORT_CHANGES` lists vary. A corner whose sweep is missing or
+    non-finite at any point is marked `complete: False` and given NO budget
+    (issue #881); it is reported as INCOMPLETE rather than scored off a
+    partial sweep."""
+    _, r_source_list = WINDOW_CONFIG[window]
     points: list[dict] = []
-    for process_corner, temp_c, supply_v, cid in corners_mod.sweep(
-        VDD_NOM, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, announce=False
-    ):
-        rows = run_sweep(point, sample_ns, window, scratch,
-                          r_source_list=r_source_list,
-                          corner=process_corner, temp_c=temp_c, vdd=supply_v,
-                          quiet=True)
-        budget_1lsb = find_budget(rows, 1.0)
-        budget_p1lsb = find_budget(rows, 0.1)
+    for cid in cids:
+        rows = corner_bare_rows(results.get(cid) or {}, window)
+        budget_1lsb = find_budget(rows, 1.0) if rows else None
+        budget_p1lsb = find_budget(rows, 0.1) if rows else None
         points.append({
-            "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
-            "corner_id": cid, "rows": rows,
+            **_corner_point(cid),
+            "rows": rows,
+            "complete": rows is not None,
             "budget_1lsb_ohm": budget_1lsb["r_source_ohm"] if budget_1lsb else None,
             "budget_1lsb_censored": bool(budget_1lsb and
                 budget_1lsb["r_source_ohm"] == r_source_list[-1]),
             "budget_p1lsb_ohm": budget_p1lsb["r_source_ohm"] if budget_p1lsb else None,
         })
         if not quiet:
-            b1 = points[-1]["budget_1lsb_ohm"]
+            p = points[-1]
+            if not p["complete"]:
+                print(f"{cid}: INCOMPLETE -- no usable bare sweep")
+                continue
+            b1 = p["budget_1lsb_ohm"]
             print(
                 f"{cid}: 1-LSB R_source budget = "
                 + (f"<= {b1:.0f} ohm" if b1 is not None
@@ -698,53 +1244,58 @@ def run_corners(scratch: Path, point: str = DEFAULT_POINT,
     return points
 
 
-def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
-                          window: str = "worst",
+def run_corners_decouple(results: dict, cids: list[str], window: str = "worst",
                           quiet: bool = False) -> list[dict]:
-    """Full ratified-corner-set OAT sweep of the C_decouple leg of this
-    budget at ONE acquisition window -- the last leg that was still
-    single-corner-only. Per corner: run that corner's own bare R_source
-    sweep first, take its `marginal_r_source()`, then sweep C_decouple
-    against THAT resistance. Nothing about the mechanism changes: identical
-    DUT fragment, identical C_DECOUPLE_SWEEP_F list, identical diff_err
-    definition (referenced to that same corner/R_source's own
+    """Decode a `--sweep decouple` report into one point per ratified corner.
+
+    Per corner: read that corner's own bare R_source sweep out of the same
+    report, take its `marginal_r_source()`, then read the C_decouple rows
+    solved against THAT resistance. Nothing about the mechanism changes:
+    identical DUT fragment, identical `C_DECOUPLE_SWEEP_F` list, identical
+    diff_err definition (referenced to that same corner/R_source's own
     C_decouple = 0 point) as the single-corner default path -- only the
-    `.lib` corner, `.temp`, supply voltage, and the per-corner marginal
-    R_source vary."""
-    sample_ns, r_source_list = WINDOW_CONFIG[window]
+    `.lib` corner, `.temp`, supply voltage, the per-corner marginal R_source
+    and the deck differences `DECK_PORT_CHANGES` lists vary. A corner whose
+    bare or C_decouple sweep is incomplete is marked `complete: False` and
+    given no budget (issue #881)."""
+    _, r_source_list = WINDOW_CONFIG[window]
     points: list[dict] = []
-    for process_corner, temp_c, supply_v, cid in corners_mod.sweep(
-        VDD_NOM, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C, announce=False
-    ):
-        bare_rows = run_sweep(point, sample_ns, window, scratch,
-                              r_source_list=r_source_list,
-                              corner=process_corner, temp_c=temp_c,
-                              vdd=supply_v, quiet=True)
-        marginal_r = marginal_r_source(bare_rows, r_source_list)
-        marginal_is_fallback = marginal_r_source_is_fallback(bare_rows)
-        rows = run_decouple_sweep(point, sample_ns, window, marginal_r,
-                                  scratch, corner=process_corner,
-                                  temp_c=temp_c, vdd=supply_v, quiet=True)
-        budget_1lsb = find_budget(rows, 1.0)
+    for cid in cids:
+        values = results.get(cid) or {}
+        bare_rows = corner_bare_rows(values, window)
+        marginal_r = (
+            marginal_r_source(bare_rows, r_source_list) if bare_rows else None
+        )
+        rows = (
+            corner_decouple_rows(values, marginal_r) if bare_rows else None
+        )
+        budget_1lsb = find_budget(rows, 1.0) if rows else None
         points.append({
-            "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
-            "corner_id": cid, "rows": rows, "bare_rows": bare_rows,
+            **_corner_point(cid),
+            "rows": rows, "bare_rows": bare_rows,
+            "complete": bool(bare_rows) and rows is not None,
             "marginal_r_source_ohm": marginal_r,
             # No swept bare R_source at this corner exceeded 1 LSB, so this
             # corner's C_decouple sweep ran against a resistance that was
             # not failing on its own: there was nothing to rescue, and its
             # budget must not be counted as a rescue either way (#874).
-            "marginal_is_fallback": marginal_is_fallback,
+            "marginal_is_fallback": (
+                marginal_r_source_is_fallback(bare_rows) if bare_rows else False
+            ),
             "budget_1lsb_f": budget_1lsb["c_decouple_f"] if budget_1lsb else None,
             "budget_1lsb_censored": bool(budget_1lsb and
                 budget_1lsb["c_decouple_f"] == C_DECOUPLE_SWEEP_F[-1]),
         })
         if not quiet:
-            b1 = points[-1]["budget_1lsb_f"]
+            p = points[-1]
+            if not p["complete"]:
+                print(f"{cid}: INCOMPLETE -- no usable sweep")
+                continue
+            b1 = p["budget_1lsb_f"]
             print(
-                f"{cid}: marginal R_source = {marginal_r:.0f} ohm"
+                f"{cid}: marginal R_source = {p['marginal_r_source_ohm']:.0f} ohm"
                 + (" (fallback -- no swept R_source exceeded 1 LSB bare, "
-                   "nothing to rescue)" if marginal_is_fallback else "")
+                   "nothing to rescue)" if p["marginal_is_fallback"] else "")
                 + ", 1-LSB C_decouple budget = "
                 + (f"<= {b1 * 1e12:.2f} pF" if b1 is not None
                    else "none found in the swept range")
@@ -752,20 +1303,241 @@ def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
     return points
 
 
+# ---------------------------------------------------------------------------
+# --corners record sections shared by both writers (issue #881)
+# ---------------------------------------------------------------------------
+def split_complete(points: list[dict]) -> tuple[list[dict], list[dict]]:
+    """`(complete, incomplete)`. A point with no `complete` key predates the
+    `klt sim` port's INCOMPLETE handling and is treated as complete, so a
+    caller that builds points by hand (the unit tests) is unaffected."""
+    complete = [p for p in points if p.get("complete", True)]
+    return complete, [p for p in points if not p.get("complete", True)]
+
+
+def incomplete_note(points: list[dict]) -> str | None:
+    """The Result bullet naming corners that produced no usable sweep.
+
+    An incomplete corner is NOT a corner with no budget: `find_budget()`
+    returning None is a measurement ("the smallest nonzero swept value
+    already exceeds the tier"), while an incomplete corner was never
+    measured at all. Reporting one as the other is exactly the confusion
+    this bullet exists to prevent (issue #881), so incomplete corners are
+    excluded from every count below it and named here instead."""
+    complete, incomplete = split_complete(points)
+    if not incomplete:
+        return None
+    label = ", ".join(f"`{p['corner_id']}`" for p in incomplete)
+    return (
+        f"**INCOMPLETE at {len(incomplete)} of {len(points)} ratified "
+        f"corners** ({label}): at least one swept point there is missing or "
+        "non-finite in the `klt sim` report, so no budget is stated for "
+        "those corners and they are excluded from every count in this "
+        "section. A budget read off a partial sweep would be a budget over a "
+        "different sweep list, not a measurement. Every figure below is over "
+        f"the {len(complete)} corner(s) that completed."
+    )
+
+
+def write_corners_artifacts(record_id: str, artifacts: dict[str, str] | None) -> None:
+    """Commit the `klt sim` request, the deck body and the raw report beside
+    the record, under `corners/<record-id>/` -- the layout
+    sim/input-drive-budget/ already uses, so the exact request that produced
+    a record can be re-submitted without reconstructing it from the runner."""
+    if not artifacts:
+        return
+    base = EXPERIMENT_DIR / "corners" / record_id
+    (base / "request").mkdir(parents=True, exist_ok=True)
+    for name in ("request.json", "tb.spice"):
+        if artifacts.get(name) is not None:
+            (base / "request" / name).write_text(artifacts[name])
+    if artifacts.get("report.json") is not None:
+        (base / "report.json").write_text(artifacts["report.json"])
+
+
+def klt_client_version() -> str:
+    """`klt --version`, or a stated placeholder when the client is absent."""
+    try:
+        done = subprocess.run(
+            ["klt", "--version"], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return "(klt --version unavailable)"
+    return done.stdout.strip() or "(klt --version unavailable)"
+
+
+def executing_environment(prov, info: dict | None) -> dict:
+    """What actually produced the numbers: the executing fleet worker when it
+    reported itself, otherwise the SUBMITTING host -- stated as such, never
+    silently substituted."""
+    info = info or {}
+    worker_pdk = info.get("worker_pdk")
+    worker_ngspice = info.get("worker_ngspice")
+    known = bool(worker_pdk and worker_ngspice)
+    jobs = info.get("jobs") or []
+    runner_klt = next(
+        (j.get("runner_klt_version") for j in jobs if j.get("runner_klt_version")),
+        None,
+    )
+    return {
+        "known": known,
+        "pdk": worker_pdk if known else prov.pdk_line,
+        "ngspice": worker_ngspice if known else prov.ng_version,
+        "runner_klt": runner_klt,
+    }
+
+
+def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
+                          record_id: str) -> list[str]:
+    """The `klt sim` run block and the uncontrolled-difference statements
+    every `--corners` record carries since the port (issue #881).
+
+    Three differences are stated, because all three are uncontrolled between
+    a record minted here and the record it supersedes: the PDK commit, the
+    simulator version, and the execution route -- plus every deck change the
+    port itself made (`DECK_PORT_CHANGES`). None of them is a correction to
+    the older record; they are the reasons a figure may differ without the
+    circuit having changed."""
+    info = info or {}
+    env = executing_environment(prov, info)
+    prev = predecessor_environment(sweep, window)
+    exec_matches_host = (
+        env["known"]
+        and str(prov.pdk_line).split("@")[-1].strip()
+           == str(env["pdk"]).split("@")[-1].strip()
+        and str(prov.ng_version).strip() == str(env["ngspice"]).strip()
+    )
+    jobs = info.get("jobs") or []
+
+    lines = [
+        "## `klt sim` run",
+        "",
+        f"- job `{info.get('job_id')}`, status `{info.get('status')}`, backend "
+        f"`{info.get('backend')}`, executing PDK `{info.get('worker_pdk')}`, "
+        f"executing simulator `{info.get('worker_ngspice')}`"
+        + (f", sharded over {len(jobs)} job(s)" if info.get("sharded") else ""),
+    ]
+    for job in jobs:
+        lines.append(
+            f"- job `{job.get('job_id')}`: state `{job.get('state')}`, exit "
+            f"`{job.get('exit_code')}`, instance `{job.get('instance_type')}`, "
+            f"elapsed {job.get('elapsed_seconds')} s, runner klt "
+            f"`{job.get('runner_klt_version')}`"
+        )
+    lines += [
+        f"- request and deck body: `corners/{record_id}/request/`; raw report: "
+        f"`corners/{record_id}/report.json`",
+        "",
+        "## Uncontrolled differences against the record this supersedes",
+        "",
+    ]
+
+    prev_ref = f"[`records/{prev['record']}.md`]({prev['record']}.md)"
+    if prev["pdk"] and prev["ngspice"]:
+        same_pdk = str(prev["pdk"]).split("@")[-1].strip() == str(env["pdk"]).split("@")[-1].strip()
+        same_ng = str(prev["ngspice"]).strip() == str(env["ngspice"]).strip()
+        lines.append(
+            f"- **PDK commit and simulator version.** {prev_ref} was minted on "
+            f"`{prev['pdk']}` / `{prev['ngspice']}` (read from that record's own "
+            f"Environment block); this record was produced on `{env['pdk']}` / "
+            f"`{env['ngspice']}`. "
+            + (
+                "Those are the same, so neither is an uncontrolled difference "
+                "between the two runs."
+                if (same_pdk and same_ng)
+                else "**Those differ.** Any change in a figure between the two "
+                "records is as readily a PDK or simulator-version difference as "
+                "a circuit or harness one; nothing here is a controlled "
+                "comparison against that record, and no figure in it is "
+                "corrected by this one."
+            )
+        )
+    else:
+        lines.append(
+            f"- **PDK commit and simulator version.** {prev_ref}'s own "
+            "Environment block could not be read from this tree, so the "
+            "comparison is not stated rather than guessed. This record was "
+            f"produced on `{env['pdk']}` / `{env['ngspice']}`."
+        )
+    lines += [
+        "- **Execution route.** The superseded record's grid was solved by an "
+        "in-process `ngspice` loop on the submitting host, one subprocess per "
+        "(corner, swept value). This record's grid is ONE `klt sim` request "
+        "executed by the batch fleet (block above), one unit per corner, with "
+        "each swept value an `analysis_steps[]` entry inside that unit. The "
+        "numbers therefore come from a different machine, a different "
+        "scheduler and a different deck-assembly path than the record it "
+        "supersedes.",
+        "- **Submitting host vs. executing worker.** The Environment block "
+        "below names the PDK and ngspice of the EXECUTING worker when it "
+        "reported them"
+        + (
+            f"; the submitting host resolved `{prov.pdk_line}` / "
+            f"`{prov.ng_version}`. "
+            + (
+                "They are the same for this run."
+                if exec_matches_host
+                else "**They differ for this run**, so no figure here is "
+                "controlled for PDK or simulator version against a locally run "
+                "record."
+            )
+            if env["known"]
+            else ". The worker did NOT report them for this run, so the block "
+            "below names the SUBMITTING host's instead, and no figure here is "
+            "attributable to a known executing environment."
+        ),
+    ]
+    lines += [
+        "- **Deck changes made by the port itself** (issue #881) -- each is a "
+        "consequence of one shared deck body with the corner applied as an "
+        "axis, not a change of mechanism:",
+    ]
+    lines += [f"  - {text}" for text in DECK_PORT_CHANGES]
+    lines.append("")
+    return lines
+
+
+def corners_environment_lines(prov, info: dict | None) -> list[str]:
+    """`evidence.environment_block()` for a `--corners` record: the EXECUTING
+    worker's PDK and simulator, with the submitting host's own stated beside
+    them, plus the klt client and runner versions."""
+    env = executing_environment(prov, info)
+    return evidence.environment_block(
+        env["pdk"],
+        env["ngspice"],
+        prov.netlist_sha,
+        extra={
+            "klt (client)": klt_client_version(),
+            "klt (fleet runner)": env["runner_klt"] or "(not reported)",
+            "PDK / ngspice above": "as run by the executing worker"
+            if env["known"]
+            else "submitting host (executing worker did not report)",
+            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+            "tran step": f"{TRAN_STEP_PS:g} ps",
+            "toolchain pin file": "sim/toolchain.json",
+        },
+    )
+
+
 def write_corners_decouple_record(points: list[dict], point: str,
                                    window: str = "worst",
-                                   supersedes: str = "") -> Path:
+                                   supersedes: str = "",
+                                   *,
+                                   info: dict | None = None,
+                                   artifacts: dict[str, str] | None = None) -> Path:
     """Evidence record for `run_corners_decouple()` -- same provenance /
     scope / no-ratified-claim conventions as `write_corners_record()`, with
-    the C_decouple axis in place of the R_source axis."""
+    the C_decouple axis in place of the R_source axis.
+
+    `info` is `harness.klt_sim.run_info()`'s view of the submission that
+    produced `points`, and `artifacts` the request/deck/report texts to
+    commit beside the record (issue #881)."""
     supersedes = supersedes or default_corners_supersedes("decouple", window)
     netlist_text = DUT_FRAGMENT.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
     record_id = prov.record_id
     record_path = prov.record_path
-    netlist_sha = prov.netlist_sha
-    pdk_line = prov.pdk_line
-    ng_version = prov.ng_version
+    write_corners_artifacts(record_id, artifacts)
+    complete, _incomplete = split_complete(points)
 
     process_corners_run = sorted({p["corner"] for p in points})
     temps_run = sorted({p["temp_c"] for p in points})
@@ -869,6 +1641,9 @@ def write_corners_decouple_record(points: list[dict], point: str,
     a("| Corner | Marginal R_source (ohm) | 1-LSB C_decouple budget (pF) |")
     a("|---|---|---|")
     for p in points:
+        if not p.get("complete", True):
+            a(f"| `{p['corner_id']}` | (incomplete) | (incomplete) |")
+            continue
         b1 = p["budget_1lsb_f"]
         b1_str = "none found" if b1 is None else (
             f"<= {b1 * 1e12:.2f}"
@@ -891,7 +1666,7 @@ def write_corners_decouple_record(points: list[dict], point: str,
     a("")
     a("| Corner | R_source (ohm) | C_decouple (pF) | VCM(end) (V) | diff_err (mV) | diff_err (LSB, informational) |")
     a("|---|---|---|---|---|---|")
-    for p in points:
+    for p in complete:
         for r in p["rows"]:
             a(
                 f"| `{p['corner_id']}` | {p['marginal_r_source_ohm']:.0f} | "
@@ -904,18 +1679,21 @@ def write_corners_decouple_record(points: list[dict], point: str,
     # to rescue, so its C_decouple budget is neither a rescue nor a failed
     # one -- it is excluded from BOTH sides of the verdict rather than
     # padding the "N of N rescued" count (#874).
-    split = partition_decouple_rescue(points)
+    split = partition_decouple_rescue(complete)
     nothing_to_rescue = split["nothing_to_rescue"]
     needed = split["needed"]
     rescued = split["rescued"]
     unrescued = split["unrescued"]
     notes: list[str] = []
+    missing = incomplete_note(points)
+    if missing:
+        notes.append(missing)
     if nothing_to_rescue:
         nothing_label = ", ".join(
             f"`{p['corner_id']}`" for p in nothing_to_rescue
         )
         notes.append(
-            f"**{len(nothing_to_rescue)} of {len(points)} ratified corners "
+            f"**{len(nothing_to_rescue)} of {len(complete)} ratified corners "
             f"had nothing for decoupling to rescue** ({nothing_label}): no "
             f"swept bare R_source at those corners pushed the differential "
             f"error past 1 provisional LSB, so `marginal_r_source()` fell "
@@ -1005,14 +1783,22 @@ def write_corners_decouple_record(points: list[dict], point: str,
     a("")
     window_flag = "" if window == "worst" else f" --window {window}"
     a(
-        "```\npython3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners"
+        "```bash\n# One-time machine bootstrap: docs/environment-setup.md "
+        "sections 1-3.\nsource sim/env.sh\npython3 "
+        "sim/vcm-drive-budget/run_vcm_drive_budget.py --corners"
         f"{window_flag} --sweep decouple --record\n```"
     )
     a("")
-    lines += evidence.environment_block(
-        pdk_line, ng_version, netlist_sha,
-        extra={"toolchain pin file": "sim/toolchain.json"},
+    a(
+        "The grid is ONE `klt sim` request submitted to the batch fleet with "
+        f"`--wait-for-capacity {CAPACITY_WAIT_S:g}`; no `ngspice` loop runs on "
+        "the submitting host (CLAUDE.md's host rule). `--probe` runs a single "
+        "corner at a single swept point locally and is the only path that "
+        "does."
     )
+    a("")
+    lines += corners_klt_run_lines(prov, info, "decouple", window, record_id)
+    lines += corners_environment_lines(prov, info)
     lines += evidence.footer_lines(
         written_by=WRITTEN_BY,
         supersedes=supersedes,
@@ -1024,15 +1810,22 @@ def write_corners_decouple_record(points: list[dict], point: str,
 
 def write_corners_record(points: list[dict], point: str,
                           window: str = "worst",
-                          supersedes: str = "") -> Path:
+                          supersedes: str = "",
+                          *,
+                          info: dict | None = None,
+                          artifacts: dict[str, str] | None = None) -> Path:
+    """Evidence record for `run_corners()`.
+
+    `info` is `harness.klt_sim.run_info()`'s view of the submission that
+    produced `points`, and `artifacts` the request/deck/report texts to
+    commit beside the record (issue #881)."""
     supersedes = supersedes or default_corners_supersedes("rsource", window)
     netlist_text = DUT_FRAGMENT.read_text()
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, netlist_text)
     record_id = prov.record_id
     record_path = prov.record_path
-    netlist_sha = prov.netlist_sha
-    pdk_line = prov.pdk_line
-    ng_version = prov.ng_version
+    write_corners_artifacts(record_id, artifacts)
+    complete, _incomplete = split_complete(points)
 
     process_corners_run = sorted({p["corner"] for p in points})
     temps_run = sorted({p["temp_c"] for p in points})
@@ -1114,6 +1907,9 @@ def write_corners_record(points: list[dict], point: str,
     a("| Corner | 1-LSB R_source budget (ohm) | 0.1-LSB R_source budget (ohm) |")
     a("|---|---|---|")
     for p in points:
+        if not p.get("complete", True):
+            a(f"| `{p['corner_id']}` | (incomplete) | (incomplete) |")
+            continue
         b1 = p["budget_1lsb_ohm"]
         b1_str = "none (< smallest nonzero tested)" if b1 is None else (
             f"<= {b1:.0f}" + (" (right-censored)" if p["budget_1lsb_censored"] else "")
@@ -1123,22 +1919,25 @@ def write_corners_record(points: list[dict], point: str,
         a(f"| `{p['corner_id']}` | {b1_str} | {bp1_str} |")
     a("")
 
-    scored = [p for p in points if p["budget_1lsb_ohm"] is not None]
+    scored = [p for p in complete if p["budget_1lsb_ohm"] is not None]
     # `find_budget()` excludes the R_source = 0 control row (#874), so a
     # None budget here means "the smallest nonzero swept R_source already
     # exceeds the tier" -- a corner STRICTLY TIGHTER than any scored one,
     # not an unmeasured one. It must stay in the binding-corner reasoning
     # rather than being filtered out the way a missing value would be.
-    none_found = [p for p in points if p["budget_1lsb_ohm"] is None]
+    none_found = [p for p in complete if p["budget_1lsb_ohm"] is None]
     smallest_nonzero = r_source_list[1]
     none_label = ", ".join(f"`{p['corner_id']}`" for p in none_found)
     notes: list[str] = []
+    missing = incomplete_note(points)
+    if missing:
+        notes.append(missing)
     binding_val: float | None = None
     binding_label = ""
     if none_found:
         notes.append(
             f"**Binding corner(s) (no positive 1-LSB budget at all): "
-            f"{none_label}** -- at {len(none_found)} of {len(points)} "
+            f"{none_label}** -- at {len(none_found)} of {len(complete)} "
             f"ratified corners the smallest nonzero swept R_source "
             f"({smallest_nonzero:.0f} ohm) already exceeds 1 provisional "
             "LSB of differential error. Those corners allow **zero** margin "
@@ -1191,7 +1990,7 @@ def write_corners_record(points: list[dict], point: str,
     # budget" line would only restate it.
 
     tt_pt = next(
-        (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0
+        (p for p in complete if p["corner"] == "tt" and p["temp_c"] == 27.0
          and p["supply_v"] == VDD_NOM), None,
     )
     # `seed_budget is None` is the seed record's own "<= 0 ohm" figure read
@@ -1212,7 +2011,7 @@ def write_corners_record(points: list[dict], point: str,
             f"**This tightens, not merely restates, the single-corner "
             f"finding**: the single-corner (tt/27C/1.8V) record reports a "
             f"<= {seed_budget:.0f} ohm bare budget at this window, but "
-            f"{len(none_found)} of {len(points)} ratified corners "
+            f"{len(none_found)} of {len(complete)} ratified corners "
             f"({none_label}) have no positive budget at all -- the smallest "
             f"nonzero swept R_source ({smallest_nonzero:.0f} ohm) already "
             "exceeds 1 provisional LSB there. Any future on-chip VCM buffer "
@@ -1233,7 +2032,7 @@ def write_corners_record(points: list[dict], point: str,
             "sizing that targets only the tt/27C/1.8V figure would "
             "under-budget the real worst-case corner."
         )
-    elif seed_budget is None and len(none_found) == len(points):
+    elif seed_budget is None and complete and len(none_found) == len(complete):
         notes.append(
             "**This confirms, at every ratified corner, the "
             "single-corner record's already-tightest finding**: the "
@@ -1241,7 +2040,7 @@ def write_corners_record(points: list[dict], point: str,
             "positive bare budget at this window (the R_source=0 "
             "ideal-source control is the only point inside 1 provisional "
             "LSB -- the smallest nonzero R_source tested already exceeds "
-            f"it), and every one of the {len(points)} ratified "
+            f"it), and every one of the {len(complete)} ratified "
             "corners reproduces that same floor. This window offers "
             "**zero** margin for any nonzero drive impedance, at any "
             "ratified corner -- consistent with the single-corner "
@@ -1255,7 +2054,7 @@ def write_corners_record(points: list[dict], point: str,
         notes.append(
             "**This reveals the single-corner (tt/27C/1.8V) no-positive-"
             "budget finding is itself corner-dependent, not a uniform "
-            f"floor**: {len(none_found)} of {len(points)} ratified "
+            f"floor**: {len(none_found)} of {len(complete)} ratified "
             f"corners ({none_label}) reproduce that same floor (zero "
             "margin for any nonzero drive impedance at those corners), "
             f"but the remaining {len(scored)} corner(s) recover a "
@@ -1272,7 +2071,7 @@ def write_corners_record(points: list[dict], point: str,
         notes.append(
             "**This loosens the single-corner (tt/27C/1.8V) finding**: that "
             "record reports no positive bare budget at this window, yet "
-            f"every one of the {len(points)} ratified corners in this grid "
+            f"every one of the {len(complete)} ratified corners in this grid "
             "recovers one. Treat the discrepancy as unresolved -- the two "
             "runs are not otherwise controlled against each other -- rather "
             "than as a relaxation of the single-corner bound."
@@ -1300,14 +2099,22 @@ def write_corners_record(points: list[dict], point: str,
     a("")
     window_flag = "" if window == "worst" else f" --window {window}"
     a(
-        "```\npython3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners"
+        "```bash\n# One-time machine bootstrap: docs/environment-setup.md "
+        "sections 1-3.\nsource sim/env.sh\npython3 "
+        "sim/vcm-drive-budget/run_vcm_drive_budget.py --corners"
         f"{window_flag} --record\n```"
     )
     a("")
-    lines += evidence.environment_block(
-        pdk_line, ng_version, netlist_sha,
-        extra={"toolchain pin file": "sim/toolchain.json"},
+    a(
+        "The grid is ONE `klt sim` request submitted to the batch fleet with "
+        f"`--wait-for-capacity {CAPACITY_WAIT_S:g}`; no `ngspice` loop runs on "
+        "the submitting host (CLAUDE.md's host rule). `--probe` runs a single "
+        "corner at a single swept point locally and is the only path that "
+        "does."
     )
+    a("")
+    lines += corners_klt_run_lines(prov, info, "rsource", window, record_id)
+    lines += corners_environment_lines(prov, info)
     lines += evidence.footer_lines(
         written_by=WRITTEN_BY,
         supersedes=supersedes,
@@ -1441,6 +2248,121 @@ def write_record(all_results: dict, supersedes: str = "") -> None:
     evidence.close_record(prov, lines, "Record")
 
 
+def corners_dry_run(args) -> int:
+    """`--dry-run`: write the deck and request and print the unit and step
+    counts, without submitting anything."""
+    cids = corner_ids()
+    workdir = args.workdir or Path(
+        tempfile.mkdtemp(prefix="sim-vcm-drive-budget-dryrun-")
+    )
+    workdir.mkdir(parents=True, exist_ok=True)
+    body = build_corners_body(args.window, args.point)
+    (workdir / "tb.spice").write_text(body)
+    req = build_corners_request(
+        "tb.spice", cids, args.window, args.sweep, timeout_s=args.timeout_s
+    )
+    (workdir / "request.json").write_text(json.dumps(req, indent=1) + "\n")
+    steps = req["analysis_steps"]
+    bare = sum(1 for st in steps if st["name"].startswith("bare_"))
+    print(f"wrote deck + request under {workdir}")
+    print(f"sweep: {args.sweep}  window: {args.window}  point: {args.point}")
+    print(f"corners: {len(cids)}  units: {len(cids)}  "
+          f"steps/corner: {len(steps)} ({bare} bare + "
+          f"{len(steps) - bare} decoupled)")
+    print(f"total solves: {len(cids) * len(steps)}  "
+          f"per-unit timeout_s: {args.timeout_s:g}  "
+          f"conservative whole-job bound: "
+          f"{args.timeout_s * len(cids) + 120:g} s")
+    return 0
+
+
+def corners_probe(args, scratch: Path) -> int:
+    """`--probe`: the single-unit deck-port control required before the grid
+    is submitted (issue #881).
+
+    One corner (tt/27C/1.8V), one non-zero swept R_source, run BOTH ways on
+    THIS host against THIS PDK: the ported `--corners` deck through `klt sim
+    --backend local`, and the per-corner `build_transient()` deck through
+    one `ngspice`. Printing the difference in `top_p_end - top_n_end`
+    separates the deck port from the PDK and simulator change a re-run also
+    carries -- a grid run on the fleet cannot, because both move at once.
+    Mints no record and changes no evidence."""
+    cid = corners_mod.corner_id("tt", 27.0, VDD_NOM)
+    r_source = args.probe_r_source
+    if r_source <= 0:
+        print("--probe-r-source must be > 0: the port's deck differences "
+              "are what this compares, and the R_source = 0 control row "
+              "exercises neither alter target at a swept value",
+              file=sys.stderr)
+        return 2
+    sample_ns, _ = WINDOW_CONFIG[args.window]
+    workdir = args.workdir or Path(
+        tempfile.mkdtemp(prefix="sim-vcm-drive-budget-probe-")
+    )
+
+    # Side A: the ported deck, through klt sim, locally.
+    workdir.mkdir(parents=True, exist_ok=True)
+    body = build_corners_body(args.window, args.point)
+    (workdir / "tb.spice").write_text(body)
+    req = build_corners_request(
+        "tb.spice", [cid], args.window, "rsource",
+        timeout_s=args.timeout_s, backend="local",
+    )
+    req["analysis_steps"] = [
+        st for st in req["analysis_steps"]
+        if st["name"] == corners_step_name(r_source)
+    ]
+    if not req["analysis_steps"]:
+        print(f"--probe-r-source {r_source:g} is not in the {args.window} "
+              f"window's sweep list {WINDOW_CONFIG[args.window][1]}",
+              file=sys.stderr)
+        return 2
+    (workdir / "request.json").write_text(json.dumps(req, indent=1) + "\n")
+    report = klt_sim.submit(workdir / "request.json", workdir / "out",
+                            backend="local", capacity_wait_s=None,
+                            label="vcm-drive-budget probe")
+    results, info = read_corners_report(report)
+    ported = {
+        name: (results.get(cid) or {}).get(
+            f"{corners_step_name(r_source)}.{name}")
+        for name in MEASURE_NAMES
+    }
+    if not all(_finite(v) for v in ported.values()):
+        print(f"{cid}: INCOMPLETE -- the ported deck produced no usable "
+              f"measurement ({ported})", file=sys.stderr)
+        return 1
+
+    # Side B: the per-corner deck this path used before the port, through
+    # one local ngspice -- the same _run() the single-corner default path
+    # uses, at a single point (CLAUDE.md permits a single local unit).
+    vinp, vinn = TEST_POINTS[args.point]
+    local = _run(
+        build_transient(vinp=vinp, vinn=vinn, sample_width_ns=sample_ns,
+                        r_source_ohm=r_source, corner="tt", temp_c=27.0,
+                        vdd=VDD_NOM),
+        scratch, f"probe_{args.window}_{args.point}_{r_source:g}",
+    )
+
+    diff_ported = ported["top_p_end"] - ported["top_n_end"]
+    diff_local = local["top_p_end"] - local["top_n_end"]
+    delta_mv = (diff_ported - diff_local) * 1e3
+    print(f"{cid}  window={args.window} ({sample_ns:.3f} ns)  "
+          f"R_source={r_source:g} ohm  point={args.point}")
+    print(f"  ported deck (klt sim --backend local): "
+          f"top_p_end - top_n_end = {diff_ported:.9f} V")
+    print(f"  build_transient() deck (ngspice):      "
+          f"top_p_end - top_n_end = {diff_local:.9f} V")
+    print(f"  difference: {delta_mv:+.6f} mV "
+          f"({delta_mv / LSB_DIFF_MV_PROVISIONAL:+.6f} provisional LSB)")
+    for name in MEASURE_NAMES:
+        print(f"    {name:11} ported {ported[name]:+.9f} V   "
+              f"local {local[name]:+.9f} V   "
+              f"delta {(ported[name] - local[name]) * 1e3:+.6f} mV")
+    print(f"  klt sim: backend {info.get('resolved_backend')}, "
+          f"status {info.get('status')}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--record", action="store_true",
@@ -1468,6 +2390,46 @@ def main() -> int:
              "'decouple' (C_decouple sweep, each corner at its own marginal "
              "R_source). Ignored without --corners.",
     )
+    ap.add_argument(
+        "--dry-run", action="store_true",
+        help="write the --corners deck + request to --workdir, print the "
+             "corner and step counts, and stop (no simulation, no submit)",
+    )
+    ap.add_argument(
+        "--probe", action="store_true",
+        help="ONE corner (tt/27C/1.8V) at ONE non-zero R_source "
+             "(--probe-r-source), run BOTH ways locally -- the ported "
+             "--corners deck through `klt sim --backend local` and the "
+             "per-corner build_transient() deck through ngspice -- and "
+             "print the difference in top_p_end - top_n_end. The single-unit "
+             "deck-port control; the only local simulation on the --corners "
+             "side, and it changes no record.",
+    )
+    ap.add_argument(
+        "--probe-r-source", type=float, default=10e3,
+        help="the non-zero swept R_source --probe compares at "
+             "(default: %(default)s ohm)",
+    )
+    ap.add_argument(
+        "--backend", default=None,
+        help="klt sim backend for --corners (default: klt's own / "
+             "KLT_SIM_BACKEND, which on a dispatch host is the batch fleet). "
+             "The multi-corner grid is never looped locally.",
+    )
+    ap.add_argument(
+        "--workdir", type=Path, default=None,
+        help="where --corners writes its deck, request and report "
+             "(default: a fresh temporary directory). An existing "
+             "report.json there is REUSED rather than re-simulated, so a "
+             "resumed run does not re-spend fleet capacity.",
+    )
+    ap.add_argument(
+        "--timeout-s", type=float, default=DEFAULT_TIMEOUT_S,
+        help="per-unit options.timeout_s for --corners (default: "
+             "%(default)s). The fleet refuses a job whose timeout_s * units "
+             "+ 120 exceeds its whole-job ceiling -- see DEFAULT_TIMEOUT_S "
+             "before raising this",
+    )
     evidence.add_supersedes_argument(
         ap,
         extra_help=(
@@ -1486,23 +2448,43 @@ def main() -> int:
     scratch = Path("/tmp") / "sim-vcm-drive-budget"
     scratch.mkdir(parents=True, exist_ok=True)
 
+    if args.dry_run:
+        return corners_dry_run(args)
+
+    if args.probe:
+        return corners_probe(args, scratch)
+
     if args.corners:
         sample_ns, _ = WINDOW_CONFIG[args.window]
+        cids = corner_ids()
+        workdir = args.workdir or Path(
+            tempfile.mkdtemp(prefix="sim-vcm-drive-budget-corners-")
+        )
         print(f"=== VCM drive-budget: full ratified PVT grid "
               f"({args.sweep} sweep, {args.window} {sample_ns:.3f} ns "
               f"window only) ===")
+        results, info, req, body = submit_corners(
+            cids, workdir, args.window, args.sweep, point=args.point,
+            backend=args.backend, timeout_s=args.timeout_s,
+        )
+        artifacts = {
+            "request.json": (workdir / "request.json").read_text(),
+            "tb.spice": body,
+            "report.json": (workdir / "report.json").read_text(),
+        }
         if args.sweep == "decouple":
-            points = run_corners_decouple(scratch, point=args.point,
-                                          window=args.window)
+            points = run_corners_decouple(results, cids, window=args.window)
             if args.record:
                 write_corners_decouple_record(points, args.point,
                                               window=args.window,
-                                              supersedes=args.supersedes)
+                                              supersedes=args.supersedes,
+                                              info=info, artifacts=artifacts)
             return 0
-        points = run_corners(scratch, point=args.point, window=args.window)
+        points = run_corners(results, cids, window=args.window)
         if args.record:
             write_corners_record(points, args.point, window=args.window,
-                                 supersedes=args.supersedes)
+                                 supersedes=args.supersedes,
+                                 info=info, artifacts=artifacts)
         return 0
 
     sweeps = []
