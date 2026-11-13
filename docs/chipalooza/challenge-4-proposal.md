@@ -16,8 +16,12 @@ dedicated-pad budget from the assumed 0–4 to the published 1–3. Update
 2026-11-13: re-fetched at the same byte count, with a sha256 now pinned in
 §2.2.2, so §2.2.1's figures stand; §2.2.2 extends the reconciliation to the
 page's proposal-content, repository-hygiene and design-conformance
-requirements, which the first pass did not grade. Proposals are due
-2026-11-23.**
+requirements, which the first pass did not grade. Third pass, same day:
+`rules-4.html`'s digest is unchanged and the server now also states it has
+not been modified since launch day, and §2.2.3 grades the two *other*
+governing pages (`challenge-4.html`, `get-involved.html`) that both earlier
+passes left unread — one of which adds a proposal-content requirement
+`rules-4.html` does not state. Proposals are due 2026-11-23.**
 
 **Source repository**: `2AMLogic/sky130-sar-adc` (`visibility: public`,
 flipped 2026-08-25 per Epic #542 Phase 4A — confirmed via `gh repo view`
@@ -217,7 +221,7 @@ and no row of §4 is relaxed or moved by this pass.
 | Requirement, as published | Where this repository stands | Verdict |
 |---|---|---|
 | Proposal states "the type of IP block", and the block "should be … useful within the context of a system-on-chip" | §1 — a 10-bit differential charge-redistribution SAR ADC, a block class an SoC routinely needs; the device inventory behind that description is re-derived from [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice) by check 20 of the [citation gate](check_proposal_citations.py) rather than asserted. The page points participants at the earlier Efabless challenge's designs as a starting point; per `CLAUDE.md`'s clean-room rule this design takes nothing from any of them, which costs nothing here — the page permits reuse, it does not require it | **MET** |
-| "List of I/O, including test ports" | §2.2 pad table (every port categorised against a slot) and §2.3's verbatim `.subckt sar_adc_top` port list; both are machine-checked against `design/sar_adc_top.spice` by check 10 of the [citation gate](check_proposal_citations.py), so a port cannot be added, dropped or re-categorised here without failing CI | **MET** |
+| "List of I/O, including test ports" | §2.2 pad table (every port categorised against a slot) and §2.3's verbatim `.subckt sar_adc_top` port list; both are machine-checked against `design/sar_adc_top.spice` by check 10 of the [citation gate](check_proposal_citations.py), so a port cannot be added, dropped or re-categorised here without failing CI | **MET as `rules-4.html` words it.** `get-involved.html` words the same item with an extra clause — "Note any special requirements such as low resistance to the pad" — which this pass did not read; graded **UNMET** against that longer wording in §2.2.3 (§7 item 13, #839) |
 | "Functional description of the IP block" | §3 | **MET** |
 | "A target specification with all relevant characteristics, including average, minimum, and maximum values (as appropriate), **and absolute limits**" | §4 carries a `Target (min/typ/max)` column and a per-row verdict for every row, traced to [`spec/target-spec.md`](../../spec/target-spec.md) or a dated `sim/` record. It states **no absolute limits** anywhere, and `spec/target-spec.md` carries no absolute-maximum row either — the ±10 % supply span (1.62 / 1.80 / 1.98 V) in §4 is a *verification grid* (DR-003), not an absolute maximum rating, and the page separately requires conformance to the Sky130 process's own "voltage limits" | **PARTIAL — min/typ/max MET, absolute limits UNMET** (§7 item 12) |
 | "An outline of a test plan for validating the IP block through measurement" | §5, written against the current port list and gated for port parity by the citation gate's test-plan check | **MET** |
@@ -236,6 +240,166 @@ open genuinely new gaps that were invisible while the rules were unpublished
 are carried as §7 item 12 — and the first two as issues #834 and #835 — rather
 than folded into §4, because none of them is a spec row. The two conflicts
 §2.2.1 found are tracked as #836, routed to an operator.
+
+### 2.2.3 Third reconciliation pass (2026-11-13): the governing pages §2.2.1 and §2.2.2 never fetched
+
+Issue #121 acceptance criterion 4, third pass. §2.2.1 and §2.2.2 both
+reconciled against **one** page, `rules-4.html`. The challenge is published
+across three pages plus the series index, and its own landing page names two
+of them as governing — "Read the Rules & Regulations, then send your proposal
+to chipalooza@opencircuitdesign.com. **See Get Involved for what a proposal
+needs to contain.**" This pass fetches all four, pins each by digest, and
+grades the two whose content this document had never read — one because it
+was still a pre-launch stub the last time this document looked, the other
+because it was never fetched at all.
+
+| Page | HTTP | Bytes | sha256 (first 8) | Server `Last-Modified` | Graded before this pass? |
+|---|---|---|---|---|---|
+| `rules-4.html` | 200 | 13 704 | `120db18a` | Mon, 09 Nov 2026 18:49:58 GMT | yes — §2.2.1, §2.2.2 |
+| `challenge-4.html` | 200 | 4 770 | `3153de5b` | Mon, 09 Nov 2026 18:12:56 GMT | **no** — last seen as a 1 464-byte stub (§7 item 7, 2026-10-03) |
+| `get-involved.html` | 200 | 4 245 | `6cc41a25` | Mon, 09 Nov 2026 18:14:16 GMT | **no** — never fetched by this document |
+| `index.html` (series index) | 200 | 8 055 | `241b6b7b` | Mon, 09 Nov 2026 19:10:01 GMT | size/`ETag` only (§7 item 7, 2026-10-03) |
+
+All four fetched 2026-11-13 from `https://opencircuitdesign.com/chipalooza/`.
+`Last-Modified` is a server-stated header, trusted exactly that far; the
+digests are this pass's own measurement of the bytes received.
+
+**`rules-4.html` is unchanged, and now more than probably so.** §2.2.2 pinned
+its digest and said plainly that a matching byte count was "evidence that the
+page did not change between the two fetches rather than proof of it". This
+fetch returns the identical digest **and** a server `Last-Modified` of
+2026-11-09 18:49:58 GMT — i.e. the server states the page has not been
+rewritten since launch day. Every §2.2.1 and §2.2.2 row therefore stands,
+including the published 1–3 dedicated-pad ceiling that §2.2.1's pad-budget
+delta rests on.
+
+#### `challenge-4.html`: no §2 figure moves, and one §7 loose end closes
+
+The republished page is a summary, not a second rulebook; its "At a glance"
+box repeats `rules-4.html` rather than qualifying it. Graded against where
+this document stands:
+
+| `challenge-4.html` states | Where this repository stands | Effect |
+|---|---|---|
+| Process: "SkyWater Sky130, through Chip Foundry" | §1/§2.1 — Sky130 core devices plus `cap_mim_m3_1`, device inventory re-derived by check 20 of the [citation gate](check_proposal_citations.py) | none |
+| Supplies: "1.8V digital, 3.3V analog" | A **resource list**, not a mandate — `rules-4.html`'s own framing is "Designers may assume availability of external resources in the form of: Supply voltages at 1.8V (digital) and 3.3V (analog)". This design is ratified single-supply 1.8 V core throughout (DR-001/DR-003) and spends less than the brief offers | none — see the note below |
+| "Projects on chip: Up to 18" | §2.2.1's capacity row already carried 18 | none |
+| Proposals due November 23, 2026; final design review week of February 22, 2027 | §2.2.1's schedule row carries both | none |
+| **Tapeout May 19, 2027**; challenge window "November 9, 2026–May 19, 2027" | **New** — §2.2.1's schedule row stopped at the final design review | informational; no §2 or §4 figure depends on a tapeout date |
+| **Award "$1500 per project: half at tapeout, half on published measurement results"** | **New** here, though `rules-4.html` states the same split | informational — it does make §5's measurement test plan the path to the second half, which is one more reason §5 is written against the real port list |
+| Harness: "a Sky130 version of the Chipalooza harness chip … with dedicated, user-selectable pads for each slot. **The harness repository, slot sizes, and I/O configuration will be posted here when available.**" | `rules-4.html` says the same ("The slot size and I/O configuration (TBD) will be specified in the harness repository") | **timing fact, carried into §7 item 11** — see below |
+
+**On the supplies line, precisely.** This issue's own filed Phase Goal
+described the brief as "Sky130's native rails (1.8V digital / 3.3V analog)",
+and §2.1 plus this issue's Curator note corrected that phrasing. Both are
+right about different things, and the republished page makes the distinction
+worth stating rather than leaving implied: the phrase is **accurate about the
+brief's available rails** — the organisers' own summary box uses it verbatim —
+and wrong only as a description of **this design**, which is 1.8 V core
+throughout with no 3.3 V analog rail. Declining an offered resource is not a
+conflict with the resource list. The genuine 3.3 V exposure is unchanged and
+already carried elsewhere: the padframe is the dual 1.8 V core / 3.3 V
+periphery pad library, and the page requires overvoltage protection on a
+1.8 V design's padframe-facing inputs and outputs — §7 item 11(b), tracked as
+#836.
+
+**The stub's year inconsistency is resolved.** §7 item 7's 2026-10-03
+re-check recorded that the then-stub `challenge-4.html` gave the expected
+launch as "November 9, **2027** (estimate)", called it "almost certainly a
+typo", and deliberately did not act on it, keeping the index/epic date of
+2026-11-09. The republished page states "Launched November 9, 2026" and
+"November 9, 2026–May 19, 2027". The inconsistency is gone, resolved in
+favour of the date this document already used; that earlier non-action was
+correct and nothing in §2 moves now.
+
+**One small internal arithmetic delta, recorded because this document records
+deltas.** `rules-4.html` says the challenge "is 27 weeks long, counting from
+the start date and ending on the tapeout date"; 27 weeks after Monday
+2026-11-09 is Monday 2027-05-17, while both pages state the tapeout as
+2027-05-19 (a Wednesday). The series index itself flags the date as
+provisional — the Chip Foundry tapeout date "is taken from the schedule on the
+Chip Foundry website, and may still change" — so the two-day gap is an
+approximation in the "27 weeks" prose, not a contradiction worth raising with
+the organisers. No figure in this document depends on either value.
+
+#### `get-involved.html`: one proposal-content requirement `rules-4.html` does not state
+
+Its proposal-content list is otherwise the same seven items `rules-4.html`
+states and §2.2.2 graded — type of IP block, I/O list, functional description,
+target specification with "average, minimum, maximum values as appropriate, and
+absolute limits", measurement test plan, plus the equipment list and designer
+CVs as separate attachments, with personal and institutional details kept out
+of the main document. One item
+carries a clause that does not appear in `rules-4.html` at all:
+
+> "List of I/O, including test ports. **Note any special requirements such as
+> low resistance to the pad.**"
+
+**Verdict: UNMET.** §2.2's pad table categorises every port against a slot and
+§2.3 reproduces the netlist's own port list verbatim, but neither states a
+*special requirement* for any pad, low-resistance or otherwise. This is not a
+purely editorial gap, because this block has a concrete candidate and this
+repository cannot yet put a number on it:
+
+- The CDAC draws transient charge from `VREFP`/`VREFN` at **every** bit trial,
+  so the reference pads are the obvious place a drive-impedance requirement
+  would land.
+- `rules-4.html` rates the shared analog multiplexer switches at "less than
+  5 ohms", but bussed to all eighteen projects, and warns the shared lines
+  "should not be relied on for high-frequency analog signaling".
+- **No `sim/` campaign in this repository puts a drive impedance on the
+  reference at all** — the same finding §7 item 11(a)(iii) already records:
+  [`sim/vcm-drive-budget/`](../../sim/vcm-drive-budget/) budgets `VCM`, and
+  [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/)
+  budgets the four supply terminals while its own runner keeps
+  `VREFP`/`VREFN`/`VCM` ideal at the die.
+
+So the honest statement is that this block very likely *does* have a
+low-resistance-to-pad requirement on its references, and this repository has
+no evidence for the value — which is the same reference-drive-impedance
+campaign route (iii) of §7 item 11(a) already needs before it could be
+claimed. Carried as §7 item 13 and filed as #839. No §4 verdict moves.
+
+#### The authoritative change channel is not any of these pages
+
+§2.2.1 already noted that `rules-4.html` defers layout and test specifics to
+the project forum. Both newly-read pages go further, and the distinction
+matters for *how this document is kept honest*: `get-involved.html` says "All
+changes to **challenge terms** are posted there first", and `rules-4.html`
+that "Any updates that modify the terms of the challenge will be announced in
+the fossi-chat.org/#chipalooza forum."
+
+**This bounds the re-verification method §2.2.1, §2.2.2 and this pass all
+use.** All three fetch static HTML and compare sizes or digests. A term change
+announced in the forum and not yet written back into these pages is invisible
+to that method, and the forum is a chat room rather than a static document —
+nothing in this repository fetches or diffs it. So an unchanged digest
+supports "these pages have not changed", and never "the terms have not
+changed". Recorded as a limitation of the method rather than repaired here;
+closing it would mean a human reading the forum, which is operator-held along
+with the actions below.
+
+#### Operator-held mechanics this pass newly names
+
+Additive to §2.2.2's CVs/equipment-list and "whether to submit at all" rows —
+mechanics, not a recommendation:
+
+- **Submission channel**: the written proposal is **emailed** to
+  `chipalooza@opencircuitdesign.com` — `challenge-4.html` and
+  `get-involved.html` both say so, and `rules-4.html` states no channel at
+  all. There is no upload, form or pull-request route.
+- **Interest survey**: `get-involved.html`'s step 2 asks participants to fill
+  a short interest survey (a `forms.gle` form) "even if your proposal isn't
+  ready yet" — explicitly **not** gated on the proposal being finished, and
+  the cheapest of its three steps.
+- **Forum presence**: step 1, and per the section above the channel every
+  term change lands in first.
+
+Nothing in §2.2.3 moves a §4 verdict, relaxes a spec row, or changes a §2
+slot-budget figure. It grades two governing pages for the first time, closes
+§7 item 7's open year inconsistency, adds one UNMET proposal-content
+requirement (§7 item 13, #839), and records one timing fact against §7
+item 11.
 
 ### 2.3 What this repo's own port list is, verbatim
 
@@ -4567,7 +4731,8 @@ tracker already owns.
    `layout/sar-adc-top/`'s composition (§7 Item 1) needed no further re-run
    beyond the one already described in §4's sample-rate row above.
 7. **`rules-4.html` had not published — the reconciliation this item owed is
-   now done, in §2.2.1 (2026-11-10) and §2.2.2 (2026-11-13).** The item is
+   now done, in §2.2.1 (2026-11-10), §2.2.2 and §2.2.3 (both
+   2026-11-13).** The item is
    kept, with its re-check chain intact below, because that chain is the
    record of *when* each §2 figure was still an assumption; it is no longer an
    open gap. As originally filed: every slot-budget assumption in §2 was
@@ -4659,6 +4824,16 @@ tracker already owns.
    (2026-11-09) and does not act on the stub's year. Neither page changes
    any §2 slot-budget assumption. The epic's tracking table still lists
    row 4 as "launches 2026-11-09" (submission 2026-11-23).
+
+   **Closed 2026-11-13 (third pass, §2.2.3): the stub's year inconsistency
+   is gone, and the non-action above was correct.** `challenge-4.html` was
+   republished on launch day (`Last-Modified: Mon, 09 Nov 2026 18:12:56
+   GMT`, HTTP 200, 4 770 bytes, sha256 `3153de5b…` — no longer a stub) and
+   now states "Launched November 9, 2026" and a "November 9, 2026–May 19,
+   2027" challenge window. The "2027 (estimate)" line is gone, resolved in
+   favour of the index/epic date this document kept. Its content is graded
+   in §2.2.3; no §2 figure moves as a result, and the one new gap that pass
+   found came from `get-involved.html`, not from this page.
 
 8. **Whole-ADC (end-to-end) code correctness is not yet demonstrated — a
    campaign exists, found real defects, several are already fixed, and two
@@ -5876,6 +6051,23 @@ tracker already owns.
     these is an operator decision (#836); route (iii) additionally needs
     evidence this repository does not have. **Still no §4 verdict moves.**
 
+    **Timing fact added 2026-11-13 (third pass, §2.2.3): the configuration
+    this decision will be executed against does not exist yet.**
+    `challenge-4.html` states that "the harness repository, slot sizes, and
+    I/O configuration will be posted here when available", and
+    `rules-4.html` that "the slot size and I/O configuration (TBD) will be
+    specified in the harness repository". So the 1–3 dedicated-pad ceiling
+    the overrun is measured against is published, while the harness
+    configuration file that ceiling is realised in is not — and the page
+    says a dedicated pad's *type* "will be noted in the harness chip's
+    configuration file and used to build the padframe". This is **not** a
+    reason to defer #836: proposals are due 2026-11-23, well before the
+    harness repository is promised, so the decision has to be made against
+    the published resource list. It is recorded so that a later harness
+    publication is read as new information about an open decision rather
+    than as a contradiction of this document. **No §4 verdict moves, and no
+    route is adopted.**
+
 12. **Three brief requirements that no spec row covers (added 2026-11-13,
     issue #121 criterion 4, second pass; detail in §2.2.2).** Each is tracked:
     (a) #834, (b) #835, (c) no separate issue — it is a standing note on this
@@ -5902,6 +6094,35 @@ tracker already owns.
     ENOB/INL-DNL (DR-007, still `proposed`). Recorded so that a later
     ratification is not mistaken for a purely internal `spec/` event. **No §4
     verdict moves because of this item**, and none is claimed to.
+
+13. **No pad carries a declared special requirement, and the brief's I/O
+    list asks for them (added 2026-11-13, issue #121 criterion 4, third
+    pass; detail in §2.2.3). Tracked as #839.** `get-involved.html` — one of
+    the two governing pages the first two reconciliation passes never
+    fetched — states the I/O requirement as "List of I/O, including test
+    ports. **Note any special requirements such as low resistance to the
+    pad.**" `rules-4.html` carries the first sentence only, which is why
+    §2.2.2 — the pass that graded the proposal-content list — marked the I/O
+    item MET on the text in front of it. §2.2's pad table and
+    §2.3's verbatim port list are complete and machine-checked against
+    [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice) (check 10 of
+    the [citation gate](check_proposal_citations.py)), but **no pad in either
+    carries a special requirement, or an explicit statement that it has
+    none** — so the requirement is **UNMET** on the added clause.
+
+    It is not editorial. The CDAC draws transient charge from
+    `VREFP`/`VREFN` at every bit trial; the page rates the shared analog
+    multiplexer switches at "less than 5 ohms" but bussed to all eighteen
+    projects and unsuited to "high-frequency analog signaling"; and no
+    `sim/` campaign here puts a drive impedance on the reference at all
+    (item 11(a)(iii) above records the same absence). So a declared
+    low-resistance-to-pad figure for the references cannot be written today
+    without inventing it, which this repository's `CLAUDE.md` forbids.
+    #839 notes the overlap: the reference-drive-impedance campaign that
+    would produce the number is the same evidence item 11(a) route (iii)
+    needs before it could be chosen. **No §4 verdict moves because of this
+    item** — it is an interface declaration the brief asks for, not a
+    performance target.
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
