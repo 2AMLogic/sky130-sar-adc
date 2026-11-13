@@ -229,6 +229,21 @@
           "records": ["sim/vcm-drive-budget/records/20260908-100413-f3e2914.md"]
         },
         {
+          "experiment": "reference-drive-budget",
+          "runner": "sim/reference-drive-budget/run_reference_drive_budget.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "testbench_note": "No deck of its own: the runner reads the full-conversion campaign's committed fragment in place and uses it verbatim except for the two reference source cards, which it re-points to a drive node with the swept R_ref in series to the die (the same read-in-place convention sim/vcm-drive-budget/ uses for the sampling front end's fragment). The assembled circuit body and the klt sim request are committed per record under sim/reference-drive-budget/corners/<record-id>/.",
+          "cold_start": "python3 sim/reference-drive-budget/run_reference_drive_budget.py --record",
+          "documented_in": "sim/reference-drive-budget/README.md",
+          "covers": "The interface precondition on the REFERENCE side: how much external series drive resistance VREFP/VREFN tolerate before the converter's captured codes move, over the full ratified corner set, at the DR-006 worst-case f_clk this DRAFT row derives. Indexed here -- rather than under a row of its own -- for the same reason sim/vcm-drive-budget/ is: it measures the SAME quantity the full-conversion bench below measures (the captured code of each DC input) with one drive made non-ideal, and its yardstick timing comes from this row. It is the reference-side counterpart of vcm-drive-budget (VCM) and supply-impedance-sensitivity (the four supply terminals), and closes the gap both of those state in their own text: before this campaign no sim/ bench put any impedance on VREFP/VREFN at all. Informational -- it grades nothing against this DRAFT row, edits no spec row, and chooses no route of the Challenge #4 proposal's Section 7 Item 11; it supplies the evidence route (iii) was missing.",
+          "records": [
+            "sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md"
+          ]
+        },
+        {
           "experiment": "full-conversion-transient",
           "runner": "sim/full-conversion-transient/run_conversion.py",
           "testbench": [
