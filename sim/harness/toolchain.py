@@ -198,8 +198,35 @@ def run_ngspice_with_retry(
     raise AssertionError("unreachable")  # loop always returns or raises above
 
 
+def netlist_is_complete(out_path: Path) -> bool:
+    """True when `out_path` looks like a netlist xschem finished writing:
+    the commented `**.subckt` header line is present and the last non-blank
+    card is `.end`.
+
+    This is the structural test `netlist_with_xschem(...,
+    accept_complete_on_nonzero=True)` substitutes for the exit code; see that
+    function's docstring for which schematics need it and why. A file that
+    does not exist is not complete (False, not an exception), so callers can
+    use it as a plain predicate.
+    """
+    if not out_path.is_file():
+        return False
+    cards = [line for line in out_path.read_text().splitlines() if line.strip()]
+    if not cards:
+        return False
+    return (
+        any(line.startswith("**.subckt") for line in cards)
+        and cards[-1].strip() == ".end"
+    )
+
+
 def netlist_with_xschem(
-    design_sch: Path, scratch_dir: Path, xschemrc: Path, out_name: str
+    design_sch: Path,
+    scratch_dir: Path,
+    xschemrc: Path,
+    out_name: str,
+    *,
+    accept_complete_on_nonzero: bool = False,
 ) -> Path:
     """Netlist `design_sch` with xschem (headless), returning the path to the
     generated `out_name` file under `scratch_dir`. Raises RuntimeError on any
@@ -216,6 +243,31 @@ def netlist_with_xschem(
     `netlist_dut()` functions, both netlisting design/sar_sequencer.sch this
     same way. Parameterized over the design schematic, xschemrc path, and
     expected output filename so it is not tied to any one DUT.
+
+    `accept_complete_on_nonzero` (issue #860) opts a caller into the one
+    documented xschem quirk this repo hits: xschem's exit code reflects its
+    electrical-rule check, not whether netlisting succeeded, so a schematic
+    that deliberately leaves nets open exits nonzero having written a
+    complete, correct netlist. Measured with the pinned xschem 3.4.7 on this
+    repo's own schematics, `design/sampling_frontend.sch`,
+    `design/sar_sequencer.sch` and `design/cdac/cdac_unit_cell.sch` all
+    netlist with exit 0, while `design/cdac/cdac_array.sch` and
+    `design/sar_adc_top.sch` exit **10** with empty stdout/stderr -- having
+    written a netlist whose device lines are byte-identical to the committed
+    fragment, ending with the `**.ends` / `.end` pair xschem emits last.
+    With the keyword set, such a run is accepted ONLY when
+    netlist_is_complete() holds for the output file -- a genuinely truncated
+    netlist still raises, and so does a missing one. The default stays
+    strict, so the two `netlist_dut()` callers above are unaffected.
+
+    Consolidated (issue #860) from two private re-implementations that each
+    answered "xschem exited nonzero; was the netlist good?" differently:
+    sim/sampling-cdac-handoff/run_handoff.py's `_netlist_schematic()` (this
+    completeness test, in a try/except around this helper) and
+    layout/cdac-array/bin/generate-lvs-reference.py's `netlist_schematic()`
+    (a bare `subprocess.run(..., check=False)` with no timeout and no
+    completeness test at all, so a hung xschem hung the LVS-reference step
+    and a truncated netlist was accepted as the LVS reference).
     """
     scratch_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -235,6 +287,14 @@ def netlist_with_xschem(
             f"before re-running."
         ) from exc
     out_path = scratch_dir / out_name
+    if proc.returncode != 0 and accept_complete_on_nonzero:
+        if netlist_is_complete(out_path):
+            print(
+                f"  (note: xschem exited {proc.returncode} on {design_sch.name} but "
+                f"wrote a complete netlist -- accepted, see netlist_with_xschem()'s "
+                f"docstring on accept_complete_on_nonzero)"
+            )
+            return out_path
     if proc.returncode != 0 or not out_path.is_file():
         raise RuntimeError(
             f"xschem netlisting of {design_sch} failed (exit {proc.returncode}):\n"
