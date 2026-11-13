@@ -1,0 +1,718 @@
+{
+ "netlist": "tb.spice",
+ "engine": "ngspice",
+ "models": {
+  "pdk": "sky130A",
+  "lib": "libs.tech/combined/sky130.lib.spice"
+ },
+ "corners": {
+  "process": [
+   "ff",
+   "fs",
+   "sf",
+   "ss",
+   "tt"
+  ],
+  "supply_v": {
+   "vsup": [
+    1.62,
+    1.8,
+    1.98
+   ]
+  },
+  "temperature_c": [
+   -40.0,
+   27.0,
+   125.0
+  ]
+ },
+ "analysis_steps": [
+  {
+   "name": "bare_r0",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 1e-06,
+    "Cdecouple": 1e-18
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "bare_r10000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 10000.0,
+    "Cdecouple": 1e-18
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "bare_r100000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 100000.0,
+    "Cdecouple": 1e-18
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r10000_c1",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 10000.0,
+    "Cdecouple": 1e-12
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r10000_c10",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 10000.0,
+    "Cdecouple": 1e-11
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r10000_c100",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 10000.0,
+    "Cdecouple": 1e-10
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r10000_c1000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 10000.0,
+    "Cdecouple": 1e-09
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r100000_c1",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 100000.0,
+    "Cdecouple": 1e-12
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r100000_c10",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 100000.0,
+    "Cdecouple": 1e-11
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r100000_c100",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 100000.0,
+    "Cdecouple": 1e-10
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "dec_r100000_c1000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "10.0p 461.0n"
+   },
+   "alter": {
+    "Rvcm": 100000.0,
+    "Cdecouple": 1e-09
+   },
+   "measurements": [
+    {
+     "name": "top_p_end",
+     "spice": ".meas tran top_p_end find v(TOP_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "top_n_end",
+     "spice": ".meas tran top_n_end find v(TOP_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_p_end",
+     "spice": ".meas tran bp_p_end find v(BPREF_P) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "bp_n_end",
+     "spice": ".meas tran bp_n_end find v(BPREF_N) at=410.98n",
+     "unit": "V"
+    },
+    {
+     "name": "vcm_end",
+     "spice": ".meas tran vcm_end find v(VCM) at=410.98n",
+     "unit": "V"
+    }
+   ]
+  }
+ ],
+ "options": {
+  "timeout_s": 300.0,
+  "keep_artifacts": true
+ },
+ "exclude": [
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  }
+ ]
+}
