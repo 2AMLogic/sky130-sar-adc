@@ -36,6 +36,8 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from . import klt_sim
+
 ENV_BROKER = "KLT_ARTIFACT_BROKER"
 ENV_REPO = "KLT_ARTIFACT_REPO"
 MANIFEST_DIR = Path("manifests") / "artifacts"
@@ -147,11 +149,21 @@ def preflight(repo_root: Path, *, klt: str = "klt", env=None,
 
 
 def _klt_error(stderr: str) -> str:
+    """The one-line diagnostic for a failed `klt` call.
+
+    stderr is SCANNED for the error envelope rather than required to be it
+    (`klt_sim.envelope_from_stderr`, issue #892): `klt` writes install
+    warnings and progress lines ahead of the envelope, and against that shape
+    the old `json.loads(stderr)` fell through to the last-line fallback and
+    reported the envelope's closing brace -- `klt artifact put failed
+    (exit 1): }`. The last-line fallback is kept for stderr that carries no
+    envelope at all.
+    """
     try:
-        err = json.loads(stderr)["error"]
+        err = klt_sim.envelope_from_stderr(stderr)["error"]
         return f"{err.get('code', 'error')}: {err.get('message', '')}".strip()
     except (ValueError, KeyError, TypeError):
-        lines = [ln for ln in stderr.strip().splitlines() if ln.strip()]
+        lines = [ln for ln in (stderr or "").strip().splitlines() if ln.strip()]
         return lines[-1][:300] if lines else "no diagnostic"
 
 

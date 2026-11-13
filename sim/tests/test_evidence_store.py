@@ -257,3 +257,43 @@ class TestRunnerStoreMode(unittest.TestCase):
             self.assertFalse((root / "manifests").exists())
             self.assertFalse((root / "sim/exp/records").exists())
             self.assertTrue((root / "sim/.work").exists())
+
+
+class TestKltError(unittest.TestCase):
+    """The one-line diagnostic for a failed `klt` call (issue #892). `klt`
+    writes install warnings and progress lines to stderr AHEAD of its error
+    envelope, so stderr must be scanned for the envelope rather than parsed
+    whole -- parsing whole fell through to the last-line fallback and
+    reported the envelope's closing brace."""
+
+    PREAMBLE = (
+        "klt: warning: 2 installs provide PDK variant 'sky130A'; "
+        "read /home/ubuntu/.ciel\n"
+        "klt artifact put: uploading 1 of 3\n"
+    )
+
+    @staticmethod
+    def _envelope(code="broker_unreachable", message="down"):
+        return json.dumps({"schema_version": 1,
+                           "error": {"command": "artifact put",
+                                     "code": code, "message": message}}, indent=1)
+
+    def test_an_envelope_behind_warning_lines_is_reported_not_a_brace(self):
+        got = es._klt_error(self.PREAMBLE + self._envelope() + "\n")
+        self.assertEqual(got, "broker_unreachable: down")
+        self.assertNotEqual(got, "}")
+
+    def test_a_pure_json_envelope_still_reports_code_and_message(self):
+        self.assertEqual(es._klt_error(self._envelope(code="refused", message="403")),
+                         "refused: 403")
+
+    def test_no_envelope_falls_back_to_the_last_stderr_line(self):
+        self.assertEqual(es._klt_error("Traceback: boom\nbroker timed out\n\n"),
+                         "broker timed out")
+
+    def test_empty_stderr_has_no_diagnostic(self):
+        self.assertEqual(es._klt_error(""), "no diagnostic")
+        self.assertEqual(es._klt_error("   \n\n"), "no diagnostic")
+
+    def test_an_envelope_without_code_or_message_degrades_gracefully(self):
+        self.assertEqual(es._klt_error(json.dumps({"error": {}})), "error:")
