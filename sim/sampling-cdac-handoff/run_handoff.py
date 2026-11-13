@@ -275,44 +275,6 @@ def _device_lines(fragment_text: str) -> list[str]:
     ]
 
 
-def _netlist_schematic(sch: Path, out_dir: Path, out_name: str) -> Path:
-    """toolchain.netlist_with_xschem() plus a documented tolerance for one
-    xschem quirk this campaign is the first in the tree to hit.
-
-    Measured with the pinned xschem 3.4.7 on this repo's own schematics:
-    `design/sampling_frontend.sch`, `design/sar_sequencer.sch` and
-    `design/cdac/cdac_unit_cell.sch` all netlist with exit 0, while
-    `design/cdac/cdac_array.sch` and `design/sar_adc_top.sch` exit **10** with
-    empty stdout/stderr -- having written a complete, correct netlist (its
-    device lines are byte-identical to the committed fragment, and it ends with
-    the `**.ends` / `.end` pair xschem emits last). `netlist_with_xschem()`
-    treats any nonzero exit as fatal, which is right in general, so rather than
-    weaken that shared helper for every caller this wrapper accepts a nonzero
-    exit ONLY when the output file is present and structurally complete --
-    header line present and `.end` as its last card. A genuinely truncated
-    netlist still raises.
-    """
-    try:
-        return toolchain.netlist_with_xschem(sch, out_dir, XSCHEMRC, out_name)
-    except RuntimeError as exc:
-        out_path = out_dir / out_name
-        if not out_path.is_file():
-            raise
-        text = out_path.read_text()
-        cards = [line for line in text.splitlines() if line.strip()]
-        complete = (
-            any(line.startswith("**.subckt") for line in cards)
-            and cards[-1].strip() == ".end"
-        )
-        if not complete:
-            raise
-        print(
-            f"  (note: xschem exited nonzero on {sch.name} but wrote a complete "
-            f"netlist -- accepted, see _netlist_schematic()'s docstring: {exc})"
-        )
-        return out_path
-
-
 def assert_fragments_current(scratch: Path) -> str:
     """Re-netlist design/sampling_frontend.sch and design/cdac/cdac_array.sch
     with xschem and refuse to continue if either committed testbench fragment's
@@ -331,9 +293,18 @@ def assert_fragments_current(scratch: Path) -> str:
         if not sch.is_file():
             raise RuntimeError(f"schematic not found: {sch}")
     regen_dir = scratch / "regen"
+    # `accept_complete_on_nonzero` covers design/cdac/cdac_array.sch, which
+    # exits 10 with a complete netlist because its open nets fail xschem's ERC
+    # -- see toolchain.netlist_with_xschem()'s docstring (issue #860).
     fresh = {
-        FE_FRAG: _netlist_schematic(FE_SCH, regen_dir, "sampling_frontend.spice"),
-        CDAC_FRAG: _netlist_schematic(CDAC_SCH, regen_dir, "cdac_array.spice"),
+        FE_FRAG: toolchain.netlist_with_xschem(
+            FE_SCH, regen_dir, XSCHEMRC, "sampling_frontend.spice",
+            accept_complete_on_nonzero=True,
+        ),
+        CDAC_FRAG: toolchain.netlist_with_xschem(
+            CDAC_SCH, regen_dir, XSCHEMRC, "cdac_array.spice",
+            accept_complete_on_nonzero=True,
+        ),
     }
     for committed, regenerated in fresh.items():
         want = _device_lines(regenerated.read_text())

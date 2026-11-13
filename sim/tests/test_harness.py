@@ -1208,5 +1208,139 @@ class TestPdkResolvedCommit(unittest.TestCase):
         self.assertTrue(pdk.resolved_commit(FakeInfo()).startswith("c" * 40))
 
 
+class TestNetlistWithXschemExitPolicy(unittest.TestCase):
+    """toolchain.netlist_with_xschem()'s one exit-code policy (issue #860).
+
+    The three private re-implementations this consolidated each answered
+    "xschem exited nonzero; was the netlist good?" differently. These tests
+    pin the three answers the single helper now gives: strict by default,
+    tolerant of a nonzero exit ONLY with `accept_complete_on_nonzero=True`
+    AND a structurally complete output file.
+
+    xschem itself is never invoked -- subprocess.run is patched -- so this
+    stays in the PDK-free headless tier with the rest of this module.
+    """
+
+    #: A minimal stand-in for what xschem emits: the commented subckt header
+    #: line the completeness test looks for, a device card, and the
+    #: `**.ends` / `.end` pair xschem writes last.
+    COMPLETE = "**.subckt cdac_array VDD VSS\nC1 top bot 1f\n**.ends\n.end\n"
+    #: The same netlist cut off mid-write: header present, no `.end`.
+    TRUNCATED = "**.subckt cdac_array VDD VSS\nC1 top bot 1f\n"
+
+    def _run(self, *, returncode, written, **kwargs):
+        """Call netlist_with_xschem() with subprocess.run patched to return
+        `returncode` after `written` (or nothing, if None) has been placed at
+        the expected output path.
+
+        Returns `(returned_path, returned_text)` -- the text is read before the
+        scratch TemporaryDirectory is torn down, since the path the helper
+        returns does not outlive it.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp) / "netlist"
+            out_name = "cdac_array.spice"
+
+            def fake_run(cmd, **_kw):
+                if written is not None:
+                    (scratch / out_name).write_text(written)
+                return subprocess.CompletedProcess(cmd, returncode, "", "")
+
+            with mock.patch.object(toolchain.subprocess, "run", fake_run):
+                out = toolchain.netlist_with_xschem(
+                    Path("design/cdac/cdac_array.sch"),
+                    scratch,
+                    Path("sim/xschemrc"),
+                    out_name,
+                    **kwargs,
+                )
+            return out, out.read_text()
+
+    def test_exit_zero_returns_the_output_path(self):
+        out, _ = self._run(returncode=0, written=self.COMPLETE)
+        self.assertEqual(out.name, "cdac_array.spice")
+
+    def test_nonzero_exit_raises_by_default_even_when_complete(self):
+        # The default is what sim/sar-sequencer-behavioral/run_testbench.py's
+        # and sim/sequencer-logic-delay/run_sequencer_logic_delay.py's
+        # netlist_dut() get: issue #860 must not weaken it.
+        with self.assertRaises(RuntimeError) as ctx:
+            self._run(returncode=10, written=self.COMPLETE)
+        self.assertIn("exit 10", str(ctx.exception))
+
+    def test_nonzero_exit_with_complete_netlist_is_accepted_when_opted_in(self):
+        out, written = self._run(
+            returncode=10, written=self.COMPLETE, accept_complete_on_nonzero=True
+        )
+        self.assertEqual(out.name, "cdac_array.spice")
+        self.assertEqual(written, self.COMPLETE)
+
+    def test_nonzero_exit_with_truncated_netlist_still_raises_when_opted_in(self):
+        with self.assertRaises(RuntimeError):
+            self._run(
+                returncode=10, written=self.TRUNCATED, accept_complete_on_nonzero=True
+            )
+
+    def test_nonzero_exit_with_no_output_file_still_raises_when_opted_in(self):
+        with self.assertRaises(RuntimeError):
+            self._run(
+                returncode=10, written=None, accept_complete_on_nonzero=True
+            )
+
+    def test_exit_zero_with_no_output_file_raises(self):
+        with self.assertRaises(RuntimeError):
+            self._run(returncode=0, written=None)
+
+    def test_timeout_raises_and_names_the_override_env_var(self):
+        def fake_run(cmd, **kw):
+            raise subprocess.TimeoutExpired(cmd, kw.get("timeout", 0))
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(toolchain.subprocess, "run", fake_run):
+            with self.assertRaises(RuntimeError) as ctx:
+                toolchain.netlist_with_xschem(
+                    Path("design/cdac/cdac_array.sch"),
+                    Path(tmp) / "netlist",
+                    Path("sim/xschemrc"),
+                    "cdac_array.spice",
+                    accept_complete_on_nonzero=True,
+                )
+        # The opt-in must not swallow a hung xschem -- that is the bug it is
+        # replacing in layout/cdac-array/bin/generate-lvs-reference.py, which
+        # had no timeout at all.
+        self.assertIn("timed out", str(ctx.exception))
+        self.assertIn(toolchain.TIMEOUT_ENV_VAR, str(ctx.exception))
+
+
+class TestNetlistIsComplete(unittest.TestCase):
+    def _complete(self, text):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "n.spice"
+            path.write_text(text)
+            return toolchain.netlist_is_complete(path)
+
+    def test_header_and_trailing_end_is_complete(self):
+        self.assertTrue(
+            self._complete("**.subckt x a b\nC1 a b 1f\n**.ends\n.end\n")
+        )
+
+    def test_blank_lines_after_end_are_ignored(self):
+        self.assertTrue(self._complete("**.subckt x a b\n.end\n\n  \n"))
+
+    def test_missing_trailing_end_is_incomplete(self):
+        self.assertFalse(self._complete("**.subckt x a b\nC1 a b 1f\n"))
+
+    def test_missing_header_is_incomplete(self):
+        self.assertFalse(self._complete("C1 a b 1f\n.end\n"))
+
+    def test_empty_file_is_incomplete(self):
+        self.assertFalse(self._complete(""))
+
+    def test_missing_file_is_incomplete_not_an_error(self):
+        self.assertFalse(
+            toolchain.netlist_is_complete(Path("/definitely/does/not/exist.spice"))
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

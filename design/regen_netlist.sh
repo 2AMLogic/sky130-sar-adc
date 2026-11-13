@@ -68,13 +68,25 @@ trap 'rm -rf "${SCRATCH_DIR}"' EXIT
 # deliberately leaves unconnected, per design/sar_adc_top.sch's own header
 # "Known, named-not-closed integration gaps" section) -- NOT whether
 # netlisting itself succeeded. This repo's existing convention (see
-# design/comparator.sch's own header, and design/cdac/cdac_array.sch, which
-# both already exit nonzero standalone for the same reason) is: a nonzero
+# design/cdac/cdac_array.sch, which already exits nonzero standalone for the
+# same reason; design/comparator.sch's header records the same thing as a
+# HISTORICAL note -- issue #56's hierarchical ports satisfied that ERC and it
+# has exited 0 since) is: a nonzero
 # xschem exit with empty stdout/stderr and a complete device list is a
 # clean netlist, not a netlisting failure -- so this script checks for the
-# OUTPUT FILE's existence, not xschem's exit code, exactly like
-# sim/sar-sequencer-behavioral/run_testbench.py's own netlist_dut() does
-# (it only raises on a missing output file or actual stdout/stderr text).
+# OUTPUT FILE's existence, not xschem's exit code.
+#
+# The Python side of the tree expresses the same convention as an explicit
+# opt-in rather than by ignoring the exit code: toolchain.netlist_with_xschem()
+# raises on ANY nonzero exit by default, and a caller that netlists one of
+# these deliberately-open-net schematics passes
+# `accept_complete_on_nonzero=True` to accept a nonzero exit only when the
+# output file is structurally complete (issue #860). Porting this script onto
+# that helper is out of scope -- it also carries the xschem-3.4.4 chatter
+# filter and the device-flavour gate below. (Until issue #860 this comment
+# cited sim/sar-sequencer-behavioral/run_testbench.py's netlist_dut() as
+# tolerating a nonzero exit; that wrapper has been strict since issue #205
+# moved it onto the shared helper.)
 set +e
 XSCHEM_OUT="$(xschem -x -n -s -q --rcfile "${XSCHEMRC}" -o "${SCRATCH_DIR}" "${DESIGN_SCH}" 2>&1)"
 set -e
