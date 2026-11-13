@@ -8,6 +8,12 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-13
 
+- **Issue #879** (closed): test: the decision-margin and sequencer-port netlist-shape guards have no test in either direction
+- **PR #883**: test: cover both netlist-shape guards on synthetic netlists
+- **Issue #880** (closed): vcm-drive-budget: mint superseding records after #874 and restate text citing the old '<= 0 ohm' / '9 of 9 rescued' wording
+- **PR #885**: docs(challenge-4): restate vcm rescue counts under the post-#874 convention
+- **Issue #882** (closed): vcm-drive-budget: two record notes overclaim — ">= X pF" on the single-corner path and an unchecked "reproduces the single-corner record"
+- **PR #886**: fix(vcm-drive-budget): drop the ">= X pF" claim and check tt/seed agreement before saying "reproduces"
 - **Issue #873** (closed): bug: --mechanism-probe's delayed-strobe variant refuses against the committed netlist, and no test covers the guard
 - **PR #878**: refactor: retire --mechanism-probe from the full-conversion runner
 - **Issue #874** (closed): vcm-drive-budget: find_budget() can never return None — the 'none found'/'unrescued' branches are dead and the rescue verdict cannot fail
