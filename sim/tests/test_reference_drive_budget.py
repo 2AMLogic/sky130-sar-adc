@@ -659,5 +659,311 @@ class TestRequestIsJsonSerialisable(unittest.TestCase):
         self.assertEqual(json.loads(json.dumps(req)), req)
 
 
+# --------------------------------------------------------------------------
+# Inputs pinned at a code rail (issue #841 review)
+# --------------------------------------------------------------------------
+#: `BASE` is the committed tt/27C/1.80V row and its FIFTH entry is already at
+#: the converter's full-scale rail (the DR-021 near-full-scale droop), so the
+#: real campaign exercises this path at every corner.
+PINNED_INDEX = N_INPUTS - 1
+
+
+class TestPinnedInputs(unittest.TestCase):
+    def test_full_scale_and_zero_control_codes_are_pinned(self):
+        self.assertEqual(m.RAIL_CODES, (0, m.fc.FULL_SCALE_CODE))
+        self.assertEqual(m.pinned_inputs(BASE), [PINNED_INDEX])
+        self.assertEqual(m.pinned_inputs([0, 384, 512, 640, 911]), [0])
+        self.assertEqual(
+            m.pinned_inputs([0, 384, 512, 640, m.fc.FULL_SCALE_CODE]),
+            [0, PINNED_INDEX])
+
+    def test_a_control_off_both_rails_pins_nothing(self):
+        self.assertEqual(m.pinned_inputs(m.ideal_codes()), [])
+
+    def test_no_control_codes_pins_nothing_rather_than_guessing(self):
+        self.assertEqual(m.pinned_inputs(None), [])
+        self.assertEqual(m.pinned_inputs([]), [])
+
+    def test_analyze_reports_the_pinned_input_per_corner(self):
+        points = [("tt", 27.0, 1.8)]
+        r_values = [0.0, 5.0]
+        corners = [_corner("tt", 27.0, 1.8, r, _code_values(BASE, 1.8)) for r in r_values]
+        units, _ = m.read_report({"corners": corners})
+        a = m.analyze(units, points, r_values)[points[0]]
+        self.assertEqual(a["pinned_inputs"], [PINNED_INDEX])
+
+    def test_an_unusable_control_pins_nothing(self):
+        points = [("tt", 27.0, 1.8)]
+        r_values = [0.0, 5.0]
+        corners = [_corner("tt", 27.0, 1.8, 5.0, _code_values(BASE, 1.8))]
+        units, _ = m.read_report({"corners": corners})
+        a = m.analyze(units, points, r_values)[points[0]]
+        self.assertFalse(a["control_complete"])
+        self.assertEqual(a["pinned_inputs"], [])
+
+    def test_delta_cell_reads_pin_not_plus_zero(self):
+        rows = _rows({0: BASE, 5: BASE})
+        for row in rows:
+            cells = m._delta_cells(row, [PINNED_INDEX]).split(", ")
+            self.assertEqual(cells[PINNED_INDEX], "pin")
+            self.assertEqual(cells[:PINNED_INDEX], ["+0"] * PINNED_INDEX)
+
+    def test_a_pinned_input_that_moves_inward_still_prints_its_delta(self):
+        """The marker must never hide real movement off the rail."""
+        moved = [*BASE[:PINNED_INDEX], BASE[PINNED_INDEX] - 3]
+        rows = _rows({0: BASE, 5: moved})
+        at5 = next(r for r in rows if r["r_ohm"] == 5.0)
+        cells = m._delta_cells(at5, [PINNED_INDEX]).split(", ")
+        self.assertEqual(cells[PINNED_INDEX], "-3")
+        self.assertEqual(at5["max_abs_delta"], 3)   # and it still counts
+
+    def test_unreadable_row_delta_cell_is_na(self):
+        rows = _rows({0: BASE, 5: None})
+        at5 = next(r for r in rows if r["r_ohm"] == 5.0)
+        self.assertEqual(m._delta_cells(at5, [PINNED_INDEX]), "n/a")
+
+
+class TestPinnedInputsInTheInterpretation(unittest.TestCase):
+    """The `5 Ohm` statement must count only (corner, input) pairs that can
+    register movement, and must name the ones it excluded."""
+
+    def _analysis(self, control, codes_at_5):
+        points = m.ratified_points()
+        r_values = [0.0, 5.0]
+        corners = []
+        for proc, t, v in points:
+            corners.append(_corner(proc, t, v, 0.0, _code_values(control, v)))
+            corners.append(_corner(proc, t, v, 5.0, _code_values(codes_at_5, v)))
+        units, _ = m.read_report({"corners": corners})
+        return m.analyze(units, points, r_values), points, r_values
+
+    def test_population_excludes_the_pinned_pairs(self):
+        text = "\n".join(m.interpretation_lines(*self._analysis(BASE, BASE)))
+        n_corners = len(m.ratified_points())
+        self.assertIn(f"**{n_corners * (N_INPUTS - 1)} of {n_corners * N_INPUTS}**", text)
+        self.assertNotIn(f"all {N_INPUTS} inputs", text)
+
+    def test_names_the_excluded_input_and_refuses_to_bound_it(self):
+        text = "\n".join(m.interpretation_lines(*self._analysis(BASE, BASE)))
+        self.assertIn("+0.78*V_REF", text)
+        self.assertIn("EXCLUDED", text)
+        self.assertIn("does not bound the reference drive's effect on them at all", text)
+
+    def test_an_unpinned_run_counts_every_pair_and_excludes_nothing(self):
+        ideal = m.ideal_codes()
+        text = "\n".join(m.interpretation_lines(*self._analysis(ideal, ideal)))
+        n = len(m.ratified_points()) * N_INPUTS
+        self.assertIn(f"**{n} of {n}**", text)
+        self.assertNotIn("EXCLUDED", text)
+
+    def test_movement_on_a_pinned_input_alone_does_not_make_the_claim(self):
+        """Every countable pair is still 0, so the 5 Ohm verdict rests on the
+        countable inputs -- the pinned column cannot carry it."""
+        moved = [*BASE[:PINNED_INDEX], BASE[PINNED_INDEX] - 1]
+        text = "\n".join(m.interpretation_lines(*self._analysis(BASE, moved)))
+        self.assertIn("**0 LSB**", text)
+        self.assertIn("only on the inputs counted above", text)
+
+    def test_every_input_pinned_states_nothing(self):
+        rails = [0] * N_INPUTS
+        text = "\n".join(m.interpretation_lines(*self._analysis(rails, rails)))
+        self.assertIn("Not readable", text)
+        self.assertNotIn("INSIDE", text)
+
+
+class TestPinnedInputLimitSection(unittest.TestCase):
+    def _analysis(self, control, codes_at_5):
+        points = m.ratified_points()
+        r_values = [0.0, 5.0]
+        corners = []
+        for proc, t, v in points:
+            corners.append(_corner(proc, t, v, 0.0, _code_values(control, v)))
+            corners.append(_corner(proc, t, v, 5.0, _code_values(codes_at_5, v)))
+        units, _ = m.read_report({"corners": corners})
+        return m.analyze(units, points, r_values), points
+
+    def test_limit_is_stated_when_an_input_is_pinned(self):
+        moved = [BASE[0] + 1, *BASE[1:]]
+        text = "\n".join(m.pinned_input_limit_lines(*self._analysis(BASE, moved)))
+        self.assertIn("already at a code rail", text)
+        self.assertIn("+0.78*V_REF", text)
+        self.assertIn("NOT AT ALL", text)
+        # the budget-setting input is READ OFF the sweep, not asserted
+        self.assertIn("`-0.78*V_REF` at 9/9 usable corners", text)
+        self.assertIn("opposite sign", text)
+
+    def test_no_section_at_all_when_nothing_is_pinned(self):
+        ideal = m.ideal_codes()
+        self.assertEqual(m.pinned_input_limit_lines(*self._analysis(ideal, ideal)), [])
+
+    def test_a_sweep_that_never_moves_says_so_instead_of_naming_an_input(self):
+        text = "\n".join(m.pinned_input_limit_lines(*self._analysis(BASE, BASE)))
+        self.assertIn("right-censored rather than set by a particular input", text)
+
+    def test_first_movers_picks_the_lowest_moving_rung_only(self):
+        rows = _rows({
+            0: BASE,
+            5: BASE,
+            50: [BASE[0] + 1, *BASE[1:]],
+            200: [BASE[0] + 2, BASE[1] - 2, *BASE[2:]],
+        })
+        fm = m.first_movers(rows, [PINNED_INDEX])
+        self.assertEqual(fm, {"r_ohm": 50.0, "inputs": [0]})
+
+    def test_first_movers_ignores_a_pinned_input(self):
+        moved = [*BASE[:PINNED_INDEX], BASE[PINNED_INDEX] - 1]
+        rows = _rows({0: BASE, 5: moved, 50: [BASE[0] + 1, *BASE[1:]]})
+        self.assertEqual(m.first_movers(rows, [PINNED_INDEX])["r_ohm"], 50.0)
+
+    def test_first_movers_is_none_when_nothing_countable_moves(self):
+        self.assertIsNone(m.first_movers(_rows({0: BASE, 5: BASE}), [PINNED_INDEX]))
+
+
+# --------------------------------------------------------------------------
+# The control rows against the ideal-drive record (issue #841 review)
+# --------------------------------------------------------------------------
+class TestFullConversionCapturedCodes(unittest.TestCase):
+    def test_reads_every_corner_of_the_committed_captured_code_table(self):
+        ref = m.full_conversion_captured_codes()
+        self.assertIsNotNone(ref)
+        rec_id, codes = ref
+        self.assertEqual(
+            (m.FULL_CONVERSION_RECORDS / "LATEST").read_text().strip(), f"{rec_id}.md")
+        for point in m.ratified_points():
+            row = codes[m.corners_mod.corner_id(*point)]
+            self.assertEqual(len(row), N_INPUTS)
+            for code in row:
+                self.assertGreaterEqual(code, 0)
+                self.assertLessEqual(code, m.fc.FULL_SCALE_CODE)
+
+    def test_strips_the_lsb_annotation_from_each_cell(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "r.md").write_text(
+                "| corner-id | `-0.78*V_REF` (ideal 113) | `+0.78*V_REF` (ideal 911) |\n"
+                "|---|---|---|\n"
+                "| `tt_27c_1.80v` | 214 (+101 LSB) | 1023 (+112 LSB) |\n"
+            )
+            (d / "LATEST").write_text("r.md\n")
+            rec_id, codes = m.full_conversion_captured_codes(d)
+            self.assertEqual(rec_id, "r")
+            self.assertEqual(codes["tt_27c_1.80v"], [214, 1023])
+
+    def test_a_record_without_that_table_is_none_not_a_guess(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "r.md").write_text("| corner | I(VREFP) (uA) |\n|---|---|\n| `tt` | 6.49 |\n")
+            (d / "LATEST").write_text("r.md\n")
+            self.assertIsNone(m.full_conversion_captured_codes(d))
+
+    def test_missing_record_is_none(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(m.full_conversion_captured_codes(Path(tmp)))
+
+
+class TestFullConversionEnvironment(unittest.TestCase):
+    def test_reads_the_compared_records_pdk_and_simulator(self):
+        env = m.full_conversion_environment()
+        self.assertRegex(env["pdk"], r"^sky130A @ [0-9a-f]{40}$")
+        self.assertTrue(env["ngspice"].startswith("ngspice-"))
+        self.assertRegex(env["dut_sha256"], r"^[0-9a-f]{64}$")
+
+    def test_only_the_environment_block_is_read(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "r.md").write_text(
+                "## Run\n\n- PDK: decoy\n\n## Environment\n\n"
+                "- PDK: sky130A @ abc\n- ngspice: ngspice-47\n")
+            (d / "LATEST").write_text("r.md\n")
+            self.assertEqual(m.full_conversion_environment(d)["pdk"], "sky130A @ abc")
+
+    def test_missing_record_is_an_empty_mapping(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(m.full_conversion_environment(Path(tmp)), {})
+
+
+class TestControlVsIdealDriveSection(unittest.TestCase):
+    def _analysis(self, control_by_corner):
+        points = m.ratified_points()
+        r_values = [0.0, 5.0]
+        corners = []
+        for proc, t, v in points:
+            codes = control_by_corner[m.corners_mod.corner_id(proc, t, v)]
+            corners.append(_corner(proc, t, v, 0.0, _code_values(codes, v)))
+            corners.append(_corner(proc, t, v, 5.0, _code_values(codes, v)))
+        units, _ = m.read_report({"corners": corners})
+        return m.analyze(units, points, r_values), points
+
+    def test_reports_the_whole_population_not_the_corner_that_matches(self):
+        """The defect this section exists for: the record used to cite the one
+        corner that agreed and say nothing about the other eight."""
+        _rec_id, theirs = m.full_conversion_captured_codes()
+        mine = {cid: list(codes) for cid, codes in theirs.items()}
+        mine["sf_27c_1.80v"] = [theirs["sf_27c_1.80v"][0] + 1,
+                                *theirs["sf_27c_1.80v"][1:]]
+        text = "\n".join(m.control_vs_ideal_drive_lines(*self._analysis(mine)))
+        self.assertIn("Over the 9 shared corners", text)
+        self.assertIn("**8 agree on every input**", text)
+        self.assertIn("**1 does not**", text)
+        self.assertIn("`sf_27c_1.80v`", text)
+        self.assertIn("+1 LSB", text)
+
+    def test_names_both_unseparated_explanations_for_a_difference(self):
+        _rec_id, theirs = m.full_conversion_captured_codes()
+        mine = {cid: list(codes) for cid, codes in theirs.items()}
+        mine["sf_27c_1.80v"] = [theirs["sf_27c_1.80v"][0] + 1,
+                                *theirs["sf_27c_1.80v"][1:]]
+        text = "\n".join(m.control_vs_ideal_drive_lines(*self._analysis(mine)))
+        self.assertIn("separates NEITHER", text)
+        self.assertIn("PDK-commit difference", text)
+        self.assertIn("1e-12 Ohm series element", text)
+
+    def test_full_agreement_states_it_without_a_caveat_paragraph(self):
+        _rec_id, theirs = m.full_conversion_captured_codes()
+        text = "\n".join(m.control_vs_ideal_drive_lines(
+            *self._analysis({cid: list(c) for cid, c in theirs.items()})))
+        self.assertIn("**9 agree on every input**", text)
+        self.assertIn("**0 do not**", text)
+        self.assertNotIn("What that bounds", text)
+
+
+class TestCrossCheckUncontrolledDifference(unittest.TestCase):
+    def test_names_the_pdk_commit_on_both_sides(self):
+        text = "\n".join(m._cross_check_uncontrolled_lines(
+            "sky130A @ " + "f" * 40))
+        self.assertIn("NOT controlled for PDK commit", text)
+        self.assertIn("f" * 40, text)
+        self.assertIn(m.full_conversion_environment()["pdk"], text)
+
+    def test_an_unknown_run_pdk_is_said_not_invented(self):
+        text = "\n".join(m._cross_check_uncontrolled_lines(None))
+        self.assertIn("unknown", text)
+
+    def test_the_section_carries_it_next_to_the_agreement_claim(self):
+        points = m.ratified_points()
+        r_values = [0.0, 5.0]
+        corners = []
+        for proc, t, v in points:
+            c0 = _corner(proc, t, v, 0.0, _code_values(BASE, v))
+            c0["measurements"].append({"name": "i_vrefp", "value": 4.6e-4})
+            c5 = _corner(proc, t, v, 5.0, _code_values(BASE, v))
+            c5["measurements"].append({"name": "i_vrefp", "value": -6.49e-6})
+            corners += [c0, c5]
+        units, _ = m.read_report({"corners": corners})
+        analysis = m.analyze(units, points, r_values)
+        text = "\n".join(m.reference_current_lines(
+            analysis, points, r_values, run_pdk="sky130A @ " + "f" * 40))
+        self.assertIn("drives the same circuit rather than a differently-wired one",
+                      text)
+        self.assertIn("NOT controlled for PDK commit", text)
+        # and the one-corner claim the review rejected is gone
+        self.assertNotIn("for that corner exactly", text)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -87,6 +87,29 @@ ideal code would attribute that pre-existing, already-recorded defect to the
 reference drive. The record reports whether each control row matches the
 ideal codes as *context*, never as a validity criterion.
 
+### An input already at a code rail is blind, and is excluded rather than counted
+
+That same DR-021 droop has, on the **positive** side, already pushed the
+captured code hard against full scale: `+0.78·V_REF` reads `1023` in every
+control row of the committed grid. A clipped code reports the same `0` delta
+whatever the reference drive does to push it further out of range, so a `+0`
+there is an artefact of the clipping — not the observation "the reference
+drive left this input alone".
+
+`pinned_inputs()` detects a control code sitting on either rail (`0` or full
+scale) and the record then:
+
+- prints **`pin`**, not `+0`, in that input's delta cells;
+- **excludes** those (corner, input) pairs from every movement count it
+  states, and says how many it excluded and which input they belong to;
+- states in its limits section that it **bounds nothing** on a pinned input.
+
+A pinned input that moves *inward*, off the rail, still prints its signed
+delta and still counts toward `max abs delta` — the marker hides nothing that
+actually moved. What the budgets in the committed grid turn on is the
+*other* near-full-scale input, `−0.78·V_REF`, which the record reads off the
+sweep rather than asserting.
+
 `R_ref = 0` is simulated as ngspice's own zero-resistor floor — it rewrites a
 0 Ω resistor to 1 × 10⁻¹² Ω with a warning — so the control row's topology is
 identical to every swept row's rather than being a different deck.
@@ -99,6 +122,10 @@ observable:
 - **0 LSB tier** — the largest swept `R_ref` whose captured codes are
   *unchanged* from the control at every input.
 - **1 LSB tier** — the largest whose codes move by at most 1 LSB.
+
+Both tiers are decided by the inputs that can register movement; an input
+pinned at a code rail (above) contributes nothing to either, so a budget is
+a statement about the countable inputs only.
 
 A budget equal to the largest swept value is reported **right-censored**, the
 same way that campaign reports one. The selection rule is also the same: the
@@ -163,6 +190,17 @@ Read this before quoting any number from it.
   conversion. Not a dynamic input and not a Monte Carlo draw.
 - **One conversion rate** — `f_clk = 12 MHz`, `f_s = 1 MS/s`. A slower clock
   gives the reference longer to settle and would move these budgets up.
+- **Nothing on an input pinned at a code rail** — see "An input already at a
+  code rail is blind" above. In the committed grid that is `+0.78·V_REF` at
+  every corner, so the budgets are a statement about the other four inputs.
+- **Neither cross-check against `sim/full-conversion-transient/` is
+  controlled for toolchain.** That campaign's record and this one were
+  produced under different `open_pdks` commits, and this campaign submits
+  from one host while the units execute on batch workers. The record names
+  both PDK commits wherever it states a comparison, and names the
+  disagreements as well as the agreements — including the corners where the
+  two campaigns' ideal-drive codes do *not* match, which bound how much
+  weight a 1 LSB movement in this record can carry.
 
 ## Files
 
@@ -172,7 +210,7 @@ Read this before quoting any number from it.
 | `records/` | dated, append-only evidence records; `records/LATEST` names the current one |
 | `corners/<record-id>/` | that record's raw `klt sim` report, the request and the submitted deck |
 | `netlist-snapshots/<record-id>.spice` | the assembled circuit body that run simulated |
-| `sim/tests/test_reference_drive_budget.py` | PDK-free unit tests (deck edits, request shape, report reading, budget arithmetic) |
+| `sim/tests/test_reference_drive_budget.py` | PDK-free unit tests (deck edits, request shape, report reading, budget arithmetic, pinned-input exclusion, both cross-checks) |
 
 Records are **append-only**: a re-run mints a new record-id and points back
 through **Supersedes**, never edits an existing one (`sim/README.md`).

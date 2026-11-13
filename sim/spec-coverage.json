@@ -240,7 +240,7 @@
           "documented_in": "sim/reference-drive-budget/README.md",
           "covers": "The interface precondition on the REFERENCE side: how much external series drive resistance VREFP/VREFN tolerate before the converter's captured codes move, over the full ratified corner set, at the DR-006 worst-case f_clk this DRAFT row derives. Indexed here -- rather than under a row of its own -- for the same reason sim/vcm-drive-budget/ is: it measures the SAME quantity the full-conversion bench below measures (the captured code of each DC input) with one drive made non-ideal, and its yardstick timing comes from this row. It is the reference-side counterpart of vcm-drive-budget (VCM) and supply-impedance-sensitivity (the four supply terminals), and closes the gap both of those state in their own text: before this campaign no sim/ bench put any impedance on VREFP/VREFN at all. Informational -- it grades nothing against this DRAFT row, edits no spec row, and chooses no route of the Challenge #4 proposal's Section 7 Item 11; it supplies the evidence route (iii) was missing.",
           "records": [
-            "sim/reference-drive-budget/records/20261113-105927-56f0a0c.md"
+            "sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md"
           ]
         },
         {

@@ -51,6 +51,18 @@ name. `exclude` drops the full-factorial points the OAT star does not
 contain. This script never loops `ngspice` itself; `--probe` runs ONE unit
 through `klt sim --backend local`.
 
+AN INPUT ALREADY AT A CODE RAIL IS BLIND, AND IS EXCLUDED RATHER THAN
+COUNTED. The committed full-conversion record reports the two `+-0.78*V_REF`
+inputs 100+ LSB off their ideal code at every corner (the DR-021 droop), and
+on the positive side that error has already SATURATED the captured code at
+full scale. A clipped code reports the same `0` delta whatever the reference
+drive does to push it further out, so counting it as an observation would
+inflate the population with cells that cannot carry evidence. `pinned_inputs()`
+detects a control code on a rail; the record prints `pin` for those cells,
+excludes them from every movement count, and says in its limits section that
+it bounds nothing on them -- while a pinned input that moves INWARD off the
+rail still prints its delta and still counts, because that movement is real.
+
 WHAT THE TESTBENCH DOES NOT MODEL. Series resistance only: no bond
 inductance, no pad or bus capacitance, no decoupling network, no other
 loading of any shared bus. `VCM` and all four supply terminals stay ideal at
@@ -140,6 +152,16 @@ VREFN_DRIVE_NODE = "VREFN_DRV"
 #: Budget tiers, in LSB of captured-code movement from the corner's own
 #: control row. Integer codes, so `0` is "no code moved at all".
 TIER_LSB: tuple[float, ...] = (0.0, 1.0)
+
+#: The two captured codes at which the converter's output is already against a
+#: rail. An input whose CONTROL code sits on one of these is BLIND in the
+#: direction that leaves the code range: the reference drive can push it
+#: further out and the captured code cannot follow, so the `0` delta such a
+#: row reports is NOT the observation "the reference drive left this input
+#: alone". Every count in this record excludes those (corner, input) pairs and
+#: the record names them, rather than carrying them as `+0` (issue #841
+#: review). Movement INWARD off a rail is still real and is still reported.
+RAIL_CODES: tuple[int, ...] = (0, fc.FULL_SCALE_CODE)
 
 #: Per-UNIT kill (`options.timeout_s`). 2.5x the 485 s a tt/27C/1.80V unit
 #: measured locally, so an ss/-40C unit has room without one stuck unit being
@@ -602,6 +624,40 @@ def apply_control(rows: list[dict]) -> list[dict]:
     return rows
 
 
+def pinned_inputs(control_codes: list[int] | None) -> list[int]:
+    """Indices of the measured inputs whose CONTROL code is already at a
+    converter rail (`RAIL_CODES`).
+
+    Such an input cannot register a reference-drive effect that pushes it
+    further out of range: its captured code is already as far as the code
+    space goes, so a zero delta against the control is an artefact of the
+    clipping, not a measurement that nothing moved. Callers exclude these
+    (corner, input) pairs from every population they count and name them in
+    the record instead of printing `+0` (issue #841 review)."""
+    if not control_codes:
+        return []
+    return [i for i, c in enumerate(control_codes)
+            if c is not None and c in RAIL_CODES]
+
+
+def first_movers(rows: list[dict], pinned: list[int]) -> dict | None:
+    """The lowest swept `R_ref` at which ANY non-pinned input's captured code
+    differs from the control, and which inputs move there -- `None` when no
+    readable row moves one.
+
+    Reported so the record can say which input the budgets actually turn on
+    instead of asserting it: a budget is decided by whichever input moves
+    first, and that matters when another input is blind (`pinned_inputs()`)."""
+    pin = set(pinned)
+    for row in rows:
+        if row.get("deltas") is None or row.get("is_control"):
+            continue
+        movers = [i for i, d in enumerate(row["deltas"]) if i not in pin and d != 0]
+        if movers:
+            return {"r_ohm": row["r_ohm"], "inputs": movers}
+    return None
+
+
 def find_budget(rows: list[dict], threshold_lsb: float) -> dict | None:
     """The largest swept `R_ref` whose code movement from the control stays
     within `threshold_lsb` -- None if not even the control row is usable.
@@ -644,12 +700,18 @@ def analyze(units: dict[tuple, UnitResult], points: list[tuple[str, float, float
             rows.append(decode_unit(unit))
         rows = apply_control(rows)
         control = next((r for r in rows if r["r_ohm"] == CONTROL_R_OHM), None)
+        pinned = (pinned_inputs(control["codes"])
+                  if control and control["complete"] else [])
         out[point] = {
             "corner_id": corners_mod.corner_id(*point),
             "rows": rows,
             "missing_r": missing,
             "control_complete": bool(control and control["complete"]),
             "control_codes": control["codes"] if control else None,
+            # Inputs this corner's control row cannot observe movement on, and
+            # the rung at which the inputs it CAN observe first move.
+            "pinned_inputs": pinned,
+            "first_mover": first_movers(rows, pinned),
             "control_ideal_match": (
                 control["codes"] == ideal_codes() if control and control["complete"] else None
             ),
@@ -775,6 +837,107 @@ def full_conversion_reference(records_dir: Path = FULL_CONVERSION_RECORDS
     return (record.stem, out) if out else None
 
 
+def _latest_full_conversion_record(records_dir: Path) -> Path | None:
+    """The record `<records_dir>/LATEST` points at, or None when either the
+    pointer or the record it names is absent."""
+    latest = records_dir / "LATEST"
+    if not latest.is_file():
+        return None
+    record = records_dir / latest.read_text().strip()
+    return record if record.is_file() else None
+
+
+def full_conversion_captured_codes(records_dir: Path = FULL_CONVERSION_RECORDS
+                                   ) -> tuple[str, dict[str, list[int]]] | None:
+    """`(record-id, {corner_id: [captured code per measured input]})` from the
+    committed full-conversion record's own per-corner captured-code table, or
+    None when that table cannot be read.
+
+    This campaign's `R_ref = 0` control rows and that record's rows are two
+    nominally-identical IDEAL-drive runs of the same DUT, so comparing them at
+    EVERY shared corner -- not at one -- is what says how much run-to-run
+    agreement a 1 LSB movement in this record can be read against. Located by
+    the table's own header shape (`corner-id` plus one `*V_REF` column per
+    input), never by position, so a re-ordered or extended table is skipped
+    rather than silently mis-read."""
+    record = _latest_full_conversion_record(records_dir)
+    if record is None:
+        return None
+    header: list[str] | None = None
+    out: dict[str, list[int]] = {}
+    for line in record.read_text().splitlines():
+        if not line.startswith("|"):
+            if out:
+                break           # the captured-code table ended
+            header = None
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if header is None:
+            if (len(cells) > 1 and cells[0].strip("`") == "corner-id"
+                    and all("*V_REF" in c and "ideal" in c for c in cells[1:])):
+                header = cells
+            continue
+        if not cells or set(cells[0]) <= set("-: "):
+            continue
+        codes: list[int] = []
+        for cell in cells[1:]:
+            match = re.match(r"^(-?\d+)", cell)
+            if match is None:
+                break
+            codes.append(int(match.group(1)))
+        if len(codes) == len(header) - 1:
+            out[cells[0].strip("`")] = codes
+    return (record.stem, out) if out else None
+
+
+def full_conversion_environment(records_dir: Path = FULL_CONVERSION_RECORDS
+                                ) -> dict[str, str]:
+    """`{"pdk": ..., "ngspice": ..., "dut_sha256": ...}` read off the committed
+    full-conversion record's own Environment block (missing keys simply
+    absent).
+
+    The cross-checks below compare numbers from THIS run against that record.
+    Those two runs are not controlled for toolchain: the record names the
+    PDK commit and simulator it was produced under, and this run names the
+    ones its batch workers executed. Reading them here means the uncontrolled
+    differences are stated from the compared record itself rather than
+    transcribed into this runner and left to go stale (issue #841 review)."""
+    record = _latest_full_conversion_record(records_dir)
+    if record is None:
+        return {}
+    keys = {"PDK": "pdk", "ngspice": "ngspice",
+            "design/sar_adc_top.spice sha256": "dut_sha256",
+            "DUT netlist sha256": "dut_sha256"}
+    out: dict[str, str] = {}
+    in_env = False
+    for line in record.read_text().splitlines():
+        if line.startswith("## "):
+            in_env = line.strip() == "## Environment"
+            continue
+        if not in_env or not line.startswith("- "):
+            continue
+        label, _, value = line[2:].partition(":")
+        key = keys.get(label.strip())
+        if key and key not in out:
+            out[key] = value.strip().strip("`")
+    return out
+
+
+def _delta_cells(row: dict, pinned: list[int]) -> str:
+    """The `delta vs control` cell for one row.
+
+    An input whose control code is at a rail (`pinned_inputs()`) renders as
+    `pin`, NOT `+0`: the captured code cannot move further out of range, so a
+    zero there is the clipping, not a measurement. A pinned input that
+    actually moves (inward, off the rail) still prints its signed delta --
+    that movement IS real and must not be hidden by the marker."""
+    if row["deltas"] is None:
+        return "n/a"
+    pin = set(pinned)
+    return ", ".join("pin" if (i in pin and d == 0) else f"{d:+d}"
+                     for i, d in enumerate(row["deltas"]))
+
+
 def _budget_cell(b: dict | None) -> str:
     if b is None:
         return "none (control unusable)"
@@ -798,7 +961,9 @@ def interpretation_lines(analysis: dict, points: list, r_values: list[float]) ->
     }
     readable = {cid: r for cid, r in rows_at_5.items()
                 if r is not None and r["max_abs_delta"] is not None}
-    worst = max((r["max_abs_delta"] for r in readable.values()), default=None)
+    pinned_by_corner = {analysis[p]["corner_id"]: list(analysis[p]["pinned_inputs"])
+                        for p in complete}
+    n_inputs = len(tb.measured_conversions())
     lines = [
         "## Is `less than 5 ohms` in series inside the tolerance?",
         "",
@@ -809,13 +974,54 @@ def interpretation_lines(analysis: dict, points: list, r_values: list[float]) ->
             "against a usable control, so this record states nothing about 5 Ohm.",
         ]
         return lines
-    inside = worst is not None and worst <= 1.0
+
+    # The population this statement is actually made over: (corner, input)
+    # pairs whose CONTROL code is not already at a converter rail. A pinned
+    # input reports `+0` whatever the reference drive does, so counting it
+    # would inflate the population with cells that cannot carry evidence.
+    pairs_total = len(readable) * n_inputs
+    pin_counts: dict[int, int] = {}
+    movements: list[int] = []
+    for cid, row in readable.items():
+        pin = set(pinned_by_corner.get(cid, ()))
+        for i in pin:
+            pin_counts[i] = pin_counts.get(i, 0) + 1
+        movements += [abs(d) for i, d in enumerate(row["deltas"]) if i not in pin]
+    counted = len(movements)
+    worst = max(movements, default=None)
+    if worst is None:
+        lines += [
+            f"**Not readable.** Every input's control code is already at a converter rail "
+            f"at every corner with a usable `R_ref = {_ohm(five)}` Ohm row, so no cell of "
+            "this sweep can register movement and this record states nothing about "
+            "5 Ohm.",
+        ]
+        return lines
+    inside = worst <= 1.0
     lines += [
         f"- `{_ohm(five)}` Ohm is a SIMULATED point of this sweep at "
         f"{len(readable)}/{len(points)} corners -- not an interpolation between swept values.",
         f"- Worst captured-code movement from the same corner's own `R_ref = 0` control, "
-        f"over those corners and all {len(tb.measured_conversions())} inputs: "
-        f"**{worst} LSB**.",
+        f"over the **{counted} of {pairs_total}** (corner, input) pairs those corners "
+        f"carry whose control code can register movement: **{worst} LSB**.",
+    ]
+    if pin_counts:
+        lines += [
+            f"- **The remaining {pairs_total - counted} pair(s) are EXCLUDED from that "
+            f"count, not read as `+0`** -- "
+            + "; ".join(
+                f"the `{tb.input_fraction(tb.measured_conversions()[i]):+.2f}*V_REF` "
+                f"input at {pin_counts[i]}/{len(readable)} of those corners"
+                for i in sorted(pin_counts))
+            + f". Their control code is already at a rail of the {n_inputs}-input "
+            f"code space (`0` or full scale `{fc.FULL_SCALE_CODE}`), so the captured "
+            "code cannot move further out and the `+0` such a cell would show is an "
+            "artefact of the clipping rather than an observation that the reference "
+            "drive left that input alone. Those cells read `pin` in the table above. "
+            "**This record therefore does not bound the reference drive's effect on "
+            "them at all.**",
+        ]
+    lines += [
         (
             f"- On that evidence a series resistance below `{_ohm(five)}` Ohm on each reference "
             "pad is INSIDE the tolerance this campaign measures"
@@ -824,7 +1030,7 @@ def interpretation_lines(analysis: dict, points: list, r_values: list[float]) ->
             "is OUTSIDE the 1 LSB tier at at least one corner"
         )
         + " -- for a pure series resistance, at this conversion rate, with nothing else on "
-        "the net.",
+        "the net, and only on the inputs counted above.",
         "",
         "**This says nothing about a shared analog bus.** The testbench models two "
         "resistors. It does not model the other loading such a bus would carry (the "
@@ -836,12 +1042,85 @@ def interpretation_lines(analysis: dict, points: list, r_values: list[float]) ->
     return lines
 
 
+def _is_mirror_of_any(index: int, pinned: dict[int, int]) -> bool:
+    """True when input `index`'s differential level is the exact negation of
+    some pinned input's -- i.e. the same distance from mid-scale on the other
+    side. Checked rather than assumed, so the sentence that calls the
+    budget-setting input "the mirror of the pinned one" cannot outlive a
+    change to the input list."""
+    convs = tb.measured_conversions()
+    frac = tb.input_fraction(convs[index])
+    return any(abs(tb.input_fraction(convs[i]) + frac) < 1e-9 for i in pinned)
+
+
+def pinned_input_limit_lines(analysis: dict, points: list) -> list[str]:
+    """The limitation the `pin` cells carry, stated in the record's own
+    "does not model" list and computed from the rows rather than asserted.
+
+    An input already at a rail in the control row is BLIND to anything the
+    reference drive does to push it further out, so this campaign bounds
+    nothing on it. Which input the budgets DO turn on is read off the sweep
+    (`first_movers()`), so the sentence cannot drift from the data."""
+    n_inputs = len(tb.measured_conversions())
+    usable = [p for p in points if analysis[p]["control_complete"]]
+    counts: dict[int, int] = {}
+    for p in usable:
+        for i in analysis[p]["pinned_inputs"]:
+            counts[i] = counts.get(i, 0) + 1
+    if not counts:
+        return []
+
+    def label(i: int) -> str:
+        return f"`{tb.input_fraction(tb.measured_conversions()[i]):+.2f}*V_REF`"
+
+    movers: dict[int, int] = {}
+    for p in usable:
+        fm = analysis[p]["first_mover"]
+        for i in (fm or {}).get("inputs", []):
+            movers[i] = movers.get(i, 0) + 1
+    if movers:
+        ranked = sorted(movers, key=lambda i: (-movers[i], i))
+        first_line = (
+            "At the lowest swept `R_ref` where any countable code moves, the inputs that "
+            "move are "
+            + ", ".join(f"{label(i)} at {movers[i]}/{len(usable)} usable corners"
+                        for i in ranked)
+            + f". What these budgets turn on is therefore {label(ranked[0])}"
+            + (" -- the SAME input level as the pinned one with the opposite sign, so "
+               "the half of the near-full-scale behaviour this run can see is the half "
+               "that is not clipped"
+               if _is_mirror_of_any(ranked[0], counts) else "")
+            + f" -- at {movers[ranked[0]]}/{len(usable)} usable corners."
+        )
+    else:
+        first_line = (
+            "No corner in this run moved a countable input at any swept value, so the "
+            "budgets are right-censored rather than set by a particular input."
+        )
+    return [
+        f"- **An input already at a code rail registers nothing, and is excluded rather "
+        f"than counted as `+0`.** "
+        + "; ".join(f"{label(i)} sits at a rail of the code space in the control row at "
+                    f"{counts[i]}/{len(usable)} usable corners" for i in sorted(counts))
+        + f". Of the {n_inputs} inputs, that leaves {n_inputs - len(counts)} that can "
+        "register movement at every usable corner. This campaign therefore bounds the "
+        "reference drive's effect on the pinned input(s) NOT AT ALL -- the near-full-scale "
+        "clipping is the pre-existing DR-021 droop, and a reference-drive effect that "
+        "pushed such an input further out of range would be invisible here. "
+        + first_line
+        + " Every budget and every movement count above is a statement about the "
+        "countable inputs only, so the budgets may be optimistic by an amount this run "
+        "cannot measure.",
+    ]
+
+
 def _control_i_vrefp(corner_analysis: dict) -> float | None:
     return next((r["i_vrefp_a"] for r in corner_analysis["rows"]
                  if r["r_ohm"] == CONTROL_R_OHM), None)
 
 
-def reference_current_lines(analysis: dict, points: list, r_values: list[float]) -> list[str]:
+def reference_current_lines(analysis: dict, points: list, r_values: list[float],
+                            run_pdk: str | None = None) -> list[str]:
     """The averaged reference current: what it validates, and the one place
     it is NOT readable.
 
@@ -909,6 +1188,8 @@ def reference_current_lines(analysis: dict, points: list, r_values: list[float])
                 "reproduce the ideal-source campaign's reference current, which is "
                 "evidence that re-pointing `VVREFP`/`VVREFN` through `R_ref` drives the "
                 "same circuit rather than a differently-wired one.",
+                "",
+                *_cross_check_uncontrolled_lines(run_pdk),
             ]
         else:
             lines += ["", "No corner is shared with that record's power table, so no "
@@ -930,12 +1211,132 @@ def reference_current_lines(analysis: dict, points: list, r_values: list[float])
         "they are marked so they cannot be read as measurements.",
         "",
         "**No budget in this record depends on them.** Every budget is computed from the "
-        "captured CODES, and the control row's codes are sound: they are identical to "
-        "the adjacent swept rows at every corner (see the table above), and at "
-        "`tt_27c_1.80v` they match the committed full-conversion record's captured codes "
-        "for that corner exactly. The reference-current column is reported alongside the "
-        "codes, not used by the tiers.",
+        "captured CODES, and the control row's codes are identical to the adjacent swept "
+        "rows at every corner (see the table above). The reference-current column is "
+        "reported alongside the codes, not used by the tiers.",
+        "",
+        *control_vs_ideal_drive_lines(analysis, points),
     ]
+    return lines
+
+
+def _cross_check_uncontrolled_lines(run_pdk: str | None) -> list[str]:
+    """The uncontrolled differences between THIS run and the committed
+    full-conversion record every comparison above is made against.
+
+    Stated wherever the comparison is stated, not only in the Run section:
+    the two campaigns ran on different PDK commits, and an agreement across
+    two PDK commits is a different observation from an agreement within one
+    (issue #841 review)."""
+    env = full_conversion_environment()
+    them_pdk, them_ng = env.get("pdk"), env.get("ngspice")
+    if not them_pdk:
+        return ["**Uncontrolled difference not statable.** The compared record's "
+                "Environment block could not be read, so this record does not say what "
+                "the two runs differ in beyond the drive topology under test."]
+    same_dut = env.get("dut_sha256") == evidence.sha256_file(DUT_NETLIST)
+    return [
+        "**That comparison is NOT controlled for PDK commit.** This run executed on "
+        f"`{run_pdk or 'unknown'}`; the record compared with was produced on "
+        f"`{them_pdk}`"
+        + (f" (same simulator, `{them_ng}`)" if them_ng else "")
+        + (", and against the same `design/sar_adc_top.spice` (sha256 "
+           f"`{env.get('dut_sha256')}`)" if same_dut else
+           ", and against a DIFFERENT `design/sar_adc_top.spice` than this run")
+        + ". The agreement above is therefore agreement ACROSS two PDK commits, not "
+        "within one, and the two runs also differ in submitting versus executing host. "
+        "Neither difference is controlled here.",
+    ]
+
+
+def _tier_decided_by(corner_analysis: dict, tier: float, lsb: int) -> bool:
+    """True when `tier`'s budget at this corner is ended by a movement of no
+    more than `lsb` LSB -- i.e. the first rung above the budget fails the tier
+    by that little. A censored budget (no rung failed) is never decided by
+    anything and returns False."""
+    budget = corner_analysis["budgets"].get(tier)
+    if budget is None or budget["censored"]:
+        return False
+    nxt = next((r for r in corner_analysis["rows"]
+                if r["r_ohm"] > budget["r_ohm"]
+                and (r["max_abs_delta"] is None or r["max_abs_delta"] > tier)), None)
+    return nxt is not None and nxt["max_abs_delta"] is not None \
+        and nxt["max_abs_delta"] <= lsb
+
+
+def control_vs_ideal_drive_lines(analysis: dict, points: list) -> list[str]:
+    """Compare THIS run's `R_ref = 0` control codes against the committed
+    full-conversion record's captured codes at EVERY shared corner.
+
+    Both are nominally-identical ideal-drive runs of the same DUT, so the
+    corners where they disagree bound how much weight a small movement in
+    this record can carry: a budget here can turn on a single `+1`, so a
+    1 LSB disagreement between two runs that should agree exactly is the same
+    size as the signal. The previous version of this record stated the
+    comparison at ONE corner, which was the corner that matched (issue #841
+    review)."""
+    ref = full_conversion_captured_codes()
+    if ref is None:
+        return ["**Cross-check of the control codes not run.** The committed "
+                "full-conversion record's captured-code table could not be read, so this "
+                "record compares its control rows with nothing."]
+    rec_id, theirs = ref
+    shared, same, diff = 0, 0, []
+    for p in points:
+        a = analysis[p]
+        cid = a["corner_id"]
+        mine = a["control_codes"] if a["control_complete"] else None
+        if mine is None or cid not in theirs or len(theirs[cid]) != len(mine):
+            continue
+        shared += 1
+        if mine == theirs[cid]:
+            same += 1
+            continue
+        diff.append((cid, [(i, mine[i], theirs[cid][i])
+                           for i in range(len(mine)) if mine[i] != theirs[cid][i]]))
+    if not shared:
+        return ["**Cross-check of the control codes not run.** No corner is shared with "
+                f"`sim/full-conversion-transient/records/{rec_id}.md`'s captured-code "
+                "table, so no comparison is stated."]
+    lines = [
+        f"**The control codes against the ideal-drive record, at every shared corner.** "
+        f"`sim/full-conversion-transient/records/{rec_id}.md` drives the same DUT with "
+        f"the same fragment from IDEAL reference sources, so its captured codes and this "
+        f"run's `R_ref = 0` controls should agree exactly. Over the {shared} shared "
+        f"corners, **{same} agree on every input** and **{len(diff)} "
+        f"do{'es' if len(diff) == 1 else ''} not**"
+        + ("." if not diff else ": "
+           + "; ".join(
+               f"`{cid}` ("
+               + ", ".join(
+                   f"`{tb.input_fraction(tb.measured_conversions()[i]):+.2f}*V_REF`: "
+                   f"{mine} here, {them} there, {mine - them:+d} LSB"
+                   for i, mine, them in cells)
+               + ")" for cid, cells in diff)
+           + "."),
+    ]
+    if diff:
+        worst = max(abs(mine - them) for _cid, cells in diff for _i, mine, them in cells)
+        # How many corners' 0 LSB budget is decided by a movement no larger
+        # than that disagreement -- counted, not asserted.
+        knife_edge = sum(1 for pt in points
+                         if analysis[pt]["control_complete"]
+                         and _tier_decided_by(analysis[pt], 0.0, worst))
+        lines += [
+            "",
+            f"**What that bounds.** A {worst} LSB disagreement between two runs that "
+            "should agree exactly is the SAME size as the movements the tiers in this "
+            f"record turn on -- at {knife_edge}/{shared} shared corners the 0 LSB "
+            f"budget is ended by a movement of no more than {worst} LSB at the next "
+            "rung. So a 1 LSB movement here is not resolved beyond the "
+            "run-to-run agreement of the two campaigns themselves, and the 0 LSB tier's "
+            "boundary at such a corner is uncertain by that much. The multi-LSB "
+            "movements at the top of the sweep are well clear of it. Two candidate "
+            "explanations are visible in the records and this run separates NEITHER: the "
+            "uncontrolled PDK-commit difference named above, and the 1e-12 Ohm series "
+            "element that stands in for `R_ref = 0` here but is absent from that "
+            "record's deck.",
+        ]
     return lines
 
 
@@ -1011,9 +1412,17 @@ def write_record(analysis: dict, points: list, r_values: list[float], info: dict
         "",
         "## Captured codes and movement from the control, per corner and swept value",
         "",
-        "Ideal codes for the five inputs ("
+        f"Ideal codes for the {len(tb.measured_conversions())} inputs ("
         + ", ".join(f"{tb.input_fraction(c):+.2f}*V_REF" for c in tb.measured_conversions())
         + f"): {ideal}. `delta` is captured minus the SAME corner's `R_ref = 0` row.",
+        "",
+        f"**`pin` is not `+0`.** A delta cell reads `pin` where that corner's CONTROL "
+        f"code for that input is already at a rail of the code space (`0` or full scale "
+        f"`{fc.FULL_SCALE_CODE}`): the captured code cannot move further out, so the "
+        "cell cannot register a reference-drive effect in that direction and is excluded "
+        "from every movement count in this record rather than being carried as a "
+        "measured zero. A pinned input that moves INWARD still prints its signed delta, "
+        "and `max abs delta` still counts it -- the marker hides nothing that moved.",
         "",
         "| corner | R_ref (Ohm) | codes | delta vs control | max abs delta (LSB) | "
         "phase structure | avg i(VREFP) (uA) | avg i(VREFN) (uA) | status |",
@@ -1023,8 +1432,7 @@ def write_record(analysis: dict, points: list, r_values: list[float], info: dict
         a = analysis[p]
         for row in a["rows"]:
             codes = ", ".join("n/a" if c is None else str(c) for c in row["codes"])
-            deltas = ("n/a" if row["deltas"] is None
-                      else ", ".join(f"{d:+d}" for d in row["deltas"]))
+            deltas = _delta_cells(row, a["pinned_inputs"])
             md = "n/a" if row["max_abs_delta"] is None else str(row["max_abs_delta"])
             phase = ("ok" if row["all_phase_ok"] else
                      ("FAIL" if row["complete"] else "n/a"))
@@ -1042,12 +1450,14 @@ def write_record(analysis: dict, points: list, r_values: list[float], info: dict
                 + (f" {sorted(set(row['errors']))}" if row["errors"] else "")
                 + " |"
             )
-    lines += ["", *reference_current_lines(analysis, points, r_values)]
+    lines += ["", *reference_current_lines(analysis, points, r_values,
+                                           run_pdk=info.get("worker_pdk"))]
     lines += ["", *interpretation_lines(analysis, points, r_values)]
     lines += [
         "",
         "## What this testbench does not model",
         "",
+        *pinned_input_limit_lines(analysis, points),
         "- **Series resistance only.** Two resistors, one per reference pad, same value. "
         "No bond or trace inductance, no pad or bus capacitance, no decoupling network, "
         "no on-chip reference buffer.",
