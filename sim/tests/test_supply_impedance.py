@@ -55,11 +55,26 @@ SIM_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = SIM_DIR / "supply-impedance-sensitivity"
 FULL_CONVERSION_DIR = SIM_DIR / "full-conversion-transient"
+CHIPALOOZA_DIR = REPO_ROOT / "docs" / "chipalooza"
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(FULL_CONVERSION_DIR))
 sys.path.insert(0, str(EXPERIMENT_DIR))
+sys.path.insert(0, str(CHIPALOOZA_DIR))
 
+# The CLI entry point, plus the per-campaign modules issue #848 split out of
+# it. Each name is addressed through its OWNING module rather than re-exported
+# by the entry point, so a reader of a failure sees which campaign owns the
+# thing that broke -- and so that rebinding `si_common.EXPERIMENT_DIR` below
+# (the record-writer tests' temp-directory redirect) reaches every writer,
+# which a `from ... import EXPERIMENT_DIR` copy would not.
+import check_proposal_citations as checker  # noqa: E402
 import run_supply_impedance as si  # noqa: E402
+from supply_impedance_campaigns import arm_comparison as si_arm  # noqa: E402
+from supply_impedance_campaigns import common as si_common  # noqa: E402
+from supply_impedance_campaigns import decap_esr as si_decap  # noqa: E402
+from supply_impedance_campaigns import midscale_probe as si_probe  # noqa: E402
+from supply_impedance_campaigns import null_sweep as si_null_sweep  # noqa: E402
+from supply_impedance_campaigns import sweep as si_sweep  # noqa: E402
 
 DR015 = REPO_ROOT / "spec" / "decision-records" / "DR-015-package-parasitic-assumption.md"
 DR012 = REPO_ROOT / "spec" / "decision-records" / "DR-012-analog-ground-pad.md"
@@ -70,17 +85,17 @@ class TestGroundRename(unittest.TestCase):
     shorted onto ngspice's global node 0."""
 
     def setUp(self) -> None:
-        self.dut = si.fc.dut_text()
+        self.dut = si_common.fc.dut_text()
 
     def test_rename_happens_on_device_cards(self) -> None:
-        patched, hits = si.patch_dut_ground(self.dut)
+        patched, hits = si_common.patch_dut_ground(self.dut)
         self.assertGreater(hits, 0, "no GND net reference was renamed")
-        self.assertIn(si.GND_DIE, patched)
+        self.assertIn(si_common.GND_DIE, patched)
 
     def test_no_bare_gnd_token_survives_on_a_device_card(self) -> None:
         """The whole campaign rests on this: a surviving bare `GND` token on a
         device card is a node ngspice silently merges with `0`."""
-        patched, _hits = si.patch_dut_ground(self.dut)
+        patched, _hits = si_common.patch_dut_ground(self.dut)
         offenders = [
             line
             for line in patched.splitlines()
@@ -92,16 +107,16 @@ class TestGroundRename(unittest.TestCase):
     def test_vgnd_is_not_collateral_damage(self) -> None:
         """`VGND` is the *digital* ground and a different net; the rename must
         not touch it, or the two domains DR-010 partitions would be merged."""
-        patched, _hits = si.patch_dut_ground(self.dut)
+        patched, _hits = si_common.patch_dut_ground(self.dut)
         self.assertIn("VGND", patched)
-        self.assertNotIn("V" + si.GND_DIE, patched)
+        self.assertNotIn("V" + si_common.GND_DIE, patched)
 
     def test_a_netlist_without_a_gnd_port_is_refused(self) -> None:
         """If `design/sar_adc_top.spice` ever stops declaring the `GND` port,
         DR-012's subject has changed and this campaign must be re-derived
         rather than quietly run against a different interface."""
         with self.assertRaises(RuntimeError):
-            si.patch_dut_ground("**.subckt sar_adc_top VDD VPWR VGND\nM1 a b c d nfet\n.end\n")
+            si_common.patch_dut_ground("**.subckt sar_adc_top VDD VPWR VGND\nM1 a b c d nfet\n.end\n")
 
 
 class TestPdkBareGndGuard(unittest.TestCase):
@@ -132,7 +147,7 @@ class TestPdkBareGndGuard(unittest.TestCase):
                 ".subckt inv A Y VPWR VGND VPB VNB\nM1 Y A VGND VNB nfet\n.ends\n",
                 ".model nfet nmos level=54\n",
             )
-            self.assertEqual(si.check_pdk_has_no_bare_gnd_node(info), [])
+            self.assertEqual(si_common.check_pdk_has_no_bare_gnd_node(info), [])
 
     def test_a_gnd_node_in_the_standard_cells_is_caught(self) -> None:
         import tempfile
@@ -143,7 +158,7 @@ class TestPdkBareGndGuard(unittest.TestCase):
                 ".subckt inv A Y VPWR VGND\nM1 Y A GND GND nfet\n.ends\n",
                 ".model nfet nmos level=54\n",
             )
-            self.assertTrue(si.check_pdk_has_no_bare_gnd_node(info))
+            self.assertTrue(si_common.check_pdk_has_no_bare_gnd_node(info))
 
     def test_a_gnd_node_in_the_model_library_is_caught(self) -> None:
         import tempfile
@@ -154,7 +169,7 @@ class TestPdkBareGndGuard(unittest.TestCase):
                 ".subckt inv A Y VPWR VGND\n.ends\n",
                 ".subckt nfet_01v8 d g s\nM1 d g s GND nmos\n.ends\n",
             )
-            self.assertTrue(si.check_pdk_has_no_bare_gnd_node(info))
+            self.assertTrue(si_common.check_pdk_has_no_bare_gnd_node(info))
 
     def test_a_gnd_mention_in_a_comment_is_not_an_offender(self) -> None:
         import tempfile
@@ -165,7 +180,7 @@ class TestPdkBareGndGuard(unittest.TestCase):
                 "* this cell ties its bulk to GND conceptually\n.subckt inv A Y\n.ends\n",
                 "; GND is mentioned here too\n.model nfet nmos\n",
             )
-            self.assertEqual(si.check_pdk_has_no_bare_gnd_node(info), [])
+            self.assertEqual(si_common.check_pdk_has_no_bare_gnd_node(info), [])
 
     def test_vgnd_is_not_mistaken_for_gnd(self) -> None:
         import tempfile
@@ -176,7 +191,7 @@ class TestPdkBareGndGuard(unittest.TestCase):
                 ".subckt inv A Y VPWR VGND\nM1 Y A VGND VGND nfet\n.ends\n",
                 ".model nfet nmos\n",
             )
-            self.assertEqual(si.check_pdk_has_no_bare_gnd_node(info), [])
+            self.assertEqual(si_common.check_pdk_has_no_bare_gnd_node(info), [])
 
 
 class TestPackageAssumptionMatchesDR015(unittest.TestCase):
@@ -197,33 +212,33 @@ class TestPackageAssumptionMatchesDR015(unittest.TestCase):
 
     def test_bond_wire_inductance_row_matches_the_code(self) -> None:
         stated = self._nh(r"bond wire.*?`L = ([0-9.]+) nH`")
-        self.assertAlmostEqual(stated, si.BOND_L_H * 1e9, places=2)
+        self.assertAlmostEqual(stated, si_common.BOND_L_H * 1e9, places=2)
 
     def test_bond_wire_resistance_row_matches_the_code(self) -> None:
         m = re.search(r"bond wire.*?`R = ([0-9.]+) m", self.text)
         self.assertIsNotNone(m)
-        self.assertAlmostEqual(float(m.group(1)), si.BOND_R_OHM * 1e3, places=1)
+        self.assertAlmostEqual(float(m.group(1)), si_common.BOND_R_OHM * 1e3, places=1)
 
     def test_per_terminal_total_row_matches_the_code(self) -> None:
         stated_l = self._nh(r"total, per terminal.*?`L = ([0-9.]+) nH")
         m = re.search(r"total, per terminal.*?R = ([0-9.]+) m", self.text)
         self.assertIsNotNone(m)
-        self.assertAlmostEqual(stated_l, si.PACKAGE_L_H * 1e9, places=2)
-        self.assertAlmostEqual(float(m.group(1)), si.PACKAGE_R_OHM * 1e3, places=1)
+        self.assertAlmostEqual(stated_l, si_common.PACKAGE_L_H * 1e9, places=2)
+        self.assertAlmostEqual(float(m.group(1)), si_common.PACKAGE_R_OHM * 1e3, places=1)
 
     def test_total_is_the_wire_plus_the_stated_allowance(self) -> None:
         """The table is an addition; check it adds up rather than trusting it."""
         self.assertAlmostEqual(
-            si.PACKAGE_L_H, si.BOND_L_H + si.LEAD_FRAME_L_NH * 1e-9, places=15
+            si_common.PACKAGE_L_H, si_common.BOND_L_H + si_common.LEAD_FRAME_L_NH * 1e-9, places=15
         )
         self.assertAlmostEqual(
-            si.PACKAGE_R_OHM, si.BOND_R_OHM + si.LEAD_FRAME_R_MOHM * 1e-3, places=12
+            si_common.PACKAGE_R_OHM, si_common.BOND_R_OHM + si_common.LEAD_FRAME_R_MOHM * 1e-3, places=12
         )
 
     def test_substrate_stand_ins_match_the_code(self) -> None:
         m = re.search(r"`R_SUB = ([0-9.]+) ", self.text)
         self.assertIsNotNone(m)
-        self.assertAlmostEqual(float(m.group(1)), si.R_SUB_OHM, places=3)
+        self.assertAlmostEqual(float(m.group(1)), si_common.R_SUB_OHM, places=3)
         self.assertIn("R_SUBX", self.text)
 
     def test_dr015_does_not_claim_to_be_a_package_selection(self) -> None:
@@ -236,51 +251,51 @@ class TestBondWireArithmetic(unittest.TestCase):
     """The textbook expressions, recomputed independently of the runner."""
 
     def test_round_wire_self_inductance(self) -> None:
-        length_m = si.BOND_WIRE_LENGTH_MM * 1e-3
-        radius_m = 0.5 * si.BOND_WIRE_DIAMETER_UM * 1e-6
+        length_m = si_common.BOND_WIRE_LENGTH_MM * 1e-3
+        radius_m = 0.5 * si_common.BOND_WIRE_DIAMETER_UM * 1e-6
         expected = (
             (4.0e-7 * math.pi) * length_m / (2.0 * math.pi)
         ) * (math.log(2.0 * length_m / radius_m) - 0.75)
-        self.assertAlmostEqual(si.BOND_L_H, expected, places=15)
+        self.assertAlmostEqual(si_common.BOND_L_H, expected, places=15)
 
     def test_wire_resistance_is_rho_l_over_area(self) -> None:
-        radius_m = 0.5 * si.BOND_WIRE_DIAMETER_UM * 1e-6
+        radius_m = 0.5 * si_common.BOND_WIRE_DIAMETER_UM * 1e-6
         expected = (
-            si.GOLD_RESISTIVITY_OHM_M * (si.BOND_WIRE_LENGTH_MM * 1e-3) / (math.pi * radius_m**2)
+            si_common.GOLD_RESISTIVITY_OHM_M * (si_common.BOND_WIRE_LENGTH_MM * 1e-3) / (math.pi * radius_m**2)
         )
-        self.assertAlmostEqual(si.BOND_R_OHM, expected, places=15)
+        self.assertAlmostEqual(si_common.BOND_R_OHM, expected, places=15)
 
     def test_values_are_physically_plausible_for_a_short_fine_bond_wire(self) -> None:
         """A sanity band, not a spec: a ~1.5 mm 1-mil wire is order-1 nH and
         order-100 mOhm. A value outside this means a unit slipped."""
-        self.assertTrue(0.5e-9 < si.BOND_L_H < 5e-9, si.BOND_L_H)
-        self.assertTrue(10e-3 < si.BOND_R_OHM < 1.0, si.BOND_R_OHM)
+        self.assertTrue(0.5e-9 < si_common.BOND_L_H < 5e-9, si_common.BOND_L_H)
+        self.assertTrue(10e-3 < si_common.BOND_R_OHM < 1.0, si_common.BOND_R_OHM)
 
 
 class TestArms(unittest.TestCase):
     def test_control_arm_is_truly_zero_impedance(self) -> None:
-        ideal = si.ARMS_BY_NAME[si.CONTROL_ARM]
-        self.assertEqual(set(ideal.bonds), set(si.TERMINAL_ORDER))
+        ideal = si_common.ARMS_BY_NAME[si_common.CONTROL_ARM]
+        self.assertEqual(set(ideal.bonds), set(si_common.TERMINAL_ORDER))
         for terminal, bond in ideal.bonds.items():
             self.assertIsNone(bond, f"{terminal} carries an impedance in the control arm")
 
     def test_control_arm_leaves_the_committed_fragment_untouched(self) -> None:
-        fragment = si.tb.FRAGMENT_PATH.read_text()
+        fragment = si_common.tb.FRAGMENT_PATH.read_text()
         self.assertEqual(
-            si.patch_fragment_supplies(fragment, si.ARMS_BY_NAME[si.CONTROL_ARM]),
+            si_common.patch_fragment_supplies(fragment, si_common.ARMS_BY_NAME[si_common.CONTROL_ARM]),
             fragment,
             "the control arm re-pointed a supply source it should have left alone",
         )
 
     def test_control_arm_emits_a_die_side_ground_source_and_no_series_element(self) -> None:
-        cards = si.arm_network_lines(si.ARMS_BY_NAME[si.CONTROL_ARM])
-        self.assertIn(f"VGNDA {si.GND_DIE} 0 DC 0", cards)
+        cards = si_common.arm_network_lines(si_common.ARMS_BY_NAME[si_common.CONTROL_ARM])
+        self.assertIn(f"VGNDA {si_common.GND_DIE} 0 DC 0", cards)
         self.assertEqual([c for c in cards if re.match(r"^L[A-Z]", c)], [])
 
     def test_package_and_package_r_only_differ_in_exactly_one_element(self) -> None:
         """The bond-inductance single-mechanism number depends on this."""
-        full = si.ARMS_BY_NAME["package"]
-        r_only = si.ARMS_BY_NAME["package-r-only"]
+        full = si_common.ARMS_BY_NAME["package"]
+        r_only = si_common.ARMS_BY_NAME["package-r-only"]
         self.assertEqual(set(full.bonds), set(r_only.bonds))
         self.assertEqual(full.substrate, r_only.substrate)
         for terminal in full.bonds:
@@ -293,37 +308,37 @@ class TestArms(unittest.TestCase):
     def test_substrate_arm_is_not_presented_as_an_ablation_of_package(self) -> None:
         """Its resistance is orders of magnitude larger, so a difference against
         `package` would confound two changes. The code must say so."""
-        self.assertGreater(si.R_SUB_OHM, 10.0 * si.PACKAGE_R_OHM)
-        self.assertIn("not an ablation", si.ARMS_BY_NAME["substrate"].summary.lower())
+        self.assertGreater(si_common.R_SUB_OHM, 10.0 * si_common.PACKAGE_R_OHM)
+        self.assertIn("not an ablation", si_common.ARMS_BY_NAME["substrate"].summary.lower())
 
     def test_no_gnd_pad_arm_gives_gnd_no_bond_of_its_own(self) -> None:
-        arm = si.ARMS_BY_NAME["no-gnd-pad"]
+        arm = si_common.ARMS_BY_NAME["no-gnd-pad"]
         self.assertNotIn("GND", arm.bonds)
         for terminal in ("VDD", "VPWR", "VGND"):
             self.assertIsNotNone(arm.bonds[terminal])
-        cards = si.arm_network_lines(arm)
+        cards = si_common.arm_network_lines(arm)
         self.assertEqual([c for c in cards if c.startswith("VGNDA ")], [])
-        self.assertTrue(any(c.startswith(f"RSUBX {si.GND_DIE} VGND") for c in cards))
+        self.assertTrue(any(c.startswith(f"RSUBX {si_common.GND_DIE} VGND") for c in cards))
 
     def test_every_arm_carries_the_substrate_link_dr012_measured(self) -> None:
-        for arm in si.ARMS:
+        for arm in si_common.ARMS:
             self.assertEqual(
                 arm.substrate,
-                (("RSUBX", si.GND_DIE, "VGND", si.R_SUBX_OHM),),
+                (("RSUBX", si_common.GND_DIE, "VGND", si_common.R_SUBX_OHM),),
                 f"arm {arm.name} does not carry the GND/VGND substrate link",
             )
 
     def test_a_resistance_only_bond_emits_a_resistor_not_a_zero_inductor(self) -> None:
         for name in ("package-r-only", "substrate"):
-            cards = si.arm_network_lines(si.ARMS_BY_NAME[name])
+            cards = si_common.arm_network_lines(si_common.ARMS_BY_NAME[name])
             self.assertEqual([c for c in cards if re.match(r"^L[A-Z]", c)], [], name)
             self.assertTrue(any(re.match(r"^R(VDD|VGND|GND|VPWR)\b", c) for c in cards), name)
 
     def test_bonded_arms_repoint_only_the_fragment_cards_they_bond(self) -> None:
-        fragment = si.tb.FRAGMENT_PATH.read_text()
-        patched = si.patch_fragment_supplies(fragment, si.ARMS_BY_NAME["package"])
+        fragment = si_common.tb.FRAGMENT_PATH.read_text()
+        patched = si_common.patch_fragment_supplies(fragment, si_common.ARMS_BY_NAME["package"])
         for terminal in ("VDD", "VPWR", "VGND"):
-            spec = si.TERMINALS[terminal]
+            spec = si_common.TERMINALS[terminal]
             self.assertIn(f"{spec['source']} {spec['board']} 0 ", patched)
             self.assertNotIn(spec["card"], patched)
         # The reference sources are a different experiment and stay at the die.
@@ -334,8 +349,8 @@ class TestArms(unittest.TestCase):
     def test_source_instance_names_are_preserved_so_meas_cards_still_work(self) -> None:
         """The fragment's own `.meas tran i_vdd avg i(vvdd)` cards must keep
         measuring the current delivered from the board."""
-        patched = si.patch_fragment_supplies(
-            si.tb.FRAGMENT_PATH.read_text(), si.ARMS_BY_NAME["package"]
+        patched = si_common.patch_fragment_supplies(
+            si_common.tb.FRAGMENT_PATH.read_text(), si_common.ARMS_BY_NAME["package"]
         )
         for source in ("VVDD", "VVPWR", "VVGND"):
             self.assertRegex(patched, rf"(?m)^{source}\s")
@@ -343,7 +358,7 @@ class TestArms(unittest.TestCase):
     def test_substrate_link_carries_no_current_in_the_control(self) -> None:
         """Both of its ends are ideal-source-held at 0 V in `ideal`, which is
         what makes the control a clean baseline rather than a fifth network."""
-        ideal = si.ARMS_BY_NAME[si.CONTROL_ARM]
+        ideal = si_common.ARMS_BY_NAME[si_common.CONTROL_ARM]
         self.assertIsNone(ideal.bonds["GND"])
         self.assertIsNone(ideal.bonds["VGND"])
 
@@ -359,14 +374,14 @@ class TestGroundPadAblation(unittest.TestCase):
             "corner_id": cid,
             "conversions": [
                 {"conversion": i + 1, "fraction": f, "code": c}
-                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+                for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, codes))
             ],
             "extras": {"gnd_die_pp": gnd_pp},
         }
 
     def test_no_gnd_pad_and_package_differ_in_exactly_one_element(self) -> None:
-        null_opt = si.ARMS_BY_NAME["no-gnd-pad"]
-        as_built = si.ARMS_BY_NAME["package"]
+        null_opt = si_common.ARMS_BY_NAME["no-gnd-pad"]
+        as_built = si_common.ARMS_BY_NAME["package"]
         # The one element: GND's own bond, present in one arm and absent in the
         # other. Everything else -- the other three bonds and the substrate
         # link -- must be identical, or the difference confounds two changes.
@@ -383,8 +398,8 @@ class TestGroundPadAblation(unittest.TestCase):
     def test_the_two_decks_differ_only_in_the_ground_terminal_s_cards(self) -> None:
         """The same claim one level down: on the cards themselves, not just on
         the dataclass."""
-        null_cards = set(si.arm_network_lines(si.ARMS_BY_NAME["no-gnd-pad"]))
-        built_cards = set(si.arm_network_lines(si.ARMS_BY_NAME["package"]))
+        null_cards = set(si_common.arm_network_lines(si_common.ARMS_BY_NAME["no-gnd-pad"]))
+        built_cards = set(si_common.arm_network_lines(si_common.ARMS_BY_NAME["package"]))
         only_in_as_built = {c for c in built_cards - null_cards if not c.startswith("*")}
         self.assertTrue(
             all(re.match(r"^(VGNDA|LGND|RGND)\b", c) for c in only_in_as_built),
@@ -396,7 +411,7 @@ class TestGroundPadAblation(unittest.TestCase):
             self._point("package", "tt_27c_1.80v", [10, 20, 30, 40, 50], 37.0e-3),
             self._point("no-gnd-pad", "tt_27c_1.80v", [10, 20, 33, 40, 50], 74.0e-3),
         ]
-        lines = si.gnd_pad_ablation_lines(points, ["package", "no-gnd-pad"], ["tt_27c_1.80v"])
+        lines = si_arm.gnd_pad_ablation_lines(points, ["package", "no-gnd-pad"], ["tt_27c_1.80v"])
         self.assertEqual(len(lines), 1)
         self.assertIn("3 LSB", lines[0])
         self.assertIn("74.000 mV vs 37.000 mV", lines[0])
@@ -405,10 +420,10 @@ class TestGroundPadAblation(unittest.TestCase):
     def test_a_record_without_the_null_option_says_nothing_about_the_pad(self) -> None:
         """No noise in the records that omit the expensive arm: the omission
         section already explains it."""
-        self.assertEqual(si.gnd_pad_ablation_lines([], ["ideal", "package"], ["tt_27c_1.80v"]), [])
+        self.assertEqual(si_arm.gnd_pad_ablation_lines([], ["ideal", "package"], ["tt_27c_1.80v"]), [])
 
     def test_the_null_option_without_its_as_built_twin_is_not_an_ablation(self) -> None:
-        lines = si.gnd_pad_ablation_lines([], ["ideal", "no-gnd-pad"], ["tt_27c_1.80v"])
+        lines = si_arm.gnd_pad_ablation_lines([], ["ideal", "no-gnd-pad"], ["tt_27c_1.80v"])
         self.assertEqual(len(lines), 1)
         self.assertIn("not available", lines[0])
 
@@ -422,12 +437,12 @@ class TestGroundPadAblation(unittest.TestCase):
             self._point("no-gnd-pad", "tt_27c_1.80v", [10, 20, 33, 40, 50], 74.0e-3),
         ]
         arms = ["ideal", "package-r-only", "package", "no-gnd-pad"]
-        bond = si.ablation_lines(points, arms, ["tt_27c_1.80v"])
+        bond = si_arm.ablation_lines(points, arms, ["tt_27c_1.80v"])
         self.assertEqual(len(bond), 1)
         self.assertNotIn("only single-mechanism number", bond[0])
         self.assertIn("two single-mechanism numbers in this record", bond[0])
         # and the sibling it now names is actually emitted into the same record
-        self.assertTrue(si.gnd_pad_ablation_lines(points, arms, ["tt_27c_1.80v"]))
+        self.assertTrue(si_arm.gnd_pad_ablation_lines(points, arms, ["tt_27c_1.80v"]))
 
     def test_the_bond_ablation_keeps_its_uniqueness_claim_when_it_stands_alone(self) -> None:
         """The committed four-arm record really does carry exactly one
@@ -437,39 +452,39 @@ class TestGroundPadAblation(unittest.TestCase):
             self._point("package-r-only", "tt_27c_1.80v", [10, 20, 30, 40, 50], 0.059e-3),
         ]
         arms = ["ideal", "package-r-only", "package", "substrate"]
-        bond = si.ablation_lines(points, arms, ["tt_27c_1.80v"])
+        bond = si_arm.ablation_lines(points, arms, ["tt_27c_1.80v"])
         self.assertEqual(len(bond), 1)
         self.assertIn("This is the only single-mechanism number in this record.", bond[0])
-        self.assertEqual(si.gnd_pad_ablation_lines(points, arms, ["tt_27c_1.80v"]), [])
+        self.assertEqual(si_arm.gnd_pad_ablation_lines(points, arms, ["tt_27c_1.80v"]), [])
 
     def test_every_arm_has_a_standing_omission_reason(self) -> None:
         """A record that omits an arm must be able to say why -- an unexplained
         omission is not a valid record (`sim/README.md`)."""
-        for arm in si.ARMS:
-            if arm.name == si.CONTROL_ARM:
+        for arm in si_common.ARMS:
+            if arm.name == si_common.CONTROL_ARM:
                 continue  # the control can never be omitted (the CLI refuses)
-            self.assertIn(arm.name, si.ARM_OMISSION_NOTES)
-            self.assertTrue(si.ARM_OMISSION_NOTES[arm.name].strip())
+            self.assertIn(arm.name, si_common.ARM_OMISSION_NOTES)
+            self.assertTrue(si_common.ARM_OMISSION_NOTES[arm.name].strip())
 
 
 class TestExtraMeasurements(unittest.TestCase):
     def test_rail_probes_watch_the_die_side_nodes(self) -> None:
-        nodes = {node for _name, node, _label in si.RAIL_PROBES}
-        self.assertEqual(nodes, {si.GND_DIE, "VGND", "VDD", "VPWR"})
+        nodes = {node for _name, node, _label in si_common.RAIL_PROBES}
+        self.assertEqual(nodes, {si_common.GND_DIE, "VGND", "VDD", "VPWR"})
 
     def test_ground_bond_current_is_measured_only_where_a_bond_exists(self) -> None:
-        self.assertIn("i_gnda", si.extra_measure_names(si.ARMS_BY_NAME["package"]))
-        self.assertNotIn("i_gnda", si.extra_measure_names(si.ARMS_BY_NAME["no-gnd-pad"]))
+        self.assertIn("i_gnda", si_common.extra_measure_names(si_common.ARMS_BY_NAME["package"]))
+        self.assertNotIn("i_gnda", si_common.extra_measure_names(si_common.ARMS_BY_NAME["no-gnd-pad"]))
 
     def test_excursion_window_is_the_fragment_s_own_current_averaging_window(self) -> None:
         """One window for every number in the record, so a rail excursion and a
         supply current in the same row describe the same instant of time."""
-        t0, t1 = si._idd_window_ns()
+        t0, t1 = si_common._idd_window_ns()
         self.assertLess(t0, t1)
         self.assertAlmostEqual(
-            t0, si.tb.t_edge_ns(si.tb.PHASES_PER_CONVERSION * si.tb.IDD_CONVERSION), places=6
+            t0, si_common.tb.t_edge_ns(si_common.tb.PHASES_PER_CONVERSION * si_common.tb.IDD_CONVERSION), places=6
         )
-        for line in si.extra_measure_lines(si.ARMS_BY_NAME["package"]):
+        for line in si_common.extra_measure_lines(si_common.ARMS_BY_NAME["package"]):
             if line.startswith(".meas"):
                 self.assertIn(f"from={t0:.4f}n", line)
                 self.assertIn(f"to={t1:.4f}n", line)
@@ -480,29 +495,29 @@ class TestCodeComparison(unittest.TestCase):
         return {
             "conversions": [
                 {"conversion": i + 1, "fraction": f, "code": c}
-                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+                for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, codes))
             ]
         }
 
     def test_near_full_scale_inputs_are_excluded_from_the_delta(self) -> None:
         """They are already wrong by ~100 LSB at every corner (issue #267), so a
         change there cannot be attributed to supply impedance."""
-        point = self._point([0] * len(si.tb.INPUT_FRACTIONS))
-        kept = {cv["fraction"] for cv in si.mid_scale_conversions(point)}
+        point = self._point([0] * len(si_common.tb.INPUT_FRACTIONS))
+        kept = {cv["fraction"] for cv in si_common.mid_scale_conversions(point)}
         self.assertTrue(all(abs(f) <= 0.5 for f in kept))
-        self.assertTrue(any(abs(f) > 0.5 for f in si.tb.INPUT_FRACTIONS))
+        self.assertTrue(any(abs(f) > 0.5 for f in si_common.tb.INPUT_FRACTIONS))
 
     def test_worst_mid_scale_delta_ignores_the_excluded_columns(self) -> None:
-        control = self._point([100 if abs(f) > 0.5 else 500 for f in si.tb.INPUT_FRACTIONS])
+        control = self._point([100 if abs(f) > 0.5 else 500 for f in si_common.tb.INPUT_FRACTIONS])
         point = self._point(
-            [900 if abs(f) > 0.5 else 502 for f in si.tb.INPUT_FRACTIONS]
+            [900 if abs(f) > 0.5 else 502 for f in si_common.tb.INPUT_FRACTIONS]
         )
-        self.assertEqual(si.worst_mid_scale_delta(point, control), 2)
+        self.assertEqual(si_common.worst_mid_scale_delta(point, control), 2)
 
     def test_a_missing_code_is_reported_as_none_not_as_zero(self) -> None:
-        control = self._point([500] * len(si.tb.INPUT_FRACTIONS))
-        point = self._point([None] * len(si.tb.INPUT_FRACTIONS))
-        self.assertIsNone(si.worst_mid_scale_delta(point, control))
+        control = self._point([500] * len(si_common.tb.INPUT_FRACTIONS))
+        point = self._point([None] * len(si_common.tb.INPUT_FRACTIONS))
+        self.assertIsNone(si_common.worst_mid_scale_delta(point, control))
 
 
 class TestLogCache(unittest.TestCase):
@@ -525,62 +540,62 @@ class TestLogCache(unittest.TestCase):
         self.cache = Path(self._tmp.name)
         self.deck = "* deck\n.end\n"
         self.pdk = self._FakePdk(self.cache)
-        self._orig_commit = si.pdk.resolved_commit_verified
-        self._orig_ngspice = si.toolchain._ngspice_version
-        si.pdk.resolved_commit_verified = lambda _info: "commit-a"  # type: ignore[assignment]
-        si.toolchain._ngspice_version = lambda: "ngspice-46"  # type: ignore[assignment]
+        self._orig_commit = si_common.pdk.resolved_commit_verified
+        self._orig_ngspice = si_common.toolchain._ngspice_version
+        si_common.pdk.resolved_commit_verified = lambda _info: "commit-a"  # type: ignore[assignment]
+        si_common.toolchain._ngspice_version = lambda: "ngspice-46"  # type: ignore[assignment]
 
     def tearDown(self) -> None:
-        si.pdk.resolved_commit_verified = self._orig_commit  # type: ignore[assignment]
-        si.toolchain._ngspice_version = self._orig_ngspice  # type: ignore[assignment]
+        si_common.pdk.resolved_commit_verified = self._orig_commit  # type: ignore[assignment]
+        si_common.toolchain._ngspice_version = self._orig_ngspice  # type: ignore[assignment]
         self._tmp.cleanup()
 
     def test_no_cache_directory_means_never_reuse(self) -> None:
-        self.assertIsNone(si.load_cached_run(None, "ideal@c", self.deck, self.pdk))
+        self.assertIsNone(si_common.load_cached_run(None, "ideal@c", self.deck, self.pdk))
 
     def test_a_stored_log_round_trips_with_its_wall_clock(self) -> None:
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 12.5)
-        self.assertEqual(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk), ("LOG", 12.5))
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 12.5)
+        self.assertEqual(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk), ("LOG", 12.5))
 
     def test_a_changed_deck_is_not_reused(self) -> None:
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
         self.assertIsNone(
-            si.load_cached_run(self.cache, "ideal@c", self.deck + "* edited\n", self.pdk)
+            si_common.load_cached_run(self.cache, "ideal@c", self.deck + "* edited\n", self.pdk)
         )
 
     def test_a_different_open_pdks_commit_is_not_reused(self) -> None:
         """Records from different model libraries are not comparable
         (`sim/README.md`), so neither are their logs."""
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
-        si.pdk.resolved_commit_verified = lambda _info: "commit-b"  # type: ignore[assignment]
-        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.pdk.resolved_commit_verified = lambda _info: "commit-b"  # type: ignore[assignment]
+        self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
 
     def test_a_different_ngspice_version_is_not_reused(self) -> None:
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
-        si.toolchain._ngspice_version = lambda: "ngspice-47"  # type: ignore[assignment]
-        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.toolchain._ngspice_version = lambda: "ngspice-47"  # type: ignore[assignment]
+        self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
 
     def test_a_corrupt_sidecar_is_not_reused(self) -> None:
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
         (self.cache / "ideal__c.json").write_text("{not json")
-        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+        self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
 
     def test_a_log_without_its_sidecar_is_not_reused(self) -> None:
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
         (self.cache / "ideal__c.json").unlink()
-        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+        self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
 
     def test_the_sidecar_records_every_identity_field_it_gates_on(self) -> None:
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
         meta = json.loads((self.cache / "ideal__c.json").read_text())
         for field in ("deck_sha256", "open_pdks_commit", "pdk_variant", "ngspice"):
             self.assertIn(field, meta)
 
     def test_arms_do_not_collide_in_the_cache(self) -> None:
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "A", 1.0)
-        si.store_cached_run(self.cache, "package@c", self.deck, self.pdk, "B", 2.0)
-        self.assertEqual(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk)[0], "A")
-        self.assertEqual(si.load_cached_run(self.cache, "package@c", self.deck, self.pdk)[0], "B")
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "A", 1.0)
+        si_common.store_cached_run(self.cache, "package@c", self.deck, self.pdk, "B", 2.0)
+        self.assertEqual(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk)[0], "A")
+        self.assertEqual(si_common.load_cached_run(self.cache, "package@c", self.deck, self.pdk)[0], "B")
 
     def test_a_sidecar_without_a_usable_wall_clock_is_not_reused(self) -> None:
         """A missing `wall_s` is a malformed sidecar, not a run that took 0 s:
@@ -588,12 +603,12 @@ class TestLogCache(unittest.TestCase):
         table as if measured."""
         for bad in ({}, {"wall_s": None}, {"wall_s": "ages"}):
             with self.subTest(bad=bad):
-                si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+                si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
                 meta = json.loads((self.cache / "ideal__c.json").read_text())
                 meta.pop("wall_s")
                 meta.update(bad)
                 (self.cache / "ideal__c.json").write_text(json.dumps(meta))
-                self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+                self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
 
 
 class TestLogCacheRefusesUnverifiableProvenance(unittest.TestCase):
@@ -615,15 +630,15 @@ class TestLogCacheRefusesUnverifiableProvenance(unittest.TestCase):
         self.cache = Path(self._tmp.name)
         self.deck = "* deck\n.end\n"
         self.pdk = TestLogCache._FakePdk(self.cache)
-        self._orig_verified = si.pdk.resolved_commit_verified
-        self._orig_display = si.pdk.resolved_commit
-        self._orig_ngspice = si.toolchain._ngspice_version
-        si.toolchain._ngspice_version = lambda: "ngspice-46"  # type: ignore[assignment]
+        self._orig_verified = si_common.pdk.resolved_commit_verified
+        self._orig_display = si_common.pdk.resolved_commit
+        self._orig_ngspice = si_common.toolchain._ngspice_version
+        si_common.toolchain._ngspice_version = lambda: "ngspice-46"  # type: ignore[assignment]
 
     def tearDown(self) -> None:
-        si.pdk.resolved_commit_verified = self._orig_verified  # type: ignore[assignment]
-        si.pdk.resolved_commit = self._orig_display  # type: ignore[assignment]
-        si.toolchain._ngspice_version = self._orig_ngspice  # type: ignore[assignment]
+        si_common.pdk.resolved_commit_verified = self._orig_verified  # type: ignore[assignment]
+        si_common.pdk.resolved_commit = self._orig_display  # type: ignore[assignment]
+        si_common.toolchain._ngspice_version = self._orig_ngspice  # type: ignore[assignment]
         self._tmp.cleanup()
 
     def test_the_display_fallback_really_is_the_same_string_for_two_installs(self) -> None:
@@ -633,22 +648,22 @@ class TestLogCacheRefusesUnverifiableProvenance(unittest.TestCase):
         `resolved_commit_verified()`."""
         a = TestLogCache._FakePdk(self.cache / "install-a")
         b = TestLogCache._FakePdk(self.cache / "install-b")
-        self.assertEqual(si.pdk.resolved_commit(a), si.pdk.resolved_commit(b))
-        self.assertIn("unverified", si.pdk.resolved_commit(a))
-        self.assertIsNone(si.pdk.resolved_commit_verified(a))
-        self.assertIsNone(si.pdk.resolved_commit_verified(b))
+        self.assertEqual(si_common.pdk.resolved_commit(a), si_common.pdk.resolved_commit(b))
+        self.assertIn("unverified", si_common.pdk.resolved_commit(a))
+        self.assertIsNone(si_common.pdk.resolved_commit_verified(a))
+        self.assertIsNone(si_common.pdk.resolved_commit_verified(b))
 
     def test_an_unverifiable_pdk_provenance_has_no_cache_identity(self) -> None:
-        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
-        self.assertIsNone(si._cache_identity(self.deck, self.pdk))
+        si_common.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        self.assertIsNone(si_common._cache_identity(self.deck, self.pdk))
 
     def test_an_unverifiable_pdk_provenance_is_never_reused(self) -> None:
         """Stored while provenance was verifiable, read back after the install
         became one this harness cannot vouch for: a miss, not a match."""
-        si.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
-        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
-        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+        si_common.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
 
     def test_two_different_unverifiable_installs_do_not_false_match(self) -> None:
         """The concrete failure the gate exists to prevent, written as the
@@ -656,9 +671,9 @@ class TestLogCacheRefusesUnverifiableProvenance(unittest.TestCase):
         fallback string, read on a *different* non-volare install that produces
         that identical string. Gating on the display value would reuse library
         A's log for a run against library B."""
-        display = si.pdk.resolved_commit(self.pdk)
+        display = si_common.pdk.resolved_commit(self.pdk)
         meta = {
-            "deck_sha256": si.evidence.sha256_text(self.deck),
+            "deck_sha256": si_common.evidence.sha256_text(self.deck),
             "open_pdks_commit": display,  # what the display-string gate stored
             "pdk_variant": self.pdk.variant,
             "ngspice": "ngspice-46",
@@ -669,35 +684,35 @@ class TestLogCacheRefusesUnverifiableProvenance(unittest.TestCase):
         (self.cache / "ideal__c.json").write_text(json.dumps(meta))
 
         other = TestLogCache._FakePdk(self.cache / "some-other-hand-install")
-        self.assertEqual(si.pdk.resolved_commit(other), display)  # indistinguishable
-        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
-        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, other))
+        self.assertEqual(si_common.pdk.resolved_commit(other), display)  # indistinguishable
+        si_common.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, other))
 
     def test_an_unverifiable_pdk_provenance_is_never_stored(self) -> None:
         """A log with no provable identity is not worth keeping: storing it
         could only ever be cashed in by weakening the gate later."""
-        si.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.pdk.resolved_commit_verified = lambda _info: None  # type: ignore[assignment]
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
         self.assertEqual(sorted(p.name for p in self.cache.iterdir()), [])
 
     def test_an_unreported_ngspice_version_is_neither_stored_nor_reused(self) -> None:
         """"unknown" == "unknown" is not a match; it is two hosts that both
         failed to answer."""
-        si.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
-        si.toolchain._ngspice_version = lambda: None  # type: ignore[assignment]
-        self.assertIsNone(si._cache_identity(self.deck, self.pdk))
-        self.assertIsNone(si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
-        si.store_cached_run(self.cache, "package@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 1.0)
+        si_common.toolchain._ngspice_version = lambda: None  # type: ignore[assignment]
+        self.assertIsNone(si_common._cache_identity(self.deck, self.pdk))
+        self.assertIsNone(si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk))
+        si_common.store_cached_run(self.cache, "package@c", self.deck, self.pdk, "LOG", 1.0)
         self.assertFalse((self.cache / "package__c.log").exists())
 
     def test_a_verified_install_still_round_trips(self) -> None:
         """The gate tightened, not broke: the ordinary volare-verified path is
         untouched."""
-        si.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
-        si.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 7.5)
+        si_common.pdk.resolved_commit_verified = lambda _info: "c" * 40  # type: ignore[assignment]
+        si_common.store_cached_run(self.cache, "ideal@c", self.deck, self.pdk, "LOG", 7.5)
         self.assertEqual(
-            si.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk), ("LOG", 7.5)
+            si_common.load_cached_run(self.cache, "ideal@c", self.deck, self.pdk), ("LOG", 7.5)
         )
         meta = json.loads((self.cache / "ideal__c.json").read_text())
         self.assertEqual(meta["open_pdks_commit"], "c" * 40)
@@ -710,17 +725,17 @@ class TestInvocationFooter(unittest.TestCase):
     must state the invocation that actually ran."""
 
     def test_default_arm_set_renders_the_canonical_command(self) -> None:
-        line = si.invocation_line([arm.name for arm in si.ARMS], False, "")
+        line = si_arm.invocation_line([arm.name for arm in si_common.ARMS], False, "")
         self.assertEqual(
             line, "sim/supply-impedance-sensitivity/run_supply_impedance.py --record"
         )
 
     def test_a_subset_run_names_its_arms(self) -> None:
-        line = si.invocation_line(["ideal", "package"], False, "")
+        line = si_arm.invocation_line(["ideal", "package"], False, "")
         self.assertIn("--arms ideal,package", line)
 
     def test_corners_and_supersedes_are_recorded(self) -> None:
-        line = si.invocation_line([arm.name for arm in si.ARMS], True, "20260101-000000-abcdef0")
+        line = si_arm.invocation_line([arm.name for arm in si_common.ARMS], True, "20260101-000000-abcdef0")
         self.assertIn("--corners", line)
         self.assertIn("--supersedes 20260101-000000-abcdef0", line)
 
@@ -754,9 +769,9 @@ class TestInvocationFooter(unittest.TestCase):
                         for v in tokens[tokens.index("--decap-esr-mult") + 1].split(",")
                     )
                     if "--decap-esr-mult" in tokens
-                    else si.DECAP_ESR_MULTIPLIERS
+                    else si_decap.DECAP_ESR_MULTIPLIERS
                 )
-                footer = si.decap_esr_invocation_line(mults, "")
+                footer = si_decap.decap_esr_invocation_line(mults, "")
             elif "--null-sweep" in cold_tokens:
                 # The null-option ladder mints through its own writer and its
                 # own footer function; the same gate applies to it, and its one
@@ -767,9 +782,9 @@ class TestInvocationFooter(unittest.TestCase):
                         for v in tokens[tokens.index("--null-sweep-rsub") + 1].split(",")
                     )
                     if "--null-sweep-rsub" in tokens
-                    else si.NULL_SWEEP_RSUBX_OHM
+                    else si_null_sweep.NULL_SWEEP_RSUBX_OHM
                 )
-                footer = si.null_sweep_invocation_line(rsub, "")
+                footer = si_null_sweep.null_sweep_invocation_line(rsub, "")
             elif "--sweep" in cold_tokens:
                 # The sweep mints through its own writer and its own footer
                 # function; the same gate applies to it, and it has its own
@@ -777,19 +792,19 @@ class TestInvocationFooter(unittest.TestCase):
                 l_mults = (
                     tuple(float(v) for v in tokens[tokens.index("--sweep-l-mult") + 1].split(","))
                     if "--sweep-l-mult" in tokens
-                    else si.SWEEP_L_MULTIPLIERS
+                    else si_sweep.SWEEP_L_MULTIPLIERS
                 )
                 rsubx = (
                     tuple(float(v) for v in tokens[tokens.index("--sweep-rsubx") + 1].split(","))
                     if "--sweep-rsubx" in tokens
-                    else si.SWEEP_RSUBX_OHM
+                    else si_sweep.SWEEP_RSUBX_OHM
                 )
-                footer = si.sweep_invocation_line(l_mults, rsubx, "")
+                footer = si_sweep.sweep_invocation_line(l_mults, rsubx, "")
             else:
                 arm_names = (
                     tokens[tokens.index("--arms") + 1].split(",")
                     if "--arms" in tokens
-                    else [arm.name for arm in si.ARMS]
+                    else [arm.name for arm in si_common.ARMS]
                 )
                 # A corner subset is part of the record's identity, so it
                 # reaches the footer and must be inside the indexed command
@@ -799,7 +814,7 @@ class TestInvocationFooter(unittest.TestCase):
                     if "--corner-points" in tokens
                     else []
                 )
-                footer = si.invocation_line(
+                footer = si_arm.invocation_line(
                     arm_names, "--corners" in cold_tokens, "", corner_points
                 )
             missing = [tok for tok in footer.split()[1:] if tok not in cold_tokens]
@@ -819,7 +834,7 @@ class TestInvocationFooter(unittest.TestCase):
         drifted command before the hours and after them.
         """
         readme = (EXPERIMENT_DIR / "README.md").read_text()
-        footer = si.sweep_invocation_line(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM, "")
+        footer = si_sweep.sweep_invocation_line(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM, "")
         self.assertIn(
             f"python3 {footer}",
             readme,
@@ -835,7 +850,7 @@ class TestInvocationFooter(unittest.TestCase):
         spent, and is the difference between finding a drifted command before
         the run and after it."""
         readme = (EXPERIMENT_DIR / "README.md").read_text()
-        footer = si.null_sweep_invocation_line(si.NULL_SWEEP_RSUBX_OHM, "")
+        footer = si_null_sweep.null_sweep_invocation_line(si_null_sweep.NULL_SWEEP_RSUBX_OHM, "")
         self.assertIn(
             f"python3 {footer}",
             readme,
@@ -848,7 +863,7 @@ class TestInvocationFooter(unittest.TestCase):
         """Same pre-run half of the `cold-start-undocumented` gate the sweeps are
         held to, for the same reason: checkable before the hours, not after."""
         readme = (EXPERIMENT_DIR / "README.md").read_text()
-        footer = si.decap_esr_invocation_line(si.DECAP_ESR_MULTIPLIERS, "")
+        footer = si_decap.decap_esr_invocation_line(si_decap.DECAP_ESR_MULTIPLIERS, "")
         self.assertIn(
             f"python3 {footer}",
             readme,
@@ -858,14 +873,14 @@ class TestInvocationFooter(unittest.TestCase):
         )
 
     def test_a_non_default_ladder_reaches_the_footer(self) -> None:
-        line = si.decap_esr_invocation_line((0.0, 0.33, 1.0), "")
+        line = si_decap.decap_esr_invocation_line((0.0, 0.33, 1.0), "")
         self.assertIn("--decap-esr-mult 0,0.33,1", line)
 
     def test_a_corner_subset_reaches_the_footer(self) -> None:
         """`--corner-points` changes WHAT WAS SIMULATED, so it is part of the
         record's identity and is stated -- the same rule that puts `--arms` in
         the footer and keeps `--log-cache` out of it."""
-        line = si.invocation_line(
+        line = si_arm.invocation_line(
             ["ideal", "package"], False, "", ["tt_27c_1.80v", "ss_27c_1.80v"]
         )
         self.assertIn("--corner-points tt_27c_1.80v,ss_27c_1.80v", line)
@@ -874,7 +889,7 @@ class TestInvocationFooter(unittest.TestCase):
     def test_a_full_grid_run_says_corners_not_a_nine_point_list(self) -> None:
         """The two flags are the same axis stated two ways; the footer names
         whichever one the run used, and never both."""
-        line = si.invocation_line([arm.name for arm in si.ARMS], True, "")
+        line = si_arm.invocation_line([arm.name for arm in si_common.ARMS], True, "")
         self.assertIn("--corners", line)
         self.assertNotIn("--corner-points", line)
 
@@ -885,7 +900,7 @@ class TestInvocationFooter(unittest.TestCase):
         command -- checked here against the README before the hours are spent,
         not after."""
         readme = (EXPERIMENT_DIR / "README.md").read_text()
-        footer = si.invocation_line(
+        footer = si_arm.invocation_line(
             ["ideal", "package"], False, "", ["tt_27c_1.80v", "ss_27c_1.80v"]
         )
         self.assertIn(
@@ -898,10 +913,10 @@ class TestInvocationFooter(unittest.TestCase):
 
     def test_the_runner_path_is_always_present(self) -> None:
         """The spec-coverage check matches the record's runner by this token."""
-        for arms in (["ideal"], [arm.name for arm in si.ARMS]):
+        for arms in (["ideal"], [arm.name for arm in si_common.ARMS]):
             self.assertIn(
                 "sim/supply-impedance-sensitivity/run_supply_impedance.py",
-                si.invocation_line(arms, False, ""),
+                si_arm.invocation_line(arms, False, ""),
             )
 
 
@@ -911,28 +926,28 @@ class TestCornerSubsetSelection(unittest.TestCase):
     safe is that it can only ever NARROW the ratified set."""
 
     def test_no_selection_is_the_baseline_corner(self) -> None:
-        self.assertEqual(si.resolve_grid(False, []), [si.BASELINE_CORNER])
+        self.assertEqual(si_common.resolve_grid(False, []), [si_common.BASELINE_CORNER])
 
     def test_corners_is_the_whole_ratified_grid(self) -> None:
-        grid = si.resolve_grid(True, [])
+        grid = si_common.resolve_grid(True, [])
         self.assertEqual(len(grid), 9)
-        self.assertEqual(grid, si.full_ratified_grid())
+        self.assertEqual(grid, si_common.full_ratified_grid())
 
     def test_a_named_subset_is_a_subset_of_the_ratified_grid(self) -> None:
-        grid = si.resolve_grid(False, ["ss_27c_1.80v", "tt_27c_1.80v"])
+        grid = si_common.resolve_grid(False, ["ss_27c_1.80v", "tt_27c_1.80v"])
         self.assertEqual(len(grid), 2)
         for point in grid:
-            self.assertIn(point, si.full_ratified_grid())
+            self.assertIn(point, si_common.full_ratified_grid())
 
     def test_the_subset_is_returned_in_ratified_grid_order(self) -> None:
         """Not the order the caller typed: the footer, the record's tables and
         the grid itself must agree on an ordering, and the ratified grid owns
         it."""
-        typed_backwards = si.resolve_grid(False, ["ff_27c_1.80v", "tt_27c_1.80v"])
+        typed_backwards = si_common.resolve_grid(False, ["ff_27c_1.80v", "tt_27c_1.80v"])
         ratified_order = [
             point
-            for point in si.full_ratified_grid()
-            if si.corners_mod.corner_id(*point) in {"ff_27c_1.80v", "tt_27c_1.80v"}
+            for point in si_common.full_ratified_grid()
+            if si_common.corners_mod.corner_id(*point) in {"ff_27c_1.80v", "tt_27c_1.80v"}
         ]
         self.assertEqual(typed_backwards, ratified_order)
 
@@ -941,12 +956,12 @@ class TestCornerSubsetSelection(unittest.TestCase):
         the spec never ratified -- that would be a testbench choosing its own
         PVT points, which `sim/README.md` does not allow."""
         with self.assertRaises(ValueError) as caught:
-            si.resolve_grid(False, ["tt_27c_1.80v", "tt_85c_1.80v"])
+            si_common.resolve_grid(False, ["tt_27c_1.80v", "tt_85c_1.80v"])
         self.assertIn("tt_85c_1.80v", str(caught.exception))
 
     def test_every_documented_subset_point_exists(self) -> None:
         """Guards the README's own corner-ids against a grid change."""
-        ids = {si.corners_mod.corner_id(*point) for point in si.full_ratified_grid()}
+        ids = {si_common.corners_mod.corner_id(*point) for point in si_common.full_ratified_grid()}
         for cid in ("tt_27c_1.80v", "ss_27c_1.80v"):
             self.assertIn(cid, ids)
 
@@ -956,17 +971,17 @@ class TestDeckAssemblyUsesTheCommittedStimulus(unittest.TestCase):
     nothing else, so the fragment's own cards must survive into the deck."""
 
     def test_arm_table_renders_a_row_per_arm(self) -> None:
-        table = "\n".join(si.arm_table_lines(list(si.ARMS)))
-        for arm in si.ARMS:
+        table = "\n".join(si_common.arm_table_lines(list(si_common.ARMS)))
+        for arm in si_common.ARMS:
             self.assertIn(f"| `{arm.name}` |", table)
 
     def test_arm_table_states_no_bond_for_the_null_option(self) -> None:
-        table = "\n".join(si.arm_table_lines([si.ARMS_BY_NAME["no-gnd-pad"]]))
+        table = "\n".join(si_common.arm_table_lines([si_common.ARMS_BY_NAME["no-gnd-pad"]]))
         self.assertIn("no bond", table)
 
     def test_every_arm_is_reachable_from_the_cli_default(self) -> None:
-        self.assertEqual(sorted(si.ARMS_BY_NAME), sorted(arm.name for arm in si.ARMS))
-        self.assertIn(si.CONTROL_ARM, si.ARMS_BY_NAME)
+        self.assertEqual(sorted(si_common.ARMS_BY_NAME), sorted(arm.name for arm in si_common.ARMS))
+        self.assertIn(si_common.CONTROL_ARM, si_common.ARMS_BY_NAME)
 
 
 class TestBoundedRLSweep(unittest.TestCase):
@@ -982,15 +997,15 @@ class TestBoundedRLSweep(unittest.TestCase):
         """The `1x` / DR-015-`R_SUBX` grid point must be, card for card, the
         `package` arm the campaign already recorded -- otherwise the grid is a
         box around nothing in particular."""
-        self.assertTrue(si.sweep_anchor_matches_base_arm())
+        self.assertTrue(si_sweep.sweep_anchor_matches_base_arm())
         anchor = [
             c
-            for c in si.arm_network_lines(si.sweep_arm(1.0, si.R_SUBX_OHM))
+            for c in si_common.arm_network_lines(si_sweep.sweep_arm(1.0, si_common.R_SUBX_OHM))
             if c and not c.startswith("*")
         ]
         base = [
             c
-            for c in si.arm_network_lines(si.ARMS_BY_NAME[si.SWEEP_BASE_ARM])
+            for c in si_common.arm_network_lines(si_common.ARMS_BY_NAME[si_common.SWEEP_BASE_ARM])
             if c and not c.startswith("*")
         ]
         self.assertEqual(anchor, base)
@@ -1001,12 +1016,12 @@ class TestBoundedRLSweep(unittest.TestCase):
         ablation is taken against."""
         zero = [
             c
-            for c in si.arm_network_lines(si.sweep_arm(0.0, si.R_SUBX_OHM))
+            for c in si_common.arm_network_lines(si_sweep.sweep_arm(0.0, si_common.R_SUBX_OHM))
             if c and not c.startswith("*")
         ]
         r_only = [
             c
-            for c in si.arm_network_lines(si.ARMS_BY_NAME["package-r-only"])
+            for c in si_common.arm_network_lines(si_common.ARMS_BY_NAME["package-r-only"])
             if c and not c.startswith("*")
         ]
         self.assertEqual(zero, r_only)
@@ -1014,8 +1029,8 @@ class TestBoundedRLSweep(unittest.TestCase):
     def test_a_row_of_the_grid_moves_only_the_inductance(self) -> None:
         """DR-015 item 5: an effect may be attributed to an element only by a
         difference that moves that element and nothing else."""
-        for rsubx in si.SWEEP_RSUBX_OHM:
-            arms = [si.sweep_arm(m, rsubx) for m in si.SWEEP_L_MULTIPLIERS]
+        for rsubx in si_sweep.SWEEP_RSUBX_OHM:
+            arms = [si_sweep.sweep_arm(m, rsubx) for m in si_sweep.SWEEP_L_MULTIPLIERS]
             for arm in arms[1:]:
                 self.assertEqual(set(arm.bonds), set(arms[0].bonds))
                 self.assertEqual(arm.substrate, arms[0].substrate)
@@ -1028,38 +1043,38 @@ class TestBoundedRLSweep(unittest.TestCase):
             self.assertEqual(len(set(inductances)), len(inductances))
 
     def test_a_column_of_the_grid_moves_only_the_substrate_link(self) -> None:
-        for mult in si.SWEEP_L_MULTIPLIERS:
-            arms = [si.sweep_arm(mult, r) for r in si.SWEEP_RSUBX_OHM]
+        for mult in si_sweep.SWEEP_L_MULTIPLIERS:
+            arms = [si_sweep.sweep_arm(mult, r) for r in si_sweep.SWEEP_RSUBX_OHM]
             for arm in arms[1:]:
                 self.assertEqual(arm.bonds, arms[0].bonds)
             values = [a.substrate[0][3] for a in arms]
-            self.assertEqual(values, list(si.SWEEP_RSUBX_OHM))
-            self.assertEqual([a.substrate[0][:3] for a in arms], [("RSUBX", si.GND_DIE, "VGND")] * 3)
+            self.assertEqual(values, list(si_sweep.SWEEP_RSUBX_OHM))
+            self.assertEqual([a.substrate[0][:3] for a in arms], [("RSUBX", si_common.GND_DIE, "VGND")] * 3)
 
     def test_the_default_box_brackets_dr015s_assumption_point(self) -> None:
         """A sweep whose box sits entirely to one side of the assumption point
         could not say whether that point is near a threshold."""
-        self.assertIn(1.0, si.SWEEP_L_MULTIPLIERS)
-        self.assertIn(si.R_SUBX_OHM, si.SWEEP_RSUBX_OHM)
-        self.assertLess(min(si.SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
-        self.assertGreater(max(si.SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
-        self.assertGreater(max(si.SWEEP_L_MULTIPLIERS), 1.0)
-        self.assertEqual(min(si.SWEEP_L_MULTIPLIERS), 0.0)
+        self.assertIn(1.0, si_sweep.SWEEP_L_MULTIPLIERS)
+        self.assertIn(si_common.R_SUBX_OHM, si_sweep.SWEEP_RSUBX_OHM)
+        self.assertLess(min(si_sweep.SWEEP_RSUBX_OHM), si_common.R_SUBX_OHM)
+        self.assertGreater(max(si_sweep.SWEEP_RSUBX_OHM), si_common.R_SUBX_OHM)
+        self.assertGreater(max(si_sweep.SWEEP_L_MULTIPLIERS), 1.0)
+        self.assertEqual(min(si_sweep.SWEEP_L_MULTIPLIERS), 0.0)
 
     def test_grid_point_names_are_unique_and_usable_as_filenames(self) -> None:
         """A grid point's name is also its log/deck filename and its log-cache
         key, so a collision would silently overwrite another point's evidence."""
-        names = [a.name for a in si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)]
+        names = [a.name for a in si_sweep.sweep_arms(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)]
         self.assertEqual(len(names), len(set(names)))
-        self.assertEqual(len(names), len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM))
+        self.assertEqual(len(names), len(si_sweep.SWEEP_L_MULTIPLIERS) * len(si_sweep.SWEEP_RSUBX_OHM))
         for name in names:
             self.assertRegex(name, r"^[A-Za-z0-9._-]+$")
-            self.assertNotIn(name, si.ARMS_BY_NAME, "a grid point shadows a named arm")
+            self.assertNotIn(name, si_common.ARMS_BY_NAME, "a grid point shadows a named arm")
 
     def test_the_cheap_points_run_first(self) -> None:
         """An inductance-free bond has nothing to ring and finishes quickly, so
         an interrupted sweep should leave the reusable points on disk."""
-        arms = si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+        arms = si_sweep.sweep_arms(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)
         self.assertEqual(
             [a.bonds["GND"].l_h for a in arms],
             sorted(a.bonds["GND"].l_h for a in arms),
@@ -1069,39 +1084,39 @@ class TestBoundedRLSweep(unittest.TestCase):
         for l_mult, rsubx in ((-1.0, 30.0), (1.0, 0.0), (1.0, -30.0)):
             with self.subTest(point=(l_mult, rsubx)):
                 with self.assertRaises(RuntimeError):
-                    si.sweep_arm(l_mult, rsubx)
+                    si_sweep.sweep_arm(l_mult, rsubx)
 
     def test_a_base_arm_that_is_no_longer_fully_bonded_is_refused(self) -> None:
         """The sweep claims to move around the AS-BUILT network. If the arm it
         sweeps stopped being that, the run must fail rather than silently
         sweep a different topology."""
-        original = si.ARMS_BY_NAME[si.SWEEP_BASE_ARM]
-        broken = si.Arm(
+        original = si_common.ARMS_BY_NAME[si_common.SWEEP_BASE_ARM]
+        broken = si_common.Arm(
             name=original.name,
             summary=original.summary,
-            bonds={**original.bonds, "GND": si.IDEAL},
+            bonds={**original.bonds, "GND": si_common.IDEAL},
             substrate=original.substrate,
         )
-        si.ARMS_BY_NAME[si.SWEEP_BASE_ARM] = broken
+        si_common.ARMS_BY_NAME[si_common.SWEEP_BASE_ARM] = broken
         try:
             with self.assertRaises(RuntimeError):
-                si.sweep_arm(1.0, si.R_SUBX_OHM)
+                si_sweep.sweep_arm(1.0, si_common.R_SUBX_OHM)
         finally:
-            si.ARMS_BY_NAME[si.SWEEP_BASE_ARM] = original
+            si_common.ARMS_BY_NAME[si_common.SWEEP_BASE_ARM] = original
 
     def test_sweep_footer_states_the_box_only_when_it_departs_from_the_default(self) -> None:
         self.assertEqual(
-            si.sweep_invocation_line(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM, ""),
-            f"{si.RUNNER_REL} --sweep --record",
+            si_sweep.sweep_invocation_line(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM, ""),
+            f"{si_common.RUNNER_REL} --sweep --record",
         )
-        wider = si.sweep_invocation_line((0.0, 1.0, 3.0, 10.0), si.SWEEP_RSUBX_OHM, "")
+        wider = si_sweep.sweep_invocation_line((0.0, 1.0, 3.0, 10.0), si_sweep.SWEEP_RSUBX_OHM, "")
         self.assertIn("--sweep-l-mult 0,1,3,10", wider)
-        other_r = si.sweep_invocation_line(si.SWEEP_L_MULTIPLIERS, (10.0, 100.0), "")
+        other_r = si_sweep.sweep_invocation_line(si_sweep.SWEEP_L_MULTIPLIERS, (10.0, 100.0), "")
         self.assertIn("--sweep-rsubx 10,100", other_r)
         self.assertIn(
             "--supersedes 20260101-000000-abcdef0",
-            si.sweep_invocation_line(
-                si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM, "20260101-000000-abcdef0"
+            si_sweep.sweep_invocation_line(
+                si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM, "20260101-000000-abcdef0"
             ),
         )
 
@@ -1120,15 +1135,15 @@ class TestBoundedNullOptionSubstrateLadder(unittest.TestCase):
     """
 
     def test_the_anchor_point_is_the_committed_null_option_arm(self) -> None:
-        self.assertTrue(si.null_sweep_anchor_matches_base_arm())
+        self.assertTrue(si_null_sweep.null_sweep_anchor_matches_base_arm())
         anchor = [
             c
-            for c in si.arm_network_lines(si.null_sweep_arm(si.R_SUBX_OHM))
+            for c in si_common.arm_network_lines(si_null_sweep.null_sweep_arm(si_common.R_SUBX_OHM))
             if c and not c.startswith("*")
         ]
         base = [
             c
-            for c in si.arm_network_lines(si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM])
+            for c in si_common.arm_network_lines(si_common.ARMS_BY_NAME[si_null_sweep.NULL_SWEEP_BASE_ARM])
             if c and not c.startswith("*")
         ]
         self.assertEqual(anchor, base)
@@ -1138,95 +1153,95 @@ class TestBoundedNullOptionSubstrateLadder(unittest.TestCase):
         than a re-run of it: on the as-built topology `GND` is bonded and the
         swept resistor is a shunt; here `GND` has no bond at all, so that same
         resistor carries the entire analog-ground return current."""
-        for r in si.NULL_SWEEP_RSUBX_OHM:
-            arm = si.null_sweep_arm(r)
+        for r in si_null_sweep.NULL_SWEEP_RSUBX_OHM:
+            arm = si_null_sweep.null_sweep_arm(r)
             self.assertNotIn("GND", arm.bonds, "the null option must leave `GND` unbonded")
             self.assertEqual(len(arm.substrate), 1)
             inst, node_a, node_b, ohm = arm.substrate[0]
-            self.assertEqual((inst, node_a, node_b), ("RSUBX", si.GND_DIE, "VGND"))
+            self.assertEqual((inst, node_a, node_b), ("RSUBX", si_common.GND_DIE, "VGND"))
             self.assertEqual(ohm, r)
         # ... whereas the 2-D sweep's points bond every terminal.
         self.assertEqual(
-            set(si.sweep_arm(1.0, si.R_SUBX_OHM).bonds), set(si.TERMINAL_ORDER)
+            set(si_sweep.sweep_arm(1.0, si_common.R_SUBX_OHM).bonds), set(si_common.TERMINAL_ORDER)
         )
 
     def test_the_ladder_moves_one_element_and_nothing_else(self) -> None:
         """DR-015 item 5: an effect may be attributed to an element only by a
         difference that moves that element and nothing else."""
-        arms = si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)
+        arms = si_null_sweep.null_sweep_arms(si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         for arm in arms[1:]:
             self.assertEqual(arm.bonds, arms[0].bonds)
         values = [a.substrate[0][3] for a in arms]
-        self.assertEqual(values, list(si.NULL_SWEEP_RSUBX_OHM))
+        self.assertEqual(values, list(si_null_sweep.NULL_SWEEP_RSUBX_OHM))
         self.assertEqual(len(set(values)), len(values))
 
     def test_the_bonded_terminals_stay_at_dr015s_stated_values(self) -> None:
         """This is a one-axis ladder, not a second 2-D box: the three bonded
         terminals must be DR-015's R+L at every point, so a result here is a
         statement about the substrate return at DR-015's bond."""
-        for r in si.NULL_SWEEP_RSUBX_OHM:
-            for terminal, bond in si.null_sweep_arm(r).bonds.items():
+        for r in si_null_sweep.NULL_SWEEP_RSUBX_OHM:
+            for terminal, bond in si_null_sweep.null_sweep_arm(r).bonds.items():
                 with self.subTest(r=r, terminal=terminal):
-                    self.assertAlmostEqual(bond.r_ohm, si.PACKAGE_R_OHM, places=12)
-                    self.assertAlmostEqual(bond.l_h, si.PACKAGE_L_H, places=15)
+                    self.assertAlmostEqual(bond.r_ohm, si_common.PACKAGE_R_OHM, places=12)
+                    self.assertAlmostEqual(bond.l_h, si_common.PACKAGE_L_H, places=15)
 
     def test_the_default_ladder_brackets_dr015s_assumption_point(self) -> None:
         """A ladder sitting entirely to one side of the assumption point could
         not say whether that point is near a threshold -- which is the whole
         question DR-015's 'harmless ... fatal' sentence poses."""
-        self.assertIn(si.R_SUBX_OHM, si.NULL_SWEEP_RSUBX_OHM)
-        self.assertLess(min(si.NULL_SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
-        self.assertGreater(max(si.NULL_SWEEP_RSUBX_OHM), si.R_SUBX_OHM)
+        self.assertIn(si_common.R_SUBX_OHM, si_null_sweep.NULL_SWEEP_RSUBX_OHM)
+        self.assertLess(min(si_null_sweep.NULL_SWEEP_RSUBX_OHM), si_common.R_SUBX_OHM)
+        self.assertGreater(max(si_null_sweep.NULL_SWEEP_RSUBX_OHM), si_common.R_SUBX_OHM)
 
     def test_ladder_point_names_are_unique_and_do_not_collide_with_the_2d_box(self) -> None:
         """A point's name is also its log/deck filename and its log-cache key,
         so a collision with a named arm or with a `--sweep` grid point would
         silently overwrite another run's evidence."""
-        names = [a.name for a in si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)]
+        names = [a.name for a in si_null_sweep.null_sweep_arms(si_null_sweep.NULL_SWEEP_RSUBX_OHM)]
         self.assertEqual(len(names), len(set(names)))
-        box = {a.name for a in si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)}
+        box = {a.name for a in si_sweep.sweep_arms(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)}
         for name in names:
             self.assertRegex(name, r"^[A-Za-z0-9._-]+$")
-            self.assertNotIn(name, si.ARMS_BY_NAME, "a ladder point shadows a named arm")
+            self.assertNotIn(name, si_common.ARMS_BY_NAME, "a ladder point shadows a named arm")
             self.assertNotIn(name, box, "a ladder point collides with a --sweep grid point")
 
     def test_unphysical_ladder_points_are_refused(self) -> None:
         for r in (0.0, -30.0):
             with self.subTest(r=r):
                 with self.assertRaises(RuntimeError):
-                    si.null_sweep_arm(r)
+                    si_null_sweep.null_sweep_arm(r)
 
     def test_a_base_arm_that_regained_a_ground_bond_is_refused(self) -> None:
         """If the arm this ladder sweeps stopped being DR-012's rejected null
         option, the run must fail rather than silently sweep a shunt and report
         it as a return."""
-        original = si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM]
-        broken = si.Arm(
+        original = si_common.ARMS_BY_NAME[si_null_sweep.NULL_SWEEP_BASE_ARM]
+        broken = si_common.Arm(
             name=original.name,
             summary=original.summary,
-            bonds={**original.bonds, "GND": si.Bond(si.PACKAGE_R_OHM, si.PACKAGE_L_H)},
+            bonds={**original.bonds, "GND": si_common.Bond(si_common.PACKAGE_R_OHM, si_common.PACKAGE_L_H)},
             substrate=original.substrate,
         )
-        si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM] = broken
+        si_common.ARMS_BY_NAME[si_null_sweep.NULL_SWEEP_BASE_ARM] = broken
         try:
             with self.assertRaises(RuntimeError):
-                si.null_sweep_arm(si.R_SUBX_OHM)
+                si_null_sweep.null_sweep_arm(si_common.R_SUBX_OHM)
         finally:
-            si.ARMS_BY_NAME[si.NULL_SWEEP_BASE_ARM] = original
+            si_common.ARMS_BY_NAME[si_null_sweep.NULL_SWEEP_BASE_ARM] = original
 
     def test_footer_states_the_ladder_only_when_it_departs_from_the_default(self) -> None:
         self.assertEqual(
-            si.null_sweep_invocation_line(si.NULL_SWEEP_RSUBX_OHM, ""),
-            f"{si.RUNNER_REL} --null-sweep --record",
+            si_null_sweep.null_sweep_invocation_line(si_null_sweep.NULL_SWEEP_RSUBX_OHM, ""),
+            f"{si_common.RUNNER_REL} --null-sweep --record",
         )
         self.assertIn(
             "--null-sweep-rsub 1,10,100",
-            si.null_sweep_invocation_line((1.0, 10.0, 100.0), ""),
+            si_null_sweep.null_sweep_invocation_line((1.0, 10.0, 100.0), ""),
         )
         self.assertIn(
             "--supersedes 20260101-000000-abcdef0",
-            si.null_sweep_invocation_line(
-                si.NULL_SWEEP_RSUBX_OHM, "20260101-000000-abcdef0"
+            si_null_sweep.null_sweep_invocation_line(
+                si_null_sweep.NULL_SWEEP_RSUBX_OHM, "20260101-000000-abcdef0"
             ),
         )
 
@@ -1238,11 +1253,11 @@ class TestNullOptionLadderFindings(unittest.TestCase):
 
     def _point(self, rsub: float, gnd_pp: float, codes: list[int]) -> dict:
         return {
-            "arm": si.null_sweep_arm_name(rsub),
+            "arm": si_null_sweep.null_sweep_arm_name(rsub),
             "corner_id": "tt_27c_1.80v",
             "conversions": [
                 {"conversion": i + 1, "fraction": f, "code": c}
-                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+                for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, codes))
             ],
             "extras": {"gnd_die_pp": gnd_pp},
             "missing": [],
@@ -1251,9 +1266,9 @@ class TestNullOptionLadderFindings(unittest.TestCase):
     def _ladder(self, mover: float | None) -> tuple[list[dict], dict]:
         base = [214, 383, 511, 641, 1023]
         control = self._point(0.0, 0.0, base)
-        control["arm"] = si.CONTROL_ARM
+        control["arm"] = si_common.CONTROL_ARM
         points = [control]
-        for r in si.NULL_SWEEP_RSUBX_OHM:
+        for r in si_null_sweep.NULL_SWEEP_RSUBX_OHM:
             codes = list(base)
             if mover is not None and r >= mover:
                 codes[2] += 3
@@ -1263,7 +1278,7 @@ class TestNullOptionLadderFindings(unittest.TestCase):
     def test_a_bounded_null_is_stated_as_bounded(self) -> None:
         points, control = self._ladder(None)
         text = "\n".join(
-            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+            si_null_sweep.null_sweep_findings_lines(points, control, si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         )
         self.assertIn("bounded null result", text)
         self.assertIn("0 LSB", text)
@@ -1274,7 +1289,7 @@ class TestNullOptionLadderFindings(unittest.TestCase):
     def test_a_threshold_inside_the_ladder_is_located(self) -> None:
         points, control = self._ladder(300.0)
         text = "\n".join(
-            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+            si_null_sweep.null_sweep_findings_lines(points, control, si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         )
         self.assertIn("moves inside this ladder", text)
         self.assertIn("**300 Ohm**", text)
@@ -1285,7 +1300,7 @@ class TestNullOptionLadderFindings(unittest.TestCase):
         """The one number this record exists to produce."""
         points, control = self._ladder(None)
         text = "\n".join(
-            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+            si_null_sweep.null_sweep_findings_lines(points, control, si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         )
         self.assertIn("How sensitive the rejected option actually is", text)
         self.assertIn("100x change", text)  # 3 Ohm -> 300 Ohm
@@ -1294,14 +1309,14 @@ class TestNullOptionLadderFindings(unittest.TestCase):
 
     def test_the_ladder_is_anchored_to_the_committed_arm_record(self) -> None:
         points, control = self._ladder(None)
-        lines = si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+        lines = si_null_sweep.null_sweep_findings_lines(points, control, si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         self.assertIn("anchored to the committed ground-pad ablation", lines[0])
         self.assertIn("card for card", lines[0])
 
     def test_the_worst_excursion_is_converted_to_lsb(self) -> None:
         points, control = self._ladder(None)
         text = "\n".join(
-            si.null_sweep_findings_lines(points, control, si.NULL_SWEEP_RSUBX_OHM)
+            si_null_sweep.null_sweep_findings_lines(points, control, si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         )
         self.assertIn("Worst die-side analog-ground excursion on the ladder", text)
         self.assertIn("LSB at the nominal supply", text)
@@ -1315,11 +1330,11 @@ class TestSweepFindings(unittest.TestCase):
 
     def _point(self, l_mult: float, rsubx: float, gnd_pp: float, codes: list[int]) -> dict:
         return {
-            "arm": si.sweep_arm_name(l_mult, rsubx),
+            "arm": si_sweep.sweep_arm_name(l_mult, rsubx),
             "corner_id": "tt_27c_1.80v",
             "conversions": [
                 {"conversion": i + 1, "fraction": f, "code": c}
-                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+                for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, codes))
             ],
             "extras": {"gnd_die_pp": gnd_pp},
             "missing": [],
@@ -1328,10 +1343,10 @@ class TestSweepFindings(unittest.TestCase):
     def _grid(self, mover: tuple[float, float] | None) -> tuple[list[dict], dict]:
         base = [214, 383, 511, 641, 1023]
         control = self._point(0.0, 0.0, 0.0, base)
-        control["arm"] = si.CONTROL_ARM
+        control["arm"] = si_common.CONTROL_ARM
         points = [control]
-        for m in si.SWEEP_L_MULTIPLIERS:
-            for r in si.SWEEP_RSUBX_OHM:
+        for m in si_sweep.SWEEP_L_MULTIPLIERS:
+            for r in si_sweep.SWEEP_RSUBX_OHM:
                 codes = list(base)
                 if mover is not None and (m, r) >= mover:
                     codes[2] += 4
@@ -1341,7 +1356,7 @@ class TestSweepFindings(unittest.TestCase):
     def test_a_bounded_null_is_stated_as_bounded(self) -> None:
         points, control = self._grid(None)
         text = "\n".join(
-            si.sweep_findings_lines(points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+            si_sweep.sweep_findings_lines(points, control, si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)
         )
         self.assertIn("bounded null result", text)
         self.assertIn("0 LSB", text)
@@ -1350,7 +1365,7 @@ class TestSweepFindings(unittest.TestCase):
     def test_a_threshold_inside_the_box_is_located(self) -> None:
         points, control = self._grid((10.0, 30.0))
         text = "\n".join(
-            si.sweep_findings_lines(points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+            si_sweep.sweep_findings_lines(points, control, si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)
         )
         self.assertIn("moves inside this box", text)
         self.assertIn("`L = 10x`, `R_SUBX = 30 Ohm`", text)
@@ -1359,20 +1374,20 @@ class TestSweepFindings(unittest.TestCase):
 
     def test_each_axis_is_read_one_element_at_a_time(self) -> None:
         points, control = self._grid(None)
-        lines = si.sweep_findings_lines(
-            points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM
+        lines = si_sweep.sweep_findings_lines(
+            points, control, si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM
         )
         rows = [ln for ln in lines if ln.startswith("- **Bond inductance at")]
         cols = [ln for ln in lines if ln.startswith("- **Substrate link at")]
-        self.assertEqual(len(rows), len(si.SWEEP_RSUBX_OHM))
-        self.assertEqual(len(cols), len(si.SWEEP_L_MULTIPLIERS))
+        self.assertEqual(len(rows), len(si_sweep.SWEEP_RSUBX_OHM))
+        self.assertEqual(len(cols), len(si_sweep.SWEEP_L_MULTIPLIERS))
         for line in rows + cols:
             self.assertIn("Only", line)
 
     def test_the_worst_excursion_is_converted_to_lsb(self) -> None:
         points, control = self._grid(None)
         text = "\n".join(
-            si.sweep_findings_lines(points, control, si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+            si_sweep.sweep_findings_lines(points, control, si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)
         )
         self.assertIn("Worst die-side analog-ground excursion in the box", text)
         self.assertIn("LSB at the nominal supply", text)
@@ -1399,7 +1414,7 @@ class TestSharedRecordTableHelpers(unittest.TestCase):
             "arm": arm,
             "conversions": [
                 {"conversion": i + 1, "fraction": f, "code": c}
-                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, codes))
+                for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, codes))
             ],
             "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
             "power_w": 27.9e-6,
@@ -1411,9 +1426,9 @@ class TestSharedRecordTableHelpers(unittest.TestCase):
         return point
 
     def test_captured_code_table_uses_the_row_label_and_pins_the_delta_suffix(self) -> None:
-        control = self._point(si.CONTROL_ARM)
+        control = self._point(si_common.CONTROL_ARM)
         swept = self._point("some-arm", code_offset=3)
-        table = "\n".join(si._captured_code_table_lines([control, swept], control, "rung"))
+        table = "\n".join(si_common._captured_code_table_lines([control, swept], control, "rung"))
         self.assertIn("| rung | ", table)
         self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", table)
         self.assertIn(
@@ -1422,15 +1437,15 @@ class TestSharedRecordTableHelpers(unittest.TestCase):
         )
 
     def test_rail_current_table_carries_the_extra_note_only_when_given(self) -> None:
-        control = self._point(si.CONTROL_ARM)
-        without_note = "\n".join(si._rail_current_table_lines([control], "point"))
+        control = self._point(si_common.CONTROL_ARM)
+        without_note = "\n".join(si_common._rail_current_table_lines([control], "point"))
         self.assertIn(
             "| `ideal` | 10.000 | n/a | n/a | n/a | 1.000 | 2.000 | 2.200 | 27.900 |",
             without_note,
         )
         self.assertNotIn("no bond current", without_note)
         with_note = "\n".join(
-            si._rail_current_table_lines([control], "point", extra_note="EXTRA NOTE TEXT")
+            si_common._rail_current_table_lines([control], "point", extra_note="EXTRA NOTE TEXT")
         )
         self.assertIn("EXTRA NOTE TEXT", with_note)
 
@@ -1441,9 +1456,9 @@ class TestSharedRecordTableHelpers(unittest.TestCase):
         the last two sentences (issue #486). Because `write_decap_esr_record`
         now calls this same helper, this also guards its own rendered output
         against the drift recurring."""
-        control = self._point(si.CONTROL_ARM)
+        control = self._point(si_common.CONTROL_ARM)
         reused = self._point("rung-a", wall_s=100.0, reused=True)
-        table = "\n".join(si._wall_clock_table_lines([control, reused], control, "rung"))
+        table = "\n".join(si_common._wall_clock_table_lines([control, reused], control, "rung"))
         self.assertIn("| rung | wall clock (s) | x the `ideal` control |", table)
         self.assertIn("| `ideal` | 500 | 1.00x |", table)
         self.assertIn("| `rung-a` | 100 (log reused from cache) | 0.20x |", table)
@@ -1477,7 +1492,7 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
 
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -1502,7 +1517,7 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
                 "point_id": f"{arm}@tt_27c_1.80v",
                 "conversions": [
                     {"conversion": i + 1, "fraction": f, "code": c}
-                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                    for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, base))
                 ],
                 "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
                 "power_w": 27.9e-6,
@@ -1514,18 +1529,18 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
                 "reused": False,
             }
 
-        points = [point(si.CONTROL_ARM, 0.0)] + [
+        points = [point(si_common.CONTROL_ARM, 0.0)] + [
             point(arm.name, 0.037)
-            for arm in si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)
+            for arm in si_sweep.sweep_arms(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)
         ]
         try:
-            si.EXPERIMENT_DIR = tmp_dir
+            si_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
-            path = si.write_sweep_record(
-                points, "* netlist\n", si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM
+            path = si_sweep.write_sweep_record(
+                points, "* netlist\n", si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM
             )
         finally:
-            si.EXPERIMENT_DIR = real_dir
+            si_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
@@ -1559,7 +1574,7 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
     def test_every_run_appears_with_its_raw_log_and_deck(self) -> None:
         _path, tmp_dir = self._write()
         dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
-        expected = len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM) + 1
+        expected = len(si_sweep.SWEEP_L_MULTIPLIERS) * len(si_sweep.SWEEP_RSUBX_OHM) + 1
         self.assertEqual(len(dumped), 2 * expected, dumped)
 
     def test_the_citation_gate_can_recognise_this_record_as_a_sweep_record(self) -> None:
@@ -1587,7 +1602,7 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         )
         self.assertEqual(
             int(grid.group("points")),
-            len(si.SWEEP_L_MULTIPLIERS) * len(si.SWEEP_RSUBX_OHM),
+            len(si_sweep.SWEEP_L_MULTIPLIERS) * len(si_sweep.SWEEP_RSUBX_OHM),
         )
 
     def test_the_three_shared_tables_render_their_actual_rows(self) -> None:
@@ -1598,7 +1613,7 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         it with the wrong arguments."""
         path, _tmp = self._write()
         text = path.read_text()
-        first_swept = si.sweep_arms(si.SWEEP_L_MULTIPLIERS, si.SWEEP_RSUBX_OHM)[0].name
+        first_swept = si_sweep.sweep_arms(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)[0].name
         self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", text)
         self.assertIn(
             f"| `{first_swept}` | 214 (+0) | 383 (+0) | 511 (+0) | 641 (+0) | "
@@ -1638,7 +1653,7 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
 
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -1655,7 +1670,7 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
 
         def point(arm: str, cid: str, gnd_pp: float) -> dict:
             process, temp, supply = next(
-                p for p in si.full_ratified_grid() if si.corners_mod.corner_id(*p) == cid
+                p for p in si_common.full_ratified_grid() if si_common.corners_mod.corner_id(*p) == cid
             )
             return {
                 "arm": arm,
@@ -1666,7 +1681,7 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
                 "point_id": f"{arm}@{cid}",
                 "conversions": [
                     {"conversion": i + 1, "fraction": f, "code": c}
-                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                    for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, base))
                 ],
                 "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
                 "power_w": 27.9e-6,
@@ -1679,14 +1694,14 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
             }
 
         points = [
-            point(arm, cid, 0.0 if arm == si.CONTROL_ARM else 0.037)
+            point(arm, cid, 0.0 if arm == si_common.CONTROL_ARM else 0.037)
             for arm in ("ideal", "package")
             for cid in corner_ids
         ]
         try:
-            si.EXPERIMENT_DIR = tmp_dir
+            si_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
-            path = si.write_record(
+            path = si_arm.write_record(
                 points,
                 "* netlist\n",
                 False,
@@ -1695,7 +1710,7 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
                 corner_ids if corner_ids != ["tt_27c_1.80v"] else [],
             )
         finally:
-            si.EXPERIMENT_DIR = real_dir
+            si_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
@@ -1757,7 +1772,7 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
 
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -1782,7 +1797,7 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
                 "point_id": f"{arm}@tt_27c_1.80v",
                 "conversions": [
                     {"conversion": i + 1, "fraction": f, "code": c}
-                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                    for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, base))
                 ],
                 "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6},
                 "power_w": 27.3e-6,
@@ -1798,15 +1813,15 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
                 "reused": False,
             }
 
-        points = [point(si.CONTROL_ARM, 0.0, True)] + [
-            point(arm.name, 0.065, False) for arm in si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)
+        points = [point(si_common.CONTROL_ARM, 0.0, True)] + [
+            point(arm.name, 0.065, False) for arm in si_null_sweep.null_sweep_arms(si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         ]
         try:
-            si.EXPERIMENT_DIR = tmp_dir
+            si_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
-            path = si.write_null_sweep_record(points, "* netlist\n", si.NULL_SWEEP_RSUBX_OHM)
+            path = si_null_sweep.write_null_sweep_record(points, "* netlist\n", si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         finally:
-            si.EXPERIMENT_DIR = real_dir
+            si_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
@@ -1850,7 +1865,7 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
     def test_every_run_appears_with_its_raw_log_and_deck(self) -> None:
         _path, tmp_dir = self._write()
         dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
-        self.assertEqual(len(dumped), 2 * (len(si.NULL_SWEEP_RSUBX_OHM) + 1), dumped)
+        self.assertEqual(len(dumped), 2 * (len(si_null_sweep.NULL_SWEEP_RSUBX_OHM) + 1), dumped)
 
     def test_the_citation_gates_two_censuses_do_not_see_this_record(self) -> None:
         """Neither the arm census (check 31) nor the sweep census (check 32)
@@ -1900,7 +1915,7 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
             "the citation gate cannot identify this record as a ladder record -- "
             "check 34 would not fire on the day the ladder is walked or widened",
         )
-        self.assertEqual(int(ladder.group("rungs")), len(si.NULL_SWEEP_RSUBX_OHM))
+        self.assertEqual(int(ladder.group("rungs")), len(si_null_sweep.NULL_SWEEP_RSUBX_OHM))
 
     def test_the_three_shared_tables_render_their_actual_rows(self) -> None:
         """Same guard as the 2-D sweep's own version, plus the one thing
@@ -1910,7 +1925,7 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         silently drop it while the shared table itself keeps rendering."""
         path, _tmp = self._write()
         text = path.read_text()
-        first_swept = si.null_sweep_arms(si.NULL_SWEEP_RSUBX_OHM)[0].name
+        first_swept = si_null_sweep.null_sweep_arms(si_null_sweep.NULL_SWEEP_RSUBX_OHM)[0].name
         self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", text)
         self.assertIn(
             f"| `{first_swept}` | 214 (+0) | 383 (+0) | 511 (+0) | 641 (+0) | "
@@ -1947,13 +1962,13 @@ class TestCostProbe(unittest.TestCase):
         return (
             f"* arm={arm_name}\n"
             ".include foo.spice\n"
-            + si.tb.FRAGMENT_PATH.read_text()
+            + si_common.tb.FRAGMENT_PATH.read_text()
             + ".end\n"
         )
 
     def test_the_truncated_deck_differs_only_in_the_tran_stop_time(self) -> None:
         deck = self._deck()
-        sliced = si.truncate_tran(deck, 400.0)
+        sliced = si_common.truncate_tran(deck, 400.0)
         before = [ln for ln in deck.splitlines() if not ln.startswith(".tran ")]
         after = [ln for ln in sliced.splitlines() if not ln.startswith(".tran ")]
         self.assertEqual(before, after, "a cost probe changed something besides .tran")
@@ -1962,36 +1977,36 @@ class TestCostProbe(unittest.TestCase):
     def test_the_requested_timestep_is_preserved(self) -> None:
         """The probe measures solver work per simulated nanosecond, so changing
         the requested step would change the very thing being priced."""
-        step = si.RE_TRAN_CARD.findall(self._deck())[0][0]
-        self.assertEqual(si.RE_TRAN_CARD.findall(si.truncate_tran(self._deck(), 400.0))[0][0], step)
+        step = si_common.RE_TRAN_CARD.findall(self._deck())[0][0]
+        self.assertEqual(si_common.RE_TRAN_CARD.findall(si_common.truncate_tran(self._deck(), 400.0))[0][0], step)
 
     def test_a_probe_must_be_shorter_than_the_run_it_prices(self) -> None:
-        stop_ns = si.fragment_tran_stop_ns()
+        stop_ns = si_common.fragment_tran_stop_ns()
         self.assertIsNotNone(stop_ns)
         for slice_ns in (stop_ns, stop_ns + 1.0, 0.0, -1.0):
             with self.subTest(slice_ns=slice_ns):
                 with self.assertRaises(RuntimeError):
-                    si.truncate_tran(self._deck(), slice_ns)
+                    si_common.truncate_tran(self._deck(), slice_ns)
 
     def test_an_ambiguous_deck_is_refused_rather_than_guessed(self) -> None:
         for deck in (self._deck() + ".tran 0.5n 100n\n", "* no tran here\n.end\n"):
             with self.subTest(deck=deck[:20]):
                 with self.assertRaises(RuntimeError):
-                    si.truncate_tran(deck, 400.0)
+                    si_common.truncate_tran(deck, 400.0)
 
     def test_the_fragment_stop_time_is_read_from_the_fragment(self) -> None:
         """Not restated in the runner: a probe's bound must follow the stimulus
         it prices rather than a constant that can drift from it."""
-        self.assertAlmostEqual(si.fragment_tran_stop_ns(), 6283.3333, places=3)
-        self.assertIn(f"{si.fragment_tran_stop_ns():.4f}n", si.tb.FRAGMENT_PATH.read_text())
+        self.assertAlmostEqual(si_common.fragment_tran_stop_ns(), 6283.3333, places=3)
+        self.assertIn(f"{si_common.fragment_tran_stop_ns():.4f}n", si_common.tb.FRAGMENT_PATH.read_text())
 
     def test_spice_time_values_parse_or_decline(self) -> None:
-        self.assertAlmostEqual(si._spice_time_ns("6283.3333n"), 6283.3333, places=4)
-        self.assertAlmostEqual(si._spice_time_ns("1u"), 1000.0)
-        self.assertAlmostEqual(si._spice_time_ns("1ms"), 1e6)
-        self.assertAlmostEqual(si._spice_time_ns("2e-9"), 2.0)
+        self.assertAlmostEqual(si_common._spice_time_ns("6283.3333n"), 6283.3333, places=4)
+        self.assertAlmostEqual(si_common._spice_time_ns("1u"), 1000.0)
+        self.assertAlmostEqual(si_common._spice_time_ns("1ms"), 1e6)
+        self.assertAlmostEqual(si_common._spice_time_ns("2e-9"), 2.0)
         for bad in ("", "abc", "6283x", "$(pwd)"):
-            self.assertIsNone(si._spice_time_ns(bad), bad)
+            self.assertIsNone(si_common._spice_time_ns(bad), bad)
 
     def test_measurement_failures_are_not_reported_as_solver_trouble(self) -> None:
         """A truncated run misses every `.meas` by construction. Treating that
@@ -2001,7 +2016,7 @@ class TestCostProbe(unittest.TestCase):
             "MIF-ERROR: no such measurement\n"
             "Total analysis time (seconds) = 12\n"
         )
-        self.assertEqual(si.solver_trouble_lines(log), [])
+        self.assertEqual(si_common.solver_trouble_lines(log), [])
 
     def test_solver_trouble_is_reported(self) -> None:
         for line in (
@@ -2011,16 +2026,16 @@ class TestCostProbe(unittest.TestCase):
             "Fatal error: no convergence in dcop",
         ):
             with self.subTest(line=line):
-                self.assertEqual(si.solver_trouble_lines(f"ok\n{line}\nok\n"), [line])
+                self.assertEqual(si_common.solver_trouble_lines(f"ok\n{line}\nok\n"), [line])
 
     def test_the_probe_table_ratios_against_the_anchor_point(self) -> None:
-        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        anchor = si_sweep.sweep_arm_name(1.0, si_common.R_SUBX_OHM)
         rows = [
-            {"arm": si.CONTROL_ARM, "wall_s": 50.0, "trouble": []},
+            {"arm": si_common.CONTROL_ARM, "wall_s": 50.0, "trouble": []},
             {"arm": anchor, "wall_s": 200.0, "trouble": []},
-            {"arm": si.sweep_arm_name(10.0, si.R_SUBX_OHM), "wall_s": 100.0, "trouble": []},
+            {"arm": si_sweep.sweep_arm_name(10.0, si_common.R_SUBX_OHM), "wall_s": 100.0, "trouble": []},
         ]
-        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        text = "\n".join(si_common.cost_probe_lines(rows, 400.0, anchor))
         self.assertIn("NOT A MEASUREMENT", text)
         self.assertIn("| 1.00x |", text)
         self.assertIn("| 0.50x |", text)
@@ -2028,23 +2043,23 @@ class TestCostProbe(unittest.TestCase):
         self.assertIn(f"The anchor point is `{anchor}`", text)
 
     def test_a_box_without_the_anchor_says_it_cannot_be_projected(self) -> None:
-        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
-        rows = [{"arm": si.sweep_arm_name(10.0, 3.0), "wall_s": 100.0, "trouble": []}]
-        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        anchor = si_sweep.sweep_arm_name(1.0, si_common.R_SUBX_OHM)
+        rows = [{"arm": si_sweep.sweep_arm_name(10.0, 3.0), "wall_s": 100.0, "trouble": []}]
+        text = "\n".join(si_common.cost_probe_lines(rows, 400.0, anchor))
         self.assertIn("does not contain the anchor point", text)
         self.assertIn("| n/a |", text)
 
     def test_a_troubled_point_is_called_out_separately(self) -> None:
-        anchor = si.sweep_arm_name(1.0, si.R_SUBX_OHM)
+        anchor = si_sweep.sweep_arm_name(1.0, si_common.R_SUBX_OHM)
         rows = [
             {"arm": anchor, "wall_s": 200.0, "trouble": []},
             {
-                "arm": si.sweep_arm_name(10.0, 300.0),
+                "arm": si_sweep.sweep_arm_name(10.0, 300.0),
                 "wall_s": 9.0,
                 "trouble": ["Timestep too small"],
             },
         ]
-        text = "\n".join(si.cost_probe_lines(rows, 400.0, anchor))
+        text = "\n".join(si_common.cost_probe_lines(rows, 400.0, anchor))
         self.assertIn("The solver had trouble at:", text)
         self.assertIn("NOT known to be runnable over the full stimulus", text)
 
@@ -2063,7 +2078,7 @@ class TestCostProbe(unittest.TestCase):
                 proc = subprocess.run(
                     [
                         sys.executable,
-                        str(si.EXPERIMENT_DIR / "run_supply_impedance.py"),
+                        str(si_common.EXPERIMENT_DIR / "run_supply_impedance.py"),
                         "--sweep",
                         "--cost-probe",
                         "400",
@@ -2087,7 +2102,7 @@ class TestCostProbe(unittest.TestCase):
         self.assertIsNotNone(match, "the README documents no --cost-probe invocation")
         slice_ns = float(match.group(1))
         self.assertGreater(slice_ns, 0.0)
-        self.assertLess(slice_ns, si.fragment_tran_stop_ns())
+        self.assertLess(slice_ns, si_common.fragment_tran_stop_ns())
         runner_src = (EXPERIMENT_DIR / "run_supply_impedance.py").read_text()
         for flag in ("--cost-probe", "--sweep"):
             self.assertIn(f'"{flag}"', runner_src)
@@ -2098,7 +2113,7 @@ class TestCostProbe(unittest.TestCase):
         proc = subprocess.run(
             [
                 sys.executable,
-                str(si.EXPERIMENT_DIR / "run_supply_impedance.py"),
+                str(si_common.EXPERIMENT_DIR / "run_supply_impedance.py"),
                 "--cost-probe",
                 "400",
             ],
@@ -2147,7 +2162,7 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
         )
 
     def test_probe_cards_land_before_the_final_end_only(self) -> None:
-        out = si.insert_before_end(self._fake_deck(), [".meas tran probe find v(x) at=1n"])
+        out = si_probe.insert_before_end(self._fake_deck(), [".meas tran probe find v(x) at=1n"])
         lines = out.splitlines()
         self.assertEqual(lines[-1], ".end")
         self.assertEqual(lines[-2], ".meas tran probe find v(x) at=1n")
@@ -2158,22 +2173,22 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
 
     def test_a_deck_without_a_final_end_is_refused(self) -> None:
         with self.assertRaises(RuntimeError):
-            si.insert_before_end("* header\n.ends\n", [".meas tran x find v(y) at=1n"])
+            si_probe.insert_before_end("* header\n.ends\n", [".meas tran x find v(y) at=1n"])
 
     def _levels(self, deck: str, pin: str) -> list[float]:
         line = next(l for l in deck.splitlines() if l.startswith(f"{pin} "))
-        return [float(m.group("frac")) for m in si._PWL_VALUE_RE.finditer(line)]
+        return [float(m.group("frac")) for m in si_probe._PWL_VALUE_RE.finditer(line)]
 
     def test_input_offset_is_differential_and_leaves_the_pwl_schedule_alone(self) -> None:
         deck = self._fake_deck()
-        out = si.offset_vin(deck, +0.1, 1.8)
+        out = si_probe.offset_vin(deck, +0.1, 1.8)
         # every breakpoint TIME is untouched: blanking the value expressions
         # makes the two cards byte-identical
         for pin in ("VINP", "VINN"):
             before = next(l for l in deck.splitlines() if l.startswith(f"{pin} "))
             after = next(l for l in out.splitlines() if l.startswith(f"{pin} "))
             self.assertEqual(
-                si._PWL_VALUE_RE.sub("{}", before), si._PWL_VALUE_RE.sub("{}", after)
+                si_probe._PWL_VALUE_RE.sub("{}", before), si_probe._PWL_VALUE_RE.sub("{}", after)
             )
         # and the node set is untouched -- no series source, no extra node
         self.assertNotIn("_OFS", out)
@@ -2188,7 +2203,7 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
     def test_the_offset_is_rail_referenced_so_it_tracks_the_supply(self) -> None:
         """`1 LSB_diff = 2*V_REF/2^N` with `V_REF = V_DD` (DR-003), so a
         fraction-of-rail shift is the same number of LSB at every supply."""
-        out = si.offset_vin(self._fake_deck(), +0.1, 1.8)
+        out = si_probe.offset_vin(self._fake_deck(), +0.1, 1.8)
         for supply_v in (1.62, 1.8, 1.98):
             one_lsb = 2.0 * supply_v / 1024
             diff_v = supply_v * (
@@ -2202,14 +2217,14 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
 
     def test_a_zero_offset_is_the_identity(self) -> None:
         deck = self._fake_deck()
-        self.assertEqual(si.offset_vin(deck, 0.0, 1.8), deck)
+        self.assertEqual(si_probe.offset_vin(deck, 0.0, 1.8), deck)
 
     def test_an_input_offset_refuses_a_deck_whose_source_cards_moved(self) -> None:
         with self.assertRaises(RuntimeError):
-            si.offset_vin(self._fake_deck().replace("VINP VINP 0", "VIP VINP 0"), 0.1, 1.8)
+            si_probe.offset_vin(self._fake_deck().replace("VINP VINP 0", "VIP VINP 0"), 0.1, 1.8)
 
     def test_the_timestep_perturbation_moves_the_step_and_nothing_else(self) -> None:
-        out = si.retime_tran(self._fake_deck(), 0.25)
+        out = si_probe.retime_tran(self._fake_deck(), 0.25)
         self.assertIn(".tran 0.25n 6283.3333n", out)
         self.assertEqual(
             [l for l in out.splitlines() if not l.startswith(".tran")],
@@ -2218,42 +2233,42 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
 
     def test_a_deck_without_a_tran_card_is_refused(self) -> None:
         with self.assertRaises(RuntimeError):
-            si.retime_tran("* header\n.end\n", 0.25)
+            si_probe.retime_tran("* header\n.end\n", 0.25)
 
     def test_every_default_variant_names_a_real_arm_and_perturbation(self) -> None:
-        for spec in si.MIDSCALE_PROBE_VARIANTS:
+        for spec in si_probe.MIDSCALE_PROBE_VARIANTS:
             arm, sep, pert = spec.partition(":")
             self.assertTrue(sep, f"{spec!r} is not `arm:perturbation`")
-            self.assertIn(arm, si.ARMS_BY_NAME)
-            self.assertIn(pert, si.PERTURBATIONS_BY_NAME)
+            self.assertIn(arm, si_common.ARMS_BY_NAME)
+            self.assertIn(pert, si_probe.PERTURBATIONS_BY_NAME)
 
     def test_the_default_variants_carry_the_control_and_the_anomaly_arm(self) -> None:
-        self.assertIn(f"{si.CONTROL_ARM}:as-committed", si.MIDSCALE_PROBE_VARIANTS)
+        self.assertIn(f"{si_common.CONTROL_ARM}:as-committed", si_probe.MIDSCALE_PROBE_VARIANTS)
         self.assertIn(
-            f"{si.MIDSCALE_PROBE_ARM}:as-committed", si.MIDSCALE_PROBE_VARIANTS
+            f"{si_probe.MIDSCALE_PROBE_ARM}:as-committed", si_probe.MIDSCALE_PROBE_VARIANTS
         )
 
     def test_as_committed_perturbs_nothing(self) -> None:
-        self.assertTrue(si.AS_COMMITTED.is_as_committed)
+        self.assertTrue(si_probe.AS_COMMITTED.is_as_committed)
         self.assertEqual(
-            [p.name for p in si.PERTURBATIONS if p.is_as_committed], ["as-committed"]
+            [p.name for p in si_probe.PERTURBATIONS if p.is_as_committed], ["as-committed"]
         )
 
     def test_the_probe_traces_the_conversion_the_anomaly_is_on(self) -> None:
-        self.assertIn(si.MIDSCALE_CONVERSION, si.MIDSCALE_PROBE_CONVERSIONS)
-        self.assertEqual(si.tb.input_fraction(si.MIDSCALE_CONVERSION), 0.0)
+        self.assertIn(si_probe.MIDSCALE_CONVERSION, si_probe.MIDSCALE_PROBE_CONVERSIONS)
+        self.assertEqual(si_common.tb.input_fraction(si_probe.MIDSCALE_CONVERSION), 0.0)
 
     def test_the_probe_corner_is_the_corner_the_anomaly_was_recorded_at(self) -> None:
         self.assertEqual(
-            si.corners_mod.corner_id(*si.MIDSCALE_PROBE_CORNER), "fs_27c_1.80v"
+            si_common.corners_mod.corner_id(*si_probe.MIDSCALE_PROBE_CORNER), "fs_27c_1.80v"
         )
 
     def test_the_reference_record_and_its_logs_are_in_the_repo(self) -> None:
         """The probe reproduces against committed logs, so those logs -- not
         just the record's Markdown tables -- have to be present."""
-        rid = si.MIDSCALE_PROBE_REFERENCE_RECORD
+        rid = si_probe.MIDSCALE_PROBE_REFERENCE_RECORD
         self.assertTrue((EXPERIMENT_DIR / "records" / f"{rid}.md").is_file())
-        for arm in (si.CONTROL_ARM, si.MIDSCALE_PROBE_ARM):
+        for arm in (si_common.CONTROL_ARM, si_probe.MIDSCALE_PROBE_ARM):
             self.assertTrue(
                 (EXPERIMENT_DIR / "corners" / rid / f"{arm}__fs_27c_1.80v.log").is_file(),
                 f"{arm}@fs_27c_1.80v has no committed log in record {rid}",
@@ -2262,21 +2277,21 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
     def test_the_anomaly_the_probe_exists_for_is_still_in_that_record(self) -> None:
         """If a later record ever supersedes this one with a reproducible
         number, this test is the tripwire that says the probe's premise moved."""
-        control = si.committed_reference_point(
-            si.MIDSCALE_PROBE_REFERENCE_RECORD, si.CONTROL_ARM, "fs_27c_1.80v"
+        control = si_probe.committed_reference_point(
+            si_probe.MIDSCALE_PROBE_REFERENCE_RECORD, si_common.CONTROL_ARM, "fs_27c_1.80v"
         )
-        arm = si.committed_reference_point(
-            si.MIDSCALE_PROBE_REFERENCE_RECORD, si.MIDSCALE_PROBE_ARM, "fs_27c_1.80v"
+        arm = si_probe.committed_reference_point(
+            si_probe.MIDSCALE_PROBE_REFERENCE_RECORD, si_probe.MIDSCALE_PROBE_ARM, "fs_27c_1.80v"
         )
         self.assertIsNotNone(control)
         self.assertIsNotNone(arm)
-        self.assertEqual(si._conv_code(control, si.MIDSCALE_CONVERSION), 511)
-        self.assertEqual(si._conv_code(arm, si.MIDSCALE_CONVERSION), 505)
+        self.assertEqual(si_probe._conv_code(control, si_probe.MIDSCALE_CONVERSION), 511)
+        self.assertEqual(si_probe._conv_code(arm, si_probe.MIDSCALE_CONVERSION), 505)
 
     def test_the_closest_trial_is_the_one_a_perturbation_could_flip(self) -> None:
         trials = [
             {
-                "conversion": si.MIDSCALE_CONVERSION,
+                "conversion": si_probe.MIDSCALE_CONVERSION,
                 "trials": [
                     {"bit": 9, "missing": False, "v_in_mv": -0.001, "v_in_lsb": -0.0003,
                      "decision": 0, "dout": 0},
@@ -2285,7 +2300,7 @@ class TestMidscaleBoundaryProbe(unittest.TestCase):
                 ],
             }
         ]
-        worst = si.closest_trial(trials, si.MIDSCALE_CONVERSION)
+        worst = si_probe.closest_trial(trials, si_probe.MIDSCALE_CONVERSION)
         self.assertEqual(worst["bit"], 9)
 
     def test_dr018_exists_and_states_the_reading_rule(self) -> None:
@@ -2333,29 +2348,29 @@ class TestDecapTieMeasurement(unittest.TestCase):
 
     def _report(self) -> dict:
         return json.loads(
-            (REPO_ROOT / si.DECAP_TIE_RECORD / "decap-ties.json").read_text()
+            (REPO_ROOT / si_common.DECAP_TIE_RECORD / "decap-ties.json").read_text()
         )
 
     def test_the_pinned_record_is_a_committed_layout_report(self) -> None:
         self.assertTrue(
-            (REPO_ROOT / si.DECAP_TIE_RECORD / "decap-ties.json").is_file(),
-            f"{si.DECAP_TIE_RECORD}/decap-ties.json is not in the tree",
+            (REPO_ROOT / si_common.DECAP_TIE_RECORD / "decap-ties.json").is_file(),
+            f"{si_common.DECAP_TIE_RECORD}/decap-ties.json is not in the tree",
         )
         # Pinned by id, not resolved through reports/LATEST: a record is
         # append-only evidence, and the resistance a simulation ran at must stay
         # legible after a later layout record moves that pointer.
-        self.assertIn("/reports/", si.DECAP_TIE_RECORD)
-        self.assertNotIn("LATEST", si.DECAP_TIE_RECORD)
+        self.assertIn("/reports/", si_common.DECAP_TIE_RECORD)
+        self.assertNotIn("LATEST", si_common.DECAP_TIE_RECORD)
 
     def test_every_ohm_matches_the_layout_record_exactly(self) -> None:
-        ties = si.load_decap_ties()
+        ties = si_decap.load_decap_ties()
         report = self._report()
-        for terminal, key in si.DECAP_TIE_KEYS.items():
+        for terminal, key in si_decap.DECAP_TIE_KEYS.items():
             self.assertAlmostEqual(
                 ties.tie_ohm[terminal],
                 report["ties"][key]["tie_ohm"],
                 places=9,
-                msg=f"{terminal} drifted from {si.DECAP_TIE_RECORD}",
+                msg=f"{terminal} drifted from {si_common.DECAP_TIE_RECORD}",
             )
         self.assertEqual(
             ties.esr_ohm, {k: float(v) for k, v in report["per_domain"]["esr_ohm"].items()}
@@ -2365,8 +2380,8 @@ class TestDecapTieMeasurement(unittest.TestCase):
         )
 
     def test_each_domains_esr_is_its_two_ties_in_series(self) -> None:
-        ties = si.load_decap_ties()
-        for _instance, domain, terminals in si.DECAP_DEVICES:
+        ties = si_decap.load_decap_ties()
+        for _instance, domain, terminals in si_common.DECAP_DEVICES:
             self.assertAlmostEqual(
                 sum(ties.tie_ohm[t] for t in terminals), ties.esr_ohm[domain], places=3
             )
@@ -2389,13 +2404,13 @@ class TestDecapTieMeasurement(unittest.TestCase):
             lambda r: r.update(model_matches_drawn_geometry=False, model_problems=["x"])
         )
         with self.assertRaises(RuntimeError) as cm:
-            si.load_decap_ties(path)
+            si_decap.load_decap_ties(path)
         self.assertIn("does NOT match the drawn geometry", str(cm.exception))
 
     def test_a_schema_bump_is_refused_rather_than_guessed_at(self) -> None:
         path = self._write_report(lambda r: r.update(schema_version=2))
         with self.assertRaises(RuntimeError):
-            si.load_decap_ties(path)
+            si_decap.load_decap_ties(path)
 
     def test_a_report_that_disagrees_with_itself_is_refused(self) -> None:
         """If the per-tie ohms do not sum to the per-domain ESR, the two halves
@@ -2404,12 +2419,12 @@ class TestDecapTieMeasurement(unittest.TestCase):
             lambda r: r["ties"]["VDD (analog supply -> both top plates)"].update(tie_ohm=99.0)
         )
         with self.assertRaises(RuntimeError) as cm:
-            si.load_decap_ties(path)
+            si_decap.load_decap_ties(path)
         self.assertIn("disagrees with itself", str(cm.exception))
 
     def test_a_missing_report_is_refused(self) -> None:
         with self.assertRaises(RuntimeError):
-            si.load_decap_ties("layout/sar-adc-top/reports/does-not-exist")
+            si_decap.load_decap_ties("layout/sar-adc-top/reports/does-not-exist")
 
 
 class TestDecapEsrLadder(unittest.TestCase):
@@ -2419,11 +2434,11 @@ class TestDecapEsrLadder(unittest.TestCase):
     own resistance into its own leg."""
 
     def setUp(self) -> None:
-        self.ties = si.load_decap_ties()
+        self.ties = si_decap.load_decap_ties()
 
     def test_the_zero_rung_is_card_for_card_the_package_arm(self) -> None:
         self.assertTrue(
-            si.decap_esr_anchor_matches_base_arm(self.ties),
+            si_decap.decap_esr_anchor_matches_base_arm(self.ties),
             "the 0x rung is no longer the committed netlist + the `package` arm -- "
             "the ladder would be anchored to nothing",
         )
@@ -2432,74 +2447,74 @@ class TestDecapEsrLadder(unittest.TestCase):
         """Not four zero-valued ones: a 0 Ohm resistor is a different element
         with two extra nodes, and the point of that rung is to BE the committed
         netlist."""
-        self.assertEqual(si.decap_esr_arm(0.0, self.ties).decap_ties, ())
+        self.assertEqual(si_decap.decap_esr_arm(0.0, self.ties).decap_ties, ())
 
     def test_the_ladder_moves_only_the_tie_resistance(self) -> None:
-        base = si.ARMS_BY_NAME[si.DECAP_ESR_BASE_ARM]
+        base = si_common.ARMS_BY_NAME[si_decap.DECAP_ESR_BASE_ARM]
         for mult in (0.0, 1.0, 2.5):
-            rung = si.decap_esr_arm(mult, self.ties)
+            rung = si_decap.decap_esr_arm(mult, self.ties)
             self.assertEqual(rung.bonds, base.bonds, f"{mult}x moved a bond")
             self.assertEqual(rung.substrate, base.substrate, f"{mult}x moved the substrate link")
 
     def test_each_tie_resistance_lands_on_its_own_leg(self) -> None:
-        rung = si.decap_esr_arm(1.0, self.ties)
+        rung = si_decap.decap_esr_arm(1.0, self.ties)
         by_key = {(inst, terminal): ohms for inst, terminal, ohms in rung.decap_ties}
         self.assertEqual(len(rung.decap_ties), 4)
-        for instance, _domain, terminals in si.DECAP_DEVICES:
+        for instance, _domain, terminals in si_common.DECAP_DEVICES:
             for terminal in terminals:
                 self.assertAlmostEqual(
                     by_key[(instance, terminal)], self.ties.tie_ohm[terminal], places=9
                 )
 
     def test_a_rung_scales_every_tie_by_the_same_multiplier(self) -> None:
-        rung = si.decap_esr_arm(0.25, self.ties)
+        rung = si_decap.decap_esr_arm(0.25, self.ties)
         for instance, terminal, ohms in rung.decap_ties:
             self.assertAlmostEqual(ohms, self.ties.tie_ohm[terminal] * 0.25, places=9)
 
     def test_a_negative_multiplier_is_refused(self) -> None:
         with self.assertRaises(RuntimeError):
-            si.decap_esr_arm(-1.0, self.ties)
+            si_decap.decap_esr_arm(-1.0, self.ties)
 
     def _body(self) -> str:
-        body, _hits = si.patch_dut_ground(si.fc.dut_text())
+        body, _hits = si_common.patch_dut_ground(si_common.fc.dut_text())
         return body
 
     def test_the_patch_re_points_only_the_decoupling_cards(self) -> None:
         body = self._body()
-        patched, cards = si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+        patched, cards = si_common.patch_dut_decap_ties(body, si_decap.decap_esr_arm(1.0, self.ties))
         changed = [
             (a, b)
             for a, b in zip(body.splitlines(), patched.splitlines())
             if a != b
         ]
         self.assertEqual(len(body.splitlines()), len(patched.splitlines()))
-        self.assertEqual(len(changed), len(si.DECAP_DEVICES), changed)
+        self.assertEqual(len(changed), len(si_common.DECAP_DEVICES), changed)
         for old, _new in changed:
             self.assertTrue(
-                any(old.startswith(inst) for inst, _d, _t in si.DECAP_DEVICES), old
+                any(old.startswith(inst) for inst, _d, _t in si_common.DECAP_DEVICES), old
             )
         self.assertEqual(len(cards), 4)
 
     def test_the_emitted_resistors_reach_the_right_die_nodes(self) -> None:
         body = self._body()
-        _patched, cards = si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+        _patched, cards = si_common.patch_dut_decap_ties(body, si_decap.decap_esr_arm(1.0, self.ties))
         emitted = {}
         for card in cards:
             inst, node_a, node_b, value = card.split()
             emitted[inst] = (node_a, node_b, float(value))
-        for instance, _domain, terminals in si.DECAP_DEVICES:
+        for instance, _domain, terminals in si_common.DECAP_DEVICES:
             for terminal in terminals:
                 key = f"RTIE_{instance.lstrip('X').upper()}_{terminal}"
                 self.assertIn(key, emitted)
                 die_node, plate_node, ohms = emitted[key]
-                self.assertEqual(die_node, si.TERMINALS[terminal]["die"])
+                self.assertEqual(die_node, si_common.TERMINALS[terminal]["die"])
                 self.assertEqual(plate_node, f"{instance.lstrip('X').upper()}_{terminal}")
                 self.assertAlmostEqual(ohms, self.ties.tie_ohm[terminal], places=6)
 
     def test_the_series_resistance_per_domain_is_the_measured_esr(self) -> None:
         """The number the record reports must be the number the deck contains."""
-        rung = si.decap_esr_arm(1.0, self.ties)
-        for _instance, domain, terminals in si.DECAP_DEVICES:
+        rung = si_decap.decap_esr_arm(1.0, self.ties)
+        for _instance, domain, terminals in si_common.DECAP_DEVICES:
             in_deck = sum(
                 ohms
                 for inst, terminal, ohms in rung.decap_ties
@@ -2511,8 +2526,8 @@ class TestDecapEsrLadder(unittest.TestCase):
         """Which is what keeps all five committed arms' decks byte-identical to
         what they assembled before this transformation existed."""
         body = self._body()
-        for arm in si.ARMS:
-            patched, cards = si.patch_dut_decap_ties(body, arm)
+        for arm in si_common.ARMS:
+            patched, cards = si_common.patch_dut_decap_ties(body, arm)
             self.assertEqual(patched, body, arm.name)
             self.assertEqual(cards, [], arm.name)
 
@@ -2521,38 +2536,38 @@ class TestDecapEsrLadder(unittest.TestCase):
             line for line in self._body().splitlines() if not line.startswith("XCdecap_a")
         )
         with self.assertRaises(RuntimeError) as cm:
-            si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+            si_common.patch_dut_decap_ties(body, si_decap.decap_esr_arm(1.0, self.ties))
         self.assertIn("XCdecap_a", str(cm.exception))
 
     def test_a_swapped_plate_order_is_refused_rather_than_mis_tied(self) -> None:
         """A resistance inserted into the wrong leg would still simulate and
         still write a plausible record."""
         body = self._body().replace(
-            f"XCdecap_a {si.GND_DIE} VDD ", f"XCdecap_a VDD {si.GND_DIE} "
+            f"XCdecap_a {si_common.GND_DIE} VDD ", f"XCdecap_a VDD {si_common.GND_DIE} "
         )
         with self.assertRaises(RuntimeError) as cm:
-            si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+            si_common.patch_dut_decap_ties(body, si_decap.decap_esr_arm(1.0, self.ties))
         self.assertIn("not the expected", str(cm.exception))
 
     def test_a_different_decoupling_device_is_refused(self) -> None:
         body = self._body().replace(
-            f"XCdecap_a {si.GND_DIE} VDD sky130_fd_pr__cap_mim_m3_1",
-            f"XCdecap_a {si.GND_DIE} VDD some_other_cap",
+            f"XCdecap_a {si_common.GND_DIE} VDD sky130_fd_pr__cap_mim_m3_1",
+            f"XCdecap_a {si_common.GND_DIE} VDD some_other_cap",
         )
         with self.assertRaises(RuntimeError) as cm:
-            si.patch_dut_decap_ties(body, si.decap_esr_arm(1.0, self.ties))
+            si_common.patch_dut_decap_ties(body, si_decap.decap_esr_arm(1.0, self.ties))
         self.assertIn("no longer a", str(cm.exception))
 
     def test_rung_names_cannot_collide_with_either_sweep(self) -> None:
-        names = {si.decap_esr_arm_name(m) for m in (0.0, 1.0)}
-        others = {si.sweep_arm_name(1.0, 30.0), si.null_sweep_arm_name(30.0)} | {
-            arm.name for arm in si.ARMS
+        names = {si_decap.decap_esr_arm_name(m) for m in (0.0, 1.0)}
+        others = {si_sweep.sweep_arm_name(1.0, 30.0), si_null_sweep.null_sweep_arm_name(30.0)} | {
+            arm.name for arm in si_common.ARMS
         }
         self.assertEqual(names & others, set())
 
     def test_the_default_ladder_contains_the_anchor_rung(self) -> None:
-        self.assertIn(0.0, si.DECAP_ESR_MULTIPLIERS)
-        self.assertIn(1.0, si.DECAP_ESR_MULTIPLIERS)
+        self.assertIn(0.0, si_decap.DECAP_ESR_MULTIPLIERS)
+        self.assertIn(1.0, si_decap.DECAP_ESR_MULTIPLIERS)
 
 
 class TestDecapEsrVerdict(unittest.TestCase):
@@ -2567,44 +2582,44 @@ class TestDecapEsrVerdict(unittest.TestCase):
                 "corner_id": "tt_27c_1.80v",
                 "conversions": [
                     {"conversion": i + 1, "fraction": f, "code": 100}
-                    for i, f in enumerate(si.tb.INPUT_FRACTIONS)
+                    for i, f in enumerate(si_common.tb.INPUT_FRACTIONS)
                 ],
                 "extras": {f"{k}_pp": v for k, v in pps.items()},
             }
 
         return [
-            point(si.decap_esr_arm_name(0.0), pp_0),
-            point(si.decap_esr_arm_name(1.0), pp_1),
+            point(si_decap.decap_esr_arm_name(0.0), pp_0),
+            point(si_decap.decap_esr_arm_name(1.0), pp_1),
         ]
 
     def _all(self, value: float) -> dict[str, float]:
-        return {probe: value for probe, _n, _l in si.RAIL_PROBES}
+        return {probe: value for probe, _n, _l in si_common.RAIL_PROBES}
 
     def test_a_lower_excursion_with_the_ties_in_is_damping(self) -> None:
-        v = si.decap_esr_verdict(self._points(self._all(0.040), self._all(0.030)), (0.0, 1.0))
+        v = si_decap.decap_esr_verdict(self._points(self._all(0.040), self._all(0.030)), (0.0, 1.0))
         self.assertTrue(v["available"])
         self.assertEqual(v["direction"], "damping")
 
     def test_a_higher_excursion_with_the_ties_in_is_amplifying(self) -> None:
-        v = si.decap_esr_verdict(self._points(self._all(0.030), self._all(0.040)), (0.0, 1.0))
+        v = si_decap.decap_esr_verdict(self._points(self._all(0.030), self._all(0.040)), (0.0, 1.0))
         self.assertEqual(v["direction"], "amplifying")
 
     def test_a_sub_band_difference_is_a_wash(self) -> None:
-        v = si.decap_esr_verdict(self._points(self._all(0.030), self._all(0.0303)), (0.0, 1.0))
+        v = si_decap.decap_esr_verdict(self._points(self._all(0.030), self._all(0.0303)), (0.0, 1.0))
         self.assertEqual(v["direction"], "wash")
 
     def test_rails_that_disagree_are_reported_as_mixed(self) -> None:
         pp_0 = self._all(0.030)
         pp_1 = dict(pp_0)
-        probes = [probe for probe, _n, _l in si.RAIL_PROBES]
+        probes = [probe for probe, _n, _l in si_common.RAIL_PROBES]
         pp_1[probes[0]] = 0.060
         pp_1[probes[1]] = 0.010
-        v = si.decap_esr_verdict(self._points(pp_0, pp_1), (0.0, 1.0))
+        v = si_decap.decap_esr_verdict(self._points(pp_0, pp_1), (0.0, 1.0))
         self.assertEqual(v["direction"], "mixed")
 
     def test_a_missing_rung_is_unavailable_not_a_verdict(self) -> None:
         points = self._points(self._all(0.030), self._all(0.040))[:1]
-        v = si.decap_esr_verdict(points, (0.0, 1.0))
+        v = si_decap.decap_esr_verdict(points, (0.0, 1.0))
         self.assertFalse(v["available"])
         self.assertEqual(v["direction"], "unavailable")
 
@@ -2613,8 +2628,8 @@ class TestDecapEsrVerdict(unittest.TestCase):
         keyed on the verdict, so a direction with no reading would be a silent
         KeyError after an hours-long run."""
         for direction in ("damping", "amplifying", "wash", "mixed", "unavailable"):
-            self.assertIn(direction, si.DECAP_ESR_VIA_ARRAY_READING)
-            self.assertTrue(si.DECAP_ESR_VIA_ARRAY_READING[direction].strip())
+            self.assertIn(direction, si_decap.DECAP_ESR_VIA_ARRAY_READING)
+            self.assertTrue(si_decap.DECAP_ESR_VIA_ARRAY_READING[direction].strip())
 
 
 class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
@@ -2634,7 +2649,7 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
 
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -2648,7 +2663,7 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
             )
 
         base = [214, 383, 511, 641, 1023]
-        ties = si.load_decap_ties()
+        ties = si_decap.load_decap_ties()
 
         def point(arm: str, pp: float) -> dict:
             return {
@@ -2660,12 +2675,12 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
                 "point_id": f"{arm}@tt_27c_1.80v",
                 "conversions": [
                     {"conversion": i + 1, "fraction": f, "code": c}
-                    for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, base))
+                    for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, base))
                 ],
                 "currents": {"i_vdd": 1e-6, "i_vpwr": 2e-6, "i_vrefp": 1e-6, "i_vcm": 1e-7},
                 "power_w": 27.9e-6,
                 "extras": {
-                    **{f"{probe}_pp": pp for probe, _n, _l in si.RAIL_PROBES},
+                    **{f"{probe}_pp": pp for probe, _n, _l in si_common.RAIL_PROBES},
                     "i_gnda": 2.2e-6,
                 },
                 "missing": [],
@@ -2675,18 +2690,18 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
                 "reused": False,
             }
 
-        points = [point(si.CONTROL_ARM, 0.0)] + [
-            point(si.decap_esr_arm_name(m), 0.040 - 0.005 * m)
-            for m in si.DECAP_ESR_MULTIPLIERS
+        points = [point(si_common.CONTROL_ARM, 0.0)] + [
+            point(si_decap.decap_esr_arm_name(m), 0.040 - 0.005 * m)
+            for m in si_decap.DECAP_ESR_MULTIPLIERS
         ]
         try:
-            si.EXPERIMENT_DIR = tmp_dir
+            si_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
-            path = si.write_decap_esr_record(
-                points, "* netlist\n", si.DECAP_ESR_MULTIPLIERS, ties
+            path = si_decap.write_decap_esr_record(
+                points, "* netlist\n", si_decap.DECAP_ESR_MULTIPLIERS, ties
             )
         finally:
-            si.EXPERIMENT_DIR = real_dir
+            si_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
@@ -2711,7 +2726,7 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
         self.assertIn("## Subset-corner justification", text)
         # The half of DR-017's item this ladder does NOT close must be named.
         self.assertIn("The interconnect INDUCTANCE of the same ties", text)
-        self.assertIn(si.DECAP_TIE_RECORD, text)
+        self.assertIn(si_common.DECAP_TIE_RECORD, text)
         self.assertIn(
             "Written by `sim/supply-impedance-sensitivity/run_supply_impedance.py "
             "--decap-esr --record`",
@@ -2737,7 +2752,7 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
     def test_every_run_appears_with_its_raw_log_and_deck(self) -> None:
         _path, tmp_dir = self._write()
         dumped = sorted(p.name for p in (tmp_dir / "corners" / "REC").iterdir())
-        self.assertEqual(len(dumped), 2 * (len(si.DECAP_ESR_MULTIPLIERS) + 1), dumped)
+        self.assertEqual(len(dumped), 2 * (len(si_decap.DECAP_ESR_MULTIPLIERS) + 1), dumped)
 
     def test_the_shared_tables_use_rung_as_the_row_label_and_render_their_rows(self) -> None:
         """This writer is the one of the three that labels rows `rung` rather
@@ -2750,7 +2765,7 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
         path, _tmp = self._write()
         text = path.read_text()
         self.assertIn("## Captured code per rung", text)
-        first_rung = si.decap_esr_arm_name(si.DECAP_ESR_MULTIPLIERS[0])
+        first_rung = si_decap.decap_esr_arm_name(si_decap.DECAP_ESR_MULTIPLIERS[0])
         self.assertIn("| `ideal` | 214 | 383 | 511 | 641 | 1023 | -- (control) |", text)
         self.assertIn(
             f"| `{first_rung}` | 214 (+0) | 383 (+0) | 511 (+0) | 641 (+0) | "
@@ -2846,7 +2861,7 @@ class TestUnavailablePowerRendersAsNa(unittest.TestCase):
             "point_id": f"{arm}@{self.CID}",
             "conversions": [
                 {"conversion": i + 1, "fraction": f, "code": c}
-                for i, (f, c) in enumerate(zip(si.tb.INPUT_FRACTIONS, [214, 383, 511, 641, 1023]))
+                for i, (f, c) in enumerate(zip(si_common.tb.INPUT_FRACTIONS, [214, 383, 511, 641, 1023]))
             ],
             "currents": (
                 {"i_vdd": 1e-6, "i_vpwr": 2e-6, "i_vrefp": 1e-6, "i_vcm": 1e-7}
@@ -2855,7 +2870,7 @@ class TestUnavailablePowerRendersAsNa(unittest.TestCase):
             ),
             "power_w": power_w,
             "extras": {
-                **{f"{probe}_pp": 0.010 for probe, _n, _l in si.RAIL_PROBES},
+                **{f"{probe}_pp": 0.010 for probe, _n, _l in si_common.RAIL_PROBES},
                 "i_gnda": 2.2e-6,
             },
             "margins": {},
@@ -2883,7 +2898,7 @@ class TestUnavailablePowerRendersAsNa(unittest.TestCase):
 
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si.EXPERIMENT_DIR, evidence.resolve_provenance
+        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
 
         def fake_resolve(experiment_dir: Path, netlist_text: str):
             (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
@@ -2897,11 +2912,11 @@ class TestUnavailablePowerRendersAsNa(unittest.TestCase):
             )
 
         try:
-            si.EXPERIMENT_DIR = tmp_dir
+            si_common.EXPERIMENT_DIR = tmp_dir
             evidence.resolve_provenance = fake_resolve
             path = writer()
         finally:
-            si.EXPERIMENT_DIR = real_dir
+            si_common.EXPERIMENT_DIR = real_dir
             evidence.resolve_provenance = real_resolve
         self.assertTrue(str(path).startswith(str(tmp_dir)))
         return path.read_text()
@@ -2909,40 +2924,40 @@ class TestUnavailablePowerRendersAsNa(unittest.TestCase):
     # -- the shared helpers -------------------------------------------------
 
     def test_uw_renders_none_as_na_and_finite_as_before(self) -> None:
-        self.assertEqual(si._uw(None), "n/a")
+        self.assertEqual(si_common._uw(None), "n/a")
         for value in (27.9e-6, 0.0, 1.23456e-3, -4.5e-9):
-            self.assertEqual(si._uw(value), f"{value * 1e6:.3f}")
+            self.assertEqual(si_common._uw(value), f"{value * 1e6:.3f}")
 
     def test_avg_current_cells_finite_control_is_byte_identical(self) -> None:
-        p = self._point(si.CONTROL_ARM, power_w=27.9e-6)
+        p = self._point(si_common.CONTROL_ARM, power_w=27.9e-6)
         self.assertEqual(
-            si._avg_current_cells(p), "1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |"
+            si_common._avg_current_cells(p), "1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |"
         )
 
     def test_avg_current_cells_unavailable_power(self) -> None:
-        cells = si._avg_current_cells(self._unavailable("package"))
+        cells = si_common._avg_current_cells(self._unavailable("package"))
         self.assertEqual(cells, "n/a | 2.000 | 2.200 | 1.000 | 0.100 | n/a |")
 
     # -- site 2: _rail_current_table_lines (both sweep writers) -------------
 
     def test_rail_current_table_finite_control_is_byte_identical(self) -> None:
-        p = self._point(si.CONTROL_ARM, power_w=27.9e-6)
-        rows = si._rail_current_table_lines([p], "point")
-        pp = " | ".join("10.000" for _ in si.RAIL_PROBES)
+        p = self._point(si_common.CONTROL_ARM, power_w=27.9e-6)
+        rows = si_common._rail_current_table_lines([p], "point")
+        pp = " | ".join("10.000" for _ in si_common.RAIL_PROBES)
         self.assertIn(f"| `ideal` | {pp} | 1.000 | 2.000 | 2.200 | 27.900 |", rows)
 
     def test_rail_current_table_unavailable_power(self) -> None:
-        rows = si._rail_current_table_lines([self._unavailable("package")], "point")
-        pp = " | ".join("10.000" for _ in si.RAIL_PROBES)
+        rows = si_common._rail_current_table_lines([self._unavailable("package")], "point")
+        pp = " | ".join("10.000" for _ in si_common.RAIL_PROBES)
         self.assertIn(f"| `package` | {pp} | n/a | 2.000 | 2.200 | n/a |", rows)
 
     # -- site 1: write_record() ---------------------------------------------
 
     def _write_arm_record(self, other: dict) -> str:
-        control = self._point(si.CONTROL_ARM, power_w=27.9e-6)
+        control = self._point(si_common.CONTROL_ARM, power_w=27.9e-6)
         return self._write(
-            lambda: si.write_record(
-                [control, other], "* netlist\n", False, [si.CONTROL_ARM, other["arm"]]
+            lambda: si_arm.write_record(
+                [control, other], "* netlist\n", False, [si_common.CONTROL_ARM, other["arm"]]
             )
         )
 
@@ -2967,34 +2982,101 @@ class TestUnavailablePowerRendersAsNa(unittest.TestCase):
     # -- site 3: write_decap_esr_record() -----------------------------------
 
     def _write_decap_record(self, unavailable: bool) -> str:
-        control = self._point(si.CONTROL_ARM, power_w=27.9e-6)
+        control = self._point(si_common.CONTROL_ARM, power_w=27.9e-6)
         rungs = [
-            self._unavailable(si.decap_esr_arm_name(m))
+            self._unavailable(si_decap.decap_esr_arm_name(m))
             if unavailable and i == 0
-            else self._point(si.decap_esr_arm_name(m), power_w=27.9e-6)
-            for i, m in enumerate(si.DECAP_ESR_MULTIPLIERS)
+            else self._point(si_decap.decap_esr_arm_name(m), power_w=27.9e-6)
+            for i, m in enumerate(si_decap.DECAP_ESR_MULTIPLIERS)
         ]
-        ties = si.load_decap_ties()
+        ties = si_decap.load_decap_ties()
         return self._write(
-            lambda: si.write_decap_esr_record(
-                [control] + rungs, "* netlist\n", si.DECAP_ESR_MULTIPLIERS, ties
+            lambda: si_decap.write_decap_esr_record(
+                [control] + rungs, "* netlist\n", si_decap.DECAP_ESR_MULTIPLIERS, ties
             )
         )
 
     def test_write_decap_esr_record_unavailable_power(self) -> None:
         text = self._write_decap_record(unavailable=True)
-        first = si.decap_esr_arm_name(si.DECAP_ESR_MULTIPLIERS[0])
+        first = si_decap.decap_esr_arm_name(si_decap.DECAP_ESR_MULTIPLIERS[0])
         self.assertIn(f"| `{first}` | n/a | 2.000 | 2.200 | 1.000 | 0.100 | n/a |", text)
 
     def test_write_decap_esr_record_finite_control(self) -> None:
         text = self._write_decap_record(unavailable=False)
         self.assertIn("| `ideal` | 1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |", text)
-        first = si.decap_esr_arm_name(si.DECAP_ESR_MULTIPLIERS[0])
+        first = si_decap.decap_esr_arm_name(si_decap.DECAP_ESR_MULTIPLIERS[0])
         self.assertIn(f"| `{first}` | 1.000 | 2.000 | 2.200 | 1.000 | 0.100 | 27.900 |", text)
 
     def test_no_writer_multiplies_power_w_directly(self) -> None:
-        source = (EXPERIMENT_DIR / "run_supply_impedance.py").read_text()
-        self.assertIsNone(re.search(r"power_w['\"]\]\s*\*", source))
+        """Every module a record writer could be in, not just the entry point.
+
+        Issue #848 moved all five writers out of `run_supply_impedance.py` and
+        into the campaign package; a scan that still read only the entry point
+        would pass on an empty file and grade nothing. The file list is derived
+        from the imported modules rather than written out, so a campaign module
+        added later is scanned without this test being edited.
+        """
+        sources = [Path(si.__file__)] + sorted(
+            Path(si_common.__file__).parent.glob("*.py")
+        )
+        self.assertGreaterEqual(len(sources), 7, [p.name for p in sources])
+        for path in sources:
+            with self.subTest(module=path.name):
+                self.assertIsNone(re.search(r"power_w['\"]\]\s*\*", path.read_text()))
+
+
+class TestCitationGateStillReadsTheMovedTables(unittest.TestCase):
+    """The proposal-citation gate parses four of this campaign's tables out of
+    SOURCE TEXT, and reports a parse that matches nothing as an ungraded
+    silence rather than as a failure (`docs/chipalooza/check_proposal_citations
+    .py`, checks 31/32/34). That is the right behavior for a document gate --
+    and it means a table moving to another file switches its check OFF with
+    nothing in the output to say so.
+
+    Issue #848 moved exactly those tables, so the gate now reads them through
+    `ARM_TABLE_SOURCE` / `SWEEP_AXES_SOURCE` / `NULL_SWEEP_AXIS_SOURCE` rather
+    than through `ARM_RUNNER` (which stays the CLI path the proposal's prose
+    cites). These tests pin each parse's answer against the table IMPORTED from
+    the package, so the next move that leaves a source-path constant behind
+    fails here instead of going quiet.
+    """
+
+    def test_each_source_path_constant_names_a_file_that_exists(self) -> None:
+        for const in ("ARM_TABLE_SOURCE", "SWEEP_AXES_SOURCE", "NULL_SWEEP_AXIS_SOURCE"):
+            with self.subTest(constant=const):
+                path = REPO_ROOT / getattr(checker, const)
+                self.assertTrue(path.is_file(), f"{const} -> {path} does not exist")
+
+    def test_the_arm_census_is_the_imported_arm_table(self) -> None:
+        census = checker.runner_arms()
+        self.assertEqual(census, [arm.name for arm in si_common.ARMS])
+        self.assertTrue(census, "check 31 went silent: the ARMS parse matched nothing")
+
+    def test_the_sweep_box_is_the_imported_axes(self) -> None:
+        box = checker.sweep_box()
+        self.assertIsNotNone(box, "check 32 went silent: the axis parse matched nothing")
+        self.assertEqual(
+            box,
+            (len(si_sweep.SWEEP_L_MULTIPLIERS), len(si_sweep.SWEEP_RSUBX_OHM)),
+        )
+
+    def test_the_null_sweep_ladder_is_the_imported_ladder(self) -> None:
+        rungs = checker.null_sweep_ladder()
+        self.assertIsNotNone(rungs, "check 34 went silent: the ladder parse matched nothing")
+        self.assertEqual(rungs, len(si_null_sweep.NULL_SWEEP_RSUBX_OHM))
+
+    def test_the_prose_path_is_the_cli_entry_point_not_a_table_module(self) -> None:
+        """`ARM_RUNNER` is interpolated into the regexes that match the
+        proposal's own sentences, so it must keep naming the path a reader can
+        run -- repointing it at a campaign module would make the document wrong
+        rather than making the gate right."""
+        self.assertEqual(
+            checker.ARM_RUNNER, "sim/supply-impedance-sensitivity/run_supply_impedance.py"
+        )
+        self.assertTrue((REPO_ROOT / checker.ARM_RUNNER).is_file())
+        for const in ("ARM_TABLE_SOURCE", "SWEEP_AXES_SOURCE", "NULL_SWEEP_AXIS_SOURCE"):
+            with self.subTest(constant=const):
+                self.assertNotEqual(getattr(checker, const), checker.ARM_RUNNER)
 
 
 if __name__ == "__main__":
