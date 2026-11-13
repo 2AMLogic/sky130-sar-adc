@@ -2243,7 +2243,6 @@ MET4_VIA4_PAD_UM = 1.20  # >= VIA4_UM + 2 * 0.19 (`met4.enclosing.via4.1`) with
 #                          margin; 1.44 um^2 also clears `met4.area.1` (0.240)
 #                          unaided, so this pad is safe even where nothing
 #                          merges with it.
-MET4_VIA4_ENC_UM = 0.19  # `met4.enclosing.via4.1`
 MET5_VIA4_ENC_UM = 0.31  # `met5.enclosing.via4.1`
 VIA2_SPACE_UM = 0.20  # `via2.space.1`. 0.20, not the 0.17 `DECAP_SPACE_UM`
 #                       asserted against until issue #465: the pinned deck's own
@@ -2257,7 +2256,6 @@ VIA2_SPACE_UM = 0.20  # `via2.space.1`. 0.20, not the 0.17 `DECAP_SPACE_UM`
 #                       DRC report.
 VIA3_SPACE_UM = 0.20  # `via3.space.1`
 VIA4_SPACE_UM = 0.80  # `via4.space.1`
-CAPM_SPACE_UM = 0.84  # `capm.space.1`
 MET1_SPACE_UM = 0.14  # `met1.space.1`
 MET2_SPACE_UM = 0.14  # `met2.space.1`
 
