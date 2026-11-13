@@ -10,7 +10,9 @@ package install, matching this directory's existing `_geometry_common.py` /
 Houses the four functions that were byte-identical (modulo comments) between
 those two scripts: a flat structural-Verilog parser, a CDL `.SUBCKT` ->
 pin-list/M-card extractor, the nfet/pfet device-class generalizer, and the
-`PDK_ROOT`/`PDK` env-var resolver. Each sub-block's own `CELL_TYPES`,
+PDK-root resolver -- which since issue #859 is a one-line wrapper over
+`sim/harness/pdk.py`, the repo's single definition of the search order, rather
+than its own `PDK_ROOT`/`PDK` reading. Each sub-block's own `CELL_TYPES`,
 `top_ports`, and docstring stay defined on that sub-block's own script --
 `parse_verilog_netlist`'s instance-matching regex is parameterized on a
 ``cell_types`` tuple (the caller's own module-level `CELL_TYPES`) rather than
@@ -54,6 +56,13 @@ import re
 import sys
 from decimal import Decimal
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+# The repo's one PDK resolver (issue #859), appended rather than prepended so
+# nothing under `sim/` can shadow a `layout/*/bin/` module of the same name.
+sys.path.append(str(_REPO_ROOT / "sim"))
+
+from harness import pdk  # noqa: E402
 
 _MODULE_RE = re.compile(r"^module\s+(\w+)\s*\(", re.M)
 _PORT_CONN_RE = re.compile(r"\.\s*(\w+)\s*\(\s*([^()]*?)\s*\)")
@@ -184,9 +193,19 @@ def _generalize_model(model: str) -> str:
 
 
 def _resolve_pdk_root() -> str:
-    root = os.environ.get("PDK_ROOT") or os.path.expanduser("~/.ciel")
-    variant = os.environ.get("PDK", "sky130A")
-    return os.path.join(root, variant)
+    """The PDK variant directory `sim/harness/pdk.py` resolves, as a string.
+
+    One line over the repo's one resolver (issue #859) rather than a second
+    copy of the search order: `sim/pdk.json` holds `$PDK_ROOT`/`$PDK`, the
+    default root and the fallback roots, so a re-pin is a one-file change and
+    this module cannot drift from the tree the harness itself runs against.
+    Kept as a named function -- `sim/tests/test_lvs_reference_common.py`
+    patches it to point the std-cell emitter at a fixture PDK, and
+    `cdl_text_if_available()` still treats an absent CDL (bare CI checkout,
+    where `resolve()` reports `found=False` without raising) as "no PDK", not
+    as an error.
+    """
+    return str(pdk.resolve().variant_dir)
 
 
 def emit_std_cell_lvs_reference(
@@ -289,9 +308,6 @@ def emit_std_cell_lvs_reference(
         f"({len(instances)} instances, {device_total} devices)"
     )
     return 0
-
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def cdl_text_if_available() -> str | None:
