@@ -576,6 +576,92 @@ class TestMsbEvaluateControl(unittest.TestCase):
         self.assertFalse(control["tracks_input"])
 
 
+class TestStripBalanceDummies(unittest.TestCase):
+    """`_strip_balance_dummies()` builds `--decision-margin-trace`'s
+    `unbalanced-control` half by deleting DR-009's two comparator-output
+    balancing dummies from the DUT netlist, and refuses if it does not find
+    exactly that many -- the anchor is the shape of design/sar_adc_top.spice,
+    which is regenerated from schematics, so a stale anchor must fail here at
+    the commit that moves the netlist rather than at a later hand run
+    (issue #879; the same gap that let #873's probe sit broken).
+
+    The control half is half the measurement: if it refuses, the mode
+    produces nothing, so both directions are pinned on a small synthetic
+    netlist. `test_todays_committed_netlist_still_matches_this_anchor` is
+    the half that reads design/ -- the synthetic cases pin the guard's
+    match/refuse logic, that one pins the anchor against the committed
+    netlist, and only the pair makes the sentence above true.
+
+    Not asserted of the guard, deliberately: it counts matching *lines*, not
+    distinct prefixes, so two `xdum_mux_n` lines and no `xdum_xnor_n` are
+    accepted. That is current behaviour, out of scope to change under
+    issue #879, and left unpinned in either direction so a later fix does
+    not have to fight a test. The committed-netlist test below does assert
+    one line per prefix, but that is a statement about
+    design/sar_adc_top.spice rather than about the guard: a stricter guard
+    would still pass it.
+    """
+
+    def test_removes_both_dummies_and_keeps_every_other_line_in_order(self):
+        text = (
+            "* top\n"
+            "xdum_mux_n a b c mux\n"
+            "xkeep a b inv\n"
+            # not a dummy: the prefixes include their trailing space, so a
+            # longer instance name starting with one of them is kept.
+            "xdum_mux_nx d e f mux\n"
+            "xdum_xnor_n a b xnor\n"
+            ".end\n"
+        )
+        self.assertEqual(
+            fc_dm._strip_balance_dummies(text),
+            "* top\nxkeep a b inv\nxdum_mux_nx d e f mux\n.end\n",
+        )
+
+    def test_refuses_a_netlist_with_no_balancing_dummies(self):
+        with self.assertRaises(RuntimeError):
+            fc_dm._strip_balance_dummies("* top\nxkeep a b inv\n.end\n")
+
+    def test_refuses_a_netlist_with_only_one_balancing_dummy(self):
+        with self.assertRaises(RuntimeError):
+            fc_dm._strip_balance_dummies("* top\nxdum_mux_n a b c mux\n.end\n")
+
+    def test_refuses_a_netlist_with_three_balancing_dummies(self):
+        with self.assertRaises(RuntimeError):
+            fc_dm._strip_balance_dummies(
+                "* top\n"
+                "xdum_mux_n a b c mux\n"
+                "xdum_xnor_n a b xnor\n"
+                "xdum_mux_n g h i mux\n"
+                ".end\n"
+            )
+
+    def test_todays_committed_netlist_still_matches_this_anchor(self):
+        """The committed-netlist counterpart of the synthetic cases above,
+        mirroring what guard 2 already has in
+        test_sequencer_port_map_comes_from_the_netlist: the cases above run
+        the guard on inline literals, so only this one fails when a
+        schematic regeneration renames or drops a balancing dummy.
+        """
+        text = fc_common.dut_text()
+        # Raises RuntimeError unless design/sar_adc_top.spice still carries
+        # exactly len(_BALANCE_DUMMY_PREFIXES) matching instance lines.
+        stripped = fc_dm._strip_balance_dummies(text)
+        self.assertEqual(
+            len(text.splitlines()) - len(stripped.splitlines()),
+            len(fc_dm._BALANCE_DUMMY_PREFIXES),
+        )
+        # One line per prefix. The guard itself counts matching lines, not
+        # distinct prefixes (see the class docstring), so without this a
+        # rename of one dummy could be masked by a second copy of the other.
+        for prefix in fc_dm._BALANCE_DUMMY_PREFIXES:
+            self.assertEqual(
+                len([ln for ln in text.splitlines() if ln.startswith(prefix)]),
+                1,
+                f"expected exactly one '{prefix.strip()}' instance line",
+            )
+
+
 class TestWriteNodeTraceRecord(unittest.TestCase):
     """write_node_trace_record() must render the mechanism finding
     correctly from decoded per-phase data and never touch records/LATEST

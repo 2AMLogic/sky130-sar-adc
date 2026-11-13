@@ -546,6 +546,39 @@ class TestSwitchTrace(unittest.TestCase):
         with self.assertRaises(ValueError):
             fc_common.sequencer_port_nets("* no sequencer here\n")
 
+    # The test above is the only check that TODAY's committed netlist still
+    # matches the anchor, so it stays as is: it is the one that makes a
+    # netlist which changes shape fail in CI at that commit rather than at a
+    # later hand run (issue #879). The four below read nothing from design/;
+    # they pin the guard itself on a small synthetic netlist -- both
+    # directions, and each refusal branch separately.
+
+    def test_port_map_reads_positionally_from_a_synthetic_netlist(self):
+        self.assertEqual(
+            fc_common.sequencer_port_nets(
+                "xseq n1 n2 n3 sar_sequencer\n"
+                ".subckt sar_sequencer A B C\n"
+                ".ends\n"
+            ),
+            {"A": "n1", "B": "n2", "C": "n3"},
+        )
+
+    def test_refuses_an_instance_line_with_no_subckt_definition(self):
+        with self.assertRaises(ValueError):
+            fc_common.sequencer_port_nets("xseq n1 n2 n3 sar_sequencer\n")
+
+    def test_refuses_a_subckt_definition_with_no_instance_line(self):
+        with self.assertRaises(ValueError):
+            fc_common.sequencer_port_nets(".subckt sar_sequencer A B C\n.ends\n")
+
+    def test_refuses_when_the_instance_and_subckt_port_counts_differ(self):
+        with self.assertRaises(ValueError):
+            fc_common.sequencer_port_nets(
+                "xseq n1 n2 sar_sequencer\n"
+                ".subckt sar_sequencer A B C\n"
+                ".ends\n"
+            )
+
     def test_context_nets_are_recorded_but_not_classified(self):
         base = tb.PHASES_PER_CONVERSION * self.CONV
         t = tb.t_edge_ns(base + 5) + 43.0
