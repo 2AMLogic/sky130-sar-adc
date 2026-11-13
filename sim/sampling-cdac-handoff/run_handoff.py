@@ -566,15 +566,9 @@ def main() -> int:
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
-    check = toolchain.check_env()
-    if check.status == 3:
-        print("SKIP: ngspice/PDK not available (" + "; ".join(check.messages) + ")")
-        return 0
-    if check.status == 1:
-        print("FAIL: toolchain drift -- " + "; ".join(check.messages))
-        return 1
-    for w in check.warnings:
-        print(f"WARNING: {w}")
+    gate = toolchain.preflight()
+    if gate is not None:
+        return gate
 
     if args.corners:
         with tempfile.TemporaryDirectory(prefix="sampling-cdac-handoff-corners-") as tmp:

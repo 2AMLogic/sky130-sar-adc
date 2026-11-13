@@ -729,18 +729,9 @@ def main() -> int:
         for w in check.warnings:
             print(f"WARNING: {w}")
         return check.status
-    if check.status == 3:
-        print("SKIP: ngspice or the pinned PDK is not installed on this machine.")
-        for m in check.messages:
-            print(f"  {m}")
-        return 0
-    if check.status == 1:
-        print("FAIL: toolchain drifted from sim/toolchain.json pin.")
-        for m in check.messages:
-            print(f"  {m}")
-        return 1
-    for w in check.warnings:
-        print(f"WARNING: {w}")
+    gate = toolchain.preflight(check)
+    if gate is not None:
+        return gate
 
     pdk_offenders = check_pdk_has_no_bare_gnd_node(pdk.resolve())
     if pdk_offenders:

@@ -1004,13 +1004,9 @@ def main() -> int:
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
-    check = toolchain.check_env()
-    if check.status == 3:
-        print("SKIP: ngspice/PDK not available (" + "; ".join(check.messages) + ")")
-        return 0
-    if check.status == 1:
-        print("FAIL: toolchain drift -- " + "; ".join(check.messages))
-        return 1
+    gate = toolchain.preflight()
+    if gate is not None:
+        return gate
 
     import tempfile
     with tempfile.TemporaryDirectory(prefix="cdac-bit-trial-settling-") as tmp:
