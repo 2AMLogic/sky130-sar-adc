@@ -7,6 +7,8 @@ committed repo artifacts."""
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import math
 import sys
@@ -435,6 +437,14 @@ class TestReportReading(unittest.TestCase):
 
 
 class TestSubmitter(unittest.TestCase):
+    def setUp(self):
+        """`harness.klt_sim.submit()` echoes the argv it runs and prints a
+        notice per capacity retry; neither belongs in the suite's output."""
+        quiet = contextlib.ExitStack()
+        quiet.enter_context(contextlib.redirect_stdout(io.StringIO()))
+        quiet.enter_context(contextlib.redirect_stderr(io.StringIO()))
+        self.addCleanup(quiet.close)
+
     def test_capacity_refusal_is_retried_on_the_same_backend_only(self):
         dut = dc.extract_dut((REPO / "design/sar_adc_top.spice").read_text())
         rep = klt_report({"tt_27c_1.80v": ("pass", perfect_values(), [])})
@@ -455,6 +465,8 @@ class TestSubmitter(unittest.TestCase):
             self.assertTrue(dc.grade_unit(res["tt_27c_1.80v"]).passed)
             self.assertEqual(naps, [7, 7])
             self.assertTrue(all(c[c.index("--backend") + 1] == "batch" for c in calls))
+            # the retry loop sits ON TOP OF the shared --wait-for-capacity
+            self.assertTrue(all("--wait-for-capacity" in c for c in calls))
             # retries are bounded, then the campaign stops with the fleet's own message
             bad = rdp.make_submitter(Path(td) / "x", dut, "batch", lambda a: (1, "", refusal),
                                      capacity_retries=2, sleep=lambda s: None)
@@ -462,6 +474,44 @@ class TestSubmitter(unittest.TestCase):
                 bad(12.0, ["tt_27c_1.80v"])
             self.assertIn("BATCH_MAX_CONCURRENT_INSTANCES", str(ctx.exception))
 
+
+    def test_the_capacity_flag_names_the_requests_own_budget(self):
+        """`--wait-for-capacity` and `batch.capacity_wait_s` are the SAME
+        budget: the flag is derived from the request, so `--capacity-wait-s`
+        cannot be contradicted on the fleet by a second number (#865)."""
+        dut = dc.extract_dut((REPO / "design/sar_adc_top.spice").read_text())
+        rep = klt_report({"tt_27c_1.80v": ("pass", perfect_values(), [])})
+        calls = []
+
+        def runner(argv):
+            calls.append(argv)
+            return 0, json.dumps(rep), ""
+
+        with tempfile.TemporaryDirectory() as td:
+            rdp.make_submitter(Path(td), dut, "batch", runner,
+                               batch={"capacity_wait_s": 3600.0})(12.0, ["tt_27c_1.80v"])
+            self.assertEqual(calls[0][calls[0].index("--wait-for-capacity") + 1], "3600")
+            req = json.loads(next(Path(td).glob("f*/request.json")).read_text())
+            self.assertEqual(req["batch"]["capacity_wait_s"], 3600.0)
+
+            # no `batch` key -> the shared harness default, still passed
+            rdp.make_submitter(Path(td) / "d", dut, "batch", runner)(12.0, ["tt_27c_1.80v"])
+            self.assertEqual(calls[1][calls[1].index("--wait-for-capacity") + 1], "600")
+
+    def test_a_local_probe_asks_for_no_wait(self):
+        """There is no fleet to wait for on `--backend local`."""
+        dut = dc.extract_dut((REPO / "design/sar_adc_top.spice").read_text())
+        rep = klt_report({"tt_27c_1.80v": ("pass", perfect_values(), [])})
+        calls = []
+
+        def runner(argv):
+            calls.append(argv)
+            return 0, json.dumps(rep), ""
+
+        with tempfile.TemporaryDirectory() as td:
+            rdp.make_submitter(Path(td), dut, "local", runner,
+                               batch={"capacity_wait_s": 3600.0})(12.0, ["tt_27c_1.80v"])
+        self.assertNotIn("--wait-for-capacity", calls[0])
 
     def test_runs_caches_and_reports_errors(self):
         dut = dc.extract_dut((REPO / "design/sar_adc_top.spice").read_text())

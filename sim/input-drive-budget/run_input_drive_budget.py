@@ -125,7 +125,7 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod  # noqa: E402
+from harness import corners as corners_mod, klt_sim  # noqa: E402
 
 #: Read in place, never duplicated -- sim/sampling-frontend/run_hold_kick.py's
 #: committed-fragment convention, the same file sim/vcm-drive-budget/ and
@@ -540,21 +540,11 @@ def read_report(report: dict) -> tuple[dict[str, dict[str, float | None]], dict]
         if c.get("status") in ("error", "inconclusive"):
             vals = {k: None for k in vals}
         out[cid] = vals
-    env = report.get("environment") or {}
-    remote = env.get("remote") or {}
-    worker = remote.get("worker_environment") or {}
-    banner = ((worker.get("simulator") or {}).get("version_banner") or "")
-    ngs = next(
-        (ln.strip("* ").strip() for ln in banner.splitlines() if "ngspice-" in ln),
-        None,
-    )
-    return out, {
-        "remote": remote or None,
-        "status": report.get("status"),
-        "job_id": remote.get("job_id"),
-        "worker_pdk": (worker.get("pdk") or {}).get("stamp_text"),
-        "worker_ngspice": ngs,
-    }
+    # Run-level facts come from `harness.klt_sim.run_info()`, which reads the
+    # sharded `environment.remote.fleet[]` shape as well as the single-job
+    # one -- reading only the latter is how a sharded record ends up
+    # reporting `job None` (issue #865).
+    return out, klt_sim.run_info(report)
 
 
 def _finite(x) -> bool:
@@ -717,31 +707,14 @@ def analyze(
 # ---------------------------------------------------------------------------
 # Submission -- every simulation unit goes through `klt sim`
 # ---------------------------------------------------------------------------
-class SubmitError(RuntimeError):
-    pass
-
+SubmitError = klt_sim.SubmitError
 
 #: CLAUDE.md's fleet rule: the fleet is vCPU-budgeted, so a burst is refused
 #: with `batch_no_capacity` unless the submit may wait with backoff. Passed on
-#: every submission that is not explicitly local.
-CAPACITY_WAIT_S = 600
-
-
-
-def submit_argv(
-    request_path: Path,
-    outdir: Path,
-    backend: str | None,
-    capacity_wait_s: int = CAPACITY_WAIT_S,
-) -> list[str]:
-    """The `klt sim` argv. `--wait-for-capacity` is passed unless the backend
-    is explicitly `local`, where there is no fleet to wait for."""
-    argv = ["klt", "sim", str(request_path), "--format", "json", "-o", str(outdir)]
-    if backend:
-        argv += ["--backend", backend]
-    if backend != "local":
-        argv += ["--wait-for-capacity", str(capacity_wait_s)]
-    return argv
+#: every submission that is not explicitly local -- by
+#: `harness.klt_sim.submit_argv()`, shared with every other batch campaign
+#: (issue #865).
+CAPACITY_WAIT_S = klt_sim.DEFAULT_CAPACITY_WAIT_S
 
 
 def submit(
@@ -752,6 +725,7 @@ def submit(
     *,
     windows: dict[str, float] | None = None,
     r_source_list: list[float] | None = None,
+    capacity_wait_s: float | None = CAPACITY_WAIT_S,
 ) -> tuple[dict, dict, dict]:
     """Write the deck + request under `workdir`, run `klt sim`, return
     `(results, run info, request)`. An existing `report.json` is reused, so a
@@ -767,26 +741,8 @@ def submit(
         r_source_list=r_source_list,
     )
     (workdir / "request.json").write_text(json.dumps(req, indent=1) + "\n")
-    rep_path = workdir / "report.json"
-    if rep_path.is_file():
-        report = json.loads(rep_path.read_text())
-    else:
-        argv = submit_argv(workdir / "request.json", workdir / "out", backend)
-        print("+ " + " ".join(argv), flush=True)
-        done = subprocess.run(argv, capture_output=True, text=True, check=False)
-        try:
-            report = json.loads(done.stdout)
-        except json.JSONDecodeError:
-            try:
-                report = json.loads(done.stderr)
-            except json.JSONDecodeError as exc:
-                raise SubmitError(
-                    f"klt sim returned no JSON report (rc={done.returncode}): "
-                    f"{(done.stderr or done.stdout)[:800]}"
-                ) from exc
-        if "error" in report and "corners" not in report:
-            raise SubmitError(f"klt sim: {json.dumps(report['error'])}")
-        rep_path.write_text(json.dumps(report, indent=1) + "\n")
+    report = klt_sim.submit(workdir / "request.json", workdir / "out", backend=backend,
+                            capacity_wait_s=capacity_wait_s)
     results, info = read_report(report)
     return results, dict(info, backend=backend or "(klt default / KLT_SIM_BACKEND)"), req
 
@@ -1248,6 +1204,7 @@ def main(argv: list[str] | None = None) -> int:
         results, info, _req = submit(
             [cid], workdir / "probe", "local", args.timeout_s,
             windows={"worst": T_WINDOW_WORST_NS}, r_source_list=[0.0],
+            capacity_wait_s=None,
         )
         rows = sweep_rows(results.get(cid) or {}, "worst", [0.0])
         if rows is None:

@@ -17,11 +17,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(SIM_DIR / "input-drive-budget"))
 
+from harness import klt_sim  # noqa: E402
 import run_input_drive_budget as m  # noqa: E402
 
 
@@ -359,25 +361,45 @@ class TestFleetJobBound(unittest.TestCase):
         self.assertGreaterEqual(m.DEFAULT_TIMEOUT_S, 5 * 26)
 
 
-class TestSubmitArgv(unittest.TestCase):
-    def test_batch_submit_waits_for_capacity(self):
-        """CLAUDE.md's fleet rule: a vCPU-budgeted fleet refuses a burst with
-        batch_no_capacity unless the submit may wait with backoff."""
-        argv = m.submit_argv(Path("/w/request.json"), Path("/w/out"), "batch")
-        self.assertIn("--wait-for-capacity", argv)
-        self.assertEqual(argv[argv.index("--wait-for-capacity") + 1], "600")
-        self.assertEqual(argv[:2], ["klt", "sim"])
+class TestCapacityPolicy(unittest.TestCase):
+    """CLAUDE.md's fleet rule: a vCPU-budgeted fleet refuses a burst with
+    `batch_no_capacity` unless the submit may wait with backoff. The argv
+    itself is `harness.klt_sim`'s (tested in test_harness_klt_sim.py); what
+    is this campaign's own is that it submits through that helper and hands
+    it a wait, rather than carrying a private copy of the policy (#865)."""
 
-    def test_default_backend_still_waits_for_capacity(self):
-        """With no explicit backend, KLT_SIM_BACKEND decides -- which on a
-        dispatch host is `batch`, so the flag must still be there."""
-        argv = m.submit_argv(Path("/w/request.json"), Path("/w/out"), None)
-        self.assertIn("--wait-for-capacity", argv)
+    def test_the_campaign_uses_the_shared_default_wait(self):
+        self.assertEqual(m.CAPACITY_WAIT_S, klt_sim.DEFAULT_CAPACITY_WAIT_S)
+        self.assertEqual(m.SubmitError, klt_sim.SubmitError)
 
-    def test_local_backend_does_not_wait_for_a_fleet(self):
-        argv = m.submit_argv(Path("/w/request.json"), Path("/w/out"), "local")
-        self.assertNotIn("--wait-for-capacity", argv)
-        self.assertIn("local", argv)
+    def _submit_kwargs(self, *args, **kwargs) -> dict:
+        seen: dict = {}
+
+        def fake_submit(request_path, outdir, **kw):
+            seen.update(kw)
+            return {"status": "pass", "corners": [], "environment": {}}
+
+        with mock.patch.object(m.klt_sim, "submit", fake_submit):
+            m.submit(*args, **kwargs)
+        return seen
+
+    def test_a_batch_submit_waits_for_capacity(self):
+        with tempfile.TemporaryDirectory() as d:
+            seen = self._submit_kwargs(
+                ["tt_27c_1.80v"], Path(d), "batch", m.DEFAULT_TIMEOUT_S,
+                windows={"worst": m.T_WINDOW_WORST_NS}, r_source_list=[0.0])
+        self.assertEqual(seen["backend"], "batch")
+        self.assertEqual(seen["capacity_wait_s"], klt_sim.DEFAULT_CAPACITY_WAIT_S)
+
+    def test_the_local_probe_asks_for_no_wait(self):
+        """There is no fleet to wait for on `local`."""
+        with tempfile.TemporaryDirectory() as d:
+            seen = self._submit_kwargs(
+                ["tt_27c_1.80v"], Path(d), "local", m.DEFAULT_TIMEOUT_S,
+                windows={"worst": m.T_WINDOW_WORST_NS}, r_source_list=[0.0],
+                capacity_wait_s=None)
+        self.assertEqual(seen["backend"], "local")
+        self.assertIsNone(seen["capacity_wait_s"])
 
 
 class TestDeckBody(unittest.TestCase):
@@ -474,7 +496,11 @@ class TestReportReader(unittest.TestCase):
         self.assertEqual(results["tt_27c_1.80v"]["worst_r0.budget_p"], 1.6)
         self.assertEqual(info["job_id"], "job-123")
         self.assertEqual(info["worker_pdk"], "sky130A @ abc123")
-        self.assertEqual(info["worker_ngspice"], "ngspice-47 : blah")
+        # the shared reader reports the `ngspice-NN` TOKEN, not the whole
+        # banner line the campaign's own copy used to hand back (#865)
+        self.assertEqual(info["worker_ngspice"], "ngspice-47")
+        self.assertEqual(info["jobs"][0]["job_id"], "job-123")
+        self.assertFalse(info["sharded"])
 
     def test_error_envelope_is_refused_not_read_as_zero_corners(self):
         with self.assertRaises(ValueError):

@@ -644,12 +644,6 @@ class TestRunInfo(unittest.TestCase):
         self.assertEqual(info["jobs"], [])
         self.assertIsNone(info["job_id"])
 
-    def test_ngspice_banner_parsing(self):
-        self.assertEqual(
-            m._ngspice_from_banner("******\n** ngspice-47 : Circuit level\n******"),
-            "ngspice-47")
-        self.assertIsNone(m._ngspice_from_banner(""))
-
 
 class TestRequestIsJsonSerialisable(unittest.TestCase):
     def test_round_trips(self):

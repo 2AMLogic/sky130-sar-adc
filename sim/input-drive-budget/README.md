@@ -103,9 +103,11 @@ campaign before any fleet capacity is spent.
 convention and **stimulus** are reused here, not their execution. Copying
 either would hand-launch an `ngspice` grid on the dispatch host, which this
 campaign is explicitly not allowed to do. The execution pattern is
-`sim/top-plate-cpar/`'s — plus the `--wait-for-capacity 600` that runner does
-not pass. Neither of those two runners is converted (they are 1316 and 1049
-lines; that is separate work).
+`sim/top-plate-cpar/`'s; since issue #865 both submit through the one shared
+`sim/harness/klt_sim.py`, so `--wait-for-capacity 600` is now the default for
+both (it was this runner's own addition when this campaign was written).
+Neither of those two `ngspice`-looping runners is converted (they are 1316 and
+1049 lines; that is separate work).
 
 Both sweep axes fit inside the single request as `analysis_steps[]`: one
 `tran` step per (window, resistance), each with `reset: true`, an `alter` of
