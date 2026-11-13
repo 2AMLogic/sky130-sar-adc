@@ -26,6 +26,13 @@ see here, because both sides would carry it -- fails this check.
 `design/regen_netlist.sh --check` in CI, so the chain is
 schematic -> netlist -> this check -> Verilog -> layout, with no self-reference.
 
+Since issue #850 the instance-compare and report core lives in
+`layout/bin/_lvs_reference_common.py`, shared with
+`layout/sar-sequencer/bin/check-schematic-parity.py` (the sequencer
+counterpart, issue #676) rather than copied into it. What stays here is the
+per-block half: which lines of the spice file are this block's, the default
+paths, the pin-order-cache comment, and this gate's own FAIL/OK scope suffix.
+
 Usage:
     layout/top-glue/bin/check-schematic-parity.py              # both files as committed
     layout/top-glue/bin/check-schematic-parity.py --netlist <v>
@@ -48,7 +55,6 @@ gate is not enough.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
@@ -61,19 +67,16 @@ sys.path.insert(0, str(LAYOUT_DIR / "bin"))
 import _lvs_reference_common
 from _lvs_reference_common import (  # noqa: E402
     cdl_text_if_available,
-    parse_verilog_netlist,
+    instance_map_problems,
+    report_instance_parity,
+    spice_instances_from_cards,
     top_level_subckt_body,
+    verilog_instances_with_supply_defaults,
 )
 
 DEFAULT_SPICE = REPO_ROOT / "design" / "sar_adc_top.spice"
 DEFAULT_NETLIST = BLOCK_DIR / "netlist" / "top_glue.v"
 PIN_ORDER_CACHE = BLOCK_DIR / "netlist" / "sky130_fd_sc_hd-pin-order.json"
-
-#: `emit_std_cell_lvs_reference`'s own implicit supply defaults, repeated here
-#: so this check validates them too: the schematic's own instance lines name
-#: all four supply pins explicitly, and a Verilog netlist that omits them is
-#: only equivalent if these are the nets they resolve to.
-SUPPLY_DEFAULTS = {"VGND": "VGND", "VNB": "VGND", "VPB": "VPWR", "VPWR": "VPWR"}
 
 
 def _top_level_body(spice_text: str) -> str:
@@ -88,7 +91,28 @@ def _top_level_body(spice_text: str) -> str:
     return top_level_subckt_body(spice_text)
 
 
-def top_level_cell_types(spice_path: Path) -> list[str]:
+def std_cell_cards(spice_path: Path) -> list[str]:
+    """The top-level subcircuit's own `sky130_fd_sc_hd__*` instance cards.
+
+    The per-block half of this gate: *which* lines of
+    `design/sar_adc_top.spice` are this block's, i.e. the instances the top
+    level adds itself (no sub-block), filtered to the standard-cell library.
+    Translating those cards into named pins, diffing them against the Verilog
+    and reporting is shared with the sequencer's gate -- see
+    `layout/bin/_lvs_reference_common.py`.
+    """
+    body = _top_level_body(spice_path.read_text(encoding="utf-8"))
+    cards: list[str] = []
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("*") or line.startswith("."):
+            continue
+        if line.split()[-1].startswith("sky130_fd_sc_hd__"):
+            cards.append(line)
+    return cards
+
+
+def top_level_cell_types(cards: list[str]) -> list[str]:
     """Every `sky130_fd_sc_hd` cell type the top-level subcircuit instantiates.
 
     Derived from the SCHEMATIC side, never from the layout side's own
@@ -96,16 +120,7 @@ def top_level_cell_types(spice_path: Path) -> list[str]:
     hardcoded layout-side list would otherwise be invisible to this check,
     which is the exact shape of the drift being guarded against.
     """
-    body = _top_level_body(spice_path.read_text(encoding="utf-8"))
-    types: set[str] = set()
-    for raw in body.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("*") or line.startswith("."):
-            continue
-        cell_type = line.split()[-1]
-        if cell_type.startswith("sky130_fd_sc_hd__"):
-            types.add(cell_type)
-    return sorted(types)
+    return sorted({card.split()[-1] for card in cards})
 
 
 PIN_ORDER_COMMENT = (
@@ -135,57 +150,6 @@ def resolve_pin_orders(
     )
 
 
-def spice_std_cell_instances(
-    spice_path: Path, pin_orders: dict[str, list[str]]
-) -> dict[str, tuple[str, dict[str, str]]]:
-    """`{instance_name: (cell_type, {pin: net})}` for every
-    `sky130_fd_sc_hd__*` instance the top-level subcircuit adds.
-
-    The SPICE card is positional (`xname net... subckt`); the PDK's own
-    `.SUBCKT` pin order supplies the names to zip it against, so the
-    translation is the PDK's, not this script's.
-    """
-    body = _top_level_body(spice_path.read_text(encoding="utf-8"))
-    out: dict[str, tuple[str, dict[str, str]]] = {}
-    for raw in body.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("*") or line.startswith("."):
-            continue
-        toks = line.split()
-        cell_type = toks[-1]
-        if not cell_type.startswith("sky130_fd_sc_hd__"):
-            continue
-        inst_name = toks[0]
-        nets = toks[1:-1]
-        pins = pin_orders[cell_type]
-        if len(pins) != len(nets):
-            raise SystemExit(
-                f"check-schematic-parity.py: {inst_name}: {cell_type} has "
-                f"{len(pins)} CDL pins but the instance card names {len(nets)} nets"
-            )
-        out[inst_name] = (cell_type, dict(zip(pins, nets)))
-    return out
-
-
-def verilog_instances(
-    netlist_path: Path, cell_types: tuple[str, ...]
-) -> dict[str, tuple[str, dict[str, str]]]:
-    """The same shape, read out of the structural Verilog, with the implicit
-    supply connections resolved exactly as the LVS-reference generator
-    resolves them."""
-    _, instances = parse_verilog_netlist(str(netlist_path), cell_types)
-    out: dict[str, tuple[str, dict[str, str]]] = {}
-    for inst_name, cell_type, pin_map in instances:
-        full = dict(SUPPLY_DEFAULTS)
-        full.update(pin_map)
-        if inst_name in out:
-            raise SystemExit(
-                f"check-schematic-parity.py: duplicate instance name {inst_name}"
-            )
-        out[inst_name] = (cell_type, full)
-    return out
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--spice", type=Path, default=DEFAULT_SPICE)
@@ -197,55 +161,23 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    cell_types = top_level_cell_types(args.spice)
+    cards = std_cell_cards(args.spice)
+    cell_types = top_level_cell_types(cards)
     pin_orders = resolve_pin_orders(
         cell_types, cdl_text_if_available(), args.refresh_pin_order_cache
     )
 
-    want = spice_std_cell_instances(args.spice, pin_orders)
-    got = verilog_instances(args.netlist, tuple(cell_types))
+    want = spice_instances_from_cards(cards, pin_orders)
+    got = verilog_instances_with_supply_defaults(args.netlist, tuple(cell_types))
 
-    problems: list[str] = []
-    for name in sorted(set(want) - set(got)):
-        problems.append(f"MISSING from Verilog: {name} ({want[name][0]})")
-    for name in sorted(set(got) - set(want)):
-        problems.append(f"EXTRA in Verilog (not in schematic): {name} ({got[name][0]})")
-    for name in sorted(set(want) & set(got)):
-        want_cell, want_pins = want[name]
-        got_cell, got_pins = got[name]
-        if want_cell != got_cell:
-            problems.append(f"{name}: cell type {got_cell!r} != schematic {want_cell!r}")
-            continue
-        for pin in sorted(set(want_pins) | set(got_pins)):
-            w = want_pins.get(pin)
-            g = got_pins.get(pin)
-            if w != g:
-                problems.append(
-                    f"{name}.{pin}: Verilog net {g!r} != schematic net {w!r}"
-                )
-
-    rel_spice = os.path.relpath(args.spice, REPO_ROOT)
-    rel_netlist = os.path.relpath(args.netlist, REPO_ROOT)
-    if problems:
-        print(
-            f"check-schematic-parity.py: FAIL -- {rel_netlist} does not match "
-            f"{rel_spice}'s own top-level sky130_fd_sc_hd instances:",
-            file=sys.stderr,
-        )
-        for problem in problems:
-            print(f"  {problem}", file=sys.stderr)
-        return 1
-
-    census: dict[str, int] = {}
-    for cell, _ in want.values():
-        census[cell] = census.get(cell, 0) + 1
-    print(
-        f"check-schematic-parity.py: OK -- {len(want)} instances, "
-        f"{len(census)} cell types, every pin net-identical to {rel_spice}"
+    return report_instance_parity(
+        want,
+        instance_map_problems(want, got),
+        spice_path=args.spice,
+        netlist_path=args.netlist,
+        fail_scope="'s own top-level sky130_fd_sc_hd instances",
+        ok_scope="",
     )
-    for cell in sorted(census):
-        print(f"  {cell}: {census[cell]}")
-    return 0
 
 
 if __name__ == "__main__":

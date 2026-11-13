@@ -16,8 +16,11 @@ dedicated-pad budget from the assumed 0–4 to the published 1–3. Update
 2026-11-13: re-fetched at the same byte count, with a sha256 now pinned in
 §2.2.2, so §2.2.1's figures stand; §2.2.2 extends the reconciliation to the
 page's proposal-content, repository-hygiene and design-conformance
-requirements, which the first pass did not grade. Proposals are due
-2026-11-23.**
+requirements, which the first pass did not grade. Further update, same day:
+§2.2.3 grades `get-involved.html`, a second governing page neither earlier
+pass fetched, whose proposal-content I/O item is worded longer than
+`rules-4.html`'s — the per-pad special-requirements declaration it asks for
+now lives there. Proposals are due 2026-11-23.**
 
 **Source repository**: `2AMLogic/sky130-sar-adc` (`visibility: public`,
 flipped 2026-08-25 per Epic #542 Phase 4A — confirmed via `gh repo view`
@@ -223,7 +226,7 @@ and no row of §4 is relaxed or moved by this pass.
 | "An outline of a test plan for validating the IP block through measurement" | §5, written against the current port list and gated for port parity by the citation gate's test-plan check | **MET** |
 | "List of any equipment available for use in testing" and "CVs of the designers", both "sent separately from the proposal document" | Outside this document by the page's own instruction, and outside what this repository holds: both are operator-held material | **N/A here — operator action** |
 | "personal and institutional details are to be left out of the main proposal document" | This document names no individual. The single institutional string in it is §8's Apache-2.0 attribution line ("Copyright 2026 2AM Logic"), which is a licence fact rather than designer identification — removing it would misstate the licence this repository ships under | **Flagged, not changed** — whether the organisers read a licence copyright line as an institutional detail is theirs to say, not this pass's to assume |
-| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | The repository tracks **zero** image artifacts (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 0 as of this pass). Every `sim/` result is reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" UNMET** (§7 item 12) |
+| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | Five summary figures are tracked under [`docs/plots/`](../plots/) (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 5 as of this pass; this row read **zero** until #835 landed), rendered by [`sim/report/plots.py`](../../sim/report/plots.py) from evidence already committed under `sim/` — no simulation is run to draw them — and re-checked by `sim/report/plots.py --check` through `npm run check:ci`. Every `sim/` result is still reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" MET for the five figures §7 item 13 lists** — the one summary it deliberately leaves undrawn (linearity from the 5-code transfer bench), and the untouched "avoid unnecessary data dumps" half of the same sentence, are recorded there |
 | "Sign-off data is required (i.e., final DRC and LVS results)" | `signoff/` carries the block manifest, the graded [`signoff/t1-report.json`](../../signoff/t1-report.json) and [`signoff/run-signoff.sh`](../../signoff/run-signoff.sh)`--check`, plus the hash re-derivation CI runs over every cited artifact | **Mechanism MET**; the DRC/LVS *content* is still §4's two sign-off-bar rows (DRC MET, LVS device match UNMET / post-layout PVT UNMET — §7 item 1) |
 | "Every design should follow the repository template (once it has been made available)", whose "scripts for running basic sign-off verification … must be able to run by anyone cloning the repository and show a verified result" | The Chipalooza template is still unpublished (the page offers the IHP-challenge template as generally applicable). This repository's own equivalent runs from a bare clone today: `signoff/run-signoff.sh --check` needs only the `klt` pin in [`signoff/requirements.txt`](../../signoff/requirements.txt) — no PDK, no KLayout engine — and exits 2 rather than silently passing when `klt` is absent; `npm run check:ci` runs the headless gate set | **Runnable verified result MET; template adoption PENDING publication** |
 | "The design must be verifiable with open source EDA tools … AI may be used in support of circuit design but must not be a requirement for the end user of the IP block to use, verify, or modify the IP block" | Directly relevant: this block is AI-designed, which `CLAUDE.md` states openly. Every verification entry point is open-source and agent-free — xschem, ngspice, `klt`/KLayout, driven by committed shell and Python (`package.json`'s `check:ci`, `sim/README.md`'s per-flow cold-start commands, `signoff/run-signoff.sh`). No step of using, verifying or modifying this block requires an AI agent | **MET** — the AI provenance is disclosed, and no verification path depends on it |
@@ -231,11 +234,96 @@ and no row of §4 is relaxed or moved by this pass.
 | "Proposals are due two weeks from the beginning of the challenge, which is November 23, 2026", with proposal review the week of November 23 | **10 days after this pass.** This document is still headed "DRAFT design record, not a submission-ready proposal", and two of the rows above (CVs, equipment list) are operator-held material no automation here can produce | **Operator decision** — whether, when and under whose name to submit |
 
 Nothing in this table moves a §4 verdict, and none is claimed to. Three rows
-open genuinely new gaps that were invisible while the rules were unpublished
+opened genuinely new gaps that were invisible while the rules were unpublished
 (absolute limits, plot summaries, the mid-design ratification exposure); they
 are carried as §7 item 12 — and the first two as issues #834 and #835 — rather
-than folded into §4, because none of them is a spec row. The two conflicts
+than folded into §4, because none of them is a spec row. Of those three, the
+plot-summary gap is the one this pass closes: #835's rendering step landed as
+§7 item 13, and item 12(b) now records it as closed; the absolute-limits gap
+(#834) and the mid-design ratification exposure stay open. The two conflicts
 §2.2.1 found are tracked as #836, routed to an operator.
+
+### 2.2.3 Per-pad special requirements (added 2026-11-13): what `get-involved.html` asks for and `rules-4.html` does not
+
+Issue #839. The challenge is published across more than one page, and the page
+its own landing page names for *what a proposal must contain* words the I/O
+item longer than `rules-4.html` does. Fetched 2026-11-13 from
+`https://opencircuitdesign.com/chipalooza/get-involved.html`: HTTP 200,
+4 245 bytes, sha256 prefix `6cc41a25`, server `Last-Modified` Mon, 09 Nov 2026
+18:14:16 GMT (`Last-Modified` is a server-stated header, trusted exactly that
+far; the digest is this pass's own measurement of the bytes received). Its
+proposal-content list states:
+
+> "List of I/O, including test ports. **Note any special requirements such as
+> low resistance to the pad.**"
+
+`rules-4.html` carries the first sentence and **not** the second. §2.2.2's "List
+of I/O" row grades the shorter wording and stands exactly as written; this
+section grades the longer one. Against it, §2.2's pad table and §2.3's verbatim
+port list categorise every port against a slot but state a *special requirement*
+for none of them — no pad was silent about its slot and every pad was silent
+about its requirements.
+
+The table below is this document's answer to that clause: one row per port of
+§2.3's `.subckt sar_adc_top` list, every port covered exactly once, no cell
+blank.
+
+**How to read it.** A *declared requirement* is a constraint this design states
+on what the harness or board must provide at that pad. A **figure** appears only
+where a dated `sim/` record puts one there, and the row links it. **"No
+evidence"** means the pad plausibly carries a requirement of this class and no
+campaign in this repository has measured it; the row names the issue that would
+produce the number, and no number is guessed in its place — per `CLAUDE.md`'s
+no-claim-without-a-testbench rule, that is the honest entry, and it is *not*
+the same entry as "none". **"None declared"** is a statement about the
+interface's own shape rather than a measurement, and every such row says what
+it does not cover.
+
+| Port | Special requirement | Where it comes from |
+|---|---|---|
+| `VINP`, `VINN` | **Low source impedance — required, no figure declared.** During the SAMPLE window these two pads charge the CDAC top plates through the sampling switches, so a series source impedance forms an RC with the sampled capacitance inside the acquisition window DR-006 allocates — the same mechanism the `VCM` row below has a measured budget for, on the pads that carry the signal instead of the bias | **No evidence.** [`sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`](../../sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice) drives both from ideal `PWL` sources with nothing in series, and no `sim/` campaign sweeps a source impedance at *these pads*. Two campaigns do put a resistance on nets of the same name one level down, and neither is a budget for this pad: [`sim/comparator-decision/comparator_campaigns/kickback.py`](../../sim/comparator-decision/comparator_campaigns/kickback.py) lands a **fixed 1 kΩ** series `Rsrc` on the *comparator's* own `VINP`/`VINN` input pins (`KICKBACK_RSRC_OHM` — a kickback-stimulus shape at one value, not a sweep), and [`sim/comparator-decision/testbench/comparator_core_extracted.spice`](../../sim/comparator-decision/testbench/comparator_core_extracted.spice) carries ~203 Ω extracted interconnect parasitics inside that same comparator's layout. The campaign that would produce this pad's figure is **#847**; until it lands, no number is declared here |
+| `VREFP`, `VREFN` | **Low drive impedance — required, no figure declared.** The CDAC draws transient charge from the reference at **every** bit trial, so these are the pads the brief's own example ("low resistance to the pad") lands on most directly. **No ohm value is declared for them**, here or anywhere else in this document | **No evidence** — the same finding §7 item 11(a)(iii) already records. [`sim/vcm-drive-budget/`](../../sim/vcm-drive-budget/) budgets `VCM`; [`sim/supply-impedance-sensitivity/run_supply_impedance.py`](../../sim/supply-impedance-sensitivity/run_supply_impedance.py) budgets the four supply terminals and states that `VREFP`/`VREFN`/`VCM` "stay ideal at the die". The campaign that would produce the figure is **#841**, which §7 item 11(a)(iii) also waits on before the shared-analog-bus route could be chosen |
+| `VCM` | **No low-resistance requirement *shown on the sampled differential error*; the common-mode level at the pad is not budgeted.** A source resistance of **100 kΩ** still holds the sampled differential error inside 0.1 provisional LSB at all nine ratified PVT corners, at both acquisition windows — that error is the only quantity the four cited records budget. 100 kΩ is the largest value swept, so the budget is **right-censored**: the tolerance is at least that and the measurement does not say where it ends. On-die decoupling is right-censored at the 1000 pF top of its own sweep too, on the full grid at both windows — but **at the 1-LSB tier only**, not the 0.1-LSB tier this row's bare-`R_source` sentence covers, and both decoupling records warn the error is **not monotonic** in `C_decouple`, so that censored value is not necessarily the smallest sufficient one. **What the same records show at that resistance.** Their `VCM(end)` column, read at 100 kΩ with `C_decouple = 0` — the bare-`R_source` condition the 0.1-LSB figure above rests on — gives **1.566 V to 1.747 V** at eight corners and **0.919 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), worst-case window), and **1.342 V to 1.522 V** at eight corners and **0.913 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md), legacy window), against the `V_REF/2 = 0.9 V` nominal §2.2's `VCM` row gives. So at the resistance this row declares acceptable, the bias node sits far from that nominal at eight of the nine corners while the differential error stays inside the tier above. **What that departure does to the composed ADC is not measured by this campaign**: its DUT is the sampling front end's own fragment, and [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) states it "does not, on its own, establish what R_source/C_decouple an actual on-chip VCM buffer or off-chip reference network would present". No record in this repository shows that departure is harmless, and none shows it breaks anything; what instant `VCM(end)` probes beyond its column name, and why `tt_125c_1.80v` departs from the other eight corners, are both untraced here | Measured, full ratified 9-point PVT grid: [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) (DR-006 worst-case 83.333 ns window) and [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md) (legacy 400 ns testbench-convention window), both right-censored at the 100 kΩ sweep ceiling at the 1-LSB and 0.1-LSB tiers alike; the decoupling axis on the same grid in [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md) (worst-case window) and [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md) (legacy window), each reporting a 1-LSB budget column only. **Scope**: the DUT is the sampling front end's own fragment, not the composed top level, and the budget is the one §2.2's `VCM` row describes |
+| `VDD` | **Its own bond, and no on-die metal tie to the digital rail** ([DR-010](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)). No resistance figure is declared | DR-010 ratifies the domain partition. The one measured point is [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/)'s `package` arm — all four terminals bonded through the [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md) package R+L — whose captured codes are unchanged against the ideal control. That is **one** corner (tt/27 °C/1.80 V), not the ratified grid, and the R+L is a stated package-style assumption rather than a measurement of any package; figures and caveats in §7 item 9 |
+| `GND` | **Its own bond to the board star point: this pad may not reach the board only through the p-substrate.** Structural, not numeric — there is no resistance figure to meet, there is a bond to provide | [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) ratifies the pad, and `sim/supply-impedance-sensitivity/`'s `no-gnd-pad` arm is the option DR-012 rejected: against the `package` arm it raises the die-side analog-ground excursion while changing **no** captured code. One corner, and at a lumped substrate stand-in whose magnitude comes from DR-012's own prose rather than from extraction (DR-015) — so it prices a resistive return of that order, not this die's substrate. Figures and that caveat in §7 item 9 |
+| `VPWR` | **Its own bond, kept off `VDD` in metal on-die** (DR-010): the standard-cell bank switches coincident with the comparator decision by construction, so a shared metal rail would put its switching current on the comparator's own supply. No resistance figure is declared | DR-010, and the same single-corner `package` arm as the `VDD` row — on which `VPWR` carries the largest die-side excursion of the four terminals (§7 item 9) |
+| `VGND` | **Its own bond, so the digital return travels off-die rather than through the die's substrate past the comparator.** One electrical node with `GND` in bulk sky130 — this block's own composed extraction reports them as one net — but a second bond point, which is the intended shape (§2.2). No resistance figure is declared | DR-010 and DR-012/[DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md), plus the same single-corner `package` arm (§7 item 9) |
+| `CLK` | **None declared.** A static CMOS gate input with no DC path to the pad: at the provisional ≤ 12 MHz clock (DR-006, DRAFT) a pad-scale series resistance costs RC delay against the input capacitance, not conversion accuracy | Design statement, **unmeasured**: every committed `.spice`/`.cir` deck drives `CLK` from an ideal `V` or `B` source with nothing in series. One campaign does put a resistance on a net of this name one level down, and it is not a budget for this pad: [`sim/comparator-decision/testbench/comparator_core_extracted.spice`](../../sim/comparator-decision/testbench/comparator_core_extracted.spice) carries **183–403 Ω** `RCLK_t*` extracted interconnect parasitics on the *comparator's* own clock pin — the same case the `VINP`/`VINN` row names. **What this row does not cover**: an edge-rate or duty-cycle requirement at the pad. This document declares none and no campaign measures one, so the "none" is about resistance to the pad and about nothing else |
+| `RST_B` | **None declared**, on the same basis as `CLK` — a static CMOS gate input into the ring sequencer, asserted on the reset sequence rather than per conversion | Design statement, **unmeasured**, with the same uncovered edge-rate question as the `CLK` row |
+| `DOUT9..DOUT0` | **None declared on resistance to the pad, and no off-chip load is specified.** These are standard-cell outputs read as digital test outputs; a pad-scale series resistance costs RC delay against whatever the harness presents, not the accuracy of the conversion that produced the code | Design statement, **unmeasured at pad scale**: no deck places an off-chip or pad-scale load on these outputs, and no deck places a series resistance on them at all. The only load any committed deck puts on them is [`sim/digital-partition/`](../../sim/digital-partition/)'s declared **5 fF** per-output interface load ([`records/20261010-132019-f757b0e.md`](../../sim/digital-partition/records/20261010-132019-f757b0e.md), that campaign's current record) (`digital_char.LOADS_F["DOUT"]`, labelled there an *experiment assumption* standing in for the on-die downstream readout gate load — not a ratified spec value and not a pad-scale figure), emitted into that campaign's committed decks as e.g. `Cld14 DOUT0 0 5.0000e-15`. **What this row does not cover**: a maximum harness-side load capacitance the harness's digital output pad may present — none is declared or measured here, and [`sim/digital-sta/`](../../sim/digital-sta/) grades the two digital macros' own routed timing against a Liberty corner set, not an off-chip load |
+| `BUSY` | **None declared**, on the same basis as `DOUT9..DOUT0` — a conversion-in-progress strobe out of the same standard-cell bank | Design statement, **unmeasured at pad scale**, on exactly that row's basis: no off-chip or pad-scale load and no series resistance in any deck, and the same declared 5 fF on-die interface load (`digital_char.LOADS_F["BUSY"]`, emitted as `Cld13 BUSY 0 5.0000e-15`), with the same uncovered harness-side-load question |
+
+**Coverage.** Eleven rows covering **22 of 22** ports of §2.3's `.subckt
+sar_adc_top` list, each port exactly once: `VINP`/`VINN` (2), `VREFP`/`VREFN`
+(2), `VCM` (1), `VDD` (1), `GND` (1), `VPWR` (1), `VGND` (1), `CLK` (1),
+`RST_B` (1), `DOUT9..DOUT0` (10), `BUSY` (1). Ports are grouped into one row
+only where the declaration and its basis are identical, the same convention
+§2.2's pad table uses for `DOUT9..DOUT0`. This is a **separate** table from
+§2.2's deliberately: §2.2's columns are what check 10 of the
+[citation gate](check_proposal_citations.py) reads port-for-port against
+`design/sar_adc_top.spice`, and a declaration column does not belong in a
+machine-checked slot categorisation.
+
+**Verdict against `get-involved.html`'s longer wording: PARTIAL.** Every pad now
+carries a declaration, which is what the clause asks for, and nine of the eleven
+rows carry either a measured figure or a reasoned "none declared" with its own
+uncovered question stated. What is still missing is the one quantity the clause's
+own example names: **no ohm value exists for `VREFP`/`VREFN`** (#841) **or for
+`VINP`/`VINN`** (#847), because no campaign in this repository has measured
+either, and those two rows say so rather than borrowing a number. In particular
+`rules-4.html`'s "less than 5 ohms" rating for the shared analog multiplexer
+switches is **not** adopted as this block's reference requirement: that figure
+describes the harness's own switches, bussed to all eighteen projects, and says
+nothing about what this CDAC needs. Carried as §7 item 14.
+
+**What this section does not establish.** A declared requirement is this
+design's statement of what it needs, not an organiser-confirmed property of any
+slot. The harness repository's I/O configuration is still TBD (§2.2.1), so a pad
+whose requirement the published harness cannot meet would be a new conflict at
+that point — the pad-budget conflict already known is §2.2.1's, tracked as #836.
+**No §4 verdict moves because of this section, no row of
+[`spec/target-spec.md`](../../spec/target-spec.md) changes, and §2.2's pad table
+and its machine-checked totals are untouched.**
 
 ### 2.3 What this repo's own port list is, verbatim
 
@@ -5878,8 +5966,9 @@ tracker already owns.
 
 12. **Three brief requirements that no spec row covers (added 2026-11-13,
     issue #121 criterion 4, second pass; detail in §2.2.2).** Each is tracked:
-    (a) #834, (b) #835, (c) no separate issue — it is a standing note on this
-    document's own two DRAFT rows rather than a unit of work. (a) **Absolute
+    (a) #834, (b) #835 — closed by this pass, item 13 — (c) no separate
+    issue — it is a standing note on this document's own two DRAFT rows
+    rather than a unit of work. (a) **Absolute
     limits are not stated.** The page's proposal-content list asks for
     "absolute limits" alongside average/minimum/maximum values. §4 gives
     min/typ/max per row, and [`spec/target-spec.md`](../../spec/target-spec.md)
@@ -5888,20 +5977,114 @@ tracker already owns.
     conformance to the Sky130 process's own voltage limits. Closing this means
     a decision record stating the block's absolute maximum ratings — a `spec/`
     ratification, not a measurement, and not written here (#834). (b) **No simulation
-    result is summarized in a plot.** The page asks for plots rather than raw
-    data, with the raw data reproducible on demand; this repository is the
-    inverse by construction — 0 tracked image artifacts, every result a
-    Markdown table inside an append-only record, raw per-corner artifacts
-    committed beside it. The reproducibility half is met and the summary half
-    is not; closing it means a rendering step in the evidence flows
-    (`sim/report/generate.py`, which renders this repository's characterization
-    tables today, is the natural place — scoped that way in #835). (c)
+    result was summarized in a plot — the gap this pass closes; see item
+    13.** The page asks for plots rather than raw data, with the raw data
+    reproducible on demand; when this sub-item was first recorded the
+    repository was the inverse by construction — 0 tracked image artifacts,
+    every result a Markdown table inside an append-only record, raw per-corner
+    artifacts committed beside it. The reproducibility half was met and the
+    summary half was not; closing it meant a rendering step in the evidence
+    flows (`sim/report/generate.py`, which renders this repository's
+    characterization tables today, was named as the natural place — scoped
+    that way in #835). That step is now in the tree: five figures under
+    [`docs/plots/`](../plots/), rendered from already-committed evidence and
+    gated through `sim/report/generate.py --check`. Item 13 states what they
+    cover and the one summary it deliberately leaves undrawn, so this
+    sub-item is recorded as closed rather than open. (c)
     **Ratifying a DRAFT row after
     submission would be a mid-design specification change**, which the page
     requires approval for. The two exposed rows are Sample rate and
     ENOB/INL-DNL (DR-007, still `proposed`). Recorded so that a later
     ratification is not mistaken for a purely internal `spec/` event. **No §4
     verdict moves because of this item**, and none is claimed to.
+
+13. **Simulation results are now summarized in plots, not only raw data
+    (added 2026-11-13, issue #835; this closes the "summarized in plots" gap
+    item 12(b) records).** The published brief asks that "simulation results
+    should be summarized in plots, not raw data", while requiring that the raw
+    data stay reproducible from the sources in the repository. The
+    reproducibility half was already over-met — every result is an append-only
+    record with its per-corner raw artifacts committed beside it, and
+    `sim/check_spec_coverage.py` gates that each record's documented cold-start
+    invocation is the one it was minted with — but until this pass the tree
+    held no image file at all, so the *summary* half was unmet. Five figures
+    now land under [`docs/plots/`](../plots/), rendered by
+    [`sim/report/plots.py`](../../sim/report/plots.py) from evidence that is
+    **already committed** (no simulation is run to draw them):
+    [`enob-distribution.svg`](../plots/enob-distribution.svg) (per-draw ENOB
+    against the DRAFT lower limit),
+    [`cdac-inl-distribution.svg`](../plots/cdac-inl-distribution.svg) (per-draw
+    worst-case |INL| and |DNL|, one panel each, against the DRAFT ±1 LSB
+    target),
+    [`cdac-transfer-spot-check.svg`](../plots/cdac-transfer-spot-check.svg)
+    (measured differential level at 5 codes across all 9 ratified corners, plus
+    the per-corner monotonicity margin),
+    [`bit-trial-settling-corners.svg`](../plots/bit-trial-settling-corners.svg)
+    (worst-case `t_settle_99%` per corner against the DR-006 phase budget), and
+    [`coherent-sine-spectrum.svg`](../plots/coherent-sine-spectrum.svg) (the
+    captured 32-code dynamic-test record's spectrum, measured vs an ideal
+    quantizer on the identical plan). Each figure stamps its own source Record
+    ID and that record's corner set onto its face, and
+    `python3 sim/report/plots.py --check` — stdlib-only, wired into `npm run
+    check:ci` through `sim/report/generate.py --check` — fails if a cited
+    evidence file, the renderer, or a committed SVG changes without a
+    re-render, if a figure's source record is superseded, or if a record's own
+    stated figures stop reproducing from the raw artifact. **No §4 verdict
+    moves because of this item**, and no evidence under `sim/` was edited: the
+    plots are a regenerable derived view, written outside every path
+    `sim/check_append_only.py` and `signoff/check_evidence_hashes.py` protect.
+    One deliberate gap is recorded rather than filled: no linearity figure is
+    derived from the 5-code transfer bench, whose own record states that DR-003
+    defers the DNL/INL budget to the Monte Carlo campaign. (Both Monte Carlo
+    series — max|INL| and max|DNL| — are re-derived from that campaign's own 40
+    committed raw draw logs by its own parser, not from the yield report's
+    persisted samples path, which is a scratch file.) The *first* half of the
+    same brief sentence — "avoid
+    unnecessary data dumps" — is untouched: the committed raw artifacts under
+    `sim/` stay as they are, since changing that would change the append-only
+    rule, which is a separate decision. See
+    [`sim/README.md`](../../sim/README.md) "Summary plots" for the location,
+    format and gate decisions and the cold-start regeneration command.
+
+14. **No pad carried a declared special requirement — now declared, with the
+    two figures the clause's own example asks for still missing (added
+    2026-11-13, issue #839; detail in §2.2.3).** `get-involved.html` — the page
+    the challenge's landing page names for what a proposal must contain — words
+    the proposal-content I/O item as "List of I/O, including test ports. Note
+    any special requirements such as low resistance to the pad."
+    `rules-4.html` carries only the first sentence, and §2.2.1 and §2.2.2 both
+    reconciled against `rules-4.html` alone, so the second sentence had never
+    been graded. §2.2.3 now declares one row per port of §2.3's
+    `.subckt sar_adc_top` list, 22 of 22, each stating a requirement or an
+    explicit "none declared" with what that "none" does not cover. Graded
+    **PARTIAL**: the declaration exists, and the one quantity the clause's own
+    example names does not. `VCM` is the only signal pad with a measured
+    impedance budget — right-censored at 100 kΩ across the ratified 9-point
+    PVT grid, and **on the sampled differential error only**: at that
+    resistance the same records show the `VCM` node itself far from its
+    `V_REF/2 = 0.9 V` nominal at eight of the nine corners, and what that
+    departure does to the composed ADC is unmeasured (§2.2.3's `VCM` row);
+    the four supply terminals carry a structural requirement — each its
+    own bond, the analog and digital rails untied in metal on-die (DR-010,
+    DR-012) — rather than a resistance figure; the digital pads (`CLK`,
+    `RST_B`, `DOUT9..DOUT0`, `BUSY`) declare none on resistance to the pad and
+    no off-chip load, unmeasured at pad scale, and say so — the only load any
+    committed deck places on `DOUT9..DOUT0`/`BUSY` is `sim/digital-partition`'s
+    declared 5 fF on-die interface-load assumption, which is neither a
+    pad-scale nor a harness-side figure; and **`VREFP`/`VREFN` and
+    `VINP`/`VINN` carry no ohm value at all**, because no campaign in this
+    repository puts a drive or source impedance on either pair *at the
+    top-level pads* (§2.2.3's `VINP`/`VINN` row names the two lower-level
+    comparator-pin resistances that must not be mistaken for such a budget).
+    Those two gaps are tracked as **#841**
+    (reference, whose evidence item 11(a)(iii) above also needs before the
+    shared-analog-bus route could be chosen) and **#847** (input). Borrowing
+    `rules-4.html`'s "less than 5 ohms" shared-multiplexer rating as this
+    block's own requirement was considered and rejected in §2.2.3: it is the
+    harness's figure for its own switches, bussed to all eighteen projects, and
+    not a statement about what this CDAC needs. **No §4 verdict moves because of
+    this item**, and none is claimed to.
+
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating

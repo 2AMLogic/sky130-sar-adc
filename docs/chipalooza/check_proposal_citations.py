@@ -1227,6 +1227,13 @@ RENDERER_ENTRY_RE = re.compile(r"`(?P<entry>layout/[A-Za-z0-9._/-]+)`")
 ARM_CAMPAIGN = "supply-impedance-sensitivity"
 ARM_RUNNER = f"sim/{ARM_CAMPAIGN}/run_supply_impedance.py"
 ARM_POINTER = f"sim/{ARM_CAMPAIGN}/records/LATEST"
+# The MODULE the `ARMS` table itself sits in, which since issue #848's split of
+# the runner into per-campaign modules is no longer `ARM_RUNNER`. The two are
+# separate constants on purpose: `ARM_RUNNER` is the CLI path the proposal's
+# own prose cites and the regexes below match, and it did not move, so
+# repointing it at the table's new home would make the document wrong. This
+# one is only where the source-text reader looks.
+ARM_TABLE_SOURCE = f"sim/{ARM_CAMPAIGN}/supply_impedance_campaigns/common.py"
 
 # The runner's own arm table, read as source text rather than imported, for
 # `report_row_count`'s reason: this gate is a pure file reader. The `name=`
@@ -1292,6 +1299,10 @@ ARM_CENSUS_ANCHOR = f"sim/{ARM_CAMPAIGN}/"
 # defect shape, a second axis over from check 31.
 SWEEP_RUNNER = ARM_RUNNER
 SWEEP_RECORDS = f"sim/{ARM_CAMPAIGN}/records"
+# Where the two axis tuples themselves live, since issue #848's split --
+# `ARM_TABLE_SOURCE`'s separation of "the path the prose cites" from "the file
+# this parse reads", applied to the box's own campaign module.
+SWEEP_AXES_SOURCE = f"sim/{ARM_CAMPAIGN}/supply_impedance_campaigns/sweep.py"
 
 # The runner's two axis tuples, read as source text (never imported -- the
 # same pure-file-reader rule `report_row_count` and `runner_arms` record). A
@@ -1424,6 +1435,9 @@ DECOUPLING_RECORD_RE = re.compile(r"`(?P<record>spec/decision-records/[A-Za-z0-9
 # them still true. Check 30's defect shape, a third axis over.
 NULL_SWEEP_RUNNER = ARM_RUNNER
 NULL_SWEEP_RECORDS = SWEEP_RECORDS
+# Where the ladder tuple itself lives, since issue #848's split --
+# `ARM_TABLE_SOURCE`'s separation, applied to the ladder's own campaign module.
+NULL_SWEEP_AXIS_SOURCE = f"sim/{ARM_CAMPAIGN}/supply_impedance_campaigns/null_sweep.py"
 
 # The runner's own ladder tuple, read as source text rather than imported (the
 # pure-file-reader rule `runner_arms` and `sweep_box` both record). A tuple
@@ -5282,17 +5296,22 @@ def check_renderer_census(doc: Path, text: str) -> list[str]:
 def runner_arms() -> list[str]:
     """The supply-return arms `ARM_RUNNER` implements, in its own order.
 
-    Read out of the source text rather than by importing the module, for
-    `report_row_count`'s reason: this gate is a pure file reader, and the
-    runner imports the testbench fragment helpers. Empty when the runner is
-    absent or its arm table is not in the shape this parse recognises -- both
-    are "nothing to compare", which check 31 reports as an ungraded silence
-    rather than as a census of zero arms.
+    Read out of `ARM_TABLE_SOURCE`'s source text rather than by importing the
+    module, for `report_row_count`'s reason: this gate is a pure file reader,
+    and the runner imports the testbench fragment helpers. Empty when that
+    file is absent or its arm table is not in the shape this parse recognises
+    -- both are "nothing to compare", which check 31 reports as an ungraded
+    silence rather than as a census of zero arms.
+
+    The table moving to another module (issue #848) is exactly the change
+    that would switch this check off in silence, so the campaign's own unit
+    tests pin this function's answer against the table imported from the
+    package: a future move that leaves this constant behind fails there.
     """
-    runner = REPO_ROOT / ARM_RUNNER
-    if not runner.is_file():
+    table_module = REPO_ROOT / ARM_TABLE_SOURCE
+    if not table_module.is_file():
         return []
-    source = runner.read_text()
+    source = table_module.read_text()
     opening = ARM_TABLE_RE.search(source)
     if opening is None:
         return []
@@ -5396,15 +5415,17 @@ def check_arm_census(doc: Path, text: str) -> list[str]:
 def sweep_box() -> tuple[int, int] | None:
     """The default `--sweep` box the runner defines: (L multipliers, R_SUBX).
 
-    Source-text read, `runner_arms`' reason. `None` covers "no runner" and
-    "the axes are not two tuple literals this parse recognises" -- both are
-    nothing to compare against, which check 32 reports as an ungraded silence
-    rather than as a box of zero points.
+    Source-text read of `SWEEP_AXES_SOURCE`, `runner_arms`' reason. `None`
+    covers "no such file" and "the axes are not two tuple literals this parse
+    recognises" -- both are nothing to compare against, which check 32 reports
+    as an ungraded silence rather than as a box of zero points. Pinned against
+    the imported tuples by the campaign's own unit tests, `runner_arms`'
+    reason.
     """
-    runner = REPO_ROOT / SWEEP_RUNNER
-    if not runner.is_file():
+    axes_module = REPO_ROOT / SWEEP_AXES_SOURCE
+    if not axes_module.is_file():
         return None
-    source = runner.read_text()
+    source = axes_module.read_text()
     axes = []
     for pattern in (SWEEP_L_AXIS_RE, SWEEP_R_AXIS_RE):
         match = pattern.search(source)
@@ -5646,15 +5667,17 @@ def check_decoupling_census(doc: Path, text: str) -> list[str]:
 def null_sweep_ladder() -> int | None:
     """How many substrate-return magnitudes the runner's default ladder walks.
 
-    Source-text read, `sweep_box`'s reason. `None` covers "no runner" and "the
-    ladder is not a tuple literal this parse recognises" -- both are nothing to
-    compare against, which check 34 reports as an ungraded silence rather than
-    as a ladder of zero rungs.
+    Source-text read of `NULL_SWEEP_AXIS_SOURCE`, `sweep_box`'s reason. `None`
+    covers "no such file" and "the ladder is not a tuple literal this parse
+    recognises" -- both are nothing to compare against, which check 34 reports
+    as an ungraded silence rather than as a ladder of zero rungs. Pinned
+    against the imported tuple by the campaign's own unit tests,
+    `runner_arms`' reason.
     """
-    runner = REPO_ROOT / NULL_SWEEP_RUNNER
-    if not runner.is_file():
+    axis_module = REPO_ROOT / NULL_SWEEP_AXIS_SOURCE
+    if not axis_module.is_file():
         return None
-    match = NULL_SWEEP_AXIS_RE.search(runner.read_text())
+    match = NULL_SWEEP_AXIS_RE.search(axis_module.read_text())
     if match is None:
         return None
     values = SWEEP_VALUE_RE.findall(match.group("values"))
