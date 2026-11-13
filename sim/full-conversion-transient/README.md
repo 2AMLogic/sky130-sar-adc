@@ -128,7 +128,8 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | --- | --- |
 | `gen_full_conversion_tb.py` | Generates the committed fragment; owns the timing schedule, the input set and the ideal-code mapping. `--check` fails if the committed fragment is stale (also pinned byte-for-byte by `sim/tests/test_full_conversion.py`). |
 | `testbench/full_conversion_tb_fragment.spice` | The generated, committed testbench: sources, `.tran`, and every `.meas` card. Rail-referenced via `{vdd_val}` so one fragment serves every supply point. |
-| `run_conversion.py` | Deck assembly, corner loop, decoding, record writing. |
+| `run_conversion.py` | The CLI entry point: module docstring, argument parser and `main()`. Every invocation in this README goes through it, unchanged. |
+| `full_conversion_campaigns/` | The campaigns behind that CLI, one module each (issue #861's behavior-preserving split, mirroring `comparator_campaigns/` and `supply_impedance_campaigns/`): `common` (corner axes, DR-023 solver policy, deck assembly, decode, run loop, gain/offset fit, and the node-trace and switching-event-trace cores more than one campaign uses), then `dc_codes`, `node_trace`, `cm_trace`, `decision_margin`, `coherent_sine` and `solver_audit`. Each campaign module imports `common` only. |
 | `testbench/coherent_sine_tb_fragment.spice` | `--coherent-sine`'s generated, committed testbench (issue #603): same supplies/clock/code reads as the DC fragment, coherent antiphase sine input. Pinned byte-for-byte by `sim/tests/test_dynamic_enob_fft.py`. |
 | `dynamic_enob.py` | Stdlib-only radix-2 FFT and SNDR/ENOB/SFDR analyzer for `--coherent-sine` (no numpy -- `sim/` runs without a venv). |
 | `corners/<record-id>/coherent-sine-<corner-id>.log` | `--coherent-sine` raw output, with the exact fragment that ran beside it. |
