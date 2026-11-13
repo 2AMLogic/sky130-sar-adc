@@ -219,7 +219,7 @@ and no row of §4 is relaxed or moved by this pass.
 | Proposal states "the type of IP block", and the block "should be … useful within the context of a system-on-chip" | §1 — a 10-bit differential charge-redistribution SAR ADC, a block class an SoC routinely needs; the device inventory behind that description is re-derived from [`design/sar_adc_top.spice`](../../design/sar_adc_top.spice) by check 20 of the [citation gate](check_proposal_citations.py) rather than asserted. The page points participants at the earlier Efabless challenge's designs as a starting point; per `CLAUDE.md`'s clean-room rule this design takes nothing from any of them, which costs nothing here — the page permits reuse, it does not require it | **MET** |
 | "List of I/O, including test ports" | §2.2 pad table (every port categorised against a slot) and §2.3's verbatim `.subckt sar_adc_top` port list; both are machine-checked against `design/sar_adc_top.spice` by check 10 of the [citation gate](check_proposal_citations.py), so a port cannot be added, dropped or re-categorised here without failing CI | **MET** |
 | "Functional description of the IP block" | §3 | **MET** |
-| "A target specification with all relevant characteristics, including average, minimum, and maximum values (as appropriate), **and absolute limits**" | §4 carries a `Target (min/typ/max)` column and a per-row verdict for every row, traced to [`spec/target-spec.md`](../../spec/target-spec.md) or a dated `sim/` record. It states **no absolute limits** anywhere, and `spec/target-spec.md` carries no absolute-maximum row either — the ±10 % supply span (1.62 / 1.80 / 1.98 V) in §4 is a *verification grid* (DR-003), not an absolute maximum rating, and the page separately requires conformance to the Sky130 process's own "voltage limits" | **PARTIAL — min/typ/max MET, absolute limits UNMET** (§7 item 12) |
+| "A target specification with all relevant characteristics, including average, minimum, and maximum values (as appropriate), **and absolute limits**" | §4 carries a `Target (min/typ/max)` column and a per-row verdict for every row, traced to [`spec/target-spec.md`](../../spec/target-spec.md) or a dated `sim/` record. **Absolute limits are now stated too** (2026-11-13, #834): §4's "Absolute limits" subsection and `spec/target-spec.md`'s section of the same name carry [DR-026](../../spec/decision-records/DR-026-absolute-maximum-ratings.md)'s bounds for the supplies, the analog and reference inputs, the digital inputs and outputs, and the CDAC unit-cap plates. They are **model-validity bounds read from the PDK's own device documentation, not foundry absolute maxima** — the open PDK publishes no damage threshold — and four rows (pin undershoot, operating and storage temperature, ESD/latch-up) stay open with no number, because the PDK publishes no rating for them. The ±10 % supply span (1.62 / 1.80 / 1.98 V) in §4 remains a *verification grid* (DR-003), not an absolute maximum rating; the page separately requires conformance to the Sky130 process's own "voltage limits", and DR-026 records that the grid's 1.98 V top point sits above the PDK's published 1.95 V bound — an operator decision, not resolved here | **PARTIAL — min/typ/max MET; absolute limits STATED for the bounded pin classes, four rows still open, DR-026 unratified** (§7 item 12) |
 | "An outline of a test plan for validating the IP block through measurement" | §5, written against the current port list and gated for port parity by the citation gate's test-plan check | **MET** |
 | "List of any equipment available for use in testing" and "CVs of the designers", both "sent separately from the proposal document" | Outside this document by the page's own instruction, and outside what this repository holds: both are operator-held material | **N/A here — operator action** |
 | "personal and institutional details are to be left out of the main proposal document" | This document names no individual. The single institutional string in it is §8's Apache-2.0 attribution line ("Copyright 2026 2AM Logic"), which is a licence fact rather than designer identification — removing it would misstate the licence this repository ships under | **Flagged, not changed** — whether the organisers read a licence copyright line as an institutional detail is theirs to say, not this pass's to assume |
@@ -1824,6 +1824,82 @@ document already assumed — DR-001 and DR-003 `accepted`, the other eight
 only*, exactly as before. What changes is that DR-007's eventual ratification
 now fails CI at the moment the record moves, rather than at the later moment
 someone edits `spec/target-spec.md`.
+
+### Absolute limits
+
+`rules-4.html` item 4 asks a proposal for "absolute limits" alongside the
+target specification, and separately requires conformance to the Sky130
+process's own "voltage limits". Until this pass neither this document nor
+[`spec/target-spec.md`](../../spec/target-spec.md) stated any — §2.2.2's
+content-list reconciliation graded that row PARTIAL on exactly this
+shortfall, and §7 item 12(a) tracked it as #834. The table above is a
+**verification grid** — the PVT points this repo's corner runner sweeps, and
+an assertion that the design works everywhere inside them. A limit is the
+opposite claim: where the part is not to be taken. The two are stated
+separately here because neither follows from the other, and in particular
+the grid's top supply point, `1.98 V`, is **not** an absolute maximum and
+was never ratified as one.
+
+[DR-026](../../spec/decision-records/DR-026-absolute-maximum-ratings.md)
+(**proposed**, 2026-11-13, issue #834) states the limits below. They are
+carried in
+[`spec/target-spec.md`](../../spec/target-spec.md)'s own "Absolute limits"
+section, which is deliberately outside its `## Target table`: an absolute
+limit is a bound on use, not a measurable claim, so it has no testbench and
+no entry in `sim/spec-coverage.json`. Voltages are with respect to the pin's
+own domain return (`GND` for the analog domain, `VGND` for the digital
+domain, per §2.1 and
+[DR-010](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)):
+
+- **`VDD` (analog supply) and `VPWR` (digital supply)** — 0 to `1.95 V`.
+- **`VINP`, `VINN`, `VCM` (analog inputs)** and **`VREFP`, `VREFN`
+  (reference inputs)** — 0 to `1.95 V`, and never above `VDD`.
+- **`CLK`, `RST_B` (digital inputs)** — 0 to `1.95 V`, and never above
+  `VPWR`. **`DOUT9..DOUT0`, `BUSY` (digital outputs)** — 0 to `1.95 V`.
+- **CDAC unit-cap plate-to-plate** — `≤ 5.0 V`. About `2.6×` looser than
+  the pin bound, so it never binds in this design.
+- **Open, with no number stated**: pin undershoot below the domain return;
+  operating temperature; storage temperature; and ESD (HBM/CDM) plus
+  latch-up current. The PDK publishes no rating for any of them, so each is
+  named as a gap rather than filled — per this repository's own rule that a
+  value which cannot be sourced is left open. (DR-026 carries a fifth open
+  row, the terminal voltage of `sky130_fd_pr__res_generic_po`, which bounds
+  nothing here: that device appears only in `design/smoke_test.sch`, never
+  in `design/sar_adc_top.spice`.)
+
+**What kind of limit `1.95 V` is — the caveat travels with the number.** It
+is the ceiling of the span SkyWater's own device documentation publishes
+under the heading *"Operating Voltages where SPICE models are valid"* for
+`sky130_fd_pr__nfet_01v8` and `sky130_fd_pr__pfet_01v8` (SkyWater SKY130 PDK
+documentation, *Device Details*, fetched 2026-11-13, sha256
+`506021827f52b26673daf8b580f8d79d408724af3138a65695bde86e5c1c6e49` on the
+page's reST source). That is a **model-validity range, not a foundry
+absolute-maximum rating**: the page publishes no breakdown voltage, no
+stress rating and no reliability lifetime for any device, and the pinned PDK
+install (open_pdks `f6eeac7d`, 8380 files) carries no absolute-maximum
+statement at all — DR-026's Context records the two keyword sweeps that
+establish that, re-runnable against any install at the same pin. The pin
+rows above are in turn **derived** from the published *terminal-pair*
+bounds (`V_DS`, `V_GS`, `V_BS`) through this block's topology, not published
+as pin ratings by anyone; DR-026 states that derivation so a reviewer can
+reject it rather than inherit it. A reader expecting a datasheet-grade
+absolute-maximum table will find a narrower claim here, and that is the
+honest state of the open PDK rather than a satisfied requirement.
+
+**One conflict this surfaces, stated and not resolved.** `1.95 V` is `1.5 %`
+*below* the ratified grid's top supply point of `1.98 V`
+(`sim/harness/corners.py`), and committed evidence exists at that point — the
+corner id `tt_27c_1.98v` appears in
+[`sim/cdac-array-transfer/records/20260821-062504-433a294.md`](../../sim/cdac-array-transfer/records/20260821-062504-433a294.md)
+among others. So part of this repository's ratified sweep lies outside the
+span SkyWater warrants its models over: the devices' documented envelope is
+`+8.33 %` of nominal, narrower than the `±10 %` swept. **No row of the table
+above is re-graded by this, and the Corners row is not relaxed, narrowed or
+re-ratified** — results at `1.98 V` are not asserted to be wrong, only
+reported outside the warranted span, which no document in this repository
+had previously said. The disposition is the operator's (DR-026 Open item 5);
+it is recorded as §7 item 12(a) below.
+
 
 ---
 
@@ -4217,6 +4293,9 @@ tracker already owns.
    > **DR-025**
    > (`spec/decision-records/DR-025-cdac-gain-error-closure-path.md`) is
    > **proposed**.
+   > **DR-026**
+   > (`spec/decision-records/DR-026-absolute-maximum-ratings.md`) is
+   > **proposed**.
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the
@@ -5878,16 +5957,40 @@ tracker already owns.
 
 12. **Three brief requirements that no spec row covers (added 2026-11-13,
     issue #121 criterion 4, second pass; detail in §2.2.2).** Each is tracked:
-    (a) #834, (b) #835, (c) no separate issue — it is a standing note on this
-    document's own two DRAFT rows rather than a unit of work. (a) **Absolute
-    limits are not stated.** The page's proposal-content list asks for
-    "absolute limits" alongside average/minimum/maximum values. §4 gives
-    min/typ/max per row, and [`spec/target-spec.md`](../../spec/target-spec.md)
-    carries no absolute-maximum row; the ±10 % supply span §4 reports at is a
-    verification grid (DR-003), not a rating, and the page separately requires
-    conformance to the Sky130 process's own voltage limits. Closing this means
-    a decision record stating the block's absolute maximum ratings — a `spec/`
-    ratification, not a measurement, and not written here (#834). (b) **No simulation
+    (a) #834 — **addressed in part, 2026-11-13; see below**, (b) #835, (c) no
+    separate issue — it is a standing note on this document's own two DRAFT
+    rows rather than a unit of work. (a) **Absolute limits: stated this pass
+    for most pin classes, four rows still open, and one conflict with the
+    ratified corner grid surfaced (#834).** When this item was first written
+    the page's proposal-content list asked for "absolute limits" alongside
+    average/minimum/maximum values, §4 gave only min/typ/max per row, and
+    [`spec/target-spec.md`](../../spec/target-spec.md) carried no
+    absolute-maximum row. That first sentence no longer holds and is corrected
+    here rather than left to mislead a reader skimming §7's headings:
+    [DR-026](../../spec/decision-records/DR-026-absolute-maximum-ratings.md)
+    (**proposed**) now bounds the two supplies, the analog and reference
+    inputs, the digital inputs and outputs, and the CDAC unit-cap plates; §4's
+    "Absolute limits" subsection reports them, and `spec/target-spec.md`
+    carries them in a section of its own outside its `## Target table`. **What
+    has not changed**: the ±10 % supply span §4 reports at is still a
+    verification grid (DR-003), still not a rating, and DR-026 does not make
+    it one. **Four rows remain open with no number stated**, because the PDK
+    publishes no rating for them — pin undershoot below the domain return,
+    operating temperature, storage temperature, and ESD (HBM/CDM) plus
+    latch-up current; the ESD row is additionally a padframe property, not a
+    property of this block, which has no pads of its own (§2.2), so it meets
+    item 11(b) there rather than here. **The numbers are model-validity
+    bounds, not foundry absolute maxima** — the open PDK publishes no damage
+    threshold for any device — and every statement of them in this document
+    says so. **And a conflict with the ratified corner grid is now on the
+    record and is not resolved here**: the published `1.95 V` ceiling for both
+    1.8 V core FETs is `1.5 %` below the grid's top supply point of `1.98 V`,
+    so committed evidence at `tt_27c_1.98v` lies outside the span SkyWater
+    warrants its models over. Dispositioning that is an operator decision
+    (DR-026 Open item 5), as is ratifying DR-026 itself; the page's separate
+    requirement to conform to the Sky130 process's own voltage limits is what
+    makes it a live question rather than a footnote. The Corners row is
+    neither relaxed nor re-graded, and **no §4 verdict moves**. (b) **No simulation
     result is summarized in a plot.** The page asks for plots rather than raw
     data, with the raw data reproducible on demand; this repository is the
     inverse by construction — 0 tracked image artifacts, every result a
