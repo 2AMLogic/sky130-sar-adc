@@ -539,6 +539,124 @@ def partition_decouple_rescue(points: list[dict]) -> dict[str, list[dict]]:
     }
 
 
+def single_corner_decouple_rescue_note(marginal_r_ohm: float,
+                                        c_decouple_f: float) -> str:
+    """The single-corner (default-path) note for a C_decouple sweep that DID
+    keep the differential error within 1 provisional LSB at the marginal
+    R_source (issue #882).
+
+    `c_decouple_f` is `find_budget()`'s result on the C_decouple axis: the
+    LARGEST swept value that passed. This note therefore reports it as a
+    value confirmed to work, never as a floor -- the pre-#882 wording said
+    "a decoupling capacitor of >= X pF ... recovers differential error",
+    which asserts two things the five-point sweep did not observe: that
+    every capacitance above the largest TESTED value also works, and
+    (by omission) that no smaller swept value does. The record's own
+    C_decouple table note already states this error is not monotonic in
+    C_decouple, so "`>=`" contradicted the same record that carried it.
+
+    Deliberately the same caveat wording as the `--corners` sibling note in
+    `write_corners_decouple_record()` ("points already confirmed to work,
+    not guaranteed floors -- this error is not monotonic in C_decouple"),
+    which issue #874 reworded while this one was left behind.
+
+    Pure (float in, string out) so the wording is unit-testable without
+    ngspice; covered by sim/tests/test_run_vcm_drive_budget.py."""
+    return (
+        f"At the marginal R_source={marginal_r_ohm:.0f} ohm (worst-case "
+        f"window), a decoupling capacitor of "
+        f"{c_decouple_f * 1e12:.2f} pF at the on-die VCM node recovers "
+        "differential error to <= 1 provisional LSB. That is the largest "
+        "swept C_decouple confirmed to work here, not a guaranteed floor: "
+        "smaller swept values are not implied to fail and larger "
+        "(untested) values are not implied to keep working -- this error "
+        "is not monotonic in C_decouple."
+    )
+
+
+def tt_point_seed_comparison_note(measured_budget_ohm: float | None,
+                                   seed_budget_ohm: float | None,
+                                   smallest_nonzero_ohm: float) -> str:
+    """The full-grid record's note on its own `tt`/27C/1.8V point, COMPARED
+    against the single-corner seed record's figure for the same
+    window/point (issue #882).
+
+    `measured_budget_ohm` is this grid's tt point `budget_1lsb_ohm`;
+    `seed_budget_ohm` is `SINGLE_CORNER_SEED_BUDGET_1LSB_OHM[window]`.
+    Either may be `None` -- "no positive bare budget", which for the seed
+    is that record's own "<= 0 ohm" figure read in this script's post-#874
+    convention (see `SINGLE_CORNER_SEED_BUDGET_1LSB_OHM`).
+
+    The pre-#882 note said the tt point was "consistent with (reproduces)
+    the single-corner record's own finding" whenever it had *a* budget, with
+    no comparison against the seed at all -- so e.g.
+    `records/20260908-100413-f3e2914.md` printed "<= 100000 ohm, consistent
+    with (reproduces) ..." against a 10000 ohm seed. The sibling branch (no
+    positive budget at the tt point) said nothing about the seed either way.
+    This helper covers all four seed/measured cases and uses the word
+    "reproduces" ONLY when the two figures agree.
+
+    Pure (figures in, string out) so each case is unit-testable without
+    ngspice; covered by sim/tests/test_run_vcm_drive_budget.py."""
+    seed_ref = (f"[`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
+                f"({SINGLE_CORNER_SEED_RECORD}.md)")
+    if measured_budget_ohm is not None:
+        measured = (
+            f"The `tt`/27C/1.8V point in this grid measures a 1-LSB budget "
+            f"of <= {measured_budget_ohm:.0f} ohm."
+        )
+    else:
+        measured = (
+            f"The `tt`/27C/1.8V point in this grid finds NO positive 1-LSB "
+            f"budget: the smallest nonzero swept R_source "
+            f"({smallest_nonzero_ohm:.0f} ohm) already exceeds 1 provisional "
+            "LSB there, so that point allows zero margin for any nonzero "
+            "drive impedance."
+        )
+
+    # Both sides are exact values -- a swept-list entry and a literal read
+    # off the seed record -- so `==` is the right comparison, not a
+    # tolerance: a tolerance would report agreement between two figures the
+    # two records actually print differently.
+    if measured_budget_ohm is None and seed_budget_ohm is None:
+        comparison = (
+            f"The single-corner seed record {seed_ref} likewise reports no "
+            "positive bare budget for the same window/point, so this grid's "
+            "tt point reproduces the single-corner record's own finding."
+        )
+    elif measured_budget_ohm is None:
+        comparison = (
+            f"The single-corner seed record {seed_ref} reports a "
+            f"<= {seed_budget_ohm:.0f} ohm bare budget for the same "
+            "window/point, so the two figures DIFFER: this grid's tt point "
+            "finds no positive budget where that record found one."
+        )
+    elif seed_budget_ohm is None:
+        comparison = (
+            f"The single-corner seed record {seed_ref} reports no positive "
+            "bare budget for the same window/point, so the two figures "
+            "DIFFER: this grid's tt point finds a budget where that record "
+            "found none."
+        )
+    elif measured_budget_ohm == seed_budget_ohm:
+        comparison = (
+            f"That is the same figure the single-corner seed record "
+            f"{seed_ref} reports for the same window/point, so this grid's "
+            "tt point reproduces the single-corner record's own finding."
+        )
+    else:
+        comparison = (
+            f"The single-corner seed record {seed_ref} reports "
+            f"<= {seed_budget_ohm:.0f} ohm for the same window/point, so "
+            f"the two figures DIFFER ({measured_budget_ohm:.0f} ohm here "
+            f"vs. {seed_budget_ohm:.0f} ohm there); this grid's tt point "
+            "does not reproduce the single-corner figure. Which of the two "
+            "is the better reading of this point is not settled here -- "
+            "both are append-only evidence from different runs."
+        )
+    return f"{measured} {comparison}"
+
+
 def run_corners(scratch: Path, point: str = DEFAULT_POINT,
                 window: str = "worst",
                 quiet: bool = False) -> list[dict]:
@@ -1076,26 +1194,19 @@ def write_corners_record(points: list[dict], point: str,
         (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0
          and p["supply_v"] == VDD_NOM), None,
     )
-    if tt_pt is not None and tt_pt["budget_1lsb_ohm"] is not None:
-        notes.append(
-            f"The `tt`/27C/1.8V point in this grid measures a 1-LSB "
-            f"budget of <= {tt_pt['budget_1lsb_ohm']:.0f} ohm, "
-            "consistent with (reproduces) the single-corner record's "
-            "own finding for the same window/point."
-        )
-    elif tt_pt is not None:
-        notes.append(
-            f"The `tt`/27C/1.8V point in this grid finds NO positive 1-LSB "
-            f"budget: the smallest nonzero swept R_source "
-            f"({smallest_nonzero:.0f} ohm) already exceeds 1 provisional "
-            "LSB there, so that point allows zero margin for any nonzero "
-            "drive impedance."
-        )
-
     # `seed_budget is None` is the seed record's own "<= 0 ohm" figure read
     # in this script's post-#874 convention -- see
     # SINGLE_CORNER_SEED_BUDGET_1LSB_OHM.
     seed_budget = SINGLE_CORNER_SEED_BUDGET_1LSB_OHM[window]
+
+    if tt_pt is not None:
+        # Compared against the seed figure, not asserted against it (#882).
+        notes.append(
+            tt_point_seed_comparison_note(
+                tt_pt["budget_1lsb_ohm"], seed_budget, smallest_nonzero
+            )
+        )
+
     if seed_budget is not None and none_found:
         notes.append(
             f"**This tightens, not merely restates, the single-corner "
@@ -1476,11 +1587,9 @@ def main() -> int:
         )
     elif dec_budget_1lsb is not None:
         notes.append(
-            f"At the marginal R_source={marginal_r:.0f} ohm (worst-case "
-            f"window), a decoupling capacitor of >= "
-            f"{dec_budget_1lsb['c_decouple_f'] * 1e12:.2f} pF at the "
-            "on-die VCM node recovers differential error to <= 1 "
-            "provisional LSB."
+            single_corner_decouple_rescue_note(
+                marginal_r, dec_budget_1lsb["c_decouple_f"]
+            )
         )
     else:
         notes.append(
