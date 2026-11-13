@@ -873,7 +873,7 @@ PIN = {
     # direction 180) -- the plate is 47.9 um square and IS the terminal, so this
     # coordinate is an edge, not a landing point. Every via2 into it is stepped
     # `DECAP_VIA2_INSET_UM` inside the plate instead (see `decoupling_caps()`),
-    # exactly as `layout/sampling-frontend/bin/build_layout.py`'s own
+    # exactly as the shared `_geometry_common.step_down_to_met1`'s
     # `MET3_VIA_INSET_UM` does for the same port of the same generator.
     #
     # `C0_TOP` is the 0.42 um met4 lead the generator runs from the plate's own
@@ -2298,7 +2298,7 @@ DECAP_VIA_ARRAY = 2
 #: How far inside a bottom plate's own edge a via2 lands. The `C0_BOT` port is
 #: reported AT the plate's left edge, and `met3.enclosing.via2.1` (0.065 um)
 #: fails for a via2 drawn there -- the same trap
-#: `layout/sampling-frontend/bin/build_layout.py`'s `MET3_VIA_INSET_UM` (0.20)
+#: `layout/bin/_geometry_common.py`'s `MET3_VIA_INSET_UM` (0.20)
 #: documents. 2.0 um here rather than 0.20 because the via2's own met2 landing
 #: is `DECAP_STRAP_W` wide, so the *pad*, not the cut, is what has to stay
 #: inside the plate's footprint -- and because a tie that enters the plate
@@ -2365,8 +2365,9 @@ def decoupling_caps(c: Canvas) -> dict[str, tuple[int, int]]:
       `layout/sampling-frontend/bin/build_layout.py` routes the same
       generator's own `*_BOT` port.
     * **A top plate is reachable only from ABOVE**, on met4, and any *new* met3
-      shape inside the cell's footprint shorts the two plates (that sub-block's
-      own `_step_down_to_met1` records finding this directly). So every supply
+      shape inside the cell's footprint shorts the two plates (the shared
+      `_geometry_common.step_down_to_met1` records finding this directly, in
+      the `L_MET4` case that sub-block's flow worked out). So every supply
       tie here is met4, merging with the unit's own met4 lead, and no met3 is
       drawn inside any unit's footprint at all.
 

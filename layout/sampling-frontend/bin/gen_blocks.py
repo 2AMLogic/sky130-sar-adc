@@ -97,7 +97,12 @@ from _gen_common import add_klt_pdk_args, run_gen, write_and_check  # noqa: E402
 # ``from gen_blocks import ..., DOMAIN_TAP_NET, ...``).  Dropping it here is
 # not an unused-import cleanup -- it breaks both of them at import time.
 # Do not remove (issues #251, #383/PR #388, #394).
-from _pfet_devices import DOMAIN_TAP_NET, PFET_DEVICES  # noqa: E402,F401
+from _pfet_devices import (  # noqa: E402,F401
+    DOMAIN_TAP_NET,
+    PFET_DEVICES,
+    nfet_params,
+    pfet_params,
+)
 
 #: One row per `sky130_fd_pr__nfet_01v8` instance, including `Msw_p`/`Msw_n`
 #: (see the matching-strategy note above for why they are plain singles here,
@@ -143,32 +148,6 @@ CAP_DEVICES = [
         ],
     ),
 ]
-
-
-def pfet_params(w_um: float, l_um: float) -> dict:
-    return {
-        "w_um": w_um,
-        "l_um": l_um,
-        "fingers": 1,
-        "rows": 1,
-        "cols": 1,
-        "dummy": 0,
-        "flavor": "pfet",
-        "gate_contact": True,
-    }
-
-
-def nfet_params(w_um: float, l_um: float) -> dict:
-    return {
-        "w_um": w_um,
-        "l_um": l_um,
-        "fingers": 1,
-        "rows": 1,
-        "cols": 1,
-        "dummy": 0,
-        "flavor": "nfet",
-        "gate_contact": True,
-    }
 
 
 def main() -> int:
