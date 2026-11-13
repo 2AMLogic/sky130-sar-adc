@@ -88,8 +88,9 @@ campaign before any fleet capacity is spent.
   (`>= 100000`), i.e. a lower bound, not a measured limit. A sweep where even
   the smallest non-zero value fails reports `< 100 (none found)`, never a
   budget of 0 — the `R_source = 0` row is the *reference*, so it is excluded
-  from the candidates (see `find_budget()`'s docstring for why the mirrored
-  implementation's own None branch is unreachable and this one's is not).
+  from the candidates (see `find_budget()`'s docstring for how the mirrored
+  `sim/vcm-drive-budget/` implementation excludes the same row positionally,
+  since issue #874, where this one excludes it by predicate).
 - **Sweep.** `sim/vcm-drive-budget/`'s own list, unchanged:
   `0, 100, 300, 1e3, 3e3, 10e3, 30e3, 100e3` ohm. `0` is emitted as a 1 µOhm
   resistor rather than a literal 0 — the same ngspice singular-matrix
