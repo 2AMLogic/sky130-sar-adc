@@ -35,10 +35,10 @@ import gen_full_conversion_tb as tb
 # corner campaign nor --node-trace (which probes the comparator's OUTPUT pair)
 # can tell those apart.
 #
-# Like --mechanism-probe, and unlike --node-trace, this runs the DUT twice:
-# once as committed, and once on a testbench-only modified copy with DR-009's
-# comparator-output balancing dummies REMOVED, which reproduces the
-# pre-DR-009 asymmetric loading. The pair is the control: the same residuals
+# Unlike --node-trace, this runs the DUT twice (as the since-retired
+# --mechanism-probe once did): once as committed, and once on a
+# testbench-only modified copy with DR-009's comparator-output balancing
+# dummies REMOVED, which reproduces the pre-DR-009 asymmetric loading. The pair is the control: the same residuals
 # decided two different ways is what makes "the offset is created by the
 # output loading" a measurement rather than an inference.
 # --------------------------------------------------------------------------
@@ -338,7 +338,7 @@ def write_decision_margin_record(
         + "`, `".join(p.strip() for p in _BALANCE_DUMMY_PREFIXES)
         + "` deleted at deck-assembly time -- a TESTBENCH-ONLY modification, "
         "never written back to `design/`, in the same spirit as this script's "
-        "`--mechanism-probe`."
+        "since-retired `--mechanism-probe`."
     )
     a(
         "- **Corners traced**: `"
