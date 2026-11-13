@@ -252,9 +252,15 @@ WINDOW_DESCRIPTION = {
 # (tt/27C/1.8V) seed record (SINGLE_CORNER_SEED_RECORD) reports per window
 # -- read directly from that record's own "## Result" section, used only to
 # phrase this campaign's own "tightens vs. the single-corner finding" note.
-SINGLE_CORNER_SEED_BUDGET_1LSB_OHM = {
+# `None` is that record's "<= 0 ohm" figure restated in this script's
+# post-#874 convention: `find_budget()` no longer counts the R_source = 0
+# control row, so "the only point inside 1 LSB is the ideal-source baseline
+# itself" is now reported as no positive budget rather than as a budget of
+# zero. The seed record itself is untouched append-only evidence -- this is
+# a reading of it, not an edit to it.
+SINGLE_CORNER_SEED_BUDGET_1LSB_OHM: dict[str, float | None] = {
     "worst": 10e3,
-    "legacy": 0.0,
+    "legacy": None,
 }
 
 # The DEFAULT **Supersedes** narrative for the single-corner (default-path)
@@ -443,13 +449,45 @@ def run_decouple_sweep(point: str, sample_width_ns: float, window_label: str,
     return rows
 
 
-def find_budget(rows: list[dict], threshold_lsb: float) -> float | None:
-    """Largest R_source (or C_decouple boundary) in `rows` for which
-    abs(diff_err_lsb) stays under `threshold_lsb` -- None if even the first
-    non-zero point already exceeds it, and the max swept value if every
-    point stays under (a right-censored bound, reported as such)."""
-    ok = [r for r in rows if abs(r["diff_err_lsb"]) <= threshold_lsb]
+def find_budget(rows: list[dict], threshold_lsb: float) -> dict | None:
+    """The ROW for the largest R_source (or C_decouple boundary) in `rows`
+    for which abs(diff_err_lsb) stays under `threshold_lsb` -- None if even
+    the first non-zero point already exceeds it, and the max swept value's
+    row if every point stays under (a right-censored bound, reported as
+    such).
+
+    `rows[0]` -- the CONTROL row -- is excluded from the candidates (issue
+    #874). Both `run_sweep()` and `run_decouple_sweep()` seed their baseline
+    from their own first row, so that row's `diff_err_lsb` is identically
+    zero by construction and would otherwise pass every threshold: "no swept
+    value works" would be reported as a budget of "<= 0 ohm" / "<= 0.00 pF",
+    which reads as a measurement but only restates the arithmetic. Excluding
+    it is what makes the None result above reachable at all -- before #874
+    this function could not return None, and every caller branch that
+    reports "none found" / "unrescued" was dead.
+
+    This mirrors `sim/input-drive-budget/run_input_drive_budget.py`'s own
+    `find_budget()` (whose docstring recorded that this implementation's None
+    branch was unreachable), with one deliberate difference: the control row
+    is excluded POSITIONALLY rather than by `r_source_ohm > 0`, because this
+    driver applies the same helper to the C_decouple axis (`c_decouple_f`)
+    as well as the R_source axis, and in both cases the control row is the
+    sweep's own first row by construction. Covered by
+    sim/tests/test_run_vcm_drive_budget.py."""
+    ok = [r for r in rows[1:] if abs(r["diff_err_lsb"]) <= threshold_lsb]
     return ok[-1] if ok else None
+
+
+def marginal_r_source_is_fallback(rows: list[dict]) -> bool:
+    """True when `marginal_r_source()` has no marginal case to return: no
+    swept bare R_source in `rows` pushes the differential error past 1
+    provisional LSB, so it falls back to the largest swept value. The
+    C_decouple sweep is then run against a resistance that was NOT failing
+    on its own -- that corner had nothing for decoupling to rescue, so its
+    C_decouple verdict must not be counted as a rescue (issue #874). Kept
+    separate from `marginal_r_source()` so the fallback is one predicate,
+    asserted once, rather than re-derived at each reporting site."""
+    return not any(abs(r["diff_err_lsb"]) > 1.0 for r in rows)
 
 
 def marginal_r_source(rows: list[dict], r_source_list: list[float]) -> float:
@@ -463,9 +501,42 @@ def marginal_r_source(rows: list[dict], r_source_list: list[float]) -> float:
     SAME corner's own bare sweep rather than borrowing the tt/27C/1.8V
     value -- the bare budget is already known to span >= an order of
     magnitude across the ratified grid
-    (records/20260907-052526-f589273.md)."""
-    over_1lsb = [r for r in rows if abs(r["diff_err_lsb"]) > 1.0]
-    return over_1lsb[0]["r_source_ohm"] if over_1lsb else r_source_list[-1]
+    (records/20260907-052526-f589273.md). Ask
+    `marginal_r_source_is_fallback(rows)` whether the value returned is the
+    fallback: a decoupling verdict measured against it is not a rescue."""
+    if marginal_r_source_is_fallback(rows):
+        return r_source_list[-1]
+    return next(
+        r for r in rows if abs(r["diff_err_lsb"]) > 1.0
+    )["r_source_ohm"]
+
+
+def partition_decouple_rescue(points: list[dict]) -> dict[str, list[dict]]:
+    """Split `run_corners_decouple()` points for the C_decouple record's
+    rescue verdict (issue #874).
+
+    - `nothing_to_rescue`: the corner's marginal R_source is
+      `marginal_r_source()`'s fallback (see
+      `marginal_r_source_is_fallback()`), so its C_decouple sweep ran
+      against a resistance that was not failing bare. Those corners are
+      evidence of nothing either way and belong on NEITHER side of the
+      verdict. Counting them as rescued is what let the record report
+      "decoupling rescues N of N ratified corners" for any data.
+    - `needed`: the complement -- corners whose bare R_source sweep actually
+      pushed past 1 provisional LSB, the only ones a rescue claim can be
+      about.
+    - `rescued` / `unrescued`: of `needed`, those that do and do not have a
+      1-LSB C_decouple budget (`find_budget()`, which excludes the
+      C_decouple = 0 control row).
+
+    Covered by sim/tests/test_run_vcm_drive_budget.py."""
+    needed = [p for p in points if not p["marginal_is_fallback"]]
+    return {
+        "nothing_to_rescue": [p for p in points if p["marginal_is_fallback"]],
+        "needed": needed,
+        "rescued": [p for p in needed if p["budget_1lsb_f"] is not None],
+        "unrescued": [p for p in needed if p["budget_1lsb_f"] is None],
+    }
 
 
 def run_corners(scratch: Path, point: str = DEFAULT_POINT,
@@ -532,6 +603,7 @@ def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
                               corner=process_corner, temp_c=temp_c,
                               vdd=supply_v, quiet=True)
         marginal_r = marginal_r_source(bare_rows, r_source_list)
+        marginal_is_fallback = marginal_r_source_is_fallback(bare_rows)
         rows = run_decouple_sweep(point, sample_ns, window, marginal_r,
                                   scratch, corner=process_corner,
                                   temp_c=temp_c, vdd=supply_v, quiet=True)
@@ -540,6 +612,11 @@ def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
             "corner": process_corner, "temp_c": temp_c, "supply_v": supply_v,
             "corner_id": cid, "rows": rows, "bare_rows": bare_rows,
             "marginal_r_source_ohm": marginal_r,
+            # No swept bare R_source at this corner exceeded 1 LSB, so this
+            # corner's C_decouple sweep ran against a resistance that was
+            # not failing on its own: there was nothing to rescue, and its
+            # budget must not be counted as a rescue either way (#874).
+            "marginal_is_fallback": marginal_is_fallback,
             "budget_1lsb_f": budget_1lsb["c_decouple_f"] if budget_1lsb else None,
             "budget_1lsb_censored": bool(budget_1lsb and
                 budget_1lsb["c_decouple_f"] == C_DECOUPLE_SWEEP_F[-1]),
@@ -547,8 +624,10 @@ def run_corners_decouple(scratch: Path, point: str = DEFAULT_POINT,
         if not quiet:
             b1 = points[-1]["budget_1lsb_f"]
             print(
-                f"{cid}: marginal R_source = {marginal_r:.0f} ohm, "
-                "1-LSB C_decouple budget = "
+                f"{cid}: marginal R_source = {marginal_r:.0f} ohm"
+                + (" (fallback -- no swept R_source exceeded 1 LSB bare, "
+                   "nothing to rescue)" if marginal_is_fallback else "")
+                + ", 1-LSB C_decouple budget = "
                 + (f"<= {b1 * 1e12:.2f} pF" if b1 is not None
                    else "none found in the swept range")
             )
@@ -573,7 +652,7 @@ def write_corners_decouple_record(points: list[dict], point: str,
     process_corners_run = sorted({p["corner"] for p in points})
     temps_run = sorted({p["temp_c"] for p in points})
     supplies_run = sorted({p["supply_v"] for p in points})
-    sample_ns, _r_source_list = WINDOW_CONFIG[window]
+    sample_ns, r_source_list = WINDOW_CONFIG[window]
     window_desc = WINDOW_DESCRIPTION[window]
     other_window = "legacy" if window == "worst" else "worst"
     other_window_desc = WINDOW_DESCRIPTION[other_window]
@@ -642,10 +721,14 @@ def write_corners_decouple_record(points: list[dict], point: str,
     a("")
     a(
         "\"Budget\" is the LAST (largest, in ascending sweep order) swept "
-        "C_decouple for which `abs(diff_err_lsb) <= 1.0` still holds at that "
-        "corner's own marginal R_source -- see `find_budget()` in this "
-        "script, the same convention the bare R_source full-grid records "
-        "already use, applied to the C_decouple axis here. It is **not** "
+        "NONZERO C_decouple for which `abs(diff_err_lsb) <= 1.0` still holds "
+        "at that corner's own marginal R_source -- see `find_budget()` in "
+        "this script, the same convention the bare R_source full-grid "
+        "records already use, applied to the C_decouple axis here. The "
+        "C_decouple = 0 control row is excluded: it is the row every other "
+        "row's error is measured against, so its own error is identically "
+        "zero and reporting it would state a \"budget\" of 0 pF for a sweep "
+        "in which no capacitor actually worked. It is **not** "
         "necessarily the smallest sufficient C_decouple, and larger values "
         "are not guaranteed to also work: the single-corner seed record's "
         "own C_decouple sweep already found this error is **not** monotonic "
@@ -653,9 +736,16 @@ def write_corners_decouple_record(points: list[dict], point: str,
         "time constant as much as it stiffens its DC impedance). A budget "
         f"equal to the largest swept value "
         f"({C_DECOUPLE_SWEEP_F[-1] * 1e12:.0f} pF) is right-censored. "
-        "\"None found\" means no swept C_decouple value, at that corner's "
-        "own marginal R_source, keeps the error within 1 LSB -- decoupling "
-        "alone does not rescue that corner within the swept range."
+        "\"None found\" means no swept nonzero C_decouple value, at that "
+        "corner's own marginal R_source, keeps the error within 1 LSB -- "
+        "decoupling alone does not rescue that corner within the swept "
+        "range. A marginal R_source marked **(fallback)** is NOT a marginal "
+        "case: no swept bare R_source at that corner exceeded 1 provisional "
+        "LSB, so `marginal_r_source()` fell back to the largest swept value "
+        "and the C_decouple sweep there was run against a resistance that "
+        "was not failing on its own. Those corners had nothing for "
+        "decoupling to rescue, and their budget column is reported but not "
+        "counted as a rescue in the Result section below."
     )
     a("")
     a("| Corner | Marginal R_source (ohm) | 1-LSB C_decouple budget (pF) |")
@@ -666,7 +756,10 @@ def write_corners_decouple_record(points: list[dict], point: str,
             f"<= {b1 * 1e12:.2f}"
             + (" (right-censored)" if p["budget_1lsb_censored"] else "")
         )
-        a(f"| `{p['corner_id']}` | {p['marginal_r_source_ohm']:.0f} | {b1_str} |")
+        r_str = f"{p['marginal_r_source_ohm']:.0f}" + (
+            " (fallback)" if p["marginal_is_fallback"] else ""
+        )
+        a(f"| `{p['corner_id']}` | {r_str} | {b1_str} |")
     a("")
 
     a("## Per-corner C_decouple sweeps")
@@ -689,9 +782,32 @@ def write_corners_decouple_record(points: list[dict], point: str,
             )
     a("")
 
-    rescued = [p for p in points if p["budget_1lsb_f"] is not None]
-    unrescued = [p for p in points if p["budget_1lsb_f"] is None]
+    # A corner whose marginal R_source is the fallback had no bare failure
+    # to rescue, so its C_decouple budget is neither a rescue nor a failed
+    # one -- it is excluded from BOTH sides of the verdict rather than
+    # padding the "N of N rescued" count (#874).
+    split = partition_decouple_rescue(points)
+    nothing_to_rescue = split["nothing_to_rescue"]
+    needed = split["needed"]
+    rescued = split["rescued"]
+    unrescued = split["unrescued"]
     notes: list[str] = []
+    if nothing_to_rescue:
+        nothing_label = ", ".join(
+            f"`{p['corner_id']}`" for p in nothing_to_rescue
+        )
+        notes.append(
+            f"**{len(nothing_to_rescue)} of {len(points)} ratified corners "
+            f"had nothing for decoupling to rescue** ({nothing_label}): no "
+            f"swept bare R_source at those corners pushed the differential "
+            f"error past 1 provisional LSB, so `marginal_r_source()` fell "
+            f"back to the largest swept value "
+            f"({r_source_list[-1]:.0f} ohm) and the C_decouple sweep there "
+            "measured a resistance that was not failing on its own. Whatever "
+            "their budget column says, those corners are **not** evidence "
+            "that decoupling rescues anything, and they are excluded from "
+            "the rescue counts below."
+        )
     if rescued:
         largest = max(p["budget_1lsb_f"] for p in rescued)
         smallest = min(p["budget_1lsb_f"] for p in rescued)
@@ -702,30 +818,42 @@ def write_corners_decouple_record(points: list[dict], point: str,
             f"`{p['corner_id']}`" for p in rescued if p["budget_1lsb_f"] == smallest
         )
         notes.append(
-            f"**Decoupling alone brings the differential error inside 1 "
-            f"provisional LSB at {len(rescued)} of {len(points)} ratified "
-            f"corners**, each at that corner's own marginal R_source. Among "
-            f"those, the largest working value found is "
-            f"{largest * 1e12:.2f} pF ({largest_label}) and the smallest is "
-            f"{smallest * 1e12:.2f} pF ({smallest_label}). Per the table "
-            "note above these are points already confirmed to work, not "
-            "guaranteed floors -- this error is not monotonic in "
+            f"**Decoupling keeps the change in differential error within 1 "
+            f"provisional LSB of that corner's own undecoupled point at "
+            f"{len(rescued)} of the {len(needed)} ratified corner(s) whose "
+            f"bare R_source sweep actually failed**, each at that corner's "
+            f"own marginal R_source. Among those, the largest working value "
+            f"found is {largest * 1e12:.2f} pF ({largest_label}) and the "
+            f"smallest is {smallest * 1e12:.2f} pF ({smallest_label}). Per "
+            "the table note above these are points already confirmed to "
+            "work, not guaranteed floors -- this error is not monotonic in "
             "C_decouple."
         )
     if unrescued:
         unrescued_label = ", ".join(f"`{p['corner_id']}`" for p in unrescued)
         notes.append(
-            f"**{len(unrescued)} of {len(points)} ratified corners are NOT "
-            "rescued by any swept C_decouple** at their own marginal "
-            f"R_source ({unrescued_label}): at those corners the real drive "
-            "path needs a lower source resistance, not just more "
-            "capacitance."
+            f"**{len(unrescued)} of the {len(needed)} ratified corner(s) "
+            "whose bare R_source sweep actually failed are NOT rescued by "
+            "any swept nonzero C_decouple** at their own marginal R_source "
+            f"({unrescued_label}): at those corners the real drive path "
+            "needs a lower source resistance, not just more capacitance."
+        )
+    elif needed:
+        notes.append(
+            f"None of the {len(needed)} ratified corner(s) whose bare "
+            "R_source sweep actually failed was left unrescued within the "
+            "swept C_decouple range -- but see the non-monotonicity caveat "
+            "above before reading any of these as a floor."
         )
     else:
         notes.append(
-            "No ratified corner was left unrescued within the swept "
-            "C_decouple range -- but see the non-monotonicity caveat above "
-            "before reading any of these as a floor."
+            "**No ratified corner's bare R_source sweep failed at all**, so "
+            "this campaign establishes nothing about whether decoupling "
+            "rescues this mechanism: every corner's C_decouple sweep ran "
+            "against a fallback resistance that was already inside 1 "
+            "provisional LSB undecoupled. A C_decouple campaign that can "
+            "answer the rescue question needs a bare sweep that reaches a "
+            "failing R_source at each corner first."
         )
     notes.append(
         "The per-corner marginal R_source values in the table above are "
@@ -848,10 +976,19 @@ def write_corners_record(points: list[dict], point: str,
     a("## Bare R_source budget for <= 1 provisional LSB of differential error, per corner")
     a("")
     a(
-        "\"Budget\" is the largest swept R_source (ohm) at which "
+        "\"Budget\" is the largest swept NONZERO R_source (ohm) at which "
         "`abs(diff_err_lsb) <= 1.0` still holds at that corner -- see "
-        f"`find_budget()` in this script. A budget equal to the largest "
-        f"swept value ({r_source_list[-1]:.0f} ohm) is right-censored: every "
+        f"`find_budget()` in this script. The R_source = 0 control row is "
+        "excluded: it is the row every other row's error is measured "
+        "against, so its own error is identically zero and reporting it "
+        "would state a \"budget\" of 0 ohm for a sweep in which no source "
+        "resistance actually worked. \"none (< smallest nonzero tested)\" "
+        f"means the smallest nonzero swept value ({r_source_list[1]:.0f} "
+        "ohm) already exceeds the tier -- that corner allows **zero** "
+        "margin for any nonzero drive impedance, which is a TIGHTER result "
+        "than any number in this column, not a missing measurement. A "
+        f"budget equal to the largest swept value "
+        f"({r_source_list[-1]:.0f} ohm) is right-censored: every "
         "swept value stayed under threshold, so the true budget is >= that "
         "value, not necessarily equal to it."
     )
@@ -869,8 +1006,33 @@ def write_corners_record(points: list[dict], point: str,
     a("")
 
     scored = [p for p in points if p["budget_1lsb_ohm"] is not None]
+    # `find_budget()` excludes the R_source = 0 control row (#874), so a
+    # None budget here means "the smallest nonzero swept R_source already
+    # exceeds the tier" -- a corner STRICTLY TIGHTER than any scored one,
+    # not an unmeasured one. It must stay in the binding-corner reasoning
+    # rather than being filtered out the way a missing value would be.
+    none_found = [p for p in points if p["budget_1lsb_ohm"] is None]
+    smallest_nonzero = r_source_list[1]
+    none_label = ", ".join(f"`{p['corner_id']}`" for p in none_found)
     notes: list[str] = []
+    binding_val: float | None = None
+    binding_label = ""
+    if none_found:
+        notes.append(
+            f"**Binding corner(s) (no positive 1-LSB budget at all): "
+            f"{none_label}** -- at {len(none_found)} of {len(points)} "
+            f"ratified corners the smallest nonzero swept R_source "
+            f"({smallest_nonzero:.0f} ohm) already exceeds 1 provisional "
+            "LSB of differential error. Those corners allow **zero** margin "
+            "for any nonzero drive impedance"
+            + ("; nothing in the budget column above is tighter than they "
+               "are." if scored else ", and no corner in this grid has a "
+               "positive 1-LSB budget at all.")
+        )
     if scored:
+        # Every scored budget is a nonzero swept R_source (find_budget()
+        # excludes the zero control row), so the spread ratio below cannot
+        # divide by zero.
         binding_val = min(p["budget_1lsb_ohm"] for p in scored)
         best_val = max(p["budget_1lsb_ohm"] for p in scored)
         binding_ties = [p for p in scored if p["budget_1lsb_ohm"] == binding_val]
@@ -885,98 +1047,124 @@ def write_corners_record(points: list[dict], point: str,
             f"`{best['corner_id']}`" if len(best_ties) == 1
             else "tied at " + ", ".join(f"`{p['corner_id']}`" for p in best_ties)
         )
-        if binding_val > 0:
-            spread_phrase = (
-                f"Worst-to-best spread across the ratified grid: "
-                f"{best_val / binding_val:.1f}x -- the bare R_source budget "
-                "is **not** corner-invariant."
-            )
-        else:
-            # binding_val == 0: a ratio is undefined/uninformative (division
-            # by the zero floor) -- state the spread in words instead of a
-            # misleading "infx".
-            spread_phrase = (
-                "The tightest corner(s) allow **zero** margin for any "
-                "nonzero drive impedance, while the loosest corner(s) allow "
-                f"up to <= {best_val:.0f} ohm"
-                + (" (right-censored)" if best["budget_1lsb_censored"] else "")
-                + " -- the bare R_source budget is **not** corner-invariant "
-                "(a ratio is not meaningful when the tightest corner's own "
-                "budget is zero)."
-            )
+        spread_phrase = (
+            "Worst-to-best spread "
+            + ("among the corner(s) that have one" if none_found
+               else "across the ratified grid")
+            + f": {best_val / binding_val:.1f}x -- the bare R_source budget "
+            "is **not** corner-invariant."
+        )
+        lead = (
+            f"Among the {len(scored)} ratified corner(s) that DO have a "
+            f"positive 1-LSB budget, the tightest is {binding_label}, "
+            f"<= {binding_val:.0f} ohm."
+            if none_found else
+            f"**Binding corner(s) (tightest 1-LSB budget): "
+            f"{binding_label}**, <= {binding_val:.0f} ohm."
+        )
         notes.append(
-            f"**Binding corner(s) (tightest 1-LSB budget): {binding_label}**, "
-            f"<= {binding_val:.0f} ohm. Loosest corner(s): {best_label}, "
-            f"<= {best_val:.0f} ohm"
+            lead
+            + f" Loosest corner(s): {best_label}, <= {best_val:.0f} ohm"
             + (" (right-censored)" if best["budget_1lsb_censored"] else "")
             + f". {spread_phrase}"
         )
-        tt_pt = next(
-            (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0
-             and p["supply_v"] == VDD_NOM), None,
-        )
-        if tt_pt is not None and tt_pt["budget_1lsb_ohm"] is not None:
-            notes.append(
-                f"The `tt`/27C/1.8V point in this grid measures a 1-LSB "
-                f"budget of <= {tt_pt['budget_1lsb_ohm']:.0f} ohm, "
-                "consistent with (reproduces) the single-corner record's "
-                "own finding for the same window/point."
-            )
-        seed_budget = SINGLE_CORNER_SEED_BUDGET_1LSB_OHM[window]
-        if seed_budget > 0 and binding_val < seed_budget:
-            notes.append(
-                f"**This tightens, not merely restates, the single-corner "
-                f"finding**: the single-corner (tt/27C/1.8V) record reports "
-                f"a <= {seed_budget:.0f} ohm bare budget at this window, but "
-                f"the binding corner(s) across the ratified grid "
-                f"({binding_label}) is/are <= {binding_val:.0f} ohm -- "
-                f"{seed_budget / binding_val:.1f}x tighter. Any "
-                "future on-chip VCM buffer / off-chip reference network "
-                "sizing that targets only the tt/27C/1.8V figure would "
-                "under-budget the real worst-case corner."
-            )
-        elif seed_budget == 0 and binding_val == 0:
-            zero_pts = [p for p in scored if p["budget_1lsb_ohm"] == 0]
-            if len(zero_pts) == len(scored):
-                notes.append(
-                    "**This confirms, at every ratified corner, the "
-                    "single-corner record's already-tightest finding**: the "
-                    "single-corner (tt/27C/1.8V) record already reports a "
-                    "<= 0 ohm bare budget at this window (even R_source=0's "
-                    "own ideal-source baseline is the only point inside 1 "
-                    "provisional LSB -- the smallest nonzero R_source tested "
-                    "already exceeds it), and every one of the 9 ratified "
-                    "corners reproduces that same floor. This window offers "
-                    "**zero** margin for any nonzero drive impedance, at any "
-                    "ratified corner -- consistent with the single-corner "
-                    "record's own finding that the legacy window is the MORE "
-                    "demanding case for this mechanism, not merely restating "
-                    "it at one point."
-                )
-            else:
-                zero_label = ", ".join(f"`{p['corner_id']}`" for p in zero_pts)
-                best_raw_label = ", ".join(f"`{p['corner_id']}`" for p in best_ties)
-                notes.append(
-                    "**This reveals the single-corner (tt/27C/1.8V) <= 0 ohm "
-                    "finding is itself corner-dependent, not a uniform "
-                    f"floor**: {len(zero_pts)} of {len(scored)} ratified "
-                    f"corners ({zero_label}) reproduce that same <= 0 ohm "
-                    "floor (zero margin for any nonzero drive impedance at "
-                    "those corners), but the remaining "
-                    f"{len(scored) - len(zero_pts)} corner(s) recover a "
-                    f"positive budget, up to <= {best_val:.0f} ohm"
-                    + (" (right-censored)" if best["budget_1lsb_censored"] else "")
-                    + f" at {best_raw_label}. Any future on-chip VCM buffer / "
-                    "off-chip reference network sizing must still budget for "
-                    "the zero-margin corner(s) above, not the tt/27C/1.8V "
-                    "point alone -- the single-corner record's own scope "
-                    "note (single point, not yet corner-complete) was "
-                    "correct to flag this as unresolved."
-                )
-    else:
+    # No `else`: `scored` can only be empty when `none_found` is every point,
+    # which the note above already states -- a second "no corner found a
+    # budget" line would only restate it.
+
+    tt_pt = next(
+        (p for p in points if p["corner"] == "tt" and p["temp_c"] == 27.0
+         and p["supply_v"] == VDD_NOM), None,
+    )
+    if tt_pt is not None and tt_pt["budget_1lsb_ohm"] is not None:
         notes.append(
-            "No corner point found a positive 1-LSB R_source budget within "
-            "the swept range -- see the per-corner table above."
+            f"The `tt`/27C/1.8V point in this grid measures a 1-LSB "
+            f"budget of <= {tt_pt['budget_1lsb_ohm']:.0f} ohm, "
+            "consistent with (reproduces) the single-corner record's "
+            "own finding for the same window/point."
+        )
+    elif tt_pt is not None:
+        notes.append(
+            f"The `tt`/27C/1.8V point in this grid finds NO positive 1-LSB "
+            f"budget: the smallest nonzero swept R_source "
+            f"({smallest_nonzero:.0f} ohm) already exceeds 1 provisional "
+            "LSB there, so that point allows zero margin for any nonzero "
+            "drive impedance."
+        )
+
+    # `seed_budget is None` is the seed record's own "<= 0 ohm" figure read
+    # in this script's post-#874 convention -- see
+    # SINGLE_CORNER_SEED_BUDGET_1LSB_OHM.
+    seed_budget = SINGLE_CORNER_SEED_BUDGET_1LSB_OHM[window]
+    if seed_budget is not None and none_found:
+        notes.append(
+            f"**This tightens, not merely restates, the single-corner "
+            f"finding**: the single-corner (tt/27C/1.8V) record reports a "
+            f"<= {seed_budget:.0f} ohm bare budget at this window, but "
+            f"{len(none_found)} of {len(points)} ratified corners "
+            f"({none_label}) have no positive budget at all -- the smallest "
+            f"nonzero swept R_source ({smallest_nonzero:.0f} ohm) already "
+            "exceeds 1 provisional LSB there. Any future on-chip VCM buffer "
+            "/ off-chip reference network sizing that targets only the "
+            "tt/27C/1.8V figure would under-budget the real worst-case "
+            "corner."
+        )
+    elif (seed_budget is not None and binding_val is not None
+            and binding_val < seed_budget):
+        notes.append(
+            f"**This tightens, not merely restates, the single-corner "
+            f"finding**: the single-corner (tt/27C/1.8V) record reports "
+            f"a <= {seed_budget:.0f} ohm bare budget at this window, but "
+            f"the binding corner(s) across the ratified grid "
+            f"({binding_label}) is/are <= {binding_val:.0f} ohm -- "
+            f"{seed_budget / binding_val:.1f}x tighter. Any "
+            "future on-chip VCM buffer / off-chip reference network "
+            "sizing that targets only the tt/27C/1.8V figure would "
+            "under-budget the real worst-case corner."
+        )
+    elif seed_budget is None and len(none_found) == len(points):
+        notes.append(
+            "**This confirms, at every ratified corner, the "
+            "single-corner record's already-tightest finding**: the "
+            "single-corner (tt/27C/1.8V) record already reports no "
+            "positive bare budget at this window (the R_source=0 "
+            "ideal-source control is the only point inside 1 provisional "
+            "LSB -- the smallest nonzero R_source tested already exceeds "
+            f"it), and every one of the {len(points)} ratified "
+            "corners reproduces that same floor. This window offers "
+            "**zero** margin for any nonzero drive impedance, at any "
+            "ratified corner -- consistent with the single-corner "
+            "record's own finding that the legacy window is the MORE "
+            "demanding case for this mechanism, not merely restating "
+            "it at one point."
+        )
+    elif seed_budget is None and none_found and scored:
+        # Mixed grid: `scored` non-empty, so best_* below are bound.
+        best_raw_label = ", ".join(f"`{p['corner_id']}`" for p in best_ties)
+        notes.append(
+            "**This reveals the single-corner (tt/27C/1.8V) no-positive-"
+            "budget finding is itself corner-dependent, not a uniform "
+            f"floor**: {len(none_found)} of {len(points)} ratified "
+            f"corners ({none_label}) reproduce that same floor (zero "
+            "margin for any nonzero drive impedance at those corners), "
+            f"but the remaining {len(scored)} corner(s) recover a "
+            f"positive budget, up to <= {best_val:.0f} ohm"
+            + (" (right-censored)" if best["budget_1lsb_censored"] else "")
+            + f" at {best_raw_label}. Any future on-chip VCM buffer / "
+            "off-chip reference network sizing must still budget for "
+            "the zero-margin corner(s) above, not the tt/27C/1.8V "
+            "point alone -- the single-corner record's own scope "
+            "note (single point, not yet corner-complete) was "
+            "correct to flag this as unresolved."
+        )
+    elif seed_budget is None:
+        notes.append(
+            "**This loosens the single-corner (tt/27C/1.8V) finding**: that "
+            "record reports no positive bare budget at this window, yet "
+            f"every one of the {len(points)} ratified corners in this grid "
+            "recovers one. Treat the discrepancy as unresolved -- the two "
+            "runs are not otherwise controlled against each other -- rather "
+            "than as a relaxation of the single-corner bound."
         )
     notes.append(
         f"This campaign repeats ONLY the bare (undecoupled) R_source sweep "
@@ -1225,6 +1413,7 @@ def main() -> int:
     # with the --corners --sweep decouple path, which re-derives it per
     # corner).
     marginal_r = marginal_r_source(worst_rows, R_SOURCE_SWEEP_OHM)
+    marginal_is_fallback = marginal_r_source_is_fallback(worst_rows)
 
     print(f"\n=== C_decouple sweep at R_source={marginal_r:.0f} ohm, "
           f"worst-case window ===")
@@ -1262,7 +1451,30 @@ def main() -> int:
             notes.append(note + ".")
 
     dec_budget_1lsb = find_budget(decouple_rows, 1.0)
-    if dec_budget_1lsb is not None:
+    if marginal_is_fallback:
+        # `marginal_r` is marginal_r_source()'s documented fallback, not a
+        # marginal case: nothing in the bare sweep failed, so this sweep
+        # cannot be read as a decoupling rescue either way (#874).
+        found = (
+            f"the largest swept C_decouple keeping the change in "
+            f"differential error within 1 provisional LSB of the "
+            f"undecoupled point is "
+            f"{dec_budget_1lsb['c_decouple_f'] * 1e12:.2f} pF"
+            if dec_budget_1lsb is not None else
+            "no swept nonzero C_decouple kept the change in differential "
+            "error within 1 provisional LSB of the undecoupled point"
+        )
+        notes.append(
+            f"No swept bare R_source up to the largest tested "
+            f"({marginal_r:.0f} ohm) pushed the differential error past 1 "
+            "provisional LSB at the worst-case window, so the C_decouple "
+            "sweep ran against a resistance that was not failing on its own "
+            "(`marginal_r_source()`'s documented fallback, not a marginal "
+            f"case). On that sweep, {found}. That is **not** evidence that "
+            "decoupling rescues this mechanism -- at this R_source there "
+            "was nothing to rescue."
+        )
+    elif dec_budget_1lsb is not None:
         notes.append(
             f"At the marginal R_source={marginal_r:.0f} ohm (worst-case "
             f"window), a decoupling capacitor of >= "
