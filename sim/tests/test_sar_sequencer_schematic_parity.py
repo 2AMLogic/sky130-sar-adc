@@ -15,9 +15,10 @@ of the transliteration -- and assert the check on that:
   everything would pass every negative below.
 * mutations of that conforming netlist (one rewired pin, one dropped gate, one
   extra gate, a port removed, a changed cell type) must each fail by name.
-* `test_committed_netlist_is_reported_stale` -- pins the real current finding,
-  so fixing the Verilog forces this test (and signoff's item 1 digital
-  envelope) to be updated rather than letting the claim rot either way.
+* `test_committed_netlist_conforms` -- the committed Verilog was regenerated
+  against the current schematic (issue #680) and now passes the check, so a
+  future schematic move that leaves it stale fails here as well as in
+  `npm run check:sequencer-parity`.
 
 Headless: PDK_ROOT points at a nonexistent path, i.e. the committed pin-order
 cache is used.
@@ -125,12 +126,12 @@ class SarSequencerSchematicParityTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("module ports differ", result.stderr)
 
-    def test_committed_netlist_is_reported_stale(self) -> None:
-        # The real finding of issue #676: sar_sequencer.v predates #263.
+    def test_committed_netlist_conforms(self) -> None:
+        # Issue #676 found sar_sequencer.v stale (predated #263); issue #680
+        # regenerated it, so the committed netlist must now pass.
         result = run_check(NETLIST)
-        self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn("MISSING from Verilog: xxnor_compeff", result.stderr)
-        self.assertIn("xbreg8.D", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("57 instances", result.stdout)
 
 
 if __name__ == "__main__":

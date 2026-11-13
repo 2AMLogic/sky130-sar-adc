@@ -550,7 +550,7 @@ class TestArea(unittest.TestCase):
     def test_derive_from_committed_artifacts(self):
         a = da.derive(REPO)
         self.assertEqual(set(a["macros"]), {"sar_sequencer", "top_glue"})
-        self.assertAlmostEqual(a["macros"]["sar_sequencer"]["macro_area_um2"], 42.57 * 42.57, places=1)
+        self.assertAlmostEqual(a["macros"]["sar_sequencer"]["macro_area_um2"], 46.25 * 46.25, places=1)
         self.assertAlmostEqual(a["macros"]["top_glue"]["macro_area_um2"], 71.855 * 71.855, places=1)
         self.assertGreater(a["composed_footprint_um2"], a["macro_area_um2"])
         self.assertTrue(a["disjoint"])
