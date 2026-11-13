@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -239,6 +240,231 @@ class TestPartitionDecoupleRescue(unittest.TestCase):
         self.assertEqual(len(split["rescued"]), 0)
         self.assertEqual(len(split["needed"]), 1)
         self.assertNotEqual(len(split["rescued"]), len(points))
+
+
+class TestSingleCornerDecoupleRescueNote(unittest.TestCase):
+    """`single_corner_decouple_rescue_note()` -- issue #882.
+
+    `find_budget()` returns the LARGEST passing swept value, and the
+    record's own C_decouple table note says this error is not monotonic in
+    C_decouple, so the pre-#882 ">= X pF ... recovers differential error"
+    wording claimed every untested capacitance above the largest TESTED one
+    also works."""
+
+    def test_the_note_does_not_claim_a_lower_bound(self):
+        note = rt.single_corner_decouple_rescue_note(5e3, 10e-12)
+        self.assertNotIn(">=", note)
+        self.assertIn("10.00 pF", note)
+
+    def test_the_note_reports_the_value_as_confirmed_not_as_a_floor(self):
+        note = rt.single_corner_decouple_rescue_note(5e3, 10e-12)
+        self.assertIn("largest swept C_decouple confirmed to work", note)
+        self.assertIn("not a guaranteed floor", note)
+
+    def test_the_note_carries_the_non_monotonicity_caveat(self):
+        """The same caveat the `--corners` sibling note has carried since
+        #874; this path was left behind."""
+        note = rt.single_corner_decouple_rescue_note(5e3, 10e-12)
+        self.assertIn("not monotonic in C_decouple", note)
+
+    def test_the_marginal_r_source_and_window_are_still_stated(self):
+        note = rt.single_corner_decouple_rescue_note(3200.0, 1e-12)
+        self.assertIn("R_source=3200 ohm", note)
+        self.assertIn("worst-case", note)
+        self.assertIn("1.00 pF", note)
+
+    def test_the_value_printed_is_the_value_find_budget_returns(self):
+        """Wire the helper to its real input rather than a hand-made float:
+        the sentence must print `find_budget()`'s row, not something else."""
+        rows = _c_rows([(0.0, 0.0), (1e-12, 0.4), (10e-12, 0.9),
+                        (100e-12, 2.0)])
+        hit = rt.find_budget(rows, 1.0)
+        note = rt.single_corner_decouple_rescue_note(5e3,
+                                                     hit["c_decouple_f"])
+        self.assertIn("10.00 pF", note)
+        self.assertNotIn("100.00 pF", note)
+
+
+class TestTtPointSeedComparisonNote(unittest.TestCase):
+    """`tt_point_seed_comparison_note()` -- issue #882.
+
+    Pre-#882 the full-grid record asserted its tt/27C/1.8V point was
+    "consistent with (reproduces) the single-corner record's own finding"
+    whenever that point had *a* budget, without ever comparing it to
+    `SINGLE_CORNER_SEED_BUDGET_1LSB_OHM`. All four seed/measured cases are
+    pinned here, plus the invariant that "reproduces" is reserved for
+    agreement."""
+
+    SMALLEST_NONZERO = 100.0
+
+    def _note(self, measured, seed):
+        return rt.tt_point_seed_comparison_note(measured, seed,
+                                                self.SMALLEST_NONZERO)
+
+    # -- case 1: both numeric and equal -> agreement -------------------
+    def test_equal_figures_agree_and_may_say_reproduces(self):
+        note = self._note(10e3, 10e3)
+        self.assertIn("reproduces", note)
+        self.assertNotIn("DIFFER", note)
+        self.assertIn("<= 10000 ohm", note)
+
+    # -- case 2: both numeric and different -> states both, differ -----
+    def test_different_figures_state_both_and_say_they_differ(self):
+        """The concrete regression: records/20260908-100413-f3e2914.md
+        printed "<= 100000 ohm, consistent with (reproduces) ..." while the
+        `worst` seed figure is 10000 ohm."""
+        note = self._note(100e3, 10e3)
+        self.assertNotIn("reproduces the single-corner record", note)
+        self.assertIn("DIFFER", note)
+        self.assertIn("100000 ohm", note)
+        self.assertIn("10000 ohm", note)
+
+    # -- case 3: exactly one None -> states that they differ -----------
+    def test_measured_budget_with_no_seed_budget_differs(self):
+        note = self._note(10e3, None)
+        self.assertIn("DIFFER", note)
+        self.assertIn("no positive", note)
+        self.assertNotIn("reproduces", note)
+
+    def test_no_measured_budget_with_a_seed_budget_differs(self):
+        note = self._note(None, 10e3)
+        self.assertIn("DIFFER", note)
+        self.assertIn("NO positive 1-LSB", note)
+        self.assertIn("<= 10000 ohm", note)
+        self.assertNotIn("reproduces", note)
+
+    # -- case 4: both None -> agreement --------------------------------
+    def test_neither_has_a_positive_budget_and_that_is_agreement(self):
+        note = self._note(None, None)
+        self.assertIn("reproduces", note)
+        self.assertNotIn("DIFFER", note)
+        self.assertIn("NO positive 1-LSB", note)
+
+    # -- invariants ----------------------------------------------------
+    def test_reproduces_appears_only_in_the_agreement_cases(self):
+        agree = [(10e3, 10e3), (None, None)]
+        differ = [(100e3, 10e3), (10e3, 100e3), (10e3, None), (None, 10e3)]
+        for measured, seed in agree:
+            self.assertIn("reproduces", self._note(measured, seed),
+                          (measured, seed))
+        for measured, seed in differ:
+            self.assertNotIn("reproduces", self._note(measured, seed),
+                             (measured, seed))
+
+    def test_every_case_names_the_record_it_compared_against(self):
+        for measured, seed in [(10e3, 10e3), (100e3, 10e3), (10e3, None),
+                               (None, 10e3), (None, None)]:
+            note = self._note(measured, seed)
+            self.assertIn(rt.SINGLE_CORNER_SEED_RECORD, note, (measured, seed))
+
+    def test_the_no_budget_branch_still_reports_the_smallest_nonzero(self):
+        """The pre-#882 "no positive budget" wording is preserved, not
+        dropped in favour of the comparison."""
+        note = self._note(None, 10e3)
+        self.assertIn("100 ohm", note)
+        self.assertIn("zero margin for any nonzero drive impedance", note)
+
+    def test_the_ratified_seed_table_covers_every_configured_window(self):
+        """The caller indexes SINGLE_CORNER_SEED_BUDGET_1LSB_OHM by window;
+        a window without an entry would raise at record-writing time."""
+        for window in rt.WINDOW_CONFIG:
+            self.assertIn(window, rt.SINGLE_CORNER_SEED_BUDGET_1LSB_OHM)
+            # Every entry must be a figure this helper can format or None.
+            seed = rt.SINGLE_CORNER_SEED_BUDGET_1LSB_OHM[window]
+            self.assertTrue(seed is None or isinstance(seed, float), window)
+            self._note(10e3, seed)  # must not raise for any ratified entry
+
+
+class TestCornersRecordTtNoteWiring(unittest.TestCase):
+    """The call site, not just the helper (issue #882).
+
+    The pure-helper tests above pin the wording; this one drives the real
+    `write_corners_record()` over synthetic corner points to prove the
+    record actually gets the measured tt budget and the window's seed
+    figure -- the pre-#882 defect was a call site that compared nothing, so
+    a correct helper wired to the wrong arguments would reproduce it. No
+    ngspice: provenance resolution is stubbed into a temp dir the same way
+    sim/tests/test_full_conversion.py stubs it, and no path under
+    sim/vcm-drive-budget/ is written."""
+
+    @staticmethod
+    def _corner_point(cid: str, process: str, temp: float, supply: float,
+                      budget_ohm: float | None) -> dict:
+        """A `run_corners()` point, minus the `rows` the record writer does
+        not read."""
+        return {
+            "corner": process, "temp_c": temp, "supply_v": supply,
+            "corner_id": cid,
+            "budget_1lsb_ohm": budget_ohm,
+            "budget_1lsb_censored": False,
+            "budget_p1lsb_ohm": None,
+        }
+
+    def _record_text(self, tt_budget_ohm: float | None,
+                     window: str = "worst") -> str:
+        from harness import evidence
+
+        points = [
+            self._corner_point("tt_27c_1.80v", "tt", 27.0, rt.VDD_NOM,
+                               tt_budget_ohm),
+            self._corner_point("ss_125c_1.62v", "ss", 125.0, 1.62, 1e3),
+        ]
+        real_dir, real_resolve = rt.EXPERIMENT_DIR, evidence.resolve_provenance
+
+        def fake_resolve(experiment_dir: Path, netlist_text: str):
+            (experiment_dir / "netlist-snapshots").mkdir(parents=True,
+                                                         exist_ok=True)
+            (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(
+                netlist_text)
+            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
+            return evidence.ProvenanceInfo(
+                record_id="REC",
+                record_path=experiment_dir / "records" / "REC.md",
+                netlist_sha="0" * 64,
+                pdk_line="sky130A @ testing",
+                ng_version="ngspice-46",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                rt.EXPERIMENT_DIR = Path(tmp)
+                evidence.resolve_provenance = fake_resolve
+                path = rt.write_corners_record(points, rt.DEFAULT_POINT,
+                                               window=window)
+                return path.read_text()
+            finally:
+                rt.EXPERIMENT_DIR = real_dir
+                evidence.resolve_provenance = real_resolve
+
+    def test_a_tt_budget_unequal_to_the_seed_is_reported_as_differing(self):
+        """The exact shape of the regression: the `worst` seed figure is
+        10000 ohm, so a 100000 ohm tt measurement must not be written up as
+        reproducing it."""
+        self.assertEqual(rt.SINGLE_CORNER_SEED_BUDGET_1LSB_OHM["worst"], 10e3)
+        text = self._record_text(100e3)
+        self.assertIn("DIFFER", text)
+        self.assertNotIn("reproduces the single-corner record's own finding",
+                         text)
+
+    def test_a_tt_budget_equal_to_the_seed_is_reported_as_agreement(self):
+        text = self._record_text(
+            rt.SINGLE_CORNER_SEED_BUDGET_1LSB_OHM["worst"])
+        self.assertIn("reproduces the single-corner record's own finding",
+                      text)
+
+    def test_the_note_is_written_into_the_records_result_section(self):
+        text = self._record_text(100e3)
+        result = text.split("## Result", 1)[1]
+        self.assertIn("The `tt`/27C/1.8V point in this grid", result)
+
+    def test_no_path_under_the_real_experiment_dir_is_written(self):
+        """`sim/` evidence is append-only; this test must mint nothing."""
+        before = sorted(
+            p.name for p in (rt.EXPERIMENT_DIR / "records").iterdir())
+        self._record_text(100e3)
+        after = sorted(
+            p.name for p in (rt.EXPERIMENT_DIR / "records").iterdir())
+        self.assertEqual(before, after)
 
 
 if __name__ == "__main__":
