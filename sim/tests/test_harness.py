@@ -5,6 +5,8 @@ sim/selftest.sh stage 1/4)."""
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -1206,6 +1208,108 @@ class TestPdkResolvedCommit(unittest.TestCase):
 
         self.assertIsNone(pdk.resolved_commit_verified(FakeInfo()))
         self.assertTrue(pdk.resolved_commit(FakeInfo()).startswith("c" * 40))
+
+
+class TestToolchainPreflightGate(unittest.TestCase):
+    """The one driver-side gate helper that replaced ten inline copies
+    (issue #854).
+
+    Every `sim/` driver entry point used to re-implement this module's
+    exit-code convention inline after calling check_env(), in three
+    spellings -- and two of those copies silently dropped check.warnings,
+    so an xschem drift or an unverifiable-PDK-provenance install never
+    reached the operator. These tests pin the single surviving behaviour:
+    status 3 -> SKIP/0, status 1 -> FAIL/1, otherwise every warning is
+    printed and the caller proceeds.
+    """
+
+    def _run(self, *args, **kwargs):
+        """Call preflight(), returning (return value, captured stdout)."""
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = toolchain.preflight(*args, **kwargs)
+        return rc, buf.getvalue()
+
+    def test_missing_toolchain_skips_with_exit_zero_and_every_message(self):
+        result = toolchain.CheckResult(
+            status=3, messages=["ngspice not found on PATH", "no PDK variant directory"]
+        )
+        with mock.patch.object(toolchain, "check_env", return_value=result):
+            rc, out = self._run()
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            out,
+            "SKIP: ngspice or the pinned PDK is not installed on this machine.\n"
+            "  ngspice not found on PATH\n"
+            "  no PDK variant directory\n",
+        )
+
+    def test_drift_fails_with_exit_one_and_every_message(self):
+        result = toolchain.CheckResult(
+            status=1, messages=["ngspice version 'ngspice-40' below floor", "installed PDK commit"]
+        )
+        with mock.patch.object(toolchain, "check_env", return_value=result):
+            rc, out = self._run()
+        self.assertEqual(rc, 1)
+        self.assertEqual(
+            out,
+            "FAIL: toolchain drifted from sim/toolchain.json pin.\n"
+            "  ngspice version 'ngspice-40' below floor\n"
+            "  installed PDK commit\n",
+        )
+
+    def test_ok_prints_every_warning_and_returns_none_so_the_caller_proceeds(self):
+        result = toolchain.CheckResult(status=0, warnings=["xschem drift", "PDK provenance unverifiable"])
+        with mock.patch.object(toolchain, "check_env", return_value=result):
+            rc, out = self._run()
+        self.assertIsNone(rc)
+        self.assertEqual(out, "WARNING: xschem drift\nWARNING: PDK provenance unverifiable\n")
+
+    def test_ok_without_warnings_is_silent(self):
+        with mock.patch.object(toolchain, "check_env", return_value=toolchain.CheckResult(status=0)):
+            rc, out = self._run()
+        self.assertIsNone(rc)
+        self.assertEqual(out, "")
+
+    def test_warnings_are_printed_on_every_status_path_the_caller_survives(self):
+        """A status-3 SKIP and a status-1 FAIL end the run, so they report
+        `messages` (the reason) rather than `warnings`; only the proceed
+        path reports warnings. Pinned so a later edit cannot quietly swap
+        which list each branch prints."""
+        for status, expected_rc in ((3, 0), (1, 1)):
+            with self.subTest(status=status):
+                result = toolchain.CheckResult(
+                    status=status, messages=["m"], warnings=["w-must-not-be-swallowed-into-messages"]
+                )
+                with mock.patch.object(toolchain, "check_env", return_value=result):
+                    rc, out = self._run()
+                self.assertEqual(rc, expected_rc)
+                self.assertIn("  m", out)
+                self.assertNotIn("WARNING:", out)
+
+    def test_a_passed_in_result_is_used_without_calling_check_env_again(self):
+        """run_conversion.py and run_supply_impedance.py call check_env()
+        once above their --check-env report branch and share that result.
+        sim/tests/test_solver_policy.py asserts check_env is called exactly
+        once in run_conversion.main(), so the helper must NOT probe again."""
+        result = toolchain.CheckResult(status=3, messages=["ngspice not found on PATH"])
+        with mock.patch.object(toolchain, "check_env") as probe:
+            rc, out = self._run(result)
+        probe.assert_not_called()
+        self.assertEqual(rc, 0)
+        self.assertIn("ngspice not found on PATH", out)
+
+    def test_bare_call_probes_the_environment_through_the_module_attribute(self):
+        """Drivers do `from harness import toolchain` and the existing
+        driver tests patch `<driver>.toolchain.check_env`, i.e. the
+        attribute on this module object. The helper must look check_env up
+        at call time for those patches to keep taking effect."""
+        with mock.patch.object(
+            toolchain, "check_env", return_value=toolchain.CheckResult(status=0)
+        ) as probe:
+            rc, _ = self._run()
+        probe.assert_called_once_with()
+        self.assertIsNone(rc)
 
 
 if __name__ == "__main__":

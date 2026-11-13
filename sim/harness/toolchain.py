@@ -370,6 +370,51 @@ def check_env(allow_drift: bool = False) -> CheckResult:
     return CheckResult(status=0, messages=msgs, warnings=warns)
 
 
+def preflight(check: CheckResult | None = None) -> int | None:
+    """Apply this module's exit-code convention at a driver entry point.
+
+    Returns the exit code the caller should return immediately, or None
+    when the run may proceed:
+
+      status 3 (a required tool or the PDK is MISSING) -> print SKIP with
+        every message, return 0. A machine that has not been bootstrapped
+        is not a failure.
+      status 1 (something is installed but DRIFTED from the pin) -> print
+        FAIL with every message, return 1. Results would not be comparable
+        with the existing records.
+      otherwise -> print every check.warnings entry as `WARNING: <text>`
+        and return None. A warning is recorded and reported, never fatal
+        (see this module's docstring for the drift/warning split).
+
+    Pass an already-computed `check` when the caller needs the same
+    CheckResult for something else -- e.g. run_conversion.py and
+    run_supply_impedance.py share one with their `--check-env` report
+    branch, and probing twice would both cost a second round of
+    subprocess/PDK probes and break the tests that assert check_env() is
+    called exactly once per main(). Otherwise the helper probes itself.
+
+    Issue #854: ten driver entry points each re-implemented this inline, in
+    three spellings, and two of them never read check.warnings at all --
+    so a run on a machine with an xschem drift or an unverifiable PDK
+    provenance proceeded without telling the operator.
+    """
+    if check is None:
+        check = check_env()
+    if check.status == 3:
+        print("SKIP: ngspice or the pinned PDK is not installed on this machine.")
+        for m in check.messages:
+            print(f"  {m}")
+        return 0
+    if check.status == 1:
+        print("FAIL: toolchain drifted from sim/toolchain.json pin.")
+        for m in check.messages:
+            print(f"  {m}")
+        return 1
+    for w in check.warnings:
+        print(f"WARNING: {w}")
+    return None
+
+
 def summary() -> str:
     cfg = _load()
     ng = _ngspice_version() or "MISSING"
