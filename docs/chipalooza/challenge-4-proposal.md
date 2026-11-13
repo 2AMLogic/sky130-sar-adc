@@ -5945,7 +5945,7 @@ tracker already owns.
     evidence file, the renderer, or a committed SVG changes without a
     re-render, if a figure's source record is superseded, or if a record's own
     stated figures stop reproducing from the raw artifact. **No §4 verdict
-    moves because of this item**, and nothing under `sim/` was edited: the
+    moves because of this item**, and no evidence under `sim/` was edited: the
     plots are a regenerable derived view, written outside every path
     `sim/check_append_only.py` and `signoff/check_evidence_hashes.py` protect.
     One deliberate gap is recorded rather than filled: no linearity figure is
