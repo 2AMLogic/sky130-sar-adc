@@ -325,6 +325,40 @@ class TestRequestShape(unittest.TestCase):
         )
 
 
+class TestFleetJobBound(unittest.TestCase):
+    """The batch fleet refuses a job whose conservative fully-serial bound
+    (`options.timeout_s * units + 120`) exceeds its whole-job ceiling. A first
+    submit at 3600 s was refused outright for exactly this reason, before any
+    simulation ran, so the default is pinned against the ceiling here."""
+
+    #: `max_job_seconds` from the fleet config at the time of writing. If the
+    #: fleet raises it this test still passes; if a future edit raises
+    #: DEFAULT_TIMEOUT_S past what the ceiling allows, it fails here instead of
+    #: at submit time.
+    FLEET_MAX_JOB_S = 3600
+    FLEET_OVERHEAD_S = 120
+
+    def test_default_timeout_fits_the_whole_job_ceiling(self):
+        units = len(m.corner_ids())
+        bound = m.DEFAULT_TIMEOUT_S * units + self.FLEET_OVERHEAD_S
+        self.assertLessEqual(bound, self.FLEET_MAX_JOB_S, f"{bound}s bound")
+
+    def test_a_single_unit_also_fits(self):
+        """`--hosts` sharding cannot rescue a per-unit bound that is itself
+        over the ceiling -- which is what the refused submit reported."""
+        self.assertLess(
+            m.DEFAULT_TIMEOUT_S + self.FLEET_OVERHEAD_S, self.FLEET_MAX_JOB_S
+        )
+
+    def test_the_request_carries_the_default(self):
+        req = m.build_request("tb.spice", m.corner_ids())
+        self.assertEqual(req["options"]["timeout_s"], m.DEFAULT_TIMEOUT_S)
+
+    def test_default_leaves_headroom_over_the_measured_per_unit_cost(self):
+        """~26 s measured for one corner's 16 steps; keep at least 5x."""
+        self.assertGreaterEqual(m.DEFAULT_TIMEOUT_S, 5 * 26)
+
+
 class TestSubmitArgv(unittest.TestCase):
     def test_batch_submit_waits_for_capacity(self):
         """CLAUDE.md's fleet rule: a vCPU-budgeted fleet refuses a burst with

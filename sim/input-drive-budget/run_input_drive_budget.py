@@ -229,6 +229,22 @@ R_IDEAL_OHM = 1.0e-6
 #: sim/vcm-drive-budget/run_vcm_drive_budget.py's find_budget().
 TIERS_LSB = [1.0, 0.1]
 
+#: Per-unit `options.timeout_s`. NOT a free parameter: the batch fleet refuses
+#: a job whose CONSERVATIVE FULLY-SERIAL bound -- `timeout_s * units + 120` --
+#: exceeds its own whole-job ceiling (`max_job_seconds`, 3600 s when this was
+#: written), and with 9 corner units that caps `timeout_s` at about 386 s. A
+#: first submit at 3600 s was refused outright with
+#: `batch job bound 32520s ... exceeds the fleet's whole-job ceiling of 3600s
+#: ... lower options.timeout_s`, and no `--hosts` sharding fixes it, because
+#: at 3600 s a SINGLE unit already exceeds the ceiling.
+#: 300 s is ~10x the measured per-unit cost: one corner's 16 transient steps
+#: run in roughly 26 s (a local single-corner probe at 8 steps took 13 s), so
+#: this leaves an order of magnitude of headroom for a slow worker while
+#: keeping the whole-job bound at 2820 s, inside the ceiling.
+#: Raising it is not free -- check it against the ceiling and the unit count
+#: first, or the submit is refused before anything runs.
+DEFAULT_TIMEOUT_S = 300.0
+
 SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
 TEMPS_C = corners_mod.RATIFIED_TEMPS_C
 PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
@@ -459,7 +475,7 @@ def build_request(
     netlist_name: str,
     cids: list[str],
     *,
-    timeout_s: float = 3600.0,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
     backend: str | None = None,
     windows: dict[str, float] | None = None,
     r_source_list: list[float] | None = None,
@@ -711,6 +727,7 @@ class SubmitError(RuntimeError):
 CAPACITY_WAIT_S = 600
 
 
+
 def submit_argv(
     request_path: Path,
     outdir: Path,
@@ -777,6 +794,19 @@ def submit(
 # ---------------------------------------------------------------------------
 # Record
 # ---------------------------------------------------------------------------
+#: The acquisition-settling record this campaign's control row is compared
+#: against, and the environment IT was minted in -- a fixed historical fact,
+#: read from that record's own Environment block. The comparison is only as
+#: good as the versions on both sides, so the record states them side by side
+#: instead of leaving a reader to look it up (CLAUDE.md: check uncontrolled
+#: differences between compared runs, e.g. tool version).
+CONTROL_REFERENCE = {
+    "record": "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md",
+    "pdk": "sky130A @ c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+    "ngspice": "ngspice-46",
+    "value": "-0.3800 mV per-node residual at `tt_27c_1.62v`",
+}
+
 #: Stated in the record so a reader cannot mistake the testbench for the pad.
 LIMITS = [
     "**Series resistance only.** The testbench puts one ideal source in series "
@@ -846,6 +876,21 @@ def write_record(
 
     windows = list(WINDOWS)
     complete = [c for c in cids if all(analysis[c][w] for w in windows)]
+
+    worker_pdk = info.get("worker_pdk")
+    worker_ng = info.get("worker_ngspice")
+    exec_known = bool(worker_pdk and worker_ng)
+    # What actually produced the numbers: the worker when it reported itself,
+    # otherwise the submitting host (stated as such, never silently).
+    executing_pdk = (
+        f"sky130A @ {worker_pdk.split()[-1]}" if exec_known else prov.pdk_line
+    )
+    executing_ngspice = worker_ng.split()[0] if exec_known else prov.ng_version
+    exec_matches_host = (
+        exec_known
+        and prov.pdk_line.split("@")[-1].strip() == worker_pdk.split()[-1].strip()
+        and prov.ng_version.split()[-1] == executing_ngspice
+    )
 
     # open_record() starts `lines` with a generic `# Record <id>` title; give
     # this campaign's records the same descriptive heading shape every other
@@ -982,23 +1027,46 @@ def write_record(
         f"`{info.get('backend')}`, executing PDK `{info.get('worker_pdk')}`, "
         f"executing simulator `{info.get('worker_ngspice')}`",
         "",
-        "**Uncontrolled difference.** The Environment block below names the PDK and "
-        "ngspice resolved on the SUBMITTING host; the numbers above were produced by "
-        "the executing worker named here. Where those differ, no comparison with a "
-        "locally run record -- including the acquisition-settling record this one "
-        "cites for its control row -- is controlled for PDK or simulator version.",
+        "**Uncontrolled difference 1 -- submitting host vs. executing worker.** The "
+        "Environment block below names the PDK and ngspice resolved on the "
+        "SUBMITTING host; the numbers above were produced by the executing worker "
+        "named here. "
+        + (
+            "For this run they resolved to the SAME PDK commit and ngspice version, "
+            "so nothing in this record turns on that distinction."
+            if exec_matches_host
+            else "They DIFFER for this run, so no figure here is controlled for "
+            "PDK or simulator version against a locally run record."
+        ),
+        "",
+        "**Uncontrolled difference 2 -- against the record cited for the control "
+        f"row.** [`{CONTROL_REFERENCE['record']}`](../../../{CONTROL_REFERENCE['record']}) "
+        f"(the {CONTROL_REFERENCE['value']} quoted above) was minted on "
+        f"`{CONTROL_REFERENCE['pdk']}` / `{CONTROL_REFERENCE['ngspice']}`; this record "
+        f"was produced on `{executing_pdk}` / `{executing_ngspice}`. "
+        + (
+            "Those are the same, so the two runs are directly comparable."
+            if (
+                CONTROL_REFERENCE["pdk"].split("@")[-1].strip() == str(executing_pdk).split("@")[-1].strip()
+                and CONTROL_REFERENCE["ngspice"] in str(executing_ngspice)
+            )
+            else "**Those differ.** The control-row residual measured here is "
+            "therefore NOT a controlled reproduction of that record's figure: a "
+            "difference between the two is as readily a PDK or simulator-version "
+            "difference as a harness one, and nothing in this record should be read "
+            "as confirming or contradicting it. What the control row is used for "
+            "here -- the per-corner reference every budget in this record is "
+            "measured relative to -- is internal to THIS run and is unaffected."
+        ),
         "",
     ]
 
     klt_version = subprocess.run(
         ["klt", "--version"], capture_output=True, text=True, check=False
     ).stdout.strip()
-    worker_pdk = info.get("worker_pdk")
-    worker_ng = info.get("worker_ngspice")
-    exec_known = bool(worker_pdk and worker_ng)
     lines += evidence.environment_block(
-        f"sky130A @ {worker_pdk.split()[-1]}" if exec_known else prov.pdk_line,
-        worker_ng.split()[0] if exec_known else prov.ng_version,
+        executing_pdk,
+        executing_ngspice,
         prov.netlist_sha,
         {
             "klt": klt_version,
@@ -1140,7 +1208,11 @@ def main(argv: list[str] | None = None) -> int:
                          "multi-corner grid goes to the batch fleet and is never "
                          "looped locally)")
     ap.add_argument("--workdir", type=Path, default=None)
-    ap.add_argument("--timeout-s", type=float, default=3600.0)
+    ap.add_argument("--timeout-s", type=float, default=DEFAULT_TIMEOUT_S,
+                    help="per-unit options.timeout_s (default: %(default)s). The "
+                         "fleet refuses a job whose timeout_s * units + 120 "
+                         "exceeds its whole-job ceiling -- see DEFAULT_TIMEOUT_S "
+                         "before raising this")
     evidence.add_supersedes_argument(ap)
     args = ap.parse_args(argv)
 
