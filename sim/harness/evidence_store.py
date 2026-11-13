@@ -39,8 +39,6 @@ from urllib.parse import urlsplit
 ENV_BROKER = "KLT_ARTIFACT_BROKER"
 ENV_REPO = "KLT_ARTIFACT_REPO"
 MANIFEST_DIR = Path("manifests") / "artifacts"
-#: Scratch tree (git-ignored) where a stored run's bytes are staged.
-WORK_DIR = Path("sim") / ".work"
 #: klayout-tools commit that first carries the `artifact` verb in a usable form.
 KLT_ARTIFACT_MIN_COMMIT = "7e3561f"
 PROBE_TIMEOUT_S = 30

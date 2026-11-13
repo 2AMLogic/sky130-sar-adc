@@ -1,23 +1,27 @@
-"""Equivalence pins for the two helpers issue #495 moved into `layout/bin/`
-while deliberately leaving the original copy in place.
+"""Behaviour pins for the two helpers `layout/bin/` shares across blocks:
+`_geometry_common.step_down_to_met1()` and `_pfet_devices.mos_array_params()`.
 
 WHY THIS FILE EXISTS
 --------------------
-`layout/halflsb-offset/` needs two things `layout/sampling-frontend/` had already
-worked out: the "walk a generator port down to met1" via-stack emitter (three
-layer cases, each with a DRC finding behind it) and the `klt gen mos_array`
-parameter dict this repo draws an unmatched single-finger FET with. Copying
-either into a new block is the drift this repo has met before (#163, #208,
-#251, #255); re-pointing `layout/sampling-frontend/` at a shared copy is not
-free either, because that flow's output is the drawn geometry behind a committed,
-append-only DRC-clean / LVS-match record, so a change there is work that belongs
-with that flow's next re-run rather than with a sibling's first one.
+`layout/halflsb-offset/` needed two things `layout/sampling-frontend/` had
+already worked out: the "walk a generator port down to met1" via-stack emitter
+(three layer cases, each with a DRC finding behind it) and the `klt gen
+mos_array` parameter dict this repo draws an unmatched single-finger FET with.
+Issue #495 lifted both into `layout/bin/` but left sampling-frontend's own
+byte-identical copies in place, because their output is the drawn geometry
+behind that flow's committed, append-only DRC-clean / LVS-match record. While
+both copies existed, this module's job was to drive them over the same inputs
+and assert identical output, so a divergence was a test failure rather than a
+silent difference between two blocks' geometry.
 
-So both copies exist for now, and this module is what makes that safe: it drives
-the shared copy and the sampling-frontend copy over the same inputs and asserts
-they emit identical output. A divergence is a test failure here rather than a
-silent difference between two blocks' geometry, and the eventual fold-in becomes
-a provable no-op.
+Issue #845 folded those copies in once sampling-frontend had re-run, and the
+equivalence tests went with them -- they had already done their job, proving
+the fold-in a no-op for drawn geometry. What this module pins now is the
+surviving shared emitters' **own** output: the exact shape list each layer case
+emits and the exact parameter dict, not "equal to a second copy of itself".
+Both flows' committed records were minted against these exact values, so a
+change here changes drawn geometry in two blocks at once and must be a
+deliberate, re-recorded one.
 
 Pure stdlib -- no PDK, no KLayout, no `klt` -- so it belongs to the headless tier
 (`npm run test` -> `test:unit`, CI's "Repo checks (headless, no PDK)" job), the
@@ -26,164 +30,134 @@ same convention `sim/tests/test_layout_entrypoint_imports.py` follows.
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LAYOUT_BIN = REPO_ROOT / "layout" / "bin"
-SAMPLING_FRONTEND_BIN = REPO_ROOT / "layout" / "sampling-frontend" / "bin"
 
 sys.path.insert(0, str(LAYOUT_BIN))
 
 import _geometry_common as geometry_common  # noqa: E402
 import _pfet_devices as pfet_devices  # noqa: E402
 
+#: The probe point every layer case below is emitted at. Arbitrary, but fixed:
+#: the expected shape lists are stated in absolute um, so moving it would
+#: invalidate all of them at once.
+PROBE_X, PROBE_Y = 1.449, 6.449
 
-def _load_sampling_frontend_build_layout():
-    """`layout/sampling-frontend/bin/build_layout.py` as a module.
-
-    Loaded by path, with that block's own `bin/` ahead of the shared one on
-    `sys.path`, exactly the prelude the script sets up for itself -- it imports
-    a sibling `gen_blocks`, and three blocks under `layout/` claim that same
-    top-level module name (see
-    `sim/tests/test_layout_entrypoint_imports.py`'s docstring).
-
-    The sibling modules this pulls in are removed from `sys.modules` again
-    afterwards, so a later test module loading a different block's
-    `build_layout.py` does not resolve `gen_blocks` to this one. See
-    `sim/tests/test_halflsb_offset_side_congruence.py`'s own loader for the
-    same guard from the other side.
-    """
-    script = SAMPLING_FRONTEND_BIN / "build_layout.py"
-    sys.path.insert(0, str(SAMPLING_FRONTEND_BIN))
-    before = set(sys.modules)
-    try:
-        spec = importlib.util.spec_from_file_location(
-            "_sampling_frontend_build_layout", script
-        )
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
-        return module
-    finally:
-        sys.path.remove(str(SAMPLING_FRONTEND_BIN))
-        for name in set(sys.modules) - before - {"_sampling_frontend_build_layout"}:
-            del sys.modules[name]
-
-
-#: Every layer case `step_down_to_met1` handles, as
-#: `(label, layer, direction, met4_escape_y)`. Sourced from the shared module's
-#: own layer constants, so a renumbered layer moves both sides together and this
-#: table cannot go stale against one of them.
+#: Every layer case `step_down_to_met1()` handles, as
+#: `(label, layer, direction, met4_escape_y, expected_xy, expected_shapes)`.
+#: `expected_shapes` is `(layer, rect.as_um())` in emission order -- the drawn
+#: geometry itself, in the composed frame, exactly as both consumers' committed
+#: records carry it. Layers are named from the shared module's own constants, so
+#: a renumbered layer moves the table with it rather than going stale.
 LAYER_CASES = (
-    ("li1 (mos_array S/G/D)", geometry_common.L_LI1, 180.0, None),
-    ("met3 (cap_array *_BOT, facing -x)", geometry_common.L_MET3, 180.0, None),
-    ("met3 (cap_array *_BOT, facing +x)", geometry_common.L_MET3, 0.0, None),
-    ("met4 (cap_array *_TOP)", geometry_common.L_MET4, 90.0, 9.62),
+    (
+        "li1 (mos_array S/G/D)",
+        geometry_common.L_LI1,
+        180.0,
+        None,
+        (1.449, 6.449),
+        (
+            # One mcon reaches met1 directly; the port is already on li1.
+            (geometry_common.L_MCON, [1.364, 6.364, 1.534, 6.534]),
+        ),
+    ),
+    (
+        "met3 (cap_array *_BOT, facing -x)",
+        geometry_common.L_MET3,
+        180.0,
+        None,
+        # direction 180 shifts the via MET3_VIA_INSET_UM into the plate, so the
+        # effective x the caller jogs from moves with it.
+        (1.649, 6.449),
+        (
+            (geometry_common.L_MET2, [1.439, 6.239, 1.859, 6.659]),
+            (geometry_common.L_VIA2, [1.549, 6.349, 1.749, 6.549]),
+            (geometry_common.L_MET1, [1.489, 6.289, 1.809, 6.609]),
+            (geometry_common.L_VIA1, [1.574, 6.374, 1.724, 6.524]),
+        ),
+    ),
+    (
+        "met3 (cap_array *_BOT, facing +x)",
+        geometry_common.L_MET3,
+        0.0,
+        None,
+        (1.449, 6.449),
+        (
+            (geometry_common.L_MET2, [1.239, 6.239, 1.659, 6.659]),
+            (geometry_common.L_VIA2, [1.349, 6.349, 1.549, 6.549]),
+            (geometry_common.L_MET1, [1.289, 6.289, 1.609, 6.609]),
+            (geometry_common.L_VIA1, [1.374, 6.374, 1.524, 6.524]),
+        ),
+    ),
+    (
+        "met4 (cap_array *_TOP)",
+        geometry_common.L_MET4,
+        90.0,
+        9.62,
+        # The met4 riser escapes the cell footprint first, so the effective y
+        # the caller routes from is the escape y, not the port's own.
+        (1.449, 9.62),
+        (
+            (geometry_common.L_MET4, [1.299, 6.299, 1.599, 9.77]),
+            (geometry_common.L_MET4, [1.239, 9.41, 1.659, 9.83]),
+            # MET3_ISLAND_PAD_UM, not STACK_PAD_UM: this pad is the only met3
+            # shape at its own (x, y), so it must clear m3.6 alone (issue #326).
+            (geometry_common.L_MET3, [1.199, 9.37, 1.699, 9.87]),
+            (geometry_common.L_VIA3, [1.349, 9.52, 1.549, 9.72]),
+            (geometry_common.L_MET2, [1.239, 9.41, 1.659, 9.83]),
+            (geometry_common.L_VIA2, [1.349, 9.52, 1.549, 9.72]),
+            (geometry_common.L_MET1, [1.289, 9.46, 1.609, 9.78]),
+            (geometry_common.L_VIA1, [1.374, 9.545, 1.524, 9.695]),
+        ),
+    ),
 )
 
 
-class TestStepDownToMet1Equivalence(unittest.TestCase):
-    """The shared emitter and sampling-frontend's local one must agree."""
+class TestStepDownToMet1(unittest.TestCase):
+    """The shared via-stack emitter's own drawn output and error cases."""
 
-    @classmethod
-    def setUpClass(cls):
-        cls.sampling_frontend = _load_sampling_frontend_build_layout()
-
-    def test_local_copy_still_exists(self):
-        """Anti-vacuity: if the sampling-frontend copy is ever folded into the
-        shared one, this suite stops covering anything and must be updated
-        deliberately rather than passing empty."""
-        self.assertTrue(
-            hasattr(self.sampling_frontend, "_step_down_to_met1"),
-            "layout/sampling-frontend/bin/build_layout.py no longer defines "
-            "_step_down_to_met1 -- if it now delegates to "
-            "_geometry_common.step_down_to_met1, that is the fold-in this "
-            "module was holding safe: drop these equivalence tests in the same "
-            "change, and say so in the flow's next record",
-        )
-
-    def test_every_layer_case_emits_identical_shapes(self):
-        for label, layer, direction, escape_y in LAYER_CASES:
+    def test_every_layer_case_emits_the_recorded_shapes(self):
+        for label, layer, direction, escape_y, expected_xy, expected in LAYER_CASES:
             with self.subTest(case=label):
-                shared: list = []
-                local: list = []
-                shared_xy = geometry_common.step_down_to_met1(
-                    shared, 1.449, 6.449, layer, direction, met4_escape_y=escape_y
+                shapes: list = []
+                xy = geometry_common.step_down_to_met1(
+                    shapes, PROBE_X, PROBE_Y, layer, direction, met4_escape_y=escape_y
                 )
-                local_xy = self.sampling_frontend._step_down_to_met1(
-                    local, 1.449, 6.449, layer, direction, met4_escape_y=escape_y
-                )
-                self.assertEqual(shared_xy, local_xy)
+                self.assertEqual(expected_xy, xy)
                 self.assertEqual(
-                    [(lay, rect.as_um()) for lay, rect in shared],
-                    [(lay, rect.as_um()) for lay, rect in local],
-                    f"{label}: the shared and sampling-frontend emitters have "
-                    "diverged -- they draw the geometry of two different blocks, "
-                    "so fix the divergence rather than the test",
+                    [list(pair) for pair in expected],
+                    [[lay, rect.as_um()] for lay, rect in shapes],
+                    f"{label}: this emitter draws the geometry of every block "
+                    "that calls it, and each one's committed record was minted "
+                    "against these shapes -- if the change is intended, re-run "
+                    "those flows and record the new geometry rather than just "
+                    "updating this table",
                 )
 
-    def test_met4_case_requires_an_escape_y_on_both(self):
-        for emitter in (
-            geometry_common.step_down_to_met1,
-            self.sampling_frontend._step_down_to_met1,
-        ):
-            with self.subTest(emitter=emitter.__module__):
-                with self.assertRaises(geometry_common.BuildError):
-                    emitter([], 1.0, 1.0, geometry_common.L_MET4, 90.0)
-
-    def test_unknown_layer_raises_on_both(self):
-        bogus = (12345, 67)
-        for emitter in (
-            geometry_common.step_down_to_met1,
-            self.sampling_frontend._step_down_to_met1,
-        ):
-            with self.subTest(emitter=emitter.__module__):
-                with self.assertRaises(geometry_common.BuildError):
-                    emitter([], 1.0, 1.0, bogus, 90.0)
-
-
-class TestMosArrayParamsEquivalence(unittest.TestCase):
-    """`_pfet_devices`' shared emitters vs sampling-frontend's local ones."""
-
-    @classmethod
-    def setUpClass(cls):
-        script = SAMPLING_FRONTEND_BIN / "gen_blocks.py"
-        sys.path.insert(0, str(SAMPLING_FRONTEND_BIN))
-        before = set(sys.modules)
-        try:
-            spec = importlib.util.spec_from_file_location(
-                "_sampling_frontend_gen_blocks", script
+    def test_met4_case_requires_an_escape_y(self):
+        with self.assertRaises(geometry_common.BuildError):
+            geometry_common.step_down_to_met1(
+                [], 1.0, 1.0, geometry_common.L_MET4, 90.0
             )
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = module
-            spec.loader.exec_module(module)
-            cls.gen_blocks = module
-        finally:
-            sys.path.remove(str(SAMPLING_FRONTEND_BIN))
-            for name in set(sys.modules) - before - {"_sampling_frontend_gen_blocks"}:
-                del sys.modules[name]
 
-    def test_pfet_and_nfet_params_match_the_local_copies(self):
-        for w_um, l_um in ((1.0, 0.15), (2.0, 0.15), (16.0, 0.15), (1.0, 0.5)):
-            with self.subTest(w=w_um, l=l_um):
-                self.assertEqual(
-                    pfet_devices.pfet_params(w_um, l_um),
-                    self.gen_blocks.pfet_params(w_um, l_um),
-                )
-                self.assertEqual(
-                    pfet_devices.nfet_params(w_um, l_um),
-                    self.gen_blocks.nfet_params(w_um, l_um),
-                )
+    def test_unknown_layer_raises(self):
+        with self.assertRaises(geometry_common.BuildError):
+            geometry_common.step_down_to_met1([], 1.0, 1.0, (12345, 67), 90.0)
+
+
+class TestMosArrayParams(unittest.TestCase):
+    """`_pfet_devices`' shared `klt gen mos_array` parameter dict."""
 
     def test_shared_emitter_dict_is_pinned_exactly(self):
-        """The dict itself, not just "equal to the other copy".
+        """The dict itself.
 
-        Both copies changing together would still change what every full-custom
-        block in `layout/` generates, and every committed record was minted
-        against this exact dict.
+        Changing it would change what every full-custom block in `layout/`
+        generates, and every committed record was minted against this exact
+        dict.
         """
         self.assertEqual(
             pfet_devices.mos_array_params("pfet", 2.0, 0.15),
@@ -198,6 +172,20 @@ class TestMosArrayParamsEquivalence(unittest.TestCase):
                 "gate_contact": True,
             },
         )
+
+    def test_flavor_wrappers_only_set_the_flavor(self):
+        """`pfet_params`/`nfet_params` are the names the block generators call;
+        each must be exactly `mos_array_params` with its flavor pinned."""
+        for w_um, l_um in ((1.0, 0.15), (2.0, 0.15), (16.0, 0.15), (1.0, 0.5)):
+            with self.subTest(w=w_um, l=l_um):
+                self.assertEqual(
+                    pfet_devices.mos_array_params("pfet", w_um, l_um),
+                    pfet_devices.pfet_params(w_um, l_um),
+                )
+                self.assertEqual(
+                    pfet_devices.mos_array_params("nfet", w_um, l_um),
+                    pfet_devices.nfet_params(w_um, l_um),
+                )
 
     def test_unknown_flavor_raises(self):
         with self.assertRaises(ValueError):

@@ -38,17 +38,19 @@ worked out empirically (three layer cases, each with a DRC finding behind
 it) and `layout/halflsb-offset/bin/build_layout.py` needs verbatim, because
 both compose `klt gen cap_array` MiM units (met3 bottom-plate / met4
 top-plate ports) alongside `klt gen mos_array` devices (li1 S/G/D ports).
-The two copies are deliberately NOT yet folded into one: that function's
-output is the *drawn geometry* behind `layout/sampling-frontend/`'s
-committed DRC-clean / LVS-match record, and this repo's records are
-append-only, so re-pointing that flow at this copy is work that belongs with
-that flow's next re-run rather than with a sibling block's first one (the
-same staging `_pfet_devices.py`'s own header documents for issues
-#245--#248). What keeps the duplication honest meanwhile is mechanical, not
-a comment: `sim/tests/test_geometry_common_shared_helpers.py` drives both
-copies over every layer case and asserts the emitted shape lists are
-identical, so a divergence is a test failure and the eventual fold-in is a
-provable no-op.
+
+`layout/sampling-frontend/bin/build_layout.py` kept its own byte-identical
+`_step_down_to_met1` for a while after that extraction, because that
+function's output is the *drawn geometry* behind that flow's committed
+DRC-clean / LVS-match record and this repo's records are append-only, so
+re-pointing it belonged with that flow's next re-run rather than with a
+sibling block's first one. Issue #845 did the fold-in once that flow had
+re-run: this is now the only copy, and both consumers call it. The
+equivalence test that held the two copies honest meanwhile
+(`sim/tests/test_geometry_common_shared_helpers.py`) had already proved the
+fold-in a no-op for drawn geometry; what remains there pins THIS emitter's
+own output, layer case by layer case, rather than two copies against each
+other.
 """
 from __future__ import annotations
 
@@ -106,10 +108,12 @@ LICON_PITCH_UM = 0.60
 
 # --- metal stack: layers + cut/pad sizing, for `step_down_to_met1()` ---------
 # sky130A GDS numbers, as klt's own curated deck names them. Each consumer that
-# also uses these layers for its OWN wiring keeps its own module-level copy of
-# the names it needs (`layout/sampling-frontend/bin/build_layout.py` does),
-# byte-identical to these, exactly the way `WIRE_UM` above is already carried
-# twice -- this copy only fixes what the shared step-down emitter draws.
+# also uses one of these layers for its OWN wiring keeps its own module-level
+# copy of just that name, byte-identical to this one, exactly the way `WIRE_UM`
+# above is already carried twice -- `layout/sampling-frontend/bin/build_layout.py`
+# keeps L_MCON/L_MET1/L_VIA1/L_MET2 for its own columns, tracks and taps. The
+# met3/met4 stack layers below are drawn only by `step_down_to_met1`, so this is
+# their only definition.
 L_MCON = (67, 44)
 L_MET1 = (68, 20)
 L_VIA1 = (68, 44)
@@ -132,9 +136,16 @@ STACK_PAD_UM = 0.42  # landing pad for a stacked via cut (the same pad size
 # `klt gen`'s own gate_contact uses), so a 0.20um via2/via3 lands with
 # >= 0.11um enclosure on every side.
 MET3_ISLAND_PAD_UM = 0.50  # a met3 pad that is the ONLY met3 shape at its own
-# (x, y) has to satisfy sky130A's met3 MINIMUM-AREA rule (`m3.6`, 0.240um^2)
-# on its own; a STACK_PAD_UM square is 0.1764um^2, below it and invisible to
-# `klt drc`'s curated deck (issue #326). 0.50^2 = 0.25um^2 clears it.
+# (x, y) has to satisfy sky130A's met3 MINIMUM-AREA rule (`m3.6`, 0.240um^2,
+# from the pinned PDK's own libs.tech/klayout/drc/sky130A_mr.drc) on its own;
+# a STACK_PAD_UM square is 0.1764um^2, below it and invisible to `klt drc`,
+# whose curated sky130 deck carries no `area`-kind rule (issue #326; fixed
+# upstream by klayout-tools#1989, not yet released). 0.50^2 = 0.25um^2 clears
+# it. Verified by `docs/chipalooza/measure_metal_min_area.py`, which `klt drc`
+# cannot replace. Each consumer's own met4 escape margin must still clear
+# met3.space (0.30um) from the bottom plate's top edge to this wider pad's
+# near edge -- `layout/sampling-frontend/`'s CAP_MET4_ESCAPE_MARGIN_UM (0.80)
+# leaves 0.80 - 0.25 = 0.55um, comfortably over it.
 MET3_VIA_INSET_UM = 0.20  # a `cap_array` *_BOT port's reported x sits right AT
 # the bottom plate's own edge, so landing a via2 there pokes past met3's
 # boundary and fails met3.enclosing.via2. Step the landing this far INTO the
@@ -210,9 +221,10 @@ def step_down_to_met1(
 
     Extracted verbatim (issue #495) from
     `layout/sampling-frontend/bin/build_layout.py`'s own
-    `_step_down_to_met1`, which is still the live copy that flow's committed
-    record was drawn with -- see this module's header for why both exist and
-    for the test that holds them identical.
+    `_step_down_to_met1`, whose geometry that flow's committed record was
+    drawn with; issue #845 folded that copy in, so this is the one emitter
+    both consumers now call -- see this module's header for that staging and
+    for what pins this function's output today.
     """
     if layer == L_LI1:
         shapes.append((L_MCON, Rect.centred(x, y, MCON_UM, MCON_UM)))
