@@ -67,7 +67,6 @@ DR-003 Item 2 is quoted as a *reference scale*, never as a pass/fail gate.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -332,32 +331,9 @@ TRAN_MEASURE_NAMES = [
 
 # The 4 scalar names build_ac_capacitance()'s single-frequency-point
 # `print c_top_p c_top_n c_bp_p c_bp_n` emits in the same "name = value"
-# shape (a single-point `ac` analysis condenses to scalar print output, not
-# the multi-row column block parse_ac_print() below handles).
+# shape harness.measure.parse() reads (a single-point `ac` analysis condenses
+# to scalar print output, not a multi-row column block per vector).
 AC_MEASURE_NAMES = ["c_top_p", "c_top_n", "c_bp_p", "c_bp_n"]
-
-
-_AC_PRINT_RE = re.compile(
-    r"^\s*\d+\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s*$"
-)
-
-
-def parse_ac_print(output: str, names: list[str]) -> dict[str, float]:
-    """ngspice prints a multi-vector `print` as one column block per vector,
-    each preceded by a header line naming it. Pull the single data row out of
-    each block."""
-    result: dict[str, float] = {}
-    current: str | None = None
-    for line in output.splitlines():
-        low = line.lower()
-        for name in names:
-            if re.search(rf"\b{re.escape(name)}\b", low) and "=" not in line:
-                current = name
-        m = _AC_PRINT_RE.match(line)
-        if m and current is not None:
-            result[current] = float(m.group(2))
-            current = None
-    return result
 
 
 # ---------------------------------------------------------------------------

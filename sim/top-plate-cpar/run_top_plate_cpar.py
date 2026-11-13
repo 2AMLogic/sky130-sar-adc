@@ -70,7 +70,6 @@ R_BIAS = "10G"
 #: Top-plate DC bias points: the endpoints of DR-022's traced common-mode range
 #: (565-871 mV at 1.8 V) and three evenly spaced points between them.
 BIASES_V = [0.565, 0.6415, 0.718, 0.7945, 0.871]
-TRACED_RANGE_V = (0.565, 0.871)
 N_UNITS = 512  # array side: 511 weighted + 1 termination unit cap (DR-005)
 CU_W_UM = 1.9000
 
