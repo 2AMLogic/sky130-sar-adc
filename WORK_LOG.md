@@ -8,6 +8,16 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-13
 
+- **Issue #873** (closed): bug: --mechanism-probe's delayed-strobe variant refuses against the committed netlist, and no test covers the guard
+- **PR #878**: refactor: retire --mechanism-probe from the full-conversion runner
+- **Issue #874** (closed): vcm-drive-budget: find_budget() can never return None — the 'none found'/'unrescued' branches are dead and the rescue verdict cannot fail
+- **PR #876**: fix(vcm-drive-budget): exclude the control row so find_budget() can report "none found"
+- **Issue #854** (closed): Fold the 10 copy-pasted toolchain SKIP/FAIL gates in sim drivers into one harness helper (two copies drop warnings)
+- **PR #868**: refactor(sim): fold ten inline toolchain gates into toolchain.preflight()
+- **Issue #861** (closed): Split the 4.7k-line run_conversion.py into per-campaign modules behind the existing CLI
+- **PR #872**: refactor(sim): split run_conversion.py into per-campaign modules behind the same CLI
+- **Issue #865** (closed): Consolidate four copy-pasted klt sim submit blocks (three different fleet-capacity policies) into one sim/harness helper
+- **PR #870**: refactor(sim): one klt_sim submit helper for the four batch campaign drivers
 - **Issue #860** (closed): Consolidate three xschem netlisting helpers with conflicting exit-code policies onto toolchain.netlist_with_xschem()
 - **PR #867**: refactor(sim): one xschem exit-code policy on netlist_with_xschem()
 - **Issue #859** (closed): Consolidate four hand-rolled PDK-root lookups onto sim/harness/pdk.resolve()

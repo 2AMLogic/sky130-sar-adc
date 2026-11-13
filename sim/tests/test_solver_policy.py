@@ -11,7 +11,9 @@ place to discover it:
    reference evidence is refused BEFORE the toolchain is checked or anything
    is simulated -- while `ngspice-default` (the pre-DR-023 settings) may still
    re-run --corners and every diagnostic mode, as a labelled control, so the
-   records minted before DR-023 stay reproducible.
+   records minted before DR-023 stay reproducible. The retired
+   `--mechanism-probe` (issue #873) is not one of those modes: the parser
+   rejects the flag outright, which is pinned here too.
 3. A control record never moves `records/LATEST` and can never carry a
    **Supersedes** pointer -- refused in the writer itself, not only at the CLI.
 4. The audit compares like with like (same instrumentation under every
@@ -21,6 +23,7 @@ place to discover it:
 
 from __future__ import annotations
 
+import inspect
 import sys
 import tempfile
 import unittest
@@ -107,11 +110,11 @@ class TestSolverProfiles(unittest.TestCase):
                 self.assertEqual(_options_lines(legacy), [])
 
     def test_diagnostic_modes_inherit_the_reference_policy(self):
-        # node/cm/decision-margin traces and the mechanism probe call
-        # assemble_deck without a solver_profile: they run the reference policy
+        # the node/cm/decision-margin traces call assemble_deck without a
+        # solver_profile: they run the reference policy
         with tempfile.TemporaryDirectory() as tmp:
-            deck = fc_common.assemble_deck("xcmp VDD CLK a b c\n", _fake_pdk(Path(tmp)),
-                                    delayed_comparator_strobe=True)
+            deck = fc_common.assemble_deck("xcmp VDD CLKN a b c\n", _fake_pdk(Path(tmp)),
+                                    extra_meas=[".meas tran probe find v(x) at=1n"])
         self.assertEqual(_options_lines(deck), [".options reltol=1e-4 method=gear"])
 
     def test_card_sits_after_the_fragment_and_before_extra_probes(self):
@@ -156,7 +159,6 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         ["--solver-profile", "gear-only", "--corners", "--record"],
         ["--solver-profile", "ngspice-default", "--corners",
          "--supersedes", "20261001-105439-c324f80"],
-        ["--solver-profile", "gear-only", "--mechanism-probe"],
         ["--solver-profile", "gear-only", "--node-trace"],
         ["--solver-profile", "reltol-only", "--cm-trace"],
         ["--solver-profile", "reltol-only", "--decision-margin-trace"],
@@ -167,7 +169,6 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         ["--solver-audit", "--solver-profile", "reltol-gear"],
         ["--solver-audit", "--supersedes", "20261001-105439-c324f80"],
         ["--solver-audit", "--jobs", "2"],
-        ["--solver-audit", "--mechanism-probe"],
         ["--audit-profile", "gear-only"],
     )
 
@@ -193,8 +194,8 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
     def test_reference_profile_may_still_supersede_and_run_the_grid(self):
         args = SimpleNamespace(
             solver_profile=None, sine_solver_control=False, corners=True,
-            mechanism_probe=False, node_trace=False, cm_trace=False,
-            decision_margin_trace=False, solver_audit=False, coherent_sine=False,
+            node_trace=False, cm_trace=False, decision_margin_trace=False,
+            solver_audit=False, coherent_sine=False,
             supersedes="20261001-105439-c324f80", jobs=3, audit_profile=[],
         )
         self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
@@ -202,16 +203,18 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
 
     def test_ngspice_default_may_reproduce_the_grid_and_every_diagnostic(self):
-        # issue #637 review: every pre-DR-023 record (records/LATEST's 9-corner
-        # campaign, the mechanism probe and the three traces) must stay
-        # reproducible -- as a labelled control, never as reference evidence.
-        for mode in ("corners", "mechanism_probe", "node_trace", "cm_trace",
-                     "decision_margin_trace"):
+        # issue #637 review: every pre-DR-023 record this runner can still
+        # mint (records/LATEST's 9-corner campaign and the three traces) must
+        # stay reproducible -- as a labelled control, never as reference
+        # evidence. `mechanism_probe` is deliberately absent: issue #873
+        # retired that mode, and its two records are reproduced from their own
+        # commit instead (see the experiment README).
+        for mode in ("corners", "node_trace", "cm_trace", "decision_margin_trace"):
             with self.subTest(mode=mode):
                 args = SimpleNamespace(
                     solver_profile="ngspice-default", sine_solver_control=False,
-                    corners=False, mechanism_probe=False, node_trace=False,
-                    cm_trace=False, decision_margin_trace=False, solver_audit=False,
+                    corners=False, node_trace=False, cm_trace=False,
+                    decision_margin_trace=False, solver_audit=False,
                     coherent_sine=False, supersedes="", jobs=1, audit_profile=[],
                 )
                 setattr(args, mode, True)
@@ -233,6 +236,55 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         self.assertEqual(
             rc.audit_profiles(SimpleNamespace(audit_profile=["gear-only", "gear-only", "reltol-only"])),
             ("gear-only", "reltol-only"))
+
+
+class TestRetiredMechanismProbe(unittest.TestCase):
+    """Issue #873 retired `--mechanism-probe`. The mode ran the DUT twice --
+    as committed, and on a testbench-only copy whose comparator strobe was
+    re-pointed to a half-period-delayed clock -- and the pair WAS the control.
+    Issue #264's capture-timing fix (`c54c9566`) both answered the question it
+    asked and made it unrunnable: its deck-patching branch anchored on the
+    literal instance-line prefix `xcmp VDD CLK `, which the committed netlist
+    (`xcmp VDD CLKN ...`) stopped matching, so the delayed variant refused and
+    the mode produced nothing.
+
+    Pinned here because a retirement that leaves the flag parseable, or leaves
+    the deck-patching parameter reachable, is the failure this issue was filed
+    about reappearing in a different shape."""
+
+    def test_parser_rejects_the_retired_flag(self):
+        argv = ["run_conversion.py", "--mechanism-probe"]
+        with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
+                mock.patch.object(rc.toolchain, "check_env",
+                                  return_value=_NO_TOOLCHAIN) as check:
+            with self.assertRaises(SystemExit) as cm:
+                rc.main()
+        self.assertEqual(cm.exception.code, 2)  # argparse: unrecognized argument
+        check.assert_not_called()               # before anything could be simulated
+
+    def test_no_deck_assembly_path_takes_a_strobe_delay_option(self):
+        # Asserted by shape rather than by name: no parameter of either deck
+        # entry point may offer a strobe delay at all, and no public name in
+        # the DC-codes module may offer the mode. A re-introduction under a
+        # new spelling fails here too.
+        for fn in (fc_common.assemble_deck, fc_common.run_point):
+            with self.subTest(fn=fn.__name__):
+                self.assertEqual(
+                    [n for n in inspect.signature(fn).parameters if "strobe" in n], [])
+        self.assertEqual([n for n in dir(fc_dc) if "mechanism" in n], [])
+        self.assertNotIn("probe", inspect.signature(fc_dc.write_record).parameters)
+
+    def test_the_committed_netlist_body_reaches_the_deck_unmodified(self):
+        # The guard this issue was filed about existed because the probe was
+        # the one mode that rewrote the DUT body. Nothing does now: whatever
+        # netlist text goes in comes back out, instance lines untouched.
+        body = "xcmp VDD CLKN TOP_P TOP_N COMP_OUT OUTN_NC comparator\nR1 a b 1\n.end\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            deck = fc_common.assemble_deck(body, _fake_pdk(Path(tmp)))
+        for ln in ("xcmp VDD CLKN TOP_P TOP_N COMP_OUT OUTN_NC comparator", "R1 a b 1"):
+            self.assertIn(ln, deck.splitlines())
+        self.assertNotIn("CLK_CMP", deck)
+        self.assertNotIn("VCLKCMP", deck)
 
 
 def _point(offset: int = 0, profile: str = fc_common.REFERENCE_SOLVER_PROFILE, guards=None) -> dict:
@@ -527,18 +579,6 @@ class TestDiagnosticModesHonourTheProfile(unittest.TestCase):
             [], [],
             [".options reltol=1e-4 method=gear"], [".options reltol=1e-4 method=gear"],
         ])
-
-    def test_mechanism_probe_runs_both_variants_under_the_profile(self):
-        seen = []
-        # Patched on fc_dc, not fc_common: run_mechanism_probe() imported these
-        # three names into its own module, so that is where it looks them up.
-        with mock.patch.object(fc_dc, "pdk"), \
-                mock.patch.object(fc_dc, "dut_text", return_value=""), \
-                mock.patch.object(fc_dc, "run_point",
-                                  side_effect=lambda *a, **k: seen.append(k["solver_profile"])
-                                  or {}):
-            fc_dc.run_mechanism_probe(Path("/nonexistent"), True, "ngspice-default")
-        self.assertEqual(seen, ["ngspice-default", "ngspice-default"])
 
     def _node_trace_record(self, profile: str) -> str:
         traces = {

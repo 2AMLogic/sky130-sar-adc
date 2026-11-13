@@ -149,8 +149,8 @@ def write_node_trace_record(
         "phase-timing/completion check itself also fails. It pins down which "
         "`CLK` edge relationship is misaligned in the AS-COMMITTED netlist -- "
         "the DUT is unmodified (only read-only `.meas` probes are added; "
-        "contrast `--mechanism-probe`, which re-points the comparator's own "
-        "strobe on a testbench-only copy)."
+        "contrast the since-retired `--mechanism-probe`, which re-pointed the "
+        "comparator's own strobe on a testbench-only copy)."
     )
     a(
         "- **Netlist provenance**: schematic (`design/sar_adc_top.spice`, "

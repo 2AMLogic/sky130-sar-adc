@@ -1,10 +1,8 @@
-"""The base DC-code campaign's record writer, and `--mechanism-probe`.
+"""The base DC-code campaign's record writer.
 
 Issue #861's split of `run_conversion.py` (see `__init__`). This module holds
 the evidence record minted by the default/`--corners` run -- the one record
-this experiment moves `records/LATEST` for -- plus the two-variant
-comparator-strobe mechanism probe, which prints and returns but writes no
-record of its own.
+this experiment moves `records/LATEST` for.
 
 The campaign loop itself (`run_point`, `run_campaign`) is shared and lives in
 `common`.
@@ -15,28 +13,23 @@ from pathlib import Path
 
 from . import common
 from .common import (
-    BASELINE_CORNER,
     CODE_TOLERANCE_LSB,
     REFERENCE_SOLVER_PROFILE,
     _bits_str,
     _power_uw_str,
     binding_point,
-    dut_text,
-    format_point,
     gain_record_lines,
     is_solver_control,
-    run_point,
     solver_control_note,
     solver_settings_text,
 )
-from harness import corners as corners_mod, evidence, pdk
+from harness import corners as corners_mod, evidence
 import gen_full_conversion_tb as tb
 
 
 def write_record(
     points: list[dict],
     netlist_text: str,
-    probe: dict | None = None,
     supersedes: str = "",
     solver_profile: str = REFERENCE_SOLVER_PROFILE,
 ) -> Path:
@@ -55,12 +48,6 @@ def write_record(
         common.EXPERIMENT_DIR, netlist_text, "corners",
         {f"{p['corner_id']}.log": p["log_text"] for p in points},
     )
-    if probe is not None:
-        diag_dir = common.EXPERIMENT_DIR / "diagnostics" / prov.record_id
-        diag_dir.mkdir(parents=True, exist_ok=True)
-        for tag, point in probe.items():
-            (diag_dir / f"{tag}.log").write_text(point["log_text"])
-
     binding = binding_point(points)
     overall_ok = all(p["all_ok"] for p in points)
     n_ok = sum(1 for p in points if p["all_ok"])
@@ -239,13 +226,6 @@ def write_record(
                 "one-hot phases in the DR-006 order."
             )
         )
-        if probe is not None:
-            a(
-                "- **Mechanism probe** (`--mechanism-probe`, baseline corner, "
-                "testbench-only modified netlist -- NOT the committed design): see "
-                f"`diagnostics/{prov.record_id}/`. "
-                + _probe_summary(probe)
-            )
         a("")
 
     lines.extend(
@@ -266,8 +246,6 @@ def write_record(
         written_by = "sim/full-conversion-transient/run_conversion.py"
         if len(points) > 1:
             written_by += " --corners"
-        if probe is not None:
-            written_by += " --mechanism-probe"
         written_by += f" --record --solver-profile {solver_profile}"
     else:
         written_by = "sim/full-conversion-transient/run_conversion.py --corners --record"
@@ -277,41 +255,3 @@ def write_record(
     if not control:
         evidence.write_latest_pointer(common.EXPERIMENT_DIR, prov.record_id)
     return path
-
-
-def _probe_summary(probe: dict) -> str:
-    parts = []
-    for tag, point in probe.items():
-        codes = ", ".join(
-            f"{cv['fraction']:+.2f}*V_REF -> {cv['code']} (ideal {cv['ideal_code']})"
-            for cv in point["conversions"]
-        )
-        parts.append(f"`{tag}`: {codes}")
-    return " ".join(parts)
-
-
-# --------------------------------------------------------------------------
-# Comparator-strobe mechanism probe (`--mechanism-probe`)
-# --------------------------------------------------------------------------
-# The one mode here that runs the DUT twice: once as committed, once on a
-# testbench-only copy whose comparator strobe is re-pointed to a half-period
-# delayed clock (assemble_deck(delayed_comparator_strobe=True)). The pair is
-# the control. It prints and returns; it writes no record of its own, and its
-# result reaches a record only as write_record()'s `probe` argument.
-def run_mechanism_probe(
-    scratch: Path, quiet: bool, solver_profile: str = REFERENCE_SOLVER_PROFILE,
-) -> dict:
-    pdk_info = pdk.resolve()
-    netlist_text = dut_text()
-    pc, tc, sv = BASELINE_CORNER
-    out: dict[str, dict] = {}
-    for tag, delayed in (("as-committed", False), ("comparator-strobe-delayed", True)):
-        point = run_point(
-            netlist_text, pdk_info, scratch, pc, tc, sv,
-            delayed_comparator_strobe=delayed, tag_prefix=f"probe_{tag}",
-            solver_profile=solver_profile,
-        )
-        out[tag] = point
-        if not quiet:
-            print(f"  [{tag}] " + format_point(point), flush=True)
-    return out

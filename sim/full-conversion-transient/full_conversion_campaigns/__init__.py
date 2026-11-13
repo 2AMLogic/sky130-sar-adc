@@ -16,7 +16,7 @@ does at import time.
   common           shared core (see its own docstring for what is shared and
                    why `EXPERIMENT_DIR` / `assemble_deck` / `_run_ngspice`
                    are read as attributes of it)
-  dc_codes         the base DC-code campaign's record, and --mechanism-probe
+  dc_codes         the base DC-code campaign's record
   node_trace       --node-trace
   cm_trace         --cm-trace
   decision_margin  --decision-margin-trace
