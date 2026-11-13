@@ -547,10 +547,11 @@ class TestSwitchTrace(unittest.TestCase):
             fc_common.sequencer_port_nets("* no sequencer here\n")
 
     # The test above is the only check that TODAY's committed netlist still
-    # matches the anchor, so it stays as is. The four below pin the guard
-    # itself on a small synthetic netlist -- both directions, and each
-    # refusal branch separately -- so a netlist that changes shape fails in
-    # CI at that commit rather than at a later hand run (issue #879).
+    # matches the anchor, so it stays as is: it is the one that makes a
+    # netlist which changes shape fail in CI at that commit rather than at a
+    # later hand run (issue #879). The four below read nothing from design/;
+    # they pin the guard itself on a small synthetic netlist -- both
+    # directions, and each refusal branch separately.
 
     def test_port_map_reads_positionally_from_a_synthetic_netlist(self):
         self.assertEqual(

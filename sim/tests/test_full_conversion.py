@@ -587,13 +587,19 @@ class TestStripBalanceDummies(unittest.TestCase):
 
     The control half is half the measurement: if it refuses, the mode
     produces nothing, so both directions are pinned on a small synthetic
-    netlist rather than on today's committed one.
+    netlist. `test_todays_committed_netlist_still_matches_this_anchor` is
+    the half that reads design/ -- the synthetic cases pin the guard's
+    match/refuse logic, that one pins the anchor against the committed
+    netlist, and only the pair makes the sentence above true.
 
-    Not asserted here, deliberately: the guard counts matching *lines*, not
+    Not asserted of the guard, deliberately: it counts matching *lines*, not
     distinct prefixes, so two `xdum_mux_n` lines and no `xdum_xnor_n` are
     accepted. That is current behaviour, out of scope to change under
     issue #879, and left unpinned in either direction so a later fix does
-    not have to fight a test.
+    not have to fight a test. The committed-netlist test below does assert
+    one line per prefix, but that is a statement about
+    design/sar_adc_top.spice rather than about the guard: a stricter guard
+    would still pass it.
     """
 
     def test_removes_both_dummies_and_keeps_every_other_line_in_order(self):
@@ -628,6 +634,31 @@ class TestStripBalanceDummies(unittest.TestCase):
                 "xdum_xnor_n a b xnor\n"
                 "xdum_mux_n g h i mux\n"
                 ".end\n"
+            )
+
+    def test_todays_committed_netlist_still_matches_this_anchor(self):
+        """The committed-netlist counterpart of the synthetic cases above,
+        mirroring what guard 2 already has in
+        test_sequencer_port_map_comes_from_the_netlist: the cases above run
+        the guard on inline literals, so only this one fails when a
+        schematic regeneration renames or drops a balancing dummy.
+        """
+        text = fc_common.dut_text()
+        # Raises RuntimeError unless design/sar_adc_top.spice still carries
+        # exactly len(_BALANCE_DUMMY_PREFIXES) matching instance lines.
+        stripped = fc_dm._strip_balance_dummies(text)
+        self.assertEqual(
+            len(text.splitlines()) - len(stripped.splitlines()),
+            len(fc_dm._BALANCE_DUMMY_PREFIXES),
+        )
+        # One line per prefix. The guard itself counts matching lines, not
+        # distinct prefixes (see the class docstring), so without this a
+        # rename of one dummy could be masked by a second copy of the other.
+        for prefix in fc_dm._BALANCE_DUMMY_PREFIXES:
+            self.assertEqual(
+                len([ln for ln in text.splitlines() if ln.startswith(prefix)]),
+                1,
+                f"expected exactly one '{prefix.strip()}' instance line",
             )
 
 
