@@ -223,7 +223,7 @@ and no row of §4 is relaxed or moved by this pass.
 | "An outline of a test plan for validating the IP block through measurement" | §5, written against the current port list and gated for port parity by the citation gate's test-plan check | **MET** |
 | "List of any equipment available for use in testing" and "CVs of the designers", both "sent separately from the proposal document" | Outside this document by the page's own instruction, and outside what this repository holds: both are operator-held material | **N/A here — operator action** |
 | "personal and institutional details are to be left out of the main proposal document" | This document names no individual. The single institutional string in it is §8's Apache-2.0 attribution line ("Copyright 2026 2AM Logic"), which is a licence fact rather than designer identification — removing it would misstate the licence this repository ships under | **Flagged, not changed** — whether the organisers read a licence copyright line as an institutional detail is theirs to say, not this pass's to assume |
-| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | The repository tracks **zero** image artifacts (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 0 as of this pass). Every `sim/` result is reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" UNMET** (§7 item 12) |
+| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | Five summary figures are tracked under [`docs/plots/`](../plots/) (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 5 as of this pass; this row read **zero** until #835 landed), rendered by [`sim/report/plots.py`](../../sim/report/plots.py) from evidence already committed under `sim/` — no simulation is run to draw them — and re-checked by `sim/report/plots.py --check` through `npm run check:ci`. Every `sim/` result is still reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" MET for the five figures §7 item 13 lists** — the one summary it deliberately leaves undrawn (linearity from the 5-code transfer bench), and the untouched "avoid unnecessary data dumps" half of the same sentence, are recorded there |
 | "Sign-off data is required (i.e., final DRC and LVS results)" | `signoff/` carries the block manifest, the graded [`signoff/t1-report.json`](../../signoff/t1-report.json) and [`signoff/run-signoff.sh`](../../signoff/run-signoff.sh)`--check`, plus the hash re-derivation CI runs over every cited artifact | **Mechanism MET**; the DRC/LVS *content* is still §4's two sign-off-bar rows (DRC MET, LVS device match UNMET / post-layout PVT UNMET — §7 item 1) |
 | "Every design should follow the repository template (once it has been made available)", whose "scripts for running basic sign-off verification … must be able to run by anyone cloning the repository and show a verified result" | The Chipalooza template is still unpublished (the page offers the IHP-challenge template as generally applicable). This repository's own equivalent runs from a bare clone today: `signoff/run-signoff.sh --check` needs only the `klt` pin in [`signoff/requirements.txt`](../../signoff/requirements.txt) — no PDK, no KLayout engine — and exits 2 rather than silently passing when `klt` is absent; `npm run check:ci` runs the headless gate set | **Runnable verified result MET; template adoption PENDING publication** |
 | "The design must be verifiable with open source EDA tools … AI may be used in support of circuit design but must not be a requirement for the end user of the IP block to use, verify, or modify the IP block" | Directly relevant: this block is AI-designed, which `CLAUDE.md` states openly. Every verification entry point is open-source and agent-free — xschem, ngspice, `klt`/KLayout, driven by committed shell and Python (`package.json`'s `check:ci`, `sim/README.md`'s per-flow cold-start commands, `signoff/run-signoff.sh`). No step of using, verifying or modifying this block requires an AI agent | **MET** — the AI provenance is disclosed, and no verification path depends on it |
@@ -231,10 +231,13 @@ and no row of §4 is relaxed or moved by this pass.
 | "Proposals are due two weeks from the beginning of the challenge, which is November 23, 2026", with proposal review the week of November 23 | **10 days after this pass.** This document is still headed "DRAFT design record, not a submission-ready proposal", and two of the rows above (CVs, equipment list) are operator-held material no automation here can produce | **Operator decision** — whether, when and under whose name to submit |
 
 Nothing in this table moves a §4 verdict, and none is claimed to. Three rows
-open genuinely new gaps that were invisible while the rules were unpublished
+opened genuinely new gaps that were invisible while the rules were unpublished
 (absolute limits, plot summaries, the mid-design ratification exposure); they
 are carried as §7 item 12 — and the first two as issues #834 and #835 — rather
-than folded into §4, because none of them is a spec row. The two conflicts
+than folded into §4, because none of them is a spec row. Of those three, the
+plot-summary gap is the one this pass closes: #835's rendering step landed as
+§7 item 13, and item 12(b) now records it as closed; the absolute-limits gap
+(#834) and the mid-design ratification exposure stay open. The two conflicts
 §2.2.1 found are tracked as #836, routed to an operator.
 
 ### 2.3 What this repo's own port list is, verbatim
@@ -5878,8 +5881,9 @@ tracker already owns.
 
 12. **Three brief requirements that no spec row covers (added 2026-11-13,
     issue #121 criterion 4, second pass; detail in §2.2.2).** Each is tracked:
-    (a) #834, (b) #835, (c) no separate issue — it is a standing note on this
-    document's own two DRAFT rows rather than a unit of work. (a) **Absolute
+    (a) #834, (b) #835 — closed by this pass, item 13 — (c) no separate
+    issue — it is a standing note on this document's own two DRAFT rows
+    rather than a unit of work. (a) **Absolute
     limits are not stated.** The page's proposal-content list asks for
     "absolute limits" alongside average/minimum/maximum values. §4 gives
     min/typ/max per row, and [`spec/target-spec.md`](../../spec/target-spec.md)
@@ -5888,20 +5892,75 @@ tracker already owns.
     conformance to the Sky130 process's own voltage limits. Closing this means
     a decision record stating the block's absolute maximum ratings — a `spec/`
     ratification, not a measurement, and not written here (#834). (b) **No simulation
-    result is summarized in a plot.** The page asks for plots rather than raw
-    data, with the raw data reproducible on demand; this repository is the
-    inverse by construction — 0 tracked image artifacts, every result a
-    Markdown table inside an append-only record, raw per-corner artifacts
-    committed beside it. The reproducibility half is met and the summary half
-    is not; closing it means a rendering step in the evidence flows
-    (`sim/report/generate.py`, which renders this repository's characterization
-    tables today, is the natural place — scoped that way in #835). (c)
+    result was summarized in a plot — the gap this pass closes; see item
+    13.** The page asks for plots rather than raw data, with the raw data
+    reproducible on demand; when this sub-item was first recorded the
+    repository was the inverse by construction — 0 tracked image artifacts,
+    every result a Markdown table inside an append-only record, raw per-corner
+    artifacts committed beside it. The reproducibility half was met and the
+    summary half was not; closing it meant a rendering step in the evidence
+    flows (`sim/report/generate.py`, which renders this repository's
+    characterization tables today, was named as the natural place — scoped
+    that way in #835). That step is now in the tree: five figures under
+    [`docs/plots/`](../plots/), rendered from already-committed evidence and
+    gated through `sim/report/generate.py --check`. Item 13 states what they
+    cover and the one summary it deliberately leaves undrawn, so this
+    sub-item is recorded as closed rather than open. (c)
     **Ratifying a DRAFT row after
     submission would be a mid-design specification change**, which the page
     requires approval for. The two exposed rows are Sample rate and
     ENOB/INL-DNL (DR-007, still `proposed`). Recorded so that a later
     ratification is not mistaken for a purely internal `spec/` event. **No §4
     verdict moves because of this item**, and none is claimed to.
+
+13. **Simulation results are now summarized in plots, not only raw data
+    (added 2026-11-13, issue #835; this closes the "summarized in plots" gap
+    item 12(b) records).** The published brief asks that "simulation results
+    should be summarized in plots, not raw data", while requiring that the raw
+    data stay reproducible from the sources in the repository. The
+    reproducibility half was already over-met — every result is an append-only
+    record with its per-corner raw artifacts committed beside it, and
+    `sim/check_spec_coverage.py` gates that each record's documented cold-start
+    invocation is the one it was minted with — but until this pass the tree
+    held no image file at all, so the *summary* half was unmet. Five figures
+    now land under [`docs/plots/`](../plots/), rendered by
+    [`sim/report/plots.py`](../../sim/report/plots.py) from evidence that is
+    **already committed** (no simulation is run to draw them):
+    [`enob-distribution.svg`](../plots/enob-distribution.svg) (per-draw ENOB
+    against the DRAFT lower limit),
+    [`cdac-inl-distribution.svg`](../plots/cdac-inl-distribution.svg) (per-draw
+    worst-case |INL| and |DNL|, one panel each, against the DRAFT ±1 LSB
+    target),
+    [`cdac-transfer-spot-check.svg`](../plots/cdac-transfer-spot-check.svg)
+    (measured differential level at 5 codes across all 9 ratified corners, plus
+    the per-corner monotonicity margin),
+    [`bit-trial-settling-corners.svg`](../plots/bit-trial-settling-corners.svg)
+    (worst-case `t_settle_99%` per corner against the DR-006 phase budget), and
+    [`coherent-sine-spectrum.svg`](../plots/coherent-sine-spectrum.svg) (the
+    captured 32-code dynamic-test record's spectrum, measured vs an ideal
+    quantizer on the identical plan). Each figure stamps its own source Record
+    ID and that record's corner set onto its face, and
+    `python3 sim/report/plots.py --check` — stdlib-only, wired into `npm run
+    check:ci` through `sim/report/generate.py --check` — fails if a cited
+    evidence file, the renderer, or a committed SVG changes without a
+    re-render, if a figure's source record is superseded, or if a record's own
+    stated figures stop reproducing from the raw artifact. **No §4 verdict
+    moves because of this item**, and no evidence under `sim/` was edited: the
+    plots are a regenerable derived view, written outside every path
+    `sim/check_append_only.py` and `signoff/check_evidence_hashes.py` protect.
+    One deliberate gap is recorded rather than filled: no linearity figure is
+    derived from the 5-code transfer bench, whose own record states that DR-003
+    defers the DNL/INL budget to the Monte Carlo campaign. (Both Monte Carlo
+    series — max|INL| and max|DNL| — are re-derived from that campaign's own 40
+    committed raw draw logs by its own parser, not from the yield report's
+    persisted samples path, which is a scratch file.) The *first* half of the
+    same brief sentence — "avoid
+    unnecessary data dumps" — is untouched: the committed raw artifacts under
+    `sim/` stay as they are, since changing that would change the append-only
+    rule, which is a separate decision. See
+    [`sim/README.md`](../../sim/README.md) "Summary plots" for the location,
+    format and gate decisions and the cold-start regeneration command.
+
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
