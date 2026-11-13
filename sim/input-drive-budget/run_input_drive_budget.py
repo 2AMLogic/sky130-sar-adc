@@ -624,12 +624,14 @@ def find_budget(rows: list[dict], threshold_lsb: float) -> dict | None:
     swept resistance works" into a reported budget of "0 ohm", which reads as
     a measurement but only restates the arithmetic. (This is the one place
     this function is not byte-identical to the `sim/vcm-drive-budget/` one it
-    mirrors: that implementation's own docstring promises the None case, but
-    because its baseline row is zero by the same construction, its None branch
-    is unreachable. Nothing there is wrong today -- its records are
-    right-censored, not "none found" -- but the shape does not survive being
-    copied onto an axis where the first non-zero point can fail, which this
-    one can. Caught by sim/tests/test_input_drive_budget.py.)"""
+    mirrors: since issue #874 that implementation excludes the same control
+    row POSITIONALLY -- `rows[1:]` -- rather than by this `r_source_ohm > 0`
+    predicate, because it applies the one helper to a `C_decouple` axis as
+    well as an `R_source` axis and the control row is the sweep's own first
+    row on both, whereas the predicate here only has a meaning on the
+    resistance axis. Both reach the None case; neither reports a budget of
+    0. Caught by sim/tests/test_input_drive_budget.py and, over there, by
+    sim/tests/test_run_vcm_drive_budget.py.)"""
     ok = [
         r
         for r in rows

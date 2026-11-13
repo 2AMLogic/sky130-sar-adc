@@ -128,7 +128,7 @@ structure's *0–4* dedicated pads, which `rules-4.html` does not repeat.)
 | `VDD` | supply | 1.8 V analog rail | — (rail, not a slot line item) | The **analog** supply: sampling front end, CDAC array, comparator, and the DR-009 offset network. Same 1.8 V supply point as the digital rail below, but a **separate domain** — see the `VPWR`/`VGND` row and §2.1 |
 | `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 1–3) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
 | `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
-| `VCM` | in, dedicated | dedicated pad (budget: 1–3) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, full-ratified-PVT-grid on every one of its four legs (bare `R_source` at both the worst-case and legacy windows, `C_decouple` at both windows) — **re-derived this pass (2026-09-15) against the post-issue-#236 sampling front end** (the `Sa` gate-net move and `Cmsw` `W=1 µm`→`W=16 µm` widening that fixed the sampling acquisition-window bottleneck, §4/§7 Item 2, also changed this budget's own DUT netlist, per issues #245/#248 via PRs #249/#250). All four legs, at every one of the 9 ratified corners, now come back right-censored at ≤ 100 kΩ bare `R_source` (both the 1-LSB and 0.1-LSB thresholds) and ≤ 1000 pF `C_decouple` — a materially looser, corner-invariant result than the pre-#236 data superseded below (which spanned 1 kΩ–30 kΩ and hit zero bare-impedance margin at 4/9 legacy-window corners) ([`sim/vcm-drive-budget/records/20260908-074408-80df05e.md`](../../sim/vcm-drive-budget/records/20260908-074408-80df05e.md), [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md); each `Supersedes` its pre-#236 counterpart, [`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md) / [`20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md) / [`20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md) / [`20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md) / [`20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md), respectively), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
+| `VCM` | in, dedicated | dedicated pad (budget: 1–3) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, full-ratified-PVT-grid on every one of its four legs (bare `R_source` at both the worst-case and legacy windows, `C_decouple` at both windows) — **re-derived this pass (2026-09-15) against the post-issue-#236 sampling front end** (the `Sa` gate-net move and `Cmsw` `W=1 µm`→`W=16 µm` widening that fixed the sampling acquisition-window bottleneck, §4/§7 Item 2, also changed this budget's own DUT netlist, per issues #245/#248 via PRs #249/#250). All four legs, at every one of the 9 ratified corners, now come back right-censored at ≤ 100 kΩ bare `R_source` (both the 1-LSB and 0.1-LSB thresholds) and ≤ 1000 pF `C_decouple` — a materially looser, corner-invariant result than the pre-#236 data superseded below (which spanned 1 kΩ–30 kΩ and, at 4/9 legacy-window corners, found no nonzero swept resistance inside 1 LSB at all — the smallest nonzero value that window sweeps being 10 kΩ, so "no positive budget found", not a measured 0 Ω). **Update this pass (2026-11-13, issue #880):** in both of the current `C_decouple` records every one of the 9 corners carries a marginal `R_source` of 100 kΩ, which is the sweep-ceiling value their runner falls back to when no swept bare resistance exceeds 1 LSB (their companion bare records are right-censored at ≤ 100 kΩ at all 9 corners, both tiers) — so those two legs bound the error with decoupling added on top of an already-passing resistance, and are not evidence that decoupling rescues a failing corner (§7 Item 6) ([`sim/vcm-drive-budget/records/20260908-074408-80df05e.md`](../../sim/vcm-drive-budget/records/20260908-074408-80df05e.md), [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md); each `Supersedes` its pre-#236 counterpart, [`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md) / [`20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md) / [`20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md) / [`20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md) / [`20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md), respectively), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
 | `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
 | `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
@@ -283,7 +283,7 @@ it does not cover.
 |---|---|---|
 | `VINP`, `VINN` | **Low source impedance — required, no figure declared.** During the SAMPLE window these two pads charge the CDAC top plates through the sampling switches, so a series source impedance forms an RC with the sampled capacitance inside the acquisition window DR-006 allocates — the same mechanism the `VCM` row below has a measured budget for, on the pads that carry the signal instead of the bias | **No evidence.** [`sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`](../../sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice) drives both from ideal `PWL` sources with nothing in series, and no `sim/` campaign sweeps a source impedance at *these pads*. Two campaigns do put a resistance on nets of the same name one level down, and neither is a budget for this pad: [`sim/comparator-decision/comparator_campaigns/kickback.py`](../../sim/comparator-decision/comparator_campaigns/kickback.py) lands a **fixed 1 kΩ** series `Rsrc` on the *comparator's* own `VINP`/`VINN` input pins (`KICKBACK_RSRC_OHM` — a kickback-stimulus shape at one value, not a sweep), and [`sim/comparator-decision/testbench/comparator_core_extracted.spice`](../../sim/comparator-decision/testbench/comparator_core_extracted.spice) carries ~203 Ω extracted interconnect parasitics inside that same comparator's layout. The campaign that would produce this pad's figure is **#847**; until it lands, no number is declared here |
 | `VREFP`, `VREFN` | **Low drive impedance — required, no figure declared.** The CDAC draws transient charge from the reference at **every** bit trial, so these are the pads the brief's own example ("low resistance to the pad") lands on most directly. **No ohm value is declared for them**, here or anywhere else in this document | **No evidence** — the same finding §7 item 11(a)(iii) already records. [`sim/vcm-drive-budget/`](../../sim/vcm-drive-budget/) budgets `VCM`; [`sim/supply-impedance-sensitivity/run_supply_impedance.py`](../../sim/supply-impedance-sensitivity/run_supply_impedance.py) budgets the four supply terminals and states that `VREFP`/`VREFN`/`VCM` "stay ideal at the die". The campaign that would produce the figure is **#841**, which §7 item 11(a)(iii) also waits on before the shared-analog-bus route could be chosen |
-| `VCM` | **No low-resistance requirement *shown on the sampled differential error*; the common-mode level at the pad is not budgeted.** A source resistance of **100 kΩ** still holds the sampled differential error inside 0.1 provisional LSB at all nine ratified PVT corners, at both acquisition windows — that error is the only quantity the four cited records budget. 100 kΩ is the largest value swept, so the budget is **right-censored**: the tolerance is at least that and the measurement does not say where it ends. On-die decoupling is right-censored at the 1000 pF top of its own sweep too, on the full grid at both windows — but **at the 1-LSB tier only**, not the 0.1-LSB tier this row's bare-`R_source` sentence covers, and both decoupling records warn the error is **not monotonic** in `C_decouple`, so that censored value is not necessarily the smallest sufficient one. **What the same records show at that resistance.** Their `VCM(end)` column, read at 100 kΩ with `C_decouple = 0` — the bare-`R_source` condition the 0.1-LSB figure above rests on — gives **1.566 V to 1.747 V** at eight corners and **0.919 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), worst-case window), and **1.342 V to 1.522 V** at eight corners and **0.913 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md), legacy window), against the `V_REF/2 = 0.9 V` nominal §2.2's `VCM` row gives. So at the resistance this row declares acceptable, the bias node sits far from that nominal at eight of the nine corners while the differential error stays inside the tier above. **What that departure does to the composed ADC is not measured by this campaign**: its DUT is the sampling front end's own fragment, and [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) states it "does not, on its own, establish what R_source/C_decouple an actual on-chip VCM buffer or off-chip reference network would present". No record in this repository shows that departure is harmless, and none shows it breaks anything; what instant `VCM(end)` probes beyond its column name, and why `tt_125c_1.80v` departs from the other eight corners, are both untraced here | Measured, full ratified 9-point PVT grid: [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) (DR-006 worst-case 83.333 ns window) and [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md) (legacy 400 ns testbench-convention window), both right-censored at the 100 kΩ sweep ceiling at the 1-LSB and 0.1-LSB tiers alike; the decoupling axis on the same grid in [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md) (worst-case window) and [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md) (legacy window), each reporting a 1-LSB budget column only. **Scope**: the DUT is the sampling front end's own fragment, not the composed top level, and the budget is the one §2.2's `VCM` row describes |
+| `VCM` | **No low-resistance requirement *shown on the sampled differential error*; the common-mode level at the pad is not budgeted.** A source resistance of **100 kΩ** still holds the sampled differential error inside 0.1 provisional LSB at all nine ratified PVT corners, at both acquisition windows — that error is the only quantity the four cited records budget. 100 kΩ is the largest value swept, so the budget is **right-censored**: the tolerance is at least that and the measurement does not say where it ends. On-die decoupling is right-censored at the 1000 pF top of its own sweep too, on the full grid at both windows — but **at the 1-LSB tier only**, not the 0.1-LSB tier this row's bare-`R_source` sentence covers, and both decoupling records warn the error is **not monotonic** in `C_decouple`, so that censored value is not necessarily the smallest sufficient one. **Update this pass (2026-11-13, issue #880):** in both of those decoupling records every one of the 9 corners carries a marginal `R_source` of 100 kΩ — the sweep-ceiling value their runner falls back to when no swept bare resistance exceeds 1 provisional LSB, matching the two companion bare records' right-censored ≤ 100 kΩ at all 9 corners in both tiers — so the decoupling column measures what a capacitor does on top of a resistance that was already passing bare, and shows no corner being rescued. **What the same records show at that resistance.** Their `VCM(end)` column, read at 100 kΩ with `C_decouple = 0` — the bare-`R_source` condition the 0.1-LSB figure above rests on — gives **1.566 V to 1.747 V** at eight corners and **0.919 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), worst-case window), and **1.342 V to 1.522 V** at eight corners and **0.913 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md), legacy window), against the `V_REF/2 = 0.9 V` nominal §2.2's `VCM` row gives. So at the resistance this row declares acceptable, the bias node sits far from that nominal at eight of the nine corners while the differential error stays inside the tier above. **What that departure does to the composed ADC is not measured by this campaign**: its DUT is the sampling front end's own fragment, and [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) states it "does not, on its own, establish what R_source/C_decouple an actual on-chip VCM buffer or off-chip reference network would present". No record in this repository shows that departure is harmless, and none shows it breaks anything; what instant `VCM(end)` probes beyond its column name, and why `tt_125c_1.80v` departs from the other eight corners, are both untraced here | Measured, full ratified 9-point PVT grid: [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) (DR-006 worst-case 83.333 ns window) and [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md) (legacy 400 ns testbench-convention window), both right-censored at the 100 kΩ sweep ceiling at the 1-LSB and 0.1-LSB tiers alike; the decoupling axis on the same grid in [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md) (worst-case window) and [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md) (legacy window), each reporting a 1-LSB budget column only. **Scope**: the DUT is the sampling front end's own fragment, not the composed top level, and the budget is the one §2.2's `VCM` row describes |
 | `VDD` | **Its own bond, and no on-die metal tie to the digital rail** ([DR-010](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)). No resistance figure is declared | DR-010 ratifies the domain partition. The one measured point is [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/)'s `package` arm — all four terminals bonded through the [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md) package R+L — whose captured codes are unchanged against the ideal control. That is **one** corner (tt/27 °C/1.80 V), not the ratified grid, and the R+L is a stated package-style assumption rather than a measurement of any package; figures and caveats in §7 item 9 |
 | `GND` | **Its own bond to the board star point: this pad may not reach the board only through the p-substrate.** Structural, not numeric — there is no resistance figure to meet, there is a bond to provide | [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) ratifies the pad, and `sim/supply-impedance-sensitivity/`'s `no-gnd-pad` arm is the option DR-012 rejected: against the `package` arm it raises the die-side analog-ground excursion while changing **no** captured code. One corner, and at a lumped substrate stand-in whose magnitude comes from DR-012's own prose rather than from extraction (DR-015) — so it prices a resistive return of that order, not this die's substrate. Figures and that caveat in §7 item 9 |
 | `VPWR` | **Its own bond, kept off `VDD` in metal on-die** (DR-010): the standard-cell bank switches coincident with the comparator decision by construction, so a shared metal rail would put its switching current on the comparator's own supply. No resistance figure is declared | DR-010, and the same single-corner `package` arm as the `VDD` row — on which `VPWR` carries the largest die-side excursion of the four terminals (§7 item 9) |
@@ -4504,12 +4504,17 @@ tracker already owns.
    remains single-corner (`tt`/27 °C/1.8 V) only.
 
    **Result, stated plainly rather than smoothed over — the legacy window's
-   own single-corner finding of ≤ 0 Ω (zero margin) is itself
-   corner-dependent, not a uniform floor**: 4 of the 9 ratified corners
+   own single-corner finding of "no positive budget found" (both records
+   print that cell as a budget of `<= 0`) is itself corner-dependent, not a
+   uniform floor**: 4 of the 9 ratified corners
    (`tt_27c_1.80v`, `fs_27c_1.80v`, `tt_125c_1.80v`, `tt_27c_1.62v`)
-   reproduce that same ≤ 0 Ω floor — offering zero margin for any nonzero
-   drive impedance at those corners — but the remaining 5 corners recover a
-   positive budget: `ss_27c_1.80v` and `ff_27c_1.80v` at ≤ 10 kΩ, and
+   reproduce that same outcome — neither of the two nonzero resistances
+   this window sweeps (10 kΩ and 100 kΩ) stayed inside 1 LSB there, so what
+   the cell records is that no swept nonzero value passed, not a measured
+   budget of 0 Ω; the smallest nonzero value swept at this window is 10 kΩ,
+   so where the real limit sits below that is not resolved by this sweep —
+   but the remaining 5 corners recover a positive budget:
+   `ss_27c_1.80v` and `ff_27c_1.80v` at ≤ 10 kΩ, and
    `sf_27c_1.80v`, `tt_-40c_1.80v`, and `tt_27c_1.98v` at ≤ 100 kΩ
    (right-censored — every value up to the largest swept stayed under
    threshold, so the true budget for those three corners is ≥ 100 kΩ, not
@@ -4517,24 +4522,44 @@ tracker already owns.
    worst-case-window full-grid finding above**: there, the single-corner
    `tt`/27 °C/1.8 V point was the LOOSEST corner and the full grid tightened
    it by 10×; here, the single-corner `tt`/27 °C/1.8 V point is one of the
-   TIGHTEST (worst) corners, tied with three others at the zero-margin
-   floor, while a different subset of the grid (the `sf` process corner,
-   cold temperature, and high supply) recovers substantial margin instead.
+   TIGHTEST (worst) corners, tied with three others at that
+   no-budget-found floor, while a different subset of the grid (the `sf`
+   process corner, cold temperature, and high supply) recovers substantial
+   margin instead.
    Because `tt`/27 °C/1.8 V happens to already sit at the binding floor for
    this window, a future on-chip `VCM` buffer or off-chip reference network
    sized only against that single point would, for the legacy window
    specifically, not under-budget the true worst case — but this is
    coincidental to this window's own corner shape, not a general property:
    a design sized against a *different* single corner (e.g. `sf`'s own
-   generous 100 kΩ headroom) would badly under-budget the four zero-margin
-   corners. This sharpens, rather than merely confirms, the open item: this
-   budget is genuinely non-monotonic across the grid at the legacy window,
+   generous 100 kΩ headroom) would badly under-budget the four corners
+   where no swept nonzero resistance passed. This sharpens, rather than
+   merely confirms, the open item: this budget is genuinely non-monotonic
+   across the grid at the legacy window,
    not simply "the same everywhere" or "worse everywhere" as either
    window's own single-corner record alone could have shown — any eventual
    buffer/reference-network sizing must be checked against the full grid,
    not any single assumed-representative corner. With both full-PVT-grid
    `R_source` sweeps now complete, the only remaining single-corner-only
    leg of this budget is the `C_decouple` sweep (both windows).
+
+   **Update (2026-11-13, issue #880).** The result paragraph above
+   previously narrated those four corners as a measured budget of "≤ 0 Ω
+   (zero margin)". That phrasing came from the pre-#874 `find_budget()`,
+   which included the sweep's own `R_source = 0` control row among the
+   candidates; because every other row's error is referenced to that row,
+   its own error is identically zero by construction and it passed every
+   tier, so "no swept nonzero value worked" was reported as a budget of
+   `<= 0`. PR #876 (issue #874) excludes the control row, and the same data
+   now reports "none found". The restatement above changes the wording, not
+   the measurement:
+   [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md)
+   is unedited — `sim/` records are append-only — and its table still reads
+   `<= 0` at those four corners (and at eight of nine for the 0.1-LSB
+   tier). The single-corner bullet near the top of this item needed no
+   restatement: it already says "the smallest nonzero `R_source` tested
+   (10 kΩ) already exceeds 1 LSB of error at 400 ns", which is the same
+   reading of the same cell.
 
    **Update this pass (2026-09-07, third full-grid campaign): the
    `C_decouple` sweep at the worst-case (83.333 ns) window was also taken
@@ -4593,6 +4618,31 @@ tracker already owns.
    one-window-per-pass precedent the two bare `R_source` full-grid passes
    established.
 
+   **Update (2026-11-13, issue #880): the "every one of the 9 ratified
+   corners" count above survives the post-#874 rescue convention, and is
+   restated here with its derivation.** PR #876 (issue #874) stopped
+   counting a corner whose marginal `R_source` is `marginal_r_source()`'s
+   fallback — the top of the bare sweep, returned when no swept resistance
+   at that corner exceeds 1 provisional LSB — as rescued: that corner's
+   `C_decouple` sweep ran against a resistance that was already passing
+   bare, so it had nothing to rescue and belongs on neither side of the
+   verdict. Derivation, read off the committed tables rather than re-run:
+   in
+   [`sim/vcm-drive-budget/records/20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md)
+   eight of the nine corners carry a marginal `R_source` of 3 kΩ–30 kΩ,
+   below the 100 kΩ top of this window's bare sweep, and a value below the
+   top can only come from a swept point that actually failed. The ninth,
+   `tt_-40c_1.80v`, sits at 100 kΩ, which is also the fallback's value; the
+   companion bare record for the same window, DUT netlist sha256 and sweep
+   list,
+   [`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md),
+   reports it at ≤ 30 kΩ rather than right-censored, so 100 kΩ did exceed
+   1 LSB there and that marginal is genuine too. All 9 corners therefore
+   needed rescuing, and all 9 have a 1-LSB `C_decouple` budget at a nonzero
+   swept value — so the count over the corners the new convention counts is
+   9 of 9, with no corner left out as having nothing to rescue. The record
+   itself is unedited (`sim/` records are append-only).
+
    **Update this pass (2026-09-08): the legacy (400 ns) window's own
    `C_decouple` sweep was also taken to the full ratified PVT grid** —
    closing the "sole remaining single-corner-only leg" flagged immediately
@@ -4605,17 +4655,26 @@ tracker already owns.
    corner's own bare legacy-window sweep in the same invocation (reproducing
    the legacy-window bare-`R_source` full-grid campaign's own per-corner
    shape: 10 kΩ at four corners, 100 kΩ at the other five) — never a value
-   borrowed from the `tt`/27 °C/1.8 V point. **Result: decoupling alone
-   brings the differential error inside 1 provisional LSB at all 9/9
-   ratified corners at this window too**, closing out the finding this
-   item's own legacy-window bare-`R_source` pass left open (that window
-   offers zero bare-impedance margin at 4 of 9 corners) — a decoupling
-   capacitor rescues every one of those corners when sized per-corner.
+   borrowed from the `tt`/27 °C/1.8 V point. **Result: 6 of the 9 ratified
+   corners had a bare legacy-window sweep that actually exceeded
+   1 provisional LSB, and decoupling alone brings all 6 of those back
+   inside it.** The other 3 — `sf_27c_1.80v`, `tt_-40c_1.80v` and
+   `tt_27c_1.98v` — had nothing to rescue: their marginal `R_source` is
+   the 100 kΩ sweep ceiling `marginal_r_source()` falls back to when no
+   swept resistance fails, and the legacy-window bare record reports those
+   same three right-censored at ≤ 100 kΩ, so their `C_decouple` sweep ran
+   against a resistance that was already passing bare (derivation in the
+   dated update below). The 6 that did need rescuing include all four
+   corners this item's own legacy-window bare-`R_source` pass left with no
+   positive budget — a decoupling capacitor does rescue every one of those
+   four when sized per-corner.
    The working values span three orders of magnitude across the grid
    (1 pF at `ss_27c_1.80v`, 10 pF at `ff_27c_1.80v`/`fs_27c_1.80v`/
    `tt_125c_1.80v`/`tt_27c_1.62v`, 100 pF at `tt_27c_1.80v`, 1000 pF,
    right-censored, at the remaining three: `sf_27c_1.80v`/`tt_-40c_1.80v`/
-   `tt_27c_1.98v`), the same
+   `tt_27c_1.98v` — the same three that had nothing to rescue, so their
+   entries bound the error with decoupling added rather than record a
+   rescue), the same
    non-corner-invariant, non-monotonic-in-`C_decouple` shape the
    worst-case-window campaign already established — so, as with that
    campaign, no single capacitor value read off this table covers every
@@ -4625,6 +4684,38 @@ tracker already owns.
    gated on corner coverage** — it stays open only because no on-chip `VCM`
    buffer or off-chip reference network exists yet in this design to size
    against the target these four campaigns jointly establish (§2.2).
+
+   **Update (2026-11-13, issue #880): the result sentence above is restated
+   from "all 9/9 ratified corners" to 6 of 6.** It previously read
+   "decoupling alone brings the differential error inside 1 provisional LSB
+   at all 9/9 ratified corners at this window too … a decoupling capacitor
+   rescues every one of those corners". PR #876 (issue #874) stopped
+   counting a corner whose marginal `R_source` is `marginal_r_source()`'s
+   fallback — the top of the bare sweep, returned when no swept resistance
+   at that corner exceeds 1 provisional LSB — as rescued, because that
+   corner's `C_decouple` sweep ran against a resistance that was not
+   failing on its own. Derivation, read off the committed tables rather
+   than re-run: in
+   [`sim/vcm-drive-budget/records/20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md)
+   the marginal `R_source` is 10 kΩ at `tt_27c_1.80v`, `fs_27c_1.80v`,
+   `tt_125c_1.80v` and `tt_27c_1.62v`, and 100 kΩ at the other five. This
+   window sweeps only `{0, 10, 100} kΩ`, so a marginal of 10 kΩ can only
+   come from a swept point that failed: those four needed rescuing. For the
+   five at 100 kΩ — the fallback's own value — the companion bare record
+   for the same window, DUT netlist sha256 and sweep list,
+   [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md),
+   separates them: it reports `ss_27c_1.80v` and `ff_27c_1.80v` at a 1-LSB
+   budget of ≤ 10 kΩ, i.e. 100 kΩ did exceed 1 LSB there, so those two are
+   genuine marginals; it reports `sf_27c_1.80v`, `tt_-40c_1.80v` and
+   `tt_27c_1.98v` right-censored at ≤ 100 kΩ, i.e. no swept resistance
+   failed, so those three are the fallback and had nothing to rescue. That
+   leaves 6 corners the rescue claim can be about, and each of the 6 has a
+   1-LSB `C_decouple` budget at a nonzero swept value (100 pF at
+   `tt_27c_1.80v`, 1 pF at `ss_27c_1.80v`, 10 pF at `ff_27c_1.80v`,
+   `fs_27c_1.80v`, `tt_125c_1.80v` and `tt_27c_1.62v`) — 6 of 6 rescued.
+   The record itself is unedited (`sim/` records are append-only) and its
+   own result section still carries the "9 of 9 ratified corners"
+   sentence.
 
    No claim here is graded against a ratified spec row (`spec/target-spec.md`
    is entirely DRAFT, #1/#27; the DR-006 acquisition window is itself
@@ -4636,9 +4727,9 @@ tracker already owns.
    from `SAMPLE` to `G_{p,n}` and widened `Cmswn`/`Cmswp` from `W=1 µm` to
    `W=16 µm` — both devices this budget's own harness drives current
    through, so every number above (the 30× corner spread, the 4/9
-   zero-margin legacy-window corners, the per-corner marginal-`R_source`
-   values feeding the `C_decouple` tables) was measured against a netlist
-   this design no longer uses. Follow-up issues #245 and #248 (PRs #249 and
+   legacy-window corners with no positive bare budget, the per-corner
+   marginal-`R_source` values feeding the `C_decouple` tables) was
+   measured against a netlist this design no longer uses. Follow-up issues #245 and #248 (PRs #249 and
    #250, both merged 2026-09-08) re-ran all four legs — bare `R_source` and
    `C_decouple`, at both the worst-case and legacy windows — against the
    post-#236 DUT fragment, plus the single-corner seed:
@@ -4663,7 +4754,8 @@ tracker already owns.
    ratified corners, both windows, the bare `R_source` budget now comes back
    right-censored at ≤ 100 kΩ for both the 1-LSB and 0.1-LSB thresholds (a
    flat 1.0× worst-to-best spread — the pre-#236 30× corner spread and the
-   legacy window's 4-of-9 zero-margin corners are both gone), and the
+   legacy window's 4-of-9 corners with no positive bare budget are both
+   gone), and the
    `C_decouple` budget comes back right-censored at ≤ 1000 pF at all 9
    corners, both windows (up from the pre-#236 three-orders-of-magnitude
    spread, 1 pF–1000 pF). Every swept value in the current sweep lists stays
@@ -4679,6 +4771,29 @@ tracker already owns.
    superseded ones this item's own body still narrates in detail (kept,
    per `CLAUDE.md`'s append-only evidence convention, as the historical
    record of the pre-#236 finding — not as the current budget).
+
+   **Update (2026-11-13, issue #880): the two current `C_decouple` legs
+   bound the error under added decoupling; they are not evidence that
+   decoupling rescues a failing corner.** In
+   [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md)
+   (worst-case window) and
+   [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md)
+   (legacy window), every one of the 9 ratified corners carries a marginal
+   `R_source` of 100 kΩ — exactly the sweep-ceiling value
+   `marginal_r_source()` falls back to when no swept bare resistance at
+   that corner exceeds 1 provisional LSB, and consistent with their own
+   companion bare records
+   ([`20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md),
+   [`20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md)),
+   which are right-censored at ≤ 100 kΩ at all 9 corners in both the 1-LSB
+   and 0.1-LSB tiers. Each corner's `C_decouple` sweep therefore ran
+   against a resistance that was already inside 1 LSB bare, so what these
+   two legs show is what adding decoupling does to an already-passing case.
+   Under the post-#874 convention (PR #876) they count no corners as
+   needing rescue at all, so neither record's ≤ 1000 pF right-censored
+   result is rescue evidence. Both records are unedited (`sim/` records are
+   append-only) and both still carry their own "9 of 9 ratified corners"
+   sentences, written under the pre-#874 convention.
 
    A related, narrower gap surfaced during this re-derivation and was
    folded in by the same follow-up (#248 via PR #250, not itself a VCM
