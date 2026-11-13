@@ -229,6 +229,16 @@
           "records": ["sim/vcm-drive-budget/records/20260908-100413-f3e2914.md"]
         },
         {
+          "experiment": "input-drive-budget",
+          "runner": "sim/input-drive-budget/run_input_drive_budget.py",
+          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
+          "testbench_note": "Same unmodified sampling front-end DUT fragment as the two benches above, read in place; the runner adds only an ideal source in series with the swept R_source on each of VINP and VINN, the two-pulse SAMPLE stimulus, and the fixed-time .meas set. The deck body and the klt sim request are committed per record under sim/input-drive-budget/corners/<record-id>/request/.",
+          "cold_start": "python3 sim/input-drive-budget/run_input_drive_budget.py --record",
+          "documented_in": "sim/input-drive-budget/run_input_drive_budget.py",
+          "covers": "The interface precondition on mechanism (d) from the INPUT side, the twin of the VCM bench above: how much series source resistance the VINP/VINN pads tolerate while the front end still acquires a new full-scale differential input inside the DR-006 windows this DRAFT row derives, over the full ratified corner set and at both acquisition windows. Indexed here rather than under a row of its own because it measures the SAME quantity as the acquisition-settling bench (differential sampled-value error at the end of the acquisition window) with the INPUT drive made non-ideal, and its yardstick windows come from this row. Informational only: every budget is reported relative to that corner and window's own R_source = 0 control row against the provisional differential LSB as a reference scale, it proposes no sample rate and it edits no spec row. It does not grade spec/target-spec.md's DRAFT Kickback row either, although that row's 1 kOhm series source impedance is why 1 kOhm is a simulated point in the sweep rather than an interpolation.",
+          "records": ["sim/input-drive-budget/records/20261113-110421-e03343e.md"]
+        },
+        {
           "experiment": "reference-drive-budget",
           "runner": "sim/reference-drive-budget/run_reference_drive_budget.py",
           "testbench": [
