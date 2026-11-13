@@ -576,6 +576,61 @@ class TestMsbEvaluateControl(unittest.TestCase):
         self.assertFalse(control["tracks_input"])
 
 
+class TestStripBalanceDummies(unittest.TestCase):
+    """`_strip_balance_dummies()` builds `--decision-margin-trace`'s
+    `unbalanced-control` half by deleting DR-009's two comparator-output
+    balancing dummies from the DUT netlist, and refuses if it does not find
+    exactly that many -- the anchor is the shape of design/sar_adc_top.spice,
+    which is regenerated from schematics, so a stale anchor must fail here at
+    the commit that moves the netlist rather than at a later hand run
+    (issue #879; the same gap that let #873's probe sit broken).
+
+    The control half is half the measurement: if it refuses, the mode
+    produces nothing, so both directions are pinned on a small synthetic
+    netlist rather than on today's committed one.
+
+    Not asserted here, deliberately: the guard counts matching *lines*, not
+    distinct prefixes, so two `xdum_mux_n` lines and no `xdum_xnor_n` are
+    accepted. That is current behaviour, out of scope to change under
+    issue #879, and left unpinned in either direction so a later fix does
+    not have to fight a test.
+    """
+
+    def test_removes_both_dummies_and_keeps_every_other_line_in_order(self):
+        text = (
+            "* top\n"
+            "xdum_mux_n a b c mux\n"
+            "xkeep a b inv\n"
+            # not a dummy: the prefixes include their trailing space, so a
+            # longer instance name starting with one of them is kept.
+            "xdum_mux_nx d e f mux\n"
+            "xdum_xnor_n a b xnor\n"
+            ".end\n"
+        )
+        self.assertEqual(
+            fc_dm._strip_balance_dummies(text),
+            "* top\nxkeep a b inv\nxdum_mux_nx d e f mux\n.end\n",
+        )
+
+    def test_refuses_a_netlist_with_no_balancing_dummies(self):
+        with self.assertRaises(RuntimeError):
+            fc_dm._strip_balance_dummies("* top\nxkeep a b inv\n.end\n")
+
+    def test_refuses_a_netlist_with_only_one_balancing_dummy(self):
+        with self.assertRaises(RuntimeError):
+            fc_dm._strip_balance_dummies("* top\nxdum_mux_n a b c mux\n.end\n")
+
+    def test_refuses_a_netlist_with_three_balancing_dummies(self):
+        with self.assertRaises(RuntimeError):
+            fc_dm._strip_balance_dummies(
+                "* top\n"
+                "xdum_mux_n a b c mux\n"
+                "xdum_xnor_n a b xnor\n"
+                "xdum_mux_n g h i mux\n"
+                ".end\n"
+            )
+
+
 class TestWriteNodeTraceRecord(unittest.TestCase):
     """write_node_trace_record() must render the mechanism finding
     correctly from decoded per-phase data and never touch records/LATEST
