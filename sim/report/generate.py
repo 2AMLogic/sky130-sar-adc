@@ -43,6 +43,12 @@ layout without a regenerated campaign, and `--write-envelope` (re)writes
 `signoff/evidence/digital-characterization.generic.json` -- refusing unless the
 campaign meets the item-8 digital checklist.
 
+Summary plots (issue #835): `--check` also runs `sim/report/plots.py`'s
+stdlib-only staleness gate over `docs/plots/`, so a figure drawn from evidence
+that has since changed fails the same CI step this report does. Rendering is
+NOT part of that -- see `sim/report/plots.py`'s own docstring and `sim/README.md`
+"Summary plots".
+
 Layout citations (`manifest.Row.layout_citations`) are pinned paths, not
 resolved against a supersession scheme -- `layout/` has none (see
 `manifest.BLIND_SPOTS`, which says so explicitly rather than pretending
@@ -64,6 +70,7 @@ DIGITAL_ENVELOPE_PATH = REPO_ROOT / "signoff" / "evidence" / "digital-characteri
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # sim/ on path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "digital-partition"))
 from report import manifest  # noqa: E402  (path setup must precede this import)
+from report import plots  # noqa: E402  (summary-plot staleness gate, issue #835)
 import digital_report  # noqa: E402  (sim/digital-partition/, issue #619)
 
 
@@ -349,8 +356,26 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 1
+        # Summary plots (issue #835). docs/plots/ is a regenerable DERIVED
+        # VIEW of committed evidence, so it rides this gate rather than
+        # carrying a second `npm run` step: `plots.check()` is stdlib-only and
+        # never re-renders, so it runs here with no matplotlib installed.
+        plot_problems = plots.check()
+        if plot_problems:
+            print("STALE PLOTS:", file=sys.stderr)
+            for problem in plot_problems:
+                print(f"  - {problem}", file=sys.stderr)
+            print(
+                "Re-render with the pinned dependency and commit the result:\n"
+                "    python3 -m venv .venv-plots\n"
+                "    .venv-plots/bin/pip install -r sim/report/plots-requirements.txt\n"
+                "    .venv-plots/bin/python sim/report/plots.py --render",
+                file=sys.stderr,
+            )
+            return 1
         print(f"OK: {REPORT_PATH} is fresh and up to date ({len(manifest.ROWS)} rows); "
-              f"{DIGITAL_REPORT_PATH.name} is fresh.")
+              f"{DIGITAL_REPORT_PATH.name} is fresh; "
+              f"{len(plots.PLOTS)} summary plot(s) in docs/plots/ are fresh.")
         return 0
 
     if args.write:
