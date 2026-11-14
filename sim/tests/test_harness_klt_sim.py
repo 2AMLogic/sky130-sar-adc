@@ -444,6 +444,67 @@ class TestRunInfo(unittest.TestCase):
         self.assertIsNone(klt_sim.ngspice_from_banner("no version here"))
 
 
+class TestMeasurementsByCorner(unittest.TestCase):
+    """Issue #904: the per-corner transcription is ONE harness function.
+
+    TestReportReader (input-drive-budget) and TestReadCornersReport (vcm)
+    keep pinning it through their campaigns' delegations; these pin the
+    helper's own contract directly -- including the `supply_key` argument
+    the campaign module constants used to bake in.
+    """
+
+    @staticmethod
+    def _report(**corner):
+        base = {
+            "process": "tt",
+            "temperature_c": 27.0,
+            "supply_v": {"vsup": 1.8},
+            "status": "pass",
+            "measurements": [{"name": "step.ctop", "value": 1.5}],
+        }
+        base.update(corner)
+        return {"status": "pass", "corners": [base], "environment": {}}
+
+    def test_keys_by_corner_id_and_threads_run_info(self):
+        out, info = klt_sim.measurements_by_corner(self._report(), "vsup")
+        self.assertEqual(out, {"tt_27c_1.80v": {"step.ctop": 1.5}})
+        self.assertEqual(info["status"], "pass")
+
+    def test_supply_key_selects_which_supply_to_key_on(self):
+        out, _info = klt_sim.measurements_by_corner(
+            self._report(supply_v={"vdig": 3.3}), "vdig")
+        self.assertEqual(list(out), ["tt_27c_3.30v"])
+
+    def test_an_error_envelope_is_refused_not_read_as_zero_corners(self):
+        with self.assertRaises(ValueError):
+            klt_sim.measurements_by_corner({"error": {"code": "batch_no_capacity"}}, "vsup")
+
+    def test_an_error_corner_is_nulled_not_partially_read(self):
+        for status in ("error", "inconclusive"):
+            out, _info = klt_sim.measurements_by_corner(
+                self._report(status=status), "vsup")
+            self.assertEqual(out["tt_27c_1.80v"], {"step.ctop": None}, status)
+
+    def test_an_envelope_beside_corners_is_still_readable(self):
+        report = self._report()
+        report["error"] = {"code": "partial"}
+        out, _info = klt_sim.measurements_by_corner(report, "vsup")
+        self.assertEqual(out["tt_27c_1.80v"], {"step.ctop": 1.5})
+
+    def test_a_non_object_report_is_refused(self):
+        with self.assertRaises(ValueError):
+            klt_sim.measurements_by_corner([{"process": "tt"}], "vsup")
+
+
+class TestFinite(unittest.TestCase):
+    def test_real_finite_numbers_only(self):
+        cases = [(1.5, True), (3, True), (True, False), (False, False),
+                 (float("nan"), False), (float("inf"), False),
+                 (None, False), ("1.5", False)]
+        for v, want in cases:
+            self.assertIs(klt_sim.finite(v), want, v)
+
+
 class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
     """Issue #865: the drivers import the submit path, they do not re-copy it.
 
@@ -516,6 +577,25 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
                     f"{p.parent.name}/{p.name} reads {reads} itself -- read run-level "
                     "facts through harness.klt_sim.run_info() instead; its jobs[] "
                     "already carries one entry per shard")
+
+    def test_no_driver_carries_its_own_corner_measurements_reader(self):
+        """Issue #904: the per-corner transcription (`corner_id` plus the
+        `error`/`inconclusive` null-out) is
+        `harness.klt_sim.measurements_by_corner()`, not a per-driver copy.
+
+        The marker is the reader's own null-out test -- a corner DICT's
+        `.get("status")` compared against that pair -- which the two
+        deliberately-unconsolidated readers do not match: they key by a
+        different tuple and decode UnitResult objects, never corner dicts.
+        """
+        for p in sorted(SIM_DIR.glob("*/run_*.py")):
+            with self.subTest(driver=p.parent.name):
+                self.assertNotIn(
+                    '.get("status") in ("error", "inconclusive")',
+                    p.read_text(),
+                    "use harness.klt_sim.measurements_by_corner() for the "
+                    "per-corner transcription",
+                )
 
 
 if __name__ == "__main__":
