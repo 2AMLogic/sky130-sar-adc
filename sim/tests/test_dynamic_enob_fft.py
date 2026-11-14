@@ -42,10 +42,11 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 
 import dynamic_enob as de  # noqa: E402
 import gen_full_conversion_tb as tb  # noqa: E402
+import provenance_fixture  # noqa: E402
 import run_conversion as rc  # noqa: E402
 from full_conversion_campaigns import coherent_sine as fc_sine  # noqa: E402
 from full_conversion_campaigns import common as fc_common  # noqa: E402
-from harness import evidence, measure  # noqa: E402
+from harness import measure  # noqa: E402
 
 
 def _naive_dft(x: list[float]) -> list[complex]:
@@ -625,29 +626,12 @@ class TestBehavioralReference(unittest.TestCase):
 
 class TestSineRecord(unittest.TestCase):
     def _write(self, point: dict, tmp_dir: Path) -> Path:
-        real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
-        try:
-            fc_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(fc_common, tmp_dir):
             return fc_sine.write_sine_record(
                 point, "* netlist\n", "",
                 "sim/full-conversion-transient/run_conversion.py --coherent-sine --record",
                 {"record": "sim/enob-estimate/records/X.md", "enob_bit": 8.507},
             )
-        finally:
-            fc_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
 
     def _point(self, capture: dict) -> dict:
         with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n"), \

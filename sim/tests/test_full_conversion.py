@@ -38,12 +38,12 @@ sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(EXPERIMENT_DIR))
 
 import gen_full_conversion_tb as tb  # noqa: E402
+import provenance_fixture  # noqa: E402
 from full_conversion_campaigns import cm_trace as fc_cm  # noqa: E402
 from full_conversion_campaigns import common as fc_common  # noqa: E402
 from full_conversion_campaigns import dc_codes as fc_dc  # noqa: E402
 from full_conversion_campaigns import decision_margin as fc_dm  # noqa: E402
 from full_conversion_campaigns import node_trace as fc_node  # noqa: E402
-from harness import evidence  # noqa: E402
 from report import generate as report_generate  # noqa: E402
 
 
@@ -346,27 +346,8 @@ class TestRecordRendering(unittest.TestCase):
         ]
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-            def fake_resolve(experiment_dir: Path, netlist_text: str):
-                (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-                (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(netlist_text)
-                (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-                return evidence.ProvenanceInfo(
-                    record_id="REC",
-                    record_path=experiment_dir / "records" / "REC.md",
-                    netlist_sha="0" * 64,
-                    pdk_line="sky130A @ testing",
-                    ng_version="ngspice-46",
-                )
-
-            try:
-                fc_common.EXPERIMENT_DIR = tmp_dir
-                evidence.resolve_provenance = fake_resolve
+            with provenance_fixture.fake_provenance(fc_common, tmp_dir):
                 path = fc_dc.write_record(points, "* synthetic netlist\n")
-            finally:
-                fc_common.EXPERIMENT_DIR = real_dir
-                evidence.resolve_provenance = real_resolve
 
             text = path.read_text()
             for field in ("Record ID", "Claim", "Netlist provenance", "Corner matrix run",
@@ -404,27 +385,8 @@ class TestRecordRendering(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-            def fake_resolve(experiment_dir: Path, netlist_text: str):
-                (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-                (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(netlist_text)
-                (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-                return evidence.ProvenanceInfo(
-                    record_id="REC",
-                    record_path=experiment_dir / "records" / "REC.md",
-                    netlist_sha="0" * 64,
-                    pdk_line="sky130A @ testing",
-                    ng_version="ngspice-46",
-                )
-
-            try:
-                fc_common.EXPERIMENT_DIR = tmp_dir
-                evidence.resolve_provenance = fake_resolve
+            with provenance_fixture.fake_provenance(fc_common, tmp_dir):
                 path = fc_dc.write_record([good, bad], "* synthetic netlist\n")
-            finally:
-                fc_common.EXPERIMENT_DIR = real_dir
-                evidence.resolve_provenance = real_resolve
 
             text = path.read_text()
             bad_row = next(
@@ -672,27 +634,8 @@ class TestWriteNodeTraceRecord(unittest.TestCase):
         # delete it on return, before the caller ever reads the file).
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(netlist_text)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
-        try:
-            fc_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(fc_common, tmp_dir):
             path = fc_node.write_node_trace_record(traces, "* synthetic netlist\n")
-        finally:
-            fc_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
     def test_uniform_all_ones_capture_is_reported_as_uniform(self):
@@ -839,27 +782,8 @@ class TestWriteCmTraceRecord(unittest.TestCase):
     def _write(self, traces: dict) -> tuple[Path, Path]:
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(netlist_text)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
-        try:
-            fc_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(fc_common, tmp_dir):
             path = fc_cm.write_cm_trace_record(traces, "* synthetic netlist\n")
-        finally:
-            fc_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
     def test_confirmed_finding_and_first_mismatch_are_reported(self):
