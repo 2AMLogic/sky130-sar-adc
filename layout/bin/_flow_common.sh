@@ -1,11 +1,12 @@
 # layout/bin/_flow_common.sh -- shared KLT/PDK/record-id/flow boilerplate for
-# the `layout/**/run-flow*.sh` scripts (11 callers as of issue #647:
+# the `layout/**/run-flow*.sh` scripts (11 callers as of issue #915:
 # layout/bin/run-trivial-cell-flow.sh,
 # layout/cdac-array/bin/run-flow.sh,
 # layout/comparator/bin/run-flow.sh,
 # layout/halflsb-offset/bin/run-flow.sh,
 # layout/sampling-frontend-wells/bin/run-flow.sh,
 # layout/sampling-frontend/bin/run-flow.sh,
+# layout/sar-adc-top/bin/probe-hierarchical-lvs.sh,
 # layout/sar-adc-top/bin/run-erc.sh,
 # layout/sar-adc-top/bin/run-flow.sh,
 # layout/sar-sequencer/bin/run-flow.sh,
@@ -15,23 +16,53 @@
 # `_record_common.py` already established for a shared, non-`run-flow`-named
 # helper file (#118).
 #
-# Each function below infers the calling script's own name from
-# `${BASH_SOURCE[1]}` (the caller's frame, one level up from this file) for
-# its error-message prefix, so every flow script keeps its own name in its
-# error output without having to pass it explicitly.
+# Each function below infers the calling script's own name via
+# `flow_caller_name` for its error-message prefix, so every flow script keeps
+# its own name in its error output without having to pass it explicitly --
+# including when the failing check is reached through another function in
+# this file (`flow_init` -> `require_klt`).
 #
-# `OUT_DIR`/`mkdir -p` construction is deliberately left to each non-P&R
-# caller: they write a flat `$SUBBLOCK_DIR/reports/$RECORD_ID`, and one of
-# them needs no `.klt/` scratch at all. The P&R-specific
-# `run_pnr_drc_lvs_flow` below constructs `OUT_DIR` itself, because the
-# `mkdir -p "$OUT_DIR/.klt/place-and-route"` scratch layout it needs is
-# shared by all three P&R blocks it serves (#647).
+# Call shape for a non-P&R block flow (#915). The caller derives only what it
+# needs to find this file; everything else is established here:
+#
+#     set -euo pipefail
+#     BLOCK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+#     LAYOUT_DIR="$(cd "$BLOCK_DIR/.." && pwd)"
+#     source "$LAYOUT_DIR/bin/_flow_common.sh"
+#     flow_init "$BLOCK_DIR"            # REPO_ROOT/KLT/PDK_VARIANT/PDK + gates
+#     flow_begin_record "$BLOCK_DIR"    # RECORD_ID/OUT_DIR
+#     ...                               # the block's own stages
+#     drc_blocks_fanout "$OUT_DIR" "${BLOCKS[@]}"
+#     finish_record "$BLOCK_DIR" "$OUT_DIR" "$RECORD_ID"   # terminal
+#
+# The P&R-specific `run_pnr_drc_lvs_flow` below mints the record itself
+# instead of using `flow_begin_record`, because the `mkdir -p
+# "$OUT_DIR/.klt/place-and-route"` scratch layout it needs is shared by all
+# the P&R blocks it serves and by none of the others (#647).
+
+# flow_caller_name -- echo the basename of the nearest frame on the bash call
+# stack that is not this file.
+#
+# `${BASH_SOURCE[1]}` alone is not enough: it names this file whenever one
+# function here calls another (`flow_init` -> `require_klt`), which would
+# make a missing-venv error say `_flow_common.sh:` instead of naming the
+# `run-flow.sh` the operator actually invoked.
+flow_caller_name() {
+  local self="${BASH_SOURCE[0]}" i
+  for ((i = 1; i < ${#BASH_SOURCE[@]}; i++)); do
+    if [[ "${BASH_SOURCE[i]}" != "$self" ]]; then
+      basename "${BASH_SOURCE[i]}"
+      return
+    fi
+  done
+  basename "$self"
+}
 
 # require_klt <klt-path> -- exit 1 if <klt-path> is not an executable file.
 require_klt() {
   local klt="$1"
   local prog
-  prog="$(basename "${BASH_SOURCE[1]}")"
+  prog="$(flow_caller_name)"
   if [[ ! -x "$klt" ]]; then
     echo "$prog: $klt not found -- run layout/bin/setup-venv.sh first" >&2
     exit 1
@@ -44,7 +75,7 @@ require_pdk() {
   local klt="$1"
   local pdk_variant="$2"
   local prog
-  prog="$(basename "${BASH_SOURCE[1]}")"
+  prog="$(flow_caller_name)"
   if ! "$klt" pdk find --pdk "$pdk_variant" >/dev/null; then
     echo "$prog: no resolvable $pdk_variant PDK -- see sim/pdk.json for the pin" >&2
     exit 1
@@ -58,6 +89,109 @@ new_record_id() {
   ts_utc="$(date -u +%Y%m%d-%H%M%S)"
   short_sha="$(git -C "$repo_root" rev-parse --short HEAD)"
   echo "${ts_utc}-${short_sha}"
+}
+
+# flow_init <block-dir> [klt-override] -- establish the standard per-block
+# flow environment and gate on it: sets LAYOUT_DIR, REPO_ROOT, KLT and
+# PDK_VARIANT, exports PDK, then runs require_klt/require_pdk (#915). Every
+# function below that reads KLT/REPO_ROOT/PDK_VARIANT reads what this sets.
+#
+# `PDK` is exported unconditionally rather than defaulted, and <klt-override>
+# is an explicit argument rather than an ambient `$KLT`, for the same reason:
+# klt resolves the PDK from `$PDK`, so a value left over from a sibling
+# install (gf180mcu, or sky130B) or a stray `KLT` in the operator's shell
+# must not be able to silently retarget a flow whose PDK_VARIANT and record
+# still say sky130A. Only a caller that names an override gets one --
+# layout/sar-adc-top/bin/run-flow.sh passing `$SAR_ADC_TOP_KLT`, which is
+# empty unless the operator set it, and empty falls back to the pin.
+flow_init() {
+  local block_dir="$1" klt_override="${2:-}"
+  LAYOUT_DIR="$(cd "$block_dir/.." && pwd)"
+  REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
+  KLT="${klt_override:-$LAYOUT_DIR/.venv/bin/klt}"
+  PDK_VARIANT=sky130A
+  export PDK=sky130A
+  require_klt "$KLT"
+  require_pdk "$KLT" "$PDK_VARIANT"
+}
+
+# flow_begin_record <block-dir> -- mint this run's record id, create its
+# append-only report directory and announce it, setting RECORD_ID and OUT_DIR
+# for the caller's own stages and for `finish_record` (#915).
+flow_begin_record() {
+  local block_dir="$1"
+  local prog
+  prog="$(flow_caller_name)"
+  RECORD_ID="$(new_record_id "$REPO_ROOT")"
+  OUT_DIR="$block_dir/reports/$RECORD_ID"
+  mkdir -p "$OUT_DIR"
+  echo "$prog: record $RECORD_ID -> $OUT_DIR"
+}
+
+# drc_blocks_fanout <out-dir> <block-id>... -- run `klt drc` over
+# `<out-dir>/<block-id>.gds` for each block id and write one JSON envelope
+# keyed by block id to `<out-dir>/drc.blocks.json`, so a later composed-DRC
+# failure can be attributed to the routing/wells rather than to a device
+# block (#915).
+#
+# Each invocation is `|| true`-guarded: `klt drc` exits 3 when it finds
+# violations, a normal documented outcome that render-record.py asserts out
+# of this envelope rather than off an exit code.
+drc_blocks_fanout() {
+  local out_dir="$1"
+  shift
+  local block sep=''
+  {
+    echo '{'
+    for block in "$@"; do
+      printf '%s  "%s": ' "$sep" "$block"
+      "$KLT" drc "$out_dir/$block.gds" --deck sky130 --format json || true
+      sep=$',\n'
+    done
+    echo '}'
+  } > "$out_dir/drc.blocks.json"
+}
+
+# finish_record <block-dir> <out-dir> <record-id> -- the `klt report` +
+# render-record.py + `reports/LATEST` + exit tail shared by the non-P&R block
+# flows that grade themselves from a combined DRC/LVS report (#915).
+#
+# TERMINAL: this exits the calling script with render-record.py's own status,
+# so it is the last statement of a flow script, not a step inside one.
+#
+# `set -e` is suspended around render-record.py deliberately: it exits 1 when
+# a verdict fails, and the record it just wrote is the evidence of *why*, so
+# aborting before the LATEST pointer is updated would throw that away.
+#
+# The failed-verdict stderr line is printed unconditionally here. Before #915
+# two of the four callers carrying this tail exited non-zero after printing
+# `done.`, which read as a pass; that was copy drift between otherwise
+# byte-identical tails, not a per-block decision, and a flow that mints an
+# evidence record should report a failed verdict the same way whichever block
+# it belongs to.
+finish_record() {
+  local block_dir="$1" out_dir="$2" record_id="$3"
+  local prog record_status
+  prog="$(flow_caller_name)"
+
+  "$KLT" report "$out_dir/drc.json" "$out_dir/lvs.json" \
+    --format github-summary > "$out_dir/report.md"
+
+  set +e
+  python3 "$block_dir/bin/render-record.py" \
+    --out-dir "$out_dir" --record-id "$record_id" --repo-root "$REPO_ROOT" \
+    --klt "$KLT" --pdk-variant "$PDK_VARIANT" \
+    > "$out_dir/record.md"
+  record_status=$?
+  set -e
+
+  echo "$record_id" > "$block_dir/reports/LATEST"
+  if [[ "$record_status" -ne 0 ]]; then
+    echo "$prog: VERDICTS FAILED -- see $out_dir/record.md" >&2
+  else
+    echo "$prog: done. See $out_dir/record.md"
+  fi
+  exit "$record_status"
 }
 
 # run_pnr_drc_lvs_flow <block-dir> <repo-root> <klt-path> <pdk-variant> <top>
@@ -82,7 +216,7 @@ new_record_id() {
 run_pnr_drc_lvs_flow() {
   local block_dir="$1" repo_root="$2" klt="$3" pdk_variant="$4" top="$5"
   local prog pnr_status
-  prog="$(basename "${BASH_SOURCE[1]}")"
+  prog="$(flow_caller_name)"
 
   RECORD_ID="$(new_record_id "$repo_root")"
   OUT_DIR="$block_dir/reports/$RECORD_ID"
