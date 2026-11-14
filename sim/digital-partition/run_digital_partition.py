@@ -307,7 +307,7 @@ def render_record(rec_id: str, camp: dict, supersedes: str, written_by: str) -> 
     return L
 
 
-def pins(dut_text_sha: str, pdk_line: str) -> dict:
+def pins(pdk_line: str) -> dict:
     return {
         "digital partition netlist sha256": digital_report.partition_netlist_sha(TOP_NETLIST.read_text()),
         "design/sar_adc_top.spice sha256 (informational; whole file incl. analog)": digital_area.sha256_prefixed(TOP_NETLIST),
@@ -395,7 +395,7 @@ def run_campaign(backend: str, probe_dir: Path, max_workers: int, runner=klt_sim
         "summary": summary,
         "probe_log": log,
         "negative_control_run": nc_info,
-        "pins": pins("", pdk_line),
+        "pins": pins(pdk_line),
         "environment": {"backend": backend, "klt": _klt_version(), "remote jobs": ", ".join(engines),
                         "batch options": json.dumps(batch or {}, sort_keys=True)},
     }
