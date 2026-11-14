@@ -62,11 +62,6 @@ set -euo pipefail
 
 HLO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$HLO_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="$LAYOUT_DIR/.venv/bin/klt"
-PDK_VARIANT=sky130A
-# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
-export PDK=sky130A
 TOP=gen_compose_0
 DELIVERABLE=halflsb_offset.gds
 
@@ -82,8 +77,8 @@ NWELL_FIXTURE="$LAYOUT_DIR/sampling-frontend/drc/nwell_rules_fixture.json"
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-require_klt "$KLT"
-require_pdk "$KLT" "$PDK_VARIANT"
+# Sets REPO_ROOT/KLT/PDK_VARIANT, exports PDK, gates on the venv and the PDK.
+flow_init "$HLO_DIR"
 
 if [[ ! -f "$NWELL_FIXTURE" ]]; then
   echo "run-flow.sh: DRC negative-control fixture missing: $NWELL_FIXTURE" >&2
@@ -108,10 +103,8 @@ if [[ "$parity_status" -ne 0 ]]; then
   exit 1
 fi
 
-RECORD_ID="$(new_record_id "$REPO_ROOT")"
-OUT_DIR="$HLO_DIR/reports/$RECORD_ID"
-mkdir -p "$OUT_DIR"
-echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
+# Sets RECORD_ID and OUT_DIR.
+flow_begin_record "$HLO_DIR"
 
 cp "$PARITY_LOG" "$OUT_DIR/schematic-parity.txt"
 printf '{\n  "exit_code": %d\n}\n' "$parity_status" > "$OUT_DIR/schematic-parity.json"
@@ -134,16 +127,7 @@ for block_id in block_ids():
 python3 "$HLO_DIR/bin/gen_blocks.py" "$OUT_DIR" --klt "$KLT" --pdk "$PDK_VARIANT"
 
 # --- 2. Per-block DRC: every input block must be clean in isolation --------
-{
-  echo '{'
-  sep=''
-  for block in "${BLOCKS[@]}"; do
-    printf '%s  "%s": ' "$sep" "$block"
-    "$KLT" drc "$OUT_DIR/$block.gds" --deck sky130 --format json || true
-    sep=$',\n'
-  done
-  echo '}'
-} > "$OUT_DIR/drc.blocks.json"
+drc_blocks_fanout "$OUT_DIR" "${BLOCKS[@]}"
 
 # --- 3. Floorplan, n-well islands, taps, routing ---------------------------
 python3 "$HLO_DIR/bin/build_layout.py" "$OUT_DIR"
@@ -225,23 +209,6 @@ EOF
       > "lvs${suffix}.json" ) || true
 done
 
-# --- 12. Combined human-readable report ------------------------------------
-"$KLT" report "$OUT_DIR/drc.json" "$OUT_DIR/lvs.json" \
-  --format github-summary > "$OUT_DIR/report.md"
-
-# --- 13. Record summary (pass/fail verdicts, evidence-record style) --------
-set +e
-python3 "$HLO_DIR/bin/render-record.py" \
-  --out-dir "$OUT_DIR" --record-id "$RECORD_ID" --repo-root "$REPO_ROOT" \
-  --klt "$KLT" --pdk-variant "$PDK_VARIANT" \
-  > "$OUT_DIR/record.md"
-record_status=$?
-set -e
-
-echo "$RECORD_ID" > "$HLO_DIR/reports/LATEST"
-if [[ "$record_status" -ne 0 ]]; then
-  echo "run-flow.sh: VERDICTS FAILED -- see $OUT_DIR/record.md" >&2
-else
-  echo "run-flow.sh: done. See $OUT_DIR/record.md"
-fi
-exit "$record_status"
+# --- 12/13. Combined human-readable report + record summary (pass/fail
+# verdicts, evidence-record style), then exit on the record's own status.
+finish_record "$HLO_DIR" "$OUT_DIR" "$RECORD_ID"

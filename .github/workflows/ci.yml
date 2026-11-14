@@ -115,6 +115,19 @@ name: CI
 #     PR moving the pin without fresh matching evidence -- the class of
 #     regression PR #108 caused and #104 fixed, when the six-verdict proof
 #     itself only runs in the PDK-gated `pdk-smoke` job below.
+#   - `layout/bin/test_flow_common.sh` (issue #915) is also part of
+#     `check:ci` -> `checks` below, and is likewise headless (it builds a
+#     throwaway block tree with stub `klt`/render-record.py executables -- no
+#     PDK, no `klt` install, no layout/.venv): it holds the shared flow
+#     helpers in layout/bin/_flow_common.sh -- `flow_init`,
+#     `flow_begin_record`, `drc_blocks_fanout`, `finish_record` -- to the
+#     behaviour of the per-block preamble/fan-out/record-tail they were
+#     hoisted out of. It covers the two things a PASSING PDK-gated flow run
+#     cannot: the FAILED-verdict arm of `finish_record` (the stderr line and
+#     the non-zero exit), and that an error raised through a nested helper
+#     (`flow_init` -> `require_klt`) still names the caller's own
+#     `run-flow.sh` rather than `_flow_common.sh`. Both arms of each gate are
+#     asserted, matching the flows' own negative-control discipline.
 #   - `layout/bin/check_drc_evidence.py` (issue #121) is also part of
 #     `check:ci` -> `checks` below, and is likewise headless (pure file reads,
 #     no PDK, no `klt` install): it holds every DRC payload a layout flow's
